@@ -930,15 +930,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // unchecked cross-tenant escape hatch for such a job. Gated like jobDb so
     // ctx.systemDb, built from it, is gated too.
     const tenantScopedDb = configDb
-      ? createTenantDb(
-          configDb,
-          tenantId,
-          "system",
-          undefined,
-          undefined,
-          undefined,
-          jobPersonalDataGate ? { personalDataGate: jobPersonalDataGate } : undefined,
-        )
+      ? createTenantDb(configDb, tenantId, "system", undefined, undefined, undefined, {
+          projectionRegistry: registry,
+          ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
+        })
       : undefined;
     const isSystemJob = registry.isJobSystemScoped(jobName);
     // One reporter for ctx.systemDb and ctx.db.unsafeRaw() so both dedupe in the same window.
@@ -962,6 +957,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           unsafeRaw: escapeHatchFor(jobDef.escapeHatch, "unsafeRaw"),
           globalWrites: escapeHatchFor(jobDef.escapeHatch, "globalWrites"),
           report: reportEscapeHatch,
+          projectionRegistry: registry,
           ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
         })
       : undefined;

@@ -29,6 +29,7 @@ import {
 } from "../db/query.js";
 import type { EntityDefinition } from "../engine/types/fields.js";
 import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers.js";
+import type { Registry } from "../engine/types/index.js";
 import {
   AccessDeniedError,
   InternalError,
@@ -42,6 +43,7 @@ import {
   type Tracer,
 } from "../observability/index.js";
 import type { DbRunner } from "./connection.js";
+import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.js";
 import { bindTenantDbRunner, tenantDbRunner } from "./tenant-db-runner.js";
 
 type Table = SchemaTable;
@@ -67,7 +69,11 @@ const personalDataGates = new WeakMap<TenantDb, PersonalDataGate>();
 // per-grant proxy, never the shared pool/tx: tagging that would gate every sibling TenantDb.
 const runnerPersonalDataGates = new WeakMap<DbRunner, PersonalDataGate>();
 
-function gatedRunner(runner: DbRunner, gate: PersonalDataGate): DbRunner {
+function gatedRunner(
+  runner: DbRunner,
+  gate: PersonalDataGate,
+  projectionRegistry: Registry | undefined,
+): DbRunner {
   const proxy = new Proxy(runner as object, {
     // Tagged-template calls need the real driver object as `this`.
     apply(target, _thisArg, args) {
@@ -85,7 +91,7 @@ function gatedRunner(runner: DbRunner, gate: PersonalDataGate): DbRunner {
           }
           const gatedArgs = [
             ...args.slice(0, -1),
-            (tx: unknown) => callback(gatedRunner(tx as DbRunner, gate)),
+            (tx: unknown) => callback(gatedRunner(tx as DbRunner, gate, projectionRegistry)),
           ];
           return Reflect.apply(value, target, gatedArgs);
         };
@@ -95,6 +101,7 @@ function gatedRunner(runner: DbRunner, gate: PersonalDataGate): DbRunner {
     // @cast-boundary proxy-erasure — Proxy<object> re-tags as the wrapped DbRunner shape.
   }) as DbRunner;
   runnerPersonalDataGates.set(proxy, gate);
+  if (projectionRegistry) bindProjectionRegistry(proxy, projectionRegistry);
   return proxy;
 }
 
@@ -208,7 +215,9 @@ function buildUncheckedSystemDb(
     report("unsafe-raw", forwardedDeclaredStep ? reason : (gate?.grant?.reason ?? reason));
     const runner = tenantDbRunner(db);
     const personalDataGate = personalDataGates.get(db);
-    return personalDataGate ? gatedRunner(runner, personalDataGate) : runner;
+    return personalDataGate
+      ? gatedRunner(runner, personalDataGate, projectionRegistryOf(db))
+      : runner;
   }
 
   const uncheckedSystemDb: UncheckedSystemDb = {
@@ -364,6 +373,9 @@ export type TenantDbGrants = {
   readonly memberReadOnly?: boolean;
   // Set only for an anonymous root without personalData: "public-intake" (write-origin.ts).
   readonly personalDataGate?: PersonalDataGate;
+  // Registry whose custom projections the EventStoreExecutor runs after each write
+  // made through this TenantDb. Falls back to a registry bound to the runner.
+  readonly projectionRegistry?: Registry;
 };
 
 export type PersonalDataGate = (
@@ -436,6 +448,12 @@ export function createTenantDb(
   if (meter) registerStandardMetrics(meter);
   const report = grants?.report ?? fallbackEscapeHatchReporter(tenantId);
   const personalDataGate = grants?.personalDataGate ?? runnerPersonalDataGates.get(db);
+  const projectionRegistry = grants?.projectionRegistry ?? projectionRegistryOf(db);
+  // Rebinders carry the resolved registry explicitly: a fresh tx handle is not tagged.
+  const rebindGrants: TenantDbGrants | undefined =
+    projectionRegistry && grants?.projectionRegistry === undefined
+      ? { ...grants, projectionRegistry }
+      : grants;
 
   function withDbSpan<T>(
     operation: "select" | "insert" | "update" | "delete",
@@ -649,7 +667,7 @@ export function createTenantDb(
     }
     // Engine-forwarded steps carry their own declared reason; otherwise the grant's reason is audited.
     report("unsafe-raw", declaredStepReason ?? grants?.unsafeRaw?.reason ?? "");
-    return personalDataGate ? gatedRunner(db, personalDataGate) : db;
+    return personalDataGate ? gatedRunner(db, personalDataGate, projectionRegistry) : db;
   }
 
   const tenantDb: TenantDb = {
@@ -750,11 +768,14 @@ export function createTenantDb(
 
   declaredUnsafeRawRunners.set(tenantDb, grantedUnsafeRawRunner);
   unsafeRawRebinders.set(tenantDb, (grant) =>
-    createTenantDb(db, tenantId, mode, tracer, meter, signal, { ...grants, unsafeRaw: grant }),
+    createTenantDb(db, tenantId, mode, tracer, meter, signal, {
+      ...rebindGrants,
+      unsafeRaw: grant,
+    }),
   );
   crossTenantRebinders.set(tenantDb, (reason) => {
     report("acknowledge-cross-tenant", reason);
-    return createTenantDb(db, tenantId, "system", tracer, meter, signal, grants);
+    return createTenantDb(db, tenantId, "system", tracer, meter, signal, rebindGrants);
   });
   ownTransactionRebinders.set(tenantDb, async (fn) => {
     if (grants?.memberReadOnly) {
@@ -765,13 +786,14 @@ export function createTenantDb(
       });
     }
     // Carries a runner-bound gate (grants.personalDataGate unset, resolved via the fallback above) forward explicitly, since the fresh tx-handle isn't itself registered in runnerPersonalDataGates.
-    const txGrants = personalDataGate ? { ...grants, personalDataGate } : grants;
+    const txGrants = personalDataGate ? { ...rebindGrants, personalDataGate } : rebindGrants;
     return runInNewTransaction(db, (tx) =>
       fn(createTenantDb(tx, tenantId, mode, tracer, meter, signal, txGrants)),
     );
   });
   bindTenantDbRunner(tenantDb, db);
   if (personalDataGate) personalDataGates.set(tenantDb, personalDataGate);
+  if (projectionRegistry) bindProjectionRegistry(tenantDb, projectionRegistry);
   return tenantDb;
 }
 
