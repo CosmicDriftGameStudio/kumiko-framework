@@ -1,4 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { aggregateWhere, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   COMPLIANCE_PROFILES,
   subtractRetentionSpec,
@@ -82,10 +82,20 @@ function targetTenantOf(payload: unknown): TenantId | null {
   return parsed.success ? parseTenantId(parsed.data.targetTenantId) : null;
 }
 
-async function pruneByTenantProfiles(db: DbConnection): Promise<number> {
-  const rows = await selectMany<AuditEventRow>(db, eventsTable, {
-    aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE,
+async function storingTenantIds(db: DbConnection): Promise<readonly TenantId[]> {
+  const groups = await aggregateWhere(
+    db,
+    eventsTable,
+    { measure: { fn: "count" }, groupBy: [{ field: "tenantId" }] },
+    { aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE },
+  );
+  return groups.flatMap((group) => {
+    const tenantId = parseTenantId(group.keys[0]);
+    return tenantId ? [tenantId] : [];
   });
+}
+
+async function pruneByTenantProfiles(db: DbConnection): Promise<number> {
   const now = getTemporal().Now.instant();
   const cutoffByTenant = new Map<TenantId, Temporal.Instant>();
   const cutoffOf = async (tenantId: TenantId): Promise<Temporal.Instant> => {
@@ -96,15 +106,24 @@ async function pruneByTenantProfiles(db: DbConnection): Promise<number> {
     return cutoff;
   };
 
+  // The effective cutoff is never later than the storing tenant's, so only rows older than
+  // that one can expire; everything younger stays in the database.
   const expiredAggregateIds: string[] = [];
-  for (const row of rows) {
-    const targetTenantId = targetTenantOf(row.payload);
-    const storeCutoff = await cutoffOf(row.tenantId);
-    const cutoff = targetTenantId
-      ? earlierInstant(storeCutoff, await cutoffOf(targetTenantId))
-      : storeCutoff;
-    if (Temporal.Instant.compare(row.createdAt, cutoff) < 0) {
-      expiredAggregateIds.push(row.aggregateId);
+  for (const storingTenantId of await storingTenantIds(db)) {
+    const storeCutoff = await cutoffOf(storingTenantId);
+    const candidates = await selectMany<AuditEventRow>(db, eventsTable, {
+      aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE,
+      tenantId: storingTenantId,
+      createdAt: { lt: storeCutoff },
+    });
+    for (const row of candidates) {
+      const targetTenantId = targetTenantOf(row.payload);
+      const cutoff = targetTenantId
+        ? earlierInstant(storeCutoff, await cutoffOf(targetTenantId))
+        : storeCutoff;
+      if (Temporal.Instant.compare(row.createdAt, cutoff) < 0) {
+        expiredAggregateIds.push(row.aggregateId);
+      }
     }
   }
 

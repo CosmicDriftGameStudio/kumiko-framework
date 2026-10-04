@@ -13,7 +13,7 @@ A translation value can be a CLDR plural-forms object instead of a plain
 string. `other` is required; the rest (`zero`/`one`/`two`/`few`/`many`) only
 exist where the locale's grammar needs them:
 
-```ts
+```ts illustration
 "greeting.unread_count": {
   de: { one: "{count} ungelesene Nachricht", other: "{count} ungelesene Nachrichten" },
   en: { one: "{count} unread message", other: "{count} unread messages" },

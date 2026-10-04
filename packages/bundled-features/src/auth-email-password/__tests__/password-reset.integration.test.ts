@@ -131,6 +131,7 @@ async function seedUser(opts: {
   email: string;
   password: string;
   tenantId?: TenantId;
+  timezone?: string;
 }): Promise<{ id: string; tenantId: TenantId }> {
   const hash = await hashPassword(opts.password);
   const created = await stack.http.writeOk<{ id: string }>(
@@ -139,6 +140,7 @@ async function seedUser(opts: {
       email: opts.email,
       passwordHash: hash,
       displayName: opts.email.split("@")[0] ?? "user",
+      ...(opts.timezone !== undefined && { timezone: opts.timezone }),
     },
     systemAdmin,
   );
@@ -175,6 +177,18 @@ describe("POST /auth/request-password-reset", () => {
     expect(sent.to).toBe("alice@example.com");
     expect(sent.subject).toContain("Reset");
     expect(sent.html).toContain(`${appResetUrl}?token=`);
+  });
+
+  test("the expiry is shown in the recipient's profile time zone, not the anonymous request's fallback", async () => {
+    await seedUser({ email: "tokyo@example.com", password: "initial-pw!", timezone: "Asia/Tokyo" });
+
+    const res = await post("/api/auth/request-password-reset", { email: "tokyo@example.com" });
+
+    expect(res.status).toBe(200);
+    const sent = emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    expect(sent.html).toContain("GMT+9");
+    expect(sent.html).not.toContain("UTC");
   });
 
   test("unknown email → 200 with NO mail sent (enumeration-safe)", async () => {

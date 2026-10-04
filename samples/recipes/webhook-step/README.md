@@ -16,7 +16,7 @@ never a process-wide env var. The `secrets` feature must be mounted
 (`createSecretsFeature()` + a `MasterKeyProvider`) alongside
 `step-dispatcher`. Set the secret per tenant before dispatching:
 
-```ts
+```ts illustration
 await stack.http.writeOk(
   "secrets:write:set",
   { key: "step-dispatcher:webhook-auth.incident-hook", value: "<token>" },
