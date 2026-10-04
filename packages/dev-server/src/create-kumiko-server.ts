@@ -1032,8 +1032,9 @@ export async function createKumikoServer(
   // RELOAD_SNIPPET oben.
   const bootId = String(Date.now());
   const reloadClients = new Set<ReloadClient>();
-  const broadcastReload = (): void => {
-    const payload = "event: reload\ndata: now\n\n";
+  // JSON-encoded so a filename can never break the SSE framing.
+  const broadcastReload = (changedFile: string): void => {
+    const payload = `event: reload\ndata: ${JSON.stringify(changedFile)}\n\n`;
     for (const client of reloadClients) {
       if (client.closed) continue;
       try {
@@ -1378,7 +1379,7 @@ export async function createKumikoServer(
               clientBundles.set(e.name, rebuilt);
             }
             logInfo(`[kumiko-server] rebuilt on ${filename}, broadcasting reload`);
-            broadcastReload();
+            broadcastReload(filename);
           } catch {
             // buildClient already logged the failure; keep serving the
             // last good bundle until the next successful rebuild.
