@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.348.0",
+    "type": "improvement",
+    "title": "ModeSwitch gains a pill variant and className, LanguageSwitcher gains a compact chip variant",
+    "detail": "ModeSwitch pill variant and LanguageSwitcher chip variant\n`ModeSwitch` gets `variant=\"pill\"` (grey track, raised active segment, dark mode aware) and a `className` prop; `outline` stays the default. `LanguageSwitcher` gets `variant=\"chip\"`, a compact monospace chip with the uppercase locale code in a border; `default` stays as it was."
+  },
+  {
+    "version": "0.348.0",
+    "type": "improvement",
+    "title": "TimeseriesChart takes a height, an optional y-axis with gridlines and a date axis with n labels",
+    "detail": "TimeseriesChart: height, y-axis gridlines and a date axis\n`height` (px) replaces the fixed `h-16`; without it the chart looks as before. `yAxis: { ticks, format? }` draws that many gridlines with rounded value labels (0/200/400/600) in a left gutter, and the y-scale reaches the top tick. `xAxis: { ticks, format }` renders n evenly spaced date labels instead of the fixed start/mid/end of `axisLabels`."
+  },
+  {
+    "version": "0.348.0",
+    "type": "improvement",
+    "title": "useQuery accepts concurrency to cap parallel requests per query name through a pool in the DispatcherProvider",
+    "detail": "useQuery option `concurrency` caps parallel requests per query name\n`useQuery(type, payload, { concurrency: n })` lets at most n `dispatcher.query` calls of that query name run at once. The pool lives in the DispatcherProvider and is shared by every hook with the same name; the rest wait in line with `loading` still true. A hook that unmounts, refetches or changes its payload while waiting leaves the line without holding a slot, and a finished or failed request hands its slot to the next waiter. Without the option nothing changes."
+  },
+  {
     "version": "0.347.0",
     "type": "improvement",
     "title": "actionForm successMessage names the chosen record's label after a successful submit",
