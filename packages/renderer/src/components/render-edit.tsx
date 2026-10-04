@@ -1334,7 +1334,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       // skip: on entity-success-but-extension-failure the extension-error
       // banner is showing — don't notify (the caller navigates away on success
       // and would unmount it before the user sees the failure).
-      if (shouldNotifyCaller(result, extensionsPersisted)) onSubmit?.(result);
+      if (shouldNotifyCaller(result, extensionsPersisted)) {
+        onSubmit?.(result, controller.getSnapshot().values);
+      }
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);

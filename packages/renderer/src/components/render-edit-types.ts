@@ -49,7 +49,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly translate?: Translate;
   readonly ctx?: TCtx;
   readonly schema?: z.ZodType;
-  readonly onSubmit?: (result: SubmitResult<unknown>) => void;
+  /** `values` are the form values at the moment the submit succeeded. */
+  readonly onSubmit?: (result: SubmitResult<unknown>, values: TValues) => void;
   readonly payloadMode?: "values" | "changes";
   readonly buildPayload?: (snapshot: FormSnapshot<TValues>) => unknown;
   /** Prefix to strip from server validation issue paths before mapping them

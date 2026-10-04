@@ -1072,6 +1072,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "tier-admin.explainer":
     "Grant a tenant a tier without a purchase. The grant is marked as “manual” and a later billing sync won't overwrite it.",
   "tier-admin.submit": "Assign tier",
+  "tier-admin.success": "Tier assigned: {tenantId} → {tier}",
   "tier-engine:entity:__action-form__:field:tenantId": "Tenant",
   "tier-engine:entity:__action-form__:field:tier": "New tier",
   "user-data-rights:entity:download-attempt:field:attemptedAt": "Attempted at",
