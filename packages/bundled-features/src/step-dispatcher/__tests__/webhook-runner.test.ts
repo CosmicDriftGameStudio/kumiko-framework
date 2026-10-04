@@ -11,6 +11,7 @@ import {
   setWebhookFetch,
   setWebhookHostLookup,
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
+  WEBHOOK_IDEMPOTENCY_KEY_HEADER,
   type WebhookDispatchDeps,
 } from "../webhook-runner.js";
 
@@ -26,11 +27,13 @@ const fetchMock = mock<typeof fetch>();
 
 const TEST_TENANT_ID = "11111111-1111-4111-8111-111111111111";
 const TEST_USER_ID = "22222222-2222-4222-8222-222222222222";
+const IDEMPOTENCY_KEY = "33333333-3333-4333-8333-333333333333";
 
 const noSecretsDeps: WebhookDispatchDeps = {
   tenantId: TEST_TENANT_ID,
   userId: TEST_USER_ID,
   secrets: undefined,
+  idempotencyKey: IDEMPOTENCY_KEY,
 };
 
 function fakeSecrets(value: string | undefined) {
@@ -187,7 +190,7 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
         headers: {},
         auth: { kind: "bearer", secret: "incident-hook" },
       },
-      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets },
+      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets, idempotencyKey: IDEMPOTENCY_KEY },
     );
 
     expect(result.ok).toBe(true);
@@ -212,7 +215,7 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
         headers: {},
         auth: { kind: "header", name: "x-hub-signature", secret: "incident-hook" },
       },
-      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets },
+      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets, idempotencyKey: IDEMPOTENCY_KEY },
     );
 
     expect(result.ok).toBe(true);
@@ -232,7 +235,7 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
         headers: {},
         auth: { kind: "bearer", secret: "incident-hook" },
       },
-      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets },
+      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets, idempotencyKey: IDEMPOTENCY_KEY },
     );
 
     expect(result.ok).toBe(false);
@@ -261,7 +264,7 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
         headers: {},
         auth: { kind: "bearer", secret: "incident-hook" },
       },
-      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets },
+      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets, idempotencyKey: IDEMPOTENCY_KEY },
     );
 
     expect(result.ok).toBe(false);
@@ -301,7 +304,7 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
         headers: {},
         auth: { kind: "bearer", secret: "incident-hook" },
       },
-      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets },
+      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets, idempotencyKey: IDEMPOTENCY_KEY },
     );
 
     expect(result).toEqual({ ok: false, error: "invalid url" });
@@ -317,9 +320,42 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
 
     const result = await performWebhookDispatch(
       { url: "https://secret-host.example/hook?token=abc", method: "POST", headers: {} },
-      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets: undefined },
+      {
+        tenantId: TEST_TENANT_ID,
+        userId: TEST_USER_ID,
+        secrets: undefined,
+        idempotencyKey: IDEMPOTENCY_KEY,
+      },
     );
 
     expect(result).toEqual({ ok: false, error: "webhook request failed (TypeError)" });
+  });
+});
+
+describe("performWebhookDispatch — Idempotency-Key", () => {
+  async function sentHeaders(specHeaders: Record<string, string>): Promise<Headers> {
+    process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "hooks.example";
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+    setWebhookFetch(fetchMock as unknown as typeof fetch);
+    await performWebhookDispatch(
+      { url: "https://hooks.example/hook", method: "POST", headers: specHeaders },
+      noSecretsDeps,
+    );
+    return new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+  }
+
+  test("defaults to the dispatch idempotency key", async () => {
+    const headers = await sentHeaders({});
+    expect(headers.get(WEBHOOK_IDEMPOTENCY_KEY_HEADER)).toBe(IDEMPOTENCY_KEY);
+  });
+
+  test("an explicit key in another casing wins and is the only such header", async () => {
+    const headers = await sentHeaders({ "Idempotency-Key": "caller-chosen" });
+    expect(headers.get(WEBHOOK_IDEMPOTENCY_KEY_HEADER)).toBe("caller-chosen");
+    const init = fetchMock.mock.calls[0]?.[1];
+    const names = Object.keys(init?.headers ?? {}).filter(
+      (name) => name.toLowerCase() === WEBHOOK_IDEMPOTENCY_KEY_HEADER,
+    );
+    expect(names).toEqual(["Idempotency-Key"]);
   });
 });

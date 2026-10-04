@@ -33,6 +33,13 @@ Never combine `auth.secret` with a caller-controlled `url`: the caller would
 receive the secret as the `Authorization` header. `incident:open-authenticated`
 therefore posts to a fixed URL.
 
+## Idempotency-Key
+
+Every webhook request carries `Idempotency-Key: <dispatch stream id>`. The
+value is the same when the same dispatch request is delivered again, so a
+receiver can deduplicate redelivered calls. An `Idempotency-Key` set explicitly in
+`headers` (any casing) wins.
+
 ## Source
 
 Feature entry point: `src/feature.ts`.

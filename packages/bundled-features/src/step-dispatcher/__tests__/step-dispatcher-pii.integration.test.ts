@@ -279,4 +279,54 @@ describe("step-dispatcher payload crypto-shredding", () => {
     expect(await eventsOfType(DISPATCHED)).toHaveLength(1);
     await expectKeyErased(requested.aggregateId);
   });
+
+  test("webhook.send: each dispatch carries its own stream id as Idempotency-Key", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    for (const token of ["a", "b"]) {
+      await stack.http.writeOk(
+        "step-pii-probe:write:notify-webhook",
+        { url: "https://hooks.example/hook", token },
+        admin,
+      );
+    }
+    await drain();
+
+    const requestedIds = (await eventsOfType(DISPATCH_REQUESTED)).map((row) => row.aggregateId);
+    expect(requestedIds).toHaveLength(2);
+    const sentKeys = fetchMock.mock.calls.map(([, init]) =>
+      new Headers(init?.headers).get("idempotency-key"),
+    );
+    expect(sentKeys).toHaveLength(2);
+    expect(new Set(sentKeys).size).toBe(2);
+    expect([...sentKeys].sort()).toEqual([...requestedIds].sort());
+  });
+
+  test("webhook.send: a redelivery that re-sends carries the same Idempotency-Key", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    // The first eraseKey fails after the fetch, so the projection throws and
+    // the next run delivers the same request again.
+    const realEraseKey = kms.eraseKey.bind(kms);
+    let eraseCalls = 0;
+    kms.eraseKey = async (...args: Parameters<typeof realEraseKey>) => {
+      eraseCalls += 1;
+      if (eraseCalls === 1) throw new Error("kms unavailable (test)");
+      return realEraseKey(...args);
+    };
+
+    await stack.http.writeOk(
+      "step-pii-probe:write:notify-webhook",
+      { url: "https://hooks.example/hook", token: "t" },
+      admin,
+    );
+    await drain().catch(() => undefined);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await drain();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [first, second] = fetchMock.mock.calls.map(([, init]) =>
+      new Headers(init?.headers).get("idempotency-key"),
+    );
+    expect(first).toBe((await requestedRow()).aggregateId);
+    expect(second).toBe(first);
+  });
 });

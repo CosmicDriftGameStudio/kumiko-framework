@@ -193,7 +193,7 @@ function buildDispatchSpec(
 export function createStepDispatcherFeature(): FeatureDefinition {
   return defineFeature("step-dispatcher", (r) => {
     r.describe(
-      "Internal system feature that drains deferred Tier-2 side-effects (currently `webhook.send` and `mail.send`) after their originating transaction commits. Listens via `r.multiStreamProjection` on the `kumiko:system:step.dispatch-requested` system event, performs the actual HTTP or mail delivery, then appends `kumiko:system:step.dispatched` or `kumiko:system:step.dispatch-failed` back onto the same stream so the outcome is recorded in the event log without a separate status table. Mount this feature explicitly via `createStepDispatcherFeature()` in your app's feature list alongside any features that use `r.step.webhook.send` or `r.step.mail.send`. Requires the `secrets` feature (`createSecretsFeature()`) to be mounted — `webhook.send` auth resolves per-tenant through it, under `step-dispatcher:webhook-auth.<name>`.",
+      "Internal system feature that drains deferred Tier-2 side-effects (currently `webhook.send` and `mail.send`) after their originating transaction commits. Listens via `r.multiStreamProjection` on the `kumiko:system:step.dispatch-requested` system event, performs the actual HTTP or mail delivery, then appends `kumiko:system:step.dispatched` or `kumiko:system:step.dispatch-failed` back onto the same stream so the outcome is recorded in the event log without a separate status table. Mount this feature explicitly via `createStepDispatcherFeature()` in your app's feature list alongside any features that use `r.step.webhook.send` or `r.step.mail.send`. Requires the `secrets` feature (`createSecretsFeature()`) to be mounted — `webhook.send` auth resolves per-tenant through it, under `step-dispatcher:webhook-auth.<name>`. Every `webhook.send` request carries `Idempotency-Key: <dispatch stream id>`, stable across redeliveries of the same dispatch request; an explicit `Idempotency-Key` in `headers` takes precedence.",
     );
     r.secretNamespace("webhook-auth", WEBHOOK_AUTH_SECRET_NAMESPACE_OPTIONS);
     r.uiHints({
@@ -270,6 +270,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
                   tenantId: event.tenantId,
                   userId: event.metadata.userId || SYSTEM_USER_ID,
                   secrets: ctx.secrets,
+                  idempotencyKey: event.aggregateId,
                 })
               : await performMailDispatch(dispatchSpec.spec);
           if (result.ok) {
