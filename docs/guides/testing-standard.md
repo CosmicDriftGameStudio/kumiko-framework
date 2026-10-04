@@ -95,7 +95,7 @@ gets a second core. Fix the shared state, don't serialize around it.
 
 Seeded data that has to look old (a 90-day uptime strip, a chart with history) is written with `runSeedWritesAt(createdAt, fn)` from `@cosmicdrift/kumiko-framework/event-store`. Every event appended inside `fn` goes through the normal write path (handlers, validation, projections) but is stored with `createdAt` instead of the database `now()`. The function throws `SeedModeDisabledError` before it runs `fn` unless `KUMIKO_TEST_SEED=1` and `NODE_ENV` is not `production`, and the server refuses to boot when the flag is set together with `NODE_ENV=production`. The back-dated time lives in an `AsyncLocalStorage`, so nothing parsed from a request can set it; only in-process code such as an `extraSeeders` entry of `createE2eSeedRoutes` can call it.
 
-```ts
+```ts illustration
 const seedBackdatedNote: E2eExtraSeeder = async (ctx) => {
   const createdAt = Temporal.Now.instant().subtract({ hours: 90 * 24 });
   return runSeedWritesAt(createdAt, async () => ctx.write("notes:write:note:create", { title: "old" }));

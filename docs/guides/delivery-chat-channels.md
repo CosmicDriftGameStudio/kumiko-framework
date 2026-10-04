@@ -17,7 +17,7 @@ Four bundled features register a chat channel in the `delivery` system. Each is 
 
 Import from `@cosmicdrift/kumiko-bundled-features/channel-slack` and so on. Each feature requires `delivery` and `secrets`.
 
-```ts
+```ts illustration
 await ctx.notify("ops.deploy-finished", {
   route: { slack: "ops-alerts", telegram: "@deploy_log" },
 });

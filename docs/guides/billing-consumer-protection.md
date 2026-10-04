@@ -49,7 +49,7 @@ Two write handlers record a termination, and both end in a receipt mail to the d
 
 `createContractTerminationRoutes(options?)` returns the anonymous routes for the German page (`/legal/kuendigen`) and the English page (`/legal/cancel`). The flow is form, review, confirm, without JavaScript. Pass them in `extraRoutes`.
 
-```ts
+```ts illustration
 extraRoutes: [createSubscriptionWebhookRoute(), ...createContractTerminationRoutes()],
 ```
 
