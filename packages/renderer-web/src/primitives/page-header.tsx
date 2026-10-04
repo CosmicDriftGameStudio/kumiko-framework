@@ -9,11 +9,19 @@ export function DefaultPageHeader({
   status,
   actions,
   overflowItems,
+  hideBreadcrumb,
 }: PageHeaderProps): ReactNode {
   const slot = usePageHeaderSlot();
   const setOverflowItems = slot?.setOverflowItems;
   const setTitle = slot?.setTitle;
   const setRecordTitle = slot?.setRecordTitle;
+  const setBreadcrumbHidden = slot?.setBreadcrumbHidden;
+
+  useEffect(() => {
+    if (setBreadcrumbHidden === undefined || hideBreadcrumb !== true) return;
+    setBreadcrumbHidden(true);
+    return () => setBreadcrumbHidden(false);
+  }, [setBreadcrumbHidden, hideBreadcrumb]);
 
   useEffect(() => {
     if (setRecordTitle === undefined || recordTitle === undefined) return;

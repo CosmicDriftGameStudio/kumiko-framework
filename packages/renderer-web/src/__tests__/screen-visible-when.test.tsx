@@ -6,9 +6,12 @@ import {
   AppFeaturesProvider,
   DispatcherProvider,
   KumikoScreen,
+  NavProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
+import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
+import { ShellHeader } from "../layout/shell-header.js";
+import { createMockDispatcher, render, renderWithSidebar, screen, waitFor } from "./test-utils.js";
 
 const GATE_QUERY = "billing:query:tier:status";
 const OPEN = { openToAll: { reason: "test handler callable by any signed-in test user" } };
@@ -107,5 +110,67 @@ describe("KumikoScreen visibleWhen (direct access)", () => {
     const { queryTypes } = renderDirect({ kind: "error" });
     await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
     expect(queryTypes).not.toContain("billing:query:channel:list");
+  });
+});
+
+describe("KumikoScreen visibleWhen inside an app shell", () => {
+  function renderInShell(available: boolean, options: GateOptions = {}): void {
+    const schema: FeatureSchema = {
+      ...buildSchema(options),
+      navs: [{ id: "channels", label: "Channels", screen: "channels", order: 10 }],
+    };
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string) =>
+        type === GATE_QUERY
+          ? { isSuccess: true, data: { chatAlertsAvailable: available } }
+          : {
+              isSuccess: true,
+              data: { rows: [{ id: "r1", name: "UPGRADE ROW" }], nextCursor: null },
+            }) as unknown as Dispatcher["query"],
+    });
+    renderWithSidebar(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <AppFeaturesProvider features={[schema]}>
+          <UserRolesProvider roles={["User"]}>
+            <NavProvider
+              value={{
+                route: { screenId: "channels" },
+                navigate: () => {},
+                replace: () => {},
+                hrefFor: () => "",
+                searchParams: {},
+                setSearchParams: () => {},
+              }}
+            >
+              <PageHeaderSlotProvider>
+                <ShellHeader schema={schema} />
+                <KumikoScreen schema={schema} qn="billing:screen:channels" />
+              </PageHeaderSlotProvider>
+            </NavProvider>
+          </UserRolesProvider>
+        </AppFeaturesProvider>
+      </DispatcherProvider>,
+    );
+  }
+
+  const crumbCount = (): number =>
+    document.querySelectorAll("[data-slot='breadcrumb-item']").length;
+
+  test("a met condition keeps the screen's breadcrumb", async () => {
+    renderInShell(true);
+    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    expect(crumbCount()).toBe(1);
+  });
+
+  test("the fallback screen leaves no breadcrumb for the locked screen", async () => {
+    renderInShell(false, { fallback: "upgrade" });
+    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    expect(crumbCount()).toBe(0);
+  });
+
+  test("the standard notice leaves no breadcrumb for the locked screen", async () => {
+    renderInShell(false);
+    await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
+    expect(crumbCount()).toBe(0);
   });
 });

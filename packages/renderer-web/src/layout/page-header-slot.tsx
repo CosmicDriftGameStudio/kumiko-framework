@@ -24,6 +24,8 @@ export type PageHeaderSlot = {
   readonly setTitle: (title: string | undefined) => void;
   readonly recordTitle: string | undefined;
   readonly setRecordTitle: (recordTitle: string | undefined) => void;
+  readonly breadcrumbHidden: boolean;
+  readonly setBreadcrumbHidden: (hidden: boolean) => void;
   readonly overflowItems: readonly ActionMenuItemSpec[] | undefined;
   readonly setOverflowItems: (items: readonly ActionMenuItemSpec[] | undefined) => void;
 };
@@ -40,6 +42,7 @@ export function PageHeaderSlotProvider({ children }: { readonly children: ReactN
   const [actionsElement, setActionsElement] = useState<SlotElement>(null);
   const [title, setTitle] = useState<string | undefined>(undefined);
   const [recordTitle, setRecordTitle] = useState<string | undefined>(undefined);
+  const [breadcrumbHidden, setBreadcrumbHidden] = useState(false);
   const [overflowItems, setOverflowItems] = useState<readonly ActionMenuItemSpec[] | undefined>(
     undefined,
   );
@@ -54,10 +57,12 @@ export function PageHeaderSlotProvider({ children }: { readonly children: ReactN
       setTitle,
       recordTitle,
       setRecordTitle,
+      breadcrumbHidden,
+      setBreadcrumbHidden,
       overflowItems,
       setOverflowItems,
     }),
-    [statusElement, actionsElement, title, recordTitle, overflowItems],
+    [statusElement, actionsElement, title, recordTitle, breadcrumbHidden, overflowItems],
   );
   return (
     <PageHeaderSlotContext.Provider value={value}>

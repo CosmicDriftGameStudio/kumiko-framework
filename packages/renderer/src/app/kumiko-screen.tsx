@@ -287,7 +287,8 @@ function ScreenVisibilityGate({
   readonly translate?: Translate;
   readonly children: ReactNode;
 }): ReactNode {
-  const { Banner } = usePrimitives();
+  const { Banner, PageHeader } = usePrimitives();
+  const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const t = useTranslation();
   const result = useQuery<Readonly<Record<string, unknown>>>(visibleWhen.query, {}, { live: true });
   const verdict = evalVisibleWhen(visibleWhen, result);
@@ -299,13 +300,20 @@ function ScreenVisibilityGate({
       </Banner>
     );
   }
-  if (fallback !== undefined) {
-    return <FallbackScreen featureName={featureName} fallback={fallback} translate={translate} />;
-  }
+  // The route still names the locked screen; its breadcrumb must not label what stands in for it.
+  const hideLockedBreadcrumb =
+    PageHeader !== undefined && pageHeaderSlotAvailable ? <PageHeader hideBreadcrumb /> : null;
   return (
-    <Banner padded variant="info" testId="kumiko-screen-unavailable">
-      {t("kumiko.screen.unavailable")}
-    </Banner>
+    <>
+      {hideLockedBreadcrumb}
+      {fallback !== undefined ? (
+        <FallbackScreen featureName={featureName} fallback={fallback} translate={translate} />
+      ) : (
+        <Banner padded variant="info" testId="kumiko-screen-unavailable">
+          {t("kumiko.screen.unavailable")}
+        </Banner>
+      )}
+    </>
   );
 }
 
