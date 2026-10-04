@@ -17,6 +17,7 @@ import {
   requestEmailVerification,
 } from "./auth-client.js";
 import { AuthCard } from "./auth-form-primitives.js";
+import { followNextAfterLogin } from "./auth-redirect.js";
 import { useSession } from "./session.js";
 
 // Resend-Status für den "Bestätigungs-Mail erneut senden"-Flow, der bei
@@ -142,7 +143,10 @@ export function LoginScreen({
     setResendStatus({ kind: "idle" });
     const res = await session.login({ email, password });
     setSubmitting(false);
-    if (res.kind === "success") return;
+    if (res.kind === "success") {
+      followNextAfterLogin();
+      return;
+    }
     if (res.kind === "mfa-challenge") {
       if (onMfaChallenge) {
         onMfaChallenge(res.challengeToken);

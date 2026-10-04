@@ -9,8 +9,13 @@
 // (nur `{ children }`-Prop). Der Sample kann so einen eigenen Login-
 // Screen rein konfigurieren, ohne den Gate selbst ersetzen zu müssen.
 
+import { useLocale } from "@cosmicdrift/kumiko-renderer";
 import { type ComponentType, type ReactNode, useEffect, useState } from "react";
-import { assertNavigableUrl, buildLoginRedirectUrl } from "./auth-redirect.js";
+import {
+  assertNavigableUrl,
+  buildLoginRedirectUrl,
+  followNextAfterLogin,
+} from "./auth-redirect.js";
 import { LoginScreen, type LoginScreenProps } from "./login-screen.js";
 import { SessionProvider, useSession } from "./session.js";
 import { SessionBootstrapErrorScreen } from "./session-bootstrap-error.js";
@@ -108,7 +113,10 @@ export function createLoginRoute(
       return (
         <MfaVerifyComponent
           challengeToken={challengeToken}
-          onSuccess={() => setChallengeToken(null)}
+          onSuccess={() => {
+            setChallengeToken(null);
+            followNextAfterLogin();
+          }}
           onCancel={() => setChallengeToken(null)}
         />
       );
@@ -126,7 +134,10 @@ export function createLoginRoute(
             // refresh() never rejects: a failed refresh surfaces as status
             // "error" (bootstrap error screen with retry), so only the
             // success path needs to clear setupRequest.
-            void refresh().then(() => setSetupRequest(null));
+            void refresh().then(() => {
+              setSetupRequest(null);
+              followNextAfterLogin();
+            });
           }}
           onCancel={() => setSetupRequest(null)}
         />
@@ -150,11 +161,16 @@ export function createLoginRoute(
   return LoginRoute;
 }
 
+/** Builds the login page URL. `returnPath` is the current path + query + hash;
+ *  append it as `next` yourself (use `NEXT_QUERY_PARAM`) if the login page should return there. */
+export type LoginUrlBuilder = (locale: string, returnPath: string) => string;
+
 export type AuthGateOptions = LoginRouteOptions & {
-  /** Login page outside the SPA (root-relative path or http(s) URL). Unauthenticated
-   *  visitors are sent there with `next=<current path>`; the built-in login screen
-   *  is not rendered. */
-  readonly loginUrl?: string;
+  /** Login page outside the SPA (root-relative path or http(s) URL), or a function
+   *  that builds it per locale. Unauthenticated visitors are sent there with
+   *  `next=<current path>` (a string gets `next` appended; a function decides itself).
+   *  On the login route itself the gate renders the built-in login screen instead. */
+  readonly loginUrl?: string | LoginUrlBuilder;
 };
 
 export type SessionAuthGateOptions = AuthGateOptions & {
@@ -162,30 +178,52 @@ export type SessionAuthGateOptions = AuthGateOptions & {
   readonly postLogoutUrl?: string;
 };
 
-function redirectToLoginUrl(loginUrl: string): void {
-  const { origin, pathname, search, hash } = window.location;
+type LoginRedirect =
+  | { readonly kind: "on-login-route" }
+  | { readonly kind: "redirect"; readonly url: string };
+
+// @internal — exported for unit tests only.
+export function resolveLoginRedirect(
+  loginUrl: string | LoginUrlBuilder,
+  locale: string,
+  { origin, pathname, search, hash }: Pick<Location, "origin" | "pathname" | "search" | "hash">,
+): LoginRedirect {
+  const returnPath = `${pathname}${search}${hash}`;
+  const target = typeof loginUrl === "function" ? loginUrl(locale, returnPath) : loginUrl;
+  if (typeof loginUrl === "function") assertNavigableUrl(target, "loginUrl()");
   // Compared before `next` is appended: the target always differs from the current
   // URL once it carries next, so a gate mounted on the login page itself would loop.
-  const loginLocation = new URL(loginUrl, origin);
-  if (loginLocation.origin === origin && loginLocation.pathname === pathname) return;
-  window.location.replace(buildLoginRedirectUrl(loginUrl, `${pathname}${search}${hash}`, origin));
+  const loginLocation = new URL(target, origin);
+  if (loginLocation.origin === origin && loginLocation.pathname === pathname) {
+    return { kind: "on-login-route" };
+  }
+  return {
+    kind: "redirect",
+    url:
+      typeof loginUrl === "function" ? target : buildLoginRedirectUrl(target, returnPath, origin),
+  };
 }
 
 export function makeAuthGate(opts: AuthGateOptions = {}): ComponentType<{
   children: ReactNode;
 }> {
   const { loginUrl } = opts;
-  if (loginUrl !== undefined) assertNavigableUrl(loginUrl, "loginUrl");
+  if (typeof loginUrl === "string") assertNavigableUrl(loginUrl, "loginUrl");
   const LoginRoute = createLoginRoute(opts);
   function AuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     const { status } = useSession();
-    const redirectsToLoginUrl = loginUrl !== undefined && status === "unauthenticated";
+    const locale = useLocale().locale();
+    const loginRedirect =
+      loginUrl !== undefined && status === "unauthenticated"
+        ? resolveLoginRedirect(loginUrl, locale, window.location)
+        : null;
+    const redirectUrl = loginRedirect?.kind === "redirect" ? loginRedirect.url : null;
     // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
     useEffect(() => {
-      if (redirectsToLoginUrl) redirectToLoginUrl(loginUrl);
-    }, [redirectsToLoginUrl]);
+      if (redirectUrl !== null) window.location.replace(redirectUrl);
+    }, [redirectUrl]);
     if (status === "authenticated") return <>{children}</>;
-    if (redirectsToLoginUrl) return null;
+    if (redirectUrl !== null) return null;
     return <LoginRoute />;
   }
   return AuthGate;

@@ -1,21 +1,24 @@
-// withCapEnforcement / withRollingCapEnforcement — handler-wrapper die
-// pre-call enforceCap-And-Notify + post-call booking um den
-// gewrappten Handler legen.
+// withCapEnforcement / withRollingCapEnforcement: handler wrappers that put the
+// pre-call enforceCapAndMaybeNotify and a reservation around the wrapped handler.
 //
-// **Warum Wrapper statt manuelle Calls im Handler:**
-// Pattern-konsistenz. Wer einen cap-bedingten Handler schreibt,
-// darf nicht vergessen den counter zu incrementen oder den enforce-
-// pre-call zu machen — beides ist atomic-mit-dem-Handler-zusammen.
-// Wrapper macht das Pattern explizit + co-located.
+// **Why a wrapper instead of manual calls in the handler:** a cap-bound handler
+// must not forget the enforce pre-call, the reservation or the release on failure;
+// the wrapper keeps the pattern explicit and co-located.
 //
-// **Atomicity caveat:** calendar booking runs in-process via bookCapUsage
-// (see book-cap-usage.ts).
+// **Calendar reservation:** commits in its own short transaction
+// (ctx.dbOutsideTransaction) BEFORE the handler, so it is NOT atomic
+// with the handler's transaction. A failure result or throw is compensated
+// by a release; a handler that succeeds but whose transaction then fails
+// to commit leaves the counter over-counted. Without ctx.dbOutsideTransaction
+// the reservation falls back to the handler transaction (atomic, but
+// serializes capped calls on the same counter). A wrapped handler must not
+// book the same counter inside its own transaction.
+//
 // Rolling booking still dispatches the SystemAdmin-only increment-rolling
-// handler. In-process booking would work today only because the entity
-// executor appends without the event-ownership check (that check runs in
-// appendDomainEventCore alone); relying on that gap would break once the
-// executor path enforces ownership, so rolling callers need a SystemAdmin
-// identity until cap-counter declares an explicit foreign-booking opt-in.
+// handler and has no reservation: it would need a compensating event type,
+// a changed readRollingCapUsage and a version-guarded append behind the
+// SystemAdmin dispatch. Rolling callers need a SystemAdmin identity until
+// cap-counter declares an explicit foreign-booking opt-in.
 //
 // No automatic markSoftWarned here — that's inside enforceCapAndMaybeNotify
 // (enforce-cap.ts).
@@ -24,11 +27,13 @@ import type {
   HandlerContext,
   WriteEvent,
   WriteHandlerDef,
+  WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
-import { bookCapUsage } from "./book-cap-usage.js";
+import { bookCapUsage, releaseCapUsage } from "./book-cap-usage.js";
 import { CapCounterHandlers } from "./constants.js";
 import {
+  assertBelowHardCap,
   type CapToleranceProfileName,
   enforceCapAndMaybeNotify,
   enforceRollingCapAndMaybeNotify,
@@ -65,6 +70,34 @@ export type CalendarCapResolver = (
   ctx: HandlerContext,
 ) => Promise<CalendarCapDef> | CalendarCapDef;
 
+// A failed release only over-counts; it must neither mask the handler's own outcome nor stay invisible.
+async function releaseReservationBestEffort(
+  ctx: HandlerContext,
+  cap: CalendarCapDef,
+  amount: number,
+  outsideTransaction: boolean,
+): Promise<void> {
+  try {
+    const released = await releaseCapUsage(ctx, {
+      capName: cap.capName,
+      amount,
+      periodStartIso: cap.periodStartIso,
+      outsideTransaction,
+    });
+    if (!released.isSuccess) {
+      ctx.log?.warn("cap-counter: releasing a cap reservation failed, counter is over-counted", {
+        capName: cap.capName,
+        code: released.error.code,
+      });
+    }
+  } catch (error) {
+    ctx.log?.warn("cap-counter: releasing a cap reservation threw, counter is over-counted", {
+      capName: cap.capName,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 /**
  * Wrap a write-handler with calendar-period cap-enforcement.
  *
@@ -72,8 +105,8 @@ export type CalendarCapResolver = (
  *   1. resolve cap-spec via `capResolver(event, ctx)`
  *   2. pre-call: `enforceCapAndMaybeNotify` — throws CapExceededError
  *      on hard-hit (handler never runs), notifies on soft-hit-crossing
- *   3. invoke the wrapped handler
- *   4. post-success: book usage via `bookCapUsage` with `amount`
+ *   3. reserve `amount` (hard-cap check + increment in one short, immediately committed write)
+ *   4. invoke the wrapped handler; on failure result or throw, release the reservation
  *
  * The returned handler-def keeps the original name/schema/access
  * untouched — only the handler-fn is wrapped. The dispatcher sees
@@ -93,25 +126,37 @@ export function withCapEnforcement(
       // Pre-enforce. Hard-hit throws CapExceededError (extends KumikoError,
       // dispatcher auto-maps to HTTP 429 + cap_exceeded). Soft-hit-crossing
       // notifies via the supplied notifier + flips lastSoftWarnedAt.
+      const outsideTransaction = ctx.dbOutsideTransaction !== undefined;
       await enforceCapAndMaybeNotify(ctx, {
         capName: cap.capName,
         periodStartIso: cap.periodStartIso,
         limit: cap.limit,
         profile: cap.profile,
         notify: cap.notify,
+        markSoftWarnedOutsideTransaction: outsideTransaction,
+        ...(cap.amount !== undefined && { amount: cap.amount }),
       });
 
-      const result = await handler.handler(event, ctx);
+      // The pre-check only drives the soft warning; the reservation is the hard gate. It commits at once in its own transaction (check and increment in one version-guarded write), so parallel calls cannot pass the same stale read and the counter stream is not held while the handler runs.
+      const amount = cap.amount ?? 1;
+      const reserved = await bookCapUsage(ctx, {
+        capName: cap.capName,
+        amount,
+        periodStartIso: cap.periodStartIso,
+        outsideTransaction,
+        guardCurrentValue: (currentValue) => assertBelowHardCap(currentValue + amount - 1, cap),
+      });
+      if (!reserved.isSuccess) throw reraiseAsKumikoError(reserved.error);
 
-      // Post-success increment. Skip on failure so a failed write
-      // doesn't burn cap-quota. amount default 1.
-      if (result.isSuccess) {
-        const booked = await bookCapUsage(ctx, {
-          capName: cap.capName,
-          amount: cap.amount ?? 1,
-          periodStartIso: cap.periodStartIso,
-        });
-        if (!booked.isSuccess) throw reraiseAsKumikoError(booked.error);
+      let result: WriteResult;
+      try {
+        result = await handler.handler(event, ctx);
+      } catch (error) {
+        await releaseReservationBestEffort(ctx, cap, amount, outsideTransaction);
+        throw error;
+      }
+      if (!result.isSuccess) {
+        await releaseReservationBestEffort(ctx, cap, amount, outsideTransaction);
       }
 
       return result;

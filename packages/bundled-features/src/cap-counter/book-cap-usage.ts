@@ -59,6 +59,8 @@ export type BookCapUsageOptions = {
   readonly periodStartIso: string;
   readonly amount?: number;
   readonly outsideTransaction?: boolean;
+  // Runs on every attempt with the freshly read value, so a throw rejects the booking against the state it would actually be applied to (a version-conflict retry re-reads and re-checks).
+  readonly guardCurrentValue?: (currentValue: number) => void;
 };
 
 function requireOutsideTransactionDb(ctx: HandlerContext): TenantDb {
@@ -74,6 +76,22 @@ export async function bookCapUsage(
   ctx: HandlerContext,
   options: BookCapUsageOptions,
 ): Promise<WriteResult> {
+  return applyCapDelta(ctx, options, "add");
+}
+
+// Gives back a reservation whose operation failed afterwards; the counter never drops below 0.
+export async function releaseCapUsage(
+  ctx: HandlerContext,
+  options: Omit<BookCapUsageOptions, "guardCurrentValue">,
+): Promise<WriteResult> {
+  return applyCapDelta(ctx, options, "subtract");
+}
+
+async function applyCapDelta(
+  ctx: HandlerContext,
+  options: BookCapUsageOptions,
+  direction: "add" | "subtract",
+): Promise<WriteResult> {
   const parsed = capBookingSchema.parse(options);
   const aggregateId = capCounterAggregateId(
     ctx.user.tenantId,
@@ -84,6 +102,8 @@ export async function bookCapUsage(
   async function attemptWrite(db: TenantDb): Promise<WriteResult> {
     const existing = await db.selectMany(table, { id: aggregateId }, { limit: 1 });
     if (existing.length === 0) {
+      options.guardCurrentValue?.(0);
+      if (direction === "subtract") return { isSuccess: true, data: {} };
       return executor.create(
         {
           id: aggregateId,
@@ -103,11 +123,17 @@ export async function bookCapUsage(
     }
     const currentValue = currentRow["value"] as number; // @cast-boundary db-row
     const currentVersion = currentRow["version"] as number; // @cast-boundary db-row
+    options.guardCurrentValue?.(currentValue);
     return executor.update(
       {
         id: aggregateId,
         version: currentVersion,
-        changes: { value: currentValue + parsed.amount },
+        changes: {
+          value:
+            direction === "add"
+              ? currentValue + parsed.amount
+              : Math.max(0, currentValue - parsed.amount),
+        },
       },
       ctx.user,
       db,
@@ -124,6 +150,7 @@ export async function bookCapUsage(
 export type MarkCapSoftWarnedOptions = {
   readonly capName: string;
   readonly periodStartIso: string;
+  readonly outsideTransaction?: boolean;
 };
 
 export async function markCapSoftWarned(
@@ -137,8 +164,8 @@ export async function markCapSoftWarned(
     parsed.periodStartIso,
   );
 
-  return retryCounterWriteOnVersionConflict(async () => {
-    const existing = await ctx.db.selectMany(table, { id: aggregateId }, { limit: 1 });
+  async function attemptMark(db: TenantDb): Promise<WriteResult> {
+    const existing = await db.selectMany(table, { id: aggregateId }, { limit: 1 });
     if (existing.length === 0) {
       throw new Error(
         `cap-counter: cannot mark-soft-warned, no counter found for tenant=${ctx.user.tenantId} cap=${parsed.capName} period=${parsed.periodStartIso}`,
@@ -162,9 +189,15 @@ export async function markCapSoftWarned(
         changes: { lastSoftWarnedAt: Temporal.Now.instant() },
       },
       ctx.user,
-      ctx.db,
+      db,
     );
-  });
+  }
+
+  if (options.outsideTransaction) {
+    const outsideDb = requireOutsideTransactionDb(ctx);
+    return retryCounterWriteOnVersionConflict(() => runInOwnTransaction(outsideDb, attemptMark));
+  }
+  return retryCounterWriteOnVersionConflict(() => attemptMark(ctx.db));
 }
 
 export type ReadRollingCapUsageOptions = {
