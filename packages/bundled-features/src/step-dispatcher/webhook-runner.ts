@@ -114,6 +114,7 @@ export type WebhookDispatchDeps = {
   readonly tenantId: TenantId;
   readonly userId: string;
   readonly secrets: SecretsContext | undefined;
+  readonly idempotencyKey: string;
 };
 
 // Never includes the secret name or value — spec.auth.secret is a
@@ -121,11 +122,20 @@ export type WebhookDispatchDeps = {
 // dispatch-failed event, so it stays generic.
 const WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR = "webhook auth secret is not available";
 
+export const WEBHOOK_IDEMPOTENCY_KEY_HEADER = "idempotency-key";
+
+function hasIdempotencyKeyHeader(headers: Readonly<Record<string, string>>): boolean {
+  return Object.keys(headers).some((name) => name.toLowerCase() === WEBHOOK_IDEMPOTENCY_KEY_HEADER);
+}
+
 async function buildWebhookHeaders(
   spec: WebhookSpec,
   deps: WebhookDispatchDeps,
 ): Promise<{ ok: true; headers: Record<string, string> } | { ok: false; error: string }> {
   const headers: Record<string, string> = { "content-type": "application/json", ...spec.headers };
+  if (!hasIdempotencyKeyHeader(headers)) {
+    headers[WEBHOOK_IDEMPOTENCY_KEY_HEADER] = deps.idempotencyKey;
+  }
   if (!spec.auth) return { ok: true, headers };
   if (!deps.secrets) return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR };
   // A throwing get (corrupt envelope, rotated key, KMS error) must become a
