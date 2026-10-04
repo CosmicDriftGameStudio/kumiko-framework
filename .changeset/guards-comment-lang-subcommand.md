@@ -8,6 +8,6 @@ The subcommand takes `--touched --base=<ref>`, `--list`, `--write-baseline` and 
 
 <!-- kumiko-changes
 feature: guards
-type: feature
+type: improvement
 title: New kumiko-guards comment-lang subcommand replaces the kumiko-guard-comment-lang bin
 -->

@@ -12,6 +12,6 @@ A new `successMessage` i18n key on an `actionForm` screen shows a confirmation a
 
 <!-- kumiko-changes
 feature: renderer
-type: feature
+type: improvement
 title: actionForm successMessage names the chosen record's label after a successful submit
 -->

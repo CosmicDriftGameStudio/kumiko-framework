@@ -1252,6 +1252,7 @@ export async function enforceRateLimit(
   // and a nested handler with a stricter limit on the same bucket is still checked.
   const charged = reqCtx?.chargedRateLimitBuckets;
   const chargedKey = `${bucket.key}|${effective.limit}|${effective.windowSeconds}|${effective.cost}`;
+  // skip: this exact bucket, limit and window was already charged by the entry dispatch
   if (charged?.has(chargedKey)) return;
   try {
     await context.rateLimit.enforce(bucket.key, {

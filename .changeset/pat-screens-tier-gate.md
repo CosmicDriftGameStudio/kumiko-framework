@@ -8,6 +8,6 @@ The list and mint screens carry a `visibleWhen` on the new `personal-access-toke
 
 <!-- kumiko-changes
 feature: personal-access-tokens
-type: feature
+type: improvement
 title: API-token screens hide behind the tier gate and can fall back to an upgrade screen via lockedFallbackScreen
 -->

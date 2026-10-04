@@ -384,7 +384,7 @@ describe("HTTP layer logs 4xx client faults on warn", () => {
     expect(String(loggedType).length).toBeLessThanOrEqual(120);
   });
 
-  test("a non-string type still yields a clean 404 and no error-level log", async () => {
+  test("a non-string type yields a clean 400 and no error-level log", async () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     const errors: unknown[][] = [];
     const errorSpy = spyOn(console, "error").mockImplementation((...args) => {
@@ -396,7 +396,7 @@ describe("HTTP layer logs 4xx client faults on warn", () => {
         headers: await auth(),
         body: JSON.stringify({ type: { name: "ghost:query:x" }, payload: {} }),
       });
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(400);
       expect(apiFaultLog(errors)).toBeUndefined();
     } finally {
       warnSpy.mockRestore();
