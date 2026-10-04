@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.346.0",
+    "type": "fix",
+    "title": "A failed key erase no longer causes a second delivery of the same dispatch request",
+    "detail": "step-dispatcher no longer re-sends after a failed key erase\nWhen erasing the per-dispatch key failed after the outcome was recorded, the redelivered request was sent again and produced a second `step.dispatched`. A redelivery now only repeats the erase."
+  },
+  {
+    "version": "0.346.0",
+    "type": "fix",
+    "title": "Webhook caller headers no longer merge with the default Content-Type or the auth header",
+    "detail": "Webhook headers merge case-insensitively\nA caller `Content-Type` replaces the default `application/json` instead of being joined with it. When a caller header collides with the auth header (any casing), the resolved secret value wins."
+  },
+  {
+    "version": "0.346.0",
+    "type": "fix",
+    "title": "Webhook requests time out after 10 seconds instead of blocking the dispatcher",
+    "detail": "Webhook requests time out after 10 seconds\nA hanging receiver now ends as `step.dispatch-failed` and no longer stalls the step-dispatcher for every tenant."
+  },
+  {
+    "version": "0.346.0",
+    "type": "breaking",
+    "title": "r.step.webhook.send drops the unused retry option",
+    "detail": "`r.step.webhook.send` no longer accepts `retry`\nThe option was never applied: every dispatch request is delivered once. Passing it is now a type error, and the dispatch-requested payload no longer carries it. Stored events that still contain `retry` are parsed and delivered as before.",
+    "migration": "Remove `retry` from `r.step.webhook.send` calls; it was never applied. Each dispatch request is delivered once; a delivery error ends as step.dispatch-failed."
+  },
+  {
     "version": "0.345.0",
     "type": "improvement",
     "title": "Webhook sends carry an Idempotency-Key header that is stable across redeliveries",

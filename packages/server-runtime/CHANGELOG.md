@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.346.0
+
+### Patch Changes
+
+- eb9dfef: runWorkerApp records app.started too
+
+  The worker now appends the same `kumiko:system:app.started` event as `runProdApp`. The instance id prefers `KUMIKO_INSTANCE_ID` and falls back to `HOSTNAME`, then the OS hostname.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runWorkerApp records app.started; instance id prefers KUMIKO_INSTANCE_ID over HOSTNAME
+  -->
+
+- Updated dependencies [7bade44]
+- Updated dependencies [c4a4bba]
+- Updated dependencies [d83aa55]
+- Updated dependencies [695d47c]
+- Updated dependencies [0207a6e]
+- Updated dependencies [6b8dde4]
+  - @cosmicdrift/kumiko-bundled-features@0.346.0
+  - @cosmicdrift/kumiko-framework@0.346.0
+  - @cosmicdrift/kumiko-headless@0.346.0
+  - @cosmicdrift/kumiko-renderer-web@0.346.0
+
 ## 0.345.0
 
 ### Minor Changes
