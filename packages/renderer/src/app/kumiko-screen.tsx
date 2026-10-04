@@ -410,9 +410,14 @@ function renderScreenBody({
     case "secretMint":
       return <SecretMintBody schema={schema} screen={screen} translate={translate} />;
     case "configEdit":
-      return <ConfigEditBody schema={schema} screen={screen} translate={translate} />;
+      // Keyed by screen id: the form state is seeded once at mount, so switching
+      // between two settings screens must remount instead of carrying the
+      // previous screen's (empty) field state over.
+      return (
+        <ConfigEditBody key={screen.id} schema={schema} screen={screen} translate={translate} />
+      );
     case "secretsEdit":
-      return <SecretsEditBody screen={screen} translate={translate} />;
+      return <SecretsEditBody key={screen.id} screen={screen} translate={translate} />;
     case "custom":
       return <CustomScreenBody screenId={screen.id} featureName={schema.featureName} />;
   }
