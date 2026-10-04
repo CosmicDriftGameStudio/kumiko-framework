@@ -408,9 +408,13 @@ export type RunProdAppAuthOptions = {
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
  *  active). Each seed is responsible for its own idempotence (seeds are
- *  expected to check "is my row already there?" before inserting). */
+ *  expected to check "is my row already there?" before inserting). Write
+ *  through `dispatcher.write(...)` rather than `db` so projections and
+ *  hooks run; `registry` is the boot registry. */
 export type ProdSeedFn = (deps: {
   db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
+  registry: import("@cosmicdrift/kumiko-framework/engine").Registry;
+  dispatcher: import("@cosmicdrift/kumiko-framework/pipeline").Dispatcher;
 }) => Promise<void>;
 
 /** Boot-Time-Deps die `extraContext` + `anonymousAccess` Factories als
@@ -1310,8 +1314,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     db,
     ...(bootCrypto.configCipher && { cipher: bootCrypto.configCipher }),
   });
-  for (const seed of options.seeds ?? []) {
-    await seed({ db });
+  const seedDispatcher =
+    (options.seeds?.length ?? 0) > 0 || options.seedsDir !== undefined
+      ? createDispatcher(registry, { db, redis, entityCache, registry, ...extraContext })
+      : undefined;
+  if (seedDispatcher) {
+    for (const seed of options.seeds ?? []) {
+      await seed({ db, registry, dispatcher: seedDispatcher });
+    }
   }
 
   // ES-Operations / Seed-Migrations (Phase 1). Läuft NACH applyBootSeeds +
@@ -1319,15 +1329,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // if-missing"-Schicht; seed-migrations sind die "diff-and-update"-
   // Schicht für Drift den existing Seeds nicht erfassen können (z.B.
   // Membership-Roles-Change nach initialer Seed-Erstellung).
-  if (options.seedsDir !== undefined && envSource["KUMIKO_SKIP_ES_OPS"] !== "1") {
+  if (seedDispatcher && options.seedsDir !== undefined && envSource["KUMIKO_SKIP_ES_OPS"] !== "1") {
     await createEsOperationsTable(db);
-    const seedDispatcher = createDispatcher(registry, {
-      db,
-      redis,
-      entityCache,
-      registry,
-      ...extraContext,
-    });
     await runPendingSeedMigrations({
       db,
       seedsDir: options.seedsDir,
