@@ -14,7 +14,7 @@ import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
-import { defineFeature } from "../../engine/index.js";
+import { defineFeature, type TenantId } from "../../engine/index.js";
 import { eventsTable } from "../../event-store/index.js";
 import {
   ConsumerLagError,
@@ -27,6 +27,7 @@ import {
   setupTestStack,
   type TestStack,
   TestUsers,
+  testTenantId,
   unsafeCreateEntityTable,
 } from "../../stack/index.js";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing/index.js";
@@ -76,11 +77,12 @@ async function seedOldAggregateEvent(
   createdAt: Temporal.Instant,
   type: string,
   aggregateType = "widget",
+  tenantId: TenantId = admin.tenantId,
 ): Promise<bigint> {
   const row = await insertOne<{ id: bigint }>(stack.db, eventsTable, {
     aggregateId: generateId(),
     aggregateType,
-    tenantId: admin.tenantId,
+    tenantId,
     version: 1,
     type,
     payload: {},
@@ -164,6 +166,35 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
 
     const remaining = await selectMany(stack.db, eventsTable);
     expect(remaining).toHaveLength(1);
+  });
+});
+
+describe("tenantIds filter", () => {
+  test("only the named tenant loses events", async () => {
+    const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
+    const tenantA = testTenantId(101);
+    const tenantB = testTenantId(102);
+    const aId = await seedOldAggregateEvent(tenDaysAgo, "obsolete.a", "obsolete", tenantA);
+    const bId = await seedOldAggregateEvent(tenDaysAgo, "obsolete.b", "obsolete", tenantB);
+    await disableConsumer(stack.db, observerQn);
+
+    const result = await pruneEvents(stack.db, {
+      olderThanDays: 7,
+      aggregateTypes: ["obsolete"],
+      tenantIds: [tenantA],
+    });
+    expect(result.deletedCount).toBe(1);
+    expect(result.tenantIds).toEqual([tenantA]);
+
+    const ids = (await selectMany(stack.db, eventsTable)).map((r) => r.id);
+    expect(ids).not.toContain(aId);
+    expect(ids).toContain(bId);
+  });
+
+  test("empty tenantIds is rejected", async () => {
+    await expect(
+      pruneEvents(stack.db, { olderThanDays: 7, aggregateTypes: ["obsolete"], tenantIds: [] }),
+    ).rejects.toThrow("tenantIds");
   });
 });
 

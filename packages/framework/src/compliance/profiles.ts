@@ -46,6 +46,8 @@ export type ComplianceProfileKey =
 
 export type DurationSpec = { readonly days: number } | { readonly hours: number };
 
+export type RetentionSpec = DurationSpec | { readonly months: number } | { readonly years: number };
+
 export type AuthorityNotificationDeadline =
   | DurationSpec
   | "as-soon-as-feasible"
@@ -99,7 +101,7 @@ export interface ComplianceProfile {
   };
 
   readonly auditLog: {
-    readonly retention: DurationSpec | { readonly months: number } | { readonly years: number };
+    readonly retention: RetentionSpec;
     readonly reportFrequency: "quarterly" | "yearly" | "annual-required" | "manual";
   };
 

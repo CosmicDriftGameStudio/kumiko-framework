@@ -42,7 +42,9 @@ ORDER BY events DESC;
 ```
 
 `escapeHatchUse` rows are the escape-hatch audit entries. The config key
-`audit:config:escape-hatch-retention-days` sets how long they are kept (default 90 days).
+With compliance-profiles mounted, each tenant's `auditLog.retention` (profile default, overridable per
+tenant) sets how long they are kept. `audit:config:escape-hatch-retention-days` (default 90 days) is only
+the fallback for apps without compliance-profiles.
 
 ## 2. Reclaim the space
 

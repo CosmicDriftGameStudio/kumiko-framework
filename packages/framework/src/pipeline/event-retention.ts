@@ -1,7 +1,9 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
+
 import type { DbConnection } from "../db/connection.js";
 import { lockEventConsumersShareMode } from "../db/queries/event-consumer.js";
 import { deleteMany, selectMany, transaction } from "../db/query.js";
+import type { TenantId } from "../engine/index.js";
 import { eventsTable } from "../event-store/index.js";
 import { eventConsumerStateTable } from "./event-consumer-state.js";
 
@@ -35,6 +37,8 @@ export type PruneEventsOptions = {
   // default — pruning the event log is destructive, so the caller has to
   // name what they're destroying.
   readonly aggregateTypes: readonly string[];
+  // Optional: restrict candidates to these tenants. Non-empty when set.
+  readonly tenantIds?: readonly TenantId[];
   // Dry-run: compute what would be deleted, return count, delete nothing.
   readonly dryRun?: boolean;
 };
@@ -43,6 +47,7 @@ export type PruneEventsResult = {
   readonly deletedCount: number;
   readonly cutoff: Temporal.Instant;
   readonly aggregateTypes: readonly string[];
+  readonly tenantIds?: readonly TenantId[];
   readonly dryRun: boolean;
 };
 
@@ -82,7 +87,11 @@ export async function pruneEvents(
       "pruneEvents: aggregateTypes is required and must be non-empty. Pruning the event log is destructive — name the aggregate types to delete explicitly.",
     );
   }
+  if (options.tenantIds !== undefined && options.tenantIds.length === 0) {
+    throw new Error("pruneEvents: tenantIds must be non-empty when set.");
+  }
   const aggregateTypes = options.aggregateTypes;
+  const tenantIds = options.tenantIds;
   const dryRun = options.dryRun === true;
 
   return transaction(db, async (tx) => {
@@ -103,11 +112,12 @@ export async function pruneEvents(
     // Step 1 — collect candidate event ids.
     const candidates = await selectMany<{ id: bigint }>(tx, eventsTable, {
       aggregateType: [...aggregateTypes],
+      ...(tenantIds ? { tenantId: [...tenantIds] } : {}),
       createdAt: { lt: cutoff },
     });
 
     if (candidates.length === 0) {
-      return { deletedCount: 0, cutoff, aggregateTypes, dryRun };
+      return { deletedCount: 0, cutoff, aggregateTypes, tenantIds, dryRun };
     }
 
     const maxCandidateId = candidates.reduce(
@@ -133,13 +143,13 @@ export async function pruneEvents(
     }
 
     if (dryRun) {
-      return { deletedCount: candidates.length, cutoff, aggregateTypes, dryRun: true };
+      return { deletedCount: candidates.length, cutoff, aggregateTypes, tenantIds, dryRun: true };
     }
 
     // Step 3 — actual delete, bounded to the candidate set.
     const candidateIds = candidates.map((c) => c.id);
     await deleteMany(tx, eventsTable, { id: candidateIds });
 
-    return { deletedCount: candidateIds.length, cutoff, aggregateTypes, dryRun: false };
+    return { deletedCount: candidateIds.length, cutoff, aggregateTypes, tenantIds, dryRun: false };
   });
 }
