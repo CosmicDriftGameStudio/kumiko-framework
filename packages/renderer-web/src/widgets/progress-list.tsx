@@ -6,6 +6,8 @@ export type ProgressListRow = {
   readonly label: string;
   readonly value: string;
   readonly fraction: number;
+  /** Small line under the bar, e.g. "42 % repaid". */
+  readonly sub?: string;
 };
 
 /** Liste aus Label/Wert-Kopfzeile + Fortschrittsbalken pro Eintrag (z.B.
@@ -31,6 +33,7 @@ export function ProgressList({
             <span className="tabular-nums text-muted-foreground">{row.value}</span>
           </div>
           <ProgressBar value={row.fraction} />
+          {row.sub !== undefined && <div className="text-xs text-muted-foreground">{row.sub}</div>}
         </li>
       ))}
     </ul>

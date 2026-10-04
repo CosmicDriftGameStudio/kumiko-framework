@@ -137,7 +137,10 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
   // skip: custom-Panel übersetzt sich selbst, kein Key hier
   if (panel.kind === "custom") return;
   pushKey(out, panel.label);
-  if (panel.kind === "chart") pushKey(out, panel.subtitle);
+  if (panel.kind === "chart" || panel.kind === "stat-group") pushKey(out, panel.subtitle);
+  if (panel.kind === "chart") {
+    for (const option of panel.ranges?.options ?? []) pushKey(out, option.label);
+  }
   if (
     panel.kind === "chart" ||
     panel.kind === "list" ||

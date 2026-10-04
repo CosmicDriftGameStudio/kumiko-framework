@@ -72,6 +72,35 @@ export function Sparkline({
   );
 }
 
+function StatIconChip({
+  icon,
+  tone,
+  accentColor,
+}: {
+  readonly icon: ReactNode;
+  readonly tone: StatTone;
+  readonly accentColor: string | undefined;
+}): ReactNode {
+  return (
+    <span
+      className={cn(
+        "flex size-7 shrink-0 items-center justify-center rounded-lg",
+        accentColor === undefined && TONE_CHIP[tone],
+      )}
+      style={
+        accentColor === undefined
+          ? undefined
+          : {
+              color: accentColor,
+              backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
+            }
+      }
+    >
+      {icon}
+    </span>
+  );
+}
+
 /** Icon-tragende Kennzahl-Kachel mit optionalem Delta-Chip, Trend-Zeile
  *  und Sparkline. `icon` ist ein fertiger Knoten (App liefert ihr SVG). */
 export function StatCard({
@@ -111,24 +140,7 @@ export function StatCard({
     <Card options={{ padded: false }} className="p-4" testId={testId}>
       <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
         <div className="flex min-w-0 flex-1 basis-[7rem] items-center gap-2 text-muted-foreground">
-          {icon !== undefined && (
-            <span
-              className={cn(
-                "flex size-7 items-center justify-center rounded-lg",
-                accentColor === undefined && TONE_CHIP[tone],
-              )}
-              style={
-                accentColor === undefined
-                  ? undefined
-                  : {
-                      color: accentColor,
-                      backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
-                    }
-              }
-            >
-              {icon}
-            </span>
-          )}
+          {icon !== undefined && <StatIconChip icon={icon} tone={tone} accentColor={accentColor} />}
           <span title={label} className="min-w-0 line-clamp-2 text-xs font-medium">
             {label}
           </span>
@@ -161,18 +173,23 @@ export function StatCard({
 /** Flat KPI cell for a strip (divider instead of card): label, value with
  *  sparkline beside it, sub line. */
 export function StatStripCell({
+  icon,
   label,
   value,
   sub,
   tone = "default",
+  accentColor,
   delta,
   spark,
   testId,
 }: {
+  /** Chip before the label, colored like StatCard's (`accentColor` or the tone). */
+  readonly icon?: ReactNode;
   readonly label: string;
   readonly value: string;
   readonly sub?: string;
   readonly tone?: StatTone;
+  readonly accentColor?: string;
   readonly delta?: StatDelta;
   readonly spark?: readonly number[];
   readonly testId?: string;
@@ -180,7 +197,10 @@ export function StatStripCell({
   return (
     <div data-testid={testId} className="flex min-w-0 flex-col gap-1 px-4 py-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+          {icon !== undefined && <StatIconChip icon={icon} tone={tone} accentColor={accentColor} />}
+          <span>{label}</span>
+        </span>
         {delta !== undefined && (
           <span
             className={cn(

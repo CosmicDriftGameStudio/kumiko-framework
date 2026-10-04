@@ -902,6 +902,14 @@ export type DashboardPanelQueryOptions = {
   readonly ignoreScreenFilter?: boolean;
 };
 
+// Gate of a top-level query panel (stat, stat-group, chart, list, feed,
+// progress-list). Unlike screen panels, the gate query receives the screen
+// filter (dropped with the panel's `ignoreScreenFilter`) and the time range,
+// so a gate can follow a folder picker. Hidden while the gate loads.
+export type DashboardPanelGate = {
+  readonly visibleWhen?: DashboardPanelVisibility;
+};
+
 // Grid width of chart/list/feed/progress-list panels. Default: charts and lists
 // span the full row, feed and progress-list half of it.
 export type DashboardPanelSpan = "half" | "full";
@@ -918,46 +926,70 @@ export type DashboardPanelEmptyState = {
 // value (string is display-ready, number is locale-formatted, DashboardI18nText
 // is translated), `subField` optionally at a sub line (string | DashboardI18nText), `toneField` optionally at
 // "default" | "positive" | "warn" | "negative".
-export type DashboardStatPanel = DashboardPanelQueryOptions & {
-  readonly kind: "stat";
-  /** Stable id: kebab-case, unique within the panel set. */
-  readonly id: string;
-  /** Anzeige-Text (i18n-Key). */
-  readonly label: string;
-  readonly query: string;
-  readonly valueField: string;
-  readonly subField?: string;
-  readonly toneField?: string;
-  /** Formats a numeric value as currency (minor units); ignored for string values. The sparkline is not formatted. */
-  readonly valueFormat?: DashboardValueFormat;
-  /** Fixed tone when `toneField` is unset or yields none; not applied while the value is 0. */
-  readonly tone?: "default" | "positive" | "warn" | "negative";
-  /** Record field holding `{ atMs, value | null }[]` (MetricResult.points),
-   *  drawn as a sparkline next to the value. */
-  readonly sparklineField?: string;
-  /** Optionaler Delta-Chip (z.B. "↓23 %") neben dem Label. Nur wenn BEIDE
-   *  Felder gesetzt sind UND der Query-Handler sie liefert, rendert der Chip
-   *  — sonst bleibt die Kachel wie ohne Delta. `deltaToneField` fällt auf
-   *  `toneField`/"default" zurück, wenn ungesetzt. */
-  readonly deltaField?: string;
-  readonly deltaDirectionField?: string;
-  readonly deltaToneField?: string;
-  /** Statisches Icon neben dem Label — anders als value/sub/delta variiert
-   *  das Icon nicht pro Query-Result, sondern ist eine Author-Entscheidung
-   *  wie das Panel selbst. Aufgelöst über dieselbe extensionSectionComponents-
-   *  Registry wie custom-Panels; die registrierte Komponente ignoriert
-   *  typischerweise entityName/entityId/filterParams (kein Entity-Kontext
-   *  für ein reines Icon). */
-  readonly icon?: PlatformComponent;
-  /** Statischer CSS-Farbwert (z.B. "var(--color-debt)") für den Icon-Chip —
-   *  Passthrough an die Kachel, keine Registry, kein Lookup. Wirkt NUR wenn
-   *  `icon` gesetzt ist (StatCard rendert den Chip nur zusammen mit einem
-   *  Icon) — ohne icon wird der Wert still verworfen. */
-  readonly accentColor?: string;
-};
+// `visibleWhen` only on a top-level stat; the boot validator rejects it on a
+// stat-group child (gate the whole group instead).
+export type DashboardStatPanel = DashboardPanelQueryOptions &
+  DashboardPanelGate & {
+    readonly kind: "stat";
+    /** Stable id: kebab-case, unique within the panel set. */
+    readonly id: string;
+    /** Anzeige-Text (i18n-Key). */
+    readonly label: string;
+    readonly query: string;
+    readonly valueField: string;
+    readonly subField?: string;
+    readonly toneField?: string;
+    /** Formats a numeric value as currency (minor units); ignored for string values. The sparkline is not formatted. */
+    readonly valueFormat?: DashboardValueFormat;
+    /** Fixed tone when `toneField` is unset or yields none; not applied while the value is 0. */
+    readonly tone?: "default" | "positive" | "warn" | "negative";
+    /** Record field holding `{ atMs, value | null }[]` (MetricResult.points),
+     *  drawn as a sparkline next to the value. */
+    readonly sparklineField?: string;
+    /** Optionaler Delta-Chip (z.B. "↓23 %") neben dem Label. Nur wenn BEIDE
+     *  Felder gesetzt sind UND der Query-Handler sie liefert, rendert der Chip
+     *  — sonst bleibt die Kachel wie ohne Delta. `deltaToneField` fällt auf
+     *  `toneField`/"default" zurück, wenn ungesetzt. */
+    readonly deltaField?: string;
+    readonly deltaDirectionField?: string;
+    readonly deltaToneField?: string;
+    /** Statisches Icon neben dem Label — anders als value/sub/delta variiert
+     *  das Icon nicht pro Query-Result, sondern ist eine Author-Entscheidung
+     *  wie das Panel selbst. Aufgelöst über dieselbe extensionSectionComponents-
+     *  Registry wie custom-Panels; die registrierte Komponente ignoriert
+     *  typischerweise entityName/entityId/filterParams (kein Entity-Kontext
+     *  für ein reines Icon). */
+    readonly icon?: PlatformComponent;
+    /** Statischer CSS-Farbwert (z.B. "var(--color-debt)") für den Icon-Chip —
+     *  Passthrough an die Kachel, keine Registry, kein Lookup. Wirkt NUR wenn
+     *  `icon` gesetzt ist (StatCard rendert den Chip nur zusammen mit einem
+     *  Icon) — ohne icon wird der Wert still verworfen. */
+    readonly accentColor?: string;
+  };
 
 export type DashboardChartKind = "timeseries" | "stacked-bars" | "segment-bars" | "stacked-area";
 export type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
+
+/** Look of the markers whose `kind` matches: a dashed guide line through the
+ *  plot plus a colored pin. `color` (raw CSS color) wins over `tone`. */
+export type DashboardChartMarkerKind = {
+  readonly tone?: DashboardChartTone;
+  readonly color?: string;
+};
+
+/** One option of a stacked-area range switch. Without `months` the option
+ *  shows every bucket; with it, a window of that many months anchored at
+ *  `todayMs` (or the last bucket). `label` is an i18n key. */
+export type DashboardChartRangeOption = {
+  readonly value: string;
+  readonly label: string;
+  readonly months?: number;
+};
+
+export type DashboardChartRanges = {
+  readonly options: readonly DashboardChartRangeOption[];
+  readonly default: string;
+};
 
 // Query result contracts (field names like MetricResult); series/segment/row
 // labels go through t():
@@ -972,11 +1004,16 @@ export type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
 //                   as a single series (plain bar chart).
 //   segment-bars  { rows: { key, label, value, segments: { key, label, value }[] }[] }
 //                   — one horizontally stacked bar per row.
-//   stacked-area  { series, windowStartMs, windowEndMs, todayMs?, markers? } —
+//   stacked-area  { series, windowStartMs, windowEndMs, todayMs?,
+//                   markers?: { atMs, label: DashboardText, kind? }[],
+//                   lines?: { key, label, points, dashed? }[] } —
 //                   stacked bands; right of `todayMs` is the forecast
-//                   (lighter fill) with a vertical "today" line.
+//                   (lighter fill) with a vertical "today" line. `lines` are
+//                   drawn unstacked on the same y scale over the bands
+//                   (value=null leaves a gap).
 export type DashboardChartPanel = DashboardPanelQueryOptions &
-  DashboardPanelEmptyState & {
+  DashboardPanelEmptyState &
+  DashboardPanelGate & {
     readonly kind: "chart";
     readonly id: string;
     readonly label: string;
@@ -984,19 +1021,30 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     readonly query: string;
     /** i18n key under the title, e.g. "7 days, by creation day". */
     readonly subtitle?: string;
-    /** Series/segment key -> tone; unmapped keys fall back to a palette. */
+    /** Series/segment/line key -> tone; unmapped keys fall back to a palette. */
     readonly seriesTones?: Readonly<Record<string, DashboardChartTone>>;
+    /** Series/segment/line key -> raw CSS color (e.g. "var(--color-debt)"); wins over `seriesTones`. */
+    readonly seriesColors?: Readonly<Record<string, string>>;
     /** Formats values as currency (minor units): y ticks, legend totals and tooltips on
      *  stacked-bars/segment-bars/stacked-area, only the y ticks on timeseries. */
     readonly valueFormat?: DashboardValueFormat;
     /** Only for chart "stacked-area": fixed width per bucket, plot scrolls horizontally. */
     readonly scrollable?: boolean;
+    /** Only for chart "stacked-area": marker `kind` -> look. Markers without a
+     *  declared kind keep the neutral numbered pin. */
+    readonly markerKinds?: Readonly<Record<string, DashboardChartMarkerKind>>;
+    /** Only for chart "stacked-area": false hides the per-series sums in the
+     *  legend (they mean nothing for balances). Default true. */
+    readonly legendTotals?: boolean;
+    /** Only for chart "stacked-area": range switch in the panel header. */
+    readonly ranges?: DashboardChartRanges;
   };
 
 // Kurzliste im Dashboard — Query-Contract wie projectionList
 // (`{ rows, nextCursor, total? }`), gerendert ohne Pager/Toolbar.
 export type DashboardListPanel = DashboardPanelQueryOptions &
-  DashboardPanelEmptyState & {
+  DashboardPanelEmptyState &
+  DashboardPanelGate & {
     readonly kind: "list";
     readonly id: string;
     readonly label: string;
@@ -1008,17 +1056,21 @@ export type DashboardListPanel = DashboardPanelQueryOptions &
 // nesting level, no group-of-groups: each child stays a full
 // DashboardStatPanel with its own query/id/label. With `label` it sits under a
 // section title; without `label` it renders as a flat KPI strip (dividers, no card).
-export type DashboardStatGroupPanel = {
+// The gate query of a group always receives the screen filter.
+export type DashboardStatGroupPanel = DashboardPanelGate & {
   readonly kind: "stat-group";
   readonly id: string;
   readonly label?: string;
+  /** i18n key, a line under `label`; the boot validator requires `label`. */
+  readonly subtitle?: string;
   readonly stats: readonly DashboardStatPanel[];
 };
 
 // Nicht-tabellarische Kurzliste (z.B. "nächste Termine"). Query-Result-
 // Contract: `{ rows: { primary: DashboardText; trailing?: DashboardText }[] }`.
 export type DashboardFeedPanel = DashboardPanelQueryOptions &
-  DashboardPanelEmptyState & {
+  DashboardPanelEmptyState &
+  DashboardPanelGate & {
     readonly kind: "feed";
     readonly id: string;
     readonly label: string;
@@ -1027,9 +1079,11 @@ export type DashboardFeedPanel = DashboardPanelQueryOptions &
 
 // Liste aus Label/Wert/Fortschrittsbalken (z.B. Tilgungsfortschritt pro
 // Kredit). Query-Result-Contract: `{ rows: { label: DashboardText; value: DashboardText;
-// fraction: number }[] }` — fraction wird auf 0..1 geclampt.
+// fraction: number; sub?: DashboardText }[] }` — fraction wird auf 0..1 geclampt,
+// `sub` ist eine kleine Zeile unter dem Balken (z.B. "42 % getilgt").
 export type DashboardProgressListPanel = DashboardPanelQueryOptions &
-  DashboardPanelEmptyState & {
+  DashboardPanelEmptyState &
+  DashboardPanelGate & {
     readonly kind: "progress-list";
     readonly id: string;
     readonly label: string;

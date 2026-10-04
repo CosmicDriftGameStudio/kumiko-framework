@@ -318,18 +318,19 @@ function checkDashboardOutputFields(
   screen: DashboardScreenDefinition,
 ): void {
   for (const panel of screen.panels) {
+    if (panel.kind !== "custom") {
+      checkVisibleWhenField(
+        queryHandlers,
+        panel.visibleWhen,
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) ${panel.kind === "screen" ? "screen-panel" : "panel"} "${panel.id}"`,
+      );
+    }
     if (panel.kind === "stat") {
       checkDashboardStatPanelFields(queryHandlers, featureName, screenId, panel);
     } else if (panel.kind === "stat-group") {
       for (const stat of panel.stats) {
         checkDashboardStatPanelFields(queryHandlers, featureName, screenId, stat);
       }
-    } else if (panel.kind === "screen") {
-      checkVisibleWhenField(
-        queryHandlers,
-        panel.visibleWhen,
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) screen-panel "${panel.id}"`,
-      );
     } else if (panel.kind === "list") {
       const rowShape = resolveListRowShape(
         queryHandlers,

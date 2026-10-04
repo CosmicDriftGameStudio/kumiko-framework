@@ -35,10 +35,14 @@ import { metricField } from "../types/index.js";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
+  DashboardChartMarkerKind,
   DashboardChartPanel,
+  DashboardChartRanges,
+  DashboardChartTone,
   DashboardCustomPanel,
   DashboardFilterDefinition,
   DashboardPanelDefinition,
+  DashboardPanelVisibility,
   DashboardScreenDefinition,
   DashboardScreenPanel,
   DashboardStatGroupPanel,
@@ -2799,7 +2803,13 @@ export function validateDashboardScreenPanel(
         `with cancelTarget: false (or omitted).`,
     );
   }
-  const visibleWhen = panel.visibleWhen;
+  validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
+}
+
+function validateDashboardPanelVisibleWhen(
+  context: string,
+  visibleWhen: DashboardPanelVisibility | undefined,
+): void {
   if (visibleWhen !== undefined && (visibleWhen.query === "" || visibleWhen.field === "")) {
     throw new Error(`${context} visibleWhen needs a non-empty query and field.`);
   }
@@ -2811,13 +2821,23 @@ function validateDashboardStatGroupPanel(
   panel: DashboardStatGroupPanel,
   addPanelId: (id: string, context: string) => void,
 ): void {
+  const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}"`;
   if (panel.stats.length === 0) {
+    throw new Error(`${context} has an empty stats list.`);
+  }
+  if (panel.subtitle !== undefined && panel.label === undefined) {
     throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" has an empty stats list.`,
+      `${context} sets subtitle without label — an unlabeled group renders as a KPI strip without a header.`,
     );
   }
+  validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
   for (const stat of panel.stats) {
     addPanelId(stat.id, "stat-group child");
+    if (stat.visibleWhen !== undefined) {
+      throw new Error(
+        `${context} child "${stat.id}" sets visibleWhen — gate the whole group instead; a hidden cell would leave a gap in the strip.`,
+      );
+    }
     if (!stat.query || typeof stat.query !== "string") {
       throw new Error(
         `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" child "${stat.id}" has empty or non-string query.`,
@@ -2845,6 +2865,75 @@ function validateDashboardChartDisplay(
   if (panel.scrollable === true && panel.chart !== "stacked-area") {
     throw new Error(
       `${where} sets scrollable on chart "${panel.chart}" — only "stacked-area" supports it.`,
+    );
+  }
+  if (panel.chart !== "stacked-area") {
+    const stackedAreaOnly = (["markerKinds", "legendTotals", "ranges"] as const).filter(
+      (prop) => panel[prop] !== undefined,
+    );
+    if (stackedAreaOnly.length > 0) {
+      throw new Error(
+        `${where} sets ${stackedAreaOnly.join(", ")} on chart "${panel.chart}" — only "stacked-area" supports it.`,
+      );
+    }
+  }
+  if (panel.legendTotals !== undefined && typeof panel.legendTotals !== "boolean") {
+    throw new Error(`${where} has a non-boolean legendTotals.`);
+  }
+  for (const [key, color] of Object.entries(panel.seriesColors ?? {})) {
+    if (typeof color !== "string" || color.trim() === "") {
+      throw new Error(`${where} seriesColors["${key}"] must be a non-empty CSS color.`);
+    }
+  }
+  for (const [kind, look] of Object.entries(panel.markerKinds ?? {})) {
+    validateDashboardChartMarkerKind(`${where} markerKinds["${kind}"]`, look);
+  }
+  if (panel.ranges !== undefined) validateDashboardChartRanges(`${where} ranges`, panel.ranges);
+}
+
+const DASHBOARD_CHART_TONES: ReadonlySet<string> = new Set([
+  "positive",
+  "negative",
+  "active",
+  "neutral",
+] satisfies DashboardChartTone[]);
+
+function validateDashboardChartMarkerKind(where: string, look: DashboardChartMarkerKind): void {
+  if (look.tone === undefined && look.color === undefined) {
+    throw new Error(`${where} needs a tone or a color.`);
+  }
+  if (look.tone !== undefined && !DASHBOARD_CHART_TONES.has(look.tone)) {
+    throw new Error(
+      `${where}.tone "${String(look.tone)}" is not one of ${[...DASHBOARD_CHART_TONES].join(", ")}.`,
+    );
+  }
+  if (look.color !== undefined && (typeof look.color !== "string" || look.color.trim() === "")) {
+    throw new Error(`${where}.color must be a non-empty CSS color.`);
+  }
+}
+
+function validateDashboardChartRanges(where: string, ranges: DashboardChartRanges): void {
+  if (ranges.options.length === 0) {
+    throw new Error(`${where}.options is empty — declare at least one option.`);
+  }
+  const values = new Set<string>();
+  for (const option of ranges.options) {
+    if (option.value.length === 0 || option.label.length === 0) {
+      throw new Error(`${where} option needs a non-empty value and label.`);
+    }
+    if (values.has(option.value)) {
+      throw new Error(`${where}.options has duplicate value "${option.value}".`);
+    }
+    if (option.months !== undefined && (!Number.isInteger(option.months) || option.months <= 0)) {
+      throw new Error(
+        `${where} option "${option.value}" months "${String(option.months)}" must be a positive integer.`,
+      );
+    }
+    values.add(option.value);
+  }
+  if (!values.has(ranges.default)) {
+    throw new Error(
+      `${where}.default "${ranges.default}" is not among the options (${[...values].join(", ")}).`,
     );
   }
 }
@@ -2922,6 +3011,10 @@ function validateDashboardQueryPanel(
     }
     validateDashboardValueFormat(featureName, screenId, panel.id, panel.valueFormat);
   }
+  validateDashboardPanelVisibleWhen(
+    `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}"`,
+    panel.visibleWhen,
+  );
   if (panel.kind === "chart") validateDashboardChartDisplay(featureName, screenId, panel);
   if (panel.kind === "list") {
     if (panel.columns.length === 0) {

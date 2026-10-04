@@ -43,7 +43,9 @@
 // on its own (skeleton / empty / error with retry).
 
 import type {
+  DashboardChartMarkerKind,
   DashboardChartPanel,
+  DashboardChartRanges,
   DashboardCustomPanel,
   DashboardDateParam,
   DashboardFeedPanel,
@@ -86,8 +88,10 @@ import { PageSection } from "../primitives/layout.js";
 import { formatMoney } from "../primitives/money-input.js";
 import { Skeleton } from "../ui/skeleton.js";
 import {
+  type ChartLine,
   type ChartMarker,
   type ChartSeries,
+  chartToneColor,
   SegmentBarChart,
   type SegmentBarRow,
   StackedAreaChart,
@@ -255,11 +259,13 @@ function PanelShell({
   testId,
   title,
   subtitle,
+  action,
   children,
 }: {
   readonly testId: string;
   readonly title: string;
   readonly subtitle?: string;
+  readonly action?: ReactNode;
   readonly children: ReactNode;
 }): ReactNode {
   return (
@@ -272,6 +278,7 @@ function PanelShell({
         {subtitle !== undefined && (
           <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
         )}
+        {action !== undefined && <div className="ml-auto shrink-0">{action}</div>}
       </header>
       <div className="grow p-4">{children}</div>
     </section>
@@ -342,6 +349,7 @@ type QueryPanelProps<TData> = {
     DashboardPanelEmptyState & { readonly id: string; readonly query: string };
   readonly label: string;
   readonly subtitle?: string;
+  readonly action?: ReactNode;
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
   readonly skeleton: SkeletonShape;
@@ -353,6 +361,7 @@ function QueryPanel<TData>({
   panel,
   label,
   subtitle,
+  action,
   screenParams,
   translate,
   skeleton,
@@ -380,7 +389,12 @@ function QueryPanel<TData>({
     body = children(data);
   }
   return (
-    <PanelShell testId={`dashboard-panel-${panel.id}`} title={label} subtitle={subtitle}>
+    <PanelShell
+      testId={`dashboard-panel-${panel.id}`}
+      title={label}
+      subtitle={subtitle}
+      action={action}
+    >
       {body}
     </PanelShell>
   );
@@ -473,13 +487,24 @@ function StatPanelBody({
   const spark = readSparkline(panel, record);
   const testId = `dashboard-panel-${panel.id}`;
   const subText = resolveDashboardText(sub, translate, formats) ?? fallbackText(sub, undefined);
+  const icon =
+    Icon !== undefined ? (
+      <Icon
+        entityName={screenId}
+        entityId={null}
+        screenId={screenId}
+        filterParams={screenParams.filterParams}
+      />
+    ) : undefined;
 
   if (variant === "strip") {
     return (
       <StatStripCell
+        icon={icon}
         label={label}
         value={value}
         tone={tone ?? "default"}
+        {...(Icon !== undefined && { accentColor: panel.accentColor })}
         {...(subText !== undefined && { sub: subText })}
         {...(delta !== undefined && { delta })}
         {...(spark !== undefined && { spark })}
@@ -489,16 +514,7 @@ function StatPanelBody({
   }
   return (
     <StatCard
-      icon={
-        Icon !== undefined ? (
-          <Icon
-            entityName={screenId}
-            entityId={null}
-            screenId={screenId}
-            filterParams={screenParams.filterParams}
-          />
-        ) : undefined
-      }
+      icon={icon}
       label={label}
       value={value}
       tone={tone ?? "default"}
@@ -561,7 +577,11 @@ function StatGroupPanelBody({
     );
   }
   return (
-    <SectionCard title={label} testId={testId}>
+    <SectionCard
+      title={label}
+      {...(panel.subtitle !== undefined && { subtitle: translate(panel.subtitle) })}
+      testId={testId}
+    >
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {panel.stats.map((stat) => (
           <StatPanelBody
@@ -579,17 +599,29 @@ function StatGroupPanelBody({
   );
 }
 
-type MarkerEnvelope = { readonly atMs: number; readonly label: unknown };
+type MarkerEnvelope = { readonly atMs: number; readonly label: unknown; readonly kind?: unknown };
+
+function markerKindColor(kind: DashboardChartMarkerKind | undefined): string | undefined {
+  if (kind === undefined) return undefined;
+  if (kind.color !== undefined) return kind.color;
+  return kind.tone !== undefined ? chartToneColor(kind.tone) : undefined;
+}
 
 function resolveMarkers(
   markers: readonly MarkerEnvelope[] | undefined,
   translate: Translate,
   formats: DashboardFormats,
+  markerKinds?: Readonly<Record<string, DashboardChartMarkerKind>>,
 ): readonly ChartMarker[] | undefined {
-  return markers?.map((marker) => ({
-    atMs: marker.atMs,
-    label: resolveDashboardText(marker.label, translate, formats) ?? "",
-  }));
+  return markers?.map((marker) => {
+    const color =
+      typeof marker.kind === "string" ? markerKindColor(markerKinds?.[marker.kind]) : undefined;
+    return {
+      atMs: marker.atMs,
+      label: resolveDashboardText(marker.label, translate, formats) ?? "",
+      ...(color !== undefined && { color }),
+    };
+  });
 }
 
 type SeriesEnvelope = {
@@ -597,6 +629,8 @@ type SeriesEnvelope = {
   readonly label: string;
   readonly points: readonly TimeseriesPoint[];
 };
+
+type LineEnvelope = SeriesEnvelope & { readonly dashed?: boolean };
 
 type ChartEnvelope = {
   readonly points?: readonly TimeseriesPoint[];
@@ -606,7 +640,42 @@ type ChartEnvelope = {
   readonly windowEndMs?: number | null;
   readonly todayMs?: number | null;
   readonly markers?: readonly MarkerEnvelope[];
+  readonly lines?: readonly LineEnvelope[];
 };
+
+function addUtcMonths(atMs: number, months: number): number {
+  const date = new Date(atMs);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  return date.getTime();
+}
+
+type ChartWindow = { readonly startMs: number; readonly endMs: number };
+
+// Same window as a "1/3/5 years" switch over a plan: `months` ahead of today,
+// pulled back when the data ends earlier, never before the first bucket.
+function rangeWindow(
+  months: number,
+  anchorMs: number,
+  firstMs: number,
+  lastMs: number,
+): ChartWindow {
+  const endMs = Math.min(lastMs, addUtcMonths(anchorMs, months));
+  return { startMs: Math.max(firstMs, addUtcMonths(endMs, -months)), endMs };
+}
+
+function pointsWithin<T extends { readonly atMs: number }>(
+  points: readonly T[],
+  window: ChartWindow,
+): readonly T[] {
+  return points.filter((p) => p.atMs >= window.startMs && p.atMs <= window.endMs);
+}
+
+function selectedRangeMonths(
+  ranges: DashboardChartRanges | undefined,
+  selected: string | undefined,
+): number | undefined {
+  return ranges?.options.find((option) => option.value === selected)?.months;
+}
 
 // A plain bar chart ("changes per day") ships `points` without `series`.
 const SINGLE_SERIES_KEY = "value";
@@ -666,12 +735,30 @@ function ChartPanelBody({
   const t = useTranslation();
   const todayLabel = t("kumiko.dashboard.today");
   const tones = panel.seriesTones;
+  const colors = panel.seriesColors;
   const testId = `dashboard-chart-${panel.id}`;
+  const ranges = panel.chart === "stacked-area" ? panel.ranges : undefined;
+  const [selectedRange, setSelectedRange] = useState(ranges?.default);
+  const rangeSwitch =
+    ranges !== undefined && selectedRange !== undefined ? (
+      <ModeSwitch
+        value={selectedRange}
+        options={ranges.options.map((option) => ({
+          value: option.value,
+          label: translate(option.label),
+        }))}
+        onChange={setSelectedRange}
+        ariaLabel={label}
+        variant="pill"
+        testId={`dashboard-chart-range-${panel.id}`}
+      />
+    ) : undefined;
   return (
     <QueryPanel<ChartEnvelope>
       panel={panel}
       label={label}
       subtitle={panel.subtitle !== undefined ? translate(panel.subtitle) : undefined}
+      action={rangeSwitch}
       screenParams={screenParams}
       translate={translate}
       skeleton={panel.chart === "segment-bars" ? "segments" : "bars"}
@@ -680,7 +767,7 @@ function ChartPanelBody({
       {(data) => {
         const series = chartSeries(data, label, translate);
         const { startMs, endMs } = windowOf(data, series);
-        const markers = resolveMarkers(data.markers, translate, formats);
+        const markers = resolveMarkers(data.markers, translate, formats, panel.markerKinds);
         const formatValue = formats.formatPanelValue(panel.valueFormat);
         if (panel.chart === "segment-bars") {
           return (
@@ -691,6 +778,7 @@ function ChartPanelBody({
                 segments: row.segments.map((seg) => ({ ...seg, label: translate(seg.label) })),
               }))}
               tones={tones}
+              colors={colors}
               ariaLabel={label}
               formatValue={formatValue}
               testId={testId}
@@ -713,6 +801,7 @@ function ChartPanelBody({
               series={series}
               windowEndMs={endMs}
               tones={tones}
+              colors={colors}
               ariaLabel={label}
               todayLabel={todayLabel}
               formatBucketLabel={
@@ -724,21 +813,53 @@ function ChartPanelBody({
           );
         }
         if (panel.chart === "stacked-area") {
+          const lines: readonly ChartLine[] = (data.lines ?? []).map((line) => ({
+            ...line,
+            label: translate(line.label),
+          }));
+          const todayMs = data.todayMs ?? undefined;
+          const months = selectedRangeMonths(ranges, selectedRange);
+          const bucketTimes = series.flatMap((s) => s.points.map((p) => p.atMs));
+          const window =
+            months === undefined || bucketTimes.length === 0
+              ? { startMs, endMs }
+              : rangeWindow(
+                  months,
+                  todayMs ?? Math.max(...bucketTimes),
+                  Math.min(...bucketTimes),
+                  Math.max(...bucketTimes),
+                );
+          const isWindowed = months !== undefined;
           return (
             <StackedAreaChart
-              series={series}
-              windowStartMs={startMs}
-              windowEndMs={endMs}
-              {...(data.todayMs !== undefined &&
-                data.todayMs !== null && { todayMs: data.todayMs })}
+              series={
+                isWindowed
+                  ? series.map((s) => ({ ...s, points: pointsWithin(s.points, window) }))
+                  : series
+              }
+              lines={
+                isWindowed
+                  ? lines.map((line) => ({ ...line, points: pointsWithin(line.points, window) }))
+                  : lines
+              }
+              windowStartMs={window.startMs}
+              windowEndMs={window.endMs}
+              {...(todayMs !== undefined && { todayMs })}
               tones={tones}
-              markers={markers}
+              colors={colors}
+              markers={
+                isWindowed && markers !== undefined ? pointsWithin(markers, window) : markers
+              }
               ariaLabel={label}
               todayLabel={todayLabel}
               formatBucketLabel={formats.formatDay}
               formatValue={formatValue}
               formatMarkerTime={formats.formatDay}
               scrollable={panel.scrollable === true}
+              showLegendTotals={panel.legendTotals !== false}
+              emptyContent={
+                <EmptyState title={translate(panel.emptyLabel ?? "kumiko.list.no-entries")} />
+              }
               testId={testId}
             />
           );
@@ -855,6 +976,7 @@ type ProgressListEnvelope = {
     readonly label: unknown;
     readonly value: unknown;
     readonly fraction: number;
+    readonly sub?: unknown;
   }[];
 };
 
@@ -880,12 +1002,16 @@ function ProgressListPanelBody({
       isEmpty={(data) => (data.rows ?? []).length === 0}
     >
       {(data) => {
-        const rows: readonly ProgressListRow[] = (data.rows ?? []).map((row, i) => ({
-          id: String(i),
-          label: resolveDashboardText(row.label, translate, formats) ?? "—",
-          value: resolveDashboardText(row.value, translate, formats) ?? "—",
-          fraction: row.fraction,
-        }));
+        const rows: readonly ProgressListRow[] = (data.rows ?? []).map((row, i) => {
+          const sub = resolveDashboardText(row.sub, translate, formats);
+          return {
+            id: String(i),
+            label: resolveDashboardText(row.label, translate, formats) ?? "—",
+            value: resolveDashboardText(row.value, translate, formats) ?? "—",
+            fraction: row.fraction,
+            ...(sub !== undefined && { sub }),
+          };
+        });
         return <ProgressList rows={rows} />;
       }}
     </QueryPanel>
@@ -1099,48 +1225,114 @@ type VisibilityQueryResults = ReadonlyMap<
 
 const VisibilityQueryContext = createContext<VisibilityQueryResults>(new Map());
 
-// One live query per distinct `visibleWhen.query`, shared by every panel that
-// gates on it — N panels on the same status query would otherwise each open
-// their own request, SSE subscription and refetch per event.
+type VisibilityGate = {
+  readonly key: string;
+  readonly query: string;
+  readonly payload: Readonly<Record<string, unknown>>;
+};
+
+const NO_GATE_PAYLOAD: Readonly<Record<string, unknown>> = {};
+
+function visibilityGate(query: string, payload: Readonly<Record<string, unknown>>): VisibilityGate {
+  return { key: `${query}|${JSON.stringify(payload)}`, query, payload };
+}
+
+// Embedded screens carry no screen filter; in-grid panels pass the filter
+// (unless ignoreScreenFilter, never for a stat-group) and the time range.
+function panelVisibilityGate(
+  panel: DashboardPanelDefinition,
+  screenParams: ScreenParams,
+): VisibilityGate | undefined {
+  if (panel.kind === "custom" || panel.visibleWhen === undefined) return undefined;
+  if (panel.kind === "screen") return visibilityGate(panel.visibleWhen.query, NO_GATE_PAYLOAD);
+  const dropsFilter = panel.kind !== "stat-group" && panel.ignoreScreenFilter === true;
+  return visibilityGate(panel.visibleWhen.query, {
+    ...(dropsFilter ? {} : screenParams.filterParams),
+    ...screenParams.rangeParams,
+  });
+}
+
+// One live query per distinct gate (query + payload), shared by every panel
+// that gates on it — N panels on the same status query would otherwise each
+// open their own request, SSE subscription and refetch per event.
 function VisibilityQueryScope({
-  query,
+  gate,
   children,
 }: {
-  readonly query: string;
+  readonly gate: VisibilityGate;
   readonly children: ReactNode;
 }): ReactNode {
   const parent = useContext(VisibilityQueryContext);
-  const result = useQuery<Readonly<Record<string, unknown>>>(query, {}, { live: true });
-  const value = useMemo(() => new Map(parent).set(query, result), [parent, query, result]);
+  const result = useQuery<Readonly<Record<string, unknown>>>(gate.query, gate.payload, {
+    live: true,
+  });
+  const value = useMemo(() => new Map(parent).set(gate.key, result), [parent, gate.key, result]);
   return (
     <VisibilityQueryContext.Provider value={value}>{children}</VisibilityQueryContext.Provider>
   );
 }
 
 function VisibilityQueryScopes({
-  queries,
+  gates,
   children,
 }: {
-  readonly queries: readonly string[];
+  readonly gates: readonly VisibilityGate[];
   readonly children: ReactNode;
 }): ReactNode {
-  const [first, ...rest] = queries;
+  const [first, ...rest] = gates;
   if (first === undefined) return children;
   return (
-    <VisibilityQueryScope query={first}>
-      <VisibilityQueryScopes queries={rest}>{children}</VisibilityQueryScopes>
+    <VisibilityQueryScope gate={first}>
+      <VisibilityQueryScopes gates={rest}>{children}</VisibilityQueryScopes>
     </VisibilityQueryScope>
   );
 }
 
-function distinctVisibilityQueries(panels: readonly DashboardPanelDefinition[]): string[] {
-  const queries = new Set<string>();
+function distinctVisibilityGates(
+  panels: readonly DashboardPanelDefinition[],
+  screenParams: ScreenParams,
+): VisibilityGate[] {
+  const gates = new Map<string, VisibilityGate>();
   for (const panel of panels) {
-    if (panel.kind === "screen" && panel.visibleWhen !== undefined) {
-      queries.add(panel.visibleWhen.query);
-    }
+    const gate = panelVisibilityGate(panel, screenParams);
+    if (gate !== undefined) gates.set(gate.key, gate);
   }
-  return [...queries];
+  return [...gates.values()];
+}
+
+function GatedGridCell({
+  panel,
+  screenParams,
+  label,
+  className,
+  children,
+}: {
+  readonly panel: Exclude<DashboardPanelDefinition, DashboardScreenPanel>;
+  readonly screenParams: ScreenParams;
+  readonly label: string;
+  readonly className: string | undefined;
+  readonly children: ReactNode;
+}): ReactNode {
+  const gate = panelVisibilityGate(panel, screenParams);
+  const visibility = useContext(VisibilityQueryContext).get(gate?.key ?? "");
+  const visibleWhen = panel.kind === "custom" ? undefined : panel.visibleWhen;
+  if (visibleWhen !== undefined) {
+    const verdict = evalVisibleWhen(visibleWhen, visibility);
+    if (verdict === "error" && visibility?.error) {
+      return (
+        <div className={className} data-testid={`dashboard-panel-${panel.id}`}>
+          <PanelError
+            label={label}
+            error={visibility.error}
+            onRetry={() => void visibility.refetch()}
+          />
+        </div>
+      );
+    }
+    // Loading renders nothing too: a skeleton that then vanishes flickers.
+    if (verdict !== "visible") return null;
+  }
+  return <div className={className}>{children}</div>;
 }
 
 function ScreenPanelTile({
@@ -1153,7 +1345,9 @@ function ScreenPanelTile({
   readonly translate: Translate;
 }): ReactNode {
   const visibleWhen = panel.visibleWhen;
-  const visibility = useContext(VisibilityQueryContext).get(visibleWhen?.query ?? "");
+  const visibility = useContext(VisibilityQueryContext).get(
+    visibleWhen !== undefined ? visibilityGate(visibleWhen.query, NO_GATE_PAYLOAD).key : "",
+  );
   const target = useEmbeddedScreen(featureName, panel.screen);
   if (target === undefined) return null;
   if (visibleWhen !== undefined) {
@@ -1221,7 +1415,7 @@ export function WebDashboardBody({
   const { params: rangeParams, control: rangeControl } = useTimeRange(screen, effectiveTranslate);
   const screenParams: ScreenParams = { filterParams, rangeParams };
   const loadedAtMs = useLoadedAt(screenParams);
-  const visibilityQueries = distinctVisibilityQueries(screen.panels);
+  const visibilityGates = distinctVisibilityGates(screen.panels, screenParams);
   const scope = screen.scope;
   // A raw description is agent-facing prose; only an i18n key is user-facing copy.
   const translatedDescription =
@@ -1266,7 +1460,7 @@ export function WebDashboardBody({
           {effectiveTranslate(scope.notice)}
         </Banner>
       )}
-      <VisibilityQueryScopes queries={visibilityQueries}>
+      <VisibilityQueryScopes gates={visibilityGates}>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {screen.panels.map((panel) => {
             if (panel.kind === "screen") {
@@ -1284,7 +1478,13 @@ export function WebDashboardBody({
                 ? undefined
                 : effectiveTranslate(panel.label);
             return (
-              <div key={panel.id} className={panelSpanClassName(panel)}>
+              <GatedGridCell
+                key={panel.id}
+                panel={panel}
+                screenParams={screenParams}
+                label={label ?? panel.id}
+                className={panelSpanClassName(panel)}
+              >
                 <PanelBody
                   panel={panel}
                   label={label}
@@ -1292,7 +1492,7 @@ export function WebDashboardBody({
                   screenParams={screenParams}
                   translate={effectiveTranslate}
                 />
-              </div>
+              </GatedGridCell>
             );
           })}
         </div>

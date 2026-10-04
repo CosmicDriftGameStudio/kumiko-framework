@@ -473,6 +473,10 @@ const CHART_TONE_VAR: Record<ChartTone, string> = {
   neutral: "var(--color-status-neutral)",
 };
 
+export function chartToneColor(tone: ChartTone): string {
+  return CHART_TONE_VAR[tone];
+}
+
 const CHART_FALLBACK_TONES: readonly ChartTone[] = ["active", "positive", "negative", "neutral"];
 
 export type ChartSeries = {
@@ -482,7 +486,15 @@ export type ChartSeries = {
   readonly points: readonly TimeseriesPoint[];
 };
 
-export type ChartMarker = { readonly atMs: number; readonly label: string };
+export type ChartMarker = {
+  readonly atMs: number;
+  readonly label: string;
+  /** Colors the pin and, on StackedAreaChart, draws a dashed guide line in the plot. */
+  readonly color?: string;
+};
+
+/** Unstacked line drawn over a StackedAreaChart on the same y scale. */
+export type ChartLine = ChartSeries & { readonly dashed?: boolean };
 
 export type SegmentBarRow = {
   readonly key: string;
@@ -496,8 +508,17 @@ export type SegmentBarRow = {
 };
 
 type ToneMap = Readonly<Record<string, ChartTone>>;
+/** Key -> raw CSS color; wins over the tone map. */
+type ColorMap = Readonly<Record<string, string>>;
 
-function chartColor(key: string, index: number, tones: ToneMap | undefined): string {
+function chartColor(
+  key: string,
+  index: number,
+  tones: ToneMap | undefined,
+  colors?: ColorMap,
+): string {
+  const color = colors?.[key];
+  if (color !== undefined) return color;
   const tone =
     tones?.[key] ?? CHART_FALLBACK_TONES[index % CHART_FALLBACK_TONES.length] ?? "active";
   return CHART_TONE_VAR[tone];
@@ -529,6 +550,26 @@ function valueAt(series: ChartSeries, atMs: number): number {
   return series.points.find((p) => p.atMs === atMs)?.value ?? 0;
 }
 
+function linePathSegments(
+  line: ChartSeries,
+  xOf: (atMs: number) => number,
+  yOf: (value: number) => number,
+): string {
+  const commands: string[] = [];
+  let penDown = false;
+  for (const point of [...line.points].sort((a, b) => a.atMs - b.atMs)) {
+    if (point.value === null) {
+      penDown = false;
+      continue;
+    }
+    commands.push(
+      `${penDown ? "L" : "M"} ${xOf(point.atMs).toFixed(1)} ${yOf(point.value).toFixed(1)}`,
+    );
+    penDown = true;
+  }
+  return commands.join(" ");
+}
+
 function seriesTotal(series: ChartSeries): number {
   return series.points.reduce((sum, p) => sum + (p.value ?? 0), 0);
 }
@@ -545,7 +586,9 @@ function ChartLegend({
     readonly key: string;
     readonly label: string;
     readonly color: string;
-    readonly total: number;
+    /** Omitted: no sum next to the label. */
+    readonly total?: number;
+    readonly swatch?: "area" | "line" | "dashed-line";
   }[];
   readonly formatValue: (value: number) => string;
 }): ReactNode {
@@ -557,13 +600,26 @@ function ChartLegend({
           data-testid={`chart-legend-${item.key}`}
           className="flex items-center gap-1.5"
         >
-          <span
-            aria-hidden="true"
-            className="size-2 rounded-[2px]"
-            style={{ backgroundColor: item.color }}
-          />
+          {item.swatch === undefined || item.swatch === "area" ? (
+            <span
+              aria-hidden="true"
+              className="size-2 rounded-[2px]"
+              style={{ backgroundColor: item.color }}
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="w-3 border-t-2"
+              style={{
+                borderColor: item.color,
+                borderTopStyle: item.swatch === "dashed-line" ? "dashed" : "solid",
+              }}
+            />
+          )}
           <span>{item.label}</span>
-          <span className="tabular-nums text-foreground">{formatValue(item.total)}</span>
+          {item.total !== undefined && (
+            <span className="tabular-nums text-foreground">{formatValue(item.total)}</span>
+          )}
         </li>
       ))}
     </ul>
@@ -604,6 +660,7 @@ export function StackedBarChart({
   series,
   windowEndMs,
   tones,
+  colors,
   ariaLabel,
   todayLabel,
   formatBucketLabel,
@@ -614,6 +671,7 @@ export function StackedBarChart({
   readonly series: readonly ChartSeries[];
   readonly windowEndMs: number;
   readonly tones?: ToneMap;
+  readonly colors?: ColorMap;
   readonly ariaLabel: string;
   readonly todayLabel: string;
   readonly formatBucketLabel: (atMs: number) => string;
@@ -664,7 +722,7 @@ export function StackedBarChart({
                           data-testid={`chart-bar-segment-${s.key}`}
                           style={{
                             height: percent(value / (totals[i] ?? 1)),
-                            backgroundColor: chartColor(s.key, si, tones),
+                            backgroundColor: chartColor(s.key, si, tones, colors),
                           }}
                         />
                       );
@@ -684,7 +742,7 @@ export function StackedBarChart({
         items={series.map((s, i) => ({
           key: s.key,
           label: s.label,
-          color: chartColor(s.key, i, tones),
+          color: chartColor(s.key, i, tones, colors),
           total: seriesTotal(s),
         }))}
       />
@@ -697,12 +755,14 @@ export function StackedBarChart({
 export function SegmentBarChart({
   rows,
   tones,
+  colors,
   ariaLabel,
   formatValue = String,
   testId,
 }: {
   readonly rows: readonly SegmentBarRow[];
   readonly tones?: ToneMap;
+  readonly colors?: ColorMap;
   readonly ariaLabel: string;
   readonly formatValue?: (value: number) => string;
   readonly testId?: string;
@@ -740,7 +800,12 @@ export function SegmentBarChart({
                   className="h-full"
                   style={{
                     width: percent(seg.value / maxTotal),
-                    backgroundColor: chartColor(seg.key, legendKeys.indexOf(seg.key), tones),
+                    backgroundColor: chartColor(
+                      seg.key,
+                      legendKeys.indexOf(seg.key),
+                      tones,
+                      colors,
+                    ),
                   }}
                 />
               ))}
@@ -753,7 +818,7 @@ export function SegmentBarChart({
         items={legendKeys.map((key, i) => ({
           key,
           label: segmentTotals.get(key)?.label ?? key,
-          color: chartColor(key, i, tones),
+          color: chartColor(key, i, tones, colors),
           total: segmentTotals.get(key)?.total ?? 0,
         }))}
       />
@@ -761,8 +826,19 @@ export function SegmentBarChart({
   );
 }
 
-function sortMarkers(markers: readonly ChartMarker[]): readonly ChartMarker[] {
-  return [...markers].sort((a, b) => a.atMs - b.atMs);
+type KeyedMarker = ChartMarker & { readonly key: string };
+
+// Two markers may share atMs and label, so the occurrence count keeps React keys unique.
+function sortMarkers(markers: readonly ChartMarker[]): readonly KeyedMarker[] {
+  const seen = new Map<string, number>();
+  return [...markers]
+    .sort((a, b) => a.atMs - b.atMs)
+    .map((marker) => {
+      const base = `${marker.atMs}-${marker.label}`;
+      const occurrence = seen.get(base) ?? 0;
+      seen.set(base, occurrence + 1);
+      return { ...marker, key: `${base}-${occurrence}` };
+    });
 }
 
 function MarkerPins({
@@ -779,10 +855,16 @@ function MarkerPins({
     <div aria-hidden="true" className="relative mt-1 h-5">
       {sortMarkers(markers).map((marker, i) => (
         <span
-          key={`${marker.atMs}-${marker.label}`}
+          key={marker.key}
           data-testid="chart-marker-pin"
-          className="absolute flex size-4 -translate-x-1/2 items-center justify-center rounded-full bg-foreground text-[10px] font-medium text-background"
-          style={{ left: percent(Math.max(0, Math.min(1, (marker.atMs - windowStartMs) / span))) }}
+          className={cn(
+            "absolute flex size-4 -translate-x-1/2 items-center justify-center rounded-full text-[10px] font-medium text-background",
+            marker.color === undefined && "bg-foreground",
+          )}
+          style={{
+            left: percent(Math.max(0, Math.min(1, (marker.atMs - windowStartMs) / span))),
+            ...(marker.color !== undefined && { backgroundColor: marker.color }),
+          }}
         >
           {i + 1}
         </span>
@@ -801,12 +883,13 @@ function MarkerLegend({
   return (
     <ol className="flex flex-col gap-1 text-xs text-muted-foreground">
       {sortMarkers(markers).map((marker, i) => (
-        <li
-          key={`${marker.atMs}-${marker.label}`}
-          data-testid="chart-marker-item"
-          className="flex gap-2"
-        >
-          <span className="w-4 shrink-0 text-center tabular-nums text-foreground">{i + 1}</span>
+        <li key={marker.key} data-testid="chart-marker-item" className="flex gap-2">
+          <span
+            className="w-4 shrink-0 text-center tabular-nums text-foreground"
+            style={marker.color !== undefined ? { color: marker.color } : undefined}
+          >
+            {i + 1}
+          </span>
           <span>{marker.label}</span>
           {formatMarkerTime !== undefined && (
             <span className="ml-auto tabular-nums">{formatMarkerTime(marker.atMs)}</span>
@@ -832,13 +915,16 @@ export function StackedAreaChart({
   windowEndMs,
   todayMs,
   tones,
+  colors,
   markers,
+  lines = [],
   ariaLabel,
   todayLabel,
   formatBucketLabel,
   formatValue = String,
   formatMarkerTime,
   scrollable = false,
+  showLegendTotals = true,
   emptyContent,
   testId,
 }: {
@@ -847,7 +933,10 @@ export function StackedAreaChart({
   readonly windowEndMs: number;
   readonly todayMs?: number;
   readonly tones?: ToneMap;
+  readonly colors?: ColorMap;
   readonly markers?: readonly ChartMarker[];
+  /** Drawn over the bands, not stacked. A `null` value breaks the line. */
+  readonly lines?: readonly ChartLine[];
   readonly ariaLabel: string;
   readonly todayLabel: string;
   readonly formatBucketLabel: (atMs: number) => string;
@@ -855,12 +944,13 @@ export function StackedAreaChart({
   readonly formatMarkerTime?: (atMs: number) => string;
   /** Fixed width per bucket; the plot scrolls horizontally, y ticks stay put. */
   readonly scrollable?: boolean;
+  readonly showLegendTotals?: boolean;
   readonly emptyContent?: ReactNode;
   readonly testId?: string;
 }): ReactNode {
   const clipId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const times = bucketTimes(series);
+  const times = bucketTimes([...series, ...lines]);
   const bucketCount = times.length;
   const span = Math.max(1, windowEndMs - windowStartMs);
   const fractionOf = (atMs: number): number =>
@@ -881,9 +971,12 @@ export function StackedAreaChart({
   const width = 300;
   const height = 120;
   const totals = times.map((atMs) => series.reduce((sum, s) => sum + valueAt(s, atMs), 0));
+  const lineValues = lines.flatMap((line) =>
+    line.points.flatMap((p) => (p.value === null ? [] : [p.value])),
+  );
   const isSingleBucket = times.length === 1;
   // Doubling keeps a lone bucket away from the top edge of the y-scale.
-  const max = niceCeil(Math.max(...totals) * (isSingleBucket ? 2 : 1));
+  const max = niceCeil(Math.max(...totals, ...lineValues) * (isSingleBucket ? 2 : 1));
   const yOf = (value: number): number => height - (value / max) * height;
 
   const lower = times.map(() => 0);
@@ -902,11 +995,23 @@ export function StackedAreaChart({
     for (let ti = 0; ti < times.length; ti++) lower[ti] = upper[ti] ?? 0;
     return {
       key: s.key,
-      color: chartColor(s.key, si, tones),
+      color: chartColor(s.key, si, tones, colors),
       d: `M ${top.join(" L ")} L ${bottom.join(" L ")} Z`,
       dot: isSingleBucket && bucketHeight > 0 ? clampDotY(yOf(bucketTop), height) : undefined,
     };
   });
+
+  const lineColorOffset = series.length;
+  const linePaths = lines.map((line, li) => ({
+    key: line.key,
+    label: line.label,
+    dashed: line.dashed === true,
+    color: chartColor(line.key, lineColorOffset + li, tones, colors),
+    d: linePathSegments(line, (atMs) => fractionOf(atMs) * width, yOf),
+  }));
+  const coloredMarkers = sortMarkers(markers ?? []).filter(
+    (marker): marker is KeyedMarker & { readonly color: string } => marker.color !== undefined,
+  );
 
   const todayX = (todayFraction ?? 1) * width;
   const renderBands = (fillOpacity: number): ReactNode =>
@@ -959,6 +1064,35 @@ export function StackedAreaChart({
             {renderBands(0.3)}
           </g>
         )}
+        {coloredMarkers.map((marker) => {
+          const x = fractionOf(marker.atMs) * width;
+          return (
+            <line
+              key={marker.key}
+              data-testid="chart-marker-guide"
+              x1={x}
+              x2={x}
+              y1={0}
+              y2={height}
+              stroke={marker.color}
+              strokeWidth={1}
+              strokeDasharray="2 3"
+              vectorEffect="non-scaling-stroke"
+            />
+          );
+        })}
+        {linePaths.map((line) => (
+          <path
+            key={line.key}
+            data-testid={`chart-line-${line.key}`}
+            d={line.d}
+            fill="none"
+            stroke={line.color}
+            strokeWidth={2}
+            strokeDasharray={line.dashed ? "6 4" : undefined}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
         {todayFraction !== undefined && (
           <line
             data-testid="chart-today-line"
@@ -1031,12 +1165,20 @@ export function StackedAreaChart({
       </div>
       <ChartLegend
         formatValue={formatValue}
-        items={series.map((s, i) => ({
-          key: s.key,
-          label: s.label,
-          color: chartColor(s.key, i, tones),
-          total: seriesTotal(s),
-        }))}
+        items={[
+          ...series.map((s, i) => ({
+            key: s.key,
+            label: s.label,
+            color: chartColor(s.key, i, tones, colors),
+            ...(showLegendTotals && { total: seriesTotal(s) }),
+          })),
+          ...linePaths.map((line) => ({
+            key: line.key,
+            label: line.label,
+            color: line.color,
+            swatch: line.dashed ? ("dashed-line" as const) : ("line" as const),
+          })),
+        ]}
       />
       {markers !== undefined && markers.length > 0 && (
         <MarkerLegend markers={markers} formatMarkerTime={formatMarkerTime} />

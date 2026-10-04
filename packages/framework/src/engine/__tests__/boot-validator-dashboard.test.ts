@@ -682,3 +682,231 @@ describe("validateBoot — dashboard timeRange, scope and new panel fields", () 
     }
   });
 });
+
+describe("validateBoot — dashboard panel gates, stat-group subtitle and stacked-area extras", () => {
+  const GATE = { query: "demo:query:portfolio:state", field: "state", eq: "filled" } as const;
+  const AREA = {
+    kind: "chart",
+    id: "plan",
+    label: "demo:dashboard:panel:latest",
+    chart: "stacked-area",
+    query: "demo:query:incident:latest",
+  } as const;
+  const RANGES = {
+    options: [
+      { value: "1y", label: "demo:dashboard:range:1y", months: 12 },
+      { value: "max", label: "demo:dashboard:range:max" },
+    ],
+    default: "1y",
+  } as const;
+
+  function gatedFeature(panels: DashboardScreenDefinition["panels"]) {
+    return defineFeature("demo", (r) => {
+      r.queryHandler("incident:open-count", z.object({}), async () => ({ count: 3 }), {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.queryHandler("incident:latest", z.object({}), async () => ({ rows: [] }), {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.queryHandler("portfolio:state", z.object({}), async () => ({ state: "filled" }), {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        outputSchema: z.object({ state: z.string() }),
+      });
+      r.screen({ id: "overview", type: "dashboard", panels });
+      r.translations({
+        keys: {
+          "screen:overview.title": { de: "Übersicht", en: "Overview" },
+          "demo:dashboard:panel:open-incidents": { de: "Offene Vorfälle", en: "Open incidents" },
+          "demo:dashboard:panel:latest": { de: "Neueste", en: "Latest" },
+          "demo:dashboard:group:net-worth": { de: "Vermögen", en: "Net worth" },
+          "demo:dashboard:group:net-worth-sub": { de: "Ohne Ordnerfilter", en: "All folders" },
+          "demo:dashboard:range:1y": { de: "1 Jahr", en: "1 year" },
+          "demo:dashboard:range:max": { de: "Max", en: "Max" },
+        },
+      });
+    });
+  }
+
+  test("accepts visibleWhen on stat, stat-group, feed, progress-list, chart and list panels", () => {
+    const feature = gatedFeature([
+      { ...STAT_PANEL, visibleWhen: GATE },
+      {
+        kind: "stat-group",
+        id: "net-worth",
+        label: "demo:dashboard:group:net-worth",
+        subtitle: "demo:dashboard:group:net-worth-sub",
+        visibleWhen: GATE,
+        stats: [{ ...STAT_PANEL, id: "child" }],
+      },
+      {
+        kind: "feed",
+        id: "feed",
+        label: "demo:dashboard:panel:latest",
+        query: "demo:query:incident:latest",
+        visibleWhen: GATE,
+      },
+      {
+        kind: "progress-list",
+        id: "progress",
+        label: "demo:dashboard:panel:latest",
+        query: "demo:query:incident:latest",
+        visibleWhen: GATE,
+      },
+      { ...AREA, visibleWhen: GATE },
+      {
+        kind: "list",
+        id: "list",
+        label: "demo:dashboard:panel:latest",
+        query: "demo:query:incident:latest",
+        columns: [{ field: "name", label: "demo:dashboard:panel:latest" }],
+        visibleWhen: GATE,
+      },
+    ]);
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("rejects a panel gate whose query is not registered", () => {
+    const feature = gatedFeature([
+      { ...STAT_PANEL, visibleWhen: { ...GATE, query: "demo:query:portfolio:ghost" } },
+    ]);
+    expect(() => validateBoot([feature])).toThrow(
+      /panel "open-incidents" visibleWhen query "demo:query:portfolio:ghost" is not a registered query-handler/,
+    );
+  });
+
+  test("rejects a panel gate field missing from the outputSchema", () => {
+    const feature = gatedFeature([
+      {
+        kind: "feed",
+        id: "feed",
+        label: "demo:dashboard:panel:latest",
+        query: "demo:query:incident:latest",
+        visibleWhen: { ...GATE, field: "status" },
+      },
+    ]);
+    expect(() => validateBoot([feature])).toThrow(
+      /panel "feed" visibleWhen references field "status" which is not present/,
+    );
+  });
+
+  test("rejects a panel gate with an empty field", () => {
+    const feature = gatedFeature([
+      {
+        kind: "stat-group",
+        id: "kpis",
+        visibleWhen: { ...GATE, field: "" },
+        stats: [STAT_PANEL],
+      },
+    ]);
+    expect(() => validateBoot([feature])).toThrow(/visibleWhen needs a non-empty query and field/);
+  });
+
+  test("rejects visibleWhen on a stat-group child", () => {
+    const feature = gatedFeature([
+      { kind: "stat-group", id: "kpis", stats: [{ ...STAT_PANEL, visibleWhen: GATE }] },
+    ]);
+    expect(() => validateBoot([feature])).toThrow(/child "open-incidents" sets visibleWhen/);
+  });
+
+  test("rejects a stat-group subtitle without label", () => {
+    const feature = gatedFeature([
+      {
+        kind: "stat-group",
+        id: "kpis",
+        subtitle: "demo:dashboard:group:net-worth-sub",
+        stats: [STAT_PANEL],
+      },
+    ]);
+    expect(() => validateBoot([feature])).toThrow(/sets subtitle without label/);
+  });
+
+  test("accepts markerKinds, legendTotals, ranges and seriesColors on stacked-area", () => {
+    const feature = gatedFeature([
+      {
+        ...AREA,
+        seriesColors: { remaining: "var(--color-debt)" },
+        markerKinds: { payoff: { tone: "positive" }, extra: { color: "var(--color-extra)" } },
+        legendTotals: false,
+        ranges: RANGES,
+      },
+    ]);
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test.each([
+    ["markerKinds", { markerKinds: { payoff: { tone: "positive" } } }],
+    ["legendTotals", { legendTotals: false }],
+    ["ranges", { ranges: RANGES }],
+  ] as const)("rejects %s on a chart kind other than stacked-area", (prop, extra) => {
+    const feature = gatedFeature([{ ...AREA, chart: "stacked-bars", ...extra }]);
+    expect(() => validateBoot([feature])).toThrow(
+      new RegExp(`sets ${prop} on chart "stacked-bars"`),
+    );
+  });
+
+  test.each([
+    ["empty options", { ...RANGES, options: [] }, /ranges\.options is empty/],
+    [
+      "unknown default",
+      { ...RANGES, default: "5y" },
+      /ranges\.default "5y" is not among the options/,
+    ],
+    [
+      "duplicate value",
+      { ...RANGES, options: [RANGES.options[0], RANGES.options[0]] },
+      /ranges\.options has duplicate value "1y"/,
+    ],
+    [
+      "fractional months",
+      { ...RANGES, options: [{ value: "1y", label: "demo:dashboard:range:1y", months: 1.5 }] },
+      /option "1y" months "1.5" must be a positive integer/,
+    ],
+    [
+      "zero months",
+      { ...RANGES, options: [{ value: "1y", label: "demo:dashboard:range:1y", months: 0 }] },
+      /option "1y" months "0" must be a positive integer/,
+    ],
+  ] as const)("rejects invalid ranges (%s)", (_name, ranges, message) => {
+    const feature = gatedFeature([{ ...AREA, ranges }]);
+    expect(() => validateBoot([feature])).toThrow(message);
+  });
+
+  test("rejects a marker kind without tone and color", () => {
+    const feature = gatedFeature([{ ...AREA, markerKinds: { payoff: {} } }]);
+    expect(() => validateBoot([feature])).toThrow(
+      /markerKinds\["payoff"\] needs a tone or a color/,
+    );
+  });
+
+  test("rejects an empty seriesColors entry", () => {
+    const feature = gatedFeature([{ ...AREA, seriesColors: { remaining: " " } }]);
+    expect(() => validateBoot([feature])).toThrow(
+      /seriesColors\["remaining"\] must be a non-empty CSS color/,
+    );
+  });
+
+  test("requiredKeysFromScreen collects the stat-group subtitle and range labels", () => {
+    const screen: DashboardScreenDefinition = {
+      id: "overview",
+      type: "dashboard",
+      panels: [
+        {
+          kind: "stat-group",
+          id: "net-worth",
+          label: "demo:dashboard:group:net-worth",
+          subtitle: "demo:dashboard:group:net-worth-sub",
+          stats: [STAT_PANEL],
+        },
+        { ...AREA, ranges: RANGES },
+      ],
+    };
+    const keys = requiredKeysFromScreen("demo", screen);
+    for (const key of [
+      "demo:dashboard:group:net-worth-sub",
+      "demo:dashboard:range:1y",
+      "demo:dashboard:range:max",
+    ]) {
+      expect(keys).toContain(key);
+    }
+  });
+});
