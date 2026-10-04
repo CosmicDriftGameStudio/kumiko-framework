@@ -4110,8 +4110,18 @@ function ActionFormBody({
   );
   const dispatcher = useDispatcher();
   const [successText, setSuccessText] = useState<string | undefined>(undefined);
+  // A slow label lookup of an earlier submit must not overwrite the banner of a later one.
+  const successSequence = useRef(0);
+  useEffect(
+    () => () => {
+      successSequence.current += 1;
+    },
+    [],
+  );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>, values: FormValues) => {
+      successSequence.current += 1;
+      const sequence = successSequence.current;
       setSuccessText(undefined);
       if (!result.isSuccess) return;
       if (onSuccess !== undefined) {
@@ -4120,13 +4130,14 @@ function ActionFormBody({
       }
       if (screen.successMessage !== undefined && screen.redirect === undefined) {
         const messageKey = screen.successMessage;
-        void resolveSuccessMessageParams(
-          screen,
-          schema.featureName,
-          values,
-          dispatcher,
-          locale,
-        ).then((params) => setSuccessText(effectiveTranslate(messageKey, params)));
+        const show = (params: Record<string, string>): void => {
+          if (successSequence.current === sequence) {
+            setSuccessText(effectiveTranslate(messageKey, params));
+          }
+        };
+        void resolveSuccessMessageParams(screen, schema.featureName, values, dispatcher, locale)
+          .then(show)
+          .catch(() => show(formatSummaryParams(values, locale)));
       }
       // Without a redirect the form stays put; returnTo only replaces an existing
       // navigation, and never one to a record screen (see redirectTargetsRecord).

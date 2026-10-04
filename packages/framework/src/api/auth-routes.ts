@@ -1522,14 +1522,13 @@ export function createAuthRoutes(
   api.post(Routes.authSwitchTenant, async (c) => {
     const user = getUser(c);
     const raw: unknown = await c.req.json().catch(() => null);
-    const body: { tenantId?: unknown } =
-      raw !== null && typeof raw === "object" ? raw : {};
+    const body: { tenantId?: unknown } = raw !== null && typeof raw === "object" ? raw : {};
     // The id seeds a SYSTEM identity in resolveActiveMembership — reject anything
     // that is not a non-empty string before it gets that far.
     if (!isNonEmptyString(body.tenantId)) {
       return c.json({ error: "invalid_tenant" }, 400);
     }
-    const targetTenantId = body.tenantId as TenantId;
+    const targetTenantId = body.tenantId as TenantId; // @cast-boundary request-body
 
     if (targetTenantId === user.tenantId) {
       return c.json({ error: "already_in_tenant" }, 400);

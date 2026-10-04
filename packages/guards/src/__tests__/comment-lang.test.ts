@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gitEnv } from "../_lib/git-env";
@@ -7,6 +7,7 @@ import { isGermanComment, scanGermanComments } from "../guard-comment-lang";
 import { writeRepo } from "./parent-workspace-fixture";
 
 const CLI_PATH = join(import.meta.dir, "..", "cli.ts");
+const LEGACY_BIN = join(import.meta.dir, "../../../../node_modules/.bin/kumiko-guard-comment-lang");
 
 function git(cwd: string, ...args: string[]): void {
   const proc = Bun.spawnSync(["git", "-c", "user.email=t@t.test", "-c", "user.name=t", ...args], {
@@ -20,15 +21,21 @@ function git(cwd: string, ...args: string[]): void {
 async function run(
   command: readonly string[],
   cwd: string,
-): Promise<{ exitCode: number; stdout: string }> {
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   const proc = Bun.spawn([...command], { cwd, stdout: "pipe", stderr: "pipe", env: gitEnv() });
-  const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-  return { exitCode, stdout };
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stdout, stderr };
 }
 
 function withFixtureRepo<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = mkdtempSync(join(tmpdir(), "comment-lang-fixture-"));
   writeRepo(dir, { name: "comment-lang-fixture", layout: "flat" });
+  // The legacy bin needs a tsconfig as ts-morph anchor in a standalone repo.
+  writeFileSync(join(dir, "tsconfig.json"), "{}", "utf-8");
   git(dir, "init", "-q", "-b", "main");
   git(dir, "add", "-A");
   git(dir, "commit", "-q", "-m", "base");
@@ -67,6 +74,12 @@ describe("kumiko-guards comment-lang", () => {
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toContain("src/new.ts");
       expect(result.stdout).toContain(":1  // Dieser Wert wird nicht benötigt");
+
+      if (existsSync(LEGACY_BIN)) {
+        const legacy = await run([LEGACY_BIN, "--touched", "--base=main"], dir);
+        expect(legacy.exitCode).toBe(1);
+        expect(legacy.stdout).toContain(":1  // Dieser Wert wird nicht benötigt");
+      }
     });
   });
 

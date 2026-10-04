@@ -7,7 +7,7 @@ import { resolveRepoRoots } from "./_lib/roots";
 import { type ScanSpec, scanFiles } from "./_lib/scan-scope";
 
 // Comment-language ratchet: no new German comments in product code. No NLP —
-// German markers are function words or umlauts/ß inside the comment text.
+// German markers are common function words or umlaut characters in the comment text.
 // Baseline mode compares per-file counts against a frozen file (more than the
 // baseline fails, fewer is allowed but does not rewrite it); `--touched` fails
 // on any German comment that overlaps a line added since `--base`.
@@ -362,6 +362,11 @@ export function runCommentLangCli(
       const file = path.relative(root, absPath);
       if (isLocalFinding({ file })) repoLocalScanned++;
       all.push(...scanGermanComments(readFileSync(absPath, "utf-8"), file));
+    }
+
+    // Zero scanned files must not read as a clean pass (misresolved root, empty scope).
+    if (scanned === 0) {
+      throw new CommentLangFailure("Scanned 0 files — repo root or scan scope did not resolve.");
     }
 
     console.log(
