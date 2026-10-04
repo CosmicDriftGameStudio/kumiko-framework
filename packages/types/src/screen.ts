@@ -520,7 +520,7 @@ export type EntityListScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
-  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: DashboardPanelVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
@@ -664,7 +664,7 @@ export type ProjectionListScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
-  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: DashboardPanelVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
@@ -787,7 +787,7 @@ export type ProjectionDetailScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
-  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: DashboardPanelVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
@@ -1068,7 +1068,7 @@ export type DashboardScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
-  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: DashboardPanelVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
@@ -1451,7 +1451,7 @@ export type EntityEditScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
-  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: DashboardPanelVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
@@ -1567,7 +1567,7 @@ export type ActionFormScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
-  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: DashboardPanelVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
@@ -1732,7 +1732,7 @@ export type SecretMintScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
-  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: DashboardPanelVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
@@ -1792,7 +1792,7 @@ export type CustomScreenDefinition = {
    *  triggering the diagnostic if it's missing. Also gates the
    *  boot-validator's nav-area check, same as `dormant` on other screens. */
   readonly dormant?: boolean;
-  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: DashboardPanelVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
@@ -1844,7 +1844,7 @@ export type ConfigEditScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
-  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: DashboardPanelVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
@@ -1900,7 +1900,7 @@ export type SecretsEditScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
-  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  /** UI-only gate, also on direct URL access; handlers still enforce access. Unmet or failed renders `fallback`. */
   readonly visibleWhen?: DashboardPanelVisibility;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: string;
