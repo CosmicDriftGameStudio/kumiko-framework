@@ -48,23 +48,29 @@ export type ObjectTarget = {
 // every app) to add one for an additive ticket. See resolveTarget().
 export type NavTarget = ScreenTarget | ObjectTarget;
 
+export type NavigateOptions = {
+  /** Search params of the target route, set in the same history entry as
+   *  the path. Without them the target starts with an empty query. */
+  readonly searchParams?: Readonly<Record<string, string>>;
+};
+
 export type NavApi = {
   /** Current route — `undefined` when the URL is at the root / there's
    *  no route selected. Caller's initial fallback kicks in then. */
   readonly route: NavRoute | undefined;
   /** Push a new route. Platform-specific Impl writes to
    *  history/stack and notifies subscribers. */
-  readonly navigate: (target: NavTarget) => void;
+  readonly navigate: (target: NavTarget, options?: NavigateOptions) => void;
   /** Replace the current route in place. Same effect as navigate from
    *  the user's perspective, but doesn't add a history entry — used for
    *  mount-time URL fills (e.g. WorkspaceShell defaulting to `/admin/x`
    *  when the user typed `/`). Browser Back must take the user out of
    *  the app, not back to the original empty path. */
-  readonly replace: (target: NavTarget) => void;
+  readonly replace: (target: NavTarget, options?: NavigateOptions) => void;
   /** Build the href a click on {target} would produce. Used by
    *  platform-specific Link-Komponenten (Web: `<a href>`; Native
    *  typically doesn't need this). */
-  readonly hrefFor: (target: NavTarget) => string;
+  readonly hrefFor: (target: NavTarget, options?: NavigateOptions) => string;
   /** Lese-Snapshot der aktuellen Search-Params (Browser: ?key=value-
    *  Pairs nach dem Pfad). Native-Impls die kein URL-Konzept haben
    *  liefern ein leeres Object. Wert ist ein Plain-Record (kein Map)

@@ -92,6 +92,7 @@ export function createSmtpTransport(options: SmtpTransportOptions): EmailTranspo
         to: message.to,
         subject: message.subject,
         html: message.html,
+        ...(message.text !== undefined && { text: message.text }),
         ...(message.replyTo && { replyTo: message.replyTo }),
         ...(message.headers && { headers: message.headers }),
       });

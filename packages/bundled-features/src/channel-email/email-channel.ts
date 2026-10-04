@@ -106,13 +106,15 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
       title: message.title,
       body: message.body,
     };
-    const html = await renderer.render({
+    const rendererInput = {
       template: message.notificationType,
       variables,
       locale: message.locale,
-    });
+    };
+    const html = await renderer.render(rendererInput);
+    const text = renderer.renderText ? await renderer.renderText(rendererInput) : undefined;
     const subject = (variables["subject"] as string) ?? message.title; // @cast-boundary dynamic-key
-    return { html, subject };
+    return { html, subject, ...(text !== undefined && { text }) };
   }
 
   return {
@@ -132,9 +134,17 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
     },
 
     async send(address, message, _ctx, rendered) {
-      const { html, subject } = rendered ?? (await renderMessage(message));
+      const { html, subject, text } = rendered ?? (await renderMessage(message));
       const envelope = emailEnvelopeFrom(message.data);
-      await transport.send(guardEmailMessage({ to: address, subject, html, ...envelope }));
+      await transport.send(
+        guardEmailMessage({
+          to: address,
+          subject,
+          html,
+          ...(text !== undefined && { text }),
+          ...envelope,
+        }),
+      );
       return { status: "sent", address };
     },
   };

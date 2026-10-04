@@ -102,3 +102,42 @@ describe("gdpr email-templates", () => {
     expect(r.html).toContain("not-a-date");
   });
 });
+
+describe("gdpr email-templates text part", () => {
+  test("export-ready: plain text carries intro, raw download url and expiry", () => {
+    const r = renderExportReadyEmail({
+      downloadUrl: "https://app.test/x?token=a&next=b",
+      expiresAt: "2026-07-01T13:45:00Z",
+      locale: "en",
+      appName: "Acme & Co",
+    });
+    expect(r.text).toBe(
+      [
+        "Hi,",
+        "your requested data export for Acme & Co is ready. Download it using the link below:",
+        "Download data export: https://app.test/x?token=a&next=b",
+        "The download link expires on 2026-07-01 13:45 UTC.",
+      ].join("\n\n"),
+    );
+  });
+
+  test("deletion-requested: text part is localized and contains no markup", () => {
+    const r = renderDeletionRequestedEmail({
+      gracePeriodEnd: "2026-08-01T00:00:00Z",
+      locale: "de",
+      appName: "Acme",
+    });
+    expect(r.text).toContain("2026-08-01 00:00 UTC");
+    expect(r.text).not.toContain("<");
+    expect(r.text.split("\n\n")).toHaveLength(3);
+  });
+
+  test("export-failed and deletion-executed render greeting plus intro", () => {
+    expect(renderExportFailedEmail({ locale: "en", appName: "Acme" }).text).toBe(
+      "Hi,\n\nyour requested data export for Acme could not be created. Please request the export again.",
+    );
+    expect(
+      renderDeletionExecutedEmail({ executedAt: "2026-08-01T00:00:00Z", locale: "en" }).text,
+    ).toContain("were deleted on 2026-08-01 00:00 UTC");
+  });
+});

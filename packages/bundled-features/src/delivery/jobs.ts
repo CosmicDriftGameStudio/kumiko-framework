@@ -47,7 +47,9 @@ const renderJobPayloadSchema = z.object({
 });
 
 const sendJobPayloadSchema = renderJobPayloadSchema.extend({
-  rendered: z.object({ html: z.string(), subject: z.string() }).optional(),
+  rendered: z
+    .object({ html: z.string(), subject: z.string(), text: z.string().optional() })
+    .optional(),
 });
 
 type RenderJobPayload = z.infer<typeof renderJobPayloadSchema>;

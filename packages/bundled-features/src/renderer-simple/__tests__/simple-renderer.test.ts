@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { simpleRenderer } from "../simple-renderer.js";
+import { createSimpleRenderer, simpleRenderer } from "../simple-renderer.js";
 
 describe("simple renderer", () => {
   test("renders header", async () => {
@@ -131,5 +131,61 @@ describe("simple renderer", () => {
     });
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain("</html>");
+  });
+});
+
+describe("simple renderer text part", () => {
+  test("renders the same content as plain text, unescaped, buttons as label and url", async () => {
+    const text = await simpleRenderer.renderText?.({
+      template: "full",
+      variables: {
+        header: "Rechnung & Mahnung",
+        sections: [
+          { heading: "Offener Betrag" },
+          { text: "Bitte zahle <bis> Freitag." },
+          { markdown: "**Wichtig:** siehe [AGB](https://x.test/agb)" },
+          { button: { label: "Jetzt zahlen", url: "https://x.test/pay?a=1&b=2" } },
+        ],
+        footer: "Acme GmbH",
+      },
+    });
+    expect(text).toBe(
+      [
+        "Rechnung & Mahnung",
+        "Offener Betrag",
+        "Bitte zahle <bis> Freitag.",
+        "**Wichtig:** siehe [AGB](https://x.test/agb)",
+        "Jetzt zahlen: https://x.test/pay?a=1&b=2",
+        "Acme GmbH",
+      ].join("\n\n"),
+    );
+  });
+
+  test("title + body fallback becomes header and one paragraph", async () => {
+    const text = await simpleRenderer.renderText?.({
+      template: "plain",
+      variables: { title: "Hallo", body: "Dein Code ist 1234." },
+    });
+    expect(text).toBe("Hallo\n\nDein Code ist 1234.");
+  });
+
+  test("branding footer text and links follow the locale", async () => {
+    const renderer = createSimpleRenderer({
+      footerText: { de: "Acme GmbH, Berlin", en: "Acme Ltd, Berlin" },
+      footerLinks: [
+        { label: { de: "Impressum", en: "Imprint" }, url: "https://acme.test/impressum" },
+        { label: "Broken", url: "javascript:alert(1)" },
+      ],
+    });
+    const text = await renderer.renderText?.({
+      template: "x",
+      variables: { header: "Hi" },
+      locale: "de",
+    });
+    expect(text).toBe("Hi\n\nAcme GmbH, Berlin\nImpressum: https://acme.test/impressum");
+  });
+
+  test("an empty template renders an empty text part", async () => {
+    expect(await simpleRenderer.renderText?.({ template: "empty", variables: {} })).toBe("");
   });
 });

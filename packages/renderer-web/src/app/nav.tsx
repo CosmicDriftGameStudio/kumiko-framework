@@ -14,6 +14,7 @@ import {
   type FeatureSchema,
   formatPath,
   type NavApi,
+  type NavigateOptions,
   type NavTarget,
   parsePath,
   resolveTarget,
@@ -134,22 +135,32 @@ function applySearchParamUpdates(updates: Readonly<Record<string, string | null>
   for (const l of listeners) l();
 }
 
-function pushPath(path: string): void {
+// undefined = the caller passed no search params; "" = an explicitly empty query.
+function formatSearch(options: NavigateOptions | undefined): string | undefined {
+  if (options?.searchParams === undefined) return undefined;
+  const query = new URLSearchParams(options.searchParams).toString();
+  return query === "" ? "" : `?${query}`;
+}
+
+function pushPath(path: string, search: string | undefined): void {
   if (typeof window === "undefined") return;
-  // Nur pushen wenn sich der Pfad wirklich ändert — doppelte navigate()
-  // Aufrufe mit demselben Ziel sollen nicht die History fluten.
-  if (window.location.pathname === path) return;
-  window.history.pushState(null, "", path);
+  // Repeated navigate() calls to the same URL must not flood the history.
+  // Without explicit search params the current query counts as unchanged.
+  const unchanged =
+    window.location.pathname === path &&
+    (search === undefined || window.location.search === search);
+  if (unchanged) return;
+  window.history.pushState(null, "", `${path}${search ?? ""}`);
   for (const l of listeners) l();
 }
 
-function replacePath(path: string): void {
+function replacePath(path: string, search: string | undefined): void {
   if (typeof window === "undefined") return;
   // No path-change short-circuit here: callers explicitly chose replace
   // to avoid creating a history entry, even when the URL is identical.
   // (pushPath skips no-op pushes; replacePath honors the call so the
   // entry-stack semantics stay predictable.)
-  window.history.replaceState(null, "", path);
+  window.history.replaceState(null, "", `${path}${search ?? ""}`);
   for (const l of listeners) l();
 }
 
@@ -216,9 +227,12 @@ export function useBrowserNavApi(options?: {
       prependBasePath(formatPath(inCurrentWorkspace(resolveTarget(features, target))), basePath);
     return {
       route,
-      navigate: (target) => pushPath(toPath(target)),
-      replace: (target) => replacePath(toPath(target)),
-      hrefFor: (target) => toPath(target),
+      navigate: (target, navigateOptions) =>
+        pushPath(toPath(target), formatSearch(navigateOptions)),
+      replace: (target, navigateOptions) =>
+        replacePath(toPath(target), formatSearch(navigateOptions)),
+      hrefFor: (target, navigateOptions) =>
+        `${toPath(target)}${formatSearch(navigateOptions) ?? ""}`,
       searchParams,
       setSearchParams: applySearchParamUpdates,
     };

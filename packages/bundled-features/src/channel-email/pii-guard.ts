@@ -36,7 +36,9 @@ export function guardEmailMessage(message: EmailMessage): EmailMessage {
     }
   }
   const leaking =
-    message.subject.includes(CIPHERTEXT_MARKER) || message.html.includes(CIPHERTEXT_MARKER);
+    message.subject.includes(CIPHERTEXT_MARKER) ||
+    message.html.includes(CIPHERTEXT_MARKER) ||
+    message.text?.includes(CIPHERTEXT_MARKER) === true;
   if (!leaking) return message;
   const detail =
     "[channel-email] mail subject/body contains a PII ciphertext " +
@@ -48,6 +50,9 @@ export function guardEmailMessage(message: EmailMessage): EmailMessage {
     ...message,
     subject: message.subject.replace(CIPHERTEXT_RE, "[pii-redacted]"),
     html: message.html.replace(CIPHERTEXT_RE, "[pii-redacted]"),
+    ...(message.text !== undefined && {
+      text: message.text.replace(CIPHERTEXT_RE, "[pii-redacted]"),
+    }),
   };
 }
 

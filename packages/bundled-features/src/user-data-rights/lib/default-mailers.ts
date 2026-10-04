@@ -57,13 +57,13 @@ export function makeDefaultExportReadyEmail(
 ): SendExportReadyEmailFn {
   return async (args) => {
     const transport = await resolveTransport(args.tenantId);
-    const { subject, html } = renderExportReadyEmail({
+    const { subject, html, text } = renderExportReadyEmail({
       downloadUrl: args.downloadUrl,
       expiresAt: args.expiresAt,
       locale: localeFor(args.userLocale, defaults),
       appName: defaults.appName,
     });
-    await transport.send({ to: args.userEmail, subject, html });
+    await transport.send({ to: args.userEmail, subject, html, text });
   };
 }
 
@@ -73,11 +73,11 @@ export function makeDefaultExportFailedEmail(
 ): SendExportFailedEmailFn {
   return async (args) => {
     const transport = await resolveTransport(args.tenantId);
-    const { subject, html } = renderExportFailedEmail({
+    const { subject, html, text } = renderExportFailedEmail({
       locale: localeFor(args.userLocale, defaults),
       appName: defaults.appName,
     });
-    await transport.send({ to: args.userEmail, subject, html });
+    await transport.send({ to: args.userEmail, subject, html, text });
   };
 }
 
@@ -87,12 +87,12 @@ export function makeDefaultDeletionRequestedEmail(
 ): SendDeletionRequestedEmailFn {
   return async (args) => {
     const transport = await resolveTransport(args.tenantId);
-    const { subject, html } = renderDeletionRequestedEmail({
+    const { subject, html, text } = renderDeletionRequestedEmail({
       gracePeriodEnd: args.gracePeriodEnd,
       locale: localeFor(args.userLocale, defaults),
       appName: defaults.appName,
     });
-    await transport.send({ to: args.userEmail, subject, html });
+    await transport.send({ to: args.userEmail, subject, html, text });
   };
 }
 
@@ -110,11 +110,11 @@ export function makeDefaultDeletionExecutedEmail(
       return;
     }
     const transport = await resolveTransport(tenantId);
-    const { subject, html } = renderDeletionExecutedEmail({
+    const { subject, html, text } = renderDeletionExecutedEmail({
       executedAt: args.executedAt,
       locale: localeFor(args.userLocale, defaults),
       appName: defaults.appName,
     });
-    await transport.send({ to: args.userEmail, subject, html });
+    await transport.send({ to: args.userEmail, subject, html, text });
   };
 }

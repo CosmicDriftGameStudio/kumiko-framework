@@ -48,6 +48,7 @@ export type ChannelResult = {
 export type RenderedMessage = {
   readonly html: string;
   readonly subject: string;
+  readonly text?: string;
 };
 
 // `mode` decides how the delivery-service dispatches a channel:
@@ -83,6 +84,8 @@ export type RendererInput = {
 export type NotificationRenderer = {
   readonly name: string;
   render(input: RendererInput): Promise<string>;
+  /** Plain-text version of the same mail; the email channel sends it as the text part of a multipart/alternative mail. */
+  renderText?(input: RendererInput): Promise<string>;
 };
 
 // --- Delivery Log Entry ---

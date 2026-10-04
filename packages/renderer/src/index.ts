@@ -77,6 +77,7 @@ export {
 } from "./app/list-facets.js";
 export type {
   NavApi,
+  NavigateOptions,
   NavProviderProps,
   NavRoute,
   NavTarget,
@@ -163,7 +164,7 @@ export type {
   ListUrlState,
   ListUrlStateApi,
 } from "./hooks/use-list-url-state.js";
-export { useListUrlState } from "./hooks/use-list-url-state.js";
+export { listFilterUrlKey, useListUrlState } from "./hooks/use-list-url-state.js";
 export type { UseMutationResult } from "./hooks/use-mutation.js";
 export { useMutation } from "./hooks/use-mutation.js";
 export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query.js";
