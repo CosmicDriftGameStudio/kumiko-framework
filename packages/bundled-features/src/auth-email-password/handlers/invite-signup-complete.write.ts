@@ -195,14 +195,13 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
         );
         if (!updateResult.isSuccess) return updateResult;
 
-        await deleteInviteToken(ctx.redis, { invitationId, token: event.payload.token });
-
         // buildSessionRoles calls stripForbiddenMembershipRoles internally —
         // a reserved role on the invitation itself must never reach the session.
         const mergedRoles = buildSessionRoles(invitationGlobalRoles, [invitationRole]);
 
         // Same gate as invite-accept-with-login: the account exists after this
         // call, but an MFA-gated role gets the MFA step instead of a session.
+        // It runs before the token is deleted so a throwing check leaves the link retryable.
         const mfaGate = await gateEnforceMfa(
           ctx,
           { mfaStatusChecker: opts.mfaStatusChecker },
@@ -210,6 +209,9 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
           invitationTenantId,
           mergedRoles,
         );
+
+        await deleteInviteToken(ctx.redis, { invitationId, token: event.payload.token });
+
         if (mfaGate !== undefined) {
           committed = true;
           return { isSuccess: true, data: mfaGate };

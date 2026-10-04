@@ -347,7 +347,8 @@ export async function requestSignup(
 
 // POST /api/auth/signup-confirm. Token aus URL + Password. Erfolgreich:
 // Cookies (kumiko_auth + kumiko_csrf) werden gesetzt — User ist sofort
-// eingeloggt (außer bei MFA-Gate, dann kind "mfa-pending"). Response liefert tenantKey für den Post-Signup-Redirect.
+// eingeloggt, außer das MFA-Gate greift (kind "mfa-pending"). Response liefert
+// tenantKey für den Post-Signup-Redirect.
 // 422 invalid_signup_token bei abgelaufenem/unbekanntem Token.
 export type SignupConfirmSuccess = {
   readonly user: { readonly id: string; readonly tenantId: string; readonly roles: string[] };
@@ -377,10 +378,11 @@ export async function confirmSignup(
     body: JSON.stringify({ token, password }),
   });
   if (res.ok) {
+    // @cast-boundary engine-payload
     const body = (await res.json()) as SignupConfirmSuccess & {
       readonly mfaRequired?: boolean;
       readonly mfaSetupRequired?: boolean;
-    }; // @cast-boundary engine-payload
+    };
     if (body.mfaRequired === true || body.mfaSetupRequired === true) {
       return { ok: true, data: { kind: "mfa-pending" } };
     }

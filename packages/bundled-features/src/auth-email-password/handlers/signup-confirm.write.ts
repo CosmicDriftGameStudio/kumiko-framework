@@ -226,11 +226,7 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
           ? await claimBoundHandover(ctx, session, handoverBinding)
           : undefined;
 
-        // Drop both token lookup keys; the burn key stays for its remaining
-        // TTL as replay protection.
-        await deleteSignupToken(ctx.redis, { email, token: event.payload.token });
-        if (handoverBinding) await deleteSignupHandover(ctx.redis, event.payload.token);
-
+        // Before the token keys go: a throwing MFA check must leave the link retryable.
         const mfaGate = await gateEnforceMfa(
           ctx,
           { mfaStatusChecker: opts.mfaStatusChecker },
@@ -238,6 +234,12 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
           provisioned.tenantId,
           session.roles,
         );
+
+        // Drop both token lookup keys; the burn key stays for its remaining
+        // TTL as replay protection.
+        await deleteSignupToken(ctx.redis, { email, token: event.payload.token });
+        if (handoverBinding) await deleteSignupHandover(ctx.redis, event.payload.token);
+
         if (mfaGate !== undefined) {
           committed = true;
           return { isSuccess: true, data: mfaGate };

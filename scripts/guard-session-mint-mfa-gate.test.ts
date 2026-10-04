@@ -94,6 +94,14 @@ describe("session minting stays behind the MFA gate", () => {
     );
   });
 
+  it("every mintSessionAndRespond call sits in exactly one listed route", () => {
+    const code = readCode(AUTH_ROUTES_FILE);
+    const callsIncludingDefinition = code.match(/\bmintSessionAndRespond\(/g) ?? [];
+    expect(callsIncludingDefinition).toHaveLength(Object.keys(MINTING_ROUTES).length + 1);
+    const firstRoute = routeStarts(code)[0]?.index ?? -1;
+    expect(code.indexOf("function mintSessionAndRespond(")).toBeLessThan(firstRoute);
+  });
+
   for (const [routeName, gate] of Object.entries(MINTING_ROUTES)) {
     if (gate === "second-factor") continue;
     it(`${routeName} (${gate}) answers with the MFA setup step`, () => {

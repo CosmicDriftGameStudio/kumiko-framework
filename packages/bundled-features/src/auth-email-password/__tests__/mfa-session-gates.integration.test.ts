@@ -350,4 +350,17 @@ describe("signup-confirm runs the login's MFA gate", () => {
     expect(res.status).toBe(403);
     expect(await selectMany(stack.db, userTable, { email })).toHaveLength(0);
   });
+
+  test("an unauthenticated caller cannot reach the signup-confirm handler through /api/write", async () => {
+    const email = "anon-write-bypass@example.com";
+    const token = await requestSignupToken(email);
+
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: AuthHandlers.signupConfirm,
+      payload: { token, password: "signup-new-pw-1234" },
+    });
+
+    expect(res.status).toBe(401);
+    expect(await selectMany(stack.db, userTable, { email })).toHaveLength(0);
+  });
 });
