@@ -17,7 +17,7 @@ import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
-import { redactErrorText } from "../shared/redact.js";
+import { redactErrorText } from "../shared/index.js";
 import { hashUnsubscribeAddress } from "./address-opt-out.js";
 import { appendAttemptEvent, logAttempt } from "./attempt-log.js";
 import { buildChannelContext } from "./channel-context.js";
@@ -356,6 +356,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           rendered = await channel.render(message, channelCtx);
         } catch (err) {
           await logInlineFailure(run, args, "render_failed", err);
+          // skip: logInlineFailure recorded and logged the failure
           return;
         }
       }
@@ -364,6 +365,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         result = await channel.send(address, message, channelCtx, rendered);
       } catch (err) {
         await logInlineFailure(run, args, "send_failed", err);
+        // skip: logInlineFailure recorded and logged the failure
         return;
       }
       await logDelivery(

@@ -26,6 +26,12 @@ export {
 } from "./parent-visibility.js";
 export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing.js";
 export {
+  redactBotTokens,
+  redactEmailAddresses,
+  redactErrorText,
+  redactUrls,
+} from "./redact.js";
+export {
   type RowBoundGrantResult,
   redeemRowBoundGrant,
   signRowBoundGrant,

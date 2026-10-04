@@ -9,6 +9,6 @@
 
 <!-- kumiko-changes
 feature: channel-teams
-type: bugfix
+type: fix
 title: Teams no longer reports any 2xx as delivered
 -->
