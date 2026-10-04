@@ -3,7 +3,7 @@ import {
   DELIVERY_SKIP_REASONS,
   type DeliveryFailureCode,
   type DeliverySkipReason,
-} from "@cosmicdrift/kumiko-types/handlers";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { DeliveryStatus, type DeliveryStatusValue } from "./public-names.js";
 
 type LocalizedString = { readonly en: string };

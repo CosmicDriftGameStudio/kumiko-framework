@@ -3,7 +3,6 @@ import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
   DeliveryErrorCode,
-  DeliverySkipReason,
   EscapeHatchAuditSink,
   NotifyDelivery,
   NotifyJobDispatcher,
@@ -35,15 +34,6 @@ import {
   isDeliveryChannelPlugin,
   type RenderedMessage,
 } from "./types.js";
-
-const SKIP = {
-  channel_disabled: "channel_disabled",
-  preference_disabled: "preference_disabled",
-  rate_limited: "rate_limited",
-  no_address: "no_address",
-  unsubscribed: "unsubscribed",
-  duplicate_idempotency_key: "duplicate_idempotency_key",
-} as const satisfies Record<DeliverySkipReason, DeliverySkipReason>;
 
 export function redactedMessageOf(err: unknown): string {
   return redactErrorText(err instanceof Error ? err.message : String(err));
@@ -502,7 +492,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: userId,
             recipientAddress: null,
             status: "skipped",
-            error: SKIP.channel_disabled,
+            error: "channel_disabled",
             priority,
           });
           continue;
@@ -520,7 +510,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: userId,
             recipientAddress: null,
             status: "skipped",
-            error: SKIP.preference_disabled,
+            error: "preference_disabled",
             priority,
           });
           continue;
@@ -538,7 +528,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: userId,
             recipientAddress: null,
             status: "skipped",
-            error: SKIP.rate_limited,
+            error: "rate_limited",
             priority,
           });
           continue;
@@ -555,7 +545,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: userId,
             recipientAddress: null,
             status: "skipped",
-            error: SKIP.no_address,
+            error: "no_address",
             priority,
           });
           continue;
@@ -572,7 +562,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: userId,
             recipientAddress: null,
             status: "skipped",
-            error: SKIP.unsubscribed,
+            error: "unsubscribed",
             priority,
           });
           continue;
@@ -640,7 +630,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           // The recipient withdrew — suppressed attempts must not keep recording the address.
           recipientAddress: null,
           status: "skipped",
-          error: SKIP.unsubscribed,
+          error: "unsubscribed",
           priority,
         });
         continue;
@@ -656,7 +646,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId,
             recipientAddress: address,
             status: "skipped",
-            error: SKIP.rate_limited,
+            error: "rate_limited",
             priority,
           });
           continue;
@@ -714,7 +704,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: options.recipientId ?? null,
             recipientAddress: null,
             status: "skipped",
-            error: SKIP.duplicate_idempotency_key,
+            error: "duplicate_idempotency_key",
             priority,
           });
           return { deliveries: run.deliveries };

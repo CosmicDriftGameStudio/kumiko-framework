@@ -607,6 +607,7 @@ export {
   DELIVERY_FAILURE_CODES,
   DELIVERY_SKIP_REASONS,
   HookPhases,
+  HTTP_ERROR_CODE_PATTERN,
   isAgentVisibleScreen,
   isDeliveryErrorCode,
   isOpenToAllGranted,

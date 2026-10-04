@@ -5,7 +5,7 @@ import type { DeliveryService } from "./types.js";
 // job dispatcher is handed to notify() per call, so queued channels go through
 // the delivery jobs. deliverQueuedInline drops the dispatcher and sends inline.
 export function createDeliveryNotifyFactory(
-  deliveryService: DeliveryService,
+  deliveryService: Pick<DeliveryService, "notify">,
   options: { readonly deliverQueuedInline?: boolean } = {},
 ): NotifyFactory {
   return (user, tenantId, jobDispatcher) => (notificationType, notifyOptions) =>

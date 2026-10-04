@@ -106,8 +106,9 @@ function entryFor(
   };
 }
 
-// The job runner stores err.message in the run row and BullMQ, so the rethrown
-// error carries only the redacted text and no cause.
+// The job runner stores err.message in the run row, and BullMQ keeps failedReason and
+// the stack trace in Redis in plain text, so the rethrown error carries only the code.
+// The redacted message goes to the log.
 async function failAttempt(
   ctx: JobContext,
   db: DbConnection,
@@ -127,7 +128,7 @@ async function failAttempt(
     p.deliveryAttemptId,
     entryFor(p, "failed", code, p.address),
   );
-  throw new Error(`${code}: ${message}`);
+  throw new Error(code);
 }
 
 // Render the message and hand off to delivery.send. On failure: record the
@@ -140,11 +141,16 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
   const channel = resolveChannel(registry, p.channelName);
   const channelCtx = buildChannelContext(db, registry, undefined, tenantId, ctx.secrets);
 
+  let rendered: RenderedMessage;
   try {
     if (!channel.render) {
       throw new Error(`delivery.render: channel "${p.channelName}" has no render step`);
     }
-    const rendered: RenderedMessage = await channel.render(toMessage(p), channelCtx);
+    rendered = await channel.render(toMessage(p), channelCtx);
+  } catch (err) {
+    return failAttempt(ctx, db, registry, p, "render_failed", err);
+  }
+  try {
     const jobRunner = ctx["jobRunner"] as JobRunner; // @cast-boundary dynamic-key — dispatch lives on the concrete runner
     await jobRunner.dispatch(
       DeliveryJobs.send,
@@ -152,7 +158,7 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
       { priority: deliveryPriorityRank[p.priority] },
     );
   } catch (err) {
-    return failAttempt(ctx, db, registry, p, "render_failed", err);
+    return failAttempt(ctx, db, registry, p, "channel_error", err);
   }
 };
 

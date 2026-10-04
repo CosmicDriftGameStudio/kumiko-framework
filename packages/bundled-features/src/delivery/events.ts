@@ -6,6 +6,7 @@
 import {
   DELIVERY_FAILURE_CODES,
   DELIVERY_SKIP_REASONS,
+  HTTP_ERROR_CODE_PATTERN,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { DeliveryStatus } from "./constants.js";
@@ -26,7 +27,7 @@ export const deliveryAttemptSchema = z.object({
   error: z
     .union([
       z.enum([...DELIVERY_FAILURE_CODES, ...DELIVERY_SKIP_REASONS]),
-      z.string().regex(/^http_\d{3}$/),
+      z.string().regex(HTTP_ERROR_CODE_PATTERN),
     ])
     .nullable(),
   priority: z.enum(["critical", "normal", "low"]),

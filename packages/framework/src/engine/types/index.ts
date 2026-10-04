@@ -241,6 +241,7 @@ export type {
 export {
   DELIVERY_FAILURE_CODES,
   DELIVERY_SKIP_REASONS,
+  HTTP_ERROR_CODE_PATTERN,
   isDeliveryErrorCode,
   isOpenToAllGranted,
   isRateLimitDisabled,

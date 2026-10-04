@@ -417,7 +417,7 @@ export type ChatSendFailureCode =
   | `http_${number}`
   | Exclude<DeliveryFailureCode, "render_failed" | "send_failed" | "channel_error">;
 
-const HTTP_ERROR_CODE_PATTERN = /^http_\d{3}$/;
+export const HTTP_ERROR_CODE_PATTERN = /^http_(\d{3})$/;
 
 export function isDeliveryErrorCode(value: unknown): value is DeliveryErrorCode {
   if (typeof value !== "string") return false;

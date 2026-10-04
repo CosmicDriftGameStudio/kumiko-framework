@@ -173,7 +173,7 @@ describe("createDeliveryNotifyFactory", () => {
 
   function recordingService() {
     const dispatchersSeen: unknown[] = [];
-    const service = {
+    const service: Pick<DeliveryService, "notify"> = {
       notify: async (
         _type: string,
         _options: unknown,
@@ -184,7 +184,7 @@ describe("createDeliveryNotifyFactory", () => {
         dispatchersSeen.push(jobDispatcher);
         return { deliveries: [] };
       },
-    } as unknown as DeliveryService; // @cast-boundary test-seam — only notify() is used
+    };
     return { service, dispatchersSeen };
   }
   const dispatcher = { dispatch: async () => "job-id" };
