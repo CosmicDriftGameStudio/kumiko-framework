@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-25
+verified: 2026-10-04
 ---
 
 # Stability & deprecation policy
@@ -30,24 +30,37 @@ period. Every breaking change carries a migration note in its package's
 
 ## Breaking changes without a codemod
 
-`kumiko-upgrade --apply` records the version it brought the app to in
-`.kumiko/upgrade-state.json`, and the upgrade-state guard fails while any
-change newer than that marker is still pending. A breaking change that ships
-no codemod is printed as `⚠ <version> · <title> — no codemod, manual migration
-required`. Where the marker lands depends on what else is pending:
+`kumiko-upgrade --apply` runs the codemods of all pending changes and moves
+the marker in `.kumiko/upgrade-state.json` to the installed version in one
+run. The upgrade-state guard fails while any changelog entry newer than the
+marker is pending, so after a successful run it passes. If a codemod fails,
+the marker stops at the highest pending version below the failed one.
 
-- If other pending changes sit below the earliest manual one, the marker
-  stops at the highest of them, and the guard keeps listing the manual change.
-  Migrate it by hand, then run `bunx kumiko-upgrade --apply` again. That
-  second run is the acknowledgement: with nothing left below the manual
-  change, it moves the marker past it, to the latest non-breaking change or
-  the installed version.
-- If nothing pending sits below the earliest manual change, the first run
-  already moves the marker past it. The guard does not list it afterwards, so
-  migrate it right away.
+A breaking change that ships no codemod is printed as `⚠ <version> · <title>
+— no codemod, manual migration required` and recorded in the marker's
+`pendingManual` list with a stable id of the form `<version>:<hash>`, for
+example `0.341.0:3f9a12c4`. The hash comes from the title, so several manual
+entries of the same version get different ids. Entries stay in the list across
+later `--apply` runs until you resolve them. A run adds only entries newer than
+the previous marker, so an entry you already resolved does not come back.
 
-The run prints which of the two happened, next to the path of the marker it
-wrote.
+`bunx kumiko-upgrade` and `--json` (field `pendingManual`) list the open
+entries. After migrating one by hand, mark it done:
+
+```bash
+bunx kumiko-upgrade --resolve 0.341.0:3f9a12c4 --reason "renamed the hook in src/screens"
+bunx kumiko-upgrade --resolve 0.346.0 --reason "app sends no webhooks" --not-applicable
+```
+
+`--resolve` takes a full id or a version with exactly one open entry, and a
+comma separated list of either. `--reason` is required (at most 500
+characters). `--not-applicable` records the entry as not applicable instead of
+migrated. The run resolves all given entries or none of them, and moves each
+one to `resolvedManual` with the reason and a timestamp. `--resolve` cannot be
+combined with `--apply`.
+
+The guard checks pending changelog entries only. Open `pendingManual` entries
+do not fail it, so review the list after every upgrade.
 
 ## Path to 1.0
 

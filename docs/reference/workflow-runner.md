@@ -24,6 +24,10 @@ Die Engine-API `defineWorkflow` (aus `@cosmicdrift/kumiko-framework/engine`,
   `webhook.send` stellt nur eine Dispatch-Anfrage ein; der
   step-dispatcher liefert genau einmal, ein Zustellfehler endet als
   `step.dispatch-failed`. Ein `retry` darum wiederholt keine Zustellung.
+  Jeder `webhook.send`-Request trägt `Idempotency-Key: <Stream-ID des
+  Dispatch-Requests>`. Der Key bleibt über Redeliveries desselben Requests
+  gleich, damit der Empfänger Duplikate erkennt. Ein eigener
+  `Idempotency-Key` in `headers` (Groß-/Kleinschreibung egal) hat Vorrang.
 
 `WorkflowDefinition<TPayload, TData>` und `WorkflowInput` sind die
 zugehörigen Typen (exportiert über `engine/index.ts`).

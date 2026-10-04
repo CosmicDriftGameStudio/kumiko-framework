@@ -16,6 +16,21 @@ Core engine, event store, entity tables, tenant/user/sessions, auth,
 compliance/audit, config/secrets, billing, files (`file-provider-inmemory` or
 S3), mail (SMTP transport). None of this touches Redis or Meilisearch.
 
+### Database user and name for the migrate step
+
+`kumiko-init-deploy` writes `deploy/migrate-step.sh`, which connects as
+`postgresql://<dbUser>:<password>@db:5432/<dbName>`. Both default to the app
+name. When the database was created under another name, set them in the app's
+`package.json`:
+
+```json
+{ "kumiko": { "deploy": { "dbUser": "ledger", "dbName": "ledger" } } }
+```
+
+Each value must match `^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,62}$`. An invalid value
+fails the scaffold instead of producing a script that Postgres rejects at
+migrate time.
+
 ## + Redis
 
 Redis is required as soon as any of the following are in use:
@@ -62,7 +77,8 @@ one `KUMIKO_INSTANCE_ID` cannot be told apart in these events, so give each
 replica its own (see "Instance id per pod"). The deployment sets
 `KUMIKO_APP_VERSION` (and optionally `KUMIKO_GIT_COMMIT`); without a version
 the event records `"unknown"`. A failed write is logged and does not stop the
-boot. A SystemAdmin reads these events through `audit:query:list` with
+boot. The event type and stream type are exported as `APP_STARTED_EVENT_TYPE` and
+`APP_INSTANCE_STREAM_TYPE` from `@cosmicdrift/kumiko-framework/event-store`. A SystemAdmin reads these events through `audit:query:list` with
 `scope: "system"`.
 
 ## Instance id per pod
