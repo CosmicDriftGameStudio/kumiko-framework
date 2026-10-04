@@ -1,5 +1,81 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.346.0
+
+### Minor Changes
+
+- 7bade44: Audit queries accept `scope: "system"` for SystemAdmin
+
+  `audit:query:list` and `audit:query:details` take an optional `scope` (`"tenant"` or `"system"`). With `"system"` a SystemAdmin reads the app-instance system events, e.g. `kumiko:system:app.started`; other roles are denied. Without `scope` nothing changes.
+
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: Audit queries can read app-instance system events with scope "system" (SystemAdmin only)
+  -->
+
+### Patch Changes
+
+- c4a4bba: step-dispatcher no longer re-sends after a failed key erase
+
+  When erasing the per-dispatch key failed after the outcome was recorded, the redelivered request was sent again and produced a second `step.dispatched`. A redelivery now only repeats the erase.
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: fix
+  title: A failed key erase no longer causes a second delivery of the same dispatch request
+  -->
+
+- d83aa55: Subscription tier sync keeps manual tier grants
+
+  The billing webhook sync now skips tier assignments with `source: "manual"`, so a `set-tenant-tier` grant is no longer overwritten by Stripe created/canceled events. Rows the sync writes are marked `source: "billing"`. `TierAssignmentSources` is exported from tier-engine.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Subscription webhooks no longer overwrite manual tier grants
+  -->
+
+- 695d47c: Webhook headers merge case-insensitively
+
+  A caller `Content-Type` replaces the default `application/json` instead of being joined with it. When a caller header collides with the auth header (any casing), the resolved secret value wins.
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: fix
+  title: Webhook caller headers no longer merge with the default Content-Type or the auth header
+  -->
+
+- 0207a6e: Webhook requests time out after 10 seconds
+
+  A hanging receiver now ends as `step.dispatch-failed` and no longer stalls the step-dispatcher for every tenant.
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: fix
+  title: Webhook requests time out after 10 seconds instead of blocking the dispatcher
+  -->
+
+- 6b8dde4: `r.step.webhook.send` no longer accepts `retry`
+
+  The option was never applied: every dispatch request is delivered once. Passing it is now a type error, and the dispatch-requested payload no longer carries it. Stored events that still contain `retry` are parsed and delivered as before.
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: breaking
+  title: r.step.webhook.send drops the unused retry option
+  migration: |
+    Remove `retry` from `r.step.webhook.send` calls; it was never applied. Each dispatch request is delivered once; a delivery error ends as step.dispatch-failed.
+  -->
+
+- Updated dependencies [6b8dde4]
+  - @cosmicdrift/kumiko-framework@0.346.0
+  - @cosmicdrift/kumiko-types@0.346.0
+  - @cosmicdrift/kumiko-headless@0.346.0
+  - @cosmicdrift/kumiko-renderer@0.346.0
+  - @cosmicdrift/kumiko-renderer-web@0.346.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.346.0
+
 ## 0.345.0
 
 ### Minor Changes

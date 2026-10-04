@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.346.0",
+    "type": "improvement",
+    "title": "Audit queries can read app-instance system events with scope \"system\" (SystemAdmin only)",
+    "detail": "Audit queries accept `scope: \"system\"` for SystemAdmin\n`audit:query:list` and `audit:query:details` take an optional `scope` (`\"tenant\"` or `\"system\"`). With `\"system\"` a SystemAdmin reads the app-instance system events, e.g. `kumiko:system:app.started`; other roles are denied. Without `scope` nothing changes."
+  },
+  {
     "version": "0.345.0",
     "type": "fix",
     "title": "Escape-hatch retention loads only expirable rows",

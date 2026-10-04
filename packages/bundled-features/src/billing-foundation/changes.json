@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.346.0",
+    "type": "fix",
+    "title": "Subscription webhooks no longer overwrite manual tier grants",
+    "detail": "Subscription tier sync keeps manual tier grants\nThe billing webhook sync now skips tier assignments with `source: \"manual\"`, so a `set-tenant-tier` grant is no longer overwritten by Stripe created/canceled events. Rows the sync writes are marked `source: \"billing\"`. `TierAssignmentSources` is exported from tier-engine."
+  },
+  {
     "version": "0.344.0",
     "type": "breaking",
     "title": "Consumer-protection gaps - per-locale legal links, gate order, confirmation mail, exports",

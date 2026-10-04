@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.346.0
+
+### Patch Changes
+
+- Updated dependencies [7bade44]
+- Updated dependencies [c4a4bba]
+- Updated dependencies [d83aa55]
+- Updated dependencies [695d47c]
+- Updated dependencies [0207a6e]
+- Updated dependencies [6b8dde4]
+  - @cosmicdrift/kumiko-bundled-features@0.346.0
+  - @cosmicdrift/kumiko-framework@0.346.0
+  - @cosmicdrift/kumiko-dev-server@0.346.0
+
 ## 0.345.0
 
 ### Minor Changes

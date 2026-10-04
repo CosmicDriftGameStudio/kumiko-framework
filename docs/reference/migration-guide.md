@@ -10,6 +10,17 @@ verified: 2026-10-04
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.346.0
+
+### step-dispatcher
+
+**r.step.webhook.send drops the unused retry option**
+
+`r.step.webhook.send` no longer accepts `retry`
+The option was never applied: every dispatch request is delivered once. Passing it is now a type error, and the dispatch-requested payload no longer carries it. Stored events that still contain `retry` are parsed and delivered as before.
+
+**Migration:** Remove `retry` from `r.step.webhook.send` calls; it was never applied. Each dispatch request is delivered once; a delivery error ends as step.dispatch-failed.
+
 ## 0.344.0
 
 ### billing-foundation

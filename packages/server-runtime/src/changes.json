@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.346.0",
+    "type": "improvement",
+    "title": "runWorkerApp records app.started; instance id prefers KUMIKO_INSTANCE_ID over HOSTNAME",
+    "detail": "runWorkerApp records app.started too\nThe worker now appends the same `kumiko:system:app.started` event as `runProdApp`. The instance id prefers `KUMIKO_INSTANCE_ID` and falls back to `HOSTNAME`, then the OS hostname."
+  },
+  {
     "version": "0.345.0",
     "type": "improvement",
     "title": "runProdApp records an app.started system event with version and instance on every boot",
