@@ -24,6 +24,7 @@ import {
   type WriteResult,
 } from "../engine/types/index.js";
 import type { ErrorDocsConfig } from "../errors/docs-url.js";
+import { assertSeedModeNotInProduction } from "../event-store/seed-clock.js";
 import { createFileContext } from "../files/file-handle.js";
 import type { FileRoutesOptions } from "../files/file-routes.js";
 import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes.js";
@@ -358,6 +359,7 @@ export function withFileProviderResolver(
 }
 
 export function buildServer(options: ServerOptions): KumikoServer {
+  assertSeedModeNotInProduction();
   // Single effective hop-count for every IP-derived rate-limit + requestMeta
   // below — the top-level option wins over the deprecated
   // `auth.trustedProxyHops` fallback.

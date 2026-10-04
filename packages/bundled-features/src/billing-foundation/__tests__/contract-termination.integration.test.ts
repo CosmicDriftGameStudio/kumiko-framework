@@ -211,6 +211,8 @@ async function resetStack(target: TestStack): Promise<void> {
 }
 
 beforeEach(async () => {
+  // Public declarations queue operator-notice mails; a test that never drains would otherwise deliver them during the next test.
+  await stack.drainJobs();
   emailTransport.sent.length = 0;
   cancelCalls.length = 0;
   providerCancelFails = false;

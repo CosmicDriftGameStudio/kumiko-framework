@@ -30,6 +30,7 @@ import { isStreamArchived } from "./archive.js";
 import { IdempotentAppendConflictError, VersionConflictError } from "./errors.js";
 import { eventsTable } from "./events-schema.js";
 import { toStoredEvent } from "./row-to-stored-event.js";
+import { currentSeedCreatedAt } from "./seed-clock.js";
 
 export type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
 
@@ -92,6 +93,10 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     aggregateId: event.aggregateId,
   });
   const toStore = stampOrigin(payload === event.payload ? event : { ...event, payload });
+  const seedCreatedAt = currentSeedCreatedAt();
+  if (seedCreatedAt !== undefined && toStore.expectedVersion > 0) {
+    await assertSeedTimeNotBeforePredecessor(db, toStore, seedCreatedAt);
+  }
   const newVersion = toStore.expectedVersion + 1;
   const eventVersion = toStore.eventVersion ?? 1;
 
@@ -100,8 +105,8 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
 
     const row =
       toStore.expectedVersion === 0
-        ? await insertFirstEvent(db, toStore, newVersion, eventVersion)
-        : await insertSubsequentEvent(db, toStore, newVersion, eventVersion);
+        ? await insertFirstEvent(db, toStore, newVersion, eventVersion, seedCreatedAt)
+        : await insertSubsequentEvent(db, toStore, newVersion, eventVersion, seedCreatedAt);
 
     // NOTIFY after the INSERT: outside a transaction each statement commits
     // on its own, so a NOTIFY sent first would wake the dispatcher before
@@ -145,6 +150,25 @@ function stampOrigin(event: EventToAppend): EventToAppend {
   };
 }
 
+// loadAggregateAsOf and projection rebuilds order by created_at, so a stream
+// whose versions go backwards in time would read and replay wrongly.
+async function assertSeedTimeNotBeforePredecessor(
+  db: DbRunner,
+  event: EventToAppend,
+  seedCreatedAt: Temporal.Instant,
+): Promise<void> {
+  const [predecessor] = await selectMany<{ createdAt: Temporal.Instant }>(db, eventsTable, {
+    aggregateId: event.aggregateId,
+    tenantId: event.tenantId,
+    version: event.expectedVersion,
+  });
+  if (predecessor && predecessor.createdAt.epochMilliseconds > seedCreatedAt.epochMilliseconds) {
+    throw new Error(
+      `Seed write for ${event.aggregateType} ${event.aggregateId} v${event.expectedVersion + 1} is dated ${seedCreatedAt.toString()}, before its predecessor (${predecessor.createdAt.toString()}). Write a stream's events in ascending time.`,
+    );
+  }
+}
+
 type InsertReturn = { id: bigint; createdAt: Temporal.Instant };
 
 async function insertFirstEvent(
@@ -152,6 +176,7 @@ async function insertFirstEvent(
   event: EventToAppend,
   newVersion: number,
   eventVersion: number,
+  seedCreatedAt: Temporal.Instant | undefined,
 ): Promise<InsertReturn> {
   const row = await insertOne<{ id: bigint; createdAt: Temporal.Instant }>(db, eventsTable, {
     aggregateId: event.aggregateId,
@@ -163,6 +188,7 @@ async function insertFirstEvent(
     payload: event.payload,
     metadata: event.metadata,
     createdBy: event.metadata.userId,
+    ...(seedCreatedAt !== undefined && { createdAt: seedCreatedAt }),
   });
   if (!row) throw new Error("insertFirstEvent: INSERT RETURNING produced no row");
   return { id: row.id, createdAt: row.createdAt };
@@ -177,6 +203,7 @@ async function insertSubsequentEvent(
   event: EventToAppend,
   newVersion: number,
   eventVersion: number,
+  seedCreatedAt: Temporal.Instant | undefined,
 ): Promise<InsertReturn> {
   const row = await insertSubsequentEventRow(db, {
     aggregateId: event.aggregateId,
@@ -189,6 +216,7 @@ async function insertSubsequentEvent(
     metadata: event.metadata,
     createdBy: event.metadata.userId,
     expectedVersion: event.expectedVersion,
+    createdAt: seedCreatedAt?.toString(),
   });
   if (!row) throw new VersionConflictError(event.aggregateId, event.expectedVersion);
   const createdAt =

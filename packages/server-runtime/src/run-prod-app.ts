@@ -127,6 +127,7 @@ import {
   createSeedMigrationContext,
   runPendingSeedMigrations,
 } from "@cosmicdrift/kumiko-framework/es-ops";
+import { assertSeedModeNotInProduction } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   assertKumikoSchemaCurrent,
@@ -769,6 +770,7 @@ function warnLegacyJwtSecretOnce(): void {
 }
 
 export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHandle> {
+  assertSeedModeNotInProduction();
   // 0. Env-Schema validation + dry-run modes. Runs FIRST so:
   //    - operators can introspect env-requirements without a real boot
   //      (no DB connection needed, KUMIKO_DRY_RUN_ENV=… → render + exit)

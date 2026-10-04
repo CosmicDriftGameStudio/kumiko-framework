@@ -136,6 +136,8 @@ export type SubsequentEventInsertParams = {
   readonly metadata: Record<string, unknown>;
   readonly createdBy: string;
   readonly expectedVersion: number;
+  // Seed back-dating only; undefined keeps the column default now().
+  readonly createdAt?: string | undefined;
 };
 
 export type SubsequentEventInsertRow = {
@@ -151,11 +153,11 @@ export async function insertSubsequentEventRow(
   const rows = (await asRawClient(db).unsafe(
     `INSERT INTO "kumiko_events" (
        aggregate_id, aggregate_type, tenant_id, version,
-       type, event_version, payload, metadata, created_by
+       type, event_version, payload, metadata, created_by, created_at
      )
      SELECT $1::uuid, $2, $3::uuid, $4,
             $5, $6, $7::jsonb,
-            $8::jsonb, $9
+            $8::jsonb, $9, COALESCE($11::timestamptz, now())
      WHERE EXISTS (
        SELECT 1 FROM "kumiko_events"
        WHERE aggregate_id = $1::uuid
@@ -174,6 +176,7 @@ export async function insertSubsequentEventRow(
       params.metadata,
       params.createdBy,
       params.expectedVersion,
+      params.createdAt ?? null,
     ],
   )) as ReadonlyArray<SubsequentEventInsertRow>;
   return rows[0];
