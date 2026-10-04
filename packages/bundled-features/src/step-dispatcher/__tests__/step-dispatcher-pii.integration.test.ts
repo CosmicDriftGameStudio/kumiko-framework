@@ -302,10 +302,10 @@ describe("step-dispatcher payload crypto-shredding", () => {
     expect([...sentKeys].sort()).toEqual([...requestedIds].sort());
   });
 
-  test("webhook.send: a redelivery that re-sends carries the same Idempotency-Key", async () => {
+  test("webhook.send: a redelivery after a failed erase repeats the erase, not the send", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
-    // The first eraseKey fails after the fetch, so the projection throws and
-    // the next run delivers the same request again.
+    // The first eraseKey fails after the outcome is appended, so the projection
+    // throws and the next run delivers the same request again.
     const realEraseKey = kms.eraseKey.bind(kms);
     let eraseCalls = 0;
     kms.eraseKey = async (...args: Parameters<typeof realEraseKey>) => {
@@ -323,12 +323,10 @@ describe("step-dispatcher payload crypto-shredding", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     await drain();
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const [first, second] = fetchMock.mock.calls.map(([, init]) =>
-      new Headers(init?.headers).get("idempotency-key"),
-    );
-    expect(first).toBe((await requestedRow()).aggregateId);
-    expect(second).toBe(first);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(await eventsOfType(DISPATCHED)).toHaveLength(1);
+    expect(await eventsOfType(DISPATCH_FAILED)).toHaveLength(0);
+    await expectKeyErased((await requestedRow()).aggregateId);
   });
 
   test("webhook.send: a stored request that still carries the removed retry field is delivered once", async () => {
