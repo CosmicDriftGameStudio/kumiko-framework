@@ -366,6 +366,39 @@ describe("StepBar", () => {
   });
 });
 
+describe("ModeSwitch variants", () => {
+  const options = [
+    { value: "a", label: "Modus A" },
+    { value: "b", label: "Modus B" },
+  ];
+
+  test("pill variant uses a grey track and a raised active segment, plus className", () => {
+    render(
+      <ModeSwitch
+        value="a"
+        options={options}
+        onChange={() => {}}
+        variant="pill"
+        className="w-40"
+        testId="sw"
+      />,
+    );
+    const track = screen.getByTestId("sw");
+    expect(track.className).toContain("bg-muted");
+    expect(track.className).toContain("w-40");
+    expect(screen.getByRole("button", { name: "Modus A" }).className).toContain("bg-background");
+    expect(screen.getByRole("button", { name: "Modus B" }).className).not.toContain(
+      "bg-background",
+    );
+  });
+
+  test("default variant stays the bordered control", () => {
+    render(<ModeSwitch value="a" options={options} onChange={() => {}} testId="sw" />);
+    expect(screen.getByTestId("sw").className).toContain("border-input");
+    expect(screen.getByRole("button", { name: "Modus A" }).className).toContain("bg-primary/10");
+  });
+});
+
 describe("ModeSwitch", () => {
   test("markiert aktive Option und feuert onChange", () => {
     const onChange = mock((_v: string) => {});
@@ -605,6 +638,52 @@ describe("StatusBarChart", () => {
     const { container } = render(<StatusBarChart dense ariaLabel="Leer" entries={[]} />);
     const placeholder = container.querySelector("div[aria-hidden]");
     expect(placeholder?.className).toBe("h-3");
+  });
+});
+
+describe("TimeseriesChart axes and height", () => {
+  const base = {
+    points: [
+      { atMs: 0, value: 120 },
+      { atMs: 1000, value: 560 },
+      { atMs: 2000, value: 300 },
+    ],
+    windowStartMs: 0,
+    windowEndMs: 2000,
+    ariaLabel: "Antwortzeit",
+  };
+
+  test("yAxis ticks renders that many gridlines plus rounded labels", () => {
+    const { container } = render(
+      <TimeseriesChart {...base} yAxis={{ ticks: 4, format: (v) => `${v} ms` }} />,
+    );
+    expect(container.querySelectorAll("[data-grid-line]").length).toBe(4);
+    const labels = [...container.querySelectorAll("[data-y-label]")].map((n) => n.textContent);
+    expect(labels).toEqual(["0 ms", "200 ms", "400 ms", "600 ms"]);
+  });
+
+  test("xAxis renders n date labels across the window", () => {
+    const { container } = render(
+      <TimeseriesChart {...base} xAxis={{ ticks: 5, format: (ms) => `t${ms}` }} />,
+    );
+    const labels = [...container.querySelectorAll("[data-x-label]")].map((n) => n.textContent);
+    expect(labels).toEqual(["t0", "t500", "t1000", "t1500", "t2000"]);
+  });
+
+  test("height prop replaces the default h-16 class", () => {
+    const { container } = render(<TimeseriesChart {...base} height={120} />);
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("style")).toContain("height: 120px");
+    expect(svg?.getAttribute("class")).not.toContain("h-16");
+  });
+
+  test("default rendering has no gridlines, labels or inline height", () => {
+    const { container } = render(<TimeseriesChart {...base} />);
+    expect(container.querySelectorAll("[data-grid-line]").length).toBe(0);
+    expect(container.querySelectorAll("[data-y-label]").length).toBe(0);
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("class")).toContain("h-16");
+    expect(svg?.getAttribute("style")).toBeNull();
   });
 });
 

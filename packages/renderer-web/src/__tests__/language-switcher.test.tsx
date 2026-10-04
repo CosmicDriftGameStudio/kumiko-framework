@@ -72,6 +72,25 @@ describe("LanguageSwitcher", () => {
     expect(screen.getByText("de")).toBeTruthy();
   });
 
+  test("chip variant renders a bordered mono chip with the uppercase code and no icon", () => {
+    renderWithResolver(
+      makeStatefulResolver("de"),
+      <LanguageSwitcher locales={locales} variant="chip" icon="X" testId="lang" />,
+    );
+    const trigger = screen.getByTestId("lang");
+    expect(trigger.textContent).toBe("DE");
+    expect(trigger.className).toContain("font-mono");
+    expect(trigger.className).toContain("border");
+  });
+
+  test("default variant keeps the icon", () => {
+    renderWithResolver(
+      makeStatefulResolver("de"),
+      <LanguageSwitcher locales={locales} testId="lang" />,
+    );
+    expect(screen.getByTestId("lang").textContent).toContain("🌐");
+  });
+
   test("triggerContent label shows the active locale label, keeping aria-label", () => {
     renderWithResolver(
       makeStatefulResolver("de"),

@@ -23,6 +23,8 @@ export {
   TimeseriesChart,
   type TimeseriesPoint,
   type TimeseriesReferenceLine,
+  type TimeseriesXAxis,
+  type TimeseriesYAxis,
 } from "./charts.js";
 export { CollapsibleSection } from "./collapsible-section.js";
 export { type DashboardListColumn, DashboardListTable } from "./dashboard-list.js";
@@ -59,7 +61,7 @@ export {
   type InfinityListProps,
   type InfinityListSelection,
 } from "./infinity-list.js";
-export { ModeSwitch } from "./mode-switch.js";
+export { ModeSwitch, type ModeSwitchVariant } from "./mode-switch.js";
 export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots.js";
 export {
   PlanCard,

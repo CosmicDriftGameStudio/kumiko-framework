@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import { act, renderHook } from "@testing-library/react";
+import { act, render, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.js";
 import { useQuery } from "../use-query.js";
@@ -244,5 +244,169 @@ describe("useQuery refetchIntervalMs", () => {
     expect(calls()).toBe(3);
     expect(result.current.data).toEqual({ n: 3 });
     expect(seenLoading.every((l) => l === false)).toBe(true);
+  });
+});
+
+type PendingCall = {
+  readonly payload: unknown;
+  readonly signal: AbortSignal | undefined;
+  readonly settle: (result: unknown) => void;
+};
+
+function deferredDispatcher(): {
+  dispatcher: Dispatcher;
+  pending: PendingCall[];
+  inFlight: () => number;
+  maxInFlight: () => number;
+  started: () => number;
+} {
+  const pending: PendingCall[] = [];
+  let inFlight = 0;
+  let maxInFlight = 0;
+  let started = 0;
+  const query = ((_type: string, payload: unknown, opts?: { signal?: AbortSignal }) => {
+    started += 1;
+    inFlight += 1;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    return new Promise((resolve) => {
+      pending.push({
+        payload,
+        signal: opts?.signal,
+        settle: (result) => {
+          inFlight -= 1;
+          resolve(result);
+        },
+      });
+    });
+  }) as unknown as QueryFn;
+  return {
+    dispatcher: makeDispatcher(query),
+    pending,
+    inFlight: () => inFlight,
+    maxInFlight: () => maxInFlight,
+    started: () => started,
+  };
+}
+
+function Probe({ id, concurrency }: { readonly id: number; readonly concurrency: number }) {
+  const { data, loading } = useQuery<{ id: number }>(QUERY_TYPE, { id }, { concurrency });
+  return <span data-testid={`probe-${id}`}>{loading ? "loading" : String(data?.id)}</span>;
+}
+
+function Probes({
+  ids,
+  concurrency,
+}: {
+  readonly ids: readonly number[];
+  readonly concurrency: number;
+}) {
+  return (
+    <>
+      {ids.map((id) => (
+        <Probe key={id} id={id} concurrency={concurrency} />
+      ))}
+    </>
+  );
+}
+
+async function settleNext(fake: ReturnType<typeof deferredDispatcher>): Promise<void> {
+  const call = fake.pending.shift();
+  if (call === undefined) throw new Error("no pending query to settle");
+  await act(async () => {
+    call.settle({ isSuccess: true, data: call.payload });
+  });
+}
+
+describe("useQuery concurrency", () => {
+  const ids = Array.from({ length: 35 }, (_, i) => i);
+
+  test("35 hooks with concurrency 4 never run more than 4 queries at once", async () => {
+    const fake = deferredDispatcher();
+    const view = render(
+      <DispatcherProvider dispatcher={fake.dispatcher}>
+        <Probes ids={ids} concurrency={4} />
+      </DispatcherProvider>,
+    );
+    await act(async () => {});
+    expect(fake.inFlight()).toBe(4);
+
+    while (fake.pending.length > 0) {
+      await settleNext(fake);
+      expect(fake.inFlight()).toBeLessThanOrEqual(4);
+    }
+    expect(fake.started()).toBe(35);
+    expect(fake.maxInFlight()).toBe(4);
+    expect(view.getByTestId("probe-34").textContent).toBe("34");
+  });
+
+  test("without the option all queries start at once", async () => {
+    const fake = deferredDispatcher();
+    function Free({ id }: { readonly id: number }) {
+      useQuery(QUERY_TYPE, { id });
+      return null;
+    }
+    render(
+      <DispatcherProvider dispatcher={fake.dispatcher}>
+        {ids.map((id) => (
+          <Free key={id} id={id} />
+        ))}
+      </DispatcherProvider>,
+    );
+    await act(async () => {});
+    expect(fake.inFlight()).toBe(35);
+  });
+
+  test("unmounting a waiting hook takes no slot and blocks nobody", async () => {
+    const fake = deferredDispatcher();
+    const view = render(
+      <DispatcherProvider dispatcher={fake.dispatcher}>
+        <Probes ids={[0, 1, 2]} concurrency={2} />
+      </DispatcherProvider>,
+    );
+    await act(async () => {});
+    expect(fake.inFlight()).toBe(2);
+
+    // Hook 2 is waiting; unmount it, then free one slot.
+    view.rerender(
+      <DispatcherProvider dispatcher={fake.dispatcher}>
+        <Probes ids={[0, 1]} concurrency={2} />
+      </DispatcherProvider>,
+    );
+    await act(async () => {});
+    expect(fake.started()).toBe(2);
+
+    await settleNext(fake);
+    expect(fake.started()).toBe(2);
+    expect(fake.inFlight()).toBe(1);
+
+    // A hook mounted afterwards gets the freed slot immediately.
+    view.rerender(
+      <DispatcherProvider dispatcher={fake.dispatcher}>
+        <Probes ids={[0, 1, 3]} concurrency={2} />
+      </DispatcherProvider>,
+    );
+    await act(async () => {});
+    expect(fake.started()).toBe(3);
+    expect(fake.inFlight()).toBe(2);
+  });
+
+  test("a failing request frees its slot for the next waiter", async () => {
+    const fake = deferredDispatcher();
+    const view = render(
+      <DispatcherProvider dispatcher={fake.dispatcher}>
+        <Probes ids={[0, 1]} concurrency={1} />
+      </DispatcherProvider>,
+    );
+    await act(async () => {});
+    expect(fake.started()).toBe(1);
+
+    const failing = fake.pending.shift();
+    await act(async () => {
+      failing?.settle({ isSuccess: false, error: { code: "boom", message: "boom" } });
+    });
+    expect(fake.started()).toBe(2);
+    expect(fake.inFlight()).toBe(1);
+    await settleNext(fake);
+    expect(view.getByTestId("probe-1").textContent).toBe("1");
   });
 });

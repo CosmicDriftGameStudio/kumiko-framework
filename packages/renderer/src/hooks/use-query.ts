@@ -1,6 +1,7 @@
 import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDispatcher } from "../context/dispatcher-context.js";
+import { useDispatcher, useOptionalQueryPools } from "../context/dispatcher-context.js";
+import type { QuerySlot } from "../context/query-pool.js";
 import { useLiveEvents } from "../sse/live-events.js";
 
 // React wrapper around dispatcher.query. Fires on mount, re-fires
@@ -42,6 +43,11 @@ export type UseQueryOptions = {
   // `loading` flip) and skipped while a fetch is still in flight. Only
   // timers are used, so it behaves the same on web and React Native.
   readonly refetchIntervalMs?: number;
+  // Caps simultaneous dispatcher.query calls for this query name across
+  // all hooks under the same DispatcherProvider; extra requests wait in
+  // line (loading stays true). A hook that unmounts or refetches while
+  // waiting leaves the line without taking a slot. Unset = no cap.
+  readonly concurrency?: number;
 };
 
 // Extract the entity-name from a standard Kumiko query type. Returns
@@ -55,13 +61,18 @@ export function entityFromQueryType(type: string): string | undefined {
   return parts[2];
 }
 
+function isValidConcurrency(value: number | undefined): value is number {
+  return value !== undefined && Number.isFinite(value) && value >= 1;
+}
+
 export function useQuery<TData = unknown>(
   type: string,
   payload: unknown,
   options: UseQueryOptions = {},
 ): UseQueryResult<TData> {
   const dispatcher = useDispatcher();
-  const { enabled = true, live = false, refetchIntervalMs } = options;
+  const { enabled = true, live = false, refetchIntervalMs, concurrency } = options;
+  const queryPools = useOptionalQueryPools();
 
   const [data, setData] = useState<TData | null>(null);
   const [error, setError] = useState<DispatcherError | null>(null);
@@ -96,9 +107,16 @@ export function useQuery<TData = unknown>(
       fetchInFlight.current = true;
       if (!background) setLoading(true);
       let result: Awaited<ReturnType<typeof dispatcher.query<TData>>>;
+      let slot: QuerySlot | null = null;
       try {
+        if (queryPools !== undefined && isValidConcurrency(concurrency)) {
+          slot = await queryPools.acquire(type, concurrency, ctrl.signal);
+          // skip: aborted while queued, the superseding run owns the state
+          if (slot === null) return;
+        }
         result = await dispatcher.query<TData>(type, payload, { signal: ctrl.signal });
       } finally {
+        slot?.release();
         // A rejected fetch must not leave polling stuck; a superseded one must
         // not clear the newer fetch's flag.
         if (activeCtrl.current === ctrl) fetchInFlight.current = false;
@@ -116,7 +134,7 @@ export function useQuery<TData = unknown>(
       }
       setLoading(false);
     },
-    [dispatcher, type, payloadKey],
+    [dispatcher, type, payloadKey, queryPools, concurrency],
   );
 
   const run = useCallback((): Promise<void> => runFetch(false), [runFetch]);

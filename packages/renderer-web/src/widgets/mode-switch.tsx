@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.js";
 
+export type ModeSwitchVariant = "outline" | "pill";
+
 /** Segmented-Control für sich ausschließende Modi — die prominente
  *  Alternative zum vergrabenen <select>. */
 export function ModeSwitch<T extends string>({
@@ -8,6 +10,8 @@ export function ModeSwitch<T extends string>({
   options,
   onChange,
   ariaLabel,
+  variant = "outline",
+  className,
   testId,
 }: {
   readonly value: T;
@@ -19,15 +23,26 @@ export function ModeSwitch<T extends string>({
   }[];
   readonly onChange: (value: T) => void;
   readonly ariaLabel?: string;
+  /** `outline` (default): bordered segments, active tinted. `pill`: grey
+   *  track with a raised active segment. */
+  readonly variant?: ModeSwitchVariant;
+  readonly className?: string;
   readonly testId?: string;
 }): ReactNode {
+  const pill = variant === "pill";
   return (
     // biome-ignore lint/a11y/useSemanticElements: fieldset bringt Browser-Default-Chrome (Border/legend) mit, das für ein Button-Segmented-Control falsch ist
     <div
       data-testid={testId}
       role="group"
       aria-label={ariaLabel}
-      className="flex min-h-8 overflow-hidden rounded-md border border-input bg-background"
+      className={cn(
+        "flex min-h-8",
+        pill
+          ? "gap-0.5 rounded-lg bg-muted p-0.5"
+          : "overflow-hidden rounded-md border border-input bg-background",
+        className,
+      )}
     >
       {options.map((o) => {
         const active = o.value === value;
@@ -38,11 +53,21 @@ export function ModeSwitch<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "grow border-l border-input px-3 text-sm transition-colors first:border-l-0",
+              "grow px-3 text-sm transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-              active
-                ? "bg-primary/10 font-semibold text-primary"
-                : "text-foreground hover:bg-muted",
+              pill
+                ? [
+                    "rounded-md",
+                    active
+                      ? "bg-background font-semibold text-foreground shadow-sm dark:bg-card"
+                      : "text-muted-foreground hover:text-foreground",
+                  ]
+                : [
+                    "border-l border-input first:border-l-0",
+                    active
+                      ? "bg-primary/10 font-semibold text-primary"
+                      : "text-foreground hover:bg-muted",
+                  ],
             )}
           >
             {o.label}
