@@ -293,7 +293,7 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
             {t("billing-foundation.plans.switchRequiresReactivation")}
           </Banner>
         )}
-      {consumerProtection !== undefined && canManage && (
+      {consumerProtection !== undefined && canManage && result.subscription?.cancelAt == null && (
         <div>
           <Button
             variant="secondary"

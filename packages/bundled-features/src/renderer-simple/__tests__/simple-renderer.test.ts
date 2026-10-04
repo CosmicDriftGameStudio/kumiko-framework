@@ -23,6 +23,44 @@ describe("simple renderer", () => {
     expect(html).toContain("Dies ist ein Absatz.");
   });
 
+  test("renders heading section as escaped h2", async () => {
+    const html = await simpleRenderer.render({
+      template: "test",
+      variables: { sections: [{ heading: "Terms <b>& more</b>" }] },
+    });
+    expect(html).toContain("<h2");
+    expect(html).toContain("Terms &lt;b&gt;&amp; more&lt;/b&gt;");
+  });
+
+  test("renders markdown section as HTML", async () => {
+    const html = await simpleRenderer.render({
+      template: "test",
+      variables: { sections: [{ markdown: "# Title\n\nSome **bold** text\n\n- one\n- two" }] },
+    });
+    expect(html).toContain("<h1>Title</h1>");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<li>one</li>");
+  });
+
+  test("markdown section escapes raw HTML and neutralizes javascript: links", async () => {
+    const html = await simpleRenderer.render({
+      template: "test",
+      variables: {
+        sections: [
+          {
+            markdown:
+              "<script>alert(1)</script>\n\n[click](javascript:alert(1))\n\n<img src=x onerror=alert(1)>",
+          },
+        ],
+      },
+    });
+    expect(html).not.toContain("<script>");
+    expect(html).not.toContain("<img src=x");
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("javascript:");
+    expect(html).toContain('href="#"');
+  });
+
   test("renders button section with link", async () => {
     const html = await simpleRenderer.render({
       template: "test",

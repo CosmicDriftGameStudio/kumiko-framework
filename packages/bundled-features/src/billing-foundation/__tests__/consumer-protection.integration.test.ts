@@ -31,7 +31,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import { createUserFeature } from "../../user/feature.js";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
-import { SubscriptionFoundationHandlers } from "../constants.js";
+import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../constants.js";
 import { consentTextVersion } from "../consumer-protection/consent-text.js";
 import { CHECKOUT_CONSENT_RECORDED_EVENT_QN } from "../events.js";
 import { createBillingFoundationFeature } from "../feature.js";
@@ -48,6 +48,10 @@ const consumerProtection: ConsumerProtectionOptions = {
   termsTextBlock: TERMS_SLUG,
   vatNote: { de: "Preise inkl. USt.", en: "Prices include VAT." },
   operatorEmail: "billing@example.com",
+  oneOffItemLabel: async (_ctx, priceId) =>
+    priceId === "price_topup"
+      ? { labelKey: "shop:pack.credits", params: { count: 500, name: "Pack" } }
+      : undefined,
   legalLinks: {
     terms: "/legal/terms",
     withdrawal: "/legal/withdrawal",
@@ -75,13 +79,15 @@ type CheckoutCall = {
 };
 const checkoutCalls: CheckoutCall[] = [];
 let providerThrows = false;
+let billingEnabled = true;
 
 const mockProviderFeature = defineFeature("test-mock-consent-provider", (r) => {
   r.requires("billing-foundation");
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     priceToTier: { price_starter: "starter", price_pro: "pro" },
-    oneOffPriceIds: ["price_topup"],
+    oneOffPriceIds: ["price_topup", "price_unlisted"],
+    isBillingEnabled: async () => billingEnabled,
     retrievePrices: async (_ctx, priceIds) =>
       [
         {
@@ -166,6 +172,7 @@ afterAll(async () => {
 beforeEach(async () => {
   checkoutCalls.length = 0;
   providerThrows = false;
+  billingEnabled = true;
   await stack.db.unsafe?.(`TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`);
   await stack.db.unsafe?.(`DELETE FROM "${templateResourcesTable.tableName}"`);
   await seedTerms("de", TERMS_CONTENT_DE);
@@ -363,6 +370,110 @@ describe("consumerProtection on — create-checkout-session", () => {
   });
 });
 
+describe("consumerProtection on — create-checkout-session gate order", () => {
+  const SUBSCRIPTION_BODY = {
+    providerName: "mock-consent-provider",
+    priceId: "price_pro",
+    successUrl: "https://app.example.com/billing/success",
+    cancelUrl: "https://app.example.com/billing/cancel",
+  } as const;
+
+  test("a disabled provider fails as feature-disabled before the consent is looked at", async () => {
+    billingEnabled = false;
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      SUBSCRIPTION_BODY,
+      adminFor(8110),
+    );
+    expect(JSON.stringify(error)).not.toContain("consent_required");
+    expect(JSON.stringify(error)).toContain("feature_disabled");
+    expect(checkoutCalls).toHaveLength(0);
+  });
+
+  test("an existing subscription fails as conflict before the consent is looked at", async () => {
+    const admin = adminFor(8111);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.startPlanCheckout,
+      { tier: "pro", consent: consentFor("de") },
+      admin,
+    );
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      {
+        providerEventId: "evt_existing_8111",
+        providerName: "mock-consent-provider",
+        type: "subscription.created",
+        providerCustomerId: "cus_existing",
+        providerSubscriptionId: "sub_existing",
+        status: SubscriptionStatuses.active,
+        tier: "pro",
+        currentPeriodEndIso: "2999-01-01T00:00:00Z",
+      },
+      admin,
+    );
+    checkoutCalls.length = 0;
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      SUBSCRIPTION_BODY,
+      admin,
+    );
+    expect(error.httpStatus).toBe(409);
+    expect(JSON.stringify(error)).not.toContain("consent_required");
+  });
+
+  test("an unknown priceId fails as unknown_price before the consent is looked at", async () => {
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      { ...SUBSCRIPTION_BODY, priceId: "price_nope" },
+      adminFor(8112),
+    );
+    expect(JSON.stringify(error)).toContain("unknown_price");
+    expect(JSON.stringify(error)).not.toContain("consent_required");
+  });
+
+  test("a price the provider cannot resolve fails as price_unavailable before the provider is called", async () => {
+    const admin = adminFor(8113);
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      {
+        ...PAYMENT_BODY,
+        priceId: "price_unlisted",
+        consent: consentFor("en", consentTextVersion("en")),
+      },
+      admin,
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(JSON.stringify(error)).toContain("price_unavailable");
+    expect(checkoutCalls).toHaveLength(0);
+    expect(await consentEvents(paymentAggregateId(admin.tenantId), admin.tenantId)).toEqual([]);
+  });
+
+  test("oneOffItemLabel is stored on the consent event; a client orderItem is rejected", async () => {
+    const admin = adminFor(8114);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      { ...PAYMENT_BODY, consent: consentFor("en", consentTextVersion("en")) },
+      admin,
+    );
+    const events = await consentEvents(paymentAggregateId(admin.tenantId), admin.tenantId);
+    expect(events[0]?.payload).toMatchObject({
+      itemLabelKey: "shop:pack.credits",
+      itemLabelParams: { count: 500, name: "Pack" },
+    });
+
+    const rejected = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      {
+        ...PAYMENT_BODY,
+        consent: consentFor("en", consentTextVersion("en")),
+        orderItem: { labelKey: "x" },
+      },
+      admin,
+    );
+    expect(rejected.httpStatus).toBe(400);
+  });
+});
+
 describe("consumerProtection on — billing-plans query", () => {
   test("exposes the consent texts with their versions and the legal links", async () => {
     const result = (await stack.http.queryOk(
@@ -381,6 +492,9 @@ describe("consumerProtection on — billing-plans query", () => {
     expect(result.consumerProtection.consentTexts["en"]?.consentTextVersion).toBe(
       consentTextVersion("en"),
     );
-    expect(result.consumerProtection.legalLinks).toEqual(consumerProtection.legalLinks);
+    expect(result.consumerProtection.legalLinks).toEqual({
+      de: consumerProtection.legalLinks,
+      en: consumerProtection.legalLinks,
+    });
   });
 });

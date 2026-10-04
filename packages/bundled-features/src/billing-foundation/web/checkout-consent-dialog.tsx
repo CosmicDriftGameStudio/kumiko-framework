@@ -21,7 +21,11 @@ export type CheckoutConsentDialogProps = {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly planName: string;
-  readonly price: { readonly amount: string; readonly renewalKey?: string; readonly count: string };
+  readonly price: {
+    readonly amount: string;
+    readonly renewalKey?: string;
+    readonly count?: string;
+  };
   readonly consumerProtection: ConsumerProtectionView;
   readonly onOrder: (consent: CheckoutConsentPayload) => Promise<WriteResult<{ url: string }>>;
   readonly onConsentTextOutdated: () => void;
@@ -39,7 +43,7 @@ export function CheckoutConsentDialog({
 }: CheckoutConsentDialogProps): ReactNode {
   const t = useTranslation();
   const uiLocale = useLocale().locale();
-  const { Modal, Heading, Text, Field, Input, Button, Link, Banner } = usePrimitives();
+  const { Modal, Text, Field, Input, Button, Link, Banner } = usePrimitives();
   const [earlyPerformance, setEarlyPerformance] = useState(false);
   const [withdrawalLoss, setWithdrawalLoss] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -47,7 +51,7 @@ export function CheckoutConsentDialog({
 
   const consentLocale = resolveConsentLocale(uiLocale);
   const texts = consumerProtection.consentTexts[consentLocale];
-  const { legalLinks } = consumerProtection;
+  const legalLinks = consumerProtection.legalLinks[consentLocale];
 
   async function order(): Promise<void> {
     setSubmitting(true);
@@ -76,15 +80,21 @@ export function CheckoutConsentDialog({
       testId="checkout-consent-dialog"
     >
       <div className="flex flex-col gap-4">
-        <Heading variant="page">{t("billing-foundation.consent.title")}</Heading>
         <div className="flex flex-col gap-1" data-testid="checkout-consent-summary">
           <Text>
             {planName} — {price.amount}
           </Text>
           {price.renewalKey !== undefined && (
-            <Text variant="muted">{t(price.renewalKey, { count: price.count })}</Text>
+            <>
+              <Text variant="muted">
+                {t(
+                  price.renewalKey,
+                  price.count !== undefined ? { count: price.count } : undefined,
+                )}
+              </Text>
+              <Text variant="muted">{t("billing-foundation.consent.cancelAnytime")}</Text>
+            </>
           )}
-          <Text variant="muted">{t("billing-foundation.consent.cancelAnytime")}</Text>
         </div>
         <div className="flex flex-wrap gap-4">
           <Link href={legalLinks.terms} target="_blank">

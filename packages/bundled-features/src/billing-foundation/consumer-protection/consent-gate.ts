@@ -2,7 +2,7 @@
 // validate + prepare before the provider call, record only after it succeeded.
 
 import { createHash } from "node:crypto";
-import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { type HandlerContext, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
@@ -45,6 +45,11 @@ export type PreparedConsent = {
   readonly termsTemplateVersion: number;
 };
 
+export type OrderItem = {
+  readonly labelKey: string;
+  readonly params?: Readonly<Record<string, string | number>>;
+};
+
 export type ConsentPriceDetails = {
   readonly tier: string | null;
   readonly priceId: string;
@@ -52,6 +57,7 @@ export type ConsentPriceDetails = {
     ProviderPrice,
     "unitAmount" | "currency" | "interval" | "intervalCount"
   > | null;
+  readonly orderItem?: OrderItem;
 };
 
 export async function prepareConsent(
@@ -78,7 +84,7 @@ export async function prepareConsent(
   let terms: Awaited<ReturnType<typeof resolver.resolveTemplate>>;
   try {
     terms = await resolver.resolveTemplate({
-      tenantId: ctx.user.tenantId,
+      tenantId: SYSTEM_TENANT_ID,
       slug: options.termsTextBlock,
       kind: TEXT_BLOCK_KIND,
       locale,
@@ -136,6 +142,10 @@ export async function recordConsent(
     termsTemplateVersion: prepared.termsTemplateVersion,
     locale: prepared.locale,
     actorUserId: String(ctx.user.id),
+    ...(details.orderItem && {
+      itemLabelKey: details.orderItem.labelKey,
+      ...(details.orderItem.params && { itemLabelParams: details.orderItem.params }),
+    }),
   };
   const tenantId = ctx.user.tenantId;
   const isSubscription = prepared.mode === "subscription";

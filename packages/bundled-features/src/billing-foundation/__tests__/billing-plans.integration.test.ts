@@ -15,6 +15,7 @@ import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -312,6 +313,28 @@ describe("start-plan-checkout — no existing subscription", () => {
       cancelUrl: "https://app.example.com/billing/cancel",
       mode: "subscription",
     });
+  });
+});
+
+describe("start-plan-checkout — consumerProtection off", () => {
+  test("start-plan-checkout without consumerProtection needs no consent and records none", async () => {
+    checkoutCalls.length = 0;
+    const admin = adminFor(7090);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.startPlanCheckout,
+      { tier: "pro" },
+      admin,
+    );
+    expect(checkoutCalls).toHaveLength(1);
+    const events = await loadAggregate(
+      stack.db,
+      subscriptionAggregateId(admin.tenantId),
+      admin.tenantId as never,
+      { includeArchived: true },
+    );
+    expect(
+      events.filter((e) => e.type === "billing-foundation:event:checkout-consent-recorded"),
+    ).toEqual([]);
   });
 });
 

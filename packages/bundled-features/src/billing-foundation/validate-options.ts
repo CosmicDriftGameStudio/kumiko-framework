@@ -5,7 +5,13 @@
 
 import * as z from "zod";
 import { isTerminationScope, TERMINATION_SCOPES } from "./constants.js";
-import type { BillingFoundationOptions, ConsumerProtectionOptions } from "./types.js";
+import { CONSENT_LOCALES, type ConsentLocale } from "./consumer-protection/consent-locale.js";
+import {
+  type BillingFoundationOptions,
+  type ConsumerProtectionOptions,
+  isLegalLinkSet,
+  type LegalLinkSet,
+} from "./types.js";
 
 function isRootRelativePath(path: string): boolean {
   return path.startsWith("/") && !path.startsWith("//");
@@ -36,15 +42,42 @@ function validateConsumerProtection(cp: ConsumerProtectionOptions): void {
       `createBillingFoundationFeature: consumerProtection.operatorEmail "${cp.operatorEmail}" is not a valid email address.`,
     );
   }
+  if (cp.oneOffItemLabel !== undefined && typeof cp.oneOffItemLabel !== "function") {
+    throw new Error(
+      "createBillingFoundationFeature: consumerProtection.oneOffItemLabel must be a function.",
+    );
+  }
   if (cp.terminationScope !== undefined && !isTerminationScope(cp.terminationScope)) {
     throw new Error(
       `createBillingFoundationFeature: consumerProtection.terminationScope "${String(cp.terminationScope)}" must be one of ${TERMINATION_SCOPES.map((scope) => `"${scope}"`).join(", ")}.`,
     );
   }
-  for (const [key, link] of Object.entries(cp.legalLinks)) {
+  if (isLegalLinkSet(cp.legalLinks)) {
+    validateLegalLinkSet(cp.legalLinks, "legalLinks");
+  } else {
+    validatePerLocaleLegalLinks(cp.legalLinks);
+  }
+}
+
+function validatePerLocaleLegalLinks(
+  legalLinks: Readonly<Record<ConsentLocale, LegalLinkSet>>,
+): void {
+  for (const locale of CONSENT_LOCALES) {
+    const set = legalLinks[locale];
+    if (!set) {
+      throw new Error(
+        `createBillingFoundationFeature: consumerProtection.legalLinks needs a "${locale}" entry when given per locale.`,
+      );
+    }
+    validateLegalLinkSet(set, `legalLinks.${locale}`);
+  }
+}
+
+function validateLegalLinkSet(set: LegalLinkSet, path: string): void {
+  for (const [key, link] of Object.entries(set)) {
     if (!isRootRelativeOrHttpsUrl(link)) {
       throw new Error(
-        `createBillingFoundationFeature: consumerProtection.legalLinks.${key} "${link}" must be a root-relative path ("/..." not "//") or an absolute https URL.`,
+        `createBillingFoundationFeature: consumerProtection.${path}.${key} "${link}" must be a root-relative path ("/..." not "//") or an absolute https URL.`,
       );
     }
   }

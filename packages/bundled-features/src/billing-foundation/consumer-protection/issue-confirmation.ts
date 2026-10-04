@@ -5,9 +5,12 @@
 import {
   access,
   createSystemUser,
+  SYSTEM_TENANT_ID,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
+import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
 import { requireTemplateResolver, TEXT_BLOCK_KIND } from "../../template-resolver/index.js";
 import { UserQueries } from "../../user/index.js";
@@ -46,7 +49,18 @@ export type IssueContractConfirmationResult =
 const recipientRowSchema = z.object({
   email: z.string().min(1),
   isDeleted: z.boolean().optional(),
+  timezone: z.string().nullish(),
 });
+
+// createI18n returns the key itself for an unknown key.
+function translatedOrUndefined(translation: string, key: string): string | undefined {
+  return translation === key ? undefined : translation;
+}
+
+function pickTimeZone(userZone: string | null | undefined, tenantZone: string): string {
+  if (userZone && isValidIanaTimeZone(userZone)) return userZone;
+  return isValidIanaTimeZone(tenantZone) ? tenantZone : "UTC";
+}
 
 export function createIssueContractConfirmationHandler(
   options: ResolvedBillingFoundationOptions,
@@ -143,7 +157,7 @@ export function createIssueContractConfirmationHandler(
 
       const locale = resolveConsentLocale(consent.locale);
       const terms = await requireTemplateResolver(ctx, "billing-foundation").resolveTemplate({
-        tenantId,
+        tenantId: SYSTEM_TENANT_ID,
         slug: consumerProtection.termsTextBlock,
         kind: TEXT_BLOCK_KIND,
         locale,
@@ -154,9 +168,28 @@ export function createIssueContractConfirmationHandler(
         );
       }
 
+      const i18n = createI18n(ctx.registry, { defaultLocale: "en" });
+      const tierLabel =
+        consent.tier !== null && options.catalog
+          ? translatedOrUndefined(
+              i18n.t(options.catalog.tierLabelKey(consent.tier), locale),
+              options.catalog.tierLabelKey(consent.tier),
+            )
+          : undefined;
+      const itemLabel =
+        consent.itemLabelKey !== undefined
+          ? translatedOrUndefined(
+              i18n.t(consent.itemLabelKey, locale, consent.itemLabelParams),
+              consent.itemLabelKey,
+            )
+          : undefined;
+
       const issuedAtIso = options.now().toString();
       const content = renderContractConfirmation({
         consent,
+        timeZone: pickTimeZone(recipient.data.timezone, ctx.tz.tenant),
+        ...(tierLabel !== undefined && { tierLabel }),
+        ...(itemLabel !== undefined && { itemLabel }),
         consentGivenAtIso: consentEvent.createdAt.toString(),
         contractStartIso: issuedAtIso,
         ...(payload.currentPeriodEndIso !== undefined && {

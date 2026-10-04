@@ -1092,3 +1092,53 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     expect(rows).toHaveLength(1);
   });
 });
+
+// =============================================================================
+// Opt-in guarantee: without `consumerProtection` no consent is required, none
+// is recorded and the checkout behaves as before.
+// =============================================================================
+
+describe("consumerProtection off — checkout needs no consent and records none", () => {
+  const CONSENT_EVENT_QN = "billing-foundation:event:checkout-consent-recorded";
+
+  async function recordedConsentEvents(tenantId: string) {
+    const streams = await Promise.all(
+      [subscriptionAggregateId(tenantId), paymentAggregateId(tenantId)].map((aggregateId) =>
+        loadAggregate(stack.db, aggregateId, tenantId as never, { includeArchived: true }),
+      ),
+    );
+    return streams.flat().filter((e) => e.type === CONSENT_EVENT_QN);
+  }
+
+  test("create-checkout-session subscription and payment without consent succeed and write no consent event", async () => {
+    mockCheckoutCalls.length = 0;
+    const admin = adminFor(3090);
+    const subscription = (await stack.http.writeOk(
+      "billing-foundation:write:create-checkout-session",
+      {
+        providerName: "mock",
+        priceId: "price_pro_test",
+        successUrl: "https://example.com/success",
+        cancelUrl: "https://example.com/cancel",
+        mode: "subscription",
+      },
+      admin,
+    )) as Record<string, unknown>;
+    const payment = (await stack.http.writeOk(
+      "billing-foundation:write:create-checkout-session",
+      {
+        providerName: "mock",
+        priceId: "price_topup_test",
+        successUrl: "https://example.com/success",
+        cancelUrl: "https://example.com/cancel",
+        mode: "payment",
+      },
+      admin,
+    )) as Record<string, unknown>;
+
+    expect(subscription["url"]).toBe("https://mock.example/checkout/price_pro_test");
+    expect(payment["url"]).toBe("https://mock.example/checkout/price_topup_test");
+    expect(mockCheckoutCalls).toHaveLength(2);
+    expect(await recordedConsentEvents(admin.tenantId)).toEqual([]);
+  });
+});

@@ -329,17 +329,27 @@ function assertOneOffPriceAllowed(
   }
 }
 
-/** The one checkout entry-point create-checkout-session and
- *  start-plan-checkout both funnel through. `mode: "payment"` (one-off
- *  top-ups etc.) skips the price/subscription gates entirely — those apply
- *  to recurring subscriptions only. */
-export async function openCheckout(
+type CheckoutCapableProvider = SubscriptionProviderPlugin & {
+  readonly createCheckoutSession: NonNullable<SubscriptionProviderPlugin["createCheckoutSession"]>;
+};
+
+function canCreateCheckoutSession(
+  plugin: SubscriptionProviderPlugin,
+): plugin is CheckoutCapableProvider {
+  return plugin.createCheckoutSession !== undefined;
+}
+
+/** All gates that run before a provider checkout call: provider, billing
+ *  enabled, redirect origins, mode gates, foreign provider customer.
+ *  `mode: "payment"` (one-off top-ups etc.) skips the price/subscription
+ *  gates — those apply to recurring subscriptions only. */
+export async function assertCheckoutAllowed(
   ctx: HandlerContext,
   options: OpenCheckoutOptions,
   input: OpenCheckoutInput,
-): Promise<{ readonly url: string; readonly providerName: string }> {
+): Promise<CheckoutCapableProvider> {
   const { plugin } = resolveProviderPlugin(ctx, input.providerName);
-  if (!plugin.createCheckoutSession) {
+  if (!canCreateCheckoutSession(plugin)) {
     throw new Error(
       `subscription-foundation: provider "${input.providerName}" has no createCheckoutSession-method (e.g. Apple-IAP-only providers). Use the provider's native checkout flow.`,
     );
@@ -376,7 +386,14 @@ export async function openCheckout(
       });
     }
   }
+  return plugin;
+}
 
+export async function startProviderCheckout(
+  ctx: HandlerContext,
+  plugin: CheckoutCapableProvider,
+  input: OpenCheckoutInput,
+): Promise<{ readonly url: string; readonly providerName: string }> {
   const result = await plugin.createCheckoutSession(ctx, {
     priceId: input.priceId,
     tenantId: ctx.user.tenantId,
@@ -392,4 +409,15 @@ export async function openCheckout(
     ...(input.submitMessage && { submitMessage: input.submitMessage }),
   });
   return { url: result.url, providerName: input.providerName };
+}
+
+/** The one checkout entry-point start-plan-checkout, switch-plan and the
+ *  non-consumer-protection create-checkout-session funnel through. */
+export async function openCheckout(
+  ctx: HandlerContext,
+  options: OpenCheckoutOptions,
+  input: OpenCheckoutInput,
+): Promise<{ readonly url: string; readonly providerName: string }> {
+  const plugin = await assertCheckoutAllowed(ctx, options, input);
+  return startProviderCheckout(ctx, plugin, input);
 }

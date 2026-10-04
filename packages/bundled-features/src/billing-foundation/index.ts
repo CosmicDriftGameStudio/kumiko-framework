@@ -34,6 +34,16 @@ export {
   SubscriptionStatuses,
 } from "./constants.js";
 export {
+  type ConsentPayload,
+  consentPayloadSchema,
+  type OrderItem,
+} from "./consumer-protection/consent-gate.js";
+export {
+  CONSENT_LOCALES,
+  type ConsentLocale,
+  resolveConsentLocale,
+} from "./consumer-protection/consent-locale.js";
+export {
   type ContractTerminationRoutesOptions,
   createContractTerminationRoutes,
 } from "./consumer-protection/termination-pages.js";
@@ -79,6 +89,7 @@ export {
   type BillingPlanView,
   type ConsumerProtectionOptions,
   KNOWN_RECURRING_INTERVALS,
+  type LegalLinkSet,
   type PaymentEvent,
   type ProviderPrice,
   type ProviderSubscriptionSnapshot,

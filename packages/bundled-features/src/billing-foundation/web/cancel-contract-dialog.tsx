@@ -40,7 +40,7 @@ export function CancelContractDialog({
 }: CancelContractDialogProps): ReactNode {
   const t = useTranslation();
   const locale = useLocale().locale();
-  const { Modal, Heading, Text, Field, Input, Button, Banner } = usePrimitives();
+  const { Modal, Text, Field, Input, Button, Banner } = usePrimitives();
   const terminate = useMutation<TerminateContractReceipt>(
     SubscriptionFoundationHandlers.terminateContract,
   );
@@ -78,7 +78,6 @@ export function CancelContractDialog({
       testId="cancel-contract-dialog"
     >
       <div className="flex flex-col gap-4">
-        <Heading variant="page">{t("billing-foundation.cancel.title")}</Heading>
         {step === "form" && (
           <>
             <Text variant="muted">{t("billing-foundation.cancel.declaration")}</Text>

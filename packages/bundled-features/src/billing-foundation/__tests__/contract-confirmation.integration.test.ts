@@ -3,6 +3,7 @@
 // the in-memory email transport after the job cascade drained.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemUser, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
@@ -13,6 +14,7 @@ import {
   TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
+  unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
@@ -21,7 +23,10 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles/index.js";
+import { createConfigAccessorFactory } from "../../config/feature.js";
 import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferenceEntity } from "../../delivery/tables.js";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
@@ -29,6 +34,7 @@ import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simp
 import { createTemplateResolverApi } from "../../template-resolver/api.js";
 import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/constants.js";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { TemplateResolverHandlers } from "../../template-resolver/index.js";
 import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
@@ -45,7 +51,10 @@ import {
   SubscriptionStatuses,
 } from "../constants.js";
 import { CONSENT_TEXTS, consentTextVersion } from "../consumer-protection/consent-text.js";
-import { CONTRACT_CONFIRMATION_ISSUED_EVENT_QN } from "../events.js";
+import {
+  CHECKOUT_CONSENT_RECORDED_EVENT_QN,
+  CONTRACT_CONFIRMATION_ISSUED_EVENT_QN,
+} from "../events.js";
 import { createBillingFoundationFeature } from "../feature.js";
 import type {
   BillingPlanCatalog,
@@ -66,6 +75,13 @@ const consumerProtection: ConsumerProtectionOptions = {
   termsTextBlock: TERMS_SLUG,
   vatNote: { de: "Preise inkl. USt.", en: "Prices include VAT." },
   operatorEmail: "billing@example.com",
+  oneOffItemLabel: async (_ctx, priceId) =>
+    priceId === "price_topup"
+      ? {
+          labelKey: "test-mock-confirm-provider:credits.pack.label",
+          params: { count: 500 },
+        }
+      : undefined,
   legalLinks: {
     terms: "/legal/terms",
     withdrawal: "/legal/withdrawal",
@@ -75,7 +91,8 @@ const consumerProtection: ConsumerProtectionOptions = {
 
 const catalog: BillingPlanCatalog = {
   plans: ["starter", "pro"],
-  tierLabelKey: (tier) => `plan.${tier}.label`,
+  // Server-side i18n only resolves keys qualified with the registering feature.
+  tierLabelKey: (tier) => `test-mock-confirm-provider:plan.${tier}.label`,
   benefits: () => [],
   resolveCurrentTier: async () => "free",
   viewRoles: ["TenantAdmin", "SystemAdmin"],
@@ -85,10 +102,17 @@ const catalog: BillingPlanCatalog = {
 };
 
 const emailTransport = createInMemoryTransport();
+const configResolver = createConfigResolver();
 let lastConsentId: string | undefined;
 
 const mockProviderFeature = defineFeature("test-mock-confirm-provider", (r) => {
   r.requires("billing-foundation");
+  r.translations({
+    keys: {
+      "plan.pro.label": { en: "Pro plan" },
+      "credits.pack.label": { en: "{count} credits" },
+    },
+  });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async (rawBody) =>
       JSON.parse(rawBody) as SubscriptionEvent | PaymentEvent | null,
@@ -152,6 +176,8 @@ beforeAll(async () => {
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
       templateResolver: createTemplateResolverApi(deps.db),
+      configResolver: configResolver,
+      _configAccessorFactory: createConfigAccessorFactory(deps.registry, configResolver),
     }),
     extraRoutes: [createSubscriptionWebhookRoute()],
     jobs: { consumerLane: "worker", queueNamePrefix: `contract-confirmation-${generateId()}` },
@@ -161,6 +187,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   await unsafeCreateEntityTable(stack.db, notificationPreferenceEntity);
+  await unsafePushTables(stack.db, { configValuesTable });
 });
 
 afterAll(async () => {
@@ -195,10 +222,15 @@ async function seedTerms(locale: string, content: string): Promise<void> {
   });
 }
 
-async function createBuyer(tenantNumber: number) {
+async function createBuyer(tenantNumber: number, timezone?: string) {
   const created = await stack.http.writeOk<{ id: string }>(
     UserHandlers.create,
-    { email: BUYER_EMAIL, passwordHash: "not-a-real-hash", displayName: "Buyer" },
+    {
+      email: BUYER_EMAIL,
+      passwordHash: "not-a-real-hash",
+      displayName: "Buyer",
+      ...(timezone !== undefined && { timezone }),
+    },
     TestUsers.systemAdmin,
   );
   return createTestUser({
@@ -282,7 +314,7 @@ describe("contract confirmation mail on a subscription", () => {
     expect(mail?.to).toBe(BUYER_EMAIL);
     expect(mail?.subject).toBe("Vertragsbestätigung");
     const html = mail?.html ?? "";
-    expect(html).toContain("Tarif: pro");
+    expect(html).toContain("Tarif: Pro plan");
     expect(html).toContain("19,00");
     expect(html).toContain("Preise inkl. USt.");
     expect(html).toContain(CONSENT_TEXTS.de.earlyPerformance);
@@ -306,7 +338,7 @@ describe("contract confirmation mail on a subscription", () => {
     const mail = emailTransport.sent[0];
     expect(mail?.subject).toBe("Contract confirmation");
     const html = mail?.html ?? "";
-    expect(html).toContain("Plan: pro");
+    expect(html).toContain("Plan: Pro plan");
     expect(html).toContain("Prices include VAT.");
     expect(html).toContain(CONSENT_TEXTS.en.earlyPerformance);
     expect(html).toContain(TERMS_EN);
@@ -410,7 +442,120 @@ describe("contract confirmation mail on a subscription", () => {
   });
 });
 
+describe("contract confirmation mail time zone", () => {
+  async function mailFor(buyer: ReturnType<typeof createTestUser>): Promise<string> {
+    const consentId = await recordSubscriptionConsent(buyer, "en");
+    await postWebhook(subscriptionEvent(buyer.tenantId, { providerEventId: "evt_tz", consentId }));
+    await stack.drainJobs();
+    expect(emailTransport.sent).toHaveLength(1);
+    return emailTransport.sent[0]?.html ?? "";
+  }
+
+  test("the recipient's own time zone wins", async () => {
+    const buyer = await createBuyer(8210, "Asia/Tokyo");
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: "tenant:config:timezone", value: "Europe/Berlin" },
+      buyer,
+    );
+    const html = await mailFor(buyer);
+    expect(html).toContain("GMT+9");
+    expect(html).not.toContain("UTC");
+  });
+
+  test("without a user zone the tenant zone is used", async () => {
+    const buyer = await createBuyer(8211);
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: "tenant:config:timezone", value: "Asia/Tokyo" },
+      buyer,
+    );
+    expect(await mailFor(buyer)).toContain("GMT+9");
+  });
+
+  test("without any user or tenant setting the tenant feature's default zone applies", async () => {
+    const buyer = await createBuyer(8212);
+    expect(await mailFor(buyer)).toMatch(/GMT\+[12]/);
+  });
+});
+
+describe("contract confirmation terms source", () => {
+  test("a tenant-owned block with the terms slug does not replace the system terms", async () => {
+    const buyer = await createBuyer(8213);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.set,
+      {
+        slug: TERMS_SLUG,
+        locale: "en",
+        title: "Own terms",
+        content: "Tenant-authored replacement terms",
+        contentFormat: "markdown",
+      },
+      buyer,
+    );
+    const consentId = await recordSubscriptionConsent(buyer, "en");
+    const events = await loadAggregate(
+      stack.db,
+      subscriptionAggregateId(buyer.tenantId),
+      buyer.tenantId as never,
+      { includeArchived: true },
+    );
+    const consentEvent = events.find((e) => e.type === CHECKOUT_CONSENT_RECORDED_EVENT_QN);
+    expect(consentEvent?.payload).toMatchObject({
+      termsHash: createHash("sha256").update(TERMS_EN).digest("hex"),
+    });
+
+    await postWebhook(subscriptionEvent(buyer.tenantId, { providerEventId: "evt_t", consentId }));
+    await stack.drainJobs();
+    const html = emailTransport.sent[0]?.html ?? "";
+    expect(html).toContain(TERMS_EN);
+    expect(html).not.toContain("Tenant-authored replacement terms");
+  });
+});
+
 describe("contract confirmation mail on a one-off payment", () => {
+  test("the oneOffItemLabel option labels the consent and the mail", async () => {
+    const buyer = await createBuyer(8214);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      {
+        providerName: PROVIDER,
+        priceId: "price_topup",
+        successUrl: "https://app.example.com/billing/success",
+        cancelUrl: "https://app.example.com/billing/cancel",
+        mode: "payment",
+        consent: consentFor("en"),
+      },
+      buyer,
+    );
+    const consentId = lastConsentId;
+    if (!consentId) throw new Error("provider did not receive a consentId");
+    const events = await loadAggregate(
+      stack.db,
+      paymentAggregateId(buyer.tenantId),
+      buyer.tenantId as never,
+      { includeArchived: true },
+    );
+    expect(
+      events.find((e) => e.type === CHECKOUT_CONSENT_RECORDED_EVENT_QN)?.payload,
+    ).toMatchObject({
+      itemLabelKey: "test-mock-confirm-provider:credits.pack.label",
+      itemLabelParams: { count: 500 },
+    });
+
+    await postWebhook({
+      kind: BillingEventKinds.payment,
+      providerEventId: "evt_pay_item",
+      providerName: PROVIDER,
+      tenantId: buyer.tenantId,
+      providerCustomerId: "cus_confirm",
+      priceId: "price_topup",
+      consentId,
+    } satisfies PaymentEvent);
+    await stack.drainJobs();
+    expect(emailTransport.sent[0]?.html ?? "").toContain("Item: 500 credits");
+  });
+
   test("payment-received with the consentId sends one mail", async () => {
     const buyer = await createBuyer(8208);
     await stack.http.writeOk(
@@ -442,7 +587,7 @@ describe("contract confirmation mail on a one-off payment", () => {
 
     expect(emailTransport.sent).toHaveLength(1);
     const html = emailTransport.sent[0]?.html ?? "";
-    expect(html).toContain("One-off payment");
+    expect(html).toContain("Item: 500 credits");
     expect(html).toContain(TERMS_EN);
     expect(await issuedEvents(paymentAggregateId(buyer.tenantId), buyer.tenantId)).toHaveLength(1);
   });

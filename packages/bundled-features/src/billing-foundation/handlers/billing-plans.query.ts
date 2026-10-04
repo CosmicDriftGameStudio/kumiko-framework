@@ -11,10 +11,13 @@ import {
   consentTextVersion,
 } from "../consumer-protection/consent-text.js";
 import { buildBillingPlans } from "../plan-catalog.js";
-import type {
-  BillingPlanCatalog,
-  BillingPlansResult,
-  ResolvedBillingFoundationOptions,
+import {
+  type BillingPlanCatalog,
+  type BillingPlansResult,
+  type ConsumerProtectionOptions,
+  isLegalLinkSet,
+  type LegalLinkSet,
+  type ResolvedBillingFoundationOptions,
 } from "../types.js";
 
 const billingPlansSchema = z.object({}).strict();
@@ -41,11 +44,17 @@ export function createBillingPlansQuery(
             de: consentTextView("de"),
             en: consentTextView("en"),
           },
-          legalLinks: consumerProtection.legalLinks,
+          legalLinks: legalLinksPerLocale(consumerProtection.legalLinks),
         },
       };
     },
   };
+}
+
+function legalLinksPerLocale(
+  legalLinks: ConsumerProtectionOptions["legalLinks"],
+): Readonly<Record<(typeof CONSENT_LOCALES)[number], LegalLinkSet>> {
+  return isLegalLinkSet(legalLinks) ? { de: legalLinks, en: legalLinks } : legalLinks;
 }
 
 function consentTextView(locale: (typeof CONSENT_LOCALES)[number]) {

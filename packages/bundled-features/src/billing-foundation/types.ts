@@ -37,6 +37,8 @@ import {
   type SubscriptionStatus,
   type TerminationScope,
 } from "./constants.js";
+import type { OrderItem } from "./consumer-protection/consent-gate.js";
+import type { ConsentLocale } from "./consumer-protection/consent-locale.js";
 
 // =============================================================================
 // Normalisierter Webhook-Event
@@ -380,6 +382,18 @@ export type BillingPlanCatalog<TTier extends string = string> = {
   readonly providerName?: string;
 };
 
+export type LegalLinkSet = {
+  readonly terms: string;
+  readonly withdrawal: string;
+  readonly privacy: string;
+};
+
+export function isLegalLinkSet(
+  links: LegalLinkSet | Readonly<Record<ConsentLocale, LegalLinkSet>>,
+): links is LegalLinkSet {
+  return "terms" in links;
+}
+
 /** Consumer-protection consent gate (§ 312j / § 356 BGB style). When set,
  *  `start-plan-checkout` and `create-checkout-session` require a `consent`
  *  payload and record it as an event before the buyer reaches the provider. */
@@ -395,12 +409,16 @@ export type ConsumerProtectionOptions = {
    *  host that resolves none (the platform apex) — the declaration then runs
    *  without a request tenant and finds the contract by the declarant's email. */
   readonly terminationScope?: TerminationScope;
-  /** Root-relative paths or absolute https URLs. */
-  readonly legalLinks: {
-    readonly terms: string;
-    readonly withdrawal: string;
-    readonly privacy: string;
-  };
+  /** Names the item of a one-off payment (mode "payment") for the consent record
+   *  and the confirmation mail; the label key is resolved through the registry
+   *  i18n, so it must be qualified with the registering feature. */
+  readonly oneOffItemLabel?: (
+    ctx: HandlerContext,
+    priceId: string,
+  ) => Promise<OrderItem | undefined>;
+  /** Root-relative paths or absolute https URLs. One set for every locale, or
+   *  one set per consent locale (`de` and `en` required). */
+  readonly legalLinks: LegalLinkSet | Readonly<Record<ConsentLocale, LegalLinkSet>>;
 };
 
 export type BillingFoundationOptions<TTier extends string = string> = {
@@ -472,7 +490,7 @@ export type BillingPlansResult = {
         }
       >
     >;
-    readonly legalLinks: ConsumerProtectionOptions["legalLinks"];
+    readonly legalLinks: Readonly<Record<ConsentLocale, LegalLinkSet>>;
   };
 };
 

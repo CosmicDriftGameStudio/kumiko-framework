@@ -10,6 +10,8 @@ export type LegalPageRoute = {
   readonly slug: string;
   readonly lang: string;
   readonly titleFallback: string;
+  /** Prepend the page title as `<h1>` to the rendered body. Default false. */
+  readonly titleHeading?: boolean;
 };
 
 // Shape of one boot-check-required block — the type behind

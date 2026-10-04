@@ -442,7 +442,10 @@ describe("BillingPlansPanel", () => {
           consentTextVersion: "version-en",
         },
       },
-      legalLinks: { terms: "/legal/terms", withdrawal: "/legal/withdrawal", privacy: "/privacy" },
+      legalLinks: {
+        de: { terms: "/legal/agb", withdrawal: "/legal/widerruf", privacy: "/datenschutz" },
+        en: { terms: "/legal/terms", withdrawal: "/legal/withdrawal", privacy: "/privacy" },
+      },
     };
 
     function openConsentDialog(): void {
@@ -465,6 +468,9 @@ describe("BillingPlansPanel", () => {
       expect(screen.getByTestId("checkout-consent-dialog")).toBeTruthy();
       expect(checkoutMutate).not.toHaveBeenCalled();
       expect(screen.getByTestId("checkout-consent-summary").textContent).toContain("$9.99");
+      expect(screen.getByTestId("checkout-consent-summary").textContent).toContain(
+        "billing-foundation.consent.cancelAnytime",
+      );
       expect(
         screen
           .getByText("billing-foundation.consent.link.terms")
@@ -512,19 +518,50 @@ describe("BillingPlansPanel", () => {
       });
     });
 
-    test("a UI locale outside de/en falls back to the german consent texts", async () => {
+    test("a UI locale outside de/en falls back to the english consent texts", async () => {
       uiLocale = "fr-FR";
       queryState = { data: result({ consumerProtection }), loading: false, error: null };
       renderPanel();
       fireEvent.click(screen.getByRole("button", { name: "billing-foundation.plans.choose" }));
-      fireEvent.click(screen.getByLabelText("DE early performance"));
-      fireEvent.click(screen.getByLabelText("DE withdrawal loss"));
+      tickBothConsents();
       fireEvent.click(orderButton());
       await waitFor(() => expect(checkoutMutate).toHaveBeenCalled());
       expect(checkoutMutate).toHaveBeenCalledWith({
         tier: "pro",
-        consent: expect.objectContaining({ consentTextVersion: "version-de", locale: "de" }),
+        consent: expect.objectContaining({ consentTextVersion: "version-en", locale: "en" }),
       });
+    });
+
+    test("a german UI shows the german legal links", () => {
+      uiLocale = "de";
+      queryState = { data: result({ consumerProtection }), loading: false, error: null };
+      renderPanel();
+      fireEvent.click(screen.getByRole("button", { name: "billing-foundation.plans.choose" }));
+      expect(
+        screen
+          .getByText("billing-foundation.consent.link.terms")
+          .closest("a")
+          ?.getAttribute("href"),
+      ).toBe("/legal/agb");
+    });
+
+    test("the consent dialog title is rendered once", () => {
+      openConsentDialog();
+      expect(screen.getAllByText("billing-foundation.consent.title")).toHaveLength(1);
+    });
+
+    test("the cancel-contract button is hidden once a cancellation is scheduled", () => {
+      queryState = {
+        data: result({
+          consumerProtection,
+          subscription: subscription({ cancelAt: "2024-03-01T00:00:00Z" }),
+          plans: [plan({ isCurrent: true, action: BillingPlanActions.current })],
+        }),
+        loading: false,
+        error: null,
+      };
+      renderPanel();
+      expect(screen.queryByTestId("billing-plans-cancel-contract")).toBeNull();
     });
 
     test("consent_text_outdated shows the error in the dialog, clears the boxes and refetches the plans", async () => {
@@ -572,6 +609,11 @@ describe("BillingPlansPanel", () => {
       renderPanel();
       fireEvent.click(screen.getByTestId("billing-plans-cancel-contract"));
     }
+
+    test("the cancel dialog title is rendered once", () => {
+      openCancelDialog();
+      expect(screen.getAllByText("billing-foundation.cancel.title")).toHaveLength(1);
+    });
 
     test("an extraordinary termination cannot continue without a reason", () => {
       openCancelDialog();
