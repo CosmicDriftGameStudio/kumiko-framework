@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-26
+verified: 2026-10-04
 ---
 
 # Infrastructure requirements by feature
@@ -51,6 +51,15 @@ features additionally needs the respective external service (SMTP relay,
 payment provider, S3-compatible storage, IMAP mailbox) — those are per-feature
 provider dependencies, not core infra, and are opt-in via which
 bundled-feature you mount.
+
+## Optional: app version in the event log
+
+`runProdApp` writes one `kumiko:system:app.started` event per start under the
+system tenant (stream type `app-instance`). It carries the version, the
+instance id (`HOSTNAME`, the pod name on Kubernetes, else the OS hostname) and
+the start time. The deployment sets `KUMIKO_APP_VERSION` (and optionally
+`KUMIKO_GIT_COMMIT`); without a version the event records `"unknown"`. A
+failed write is logged and does not stop the boot.
 
 ## Local dev stack
 
