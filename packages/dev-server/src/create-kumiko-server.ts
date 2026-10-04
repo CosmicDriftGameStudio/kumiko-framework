@@ -34,6 +34,7 @@ import {
   createAnonymousUser,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   pushEntityProjectionTables,
@@ -253,6 +254,8 @@ export type CreateKumikoServerOptions = {
    *  `ServerOptions.trustedProxyHops`. Dev usually runs unproxied, so this
    *  is normally left unset (default 0). */
   readonly trustedProxyHops?: number;
+  /** Links the app's own error reasons to its own docs (`docsUrl` in error responses); framework reasons keep the framework docs link. */
+  readonly errorDocs?: ErrorDocsConfig;
   /** Hook for app-wired co-running components that need the system-write
    *  dispatcher — runs after buildServer, before onAfterSetup (seeds), with
    *  NO `app` (routes are declared via `extraRoutes`, not wired here). */
@@ -928,6 +931,7 @@ export async function createKumikoServer(
     }),
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
     ...(options.trustedProxyHops !== undefined && { trustedProxyHops: options.trustedProxyHops }),
+    ...(options.errorDocs && { errorDocs: options.errorDocs }),
     // jobs.consumerLane unset = enqueuer-only; startDevJobRunners below is
     // the sole consumer/cron-scheduler per lane, so runOnBoot/cron jobs
     // don't double-fire. queueNamePrefix keeps this boot's queues isolated

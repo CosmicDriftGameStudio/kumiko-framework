@@ -100,7 +100,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
         const failedType =
           result.failedIndex != null ? body.commands[result.failedIndex]?.type : undefined;
         logServerFault(err, requestId, failedType);
-        const { error } = serializeError(err, requestId);
+        const { error } = serializeError(err, requestId, requestContext.get()?.errorDocs);
         // Keep failedIndex + results alongside the error envelope so callers
         // can tell which command in the batch failed and inspect the partial
         // results from the successful commands before the rollback.
@@ -221,7 +221,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
       } catch (e) {
         const err = toKumiko(e);
         logServerFault(err, requestId, body.type);
-        const { error } = serializeError(err, requestId);
+        const { error } = serializeError(err, requestId, requestContext.get()?.errorDocs);
         await stream.writeSSE({ event: StreamFrame.error, data: stringifyJson(error) });
       }
     });
@@ -419,7 +419,7 @@ function logServerFault(err: KumikoError, requestId: string | undefined, type?: 
 function writeErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   const requestId = requestContext.get()?.requestId;
   logServerFault(err, requestId, type);
-  const { error } = serializeError(err, requestId);
+  const { error } = serializeError(err, requestId, requestContext.get()?.errorDocs);
   return c.json({ isSuccess: false, error }, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
 }
 
@@ -436,7 +436,7 @@ function queryErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   const requestId = requestContext.get()?.requestId;
   if (isClientAbort(err)) return clientAbortResponse(c, requestId, type);
   logServerFault(err, requestId, type);
-  const body = serializeError(err, requestId);
+  const body = serializeError(err, requestId, requestContext.get()?.errorDocs);
   return c.json(body, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
 }
 
@@ -458,7 +458,7 @@ export function handleUncaughtRouteError(err: Error, c: Context): Response | Pro
   const kumikoError = toKumiko(err);
   logServerFault(kumikoError, requestId);
   return c.json(
-    serializeError(kumikoError, requestId),
+    serializeError(kumikoError, requestId, requestContext.get()?.errorDocs),
     kumikoError.httpStatus as ContentfulStatusCode,
   ); // @cast-boundary engine-payload
 }

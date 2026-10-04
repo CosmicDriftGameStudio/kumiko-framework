@@ -13,6 +13,7 @@ import type {
   Registry,
   TenantId,
 } from "../engine/types/index.js";
+import type { ErrorDocsConfig } from "../errors/docs-url.js";
 import { createArchivedStreamsTable, createEventsTable } from "../event-store/index.js";
 import { createJobRunner, type JobRunner, type JobRunnerOptions } from "../jobs/index.js";
 import type { Lifecycle } from "../lifecycle/index.js";
@@ -224,6 +225,8 @@ export type TestStackOptions = {
   /** Forwarded to buildServer's top-level `ServerOptions.trustedProxyHops`
    *  — see there. Default 0. */
   trustedProxyHops?: number;
+  /** Links the app's own error reasons to its own docs (`docsUrl` in error responses); framework reasons keep the framework docs link. Passed to buildServer's `ServerOptions.errorDocs`. */
+  errorDocs?: ErrorDocsConfig;
   /** Second stack on the Redis namespace of `owner`: own connection, same
    *  keyPrefix, so rate-limit buckets, locks, idempotency keys and the
    *  cache-sync channel are shared across both. The derived
@@ -533,6 +536,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       eventDedup,
       sseBroker,
       ...(options.trustedProxyHops !== undefined && { trustedProxyHops: options.trustedProxyHops }),
+      ...(options.errorDocs && { errorDocs: options.errorDocs }),
       ...(options.extraRoutes && { extraRoutes: options.extraRoutes }),
       ...(options.metrics && { metrics: options.metrics }),
       // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for

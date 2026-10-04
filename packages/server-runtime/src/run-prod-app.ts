@@ -121,6 +121,7 @@ import {
   withOptionalEnvKeys,
 } from "@cosmicdrift/kumiko-framework/env";
 import { type DryRunMode, renderDryRun } from "@cosmicdrift/kumiko-framework/env/dry-run";
+import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createEsOperationsTable,
   createSeedMigrationContext,
@@ -716,6 +717,8 @@ export type RunProdAppOptions = {
    *  `auth.trustedProxyHops` and `KUMIKO_TRUSTED_PROXY_HOPS`. Default 0 =
    *  trust no proxy header, only the socket address (or "unknown") counts. */
   readonly trustedProxyHops?: number;
+  /** Links the app's own error reasons to its own docs (`docsUrl` in error responses); framework reasons keep the framework docs link. */
+  readonly errorDocs?: ErrorDocsConfig;
 };
 
 export type ProdAppHandle = {
@@ -1137,6 +1140,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(options.metrics && { metrics: options.metrics }),
     ...(options.rateLimit && { rateLimit: options.rateLimit }),
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),
+    ...(options.errorDocs && { errorDocs: options.errorDocs }),
     ...(options.extraRoutes && { extraRoutes: options.extraRoutes }),
     ...(effectiveAuth && {
       auth: {

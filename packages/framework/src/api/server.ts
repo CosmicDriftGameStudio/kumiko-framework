@@ -23,6 +23,7 @@ import {
   type WebSocketRouteDefinition,
   type WriteResult,
 } from "../engine/types/index.js";
+import type { ErrorDocsConfig } from "../errors/docs-url.js";
 import { createFileContext } from "../files/file-handle.js";
 import type { FileRoutesOptions } from "../files/file-routes.js";
 import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes.js";
@@ -158,6 +159,8 @@ export type ServerOptions = {
   // deprecated `auth.trustedProxyHops`. Default 0 = trust no proxy header,
   // only the socket address (or "unknown") counts — see client-ip.ts.
   trustedProxyHops?: number;
+  /** Links the app's own error reasons to its own docs (`docsUrl` in error responses). Framework reasons keep linking to the framework docs. */
+  errorDocs?: ErrorDocsConfig;
   // No `files` option: file-storage is wired by mounting `file-foundation` +
   // a `file-provider-*` feature. Upload routes, ctx.files and the GDPR jobs
   // resolve the provider per-tenant through that single source (issue #608).
@@ -771,7 +774,13 @@ export function buildServer(options: ServerOptions): KumikoServer {
     registerMetricsRoute(app, observability.meter, options.metrics);
   }
 
-  app.use("/api/*", requestIdMiddleware({ resolver: clientIpResolver }));
+  app.use(
+    "/api/*",
+    requestIdMiddleware({
+      resolver: clientIpResolver,
+      ...(options.errorDocs && { errorDocs: options.errorDocs }),
+    }),
+  );
 
   // Cap JSON bodies before rate-limit/auth/observability even run. Header-
   // check is O(1); oversized requests never allocate memory for a full body

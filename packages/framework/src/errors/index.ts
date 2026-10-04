@@ -27,6 +27,8 @@ export {
   ValidationError,
   VersionConflictError,
 } from "./classes.js";
+export type { ErrorDocsConfig } from "./docs-url.js";
+export { resolveErrorDocsUrl } from "./docs-url.js";
 export type { ErrorCtorInput, ErrorOpts } from "./kumiko-error.js";
 export { isKumikoError, KumikoError } from "./kumiko-error.js";
 export { memberResolutionReadOnlyDenied } from "./member-resolution.js";

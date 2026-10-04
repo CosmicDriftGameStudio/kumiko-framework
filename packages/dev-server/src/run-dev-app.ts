@@ -80,6 +80,7 @@ import {
   validateAppCustomScreenWriteQns,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
@@ -291,6 +292,8 @@ export type RunDevAppOptions = {
    *  env var. Dev usually runs unproxied, so this is normally left unset
    *  (default 0). */
   readonly trustedProxyHops?: number;
+  /** Links the app's own error reasons to its own docs (`docsUrl` in error responses); framework reasons keep the framework docs link. */
+  readonly errorDocs?: ErrorDocsConfig;
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
@@ -503,6 +506,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   const handle = await createKumikoServer({
     features,
     ...(options.clientEntry !== undefined && { clientEntry: options.clientEntry }),
+    ...(options.errorDocs && { errorDocs: options.errorDocs }),
     ...(options.clientEntries !== undefined && { clientEntries: options.clientEntries }),
     ...(options.hostDispatch !== undefined && { hostDispatch: options.hostDispatch }),
     ...(options.resolvePageHead !== undefined && { resolvePageHead: options.resolvePageHead }),
