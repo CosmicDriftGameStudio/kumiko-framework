@@ -5,7 +5,7 @@ Workflow / pipeline step that calls an HTTP webhook.
 ## What it shows
 
 - Webhook step registration in a workflow
-- Retry / failure surface for outbound HTTP
+- Failure surface for outbound HTTP (one delivery attempt per request)
 - Authenticated webhooks via a tenant-owned secret (`incident:open-authenticated`)
 
 ## Auth secret
