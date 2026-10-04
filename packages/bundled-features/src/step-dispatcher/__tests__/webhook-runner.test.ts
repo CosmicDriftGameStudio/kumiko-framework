@@ -418,4 +418,35 @@ describe("performWebhookDispatch — request timeout", () => {
 
     expect(result).toEqual({ ok: false, error: "webhook request failed (TimeoutError)" });
   });
+
+  test("a body that stalls after the headers neither delays the result nor keeps the connection open", async () => {
+    process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "localhost";
+    let markBodyCancelled: () => void = () => {};
+    const bodyCancelled = new Promise<void>((resolve) => {
+      markBodyCancelled = resolve;
+    });
+    const server = Bun.serve({
+      port: 0,
+      fetch: () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode("partial"));
+            },
+            cancel: markBodyCancelled,
+          }),
+        ),
+    });
+    try {
+      const result = await performWebhookDispatch(
+        { url: `http://localhost:${server.port}/hook`, method: "POST", headers: {} },
+        noSecretsDeps,
+      );
+
+      expect(result).toEqual({ ok: true, status: 200 });
+      await bodyCancelled;
+    } finally {
+      await server.stop(true);
+    }
+  });
 });
