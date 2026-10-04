@@ -10,7 +10,8 @@ type Pool = { running: number; readonly waiting: PoolWaiter[] };
 export type QueryPools = {
   /** Resolves with a slot once fewer than `limit` requests of this query name
    *  run, or with null when `signal` aborts first (a waiter that gives up
-   *  never holds a slot). The caller must release a granted slot exactly once. */
+   *  never holds a slot). The caller must release a granted slot exactly once. Hooks of one
+   *  query name are expected to pass the same limit. */
   readonly acquire: (name: string, limit: number, signal: AbortSignal) => Promise<QuerySlot | null>;
 };
 
@@ -38,11 +39,12 @@ export function createQueryPools(): QueryPools {
   };
 
   const drain = (name: string, pool: Pool): void => {
-    const next = pool.waiting[0];
-    if (next !== undefined && pool.running < next.limit) {
+    let next = pool.waiting[0];
+    while (next !== undefined && pool.running < next.limit) {
       pool.waiting.shift();
       pool.running += 1;
       next.grant(makeSlot(name, pool));
+      next = pool.waiting[0];
     }
     if (pool.running === 0 && pool.waiting.length === 0) pools.delete(name);
   };
@@ -66,10 +68,11 @@ export function createQueryPools(): QueryPools {
         const onAbort = (): void => {
           const index = pool.waiting.indexOf(waiter);
           if (index >= 0) pool.waiting.splice(index, 1);
+          signal.removeEventListener("abort", onAbort);
           resolve(null);
           drain(name, pool);
         };
-        signal.addEventListener("abort", onAbort, { once: true });
+        signal.addEventListener("abort", onAbort);
         pool.waiting.push(waiter);
       });
     },

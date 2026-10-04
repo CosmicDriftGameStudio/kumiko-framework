@@ -1,4 +1,5 @@
 ---
+"@cosmicdrift/kumiko-renderer": minor
 "@cosmicdrift/kumiko-renderer-web": minor
 ---
 

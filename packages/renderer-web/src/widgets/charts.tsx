@@ -182,9 +182,17 @@ export type TimeseriesXAxis = {
 
 const DEFAULT_TIMESERIES_HEIGHT_CLASS = "h-16";
 const MIN_AXIS_TICKS = 2;
+const MAX_AXIS_TICKS = 20;
+
+function clampTickCount(requested: number): number {
+  return Math.min(
+    MAX_AXIS_TICKS,
+    Math.max(MIN_AXIS_TICKS, Math.floor(requested) || MIN_AXIS_TICKS),
+  );
+}
 
 function evenlySpaced(count: number): readonly number[] {
-  const n = Math.max(MIN_AXIS_TICKS, Math.floor(count));
+  const n = clampTickCount(count);
   return Array.from({ length: n }, (_, i) => i / (n - 1));
 }
 
@@ -506,7 +514,7 @@ function niceCeil(max: number): number {
 }
 
 function niceYTicks(max: number, tickCount: number): readonly number[] {
-  const count = Math.max(MIN_AXIS_TICKS, Math.floor(tickCount));
+  const count = clampTickCount(tickCount);
   const step = niceCeil(max / (count - 1));
   return Array.from({ length: count }, (_, i) => i * step);
 }

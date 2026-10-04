@@ -386,10 +386,8 @@ describe("ModeSwitch variants", () => {
     const track = screen.getByTestId("sw");
     expect(track.className).toContain("bg-muted");
     expect(track.className).toContain("w-40");
-    expect(screen.getByRole("button", { name: "Modus A" }).className).toContain("bg-background");
-    expect(screen.getByRole("button", { name: "Modus B" }).className).not.toContain(
-      "bg-background",
-    );
+    expect(screen.getByRole("button", { name: "Modus A" }).className).toContain("bg-card");
+    expect(screen.getByRole("button", { name: "Modus B" }).className).not.toContain("bg-card");
   });
 
   test("default variant stays the bordered control", () => {

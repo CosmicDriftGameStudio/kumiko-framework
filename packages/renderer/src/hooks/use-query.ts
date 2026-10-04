@@ -110,9 +110,11 @@ export function useQuery<TData = unknown>(
       let slot: QuerySlot | null = null;
       try {
         if (queryPools !== undefined && isValidConcurrency(concurrency)) {
-          slot = await queryPools.acquire(type, concurrency, ctrl.signal);
+          slot = await queryPools.acquire(type, Math.floor(concurrency), ctrl.signal);
           // skip: aborted while queued, the superseding run owns the state
           if (slot === null) return;
+          // skip: slot granted just as the run was superseded, finally frees it
+          if (ctrl.signal.aborted) return;
         }
         result = await dispatcher.query<TData>(type, payload, { signal: ctrl.signal });
       } finally {

@@ -59,7 +59,7 @@ export function ModeSwitch<T extends string>({
                 ? [
                     "rounded-md",
                     active
-                      ? "bg-background font-semibold text-foreground shadow-sm dark:bg-card"
+                      ? "bg-card font-semibold text-foreground shadow-sm dark:bg-foreground/10"
                       : "text-muted-foreground hover:text-foreground",
                   ]
                 : [
