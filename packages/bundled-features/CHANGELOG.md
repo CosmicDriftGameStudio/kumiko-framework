@@ -1,5 +1,77 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.345.0
+
+### Minor Changes
+
+- db68d67: Webhook sends carry an Idempotency-Key header
+
+  Every `r.step.webhook.send` request now has `Idempotency-Key: <dispatch stream id>`. The value stays the same when the same dispatch request is delivered again, so receivers can deduplicate. An explicit `Idempotency-Key` in `headers` (any casing) takes precedence.
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: improvement
+  title: Webhook sends carry an Idempotency-Key header that is stable across redeliveries
+  -->
+
+### Patch Changes
+
+- c325eb2: Escape-hatch audit retention loads only rows that can expire
+
+  The retention job used to load every escapeHatchUse event to decide which ones to prune. It now reads the storing tenants with one grouped query and loads only events older than each storing tenant's cutoff. The same rows are pruned as before.
+
+  <!-- kumiko-changes
+  feature: audit
+  type: fix
+  title: Escape-hatch retention loads only expirable rows
+  -->
+
+- 07495cf: `invite-signup-complete` now applies the same MFA gate as `invite-accept-with-login`. The account is still created and the invitation accepted, but an invitee whose role requires MFA (for example an admin invitation under the `admins` policy) receives the MFA step instead of a session. Member invitations keep receiving a session directly.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: invite-signup-complete enforces the MFA gate before issuing a session
+  -->
+
+- 07495cf: `POST /auth/signup-confirm` now runs the login's MFA gate before it issues the first session. Self-signup makes the new user TenantAdmin of a fresh tenant, so under an MFA policy that covers admins the route used to hand out an admin session without a second factor. The account, the tenant and a bound handover claim are still created, but when the gate applies the route answers with the login contract (`mfaSetupRequired` plus `preauthSetupToken`, or `mfaRequired` plus `challengeToken`) and sets no cookies. `SignupCompleteScreen` then tells the user the account is active and sends them to sign in, where they set up the second factor. Without `mfaStatusChecker` nothing changes. Two exported types change shape: `SignupConfirmData` gains the two MFA variants, and `confirmSignup` now resolves to `SignupConfirmResult` with `kind: "signed-in"` (the previous `SignupConfirmSuccess` fields) or `kind: "mfa-pending"`. The handler and `invite-signup-complete` also run the gate before they delete the token, so an error in the MFA check leaves the link usable for a retry.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: signup-confirm enforces the MFA gate before issuing a session
+  -->
+
+- 07495cf: `POST /auth/switch-tenant` now runs the same MFA gate as login before it issues the new session. A user who is a plain member in one tenant and an admin in another can no longer reach an admin session without a second factor by switching. When the target tenant requires MFA the route answers with the login contract (`mfaRequired` plus `challengeToken`, or `mfaSetupRequired` plus `preauthSetupToken`) and sets no cookies. The gate runs in a new system-only handler, `auth-email-password:write:switch-tenant-mfa-gate`, which resolves the membership and roles itself; `runDevApp` and `runProdApp` wire it as `switchTenantMfaGateHandler` whenever auth-mfa is mounted.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: switch-tenant enforces the MFA gate before issuing a session
+  -->
+
+- c325eb2: Token mails show the expiry in the recipient's own time zone
+
+  Password reset, email verification and account unlock are requested anonymously, so `ctx.tz.user` only held the tenant default or UTC. These mails now use the recipient's profile time zone when it is a valid IANA zone and fall back to the previous value otherwise. Signup and invite mails keep the fallback because the recipient has no profile yet.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Token mail expiry uses the recipient's profile time zone
+  -->
+
+- Updated dependencies [cef5fa0]
+- Updated dependencies [07495cf]
+- Updated dependencies [07495cf]
+- Updated dependencies [07495cf]
+- Updated dependencies [c325eb2]
+  - @cosmicdrift/kumiko-framework@0.345.0
+  - @cosmicdrift/kumiko-headless@0.345.0
+  - @cosmicdrift/kumiko-renderer@0.345.0
+  - @cosmicdrift/kumiko-renderer-web@0.345.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.345.0
+  - @cosmicdrift/kumiko-types@0.345.0
+
 ## 0.344.0
 
 ### Minor Changes

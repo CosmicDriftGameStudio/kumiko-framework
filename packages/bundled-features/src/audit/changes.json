@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.345.0",
+    "type": "fix",
+    "title": "Escape-hatch retention loads only expirable rows",
+    "detail": "Escape-hatch audit retention loads only rows that can expire\nThe retention job used to load every escapeHatchUse event to decide which ones to prune. It now reads the storing tenants with one grouped query and loads only events older than each storing tenant's cutoff. The same rows are pruned as before."
+  },
+  {
     "version": "0.343.0",
     "type": "improvement",
     "title": "escape-hatch retention follows the tenant compliance profile",
