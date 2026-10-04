@@ -464,7 +464,7 @@ describe("POST /api/auth/signup-request — mail locale follows the active brows
     expect(emailTransport.sent).toHaveLength(1);
     const sent = emailTransport.sent[0];
     if (!sent) throw new Error("no mail sent");
-    expect(sent.subject).toContain("Account aktivieren");
+    expect(sent.subject).toContain("Konto aktivieren");
   });
 
   test("no X-Locale header → the activation mail falls back to English", async () => {
@@ -540,7 +540,7 @@ describe("POST /api/auth/signup-request — opts.locale stays a real fallback", 
     expect(optsLocaleTransport.sent).toHaveLength(1);
     const sent = optsLocaleTransport.sent[0];
     if (!sent) throw new Error("no mail sent");
-    expect(sent.subject).toContain("Account aktivieren");
+    expect(sent.subject).toContain("Konto aktivieren");
   });
 });
 

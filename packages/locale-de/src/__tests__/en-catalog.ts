@@ -111,7 +111,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.login.title": "Sign in",
   "auth.login.unlockAccount": "Unlock account?",
   "auth.mail.activation.button": "Activate account",
-  "auth.mail.activation.expiry": "The link expires on {when}.",
+  "auth.mail.activation.expiry": "The link is valid for {duration} (until {when}).",
   "auth.mail.activation.greeting": "Welcome,",
   "auth.mail.activation.ignore":
     "If you didn't sign up, you can ignore this email — no account is created until you open the link.",
@@ -120,14 +120,14 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.mail.activation.subject": "{app} — Activate your account",
   "auth.mail.appNameDefault": "Account",
   "auth.mail.invite.button": "Accept invitation",
-  "auth.mail.invite.expiry": "The link expires on {when}.",
+  "auth.mail.invite.expiry": "The link is valid for {duration} (until {when}).",
   "auth.mail.invite.greeting": "Hi,",
   "auth.mail.invite.ignore": "If you weren't expecting this invitation, you can ignore this email.",
   "auth.mail.invite.intro":
     "you've been invited to a {app} workspace as {role}. Click the link below to accept:",
   "auth.mail.invite.subject": "{app} — Workspace invitation",
   "auth.mail.reset.button": "Reset password",
-  "auth.mail.reset.expiry": "The link expires on {when}.",
+  "auth.mail.reset.expiry": "The link is valid for {duration} (until {when}).",
   "auth.mail.reset.greeting": "Hi,",
   "auth.mail.reset.ignore":
     "If you didn't request a reset, you can safely ignore this email — your password won't change.",
@@ -135,7 +135,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "you requested a password reset for {app}. Click the link below to set a new password:",
   "auth.mail.reset.subject": "{app} — Reset your password",
   "auth.mail.unlock.button": "Unlock account",
-  "auth.mail.unlock.expiry": "The link expires on {when}.",
+  "auth.mail.unlock.expiry": "The link is valid for {duration} (until {when}).",
   "auth.mail.unlock.greeting": "Hi,",
   "auth.mail.unlock.ignore":
     "If you didn't trigger this lock, you can ignore this email — the lock expires on its own.",
@@ -143,7 +143,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "your {app} account was temporarily locked after several failed sign-in attempts. Click the link below to unlock it immediately:",
   "auth.mail.unlock.subject": "{app} — Unlock your account",
   "auth.mail.verify.button": "Verify email",
-  "auth.mail.verify.expiry": "The link expires on {when}.",
+  "auth.mail.verify.expiry": "The link is valid for {duration} (until {when}).",
   "auth.mail.verify.greeting": "Welcome,",
   "auth.mail.verify.ignore": "If you didn't create this account, you can ignore this email.",
   "auth.mail.verify.intro": "please verify your email address for {app} to activate your account:",

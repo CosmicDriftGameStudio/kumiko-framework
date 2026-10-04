@@ -34,6 +34,8 @@ export type MagicLinkMailParams = {
   readonly expiresAt: string;
   readonly appName?: string;
   readonly locale?: AuthMailLocale;
+  readonly issuedAt?: string;
+  readonly timeZone?: string;
 };
 
 function resolveAppUrl(appUrl: string | ((locale: string) => string), locale: string): string {
@@ -78,6 +80,8 @@ export async function dispatchMagicLinkMail(
     expiresAt: params.expiresAt,
     ...(params.locale !== undefined && { locale: params.locale }),
     ...(params.appName !== undefined && { appName: params.appName }),
+    ...(params.issuedAt !== undefined && { issuedAt: params.issuedAt }),
+    ...(params.timeZone !== undefined && { timeZone: params.timeZone }),
   });
   await notify(spec.notificationType, {
     route: { email: params.email },

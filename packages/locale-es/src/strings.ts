@@ -116,7 +116,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "auth.login.title": "Iniciar sesión",
   "auth.login.unlockAccount": "¿Desbloquear cuenta?",
   "auth.mail.activation.button": "Activar cuenta",
-  "auth.mail.activation.expiry": "El enlace caduca el {when}.",
+  "auth.mail.activation.expiry": "El enlace es válido durante {duration} (hasta {when}).",
   "auth.mail.activation.greeting": "Bienvenido,",
   "auth.mail.activation.ignore":
     "Si no te has registrado, puedes ignorar este correo — no se crea ninguna cuenta hasta que abras el enlace.",
@@ -125,14 +125,14 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "auth.mail.activation.subject": "{app} — Activa tu cuenta",
   "auth.mail.appNameDefault": "Cuenta",
   "auth.mail.invite.button": "Aceptar invitación",
-  "auth.mail.invite.expiry": "El enlace caduca el {when}.",
+  "auth.mail.invite.expiry": "El enlace es válido durante {duration} (hasta {when}).",
   "auth.mail.invite.greeting": "Hola,",
   "auth.mail.invite.ignore": "Si no esperabas esta invitación, puedes ignorar este correo.",
   "auth.mail.invite.intro":
     "te han invitado a un espacio de trabajo de {app} como {role}. Haz clic en el siguiente enlace para aceptar:",
   "auth.mail.invite.subject": "{app} — Invitación al espacio de trabajo",
   "auth.mail.reset.button": "Restablecer contraseña",
-  "auth.mail.reset.expiry": "El enlace caduca el {when}.",
+  "auth.mail.reset.expiry": "El enlace es válido durante {duration} (hasta {when}).",
   "auth.mail.reset.greeting": "Hola,",
   "auth.mail.reset.ignore":
     "Si no has solicitado un restablecimiento, puedes ignorar este correo — tu contraseña no cambiará.",
@@ -140,7 +140,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "has solicitado restablecer la contraseña de {app}. Haz clic en el siguiente enlace para establecer una nueva:",
   "auth.mail.reset.subject": "{app} — Restablecer contraseña",
   "auth.mail.unlock.button": "Desbloquear cuenta",
-  "auth.mail.unlock.expiry": "El enlace caduca el {when}.",
+  "auth.mail.unlock.expiry": "El enlace es válido durante {duration} (hasta {when}).",
   "auth.mail.unlock.greeting": "Hola,",
   "auth.mail.unlock.ignore":
     "Si no has provocado este bloqueo, puedes ignorar este correo — el bloqueo caduca por sí solo.",
@@ -148,7 +148,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "tu cuenta de {app} se bloqueó temporalmente tras varios inicios de sesión fallidos. Haz clic en el siguiente enlace para desbloquearla de inmediato:",
   "auth.mail.unlock.subject": "{app} — Desbloquear cuenta",
   "auth.mail.verify.button": "Confirmar correo",
-  "auth.mail.verify.expiry": "El enlace caduca el {when}.",
+  "auth.mail.verify.expiry": "El enlace es válido durante {duration} (hasta {when}).",
   "auth.mail.verify.greeting": "Bienvenido,",
   "auth.mail.verify.ignore": "Si no has creado esta cuenta, puedes ignorar este correo.",
   "auth.mail.verify.intro": "confirma tu dirección de correo para {app} y activa tu cuenta:",

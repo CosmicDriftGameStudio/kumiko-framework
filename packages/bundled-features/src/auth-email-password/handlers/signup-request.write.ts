@@ -150,7 +150,8 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       // session tokens.
       const token = generateToken();
 
-      const expiresAt = Temporal.Now.instant().add({ seconds: ttlSeconds });
+      const issuedAt = Temporal.Now.instant();
+      const expiresAt = issuedAt.add({ seconds: ttlSeconds });
       const expiresAtIso = expiresAt.toString();
 
       await storeSignupToken(ctx.redis, { email, token, ttlSeconds });
@@ -211,6 +212,8 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
           appUrl: opts.appUrl,
           token,
           expiresAt: expiresAtIso,
+          issuedAt: issuedAt.toString(),
+          timeZone: ctx.tz.user,
           ...(opts.appName !== undefined && { appName: opts.appName }),
           locale,
         },
