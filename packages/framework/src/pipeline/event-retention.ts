@@ -1,4 +1,5 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
+
 import type { DbConnection } from "../db/connection.js";
 import { lockEventConsumersShareMode } from "../db/queries/event-consumer.js";
 import { deleteMany, selectMany, transaction } from "../db/query.js";
@@ -35,6 +36,8 @@ export type PruneEventsOptions = {
   // default — pruning the event log is destructive, so the caller has to
   // name what they're destroying.
   readonly aggregateTypes: readonly string[];
+  // Optional: restrict candidates to these aggregate ids. Non-empty when set.
+  readonly aggregateIds?: readonly string[];
   // Dry-run: compute what would be deleted, return count, delete nothing.
   readonly dryRun?: boolean;
 };
@@ -82,7 +85,11 @@ export async function pruneEvents(
       "pruneEvents: aggregateTypes is required and must be non-empty. Pruning the event log is destructive — name the aggregate types to delete explicitly.",
     );
   }
+  if (options.aggregateIds !== undefined && options.aggregateIds.length === 0) {
+    throw new Error("pruneEvents: aggregateIds must be non-empty when set.");
+  }
   const aggregateTypes = options.aggregateTypes;
+  const aggregateIds = options.aggregateIds;
   const dryRun = options.dryRun === true;
 
   return transaction(db, async (tx) => {
@@ -103,6 +110,7 @@ export async function pruneEvents(
     // Step 1 — collect candidate event ids.
     const candidates = await selectMany<{ id: bigint }>(tx, eventsTable, {
       aggregateType: [...aggregateTypes],
+      ...(aggregateIds ? { aggregateId: [...aggregateIds] } : {}),
       createdAt: { lt: cutoff },
     });
 

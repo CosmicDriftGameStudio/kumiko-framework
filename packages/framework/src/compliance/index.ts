@@ -6,6 +6,7 @@ export {
   addDurationSpec,
   describeDurationSpec,
   durationSpecToMs,
+  subtractRetentionSpec,
 } from "./duration-spec.js";
 export { complianceProfileOverrideSchema } from "./override-schema.js";
 export type {
@@ -15,6 +16,7 @@ export type {
   ComplianceProfileOverride,
   DurationSpec,
   EffectiveComplianceProfile,
+  RetentionSpec,
   UserNotificationRequiredPolicy,
 } from "./profiles.js";
 export {

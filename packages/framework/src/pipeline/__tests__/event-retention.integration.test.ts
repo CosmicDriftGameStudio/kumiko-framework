@@ -167,6 +167,35 @@ describe("E.2 — explicit-aggregateTypes pruning", () => {
   });
 });
 
+describe("aggregateIds filter", () => {
+  test("only the named aggregate ids lose events", async () => {
+    const tenDaysAgo = Temporal.Now.instant().subtract({ hours: 240 });
+    const aId = await seedOldAggregateEvent(tenDaysAgo, "obsolete.a", "obsolete");
+    const bId = await seedOldAggregateEvent(tenDaysAgo, "obsolete.b", "obsolete");
+    await disableConsumer(stack.db, observerQn);
+    const rows = await selectMany<{ id: bigint; aggregateId: string }>(stack.db, eventsTable);
+    const target = rows.find((r) => r.id === aId)?.aggregateId;
+    if (!target) throw new Error("seeded event missing");
+
+    const result = await pruneEvents(stack.db, {
+      olderThanDays: 7,
+      aggregateTypes: ["obsolete"],
+      aggregateIds: [target],
+    });
+    expect(result.deletedCount).toBe(1);
+
+    const ids = (await selectMany(stack.db, eventsTable)).map((r) => r.id);
+    expect(ids).not.toContain(aId);
+    expect(ids).toContain(bId);
+  });
+
+  test("empty aggregateIds is rejected", async () => {
+    await expect(
+      pruneEvents(stack.db, { olderThanDays: 7, aggregateTypes: ["obsolete"], aggregateIds: [] }),
+    ).rejects.toThrow("aggregateIds");
+  });
+});
+
 describe("E.2 — consumer-lag guard", () => {
   test("throws ConsumerLagError when an active consumer has not caught up", async () => {
     // Append 3 aggregate events. Consumer will process only the first,
