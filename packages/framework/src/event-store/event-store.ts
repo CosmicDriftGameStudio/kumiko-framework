@@ -94,6 +94,9 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
   });
   const toStore = stampOrigin(payload === event.payload ? event : { ...event, payload });
   const seedCreatedAt = currentSeedCreatedAt();
+  if (seedCreatedAt !== undefined && toStore.expectedVersion > 0) {
+    await assertSeedTimeNotBeforePredecessor(db, toStore, seedCreatedAt);
+  }
   const newVersion = toStore.expectedVersion + 1;
   const eventVersion = toStore.eventVersion ?? 1;
 
@@ -145,6 +148,25 @@ function stampOrigin(event: EventToAppend): EventToAppend {
         isPersonalDataGated(origin.writeOrigin) && { writeOrigin: origin.writeOrigin }),
     },
   };
+}
+
+// loadAggregateAsOf and projection rebuilds order by created_at, so a stream
+// whose versions go backwards in time would read and replay wrongly.
+async function assertSeedTimeNotBeforePredecessor(
+  db: DbRunner,
+  event: EventToAppend,
+  seedCreatedAt: Temporal.Instant,
+): Promise<void> {
+  const [predecessor] = await selectMany<{ createdAt: Temporal.Instant }>(db, eventsTable, {
+    aggregateId: event.aggregateId,
+    tenantId: event.tenantId,
+    version: event.expectedVersion,
+  });
+  if (predecessor && predecessor.createdAt.epochMilliseconds > seedCreatedAt.epochMilliseconds) {
+    throw new Error(
+      `Seed write for ${event.aggregateType} ${event.aggregateId} v${event.expectedVersion + 1} is dated ${seedCreatedAt.toString()}, before its predecessor (${predecessor.createdAt.toString()}). Write a stream's events in ascending time.`,
+    );
+  }
 }
 
 type InsertReturn = { id: bigint; createdAt: Temporal.Instant };

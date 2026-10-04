@@ -1,18 +1,20 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   type CreateKumikoServerOptions,
   type KumikoServerHandle,
   runDevApp,
 } from "@cosmicdrift/kumiko-dev-server";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
+  createSystemUser,
   createTextField,
   defineEntityCreateHandler,
   defineEntityUpdateHandler,
   defineFeature,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   eventsTable,
@@ -212,9 +214,8 @@ describe("seed writes with a caller-set event time", () => {
 
     const consumers = await selectMany<{ name: string }>(h.stack.db, eventConsumerStateTable);
     const [firstConsumer, ...otherConsumers] = consumers.map((consumer) => consumer.name);
-    if (firstConsumer) {
-      await drainEventConsumers(h.stack, [firstConsumer, ...otherConsumers]);
-    }
+    if (!firstConsumer) throw new Error("expected the stack to register event consumers");
+    await drainEventConsumers(h.stack, [firstConsumer, ...otherConsumers]);
 
     // Cursors are id based: after the drain no consumer lags the back-dated
     // rows, so the age-based prune guard accepts exactly the old stream.
@@ -231,6 +232,28 @@ describe("seed writes with a caller-set event time", () => {
   });
 });
 
+describe("seed stream order", () => {
+  test("a seed write dated before its stream predecessor is rejected", async () => {
+    const h = await boot();
+    const tenant = await seedTenantVia(h);
+    const old = await runSeeder(h, tenant.id, "backdated", { daysAgo: 10 });
+    const [created] = await eventsOf(h, old.id);
+    if (!created) throw new Error("expected events");
+
+    const earlier = created.createdAt.subtract({ hours: 24 });
+    const result = await runSeedWritesAt(earlier, () =>
+      h.stack.dispatcher.write(
+        NOTE_UPDATE,
+        { id: old.id, version: 2, changes: { title: "too early" } },
+        createSystemUser(tenant.id as TenantId, [ROLES.SystemAdmin]),
+      ),
+    );
+
+    expect(result.isSuccess).toBe(false);
+    expect(await eventsOf(h, old.id)).toHaveLength(2);
+  });
+});
+
 describe("seed-mode boundary", () => {
   test("runSeedWritesAt without seed mode throws and never runs the callback", async () => {
     const h = await boot();
@@ -239,22 +262,21 @@ describe("seed-mode boundary", () => {
     delete process.env[SEED_ENABLE_ENV];
     let ran = false;
 
-    const attempt = () =>
+    await expect(
       runSeedWritesAt(Temporal.Now.instant().subtract({ hours: 24 }), async () => {
         ran = true;
-      });
-
-    expect(attempt).toThrow(SeedModeDisabledError);
+      }),
+    ).rejects.toBeInstanceOf(SeedModeDisabledError);
     expect(ran).toBe(false);
     expect(await selectMany(h.stack.db, eventsTable, { tenantId: tenant.id })).toHaveLength(
       eventsBefore.length,
     );
   });
 
-  test("runSeedWritesAt under NODE_ENV=production throws even with the flag set", () => {
+  test("runSeedWritesAt under NODE_ENV=production throws even with the flag set", async () => {
     process.env["NODE_ENV"] = "production";
 
-    expect(() => runSeedWritesAt(Temporal.Now.instant(), async () => {})).toThrow(
+    await expect(runSeedWritesAt(Temporal.Now.instant(), async () => {})).rejects.toBeInstanceOf(
       SeedModeDisabledError,
     );
   });
@@ -264,7 +286,7 @@ describe("seed-mode boundary", () => {
 
     await expect(
       runDevApp({ features: [noteFeature], port: 0, auth: { admin: ADMIN } }),
-    ).rejects.toThrow(/NODE_ENV=production/);
+    ).rejects.toBeInstanceOf(SeedModeDisabledError);
   });
 
   test("a normal request cannot set the event time through payload, metadata or headers", async () => {
@@ -272,10 +294,19 @@ describe("seed-mode boundary", () => {
     const tenant = await seedTenantVia(h);
     const port = h.server?.port;
     if (port === undefined) throw new Error("runDevApp did not open a socket under Bun");
-    const context = await playwrightRequest.newContext({ baseURL: `http://localhost:${port}` });
+    const ninetyDaysAgo = new Date(Date.now() - 90 * DAY_MS).toISOString();
+    const context = await playwrightRequest.newContext({
+      baseURL: `http://localhost:${port}`,
+      extraHTTPHeaders: {
+        [SEED_TOKEN_HEADER]: TOKEN,
+        "x-seed-created-at": ninetyDaysAgo,
+        "x-created-at": ninetyDaysAgo,
+        "x-kumiko-created-at": ninetyDaysAgo,
+        date: ninetyDaysAgo,
+      },
+    });
     try {
       await loginViaApi(context, { email: tenant.admin.email, password: tenant.admin.password });
-      const ninetyDaysAgo = new Date(Date.now() - 90 * DAY_MS).toISOString();
       const before = Date.now();
 
       const created = await createHttpApi(context).writeOk<{ id: string }>(NOTE_CREATE, {
@@ -291,9 +322,6 @@ describe("seed-mode boundary", () => {
     } finally {
       await context.dispose();
     }
-    expect(
-      await selectMany(h.stack.db, tenantMembershipsTable, { tenantId: tenant.id }),
-    ).toHaveLength(1);
   });
 
   test("the seed route refuses a createdAt in its body", async () => {

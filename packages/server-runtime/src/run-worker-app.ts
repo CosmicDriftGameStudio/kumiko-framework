@@ -25,6 +25,7 @@ import type {
   ValidateBootOptions,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { WorkerEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint";
+import { assertSeedModeNotInProduction } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
 import type {
   ObservabilityOptions,
@@ -151,6 +152,7 @@ function makeBootModeHandle(): WorkerAppHandle {
 }
 
 export async function runWorkerApp(options: RunWorkerAppOptions): Promise<WorkerAppHandle> {
+  assertSeedModeNotInProduction();
   const envSource = await resolveWorkerEnvSource(options, "runWorkerApp");
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early
   console.log("[runWorkerApp] booting Kumiko worker…");

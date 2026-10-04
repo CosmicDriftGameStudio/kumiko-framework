@@ -36,7 +36,10 @@ const seedClockStorage = new AsyncLocalStorage<{ readonly createdAt: Temporal.In
  * path: handlers, validation, projections) is stored with `createdAt` instead
  * of the database `now()`. Throws without running `fn` unless seed mode is on.
  */
-export function runSeedWritesAt<T>(createdAt: Temporal.Instant, fn: () => Promise<T>): Promise<T> {
+export async function runSeedWritesAt<T>(
+  createdAt: Temporal.Instant,
+  fn: () => Promise<T>,
+): Promise<T> {
   if (!isSeedModeEnabled()) {
     throw new SeedModeDisabledError(
       `runSeedWritesAt needs ${SEED_MODE_ENV}=1 and NODE_ENV!=="production"; nothing was written.`,
