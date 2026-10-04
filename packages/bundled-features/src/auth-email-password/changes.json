@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.343.0",
+    "type": "improvement",
+    "title": "Mail expiry shows duration and local time with time zone",
+    "detail": "Auth mails state the link validity as a duration and in the user's time zone\nThe five token mail renderers replace the UTC timestamp with `{duration}` (for example \"1 day\") and `{when}` (medium date and short time with zone abbreviation, in the recipient's locale). `RenderTokenContentArgs` gains `issuedAt` (default now) and `timeZone` (default UTC; an invalid zone falls back to UTC); the handlers pass the token issue time and `ctx.tz.user`. German strings use \"Konto\" instead of \"Account\".",
+    "migration": "Custom `auth.mail.*.expiry` translations should use the new `{duration}` and `{when}` placeholders; `{when}` now includes the time and zone abbreviation instead of a UTC timestamp."
+  },
+  {
     "version": "0.342.0",
     "type": "improvement",
     "title": "AuthCard styling hooks (className, headerClassName, titleClassName, bodyClassName)",

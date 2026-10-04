@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.343.0",
+    "type": "improvement",
+    "title": "Screens take visibleWhen and fallback",
+    "detail": "Any screen can gate itself on a query field with `visibleWhen`, including on direct URL access. Unmet or failed conditions render the `fallback` screen or a standard notice instead of the content. New i18n key: `kumiko.screen.unavailable`."
+  },
+  {
     "version": "0.342.0",
     "type": "improvement",
     "title": "Banner gets title, titleTestId and variant \"primary\"",

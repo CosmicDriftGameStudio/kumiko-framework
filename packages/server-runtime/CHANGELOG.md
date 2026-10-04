@@ -1,5 +1,83 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.343.0
+
+### Minor Changes
+
+- 446b714: `docsUrl` in error responses is now resolved at serialization by `resolveErrorDocsUrl`. Framework reasons (and errors without a reason) link to the framework docs as before. An app's own reasons no longer link to the framework docs, where no page exists for them: they get a `docsUrl` only if the new option `errorDocs: { baseUrl, reasons: string[] | "all" }` (on `runProdApp`, `buildServer`, `createKumikoServer`, `setupTestStack`) covers them.
+
+  Migration: `KumikoError.docsUrl` (the getter) is removed; use `resolveErrorDocsUrl(err, errorDocs?)`. `ErrorResponseBody.docsUrl` is now optional. Apps whose clients read `docsUrl` for app reasons pass `errorDocs` or handle the missing field.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: App error reasons only carry a docsUrl when errorDocs covers them
+  migration: |
+    KumikoError.docsUrl (the getter) is removed; call resolveErrorDocsUrl(err, errorDocs?) instead. ErrorResponseBody.docsUrl is optional. Apps whose clients read docsUrl for app reasons pass errorDocs or handle the missing field.
+  -->
+
+- 446b714: A `masterKey` provider on runProdApp and runWorkerApp is enough for the boot checks
+
+  The boot probe for `encrypted: true` entity fields now accepts the cipher the runner builds from `masterKey` (new `ValidateBootOptions.entityFieldCipher`), and the env-schema parse no longer requires `KUMIKO_SECRETS_MASTER_KEY_V1` when `masterKey` is set. The framework exports `withOptionalEnvKeys` for that, and the secrets feature exports `SECRETS_MASTER_KEK_ENV_KEYS`. Without `masterKey`, a missing env KEK still stops the boot; the message now names both ways to provide a key. A malformed env KEK now fails during boot validation, so `KUMIKO_DRY_RUN_ENV=boot` reports it too.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: masterKey on runProdApp and runWorkerApp replaces the env KEK for the boot checks
+  migration: |
+    Apps that pass `masterKey` can drop `KUMIKO_SECRETS_MASTER_KEY_V1` from their env and deployment config. Apps without `masterKey` change nothing.
+  -->
+
+- 446b714: Prod seeds receive the boot registry and a system dispatcher
+
+  `ProdSeedFn` deps grow from `{ db }` to `{ db, registry, dispatcher }`. Seeds should write through `dispatcher.write(...)` so projections and hooks run. The dispatcher is built once when `seeds` or `seedsDir` is set and is shared with the seed migrations.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Prod seeds get registry and dispatcher
+  -->
+
+### Patch Changes
+
+- 446b714: The prod and worker boot pass the app logger (`extraContext.log`) to the delivery service, so redacted delivery failures reach that logger instead of the console. `ctx.notify` is built with `createDeliveryNotifyFactory`. `buildBootExtraContext` accepts an optional `log`.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Delivery failures are logged to the app logger in prod
+  -->
+
+- 446b714: The prod build runs Tailwind in-process (`@tailwindcss/node` and `@tailwindcss/oxide`, resolved from the `@tailwindcss/cli` package) instead of spawning the CLI. Options mirror the CLI, and a parity test pins byte-identical output.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Prod build runs Tailwind in-process instead of spawning the CLI
+  -->
+
+- Updated dependencies [23b0bec]
+- Updated dependencies [446b714]
+- Updated dependencies [446b714]
+- Updated dependencies [75cb7c0]
+- Updated dependencies [cf6d31b]
+- Updated dependencies [cf6d31b]
+- Updated dependencies [75cb7c0]
+- Updated dependencies [cf6d31b]
+- Updated dependencies [446b714]
+- Updated dependencies [446b714]
+- Updated dependencies [446b714]
+- Updated dependencies [446b714]
+- Updated dependencies [d32e123]
+- Updated dependencies [6adca33]
+- Updated dependencies [cf6d31b]
+- Updated dependencies [cf6d31b]
+- Updated dependencies [446b714]
+  - @cosmicdrift/kumiko-framework@0.343.0
+  - @cosmicdrift/kumiko-bundled-features@0.343.0
+  - @cosmicdrift/kumiko-renderer-web@0.343.0
+  - @cosmicdrift/kumiko-headless@0.343.0
+
 ## 0.342.0
 
 ### Patch Changes

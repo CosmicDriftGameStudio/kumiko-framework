@@ -2,13 +2,33 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-03
+verified: 2026-10-04
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.343.0
+
+### delivery
+
+**Delivery errors are fixed codes instead of raw messages**
+
+Delivery stores and returns only fixed error codes, never raw error messages. `delivery_attempts.error`, the `deliveryAttempt` event, `NotifyResult.deliveries[].error` and the job failure now hold one of `DELIVERY_FAILURE_CODES` (`timeout`, `network_error`, `redirect_blocked`, `host_not_allowed`, `missing_credentials`, `invalid_address`, `unexpected_response`, `render_failed`, `send_failed`, `channel_error`), one of `DELIVERY_SKIP_REASONS`, or `http_<status>`. A throwing channel ends as `send_failed` or `render_failed`; a failure around resolve or dispatch ends as `channel_error`. The full error goes to the log with URLs and email addresses redacted. `redactUrls` and `redactErrorText` are new next to `redactEmailAddresses`, which moved out of the step dispatcher.
+`@cosmicdrift/kumiko-framework/engine` exports `DELIVERY_FAILURE_CODES`, `DELIVERY_SKIP_REASONS`, `isDeliveryErrorCode` and the types `DeliveryErrorCode`, `DeliveryFailureCode`, `DeliverySkipReason` and `ChatSendFailureCode`. `NotifyDelivery.error`, `ChannelResult.error` and `DeliveryLogEntry.error` are now `DeliveryErrorCode`. `delivery:query:log` returns `channel_error` for stored rows that still hold free text.
+
+**Migration:** NotifyDelivery.error is now a DeliveryErrorCode. Code that matches on error text must match the code instead (for example send_failed). Custom channels must return a DeliveryErrorCode in ChannelResult.error. Existing attempt events keep their free text; reading them through delivery:query:log masks it as channel_error.
+
+### framework-core
+
+**App error reasons only carry a docsUrl when errorDocs covers them**
+
+`docsUrl` in error responses is now resolved at serialization by `resolveErrorDocsUrl`. Framework reasons (and errors without a reason) link to the framework docs as before. An app's own reasons no longer link to the framework docs, where no page exists for them: they get a `docsUrl` only if the new option `errorDocs: { baseUrl, reasons: string[] | "all" }` (on `runProdApp`, `buildServer`, `createKumikoServer`, `setupTestStack`) covers them.
+Migration: `KumikoError.docsUrl` (the getter) is removed; use `resolveErrorDocsUrl(err, errorDocs?)`. `ErrorResponseBody.docsUrl` is now optional. Apps whose clients read `docsUrl` for app reasons pass `errorDocs` or handle the missing field.
+
+**Migration:** KumikoError.docsUrl (the getter) is removed; call resolveErrorDocsUrl(err, errorDocs?) instead. ErrorResponseBody.docsUrl is optional. Apps whose clients read docsUrl for app reasons pass errorDocs or handle the missing field.
 
 ## 0.342.0
 

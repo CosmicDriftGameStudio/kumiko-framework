@@ -1,5 +1,130 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.343.0
+
+### Minor Changes
+
+- 23b0bec: The audit job `escape-hatch-retention` now deletes `escapeHatchUse` events after the `auditLog.retention` of the tenant's compliance profile. A tenant override can only lengthen that period, never go below the base retention of the selected profile. Cross-tenant audits (with `targetTenantId`, e.g. `identity-switch`) additionally follow the profile of the target tenant. The config key `audit:config:escape-hatch-retention-days` is only the fallback when compliance-profiles is not mounted.
+
+  `pruneEvents` gains the optional `aggregateIds` option to restrict the prune to specific aggregates. `@cosmicdrift/kumiko-framework/compliance` exports `subtractRetentionSpec` and the `RetentionSpec` type for calendar-aware cutoffs (months and years).
+
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: escape-hatch retention follows the tenant compliance profile
+  -->
+
+- 446b714: Jobs whose `escapeHatch` grants `unsafeRaw` get `ctx.crossTenantReads` with `selectMany`, `fetchOne` and `count` across all tenants, read-only. Each call is reported as the new escape-hatch kind `cross-tenant-read`; system crons audit it once per process and the metric `kumiko_escape_hatch_uses_total` counts every call. `EscapeHatchKind` and the `escape-hatch-used` audit schema gain `cross-tenant-read`.
+
+  `tenant-lifecycle:job:run-tenant-destruction` checks through `ctx.crossTenantReads` whether a tenant is due and only then calls `ctx.db.unsafeRaw()`, so idle minutes no longer write an `unsafe-raw` audit event.
+
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: ctx.crossTenantReads for read-only cross-tenant job reads
+  -->
+
+- cf6d31b: Delivery stores and returns only fixed error codes, never raw error messages. `delivery_attempts.error`, the `deliveryAttempt` event, `NotifyResult.deliveries[].error` and the job failure now hold one of `DELIVERY_FAILURE_CODES` (`timeout`, `network_error`, `redirect_blocked`, `host_not_allowed`, `missing_credentials`, `invalid_address`, `unexpected_response`, `render_failed`, `send_failed`, `channel_error`), one of `DELIVERY_SKIP_REASONS`, or `http_<status>`. A throwing channel ends as `send_failed` or `render_failed`; a failure around resolve or dispatch ends as `channel_error`. The full error goes to the log with URLs and email addresses redacted. `redactUrls` and `redactErrorText` are new next to `redactEmailAddresses`, which moved out of the step dispatcher.
+
+  `@cosmicdrift/kumiko-framework/engine` exports `DELIVERY_FAILURE_CODES`, `DELIVERY_SKIP_REASONS`, `isDeliveryErrorCode` and the types `DeliveryErrorCode`, `DeliveryFailureCode`, `DeliverySkipReason` and `ChatSendFailureCode`. `NotifyDelivery.error`, `ChannelResult.error` and `DeliveryLogEntry.error` are now `DeliveryErrorCode`. `delivery:query:log` returns `channel_error` for stored rows that still hold free text.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Delivery errors are fixed codes instead of raw messages
+  migration: |
+    NotifyDelivery.error is now a DeliveryErrorCode. Code that matches on error text must match the code instead (for example send_failed). Custom channels must return a DeliveryErrorCode in ChannelResult.error. Existing attempt events keep their free text; reading them through delivery:query:log masks it as channel_error.
+  -->
+
+- 446b714: `docsUrl` in error responses is now resolved at serialization by `resolveErrorDocsUrl`. Framework reasons (and errors without a reason) link to the framework docs as before. An app's own reasons no longer link to the framework docs, where no page exists for them: they get a `docsUrl` only if the new option `errorDocs: { baseUrl, reasons: string[] | "all" }` (on `runProdApp`, `buildServer`, `createKumikoServer`, `setupTestStack`) covers them.
+
+  Migration: `KumikoError.docsUrl` (the getter) is removed; use `resolveErrorDocsUrl(err, errorDocs?)`. `ErrorResponseBody.docsUrl` is now optional. Apps whose clients read `docsUrl` for app reasons pass `errorDocs` or handle the missing field.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: App error reasons only carry a docsUrl when errorDocs covers them
+  migration: |
+    KumikoError.docsUrl (the getter) is removed; call resolveErrorDocsUrl(err, errorDocs?) instead. ErrorResponseBody.docsUrl is optional. Apps whose clients read docsUrl for app reasons pass errorDocs or handle the missing field.
+  -->
+
+- 446b714: Executor writes run custom projections
+
+  `EventStoreExecutor` create, update, delete, forget and restore now run the custom projections registered for the written event, in the same savepoint as the write. The registry is bound to the `TenantDb` by the dispatcher and the job runner; a `TenantDb` built elsewhere skips custom projections. Projection runs are idempotent per event object, so the dispatcher's own pass after the handler does not run them twice.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Executor writes outside the dispatcher no longer skip custom projections
+  migration: |
+    Remove manual `runProjections` calls after executor writes in hooks or jobs together with the bump. A call is a no-op only when it passes the exact event object the executor returned; a spread or rebuilt event projects twice.
+  -->
+
+- 446b714: `isFailedWriteResult` and `FailedWriteResult` are exported from the pipeline entry
+
+  Consumers can narrow a `WriteResult` to its failure branch with `import { isFailedWriteResult } from "@cosmicdrift/kumiko-framework/pipeline"` instead of re-implementing the check.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: isFailedWriteResult is exported from the pipeline entry
+  -->
+
+- 446b714: A `masterKey` provider on runProdApp and runWorkerApp is enough for the boot checks
+
+  The boot probe for `encrypted: true` entity fields now accepts the cipher the runner builds from `masterKey` (new `ValidateBootOptions.entityFieldCipher`), and the env-schema parse no longer requires `KUMIKO_SECRETS_MASTER_KEY_V1` when `masterKey` is set. The framework exports `withOptionalEnvKeys` for that, and the secrets feature exports `SECRETS_MASTER_KEK_ENV_KEYS`. Without `masterKey`, a missing env KEK still stops the boot; the message now names both ways to provide a key. A malformed env KEK now fails during boot validation, so `KUMIKO_DRY_RUN_ENV=boot` reports it too.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: masterKey on runProdApp and runWorkerApp replaces the env KEK for the boot checks
+  migration: |
+    Apps that pass `masterKey` can drop `KUMIKO_SECRETS_MASTER_KEY_V1` from their env and deployment config. Apps without `masterKey` change nothing.
+  -->
+
+- d32e123: `AuthRoutesConfig.retiredCookieDomains` lists domains that used to carry the auth cookies. Login and logout also send delete headers for `kumiko_auth` and `kumiko_csrf` with `Domain=<entry>`, so a stale cookie from an earlier `cookieDomain` no longer shadows the new session after the value changes. Login sends these deletes before the new `Set-Cookie` headers. `createAuthRoutes` throws on an empty entry, on `;`, comma, whitespace, CR or LF, and on an entry equal to the current `cookieDomain`. Without the option nothing changes. Remove an entry once the session TTL has passed since the switch.
+
+  <!-- kumiko-changes
+  feature: framework-core
+  type: improvement
+  title: retiredCookieDomains clears auth cookies left on a former cookieDomain
+  -->
+
+- 6adca33: Screens take `visibleWhen` and `fallback`. Every screen definition accepts an optional `visibleWhen: { query, field, eq }` (the same `DashboardPanelVisibility` as dashboard screen panels) and an optional `fallback` (same-feature short id or `<feature>:screen:<id>`). `KumikoScreen` evaluates the condition before the screen content mounts, so it also applies when the screen is opened by URL. While the query loads only a loading banner shows. If the condition is not met or the query fails, the fallback screen renders, or without a fallback a standard notice (`kumiko.screen.unavailable`, en/de/es). The gate is UI only; handlers still enforce access. The boot validator checks the query, the output field and the fallback screen, and rejects a `fallback` without `visibleWhen`. Panels with `visibleWhen` behave as before and share the new `evalVisibleWhen` helper exported from the renderer.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Screens take visibleWhen and fallback
+  detail: |
+    Any screen can gate itself on a query field with `visibleWhen`, including on direct URL access. Unmet or failed conditions render the `fallback` screen or a standard notice instead of the content. New i18n key: `kumiko.screen.unavailable`.
+  -->
+
+- cf6d31b: `channel-teams` no longer reports every 2xx answer as sent. A 200 with the body `1` (classic Office connector) is a confirmed send. A 202 (Power Automate / Workflows endpoints) means the message was accepted but not confirmed: the attempt is `sent` and `NotifyResult.deliveries[].confirmed` is `false`. Any other 2xx, including an empty 200 as a made-up URL returns, fails with `unexpected_response`.
+
+  `NotifyDelivery.confirmed` and `ChannelResult.confirmed` are new and only ever `false`. `createChatWebhookChannel` takes an optional `classifyResponse`, which `postChatWebhook` calls for 2xx answers with a status and a lazy `readBodyPrefix()` (at most 64 bytes; the body is always cancelled afterwards). `ChatSendResult` success now carries `confirmed`. `confirmed` is returned for inline delivery only; jobs do not carry it yet.
+
+  <!-- kumiko-changes
+  feature: channel-teams
+  type: fix
+  title: Teams no longer reports any 2xx as delivered
+  -->
+
+- 446b714: `setupTestStack` now validates nav, workspace and tree-action references on the mounted features, with the same error messages as the prod boot. References into features that are not mounted are skipped. The new option `validateBoot: "full"` runs the complete `validateBoot`, including the screen and ref-entity checks that span features; give apps one boot test with their prod feature composition and this option.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Test stacks validate nav references and can run the full boot validation
+  -->
+
+### Patch Changes
+
+- Updated dependencies [446b714]
+- Updated dependencies [6adca33]
+  - @cosmicdrift/kumiko-types@0.343.0
+  - @cosmicdrift/kumiko-http@0.343.0
+
 ## 0.342.0
 
 ### Minor Changes

@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.343.0",
+    "type": "fix",
+    "title": "Delivery failures are logged to the app logger in prod",
+    "detail": "The prod and worker boot pass the app logger (`extraContext.log`) to the delivery service, so redacted delivery failures reach that logger instead of the console. `ctx.notify` is built with `createDeliveryNotifyFactory`. `buildBootExtraContext` accepts an optional `log`."
+  },
+  {
+    "version": "0.343.0",
+    "type": "improvement",
+    "title": "masterKey on runProdApp and runWorkerApp replaces the env KEK for the boot checks",
+    "detail": "A `masterKey` provider on runProdApp and runWorkerApp is enough for the boot checks\nThe boot probe for `encrypted: true` entity fields now accepts the cipher the runner builds from `masterKey` (new `ValidateBootOptions.entityFieldCipher`), and the env-schema parse no longer requires `KUMIKO_SECRETS_MASTER_KEY_V1` when `masterKey` is set. The framework exports `withOptionalEnvKeys` for that, and the secrets feature exports `SECRETS_MASTER_KEK_ENV_KEYS`. Without `masterKey`, a missing env KEK still stops the boot; the message now names both ways to provide a key. A malformed env KEK now fails during boot validation, so `KUMIKO_DRY_RUN_ENV=boot` reports it too.",
+    "migration": "Apps that pass `masterKey` can drop `KUMIKO_SECRETS_MASTER_KEY_V1` from their env and deployment config. Apps without `masterKey` change nothing."
+  },
+  {
+    "version": "0.343.0",
+    "type": "improvement",
+    "title": "Prod seeds get registry and dispatcher",
+    "detail": "Prod seeds receive the boot registry and a system dispatcher\n`ProdSeedFn` deps grow from `{ db }` to `{ db, registry, dispatcher }`. Seeds should write through `dispatcher.write(...)` so projections and hooks run. The dispatcher is built once when `seeds` or `seedsDir` is set and is shared with the seed migrations."
+  },
+  {
+    "version": "0.343.0",
+    "type": "improvement",
+    "title": "Prod build runs Tailwind in-process instead of spawning the CLI",
+    "detail": "The prod build runs Tailwind in-process (`@tailwindcss/node` and `@tailwindcss/oxide`, resolved from the `@tailwindcss/cli` package) instead of spawning the CLI. Options mirror the CLI, and a parity test pins byte-identical output."
+  },
+  {
     "version": "0.341.0",
     "type": "improvement",
     "title": "runBootstrap() for one-shot passwordless prod provisioning; runProdApp auth.admin is optional",

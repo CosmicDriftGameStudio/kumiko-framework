@@ -1,5 +1,37 @@
 [
   {
+    "version": "0.343.0",
+    "type": "improvement",
+    "title": "Delivery log marks sends the provider did not confirm",
+    "detail": "The delivery log now records when a provider accepted a send without confirming delivery (for example a Teams webhook answering 202). `store_delivery_attempts` gets a nullable boolean column `confirmed`: `false` means accepted but unconfirmed, `null` means confirmed or not applicable. The `deliveryAttempt` event carries `confirmed: false` on both the inline and the job path, `delivery:query:log` returns `confirmed` per row, and the status cell shows \"Sent (unconfirmed)\" for such rows.",
+    "migration": "New nullable column store_delivery_attempts.confirmed. Consumers generate the migration with the generator (kumiko-schema generate) and apply it; existing rows stay null."
+  },
+  {
+    "version": "0.343.0",
+    "type": "breaking",
+    "title": "Delivery errors are fixed codes instead of raw messages",
+    "detail": "Delivery stores and returns only fixed error codes, never raw error messages. `delivery_attempts.error`, the `deliveryAttempt` event, `NotifyResult.deliveries[].error` and the job failure now hold one of `DELIVERY_FAILURE_CODES` (`timeout`, `network_error`, `redirect_blocked`, `host_not_allowed`, `missing_credentials`, `invalid_address`, `unexpected_response`, `render_failed`, `send_failed`, `channel_error`), one of `DELIVERY_SKIP_REASONS`, or `http_<status>`. A throwing channel ends as `send_failed` or `render_failed`; a failure around resolve or dispatch ends as `channel_error`. The full error goes to the log with URLs and email addresses redacted. `redactUrls` and `redactErrorText` are new next to `redactEmailAddresses`, which moved out of the step dispatcher.\n`@cosmicdrift/kumiko-framework/engine` exports `DELIVERY_FAILURE_CODES`, `DELIVERY_SKIP_REASONS`, `isDeliveryErrorCode` and the types `DeliveryErrorCode`, `DeliveryFailureCode`, `DeliverySkipReason` and `ChatSendFailureCode`. `NotifyDelivery.error`, `ChannelResult.error` and `DeliveryLogEntry.error` are now `DeliveryErrorCode`. `delivery:query:log` returns `channel_error` for stored rows that still hold free text.",
+    "migration": "NotifyDelivery.error is now a DeliveryErrorCode. Code that matches on error text must match the code instead (for example send_failed). Custom channels must return a DeliveryErrorCode in ChannelResult.error. Existing attempt events keep their free text; reading them through delivery:query:log masks it as channel_error."
+  },
+  {
+    "version": "0.343.0",
+    "type": "improvement",
+    "title": "Delivery log shows time and error and translates its values",
+    "detail": "The delivery log screen shows the time and the error of each attempt and translates type, channel, status and error. Error codes map to `delivery.error.<code>` (`http_<status>` to `delivery.error.http` with a `status` parameter), statuses to `delivery.status.<status>`, channels to `delivery.channel.<name>`. Every bundled channel feature registers its own channel label. Notification types are shown through `<scope>.notification.<name>` for a type `<scope>:notify:<name>`; apps register those labels, and the short name is shown when none exists. English, German and Spanish texts are included for the bundled keys.\n`translateOrRaw` moved from the tenant web folder to `shared/web`; it is internal."
+  },
+  {
+    "version": "0.343.0",
+    "type": "improvement",
+    "title": "Delivery log shows the recipient name",
+    "detail": "`delivery:query:log` returns a `recipientLabel` per row and the delivery log screen shows it in the recipient column: the user's display name, else the decrypted address, else the recipient id. Names are resolved with one batched lookup per page, and only when the user feature is mounted. The new `resolveUserDisplayNames(db, userIds)` is exported from the user feature. The recipient column is not sortable."
+  },
+  {
+    "version": "0.343.0",
+    "type": "improvement",
+    "title": "createDeliveryTestContext matches production notify",
+    "detail": "`createDeliveryTestContext` now behaves like the production `ctx.notify`. It takes a `secrets` option for inline-delivered chat channels and passes the calling context's job dispatcher to `notify()` on every call. Queued channels now go through the delivery jobs when the stack has a job consumer (`jobs: { consumerLane: \"worker\" }`); call `stack.drainJobs()` before asserting on the result. With `jobs: {}` and no `consumerLane` the attempts stay queued and `drainJobs()` never finishes. Without `jobs` they still deliver inline.\nNew export `createDeliveryNotifyFactory(deliveryService, { deliverQueuedInline? })` builds this `NotifyFactory` for custom setups."
+  },
+  {
     "version": "0.341.0",
     "type": "breaking",
     "title": "Chat channels deliver in production boot, ctx.notify returns a NotifyResult",
