@@ -84,7 +84,9 @@ export type RunWorkerAppOptions = {
    *  RunProdAppOptions["extraContext"], without sseBroker (the worker
    *  has none — see entrypoint/index.ts's documented SSE limitation). */
   readonly extraContext?: WorkerContextOption;
-  /** MasterKeyProvider for ctx.secrets. Default: env-KEK (see
+  /** MasterKeyProvider replacing the env KEK for ctx.secrets, encrypted
+   *  config keys and `encrypted: true` entity fields; with it set,
+   *  `KUMIKO_SECRETS_MASTER_KEY_V1` is not required (see
    *  RunProdAppOptions["masterKey"]). */
   readonly masterKey?: MasterKeyProvider;
   /** Subject-key adapter for crypto-shredding — boot checks health()

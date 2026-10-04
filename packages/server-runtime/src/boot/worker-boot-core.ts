@@ -158,7 +158,12 @@ export async function bootWorkerProcess(
     includeBundled,
     ...(profile.authOptions && { authOptions: profile.authOptions }),
   });
-  validateBoot(features, { env: envSource, ...options.validateBootOptions });
+  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
+  validateBoot(features, {
+    env: envSource,
+    ...(bootCrypto.entityFieldCipher && { entityFieldCipher: bootCrypto.entityFieldCipher }),
+    ...options.validateBootOptions,
+  });
   warnIfNonUtcServerTimeZone();
   assertWorkerMetricsOptions(options.metrics, options.observability, processName);
   assertPiiBootInvariants(features, {
@@ -224,7 +229,6 @@ export async function bootWorkerProcess(
       ? options.extraContext(deps)
       : (options.extraContext ?? {});
 
-  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
   configurePiiSubjectKms(options.kms);
   configureBlindIndexKey(options.blindIndexKey);

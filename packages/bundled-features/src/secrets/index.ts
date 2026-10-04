@@ -9,6 +9,7 @@ export {
   createSecretsFeature,
   requireSecretsContext,
   SECRETS_FEATURE_NAME,
+  SECRETS_MASTER_KEK_ENV_KEYS,
   type SecretsContext,
   type SecretsContextOptions,
   type SecretsFeatureOptions,

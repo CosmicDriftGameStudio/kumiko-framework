@@ -32,6 +32,10 @@ const ROTATE_ESCAPE_HATCH_REASON = "re-encrypts every tenant's secrets with the 
  */
 export const SECRETS_FEATURE_NAME = "secrets";
 
+/** Env keys that carry the KEK keyring. Optional when the app supplies its own
+ *  `masterKey` provider. */
+export const SECRETS_MASTER_KEK_ENV_KEYS = ["KUMIKO_SECRETS_MASTER_KEY_V1"] as const;
+
 export const secretsEnvSchema = z.object({
   KUMIKO_SECRETS_MASTER_KEY_V1: z
     .string()

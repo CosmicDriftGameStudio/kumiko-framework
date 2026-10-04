@@ -1,4 +1,5 @@
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption.js";
+import type { EnvelopeCipher } from "../../secrets/envelope-cipher.js";
 import { dedupeFeatures } from "../dedupe-features.js";
 import { FILE_STORAGE_PROVIDER_ENV } from "../extension-names.js";
 import { QnTypes, qualifyEntityName } from "../qualified-name.js";
@@ -110,6 +111,10 @@ export type ValidateBootOptions = {
    *  `process.env`; runners pass their resolved env so a ciphertext-only
    *  key (already decrypted at boot) is visible to the probe. */
   readonly env?: Readonly<Record<string, string | undefined>>;
+  /** The cipher the runner injects after validation (built from the app's
+   *  `masterKey` or the env keyring). Satisfies the availability check for
+   *  `encrypted: true` fields without an env KEK. */
+  readonly entityFieldCipher?: EnvelopeCipher;
 };
 
 /**
@@ -296,7 +301,7 @@ export function validateBoot(
     // catches malformed keys (wrong length, bad base64) at boot instead of
     // on the first encrypted read in prod. An injected cipher (test seam,
     // custom KMS provider) satisfies the requirement without env keys.
-    validateEntityFieldEncryptionAvailable(options?.env);
+    validateEntityFieldEncryptionAvailable(options?.env, options?.entityFieldCipher);
   }
 
   if (hasFileFields && !(options?.env ?? process.env)[FILE_STORAGE_PROVIDER_ENV]) {

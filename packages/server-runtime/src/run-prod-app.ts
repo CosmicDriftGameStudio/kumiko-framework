@@ -68,6 +68,7 @@ import {
   PAT_FEATURE,
   patRateLimitFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { SECRETS_MASTER_KEK_ENV_KEYS } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { SESSIONS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -117,6 +118,7 @@ import {
   KumikoBootError,
   kmsSlotsOf,
   parseEnv,
+  withOptionalEnvKeys,
 } from "@cosmicdrift/kumiko-framework/env";
 import { type DryRunMode, renderDryRun } from "@cosmicdrift/kumiko-framework/env/dry-run";
 import {
@@ -566,10 +568,11 @@ export type RunProdAppOptions = {
    *  no locale signal. Merged into AppContext before extraContext (app wins). */
   readonly defaultLocale?: string;
   readonly extraContext?: ExtraContextOption;
-  /** MasterKeyProvider für die auto-verdrahtete `ctx.secrets`. Default:
-   *  `createEnvMasterKeyProvider` (KEK aus `KUMIKO_SECRETS_MASTER_KEY_V<n>`).
-   *  Override für KMS-Backends (AWS/GCP/Azure) statt env-KEK. Nur relevant
-   *  wenn das `secrets`-Feature gemountet ist. */
+  /** MasterKeyProvider replacing the env KEK (`KUMIKO_SECRETS_MASTER_KEY_V<n>`)
+   *  for `ctx.secrets`, encrypted config keys and `encrypted: true` entity
+   *  fields. Default: `createEnvMasterKeyProvider`. Use it for KMS backends
+   *  (AWS/GCP/Azure); with it set, `KUMIKO_SECRETS_MASTER_KEY_V1` is not
+   *  required in the env. */
   readonly masterKey?: MasterKeyProvider;
   /** Subject-Key-Adapter für Crypto-Shredding (DSGVO Art. 17). Wenn gesetzt,
    *  steht er Feature-Code als `ctx.kms` zur Verfügung und der Boot prüft
@@ -793,7 +796,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     // a real env-check (all required vars present + schema-valid) before
     // it asserts feature-wiring works.
     try {
-      parseEnv(options.envSchema.schema, rawEnvSource, {
+      const envSchema = options.masterKey
+        ? withOptionalEnvKeys(options.envSchema.schema, SECRETS_MASTER_KEK_ENV_KEYS)
+        : options.envSchema.schema;
+      parseEnv(envSchema, rawEnvSource, {
         sources: options.envSchema.sources,
         ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
       });
@@ -880,7 +886,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
-  validateBoot(features, { env: envSource, ...options.validateBootOptions });
+  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
+  validateBoot(features, {
+    env: envSource,
+    ...(bootCrypto.entityFieldCipher && { entityFieldCipher: bootCrypto.entityFieldCipher }),
+    ...options.validateBootOptions,
+  });
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
   assertPiiBootInvariants(features, {
@@ -1008,7 +1019,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   // Framework-Default-Provider zuerst, App-Werte (resolvedExtraContext)
   // gewinnen immer (z.B. money-horse's eigener configResolver).
-  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   // App-wide cipher for `encrypted: true` entity fields — executors resolve
   // it lazily, entities without encrypted fields never touch it.
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
