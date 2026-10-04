@@ -1,5 +1,72 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.342.0
+
+### Minor Changes
+
+- e7f2d36: AuthCard takes className, headerClassName, titleClassName and bodyClassName
+
+  `AuthCard` renders the body wrapper (`p-6 pt-0 flex flex-col gap-4`) itself and accepts `className` (Card), `headerClassName`, `titleClassName` and `bodyClassName`, merged with tailwind-merge over the defaults. The auth-email-password and auth-mfa screens no longer carry their own body wrapper; the rendered DOM stays the same. The session bootstrap error screen keeps its former bottom padding through `bodyClassName`.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: AuthCard styling hooks (className, headerClassName, titleClassName, bodyClassName)
+  -->
+
+- e7f2d36: channel-email: fromName sets the display name of the From header
+
+  `EmailMessage` gets an optional `fromName`, and the email channel passes `data.fromName` through like `replyTo`. The SMTP transport combines it with the address of `message.from` or the transport default, so `from: "App <noreply@x>"` plus `fromName: "Tenant via veridom"` sends from `noreply@x` under the new name. Control characters in the name are replaced by spaces before sending, and an empty name behaves like no name. The PII ciphertext guard refuses a ciphertext `fromName`.
+
+  <!-- kumiko-changes
+  feature: channel-email
+  type: improvement
+  title: EmailMessage.fromName sets the From display name
+  -->
+
+- 0978e85: System crons audit their declared escape hatch once per process; audit events get a retention
+
+  A cron job with a declared `escapeHatch` that uses `unsafeRaw()` or `db.global()` writes one `audit:event:escape-hatch-used` per process, handler and tenant instead of one per run. Manual runs by a user, identity switches, `acknowledge-cross-tenant` and `unsafe-all-tenants` keep the 60-second dedup window. Every use, audited or not, counts in the new metric `kumiko_escape_hatch_uses_total{handler,kind}`; `createEscapeHatchReporter` takes optional `processDedup`, `meter` and `now` for this. The audit feature gains a daily job `audit:job:escape-hatch-retention` that removes `escapeHatchUse` events through `pruneEvents`, with the period in the system config key `audit:config:escape-hatch-retention-days` (default 90). A new runbook, `docs/runbooks/kumiko-events-bloat.md`, shows how to measure `kumiko_events` bloat and reclaim the space.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: System cron escape hatches are audited once per process, with a use counter and audit retention
+  migration: |
+    The first run of `audit:job:escape-hatch-retention` deletes `escapeHatchUse` events older than 90 days. To keep them longer, set the system config key `audit:config:escape-hatch-retention-days` (for example through an app override) before the bump rolls out. The audit feature now also requires the `config` feature, which every app with `tenant` already mounts.
+  -->
+
+### Patch Changes
+
+- 5733150: Bootstrap seed gets `dispatchWriteAs` to write with app tenant roles instead of SystemAdmin.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Bootstrap seed can write with app tenant roles
+  -->
+
+- bb89ab6: Waitlist `notifyRecipient` may return a promise, so apps can read the admin address from config
+
+  <!-- kumiko-changes
+  feature: waitlist
+  type: improvement
+  title: Waitlist notifyRecipient may return a promise
+  -->
+
+- Updated dependencies [e7f2d36]
+- Updated dependencies [0978e85]
+- Updated dependencies [e7f2d36]
+- Updated dependencies [e7f2d36]
+- Updated dependencies [0978e85]
+- Updated dependencies [0978e85]
+  - @cosmicdrift/kumiko-renderer@0.342.0
+  - @cosmicdrift/kumiko-renderer-web@0.342.0
+  - @cosmicdrift/kumiko-framework@0.342.0
+  - @cosmicdrift/kumiko-headless@0.342.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.342.0
+  - @cosmicdrift/kumiko-types@0.342.0
+
 ## 0.341.0
 
 ### Minor Changes

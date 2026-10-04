@@ -10,6 +10,28 @@ verified: 2026-10-03
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.342.0
+
+### enterprise:cli
+
+**kumiko check requires uiRoots for kind "app"**
+
+`kumiko check` fails a kind "app" without uiRoots
+A repo with `kind: "app"` and no `uiRoots` used to skip the UI guards silently. `kumiko check` (also with `--explain`) now prints an error and exits 1 before any step runs. Declare `uiRoots`, or set `uiRoots: []` for an app without UI; the step list then shows that the UI guards are skipped on purpose. A repo that relies on the derived manifest also gets the hint to add a `kumiko.json`. Other kinds are unchanged. `kumiko new app` now writes a `kumiko.json` with `uiRoots: ["src/features/*/web"]`.
+
+**Migration:** Add `uiRoots` to the `kumiko.json` of every `kind: "app"` repo, for example `["src/app", "src/features/*/web"]`, or `[]` for an app without UI. A repo without a `kumiko.json` needs one first, since the derived manifest cannot declare uiRoots.
+Workspace state at release: kumiko-platform, offlot-app, phronexsis and show-pony declare `kind: "app"` without `uiRoots`.
+
+### framework-core
+
+**Key Manager slots are required, LEGACY_SLOTS default removed**
+
+Key Manager slots are required: no more LEGACY_SLOTS default
+`resolvePlatformKeks`, `resolveKmsWiringAsync` and `requireKmsWiringAsync` no longer fall back to the three platform slots; `slots` is a required option. `runSchemaCli` called with `features` now requires `kmsSlots` and exits 1 with a hint before any DB connect or migration apply when it is missing. `kmsSlots: []` stays valid for apps that wire no Key Manager slots. The scaffolded `bin/kumiko.ts` passes `kmsSlots` derived from the composed env schema.
+
+**Migration:** Pass `slots` (for example `kmsSlotsOf(<app>ComposedEnv.schema)`) to `resolvePlatformKeks`, `resolveKmsWiringAsync` and `requireKmsWiringAsync`. In `bin/kumiko.ts`, `runSchemaCli(..., { features })` needs `kmsSlots: kmsSlotsOf(<app>ComposedEnv.schema)` (or `[]` when the app wires no Key Manager slots. With `[]` every `*_CIPHERTEXT` env var is ignored, so an app that ships a ciphertext must pass its slots); without it the CLI exits 1 before applying migrations.
+Workspace state at release: show-pony `bin/kumiko.ts` and its docs copy `kumiko-platform/apps/docs/_samples/show-pony/bin/kumiko.ts` still call `runSchemaCli` with `features` only. publicstatus, solon, offlot-app, money-horse, phronexsis and kumiko-studio already pass `kmsSlots` / `slots`.
+
 ## 0.341.0
 
 ### auth-email-password

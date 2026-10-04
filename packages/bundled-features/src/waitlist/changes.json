@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.342.0",
+    "type": "improvement",
+    "title": "Waitlist notifyRecipient may return a promise",
+    "detail": "Waitlist `notifyRecipient` may return a promise, so apps can read the admin address from config"
+  },
+  {
     "version": "0.341.0",
     "type": "improvement",
     "title": "Waitlist submit is limited per email address"
