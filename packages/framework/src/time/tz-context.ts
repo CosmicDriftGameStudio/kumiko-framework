@@ -18,8 +18,8 @@
 // The pure type contracts (TzContext, TzContextOptions, LocatedTimestampJson)
 // live in @cosmicdrift/kumiko-types/tz-context — only the factories are here.
 
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { TzContext, TzContextOptions } from "@cosmicdrift/kumiko-types/tz-context";
-import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import { ensureTemporalPolyfill } from "./polyfill.js";
 
 // Back-compat shim: re-exported so existing `from "@cosmicdrift/kumiko-framework/time/tz-context"`
@@ -33,30 +33,28 @@ export type {
 
 /**
  * Factory: creates a TzContext for the current request.
- * Uses temporal-polyfill's module export (not globalThis.Temporal) so
+ * Uses the kumiko-types Temporal module export (not globalThis.Temporal) so
  * buildHandlerContext stays ambient-free (fw#1525/#1550).
  */
 export function createTzContext(options: TzContextOptions = {}): TzContext {
   const tenant = options.tenant ?? "UTC";
   const user = options.user ?? tenant;
   const geoTz = options.geoTz;
-  // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal values at
-  // runtime; TzContext is typed against ambient Temporal from temporal-spec.
-  const T = TemporalPolyfill as unknown as typeof Temporal;
 
   return {
     tenant,
     user,
-    now: () => T.Now.instant(), // @wrapper-known semantic-alias
-    nowIn: (tz: string) => T.Now.zonedDateTimeISO(tz), // @wrapper-known semantic-alias
-    today: (tz: string) => T.Now.plainDateISO(tz), // @wrapper-known semantic-alias
+    now: () => Temporal.Now.instant(), // @wrapper-known semantic-alias
+    nowIn: (tz: string) => Temporal.Now.zonedDateTimeISO(tz), // @wrapper-known semantic-alias
+    today: (tz: string) => Temporal.Now.plainDateISO(tz), // @wrapper-known semantic-alias
     todayRange: (tz: string) => {
-      const today = T.Now.plainDateISO(tz);
+      const today = Temporal.Now.plainDateISO(tz);
       const startZdt = today.toZonedDateTime({ timeZone: tz });
       const endZdt = today.add({ days: 1 }).toZonedDateTime({ timeZone: tz });
       return { start: startZdt.toInstant(), end: endZdt.toInstant() };
     },
-    parse: (wallClock: string, tz: string) => T.PlainDateTime.from(wallClock).toZonedDateTime(tz),
+    parse: (wallClock: string, tz: string) =>
+      Temporal.PlainDateTime.from(wallClock).toZonedDateTime(tz),
     toInstant: (zdt) => zdt.toInstant(),
     toLocatedJson: (zdt) => ({
       // Wall-clock WITHOUT offset (no "Z", no "+01:00") plus the IANA name.
@@ -65,7 +63,7 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
       at: zdt.toPlainDateTime().toString(),
       tz: zdt.timeZoneId,
     }),
-    fromLocatedJson: (obj) => T.PlainDateTime.from(obj.at).toZonedDateTime(obj.tz),
+    fromLocatedJson: (obj) => Temporal.PlainDateTime.from(obj.at).toZonedDateTime(obj.tz),
     fromCoordinates: async (coords) => {
       if (geoTz === undefined) {
         throw new Error(

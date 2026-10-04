@@ -55,10 +55,7 @@ import {
   EXT_TENANT_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-// Aliased — an un-aliased `Temporal` would shadow the ambient global
-// `Temporal` TYPE `ResolvedBillingFoundationOptions.now`'s return type
-// resolves against, see event-store.ts's own import comment (#1438).
-import { Temporal as TemporalPolyfill } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   BILLING_FOUNDATION_FEATURE,
   SUBSCRIPTION_PROVIDER_EXTENSION,
@@ -131,11 +128,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
   // ever calls `Temporal.Now.instant` itself.
   const widened: ResolvedBillingFoundationOptions = {
     ...options,
-    // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
-    // at runtime — `now` is typed against the ambient Temporal global;
-    // TemporalPolyfill.Now.instant() returns the polyfill's own nominal
-    // Instant type across the two .d.ts sources.
-    now: options.now ?? (() => TemporalPolyfill.Now.instant() as unknown as Temporal.Instant),
+    now: options.now ?? (() => Temporal.Now.instant()),
     ...(options.baseUrl !== undefined && {
       baseUrl: options.baseUrl.endsWith("/") ? options.baseUrl.slice(0, -1) : options.baseUrl,
     }),

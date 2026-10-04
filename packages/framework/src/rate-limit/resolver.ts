@@ -3,11 +3,8 @@ import type {
   RateLimitDecision,
   RateLimitResolver,
 } from "@cosmicdrift/kumiko-types/rate-limit-types";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Redis } from "ioredis";
-// Value-only import, aliased to avoid shadowing the ambient global
-// `Temporal` TYPE that RateLimitDecision.resetAt resolves against (see
-// event-store.ts for the same #1438 dual-package-hazard pattern).
-import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import { RateLimitError } from "../errors/index.js";
 import { RedisKeys } from "../pipeline/redis-keys.js";
 import { toPublicBucketName } from "./bucket.js";
@@ -194,7 +191,7 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     );
 
     const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
-    const resetAt = TemporalPolyfill.Instant.fromEpochMilliseconds(nowMs + retryAfterMs);
+    const resetAt = Temporal.Instant.fromEpochMilliseconds(nowMs + retryAfterMs);
 
     return {
       allowed: allowedFlag === 1,
@@ -234,7 +231,7 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     );
 
     const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
-    const resetAt = TemporalPolyfill.Instant.fromEpochMilliseconds(nowMs + retryAfterMs);
+    const resetAt = Temporal.Instant.fromEpochMilliseconds(nowMs + retryAfterMs);
 
     return {
       // peek doesn't deduct, so a "would-be" allowed flag is meaningful:

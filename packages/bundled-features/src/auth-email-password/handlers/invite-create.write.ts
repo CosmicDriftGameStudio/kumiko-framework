@@ -32,7 +32,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link-Pattern), DB-row-owner ist tenant-feature
 import {

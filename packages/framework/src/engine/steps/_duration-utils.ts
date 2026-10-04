@@ -2,7 +2,7 @@
 // Accepts "P1D", "PT1H", "P1Y2M3DT4H5M6S" etc.
 // Uses approximate calendar math (365d/year, 30d/month). See #23.
 
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 export function addDuration(baseIso: string, duration: string): string {
   const pattern = /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/;

@@ -11,7 +11,7 @@
 // HMAC-Input, timing-safe compare, Expiry im Klartext-Segment).
 
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 const STATE_PURPOSE = "inbound-mail-oauth-connect";
 

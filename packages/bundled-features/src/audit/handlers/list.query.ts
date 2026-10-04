@@ -17,7 +17,7 @@
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { AUDIT_SCOPE_VALUES } from "../constants.js";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.js";

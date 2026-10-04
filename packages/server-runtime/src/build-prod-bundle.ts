@@ -53,7 +53,7 @@ import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isPlainObject, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   BUNDLED_ASSETS_DIST_DIR,
   type BundledAssetDeclaration,

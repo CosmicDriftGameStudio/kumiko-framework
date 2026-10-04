@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { signToken } from "../../shared/index.js";
 import { redeemDeletionToken, signDeletionToken } from "../deletion-token.js";
 

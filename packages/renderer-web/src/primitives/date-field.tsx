@@ -8,8 +8,8 @@
 // same typing/navigation UX instead of two diverging primitives (#369).
 
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { type ReactNode, useState } from "react";
-import { Temporal } from "temporal-polyfill";
 import { cn } from "../lib/cn.js";
 import { CalendarPopover } from "./calendar-popover.js";
 import {

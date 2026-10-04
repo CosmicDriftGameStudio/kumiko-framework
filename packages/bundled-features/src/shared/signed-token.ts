@@ -13,7 +13,7 @@
 // signal through a short-circuit.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 export type VerifyResult =
   | { readonly ok: true; readonly userId: string; readonly expiresAtMs: number }

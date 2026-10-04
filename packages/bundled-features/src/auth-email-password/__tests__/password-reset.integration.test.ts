@@ -14,7 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";

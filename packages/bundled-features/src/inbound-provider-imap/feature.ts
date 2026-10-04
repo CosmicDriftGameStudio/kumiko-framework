@@ -36,8 +36,8 @@ import {
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { instantToLegacyDate } from "@cosmicdrift/kumiko-framework/time";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { ImapFlow, MailboxObject } from "imapflow";
-import { Temporal } from "temporal-polyfill";
 import { type ImapCredentialDocument, parseImapCredentialDocument } from "./credential-document.js";
 import {
   assertUidValidity,

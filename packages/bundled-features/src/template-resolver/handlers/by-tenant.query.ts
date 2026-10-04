@@ -4,7 +4,7 @@ import {
   crossTenantOverrideDenied,
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { Temporal } from "temporal-polyfill";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { TEXT_BLOCK_KIND } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";

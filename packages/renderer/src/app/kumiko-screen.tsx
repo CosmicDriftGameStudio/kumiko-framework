@@ -50,8 +50,8 @@ import {
 } from "@cosmicdrift/kumiko-headless";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Temporal } from "temporal-polyfill";
 import {
   QueryOptionLabel,
   resolveOptionsQueryPayload,

@@ -1,4 +1,4 @@
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 // Temporal→Date-Bridge für Lib-APIs die JS-Date verlangen (imapflow
 // search({since}), nodemailer-Header, ...). Gegenstück zur

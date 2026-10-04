@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared/index.js";
 import { USER_STATUS, UserQueries } from "../../user/index.js";

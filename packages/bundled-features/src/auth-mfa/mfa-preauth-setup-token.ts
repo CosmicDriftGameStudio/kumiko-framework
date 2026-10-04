@@ -1,5 +1,5 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createHmacTokenCodec, type HmacTokenVerifyResult } from "./hmac-token-codec.js";
 
 export type MfaPreauthSetupPayload = {

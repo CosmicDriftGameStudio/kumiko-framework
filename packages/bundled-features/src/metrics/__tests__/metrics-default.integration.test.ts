@@ -6,7 +6,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createConfigFeature } from "../../config/index.js";
 import { createDeliveryFeature } from "../../delivery/feature.js";
 import { deliveryAttemptsTable } from "../../delivery/tables.js";

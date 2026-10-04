@@ -51,7 +51,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.js";
 import { MAIL_ACCOUNT_PII_FIELDS, syncCursorTable } from "./entities.js";
 import {

@@ -1,4 +1,4 @@
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 export function isExpiredAt(expiresAt: { epochMilliseconds: number } | null): boolean {
   return (

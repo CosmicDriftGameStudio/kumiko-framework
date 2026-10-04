@@ -6,7 +6,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import type { Temporal } from "temporal-polyfill";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { ContentFormat, TemplateKind } from "./constants.js";
 import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";

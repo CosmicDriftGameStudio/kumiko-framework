@@ -1,14 +1,13 @@
 // kumiko-framework#1480: instantFromDriver referenced the global `Temporal`
-// without importing it. Bun doesn't expose Temporal as a globalThis property
-// reliably — any storeTable read of a timestamptz column crashed with
-// "Temporal is not defined" unless some other boot path happened to install
-// the polyfill globally first (order-dependent, easy to miss in a fresh
-// process). The fix is a static `import { Temporal } from "temporal-polyfill"`
+// without importing it. Any storeTable read of a timestamptz column crashed
+// with "Temporal is not defined" unless some other boot path happened to
+// install it globally first (order-dependent, easy to miss in a fresh
+// process). The fix is a static import of `@cosmicdrift/kumiko-types/temporal`
 // in query.ts, so this test deletes globalThis.Temporal before calling
 // coerceRow — proving the coercion no longer depends on the global at all.
 
 import { describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { coerceRow, type TableInfo } from "../query.js";
 
 function timestamptzTableInfo(): TableInfo {

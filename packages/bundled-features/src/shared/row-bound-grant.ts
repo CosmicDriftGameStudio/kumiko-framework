@@ -31,7 +31,7 @@
 // (single-use-token-store) instead.
 
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import type { Temporal } from "temporal-polyfill";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { peekTokenSubject, signToken, verifyToken } from "./signed-token.js";
 
 export type RowBoundGrantResult =

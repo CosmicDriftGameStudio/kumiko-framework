@@ -2,7 +2,7 @@
 // Mirrors reset-token.ts so callers can import a flow-specific helper
 // without knowing the underlying HMAC scheme.
 
-import type { Temporal } from "temporal-polyfill";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { signToken, TokenPurpose, verifyToken } from "./signed-token.js";
 
 export type VerifyResult =

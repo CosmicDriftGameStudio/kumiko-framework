@@ -6,7 +6,7 @@ import {
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { WAITLIST_NOTIFICATION_TYPES, WAITLIST_STATUS } from "../constants.js";
 import { normalizeEmail, platformActor, waitlistDb, waitlistExecutor } from "../lib.js";
 import {

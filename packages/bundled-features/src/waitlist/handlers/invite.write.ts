@@ -13,7 +13,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/index.js";
 import { TenantHandlers, tenantTable } from "../../tenant/index.js";
 import { DEFAULT_OWN_TENANT_INVITE_ROLE, WAITLIST_STATUS, WaitlistErrors } from "../constants.js";

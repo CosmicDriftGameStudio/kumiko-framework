@@ -6,7 +6,7 @@ import {
   type QueryHandlerDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { runMetric } from "./compute.js";
 import {

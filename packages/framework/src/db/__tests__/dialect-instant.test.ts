@@ -12,7 +12,7 @@
 // swallowing).
 
 import { describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { instantToDriver as toDriver } from "../dialect.js";
 
 describe("instant() customType — toDriver", () => {
@@ -36,12 +36,12 @@ describe("instant() customType — toDriver", () => {
   });
 
   test("Garbage-String: wirft RangeError (kein silent swallow)", () => {
-    expect(() => toDriver("not-a-date")).toThrow(/Cannot parse/);
+    expect(() => toDriver("not-a-date")).toThrow(RangeError);
   });
 
   test("Date-only mit Trailing-Whitespace: kein Match (strict regex)", () => {
     // Strict damit "2026-04-10 extra" nicht silently zu start-of-day
     // wird — das ist garantiert ein Caller-Bug, nicht "nett gemeint".
-    expect(() => toDriver("2026-04-10 ")).toThrow(/Cannot parse/);
+    expect(() => toDriver("2026-04-10 ")).toThrow(RangeError);
   });
 });

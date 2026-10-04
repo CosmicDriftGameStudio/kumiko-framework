@@ -1,4 +1,4 @@
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { CheckoutConsentRecordedPayload } from "../events.js";
 import { CONSENT_TEXTS, type ConsentLocale, resolveConsentLocale } from "./consent-text.js";
 

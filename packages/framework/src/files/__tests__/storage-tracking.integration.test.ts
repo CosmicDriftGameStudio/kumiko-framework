@@ -9,7 +9,7 @@
 //      Drizzle's mode:"number", so arithmetic in assertions Just Works).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient, selectMany } from "../../db/query.js";
 import { createTenantDb } from "../../db/tenant-db.js";

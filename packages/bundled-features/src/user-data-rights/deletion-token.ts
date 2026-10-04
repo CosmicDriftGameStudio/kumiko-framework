@@ -7,7 +7,7 @@
 // The purpose string and the anchoring are unchanged from the hand-rolled
 // version this replaced, so tokens stay byte-compatible.
 
-import type { Temporal } from "temporal-polyfill";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   type RowBoundGrantResult,
   redeemRowBoundGrant,

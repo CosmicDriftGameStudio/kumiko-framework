@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/stack";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { StaleDraftRow } from "../../db/queries/cleanup.js";
 import { groupStaleDraftIdsByTenant } from "../cleanup.job.js";
 

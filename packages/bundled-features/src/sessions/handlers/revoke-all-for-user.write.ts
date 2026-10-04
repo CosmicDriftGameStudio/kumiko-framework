@@ -4,7 +4,7 @@ import { access, defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumik
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { userSessionTable } from "../schema/user-session.js";
 import {

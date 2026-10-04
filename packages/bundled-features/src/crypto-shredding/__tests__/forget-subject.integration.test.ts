@@ -44,7 +44,7 @@ import {
   resetTestTables,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { authFoundationFeature } from "../../auth-foundation/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature.js";

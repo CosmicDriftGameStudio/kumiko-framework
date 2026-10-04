@@ -17,9 +17,9 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { legacyDateToInstant } from "@cosmicdrift/kumiko-framework/time";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { ImapFlow } from "imapflow";
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
-import { Temporal } from "temporal-polyfill";
 import type { ImapCredentialDocument } from "./credential-document.js";
 
 export const IMAP_MAILBOX = "INBOX";

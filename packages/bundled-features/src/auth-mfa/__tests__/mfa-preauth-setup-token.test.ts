@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { signMfaChallengeToken, verifyMfaChallengeToken } from "../mfa-challenge-token.js";
 import {
   signMfaPreauthSetupToken,

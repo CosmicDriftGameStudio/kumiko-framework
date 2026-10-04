@@ -1,7 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import * as bunDb from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { tenantMembershipsTable } from "../tenant/membership-table.js";
 import { USER_STATUS, userTable } from "../user/schema/user.js";
 import { userSessionTable } from "./schema/user-session.js";

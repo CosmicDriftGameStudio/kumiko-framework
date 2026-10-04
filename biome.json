@@ -155,10 +155,24 @@
                   "zod/v3": {
                     "importNames": ["z"],
                     "message": "import * as z from \"zod/v3\" instead — { z } pulls the whole namespace (all locales, json-schema) into client bundles."
+                  },
+                  "temporal-polyfill": {
+                    "importNames": ["Temporal"],
+                    "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
                   }
                 }
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/types/src/temporal.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
           }
         }
       }

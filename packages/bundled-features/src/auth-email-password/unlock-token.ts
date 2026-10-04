@@ -1,7 +1,7 @@
 // Thin wrapper around signed-token.ts pinning the purpose to "unlock".
 // Mirrors reset-token.ts / verification-token.ts.
 
-import type { Temporal } from "temporal-polyfill";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { signToken, TokenPurpose, verifyToken } from "./signed-token.js";
 
 export type VerifyResult =

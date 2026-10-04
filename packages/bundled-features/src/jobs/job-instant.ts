@@ -1,4 +1,4 @@
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 // kumiko-framework#1525: the five value-position Temporal.Instant.from
 // call sites in feature.ts live inside defineApply callbacks with no

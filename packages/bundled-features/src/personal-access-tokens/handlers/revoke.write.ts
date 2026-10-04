@@ -2,7 +2,7 @@ import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { API_TOKEN_ENTITY_NAME, PatErrors } from "../constants.js";
 import { PAT_REVOKED_AGGREGATE_TYPE, PAT_REVOKED_EVENT_QN } from "../pat-revoked-event.js";

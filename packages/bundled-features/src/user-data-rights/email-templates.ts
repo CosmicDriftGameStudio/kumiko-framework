@@ -5,7 +5,7 @@
 
 import { mailT, registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 export type GdprMailLocale = string;
 

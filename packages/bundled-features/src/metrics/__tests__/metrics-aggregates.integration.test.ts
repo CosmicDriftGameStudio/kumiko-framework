@@ -5,7 +5,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { METRICS_FEATURE, metricQueryName } from "../constants.js";
 import { createMetricsFeature } from "../feature.js";
 import type { MetricResult } from "../types.js";

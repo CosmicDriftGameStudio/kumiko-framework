@@ -1,5 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { redeemRowBoundGrant, signRowBoundGrant } from "./row-bound-grant.js";
 
 const SECRET = "test-secret-value";

@@ -1,7 +1,7 @@
 import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { FormDraftBlob } from "../../schemas.js";
 
 export type StaleDraftRow = {

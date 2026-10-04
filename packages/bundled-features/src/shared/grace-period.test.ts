@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-framework/testing";
-import { Temporal as TemporalPolyfill } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isWithinGracePeriod } from "./grace-period.js";
 
 describe("isWithinGracePeriod — kumiko-framework#1525/#1550", () => {
@@ -11,12 +11,8 @@ describe("isWithinGracePeriod — kumiko-framework#1525/#1550", () => {
   });
 
   test("future vs past without ambient Temporal", async () => {
-    const future = TemporalPolyfill.Now.instant().add({
-      hours: 1,
-    }) as unknown as Temporal.Instant;
-    const past = TemporalPolyfill.Now.instant().subtract({
-      hours: 1,
-    }) as unknown as Temporal.Instant;
+    const future = Temporal.Now.instant().add({ hours: 1 });
+    const past = Temporal.Now.instant().subtract({ hours: 1 });
 
     await withoutAmbientTemporal(() => {
       expect(isWithinGracePeriod(future)).toBe(true);

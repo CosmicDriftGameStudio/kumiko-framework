@@ -1,5 +1,5 @@
 import type { AggregateTimeBucket } from "@cosmicdrift/kumiko-types/aggregate-types";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { MetricRange } from "./constants.js";
 import type { MetricDefinition } from "./types.js";
 

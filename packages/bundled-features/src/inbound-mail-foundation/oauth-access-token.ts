@@ -19,7 +19,7 @@
 import { transaction } from "@cosmicdrift/kumiko-framework/bun-db";
 import { acquireNamespacedAdvisoryLock, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { InboundMailAuthMethods, inboundCredentialSecretKey } from "./constants.js";
 import {
   InboundAuthError,

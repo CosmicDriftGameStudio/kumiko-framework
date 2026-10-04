@@ -28,7 +28,7 @@ import {
 import { acquireNamespacedAdvisoryLock } from "@cosmicdrift/kumiko-framework/db";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.js";
 import {

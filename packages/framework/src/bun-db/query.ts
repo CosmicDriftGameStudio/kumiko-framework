@@ -27,15 +27,15 @@ import type {
   AggregateTimeBucket,
 } from "@cosmicdrift/kumiko-types/aggregate-types";
 import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
+// Static import (not getTemporal()): coercion works without an installed
+// global and returns the same Temporal classes as the rest of the repo (#1480).
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type {
   JsonTextMatch,
   SelectOptions,
   WhereObject,
   WhereOperator,
 } from "@cosmicdrift/kumiko-types/where-clause-types";
-// Static polyfill import (not getTemporal()): coercion results stay on one
-// Temporal implementation repo-wide, even when Bun exposes a global (#1480).
-import { Temporal } from "temporal-polyfill";
 import { requestContext } from "../api/request-context.js";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index.js";
 import { isPiiCiphertext } from "../crypto/pii-ciphertext-format.js";

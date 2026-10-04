@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { signToken, TokenPurpose, verifyToken } from "./signed-token.js";
 
 const SECRET = "test-hmac-secret-32-bytes-minimum!!";
