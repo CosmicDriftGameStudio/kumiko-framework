@@ -4,18 +4,24 @@
 //
 // **Warum Wrapper statt manuelle Calls im Handler:**
 // Pattern-konsistenz. Wer einen cap-bedingten Handler schreibt,
-// darf nicht vergessen den counter zu incrementen oder den enforce-
-// pre-call zu machen — beides ist atomic-mit-dem-Handler-zusammen.
-// Wrapper macht das Pattern explizit + co-located.
+// darf nicht vergessen den enforce-pre-call, die Reservierung oder
+// den Release bei Fehlschlag zu machen. Wrapper macht das Pattern
+// explizit + co-located.
 //
-// **Atomicity caveat:** calendar booking runs in-process via bookCapUsage
-// (see book-cap-usage.ts).
+// **Calendar reservation:** commits in its own short transaction
+// (ctx.dbOutsideTransaction) BEFORE the handler, so it is NOT atomic
+// with the handler's transaction. A failure result or throw is compensated
+// by a release; a handler that succeeds but whose transaction then fails
+// to commit leaves the counter over-counted. Without ctx.dbOutsideTransaction
+// the reservation falls back to the handler transaction (atomic, but
+// serializes capped calls on the same counter). A wrapped handler must not
+// book the same counter inside its own transaction.
+//
 // Rolling booking still dispatches the SystemAdmin-only increment-rolling
-// handler. In-process booking would work today only because the entity
-// executor appends without the event-ownership check (that check runs in
-// appendDomainEventCore alone); relying on that gap would break once the
-// executor path enforces ownership, so rolling callers need a SystemAdmin
-// identity until cap-counter declares an explicit foreign-booking opt-in.
+// handler and has no reservation: it would need a compensating event type,
+// a changed readRollingCapUsage and a version-guarded append behind the
+// SystemAdmin dispatch. Rolling callers need a SystemAdmin identity until
+// cap-counter declares an explicit foreign-booking opt-in.
 //
 // No automatic markSoftWarned here — that's inside enforceCapAndMaybeNotify
 // (enforce-cap.ts).
@@ -67,21 +73,31 @@ export type CalendarCapResolver = (
   ctx: HandlerContext,
 ) => Promise<CalendarCapDef> | CalendarCapDef;
 
-// The original handler error must reach the caller; a failed release only leaves the counter over-counted.
+// A failed release only over-counts; it must neither mask the handler's own outcome nor stay invisible.
 async function releaseReservationBestEffort(
   ctx: HandlerContext,
   cap: CalendarCapDef,
   amount: number,
+  outsideTransaction: boolean,
 ): Promise<void> {
   try {
-    await releaseCapUsage(ctx, {
+    const released = await releaseCapUsage(ctx, {
       capName: cap.capName,
       amount,
       periodStartIso: cap.periodStartIso,
-      outsideTransaction: true,
+      outsideTransaction,
     });
-  } catch {
-    // intentionally swallowed, see above
+    if (!released.isSuccess) {
+      ctx.log?.warn("cap-counter: releasing a cap reservation failed, counter is over-counted", {
+        capName: cap.capName,
+        code: released.error.code,
+      });
+    }
+  } catch (error) {
+    ctx.log?.warn("cap-counter: releasing a cap reservation threw, counter is over-counted", {
+      capName: cap.capName,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -113,13 +129,14 @@ export function withCapEnforcement(
       // Pre-enforce. Hard-hit throws CapExceededError (extends KumikoError,
       // dispatcher auto-maps to HTTP 429 + cap_exceeded). Soft-hit-crossing
       // notifies via the supplied notifier + flips lastSoftWarnedAt.
+      const outsideTransaction = ctx.dbOutsideTransaction !== undefined;
       await enforceCapAndMaybeNotify(ctx, {
         capName: cap.capName,
         periodStartIso: cap.periodStartIso,
         limit: cap.limit,
         profile: cap.profile,
         notify: cap.notify,
-        markSoftWarnedOutsideTransaction: true,
+        markSoftWarnedOutsideTransaction: outsideTransaction,
         ...(cap.amount !== undefined && { amount: cap.amount }),
       });
 
@@ -129,7 +146,7 @@ export function withCapEnforcement(
         capName: cap.capName,
         amount,
         periodStartIso: cap.periodStartIso,
-        outsideTransaction: true,
+        outsideTransaction,
         guardCurrentValue: (currentValue) => assertBelowHardCap(currentValue + amount - 1, cap),
       });
       if (!reserved.isSuccess) throw reraiseAsKumikoError(reserved.error);
@@ -138,18 +155,11 @@ export function withCapEnforcement(
       try {
         result = await handler.handler(event, ctx);
       } catch (error) {
-        await releaseReservationBestEffort(ctx, cap, amount);
+        await releaseReservationBestEffort(ctx, cap, amount, outsideTransaction);
         throw error;
       }
-
       if (!result.isSuccess) {
-        const released = await releaseCapUsage(ctx, {
-          capName: cap.capName,
-          amount,
-          periodStartIso: cap.periodStartIso,
-          outsideTransaction: true,
-        });
-        if (!released.isSuccess) throw reraiseAsKumikoError(released.error);
+        await releaseReservationBestEffort(ctx, cap, amount, outsideTransaction);
       }
 
       return result;

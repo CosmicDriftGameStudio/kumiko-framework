@@ -180,6 +180,13 @@ const wrappedAtomic = withCapEnforcement(atomicHandler, () => ({
   notify: recordingNotifier,
 }));
 const ATOMIC_QN = "newsletter:write:atomic-slot";
+const nestedAtomicCaller: WriteHandlerDef = {
+  name: "atomic-slot-nested",
+  schema: z.object({}),
+  access: { roles: ["TenantAdmin"] },
+  handler: (_event, ctx) => ctx.write(ATOMIC_QN, {}),
+};
+const ATOMIC_NESTED_QN = "newsletter:write:atomic-slot-nested";
 
 const NEWSLETTER_TENANT_ONLY_QN = "newsletter:write:send-newsletter-tenant-only";
 const BOOK_OUTSIDE_TX_QN = "newsletter:write:book-outside-tx-then-fail";
@@ -236,6 +243,7 @@ const newsletterFeature = defineFeature("newsletter", (r) => {
   r.writeHandler(wrappedRolling);
   r.writeHandler(wrappedCalendarTenantOnly);
   r.writeHandler(wrappedAtomic);
+  r.writeHandler(nestedAtomicCaller);
   r.writeHandler(bookOutsideTxThenFailHandler);
   r.writeHandler(bookCapUsageInTxHandler);
   r.writeHandler(bookCapUsageOutsideTxHandler);
@@ -616,6 +624,20 @@ describe("withCapEnforcement - atomic reservation", () => {
 
     expect(responses.map((r) => r.status)).toEqual([200, 200]);
     expect(atomicMaxInFlight).toBe(2);
+  });
+
+  test("a capped handler reached through a nested ctx.write still reserves and enforces", async () => {
+    resetAtomicState("ok");
+    const user = tenantAdminOnlyFor(2705);
+
+    for (let i = 0; i < ATOMIC_CAP_LIMIT; i++) {
+      await stack.http.writeOk(ATOMIC_NESTED_QN, {}, user);
+    }
+    const blocked = await stack.http.writeErr(ATOMIC_NESTED_QN, {}, user);
+
+    expect(blocked.code).toBe("cap_exceeded");
+    const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(row!["value"]).toBe(ATOMIC_CAP_LIMIT);
   });
 
   test("a handler that throws gives the reservation back", async () => {
