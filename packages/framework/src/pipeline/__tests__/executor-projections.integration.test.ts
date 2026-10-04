@@ -8,6 +8,7 @@ import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/diale
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { insertOne, selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
+import { createTenantDb } from "../../db/tenant-db.js";
 import {
   createEntity,
   createTextField,
@@ -28,6 +29,10 @@ import { waitFor } from "../../testing/index.js";
 const orderEntity = createEntity({
   table: "read_exproj_orders",
   fields: { title: createTextField({ personal: false, reason: "test_fixture", required: true }) },
+});
+const memoEntity = createEntity({
+  table: "read_exproj_memos",
+  fields: { text: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const auditEntity = createEntity({
   table: "read_exproj_audits",
@@ -52,6 +57,7 @@ const projectionCalls: string[] = [];
 const exprojFeature = defineFeature("exproj", (r) => {
   r.entity("order", orderEntity);
   r.entity("audit", auditEntity);
+  r.entity("memo", memoEntity);
 
   r.projection({
     name: "audit-log",
@@ -73,6 +79,7 @@ const exprojFeature = defineFeature("exproj", (r) => {
 
   r.writeHandler(defineEntityCreateHandler("order", orderEntity, { access: { roles: ["Admin"] } }));
   r.writeHandler(defineEntityCreateHandler("audit", auditEntity, { access: { roles: ["Admin"] } }));
+  r.writeHandler(defineEntityCreateHandler("memo", memoEntity, { access: { roles: ["Admin"] } }));
 
   const auditExecutor = createEventStoreExecutor(auditTable, auditEntity, { entityName: "audit" });
 
@@ -92,6 +99,25 @@ const exprojFeature = defineFeature("exproj", (r) => {
     { phase: HookPhases.inTransaction },
   );
 
+  r.hook(
+    "postSave",
+    { allOf: "memo" },
+    async (result, ctx) => {
+      if (!isTenantDb(ctx.db)) throw new Error("hook ctx.db is not a TenantDb");
+      const ownTenantDb = createTenantDb(ctx.db.unsafeRaw(), admin.tenantId);
+      const outcome = await auditExecutor.create(
+        { label: String(result.data["text"]) },
+        createSystemUser(admin.tenantId),
+        ownTenantDb,
+      );
+      if (!outcome.isSuccess) throw new Error("hook audit write via unsafeRaw failed");
+    },
+    {
+      phase: HookPhases.inTransaction,
+      escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw" },
+    },
+  );
+
   r.job("make-audit", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     const label = payload["label"];
     if (typeof label !== "string") throw new Error("make-audit needs a label");
@@ -106,6 +132,7 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [exprojFeature], jobs: { consumerLane: "worker" } });
   await unsafeCreateEntityTable(stack.db, orderEntity, "order");
   await unsafeCreateEntityTable(stack.db, auditEntity, "audit");
+  await unsafeCreateEntityTable(stack.db, memoEntity, "memo");
 });
 
 afterAll(async () => {
@@ -117,6 +144,7 @@ afterEach(async () => {
   await resetEventStore(stack, [
     "read_exproj_orders",
     "read_exproj_audits",
+    "read_exproj_memos",
     "read_exproj_audit_log",
   ]);
 });
@@ -131,6 +159,13 @@ describe("executor writes run custom projections", () => {
 
     const rows = await logRows();
     expect(rows.map((row) => row.label)).toEqual(["order-one"]);
+    expect(projectionCalls).toHaveLength(1);
+  });
+
+  test("a TenantDb a hook rebuilds from ctx.db.unsafeRaw() projects exactly once", async () => {
+    await stack.http.writeOk("exproj:write:memo:create", { text: "via-unsafe-raw" }, admin);
+
+    expect((await logRows()).map((row) => row.label)).toEqual(["via-unsafe-raw"]);
     expect(projectionCalls).toHaveLength(1);
   });
 

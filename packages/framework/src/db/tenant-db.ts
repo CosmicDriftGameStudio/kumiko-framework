@@ -65,15 +65,16 @@ const declaredUnsafeRawRunners = new WeakMap<
 // (withUnsafeRawGrant, acknowledgeConventionCrossTenant) carry it too.
 const personalDataGates = new WeakMap<TenantDb, PersonalDataGate>();
 
-// Lets createTenantDb(ctx.db.unsafeRaw(), ...) inherit the gate. Keyed by a
-// per-grant proxy, never the shared pool/tx: tagging that would gate every sibling TenantDb.
+// Lets createTenantDb(ctx.db.unsafeRaw(), ...) inherit the gate and the projection registry.
+// Keyed by a per-grant proxy, never the shared pool/tx: tagging that would leak onto every sibling TenantDb.
 const runnerPersonalDataGates = new WeakMap<DbRunner, PersonalDataGate>();
 
-function gatedRunner(
+function boundRunner(
   runner: DbRunner,
-  gate: PersonalDataGate,
+  gate: PersonalDataGate | undefined,
   projectionRegistry: Registry | undefined,
 ): DbRunner {
+  if (!gate && !projectionRegistry) return runner;
   const proxy = new Proxy(runner as object, {
     // Tagged-template calls need the real driver object as `this`.
     apply(target, _thisArg, args) {
@@ -91,7 +92,7 @@ function gatedRunner(
           }
           const gatedArgs = [
             ...args.slice(0, -1),
-            (tx: unknown) => callback(gatedRunner(tx as DbRunner, gate, projectionRegistry)),
+            (tx: unknown) => callback(boundRunner(tx as DbRunner, gate, projectionRegistry)),
           ];
           return Reflect.apply(value, target, gatedArgs);
         };
@@ -100,7 +101,7 @@ function gatedRunner(
     },
     // @cast-boundary proxy-erasure — Proxy<object> re-tags as the wrapped DbRunner shape.
   }) as DbRunner;
-  runnerPersonalDataGates.set(proxy, gate);
+  if (gate) runnerPersonalDataGates.set(proxy, gate);
   if (projectionRegistry) bindProjectionRegistry(proxy, projectionRegistry);
   return proxy;
 }
@@ -214,10 +215,7 @@ function buildUncheckedSystemDb(
     // Engine-forwarded steps carry their own declared reason; a caller-supplied one never reaches the audit trail.
     report("unsafe-raw", forwardedDeclaredStep ? reason : (gate?.grant?.reason ?? reason));
     const runner = tenantDbRunner(db);
-    const personalDataGate = personalDataGates.get(db);
-    return personalDataGate
-      ? gatedRunner(runner, personalDataGate, projectionRegistryOf(db))
-      : runner;
+    return boundRunner(runner, personalDataGates.get(db), projectionRegistryOf(db));
   }
 
   const uncheckedSystemDb: UncheckedSystemDb = {
@@ -667,7 +665,7 @@ export function createTenantDb(
     }
     // Engine-forwarded steps carry their own declared reason; otherwise the grant's reason is audited.
     report("unsafe-raw", declaredStepReason ?? grants?.unsafeRaw?.reason ?? "");
-    return personalDataGate ? gatedRunner(db, personalDataGate, projectionRegistry) : db;
+    return boundRunner(db, personalDataGate, projectionRegistry);
   }
 
   const tenantDb: TenantDb = {

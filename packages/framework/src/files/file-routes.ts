@@ -13,7 +13,7 @@ import {
 } from "../crypto/index.js";
 import type { DbConnection } from "../db/connection.js";
 import { createEventStoreExecutor } from "../db/event-store-executor.js";
-import { createTenantDb } from "../db/tenant-db.js";
+import { createTenantDb, type TenantDb } from "../db/tenant-db.js";
 import {
   createDerivativesContext,
   resolveFieldVariant,
@@ -180,15 +180,18 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   const { db } = options;
   const privilegedRoles = options.privilegedRoles ?? DEFAULT_PRIVILEGED_ROLES;
   const guard: FileAccessGuard = options.accessGuard ?? createDefaultGuard(privilegedRoles);
-  // Standard entity executor for fileRef — self-contained (table + entity),
-  // no registry needed. create/delete emit fileRef.created/deleted and write
-  // file_refs via applyEntityEvent in one tx (read-your-own-write), exactly
-  // like any other entity's lifecycle.
+  // Standard entity executor for fileRef — self-contained (table + entity).
+  // create/delete emit fileRef.created/deleted and write file_refs via
+  // applyEntityEvent in one tx (read-your-own-write), exactly like any other
+  // entity's lifecycle. The registry only feeds custom projections on those events.
   const executor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
     entityName: "fileRef",
   });
   const piiSubjectFields = collectPiiSubjectFields(fileRefEntity);
   const api = new Hono();
+  const projectionGrants = options.registry ? { projectionRegistry: options.registry } : undefined;
+  const tenantDbFor = (tenantId: TenantId): TenantDb =>
+    createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, projectionGrants);
 
   function kmsContextFor(): KmsContext {
     return { requestId: requestContext.get()?.requestId ?? "file-routes" };
@@ -359,7 +362,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
         fieldName: fieldName ?? null,
       },
       user,
-      createTenantDb(db, user.tenantId),
+      tenantDbFor(user.tenantId),
     );
     if (!result.isSuccess) {
       return c.json({ error: "upload_failed" }, 500);
@@ -492,7 +495,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // erasure of row + binary is the job of the forget-flow (Art. 17) and the
     // generic data-retention cleanup — same lifecycle as any soft-delete
     // entity, not a files-specific path.
-    const result = await executor.delete({ id }, user, createTenantDb(db, user.tenantId));
+    const result = await executor.delete({ id }, user, tenantDbFor(user.tenantId));
     if (!result.isSuccess) {
       // NotFound (race between guard and executor) reuses the 404-masking
       // pattern from the access-deny path above. Everything else (version
@@ -562,7 +565,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // Same 22P02-avoidance as loadFileForTenant — detail() doesn't validate
     // id shape before it hits the UUID column.
     if (!isUuid(id)) return c.json({ error: "not_found" }, 404);
-    const row = await executor.detail({ id }, user, createTenantDb(db, user.tenantId));
+    const row = await executor.detail({ id }, user, tenantDbFor(user.tenantId));
     if (!row) return c.json({ error: "not_found" }, 404);
     const fileRef = row as FileRef; // @cast-boundary db-row (decrypted via executor.detail)
     // detail()'s "pass"-ownership read widens to tenantId IN (self, SYSTEM),

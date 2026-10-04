@@ -14,6 +14,7 @@
 
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type { Temporal } from "temporal-polyfill";
 import * as z from "zod";
 import { UserQueries } from "../../user/index.js";
@@ -89,6 +90,12 @@ export type TokenRequestOptions = {
   readonly locale?: AuthMailLocale;
 };
 
+// The requester is anonymous, so ctx.tz.user is only the tenant default; the recipient's
+// own profile zone is the one the expiry should be read in.
+function recipientTimeZone(user: AuthUserRow, fallbackTimeZone: string): string {
+  return user.timezone && isValidIanaTimeZone(user.timezone) ? user.timezone : fallbackTimeZone;
+}
+
 export function createTokenRequestHandler<TName extends string, TSuccessKind extends string>(
   spec: TokenRequestSpec<TName, TSuccessKind>,
   opts: TokenRequestOptions,
@@ -156,7 +163,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
           token,
           expiresAt: expiresAt.toString(),
           issuedAt,
-          timeZone: ctx.tz.user,
+          timeZone: recipientTimeZone(user, ctx.tz.user),
           ...(opts.appName !== undefined && { appName: opts.appName }),
           locale,
         },

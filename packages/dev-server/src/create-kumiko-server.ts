@@ -625,6 +625,19 @@ export function classifyChange(filename: string): "restart" | "hot-reload" | "ig
   return "restart";
 }
 
+// The watcher reports paths relative to the watched directory, so an entry arrives as a bare
+// "client.tsx" (or a custom name like "client-admin.tsx") that classifyChange alone reads as a
+// server file and answers with a restart.
+export function classifyWatchedChange(
+  watchedDir: string,
+  filename: string,
+  entrySourceFiles: ReadonlySet<string>,
+): ReturnType<typeof classifyChange> {
+  return entrySourceFiles.has(resolve(watchedDir, filename))
+    ? "hot-reload"
+    : classifyChange(filename);
+}
+
 // Expandiert watchDirs-Patterns auf konkrete Verzeichnisse. Ein Eintrag
 // ohne `*` wird als gewöhnlicher Pfad resolved; mit `*` wird er per
 // glob expanded und alle Treffer die Verzeichnisse sind übernommen.
@@ -1336,12 +1349,13 @@ export async function createKumikoServer(
     // Watcher pro Verzeichnis.
     const entryDirs = new Set<string>();
     for (const e of entries) entryDirs.add(resolve(e.sourceFile, ".."));
+    const entrySourceFiles = new Set(entries.map((e) => resolve(e.sourceFile)));
     const dirs = [...entryDirs, ...expandWatchPatterns(options.watchDirs ?? [])];
     for (const dir of dirs) {
       void watchDir(
         dir,
         async (filename) => {
-          const action = classifyChange(filename);
+          const action = classifyWatchedChange(dir, filename, entrySourceFiles);
           // skip: file change classified as ignore (test/css/json), nothing to rebuild
           if (action === "ignore") return;
           if (action === "restart") {

@@ -6,7 +6,7 @@
 // nicht durch (UX broken). Beide sind teuer — daher pinnen wir.
 
 import { describe, expect, test } from "bun:test";
-import { classifyChange } from "../create-kumiko-server.js";
+import { classifyChange, classifyWatchedChange } from "../create-kumiko-server.js";
 
 describe("classifyChange", () => {
   test("server-side feature.ts → restart", () => {
@@ -83,5 +83,26 @@ describe("classifyChange", () => {
 
   test("client/-Subdir → hot-reload", () => {
     expect(classifyChange("/abs/samples/foo/src/client/widgets.tsx")).toBe("hot-reload");
+  });
+});
+
+describe("classifyWatchedChange", () => {
+  const entryDir = "/abs/samples/foo/src";
+  const entries = new Set([`${entryDir}/client.tsx`, `${entryDir}/client-admin.tsx`]);
+
+  test("the entry reported relative to its own directory → hot-reload", () => {
+    expect(classifyWatchedChange(entryDir, "client.tsx", entries)).toBe("hot-reload");
+  });
+
+  test("a custom-named entry → hot-reload", () => {
+    expect(classifyWatchedChange(entryDir, "client-admin.tsx", entries)).toBe("hot-reload");
+  });
+
+  test("a non-entry server file next to the entry still restarts", () => {
+    expect(classifyWatchedChange(entryDir, "feature.ts", entries)).toBe("restart");
+  });
+
+  test("a nested web/ file → hot-reload", () => {
+    expect(classifyWatchedChange(entryDir, "web/page.tsx", entries)).toBe("hot-reload");
   });
 });

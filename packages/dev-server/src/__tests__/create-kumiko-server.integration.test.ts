@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import {
   mkdirSync,
   mkdtempSync,
@@ -25,7 +25,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { getSetCookieValue } from "@cosmicdrift/kumiko-framework/testing";
+import { getSetCookieValue, waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
 import {
   createKumikoServer,
@@ -724,18 +724,47 @@ describe("createKumikoServer — hot-reload broadcast", () => {
 
       await reader.read(); // drain connected comment
 
-      const initialBuilds = builds;
-      writeFileSync(join(webDir, "page.tsx"), "export const x = 1;\n");
+      // macOS FSEvents can replay the pre-boot client.tsx write after the watcher starts; that
+      // reload must not count, so wait for the one the server attributes to web/page.tsx.
+      const serverLogs: string[] = [];
+      const logSpy = spyOn(console, "log").mockImplementation((message?: unknown) => {
+        serverLogs.push(String(message));
+      });
+      const isRebuildLogged = (file: string): boolean =>
+        serverLogs.some((line) => line.includes(`rebuilt on ${file}`));
+      const isPageReloadLogged = (): boolean => isRebuildLogged("web/page.tsx");
 
-      const readAll = (async () => {
-        for (;;) {
-          const { value, done } = await reader.read();
-          if (done) return false;
-          if (new TextDecoder().decode(value).includes("event: reload")) return true;
-        }
-      })();
-      const sawReload = await Promise.race([readAll, Bun.sleep(3000).then(() => false)]);
-      await reader.cancel();
+      let initialBuilds = builds;
+      let sawReload = false;
+      try {
+        // Bun's recursive watcher on macOS (FSEvents) goes live asynchronously and drops writes
+        // from its first milliseconds, so poke a warm-up file until the server reports it.
+        let poke = 0;
+        await waitFor(
+          () => {
+            if (isRebuildLogged("web/warmup.tsx")) return true;
+            writeFileSync(join(webDir, "warmup.tsx"), `export const poke = ${poke++};\n`);
+            return false;
+          },
+          { delays: Array.from({ length: 30 }, () => 100) },
+        );
+
+        initialBuilds = builds;
+        writeFileSync(join(webDir, "page.tsx"), "export const x = 1;\n");
+
+        const readUntilPageReload = (async () => {
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) return false;
+            const isReloadEvent = new TextDecoder().decode(value).includes("event: reload");
+            if (isReloadEvent && isPageReloadLogged()) return true;
+          }
+        })();
+        sawReload = await Promise.race([readUntilPageReload, Bun.sleep(3000).then(() => false)]);
+        await reader.cancel();
+      } finally {
+        logSpy.mockRestore();
+      }
 
       expect(builds).toBeGreaterThan(initialBuilds);
       expect(sawReload).toBe(true);
