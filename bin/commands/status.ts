@@ -1,5 +1,18 @@
-import { DOCKER_PROBE_TIMEOUT_MS, isProbeTimeout, run } from "./_spawn";
+import { DOCKER_PROBE_TIMEOUT_MS, isProbeTimeout, type RunResult, run } from "./_spawn";
 import { defineCommand } from "./registry";
+import type { CommandContext } from "./types";
+
+type StatusDeps = {
+  readonly probeDocker: (cwd: string) => Promise<RunResult>;
+};
+
+const defaultStatusDeps: StatusDeps = {
+  probeDocker: (cwd) =>
+    run("docker", ["compose", "ps", "--format", "json"], {
+      cwd,
+      timeoutMs: DOCKER_PROBE_TIMEOUT_MS,
+    }),
+};
 
 export const statusCommand = defineCommand({
   id: "status",
@@ -8,45 +21,47 @@ export const statusCommand = defineCommand({
   help: "Shows docker services (compose ps) + current git branch + working-tree changes.",
   category: "lifecycle",
   roles: ["maintainer", "app-dev"],
-  run: async (ctx) => {
-    ctx.out.log("--- Services ---");
-    const docker = await run("docker", ["compose", "ps", "--format", "json"], {
-      cwd: ctx.cwd,
-      timeoutMs: DOCKER_PROBE_TIMEOUT_MS,
-    });
-    if (docker.status === 0 && docker.stdout.trim()) {
-      for (const line of docker.stdout.trim().split("\n").filter(Boolean)) {
-        try {
-          const svc = JSON.parse(line) as { Service?: string; State?: string; Ports?: string };
-          ctx.out.log(`  ${svc.Service ?? "?"}: ${svc.State ?? "?"} (${svc.Ports || "no ports"})`);
-        } catch {
-          // skip malformed
-        }
-      }
-    } else if (isProbeTimeout(docker)) {
-      ctx.out.log("  Docker probe timed out (daemon slow or hung)");
-    } else if (docker.status === -1) {
-      ctx.out.log("  docker binary not found");
-    } else {
-      ctx.out.log("  Docker services not running");
-    }
-
-    ctx.out.log("");
-    ctx.out.log("--- Git ---");
-    const branch = await run("git", ["branch", "--show-current"], { cwd: ctx.cwd });
-    if (branch.status !== 0) {
-      ctx.out.log("  Not a git repository");
-      return 0;
-    }
-    const statusRes = await run("git", ["status", "--short"], { cwd: ctx.cwd });
-    ctx.out.log(`  Branch: ${branch.stdout.trim()}`);
-    const changes = statusRes.stdout.trim();
-    if (changes) {
-      const formatted = changes.split("\n").map((l: string) => `    ${l}`).join("\n");
-      ctx.out.log(`  Changes:\n${formatted}`);
-    } else {
-      ctx.out.log("  Clean");
-    }
-    return 0;
-  },
+  run: (ctx) => runStatus(ctx),
 });
+
+export async function runStatus(
+  ctx: CommandContext,
+  deps: StatusDeps = defaultStatusDeps,
+): Promise<number> {
+  ctx.out.log("--- Services ---");
+  const docker = await deps.probeDocker(ctx.cwd);
+  if (docker.status === 0 && docker.stdout.trim()) {
+    for (const line of docker.stdout.trim().split("\n").filter(Boolean)) {
+      try {
+        const svc = JSON.parse(line) as { Service?: string; State?: string; Ports?: string };
+        ctx.out.log(`  ${svc.Service ?? "?"}: ${svc.State ?? "?"} (${svc.Ports || "no ports"})`);
+      } catch {
+        // skip malformed
+      }
+    }
+  } else if (isProbeTimeout(docker)) {
+    ctx.out.log("  Docker probe timed out (daemon slow or hung)");
+  } else if (docker.status === -1) {
+    ctx.out.log("  docker binary not found");
+  } else {
+    ctx.out.log("  Docker services not running");
+  }
+
+  ctx.out.log("");
+  ctx.out.log("--- Git ---");
+  const branch = await run("git", ["branch", "--show-current"], { cwd: ctx.cwd });
+  if (branch.status !== 0) {
+    ctx.out.log("  Not a git repository");
+    return 0;
+  }
+  const statusRes = await run("git", ["status", "--short"], { cwd: ctx.cwd });
+  ctx.out.log(`  Branch: ${branch.stdout.trim()}`);
+  const changes = statusRes.stdout.trim();
+  if (changes) {
+    const formatted = changes.split("\n").map((l: string) => `    ${l}`).join("\n");
+    ctx.out.log(`  Changes:\n${formatted}`);
+  } else {
+    ctx.out.log("  Clean");
+  }
+  return 0;
+}
