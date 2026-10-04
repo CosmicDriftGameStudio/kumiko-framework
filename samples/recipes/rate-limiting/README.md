@@ -12,7 +12,7 @@ End-to-end rate limiting: L1 global-IP + L2 auth + L3 handler opt-in.
 A public write handler that mails an address typed by the caller is also limited per
 address, so rotating IPs does not help against mail flooding. Declare it next to `rateLimit`:
 
-```ts
+```ts illustration
 r.writeHandler({
   // ...
   access: { roles: ["anonymous"] },
