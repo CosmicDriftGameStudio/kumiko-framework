@@ -235,7 +235,7 @@ export async function performWebhookDispatch(
       body: spec.body !== undefined ? JSON.stringify(spec.body) : undefined,
     });
     // Only the status is used; an unread body would pin the socket until the timeout fires.
-    await res.body?.cancel();
+    await res.body?.cancel().catch(() => {});
     if (!res.ok) {
       return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` };
     }

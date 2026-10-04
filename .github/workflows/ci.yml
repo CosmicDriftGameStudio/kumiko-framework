@@ -81,12 +81,12 @@ jobs:
         env:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          git fetch --no-tags origin main
-          if reason="$(bash scripts/verify-version-pr-fresh.sh "$PR_HEAD_SHA" FETCH_HEAD)"; then
+          if git fetch --no-tags origin main \
+            && reason="$(bash scripts/verify-version-pr-fresh.sh "$PR_HEAD_SHA" FETCH_HEAD)"; then
             echo "stale=false" >> "$GITHUB_OUTPUT"
           else
             echo "stale=true" >> "$GITHUB_OUTPUT"
-            echo "::error::$reason"
+            echo "::error::${reason:-could not fetch origin/main to verify the Version PR}"
           fi
 
   test:
