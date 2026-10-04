@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -8,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import { getFlag, getStringFlag, parseArgs } from "./arg-parser.js";
+import { getFlag, getStringFlag, type ParsedArgs, parseArgs } from "./arg-parser.js";
 import {
   type ChangelogEntry,
   compareVersions,
@@ -305,16 +306,65 @@ type UpgradeMarkerCodemod = {
   readonly codemod: string;
   readonly title: string;
 };
-type UpgradeMarkerManual = {
+export type UpgradeMarkerManual = {
+  readonly id: string;
   readonly version: string;
   readonly title: string;
+};
+export type ManualResolution = "migrated" | "not-applicable";
+export type UpgradeMarkerResolvedManual = UpgradeMarkerManual & {
+  readonly resolution: ManualResolution;
+  readonly reason: string;
+  readonly resolvedAt: string;
 };
 type UpgradeMarker = {
   readonly version: string;
   readonly appliedAt: string;
   readonly codemods: readonly UpgradeMarkerCodemod[];
   readonly pendingManual?: readonly UpgradeMarkerManual[];
+  readonly resolvedManual?: readonly UpgradeMarkerResolvedManual[];
 };
+
+const MANUAL_ID_HASH_LENGTH = 8;
+const MAX_RESOLVE_REASON_LENGTH = 500;
+
+// The hash tells apart entries that share a version (studio has several at 0.341.0).
+export function manualEntryId(version: string, title: string): string {
+  const hash = createHash("sha256").update(title).digest("hex").slice(0, MANUAL_ID_HASH_LENGTH);
+  return `${version}:${hash}`;
+}
+
+function toMarkerManual(entry: ChangelogEntry): UpgradeMarkerManual {
+  return {
+    id: manualEntryId(entry.version, entry.title),
+    version: entry.version,
+    title: entry.title,
+  };
+}
+
+function dedupeManualById<T extends { readonly id: string }>(entries: readonly T[]): readonly T[] {
+  const seen = new Set<string>();
+  return entries.filter((entry) => {
+    if (seen.has(entry.id)) return false;
+    seen.add(entry.id);
+    return true;
+  });
+}
+
+// Open manual items survive every marker write until --resolve moves them.
+function carryOverManual(
+  previous: MarkerCarry,
+  newManual: readonly UpgradeMarkerManual[],
+): Pick<UpgradeMarker, "pendingManual" | "resolvedManual"> {
+  const resolvedIds = new Set(previous.resolvedManual.map((entry) => entry.id));
+  const pendingManual = dedupeManualById([...previous.pendingManual, ...newManual]).filter(
+    (entry) => !resolvedIds.has(entry.id),
+  );
+  return {
+    ...(pendingManual.length > 0 && { pendingManual }),
+    ...(previous.resolvedManual.length > 0 && { resolvedManual: previous.resolvedManual }),
+  };
+}
 
 function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
   const dir = join(targetDir, ".kumiko");
@@ -322,73 +372,114 @@ function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
   writeFileSync(join(dir, "upgrade-state.json"), `${JSON.stringify(marker, null, 2)}\n`, "utf-8");
 }
 
+type MarkerCarry = {
+  readonly pendingManual: readonly UpgradeMarkerManual[];
+  readonly resolvedManual: readonly UpgradeMarkerResolvedManual[];
+};
+
+type StoredMarker = MarkerCarry & {
+  readonly version: string;
+  readonly appliedAt: string;
+  readonly codemods: readonly UpgradeMarkerCodemod[];
+};
+
 type MarkerRead =
   | { readonly kind: "missing" }
   | { readonly kind: "invalid" }
-  | { readonly kind: "ok"; readonly version: string };
+  | { readonly kind: "ok"; readonly version: string; readonly marker: StoredMarker };
+
+const NO_CARRY: MarkerCarry = { pendingManual: [], resolvedManual: [] };
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseManualEntry(value: unknown): UpgradeMarkerManual | null {
+  if (!isRecord(value)) return null;
+  const { id, version, title } = value;
+  if (typeof version !== "string" || typeof title !== "string") return null;
+  return {
+    id: typeof id === "string" && id.length > 0 ? id : manualEntryId(version, title),
+    version,
+    title,
+  };
+}
+
+function parseResolvedEntry(value: unknown): UpgradeMarkerResolvedManual | null {
+  const base = parseManualEntry(value);
+  if (base === null || !isRecord(value)) return null;
+  const { resolution, reason, resolvedAt } = value;
+  if (resolution !== "migrated" && resolution !== "not-applicable") return null;
+  if (typeof reason !== "string" || typeof resolvedAt !== "string") return null;
+  return { ...base, resolution, reason, resolvedAt };
+}
+
+function parseList<T>(value: unknown, parseEntry: (entry: unknown) => T | null): T[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const parsed = value.map(parseEntry);
+  return parsed.every((entry): entry is T => entry !== null) ? parsed : null;
+}
+
+function isMarkerCodemod(value: unknown): value is UpgradeMarkerCodemod {
+  return (
+    isRecord(value) &&
+    typeof value["version"] === "string" &&
+    typeof value["codemod"] === "string" &&
+    typeof value["title"] === "string"
+  );
+}
+
+function parseStoredMarker(raw: unknown): StoredMarker | null {
+  if (!isRecord(raw)) return null;
+  const { version, appliedAt, codemods } = raw;
+  if (typeof version !== "string" || !SEMVER_RE.test(version)) return null;
+  const pendingManual = parseList(raw["pendingManual"], parseManualEntry);
+  const resolvedManual = parseList(raw["resolvedManual"], parseResolvedEntry);
+  if (pendingManual === null || resolvedManual === null) return null;
+  return {
+    version,
+    appliedAt: typeof appliedAt === "string" ? appliedAt : Temporal.Now.instant().toString(),
+    codemods: Array.isArray(codemods) ? codemods.filter(isMarkerCodemod) : [],
+    pendingManual: dedupeManualById(pendingManual),
+    resolvedManual: dedupeManualById(resolvedManual),
+  };
+}
 
 // A missing marker is a bootstrap app that never ran `--apply` (fw#2299); an
 // existing but unreadable one must not silently fall back to the installed
 // version, or a bare `--apply` would skip every codemod in between.
-function readMarkerVersion(targetDir: string): MarkerRead {
+function readMarker(targetDir: string): MarkerRead {
   const markerPath = join(targetDir, ".kumiko", "upgrade-state.json");
   if (!existsSync(markerPath)) return { kind: "missing" };
   try {
-    const parsed = JSON.parse(readFileSync(markerPath, "utf-8")) as { version?: unknown };
-    return typeof parsed.version === "string" && SEMVER_RE.test(parsed.version)
-      ? { kind: "ok", version: parsed.version }
-      : { kind: "invalid" };
+    const marker = parseStoredMarker(JSON.parse(readFileSync(markerPath, "utf-8")));
+    return marker === null ? { kind: "invalid" } : { kind: "ok", version: marker.version, marker };
   } catch {
     return { kind: "invalid" };
   }
 }
 
-/** Highest pending version strictly below the earliest open manual breaking
- *  entry (no codemod). Falls back to highest non-breaking pending when every
- *  pending version is at/after that manual. If only manuals remain, returns
- *  `fallbackInstalled` so the marker stamp moves without claiming manuals done. */
-function markerVersionForPending(
-  pending: readonly ChangelogEntry[],
-  manualEntries: readonly ChangelogEntry[],
-  fallbackInstalled: string,
-): string {
-  const earliestManual = [...manualEntries].sort((a, b) =>
-    compareVersions(a.version, b.version),
-  )[0];
-  const eligible = pending.filter(
-    (e) => earliestManual === undefined || compareVersions(e.version, earliestManual.version) < 0,
-  );
-  const headEligible = eligible[0];
-  if (headEligible !== undefined) {
-    return eligible.reduce(
-      (max, e) => (compareVersions(e.version, max) > 0 ? e.version : max),
-      headEligible.version,
-    );
-  }
-  const nonBreaking = pending.filter((e) => e.type !== "breaking");
-  const headNonBreaking = nonBreaking[0];
-  if (headNonBreaking !== undefined) {
-    return nonBreaking.reduce(
-      (max, e) => (compareVersions(e.version, max) > 0 ? e.version : max),
-      headNonBreaking.version,
-    );
-  }
-  return fallbackInstalled;
+function carryOf(read: MarkerRead): MarkerCarry {
+  return read.kind === "ok" ? read.marker : NO_CARRY;
 }
 
-function logManualMarkerOutcome(
-  out: UpgradeCliOut,
-  manualEntries: readonly ChangelogEntry[],
-  markerVersion: string,
-): void {
-  if (manualEntries.length > 0) {
-    const markerHeldBack = manualEntries.some((e) => compareVersions(e.version, markerVersion) > 0);
-    out.log(
-      markerHeldBack
-        ? `  ⚠ Marker stays at ${markerVersion}, so the upgrade guard keeps listing the manual change(s) above. Migrate them by hand, then run --apply again to acknowledge them.`
-        : `  ⚠ Marker moved past the manual change(s) above to ${markerVersion}; the upgrade guard no longer lists them, so make sure they are migrated.`,
-    );
+// The marker file is editable repo content; a tampered title must not reach
+// the terminal as an escape sequence.
+function printable(text: string): string {
+  return text.replace(/\p{Cc}/gu, "");
+}
+
+function logOpenManual(out: UpgradeCliOut, open: readonly UpgradeMarkerManual[]): void {
+  // skip: no open manual migrations, nothing to report
+  if (open.length === 0) return;
+  out.log(`  ⚠ ${open.length} manual migration(s) still open:`);
+  for (const entry of open) {
+    out.log(`    ${printable(entry.id)} · ${printable(entry.version)} · ${printable(entry.title)}`);
   }
+  out.log(
+    '  Migrate them by hand, then mark them done: kumiko-upgrade --resolve <id|version> --reason "<what you did>" [--not-applicable]',
+  );
 }
 
 // Records the codemods that already wrote files before a later one failed, so
@@ -400,19 +491,24 @@ function writePartialMarker(
   manualEntries: readonly ChangelogEntry[],
   failedVersion: string,
   ran: readonly UpgradeMarkerCodemod[],
+  previous: MarkerCarry,
 ): void {
   // skip: no codemod wrote files before the failure, nothing to resume after
   if (ran.length === 0) return;
-  const doneBeforeFailure = pending.filter((e) => compareVersions(e.version, failedVersion) < 0);
-  const version = markerVersionForPending(doneBeforeFailure, manualEntries, "");
+  const versionsBeforeFailure = pending
+    .map((e) => e.version)
+    .filter((version) => compareVersions(version, failedVersion) < 0);
+  const version = versionsBeforeFailure.reduce<string | null>(
+    (max, candidate) => (max === null || compareVersions(candidate, max) > 0 ? candidate : max),
+    null,
+  );
   // skip: no pending entry completed before the failure, so no marker version to record
-  if (version === "") return;
-  const pendingManual = manualEntries.map((e) => ({ version: e.version, title: e.title }));
+  if (version === null) return;
   writeUpgradeMarker(targetDir, {
     version,
     appliedAt: Temporal.Now.instant().toString(),
     codemods: ran,
-    ...(pendingManual.length > 0 && { pendingManual }),
+    ...carryOverManual(previous, manualEntries.map(toMarkerManual)),
   });
   out.err(
     `  ⚠ ${ran.length} codemod(s) already applied; wrote marker at ${version} so a re-run resumes at the failed one.`,
@@ -436,16 +532,20 @@ async function applyCodemods(
   // `--from` filter override (that would permanently skip real pending
   // codemods once the CI guard compares against the fake marker).
   markerVersion: string,
+  previous: MarkerCarry,
 ): Promise<number> {
   if (pending.length === 0) {
     out.log("  ✓ Nothing new since your version.");
     if (!dryRun) {
+      const carried = carryOverManual(previous, []);
       writeUpgradeMarker(targetDir, {
         version: markerVersion,
         appliedAt: Temporal.Now.instant().toString(),
         codemods: [],
+        ...carried,
       });
       out.log(`  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`);
+      logOpenManual(out, carried.pendingManual ?? []);
     }
     return 0;
   }
@@ -467,16 +567,15 @@ async function applyCodemods(
         : "  ✓ No breaking changes pending.",
     );
     if (!dryRun) {
-      const markerVer = markerVersionForPending(pending, manualEntries, markerVersion);
-      const pendingManual = manualEntries.map((e) => ({ version: e.version, title: e.title }));
+      const carried = carryOverManual(previous, manualEntries.map(toMarkerManual));
       writeUpgradeMarker(targetDir, {
-        version: markerVer,
+        version: markerVersion,
         appliedAt: Temporal.Now.instant().toString(),
         codemods: [],
-        ...(pendingManual.length > 0 && { pendingManual }),
+        ...carried,
       });
       out.log(`  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`);
-      logManualMarkerOutcome(out, manualEntries, markerVer);
+      logOpenManual(out, carried.pendingManual ?? []);
     }
     return 0;
   }
@@ -493,7 +592,8 @@ async function applyCodemods(
     const scriptPath = resolveCodemodScript(repoRoot, e.codemod);
     if (!scriptPath) {
       out.err(`  ✗ ${e.version} · ${e.title} — invalid codemod path "${e.codemod}"`);
-      if (!dryRun) writePartialMarker(out, targetDir, pending, manualEntries, e.version, ran);
+      if (!dryRun)
+        writePartialMarker(out, targetDir, pending, manualEntries, e.version, ran, previous);
       return 1;
     }
 
@@ -502,7 +602,8 @@ async function applyCodemods(
     if (result.output) out.log(result.output);
     if (!result.ok) {
       out.err(`  ✗ ${e.version} · ${e.codemod} failed`);
-      if (!dryRun) writePartialMarker(out, targetDir, pending, manualEntries, e.version, ran);
+      if (!dryRun)
+        writePartialMarker(out, targetDir, pending, manualEntries, e.version, ran, previous);
       return 1;
     }
     ran.push({ version: e.version, codemod: e.codemod, title: e.title });
@@ -513,31 +614,119 @@ async function applyCodemods(
     return 0;
   }
 
-  const latestVersion = markerVersionForPending(pending, manualEntries, markerVersion);
-  const pendingManual = manualEntries.map((e) => ({ version: e.version, title: e.title }));
+  const carried = carryOverManual(previous, manualEntries.map(toMarkerManual));
   writeUpgradeMarker(targetDir, {
-    version: latestVersion,
+    version: markerVersion,
     appliedAt: Temporal.Now.instant().toString(),
     codemods: ran,
-    ...(pendingManual.length > 0 && { pendingManual }),
+    ...carried,
   });
   out.log(
     `  ✓ Applied ${ran.length} codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`,
   );
-  if (pendingManual.length > 0) {
-    out.log(`  ⚠ ${pendingManual.length} breaking change(s) still need manual migration.`);
+  logOpenManual(out, carried.pendingManual ?? []);
+  return 0;
+}
+
+function parseResolveInput(
+  args: ParsedArgs,
+): { readonly refs: readonly string[]; readonly reason: string } | { readonly error: string } {
+  if (getFlag(args, "apply")) return { error: "--resolve cannot be combined with --apply." };
+  const refs = (getStringFlag(args, "resolve") ?? "")
+    .split(",")
+    .map((ref) => ref.trim())
+    .filter((ref) => ref.length > 0);
+  if (refs.length === 0) return { error: "--resolve needs at least one id or version." };
+  const reason = getStringFlag(args, "reason")?.trim() ?? "";
+  if (reason.length === 0) return { error: '--resolve requires --reason "<text>".' };
+  if (reason.length > MAX_RESOLVE_REASON_LENGTH) {
+    return { error: `--reason is too long (max ${MAX_RESOLVE_REASON_LENGTH} characters).` };
   }
-  logManualMarkerOutcome(out, manualEntries, latestVersion);
+  return { refs, reason };
+}
+
+function matchManualRefs(
+  open: readonly UpgradeMarkerManual[],
+  refs: readonly string[],
+): { readonly resolvedIds: ReadonlySet<string>; readonly errors: readonly string[] } {
+  const resolvedIds = new Set<string>();
+  const errors: string[] = [];
+  for (const ref of refs) {
+    const byId = open.find((entry) => entry.id === ref);
+    const byVersion = open.filter((entry) => entry.version === ref);
+    if (byId !== undefined) {
+      resolvedIds.add(byId.id);
+    } else if (byVersion.length === 1 && byVersion[0] !== undefined) {
+      resolvedIds.add(byVersion[0].id);
+    } else if (byVersion.length > 1) {
+      errors.push(
+        `"${ref}" matches ${byVersion.length} open entries, pass one of: ${byVersion.map((entry) => entry.id).join(", ")}`,
+      );
+    } else {
+      errors.push(`"${ref}" matches no open manual migration`);
+    }
+  }
+  return { resolvedIds, errors };
+}
+
+function resolveManualMigrations(out: UpgradeCliOut, args: ParsedArgs, targetDir: string): number {
+  const fail = (...lines: string[]): number => {
+    out.err("");
+    for (const line of lines) out.err(`  ${line}`);
+    out.err("");
+    return 1;
+  };
+  const input = parseResolveInput(args);
+  if ("error" in input) return fail(input.error);
+  const read = readMarker(targetDir);
+  if (read.kind === "missing") {
+    return fail(`No .kumiko/upgrade-state.json under ${targetDir}, nothing to resolve.`);
+  }
+  if (read.kind === "invalid") return fail("invalid .kumiko/upgrade-state.json, fix it first.");
+
+  const open = read.marker.pendingManual;
+  const { resolvedIds, errors } = matchManualRefs(open, input.refs);
+  if (errors.length > 0) return fail(...errors, "Nothing was written.");
+  const { reason } = input;
+
+  const notApplicableFlag = args.flags.get("not-applicable");
+  const resolution: ManualResolution =
+    notApplicableFlag !== undefined && notApplicableFlag !== false ? "not-applicable" : "migrated";
+  const resolvedAt = Temporal.Now.instant().toString();
+  const newlyResolved = open
+    .filter((entry) => resolvedIds.has(entry.id))
+    .map((entry): UpgradeMarkerResolvedManual => ({ ...entry, resolution, reason, resolvedAt }));
+  const remaining = open.filter((entry) => !resolvedIds.has(entry.id));
+  const resolvedManual = dedupeManualById([...read.marker.resolvedManual, ...newlyResolved]);
+  writeUpgradeMarker(targetDir, {
+    version: read.marker.version,
+    appliedAt: read.marker.appliedAt,
+    codemods: read.marker.codemods,
+    ...(remaining.length > 0 && { pendingManual: remaining }),
+    resolvedManual,
+  });
+  out.log("");
+  out.log(`  ✓ Marked ${newlyResolved.length} manual migration(s) as ${resolution}:`);
+  for (const entry of newlyResolved) {
+    out.log(`    ${printable(entry.id)} · ${printable(entry.title)}`);
+  }
+  if (remaining.length > 0) logOpenManual(out, remaining);
+  out.log("");
   return 0;
 }
 
 const UPGRADE_USAGE = `kumiko-upgrade [--from <version>] [--dir <path>] [--json] [--verbose] [--apply [--dry-run]]
+kumiko-upgrade --resolve <id|version>[,<id|version>...] --reason "<text>" [--not-applicable] [--dir <path>]
 
   --from <version>   filter baseline version (default: last applied marker, or the installed version)
   --dir <path>       target directory to check/apply against (default: cwd)
   --json             machine-readable output
   --verbose          include full migration details for each pending entry
   --apply            run codemods for pending breaking changes and write the upgrade marker
+                     (one run moves the marker to the installed version; manual migrations stay listed as open)
+  --resolve <refs>   mark open manual migrations as done; ref = full id or a version with exactly one open entry
+  --reason <text>    required with --resolve, max 500 characters
+  --not-applicable   with --resolve, record the entries as not applicable instead of migrated
   --dry-run          with --apply, report what would run without writing anything
   --help, -h         print this usage and exit`;
 
@@ -571,6 +760,10 @@ export async function runUpgradeCli(
     return 1;
   }
 
+  if (args.flags.has("resolve")) {
+    return resolveManualMigrations(out, args, targetDir);
+  }
+
   // Always resolve the actually installed version, even when --from is set,
   // so --json can report both the filter baseline and what's really there.
   const installedVersion = readCurrentVersion(cwd);
@@ -582,8 +775,8 @@ export async function runUpgradeCli(
   // when the marker says otherwise — a bare `--apply` would then always
   // report "Nothing new" and bootstrap the marker onto the installed
   // version, hiding breaking changes the marker never actually saw.
-  const marker =
-    fromFlag === undefined ? readMarkerVersion(targetDir) : { kind: "missing" as const };
+  const markerRead = readMarker(targetDir);
+  const marker = fromFlag === undefined ? markerRead : { kind: "missing" as const };
   if (marker.kind === "invalid") {
     out.err("");
     out.err("  invalid .kumiko/upgrade-state.json, fix it or pass --from <version>");
@@ -646,19 +839,22 @@ export async function runUpgradeCli(
       targetDir,
       dryRun,
       markerVersion ?? currentVersion,
+      carryOf(markerRead),
     );
     out.log("");
     return code;
   }
 
   if (jsonMode) {
-    out.log(JSON.stringify({ currentVersion, installedVersion, pending }, null, 2));
+    const { pendingManual } = carryOf(markerRead);
+    out.log(JSON.stringify({ currentVersion, installedVersion, pending, pendingManual }, null, 2));
     return 0;
   }
 
   const breaking = pending.filter((e) => e.type === "breaking");
   const improvements = pending.filter((e) => e.type === "improvement");
   const fixes = pending.filter((e) => e.type === "fix");
+  const openManual = carryOf(markerRead).pendingManual;
 
   out.log("");
   out.log(`  Upgrade: ${currentVersion} → latest`);
@@ -667,6 +863,7 @@ export async function runUpgradeCli(
   if (pending.length === 0) {
     out.log("  ✓ Nothing new since your version.");
     out.log("");
+    logOpenManual(out, openManual);
     return 0;
   }
 
@@ -715,5 +912,6 @@ export async function runUpgradeCli(
     out.log("");
   }
 
+  logOpenManual(out, openManual);
   return 0;
 }

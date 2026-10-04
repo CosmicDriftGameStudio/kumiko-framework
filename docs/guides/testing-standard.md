@@ -93,6 +93,15 @@ safe: two flows writing to the same tenant, user or row race each other,
 comes back the moment two people run the suite differently or a CI runner
 gets a second core. Fix the shared state, don't serialize around it.
 
+Seeded data that has to look old (a 90-day uptime strip, a chart with history) is written with `runSeedWritesAt(createdAt, fn)` from `@cosmicdrift/kumiko-framework/event-store`. Every event appended inside `fn` goes through the normal write path (handlers, validation, projections) but is stored with `createdAt` instead of the database `now()`. The function throws `SeedModeDisabledError` before it runs `fn` unless `KUMIKO_TEST_SEED=1` and `NODE_ENV` is not `production`, and the server refuses to boot when the flag is set together with `NODE_ENV=production`. The back-dated time lives in an `AsyncLocalStorage`, so nothing parsed from a request can set it; only in-process code such as an `extraSeeders` entry of `createE2eSeedRoutes` can call it.
+
+```ts
+const seedBackdatedNote: E2eExtraSeeder = async (ctx) => {
+  const createdAt = Temporal.Now.instant().subtract({ hours: 90 * 24 });
+  return runSeedWritesAt(createdAt, async () => ctx.write("notes:write:note:create", { title: "old" }));
+};
+```
+
 A global-admin view is the one place a tenant per flow doesn't isolate you.
 A SystemAdmin overview (show-pony's `platform-overview`, a tenant list, a
 platform-wide counter) sees every tenant, including the ones parallel flows are

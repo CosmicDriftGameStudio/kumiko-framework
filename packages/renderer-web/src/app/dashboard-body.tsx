@@ -6,8 +6,10 @@
 //
 // Panel data contracts (see DashboardPanelDefinition in kumiko-framework):
 //   stat          → flat record; valueField/subField/toneField point at
-//                   values (strings are display-ready, the renderer formats
-//                   numbers with the user locale). sparklineField → { atMs, value }[].
+//                   values (strings are display-ready, DashboardI18nText is
+//                   translated, the renderer formats numbers with the user
+//                   locale; `valueFormat` renders them as currency from minor
+//                   units). sparklineField → { atMs, value }[].
 //                   deltaField/deltaDirectionField(+deltaToneField) are
 //                   optional: the tile shows a delta chip ("↓23 %") only when
 //                   BOTH fields are configured AND returned.
@@ -19,12 +21,14 @@
 //                   without one it renders as a flat KPI strip.
 //   chart         → depends on `chart`: timeseries { points, windowStartMs,
 //                   windowEndMs, markers? }, stacked-bars / stacked-area
-//                   { series, windowStartMs, windowEndMs, todayMs?, markers? },
+//                   { series, windowStartMs, windowEndMs, todayMs?, markers? }
+//                   (marker labels: DashboardText; `scrollable` only for
+//                   stacked-area),
 //                   segment-bars { rows: { key, label, value, segments }[] }
 //   list          → paged envelope { rows, nextCursor, total? } like
 //                   projectionList.
-//   feed          → { rows: { id, primary, trailing? }[] }
-//   progress-list → { rows: { id, label, value, fraction }[] }
+//   feed          → { rows: { primary: DashboardText, trailing?: DashboardText }[] }
+//   progress-list → { rows: { label: DashboardText, value: DashboardText, fraction }[] }
 //   custom        → no query; an app component registered via
 //                   extensionSectionComponents fetches its own data.
 //   screen        → no own query; embeds another declarative screen via
@@ -41,8 +45,11 @@
 import type {
   DashboardChartPanel,
   DashboardCustomPanel,
+  DashboardDateParam,
   DashboardFeedPanel,
+  DashboardI18nText,
   DashboardListPanel,
+  DashboardMoneyParam,
   DashboardPanelDefinition,
   DashboardPanelEmptyState,
   DashboardPanelQueryOptions,
@@ -51,6 +58,8 @@ import type {
   DashboardScreenPanel,
   DashboardStatGroupPanel,
   DashboardStatPanel,
+  DashboardTextParam,
+  DashboardValueFormat,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Translate } from "@cosmicdrift/kumiko-headless";
@@ -74,6 +83,7 @@ import {
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import { EmbeddedFormProvider } from "../primitives/index.js";
 import { PageSection } from "../primitives/layout.js";
+import { formatMoney } from "../primitives/money-input.js";
 import { Skeleton } from "../ui/skeleton.js";
 import {
   type ChartMarker,
@@ -124,6 +134,12 @@ type DashboardFormats = {
   readonly formatDay: (atMs: number) => string;
   readonly formatHour: (atMs: number) => string;
   readonly formatDateTime: (atMs: number) => string;
+  readonly formatMedium: (atMs: number) => string;
+  readonly formatMinor: (amountMinor: number, currency: string, fractionDigits?: number) => string;
+  /** Number formatter for a panel; currency when `valueFormat` is set. */
+  readonly formatPanelValue: (
+    valueFormat: DashboardValueFormat | undefined,
+  ) => (value: number) => string;
 };
 
 function useDashboardFormats(): DashboardFormats {
@@ -139,13 +155,100 @@ function useDashboardFormats(): DashboardFormats {
     timeStyle: "short",
     timeZone,
   });
+  const medium = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone });
+  const formatMinor = (amountMinor: number, currency: string, fractionDigits?: number): string =>
+    formatMoney(amountMinor, currency, locale, fractionDigits);
   return {
+    formatMedium: (atMs) => medium.format(atMs),
+    formatMinor,
+    formatPanelValue: (valueFormat) =>
+      valueFormat === undefined
+        ? (value) => number.format(value)
+        : (value) => formatMinor(value, valueFormat.currency, valueFormat.fractionDigits),
     formatNumber: (value) => number.format(value),
     formatPercent: (fraction) => percent.format(fraction),
     formatDay: (atMs) => day.format(atMs),
     formatHour: (atMs) => hour.format(atMs),
     formatDateTime: (atMs) => dateTime.format(atMs),
   };
+}
+
+const MAX_TEXT_PARAM_DEPTH = 4;
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isDashboardI18nText(value: unknown): value is DashboardI18nText {
+  return isRecord(value) && typeof value["i18nKey"] === "string";
+}
+
+function isMoneyParam(value: unknown): value is DashboardMoneyParam {
+  return (
+    isRecord(value) &&
+    value["kind"] === "money" &&
+    typeof value["amountMinor"] === "number" &&
+    typeof value["currency"] === "string"
+  );
+}
+
+function isDateParam(value: unknown): value is DashboardDateParam {
+  return isRecord(value) && value["kind"] === "date" && typeof value["atMs"] === "number";
+}
+
+function isTextParam(value: unknown): value is DashboardTextParam {
+  return (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    isDashboardI18nText(value) ||
+    isMoneyParam(value) ||
+    isDateParam(value)
+  );
+}
+
+function resolveTextParam(
+  param: unknown,
+  translate: Translate,
+  formats: DashboardFormats,
+  depth: number,
+): string | number {
+  if (typeof param === "string" || typeof param === "number") return param;
+  if (isMoneyParam(param)) return formats.formatMinor(param.amountMinor, param.currency);
+  if (isDateParam(param)) return formats.formatMedium(param.atMs);
+  if (isDashboardI18nText(param)) {
+    // Too deep: show the key instead of recursing further.
+    return depth >= MAX_TEXT_PARAM_DEPTH
+      ? param.i18nKey
+      : resolveI18nText(param, translate, formats, depth + 1);
+  }
+  return "";
+}
+
+function resolveI18nText(
+  text: DashboardI18nText,
+  translate: Translate,
+  formats: DashboardFormats,
+  depth: number,
+): string {
+  if (text.i18nParams === undefined) return translate(text.i18nKey);
+  const params: Record<string, string | number> = {};
+  for (const [name, param] of Object.entries(text.i18nParams)) {
+    if (isTextParam(param)) params[name] = resolveTextParam(param, translate, formats, depth);
+  }
+  return translate(text.i18nKey, params);
+}
+
+/** Plain strings pass through; DashboardI18nText is translated (nested params first).
+ *  Anything else yields undefined so callers fall back to their own placeholder. */
+function resolveDashboardText(
+  value: unknown,
+  translate: Translate,
+  formats: DashboardFormats,
+): string | undefined {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (isDashboardI18nText(value)) return resolveI18nText(value, translate, formats, 1);
+  return undefined;
 }
 
 function PanelShell({
@@ -308,20 +411,27 @@ function readTone(raw: unknown): StatTone | undefined {
   return typeof raw === "string" && STAT_TONES.has(raw) ? (raw as StatTone) : undefined;
 }
 
+function fallbackText<T extends string | undefined>(raw: unknown, placeholder: T): string | T {
+  if (raw === undefined || raw === null || isRecord(raw)) return placeholder;
+  return String(raw);
+}
+
 function StatPanelBody({
   panel,
   label,
   screenId,
   screenParams,
+  translate,
   variant,
 }: {
   readonly panel: DashboardStatPanel;
   readonly label: string;
   readonly screenId: string;
   readonly screenParams: ScreenParams;
+  readonly translate: Translate;
   readonly variant: "card" | "strip";
 }): ReactNode {
-  const { formatNumber } = useDashboardFormats();
+  const formats = useDashboardFormats();
   // Resolved HERE (not in a separate always-rendered child) so `icon` on
   // <StatCard> is `undefined` — not a React element that renders empty —
   // when the icon name isn't registered. StatCard gates its accent chip on
@@ -356,10 +466,13 @@ function StatPanelBody({
     (rawValue === 0 ? undefined : panel.tone);
   const sub = panel.subField !== undefined ? record[panel.subField] : undefined;
   const delta = readDelta(panel, record);
-  const value = typeof rawValue === "number" ? formatNumber(rawValue) : String(rawValue ?? "—");
+  const value =
+    typeof rawValue === "number"
+      ? formats.formatPanelValue(panel.valueFormat)(rawValue)
+      : (resolveDashboardText(rawValue, translate, formats) ?? fallbackText(rawValue, "—"));
   const spark = readSparkline(panel, record);
   const testId = `dashboard-panel-${panel.id}`;
-  const subText = sub !== undefined && sub !== null ? String(sub) : undefined;
+  const subText = resolveDashboardText(sub, translate, formats) ?? fallbackText(sub, undefined);
 
   if (variant === "strip") {
     return (
@@ -440,6 +553,7 @@ function StatGroupPanelBody({
             label={translate(stat.label)}
             screenId={screenId}
             screenParams={screenParams}
+            translate={translate}
             variant="strip"
           />
         ))}
@@ -456,12 +570,26 @@ function StatGroupPanelBody({
             label={translate(stat.label)}
             screenId={screenId}
             screenParams={screenParams}
+            translate={translate}
             variant="card"
           />
         ))}
       </section>
     </SectionCard>
   );
+}
+
+type MarkerEnvelope = { readonly atMs: number; readonly label: unknown };
+
+function resolveMarkers(
+  markers: readonly MarkerEnvelope[] | undefined,
+  translate: Translate,
+  formats: DashboardFormats,
+): readonly ChartMarker[] | undefined {
+  return markers?.map((marker) => ({
+    atMs: marker.atMs,
+    label: resolveDashboardText(marker.label, translate, formats) ?? "",
+  }));
 }
 
 type SeriesEnvelope = {
@@ -477,7 +605,7 @@ type ChartEnvelope = {
   readonly windowStartMs?: number | null;
   readonly windowEndMs?: number | null;
   readonly todayMs?: number | null;
-  readonly markers?: readonly ChartMarker[];
+  readonly markers?: readonly MarkerEnvelope[];
 };
 
 // A plain bar chart ("changes per day") ships `points` without `series`.
@@ -552,6 +680,8 @@ function ChartPanelBody({
       {(data) => {
         const series = chartSeries(data, label, translate);
         const { startMs, endMs } = windowOf(data, series);
+        const markers = resolveMarkers(data.markers, translate, formats);
+        const formatValue = formats.formatPanelValue(panel.valueFormat);
         if (panel.chart === "segment-bars") {
           return (
             <SegmentBarChart
@@ -562,7 +692,7 @@ function ChartPanelBody({
               }))}
               tones={tones}
               ariaLabel={label}
-              formatValue={formats.formatNumber}
+              formatValue={formatValue}
               testId={testId}
             />
           );
@@ -588,7 +718,7 @@ function ChartPanelBody({
               formatBucketLabel={
                 spacing < DAY_MS - HOUR_MS ? formats.formatHour : formats.formatDay
               }
-              formatValue={formats.formatNumber}
+              formatValue={formatValue}
               testId={testId}
             />
           );
@@ -602,12 +732,13 @@ function ChartPanelBody({
               {...(data.todayMs !== undefined &&
                 data.todayMs !== null && { todayMs: data.todayMs })}
               tones={tones}
-              markers={data.markers}
+              markers={markers}
               ariaLabel={label}
               todayLabel={todayLabel}
               formatBucketLabel={formats.formatDay}
-              formatValue={formats.formatNumber}
+              formatValue={formatValue}
               formatMarkerTime={formats.formatDay}
+              scrollable={panel.scrollable === true}
               testId={testId}
             />
           );
@@ -617,8 +748,11 @@ function ChartPanelBody({
             points={data.points ?? []}
             windowStartMs={startMs}
             windowEndMs={endMs}
-            markers={data.markers}
+            markers={markers}
             formatMarkerTime={formats.formatDay}
+            {...(panel.valueFormat !== undefined && {
+              yAxis: { ticks: 3, format: formatValue },
+            })}
             ariaLabel={label}
             testId={testId}
           />
@@ -677,7 +811,7 @@ function ListPanelBody({
 }
 
 type FeedEnvelope = {
-  readonly rows?: readonly { readonly primary: string; readonly trailing?: string }[];
+  readonly rows?: readonly { readonly primary: unknown; readonly trailing?: unknown }[];
 };
 
 function FeedPanelBody({
@@ -691,6 +825,7 @@ function FeedPanelBody({
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
 }): ReactNode {
+  const formats = useDashboardFormats();
   return (
     <QueryPanel<FeedEnvelope>
       panel={panel}
@@ -701,10 +836,14 @@ function FeedPanelBody({
       isEmpty={(data) => (data.rows ?? []).length === 0}
     >
       {(data) => {
-        const rows: readonly FeedRow[] = (data.rows ?? []).map((row, i) => ({
-          id: String(i),
-          ...row,
-        }));
+        const rows: readonly FeedRow[] = (data.rows ?? []).map((row, i) => {
+          const trailing = resolveDashboardText(row.trailing, translate, formats);
+          return {
+            id: String(i),
+            primary: resolveDashboardText(row.primary, translate, formats) ?? "—",
+            ...(trailing !== undefined && { trailing }),
+          };
+        });
         return <FeedList rows={rows} />;
       }}
     </QueryPanel>
@@ -713,8 +852,8 @@ function FeedPanelBody({
 
 type ProgressListEnvelope = {
   readonly rows?: readonly {
-    readonly label: string;
-    readonly value: string;
+    readonly label: unknown;
+    readonly value: unknown;
     readonly fraction: number;
   }[];
 };
@@ -730,6 +869,7 @@ function ProgressListPanelBody({
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
 }): ReactNode {
+  const formats = useDashboardFormats();
   return (
     <QueryPanel<ProgressListEnvelope>
       panel={panel}
@@ -742,7 +882,9 @@ function ProgressListPanelBody({
       {(data) => {
         const rows: readonly ProgressListRow[] = (data.rows ?? []).map((row, i) => ({
           id: String(i),
-          ...row,
+          label: resolveDashboardText(row.label, translate, formats) ?? "—",
+          value: resolveDashboardText(row.value, translate, formats) ?? "—",
+          fraction: row.fraction,
         }));
         return <ProgressList rows={rows} />;
       }}
@@ -915,6 +1057,7 @@ function PanelBody({
         label={text}
         screenId={screenId}
         screenParams={screenParams}
+        translate={translate}
         variant="card"
       />
     );

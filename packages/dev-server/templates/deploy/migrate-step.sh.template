@@ -51,13 +51,16 @@ urlencode() {
 {{#customDbUser}}
 # The db user is overridden via package.json#kumiko.deploy.dbUser.
 {{/customDbUser}}
+{{#customDbName}}
+# The db name is overridden via package.json#kumiko.deploy.dbName.
+{{/customDbName}}
 # Image tag pinned to :latest — swap to :${BUILD_SHA} for atomic deploys.
 #
 # Compose DATABASE_URL into the shell env and pass it to the container by
 # NAME (`-e DATABASE_URL`, no value) so the expanded password never appears
 # in `docker run`'s argv — otherwise it would be visible in `ps auxe` for
 # the duration of the migrate run.
-export DATABASE_URL="postgresql://{{dbUser}}:$(urlencode "$DB_PASSWORD")@db:5432/{{appName}}"
+export DATABASE_URL="postgresql://{{dbUser}}:$(urlencode "$DB_PASSWORD")@db:5432/{{dbName}}"
 docker run --rm \
   --network "$STACK_NETWORK" \
   -e DATABASE_URL \

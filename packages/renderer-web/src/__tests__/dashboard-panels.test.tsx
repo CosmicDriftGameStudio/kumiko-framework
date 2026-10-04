@@ -10,6 +10,7 @@ import {
   kumikoDefaultTranslations,
   LocaleProvider,
   NavProvider,
+  type TranslationsByLocale,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
@@ -29,7 +30,7 @@ function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
 function renderDashboard(
   dashboard: DashboardScreenDefinition,
   handlers: Readonly<Record<string, Handler>>,
-  options: { readonly locale?: string } = {},
+  options: { readonly locale?: string; readonly translations?: TranslationsByLocale } = {},
 ): { readonly calls: { readonly type: string; readonly payload: Record<string, unknown> }[] } {
   const calls: { readonly type: string; readonly payload: Record<string, unknown> }[] = [];
   const dispatcher = createMockDispatcher({
@@ -57,7 +58,10 @@ function renderDashboard(
     ) : (
       <LocaleProvider
         resolver={createStaticLocaleResolver({ locale: options.locale })}
-        fallbackBundles={[kumikoDefaultTranslations]}
+        fallbackBundles={[
+          ...(options.translations !== undefined ? [options.translations] : []),
+          kumikoDefaultTranslations,
+        ]}
       >
         {screenNode}
       </LocaleProvider>
@@ -647,5 +651,263 @@ describe("dashboard list columns", () => {
     await waitFor(() => expect(screen.getByText("plain text")).toBeTruthy());
     expect(screen.queryByText("kumiko.actions.create")).toBeNull();
     expect(screen.getByText("sessions:job:cleanup")).toBeTruthy();
+  });
+});
+
+const I18N_TRANSLATIONS: TranslationsByLocale = {
+  en: {
+    "demo.deploy": "Deploy {env}",
+    "demo.price": "Price {amount} since {since}",
+    "demo.years": { one: "{count} year", other: "{count} years" },
+    "demo.months": { one: "{count} month", other: "{count} months" },
+    "demo.duration": "{years} {months}",
+    "demo.stat": "{count} open",
+    "demo.row": "Task {name}",
+  },
+};
+
+const duration = {
+  i18nKey: "demo.duration",
+  i18nParams: {
+    years: { i18nKey: "demo.years", i18nParams: { count: 1 } },
+    months: { i18nKey: "demo.months", i18nParams: { count: 3 } },
+  },
+};
+
+describe("dashboard translatable panel texts", () => {
+  const i18nOptions = { locale: "en", translations: I18N_TRANSLATIONS } as const;
+
+  test("a plain string stays unchanged, an i18n object is translated with params", async () => {
+    renderDashboard(
+      {
+        id: "texts",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "stat",
+            id: "plain",
+            label: "demo:plain",
+            query: "demo:query:kpi:plain",
+            valueField: "value",
+            subField: "sub",
+          },
+        ],
+      },
+      {
+        "demo:query:kpi:plain": () =>
+          ok({ value: "99 %", sub: { i18nKey: "demo.stat", i18nParams: { count: 4 } } }),
+      },
+      i18nOptions,
+    );
+    await waitFor(() => expect(screen.getByText("99 %")).toBeTruthy());
+    expect(screen.getByText("4 open")).toBeTruthy();
+  });
+
+  test("a stat value can be an i18n object", async () => {
+    renderDashboard(
+      {
+        id: "texts",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "stat",
+            id: "dur",
+            label: "demo:dur",
+            query: "demo:query:kpi:dur",
+            valueField: "value",
+          },
+        ],
+      },
+      { "demo:query:kpi:dur": () => ok({ value: duration }) },
+      i18nOptions,
+    );
+    await waitFor(() => expect(screen.getByText("1 year 3 months")).toBeTruthy());
+  });
+
+  test("nested plural params and money/date params resolve before translation", async () => {
+    renderDashboard(
+      {
+        id: "texts",
+        type: "dashboard",
+        panels: [{ kind: "feed", id: "feed", label: "demo:feed", query: "demo:query:feed:rows" }],
+      },
+      {
+        "demo:query:feed:rows": () =>
+          ok({
+            rows: [
+              {
+                primary: {
+                  i18nKey: "demo.price",
+                  i18nParams: {
+                    amount: { kind: "money", amountMinor: 123456, currency: "EUR" },
+                    since: { kind: "date", atMs: Date.UTC(2026, 0, 15, 12) },
+                  },
+                },
+                trailing: duration,
+              },
+              { primary: "Plain row" },
+            ],
+          }),
+      },
+      i18nOptions,
+    );
+    await waitFor(() =>
+      expect(screen.getByText("Price €1,234.56 since Jan 15, 2026")).toBeTruthy(),
+    );
+    expect(screen.getByText("1 year 3 months")).toBeTruthy();
+    expect(screen.getByText("Plain row")).toBeTruthy();
+  });
+
+  test("progress-list label and value are translated", async () => {
+    renderDashboard(
+      {
+        id: "texts",
+        type: "dashboard",
+        panels: [
+          { kind: "progress-list", id: "prog", label: "demo:prog", query: "demo:query:prog:rows" },
+        ],
+      },
+      {
+        "demo:query:prog:rows": () =>
+          ok({
+            rows: [
+              {
+                label: { i18nKey: "demo.row", i18nParams: { name: "A" } },
+                value: duration,
+                fraction: 0.5,
+              },
+            ],
+          }),
+      },
+      i18nOptions,
+    );
+    await waitFor(() => expect(screen.getByText("Task A")).toBeTruthy());
+    expect(screen.getByText("1 year 3 months")).toBeTruthy();
+  });
+
+  test("an unknown object falls back to a placeholder instead of crashing", async () => {
+    renderDashboard(
+      {
+        id: "texts",
+        type: "dashboard",
+        panels: [{ kind: "feed", id: "feed", label: "demo:feed", query: "demo:query:feed:rows" }],
+      },
+      { "demo:query:feed:rows": () => ok({ rows: [{ primary: { nonsense: true } }] }) },
+      i18nOptions,
+    );
+    await waitFor(() => expect(screen.getByText("—")).toBeTruthy());
+  });
+
+  test("marker labels are translated in stacked-area and timeseries", async () => {
+    const marker = { atMs: day2, label: { i18nKey: "demo.deploy", i18nParams: { env: "prod" } } };
+    renderDashboard(
+      chartScreen("stacked-area"),
+      {
+        "demo:query:metric:chart": () =>
+          ok({
+            windowStartMs: day1,
+            windowEndMs: day3,
+            series: [{ key: "a", label: "Plan", points: dayPoints([1, 2, 3]) }],
+            markers: [marker],
+          }),
+      },
+      i18nOptions,
+    );
+    await waitFor(() => expect(screen.getByTestId("chart-marker-item")).toBeTruthy());
+    expect(screen.getByTestId("chart-marker-item").textContent).toContain("Deploy prod");
+  });
+
+  test("timeseries marker labels are translated", async () => {
+    renderDashboard(
+      chartScreen("timeseries"),
+      {
+        "demo:query:metric:chart": () =>
+          ok({
+            windowStartMs: day1,
+            windowEndMs: day3,
+            points: dayPoints([1, 3, 2]),
+            markers: [
+              { atMs: day2, label: { i18nKey: "demo.deploy", i18nParams: { env: "stage" } } },
+            ],
+          }),
+      },
+      i18nOptions,
+    );
+    await waitFor(() => expect(screen.getByTestId("chart-marker-item")).toBeTruthy());
+    expect(screen.getByTestId("chart-marker-item").textContent).toContain("Deploy stage");
+  });
+});
+
+describe("dashboard currency valueFormat and scrollable charts", () => {
+  const eur = { kind: "currency", currency: "EUR" } as const;
+
+  test("stat values from minor units render as currency", async () => {
+    renderDashboard(
+      {
+        id: "money",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "stat",
+            id: "revenue",
+            label: "demo:revenue",
+            query: "demo:query:kpi:revenue",
+            valueField: "value",
+            valueFormat: eur,
+          },
+        ],
+      },
+      { "demo:query:kpi:revenue": () => ok({ value: 123456 }) },
+      { locale: "en" },
+    );
+    await waitFor(() => expect(screen.getByText("€1,234.56")).toBeTruthy());
+  });
+
+  test("chart legend totals and y ticks use the currency format; fractionDigits trims decimals", async () => {
+    renderDashboard(
+      chartScreen("stacked-bars", { valueFormat: { ...eur, fractionDigits: 0 } }),
+      {
+        "demo:query:metric:chart": () =>
+          ok({
+            windowStartMs: day1,
+            windowEndMs,
+            series: [{ key: "ok", label: "Income", points: dayPoints([50000, 50000, 0]) }],
+          }),
+      },
+      { locale: "en" },
+    );
+    await waitFor(() => expect(screen.getByTestId("chart-legend-ok")).toBeTruthy());
+    expect(within(screen.getByTestId("chart-legend-ok")).getByText("€1,000")).toBeTruthy();
+    expect(screen.getByTestId("dashboard-chart-main").textContent).toContain("€500");
+  });
+
+  const manyBuckets = Array.from({ length: 30 }, (_, i) => ({
+    atMs: day1 + i * DAY,
+    value: i + 1,
+  }));
+  const wideArea = {
+    windowStartMs: day1,
+    windowEndMs: day1 + 29 * DAY,
+    series: [{ key: "a", label: "Plan", points: manyBuckets }],
+    todayMs: day1 + 10 * DAY,
+  };
+
+  test("scrollable stacked-area renders a scroll container wider than 100% for many buckets", async () => {
+    renderDashboard(chartScreen("stacked-area", { scrollable: true }), {
+      "demo:query:metric:chart": () => ok(wideArea),
+    });
+    await waitFor(() => expect(screen.getByTestId("chart-scroll-container")).toBeTruthy());
+    const content = screen.getByTestId("chart-scroll-content");
+    expect(content.style.minWidth).toBe("100%");
+    expect(Number.parseInt(content.style.width, 10)).toBeGreaterThan(300);
+    expect(screen.getByTestId("chart-today-line")).toBeTruthy();
+  });
+
+  test("a stacked-area chart without scrollable has no scroll container", async () => {
+    renderDashboard(chartScreen("stacked-area"), {
+      "demo:query:metric:chart": () => ok(wideArea),
+    });
+    await waitFor(() => expect(screen.getByTestId("dashboard-chart-main")).toBeTruthy());
+    expect(screen.queryByTestId("chart-scroll-container")).toBeNull();
   });
 });

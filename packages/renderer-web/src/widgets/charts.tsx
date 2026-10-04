@@ -1,4 +1,4 @@
-import { type ReactNode, useId } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 import { cn } from "../lib/cn.js";
 import { STATUS_TONE_TEXT, type StatusTone } from "./status-badge.js";
 
@@ -817,6 +817,13 @@ function MarkerLegend({
   );
 }
 
+const SCROLLABLE_BUCKET_WIDTH_PX = 48;
+
+function bucketLabelTransform(index: number, count: number): string {
+  if (index === 0) return "";
+  return index === count - 1 ? "-translate-x-full" : "-translate-x-1/2";
+}
+
 /** Stacked bands over time. Right of `todayMs` is the forecast: lighter
  *  fill plus a vertical "today" line. */
 export function StackedAreaChart({
@@ -831,6 +838,7 @@ export function StackedAreaChart({
   formatBucketLabel,
   formatValue = String,
   formatMarkerTime,
+  scrollable = false,
   emptyContent,
   testId,
 }: {
@@ -845,18 +853,33 @@ export function StackedAreaChart({
   readonly formatBucketLabel: (atMs: number) => string;
   readonly formatValue?: (value: number) => string;
   readonly formatMarkerTime?: (atMs: number) => string;
+  /** Fixed width per bucket; the plot scrolls horizontally, y ticks stay put. */
+  readonly scrollable?: boolean;
   readonly emptyContent?: ReactNode;
   readonly testId?: string;
 }): ReactNode {
   const clipId = useId();
+  const scrollRef = useRef<HTMLDivElement>(null);
   const times = bucketTimes(series);
+  const bucketCount = times.length;
+  const span = Math.max(1, windowEndMs - windowStartMs);
+  const fractionOf = (atMs: number): number =>
+    Math.max(0, Math.min(1, (atMs - windowStartMs) / span));
+  const todayFraction = todayMs !== undefined ? fractionOf(todayMs) : undefined;
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!scrollable || el === null || bucketCount === 0) return;
+    el.scrollLeft =
+      todayFraction === undefined
+        ? el.scrollWidth
+        : Math.max(0, todayFraction * el.scrollWidth - el.clientWidth / 2);
+  }, [scrollable, todayFraction, bucketCount]);
+
   if (times.length === 0) return <div data-testid={testId}>{emptyContent}</div>;
 
   const width = 300;
   const height = 120;
-  const span = Math.max(1, windowEndMs - windowStartMs);
-  const fractionOf = (atMs: number): number =>
-    Math.max(0, Math.min(1, (atMs - windowStartMs) / span));
   const totals = times.map((atMs) => series.reduce((sum, s) => sum + valueAt(s, atMs), 0));
   const isSingleBucket = times.length === 1;
   // Doubling keeps a lone bucket away from the top edge of the y-scale.
@@ -885,7 +908,6 @@ export function StackedAreaChart({
     };
   });
 
-  const todayFraction = todayMs !== undefined ? fractionOf(todayMs) : undefined;
   const todayX = (todayFraction ?? 1) * width;
   const renderBands = (fillOpacity: number): ReactNode =>
     bands.map((band) =>
@@ -904,64 +926,108 @@ export function StackedAreaChart({
       ),
     );
 
+  const plot = (
+    <>
+      {todayFraction !== undefined && (
+        <span
+          data-testid="chart-today-label"
+          className="absolute -top-4 -translate-x-1/2 text-[11px] text-foreground"
+          style={{ left: percent(todayFraction) }}
+        >
+          {todayLabel}
+        </span>
+      )}
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        className="block h-32 w-full"
+        role="img"
+        aria-label={ariaLabel}
+      >
+        <title>{ariaLabel}</title>
+        <defs>
+          <clipPath id={`${clipId}-past`}>
+            <rect x={0} y={0} width={todayX} height={height} />
+          </clipPath>
+          <clipPath id={`${clipId}-future`}>
+            <rect x={todayX} y={0} width={width - todayX} height={height} />
+          </clipPath>
+        </defs>
+        <g clipPath={`url(#${clipId}-past)`}>{renderBands(0.85)}</g>
+        {todayFraction !== undefined && (
+          <g data-testid="chart-forecast-region" clipPath={`url(#${clipId}-future)`}>
+            {renderBands(0.3)}
+          </g>
+        )}
+        {todayFraction !== undefined && (
+          <line
+            data-testid="chart-today-line"
+            x1={todayX}
+            x2={todayX}
+            y1={0}
+            y2={height}
+            stroke="var(--color-foreground)"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+      </svg>
+      {scrollable ? (
+        <div
+          data-testid="chart-bucket-labels"
+          className="relative mt-1 h-4 text-[11px] text-muted-foreground"
+        >
+          {times.map((atMs, i) => (
+            <span
+              key={atMs}
+              className={cn("absolute whitespace-nowrap", bucketLabelTransform(i, times.length))}
+              style={{ left: percent(fractionOf(atMs)) }}
+            >
+              {formatBucketLabel(atMs)}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+          <span>{formatBucketLabel(windowStartMs)}</span>
+          <span>{formatBucketLabel(windowEndMs)}</span>
+        </div>
+      )}
+      {markers !== undefined && markers.length > 0 && (
+        <MarkerPins markers={markers} windowStartMs={windowStartMs} windowEndMs={windowEndMs} />
+      )}
+    </>
+  );
+
   return (
     <div data-testid={testId} className="flex flex-col gap-3">
       <div className="flex gap-2">
-        <YTicks max={max} formatValue={formatValue} className="h-32 pb-0" />
-        <div className="relative grow">
-          {todayFraction !== undefined && (
-            <span
-              data-testid="chart-today-label"
-              className="absolute -top-4 -translate-x-1/2 text-[11px] text-foreground"
-              style={{ left: percent(todayFraction) }}
-            >
-              {todayLabel}
-            </span>
-          )}
-          <svg
-            viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio="none"
-            className="block h-32 w-full"
-            role="img"
-            aria-label={ariaLabel}
+        <YTicks
+          max={max}
+          formatValue={formatValue}
+          className={cn("h-32 pb-0", scrollable && "mt-4")}
+        />
+        {scrollable ? (
+          <div
+            ref={scrollRef}
+            data-testid="chart-scroll-container"
+            className="grow overflow-x-auto pt-4"
           >
-            <title>{ariaLabel}</title>
-            <defs>
-              <clipPath id={`${clipId}-past`}>
-                <rect x={0} y={0} width={todayX} height={height} />
-              </clipPath>
-              <clipPath id={`${clipId}-future`}>
-                <rect x={todayX} y={0} width={width - todayX} height={height} />
-              </clipPath>
-            </defs>
-            <g clipPath={`url(#${clipId}-past)`}>{renderBands(0.85)}</g>
-            {todayFraction !== undefined && (
-              <g data-testid="chart-forecast-region" clipPath={`url(#${clipId}-future)`}>
-                {renderBands(0.3)}
-              </g>
-            )}
-            {todayFraction !== undefined && (
-              <line
-                data-testid="chart-today-line"
-                x1={todayX}
-                x2={todayX}
-                y1={0}
-                y2={height}
-                stroke="var(--color-foreground)"
-                strokeWidth={1}
-                strokeDasharray="3 3"
-                vectorEffect="non-scaling-stroke"
-              />
-            )}
-          </svg>
-          <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-            <span>{formatBucketLabel(windowStartMs)}</span>
-            <span>{formatBucketLabel(windowEndMs)}</span>
+            <div
+              data-testid="chart-scroll-content"
+              className="relative"
+              style={{
+                minWidth: "100%",
+                width: `${times.length * SCROLLABLE_BUCKET_WIDTH_PX}px`,
+              }}
+            >
+              {plot}
+            </div>
           </div>
-          {markers !== undefined && markers.length > 0 && (
-            <MarkerPins markers={markers} windowStartMs={windowStartMs} windowEndMs={windowEndMs} />
-          )}
-        </div>
+        ) : (
+          <div className="relative grow">{plot}</div>
+        )}
       </div>
       <ChartLegend
         formatValue={formatValue}

@@ -15,6 +15,11 @@ import {
   METRICS_SYSTEM_FEATURE,
   type MetricScope,
 } from "./constants.js";
+import {
+  metricFilterPayloadShape,
+  metricFilterWhere,
+  resolveMetricFilterWhere,
+} from "./filters.js";
 import { METRICS_I18N } from "./i18n.js";
 import type { MetricDefinition, MetricsFeatureOptions } from "./types.js";
 import { metricHasTenantColumn, validateMetrics } from "./validate.js";
@@ -33,13 +38,21 @@ const invalidTimeZone = {
   message: "Unknown IANA time zone",
 };
 
-const tenantPayloadSchema = z
-  .object(windowFields)
-  .refine((payload) => isValidTimeZone(payload.timeZone), invalidTimeZone);
+function tenantPayloadSchema(metric: MetricDefinition) {
+  return z
+    .object({ ...metricFilterPayloadShape(metric), ...windowFields })
+    .refine((payload) => isValidTimeZone(payload.timeZone), invalidTimeZone);
+}
 
-const systemPayloadSchema = z
-  .object({ ...windowFields, tenantId: z.uuid().optional() })
-  .refine((payload) => isValidTimeZone(payload.timeZone), invalidTimeZone);
+function systemPayloadSchema(metric: MetricDefinition) {
+  return z
+    .object({
+      ...metricFilterPayloadShape(metric),
+      ...windowFields,
+      tenantId: z.uuid().optional(),
+    })
+    .refine((payload) => isValidTimeZone(payload.timeZone), invalidTimeZone);
+}
 
 const defaultClock = (): Temporal.Instant => Temporal.Now.instant();
 
@@ -64,13 +77,14 @@ function createTenantMetricQuery(
   return defineQueryHandler({
     name: metric.id,
     description: metric.description,
-    schema: tenantPayloadSchema,
+    schema: tenantPayloadSchema(metric),
     access: { roles: access.admin },
-    handler: (query, ctx) =>
+    handler: async (query, ctx) =>
       runMetric(ctx.db, metric, {
         range: query.payload.range,
         timeZone: query.payload.timeZone,
         now: now(),
+        filterWhere: await resolveMetricFilterWhere(metric, query.payload, ctx),
         // ctx.db already reads own-tenant + SYSTEM reference rows; this narrows to own-tenant only.
         scopeWhere: { tenantId: query.user.tenantId },
       }),
@@ -84,7 +98,7 @@ function createSystemMetricQuery(
   return defineQueryHandler({
     name: metric.id,
     description: metric.description,
-    schema: systemPayloadSchema,
+    schema: systemPayloadSchema(metric),
     access: { roles: access.systemAdmin },
     handler: (query, ctx) => {
       if (!ctx.systemDb) {
@@ -111,6 +125,7 @@ function createSystemMetricQuery(
         range: query.payload.range,
         timeZone: query.payload.timeZone,
         now: now(),
+        filterWhere: metricFilterWhere(metric, query.payload),
         scopeWhere: tenantId === undefined ? {} : { tenantId },
       });
     },

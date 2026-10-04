@@ -1,4 +1,5 @@
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   AggregateMeasure,
   AggregateTimeBucket,
@@ -8,6 +9,17 @@ import type { WhereObject } from "@cosmicdrift/kumiko-types/where-clause-types";
 import type { Temporal } from "temporal-polyfill";
 import type { MetricRange, MetricScope } from "./constants.js";
 
+/** Maps a payload value (e.g. a folder id) to the values `column` may have (e.g. the folder and its subfolders' loan ids). Runs with the tenant handler context, so reads stay tenant-scoped; the result only narrows. An empty result yields no rows. */
+export type MetricFilterResolver = {
+  readonly column: string;
+  readonly resolve: (
+    value: string | number,
+    ctx: HandlerContext,
+  ) => Promise<readonly (string | number)[]>;
+  /** Type of the payload value, not of `column`. Default "string". */
+  readonly valueKind?: "uuid" | "number" | "string";
+};
+
 export type MetricDefinition = {
   readonly id: string;
   readonly description: string;
@@ -16,6 +28,8 @@ export type MetricDefinition = {
   readonly requires?: string;
   readonly measure: AggregateMeasure;
   readonly where?: WhereObject;
+  /** Payload key → source column (equality) or a resolver (IN). e.g. `{ folderId: "folderId" }`. Narrows the result only; the tenant scope is always applied on top and never replaced. Resolvers need a metric without scope "system". */
+  readonly filters?: Readonly<Record<string, string | MetricFilterResolver>>;
   /** timestamptz column; without it the metric is a snapshot with no window. */
   readonly timeField?: string;
   /** Fixed window, ignores the payload range. */

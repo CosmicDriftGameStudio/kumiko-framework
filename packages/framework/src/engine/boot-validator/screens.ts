@@ -35,6 +35,7 @@ import { metricField } from "../types/index.js";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
+  DashboardChartPanel,
   DashboardCustomPanel,
   DashboardFilterDefinition,
   DashboardPanelDefinition,
@@ -42,6 +43,7 @@ import type {
   DashboardScreenPanel,
   DashboardStatGroupPanel,
   DashboardTimeRangeDefinition,
+  DashboardValueFormat,
   EditFieldSpec,
   EditLayout,
   EditRelatedListSection,
@@ -2826,6 +2828,52 @@ function validateDashboardStatGroupPanel(
         `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" child "${stat.id}" has empty valueField.`,
       );
     }
+    validateDashboardValueFormat(featureName, screenId, stat.id, stat.valueFormat);
+  }
+}
+
+function validateDashboardChartDisplay(
+  featureName: string,
+  screenId: string,
+  panel: DashboardChartPanel,
+): void {
+  validateDashboardValueFormat(featureName, screenId, panel.id, panel.valueFormat);
+  const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) chart-panel "${panel.id}"`;
+  if (panel.scrollable !== undefined && typeof panel.scrollable !== "boolean") {
+    throw new Error(`${where} has a non-boolean scrollable.`);
+  }
+  if (panel.scrollable === true && panel.chart !== "stacked-area") {
+    throw new Error(
+      `${where} sets scrollable on chart "${panel.chart}" — only "stacked-area" supports it.`,
+    );
+  }
+}
+
+const CURRENCY_CODE_RE = /^[A-Z]{3}$/;
+const MAX_VALUE_FORMAT_FRACTION_DIGITS = 4;
+
+function validateDashboardValueFormat(
+  featureName: string,
+  screenId: string,
+  panelId: string,
+  valueFormat: DashboardValueFormat | undefined,
+): void {
+  // skip: valueFormat is optional, nothing to validate without it
+  if (valueFormat === undefined) return;
+  const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panelId}" valueFormat`;
+  if (!CURRENCY_CODE_RE.test(valueFormat.currency)) {
+    throw new Error(
+      `${where}.currency "${String(valueFormat.currency)}" must be a 3-letter uppercase ISO currency code.`,
+    );
+  }
+  const digits = valueFormat.fractionDigits;
+  if (
+    digits !== undefined &&
+    (!Number.isInteger(digits) || digits < 0 || digits > MAX_VALUE_FORMAT_FRACTION_DIGITS)
+  ) {
+    throw new Error(
+      `${where}.fractionDigits "${String(digits)}" must be an integer from 0 to ${MAX_VALUE_FORMAT_FRACTION_DIGITS}.`,
+    );
   }
 }
 
@@ -2866,11 +2914,15 @@ function validateDashboardQueryPanel(
       `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has span "${String(panel.span)}" — expected "half" or "full".`,
     );
   }
-  if (panel.kind === "stat" && panel.valueField.length === 0) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-panel "${panel.id}" has empty valueField.`,
-    );
+  if (panel.kind === "stat") {
+    if (panel.valueField.length === 0) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-panel "${panel.id}" has empty valueField.`,
+      );
+    }
+    validateDashboardValueFormat(featureName, screenId, panel.id, panel.valueFormat);
   }
+  if (panel.kind === "chart") validateDashboardChartDisplay(featureName, screenId, panel);
   if (panel.kind === "list") {
     if (panel.columns.length === 0) {
       throw new Error(

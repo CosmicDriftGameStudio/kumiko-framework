@@ -315,6 +315,38 @@ describe("scaffoldDeploy", () => {
       );
     });
 
+    it("without dbName the DB-URL database stays appName and no override comment is rendered", () => {
+      scaffoldDeploy({ appName: "defaultdbapp", destination: tmp });
+      const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
+      expect(migrate).toContain('@db:5432/defaultdbapp"');
+      expect(migrate).not.toContain("kumiko.deploy.dbName");
+    });
+
+    it("dbName substitutes only the DB-URL database, user stays appName", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "dbnameapp", kumiko: { deploy: { dbName: "legacy_db" } } }),
+      );
+      scaffoldDeploy({ appName: "dbnameapp", destination: tmp });
+      const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
+      expect(migrate).toContain(
+        'postgresql://dbnameapp:$(urlencode "$DB_PASSWORD")@db:5432/legacy_db"',
+      );
+      expect(migrate).toContain("package.json#kumiko.deploy.dbName");
+    });
+
+    it("dbName and dbUser can be set together", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({
+          name: "bothapp",
+          kumiko: { deploy: { dbUser: "kumiko", dbName: "kumiko_prod" } },
+        }),
+      );
+      const result = scaffoldDeploy({ appName: "bothapp", destination: tmp });
+      expect(result.detected).toMatchObject({ dbUser: "kumiko", dbName: "kumiko_prod" });
+    });
+
     it('stackNetwork "directory" still scaffolds the same exact-name network lookup', () => {
       writeFileSync(
         join(tmp, "package.json"),
@@ -436,6 +468,19 @@ describe("scaffoldDeploy", () => {
         );
         expect(() => scaffoldDeploy({ appName: "invaliddbuser", destination: tmp })).toThrow(
           /dbUser/,
+        );
+      },
+    );
+
+    it.each(["a;rm -rf /", "$(id)", "a b", ""])(
+      "rejects invalid dbName %j, naming the field",
+      (dbName) => {
+        writeFileSync(
+          join(tmp, "package.json"),
+          JSON.stringify({ name: "invaliddbname", kumiko: { deploy: { dbName } } }),
+        );
+        expect(() => scaffoldDeploy({ appName: "invaliddbname", destination: tmp })).toThrow(
+          /kumiko\.deploy\.dbName/,
         );
       },
     );

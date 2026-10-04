@@ -56,6 +56,19 @@ Hard constraints when using `ctx.dbOutsideTransaction`:
   concurrent (handler + outside) pairs, or keep outside-tx use rare.
 
 
+## Capped handlers reserve before the transaction
+
+A handler wrapped in `withCapEnforcement(handler, capResolver)` from `cap-counter` does not check or book its cap inside the handler transaction. The wrapper sets `reserveBeforeTransaction`, and the dispatcher runs it first, after the access and schema checks and before any transaction opens:
+
+1. The resolver returns the cap for this request (`capName`, `periodStartIso`, `limit`, `profile`, `notify`, optional `amount`).
+2. `enforceCapAndMaybeNotify` throws `CapExceededError` on a hard hit, so the handler never runs.
+3. The amount is reserved in its own short, immediately committed write.
+4. If the handler transaction ends without committing (rollback, failure result, failed commit), the dispatcher calls the returned release and gives the amount back.
+
+No connection is held across the handler, so capped requests cannot exhaust the pool, and the counter stream is not locked while the handler runs. A reservation covers one top-level command. A capped handler reached through a nested `ctx.write`, `writeAs` or a second run of the same type finds the reservation spent and fails with an `InternalError`. Book the nested work from the top-level handler instead, or make the capped handler the top-level command. If a commit fails with an unknown outcome, the release can under-count, so a wrapped handler must not book the same counter itself.
+
+`withRollingCapEnforcement` is unchanged: it checks inside the handler and books through the SystemAdmin-only `increment-rolling` handler, with no reservation.
+
 ## `r.systemScope()` handlers self-check through `ctx.systemDb`
 
 `r.systemScope()` switches a feature's `TenantDbMode` from `"tenant"` to

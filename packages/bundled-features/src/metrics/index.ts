@@ -24,6 +24,7 @@ export { METRICS_I18N } from "./i18n.js";
 export {
   defineMetric,
   type MetricDefinition,
+  type MetricFilterResolver,
   type MetricPoint,
   type MetricResult,
   type MetricRow,

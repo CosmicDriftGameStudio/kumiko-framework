@@ -22,6 +22,8 @@ export type MetricRunParams = {
   readonly range: MetricRange;
   readonly timeZone: string;
   readonly now: Temporal.Instant;
+  /** Payload-driven narrowing (MetricDefinition.filters); scopeWhere wins on conflicts. */
+  readonly filterWhere: WhereObject;
   /** Extra filter that narrows the source to the caller's scope. */
   readonly scopeWhere: WhereObject;
 };
@@ -68,9 +70,10 @@ type MetricAggregates = {
 function buildWheres(
   metric: MetricDefinition,
   window: MetricWindow | undefined,
+  filterWhere: WhereObject,
   scopeWhere: WhereObject,
 ): MetricWheres {
-  const baseWhere: WhereObject = { ...metric.where, ...scopeWhere };
+  const baseWhere: WhereObject = { ...metric.where, ...filterWhere, ...scopeWhere };
   const { timeField } = metric;
   if (timeField === undefined || window === undefined) {
     return { current: baseWhere, previous: undefined };
@@ -200,7 +203,7 @@ export async function runMetric(
       ? { field: timeField, bucket, timeZone: params.timeZone }
       : undefined;
 
-  const wheres = buildWheres(metric, window, params.scopeWhere);
+  const wheres = buildWheres(metric, window, params.filterWhere, params.scopeWhere);
   const aggregates = await fetchAggregates(db, metric, wheres, bucketDimension);
 
   const value = aggregates.total[0]?.value ?? null;

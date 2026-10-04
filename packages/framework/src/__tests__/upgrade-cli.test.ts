@@ -15,10 +15,28 @@ import {
   findFeatureChangelogFiles,
   findFeaturesDirs,
   findPackageChangelogFiles,
+  manualEntryId,
   resolveCodemodScript,
   runUpgradeCli,
   type UpgradeCliOut,
 } from "../upgrade-cli.js";
+
+type MarkerFile = {
+  readonly version: string;
+  readonly appliedAt: string;
+  readonly codemods: readonly unknown[];
+  readonly pendingManual?: readonly { id: string; version: string; title: string }[];
+  readonly resolvedManual?: readonly {
+    id: string;
+    resolution: string;
+    reason: string;
+    resolvedAt: string;
+  }[];
+};
+
+function readMarkerFile(cwd: string): MarkerFile {
+  return JSON.parse(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8")) as MarkerFile;
+}
 
 function makeSpyOutput(): {
   readonly out: UpgradeCliOut;
@@ -84,7 +102,10 @@ function tmp(files: Record<string, string>): string {
   return t.cwd;
 }
 
-async function runJson(cwd: string, from: string): Promise<{ pending: Array<{ title: string }> }> {
+async function runJson(
+  cwd: string,
+  from: string,
+): Promise<{ pending: Array<{ title: string }>; pendingManual: readonly unknown[] }> {
   const spy = makeSpyOutput();
   const exit = await runUpgradeCli(["--from", from, "--json"], cwd, spy.out);
   expect(exit).toBe(0);
@@ -396,7 +417,7 @@ describe("upgrade command — --apply", () => {
     const markerPath = join(cwd, ".kumiko/upgrade-state.json");
     expect(existsSync(markerPath)).toBe(true);
     const marker = JSON.parse(readFileSync(markerPath, "utf-8"));
-    expect(marker.version).toBe("0.167.0");
+    expect(marker.version).toBe("0.190.0");
     expect(typeof marker.appliedAt).toBe("string");
     expect(marker.codemods).toEqual([
       { version: "0.167.0", codemod: REAL_CODEMOD, title: "helper moved" },
@@ -500,6 +521,64 @@ describe("upgrade command — --apply", () => {
     expect(exit).toBe(1);
     expect(spy.errs.join("\n")).toContain("scripts/codemod/always-fail.ts failed");
     expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
+  });
+
+  test("a partial marker after a failing codemod keeps open and resolved manual entries", async () => {
+    const open = { version: "0.160.0", title: "open before" };
+    const resolved = { version: "0.150.0", title: "resolved before" };
+    const withId = (e: { version: string; title: string }) => ({
+      id: manualEntryId(e.version, e.title),
+      ...e,
+    });
+    const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+      "packages/framework/src/changes.json": JSON.stringify([
+        {
+          version: "0.167.0",
+          type: "breaking",
+          title: "first",
+          migration: "m",
+          codemod: "scripts/codemod/ok.ts",
+        },
+        {
+          version: "0.168.0",
+          type: "breaking",
+          title: "second",
+          migration: "m",
+          codemod: "scripts/codemod/always-fail.ts",
+        },
+      ]),
+      ".kumiko/upgrade-state.json": JSON.stringify({
+        version: "0.165.0",
+        appliedAt: "2024-01-01T00:00:00Z",
+        codemods: [],
+        pendingManual: [withId(open)],
+        resolvedManual: [
+          {
+            ...withId(resolved),
+            resolution: "migrated",
+            reason: "done",
+            resolvedAt: "2024-01-02T00:00:00Z",
+          },
+        ],
+      }),
+    });
+    const repoRootWithScripts = tmp({
+      "packages/framework/src/scripts/codemod/ok.ts": "process.exit(0);\n",
+      "packages/framework/src/scripts/codemod/always-fail.ts": "process.exit(1);\n",
+    });
+
+    const exit = await runUpgradeCli(["--apply"], cwd, makeSpyOutput().out, {
+      repoRoot: repoRootWithScripts,
+    });
+
+    expect(exit).toBe(1);
+    const marker = readMarkerFile(cwd);
+    expect(marker.version).toBe("0.167.0");
+    expect(marker.pendingManual).toEqual([withId(open)]);
+    expect(marker.resolvedManual?.map((e) => e.id)).toEqual([
+      manualEntryId(resolved.version, resolved.title),
+    ]);
   });
 
   test("a failing later codemod keeps the marker for the ones that already ran, so a re-run resumes", async () => {
@@ -726,7 +805,7 @@ describe("upgrade command — filter baseline is the marker, not the installed v
     const updatedMarker = JSON.parse(
       readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"),
     );
-    expect(updatedMarker.version).toBe("0.167.0");
+    expect(updatedMarker.version).toBe("0.190.0");
   });
 
   test("bare --apply with a corrupt marker exits 1 and leaves the marker untouched", async () => {
@@ -747,7 +826,7 @@ describe("upgrade command — filter baseline is the marker, not the installed v
     expect(readFileSync(join(cwd, "legacy-test-helper.ts"), "utf-8")).toBe(LEGACY_IMPORT_FIXTURE);
   });
 
-  test("bare --apply with a manual breaking change: marker is not stamped to installed, pendingManual records it", async () => {
+  test("bare --apply with a manual breaking change: one run moves the marker to installed, pendingManual records it with an id", async () => {
     const manualEntry = { version: "0.185.0", type: "breaking", title: "manual breaking change" };
     const fixEntry = { version: "0.188.0", type: "fix", title: "later fix" };
     const cwd = tmp({
@@ -761,46 +840,95 @@ describe("upgrade command — filter baseline is the marker, not the installed v
 
     expect(exit).toBe(0);
     expect(spy.logs.join("\n")).toContain("no codemod, manual migration required");
-    const updatedMarker = JSON.parse(
-      readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"),
-    );
-    // Stamped to the trailing non-breaking entry's version (0.188.0), not
-    // blindly hoisted to the installed version (0.195.0) — proof both
-    // entries were actually seen and run through markerVersionForPending,
-    // rather than filtered out entirely by a too-high baseline.
-    expect(updatedMarker.version).toBe("0.188.0");
-    expect(updatedMarker.version).not.toBe("0.195.0");
+    const updatedMarker = readMarkerFile(cwd);
+    expect(updatedMarker.version).toBe("0.195.0");
     expect(updatedMarker.pendingManual).toEqual([
-      { version: "0.185.0", title: "manual breaking change" },
+      {
+        id: manualEntryId("0.185.0", "manual breaking change"),
+        version: "0.185.0",
+        title: "manual breaking change",
+      },
     ]);
-    expect(spy.logs.join("\n")).toContain(
-      "Marker moved past the manual change(s) above to 0.188.0",
-    );
+    const logs = spy.logs.join("\n");
+    expect(logs).toContain(`${manualEntryId("0.185.0", "manual breaking change")} · 0.185.0`);
+    expect(logs).toContain("--resolve");
+    expect(logs).not.toContain("run --apply again");
   });
 
-  test("a manual breaking change is acknowledged by a second --apply after the first one held the marker back", async () => {
-    const fixEntry = { version: "0.310.0", type: "fix", title: "earlier fix" };
-    const manualEntry = { version: "0.311.0", type: "breaking", title: "manual breaking change" };
+  test("after one --apply with an open manual entry, the guard's `--from <marker> --json` sees nothing pending", async () => {
     const cwd = tmp({
-      "packages/framework/src/changes.json": JSON.stringify([fixEntry, manualEntry]),
+      "packages/framework/src/changes.json": JSON.stringify([
+        { version: "0.311.0", type: "breaking", title: "manual breaking change" },
+      ]),
       "packages/bundled-features/package.json": JSON.stringify({ version: "0.311.0" }),
       ".kumiko/upgrade-state.json": marker("0.309.0"),
     });
-    const markerPath = join(cwd, ".kumiko/upgrade-state.json");
 
-    const firstRun = makeSpyOutput();
-    expect(await runUpgradeCli(["--apply"], cwd, firstRun.out, { repoRoot: REAL_REPO_ROOT })).toBe(
-      0,
-    );
-    expect(JSON.parse(readFileSync(markerPath, "utf-8")).version).toBe("0.310.0");
-    expect(firstRun.logs.join("\n")).toContain("Marker stays at 0.310.0");
+    expect(
+      await runUpgradeCli(["--apply"], cwd, makeSpyOutput().out, { repoRoot: REAL_REPO_ROOT }),
+    ).toBe(0);
+    const stamped = readMarkerFile(cwd);
+    expect(stamped.version).toBe("0.311.0");
 
-    const secondRun = makeSpyOutput();
-    expect(await runUpgradeCli(["--apply"], cwd, secondRun.out, { repoRoot: REAL_REPO_ROOT })).toBe(
-      0,
-    );
-    expect(secondRun.logs.join("\n")).toContain("no codemod, manual migration required");
-    expect(JSON.parse(readFileSync(markerPath, "utf-8")).version).toBe("0.311.0");
+    const result = await runJson(cwd, stamped.version);
+    expect(result.pending).toEqual([]);
+    expect(result.pendingManual).toEqual(stamped.pendingManual ?? []);
+  });
+
+  test("a second --apply without new entries keeps the open manual entries", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": JSON.stringify([
+        { version: "0.311.0", type: "breaking", title: "manual breaking change" },
+      ]),
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.311.0" }),
+      ".kumiko/upgrade-state.json": marker("0.309.0"),
+    });
+    await runUpgradeCli(["--apply"], cwd, makeSpyOutput().out, { repoRoot: REAL_REPO_ROOT });
+    const afterFirst = readMarkerFile(cwd);
+
+    const second = makeSpyOutput();
+    expect(await runUpgradeCli(["--apply"], cwd, second.out, { repoRoot: REAL_REPO_ROOT })).toBe(0);
+
+    expect(second.logs.join("\n")).toContain("Nothing new since your version");
+    expect(readMarkerFile(cwd).pendingManual).toEqual(afterFirst.pendingManual);
+    expect(second.logs.join("\n")).toContain("still open");
+  });
+
+  test("a legacy pendingManual entry without id gets the computed id", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": JSON.stringify([]),
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.311.0" }),
+      ".kumiko/upgrade-state.json": JSON.stringify({
+        version: "0.309.0",
+        appliedAt: "2024-01-01T00:00:00Z",
+        codemods: [],
+        pendingManual: [{ version: "0.305.0", title: "legacy entry" }],
+      }),
+    });
+
+    await runUpgradeCli(["--apply"], cwd, makeSpyOutput().out, { repoRoot: REAL_REPO_ROOT });
+
+    expect(readMarkerFile(cwd).pendingManual).toEqual([
+      { id: manualEntryId("0.305.0", "legacy entry"), version: "0.305.0", title: "legacy entry" },
+    ]);
+  });
+
+  test("entries with the same version but different titles get distinct ids; identical ones are deduplicated", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": JSON.stringify([
+        { version: "0.311.0", type: "breaking", title: "first" },
+        { version: "0.311.0", type: "breaking", title: "second" },
+        { version: "0.311.0", type: "breaking", title: "second" },
+      ]),
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.311.0" }),
+      ".kumiko/upgrade-state.json": marker("0.309.0"),
+    });
+
+    await runUpgradeCli(["--apply"], cwd, makeSpyOutput().out, { repoRoot: REAL_REPO_ROOT });
+
+    const ids = (readMarkerFile(cwd).pendingManual ?? []).map((entry) => entry.title);
+    expect(ids).toEqual(["first", "second"]);
+    expect(manualEntryId("0.311.0", "first")).not.toBe(manualEntryId("0.311.0", "second"));
   });
 
   test("bare --apply with no marker (bootstrap): behaves as before, marker is written at the installed version", async () => {
@@ -885,5 +1013,311 @@ describe("changes.json codemod fields resolve to real published scripts", () => 
     }
 
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("upgrade command — --resolve", () => {
+  const OPEN_FIRST = { version: "0.311.0", title: "first manual change" };
+  const OPEN_SECOND = { version: "0.311.0", title: "second manual change" };
+  const OPEN_SINGLE = { version: "0.312.0", title: "single manual change" };
+  const withId = (entry: { version: string; title: string }) => ({
+    id: manualEntryId(entry.version, entry.title),
+    ...entry,
+  });
+
+  function markerWithOpen(extra: Record<string, unknown> = {}): string {
+    return JSON.stringify({
+      version: "0.312.0",
+      appliedAt: "2024-01-01T00:00:00Z",
+      codemods: [{ version: "0.300.0", codemod: "scripts/codemod/x.ts", title: "x" }],
+      pendingManual: [withId(OPEN_FIRST), withId(OPEN_SECOND), withId(OPEN_SINGLE)],
+      ...extra,
+    });
+  }
+
+  function fixture(): string {
+    return tmp({
+      "packages/framework/src/changes.json": JSON.stringify([
+        { version: "0.312.0", type: "breaking", title: "single manual change" },
+      ]),
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.312.0" }),
+      ".kumiko/upgrade-state.json": markerWithOpen(),
+    });
+  }
+
+  const resolve = async (cwd: string, args: readonly string[]) => {
+    const spy = makeSpyOutput();
+    const exit = await runUpgradeCli(["--resolve", ...args], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
+    return { exit, spy };
+  };
+
+  test("resolves by full id: moves the entry to resolvedManual and leaves version, appliedAt and codemods alone", async () => {
+    const cwd = fixture();
+    const before = readMarkerFile(cwd);
+
+    const { exit } = await resolve(cwd, [
+      manualEntryId("0.311.0", "first manual change"),
+      "--reason",
+      "done by hand",
+    ]);
+
+    expect(exit).toBe(0);
+    const after = readMarkerFile(cwd);
+    expect(after.version).toBe(before.version);
+    expect(after.appliedAt).toBe(before.appliedAt);
+    expect(after.codemods).toEqual(before.codemods);
+    expect(after.pendingManual?.map((e) => e.title)).toEqual([
+      "second manual change",
+      "single manual change",
+    ]);
+    expect(after.resolvedManual).toEqual([
+      expect.objectContaining({
+        id: manualEntryId("0.311.0", "first manual change"),
+        resolution: "migrated",
+        reason: "done by hand",
+        resolvedAt: expect.any(String),
+      }),
+    ]);
+  });
+
+  test("strips control characters from marker titles before printing them", async () => {
+    const tampered = { version: "0.311.0", title: "evil\u001b[2J title" };
+    const cwd = tmp({
+      "packages/framework/src/changes.json": "[]",
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.312.0" }),
+      ".kumiko/upgrade-state.json": markerWithOpen({
+        pendingManual: [withId(OPEN_SINGLE), withId(tampered)],
+      }),
+    });
+
+    const { exit, spy } = await resolve(cwd, ["0.312.0", "--reason", "migrated"]);
+
+    expect(exit).toBe(0);
+    const printed = spy.logs.join("\n");
+    expect(printed).toContain("evil[2J title");
+    expect(printed).not.toContain("\u001b");
+  });
+
+  test("resolves by a version that has exactly one open entry", async () => {
+    const cwd = fixture();
+
+    const { exit } = await resolve(cwd, ["0.312.0", "--reason", "migrated"]);
+
+    expect(exit).toBe(0);
+    expect(readMarkerFile(cwd).pendingManual?.map((e) => e.version)).toEqual([
+      "0.311.0",
+      "0.311.0",
+    ]);
+  });
+
+  test("an ambiguous version fails with the list of ids and writes nothing", async () => {
+    const cwd = fixture();
+    const before = readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8");
+
+    const { exit, spy } = await resolve(cwd, ["0.311.0", "--reason", "x"]);
+
+    expect(exit).toBe(1);
+    const errs = spy.errs.join("\n");
+    expect(errs).toContain(manualEntryId("0.311.0", "first manual change"));
+    expect(errs).toContain(manualEntryId("0.311.0", "second manual change"));
+    expect(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8")).toBe(before);
+  });
+
+  test("an unknown ref fails all-or-nothing, even when other refs are valid", async () => {
+    const cwd = fixture();
+    const before = readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8");
+
+    const { exit, spy } = await resolve(cwd, ["0.312.0,0.999.0", "--reason", "x"]);
+
+    expect(exit).toBe(1);
+    expect(spy.errs.join("\n")).toContain("0.999.0");
+    expect(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8")).toBe(before);
+  });
+
+  test("--not-applicable records the resolution as not-applicable", async () => {
+    const cwd = fixture();
+
+    const { exit } = await resolve(cwd, [
+      "0.312.0",
+      "--reason",
+      "we do not use it",
+      "--not-applicable",
+    ]);
+
+    expect(exit).toBe(0);
+    expect(readMarkerFile(cwd).resolvedManual?.[0]?.resolution).toBe("not-applicable");
+  });
+
+  test.each([
+    ["missing", []],
+    ["empty", ["--reason", "   "]],
+    ["too long", ["--reason", "x".repeat(501)]],
+  ])("a %s --reason is rejected without writing", async (_name, reasonArgs) => {
+    const cwd = fixture();
+    const before = readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8");
+
+    const { exit } = await resolve(cwd, ["0.312.0", ...reasonArgs]);
+
+    expect(exit).toBe(1);
+    expect(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8")).toBe(before);
+  });
+
+  test("--resolve cannot be combined with --apply", async () => {
+    const cwd = fixture();
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(
+      ["--resolve", "0.312.0", "--reason", "x", "--apply"],
+      cwd,
+      spy.out,
+      {
+        repoRoot: REAL_REPO_ROOT,
+      },
+    );
+
+    expect(exit).toBe(1);
+    expect(spy.errs.join("\n")).toContain("--apply");
+  });
+
+  test("without a marker there is nothing to resolve", async () => {
+    const cwd = tmp({ "packages/framework/src/changes.json": "[]" });
+
+    const { exit } = await resolve(cwd, ["0.312.0", "--reason", "x"]);
+
+    expect(exit).toBe(1);
+    expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
+  });
+
+  test("a resolved id does not come back on the next --apply", async () => {
+    const cwd = fixture();
+    await resolve(cwd, ["0.312.0", "--reason", "migrated"]);
+
+    const second = makeSpyOutput();
+    expect(
+      await runUpgradeCli(["--apply", "--from", "0.311.0"], cwd, second.out, {
+        repoRoot: REAL_REPO_ROOT,
+      }),
+    ).toBe(0);
+
+    const after = readMarkerFile(cwd);
+    expect(after.pendingManual?.map((e) => e.title)).toEqual([
+      "first manual change",
+      "second manual change",
+    ]);
+    expect(after.resolvedManual?.map((e) => e.id)).toEqual([
+      manualEntryId("0.312.0", "single manual change"),
+    ]);
+  });
+
+  test("the plain report lists the open manual migrations from the marker", async () => {
+    const cwd = fixture();
+    const spy = makeSpyOutput();
+
+    await runUpgradeCli([], cwd, spy.out, { repoRoot: REAL_REPO_ROOT });
+
+    const logs = spy.logs.join("\n");
+    expect(logs).toContain(
+      `${manualEntryId("0.311.0", "first manual change")} · 0.311.0 · first manual change`,
+    );
+  });
+});
+
+describe("upgrade command — --apply: one run, open manual entries survive", () => {
+  const INSTALLED = "0.349.0";
+  const OLD_OPEN = { version: "0.346.0", title: "old manual change" };
+  const NEW_MANUAL = { version: "0.348.0", title: "new manual change" };
+  const withId = (entry: { version: string; title: string }) => ({
+    id: manualEntryId(entry.version, entry.title),
+    ...entry,
+  });
+
+  function fixture(markerVersion: string, changes: readonly unknown[]): string {
+    return tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: INSTALLED }),
+      "packages/framework/src/changes.json": JSON.stringify(changes),
+      ".kumiko/upgrade-state.json": JSON.stringify({
+        version: markerVersion,
+        appliedAt: "2024-01-01T00:00:00Z",
+        codemods: [],
+        pendingManual: [withId(OLD_OPEN)],
+      }),
+      "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+    });
+  }
+
+  const apply = async (cwd: string) => {
+    const spy = makeSpyOutput();
+    const exit = await runUpgradeCli(["--apply"], cwd, spy.out, { repoRoot: REAL_REPO_ROOT });
+    return { exit, spy };
+  };
+
+  const manualBreaking = (entry: { version: string; title: string }) => ({
+    ...entry,
+    type: "breaking",
+    migration: "by hand",
+  });
+
+  test("marker already at the installed version: version and open entry stay unchanged", async () => {
+    const cwd = fixture(INSTALLED, []);
+    const before = readMarkerFile(cwd);
+
+    const { exit } = await apply(cwd);
+
+    expect(exit).toBe(0);
+    const after = readMarkerFile(cwd);
+    expect(after.version).toBe(INSTALLED);
+    expect(after.pendingManual).toEqual(before.pendingManual);
+  });
+
+  test("old marker with one new manual entry: one run reaches the installed version and keeps the old entry", async () => {
+    const cwd = fixture("0.345.0", [manualBreaking(NEW_MANUAL)]);
+
+    const { exit } = await apply(cwd);
+
+    expect(exit).toBe(0);
+    const after = readMarkerFile(cwd);
+    expect(after.version).toBe(INSTALLED);
+    expect(after.pendingManual).toEqual([withId(OLD_OPEN), withId(NEW_MANUAL)]);
+  });
+
+  test("codemod plus manual entries: deduplicated, and a second run changes nothing", async () => {
+    const cwd = fixture("0.345.0", [
+      {
+        version: "0.347.0",
+        type: "breaking",
+        title: "helper moved",
+        migration: "import from /testing",
+        codemod: REAL_CODEMOD,
+      },
+      manualBreaking(NEW_MANUAL),
+      manualBreaking(OLD_OPEN),
+    ]);
+
+    expect((await apply(cwd)).exit).toBe(0);
+    const first = readMarkerFile(cwd);
+    expect(first.version).toBe(INSTALLED);
+    expect(first.pendingManual).toEqual([withId(OLD_OPEN), withId(NEW_MANUAL)]);
+    expect(first.codemods).toEqual([
+      { version: "0.347.0", codemod: REAL_CODEMOD, title: "helper moved" },
+    ]);
+
+    expect((await apply(cwd)).exit).toBe(0);
+    const second = readMarkerFile(cwd);
+    expect(second.version).toBe(INSTALLED);
+    expect(second.pendingManual).toEqual(first.pendingManual);
+  });
+
+  test("manual entries at or below the marker version are not newly opened", async () => {
+    const cwd = fixture("0.347.0", [
+      manualBreaking({ version: "0.344.0", title: "already past" }),
+      manualBreaking({ version: "0.347.0", title: "at the marker" }),
+    ]);
+
+    const { exit } = await apply(cwd);
+
+    expect(exit).toBe(0);
+    expect(readMarkerFile(cwd).pendingManual).toEqual([withId(OLD_OPEN)]);
   });
 });
