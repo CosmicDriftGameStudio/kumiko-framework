@@ -401,3 +401,21 @@ describe("performWebhookDispatch — case-insensitive header merge", () => {
     expect(headers.get("x-hub-signature")).toBe("the-secret");
   });
 });
+
+describe("performWebhookDispatch — request timeout", () => {
+  test("a receiver that never answers ends as a TimeoutError failure", async () => {
+    process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "hooks.example";
+    const hangingFetch = (_url: unknown, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      });
+    setWebhookFetch(hangingFetch as unknown as typeof fetch);
+
+    const result = await performWebhookDispatch(
+      { url: "https://hooks.example/hook", method: "POST", headers: {} },
+      { ...noSecretsDeps, requestTimeoutMs: 20 },
+    );
+
+    expect(result).toEqual({ ok: false, error: "webhook request failed (TimeoutError)" });
+  });
+});

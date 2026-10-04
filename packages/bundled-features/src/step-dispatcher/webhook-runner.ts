@@ -115,7 +115,12 @@ export type WebhookDispatchDeps = {
   readonly userId: string;
   readonly secrets: SecretsContext | undefined;
   readonly idempotencyKey: string;
+  readonly requestTimeoutMs?: number;
 };
+
+// One hanging tenant-controlled receiver must not stall the shared
+// step-dispatcher consumer for every tenant.
+export const WEBHOOK_REQUEST_TIMEOUT_MS = 10_000;
 
 // Never includes the secret name or value — spec.auth.secret is a
 // tenant-chosen name, but the error still reaches the tenant via the
@@ -226,6 +231,7 @@ export async function performWebhookDispatch(
       ...target.requestInit,
       method: spec.method,
       redirect: "manual",
+      signal: AbortSignal.timeout(deps.requestTimeoutMs ?? WEBHOOK_REQUEST_TIMEOUT_MS),
       body: spec.body !== undefined ? JSON.stringify(spec.body) : undefined,
     });
     if (!res.ok) {
