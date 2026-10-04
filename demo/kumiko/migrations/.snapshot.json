@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-03T16:50:21.991Z",
+  "generatedAt": "2026-10-04T06:14:37.762Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1464,6 +1464,11 @@
         {
           "name": "error",
           "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "confirmed",
+          "pgType": "boolean",
           "notNull": false
         },
         {

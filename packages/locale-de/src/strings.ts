@@ -466,6 +466,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "delivery.status.sent": "Gesendet",
   "delivery.status.failed": "Fehlgeschlagen",
   "delivery.status.skipped": "Übersprungen",
+  "delivery.status.sentUnconfirmed": "Gesendet (unbestätigt)",
   "delivery.error.timeout": "Zeitüberschreitung",
   "delivery.error.network_error": "Netzwerkfehler",
   "delivery.error.redirect_blocked": "Weiterleitung blockiert",

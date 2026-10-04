@@ -43,6 +43,8 @@ export const deliveryAttemptsTable = pgTable(
     recipientAddress: text("recipient_address"),
     status: text("status").notNull().$type<"queued" | "sent" | "failed" | "skipped">(),
     error: text("error"),
+    // false = provider accepted but did not confirm; null = confirmed or not applicable.
+    confirmed: boolean("confirmed"),
     // Default covers rows that predate the column; new rows always carry the
     // notify() priority from the event payload.
     priority: text("priority").notNull().default("normal").$type<"critical" | "normal" | "low">(),
@@ -71,6 +73,7 @@ export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
     { name: "recipient_address", pgType: "text", notNull: false },
     { name: "status", pgType: "text", notNull: true },
     { name: "error", pgType: "text", notNull: false },
+    { name: "confirmed", pgType: "boolean", notNull: false },
     { name: "priority", pgType: "text", notNull: true, defaultSql: "'normal'" },
     { name: "created_at", pgType: "timestamptz", notNull: true, defaultSql: "now()" },
   ],

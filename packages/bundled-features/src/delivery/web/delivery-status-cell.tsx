@@ -20,9 +20,14 @@ const STATUS_TONE: Readonly<Record<string, StatusTone>> = {
 export function DeliveryStatusCell({ row }: ColumnRendererProps): ReactNode {
   const t = useTranslation();
   const status = typeof row["status"] === "string" ? row["status"] : "";
+  const unconfirmed = status === DeliveryStatus.sent && row["confirmed"] === false;
+  const labelKey = unconfirmed ? "delivery.status.sentUnconfirmed" : `delivery.status.${status}`;
   return (
-    <StatusBadge tone={STATUS_TONE[status] ?? "muted"} testId="delivery-status-cell">
-      {translateOrRaw(t, `delivery.status.${status}`, status)}
+    <StatusBadge
+      tone={unconfirmed ? "muted" : (STATUS_TONE[status] ?? "muted")}
+      testId="delivery-status-cell"
+    >
+      {translateOrRaw(t, labelKey, status)}
     </StatusBadge>
   );
 }

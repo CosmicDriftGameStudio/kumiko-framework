@@ -61,5 +61,6 @@ export const DELIVERY_I18N: Readonly<Record<string, LocalizedString>> = {
     [...DELIVERY_FAILURE_CODES, ...DELIVERY_SKIP_REASONS],
     ERROR_LABELS,
   ),
+  "delivery.status.sentUnconfirmed": { en: "Sent (unconfirmed)" },
   "delivery.error.http": { en: "HTTP {status}" },
 };

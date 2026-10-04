@@ -444,6 +444,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "delivery.status.sent": "Sent",
   "delivery.status.failed": "Failed",
   "delivery.status.skipped": "Skipped",
+  "delivery.status.sentUnconfirmed": "Sent (unconfirmed)",
   "delivery.error.timeout": "Timed out",
   "delivery.error.network_error": "Network error",
   "delivery.error.redirect_blocked": "Redirect blocked",

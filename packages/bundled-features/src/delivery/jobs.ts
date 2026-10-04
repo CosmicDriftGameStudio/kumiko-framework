@@ -93,6 +93,7 @@ function entryFor(
   status: DeliveryLogEntry["status"],
   error: DeliveryErrorCode | null,
   address: string | null,
+  confirmed?: false,
 ): DeliveryLogEntry {
   return {
     tenantId: p.tenantId as TenantId, // @cast-boundary engine-payload — job payload string is the stream tenant
@@ -103,6 +104,7 @@ function entryFor(
     status,
     error,
     priority: p.priority,
+    ...(confirmed === false && { confirmed }),
   };
 }
 
@@ -178,7 +180,13 @@ export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
       db,
       registry,
       p.deliveryAttemptId,
-      entryFor(p, result.status, result.error ?? null, result.address ?? p.address),
+      entryFor(
+        p,
+        result.status,
+        result.error ?? null,
+        result.address ?? p.address,
+        result.confirmed,
+      ),
     );
   } catch (err) {
     return failAttempt(ctx, db, registry, p, "send_failed", err);
