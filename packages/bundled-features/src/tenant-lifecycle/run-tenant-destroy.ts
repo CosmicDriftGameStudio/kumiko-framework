@@ -1,6 +1,6 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner, TenantDb, WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -307,6 +307,26 @@ export async function runNextDestructionStage(args: {
   }
 }
 
+function destroyRequestedDueWhere(now: Temporal.Instant): WhereObject {
+  return {
+    status: "destroyRequested",
+    gracePeriodEnd: { lte: now.subtract({ milliseconds: TEARDOWN_GATE_SETTLE_MS }) },
+  };
+}
+
+const destroyingWhere: WhereObject = { status: "destroying" };
+
+export async function hasTenantDestructionWork(
+  reads: Pick<TenantDb, "count">,
+  now: Temporal.Instant,
+): Promise<boolean> {
+  const [due, destroying] = await Promise.all([
+    reads.count(tenantTable, destroyRequestedDueWhere(now)),
+    reads.count(tenantTable, destroyingWhere),
+  ]);
+  return due > 0 || destroying > 0;
+}
+
 /** Cron entry: start destruction for tenants past grace, then advance stages. */
 export async function runTenantDestructionSweep(args: {
   readonly db: DbRunner;
@@ -319,10 +339,7 @@ export async function runTenantDestructionSweep(args: {
 }): Promise<{ readonly triggered: number; readonly advanced: number }> {
   const T = getTemporal();
   const now = args.now ?? T.Now.instant();
-  const due = await selectMany<{ id: string }>(args.db, tenantTable, {
-    status: "destroyRequested",
-    gracePeriodEnd: { lte: now.subtract({ milliseconds: TEARDOWN_GATE_SETTLE_MS }) },
-  });
+  const due = await selectMany<{ id: string }>(args.db, tenantTable, destroyRequestedDueWhere(now));
 
   let triggered = 0;
   for (const row of due) {
@@ -354,9 +371,7 @@ export async function runTenantDestructionSweep(args: {
   }
 
   let advanced = 0;
-  const destroying = await selectMany<{ id: string }>(args.db, tenantTable, {
-    status: "destroying",
-  });
+  const destroying = await selectMany<{ id: string }>(args.db, tenantTable, destroyingWhere);
   for (const row of destroying) {
     try {
       const result = await runNextDestructionStage({
