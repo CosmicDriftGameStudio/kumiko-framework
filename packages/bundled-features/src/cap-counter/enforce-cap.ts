@@ -311,6 +311,7 @@ export async function enforceCapAndMaybeNotify(
     readonly profile: CapToleranceProfileName;
     readonly notify: SoftHitNotifier;
     readonly amount?: number;
+    readonly markSoftWarnedOutsideTransaction?: boolean;
   },
 ): Promise<EnforceCapResult> {
   const result = await enforceCap(ctx, {
@@ -337,6 +338,7 @@ export async function enforceCapAndMaybeNotify(
     const marked = await markCapSoftWarned(ctx, {
       capName: options.capName,
       periodStartIso: options.periodStartIso,
+      ...(options.markSoftWarnedOutsideTransaction && { outsideTransaction: true }),
     });
     if (!marked.isSuccess) throw reraiseAsKumikoError(marked.error);
   }

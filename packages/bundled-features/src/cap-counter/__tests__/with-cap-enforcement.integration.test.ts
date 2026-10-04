@@ -137,14 +137,19 @@ const bookOutsideTxThenFailHandler: WriteHandlerDef = {
 const ATOMIC_CAP_LIMIT = 3;
 const ATOMIC_CAP_NAME = "atomic-hard-slot-cap";
 let atomicHandlerRuns = 0;
-let atomicHandlerReturnsFailure = false;
+let atomicHandlerMode: "ok" | "failure" | "throw" | "rendezvous" = "ok";
+let atomicInFlight = 0;
+let atomicMaxInFlight = 0;
+let atomicRendezvous: Promise<void> | undefined;
+let releaseAtomicRendezvous: (() => void) | undefined;
 const atomicHandler: WriteHandlerDef = {
   name: "atomic-slot",
   schema: z.object({}),
   access: { roles: ["TenantAdmin"] },
   handler: async () => {
     atomicHandlerRuns += 1;
-    if (atomicHandlerReturnsFailure) {
+    if (atomicHandlerMode === "throw") throw new Error("handler-boom");
+    if (atomicHandlerMode === "failure") {
       return {
         isSuccess: false as const,
         error: {
@@ -155,6 +160,14 @@ const atomicHandler: WriteHandlerDef = {
           details: {},
         },
       };
+    }
+    if (atomicHandlerMode === "rendezvous") {
+      atomicInFlight += 1;
+      atomicMaxInFlight = Math.max(atomicMaxInFlight, atomicInFlight);
+      if (atomicInFlight >= 2) releaseAtomicRendezvous?.();
+      // Resolves once a second call is inside the handler; the timeout only bounds the wait when calls are serialized.
+      await Promise.race([atomicRendezvous, new Promise((r) => setTimeout(r, 3000))]);
+      atomicInFlight -= 1;
     }
     return { isSuccess: true as const, data: {} };
   },
@@ -564,35 +577,68 @@ describe("bookCapUsage — parallel bookings for the same period", () => {
   });
 });
 
+function resetAtomicState(mode: typeof atomicHandlerMode) {
+  atomicHandlerRuns = 0;
+  atomicHandlerMode = mode;
+  atomicInFlight = 0;
+  atomicMaxInFlight = 0;
+  atomicRendezvous = new Promise<void>((resolve) => {
+    releaseAtomicRendezvous = resolve;
+  });
+}
+
 describe("withCapEnforcement - atomic reservation", () => {
-  test("N parallel calls at limit L run the handler and book exactly L", async () => {
-    atomicHandlerRuns = 0;
-    atomicHandlerReturnsFailure = false;
+  test("N parallel calls at limit L run the handler and book exactly L (also racing on the first create)", async () => {
+    resetAtomicState("ok");
     const user = tenantAdminOnlyFor(2701);
 
     const responses = await Promise.all(
       Array.from({ length: PARALLEL_BOOKINGS }, () => stack.http.write(ATOMIC_QN, {}, user)),
     );
 
-    const rejected = responses.filter((r) => r.status === 429);
     expect(responses.filter((r) => r.status === 200)).toHaveLength(ATOMIC_CAP_LIMIT);
-    expect(rejected).toHaveLength(PARALLEL_BOOKINGS - ATOMIC_CAP_LIMIT);
+    expect(responses.filter((r) => r.status === 429)).toHaveLength(
+      PARALLEL_BOOKINGS - ATOMIC_CAP_LIMIT,
+    );
     expect(atomicHandlerRuns).toBe(ATOMIC_CAP_LIMIT);
     const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
     expect(row!["value"]).toBe(ATOMIC_CAP_LIMIT);
   });
 
-  test("a handler failure leaves no quota burned and the full limit stays usable", async () => {
-    atomicHandlerRuns = 0;
-    atomicHandlerReturnsFailure = true;
+  test("two calls on the same counter can be inside the handler at the same time", async () => {
+    resetAtomicState("rendezvous");
+    const user = tenantAdminOnlyFor(2703);
+
+    const responses = await Promise.all([
+      stack.http.write(ATOMIC_QN, {}, user),
+      stack.http.write(ATOMIC_QN, {}, user),
+    ]);
+
+    expect(responses.map((r) => r.status)).toEqual([200, 200]);
+    expect(atomicMaxInFlight).toBe(2);
+  });
+
+  test("a handler that throws gives the reservation back", async () => {
+    resetAtomicState("throw");
+    const user = tenantAdminOnlyFor(2704);
+
+    await stack.http.writeErr(ATOMIC_QN, {}, user);
+
+    expect(atomicHandlerRuns).toBe(1);
+    const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(row!["value"]).toBe(0);
+  });
+
+  test("a handler that returns a failure result gives the reservation back", async () => {
+    resetAtomicState("failure");
     const user = tenantAdminOnlyFor(2702);
 
     await stack.http.writeErr(ATOMIC_QN, {}, user);
-    expect(atomicHandlerRuns).toBe(1);
-    atomicHandlerReturnsFailure = false;
 
+    expect(atomicHandlerRuns).toBe(1);
     const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
-    expect(row?.["value"] ?? 0).toBe(0);
+    expect(row!["value"]).toBe(0);
+    atomicHandlerMode = "ok";
     for (let i = 0; i < ATOMIC_CAP_LIMIT; i++) {
       await stack.http.writeOk(ATOMIC_QN, {}, user);
     }

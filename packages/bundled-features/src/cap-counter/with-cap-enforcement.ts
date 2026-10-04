@@ -24,6 +24,7 @@ import type {
   HandlerContext,
   WriteEvent,
   WriteHandlerDef,
+  WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { bookCapUsage, releaseCapUsage } from "./book-cap-usage.js";
@@ -66,6 +67,24 @@ export type CalendarCapResolver = (
   ctx: HandlerContext,
 ) => Promise<CalendarCapDef> | CalendarCapDef;
 
+// The original handler error must reach the caller; a failed release only leaves the counter over-counted.
+async function releaseReservationBestEffort(
+  ctx: HandlerContext,
+  cap: CalendarCapDef,
+  amount: number,
+): Promise<void> {
+  try {
+    await releaseCapUsage(ctx, {
+      capName: cap.capName,
+      amount,
+      periodStartIso: cap.periodStartIso,
+      outsideTransaction: true,
+    });
+  } catch {
+    // intentionally swallowed, see above
+  }
+}
+
 /**
  * Wrap a write-handler with calendar-period cap-enforcement.
  *
@@ -73,8 +92,8 @@ export type CalendarCapResolver = (
  *   1. resolve cap-spec via `capResolver(event, ctx)`
  *   2. pre-call: `enforceCapAndMaybeNotify` — throws CapExceededError
  *      on hard-hit (handler never runs), notifies on soft-hit-crossing
- *   3. reserve `amount` (hard-cap check + increment in one version-guarded write)
- *   4. invoke the wrapped handler; release the reservation if it fails
+ *   3. reserve `amount` (hard-cap check + increment in one short, immediately committed write)
+ *   4. invoke the wrapped handler; on failure result or throw, release the reservation
  *
  * The returned handler-def keeps the original name/schema/access
  * untouched — only the handler-fn is wrapped. The dispatcher sees
@@ -100,27 +119,35 @@ export function withCapEnforcement(
         limit: cap.limit,
         profile: cap.profile,
         notify: cap.notify,
+        markSoftWarnedOutsideTransaction: true,
         ...(cap.amount !== undefined && { amount: cap.amount }),
       });
 
-      // The pre-check above only drives the soft warning; this reservation is the hard gate. It checks and books in one version-guarded write, so parallel calls cannot all pass the same stale read.
+      // The pre-check only drives the soft warning; the reservation is the hard gate. It commits at once in its own transaction (check and increment in one version-guarded write), so parallel calls cannot pass the same stale read and the counter stream is not held while the handler runs.
       const amount = cap.amount ?? 1;
       const reserved = await bookCapUsage(ctx, {
         capName: cap.capName,
         amount,
         periodStartIso: cap.periodStartIso,
+        outsideTransaction: true,
         guardCurrentValue: (currentValue) => assertBelowHardCap(currentValue + amount - 1, cap),
       });
       if (!reserved.isSuccess) throw reraiseAsKumikoError(reserved.error);
 
-      const result = await handler.handler(event, ctx);
+      let result: WriteResult;
+      try {
+        result = await handler.handler(event, ctx);
+      } catch (error) {
+        await releaseReservationBestEffort(ctx, cap, amount);
+        throw error;
+      }
 
-      // A failed write must not burn quota.
       if (!result.isSuccess) {
         const released = await releaseCapUsage(ctx, {
           capName: cap.capName,
           amount,
           periodStartIso: cap.periodStartIso,
+          outsideTransaction: true,
         });
         if (!released.isSuccess) throw reraiseAsKumikoError(released.error);
       }
