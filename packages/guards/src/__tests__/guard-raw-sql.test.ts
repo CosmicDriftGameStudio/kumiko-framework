@@ -332,6 +332,19 @@ describe("raw-sql marker baseline", () => {
     }
   });
 
+  test("no baseline file and no markers → passes without a warning", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await withRepo({ "src/x.ts": "export const x = 1;\n" }, undefined, async (root) => {
+        const outcome = await check.run([root]);
+        expect(outcome.violations).toEqual([]);
+        expect(logSpy).not.toHaveBeenCalledWith(expect.stringContaining("No baseline found"));
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
   test("baseline present but marker missing from it → violation at the marker line", async () => {
     const logSpy = spyOn(console, "log").mockImplementation(() => {});
     try {

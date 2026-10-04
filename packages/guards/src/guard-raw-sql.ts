@@ -17,7 +17,6 @@
  *   (or `kumiko-guards checks --write-baseline --guard=guard-raw-sql`)
  */
 
-import { existsSync } from "node:fs";
 import path from "node:path";
 import {
   baselineRatchet,
@@ -137,15 +136,11 @@ export const check: RepoCheck = {
       return { violations: [], matchedFiles: 0, notApplicable: true };
     }
     const { findings, markers, scannedFiles } = await scanAllRepos(applicableRoots);
-    // A root without markers and without a baseline has nothing to freeze, so it
-    // skips the ratchet's "no baseline found" warning instead of nagging every consumer.
-    const markerViolations: GuardViolation[] = markers
-      .filter((m) => m.linesByKey.size > 0 || existsSync(path.join(m.root.absPath, BASELINE_FILE)))
-      .flatMap((m) =>
-        ratchetFor(m.root).check(countsOf(m), MARKER_REMEDIATION, {
-          resolveLine: (key) => m.linesByKey.get(key)?.[0] ?? 1,
-        }),
-      );
+    const markerViolations: GuardViolation[] = markers.flatMap((m) =>
+      ratchetFor(m.root).check(countsOf(m), MARKER_REMEDIATION, {
+        resolveLine: (key) => m.linesByKey.get(key)?.[0] ?? 1,
+      }),
+    );
     return {
       violations: [
         ...findings.map((f) => ({
