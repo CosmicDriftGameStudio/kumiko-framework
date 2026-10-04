@@ -21,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   collectChannels,
+  createDeliveryNotifyFactory,
   createDeliveryService,
   DELIVERY_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
@@ -45,6 +46,7 @@ import type {
   NotifyFactory,
   Registry,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto.js";
 import type {
@@ -100,6 +102,7 @@ function buildDeliveryNotifyFactory(opts: {
   readonly secrets?: SecretsContext;
   readonly sseBroker?: SseBroker;
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly log?: Logger;
   readonly deliverQueuedInline: boolean | undefined;
 }): NotifyFactory {
   const deliveryService = createDeliveryService({
@@ -109,15 +112,24 @@ function buildDeliveryNotifyFactory(opts: {
     ...(opts.secrets && { secrets: opts.secrets }),
     ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
     ...(opts.escapeHatchAuditSink && { escapeHatchAuditSink: opts.escapeHatchAuditSink }),
+    ...(opts.log && { log: opts.log }),
   });
-  return (user, tenantId, jobDispatcher) => (notificationType, options) =>
-    deliveryService.notify(
-      notificationType,
-      options,
-      user,
-      tenantId,
-      opts.deliverQueuedInline === true ? undefined : jobDispatcher,
-    );
+  return createDeliveryNotifyFactory(deliveryService, {
+    deliverQueuedInline: opts.deliverQueuedInline === true,
+  });
+}
+
+function isLogger(value: unknown): value is Logger {
+  if (typeof value !== "object" || value === null) return false;
+  return (["info", "warn", "error", "debug", "child"] as const).every(
+    (method) => method in value && typeof Reflect.get(value, method) === "function",
+  );
+}
+
+// Prod context.log only comes from the app's extraContext.
+export function loggerFromExtraContext(extraContext: Record<string, unknown>): Logger | undefined {
+  const candidate = extraContext["log"];
+  return isLogger(candidate) ? candidate : undefined;
 }
 
 function resolveEscapeHatchAuditSink(
@@ -160,6 +172,8 @@ export function buildBootExtraContext(opts: {
   /** One-shot process (runBootstrap): nothing drains its job queue once it
    *  exits, so queued channels must send inline instead of enqueueing. */
   readonly deliverQueuedInline?: boolean;
+  /** Receives redacted delivery failures; without it they go to the console. */
+  readonly log?: Logger;
 }): Record<string, unknown> {
   const crypto = opts.crypto ?? resolveBootCrypto(opts.envSource, opts.masterKey);
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
@@ -176,6 +190,7 @@ export function buildBootExtraContext(opts: {
         ...(secrets && { secrets }),
         ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
         ...(escapeHatchAuditSink && { escapeHatchAuditSink }),
+        ...(opts.log && { log: opts.log }),
         deliverQueuedInline: opts.deliverQueuedInline,
       }),
     }),

@@ -165,6 +165,7 @@ import {
   addConfigAccessorFactory,
   buildBootExtraContext,
   buildProdSessionAuth,
+  loggerFromExtraContext,
   resolveAuthMail,
   wireProdPatAutoRevoke,
 } from "./run-prod-app-boot-context.js";
@@ -178,6 +179,7 @@ export { buildBunServeOptions } from "./bun-serve-options.js";
 export {
   addConfigAccessorFactory,
   buildBootExtraContext,
+  loggerFromExtraContext,
   resolveAuthMail,
 } from "./run-prod-app-boot-context.js";
 export { staticCachePolicy } from "./run-prod-app-static-files.js";
@@ -1036,6 +1038,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // jeder Equality-Lookup (Login by email!) liefe ins Leere. Fail-fast statt
   // silent-broken-auth.
   configureBlindIndexKey(options.blindIndexKey);
+  const bootLogger = loggerFromExtraContext(resolvedExtraContext);
   const autoExtraContext = buildBootExtraContext({
     db,
     features,
@@ -1045,6 +1048,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     sseBroker,
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
+    ...(bootLogger && { log: bootLogger }),
   });
   const extraContext = {
     ...addConfigAccessorFactory({ ...autoExtraContext, ...resolvedExtraContext }, registry),

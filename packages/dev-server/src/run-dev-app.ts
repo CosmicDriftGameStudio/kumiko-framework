@@ -126,6 +126,7 @@ import type {
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
+  loggerFromExtraContext,
   requireEnv,
   resolveAuthMail,
 } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
@@ -429,6 +430,8 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // mit hasAuth:false (configResolver kommt schon aus cfgExtra), App-Werte
   // (cfgExtra) gewinnen über die Boot-Defaults.
   const extraContext: CreateKumikoServerOptions["extraContext"] = (deps) => {
+    const base = typeof cfgExtra === "function" ? cfgExtra(deps) : (cfgExtra ?? {});
+    const bootLogger = loggerFromExtraContext(base);
     const boot = buildBootExtraContext({
       db: deps.db,
       features,
@@ -437,8 +440,8 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       hasAuth: false,
       sseBroker: deps.sseBroker,
       crypto: bootCrypto,
+      ...(bootLogger && { log: bootLogger }),
     });
-    const base = typeof cfgExtra === "function" ? cfgExtra(deps) : (cfgExtra ?? {});
     return {
       ...boot,
       ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),

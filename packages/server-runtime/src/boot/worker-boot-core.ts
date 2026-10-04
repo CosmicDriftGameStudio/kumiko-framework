@@ -49,7 +49,11 @@ import { Redis } from "ioredis";
 import { composeFeatures } from "../compose-features.js";
 import { assertPiiBootInvariants } from "../pii-boot-gate.js";
 import { requireEnv } from "../run-prod-app.js";
-import { addConfigAccessorFactory, buildBootExtraContext } from "../run-prod-app-boot-context.js";
+import {
+  addConfigAccessorFactory,
+  buildBootExtraContext,
+  loggerFromExtraContext,
+} from "../run-prod-app-boot-context.js";
 import type { RunWorkerAppOptions, WorkerDeps } from "../run-worker-app.js";
 import { resolveBootCrypto } from "./boot-crypto.js";
 import { jobRunLoggerCallbacks } from "./job-run-logger.js";
@@ -232,6 +236,7 @@ export async function bootWorkerProcess(
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
   configurePiiSubjectKms(options.kms);
   configureBlindIndexKey(options.blindIndexKey);
+  const bootLogger = loggerFromExtraContext(resolvedExtraContext);
   const autoExtraContext = buildBootExtraContext({
     db,
     features,
@@ -241,6 +246,7 @@ export async function bootWorkerProcess(
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
     ...(profile.deliverQueuedInline === true && { deliverQueuedInline: true }),
+    ...(bootLogger && { log: bootLogger }),
   });
   const extraContext = addConfigAccessorFactory(
     { ...autoExtraContext, ...resolvedExtraContext },
