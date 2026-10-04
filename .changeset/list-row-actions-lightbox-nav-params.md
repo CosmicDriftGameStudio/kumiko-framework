@@ -10,7 +10,7 @@ Responsive row actions, Lightbox actions, navigate with search params, fresh fac
 
 `Lightbox` takes `actions` (nodes in the top-left corner, e.g. a download button) and `showPosition` (default `true`; `false` hides the `{current} / {total}` counter).
 
-`NavApi.navigate`, `replace` and `hrefFor` take an optional `{ searchParams }` (`NavigateOptions`). Without it the query is dropped as before.
+`NavApi.navigate`, `replace` and `hrefFor` take an optional `{ searchParams }` (`NavigateOptions`). Without it the query is dropped as before. `listFilterUrlKey(screenId, field)` builds the URL key a list reads a facet filter from.
 
 Facet chip counts refetch after a write from a row action, toolbar action, drawer or expanded row, and follow the entity's live events. Before, they kept the count from the first load.
 

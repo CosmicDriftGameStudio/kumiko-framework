@@ -84,6 +84,11 @@ function key(screenId: string, suffix: string): string {
   return `${screenId}.${suffix}`;
 }
 
+/** URL key of a list facet filter. Its value is the comma-joined selected values. */
+export function listFilterUrlKey(screenId: string, field: string): string {
+  return key(screenId, `f.${field}`);
+}
+
 function parseDir(value: string | undefined): ListSortDir | undefined {
   return value === "asc" || value === "desc" ? value : undefined;
 }
@@ -112,7 +117,7 @@ export function useListUrlState(
   const page = parsePage(params[key(screenId, "page")]);
   const pageSize = parsePageSize(params[key(screenId, "size")]);
 
-  const filterPrefix = `${screenId}.f.`;
+  const filterPrefix = listFilterUrlKey(screenId, "");
   const filters = useMemo<Readonly<Record<string, readonly string[]>>>(() => {
     const out: Record<string, readonly string[]> = {};
     for (const [k, v] of Object.entries(params)) {
@@ -187,7 +192,7 @@ export function useListUrlState(
   const setFilter = useCallback(
     (field: string, values: readonly string[]) => {
       nav.setSearchParams({
-        [key(screenId, `f.${field}`)]:
+        [listFilterUrlKey(screenId, field)]:
           values.length === 0 ? clearedFilterValue(field) : values.join(","),
         [key(screenId, "page")]: null,
       });

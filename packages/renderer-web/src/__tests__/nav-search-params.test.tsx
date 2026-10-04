@@ -5,7 +5,9 @@
 // echte URLSearchParams-Parse + replaceState-Roundtrip war ungetestet.
 
 import { describe, expect, test } from "bun:test";
+import { listFilterUrlKey, NavProvider, useListUrlState } from "@cosmicdrift/kumiko-renderer";
 import { act, renderHook } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { useBrowserNavApi } from "../app/nav.js";
 
 function setLocation(pathname: string, search: string): void {
@@ -147,5 +149,26 @@ describe("useBrowserNavApi — navigate with searchParams", () => {
     expect(window.location.pathname).toBe("/customers");
     expect(window.location.search).toBe("?q=acme");
     expect(window.history.length).toBe(initialHistoryLength);
+  });
+});
+
+describe("navigate into a filtered list", () => {
+  test("a filter passed as searchParams is the list's active filter", () => {
+    setLocation("/orders", "");
+    function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
+      return <NavProvider value={useBrowserNavApi()}>{children}</NavProvider>;
+    }
+    const { result } = renderHook(
+      () => ({ nav: useBrowserNavApi(), list: useListUrlState("tasks") }),
+      { wrapper: BrowserNav },
+    );
+    act(() => {
+      result.current.nav.navigate(
+        { screenId: "tasks" },
+        { searchParams: { [listFilterUrlKey("tasks", "status")]: "open,blocked" } },
+      );
+    });
+    expect(window.location.search).toBe("?tasks.f.status=open%2Cblocked");
+    expect(result.current.list.filters).toEqual({ status: ["open", "blocked"] });
   });
 });

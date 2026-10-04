@@ -104,6 +104,11 @@ Previous and next buttons, a `{current} / {total}` counter and the left and righ
 
 `navigate`, `replace` and `hrefFor` take an optional second argument `{ searchParams }`. The params become the query of the target URL. Without the option the query is dropped as before, and navigating to the current path is a no-op. With it, the same path with a different query pushes a new history entry.
 
+A list screen reads its facet filters from `<screenId>.f.<field>` with comma-joined values. `listFilterUrlKey(screenId, field)` from `@cosmicdrift/kumiko-renderer` builds that key, so a link can open a list with a filter set.
+
 ```tsx illustration
-nav.navigate({ screen: "campaign-list" }, { searchParams: { status: "open" } });
+nav.navigate(
+  { screenId: "campaign-list" },
+  { searchParams: { [listFilterUrlKey("campaign-list", "status")]: "open" } },
+);
 ```
