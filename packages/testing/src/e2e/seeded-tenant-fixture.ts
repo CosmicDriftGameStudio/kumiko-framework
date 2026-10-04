@@ -13,6 +13,7 @@ import {
 import type * as z from "zod";
 import {
   type BoundApi,
+  type SeedAdminIdentity,
   type SeededCredentials,
   type SeededTenant,
   type SeededUser,
@@ -23,6 +24,8 @@ import {
   CLIENT_IP_HEADER,
   clearSession,
   createHttpApi,
+  enrollTotpViaApi,
+  loginEnrollingIfRequired,
   loginViaApi,
   syntheticClientIpFor,
 } from "./auth-kit";
@@ -36,9 +39,22 @@ import {
   seedUserResponseSchema,
 } from "./seed-contract";
 
-export type E2eSeedTenantOptions = Omit<SeedTenantOptions, "persist">;
+export type E2eSeedTenantOptions = Omit<SeedTenantOptions, "persist"> & {
+  // Enrolls the admin with a confirmed TOTP factor (needed when the app
+  // enforces MFA); the secret comes back as `admin.mfaTotpSecret`.
+  readonly mfa?: "totp";
+};
 
-export type E2eSeededTenant = SeededTenant & {
+export type E2eSeedUserIdentity = SeedAdminIdentity & {
+  // Enrolls the new user with a confirmed TOTP factor; the secret comes back as `mfaTotpSecret`.
+  readonly mfa?: "totp";
+};
+
+export type E2eSeededTenant = Omit<SeededTenant, "addUser"> & {
+  readonly addUser: (
+    roles?: readonly string[],
+    identity?: E2eSeedUserIdentity,
+  ) => Promise<SeededUser>;
   readonly loginAs: (page: Page, user: SeededUser) => Promise<void>;
   // Runs an app seeder registered via createE2eSeedRoutes({ extraSeeders })
   // inside this tenant and resolves to its JSON result, unvalidated.
@@ -137,8 +153,15 @@ export async function provideSeedTenant(
     const toUser = (credentials: SeededCredentials, roles: readonly string[]): SeededUser =>
       withSession(credentials, tenantId, roles);
 
-    const admin = toUser(seeded.admin, [ROLES.TenantAdmin]);
-    await loginViaApi(context.request, admin);
+    const adminRow = toUser(seeded.admin, [ROLES.TenantAdmin]);
+    // Without the option, a policy that demands MFA still gets the admin enrolled
+    // (the login answers with a required setup); mfa: "totp" forces it without one.
+    const adminSecret =
+      opts.mfa === "totp"
+        ? await enrollTotpViaApi(context.request, adminRow)
+        : await loginEnrollingIfRequired(context.request, adminRow);
+    const admin =
+      adminSecret === undefined ? adminRow : { ...adminRow, mfaTotpSecret: adminSecret };
 
     const tenant: E2eSeededTenant = {
       id: tenantId,
@@ -146,8 +169,8 @@ export async function provideSeedTenant(
       name: seeded.name,
       admin,
       members: seeded.members.map((member) => toUser(member, [ROLES.Member])),
-      addUser: async (roles = [ROLES.Member], identity = {}) =>
-        toUser(
+      addUser: async (roles = [ROLES.Member], identity = {}) => {
+        const user = toUser(
           await postSeedRoute(
             request,
             SEED_ROUTES.seedUser,
@@ -160,7 +183,19 @@ export async function provideSeedTenant(
             seedUserResponseSchema,
           ),
           roles,
-        ),
+        );
+        if (identity.mfa !== "totp") return user;
+        // Enrollment logs its context in; a throwaway one keeps the admin's session intact.
+        const enrollContext = await playwright.request.newContext({
+          baseURL,
+          extraHTTPHeaders: { [CLIENT_IP_HEADER]: syntheticClientIpFor(user.email) },
+        });
+        try {
+          return { ...user, mfaTotpSecret: await enrollTotpViaApi(enrollContext, user) };
+        } finally {
+          await enrollContext.dispose();
+        }
+      },
       api: httpApiFor(admin),
       apiAs: httpApiFor,
       loginAs,

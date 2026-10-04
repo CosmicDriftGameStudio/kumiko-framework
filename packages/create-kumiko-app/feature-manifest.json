@@ -127,6 +127,7 @@
         "auth-email-password:write:reset-password",
         "auth-email-password:write:signup-confirm",
         "auth-email-password:write:signup-request",
+        "auth-email-password:write:switch-tenant-mfa-gate",
         "auth-email-password:write:system-invite-create",
         "auth-email-password:write:verify-email"
       ],

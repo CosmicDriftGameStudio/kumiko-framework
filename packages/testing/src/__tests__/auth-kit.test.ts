@@ -13,8 +13,16 @@ type CapturedPost = {
   readonly options: { headers?: Record<string, string> };
 };
 
-function fakeRequestContext(onPost: (call: CapturedPost) => void): APIRequestContext {
-  const fakeResponse = { ok: () => true, status: () => 200, text: async () => "" } as APIResponse;
+function fakeRequestContext(
+  onPost: (call: CapturedPost) => void,
+  replyBody: Record<string, unknown> = {},
+): APIRequestContext {
+  const fakeResponse = {
+    ok: () => true,
+    status: () => 200,
+    text: async () => JSON.stringify(replyBody),
+    json: async () => replyBody,
+  } as APIResponse;
   return {
     post: async (path: string, options?: { headers?: Record<string, string> }) => {
       onPost({ path, options: options ?? {} });
@@ -67,6 +75,18 @@ describe("loginViaApi", () => {
     expect(captured?.options.headers?.["x-forwarded-for"]).toBe(
       syntheticClientIpFor("a@example.com"),
     );
+  });
+
+  test("throws when a secret is given but the server asks to set up MFA", async () => {
+    const context = fakeRequestContext(() => {}, { isSuccess: true, mfaSetupRequired: true });
+
+    await expect(
+      loginViaApi(context, {
+        email: "a@example.com",
+        password: "secret",
+        mfaTotpSecret: "GEZDGNBV",
+      }),
+    ).rejects.toThrow("no enrolled factor");
   });
 });
 

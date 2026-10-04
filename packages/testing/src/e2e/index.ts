@@ -12,6 +12,7 @@ export {
   createHttpApi,
   csrfFetch,
   csrfHeaderFromCookies,
+  enrollTotpViaApi,
   type LoginCredentials,
   loginViaApi,
   loginViaUi,

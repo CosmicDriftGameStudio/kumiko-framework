@@ -60,18 +60,23 @@ import {
 import { passwordSchema } from "../password-policy.js";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { seedUserWithPassword } from "../seeding.js";
+import { gateEnforceMfa, type LoginHandlerOptions, type LoginResult } from "./login.write.js";
 
 const InviteSignupCompleteSchema = z.object({
   token: z.string().min(1),
   password: passwordSchema,
 });
 
-export type InviteSignupCompleteData = {
-  readonly kind: "auth-session";
-  readonly session: SessionUser;
-  readonly tenantId: TenantId;
-  readonly role: string;
-};
+export type InviteSignupCompleteData =
+  | {
+      readonly kind: "auth-session";
+      readonly session: SessionUser;
+      readonly tenantId: TenantId;
+      readonly role: string;
+    }
+  | Exclude<LoginResult, { readonly kind: "auth-session" }>;
+
+export type InviteSignupCompleteOptions = Pick<LoginHandlerOptions, "mfaStatusChecker">;
 
 const invitationExecutor = createEventStoreExecutor(
   tenantInvitationsTable,
@@ -82,7 +87,7 @@ const invitationExecutor = createEventStoreExecutor(
 const INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON =
   "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. Creates the user and adds the membership and accepts the invitation in the invitation's tenant, before any caller tenant context exists.";
 
-export function createInviteSignupCompleteHandler() {
+export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOptions = {}) {
   return defineWriteHandler<
     "invite-signup-complete",
     typeof InviteSignupCompleteSchema,
@@ -190,14 +195,32 @@ export function createInviteSignupCompleteHandler() {
         );
         if (!updateResult.isSuccess) return updateResult;
 
+        // buildSessionRoles calls stripForbiddenMembershipRoles internally —
+        // a reserved role on the invitation itself must never reach the session.
+        const mergedRoles = buildSessionRoles(invitationGlobalRoles, [invitationRole]);
+
+        // Same gate as invite-accept-with-login: the account exists after this
+        // call, but an MFA-gated role gets the MFA step instead of a session.
+        // It runs before the token is deleted so a throwing check leaves the link retryable.
+        const mfaGate = await gateEnforceMfa(
+          ctx,
+          { mfaStatusChecker: opts.mfaStatusChecker },
+          userId,
+          invitationTenantId,
+          mergedRoles,
+        );
+
         await deleteInviteToken(ctx.redis, { invitationId, token: event.payload.token });
+
+        if (mfaGate !== undefined) {
+          committed = true;
+          return { isSuccess: true, data: mfaGate };
+        }
 
         const session: SessionUser = {
           id: userId,
           tenantId: invitationTenantId,
-          // buildSessionRoles calls stripForbiddenMembershipRoles internally —
-          // a reserved role on the invitation itself must never reach the session.
-          roles: buildSessionRoles(invitationGlobalRoles, [invitationRole]),
+          roles: mergedRoles,
         };
 
         committed = true;

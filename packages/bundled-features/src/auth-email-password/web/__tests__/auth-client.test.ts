@@ -347,7 +347,7 @@ describe("confirmSignup", () => {
 
     const res = await confirmSignup("signup-tok", "password123");
 
-    expect(res).toEqual({ ok: true, data });
+    expect(res).toEqual({ ok: true, data: { kind: "signed-in", ...data } });
   });
 
   test("failure → parseTokenFailure shape", async () => {

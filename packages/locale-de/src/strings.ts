@@ -252,6 +252,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.signup.successTitle": "Mail gesendet",
   "auth.signup.title": "Konto erstellen",
   "auth.signupComplete.activated": "Dein Konto ist jetzt aktiv und du bist angemeldet.",
+  "auth.signupComplete.activatedMfaPending":
+    "Dein Konto ist aktiv. Melde dich an, um die Zwei-Faktor-Authentifizierung einzurichten.",
   "auth.signupComplete.activatedTitle": "Konto aktiviert",
   "auth.signupComplete.confirmPassword": "Passwort bestätigen",
   "auth.signupComplete.continue": "Weiter",

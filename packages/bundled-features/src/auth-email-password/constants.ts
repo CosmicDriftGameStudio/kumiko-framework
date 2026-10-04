@@ -46,6 +46,7 @@ export const AuthHandlers = {
   inviteAccept: "auth-email-password:write:invite-accept",
   inviteAcceptWithLogin: "auth-email-password:write:invite-accept-with-login",
   inviteSignupComplete: "auth-email-password:write:invite-signup-complete",
+  switchTenantMfaGate: "auth-email-password:write:switch-tenant-mfa-gate",
   inviteCancel: "auth-email-password:write:invite-cancel",
 } as const;
 

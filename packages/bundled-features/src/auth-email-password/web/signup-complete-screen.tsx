@@ -57,6 +57,7 @@ export function SignupCompleteScreen({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [continueHref, setContinueHref] = useState<string | null>(null);
+  const [mfaPending, setMfaPending] = useState(false);
 
   const doSubmit = async (): Promise<void> => {
     setError(null);
@@ -73,6 +74,11 @@ export function SignupCompleteScreen({
     const res = await confirmSignup(token, password);
     setSubmitting(false);
     if (res.ok) {
+      if (res.data.kind === "mfa-pending") {
+        setMfaPending(true);
+        setContinueHref(loginHref);
+        return;
+      }
       // Cookies are already set (auto-login). Show a confirmation with an
       // explicit continue button instead of navigating away silently —
       // the user otherwise gets no signal that activation worked.
@@ -124,7 +130,11 @@ export function SignupCompleteScreen({
     return (
       <AuthCard title={effectiveTitle}>
         <p className="text-sm text-muted-foreground" role="status">
-          {t("auth.signupComplete.activated")}
+          {t(
+            mfaPending
+              ? "auth.signupComplete.activatedMfaPending"
+              : "auth.signupComplete.activated",
+          )}
         </p>
         <Link href={continueHref} variant="button">
           {t("auth.signupComplete.continue")}
