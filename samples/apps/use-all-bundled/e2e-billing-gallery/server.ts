@@ -42,8 +42,8 @@ const features = [
 ];
 
 const TERMS_TEXT: Readonly<Record<string, string>> = {
-  de: "## Allgemeine Geschäftsbedingungen\n\nDiese Bedingungen gelten für alle Verträge über die Plattform.",
-  en: "## Terms and conditions\n\nThese terms apply to every contract concluded through the platform.",
+  de: "Diese Bedingungen gelten für alle Verträge über die Plattform.",
+  en: "These terms apply to every contract concluded through the platform.",
 };
 
 const seedTerms: SeedFn = async (stack) => {

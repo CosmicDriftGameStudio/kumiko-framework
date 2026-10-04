@@ -1,5 +1,6 @@
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import type { NotificationRenderer } from "../delivery/index.js";
+import { renderSafeMarkdown } from "../page-render/index.js";
 
 export type MailBranding = {
   /** Shown as text when there is no logo, and as the logo alt text. */
@@ -141,6 +142,8 @@ function renderBrandingFooter(
 
 type Section =
   | { readonly text: string }
+  | { readonly heading: string }
+  | { readonly markdown: string }
   | { readonly button: { readonly label: string; readonly url: string } };
 
 type EmailTemplateData = {
@@ -156,6 +159,13 @@ type EmailTemplateData = {
 function renderSection(section: Section, primaryColor: string): string {
   if ("text" in section) {
     return `<p style="margin:0 0 16px;color:#333;font-size:14px;line-height:1.5">${escapeHtml(section.text)}</p>`;
+  }
+  if ("heading" in section) {
+    return `<h2 style="margin:24px 0 12px;color:#111;font-size:16px;font-weight:600">${escapeHtml(section.heading)}</h2>`;
+  }
+  if ("markdown" in section) {
+    const markdownHtml = renderSafeMarkdown(section.markdown);
+    return `<div style="color:#333;font-size:14px;line-height:1.5">${markdownHtml}</div>`;
   }
   if ("button" in section) {
     return `<p style="margin:0 0 16px"><a href="${escapeHtml(section.button.url)}" style="display:inline-block;padding:10px 24px;background:${escapeHtmlAttr(primaryColor)};color:#fff;text-decoration:none;border-radius:4px;font-size:14px">${escapeHtml(section.button.label)}</a></p>`;

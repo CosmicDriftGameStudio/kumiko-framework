@@ -398,6 +398,54 @@ describe("legal-pages :: configurable routes/requiredBlocks (non-DACH apps)", ()
     }
   });
 
+  test("titleHeading prepends an escaped <h1> with the title; default leaves the body unchanged", async () => {
+    const headingStack = await setupTestStack({
+      features: [
+        createTemplateResolverFeature(),
+        createLegalPagesFeature({
+          routes: [
+            {
+              path: "/legal/with-heading",
+              slug: "terms",
+              lang: "en",
+              titleFallback: "Terms",
+              titleHeading: true,
+            },
+            { path: "/legal/without-heading", slug: "terms", lang: "en", titleFallback: "Terms" },
+          ],
+          requiredBlocks: [],
+        }),
+      ],
+      anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
+      extraContext: ({ db }) => ({
+        templateResolver: createTemplateResolverApi(db),
+      }),
+    });
+    try {
+      await unsafeCreateEntityTable(headingStack.db, templateResourceEntity);
+      await seedTextBlock(headingStack.db, {
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "terms",
+        locale: "en",
+        title: "Terms <b>& Conditions</b>",
+        content: "Body text",
+      });
+
+      const withHeading = await (await headingStack.app.request("/legal/with-heading")).text();
+      expect(withHeading).toContain(
+        "<h1>Terms &lt;b&gt;&amp; Conditions&lt;/b&gt;</h1><p>Body text</p>",
+      );
+
+      const withoutHeading = await (
+        await headingStack.app.request("/legal/without-heading")
+      ).text();
+      expect(withoutHeading).not.toContain("<h1>");
+      expect(withoutHeading).toContain("<p>Body text</p>");
+    } finally {
+      await headingStack.cleanup();
+    }
+  });
+
   test("createLegalPagesFeature throws on duplicate route path", () => {
     expect(() =>
       createLegalPagesFeature({

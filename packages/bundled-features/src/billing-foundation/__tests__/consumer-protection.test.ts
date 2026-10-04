@@ -38,12 +38,13 @@ describe("consent text", () => {
     }
   });
 
-  test("locale resolution: exact, language part, fallback de", () => {
+  test("locale resolution: exact, language part, fallback en", () => {
     expect(resolveConsentLocale("en")).toBe("en");
     expect(resolveConsentLocale("EN-gb")).toBe("en");
     expect(resolveConsentLocale("de-AT")).toBe("de");
-    expect(resolveConsentLocale("fr")).toBe("de");
-    expect(resolveConsentLocale(undefined)).toBe("de");
+    expect(resolveConsentLocale("fr")).toBe("en");
+    expect(resolveConsentLocale("es")).toBe("en");
+    expect(resolveConsentLocale(undefined)).toBe("en");
   });
 });
 
@@ -82,5 +83,18 @@ describe("consumerProtection option validation", () => {
         create(options({ legalLinks: { terms: bad, withdrawal: "/w", privacy: "/p" } }), base),
       ).toThrow(/legalLinks\.terms/);
     }
+  });
+
+  test("legalLinks per locale needs de and en, each link validated", () => {
+    const set = { terms: "/t", withdrawal: "/w", privacy: "/p" };
+    expect(create(options({ legalLinks: { de: set, en: set } }), base)).not.toThrow();
+    const incomplete = { de: set } as unknown as ConsumerProtectionOptions["legalLinks"];
+    expect(create(options({ legalLinks: incomplete }), base)).toThrow(/"en" entry/);
+    expect(
+      create(
+        options({ legalLinks: { de: set, en: { ...set, privacy: "http://x.example" } } }),
+        base,
+      ),
+    ).toThrow(/legalLinks\.en\.privacy/);
   });
 });

@@ -58,6 +58,17 @@ const mockProviderFeature = defineFeature("test-mock-destroy-provider", (r) => {
   r.useExtension("subscriptionProvider", "mock-destroy-provider", {
     verifyAndParseWebhook: async () => null,
     oneOffPriceIds: ["price_topup"],
+    retrievePrices: async () => [
+      {
+        priceId: "price_topup",
+        unitAmount: 500,
+        currency: "eur",
+        interval: null,
+        intervalCount: null,
+        active: true,
+        metadata: {},
+      },
+    ],
     createCheckoutSession: async () => ({ url: "https://mock.example/checkout" }),
   });
 });

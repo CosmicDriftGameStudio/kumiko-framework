@@ -23,8 +23,14 @@
 // hand-picked priceId.
 
 import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { findProviderPlugin, openCheckout } from "../checkout-core.js";
+import {
+  assertCheckoutAllowed,
+  type OpenCheckoutInput,
+  openCheckout,
+  startProviderCheckout,
+} from "../checkout-core.js";
 import {
   type ConsentPayload,
   consentCheckoutFields,
@@ -64,7 +70,7 @@ export function createCheckoutSessionHandler(
 ): WriteHandlerDef {
   const consumerProtection = options.consumerProtection;
   const schema = consumerProtection
-    ? createCheckoutSessionSchema.extend({ consent: consentPayloadSchema.optional() })
+    ? createCheckoutSessionSchema.extend({ consent: consentPayloadSchema.optional() }).strict()
     : createCheckoutSessionSchema;
   return {
     name: "create-checkout-session",
@@ -78,33 +84,42 @@ export function createCheckoutSessionHandler(
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as CreateCheckoutSessionPayload;
 
-      const mode = payload.mode ?? "subscription";
-      const consent = consumerProtection
-        ? await prepareConsent(ctx, consumerProtection, payload.consent, mode)
-        : undefined;
+      const openOptions = { baseUrl: options.baseUrl, catalog: options.catalog, now: options.now };
+      const checkoutInput: OpenCheckoutInput = {
+        providerName: payload.providerName,
+        priceId: payload.priceId,
+        successUrl: payload.successUrl,
+        cancelUrl: payload.cancelUrl,
+        ...(payload.providerCustomerId && { providerCustomerId: payload.providerCustomerId }),
+        ...(payload.mode && { mode: payload.mode }),
+      };
 
-      const result = await openCheckout(
-        ctx,
-        { baseUrl: options.baseUrl, catalog: options.catalog, now: options.now },
-        {
-          providerName: payload.providerName,
-          priceId: payload.priceId,
-          successUrl: payload.successUrl,
-          cancelUrl: payload.cancelUrl,
-          ...(payload.providerCustomerId && { providerCustomerId: payload.providerCustomerId }),
-          ...(payload.mode && { mode: payload.mode }),
-          ...(consent && consentCheckoutFields(consent)),
-        },
-      );
-
-      if (consent) {
-        const plugin = findProviderPlugin(ctx, payload.providerName)?.plugin;
-        await recordConsent(ctx, consent, {
-          tier: mode === "subscription" ? (plugin?.priceToTier?.[payload.priceId] ?? null) : null,
-          priceId: payload.priceId,
-          price: await lookupPrice(ctx, plugin, payload.priceId),
-        });
+      if (!consumerProtection) {
+        const result = await openCheckout(ctx, openOptions, checkoutInput);
+        return {
+          isSuccess: true as const,
+          data: { url: result.url, providerName: result.providerName },
+        };
       }
+
+      const mode = payload.mode ?? "subscription";
+      const plugin = await assertCheckoutAllowed(ctx, openOptions, checkoutInput);
+      const price = await lookupPrice(ctx, plugin, payload.priceId);
+      const orderItem =
+        mode === "payment"
+          ? await consumerProtection.oneOffItemLabel?.(ctx, payload.priceId)
+          : undefined;
+      const consent = await prepareConsent(ctx, consumerProtection, payload.consent, mode);
+      const result = await startProviderCheckout(ctx, plugin, {
+        ...checkoutInput,
+        ...consentCheckoutFields(consent),
+      });
+      await recordConsent(ctx, consent, {
+        tier: mode === "subscription" ? (plugin.priceToTier?.[payload.priceId] ?? null) : null,
+        priceId: payload.priceId,
+        price,
+        ...(orderItem && { orderItem }),
+      });
 
       return {
         isSuccess: true as const,
@@ -114,18 +129,28 @@ export function createCheckoutSessionHandler(
   };
 }
 
-// A failed price lookup must not lose a consent the buyer already gave at the
-// provider, so it degrades to null price fields.
+// The price is part of the consent record, so it must be known before the
+// buyer is sent to the provider.
 async function lookupPrice(
   ctx: HandlerContext,
-  plugin: SubscriptionProviderPlugin | undefined,
+  plugin: SubscriptionProviderPlugin,
   priceId: string,
-): Promise<ProviderPrice | null> {
-  if (!plugin?.retrievePrices) return null;
+): Promise<ProviderPrice> {
+  let price: ProviderPrice | undefined;
   try {
-    const prices = await plugin.retrievePrices(ctx, [priceId]);
-    return prices.find((p) => p.priceId === priceId) ?? null;
-  } catch {
-    return null;
+    const prices = (await plugin.retrievePrices?.(ctx, [priceId])) ?? [];
+    price = prices.find((p) => p.priceId === priceId);
+  } catch (cause) {
+    throw priceUnavailable(priceId, cause);
   }
+  if (!price) throw priceUnavailable(priceId);
+  return price;
+}
+
+function priceUnavailable(priceId: string, cause?: unknown): UnprocessableError {
+  return new UnprocessableError("price_unavailable", {
+    i18nKey: "billing-foundation.errors.priceUnavailable",
+    message: `billing-foundation: no live price resolved for priceId "${priceId}"`,
+    ...(cause instanceof Error && { cause }),
+  });
 }

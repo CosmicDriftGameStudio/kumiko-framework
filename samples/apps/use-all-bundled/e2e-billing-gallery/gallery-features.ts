@@ -69,8 +69,8 @@ export function createGalleryBillingFeature(baseUrl: string): FeatureDefinition 
     baseUrl,
     catalog: {
       plans: ["starter", "pro"],
-      tierLabelKey: (tier) => `gallery.plan.${tier}.label`,
-      benefits: (tier) => [{ labelKey: `gallery.plan.${tier}.benefit` }],
+      tierLabelKey: (tier) => `gallery-screens:plan.${tier}.label`,
+      benefits: (tier) => [{ labelKey: `gallery-screens:plan.${tier}.benefit` }],
       resolveCurrentTier,
       viewRoles: ["TenantAdmin", "SystemAdmin"],
       successPath: GALLERY_PLAN_PATH,
@@ -83,9 +83,8 @@ export function createGalleryBillingFeature(baseUrl: string): FeatureDefinition 
       operatorEmail: GALLERY_OPERATOR_EMAIL,
       terminationScope: "platform",
       legalLinks: {
-        terms: "/legal/terms",
-        withdrawal: "/legal/withdrawal",
-        privacy: "/legal/privacy",
+        de: { terms: "/legal/terms", withdrawal: "/legal/withdrawal", privacy: "/legal/privacy" },
+        en: { terms: "/legal/terms", withdrawal: "/legal/withdrawal", privacy: "/legal/privacy" },
       },
     },
   });
@@ -140,12 +139,12 @@ export const galleryScreensFeature: FeatureDefinition = defineFeature("gallery-s
   r.translations({
     keys: {
       "gallery:nav.billing": { de: "Abrechnung", en: "Billing" },
-      "gallery.plan.free.label": { de: "Free", en: "Free" },
-      "gallery.plan.starter.label": { de: "Starter", en: "Starter" },
-      "gallery.plan.pro.label": { de: "Pro", en: "Pro" },
-      "gallery.plan.starter.benefit": { de: "Für kleine Teams", en: "For small teams" },
-      "gallery.plan.pro.benefit": { de: "Für wachsende Teams", en: "For growing teams" },
-      "gallery.plan.free.benefit": { de: "Zum Ausprobieren", en: "To try things out" },
+      "gallery-screens:plan.free.label": { de: "Free", en: "Free" },
+      "gallery-screens:plan.starter.label": { de: "Starter", en: "Starter" },
+      "gallery-screens:plan.pro.label": { de: "Pro", en: "Pro" },
+      "gallery-screens:plan.starter.benefit": { de: "Für kleine Teams", en: "For small teams" },
+      "gallery-screens:plan.pro.benefit": { de: "Für wachsende Teams", en: "For growing teams" },
+      "gallery-screens:plan.free.benefit": { de: "Zum Ausprobieren", en: "To try things out" },
     },
   });
   return {};

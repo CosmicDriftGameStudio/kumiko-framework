@@ -8,6 +8,7 @@ type ConfirmationLabels = {
   readonly subject: string;
   readonly intro: string;
   readonly plan: string;
+  readonly item: string;
   readonly oneOffPayment: string;
   readonly price: string;
   readonly oneOff: string;
@@ -25,8 +26,9 @@ const LABELS: Readonly<Record<ConsentLocale, ConfirmationLabels>> = {
   de: {
     subject: "Vertragsbestätigung",
     intro:
-      "vielen Dank für deine Bestellung. Hiermit bestätigen wir den Vertragsschluss mit folgendem Inhalt.",
+      "Vielen Dank für deine Bestellung. Hiermit bestätigen wir den Vertragsschluss mit folgendem Inhalt.",
     plan: "Tarif",
+    item: "Leistung",
     oneOffPayment: "Einmalzahlung",
     price: "Preis",
     oneOff: "einmalig",
@@ -47,8 +49,9 @@ const LABELS: Readonly<Record<ConsentLocale, ConfirmationLabels>> = {
   en: {
     subject: "Contract confirmation",
     intro:
-      "thank you for your order. We hereby confirm the conclusion of the contract with the following content.",
+      "Thank you for your order. We hereby confirm the conclusion of the contract with the following content.",
     plan: "Plan",
+    item: "Item",
     oneOffPayment: "One-off payment",
     price: "Price",
     oneOff: "one-off",
@@ -68,15 +71,25 @@ const LABELS: Readonly<Record<ConsentLocale, ConfirmationLabels>> = {
   },
 };
 
+export type ContractConfirmationSection =
+  | { readonly text: string }
+  | { readonly heading: string }
+  | { readonly markdown: string };
+
 export type ContractConfirmationContent = {
   readonly subject: string;
   readonly header: string;
-  readonly sections: readonly { readonly text: string }[];
+  readonly sections: readonly ContractConfirmationSection[];
   readonly footer: string;
 };
 
 export type RenderContractConfirmationArgs = {
   readonly consent: CheckoutConsentRecordedPayload;
+  readonly timeZone: string;
+  /** Translated plan name; falls back to the raw tier. */
+  readonly tierLabel?: string;
+  /** Translated purchased item for one-off payments; falls back to the generic label. */
+  readonly itemLabel?: string;
   readonly consentGivenAtIso: string;
   readonly contractStartIso: string;
   readonly currentPeriodEndIso?: string;
@@ -109,7 +122,7 @@ function formatPrice(consent: CheckoutConsentRecordedPayload, locale: ConsentLoc
   return count === 1 ? `${amount} / ${intervalText}` : `${amount}, ${intervalText}`;
 }
 
-function formatDate(iso: string, locale: ConsentLocale): string {
+function formatDate(iso: string, locale: ConsentLocale, timeZone: string): string {
   let epochMilliseconds: number;
   try {
     epochMilliseconds = Temporal.Instant.from(iso).epochMilliseconds;
@@ -117,18 +130,14 @@ function formatDate(iso: string, locale: ConsentLocale): string {
     return iso;
   }
   return new Intl.DateTimeFormat(locale, {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "UTC",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+    timeZoneName: "short",
   }).format(epochMilliseconds);
-}
-
-function paragraphs(text: string): readonly { readonly text: string }[] {
-  return text
-    .split(/\n{2,}/)
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0)
-    .map((part) => ({ text: part }));
 }
 
 /** Structured mail content (header/sections/footer) for the email channel's
@@ -141,12 +150,17 @@ export function renderContractConfirmation(
   const texts = CONSENT_TEXTS[locale];
   const { consent } = args;
 
+  const { timeZone } = args;
+  const subjectLine =
+    consent.mode === "payment"
+      ? `${labels.item}: ${args.itemLabel ?? labels.oneOffPayment}`
+      : `${labels.plan}: ${args.tierLabel ?? consent.tier ?? labels.oneOffPayment}`;
   const contractLines = [
-    `${labels.plan}: ${consent.tier ?? labels.oneOffPayment}`,
+    subjectLine,
     `${labels.price}: ${formatPrice(consent, locale)}`,
-    `${labels.contractStart}: ${formatDate(args.contractStartIso, locale)}`,
+    `${labels.contractStart}: ${formatDate(args.contractStartIso, locale, timeZone)}`,
     ...(args.currentPeriodEndIso !== undefined
-      ? [`${labels.currentPeriodEnd}: ${formatDate(args.currentPeriodEndIso, locale)}`]
+      ? [`${labels.currentPeriodEnd}: ${formatDate(args.currentPeriodEndIso, locale, timeZone)}`]
       : []),
   ];
   const vatNote = args.vatNote[locale] ?? args.vatNote[resolveConsentLocale()];
@@ -158,12 +172,12 @@ export function renderContractConfirmation(
       { text: labels.intro },
       ...contractLines.map((text) => ({ text })),
       ...(vatNote !== undefined ? [{ text: vatNote }] : []),
-      { text: labels.consentHeading },
+      { heading: labels.consentHeading },
       { text: texts.earlyPerformance },
       { text: texts.withdrawalLoss },
-      { text: `${labels.consentGivenAt}: ${formatDate(args.consentGivenAtIso, locale)}` },
-      { text: labels.termsHeading },
-      ...paragraphs(args.termsContent),
+      { text: `${labels.consentGivenAt}: ${formatDate(args.consentGivenAtIso, locale, timeZone)}` },
+      { heading: labels.termsHeading },
+      { markdown: args.termsContent },
     ],
     footer: `${labels.contact} ${args.operatorEmail}`,
   };

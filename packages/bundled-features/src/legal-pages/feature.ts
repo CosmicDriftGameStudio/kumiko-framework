@@ -4,6 +4,7 @@ import {
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { escapeHtml } from "@cosmicdrift/kumiko-headless";
 import {
   cachedSecurePageResponse,
   type PublicPageWrapLayout,
@@ -87,7 +88,7 @@ export type LegalPagesOptions = {
 
 export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDefinition {
   const wrapLayout = opts.wrapLayout ?? wrapInLayout;
-  const routes = opts.routes ?? LEGAL_ROUTES;
+  const routes: readonly LegalPageRoute[] = opts.routes ?? LEGAL_ROUTES;
   const requiredBlocks = opts.requiredBlocks ?? LEGAL_REQUIRED_BLOCKS;
   validateRoutes(routes);
   if (opts.routes !== undefined && opts.routes.length > 0 && opts.requiredBlocks === undefined) {
@@ -172,9 +173,13 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
             });
           }
 
+          const title = data.title || route.titleFallback;
+          const renderedBody = renderMarkdownToHtml(data.content);
           const html = wrapLayout({
-            title: data.title || route.titleFallback,
-            bodyHtml: renderMarkdownToHtml(data.content),
+            title,
+            bodyHtml: route.titleHeading
+              ? `<h1>${escapeHtml(title)}</h1>${renderedBody}`
+              : renderedBody,
             lang: route.lang,
             slug: route.slug,
           });
