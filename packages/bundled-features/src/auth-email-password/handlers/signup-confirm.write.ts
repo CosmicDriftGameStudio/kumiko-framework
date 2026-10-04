@@ -63,12 +63,10 @@ const SignupConfirmSchema = z.object({
   password: passwordSchema,
 });
 
-// Mirror der login-handler-Shape (kind: "auth-session", session: SessionUser)
-// damit die Route-Layer den signup-confirm-success genauso behandeln kann
-// wie einen erfolgreichen login. Der zusätzliche tenantKey landet als sibling
-// am data-objekt (NICHT in SessionUser — tenantKey ist signup-spezifisch für
-// den Post-Signup-Redirect zu /<tenantKey>/). Mit MFA-Policy für die neuen
-// Rollen kommt stattdessen der MFA-Schritt zurück, ohne Session.
+// Mirrors the login handler's session shape so the route treats a successful
+// confirm like a login. tenantKey stays a sibling of the session: it is only
+// for the post-signup redirect, SessionUser is generic. When the MFA gate
+// applies, the MFA step is returned instead of a session.
 export type SignupConfirmData =
   | {
       readonly kind: "auth-session";

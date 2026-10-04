@@ -345,11 +345,10 @@ export async function requestSignup(
   return { ok: false, error: await parseTokenFailure(res) };
 }
 
-// POST /api/auth/signup-confirm. Token aus URL + Password. Erfolgreich:
-// Cookies (kumiko_auth + kumiko_csrf) werden gesetzt — User ist sofort
-// eingeloggt, außer das MFA-Gate greift (kind "mfa-pending"). Response liefert
-// tenantKey für den Post-Signup-Redirect.
-// 422 invalid_signup_token bei abgelaufenem/unbekanntem Token.
+// POST /api/auth/signup-confirm. On success the server sets the auth cookies
+// (auto-login) and returns the tenantKey for the post-signup redirect, unless
+// the MFA gate applies (kind "mfa-pending", no session). 422 invalid_signup_token
+// for an expired or unknown token.
 export type SignupConfirmSuccess = {
   readonly user: { readonly id: string; readonly tenantId: string; readonly roles: string[] };
   readonly tenantKey: string;

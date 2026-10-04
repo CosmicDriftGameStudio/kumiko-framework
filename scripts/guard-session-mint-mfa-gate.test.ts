@@ -10,7 +10,10 @@ import { Glob } from "bun";
 const PACKAGES_DIR = join(import.meta.dir, "..", "packages");
 const AUTH_ROUTES_FILE = "framework/src/api/auth-routes.ts";
 
-type MintGate = "handler-gate" | "route-gate" | "second-factor";
+// evidence: the token the route block must contain to show where its gate runs.
+type MintGate =
+  | { readonly kind: "handler-gate" | "route-gate"; readonly evidence: string }
+  | { readonly kind: "second-factor" };
 
 const JWT_SIGN_FILES: Record<string, string> = {
   [AUTH_ROUTES_FILE]: "mintSessionAndRespond is the single production mint point",
@@ -20,13 +23,13 @@ const JWT_SIGN_FILES: Record<string, string> = {
 };
 
 const MINTING_ROUTES: Record<string, MintGate> = {
-  authLogin: "handler-gate",
-  authSignupConfirm: "handler-gate",
-  authInviteAcceptWithLogin: "handler-gate",
-  authInviteSignupComplete: "handler-gate",
-  authSwitchTenant: "route-gate",
-  authMfaVerify: "second-factor",
-  authMfaPreauthConfirm: "second-factor",
+  authLogin: { kind: "handler-gate", evidence: "mfaSetupRequired" },
+  authInviteAcceptWithLogin: { kind: "handler-gate", evidence: "mfaSetupRequired" },
+  authSignupConfirm: { kind: "handler-gate", evidence: "pendingMfaStepResponse(" },
+  authInviteSignupComplete: { kind: "handler-gate", evidence: "pendingMfaStepResponse(" },
+  authSwitchTenant: { kind: "route-gate", evidence: "switchTenantMfaGateResponse(" },
+  authMfaVerify: { kind: "second-factor" },
+  authMfaPreauthConfirm: { kind: "second-factor" },
 };
 
 function stripComments(source: string): string {
@@ -103,9 +106,9 @@ describe("session minting stays behind the MFA gate", () => {
   });
 
   for (const [routeName, gate] of Object.entries(MINTING_ROUTES)) {
-    if (gate === "second-factor") continue;
-    it(`${routeName} (${gate}) answers with the MFA setup step`, () => {
-      expect(routeBlock(readCode(AUTH_ROUTES_FILE), routeName)).toContain("mfaSetupRequired");
+    if (gate.kind === "second-factor") continue;
+    it(`${routeName} (${gate.kind}) shows its MFA gate`, () => {
+      expect(routeBlock(readCode(AUTH_ROUTES_FILE), routeName)).toContain(gate.evidence);
     });
   }
 });

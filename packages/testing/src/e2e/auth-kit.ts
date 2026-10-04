@@ -109,8 +109,10 @@ export async function loginViaApi(
   const reply = loginReplySchema.parse(await response.json());
   if (credentials.mfaTotpSecret === undefined) {
     assertNoUnansweredMfa(credentials.email, reply);
+    // skip: no secret, assertNoUnansweredMfa already threw if MFA was pending
     return;
   }
+  // skip: no MFA step for this account, the login already set the session
   if (reply.mfaRequired !== true) return;
   if (reply.challengeToken === undefined) {
     throw new Error(`loginViaApi(${credentials.email}): MFA required but no challengeToken`);
@@ -241,6 +243,7 @@ export async function loginViaUi(page: Page, credentials: LoginCredentials): Pro
   await page.locator("#login-password").fill(credentials.password);
   await page.locator("#login-password").press("Enter");
   await expect(page.locator("#login-password")).toHaveCount(0);
+  // skip: no secret, so no MFA step expected
   if (credentials.mfaTotpSecret === undefined) return;
   // A secret means an enrolled factor, so the MFA step must come; waiting for it
   // avoids racing the transition from the password form.

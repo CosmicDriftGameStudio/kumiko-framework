@@ -776,6 +776,27 @@ export function createAuthRoutes(
   const getClientIp = (c: Context): string =>
     clientIpResolver.resolve(clientIpSourceFromHonoContext(c));
 
+  async function switchTenantMfaGateResponse(
+    c: Context,
+    user: SessionUser,
+    targetTenantId: TenantId,
+  ): Promise<Response | undefined> {
+    if (!config.switchTenantMfaGateHandler) return undefined;
+    const gate = await dispatcher.write(
+      config.switchTenantMfaGateHandler,
+      { userId: user.id, tenantId: targetTenantId },
+      createSystemUser(user.tenantId),
+    );
+    if (!gate.isSuccess) {
+      const status = gate.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
+      return c.json({ isSuccess: false, error: gate.error }, status);
+    }
+    // @cast-boundary engine-payload — the gate handler's three-shape result
+    const gateData = gate.data as { kind: "mfa-gate-clear" } | PendingMfaStep;
+    if (gateData.kind === "mfa-gate-clear") return undefined;
+    return pendingMfaStepResponse(c, gateData);
+  }
+
   // Shared tail of every route that ends a request logged-in: create the
   // session record (if wired), sign the JWT, set the auth+csrf cookies. Was
   // duplicated 5x (login/signup-confirm/invite-accept-with-login/invite-
@@ -1180,10 +1201,8 @@ export function createAuthRoutes(
     });
   }
 
-  // Self-Signup (Magic-Link). Request mountet wie reset/verify den
-  // silent-success-Pfad mit Token-Mail. Confirm ist anders: returnt
-  // SessionUser → die Route mintet JWT + setzt Cookies (Auto-Login), außer
-  // das MFA-Gate greift: dann nur der MFA-Schritt, ohne Session.
+  // Signup confirm mints the session (auto-login) unless the MFA gate applies;
+  // then it answers with the MFA step only, no session or cookies.
   if (config.signup) {
     const sg = config.signup;
     registerTokenRequestRoute({
@@ -1225,17 +1244,7 @@ export function createAuthRoutes(
         | { kind: "mfa-challenge"; challengeToken: string }
         | { kind: "mfa-setup-required"; preauthSetupToken: string };
 
-      if (data.kind === "mfa-setup-required") {
-        return c.json({
-          isSuccess: true,
-          mfaSetupRequired: true,
-          preauthSetupToken: data.preauthSetupToken,
-        });
-      }
-
-      if (data.kind === "mfa-challenge") {
-        return c.json({ isSuccess: true, mfaRequired: true, challengeToken: data.challengeToken });
-      }
+      if (data.kind !== "auth-session") return pendingMfaStepResponse(c, data);
 
       // Session creation + JWT sign + cookies — see mintSessionAndRespond.
       const token = await mintSessionAndRespond(c, data.session);
@@ -1395,17 +1404,7 @@ export function createAuthRoutes(
         | { kind: "mfa-challenge"; challengeToken: string }
         | { kind: "mfa-setup-required"; preauthSetupToken: string };
 
-      if (data.kind === "mfa-setup-required") {
-        return c.json({
-          isSuccess: true,
-          mfaSetupRequired: true,
-          preauthSetupToken: data.preauthSetupToken,
-        });
-      }
-
-      if (data.kind === "mfa-challenge") {
-        return c.json({ isSuccess: true, mfaRequired: true, challengeToken: data.challengeToken });
-      }
+      if (data.kind !== "auth-session") return pendingMfaStepResponse(c, data);
 
       const token = await mintSessionAndRespond(c, data.session);
       const landingPath = landingPathFragment({
@@ -1583,36 +1582,8 @@ export function createAuthRoutes(
     // membership role that a projection rebuild resurrected past command-time
     // validation (see engine/membership-roles).
     const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
-    if (config.switchTenantMfaGateHandler) {
-      const gate = await dispatcher.write(
-        config.switchTenantMfaGateHandler,
-        { userId: user.id, tenantId: targetTenantId },
-        createSystemUser(user.tenantId),
-      );
-      if (!gate.isSuccess) {
-        const status = gate.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
-        return c.json({ isSuccess: false, error: gate.error }, status);
-      }
-      // @cast-boundary engine-payload — the gate handler's three-shape result
-      const gateData = gate.data as
-        | { kind: "mfa-gate-clear" }
-        | { kind: "mfa-challenge"; challengeToken: string }
-        | { kind: "mfa-setup-required"; preauthSetupToken: string };
-      if (gateData.kind === "mfa-setup-required") {
-        return c.json({
-          isSuccess: true,
-          mfaSetupRequired: true,
-          preauthSetupToken: gateData.preauthSetupToken,
-        });
-      }
-      if (gateData.kind === "mfa-challenge") {
-        return c.json({
-          isSuccess: true,
-          mfaRequired: true,
-          challengeToken: gateData.challengeToken,
-        });
-      }
-    }
+    const pendingMfaStep = await switchTenantMfaGateResponse(c, user, targetTenantId);
+    if (pendingMfaStep !== undefined) return pendingMfaStep;
     const targetSession: SessionUser = {
       id: user.id,
       tenantId: targetTenantId,
@@ -1642,6 +1613,21 @@ export function createAuthRoutes(
   });
 
   return api;
+}
+
+type PendingMfaStep =
+  | { kind: "mfa-challenge"; challengeToken: string }
+  | { kind: "mfa-setup-required"; preauthSetupToken: string };
+
+function pendingMfaStepResponse(c: Context, step: PendingMfaStep): Response {
+  if (step.kind === "mfa-setup-required") {
+    return c.json({
+      isSuccess: true,
+      mfaSetupRequired: true,
+      preauthSetupToken: step.preauthSetupToken,
+    });
+  }
+  return c.json({ isSuccess: true, mfaRequired: true, challengeToken: step.challengeToken });
 }
 
 // --- shared route builders for token flows ---------------------------------
