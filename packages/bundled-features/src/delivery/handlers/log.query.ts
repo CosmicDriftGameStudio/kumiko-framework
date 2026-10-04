@@ -19,7 +19,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.js";
-import { resolveUserDisplayNames } from "../../user/index.js";
+import { resolveUserDisplayNames, USER_FEATURE } from "../../user/index.js";
 import type { DeliveryStatusValue } from "../constants.js";
 import { deliveryAttemptsTable } from "../tables.js";
 
@@ -99,7 +99,8 @@ async function loadDisplayNames(
         .filter((id): id is string => id !== null && id !== SYSTEM_USER_ID && isUuid(id)),
     ),
   ];
-  if (recipientIds.length === 0 || registry.getFeature("user") === undefined) return new Map();
+  if (recipientIds.length === 0 || registry.getFeature(USER_FEATURE) === undefined)
+    return new Map();
   return resolveUserDisplayNames(db, recipientIds);
 }
 
