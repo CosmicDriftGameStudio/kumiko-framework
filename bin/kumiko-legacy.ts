@@ -301,7 +301,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   }
   // Baseline-Regression-Guard (infra#295): failt nur bei NEUEN DE-Kommentaren,
   // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.
-  steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guard-comment-lang" });
+  steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guards comment-lang" });
   // Agent-Manifest Guard (infra#702): scans this repo's own kumiko.config.ts
   // files, so no existsSync skip; standalone CI is where it must run.
   steps.push({ name: "Agent-Manifest Guard", cmd: "bunx kumiko-guard-agent-manifest" });

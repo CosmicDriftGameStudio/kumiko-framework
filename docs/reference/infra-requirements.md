@@ -64,6 +64,17 @@ the event records `"unknown"`. A failed write is logged and does not stop the
 boot. A SystemAdmin reads these events through `audit:query:list` with
 `scope: "system"`.
 
+## Instance id per pod
+
+Set `KUMIKO_INSTANCE_ID` to the pod name on every replica (Kubernetes downward
+API, `metadata.name`). SSE delivery is no longer per instance: the built-in SSE
+consumers use one shared cursor and the Redis broker fans events out to every
+pod's clients (fw#2625, fw#2630). The id still labels the process in the
+`app.started` event and keys the cursor row of any consumer that opts into
+`delivery: "per-instance"`. Without a stable id the server generates a random one
+per boot, logs a warning, and such a consumer leaves an orphaned cursor row
+behind on every restart that pins event pruning.
+
 ## Local dev stack
 
 `docker-compose.yml` starts the full stack (Postgres, Redis, Meilisearch,
