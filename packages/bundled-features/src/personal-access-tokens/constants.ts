@@ -32,6 +32,7 @@ export const PatHandlers = {
 export const PatQueries = {
   mine: "personal-access-tokens:query:mine",
   availableScopes: "personal-access-tokens:query:available-scopes",
+  availability: "personal-access-tokens:query:availability",
 } as const;
 
 // Only the first chars of a minted token are stored (alongside the hash) so the

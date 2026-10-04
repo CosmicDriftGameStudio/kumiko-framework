@@ -11,6 +11,7 @@ import {
   PAT_FEATURE,
   type PatRateLimit,
 } from "./constants.js";
+import { availabilityQuery } from "./handlers/availability.query.js";
 import { buildAvailableScopesQuery } from "./handlers/available-scopes.query.js";
 import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write.js";
 import { listPatQuery } from "./handlers/list.query.js";
@@ -65,6 +66,10 @@ export type PersonalAccessTokensOptions = {
    *  { default: false } for fail-closed gating (feature off until a tier grants
    *  it). Omit to keep PAT always-on (default). */
   readonly toggleable?: { readonly default: boolean };
+  /** Screen (same-feature id or `<feature>:screen:<id>`, must not be gated itself)
+   *  shown in place of the token screens when the tenant's tier excludes the
+   *  feature, e.g. an upgrade notice. Default: the standard "unavailable" notice. */
+  readonly lockedFallbackScreen?: string;
   // Opt-in MFA re-auth gate for minting a token — wired via
   // mfaVerifierFromFeature (auth-mfa/feature.ts) at app-composition time. No
   // hard dependency on the optional auth-mfa feature.
@@ -161,13 +166,16 @@ export function createPersonalAccessTokensFeature(
     };
     const queries = {
       mine: r.queryHandler(listPatQuery),
+      availability: r.queryHandler(availabilityQuery),
       availableScopes: r.queryHandler(buildAvailableScopesQuery(scopes)),
     };
 
     // Declarative screens — list-with-revoke + mint-with-reveal. The app
     // places `patListScreen` via r.nav in its logged-in settings area.
-    r.screen(patListScreen);
-    r.screen(createPatMintScreen(scopes));
+    const lockedFallback =
+      options.lockedFallbackScreen === undefined ? {} : { fallback: options.lockedFallbackScreen };
+    r.screen({ ...patListScreen, ...lockedFallback });
+    r.screen({ ...createPatMintScreen(scopes), ...lockedFallback });
     r.translations({ keys: { ...PAT_FEATURE_I18N, ...patScopeOptionTranslations(scopes) } });
 
     // rateLimit flows into feature.exports so run-prod-app builds the
