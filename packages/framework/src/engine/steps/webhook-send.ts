@@ -3,7 +3,9 @@
 //
 // Writes a `kumiko:step:dispatch-requested` event onto a fresh step-dispatch
 // stream in the current TX. The step-dispatcher subscription (bundled-feature
-// `step-dispatcher`) reads after COMMIT and performs the fetch with retry.
+// `step-dispatcher`) reads after COMMIT and performs one fetch per request;
+// a repeat only happens when the consumer redelivers the event, under the
+// same Idempotency-Key.
 
 import { randomUUID } from "node:crypto";
 import { defineStep } from "../define-step.js";
@@ -29,7 +31,6 @@ type WebhookSendArgs = {
   readonly body?: StepResolver<unknown>;
   readonly auth?: WebhookAuth;
   readonly mode: "deferred";
-  readonly retry?: { readonly times: number; readonly backoff: "exponential" | "linear" };
 };
 
 defineStep<WebhookSendArgs, void>({
@@ -52,7 +53,6 @@ defineStep<WebhookSendArgs, void>({
         headersJson: JSON.stringify(headers),
         ...(body !== undefined && { bodyJson: JSON.stringify(body) }),
         ...(args.auth && { auth: args.auth }),
-        retry: args.retry ?? { times: 3, backoff: "exponential" },
       },
     });
   },

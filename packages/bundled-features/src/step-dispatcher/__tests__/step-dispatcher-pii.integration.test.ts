@@ -20,7 +20,7 @@ import {
   defineWriteHandler,
   stepsPipeline,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { append, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   resetEventStore,
@@ -28,6 +28,7 @@ import {
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { createSecretsFeature } from "../../secrets/index.js";
 import {
@@ -328,5 +329,31 @@ describe("step-dispatcher payload crypto-shredding", () => {
     );
     expect(first).toBe((await requestedRow()).aggregateId);
     expect(second).toBe(first);
+  });
+
+  test("webhook.send: a stored request that still carries the removed retry field is delivered once", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    await append(stack.db, {
+      aggregateId: generateId(),
+      aggregateType: "step-dispatch",
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type: DISPATCH_REQUESTED,
+      payload: {
+        stepKind: "webhook.send",
+        url: "https://hooks.example/legacy",
+        method: "POST",
+        headersJson: "{}",
+        bodyJson: JSON.stringify({ legacy: true }),
+        retry: { times: 3, backoff: "exponential" },
+      },
+      metadata: { userId: admin.id },
+    });
+    await drain();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://hooks.example/legacy");
+    expect(await eventsOfType(DISPATCHED)).toHaveLength(1);
+    expect(await eventsOfType(DISPATCH_FAILED)).toHaveLength(0);
   });
 });

@@ -349,7 +349,6 @@ export type StepNamespace = {
         | { readonly kind: "bearer"; readonly secret: string }
         | { readonly kind: "header"; readonly name: string; readonly secret: string };
       readonly mode: "deferred";
-      readonly retry?: { readonly times: number; readonly backoff: "exponential" | "linear" };
     }) => StepInstance;
   };
   readonly mail: {

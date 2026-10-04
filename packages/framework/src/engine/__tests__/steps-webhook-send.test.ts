@@ -33,18 +33,16 @@ describe("buildWebhookSendStep", () => {
     expect((step.args as { mode: string }).mode).toBe("deferred");
   });
 
-  it("accepts optional method, headers, body, auth, retry", () => {
+  it("accepts optional method, headers, body, auth", () => {
     const step = buildWebhookSendStep({
       url: "https://hooks.example/test",
       method: "PUT",
       headers: { "X-Custom": "val" },
       body: { event: "test" },
       auth: { kind: "bearer", secret: "MY_SECRET" },
-      retry: { times: 5, backoff: "linear" },
       mode: "deferred",
     });
     expect((step.args as { method: string }).method).toBe("PUT");
-    expect((step.args as { retry: { times: number } }).retry.times).toBe(5);
   });
 });
 
@@ -113,13 +111,13 @@ describe("webhook.send run", () => {
     expect(eventArg.payload.method).toBe("POST");
   });
 
-  it("defaults retry to 3x exponential when not specified", async () => {
+  it("writes no retry field into the payload", async () => {
     const stepDef = getStep("webhook.send");
 
     await stepDef!.run({ url: "https://hooks.example/test", mode: "deferred" }, mockCtx);
 
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
-    expect(eventArg.payload.retry).toEqual({ times: 3, backoff: "exponential" });
+    expect(eventArg.payload).not.toHaveProperty("retry");
   });
 
   it("omits bodyJson when no body is given", async () => {

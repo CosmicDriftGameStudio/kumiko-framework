@@ -62,7 +62,6 @@ const dispatchRequestedPayloadSchema = z.discriminatedUnion("stepKind", [
     headersJson: z.string(),
     bodyJson: z.string().optional(),
     auth: webhookSpecSchema.shape.auth,
-    retry: z.object({ times: z.number(), backoff: z.enum(["exponential", "linear"]) }).optional(),
   }),
   z.object({
     stepKind: z.literal("mail.send"),
