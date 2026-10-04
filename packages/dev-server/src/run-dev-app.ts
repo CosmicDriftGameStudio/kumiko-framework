@@ -165,6 +165,9 @@ export type RunDevAppAuthOptions = {
   /** Domain attribute for both auth cookies (see
    *  AuthRoutesConfig.cookieDomain). Symmetric to RunProdAppAuthOptions. */
   readonly cookieDomain?: string;
+  /** Former cookie domains cleared on login/logout (see
+   *  AuthRoutesConfig.retiredCookieDomains). */
+  readonly retiredCookieDomains?: readonly string[];
   /** Server-side Origin allowlist for the CSRF guard (see
    *  AuthRoutesConfig.allowedOrigins). Symmetric to RunProdAppAuthOptions —
    *  required once `cookieDomain` is set. */
@@ -537,6 +540,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         },
         ...(effectiveAuth.cookieDomain !== undefined && {
           cookieDomain: effectiveAuth.cookieDomain,
+        }),
+        ...(effectiveAuth.retiredCookieDomains !== undefined && {
+          retiredCookieDomains: effectiveAuth.retiredCookieDomains,
         }),
         ...(effectiveAuth.allowedOrigins !== undefined && {
           allowedOrigins: effectiveAuth.allowedOrigins,

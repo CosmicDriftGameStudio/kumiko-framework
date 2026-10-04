@@ -1267,6 +1267,32 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
   });
 });
 
+describe("runProdApp — auth retiredCookieDomains forwarding", () => {
+  test("retiredCookieDomains reaches createAuthRoutes — its boot validation rejects an entry equal to cookieDomain", async () => {
+    await expect(
+      boot(undefined, {
+        features: [
+          authFoundationFeature,
+          createPersonalAccessTokensFeature({ scopes: {} }),
+          createSessionsFeature(),
+        ],
+        auth: {
+          admin: {
+            email: "retired-cookie@example.eu",
+            password: "test-pw-strong-1234",
+            displayName: "Admin",
+            memberships: [],
+          },
+          cookieDomain: "example.eu",
+          retiredCookieDomains: ["example.eu"],
+          allowedOrigins: ["https://app.example.eu"],
+        },
+        allowPlaintextPii: "test: retired-cookie focus, not crypto",
+      }),
+    ).rejects.toThrow(/retiredCookieDomains entry "example.eu" equals cookieDomain/);
+  });
+});
+
 describe("runProdApp — session boot gate (#1262/#1275)", () => {
   const ADMIN = {
     email: "session-gate@example.eu",
