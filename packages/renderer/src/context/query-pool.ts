@@ -30,10 +30,11 @@ export function createQueryPools(): QueryPools {
     let released = false;
     return {
       release: () => {
-        if (released) return;
-        released = true;
-        pool.running -= 1;
-        drain(name, pool);
+        if (!released) {
+          released = true;
+          pool.running -= 1;
+          drain(name, pool);
+        }
       },
     };
   };
