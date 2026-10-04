@@ -2,6 +2,7 @@ import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  DeliveryErrorCode,
   EscapeHatchAuditSink,
   NotifyDelivery,
   NotifyJobDispatcher,
@@ -10,12 +11,13 @@ import type {
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
-import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
+import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
+import { redactErrorText } from "../shared/index.js";
 import { hashUnsubscribeAddress } from "./address-opt-out.js";
 import { appendAttemptEvent, logAttempt } from "./attempt-log.js";
 import { buildChannelContext } from "./channel-context.js";
@@ -25,11 +27,17 @@ import { selectNotificationPreferences } from "./db/queries/preferences.js";
 import {
   type ChannelContext,
   type ChannelMessage,
+  type ChannelResult,
   type DeliveryChannel,
   type DeliveryLogEntry,
   type DeliveryService,
   isDeliveryChannelPlugin,
+  type RenderedMessage,
 } from "./types.js";
+
+export function redactedMessageOf(err: unknown): string {
+  return redactErrorText(err instanceof Error ? err.message : String(err));
+}
 
 export type RateLimitConfig = {
   readonly redis: Redis;
@@ -99,6 +107,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     log,
   } = options;
   const idemRedis = idempotencyRedis ?? rateLimit?.redis;
+  const logError = createFallbackLogger("delivery", log);
 
   // Rate limit check: atomic INCR + TTL + over-limit rollback via server-side
   // Lua. Runs single-threaded in Redis, so two parallel clients can't both
@@ -226,12 +235,14 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     run: NotifyRun,
     entry: DeliveryLogEntry,
     deliveryAttemptId: string,
+    confirmed?: false,
   ): void {
     run.deliveries.push({
       channel: entry.channel,
       recipientId: entry.recipientId,
       status: entry.status,
       error: entry.error,
+      ...(confirmed === false && { confirmed }),
       deliveryAttemptId,
     });
   }
@@ -239,9 +250,43 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   // Single-shot terminal log (inline channels, skips, idempotency dups). Async
   // attempts instead append a queued event up front and a terminal event from
   // the send job — see deliverViaChannel + jobs.ts.
-  async function logDelivery(run: NotifyRun, entry: DeliveryLogEntry): Promise<void> {
+  async function logDelivery(
+    run: NotifyRun,
+    entry: DeliveryLogEntry,
+    confirmed?: false,
+  ): Promise<void> {
     const attemptId = await logAttempt(db, registry, entry);
-    recordDelivery(run, entry, attemptId);
+    recordDelivery(run, entry, attemptId, confirmed);
+  }
+
+  // The stored/returned error is only the code; the redacted message goes to the log.
+  async function logInlineFailure(
+    run: NotifyRun,
+    args: {
+      readonly channel: DeliveryChannel;
+      readonly address: string;
+      readonly tenantId: TenantId;
+      readonly recipientId: string | null;
+      readonly notificationType: string;
+      readonly priority: NotifyPriority;
+    },
+    code: DeliveryErrorCode,
+    err: unknown,
+  ): Promise<void> {
+    logError.error(`${args.channel.name} ${code}: ${redactedMessageOf(err)}`, {
+      notificationType: args.notificationType,
+      channel: args.channel.name,
+    });
+    await logDelivery(run, {
+      tenantId: args.tenantId,
+      notificationType: args.notificationType,
+      channel: args.channel.name,
+      recipientId: args.recipientId,
+      recipientAddress: args.address,
+      status: "failed",
+      error: code,
+      priority: args.priority,
+    });
   }
 
   // Deliver one resolved (channel, address) pair. Inline channels (inApp) and
@@ -305,18 +350,38 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       recordDelivery(run, queuedEntry, deliveryAttemptId);
     } else {
       // Inline (inApp) or no-job-runner fallback: render + send synchronously.
-      const rendered = channel.render ? await channel.render(message, channelCtx) : undefined;
-      const result = await channel.send(address, message, channelCtx, rendered);
-      await logDelivery(run, {
-        tenantId,
-        notificationType,
-        channel: channel.name,
-        recipientId,
-        recipientAddress: result.address ?? address,
-        status: result.status,
-        error: result.error ?? null,
-        priority,
-      });
+      let rendered: RenderedMessage | undefined;
+      if (channel.render) {
+        try {
+          rendered = await channel.render(message, channelCtx);
+        } catch (err) {
+          await logInlineFailure(run, args, "render_failed", err);
+          // skip: logInlineFailure recorded and logged the failure
+          return;
+        }
+      }
+      let result: ChannelResult;
+      try {
+        result = await channel.send(address, message, channelCtx, rendered);
+      } catch (err) {
+        await logInlineFailure(run, args, "send_failed", err);
+        // skip: logInlineFailure recorded and logged the failure
+        return;
+      }
+      await logDelivery(
+        run,
+        {
+          tenantId,
+          notificationType,
+          channel: channel.name,
+          recipientId,
+          recipientAddress: result.address ?? address,
+          status: result.status,
+          error: result.error ?? null,
+          priority,
+        },
+        result.confirmed,
+      );
     }
   }
 
@@ -517,6 +582,10 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           priority,
         });
       } catch (err) {
+        logError.error(`${channel.name} channel_error: ${redactedMessageOf(err)}`, {
+          notificationType,
+          channel: channel.name,
+        });
         await logDelivery(run, {
           tenantId,
           notificationType,
@@ -524,7 +593,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           recipientId: userId,
           recipientAddress: null,
           status: "failed",
-          error: err instanceof Error ? err.message : String(err),
+          error: "channel_error",
           priority,
         });
       }
@@ -599,6 +668,10 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           priority,
         });
       } catch (err) {
+        logError.error(`${channel.name} channel_error: ${redactedMessageOf(err)}`, {
+          notificationType,
+          channel: channel.name,
+        });
         await logDelivery(run, {
           tenantId,
           notificationType,
@@ -606,7 +679,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           recipientId,
           recipientAddress: address,
           status: "failed",
-          error: err instanceof Error ? err.message : String(err),
+          error: "channel_error",
           priority,
         });
       }

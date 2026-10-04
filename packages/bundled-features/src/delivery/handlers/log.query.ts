@@ -2,7 +2,9 @@ import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-
 import { decodeKeysetCursor, encodeKeysetCursor } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
+  type DeliveryErrorCode,
   definePagedQueryHandler,
+  isDeliveryErrorCode,
   MAX_LIST_LIMIT,
   type NotifyPriority,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -21,10 +23,16 @@ type DeliveryLogRow = {
   recipientId: string | null;
   recipientAddress: string | null;
   status: DeliveryStatusValue;
+  // Legacy rows may hold free text; the handler masks those on the way out.
   error: string | null;
   priority: NotifyPriority;
   createdAt: Temporal.Instant;
 };
+
+function toClientError(stored: string | null): DeliveryErrorCode | null {
+  if (stored === null) return null;
+  return isDeliveryErrorCode(stored) ? stored : "channel_error";
+}
 
 // Sort whitelist keyed by the DISPLAY field the client actually sends: the
 // declarative projectionList renderer marks every listed column uniformly
@@ -166,7 +174,7 @@ export const logQuery = definePagedQueryHandler({
               ? await decryptStoredPii(row.recipientAddress, "recipientAddress", "delivery-log")
               : row.recipientAddress,
           status: row.status,
-          error: row.error,
+          error: toClientError(row.error),
           priority: row.priority,
           createdAt: row.createdAt,
         })),

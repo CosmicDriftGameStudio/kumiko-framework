@@ -10,6 +10,7 @@ export {
   type ChatSendFailureCode,
   type ChatSendResult,
   type ChatWebhookRequest,
+  type ChatWebhookResponse,
   type ChatWebhookTarget,
   chatConnectionNameSchema,
   chatWebhookUrlSchema,
@@ -38,6 +39,7 @@ export {
   type RateLimitConfig,
 } from "./delivery-service.js";
 export { createDeliveryFeature, type DeliveryFeatureOptions } from "./feature.js";
+export { createDeliveryNotifyFactory } from "./notify-factory.js";
 export {
   deliveryAttemptsTable,
   notificationAddressOptOutEntity,

@@ -1411,7 +1411,7 @@ describe("flow 12d: channel error paths", () => {
     const emails = emailTransport.sent.filter((e) => e.to === testEmail(user1.id));
     expect(emails.length).toBe(0);
 
-    // Log shows the failure with the original error string
+    // Log shows the failure as a code, never the transport's message
     const failedLogs = await selectMany(db, deliveryAttemptsTable, {
       notificationType: "app:notify:order-assigned",
       recipientId: user1.id,
@@ -1419,7 +1419,7 @@ describe("flow 12d: channel error paths", () => {
       status: "failed",
     });
     expect(failedLogs.length).toBeGreaterThanOrEqual(1);
-    expect(failedLogs.at(-1)?.["error"]).toContain("smtp_timeout_simulated");
+    expect(failedLogs.at(-1)?.["error"]).toBe("send_failed");
 
     // Other channels still work — one failure does not poison the rest
     const inAppNotifs = stack.events.sse.filter((e) => e.type === "channel-in-app:event:delivered");
@@ -1449,7 +1449,7 @@ describe("flow 12d: channel error paths", () => {
       notificationType: "app:notify:announcement",
       channel: "email",
       status: "failed",
-      error: "smtp_transient",
+      error: "send_failed",
     });
     expect(failedLogs.length).toBe(1);
   });
@@ -1929,6 +1929,7 @@ describe("flow 17: async render→send pipeline", () => {
 
   test("delivery.render on a channel without a render step records failed and does not dispatch send", async () => {
     const { runner, dispatched } = makeStubRunner();
+    const logged: string[] = [];
     const attemptId = "00000000-0000-4000-8000-0000000000aa";
     await expect(
       deliveryRenderJob(
@@ -1942,22 +1943,61 @@ describe("flow 17: async render→send pipeline", () => {
           priority: "normal",
           message: { notificationType: "app:notify:render-isolation", title: "X" },
         },
-        // @cast-boundary test-seam — job throws before touching systemUser/log/write/queryAs
+        // @cast-boundary test-seam — job throws before touching systemUser/write/queryAs; log only receives the redacted failure
         {
           db,
           registry: stack.registry,
           jobRunner: runner,
+          log: { error: (msg: string) => logged.push(msg) },
           systemDb: makeSystemDb(admin.tenantId),
         } as unknown as JobContext,
       ),
-    ).rejects.toThrow(/no render step/);
+    ).rejects.toThrow(new Error("render_failed"));
 
     // No send dispatched, and the attempt is recorded as failed (not stuck queued).
     expect(dispatched).toHaveLength(0);
+    expect(logged.some((l) => l.includes("no render step"))).toBe(true);
     const rows = await selectMany(db, deliveryAttemptsTable, {
       notificationType: "app:notify:render-isolation",
     });
-    expect(rows.some((r) => r["status"] === "failed")).toBe(true);
+    expect(rows.some((r) => r["status"] === "failed" && r["error"] === "render_failed")).toBe(true);
+  });
+
+  test("delivery.render records channel_error when handing off to delivery.send fails", async () => {
+    const failingRunner = {
+      dispatch: async () => {
+        throw new Error("redis down at redis://user:secret@cache.internal:6379");
+      },
+    };
+    const logged: string[] = [];
+    await expect(
+      deliveryRenderJob(
+        {
+          channelName: "email",
+          address: testEmail(asyncRecipient),
+          tenantId: admin.tenantId,
+          recipientId: String(asyncRecipient),
+          notificationType: "app:notify:render-dispatch-fails",
+          deliveryAttemptId: "00000000-0000-4000-8000-0000000000dd",
+          priority: "normal",
+          message: { notificationType: "app:notify:render-dispatch-fails", title: "X" },
+        },
+        // @cast-boundary test-seam — only the fields the render job reads
+        {
+          db,
+          registry: stack.registry,
+          jobRunner: failingRunner,
+          log: { error: (msg: string) => logged.push(msg) },
+          systemDb: makeSystemDb(admin.tenantId),
+        } as unknown as JobContext,
+      ),
+    ).rejects.toThrow(new Error("channel_error"));
+
+    expect(logged.join("\n")).not.toContain("secret");
+    const rows = await selectMany(db, deliveryAttemptsTable, {
+      notificationType: "app:notify:render-dispatch-fails",
+    });
+    expect(rows.map((r) => r["error"])).toEqual(["channel_error"]);
   });
 
   // The regression this diff exists to prevent: a payload.tenantId that

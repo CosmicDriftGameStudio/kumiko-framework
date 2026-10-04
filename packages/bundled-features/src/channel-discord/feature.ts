@@ -47,6 +47,7 @@ export function createChannelDiscordFeature(
     });
 
     const channel = createDiscordChannel(options, webhooks.keyFor);
+    r.translations({ keys: { "delivery.channel.discord": { en: "Discord" } } });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, "discord", {
       mode: channel.mode,
       send: channel.send,

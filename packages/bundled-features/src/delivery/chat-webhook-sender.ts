@@ -1,21 +1,26 @@
+import type { ChatSendFailureCode } from "@cosmicdrift/kumiko-framework/engine";
 import { BlockedHostError, type EgressPolicy, egress } from "@cosmicdrift/kumiko-framework/http";
 import * as z from "zod";
 
 // Closed vocabulary: these codes (and nothing else) land in delivery_attempts.error.
 // Never err.message and never a provider response body — a fetch error can carry
 // the request URL, and the Telegram URL embeds the bot token.
-export type ChatSendFailureCode =
-  | `http_${number}`
-  | "timeout"
-  | "network_error"
-  | "redirect_blocked"
-  | "host_not_allowed"
-  | "missing_credentials"
-  | "invalid_address";
+export type { ChatSendFailureCode };
 
+// confirmed=false: the provider accepted the request but does not say whether the
+// message arrived (e.g. a 202 from a workflow endpoint).
 export type ChatSendResult =
-  | { readonly ok: true }
+  | { readonly ok: true; readonly confirmed: boolean }
   | { readonly ok: false; readonly code: ChatSendFailureCode };
+
+// What a classifier may look at on a 2xx answer. The body is never stored or logged.
+export type ChatWebhookResponse = {
+  readonly status: number;
+  // At most 64 bytes, UTF-8 decoded.
+  readBodyPrefix(): Promise<string>;
+};
+
+const MAX_BODY_PREFIX_BYTES = 64;
 
 export const DEFAULT_CHAT_TIMEOUT_MS = 10_000;
 
@@ -41,6 +46,8 @@ export type ChatWebhookRequest = ChatWebhookTarget & {
   readonly body: unknown;
   // Test seam; production always uses the policy-bound egress().
   readonly send?: (url: string, init: RequestInit) => Promise<Response>;
+  // Called for 2xx answers only. Default: every 2xx is a confirmed send.
+  readonly classifyResponse?: (response: ChatWebhookResponse) => Promise<ChatSendResult>;
 };
 
 // https targets are provider endpoints on public hosts: egress "external" adds
@@ -129,13 +136,52 @@ export async function postChatWebhook(request: ChatWebhookRequest): Promise<Chat
     return { ok: false, code: classifyFailure(err) };
   }
 
-  // Free the connection; the body is never read or stored.
-  await response.body?.cancel().catch(() => undefined);
-
   const { status } = response;
-  if (status >= 300 && status < 400) return { ok: false, code: "redirect_blocked" };
-  if (status >= 200 && status < 300) return { ok: true };
+  if (status >= 300 && status < 400) {
+    await response.body?.cancel().catch(() => undefined);
+    return { ok: false, code: "redirect_blocked" };
+  }
+  if (status >= 200 && status < 300) return classifySuccess(request, response);
+  await response.body?.cancel().catch(() => undefined);
   return { ok: false, code: `http_${status}` };
+}
+
+// The body is cancelled afterwards in every case, even when the classifier throws,
+// so the connection is freed and a large body is never read to the end.
+async function classifySuccess(
+  request: ChatWebhookRequest,
+  response: Response,
+): Promise<ChatSendResult> {
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  try {
+    if (!request.classifyResponse) return { ok: true, confirmed: true };
+    return await request.classifyResponse({
+      status: response.status,
+      async readBodyPrefix() {
+        reader ??= response.body?.getReader();
+        if (!reader) return "";
+        const chunks: Uint8Array[] = [];
+        let total = 0;
+        while (total < MAX_BODY_PREFIX_BYTES) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          total += value.length;
+        }
+        const joined = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) {
+          joined.set(chunk, offset);
+          offset += chunk.length;
+        }
+        return new TextDecoder().decode(joined.subarray(0, MAX_BODY_PREFIX_BYTES));
+      },
+    });
+  } catch (err) {
+    return { ok: false, code: classifyFailure(err) };
+  } finally {
+    await (reader ? reader.cancel() : response.body?.cancel())?.catch(() => undefined);
+  }
 }
 
 export function truncateChars(text: string, maxChars: number): string {

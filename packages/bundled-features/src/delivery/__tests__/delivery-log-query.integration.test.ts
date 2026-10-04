@@ -189,3 +189,40 @@ describe("delivery:query:log — field mapping", () => {
     expect(alpha).not.toHaveProperty("recipientAddress");
   });
 });
+
+describe("delivery:query:log — error masking", () => {
+  const legacyTenantId = testTenantId(703);
+  const legacyAdmin = createTestUser({ id: 703, roles: ["TenantAdmin"], tenantId: legacyTenantId });
+
+  test("a stored free-text error is delivered as channel_error; codes pass through", async () => {
+    await insertMany(stack.db, deliveryAttemptsTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: legacyTenantId,
+        notificationType: "logtest:legacy",
+        channel: "email",
+        status: "failed",
+        error: "send: POST https://hooks.example.com/services/SECRET123 failed",
+      },
+      {
+        id: crypto.randomUUID(),
+        tenantId: legacyTenantId,
+        notificationType: "logtest:coded",
+        channel: "slack",
+        status: "failed",
+        error: "http_500",
+      },
+    ]);
+
+    const result = await stack.http.queryOk<{ rows: readonly Record<string, unknown>[] }>(
+      DeliveryQueries.log,
+      { limit: 10 },
+      legacyAdmin,
+    );
+
+    const byType = new Map(result.rows.map((r) => [r["type"], r["error"]]));
+    expect(byType.get("logtest:legacy")).toBe("channel_error");
+    expect(byType.get("logtest:coded")).toBe("http_500");
+    expect(JSON.stringify(result)).not.toContain("SECRET123");
+  });
+});

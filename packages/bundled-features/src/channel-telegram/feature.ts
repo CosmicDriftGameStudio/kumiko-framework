@@ -33,6 +33,7 @@ export function createChannelTelegramFeature(
     });
 
     const channel = createTelegramChannel(options, botToken.name);
+    r.translations({ keys: { "delivery.channel.telegram": { en: "Telegram" } } });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, "telegram", {
       mode: channel.mode,
       send: channel.send,

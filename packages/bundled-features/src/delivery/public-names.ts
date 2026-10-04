@@ -33,6 +33,10 @@ export const DELIVERY_LOG_SCREEN_ID = "delivery-log" as const;
 // column — see `screen.columns[].renderer.react.__component` in feature.ts
 // and `deliveryClient()`'s `columnRenderers` map.
 export const DELIVERY_STATUS_CELL_COMPONENT = "DeliveryStatusCell" as const;
+export const DELIVERY_TYPE_CELL_COMPONENT = "DeliveryTypeCell" as const;
+export const DELIVERY_CHANNEL_CELL_COMPONENT = "DeliveryChannelCell" as const;
+export const DELIVERY_TIME_CELL_COMPONENT = "DeliveryTimeCell" as const;
+export const DELIVERY_ERROR_CELL_COMPONENT = "DeliveryErrorCell" as const;
 
 export const DeliveryErrors = {
   noRecipient: "delivery_no_recipient",
