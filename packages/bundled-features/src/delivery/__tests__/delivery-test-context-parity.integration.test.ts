@@ -59,7 +59,11 @@ const probeFeature = defineFeature("parity-probe", (r) => {
   );
 });
 
-async function buildStack(withJobs: boolean, stub: ProviderStub): Promise<TestStack> {
+// "enqueue-only" builds a runner without a consumer, so a queued job stays in the queue
+// until the test looks; a live "worker" consumer may already be sending by then.
+type StackJobs = "none" | "enqueue-only" | "worker";
+
+async function buildStack(jobs: StackJobs, stub: ProviderStub): Promise<TestStack> {
   resetPiiSubjectKmsForTests();
   const masterKeyProvider = createEnvMasterKeyProvider({
     env: {
@@ -77,7 +81,8 @@ async function buildStack(withJobs: boolean, stub: ProviderStub): Promise<TestSt
       probeFeature,
     ],
     masterKeyProvider,
-    ...(withJobs && { jobs: { consumerLane: "worker" } }),
+    ...(jobs === "enqueue-only" && { jobs: {} }),
+    ...(jobs === "worker" && { jobs: { consumerLane: "worker" } }),
     extraContext: (deps) => {
       const secrets = createSecretsContext({
         db: deps.db,
@@ -111,7 +116,7 @@ describe("createDeliveryTestContext without a job runner", () => {
 
   beforeAll(async () => {
     stub = startProviderStub();
-    stack = await buildStack(false, stub);
+    stack = await buildStack("none", stub);
   });
 
   afterAll(async () => {
@@ -133,13 +138,13 @@ describe("createDeliveryTestContext without a job runner", () => {
   });
 });
 
-describe("createDeliveryTestContext with a job runner on the stack", () => {
+describe("createDeliveryTestContext with an enqueue-only job runner", () => {
   let stub: ProviderStub;
   let stack: TestStack;
 
   beforeAll(async () => {
     stub = startProviderStub();
-    stack = await buildStack(true, stub);
+    stack = await buildStack("enqueue-only", stub);
   });
 
   afterAll(async () => {
@@ -147,7 +152,7 @@ describe("createDeliveryTestContext with a job runner on the stack", () => {
     await stack.cleanup();
   });
 
-  test("a queued channel is queued by ctx.notify and sent once the jobs ran", async () => {
+  test("a queued channel is queued by ctx.notify, not sent inline", async () => {
     await stack.http.writeOk(
       "parity-probe:write:ping",
       { notificationType: "app:notify:parity-queued" },
@@ -158,6 +163,29 @@ describe("createDeliveryTestContext with a job runner on the stack", () => {
       "queued",
     ]);
     expect(stub.hitsOn(WEBHOOK_PATH)).toHaveLength(0);
+  });
+});
+
+describe("createDeliveryTestContext with a job runner on the stack", () => {
+  let stub: ProviderStub;
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stub = startProviderStub();
+    stack = await buildStack("worker", stub);
+  });
+
+  afterAll(async () => {
+    stub.stop();
+    await stack.cleanup();
+  });
+
+  test("a queued channel is sent once the jobs ran", async () => {
+    await stack.http.writeOk(
+      "parity-probe:write:ping",
+      { notificationType: "app:notify:parity-queued" },
+      admin,
+    );
 
     await stack.drainJobs();
 
