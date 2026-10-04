@@ -1,5 +1,60 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.345.0
+
+### Minor Changes
+
+- cef5fa0: runProdApp records a `kumiko:system:app.started` event on every boot
+
+  Each start appends one event under the system tenant (stream type `app-instance`) with the app version, the instance id (`HOSTNAME`, else the OS hostname) and the start time. Set `KUMIKO_APP_VERSION` and optionally `KUMIKO_GIT_COMMIT` in the deployment; without a version the event records `"unknown"`. A failed write is logged and does not stop the boot. The framework exports `APP_STARTED_EVENT_TYPE` and `APP_INSTANCE_STREAM_TYPE` from `event-store`.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp records an app.started system event with version and instance on every boot
+  -->
+
+### Patch Changes
+
+- 07495cf: `invite-signup-complete` now applies the same MFA gate as `invite-accept-with-login`. The account is still created and the invitation accepted, but an invitee whose role requires MFA (for example an admin invitation under the `admins` policy) receives the MFA step instead of a session. Member invitations keep receiving a session directly.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: invite-signup-complete enforces the MFA gate before issuing a session
+  -->
+
+- 07495cf: `POST /auth/signup-confirm` now runs the login's MFA gate before it issues the first session. Self-signup makes the new user TenantAdmin of a fresh tenant, so under an MFA policy that covers admins the route used to hand out an admin session without a second factor. The account, the tenant and a bound handover claim are still created, but when the gate applies the route answers with the login contract (`mfaSetupRequired` plus `preauthSetupToken`, or `mfaRequired` plus `challengeToken`) and sets no cookies. `SignupCompleteScreen` then tells the user the account is active and sends them to sign in, where they set up the second factor. Without `mfaStatusChecker` nothing changes. Two exported types change shape: `SignupConfirmData` gains the two MFA variants, and `confirmSignup` now resolves to `SignupConfirmResult` with `kind: "signed-in"` (the previous `SignupConfirmSuccess` fields) or `kind: "mfa-pending"`. The handler and `invite-signup-complete` also run the gate before they delete the token, so an error in the MFA check leaves the link usable for a retry.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: signup-confirm enforces the MFA gate before issuing a session
+  -->
+
+- 07495cf: `POST /auth/switch-tenant` now runs the same MFA gate as login before it issues the new session. A user who is a plain member in one tenant and an admin in another can no longer reach an admin session without a second factor by switching. When the target tenant requires MFA the route answers with the login contract (`mfaRequired` plus `challengeToken`, or `mfaSetupRequired` plus `preauthSetupToken`) and sets no cookies. The gate runs in a new system-only handler, `auth-email-password:write:switch-tenant-mfa-gate`, which resolves the membership and roles itself; `runDevApp` and `runProdApp` wire it as `switchTenantMfaGateHandler` whenever auth-mfa is mounted.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: switch-tenant enforces the MFA gate before issuing a session
+  -->
+
+- c325eb2: A TenantDb rebuilt from `unsafeRaw()` runs custom projections again
+
+  `ctx.db.unsafeRaw()` used to return the bare connection unless a public-intake gate was active. A `createTenantDb(ctx.db.unsafeRaw(), …)` inside a handler, hook or job therefore lost the projection registry, and its writes skipped custom projections. `unsafeRaw()` now returns a runner bound to the registry (and the gate, if any) whenever one is present. The file routes pass the app registry to their TenantDbs, so file events reach custom projections as well.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: TenantDbs built from unsafeRaw() and file routes run custom projections
+  migration: |
+    `unsafeRaw()` on a dispatcher or job TenantDb now returns a proxy instead of the raw connection object. Code that compares the runner by identity with the raw connection must compare against the proxy instead. Standalone seeds that call createTenantDb on a raw connection still have no registry; seed through dispatcher.write. Code that re-ran custom projections by hand after such a write (on a reloaded event, not the returned one) must drop that call, or the projection applies twice. File upload and delete now run custom projections on fileRef events inside the same transaction, so a failing projection rolls the upload back like for any other entity.
+  -->
+
+  - @cosmicdrift/kumiko-http@0.345.0
+  - @cosmicdrift/kumiko-types@0.345.0
+
 ## 0.344.0
 
 ### Patch Changes

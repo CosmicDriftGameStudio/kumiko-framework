@@ -1,5 +1,49 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.345.0
+
+### Patch Changes
+
+- 07495cf: The `migrate-step.sh` that `kumiko-init-deploy` generates now reads `.env` before it picks the stack network. Before, a `COMPOSE_PROJECT_NAME` set only in `.env` was ignored and the script fell back to the directory name, so on a shared host it could run the migration against another app's network and Postgres. The project name, from `.env` or the directory, is lowercased and stripped to `[a-z0-9_-]` as Compose does, and the script still stops when the network does not exist. Regenerate the script in existing apps to pick this up.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: generated migrate-step.sh honours COMPOSE_PROJECT_NAME from .env
+  -->
+
+- c325eb2: Editing a client entry file hot-reloads instead of restarting the dev server
+
+  On macOS the recursive file watcher reports paths relative to the watched directory. A change to a client entry such as `client.tsx` or a custom-named entry was therefore classified as a server change and restarted the process. The watcher now resolves the path and treats every configured entry source file as hot-reload.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Client entry edits hot-reload instead of restarting
+  -->
+
+- 07495cf: `POST /auth/switch-tenant` now runs the same MFA gate as login before it issues the new session. A user who is a plain member in one tenant and an admin in another can no longer reach an admin session without a second factor by switching. When the target tenant requires MFA the route answers with the login contract (`mfaRequired` plus `challengeToken`, or `mfaSetupRequired` plus `preauthSetupToken`) and sets no cookies. The gate runs in a new system-only handler, `auth-email-password:write:switch-tenant-mfa-gate`, which resolves the membership and roles itself; `runDevApp` and `runProdApp` wire it as `switchTenantMfaGateHandler` whenever auth-mfa is mounted.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: switch-tenant enforces the MFA gate before issuing a session
+  -->
+
+- Updated dependencies [cef5fa0]
+- Updated dependencies [c325eb2]
+- Updated dependencies [07495cf]
+- Updated dependencies [07495cf]
+- Updated dependencies [07495cf]
+- Updated dependencies [c325eb2]
+- Updated dependencies [c325eb2]
+- Updated dependencies [db68d67]
+  - @cosmicdrift/kumiko-server-runtime@0.345.0
+  - @cosmicdrift/kumiko-framework@0.345.0
+  - @cosmicdrift/kumiko-bundled-features@0.345.0
+  - @cosmicdrift/kumiko-headless@0.345.0
+  - @cosmicdrift/kumiko-renderer-web@0.345.0
+
 ## 0.344.0
 
 ### Patch Changes

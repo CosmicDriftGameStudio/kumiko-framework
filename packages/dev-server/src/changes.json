@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.345.0",
+    "type": "fix",
+    "title": "generated migrate-step.sh honours COMPOSE_PROJECT_NAME from .env",
+    "detail": "The `migrate-step.sh` that `kumiko-init-deploy` generates now reads `.env` before it picks the stack network. Before, a `COMPOSE_PROJECT_NAME` set only in `.env` was ignored and the script fell back to the directory name, so on a shared host it could run the migration against another app's network and Postgres. The project name, from `.env` or the directory, is lowercased and stripped to `[a-z0-9_-]` as Compose does, and the script still stops when the network does not exist. Regenerate the script in existing apps to pick this up."
+  },
+  {
+    "version": "0.345.0",
+    "type": "fix",
+    "title": "Client entry edits hot-reload instead of restarting",
+    "detail": "Editing a client entry file hot-reloads instead of restarting the dev server\nOn macOS the recursive file watcher reports paths relative to the watched directory. A change to a client entry such as `client.tsx` or a custom-named entry was therefore classified as a server change and restarted the process. The watcher now resolves the path and treats every configured entry source file as hot-reload."
+  },
+  {
     "version": "0.341.0",
     "type": "improvement",
     "title": "buildServerBundle bundles bin/bootstrap.ts to dist-server/bootstrap.js when present"

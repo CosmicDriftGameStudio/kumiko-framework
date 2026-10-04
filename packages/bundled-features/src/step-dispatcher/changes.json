@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.345.0",
+    "type": "improvement",
+    "title": "Webhook sends carry an Idempotency-Key header that is stable across redeliveries",
+    "detail": "Webhook sends carry an Idempotency-Key header\nEvery `r.step.webhook.send` request now has `Idempotency-Key: <dispatch stream id>`. The value stays the same when the same dispatch request is delivered again, so receivers can deduplicate. An explicit `Idempotency-Key` in `headers` (any casing) takes precedence."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Webhook auth secret lookup failures become dispatch-failed events"

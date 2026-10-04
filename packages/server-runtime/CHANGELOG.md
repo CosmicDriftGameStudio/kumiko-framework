@@ -1,5 +1,42 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.345.0
+
+### Minor Changes
+
+- cef5fa0: runProdApp records a `kumiko:system:app.started` event on every boot
+
+  Each start appends one event under the system tenant (stream type `app-instance`) with the app version, the instance id (`HOSTNAME`, else the OS hostname) and the start time. Set `KUMIKO_APP_VERSION` and optionally `KUMIKO_GIT_COMMIT` in the deployment; without a version the event records `"unknown"`. A failed write is logged and does not stop the boot. The framework exports `APP_STARTED_EVENT_TYPE` and `APP_INSTANCE_STREAM_TYPE` from `event-store`.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runProdApp records an app.started system event with version and instance on every boot
+  -->
+
+### Patch Changes
+
+- 07495cf: `POST /auth/switch-tenant` now runs the same MFA gate as login before it issues the new session. A user who is a plain member in one tenant and an admin in another can no longer reach an admin session without a second factor by switching. When the target tenant requires MFA the route answers with the login contract (`mfaRequired` plus `challengeToken`, or `mfaSetupRequired` plus `preauthSetupToken`) and sets no cookies. The gate runs in a new system-only handler, `auth-email-password:write:switch-tenant-mfa-gate`, which resolves the membership and roles itself; `runDevApp` and `runProdApp` wire it as `switchTenantMfaGateHandler` whenever auth-mfa is mounted.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: switch-tenant enforces the MFA gate before issuing a session
+  -->
+
+- Updated dependencies [cef5fa0]
+- Updated dependencies [c325eb2]
+- Updated dependencies [07495cf]
+- Updated dependencies [07495cf]
+- Updated dependencies [07495cf]
+- Updated dependencies [c325eb2]
+- Updated dependencies [c325eb2]
+- Updated dependencies [db68d67]
+  - @cosmicdrift/kumiko-framework@0.345.0
+  - @cosmicdrift/kumiko-bundled-features@0.345.0
+  - @cosmicdrift/kumiko-headless@0.345.0
+  - @cosmicdrift/kumiko-renderer-web@0.345.0
+
 ## 0.344.0
 
 ### Patch Changes
