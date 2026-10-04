@@ -20,10 +20,7 @@ import {
   isLifecycleResult,
   wrapToKumiko,
 } from "./dispatcher-utils.js";
-import {
-  reserveBeforeTransaction,
-  runWithReservedHandlerTypes,
-} from "./pre-transaction-reservations.js";
+import { reserveBeforeTransaction, runAsCommand } from "./pre-transaction-reservations.js";
 import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.js";
 import { maskBatchResultForClient } from "./write-result-masking.js";
 
@@ -179,7 +176,15 @@ async function runBatchBody(
 
   // Reserve before the transaction opens so no extra connection is held while the handler tx is
   // open; the release below runs only after that tx has ended without committing.
-  const reservations = await reserveBeforeTransaction(ctx, commands, user, inheritedOrigin);
+  let reservations: Awaited<ReturnType<typeof reserveBeforeTransaction>>;
+  try {
+    reservations = await reserveBeforeTransaction(ctx, commands, user, inheritedOrigin);
+  } catch (e) {
+    return releaseOrFinalize(
+      { isSuccess: false, error: toWriteErrorInfo(wrapToKumiko(e)), failedIndex: 0, results },
+      true,
+    );
+  }
   if (!reservations.isSuccess) {
     return releaseOrFinalize(
       {
@@ -208,10 +213,20 @@ async function runBatchBody(
       );
       origins.push(origin);
       const hookStart = afterCommitHooks.length;
-      const res = await runWithReservedHandlerTypes(reservations.types, () =>
-        runWithWriteOrigin(origin, () =>
-          executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, undefined, afterCommitHooks),
-        ),
+      const res = await runAsCommand(
+        reservations.reservedIndexes.has(i) ? cmd.type : undefined,
+        () =>
+          runWithWriteOrigin(origin, () =>
+            executeNestedWrite(
+              ctx,
+              cmd.type,
+              cmd.payload,
+              user,
+              origin,
+              undefined,
+              afterCommitHooks,
+            ),
+          ),
       );
       rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
       results.push(res);
@@ -229,29 +244,31 @@ async function runBatchBody(
 
   let transactionCallbackCompleted = false;
   try {
-    await runWithReservedHandlerTypes(reservations.types, () =>
-      transaction(db, async (tx) => {
-        for (let i = 0; i < commands.length; i++) {
-          const cmd = commands[i];
-          if (!cmd) continue;
-          const origin = effectiveWriteOrigin(
-            rootWriteOrigin(ctx.registry, cmd.type, user),
-            inheritedOrigin,
-          );
-          origins.push(origin);
-          const hookStart = afterCommitHooks.length;
-          const res = await runWithWriteOrigin(origin, () =>
-            executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
-          );
-          rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
-          results.push(res);
-          if (!res.isSuccess) {
-            throw new BatchRollback(i, res.error);
-          }
+    await transaction(db, async (tx) => {
+      for (let i = 0; i < commands.length; i++) {
+        const cmd = commands[i];
+        if (!cmd) continue;
+        const origin = effectiveWriteOrigin(
+          rootWriteOrigin(ctx.registry, cmd.type, user),
+          inheritedOrigin,
+        );
+        origins.push(origin);
+        const hookStart = afterCommitHooks.length;
+        const res = await runAsCommand(
+          reservations.reservedIndexes.has(i) ? cmd.type : undefined,
+          () =>
+            runWithWriteOrigin(origin, () =>
+              executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
+            ),
+        );
+        rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
+        results.push(res);
+        if (!res.isSuccess) {
+          throw new BatchRollback(i, res.error);
         }
-        transactionCallbackCompleted = true;
-      }),
-    );
+      }
+      transactionCallbackCompleted = true;
+    });
   } catch (e) {
     // Rollback or failed COMMIT: the transaction is over, so the reserved capacity goes back.
     await reservations.releaseAll();

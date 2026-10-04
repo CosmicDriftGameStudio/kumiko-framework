@@ -709,6 +709,40 @@ describe("withCapEnforcement - atomic reservation", () => {
     expect(await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD)).toBeNull();
   });
 
+  test("one reservation covers one execution: a batch whose second command re-enters the capped handler is rejected and releases", async () => {
+    resetAtomicState("ok");
+    const user = tenantAdminOnlyFor(2708);
+
+    const response = await stack.http.batch(
+      [
+        { type: ATOMIC_QN, payload: {} },
+        { type: ATOMIC_NESTED_QN, payload: {} },
+      ],
+      user,
+    );
+
+    expect(response.status).toBe(500);
+    const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(row!["value"]).toBe(0);
+  });
+
+  test("a batch with the same capped handler twice reserves once per command", async () => {
+    resetAtomicState("ok");
+    const user = tenantAdminOnlyFor(2709);
+
+    const response = await stack.http.batch(
+      [
+        { type: ATOMIC_QN, payload: {} },
+        { type: ATOMIC_QN, payload: {} },
+      ],
+      user,
+    );
+
+    expect(response.status).toBe(200);
+    const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(row!["value"]).toBe(2);
+  });
+
   test("a failed COMMIT after a successful handler gives the reservation back", async () => {
     const user = tenantAdminOnlyFor(2706);
 

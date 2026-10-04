@@ -5,26 +5,31 @@ import type { SessionUser } from "../engine/types/index.js";
 import { isKumikoError, toWriteErrorInfo, type WriteErrorInfo } from "../errors/index.js";
 import { createFallbackLogger } from "../logging/utils.js";
 import type { BatchCommand, DispatchContext } from "./dispatch-shared.js";
-import { buildHandlerContext, checkFeatureEnabled } from "./dispatch-shared.js";
+import {
+  buildHandlerContext,
+  checkFeatureEnabled,
+  isMemberResolutionPrincipal,
+} from "./dispatch-shared.js";
 import type { WriteOrigin } from "./write-origin.js";
 import { effectiveWriteOrigin, rootWriteOrigin } from "./write-origin.js";
 
-// Handler types reserved by the top-level batch this async chain belongs to. A capped handler
-// reached any other way (nested ctx.write) cannot reserve before a transaction that is already open.
-const reservedHandlerTypes = new AsyncLocalStorage<ReadonlySet<string>>();
+// One-shot permission per top-level command: the handler that reserved before the transaction
+// consumes it on entry. A capped handler reached any other way (nested ctx.write, writeAs, a
+// second execution of the same type) finds it spent and is rejected instead of running unreserved.
+const reservedForCommand = new AsyncLocalStorage<Set<string>>();
 
-export function runWithReservedHandlerTypes<T>(types: ReadonlySet<string>, fn: () => Promise<T>) {
-  return reservedHandlerTypes.run(types, fn);
+export function runAsCommand<T>(reservedType: string | undefined, fn: () => Promise<T>) {
+  return reservedForCommand.run(new Set(reservedType === undefined ? [] : [reservedType]), fn);
 }
 
-export function isReservedBeforeTransaction(type: string): boolean {
-  return reservedHandlerTypes.getStore()?.has(type) === true;
+export function consumeReservation(type: string): boolean {
+  return reservedForCommand.getStore()?.delete(type) === true;
 }
 
 export type PreTransactionReservations =
   | {
       readonly isSuccess: true;
-      readonly types: ReadonlySet<string>;
+      readonly reservedIndexes: ReadonlySet<number>;
       releaseAll(): Promise<void>;
     }
   | { readonly isSuccess: false; readonly error: WriteErrorInfo; readonly failedIndex: number };
@@ -49,28 +54,31 @@ export async function reserveBeforeTransaction(
   inheritedOrigin: WriteOrigin | undefined,
 ): Promise<PreTransactionReservations> {
   const releases: ReservationRelease[] = [];
-  const types = new Set<string>();
+  const reservedIndexes = new Set<number>();
+
+  if (isMemberResolutionPrincipal(user))
+    return { isSuccess: true, reservedIndexes, releaseAll: async () => {} };
 
   for (const [index, command] of commands.entries()) {
-    const handler = ctx.registry.getWriteHandler(command.type);
-    if (!handler?.reserveBeforeTransaction) continue;
-    if (!hasAccess(user, handler.access)) continue;
-    if (await checkFeatureEnabled(ctx, command.type, user.tenantId)) continue;
-    const parsed = handler.schema.safeParse(command.payload);
-    if (!parsed.success) continue;
-
-    const origin = effectiveWriteOrigin(
-      rootWriteOrigin(ctx.registry, command.type, user),
-      inheritedOrigin,
-    );
     try {
+      const handler = ctx.registry.getWriteHandler(command.type);
+      if (!handler?.reserveBeforeTransaction) continue;
+      if (!hasAccess(user, handler.access)) continue;
+      if (await checkFeatureEnabled(ctx, command.type, user.tenantId)) continue;
+      const parsed = handler.schema.safeParse(command.payload);
+      if (!parsed.success) continue;
+
+      const origin = effectiveWriteOrigin(
+        rootWriteOrigin(ctx.registry, command.type, user),
+        inheritedOrigin,
+      );
       const handlerContext = await buildHandlerContext(ctx, command.type, user, origin);
       const release = await handler.reserveBeforeTransaction(
         { type: command.type, payload: parsed.data, user },
         handlerContext,
       );
       if (release) releases.push(release);
-      types.add(command.type);
+      reservedIndexes.add(index);
     } catch (error) {
       await releaseAll(ctx, releases);
       if (isKumikoError(error)) {
@@ -80,5 +88,5 @@ export async function reserveBeforeTransaction(
     }
   }
 
-  return { isSuccess: true, types, releaseAll: () => releaseAll(ctx, releases) };
+  return { isSuccess: true, reservedIndexes, releaseAll: () => releaseAll(ctx, releases) };
 }
