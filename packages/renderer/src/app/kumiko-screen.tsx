@@ -7,6 +7,7 @@ import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
+  DashboardPanelVisibility,
   DashboardScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -152,6 +153,8 @@ import {
 import { findEditScreenFor, navigateTargetAllows, screenAccessAllows } from "./screen-access.js";
 import { SecretMintBody } from "./secret-mint-body.js";
 import { SecretsEditBody } from "./secrets-edit-body.js";
+import { useEmbeddedScreen } from "./use-embedded-screen.js";
+import { evalVisibleWhen } from "./visible-when.js";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error.js";
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
@@ -241,13 +244,90 @@ export function KumikoScreen({
     );
   }
 
-  const body = renderScreenBody({ schema, screen, translate, entityId, onRowClick, onCopyLink });
+  const screenBody = renderScreenBody({
+    schema,
+    screen,
+    translate,
+    entityId,
+    onRowClick,
+    onCopyLink,
+  });
+  // Gate every entry (incl. direct URL): the body element is only mounted once the condition holds.
+  const body =
+    screen.visibleWhen !== undefined ? (
+      <ScreenVisibilityGate
+        featureName={schema.featureName}
+        visibleWhen={screen.visibleWhen}
+        fallback={screen.fallback}
+        translate={translate}
+      >
+        {screenBody}
+      </ScreenVisibilityGate>
+    ) : (
+      screenBody
+    );
   // An embedded screen (e.g. a dashboard panel) keeps its parent's host and
   // must not portal its page header into the shell that hosts the outer screen.
   if (outerHost !== undefined) {
     return <PageHeaderSlotAvailableProvider value={false}>{body}</PageHeaderSlotAvailableProvider>;
   }
   return <ReturnHostProvider value={ownHost}>{body}</ReturnHostProvider>;
+}
+
+function ScreenVisibilityGate({
+  featureName,
+  visibleWhen,
+  fallback,
+  translate,
+  children,
+}: {
+  readonly featureName: string;
+  readonly visibleWhen: DashboardPanelVisibility;
+  readonly fallback: string | undefined;
+  readonly translate?: Translate;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { Banner } = usePrimitives();
+  const t = useTranslation();
+  const result = useQuery<Readonly<Record<string, unknown>>>(visibleWhen.query, {}, { live: true });
+  const verdict = evalVisibleWhen(visibleWhen, result);
+  if (verdict === "visible") return children;
+  if (verdict === "loading") {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
+    );
+  }
+  if (fallback !== undefined) {
+    return <FallbackScreen featureName={featureName} fallback={fallback} translate={translate} />;
+  }
+  return (
+    <Banner padded variant="info" testId="kumiko-screen-unavailable">
+      {t("kumiko.screen.unavailable")}
+    </Banner>
+  );
+}
+
+function FallbackScreen({
+  featureName,
+  fallback,
+  translate,
+}: {
+  readonly featureName: string;
+  readonly fallback: string;
+  readonly translate?: Translate;
+}): ReactNode {
+  const target = useEmbeddedScreen(featureName, fallback);
+  const { Banner, Text } = usePrimitives();
+  if (target === undefined) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-not-found">
+        Screen not found: <Text variant="code">{fallback}</Text>
+      </Banner>
+    );
+  }
+  return <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />;
 }
 
 function renderScreenBody({

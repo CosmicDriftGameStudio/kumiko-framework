@@ -691,6 +691,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.dashboard.panel.error.retry": "Reintentar",
   "kumiko.dashboard.panel.error.title": "No se pudo cargar {label}",
   "kumiko.dashboard.time-range": "Período",
+  "kumiko.screen.unavailable": "Esta página no está disponible en este momento.",
   "kumiko.dashboard.today": "Hoy",
   "kumiko.dashboard.updated-at": "Actualizado {time}",
   "kumiko.dialog.cancel": "Cancelar",

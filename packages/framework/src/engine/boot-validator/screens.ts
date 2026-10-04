@@ -989,6 +989,58 @@ function validateRecordActionRedirect(
   }
 }
 
+function validateScreenVisibleWhen(
+  feature: FeatureDefinition,
+  screenId: string,
+  screen: ScreenDefinition,
+  allScreenQns: ReadonlySet<string>,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  const { visibleWhen, fallback } = screen;
+  const context = `[Feature ${feature.name}] Screen "${screenId}" (${screen.type})`;
+  if (visibleWhen === undefined && fallback !== undefined) {
+    throw new Error(`${context} declares fallback without visibleWhen.`);
+  }
+  if (visibleWhen !== undefined && (visibleWhen.query === "" || visibleWhen.field === "")) {
+    throw new Error(`${context} visibleWhen needs a non-empty query and field.`);
+  }
+  if (fallback !== undefined) {
+    validateScreenFallback(feature, screenId, screen.type, fallback, allScreenQns, featureMap);
+  }
+}
+
+function validateScreenFallback(
+  feature: FeatureDefinition,
+  screenId: string,
+  screenType: ScreenDefinition["type"],
+  fallback: string,
+  allScreenQns: ReadonlySet<string>,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  const context = `[Feature ${feature.name}] Screen "${screenId}" (${screenType})`;
+  validateScreenNavTarget(
+    feature.name,
+    screenId,
+    screenType,
+    "fallback",
+    fallback,
+    allScreenQns,
+    feature.screens,
+  );
+  const fallbackQn = resolveScreenTargetQn(feature.name, fallback);
+  if (fallbackQn === qualifyEntityName(feature.name, "screen", screenId)) {
+    throw new Error(`${context} fallback points at the screen itself.`);
+  }
+  // A gated fallback could hide in turn and chain or cycle (A→B→A); one hop keeps the
+  // runtime gate trivially terminating.
+  const [fallbackFeatureName = "", , fallbackShortId = ""] = fallbackQn.split(":");
+  if (featureMap.get(fallbackFeatureName)?.screens[fallbackShortId]?.visibleWhen !== undefined) {
+    throw new Error(
+      `${context} fallback "${fallback}" has its own visibleWhen; a fallback must always render.`,
+    );
+  }
+}
+
 function validateInlineFormNavTargets(
   feature: FeatureDefinition,
   screenId: string,
@@ -1448,6 +1500,7 @@ export function validateScreens(
   };
   for (const [screenId, screen] of Object.entries(feature.screens)) {
     validateScreenHasNavArea(feature, screenId, screen, featureMap);
+    validateScreenVisibleWhen(feature, screenId, screen, allScreenQns, featureMap);
     if (screen.type === "custom") {
       if (!screen.renderer.react && !screen.renderer.native) {
         throw new Error(

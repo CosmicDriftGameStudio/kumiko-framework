@@ -2,8 +2,8 @@ import type { ZodType } from "zod";
 import { isPagedQueryHandler } from "../define-handler.js";
 import { normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.js";
 import type {
+  DashboardPanelVisibility,
   DashboardScreenDefinition,
-  DashboardScreenPanel,
   DashboardStatPanel,
   EditLayout,
   FeatureDefinition,
@@ -294,21 +294,20 @@ function checkDashboardStatPanelFields(
 }
 
 // visibleWhen reads a flat record like stat panels; a typo'd field would hide
-// the panel forever without any message.
-function checkScreenPanelVisibleWhenField(
+// the panel or screen forever without any message.
+function checkVisibleWhenField(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
-  featureName: string,
-  screenId: string,
-  panel: DashboardScreenPanel,
+  visibleWhen: DashboardPanelVisibility | undefined,
+  owner: string,
 ): void {
-  // skip: panel is always visible, no field to check
-  if (panel.visibleWhen === undefined) return;
-  const { query, field } = panel.visibleWhen;
+  // skip: always visible, no field to check
+  if (visibleWhen === undefined) return;
+  const { query, field } = visibleWhen;
   checkFieldExists(
     getZodObjectShape(queryHandlers.get(query)?.outputSchema),
     field,
     () =>
-      `[Feature ${featureName}] Screen "${screenId}" (dashboard) screen-panel "${panel.id}" visibleWhen references field "${field}" which is not present in query "${query}"'s outputSchema.`,
+      `${owner} visibleWhen references field "${field}" which is not present in query "${query}"'s outputSchema.`,
   );
 }
 
@@ -326,7 +325,11 @@ function checkDashboardOutputFields(
         checkDashboardStatPanelFields(queryHandlers, featureName, screenId, stat);
       }
     } else if (panel.kind === "screen") {
-      checkScreenPanelVisibleWhenField(queryHandlers, featureName, screenId, panel);
+      checkVisibleWhenField(
+        queryHandlers,
+        panel.visibleWhen,
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) screen-panel "${panel.id}"`,
+      );
     } else if (panel.kind === "list") {
       const rowShape = resolveListRowShape(
         queryHandlers,
@@ -353,6 +356,11 @@ function checkScreenOutputColumns(
   screenId: string,
   screen: ScreenDefinition,
 ): void {
+  checkVisibleWhenField(
+    queryHandlers,
+    screen.visibleWhen,
+    `[Feature ${featureName}] Screen "${screenId}" (${screen.type})`,
+  );
   if (screen.type === "projectionList") {
     checkProjectionListOutputColumns(queryHandlers, featureName, screenId, screen);
   } else if (screen.type === "entityList") {

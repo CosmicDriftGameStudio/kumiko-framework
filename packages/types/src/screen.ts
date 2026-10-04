@@ -520,6 +520,10 @@ export type EntityListScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
+  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
+  readonly fallback?: string;
   readonly entity: string;
   /** Short screen id (same feature) the create button opens instead of the entity's default edit screen. */
   readonly createScreen?: string;
@@ -660,6 +664,10 @@ export type ProjectionListScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
+  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
+  readonly fallback?: string;
   readonly query: string;
   readonly columns: readonly ListColumnSpec[];
   readonly rowRenderer?: PlatformComponent;
@@ -779,6 +787,10 @@ export type ProjectionDetailScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
+  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
+  readonly fallback?: string;
   readonly query: string;
   /** Query output field whose value titles the page header (breadcrumb) when no `header` is set. */
   readonly recordTitleField?: string;
@@ -1056,6 +1068,10 @@ export type DashboardScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
+  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
+  readonly fallback?: string;
   readonly panels: readonly DashboardPanelDefinition[];
   readonly filter?: DashboardFilterDefinition;
   /** Segmented control in the toolbar; the value lives in URL search param
@@ -1435,6 +1451,10 @@ export type EntityEditScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
+  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
+  readonly fallback?: string;
   /** Derived by buildAppSchema from the navigate `params` targeting this
    *  screen — the only URL query keys the create form prefills. An authored
    *  value is overwritten. */
@@ -1547,6 +1567,10 @@ export type ActionFormScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
+  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
+  readonly fallback?: string;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
   /** Write-Handler-QN der bei Submit gerufen wird. Form-Object landet
@@ -1708,6 +1732,10 @@ export type SecretMintScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
+  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
+  readonly fallback?: string;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
   /** Write-handler QN dispatched on submit. */
@@ -1764,6 +1792,10 @@ export type CustomScreenDefinition = {
    *  triggering the diagnostic if it's missing. Also gates the
    *  boot-validator's nav-area check, same as `dormant` on other screens. */
   readonly dormant?: boolean;
+  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
+  readonly fallback?: string;
 };
 
 // --- configEdit ---
@@ -1812,6 +1844,10 @@ export type ConfigEditScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
+  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
+  readonly fallback?: string;
   /** scope für config:write:set Calls. Muss zur Scope-Deklaration der
    *  in `configKeys` referenzierten Keys passen — Boot-Validator
    *  prüft das gegen die Registry. */
@@ -1864,6 +1900,10 @@ export type SecretsEditScreenDefinition = {
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
+  /** Query-gated, also on direct URL access; unmet, failed or loading renders `fallback`. */
+  readonly visibleWhen?: DashboardPanelVisibility;
+  /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
+  readonly fallback?: string;
   /** field id -> qualified secret name (`<feature>:secret:<kebab>`). */
   readonly secretKeys: Readonly<Record<string, string>>;
   /** field id -> i18n key for the label. */

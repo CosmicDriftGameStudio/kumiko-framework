@@ -51,7 +51,12 @@ src/features/<name>/
   { query, field, eq }` blendet Panels nach einem flachen Query-Record ein
   (live, z.B. MFA aktivieren vs. deaktivieren über
   `auth-mfa:query:user-mfa:status`); ohne Zugriff auf den Ziel-Screen fällt
-  die Kachel weg. Beispiel Account-Security: `auth-mfa-enable` /
+  die Kachel weg. Jeder Screen-Typ trägt zusätzlich selbst `visibleWhen` (gleicher
+  Typ) plus optional `fallback` (Short-ID oder QN eines Screens); der Renderer
+  wertet die Bedingung vor dem Inhalt aus, auch beim Direktaufruf per URL. Lädt,
+  scheitert oder verfehlt die Query die Bedingung, erscheint nie der Inhalt,
+  sondern der Fallback bzw. ein Standardhinweis (`kumiko.screen.unavailable`).
+  Nur UI-Gate, die Durchsetzung bleibt in den Handlern. Beispiel Account-Security: `auth-mfa-enable` /
   `auth-mfa-disable` / `auth-mfa-regenerate-recovery` + `sessions:screen:my-sessions`
   (fw#2841).
 - **Screen-Refs gegen outputSchema validiert**: `projectionList`-Columns,
