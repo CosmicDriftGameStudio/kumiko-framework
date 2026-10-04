@@ -20,6 +20,7 @@ import * as z from "zod";
 import { createSecretsFeature } from "../feature.js";
 import { createSecretsContext } from "../secrets-context.js";
 import { tenantSecretsTable } from "../table.js";
+import { isInvalidSecretValueError } from "../write-gate.js";
 
 const INVALID_VALUE = "not-a-url";
 
@@ -101,5 +102,23 @@ describe("ctx.secrets.set (programmatic)", () => {
   test("stores a valid value", async () => {
     await secrets().set(systemAdmin.tenantId, urlKey?.name ?? "", "https://example.com/hook");
     expect(await secrets().has(systemAdmin.tenantId, urlKey?.name ?? "")).toBe(true);
+  });
+});
+
+describe("isInvalidSecretValueError", () => {
+  test("recognises the error ctx.secrets.set throws for an invalid value", async () => {
+    const err = await programmaticSecrets
+      .set(systemAdmin.tenantId, urlKey?.name ?? "", INVALID_VALUE)
+      .then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+    expect(isInvalidSecretValueError(err)).toBe(true);
+  });
+
+  test("does not recognise other validation errors or non-errors", () => {
+    expect(isInvalidSecretValueError(new ValidationError({ fields: [] }))).toBe(false);
+    expect(isInvalidSecretValueError("secrets.errors.invalidValue")).toBe(false);
+    expect(isInvalidSecretValueError(undefined)).toBe(false);
   });
 });

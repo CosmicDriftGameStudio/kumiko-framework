@@ -5,11 +5,13 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
+  isKumikoError,
   NotFoundError,
   ValidationError,
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { INVALID_SECRET_VALUE_CODE, SECRETS_ERROR_KEYS } from "./constants.js";
 
 // Fixed keys carry their definition (redact fn, writeRoles); namespace keys
 // only the namespace, which has no redact fn.
@@ -21,7 +23,7 @@ function unknownKeyFailure(key: string): SecretKeyWriteCheck {
   return {
     ok: false,
     failure: writeFailure(
-      new NotFoundError("secretKey", key, { i18nKey: "secrets.errors.unknownKey" }),
+      new NotFoundError("secretKey", key, { i18nKey: SECRETS_ERROR_KEYS.unknownKey }),
     ),
   };
 }
@@ -53,7 +55,7 @@ export function checkSecretKeyWrite(
       failure: writeFailure(
         new AccessDeniedError({
           message: "secret write access denied",
-          i18nKey: "secrets.errors.writeDenied",
+          i18nKey: SECRETS_ERROR_KEYS.writeDenied,
           details: { requiredRoles: writeRoles },
         }),
       ),
@@ -72,12 +74,22 @@ export function invalidSecretValueError(): ValidationError {
       fields: [
         {
           path: "value",
-          code: "invalid_secret_value",
-          i18nKey: "secrets.errors.invalidValue",
+          code: INVALID_SECRET_VALUE_CODE,
+          i18nKey: SECRETS_ERROR_KEYS.invalidValue,
         },
       ],
     },
-    { i18nKey: "secrets.errors.invalidValue" },
+    { i18nKey: SECRETS_ERROR_KEYS.invalidValue },
+  );
+}
+
+// Matches on the i18n key and error code rather than instanceof, which is fragile
+// when the error crosses a package boundary with a duplicated framework copy.
+export function isInvalidSecretValueError(err: unknown): err is ValidationError {
+  return (
+    isKumikoError(err) &&
+    err.code === "validation_error" &&
+    err.i18nKey === SECRETS_ERROR_KEYS.invalidValue
   );
 }
 
