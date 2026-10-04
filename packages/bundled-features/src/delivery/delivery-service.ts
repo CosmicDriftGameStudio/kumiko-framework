@@ -2,6 +2,8 @@ import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  DeliveryErrorCode,
+  DeliverySkipReason,
   EscapeHatchAuditSink,
   NotifyDelivery,
   NotifyJobDispatcher,
@@ -10,12 +12,13 @@ import type {
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
-import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
+import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
+import { redactErrorText } from "../shared/redact.js";
 import { hashUnsubscribeAddress } from "./address-opt-out.js";
 import { appendAttemptEvent, logAttempt } from "./attempt-log.js";
 import { buildChannelContext } from "./channel-context.js";
@@ -25,11 +28,26 @@ import { selectNotificationPreferences } from "./db/queries/preferences.js";
 import {
   type ChannelContext,
   type ChannelMessage,
+  type ChannelResult,
   type DeliveryChannel,
   type DeliveryLogEntry,
   type DeliveryService,
   isDeliveryChannelPlugin,
+  type RenderedMessage,
 } from "./types.js";
+
+const SKIP = {
+  channel_disabled: "channel_disabled",
+  preference_disabled: "preference_disabled",
+  rate_limited: "rate_limited",
+  no_address: "no_address",
+  unsubscribed: "unsubscribed",
+  duplicate_idempotency_key: "duplicate_idempotency_key",
+} as const satisfies Record<DeliverySkipReason, DeliverySkipReason>;
+
+export function redactedMessageOf(err: unknown): string {
+  return redactErrorText(err instanceof Error ? err.message : String(err));
+}
 
 export type RateLimitConfig = {
   readonly redis: Redis;
@@ -99,6 +117,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     log,
   } = options;
   const idemRedis = idempotencyRedis ?? rateLimit?.redis;
+  const logError = createFallbackLogger("delivery", log);
 
   // Rate limit check: atomic INCR + TTL + over-limit rollback via server-side
   // Lua. Runs single-threaded in Redis, so two parallel clients can't both
@@ -244,6 +263,36 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     recordDelivery(run, entry, attemptId);
   }
 
+  // The stored/returned error is only the code; the redacted message goes to the log.
+  async function logInlineFailure(
+    run: NotifyRun,
+    args: {
+      readonly channel: DeliveryChannel;
+      readonly address: string;
+      readonly tenantId: TenantId;
+      readonly recipientId: string | null;
+      readonly notificationType: string;
+      readonly priority: NotifyPriority;
+    },
+    code: DeliveryErrorCode,
+    err: unknown,
+  ): Promise<void> {
+    logError.error(`${args.channel.name} ${code}: ${redactedMessageOf(err)}`, {
+      notificationType: args.notificationType,
+      channel: args.channel.name,
+    });
+    await logDelivery(run, {
+      tenantId: args.tenantId,
+      notificationType: args.notificationType,
+      channel: args.channel.name,
+      recipientId: args.recipientId,
+      recipientAddress: args.address,
+      status: "failed",
+      error: code,
+      priority: args.priority,
+    });
+  }
+
   // Deliver one resolved (channel, address) pair. Inline channels (inApp) and
   // the no-job-runner fallback render + send synchronously and log the terminal
   // status. Queued channels (email/push) record a `queued` attempt up front and
@@ -305,8 +354,22 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       recordDelivery(run, queuedEntry, deliveryAttemptId);
     } else {
       // Inline (inApp) or no-job-runner fallback: render + send synchronously.
-      const rendered = channel.render ? await channel.render(message, channelCtx) : undefined;
-      const result = await channel.send(address, message, channelCtx, rendered);
+      let rendered: RenderedMessage | undefined;
+      if (channel.render) {
+        try {
+          rendered = await channel.render(message, channelCtx);
+        } catch (err) {
+          await logInlineFailure(run, args, "render_failed", err);
+          return;
+        }
+      }
+      let result: ChannelResult;
+      try {
+        result = await channel.send(address, message, channelCtx, rendered);
+      } catch (err) {
+        await logInlineFailure(run, args, "send_failed", err);
+        return;
+      }
       await logDelivery(run, {
         tenantId,
         notificationType,
@@ -429,7 +492,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: userId,
             recipientAddress: null,
             status: "skipped",
-            error: "channel_disabled",
+            error: SKIP.channel_disabled,
             priority,
           });
           continue;
@@ -447,7 +510,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: userId,
             recipientAddress: null,
             status: "skipped",
-            error: "preference_disabled",
+            error: SKIP.preference_disabled,
             priority,
           });
           continue;
@@ -465,7 +528,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: userId,
             recipientAddress: null,
             status: "skipped",
-            error: "rate_limited",
+            error: SKIP.rate_limited,
             priority,
           });
           continue;
@@ -482,7 +545,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: userId,
             recipientAddress: null,
             status: "skipped",
-            error: "no_address",
+            error: SKIP.no_address,
             priority,
           });
           continue;
@@ -499,7 +562,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: userId,
             recipientAddress: null,
             status: "skipped",
-            error: "unsubscribed",
+            error: SKIP.unsubscribed,
             priority,
           });
           continue;
@@ -517,6 +580,10 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           priority,
         });
       } catch (err) {
+        logError.error(`${channel.name} channel_error: ${redactedMessageOf(err)}`, {
+          notificationType,
+          channel: channel.name,
+        });
         await logDelivery(run, {
           tenantId,
           notificationType,
@@ -524,7 +591,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           recipientId: userId,
           recipientAddress: null,
           status: "failed",
-          error: err instanceof Error ? err.message : String(err),
+          error: "channel_error",
           priority,
         });
       }
@@ -563,7 +630,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           // The recipient withdrew — suppressed attempts must not keep recording the address.
           recipientAddress: null,
           status: "skipped",
-          error: "unsubscribed",
+          error: SKIP.unsubscribed,
           priority,
         });
         continue;
@@ -579,7 +646,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId,
             recipientAddress: address,
             status: "skipped",
-            error: "rate_limited",
+            error: SKIP.rate_limited,
             priority,
           });
           continue;
@@ -599,6 +666,10 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           priority,
         });
       } catch (err) {
+        logError.error(`${channel.name} channel_error: ${redactedMessageOf(err)}`, {
+          notificationType,
+          channel: channel.name,
+        });
         await logDelivery(run, {
           tenantId,
           notificationType,
@@ -606,7 +677,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           recipientId,
           recipientAddress: address,
           status: "failed",
-          error: err instanceof Error ? err.message : String(err),
+          error: "channel_error",
           priority,
         });
       }
@@ -633,7 +704,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             recipientId: options.recipientId ?? null,
             recipientAddress: null,
             status: "skipped",
-            error: "duplicate_idempotency_key",
+            error: SKIP.duplicate_idempotency_key,
             priority,
           });
           return { deliveries: run.deliveries };

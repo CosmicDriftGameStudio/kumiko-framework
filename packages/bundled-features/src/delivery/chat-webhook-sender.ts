@@ -1,17 +1,11 @@
+import type { ChatSendFailureCode } from "@cosmicdrift/kumiko-framework/engine";
 import { BlockedHostError, type EgressPolicy, egress } from "@cosmicdrift/kumiko-framework/http";
 import * as z from "zod";
 
 // Closed vocabulary: these codes (and nothing else) land in delivery_attempts.error.
 // Never err.message and never a provider response body — a fetch error can carry
 // the request URL, and the Telegram URL embeds the bot token.
-export type ChatSendFailureCode =
-  | `http_${number}`
-  | "timeout"
-  | "network_error"
-  | "redirect_blocked"
-  | "host_not_allowed"
-  | "missing_credentials"
-  | "invalid_address";
+export type { ChatSendFailureCode };
 
 export type ChatSendResult =
   | { readonly ok: true }

@@ -7,6 +7,7 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  DeliveryErrorCode,
   JobContext,
   JobHandlerFn,
   Registry,
@@ -18,7 +19,7 @@ import * as z from "zod";
 import { appendAttemptEvent } from "./attempt-log.js";
 import { buildChannelContext } from "./channel-context.js";
 import { DeliveryJobs, deliveryPriorityRank } from "./constants.js";
-import { collectChannels } from "./delivery-service.js";
+import { collectChannels, redactedMessageOf } from "./delivery-service.js";
 import type {
   ChannelMessage,
   DeliveryChannel,
@@ -90,7 +91,7 @@ function toMessage(p: RenderJobPayload): ChannelMessage {
 function entryFor(
   p: RenderJobPayload,
   status: DeliveryLogEntry["status"],
-  error: string | null,
+  error: DeliveryErrorCode | null,
   address: string | null,
 ): DeliveryLogEntry {
   return {
@@ -105,8 +106,28 @@ function entryFor(
   };
 }
 
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+// The job runner stores err.message in the run row and BullMQ, so the rethrown
+// error carries only the redacted text and no cause.
+async function failAttempt(
+  ctx: JobContext,
+  db: DbConnection,
+  registry: Registry,
+  p: RenderJobPayload,
+  code: DeliveryErrorCode,
+  err: unknown,
+): Promise<never> {
+  const message = redactedMessageOf(err);
+  ctx.log.error(`delivery.${p.channelName} ${code}: ${message}`, {
+    notificationType: p.notificationType,
+    channel: p.channelName,
+  });
+  await appendAttemptEvent(
+    db,
+    registry,
+    p.deliveryAttemptId,
+    entryFor(p, "failed", code, p.address),
+  );
+  throw new Error(`${code}: ${message}`);
 }
 
 // Render the message and hand off to delivery.send. On failure: record the
@@ -131,13 +152,7 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
       { priority: deliveryPriorityRank[p.priority] },
     );
   } catch (err) {
-    await appendAttemptEvent(
-      db,
-      registry,
-      p.deliveryAttemptId,
-      entryFor(p, "failed", `render: ${messageOf(err)}`, p.address),
-    );
-    throw err;
+    return failAttempt(ctx, db, registry, p, "render_failed", err);
   }
 };
 
@@ -160,12 +175,6 @@ export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
       entryFor(p, result.status, result.error ?? null, result.address ?? p.address),
     );
   } catch (err) {
-    await appendAttemptEvent(
-      db,
-      registry,
-      p.deliveryAttemptId,
-      entryFor(p, "failed", `send: ${messageOf(err)}`, p.address),
-    );
-    throw err;
+    return failAttempt(ctx, db, registry, p, "send_failed", err);
   }
 };

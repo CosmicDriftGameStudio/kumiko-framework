@@ -1411,7 +1411,7 @@ describe("flow 12d: channel error paths", () => {
     const emails = emailTransport.sent.filter((e) => e.to === testEmail(user1.id));
     expect(emails.length).toBe(0);
 
-    // Log shows the failure with the original error string
+    // Log shows the failure as a code, never the transport's message
     const failedLogs = await selectMany(db, deliveryAttemptsTable, {
       notificationType: "app:notify:order-assigned",
       recipientId: user1.id,
@@ -1419,7 +1419,7 @@ describe("flow 12d: channel error paths", () => {
       status: "failed",
     });
     expect(failedLogs.length).toBeGreaterThanOrEqual(1);
-    expect(failedLogs.at(-1)?.["error"]).toContain("smtp_timeout_simulated");
+    expect(failedLogs.at(-1)?.["error"]).toBe("send_failed");
 
     // Other channels still work — one failure does not poison the rest
     const inAppNotifs = stack.events.sse.filter((e) => e.type === "channel-in-app:event:delivered");
@@ -1449,7 +1449,7 @@ describe("flow 12d: channel error paths", () => {
       notificationType: "app:notify:announcement",
       channel: "email",
       status: "failed",
-      error: "smtp_transient",
+      error: "send_failed",
     });
     expect(failedLogs.length).toBe(1);
   });
@@ -1942,15 +1942,16 @@ describe("flow 17: async render→send pipeline", () => {
           priority: "normal",
           message: { notificationType: "app:notify:render-isolation", title: "X" },
         },
-        // @cast-boundary test-seam — job throws before touching systemUser/log/write/queryAs
+        // @cast-boundary test-seam — job throws before touching systemUser/write/queryAs; log only receives the redacted failure
         {
           db,
           registry: stack.registry,
           jobRunner: runner,
+          log: { error: () => undefined },
           systemDb: makeSystemDb(admin.tenantId),
         } as unknown as JobContext,
       ),
-    ).rejects.toThrow(/no render step/);
+    ).rejects.toThrow(/render_failed.*no render step/);
 
     // No send dispatched, and the attempt is recorded as failed (not stuck queued).
     expect(dispatched).toHaveLength(0);
