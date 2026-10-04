@@ -1,12 +1,9 @@
-// withCapEnforcement / withRollingCapEnforcement — handler-wrapper die
-// pre-call enforceCap-And-Notify + atomic reservation um den
-// gewrappten Handler legen.
+// withCapEnforcement / withRollingCapEnforcement: handler wrappers that put the
+// pre-call enforceCapAndMaybeNotify and a reservation around the wrapped handler.
 //
-// **Warum Wrapper statt manuelle Calls im Handler:**
-// Pattern-konsistenz. Wer einen cap-bedingten Handler schreibt,
-// darf nicht vergessen den enforce-pre-call, die Reservierung oder
-// den Release bei Fehlschlag zu machen. Wrapper macht das Pattern
-// explizit + co-located.
+// **Why a wrapper instead of manual calls in the handler:** a cap-bound handler
+// must not forget the enforce pre-call, the reservation or the release on failure;
+// the wrapper keeps the pattern explicit and co-located.
 //
 // **Calendar reservation:** commits in its own short transaction
 // (ctx.dbOutsideTransaction) BEFORE the handler, so it is NOT atomic
