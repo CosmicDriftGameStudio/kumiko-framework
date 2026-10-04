@@ -4,6 +4,7 @@ import type { JwtHelper } from "../api/jwt.js";
 import { buildServer } from "../api/server.js";
 import { createSseBroker, type SseBroker } from "../api/sse-broker.js";
 import type { PgClient } from "../db/connection.js";
+import { validateBoot, validateNavBootSubset } from "../engine/boot-validator/index.js";
 import { validateOwnershipBoot } from "../engine/boot-validator/ownership.js";
 import { createRegistry } from "../engine/registry.js";
 import type {
@@ -240,6 +241,10 @@ export type TestStackOptions = {
    *  Implied by `sharedRedisWith`; set it on the owner stack too, or its writes
    *  never reach the borrower. Without it the stack uses a process-local bus. */
   cacheSync?: boolean;
+  /** "full" runs the prod-boot validateBoot over `features` (screens and ref
+   *  entities across features included). Use it with the app's complete feature
+   *  composition; the default only checks what is safe on a feature subset. */
+  validateBoot?: "full";
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -261,6 +266,9 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // columns) and before the ephemeral DB/Redis exist, so a throw can't leak
   // a database that nothing will clean up.
   validateOwnershipBoot(options.features);
+  // Nav/workspace refs fail the prod boot too; the subset check tolerates refs into unmounted features.
+  validateNavBootSubset(options.features);
+  if (options.validateBoot === "full") validateBoot(options.features);
 
   // Forward db-name/persistent-flag through to createTestDb. The
   // defaults (undefined dbName, persistent:false) keep the legacy

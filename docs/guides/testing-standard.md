@@ -143,6 +143,16 @@ report more executable lines with zero hits, so unit line coverage reads
 lower without any test covering less. `scripts/coverage-badge.ts` filters
 all lcov inputs against `bunfig.ci.toml` itself.
 
+## Boot validation in test stacks
+
+`setupTestStack` checks nav, workspace and tree-action references of the mounted
+features, the same checks the prod boot runs. A reference into a feature that is
+not mounted is skipped, because tests usually mount a subset; a reference into a
+mounted feature that does not resolve throws. Screen and ref-entity checks span
+features and run only with `setupTestStack({ validateBoot: "full" })`. Every app
+should have one boot test that mounts the prod feature composition with
+`validateBoot: "full"`, so a broken screen fails in CI instead of at deploy.
+
 ## Timeouts and retries belong to the template
 
 `defineAppE2eConfig` owns timeouts, retries (always 0) and workers; no
