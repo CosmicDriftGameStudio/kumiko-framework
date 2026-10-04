@@ -476,6 +476,8 @@ describe("public pages", () => {
     );
     expect(limited.status).toBe(429);
     expect(await limited.text()).toContain("Too many requests");
+    // The five accepted confirms queued their mails; they must not land in the next test.
+    await stack.drainJobs();
   });
 });
 

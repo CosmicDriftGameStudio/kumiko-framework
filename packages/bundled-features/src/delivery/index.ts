@@ -38,6 +38,7 @@ export {
   type RateLimitConfig,
 } from "./delivery-service.js";
 export { createDeliveryFeature, type DeliveryFeatureOptions } from "./feature.js";
+export { createDeliveryNotifyFactory } from "./notify-factory.js";
 export {
   deliveryAttemptsTable,
   notificationAddressOptOutEntity,
