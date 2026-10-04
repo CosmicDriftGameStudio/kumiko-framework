@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.347.0",
+    "type": "fix",
+    "title": "Signup-confirm under an MFA policy returns the signup landing path and the activation screen forwards it to login as next",
+    "detail": "Signup with an MFA requirement keeps its landing path\nWhen the MFA policy asks for a factor at self-registration, `/auth/signup-confirm` now also returns the `landingPath` that `auth.postAuthLanding` resolves for the signup flow (including a claimed handover). `SignupCompleteScreen` passes it to the login link as `?next=`, so the login that follows can land where a signup without MFA would have."
+  },
+  {
     "version": "0.345.0",
     "type": "fix",
     "title": "invite-signup-complete enforces the MFA gate before issuing a session",

@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.347.0",
+    "type": "improvement",
+    "title": "actionForm successMessage names the chosen record's label after a successful submit",
+    "detail": "actionForm screens can confirm a submit with the chosen record\nA new `successMessage` i18n key on an `actionForm` screen shows a confirmation above the form after a successful submit, for screens that stay put (no `redirect`, not in a drawer). `{field}` placeholders take the submitted values, and a `reference` field shows the chosen record's label instead of its id. The tier-engine admin form uses it: \"Tier assigned: Acme → Pro\", so choosing the wrong tenant is visible right away. New i18n key: `tier-admin.success` (en/de/es). `RenderEdit`'s `onSubmit` receives the submitted values as a second argument."
+  },
+  {
+    "version": "0.347.0",
+    "type": "fix",
+    "title": "Switching between generated config screens no longer shows empty fields for stored values",
+    "detail": "Settings screens show their stored values after switching screens\nMoving from one generated settings screen to another kept the previous screen's form state, so the fields of the new screen rendered empty and a select showed no active option even though a tenant value was set. Each config and secrets screen now mounts its own form."
+  },
+  {
+    "version": "0.347.0",
+    "type": "fix",
+    "title": "The shell header drops the locked screen's breadcrumb while a visibleWhen fallback or notice is shown",
+    "detail": "A locked screen's fallback shows no breadcrumb\nWhen `visibleWhen` is unmet, the route still names the locked screen, so the shell header kept that screen's breadcrumb above the fallback or the unavailable notice. The gate now mounts `<PageHeader hideBreadcrumb />`, and the shell header drops the breadcrumb while it is mounted. Embedded screens (dashboard panels, drawers) are not affected."
+  },
+  {
     "version": "0.343.0",
     "type": "improvement",
     "title": "Screens take visibleWhen and fallback",

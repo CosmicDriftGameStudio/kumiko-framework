@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.347.0",
+    "type": "fix",
+    "title": "Webhook dispatch cancels the unread response body so a stalling receiver cannot hold the connection",
+    "detail": "Webhook dispatch releases the connection right after the status\nThe step-dispatcher only needs the response status, so it now cancels the unread response body instead of leaving the socket open until the 10 s request timeout fires."
+  },
+  {
     "version": "0.346.0",
     "type": "fix",
     "title": "A failed key erase no longer causes a second delivery of the same dispatch request",

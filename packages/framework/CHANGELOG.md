@@ -1,5 +1,53 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.347.0
+
+### Patch Changes
+
+- a35ad24: Dispatch routes answer 400 for unusable request bodies
+
+  `/api/write`, `/api/query`, `/api/command`, `/api/batch` and `/api/stream` return a validation error (400) for malformed JSON, a non-object body or a missing handler `type`. Before, those requests ended in an unclassified 500. `/api/auth/switch-tenant` treats a non-object body like a missing `tenantId`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Dispatch routes reject malformed or type-less request bodies with 400 instead of 500
+  -->
+
+- a35ad24: Boot warning and docs no longer claim SSE is per instance
+
+  The built-in SSE consumers share one cursor since fw#2625 and fw#2630. The missing-`KUMIKO_INSTANCE_ID` warning, the consumer-state comment and `docs/reference/infra-requirements.md` now say what the id is still for (the `app.started` event and per-instance consumers) and recommend the pod name.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Missing-instance-id warning and docs reflect shared SSE delivery and recommend the pod name
+  -->
+
+- a35ad24: Nested dispatches no longer charge a rate-limit bucket twice
+
+  A handler that calls `ctx.query`, `ctx.queryAs` or `ctx.write` into another handler with a limit on the same bucket (for example `per: "ip"`) used to cost two tokens per request. Each entry dispatch now charges a bucket once, and nested calls reuse that charge. Nested handlers that limit a different bucket are still limited, and every command of a batch still charges on its own. The public `/media` route had half its advertised limit because of this.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A request costs one rate-limit token per bucket even when the handler nests queryAs or ctx.query calls into handlers sharing that bucket
+  -->
+
+- 69c182c: Signup with an MFA requirement keeps its landing path
+
+  When the MFA policy asks for a factor at self-registration, `/auth/signup-confirm` now also returns the `landingPath` that `auth.postAuthLanding` resolves for the signup flow (including a claimed handover). `SignupCompleteScreen` passes it to the login link as `?next=`, so the login that follows can land where a signup without MFA would have.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Signup-confirm under an MFA policy returns the signup landing path and the activation screen forwards it to login as next
+  -->
+
+- Updated dependencies [a35ad24]
+  - @cosmicdrift/kumiko-types@0.347.0
+  - @cosmicdrift/kumiko-http@0.347.0
+
 ## 0.346.0
 
 ### Minor Changes
