@@ -2200,7 +2200,12 @@ function EntityListBody({
 
   const rowsQuery = useQuery<PagedRows>(queryType, queryPayload, { live: true });
 
+  // Facet counts come from their own queries, which a write leaves untouched.
+  const [facetCountRefreshNonce, setFacetCountRefreshNonce] = useState(0);
+  const refreshFacetCounts = useCallback(() => setFacetCountRefreshNonce((n) => n + 1), []);
+
   const refreshRowsAfterWrite = useCallback(async () => {
+    refreshFacetCounts();
     if (useInfinite) {
       setAccumulated([]);
       setCursor(undefined);
@@ -2208,7 +2213,7 @@ function EntityListBody({
       return;
     }
     await refetchAfterWrite(rowsQuery.refetch);
-  }, [useInfinite, rowsQuery.refetch]);
+  }, [useInfinite, rowsQuery.refetch, refreshFacetCounts]);
 
   // Infinite-Scroll: bei jedem erfolgreichen Result die rows appenden +
   // hasMore aus nextCursor ableiten. Live-Updates (postgres NOTIFY) und
@@ -2611,6 +2616,7 @@ function EntityListBody({
         queryType={queryType}
         queries={facetCountQueries}
         onCount={handleFacetCount}
+        refreshNonce={facetCountRefreshNonce}
       />
       <RenderList
         screen={screen}
@@ -2661,6 +2667,7 @@ function EntityListBody({
         onSuccess={() => {
           closeDrawer();
           invalidateExpansions();
+          refreshFacetCounts();
           void rowsQuery.refetch();
         }}
       />

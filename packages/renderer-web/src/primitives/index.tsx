@@ -11,6 +11,7 @@
 import type {
   FieldIconKey,
   IconKey,
+  RowActionDisplay,
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
@@ -1437,7 +1438,7 @@ function RowExpandToggle({
       type="button"
       variant="ghost"
       size="icon"
-      className="size-8 shrink-0"
+      className="size-8 shrink-0 max-md:size-11"
       aria-expanded={expanded}
       {...(expanded && { "aria-controls": controlsId })}
       aria-label={label}
@@ -1990,6 +1991,7 @@ function DefaultDataTable({
               actions={menuActions}
               mode={rowActionMode}
               rowIsLink={rowIsLink}
+              compact
             />
           </div>
         )}
@@ -2312,11 +2314,13 @@ function RowActionsCell({
   actions,
   mode = "adaptive",
   rowIsLink = false,
+  compact = false,
 }: {
   readonly row: ListRowViewModel;
   readonly actions: readonly DataTableRowAction[];
   readonly mode?: DataTableRowActionMode;
   readonly rowIsLink?: boolean;
+  readonly compact?: boolean;
 }): ReactNode {
   const visible = actions.filter((a) => a.isVisible === undefined || a.isVisible(row));
   if (visible.length === 0) return null;
@@ -2329,7 +2333,7 @@ function RowActionsCell({
     return (
       <div className="flex w-full items-center gap-1 justify-start">
         {visible.map((a) => (
-          <RowActionButton key={a.id} row={row} action={a} iconOnly={iconOnly} />
+          <RowActionButton key={a.id} row={row} action={a} iconOnly={iconOnly} compact={compact} />
         ))}
       </div>
     );
@@ -2340,7 +2344,7 @@ function RowActionsCell({
     return (
       <div className="inline-flex items-center gap-1 justify-end">
         {inline.map((a) => (
-          <RowActionButton key={a.id} row={row} action={a} />
+          <RowActionButton key={a.id} row={row} action={a} compact={compact} />
         ))}
         {rest.length > 0 && <RowActionsKebab row={row} actions={rest} />}
       </div>
@@ -2516,15 +2520,29 @@ function useRowActionTrigger(row: ListRowViewModel) {
   return { busy, triggerNow };
 }
 
+// An icon-only form without a resolvable icon would render an empty button.
+// `compact` is the narrow card layout, where "responsive" collapses to its icon.
+function effectiveRowActionDisplay(
+  display: RowActionDisplay | undefined,
+  hasIcon: boolean,
+  compact: boolean,
+): Exclude<RowActionDisplay, "responsive"> | undefined {
+  if (display === "responsive") return hasIcon && compact ? "icon" : "button";
+  if (display === "icon" && !hasIcon) return "link";
+  return display;
+}
+
 function RowActionButton({
   row,
   action,
   iconOnly = false,
   asLink = false,
+  compact = false,
 }: {
   readonly row: ListRowViewModel;
   readonly action: DataTableRowAction;
   readonly asLink?: boolean;
+  readonly compact?: boolean;
   /** Group-level collapse (see `shouldRenderActionsIconOnly`) — only takes
    *  effect when this action actually resolved an icon. */
   readonly iconOnly?: boolean;
@@ -2533,8 +2551,7 @@ function RowActionButton({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const resolvedIcon = actionIconFor(action.icon);
-  // "icon" without a resolvable icon would render an empty button.
-  const display = action.display === "icon" && resolvedIcon === undefined ? "link" : action.display;
+  const display = effectiveRowActionDisplay(action.display, resolvedIcon !== undefined, compact);
   const isBorderedButton = display === "button";
   const showIconOnly =
     display === "icon" || (display === undefined && iconOnly && resolvedIcon !== undefined);
@@ -2575,8 +2592,8 @@ function RowActionButton({
             ? "h-8 rounded-md px-3 font-medium max-md:h-11"
             : linkLike
               ? "h-7 rounded-md px-2.5 max-md:h-11"
-              : "h-8 rounded-sm",
-          showIconOnly ? "w-8" : !linkLike && !isBorderedButton && "px-2",
+              : "h-8 rounded-sm max-md:h-11",
+          showIconOnly ? "w-8 max-md:w-11" : !linkLike && !isBorderedButton && "px-2",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           "disabled:opacity-50 disabled:pointer-events-none",
           variantClass,

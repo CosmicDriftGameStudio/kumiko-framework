@@ -260,6 +260,56 @@ describe("rowActions kind:'drawer'", () => {
   });
 });
 
+describe("facet counts after a drawer write", () => {
+  test("a successful submit refetches the chip counts with the rows", async () => {
+    let written = false;
+    const statusEntity = {
+      fields: {
+        title: { type: "text", required: true },
+        status: { type: "select", options: ["open", "done"], filterable: true, required: false },
+      },
+    } as unknown as EntityDefinition;
+    const listScreen: EntityListScreenDefinition = {
+      id: "task-list",
+      type: "entityList",
+      entity: "task",
+      columns: ["title", "status"],
+      facets: { status: { display: "chips", showCounts: true } },
+      rowActions: [drawerAction],
+    };
+    const schema: FeatureSchema = {
+      featureName: "tasks",
+      entities: { task: statusEntity },
+      screens: [listScreen, noteForm],
+    };
+    const dispatcher = createMockDispatcher({
+      query: (async (_type: string, payload: { filters?: { value: string[] }[] }) => {
+        const chipValue = payload.filters?.[0]?.value[0];
+        const total = chipValue === "done" && !written ? 0 : 1;
+        return {
+          isSuccess: true,
+          data: { rows: [{ id: "r1", title: "Alpha", status: "open" }], nextCursor: null, total },
+        };
+      }) as unknown as Dispatcher["query"],
+      write: (async () => {
+        written = true;
+        return { isSuccess: true, data: {} };
+      }) as unknown as Dispatcher["write"],
+    });
+
+    const user = await openDrawer(schema, dispatcher);
+    expect(screen.getByTestId("facet-status-done").textContent).toContain("0");
+    typeNote("done now");
+    await waitFor(() => {
+      expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(false);
+    });
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(screen.queryByTestId(DRAWER_TEST_ID)).toBeNull());
+    await waitFor(() => expect(screen.getByTestId("facet-status-done").textContent).toContain("1"));
+  });
+});
+
 describe("rowActions without kind:'drawer'", () => {
   test("navigate still navigates and opens no drawer", async () => {
     const navigateCalls: NavTarget[] = [];

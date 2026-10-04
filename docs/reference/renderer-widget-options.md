@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-04
-evidence: "kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer-web/src/widgets/charts.tsx; packages/renderer-web/src/widgets/mode-switch.tsx; packages/renderer-web/src/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx"
+evidence: "packages/renderer-web/src/primitives/lightbox.tsx (actions, showPosition); packages/renderer-web/src/app/nav.tsx (searchParams); kumiko-framework#3570 (chart axes and height, ModeSwitch pill, LanguageSwitcher chip, useQuery concurrency); d5b87a19e (Lightbox paging); packages/renderer/src/hooks/use-query.ts; packages/renderer-web/src/widgets/charts.tsx; packages/renderer-web/src/widgets/mode-switch.tsx; packages/renderer-web/src/layout/language-switcher.tsx; packages/renderer/src/primitives.tsx"
 ---
 
 # Renderer widget options
@@ -85,3 +85,25 @@ The `Lightbox` primitive takes either one image or a browsable set. With a set t
 ```
 
 Previous and next buttons, a `{current} / {total}` counter and the left and right arrow keys appear when there is more than one image. Navigation wraps at both ends. An `index` outside the set is clamped. The single-image form (`src`, `alt`) is unchanged and shows no controls. The labels come from `kumiko.lightbox.previous`, `kumiko.lightbox.next` and `kumiko.lightbox.position`.
+
+`actions` takes nodes for the top-left corner, for example a download button. With a set, the app knows the shown image from its own `index`. `showPosition={false}` hides the counter, for images that already carry their own numbering. Paging buttons and arrow keys stay.
+
+```tsx illustration
+<Lightbox
+  open={open}
+  onOpenChange={setOpen}
+  images={images}
+  index={index}
+  onIndexChange={setIndex}
+  showPosition={false}
+  actions={<a href={images[index].src} download>{t("photo.download")}</a>}
+/>
+```
+
+## `NavApi`: `searchParams`
+
+`navigate`, `replace` and `hrefFor` take an optional second argument `{ searchParams }`. The params become the query of the target URL. Without the option the query is dropped as before, and navigating to the current path is a no-op. With it, the same path with a different query pushes a new history entry.
+
+```tsx illustration
+nav.navigate({ screen: "campaign-list" }, { searchParams: { status: "open" } });
+```

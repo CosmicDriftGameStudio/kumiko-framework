@@ -1229,6 +1229,12 @@ type LightboxBaseProps = {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly testId?: string;
+  /** Controls for the shown image, e.g. a download button. Rendered in the
+   *  top-left corner; with a set the app picks the image from its `index`. */
+  readonly actions?: ReactNode;
+  /** `false` hides the `{current} / {total}` counter of a set, for images
+   *  that carry their own. Default `true`. */
+  readonly showPosition?: boolean;
 };
 
 /** Image lightbox — full-size preview on click. Web renders Radix overlay;

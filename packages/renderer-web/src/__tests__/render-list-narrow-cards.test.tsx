@@ -455,4 +455,49 @@ describe("DataTable — card-mode row menu and hideOnNarrow", () => {
       expect(screen.getByTestId("cell-u1-role")).not.toBeNull();
     });
   });
+
+  describe('display: "responsive" row actions', () => {
+    const responsiveActions = (icon?: "check") => [
+      {
+        id: "mark-posted",
+        label: "Mark as posted",
+        display: "responsive" as const,
+        ...(icon !== undefined && { icon }),
+        onTrigger: mock(),
+      },
+    ];
+
+    test("table layout: a labelled button with its icon", () => {
+      withViewportWidth(1024, () => {
+        render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={responsiveActions("check")} />);
+        const button = screen.getByTestId("row-u1-action-mark-posted");
+        expect(button.textContent).toBe("Mark as posted");
+        expect(button.querySelector("svg")).not.toBeNull();
+        expect(button.getAttribute("aria-label")).toBeNull();
+      });
+    });
+
+    test("card layout: icon only, the label stays the accessible name", async () => {
+      const originalWidth = window.innerWidth;
+      setViewportWidth(500);
+      try {
+        const actions = responsiveActions("check");
+        render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={actions} testId="t" />);
+        const button = screen.getByRole("button", { name: "Mark as posted" });
+        expect(button.textContent).toBe("");
+        expect(button.querySelector("svg")).not.toBeNull();
+        await userEvent.setup().click(button);
+        expect(actions[0]?.onTrigger).toHaveBeenCalledTimes(1);
+      } finally {
+        setViewportWidth(originalWidth);
+      }
+    });
+
+    test("card layout without an icon keeps the label", () => {
+      withViewportWidth(500, () => {
+        render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={responsiveActions()} />);
+        expect(screen.getByTestId("row-u1-action-mark-posted").textContent).toBe("Mark as posted");
+      });
+    });
+  });
 });

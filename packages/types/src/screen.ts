@@ -231,9 +231,12 @@ export type RowFieldExtractor =
 /** How a row action renders inline in the row-action column. `"button"` is a
  *  bordered button (its colour follows the action's `style`), `"link"` a text
  *  link, `"icon"` an icon-only button (needs a resolved icon, falls back to
- *  `"link"` without one). Unset: the renderer decides (primary action as link,
- *  the rest in the kebab menu). */
-export type RowActionDisplay = "button" | "link" | "icon";
+ *  `"link"` without one). `"responsive"` is a `"button"` with icon and label
+ *  from tablet width up and an icon-only button below it, the label staying the
+ *  accessible name (needs a resolved icon, falls back to `"button"` without
+ *  one). Unset: the renderer decides (primary action as link, the rest in the
+ *  kebab menu). */
+export type RowActionDisplay = "button" | "link" | "icon" | "responsive";
 
 /** Row-action column layout. `"adaptive"` (default): primary action as link,
  *  the rest in a kebab menu — except actions with an explicit `display`, which

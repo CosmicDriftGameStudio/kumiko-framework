@@ -119,3 +119,58 @@ describe("Lightbox navigation", () => {
     expect(screen.queryByText("1 / 1")).toBeNull();
   });
 });
+
+describe("Lightbox actions and position", () => {
+  const images = [
+    { src: "/a.png", alt: "First" },
+    { src: "/b.png", alt: "Second" },
+  ];
+
+  test("actions render next to the image and receive clicks", async () => {
+    const onDownload = mock();
+    render(
+      <Lightbox
+        open
+        onOpenChange={() => undefined}
+        images={images}
+        index={1}
+        onIndexChange={() => undefined}
+        actions={
+          <button type="button" onClick={() => onDownload(images[1]?.src)}>
+            Download
+          </button>
+        }
+      />,
+    );
+    await userEvent.setup().click(screen.getByRole("button", { name: "Download" }));
+    expect(onDownload).toHaveBeenCalledWith("/b.png");
+  });
+
+  test("the single-image form takes actions too", () => {
+    render(
+      <Lightbox
+        open
+        onOpenChange={() => undefined}
+        src="/demo.png"
+        alt="Preview"
+        actions={<a href="/demo.png">Download</a>}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Download" })).toBeTruthy();
+  });
+
+  test("showPosition={false} hides the counter but keeps the navigation", () => {
+    render(
+      <Lightbox
+        open
+        onOpenChange={() => undefined}
+        images={images}
+        index={0}
+        onIndexChange={() => undefined}
+        showPosition={false}
+      />,
+    );
+    expect(screen.queryByText("1 / 2")).toBeNull();
+    expect(screen.getByLabelText("Next image")).toBeTruthy();
+  });
+});

@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-02
-evidence: "kumiko-framework#3449 (step picker, phone footer); packages/renderer-web/src/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
+verified: 2026-10-04
+evidence: "packages/renderer/src/app/facet-count-bridge.tsx (chip counts refresh after writes); packages/renderer-web/src/primitives/index.tsx (responsive row actions, 44px touch targets); kumiko-framework#3449 (step picker, phone footer); packages/renderer-web/src/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
 ---
 
 # Screen layout: fixed height, dimensions and declarative layout props
@@ -176,9 +176,11 @@ rowActions: [{ id: "mark-posted", label: "campaigns.action.mark-posted", handler
 ```
 
 - Chips are single choice: a click sets the chip's `values`, an empty `values` clears the facet. An `extraOptions` entry sits at the start unless `position: "end"`.
-- Counts come from the list query itself: one request with `limit: 1` and `totalCount: true` per chip, with the other facets and the search applied. They are not live; a change in the data shows after the next reload. `hideEmpty` needs the counts and keeps a chip visible while it is selected.
+- Counts come from the list query itself: one request with `limit: 1` and `totalCount: true` per chip, with the other facets and the search applied. They refetch after every write the list starts (row action, toolbar action, drawer, expanded row) and follow the entity's live events like the rows do. `hideEmpty` needs the counts and keeps a chip visible while it is selected.
 - `defaultFilters` applies only while the URL has no value for that field. Choosing "no filter" is stored in the URL as `~`, so the default does not come back. `facets: { field: false }` hides the control but keeps the filter active.
 - With `display` set, the row-action column keeps that action inline next to the kebab even in the adaptive layout. Without `display`, nothing changes. `rowActionMode: "inline"` shows every action inline.
+- `display: "responsive"` shows a button with icon and label in the table (768px and up) and only the icon in the narrow card layout, with the label as accessible name and tooltip. An action without a resolvable `icon` stays a labelled button. `"button"`, `"link"` and `"icon"` keep their look on every width.
+- Below 768px, icon-only row actions and the expand arrow have a 44px touch target.
 - relatedList `groupBy: { field, collapsedWhen?, label?, labels?, dateField? }` groups rows in order of first appearance under collapsible headers. The header key takes `{count}`, `{value}` and `{lastDate}`. A group with neither `label` nor a `labels` entry shows its rows without a header and stays open; boot rejects a `collapsedWhen` group without a header. `rowTone` is a field condition plus a tone, for example `{ field: "status", eq: "failed", tone: "bad" }`.
 - A DataTable primitive that has no support for `rowGrouping`, `rowTone` or `filterFacets[].chips` (for example a native renderer) shows the flat list and the default facet control.
 

@@ -85,3 +85,67 @@ describe("useBrowserNavApi — searchParams", () => {
     expect(window.location.pathname).toBe("/dashboard");
   });
 });
+
+describe("useBrowserNavApi — navigate with searchParams", () => {
+  test("pushes path and query as one history entry", () => {
+    setLocation("/orders", "?orders.page=2");
+    const initialHistoryLength = window.history.length;
+    const { result } = renderHook(() => useBrowserNavApi());
+    act(() => {
+      result.current.navigate(
+        { screenId: "composer", entityId: "v1" },
+        { searchParams: { channel: "instagram", tab: "photos" } },
+      );
+    });
+    expect(window.location.pathname).toBe("/composer/v1");
+    expect(window.location.search).toBe("?channel=instagram&tab=photos");
+    expect(window.history.length).toBe(initialHistoryLength + 1);
+    expect(result.current.searchParams).toEqual({ channel: "instagram", tab: "photos" });
+  });
+
+  test("same path with different params pushes, identical URL does not", () => {
+    setLocation("/composer/v1", "?channel=instagram");
+    const initialHistoryLength = window.history.length;
+    const { result } = renderHook(() => useBrowserNavApi());
+    act(() => {
+      result.current.navigate(
+        { screenId: "composer", entityId: "v1" },
+        { searchParams: { channel: "instagram" } },
+      );
+    });
+    expect(window.history.length).toBe(initialHistoryLength);
+    act(() => {
+      result.current.navigate(
+        { screenId: "composer", entityId: "v1" },
+        { searchParams: { channel: "facebook" } },
+      );
+    });
+    expect(window.location.search).toBe("?channel=facebook");
+    expect(window.history.length).toBe(initialHistoryLength + 1);
+  });
+
+  test("without searchParams the target starts with an empty query", () => {
+    setLocation("/orders", "?orders.page=2");
+    const { result } = renderHook(() => useBrowserNavApi());
+    act(() => {
+      result.current.navigate({ screenId: "customers" });
+    });
+    expect(window.location.pathname).toBe("/customers");
+    expect(window.location.search).toBe("");
+  });
+
+  test("replace and hrefFor take the same searchParams", () => {
+    setLocation("/orders", "");
+    const initialHistoryLength = window.history.length;
+    const { result } = renderHook(() => useBrowserNavApi());
+    expect(result.current.hrefFor({ screenId: "customers" }, { searchParams: { q: "a b" } })).toBe(
+      "/customers?q=a+b",
+    );
+    act(() => {
+      result.current.replace({ screenId: "customers" }, { searchParams: { q: "acme" } });
+    });
+    expect(window.location.pathname).toBe("/customers");
+    expect(window.location.search).toBe("?q=acme");
+    expect(window.history.length).toBe(initialHistoryLength);
+  });
+});

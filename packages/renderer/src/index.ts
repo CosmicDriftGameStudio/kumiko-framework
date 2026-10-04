@@ -77,6 +77,7 @@ export {
 } from "./app/list-facets.js";
 export type {
   NavApi,
+  NavigateOptions,
   NavProviderProps,
   NavRoute,
   NavTarget,
