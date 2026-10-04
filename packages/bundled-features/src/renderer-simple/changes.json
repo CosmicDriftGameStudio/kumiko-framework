@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.344.0",
+    "type": "improvement",
+    "title": "Heading and Markdown sections in the simple mail renderer",
+    "detail": "`createSimpleRenderer` accepts two more section kinds: `{ heading: string }` (rendered as an escaped `<h2>`) and `{ markdown: string }` (rendered with the hardened Markdown renderer; raw HTML is escaped and unsafe link targets are replaced by `#`). Existing section kinds render as before."
+  },
+  {
     "version": "0.341.0",
     "type": "improvement",
     "title": "Localized mail branding, locale through delivery, logoPath",
