@@ -22,8 +22,8 @@ import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
 // funktioniert nur für SYSTEM_TENANT_ID (immer im IN-Filter). Dies ist das
 // auto-default-Hook-Muster (feature.ts), generalisiert auf einen Request-Handler.
 //
-// `source: TierAssignmentSources.manual` markiert den Grant, damit ein späterer Stripe→Tier-Sync ihn
-// nicht plättet. Upsert: ein Aggregat pro Tenant (deterministische aggregate-id).
+// `source: TierAssignmentSources.manual` marks the grant so the billing sync skips it.
+// Upsert: one aggregate per tenant (deterministic aggregate id).
 //
 // Effective-set invalidation: the executor write does not fire the
 // `tier-assignment:postSave` entity hook, and a per-handler postSave would not
