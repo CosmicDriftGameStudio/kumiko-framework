@@ -19,6 +19,11 @@ export const AuditQueries = {
   details: "audit:query:details",
 } as const;
 
+/** Read scope of the audit queries: the caller's own tenant (default) or the system tenant (SystemAdmin only). */
+export const AuditScopes = { tenant: "tenant", system: "system" } as const;
+export type AuditScope = (typeof AuditScopes)[keyof typeof AuditScopes];
+export const AUDIT_SCOPE_VALUES = [AuditScopes.tenant, AuditScopes.system] as const;
+
 /** Tenant-admin audit log screen. Nav: `audit:screen:audit-log`. */
 export const AUDIT_LOG_SCREEN_ID = "audit-log" as const;
 

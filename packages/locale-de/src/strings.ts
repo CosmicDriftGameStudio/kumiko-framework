@@ -40,6 +40,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Sie sehen Daten aller Mandanten. Mandantenübergreifende Abfragen werden im Ereignisprotokoll vermerkt.",
   "admin-shell:workspace.platform": "Plattform",
   "admin-shell:workspace.tenant": "Administration",
+  "audit.errors.systemScopeRequiresSystemAdmin": "Nur SystemAdmin darf Systemereignisse lesen.",
   "audit.log.col.actor": "Akteur",
   "audit.log.col.aggregateId": "Aggregat-ID",
   "audit.log.col.aggregateType": "Aggregattyp",

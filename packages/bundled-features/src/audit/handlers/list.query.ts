@@ -6,6 +6,8 @@
 // No projection, no separate audit table. Queryable with the same filter
 // surface any audit UI needs; tenant-isolated at the WHERE level so cross-
 // tenant peeking is structurally impossible for non-SystemAdmin callers.
+// A SystemAdmin can pass scope "system" to read the app-instance system events
+// (e.g. app.started); no other cross-tenant read exists.
 //
 // Sensitive field-values are ciphertext inside the event payload (the log
 // carries them encrypted); stripSensitive only strips the event echo. This
@@ -17,6 +19,8 @@ import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
+import { AUDIT_SCOPE_VALUES } from "../constants.js";
+import { resolveAuditScopeFilter } from "./resolve-audit-tenant.js";
 
 const MAX_LIMIT = 100;
 
@@ -65,7 +69,7 @@ function buildAuditWhere(
 export const listQuery = defineQueryHandler({
   name: "list",
   description:
-    "Lists the tenant's audit-trail events newest-first with cursor paging, filterable by aggregate type, aggregate id, event type, actor and time range; use it to answer who changed what and when.",
+    'Lists the tenant\'s audit-trail events newest-first with cursor paging, filterable by aggregate type, aggregate id, event type, actor and time range; use it to answer who changed what and when. A SystemAdmin can set scope "system" to read the app-instance system events (e.g. app.started) instead of the own tenant.',
   schema: z
     .object({
       cursor: z.string().regex(/^\d+$/, "cursor must be a positive integer").optional(),
@@ -80,6 +84,7 @@ export const listQuery = defineQueryHandler({
       sortDirection: z.enum(["asc", "desc"]).optional(),
       from: z.iso.datetime().optional(),
       to: z.iso.datetime().optional(),
+      scope: z.enum(AUDIT_SCOPE_VALUES).optional(),
     })
     .refine((v) => !v.from || !v.to || v.from <= v.to, {
       message: "`from` must be less than or equal to `to`",
@@ -88,7 +93,11 @@ export const listQuery = defineQueryHandler({
   access: { roles: access.admin },
   handler: async (query, ctx) => {
     const p = query.payload;
-    const where = buildAuditWhere(query.user.tenantId, p);
+    const scopeFilter = resolveAuditScopeFilter(query.user, p.scope);
+    const where = buildAuditWhere(scopeFilter.tenantId, {
+      ...p,
+      aggregateType: scopeFilter.aggregateType ?? p.aggregateType,
+    });
 
     const rows = await selectMany<{
       id: bigint;

@@ -1,21 +1,26 @@
 // Single audit event by its event-store id — backs the audit-log-detail
 // screen. Tenant-isolated at the WHERE level like list.query, so a caller
-// can only read events in their own tenant.
+// can only read events in their own tenant; a SystemAdmin can pass scope
+// "system" to read app-instance system events (e.g. app.started).
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import * as z from "zod";
+import { AUDIT_SCOPE_VALUES } from "../constants.js";
+import { resolveAuditScopeFilter } from "./resolve-audit-tenant.js";
 
 export const detailsQuery = defineQueryHandler({
   name: "details",
   description:
-    "Returns one audit-trail event of the caller's tenant by its event-store id, with full payload and metadata; use it to inspect the exact change behind a row of the audit log list.",
+    'Returns one audit-trail event of the caller\'s tenant by its event-store id, with full payload and metadata; use it to inspect the exact change behind a row of the audit log list. A SystemAdmin can set scope "system" to read an app-instance system event (e.g. app.started).',
   schema: z.object({
     id: z.string().regex(/^[1-9]\d*$/, "id must be a positive integer"),
+    scope: z.enum(AUDIT_SCOPE_VALUES).optional(),
   }),
   access: { roles: access.admin },
   handler: async (query, ctx) => {
+    const scopeFilter = resolveAuditScopeFilter(query.user, query.payload.scope);
     const rows = await selectMany<{
       id: bigint;
       aggregateId: string;
@@ -29,7 +34,13 @@ export const detailsQuery = defineQueryHandler({
     }>(
       ctx.db,
       eventsTable,
-      { tenantId: query.user.tenantId, id: BigInt(query.payload.id) },
+      {
+        tenantId: scopeFilter.tenantId,
+        ...(scopeFilter.aggregateType !== undefined && {
+          aggregateType: scopeFilter.aggregateType,
+        }),
+        id: BigInt(query.payload.id),
+      },
       { limit: 1 },
     );
     const row = rows[0];
