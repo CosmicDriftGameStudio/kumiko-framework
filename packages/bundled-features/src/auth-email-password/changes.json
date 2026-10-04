@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.348.0",
+    "type": "fix",
+    "title": "AuthGate accepts a loginUrl function, renders LoginScreen on the login route, and LoginScreen follows a validated next",
+    "detail": "AuthGate accepts a loginUrl function and LoginScreen follows a validated next\n`AuthGateOptions.loginUrl` may now be a function `(locale, returnPath) => string` in addition to a string. When the user is already on the login route, the gate renders the LoginScreen instead of redirecting. After a successful login (and MFA verify or setup), the screen follows the `next` query parameter, but only for relative same-origin paths: no `//`, no scheme, no backslash, no control characters.",
+    "migration": "No action needed. String loginUrl keeps working."
+  },
+  {
     "version": "0.347.0",
     "type": "fix",
     "title": "Signup-confirm under an MFA policy returns the signup landing path and the activation screen forwards it to login as next",

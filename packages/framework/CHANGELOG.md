@@ -1,5 +1,38 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.348.0
+
+### Minor Changes
+
+- d7fd7e0: runSeedWritesAt: regular writes with a caller-set event time for E2E and demo seeds
+
+  `runSeedWritesAt(createdAt, fn)` from `@cosmicdrift/kumiko-framework/event-store` runs `fn` so that every event appended inside it is stored with `createdAt` instead of the database `now()`. The writes still go through the normal path (handler, validation, event append, projections), so projections that read the event time, such as entity `insertedAt`/`modifiedAt`, see the back-dated value. The helper only works with `KUMIKO_TEST_SEED=1` and `NODE_ENV` other than `production`; otherwise it throws `SeedModeDisabledError` before `fn` runs. `buildServer` now refuses to boot when `KUMIKO_TEST_SEED=1` is set together with `NODE_ENV=production`. Nothing from a request (payload, headers, seed-route body) can set the time; call the helper from an in-process seeder such as an `extraSeeders` entry or a `runDevApp` seed function. Events keep their global id order, so back-dated events are still delivered to consumers; only `created_at` order differs. A seed write dated before its stream predecessor is rejected, because `loadAggregateAsOf` and projection rebuilds order by `created_at`. Events written by async consumers or jobs in reaction to a seeded event are not back-dated; the seeder has to write those itself inside the scope. Await everything inside `fn`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: runSeedWritesAt runs regular writes with a caller-set event time, only in seed mode
+  migration: |
+    Seeders that need history (for example 90 days of status changes) wrap their dispatcher or ctx.write calls in `runSeedWritesAt(createdAt, async () => { ... })` instead of writing events or projection rows directly. Boot the server with `KUMIKO_TEST_SEED=1` and a non-production `NODE_ENV`; a boot with both the flag and `NODE_ENV=production` now fails. Within one aggregate stream, write the events in ascending time.
+  -->
+
+### Patch Changes
+
+- 400490e: withCapEnforcement reserves cap usage before the handler transaction
+
+  `withCapEnforcement` used to check the cap and book the usage in two separate steps, so parallel calls could all pass the same stale read and exceed the hard limit. The wrapper now only declares the cap through the new `WriteHandlerDef.reserveBeforeTransaction` hook. The dispatcher runs the hook after the access, feature and schema checks and before the handler transaction opens. The hard-cap check and the increment are one short, version-guarded write that commits at once, so no connection is held across the handler and capped calls on the same counter still run in parallel. The returned release gives the amount back (never below 0) after the transaction ended without committing: rollback, failure result, throw or failed commit. Each reservation covers exactly one top-level execution: a capped handler reached through a nested `ctx.write` or run a second time in the same command is rejected. A wrapped handler now keeps its own `rateLimit`, `escapeHatch` and `additionalRateLimits` (the old wrapper dropped them). The reservation runs before the rate-limit gate, so a rate-limited caller can still cause reserve and release writes. If a COMMIT fails with an unknown outcome, the release can under-count. `bookCapUsage` accepts a `guardCurrentValue` callback, `markCapSoftWarned` and `enforceCapAndMaybeNotify` can write outside the handler transaction, and the soft-warning pre-check now honors `amount`. `withRollingCapEnforcement` is unchanged and keeps its check-then-book race.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: withCapEnforcement reserves cap usage before the handler transaction so parallel calls cannot exceed the hard limit
+  migration: No action needed. Calls above the hard limit are now rejected with cap_exceeded even when they race. A capped handler must not be called through ctx.write from another handler.
+  -->
+
+- Updated dependencies [400490e]
+  - @cosmicdrift/kumiko-types@0.348.0
+  - @cosmicdrift/kumiko-http@0.348.0
+
 ## 0.347.0
 
 ### Patch Changes

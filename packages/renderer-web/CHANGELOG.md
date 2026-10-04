@@ -1,5 +1,42 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.348.0
+
+### Minor Changes
+
+- 0c0c4d2: ModeSwitch pill variant and LanguageSwitcher chip variant
+
+  `ModeSwitch` gets `variant="pill"` (grey track, raised active segment, dark mode aware) and a `className` prop; `outline` stays the default. `LanguageSwitcher` gets `variant="chip"`, a compact monospace chip with the uppercase locale code in a border; `default` stays as it was.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: ModeSwitch gains a pill variant and className, LanguageSwitcher gains a compact chip variant
+  -->
+
+- 0c0c4d2: TimeseriesChart: height, y-axis gridlines and a date axis
+
+  `height` (px) replaces the fixed `h-16`; without it the chart looks as before. `yAxis: { ticks, format? }` draws that many gridlines with rounded value labels (0/200/400/600) in a left gutter, and the y-scale reaches the top tick. `xAxis: { ticks, format }` renders n evenly spaced date labels instead of the fixed start/mid/end of `axisLabels`.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: TimeseriesChart takes a height, an optional y-axis with gridlines and a date axis with n labels
+  -->
+
+### Patch Changes
+
+- Updated dependencies [400490e]
+- Updated dependencies [d7fd7e0]
+- Updated dependencies [0c0c4d2]
+- Updated dependencies [0c0c4d2]
+- Updated dependencies [0c0c4d2]
+  - @cosmicdrift/kumiko-framework@0.348.0
+  - @cosmicdrift/kumiko-types@0.348.0
+  - @cosmicdrift/kumiko-renderer@0.348.0
+  - @cosmicdrift/kumiko-headless@0.348.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.348.0
+
 ## 0.347.0
 
 ### Patch Changes
