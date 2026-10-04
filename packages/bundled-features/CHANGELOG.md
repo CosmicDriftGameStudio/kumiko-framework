@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.350.0
+
+### Minor Changes
+
+- 80ca7d3: Email text part
+
+  `EmailMessage` gets an optional `text`. With it the SMTP transport sends `multipart/alternative` with a plain-text part. `NotificationRenderer` gets an optional `renderText`, which the email channel sends next to the HTML through the queued render and send jobs. `createSimpleRenderer` implements it from the template data (header, sections, footer, branding footer; buttons as `label: url`). The GDPR default mails return and send `text` as well. The PII guard checks and redacts `text` like the body.
+
+  <!-- kumiko-changes
+  feature: channel-email
+  type: improvement
+  title: Mails get a plain-text part (EmailMessage.text, NotificationRenderer.renderText, simple renderer and GDPR mails fill it)
+  -->
+
+### Patch Changes
+
+- Updated dependencies [80ca7d3]
+  - @cosmicdrift/kumiko-types@0.350.0
+  - @cosmicdrift/kumiko-renderer@0.350.0
+  - @cosmicdrift/kumiko-renderer-web@0.350.0
+  - @cosmicdrift/kumiko-framework@0.350.0
+  - @cosmicdrift/kumiko-headless@0.350.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.350.0
+
 ## 0.349.0
 
 ### Minor Changes
