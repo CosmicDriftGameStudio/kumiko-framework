@@ -247,7 +247,7 @@ export function createAuthEmailPasswordFeature(
 
     if (opts.signup) {
       r.writeHandler(createSignupRequestHandler(opts.signup));
-      r.writeHandler(createSignupConfirmHandler());
+      r.writeHandler(createSignupConfirmHandler({ mfaStatusChecker: opts.mfaStatusChecker }));
     }
 
     if (opts.invite) {

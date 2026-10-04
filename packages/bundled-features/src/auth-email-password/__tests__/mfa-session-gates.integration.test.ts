@@ -1,6 +1,6 @@
 // Session-issuing routes other than /auth/login must run the same MFA gate:
 // switch-tenant into a tenant where the user holds an admin role, and the
-// first session of invite-signup-complete. Real HTTP through setupTestStack
+// first session of invite-signup-complete and signup-confirm. Real HTTP through setupTestStack
 // under requiredPolicy "admins".
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -73,6 +73,7 @@ beforeAll(async () => {
       authMfaFeature,
       createAuthEmailPasswordFeature({
         invite: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/invite/accept" },
+        signup: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/signup/complete" },
         mfaStatusChecker: mfaStatusCheckerFromFeature(authMfaFeature),
       }),
     ],
@@ -91,6 +92,10 @@ beforeAll(async () => {
         acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
         signupCompleteHandler: AuthHandlers.inviteSignupComplete,
         infoHandler: AuthQueries.inviteInfo,
+      },
+      signup: {
+        requestHandler: AuthHandlers.signupRequest,
+        confirmHandler: AuthHandlers.signupConfirm,
       },
       loginErrorStatusMap: {
         [AuthErrors.invalidCredentials]: 401,
@@ -290,5 +295,57 @@ describe("invite-signup-complete runs the login's MFA gate", () => {
 
     expect(res.status).toBe(200);
     expect(typeof (await res.json()).token).toBe("string");
+  });
+});
+
+describe("signup-confirm runs the login's MFA gate", () => {
+  async function requestSignupToken(email: string): Promise<string> {
+    emailTransport.sent.length = 0;
+    const res = await stack.http.raw(
+      "POST",
+      "/api/auth/signup-request",
+      { email },
+      { "x-forwarded-for": email },
+    );
+    expect(res.status).toBe(200);
+    const token = emailTransport.sent.at(-1)?.html.match(/[?&]token=([^&"'<\s]+)/)?.[1];
+    if (token === undefined) throw new Error("signup-request sent no token mail");
+    return decodeURIComponent(token);
+  }
+
+  test("signup-confirm creates the account but answers with the MFA setup step, no session", async () => {
+    const email = "new-signup@example.com";
+    const password = "signup-new-pw-1234";
+    const token = await requestSignupToken(email);
+
+    const res = await stack.http.raw("POST", "/api/auth/signup-confirm", { token, password });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.mfaSetupRequired).toBe(true);
+    expect(typeof body.preauthSetupToken).toBe("string");
+    expect(body.token).toBeUndefined();
+    expect(res.headers.get("set-cookie")).toBeNull();
+    expect(await selectMany(stack.db, userTable, { email })).toHaveLength(1);
+
+    const login = await stack.http.raw("POST", "/api/auth/login", { email, password });
+    expect(login.status).toBe(200);
+    const loginBody = await login.json();
+    expect(loginBody.mfaSetupRequired).toBe(true);
+    expect(loginBody.token).toBeUndefined();
+  });
+
+  test("a signed-in user cannot call the signup-confirm handler through /api/write", async () => {
+    const email = "write-bypass@example.com";
+    const token = await requestSignupToken(email);
+    const id = await seedMemberInAAdminInB("signed-in-caller@example.com");
+
+    const res = await authedRaw({ id, tenantId: tenantA, roles: ["User"] }, "/api/write", {
+      type: AuthHandlers.signupConfirm,
+      payload: { token, password: "signup-new-pw-1234" },
+    });
+
+    expect(res.status).toBe(403);
+    expect(await selectMany(stack.db, userTable, { email })).toHaveLength(0);
   });
 });

@@ -70,6 +70,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "auth.signup.successBody":
     "Wir haben Ihnen einen Aktivierungs-Link an Ihre E-Mail-Adresse geschickt. Klicken Sie ihn an, um Ihr Passwort zu setzen und sich einzuloggen.",
   "auth.signupComplete.activated": "Ihr Konto ist jetzt aktiv und Sie sind angemeldet.",
+  "auth.signupComplete.activatedMfaPending":
+    "Ihr Konto ist aktiv. Melden Sie sich an, um die Zwei-Faktor-Authentifizierung einzurichten.",
   "auth.signupComplete.intro":
     "Wählen Sie ein Passwort mit mindestens 8 Zeichen für Ihren neuen Account.",
   "auth.signupComplete.missingToken":

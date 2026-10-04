@@ -1182,8 +1182,8 @@ export function createAuthRoutes(
 
   // Self-Signup (Magic-Link). Request mountet wie reset/verify den
   // silent-success-Pfad mit Token-Mail. Confirm ist anders: returnt
-  // SessionUser → die Route mintet JWT + setzt Cookies (Auto-Login
-  // direkt nach Activation, kein zweiter Login-Roundtrip nötig).
+  // SessionUser → die Route mintet JWT + setzt Cookies (Auto-Login), außer
+  // das MFA-Gate greift: dann nur der MFA-Schritt, ohne Session.
   if (config.signup) {
     const sg = config.signup;
     registerTokenRequestRoute({
@@ -1215,12 +1215,27 @@ export function createAuthRoutes(
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for signup-confirm
-      const data = result.data as {
-        kind: "auth-session";
-        session: SessionUser;
-        tenantKey: string;
-        handover?: { entityType: string; id: string };
-      };
+      const data = result.data as
+        | {
+            kind: "auth-session";
+            session: SessionUser;
+            tenantKey: string;
+            handover?: { entityType: string; id: string };
+          }
+        | { kind: "mfa-challenge"; challengeToken: string }
+        | { kind: "mfa-setup-required"; preauthSetupToken: string };
+
+      if (data.kind === "mfa-setup-required") {
+        return c.json({
+          isSuccess: true,
+          mfaSetupRequired: true,
+          preauthSetupToken: data.preauthSetupToken,
+        });
+      }
+
+      if (data.kind === "mfa-challenge") {
+        return c.json({ isSuccess: true, mfaRequired: true, challengeToken: data.challengeToken });
+      }
 
       // Session creation + JWT sign + cookies — see mintSessionAndRespond.
       const token = await mintSessionAndRespond(c, data.session);

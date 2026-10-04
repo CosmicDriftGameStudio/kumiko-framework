@@ -347,7 +347,7 @@ export async function requestSignup(
 
 // POST /api/auth/signup-confirm. Token aus URL + Password. Erfolgreich:
 // Cookies (kumiko_auth + kumiko_csrf) werden gesetzt — User ist sofort
-// eingeloggt. Response liefert tenantKey für den Post-Signup-Redirect.
+// eingeloggt (außer bei MFA-Gate, dann kind "mfa-pending"). Response liefert tenantKey für den Post-Signup-Redirect.
 // 422 invalid_signup_token bei abgelaufenem/unbekanntem Token.
 export type SignupConfirmSuccess = {
   readonly user: { readonly id: string; readonly tenantId: string; readonly roles: string[] };
@@ -360,10 +360,16 @@ export type SignupConfirmSuccess = {
   readonly landingPath?: string;
 };
 
+// mfa-pending: account exists but the server issued no session because the
+// new roles require a second factor — the user must sign in to enroll.
+export type SignupConfirmResult =
+  | ({ readonly kind: "signed-in" } & SignupConfirmSuccess)
+  | { readonly kind: "mfa-pending" };
+
 export async function confirmSignup(
   token: string,
   password: string,
-): Promise<{ ok: true; data: SignupConfirmSuccess } | { ok: false; error: AuthTokenFailure }> {
+): Promise<{ ok: true; data: SignupConfirmResult } | { ok: false; error: AuthTokenFailure }> {
   const res = await fetch("/api/auth/signup-confirm", {
     method: "POST",
     credentials: "same-origin",
@@ -371,8 +377,14 @@ export async function confirmSignup(
     body: JSON.stringify({ token, password }),
   });
   if (res.ok) {
-    const body = (await res.json()) as SignupConfirmSuccess; // @cast-boundary engine-payload
-    return { ok: true, data: body };
+    const body = (await res.json()) as SignupConfirmSuccess & {
+      readonly mfaRequired?: boolean;
+      readonly mfaSetupRequired?: boolean;
+    }; // @cast-boundary engine-payload
+    if (body.mfaRequired === true || body.mfaSetupRequired === true) {
+      return { ok: true, data: { kind: "mfa-pending" } };
+    }
+    return { ok: true, data: { kind: "signed-in", ...body } };
   }
   return { ok: false, error: await parseTokenFailure(res) };
 }

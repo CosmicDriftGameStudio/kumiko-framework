@@ -56,6 +56,7 @@ import {
   getSignupHandover,
   unburnSignupToken,
 } from "../signup-token-store.js";
+import { gateEnforceMfa, type LoginHandlerOptions, type LoginResult } from "./login.write.js";
 
 const SignupConfirmSchema = z.object({
   token: z.string().min(8),
@@ -64,18 +65,22 @@ const SignupConfirmSchema = z.object({
 
 // Mirror der login-handler-Shape (kind: "auth-session", session: SessionUser)
 // damit die Route-Layer den signup-confirm-success genauso behandeln kann
-// wie einen erfolgreichen login: JWT-Mint, Cookies setzen, Session-Body
-// returnen. Der zusätzliche tenantKey landet als sibling am data-objekt
-// (NICHT in SessionUser — der ist generic, tenantKey ist signup-spezifisch
-// für den Post-Signup-Redirect zu /<tenantKey>/).
-export type SignupConfirmData = {
-  readonly kind: "auth-session";
-  readonly session: SessionUser;
-  readonly tenantKey: string;
-  // Present only when a bound tenant-handover grant existed AND its claim
-  // actually succeeded (see the handler body below).
-  readonly handover?: { readonly entityType: string; readonly id: string };
-};
+// wie einen erfolgreichen login. Der zusätzliche tenantKey landet als sibling
+// am data-objekt (NICHT in SessionUser — tenantKey ist signup-spezifisch für
+// den Post-Signup-Redirect zu /<tenantKey>/). Mit MFA-Policy für die neuen
+// Rollen kommt stattdessen der MFA-Schritt zurück, ohne Session.
+export type SignupConfirmData =
+  | {
+      readonly kind: "auth-session";
+      readonly session: SessionUser;
+      readonly tenantKey: string;
+      // Present only when a bound tenant-handover grant existed AND its claim
+      // actually succeeded (see the handler body below).
+      readonly handover?: { readonly entityType: string; readonly id: string };
+    }
+  | Exclude<LoginResult, { readonly kind: "auth-session" }>;
+
+export type SignupConfirmOptions = Pick<LoginHandlerOptions, "mfaStatusChecker">;
 
 const SIGNUP_CONFIRM_PROVISION_REASON =
   "provisions a new tenant, its first user and membership before any tenant context exists";
@@ -123,7 +128,7 @@ async function claimBoundHandover(
   return undefined;
 }
 
-export function createSignupConfirmHandler() {
+export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
   return defineWriteHandler<"signup-confirm", typeof SignupConfirmSchema, SignupConfirmData>({
     name: "signup-confirm",
     schema: SignupConfirmSchema,
@@ -225,6 +230,18 @@ export function createSignupConfirmHandler() {
         // TTL as replay protection.
         await deleteSignupToken(ctx.redis, { email, token: event.payload.token });
         if (handoverBinding) await deleteSignupHandover(ctx.redis, event.payload.token);
+
+        const mfaGate = await gateEnforceMfa(
+          ctx,
+          { mfaStatusChecker: opts.mfaStatusChecker },
+          provisioned.userId,
+          provisioned.tenantId,
+          session.roles,
+        );
+        if (mfaGate !== undefined) {
+          committed = true;
+          return { isSuccess: true, data: mfaGate };
+        }
 
         committed = true;
         return {

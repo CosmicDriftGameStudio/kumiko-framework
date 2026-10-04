@@ -242,6 +242,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.signup.successTitle": "Email sent",
   "auth.signup.title": "Create account",
   "auth.signupComplete.activated": "Your account is active and you're signed in.",
+  "auth.signupComplete.activatedMfaPending":
+    "Your account is active. Sign in to set up two-factor authentication.",
   "auth.signupComplete.activatedTitle": "Account activated",
   "auth.signupComplete.confirmPassword": "Confirm password",
   "auth.signupComplete.continue": "Continue",

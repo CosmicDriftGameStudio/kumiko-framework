@@ -271,6 +271,36 @@ describe("SignupCompleteScreen", () => {
     });
   });
 
+  test("Server antwortet mfaSetupRequired → Aktiviert-Hinweis ohne Session, Continue führt zum Login", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({ isSuccess: true, mfaSetupRequired: true, preauthSetupToken: "p" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+    ) as unknown as typeof fetch;
+
+    renderWithProviders(
+      <SignupCompleteScreen
+        token="abc-token"
+        loginHref="/sign-in"
+        loggedInHref={({ tenantKey }) => `/${tenantKey}/`}
+      />,
+    );
+    fillPasswords("validpass1", "validpass1");
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Your account is active. Sign in to set up two-factor authentication."),
+      ).toBeTruthy();
+    });
+    expect(screen.getByRole("link", { name: "Continue" }).getAttribute("href")).toBe("/sign-in");
+  });
+
   test("mismatch → client-side error, kein fetch-Call", async () => {
     const fetchMock = mock(async () => new Response(null, { status: 200 }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
