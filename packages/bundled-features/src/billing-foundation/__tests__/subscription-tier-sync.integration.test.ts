@@ -33,7 +33,11 @@ import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import type { TierMap } from "../../tier-engine/compose-app.js";
-import { TierEngineQueries } from "../../tier-engine/constants.js";
+import {
+  TierAssignmentSources,
+  TierEngineHandlers,
+  TierEngineQueries,
+} from "../../tier-engine/constants.js";
 import { tierAssignmentEntity } from "../../tier-engine/entity.js";
 import { createTierEngineFeature } from "../../tier-engine/feature.js";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants.js";
@@ -223,6 +227,81 @@ describe("createSubscriptionTierSync — tier-sync effect", () => {
     };
     expect(listed.rows).toHaveLength(1);
     expect(listed.rows[0]?.["tier"]).toBe("free");
+  });
+
+  async function listAssignmentRows(tenantId: string, userId: number) {
+    const admin = createTestUser({
+      id: userId,
+      tenantId: testTenantId(userId),
+      roles: ["SystemAdmin"],
+    });
+    const listed = (await stack.http.queryOk(TierEngineQueries.list, {}, admin)) as {
+      rows: Array<Record<string, unknown>>;
+    };
+    return listed.rows.filter((row) => row["tenantId"] === tenantId);
+  }
+
+  test("manual grant survives subscription created and canceled webhooks", async () => {
+    const tenantId = testTenantId(9103);
+    const admin = createTestUser({ id: 9103, tenantId, roles: ["SystemAdmin"] });
+    await stack.http.writeOk(TierEngineHandlers.setTenantTier, { tenantId, tier: "pro" }, admin);
+
+    const created = await postWebhook(
+      stack,
+      webhookPath,
+      buildEvent(tenantId, "evt_create_3", {
+        status: SubscriptionStatuses.active,
+        tier: "free",
+      }),
+    );
+    expect(created.status).toBe(200);
+    let rows = await listAssignmentRows(tenantId, 9103);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["tier"]).toBe("pro");
+    expect(rows[0]?.["source"]).toBe(TierAssignmentSources.manual);
+
+    const canceled = await postWebhook(
+      stack,
+      webhookPath,
+      buildEvent(tenantId, "evt_cancel_3", {
+        type: SubscriptionEventTypes.canceled,
+        status: SubscriptionStatuses.canceled,
+        tier: "free",
+        providerSubscriptionId: "sub_evt_create_3",
+      }),
+    );
+    expect(canceled.status).toBe(200);
+    rows = await listAssignmentRows(tenantId, 9103);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["tier"]).toBe("pro");
+    expect(rows[0]?.["source"]).toBe(TierAssignmentSources.manual);
+  });
+
+  test("without a manual grant the tier follows the subscription and is marked as billing", async () => {
+    const tenantId = testTenantId(9104);
+    await postWebhook(
+      stack,
+      webhookPath,
+      buildEvent(tenantId, "evt_create_4", { status: SubscriptionStatuses.active, tier: "pro" }),
+    );
+    let rows = await listAssignmentRows(tenantId, 9104);
+    expect(rows[0]?.["tier"]).toBe("pro");
+    expect(rows[0]?.["source"]).toBe(TierAssignmentSources.billing);
+
+    await postWebhook(
+      stack,
+      webhookPath,
+      buildEvent(tenantId, "evt_cancel_4", {
+        type: SubscriptionEventTypes.canceled,
+        status: SubscriptionStatuses.canceled,
+        tier: "pro",
+        providerSubscriptionId: "sub_evt_create_4",
+      }),
+    );
+    rows = await listAssignmentRows(tenantId, 9104);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["tier"]).toBe("free");
+    expect(rows[0]?.["source"]).toBe(TierAssignmentSources.billing);
   });
 });
 

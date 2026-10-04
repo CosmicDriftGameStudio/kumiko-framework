@@ -33,10 +33,8 @@ export const tierAssignmentEntity = createEntity({
       personal: false,
       reason: "catalog_label",
     }),
-    // Woher das Assignment stammt: "manual" (Admin-Grant via tier-admin-Screen),
-    // "stripe" (future Billing-Sync), "default" (auto-default-on-signup-Hook).
-    // Optional für Back-Compat zu bestehenden Rows ohne source. Schützt manuelle
-    // Grants davor, von einem späteren Stripe→Tier-Sync geplättet zu werden.
+    // Origin of the assignment, see TierAssignmentSources. Optional for back-compat with
+    // rows without source. Protects manual grants from being overwritten by the billing sync.
     source: createTextField({
       required: false,
       maxLength: 20,

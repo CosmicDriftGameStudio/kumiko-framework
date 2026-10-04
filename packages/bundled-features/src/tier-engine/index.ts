@@ -17,7 +17,12 @@ export {
   type TierDefinition,
   type TierMap,
 } from "./compose-app.js";
-export { TIER_ENGINE_FEATURE, TierEngineHandlers, TierEngineQueries } from "./constants.js";
+export {
+  TIER_ENGINE_FEATURE,
+  TierAssignmentSources,
+  TierEngineHandlers,
+  TierEngineQueries,
+} from "./constants.js";
 export { tierAssignmentEntity } from "./entity.js";
 export {
   type CreateTierEngineOptions,

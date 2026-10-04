@@ -4,6 +4,7 @@
 // so it is now a factory parameter.
 
 import {
+  TierAssignmentSources,
   TierEngineHandlers,
   TierEngineQueries,
   tierAssignmentAggregateId,
@@ -102,7 +103,11 @@ export function createSubscriptionTierSync<TTier extends string>(
       ) {
         const created = await routeDeps.dispatchSystemWrite({
           handlerQn: TierEngineHandlers.create,
-          payload: { id: tierAssignmentAggregateId(tenantId), tier: effective },
+          payload: {
+            id: tierAssignmentAggregateId(tenantId),
+            tier: effective,
+            source: TierAssignmentSources.billing,
+          },
           tenantId,
         });
         if (!created.isSuccess) {
@@ -113,6 +118,7 @@ export function createSubscriptionTierSync<TTier extends string>(
         }
         return null;
       }
+      if (assignment["source"] === TierAssignmentSources.manual) return null;
       if (assignment["tier"] === effective) return null;
 
       const result = await routeDeps.dispatchSystemWrite({
@@ -120,7 +126,7 @@ export function createSubscriptionTierSync<TTier extends string>(
         payload: {
           id: assignment["id"],
           version: assignment["version"],
-          changes: { tier: effective },
+          changes: { tier: effective, source: TierAssignmentSources.billing },
         },
         tenantId,
       });

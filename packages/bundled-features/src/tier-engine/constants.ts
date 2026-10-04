@@ -15,6 +15,13 @@ export const TierEngineHandlers = {
   setTenantTier: "tier-engine:write:set-tenant-tier",
 } as const;
 
+// Origin of a tier-assignment row; the billing sync must not touch "manual" rows.
+export const TierAssignmentSources = {
+  manual: "manual",
+  billing: "billing",
+  default: "default",
+} as const;
+
 // Qualified query handler names.
 export const TierEngineQueries = {
   list: "tier-engine:query:tier-assignment:list",
