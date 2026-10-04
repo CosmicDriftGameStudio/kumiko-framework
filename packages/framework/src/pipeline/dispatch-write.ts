@@ -56,6 +56,7 @@ import {
   wrapToKumiko,
 } from "./dispatcher-utils.js";
 import { handlerAccessError } from "./handler-access-error.js";
+import { isReservedBeforeTransaction } from "./pre-transaction-reservations.js";
 import { runProjections } from "./projections-runner.js";
 
 function getTable(
@@ -513,6 +514,17 @@ async function executeWriteInner(
   const parsed = handler.schema.safeParse(payload);
   if (!parsed.success) {
     return writeFailure(validationErrorFromZod(parsed.error));
+  }
+
+  // A handler that reserves before the transaction cannot do so from inside an open one; running
+  // it unreserved would skip the check entirely, so a nested ctx.write of a different capped
+  // handler is rejected instead.
+  if (handler.reserveBeforeTransaction && !isReservedBeforeTransaction(type)) {
+    return writeFailure(
+      new InternalError({
+        message: `handler "${type}" reserves before the transaction and cannot run as a nested write unless the top-level batch reserved it`,
+      }),
+    );
   }
 
   try {

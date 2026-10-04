@@ -1345,6 +1345,19 @@ export type AgentExposure = {
   readonly risk: AgentRisk;
 };
 
+/** Undoes a reservation made before the handler transaction. */
+export type ReservationRelease = () => Promise<void>;
+
+/** Runs in the dispatcher after access and schema checks but before the
+ *  handler transaction opens, so it must commit its own short write instead
+ *  of holding a second connection while the transaction is open. The returned
+ *  release runs when the transaction does not commit (failure result, throw,
+ *  rollback, failed commit). Throwing a KumikoError rejects the write. */
+export type PreTransactionReservation = (
+  event: WriteEvent,
+  ctx: HandlerContext,
+) => Promise<ReservationRelease | undefined>;
+
 export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
@@ -1358,6 +1371,9 @@ export type WriteHandlerDef = {
    *  `rateLimit`; anonymous handlers still need an ip-keyed `rateLimit`. */
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   readonly escapeHatch?: EscapeHatchDeclaration;
+  /** Reserves before the handler transaction opens. Reached through a nested ctx.write the
+   *  reservation cannot run, so the dispatcher rejects it unless the top-level batch reserved it. */
+  readonly reserveBeforeTransaction?: PreTransactionReservation;
   /** Lets an anonymous `POST /api/write` for this handler proceed under
    *  SYSTEM_TENANT_ID when the host resolves no tenant. Boot requires
    *  `access.roles: ["anonymous"]` and a real `rateLimit`. */

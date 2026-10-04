@@ -20,6 +20,10 @@ import {
   isLifecycleResult,
   wrapToKumiko,
 } from "./dispatcher-utils.js";
+import {
+  reserveBeforeTransaction,
+  runWithReservedHandlerTypes,
+} from "./pre-transaction-reservations.js";
 import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.js";
 import { maskBatchResultForClient } from "./write-result-masking.js";
 
@@ -173,6 +177,21 @@ async function runBatchBody(
     await runWithWriteOrigin(strictest, flushBatchHooksInner);
   };
 
+  // Reserve before the transaction opens so no extra connection is held while the handler tx is
+  // open; the release below runs only after that tx has ended without committing.
+  const reservations = await reserveBeforeTransaction(ctx, commands, user, inheritedOrigin);
+  if (!reservations.isSuccess) {
+    return releaseOrFinalize(
+      {
+        isSuccess: false,
+        error: reservations.error,
+        failedIndex: reservations.failedIndex,
+        results,
+      },
+      reservations.error.httpStatus >= 500,
+    );
+  }
+
   // batch() opens its own outer transaction — needs the top-level
   // connection's `.begin()` (TransactionSql exposes only `.savepoint()`).
   const db = resolveDbSource(ctx, undefined) as DbConnection | undefined;
@@ -189,14 +208,17 @@ async function runBatchBody(
       );
       origins.push(origin);
       const hookStart = afterCommitHooks.length;
-      const res = await runWithWriteOrigin(origin, () =>
-        executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, undefined, afterCommitHooks),
+      const res = await runWithReservedHandlerTypes(reservations.types, () =>
+        runWithWriteOrigin(origin, () =>
+          executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, undefined, afterCommitHooks),
+        ),
       );
       rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
       results.push(res);
       if (!res.isSuccess) {
         // No tx means no rollback — but we still drop afterCommit hooks,
         // matching the semantic "failure = side-effects don't fire".
+        await reservations.releaseAll();
         return finalize({ isSuccess: false, error: res.error, failedIndex: i, results });
       }
     }
@@ -207,28 +229,32 @@ async function runBatchBody(
 
   let transactionCallbackCompleted = false;
   try {
-    await transaction(db, async (tx) => {
-      for (let i = 0; i < commands.length; i++) {
-        const cmd = commands[i];
-        if (!cmd) continue;
-        const origin = effectiveWriteOrigin(
-          rootWriteOrigin(ctx.registry, cmd.type, user),
-          inheritedOrigin,
-        );
-        origins.push(origin);
-        const hookStart = afterCommitHooks.length;
-        const res = await runWithWriteOrigin(origin, () =>
-          executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
-        );
-        rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
-        results.push(res);
-        if (!res.isSuccess) {
-          throw new BatchRollback(i, res.error);
+    await runWithReservedHandlerTypes(reservations.types, () =>
+      transaction(db, async (tx) => {
+        for (let i = 0; i < commands.length; i++) {
+          const cmd = commands[i];
+          if (!cmd) continue;
+          const origin = effectiveWriteOrigin(
+            rootWriteOrigin(ctx.registry, cmd.type, user),
+            inheritedOrigin,
+          );
+          origins.push(origin);
+          const hookStart = afterCommitHooks.length;
+          const res = await runWithWriteOrigin(origin, () =>
+            executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
+          );
+          rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
+          results.push(res);
+          if (!res.isSuccess) {
+            throw new BatchRollback(i, res.error);
+          }
         }
-      }
-      transactionCallbackCompleted = true;
-    });
+        transactionCallbackCompleted = true;
+      }),
+    );
   } catch (e) {
+    // Rollback or failed COMMIT: the transaction is over, so the reserved capacity goes back.
+    await reservations.releaseAll();
     if (e instanceof BatchRollback) {
       // Thrown inside the callback, so the tx rolled back. A 4xx is
       // deterministic and stays cached; a 5xx may be transient.
