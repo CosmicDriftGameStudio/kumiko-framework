@@ -7,7 +7,9 @@
  * `@cosmicdrift/kumiko-cli` or `@cosmicdrift/kumiko-dev-server`) and records
  * the version it was applied at. This guard re-runs `kumiko-upgrade --from <marker version> --json` and
  * fails if any changelog entries are still pending — meaning the marker is
- * stale and the repo hasn't run the upgrade since.
+ * stale and the repo hasn't run the upgrade since. It also fails once per open
+ * `pendingManual` step the marker still carries (breaking changes without a
+ * codemod that nobody resolved yet).
  *
  * Single-repo only, like `guard-upgrade-state.ts` in infra/guards but
  * without that package's multi-repo `resolveRepoRoots()` scan loop — this
@@ -31,7 +33,16 @@ import {
 const MARKER_REL = ".kumiko/upgrade-state.json";
 const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
-type UpgradeMarker = { readonly version: string };
+type PendingManualStep = {
+  readonly id: string;
+  readonly version: string;
+  readonly title: string;
+};
+
+type UpgradeMarker = {
+  readonly version: string;
+  readonly pendingManual: readonly PendingManualStep[];
+};
 
 type PendingEntry = {
   readonly version: string;
@@ -71,6 +82,25 @@ export function isUpgradeJson(value: unknown): value is UpgradeJson {
   );
 }
 
+export function isPendingManualStep(value: unknown): value is PendingManualStep {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v["id"] === "string" &&
+    v["id"].length > 0 &&
+    typeof v["version"] === "string" &&
+    typeof v["title"] === "string"
+  );
+}
+
+function readPendingManual(parsed: unknown): readonly PendingManualStep[] {
+  const raw =
+    parsed && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)["pendingManual"]
+      : undefined;
+  return Array.isArray(raw) ? raw.filter(isPendingManualStep) : [];
+}
+
 export function readMarker(root: string): UpgradeMarker | { error: string } {
   const markerPath = join(root, MARKER_REL);
   if (!existsSync(markerPath)) {
@@ -93,7 +123,7 @@ export function readMarker(root: string): UpgradeMarker | { error: string } {
       error: `${MARKER_REL} is missing a valid "version" field (expected semver x.y.z[-pre][+build]) — broken marker file`,
     };
   }
-  return { version };
+  return { version, pendingManual: readPendingManual(parsed) };
 }
 
 /** Pending changelog entries turned into guard violations — pure, testable without a subprocess. */
@@ -106,6 +136,20 @@ export function pendingViolations(json: UpgradeJson, markerVersion: string): Gua
     message:
       `${MARKER_REL} is at ${markerVersion}, installed is ${installedVersion} — pending: ` +
       `${entry.version} · ${entry.type} · ${entry.title}. Run \`bun run kumiko-upgrade --apply\`.`,
+  }));
+}
+
+/** Open manual upgrade steps from the marker, one violation each. */
+export function pendingManualViolations(
+  pendingManual: readonly PendingManualStep[],
+): GuardViolation[] {
+  return pendingManual.map((step) => ({
+    file: MARKER_REL,
+    line: 1,
+    message:
+      `Open manual upgrade step ${step.id} (${step.version}): ${step.title}. ` +
+      `Resolve it with \`kumiko-upgrade --resolve ${step.id} --reason "<what you did>"\` ` +
+      `or mark it with \`--not-applicable\`.`,
   }));
 }
 
@@ -204,16 +248,17 @@ export const check: RepoCheck = {
         notApplicable: false,
       };
     }
+    const manualViolations = pendingManualViolations(marker.pendingManual);
     const result = await runKumikoUpgrade(marker.version, rootAbsPath);
     if (!result.ok) {
       return {
-        violations: [{ file: MARKER_REL, line: 1, message: result.error }],
+        violations: [{ file: MARKER_REL, line: 1, message: result.error }, ...manualViolations],
         matchedFiles: 1,
         notApplicable: false,
       };
     }
     return {
-      violations: pendingViolations(result.json, marker.version),
+      violations: [...pendingViolations(result.json, marker.version), ...manualViolations],
       matchedFiles: 1,
       notApplicable: false,
     };

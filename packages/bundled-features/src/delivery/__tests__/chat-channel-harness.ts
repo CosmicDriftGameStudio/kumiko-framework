@@ -281,13 +281,13 @@ const MESSAGE = { title: "Failure case", body: "body" };
 // Failure paths shared by the three webhook-URL providers. Registers tests; call
 // inside a describe() whose beforeAll builds the context.
 export function registerWebhookFailureCases(getContext: () => FailureCaseContext): void {
-  test("stub answers 500 -> failed http_500, connection name as address", async () => {
+  test("stub answers 500 -> failed http_500, masked connection name as address", async () => {
     const { harness, stub, channel, seedConnection, urlFor } = getContext();
     await seedConnection("failing", urlFor("/api/webhooks/1/FAIL500"));
     const row = await harness.send(channel, "failing", MESSAGE);
     expect(row.status).toBe("failed");
     expect(row.error).toBe("http_500");
-    expect(row.recipientAddress).toBe("failing");
+    expect(row.recipientAddress).toBe("***");
     expect(stub.hitsOn("/api/webhooks/1/FAIL500")).toHaveLength(1);
   });
 
@@ -318,7 +318,7 @@ export function registerWebhookFailureCases(getContext: () => FailureCaseContext
     const row = await harness.send(channel, "never-configured", MESSAGE);
     expect(row.status).toBe("failed");
     expect(row.error).toBe("missing_credentials");
-    expect(row.recipientAddress).toBe("never-configured");
+    expect(row.recipientAddress).toBe("***ured");
   });
 
   test("connection name that is not a slug -> failed invalid_address, no secret read", async () => {

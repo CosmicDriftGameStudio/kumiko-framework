@@ -1,5 +1,10 @@
 export { hashUnsubscribeAddress } from "./address-opt-out.js";
 export {
+  type AttemptLogRetentionOptions,
+  DEFAULT_ATTEMPT_LOG_RETENTION_DAYS,
+  runAttemptLogRetention,
+} from "./attempt-log-retention.js";
+export {
   type ChatWebhookChannelOptions,
   chatMessageText,
   createChatWebhookChannel,

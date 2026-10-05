@@ -64,6 +64,7 @@ import {
 import { collectChannels, createDeliveryService } from "../delivery-service.js";
 import { createDeliveryFeature } from "../feature.js";
 import { deliveryRenderJob, deliverySendJob } from "../jobs.js";
+import { maskRecipientAddress } from "../mask-recipient-address.js";
 import {
   deliveryAttemptsTable,
   notificationAddressOptOutEntity,
@@ -1184,7 +1185,7 @@ describe("flow 10: complete end-to-end", () => {
     expect(inAppLog?.["status"]).toBe("sent");
     expect(emailLog).toBeDefined();
     expect(emailLog?.["status"]).toBe("sent");
-    expect(emailLog?.["recipientAddress"]).toBe(testEmail(user2.id));
+    expect(emailLog?.["recipientAddress"]).toBe("u***@test.com");
   });
 });
 
@@ -2134,7 +2135,7 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
     );
     const sentBefore = await selectMany(db, deliveryAttemptsTable, {
       notificationType: "app:notify:address-unsub-19a",
-      recipientAddress: address,
+      recipientAddress: maskRecipientAddress(address),
     });
     expect(sentBefore.every((l) => l["status"] === "sent")).toBe(true);
     expect(sentBefore.length).toBeGreaterThan(0);
@@ -2187,7 +2188,7 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
     );
     const otherTypeLogs = await selectMany(db, deliveryAttemptsTable, {
       notificationType: "app:notify:address-unsub-19b",
-      recipientAddress: address,
+      recipientAddress: maskRecipientAddress(address),
     });
     expect(otherTypeLogs.some((l) => l["status"] === "sent")).toBe(true);
 
@@ -2204,7 +2205,7 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
     );
     const criticalLogs = await selectMany(db, deliveryAttemptsTable, {
       notificationType: "app:notify:address-unsub-19a",
-      recipientAddress: address,
+      recipientAddress: maskRecipientAddress(address),
       priority: "critical",
     });
     expect(criticalLogs.some((l) => l["status"] === "sent")).toBe(true);
@@ -2275,7 +2276,7 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
     );
     const otherTenantLogs = await selectMany(db, deliveryAttemptsTable, {
       notificationType: "app:notify:address-unsub-19e",
-      recipientAddress: address,
+      recipientAddress: maskRecipientAddress(address),
       tenantId: otherTenantId,
     });
     expect(otherTenantLogs.some((l) => l["status"] === "sent")).toBe(true);

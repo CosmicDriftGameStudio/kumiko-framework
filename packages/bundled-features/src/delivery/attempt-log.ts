@@ -10,6 +10,7 @@ import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { DELIVERY_ATTEMPT_EVENT } from "./constants.js";
 import { deliveryAttemptSchema } from "./events.js";
+import { maskRecipientAddress } from "./mask-recipient-address.js";
 import type { DeliveryLogEntry } from "./types.js";
 
 // Shared append + inline-projection write (low-level append() does not
@@ -22,10 +23,14 @@ async function writeAttemptEvent(
   entry: DeliveryLogEntry,
 ): Promise<void> {
   const { tenantId, ...rest } = entry;
+  // Masked here, the only place attempt events are written, so no event or projection row ever holds the full address.
   // Schema-parse to match ctx.appendEvent's guarantee: a payload drift between
   // service/job + feature-registration fails loudly here instead of landing on
   // the events-table and crashing a consumer later.
-  const payload = deliveryAttemptSchema.parse(rest);
+  const payload = deliveryAttemptSchema.parse({
+    ...rest,
+    recipientAddress: maskRecipientAddress(rest.recipientAddress),
+  });
   const stored = await append(db, {
     aggregateId: attemptId,
     aggregateType: "deliveryAttempt",

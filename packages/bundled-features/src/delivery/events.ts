@@ -36,3 +36,6 @@ export const deliveryAttemptSchema = z.object({
 });
 
 export type DeliveryAttemptPayload = z.infer<typeof deliveryAttemptSchema>;
+
+// No payload: the event only marks the attempt row's address as erased.
+export const deliveryAttemptAddressErasedSchema = z.object({});

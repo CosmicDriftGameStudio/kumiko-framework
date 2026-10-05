@@ -171,7 +171,7 @@ describe("delivery attempt log under KMS", () => {
     const entry = before.rows.find(
       (r) => r["recipientId"] === recipient.id && r["channel"] === "email",
     );
-    expect(entry?.["recipient"]).toBe(testEmail(recipient.id));
+    expect(entry?.["recipient"]).toBe("u***@test.com");
 
     await kms.eraseKey({ kind: "user", userId: recipient.id });
 

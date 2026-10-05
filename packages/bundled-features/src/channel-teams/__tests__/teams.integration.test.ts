@@ -50,7 +50,7 @@ describe("channel-teams against a local HTTP stub", () => {
       body: "details",
     });
     expect(row.status).toBe("sent");
-    expect(row.recipientAddress).toBe("ops");
+    expect(row.recipientAddress).toBe("***");
     const [hit] = stub.hitsOn(webhookPath);
     expect(hit?.bodyJson).toEqual({
       type: "message",
@@ -86,7 +86,7 @@ describe("channel-teams against a local HTTP stub", () => {
     const serialized = serializeAttemptRows(harness.attemptRows);
     expect(harness.attemptRows.length).toBeGreaterThan(0);
     expect(harness.attemptRows.map((row) => row.error)).toContain("http_500");
-    expect(harness.attemptRows.map((row) => row.recipientAddress)).toContain("failing");
+    expect(harness.attemptRows.map((row) => row.recipientAddress)).toContain("***");
     expect(serialized).not.toContain(stub.origin);
     expect(serialized).not.toContain(webhookPath);
   });

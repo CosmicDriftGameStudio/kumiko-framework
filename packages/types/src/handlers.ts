@@ -2,7 +2,7 @@ import type { Redis } from "ioredis";
 import type { ZodType } from "zod";
 import type { CacheSyncBus } from "./cache-sync-types.js";
 import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./config.js";
-import type { DbConnection } from "./db-connection.js";
+import type { DbConnection, DbTx } from "./db-connection.js";
 import type { DerivativesContext } from "./derivatives-types.js";
 import type { EntityCache } from "./entity-cache.js";
 import type { EventMetadata, WriteOrigin } from "./event-store-types.js";
@@ -1348,15 +1348,29 @@ export type AgentExposure = {
 /** Undoes a reservation made before the handler transaction. */
 export type ReservationRelease = () => Promise<void>;
 
-/** Runs in the dispatcher after access and schema checks but before the
- *  handler transaction opens, so it must commit its own short write instead
- *  of holding a second connection while the transaction is open. The returned
- *  release runs when the transaction does not commit (failure result, throw,
- *  rollback, failed commit). Throwing a KumikoError rejects the write. */
+/** The dispatcher's own open handler transaction: a reservation must settle on it, not on
+ *  HandlerContext, whose db is fail-closed for r.systemScope() handlers. */
+export type ReservationConfirmContext = {
+  readonly tx: DbTx;
+  readonly tenantId: TenantId;
+};
+
+/** A reservation that also settles inside the handler transaction. `confirmInTransaction` runs
+ *  after the handler succeeded and before COMMIT; a throw fails the write and rolls it back. */
+export type ReservationHandle = {
+  readonly release: ReservationRelease;
+  readonly confirmInTransaction: (confirm: ReservationConfirmContext) => Promise<void>;
+};
+
+/** Runs in the dispatcher after every pre-handler gate (feature, rate limit, access, schema,
+ *  validation, field roles) passed but before the handler transaction opens, so it must commit
+ *  its own short write instead of holding a second connection while the transaction is open.
+ *  The returned release (or handle.release) runs when the transaction does not commit (failure
+ *  result, throw, rollback, failed commit). Throwing a KumikoError rejects the write. */
 export type PreTransactionReservation = (
   event: WriteEvent,
   ctx: HandlerContext,
-) => Promise<ReservationRelease | undefined>;
+) => Promise<ReservationRelease | ReservationHandle | undefined>;
 
 export type WriteHandlerDef = {
   readonly name: string;

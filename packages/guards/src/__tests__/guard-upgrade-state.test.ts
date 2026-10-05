@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   isPendingEntry,
   isUpgradeJson,
+  pendingManualViolations,
   pendingViolations,
   readMarker,
   resolveInstalledVersion,
@@ -28,7 +29,7 @@ describe("readMarker", () => {
       ".kumiko/upgrade-state.json": JSON.stringify({ version: "0.211.0" }),
     });
     try {
-      expect(readMarker(app.dir)).toEqual({ version: "0.211.0" });
+      expect(readMarker(app.dir)).toEqual({ version: "0.211.0", pendingManual: [] });
     } finally {
       app.cleanup();
     }
@@ -83,10 +84,63 @@ describe("readMarker", () => {
       ".kumiko/upgrade-state.json": JSON.stringify({ version: "0.212.0-canary.3" }),
     });
     try {
-      expect(readMarker(app.dir)).toEqual({ version: "0.212.0-canary.3" });
+      expect(readMarker(app.dir)).toEqual({ version: "0.212.0-canary.3", pendingManual: [] });
     } finally {
       app.cleanup();
     }
+  });
+});
+
+describe("readMarker pendingManual", () => {
+  test("keeps well-formed open steps and drops malformed ones", () => {
+    const app = withApp({
+      ".kumiko/upgrade-state.json": JSON.stringify({
+        version: "0.211.0",
+        pendingManual: [
+          { id: "a1b2c3d4", version: "0.210.0", title: "First" },
+          { version: "0.210.0", title: "no id" },
+          "junk",
+        ],
+      }),
+    });
+    try {
+      expect(readMarker(app.dir)).toEqual({
+        version: "0.211.0",
+        pendingManual: [{ id: "a1b2c3d4", version: "0.210.0", title: "First" }],
+      });
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  test("a non-array pendingManual is tolerated as empty", () => {
+    const app = withApp({
+      ".kumiko/upgrade-state.json": JSON.stringify({ version: "0.211.0", pendingManual: "x" }),
+    });
+    try {
+      expect(readMarker(app.dir)).toEqual({ version: "0.211.0", pendingManual: [] });
+    } finally {
+      app.cleanup();
+    }
+  });
+});
+
+describe("pendingManualViolations", () => {
+  test("no open steps → no violations", () => {
+    expect(pendingManualViolations([])).toHaveLength(0);
+  });
+
+  test("two open steps → two violations, each naming the id, --resolve --reason and --not-applicable", () => {
+    const violations = pendingManualViolations([
+      { id: "a1b2c3d4", version: "0.210.0", title: "First step" },
+      { id: "e5f6a7b8", version: "0.211.0", title: "Second step" },
+    ]);
+    expect(violations).toHaveLength(2);
+    expect(violations[0]?.message).toContain("a1b2c3d4");
+    expect(violations[0]?.message).toContain("First step");
+    expect(violations[0]?.message).toContain("--resolve a1b2c3d4 --reason");
+    expect(violations[0]?.message).toContain("--not-applicable");
+    expect(violations[1]?.message).toContain("--resolve e5f6a7b8 --reason");
   });
 });
 

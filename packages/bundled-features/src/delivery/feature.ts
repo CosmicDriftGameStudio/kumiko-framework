@@ -1,12 +1,16 @@
-import { upsertByPk } from "@cosmicdrift/kumiko-framework/bun-db";
+import { updateMany, upsertByPk } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   defineFeature,
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { ConsumerLagError } from "@cosmicdrift/kumiko-framework/pipeline";
 import type * as z from "zod";
+import { resolveAttemptLogRetentionDays, runAttemptLogRetention } from "./attempt-log-retention.js";
 import {
+  DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
   DELIVERY_ATTEMPT_EVENT,
   DELIVERY_CHANNEL_CELL_COMPONENT,
   DELIVERY_CHANNEL_EXTENSION,
@@ -18,7 +22,7 @@ import {
   DeliveryJobNames,
   DeliveryQueries,
 } from "./constants.js";
-import { deliveryAttemptSchema } from "./events.js";
+import { deliveryAttemptAddressErasedSchema, deliveryAttemptSchema } from "./events.js";
 import { logQuery } from "./handlers/log.query.js";
 import { preferencesQuery } from "./handlers/preferences.query.js";
 import { resubscribeAddressWrite } from "./handlers/resubscribe-address.write.js";
@@ -44,10 +48,17 @@ export type DeliveryFeatureOptions = {
   // who in a line-of-business app is the operator, not the platform — pass
   // access.systemAdmin to keep this platform-only and out of their nav.
   readonly access?: readonly string[];
+  // Attempt events and log rows older than this many days are pruned by a daily job. Default 90;
+  // `false` keeps the log forever.
+  readonly attemptLogRetentionDays?: number | false;
 };
+
+const ATTEMPT_LOG_RETENTION_ESCAPE_HATCH_REASON =
+  "prunes delivery attempt events and log rows of every tenant";
 
 export function createDeliveryFeature(options?: DeliveryFeatureOptions): FeatureDefinition {
   const resolvedAccess = options?.access ?? access.admin;
+  const attemptLogRetentionDays = resolveAttemptLogRetentionDays(options?.attemptLogRetentionDays);
   return defineFeature("delivery", (r) => {
     r.describe(
       "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything. Unsubscribe/resubscribe links are served by `createUnsubscribeRoutes({ secret })` mounted via the app's `extraRoutes` at `/api/delivery/unsubscribe` and `/api/delivery/resubscribe`: `GET /unsubscribe?token=` renders a confirmation page (no write), `POST /unsubscribe` performs the opt-out (RFC 8058 one-click, token from the form body or query), `POST /resubscribe` undoes it (JSON `{token}` or form body only, never the query — reachable by a mail-client link prefetcher) — sign links with `signUnsubscribeToken` / `signAddressUnsubscribeToken` using the same secret. `channel-email` sets `List-Unsubscribe` / `List-Unsubscribe-Post` automatically when a message's `data.unsubscribeUrl` points at the unsubscribe route.",
@@ -92,6 +103,12 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       },
     });
 
+    // Written when the recipient is forgotten: clears the address on the projection row and, being
+    // an event, survives a projection rebuild (a plain UPDATE would be undone by the replay).
+    r.defineEvent("attempt-address-erased", deliveryAttemptAddressErasedSchema, {
+      piiFields: "none",
+    });
+
     // Inline projection that materialises every delivery attempt into
     // deliveryAttemptsTable. Runs in the SAME transaction as the low-level
     // append(), so callers see their write immediately — no dispatcher
@@ -132,6 +149,14 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
             },
           );
         },
+        [DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT]: async (event, tx) => {
+          await updateMany(
+            tx,
+            deliveryAttemptsTable,
+            { recipientAddress: null },
+            { id: event.aggregateId },
+          );
+        },
       },
     });
 
@@ -159,6 +184,29 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       { trigger: { manual: true }, retries: 3, backoff: "exponential" },
       deliverySendJob,
     );
+
+    if (attemptLogRetentionDays !== undefined) {
+      r.job({
+        name: DeliveryJobNames.attemptLogRetention,
+        trigger: { cron: "15 3 * * *" },
+        concurrency: "skip",
+        escapeHatch: { reason: ATTEMPT_LOG_RETENTION_ESCAPE_HATCH_REASON },
+        handler: async (_payload, ctx) => {
+          const db = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+          try {
+            const pruned = await runAttemptLogRetention(db, {
+              olderThanDays: attemptLogRetentionDays,
+            });
+            ctx.log.info("delivery attempt log pruned", pruned);
+          } catch (error) {
+            if (!(error instanceof ConsumerLagError)) throw error;
+            ctx.log.warn("delivery attempt log retention postponed: an event consumer lags", {
+              consumer: error.laggingConsumer,
+            });
+          }
+        },
+      });
+    }
 
     const handlers = {
       setPreference: r.writeHandler(setPreferenceWrite),
