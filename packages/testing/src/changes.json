@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.351.0",
+    "type": "improvement",
+    "title": "CapturedMail.text in the e2e seed route carries the mail's plain-text part",
+    "detail": "The e2e seed route returns the plain-text part of captured mails\n`CapturedMail` in the seed contract has an optional `text`, filled from the mail's text part, so e2e flows can assert on it."
+  },
+  {
     "version": "0.345.0",
     "type": "improvement",
     "title": "e2e kit seeds an MFA factor and answers the MFA challenge on login",

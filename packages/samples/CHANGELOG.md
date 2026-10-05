@@ -1,5 +1,7 @@
 # @cosmicdrift/kumiko-samples
 
+## 0.351.0
+
 ## 0.350.0
 
 ## 0.349.0

@@ -1,5 +1,44 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.351.0
+
+### Minor Changes
+
+- 44be746: `kumiko-upgrade` ships with kumiko-cli and reads the repo's own version
+
+  Repos that depend only on `@cosmicdrift/kumiko-cli` and `@cosmicdrift/kumiko-guards` now get the `kumiko-upgrade` bin, which the upgrade-state guard runs. The installed version comes from the repo itself: its `node_modules`, the framework's package directories, then its `bun.lock`. It no longer walks up into a parent workspace, and with the isolated linker `installedVersion` is no longer `null`. Changelog entries newer than the installed version are not reported as pending, even when a parent workspace holds a newer install.
+
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: kumiko-upgrade ships with kumiko-cli and takes the installed version from the repo's own install or bun.lock
+  -->
+
+### Patch Changes
+
+- 44be746: `--help` prints usage on every bin
+
+  `kumiko-init-deploy --help` used to write the deploy files, and `kumiko-testing integration --help` crashed while parsing its arguments. Both now print their usage and exit 0, as do `kumiko-build`, `kumiko-dev`, `kumiko-schema-check` and `create-kumiko-app`.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: --help prints usage instead of running the command (init-deploy, build, dev, schema-check, kumiko-testing integration)
+  -->
+
+- Updated dependencies [44be746]
+- Updated dependencies [44be746]
+- Updated dependencies [44be746]
+- Updated dependencies [44be746]
+- Updated dependencies [44be746]
+- Updated dependencies [44be746]
+  - @cosmicdrift/kumiko-testing@0.351.0
+  - @cosmicdrift/kumiko-dev-server@0.351.0
+  - @cosmicdrift/kumiko-framework@0.351.0
+  - @cosmicdrift/kumiko-guards@0.351.0
+  - @cosmicdrift/kumiko-bundled-features@0.351.0
+  - @cosmicdrift/kumiko-repo-manifest@0.351.0
+
 ## 0.350.0
 
 ### Patch Changes

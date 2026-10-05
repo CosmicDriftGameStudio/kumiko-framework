@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.351.0",
+    "type": "fix",
+    "title": "ContainsSecret no longer fails with TS2615 on recursive types such as DashboardI18nText",
+    "detail": "ContainsSecret works on recursive types\n`ContainsSecret<T>` stops after eight levels of nesting. Query handlers whose output contains `DashboardI18nText` (which refers to itself through `i18nParams`) no longer fail to compile with TS2615. A secret nested deeper than that is still caught by the runtime leak guard."
+  },
+  {
+    "version": "0.351.0",
+    "type": "improvement",
+    "title": "New @cosmicdrift/kumiko-types/temporal export resolves one Temporal (native first, polyfill as fallback) for framework and app code",
+    "detail": "One Temporal implementation: `@cosmicdrift/kumiko-types/temporal`\nThe new export returns the native `globalThis.Temporal` when the runtime has it (Bun 1.4, current browsers) and falls back to `temporal-polyfill` otherwise, installing it on `globalThis`. Framework, bundled features and renderers import from there, so values made by the framework pass `instanceof` and `z.instanceof(Temporal.Instant)` checks in app code. `ensureTemporalPolyfill()` puts the same instance on the global. Apps should import `Temporal` from `@cosmicdrift/kumiko-types/temporal` instead of `temporal-polyfill`.",
+    "migration": "Replace imports from \"temporal-polyfill\" with \"@cosmicdrift/kumiko-types/temporal\" so app code and framework share one set of Temporal classes."
+  },
+  {
     "version": "0.340.0",
     "type": "improvement",
     "title": "Where clauses and aggregate options describe jsonb text matches and key ordering",
