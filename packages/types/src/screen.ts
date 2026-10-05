@@ -933,7 +933,7 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     readonly kind: "stat";
     /** Stable id: kebab-case, unique within the panel set. */
     readonly id: string;
-    /** Anzeige-Text (i18n-Key). */
+    /** Display text (i18n key). */
     readonly label: string;
     readonly query: string;
     readonly valueField: string;
@@ -946,24 +946,23 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     /** Record field holding `{ atMs, value | null }[]` (MetricResult.points),
      *  drawn as a sparkline next to the value. */
     readonly sparklineField?: string;
-    /** Optionaler Delta-Chip (z.B. "↓23 %") neben dem Label. Nur wenn BEIDE
-     *  Felder gesetzt sind UND der Query-Handler sie liefert, rendert der Chip
-     *  — sonst bleibt die Kachel wie ohne Delta. `deltaToneField` fällt auf
-     *  `toneField`/"default" zurück, wenn ungesetzt. */
+    /** Delta chip (e.g. "↓23 %") next to the label. It renders only when BOTH
+     *  fields are set AND the query handler returns them; otherwise the tile
+     *  looks as it does without a delta. `deltaToneField` falls back to
+     *  `toneField`/"default" when unset. */
     readonly deltaField?: string;
     readonly deltaDirectionField?: string;
     readonly deltaToneField?: string;
-    /** Statisches Icon neben dem Label — anders als value/sub/delta variiert
-     *  das Icon nicht pro Query-Result, sondern ist eine Author-Entscheidung
-     *  wie das Panel selbst. Aufgelöst über dieselbe extensionSectionComponents-
-     *  Registry wie custom-Panels; die registrierte Komponente ignoriert
-     *  typischerweise entityName/entityId/filterParams (kein Entity-Kontext
-     *  für ein reines Icon). */
+    /** Static icon next to the label. Unlike value/sub/delta it does not vary
+     *  per query result; it is an author decision like the panel itself.
+     *  Resolved through the same extensionSectionComponents registry as custom
+     *  panels; the registered component usually ignores
+     *  entityName/entityId/filterParams (a plain icon has no entity context). */
     readonly icon?: PlatformComponent;
-    /** Statischer CSS-Farbwert (z.B. "var(--color-debt)") für den Icon-Chip —
-     *  Passthrough an die Kachel, keine Registry, kein Lookup. Wirkt NUR wenn
-     *  `icon` gesetzt ist (StatCard rendert den Chip nur zusammen mit einem
-     *  Icon) — ohne icon wird der Wert still verworfen. */
+    /** Static CSS color value (e.g. "var(--color-debt)") for the icon chip,
+     *  passed straight to the tile without a registry lookup. Applies ONLY when
+     *  `icon` is set (StatCard renders the chip only together with an icon);
+     *  without an icon the value is silently dropped. */
     readonly accentColor?: string;
   };
 
@@ -1077,10 +1076,10 @@ export type DashboardFeedPanel = DashboardPanelQueryOptions &
     readonly query: string;
   };
 
-// Liste aus Label/Wert/Fortschrittsbalken (z.B. Tilgungsfortschritt pro
-// Kredit). Query-Result-Contract: `{ rows: { label: DashboardText; value: DashboardText;
-// fraction: number; sub?: DashboardText }[] }` — fraction wird auf 0..1 geclampt,
-// `sub` ist eine kleine Zeile unter dem Balken (z.B. "42 % getilgt").
+// List of label/value/progress bar (e.g. repayment progress per loan).
+// Query result contract: `{ rows: { label: DashboardText; value: DashboardText;
+// fraction: number; sub?: DashboardText }[] }`. `fraction` is clamped to 0..1;
+// `sub` is a small line below the bar (e.g. "42 % repaid").
 export type DashboardProgressListPanel = DashboardPanelQueryOptions &
   DashboardPanelEmptyState &
   DashboardPanelGate & {
