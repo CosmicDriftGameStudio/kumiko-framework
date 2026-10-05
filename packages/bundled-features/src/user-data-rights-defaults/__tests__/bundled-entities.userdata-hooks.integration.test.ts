@@ -458,10 +458,15 @@ describe("delivery-attempt userData-hooks (#799)", () => {
     });
 
     test("is a no-op without delivery mounted", async () => {
+      const attempt = await logAttemptFor("erase-unmounted", TENANT_A);
+
       await deliveryAttemptDeleteHook(
-        { ...ctx("erase-user"), registry: minimal.registry },
+        { ...ctx("erase-unmounted"), registry: minimal.registry },
         "anonymize",
       );
+
+      expect(await addressOf(attempt)).toBe("e***@example.com");
+      expect(await eraseEventCount(attempt)).toBe(0);
     });
   });
 });

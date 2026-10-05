@@ -7,15 +7,18 @@ export type MailBadge = { readonly label: string; readonly tone?: MailTone };
 export type MailStage = { readonly label: string; readonly state: MailStageState };
 export type MailChip = { readonly label: string; readonly tone?: MailTone };
 
-type ToneColors = { readonly bg: string; readonly fg: string };
-
-const TONE_COLORS: Readonly<Record<MailTone, ToneColors>> = {
+// Literal types (as const) keep the colors compile-time known, so they can go into style
+// attributes without escaping.
+const TONE_COLORS = {
   neutral: { bg: "#f3f4f6", fg: "#374151" },
   info: { bg: "#dbeafe", fg: "#1e40af" },
   success: { bg: "#dcfce7", fg: "#166534" },
   warning: { bg: "#fef3c7", fg: "#92400e" },
   danger: { bg: "#fee2e2", fg: "#991b1b" },
-};
+} as const satisfies Readonly<Record<MailTone, { readonly bg: string; readonly fg: string }>>;
+
+type ToneColors = (typeof TONE_COLORS)[MailTone];
+type PillMargin = "0" | "0 6px 6px 0";
 
 const STAGE_STATES: readonly MailStageState[] = ["done", "current", "upcoming"];
 const STAGE_DONE_COLOR = "#16a34a";
@@ -60,7 +63,7 @@ function validChips(value: unknown): readonly MailChip[] {
   return Array.isArray(value) ? value.filter(isChip) : [];
 }
 
-function pill(chip: MailChip, margin: string): string {
+function pill(chip: MailChip, margin: PillMargin): string {
   const { bg, fg } = toneColors(chip.tone);
   return `<span style="display:inline-block;margin:${margin};padding:2px 10px;border-radius:999px;background:${bg};color:${fg};font-size:12px;font-weight:600;line-height:18px">${escapeHtml(chip.label)}</span>`;
 }
@@ -102,12 +105,14 @@ function stageConnector(previous: MailStage): string {
 export function renderStages(stages: unknown, primaryColor: string): string {
   const valid = validStages(stages);
   if (valid.length === 0) return "";
-  const cells = valid.map((stage, index) => {
-    const previous = valid[index - 1];
-    const connector = previous ? stageConnector(previous) : "";
-    return `${connector}${stageCell(stage, index + 1, primaryColor)}`;
-  });
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px"><tr>${cells.join("")}</tr></table>`;
+  const cellsHtml = valid
+    .map((stage, index) => {
+      const previous = valid[index - 1];
+      const connector = previous ? stageConnector(previous) : "";
+      return `${connector}${stageCell(stage, index + 1, primaryColor)}`;
+    })
+    .join("");
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px"><tr>${cellsHtml}</tr></table>`;
 }
 
 const STAGE_TEXT_MARKER: Readonly<Record<MailStageState, string>> = {

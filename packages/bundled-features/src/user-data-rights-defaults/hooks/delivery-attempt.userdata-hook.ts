@@ -3,8 +3,10 @@ import {
   appendEventInTenantDb,
   getStreamVersionInTenantDb,
 } from "@cosmicdrift/kumiko-framework/event-store";
-import { DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT } from "../../delivery/constants.js";
-import { deliveryAttemptsTable } from "../../delivery/index.js";
+import {
+  DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
+  deliveryAttemptsTable,
+} from "../../delivery/index.js";
 import { featureMounted } from "./feature-mounted.js";
 
 // userData-Hooks for delivery's attempt log (deferred from #797, closed by
