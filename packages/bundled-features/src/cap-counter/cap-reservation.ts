@@ -233,6 +233,7 @@ export async function releaseExpiredCapReservations(
 ): Promise<void> {
   const outsideDb = requireOutsideTransactionDb(ctx);
   const expired = await outsideDb.selectMany<Pick<CapReservationRow, "id">>(capReservationsTable, {
+    tenantId: ctx.user.tenantId,
     capName,
     expiresAt: { lt: Temporal.Now.instant() },
   });
