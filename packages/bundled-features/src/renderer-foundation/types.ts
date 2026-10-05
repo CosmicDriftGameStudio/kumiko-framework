@@ -12,7 +12,7 @@ export type RenderRequest =
   | { kind: "image-snapshot"; payload: DocumentPayload; options?: ImageOptions };
 
 export type RenderResponse =
-  | { kind: "notification"; html: string }
+  | { kind: "notification"; html: string; text?: string }
   | { kind: "mail-html"; html: string; text: string }
   | { kind: "document-pdf"; pdfBytes: Uint8Array; pageCount: number; sizeBytes: number }
   | {

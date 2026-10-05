@@ -24,6 +24,9 @@ export type CapLimitContext = {
   readonly config?: ConfigAccessor;
 };
 
+// What the cap guards need from a write handler's ctx.
+export type CapGuardContext = CapLimitContext & { readonly db: TenantDb };
+
 export type StockCapSpec<TCaps> = {
   readonly table: SchemaTable | EntityTableMeta;
   readonly limit: (caps: TCaps) => number;

@@ -8,6 +8,8 @@
 // - findMembershipsOfUser parst JSON-encoded roles korrekt
 // - findTenants returnt sorted-by-inserted_at
 // - skippable + env-flag: kein marker geschrieben (gegen real-DB)
+// - findTemplateResources filtert per Bind-Parameter, defaultet auf den
+//   System-Tenant und liefert [] ohne template-Tabelle
 // - ctx.db ist DbRunner (Escape-Hatch für direct-reads)
 //
 // Schema-stubs sind raw CREATE TABLE, weil das vollständige user/tenant-
@@ -20,8 +22,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient, selectMany } from "../../db/query.js";
-import { createRegistry } from "../../engine/index.js";
+import { createRegistry, SYSTEM_TENANT_ID } from "../../engine/index.js";
 import { createDispatcher, type Dispatcher } from "../../pipeline/index.js";
+import { testTenantId } from "../../stack/test-users.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { createSeedMigrationContext } from "../context.js";
 import { createEsOperationsTable, esOperationsTable } from "../operations-schema.js";
@@ -374,5 +377,142 @@ describe("SeedMigrationContext.db (escape-hatch, integration)", () => {
       `SELECT name FROM read_tenants WHERE key = 'lucky'`,
     )) as unknown as readonly { name: string }[];
     expect(rows[0]?.name).toBe("Lucky");
+  });
+});
+
+describe("SeedMigrationContext.findTemplateResources (integration)", () => {
+  const OTHER_TENANT_ID = testTenantId(99);
+  const ids = {
+    welcomeDe: "00000000-0000-4000-8000-0000000000b1",
+    welcomeEn: "00000000-0000-4000-8000-0000000000b2",
+    incident: "00000000-0000-4000-8000-0000000000b3",
+    foreign: "00000000-0000-4000-8000-0000000000b4",
+  };
+
+  function buildContext() {
+    return createSeedMigrationContext({ dispatcher, dbRunner: testDb.db });
+  }
+
+  async function insertTemplate(args: {
+    readonly id: string;
+    readonly tenantId: string;
+    readonly slug: string;
+    readonly kind: string;
+    readonly locale: string;
+    readonly status: string;
+  }): Promise<void> {
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO read_template_resources (id, tenant_id, slug, kind, locale, status)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6)`,
+      [args.id, args.tenantId, args.slug, args.kind, args.locale, args.status],
+    );
+  }
+
+  async function createTemplateTable(): Promise<void> {
+    await asRawClient(testDb.db).unsafe(`
+      CREATE TABLE read_template_resources (
+        id        uuid PRIMARY KEY,
+        tenant_id uuid NOT NULL,
+        slug      text NOT NULL,
+        kind      text NOT NULL,
+        locale    text NOT NULL,
+        status    text NOT NULL
+      )
+    `);
+  }
+
+  async function dropTemplateTable(): Promise<void> {
+    await asRawClient(testDb.db).unsafe("DROP TABLE IF EXISTS read_template_resources");
+  }
+
+  test("returns [] when the template table does not exist", async () => {
+    await dropTemplateTable();
+    expect(await buildContext().findTemplateResources()).toEqual([]);
+  });
+
+  describe("with the table present", () => {
+    beforeEach(async () => {
+      await dropTemplateTable();
+      await createTemplateTable();
+      await insertTemplate({
+        id: ids.welcomeEn,
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "welcome",
+        kind: "notification",
+        locale: "en",
+        status: "active",
+      });
+      await insertTemplate({
+        id: ids.welcomeDe,
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "welcome",
+        kind: "notification",
+        locale: "de",
+        status: "active",
+      });
+      await insertTemplate({
+        id: ids.incident,
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "incident",
+        kind: "text-block",
+        locale: "en",
+        status: "archived",
+      });
+      await insertTemplate({
+        id: ids.foreign,
+        tenantId: OTHER_TENANT_ID,
+        slug: "welcome",
+        kind: "notification",
+        locale: "en",
+        status: "active",
+      });
+    });
+
+    afterAll(dropTemplateTable);
+
+    test("defaults to the system tenant and orders by slug, locale", async () => {
+      const rows = await buildContext().findTemplateResources();
+      expect(rows.map((r) => `${r.slug}/${r.locale}`)).toEqual([
+        "incident/en",
+        "welcome/de",
+        "welcome/en",
+      ]);
+      expect(rows.every((r) => r.tenantId === SYSTEM_TENANT_ID)).toBe(true);
+    });
+
+    test("filters by slug, kind, status and locale", async () => {
+      const ctx = buildContext();
+      expect(await ctx.findTemplateResources({ slug: "welcome", locale: "de" })).toEqual([
+        {
+          id: ids.welcomeDe,
+          tenantId: SYSTEM_TENANT_ID,
+          slug: "welcome",
+          kind: "notification",
+          locale: "de",
+          status: "active",
+        },
+      ]);
+      const archived = await ctx.findTemplateResources({ kind: "text-block", status: "archived" });
+      expect(archived.map((r) => r.id)).toEqual([ids.incident]);
+    });
+
+    test("a filter that matches nothing returns []", async () => {
+      expect(
+        await buildContext().findTemplateResources({ slug: "welcome", status: "archived" }),
+      ).toEqual([]);
+    });
+
+    test("tenantId selects another tenant's rows", async () => {
+      const rows = await buildContext().findTemplateResources({
+        tenantId: OTHER_TENANT_ID,
+      });
+      expect(rows.map((r) => r.id)).toEqual([ids.foreign]);
+    });
+
+    test("filter values are bound parameters, not SQL", async () => {
+      expect(await buildContext().findTemplateResources({ slug: "welcome' OR '1'='1" })).toEqual(
+        [],
+      );
+    });
   });
 });

@@ -73,6 +73,25 @@ export type SeedTenantRow = {
   readonly tenantKey: string;
 };
 
+/** Read-shape of a template-resolver row as exposed to seeds. */
+export type SeedTemplateResourceRow = {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly slug: string;
+  readonly kind: string;
+  readonly locale: string;
+  readonly status: string;
+};
+
+export type SeedTemplateResourceFilter = {
+  /** Defaults to the system tenant, where seeded system templates live. */
+  readonly tenantId?: TenantId;
+  readonly slug?: string;
+  readonly kind?: string;
+  readonly status?: string;
+  readonly locale?: string;
+};
+
 export type SeedMigrationContext = {
   /** Event-Store-konformer Write via existing write-handler. System-User
    *  als Executor bypassed Access-Check (Standard-Seed-Pattern). Events
@@ -115,6 +134,11 @@ export type SeedMigrationContext = {
   readonly findUserByEmail: (email: string) => Promise<SeedUserRow | null>;
   readonly findMembershipsOfUser: (userId: string) => Promise<readonly SeedMembershipRow[]>;
   readonly findTenants: () => Promise<readonly SeedTenantRow[]>;
+  /** Template rows ordered by slug, locale. Empty list when the
+   *  template-resolver feature (its table) is not present. */
+  readonly findTemplateResources: (
+    filter?: SeedTemplateResourceFilter,
+  ) => Promise<readonly SeedTemplateResourceRow[]>;
 
   /** Escape-Hatch — direkter DB-Zugang. Nur für READ-only Lookups die der
    *  Context nicht standard-mäßig anbietet. WRITES via systemWriteAs!

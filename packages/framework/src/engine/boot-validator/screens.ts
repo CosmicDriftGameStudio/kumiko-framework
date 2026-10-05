@@ -771,7 +771,8 @@ function rejectWriteOnlyFormField(
 }
 
 // Static options XOR optionsQuery on inline-form select fields, and `{ field }`
-// payload refs must name another field of the same form. The QN existence check
+// payload refs must name another field of the same form (the payload also feeds
+// optionsAvailabilityQuery). The QN existence check
 // lives in query-refs.ts with the other query refs.
 function validateFormSelectOptions(
   featureName: string,
@@ -789,6 +790,11 @@ function validateFormSelectOptions(
       }
       if (fdef.options.length > 0) {
         throw new Error(`${where} declares both options and optionsQuery — pick one`);
+      }
+      validateOptionsQueryFieldRefs(where, fieldName, fdef.optionsQueryPayload, siblingFieldNames);
+    } else if (fdef.optionsAvailabilityQuery !== undefined) {
+      if (fdef.optionsAvailabilityQuery.length === 0) {
+        throw new Error(`${where} has an empty optionsAvailabilityQuery`);
       }
       validateOptionsQueryFieldRefs(where, fieldName, fdef.optionsQueryPayload, siblingFieldNames);
     } else if (fdef.optionsQueryPayload !== undefined) {

@@ -430,6 +430,9 @@ export type InputProps =
              *  without a group stay ungrouped and come before all groups. Options
              *  with description or group never render as a segmented control. */
             readonly group?: string;
+            /** Not choosable and visibly muted. A disabled option that is the
+             *  current `value` stays displayed as the selection. */
+            readonly disabled?: boolean;
           }[];
       readonly disabled?: boolean;
       readonly required?: boolean;

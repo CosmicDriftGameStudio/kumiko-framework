@@ -361,3 +361,24 @@ describe("validateBoot — writeOnly on configEdit fields follows the key's encr
     );
   });
 });
+
+describe("validateBoot — select optionsAvailabilityQuery on entity fields", () => {
+  const planEntity = (optionsAvailabilityQuery: string) =>
+    defineFeature("shop", (r) => {
+      r.entity("item", {
+        fields: {
+          plan: { type: "select", options: ["free", "pro"], optionsAvailabilityQuery },
+        },
+      });
+    });
+
+  test("a registered availability query boots next to static options", () => {
+    expect(() => validateBoot([catalog, planEntity("catalog:query:model-options")])).not.toThrow();
+  });
+
+  test("a dead availability QN throws", () => {
+    expect(() => validateBoot([catalog, planEntity("catalog:query:ghost")])).toThrow(
+      /Select field "plan" on entity "item" declares optionsAvailabilityQuery "catalog:query:ghost" which is not a registered query-handler/,
+    );
+  });
+});

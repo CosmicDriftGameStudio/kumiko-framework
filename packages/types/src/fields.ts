@@ -391,6 +391,14 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
   /** Payload sent with every `optionsQuery` call. `{ field }` entries re-load the
    *  options when that sibling field changes. */
   readonly optionsQueryPayload?: OptionsQueryPayload;
+  /** Marks static options as unavailable per tenant (e.g. by tier). Contract:
+   *  `{ rows: { value: string; disabled?: boolean; hint?: string }[] }`. The renderer
+   *  loads it (with `optionsQueryPayload` resolved like for `optionsQuery`, `{}` when
+   *  absent) and merges it onto `options`: `disabled` disables the option, `hint` becomes
+   *  its description. The currently stored value always stays enabled; unknown values
+   *  are ignored. Static `options` stay authoritative, and the write path must enforce
+   *  the same rule (see `withTierOptionGate`), the renderer only mirrors it. */
+  readonly optionsAvailabilityQuery?: string;
 } & ResolvedPiiFlags;
 
 // Mehrere Werte aus einer festen Options-Liste — UI rendert als

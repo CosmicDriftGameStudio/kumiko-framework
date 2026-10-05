@@ -101,13 +101,23 @@ function checkFormFieldQueryRefs(
   fields: Readonly<Record<string, FieldDefinition>>,
 ): void {
   for (const [fieldName, field] of Object.entries(fields)) {
-    if (field.type !== "select" || field.optionsQuery === undefined) continue;
-    checkQueryRef(
-      queryHandlers,
-      field.optionsQuery,
-      () =>
-        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) select field "${fieldName}" optionsQuery`,
-    );
+    if (field.type !== "select") continue;
+    if (field.optionsQuery !== undefined) {
+      checkQueryRef(
+        queryHandlers,
+        field.optionsQuery,
+        () =>
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) select field "${fieldName}" optionsQuery`,
+      );
+    }
+    if (field.optionsAvailabilityQuery !== undefined) {
+      checkQueryRef(
+        queryHandlers,
+        field.optionsAvailabilityQuery,
+        () =>
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) select field "${fieldName}" optionsAvailabilityQuery`,
+      );
+    }
   }
 }
 

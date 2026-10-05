@@ -28,6 +28,8 @@ export type ComboboxOption = {
   readonly description?: string;
   /** Group heading; see `groupOptions` for the ordering rule. */
   readonly group?: string;
+  /** Visible but not choosable. */
+  readonly disabled?: boolean;
 };
 
 // Discriminated Union per `multiple`-Flag — Single-Mode hat string-
@@ -253,6 +255,7 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
                       data-testid={`combobox-${id}-option-${opt.value}`}
                       value={opt.label}
                       keywords={opt.description !== undefined ? [opt.description] : undefined}
+                      disabled={opt.disabled}
                       onSelect={() => {
                         if (props.multiple === true) {
                           toggleMulti(opt.value);
@@ -264,7 +267,10 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
                       // No pointer-events toggles on the item: with Tailwind active,
                       // `data-[disabled]:pointer-events-none` silently swallowed mouse
                       // clicks (keyboard select still worked, jsdom tests stayed green).
-                      className="relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground"
+                      className={cn(
+                        "relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground",
+                        opt.disabled === true && "cursor-not-allowed opacity-50",
+                      )}
                     >
                       {isSelected && (
                         <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">

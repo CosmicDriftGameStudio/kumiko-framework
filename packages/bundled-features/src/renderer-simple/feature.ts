@@ -31,12 +31,10 @@ export async function adaptToFoundation(
     );
   }
   const variables = await resolveNotificationVariables(req, ctx);
-  const html = await renderer.render({
-    template: req.payload.template ?? "",
-    variables,
-    locale: req.payload.locale,
-  });
-  return { kind: "notification", html };
+  const input = { template: req.payload.template ?? "", variables, locale: req.payload.locale };
+  const html = await renderer.render(input);
+  const text = renderer.renderText ? await renderer.renderText(input) : undefined;
+  return text === undefined ? { kind: "notification", html } : { kind: "notification", html, text };
 }
 
 export type RendererSimpleOptions = {

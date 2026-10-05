@@ -29,6 +29,8 @@ export type {
   SeedMembershipRow,
   SeedMigration,
   SeedMigrationContext,
+  SeedTemplateResourceFilter,
+  SeedTemplateResourceRow,
   SeedTenantRow,
   SeedUserRow,
 } from "./types.js";

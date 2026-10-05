@@ -84,6 +84,9 @@ export default {
   run: async (_ctx) => {
     // TODO: Implementiere die Migration.
     //
+    // Read helpers: ctx.findUserByEmail, ctx.findMembershipsOfUser, ctx.findTenants,
+    // ctx.findTemplateResources({ slug?, kind?, status?, locale? }).
+    //
     // Beispiel (admin-roles-fix):
     //   const admin = await ctx.findUserByEmail("admin@example.com");
     //   if (!admin) return;

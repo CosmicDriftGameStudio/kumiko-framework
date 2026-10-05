@@ -1,6 +1,18 @@
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import type { NotificationRenderer } from "../delivery/index.js";
 import { renderSafeMarkdown } from "../page-render/index.js";
+import {
+  badgeText,
+  chipsText,
+  type MailBadge,
+  type MailChip,
+  type MailStage,
+  parseBadge,
+  renderBadge,
+  renderChips,
+  renderStages,
+  stagesText,
+} from "./mail-blocks.js";
 
 export type MailBranding = {
   /** Shown as text when there is no logo, and as the logo alt text. */
@@ -170,10 +182,13 @@ type Section =
   | { readonly text: string }
   | { readonly heading: string }
   | { readonly markdown: string }
-  | { readonly button: { readonly label: string; readonly url: string } };
+  | { readonly button: { readonly label: string; readonly url: string } }
+  | { readonly stages: readonly MailStage[] }
+  | { readonly chips: readonly MailChip[] };
 
 type EmailTemplateData = {
   // Preferred: structured email data
+  readonly badge?: MailBadge;
   readonly header?: string;
   readonly sections?: readonly Section[];
   readonly footer?: string;
@@ -183,6 +198,7 @@ type EmailTemplateData = {
 };
 
 function templateContent(variables: Readonly<Record<string, unknown>>): {
+  readonly badge: MailBadge | undefined;
   readonly header: string | undefined;
   readonly sections: readonly Section[] | undefined;
   readonly footer: string | undefined;
@@ -190,6 +206,7 @@ function templateContent(variables: Readonly<Record<string, unknown>>): {
   const data = variables as EmailTemplateData; // @cast-boundary render-helper
   // Without structured fields, title + body become the header and a single text section.
   return {
+    badge: parseBadge(data.badge),
     header: data.header ?? data.title,
     sections: data.sections ?? (data.body ? [{ text: data.body }] : undefined),
     footer: data.footer,
@@ -202,6 +219,8 @@ function sectionText(section: Section): string {
   if ("heading" in section) return section.heading;
   if ("markdown" in section) return section.markdown;
   if ("button" in section) return `${section.button.label}: ${section.button.url}`;
+  if ("stages" in section) return stagesText(section.stages);
+  if ("chips" in section) return chipsText(section.chips);
   return "";
 }
 
@@ -219,6 +238,8 @@ function renderSection(section: Section, primaryColor: string): string {
   if ("button" in section) {
     return `<p style="margin:0 0 16px"><a href="${escapeHtml(section.button.url)}" style="display:inline-block;padding:10px 24px;background:${escapeHtmlAttr(primaryColor)};color:#fff;text-decoration:none;border-radius:4px;font-size:14px">${escapeHtml(section.button.label)}</a></p>`;
   }
+  if ("stages" in section) return renderStages(section.stages, primaryColor);
+  if ("chips" in section) return renderChips(section.chips);
   return "";
 }
 
@@ -232,12 +253,14 @@ export function createSimpleRenderer(branding?: MailBranding): NotificationRende
     name: "simple",
 
     async render(input) {
-      const { header, sections, footer } = templateContent(input.variables);
+      const { badge, header, sections, footer } = templateContent(input.variables);
 
       const parts: string[] = [];
       parts.push('<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:sans-serif">');
       parts.push('<div style="max-width:600px;margin:0 auto;padding:24px">');
       parts.push(renderBrandingHeader(branding, primaryColor, logoUrl));
+
+      if (badge) parts.push(renderBadge(badge));
 
       if (header) {
         parts.push(
@@ -263,9 +286,15 @@ export function createSimpleRenderer(branding?: MailBranding): NotificationRende
     },
 
     async renderText(input) {
-      const { header, sections, footer } = templateContent(input.variables);
+      const { badge, header, sections, footer } = templateContent(input.variables);
       const brandingFooter = brandingFooterLines(branding, input.locale).join("\n");
-      return [header, ...(sections ?? []).map(sectionText), footer, brandingFooter]
+      return [
+        badge ? badgeText(badge) : undefined,
+        header,
+        ...(sections ?? []).map(sectionText),
+        footer,
+        brandingFooter,
+      ]
         .filter((block): block is string => block !== undefined && block !== "")
         .join("\n\n");
     },

@@ -36,11 +36,18 @@ const EXCLUDE = /(__tests__|\.test\.ts$|\.integration\.ts$|\.d\.ts$)/;
 const RESTRICTED_SYMBOLS = new Set([
   "getUnscopedAggregateStreamMaxVersion",
   "getUnscopedAggregateStreamTenant",
+  // Appends any event type without the feature-ownership check of ctx.appendEvent and without
+  // an audited unsafeRaw escape hatch, so new callers need an explicit allowlist entry.
+  "appendEventInTenantDb",
+  "getStreamVersionInTenantDb",
 ]);
 
 const ALLOWLIST = [
   /^packages\/framework\/src\/event-store\/event-store\.ts$/,
   /^packages\/framework\/src\/event-store\/index\.ts$/,
+  /^packages\/framework\/src\/event-store\/tenant-db-append\.ts$/,
+  /^packages\/bundled-features\/src\/cap-counter\/cap-reservation\.ts$/,
+  /^packages\/bundled-features\/src\/user-data-rights-defaults\/hooks\/delivery-attempt\.userdata-hook\.ts$/,
   /^packages\/bundled-features\/src\/tenant\/seeding\.ts$/,
   /^packages\/bundled-features\/src\/tier-engine\/feature\.ts$/,
 ];
@@ -112,7 +119,7 @@ function findRestrictedSymbolReferences(sf: SourceFile): Violation[] {
 export const guard: AstGuard = {
   name: "Restricted-Symbols Guard",
   scan: SCAN,
-  hint: 'getUnscopedAggregateStream{MaxVersion,Tenant} is an existence oracle for foreign tenants — only seed-/system-internal code may reference them. New caller needed? Extend the allowlist in guard-restricted-symbols.ts, with a reason. Known gap: `export * from "...event-store"` is not detected (named imports, re-exports, and namespace property access are covered).',
+  hint: 'getUnscopedAggregateStream{MaxVersion,Tenant} is an existence oracle for foreign tenants — only seed-/system-internal code may reference them. appendEventInTenantDb/getStreamVersionInTenantDb bypass the feature-ownership check of ctx.appendEvent — only framework-internal coordination code may use them. New caller needed? Extend the allowlist in guard-restricted-symbols.ts, with a reason. Known gap: `export * from "...event-store"` is not detected (named imports, re-exports, and namespace property access are covered).',
   run(files, roots = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 
@@ -125,7 +132,7 @@ export const guard: AstGuard = {
         violations.push({
           file: rel,
           line: v.line,
-          message: `[${v.symbol}] unscoped stream-primitive referenced outside allowlist`,
+          message: `[${v.symbol}] restricted event-store primitive referenced outside allowlist`,
         });
       }
     }

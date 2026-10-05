@@ -37,6 +37,7 @@ export const deliveryAttemptExportHook: UserDataExportHook = async (ctx) => {
 // erase event also covers plaintext mode, and unlike a read-side UPDATE it survives a projection
 // rebuild. Rows without an address are skipped, which makes a second run a no-op.
 export const deliveryAttemptDeleteHook: UserDataDeleteHook = async (ctx) => {
+  // skip: delivery not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "delivery")) return;
   const rows = await ctx.db.selectMany<{ id: string; recipientAddress: string | null }>(
     deliveryAttemptsTable,
