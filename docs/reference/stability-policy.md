@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-04
+verified: 2026-10-05
 ---
 
 # Stability & deprecation policy
@@ -27,6 +27,14 @@ period. Every breaking change carries a migration note in its package's
 - Do not build tooling that depends on the shape of an internal module
   (anything not re-exported from a package's `index.ts`) — internals move
   without notice pre-1.0.
+
+`kumiko-upgrade` ships with `@cosmicdrift/kumiko-cli` and with
+`@cosmicdrift/kumiko-dev-server`, so a repo that only depends on the CLI and
+`@cosmicdrift/kumiko-guards` has it too. It reads the installed version from
+the repo itself: its own `node_modules`, then the framework's package
+directories, then the repo's `bun.lock`. The lockfile covers the isolated
+linker, which keeps transitive packages out of `node_modules`. A parent
+workspace above the repo is never consulted.
 
 ## Breaking changes without a codemod
 
