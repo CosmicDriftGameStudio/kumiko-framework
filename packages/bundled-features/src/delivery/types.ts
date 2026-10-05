@@ -121,15 +121,21 @@ export type DeliveryService = {
 // payload — collectChannels derives it from the usage's entityName instead.
 export type DeliveryChannelPlugin = Omit<DeliveryChannel, "name">;
 
+function hasOptionalHooks(o: object): boolean {
+  return (
+    (!("render" in o) || o.render === undefined || typeof o.render === "function") &&
+    (!("resolve" in o) || o.resolve === undefined || typeof o.resolve === "function") &&
+    (!("addressKind" in o) || o.addressKind === undefined || o.addressKind === "connection-name")
+  );
+}
+
 export function isDeliveryChannelPlugin(o: unknown): o is DeliveryChannelPlugin {
   return (
     typeof o === "object" &&
     o !== null &&
     "mode" in o &&
     DELIVERY_CHANNEL_MODES.some((mode) => mode === o.mode) &&
-    (!("render" in o) || o.render === undefined || typeof o.render === "function") &&
-    (!("resolve" in o) || o.resolve === undefined || typeof o.resolve === "function") &&
-    (!("addressKind" in o) || o.addressKind === undefined || o.addressKind === "connection-name") &&
+    hasOptionalHooks(o) &&
     "send" in o &&
     typeof o.send === "function"
   );
