@@ -1,16 +1,8 @@
-/// <reference types="temporal-polyfill/global" preserve="true" />
 import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { KumikoError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { markCapSoftWarned, readRollingCapUsage } from "./book-cap-usage.js";
 import { capCounterEntity } from "./entity.js";
-
-// Temporal globally provided by the framework's polyfill init
-// (ensureTemporalPolyfill() in time/polyfill.ts, called from
-// setupTestStack/boot). Importing from "temporal-polyfill" gives us
-// the polyfill-package types which don't quite match drizzle's
-// `instant()`-customType (temporal-spec narrowing of `until(...).sign`).
-// Mirror the audit-handler pattern: rely on the global ambient
-// declaration from temporal-spec.
 
 const { table } = createEntityExecutor("cap-counter", capCounterEntity);
 

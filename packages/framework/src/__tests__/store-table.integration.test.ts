@@ -4,7 +4,7 @@
 // kumiko-platform/docs/plans/architecture/table-ddl-guard.md (Stufe 3).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { defineUnmanagedTable } from "../db/entity-table-meta.js";
 import { asRawClient, insertOne, selectMany } from "../db/query.js";
 import { defineFeature } from "../engine/index.js";

@@ -4,8 +4,8 @@
  * caught up with the installed Kumiko framework version.
  *
  * The marker is written by `kumiko-upgrade --apply` (local bin from
- * `@cosmicdrift/kumiko-dev-server`) and records the version it was applied
- * at. This guard re-runs `kumiko-upgrade --from <marker version> --json` and
+ * `@cosmicdrift/kumiko-cli` or `@cosmicdrift/kumiko-dev-server`) and records
+ * the version it was applied at. This guard re-runs `kumiko-upgrade --from <marker version> --json` and
  * fails if any changelog entries are still pending — meaning the marker is
  * stale and the repo hasn't run the upgrade since.
  *
@@ -138,7 +138,7 @@ export async function runKumikoUpgrade(
     return {
       ok: false,
       error:
-        "`kumiko-upgrade` not resolvable — add `@cosmicdrift/kumiko-dev-server` as a devDependency or repair the install",
+        "`kumiko-upgrade` not resolvable — add `@cosmicdrift/kumiko-cli` or `@cosmicdrift/kumiko-dev-server` as a devDependency or repair the install",
     };
   }
   const proc = Bun.spawn({

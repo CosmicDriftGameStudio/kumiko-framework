@@ -28,7 +28,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createLateBoundHolder, seedRow, waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { createFeatureTogglesFeature } from "../feature.js";
 import { globalFeatureStateTable } from "../global-feature-state-table.js";

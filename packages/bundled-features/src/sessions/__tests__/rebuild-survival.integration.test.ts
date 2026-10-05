@@ -14,7 +14,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow, updateRows } from "@cosmicdrift/kumiko-framework/testing";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createUserFeature } from "../../user/feature.js";
 import { createSessionsFeature } from "../feature.js";
 import { userSessionEntity, userSessionTable } from "../schema/user-session.js";

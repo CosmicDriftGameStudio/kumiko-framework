@@ -239,6 +239,8 @@ export function baselineRatchet(args: {
       }));
     }
     if (!existsSync(args.file)) {
+      // Nothing to freeze: a missing baseline is equivalent to an empty one.
+      if (Object.values(current).every((count) => count === 0)) return [];
       console.log(
         `  No baseline found (${args.file}). Freeze it first with \`--write-baseline\` — warning until then, no fail.`,
       );

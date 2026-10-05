@@ -34,7 +34,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-framework/stack";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { ADMIN_EMAIL, BETA_TENANT_ID, DEMO_NOTE_ID, DEV_TENANT_ID } from "./auth-constants";
 import { noteEntity } from "./notes-feature";
 

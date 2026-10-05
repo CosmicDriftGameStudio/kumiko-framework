@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -56,6 +56,35 @@ describe("baselineRatchet", () => {
   test("check() passes without failing when no baseline file exists yet", () => {
     const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)" });
     expect(ratchet.check({ "a.ts": 5 }, "fix it")).toEqual([]);
+  });
+
+  test("check() with no baseline file and no findings passes silently", () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)" });
+      expect(ratchet.check({}, "fix it")).toEqual([]);
+      expect(ratchet.check({ "a.ts": 0 }, "fix it")).toEqual([]);
+      expect(logSpy).not.toHaveBeenCalled();
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  test("check() with no baseline file but findings still warns", () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)" });
+      expect(ratchet.check({ "a.ts": 1 }, "fix it")).toEqual([]);
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("No baseline found"));
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  test("failClosed still passes with no baseline file and no findings, and fails with findings", () => {
+    const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)", failClosed: true });
+    expect(ratchet.check({}, "fix it")).toEqual([]);
+    expect(ratchet.check({ "a.ts": 2 }, "fix it")).toHaveLength(1);
   });
 
   test("write() then check() with the same counts passes", () => {

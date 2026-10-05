@@ -1,12 +1,6 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 // @runtime client
-// temporal-polyfill is a plain npm dependency (not a framework runtime
-// module), so importing it here doesn't break browser bundles. Aliased —
-// same reason as event-store.ts's own import: the un-aliased name would
-// shadow the ambient global `Temporal` TYPE every `Temporal.Instant`
-// annotation in this file (and its callers, e.g. StoredEvent.createdAt)
-// resolves against, see #1438.
-import { Temporal as TemporalPolyfill } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 // Feature name
 export const BILLING_FOUNDATION_FEATURE = "billing-foundation" as const;
@@ -185,7 +179,7 @@ export function isTerminalSubscriptionStatus(status: string): boolean {
 // after roughly 23 hours; without a matching staleness cutoff on our side, a
 // stale incomplete row would block that tenant from ever starting a new
 // checkout, since the projection has no expiry-triggered event of its own.
-export const STALE_INCOMPLETE_AFTER = TemporalPolyfill.Duration.from({ hours: 24 });
+export const STALE_INCOMPLETE_AFTER = Temporal.Duration.from({ hours: 24 });
 
 /** Time-aware terminal check for the checkout gate: a canceled subscription
  *  is terminal (see `isTerminalSubscriptionStatus`), and so is an
@@ -199,15 +193,7 @@ export function isSubscriptionBlockingCheckout(
   if (isTerminalSubscriptionStatus(sub.status)) return false;
   if (sub.status !== SubscriptionStatuses.incomplete) return true;
   const staleAt = sub.lastChangedAt.add(STALE_INCOMPLETE_AFTER);
-  // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant
-  // at runtime — row types resolve against ambient Temporal; polyfill Instant
-  // is a separate nominal type across the two .d.ts sources.
-  return (
-    TemporalPolyfill.Instant.compare(
-      now as unknown as InstanceType<typeof TemporalPolyfill.Instant>,
-      staleAt as unknown as InstanceType<typeof TemporalPolyfill.Instant>,
-    ) < 0
-  );
+  return Temporal.Instant.compare(now, staleAt) < 0;
 }
 
 // A subscription in one of these statuses can be switched to a different

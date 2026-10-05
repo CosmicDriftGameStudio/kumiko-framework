@@ -31,6 +31,13 @@ import {
   runCodegen,
 } from "@cosmicdrift/kumiko-dev-server/cli";
 
+if (process.argv.slice(2).some((arg) => arg === "--help" || arg === "-h")) {
+  process.stdout.write(
+    "Usage: kumiko-build [app-dir]   build client (dist/) and server (dist-server/) bundles\n",
+  );
+  process.exit(0);
+}
+
 const explicit = process.argv[2];
 const cwd = explicit ? resolve(process.cwd(), explicit) : process.cwd();
 

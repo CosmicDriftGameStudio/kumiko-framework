@@ -24,7 +24,7 @@
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { findSignupHandoverProvider, type SignupHandoverBinding } from "../../shared/index.js";
 import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants.js";

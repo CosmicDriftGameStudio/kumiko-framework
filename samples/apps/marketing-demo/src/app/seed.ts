@@ -10,7 +10,7 @@
 
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { countAssetsForTenant, countTicketsForTenant } from "../db/queries/seed-counts";
 import { ASSET_STATUSES } from "../features/assets/schema";
 import { TICKET_SEVERITIES, TICKET_STATUSES } from "../features/helpdesk/schema";

@@ -24,10 +24,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
-// Aliased — an un-aliased `Temporal` would shadow the ambient global
-// `Temporal` TYPE `createBillingFoundationFeature`'s `now` option resolves
-// against.
-import { Temporal as TemporalPolyfill } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -830,7 +827,7 @@ describe("stale-incomplete subscription — injected clock", () => {
   let clockStack: TestStack;
 
   beforeAll(async () => {
-    clock = () => TemporalPolyfill.Now.instant() as unknown as Temporal.Instant;
+    clock = () => Temporal.Now.instant();
     clockStack = await setupTestStack({
       features: [
         createConfigFeature(),
@@ -854,7 +851,7 @@ describe("stale-incomplete subscription — injected clock", () => {
   });
 
   beforeEach(() => {
-    clock = () => TemporalPolyfill.Now.instant() as unknown as Temporal.Instant;
+    clock = () => Temporal.Now.instant();
   });
 
   test("(a) a fresh incomplete subscription still blocks checkout and shows paymentPending", async () => {
@@ -887,7 +884,7 @@ describe("stale-incomplete subscription — injected clock", () => {
       { tier: "starter", status: SubscriptionStatuses.incomplete },
       clockStack,
     );
-    clock = () => TemporalPolyfill.Now.instant().add({ hours: 25 }) as unknown as Temporal.Instant;
+    clock = () => Temporal.Now.instant().add({ hours: 25 });
 
     const result = (await clockStack.http.queryOk(
       "billing-foundation:query:billing-plans",

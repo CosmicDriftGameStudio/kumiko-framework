@@ -17,7 +17,7 @@ By default the SPA shows the built-in login screen. When the login page lives el
 
 With a string, the gate appends `next=<current path + query + hash>` itself. With a function, the gate passes the UI locale and the return path and uses the result as is, so the function decides whether and how to carry `next` (use `NEXT_QUERY_PARAM`). That is how a per-locale login URL is built.
 
-```ts
+```ts illustration
 const AuthGate = makeSessionAuthGate({
   loginUrl: (locale, returnPath) =>
     `https://example.eu/${locale}/login?${NEXT_QUERY_PARAM}=${encodeURIComponent(returnPath)}`,

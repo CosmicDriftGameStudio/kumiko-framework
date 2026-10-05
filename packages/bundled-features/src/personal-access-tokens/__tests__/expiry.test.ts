@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isExpiredAt } from "../expiry.js";
 
 describe("isExpiredAt", () => {

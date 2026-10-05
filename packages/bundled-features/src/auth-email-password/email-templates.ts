@@ -9,7 +9,7 @@
 // (localeDe() / localeEs() call registerMailTranslations).
 
 import { mailT, registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 export type AuthMailLocale = string;
 

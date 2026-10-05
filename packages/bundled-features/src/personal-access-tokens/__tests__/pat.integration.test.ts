@@ -24,7 +24,7 @@ import {
   resetPiiSubjectKmsForTests,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
 import { authFoundationFeature, resolveTokenVerifier } from "../../auth-foundation/index.js";

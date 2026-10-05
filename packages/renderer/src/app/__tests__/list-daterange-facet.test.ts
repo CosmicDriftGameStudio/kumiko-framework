@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ListFacetSpec } from "@cosmicdrift/kumiko-framework/ui-types";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   buildDateRangePayload,
   clampDateRange,

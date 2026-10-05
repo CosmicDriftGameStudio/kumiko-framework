@@ -15,7 +15,7 @@ import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine
 import { buildSessionRoles, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { encryptForDirectWrite } from "../shared/index.js";
 import { tenantMembershipsTable } from "../tenant/index.js";
 import { isPrincipalBlocked, type UserStatus, userTable } from "../user/index.js";

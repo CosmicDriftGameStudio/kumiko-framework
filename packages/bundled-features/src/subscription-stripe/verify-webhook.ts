@@ -47,8 +47,8 @@ import {
 import { ExtraRouteRejection } from "@cosmicdrift/kumiko-framework/api";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import Stripe from "stripe";
-import { Temporal } from "temporal-polyfill";
 import { STRIPE_PROVIDER_NAME, StripeEventTypes } from "./constants.js";
 import type { StripeWebhookRuntime } from "./runtime.js";
 

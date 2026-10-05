@@ -15,10 +15,7 @@
 
 import { createHash } from "node:crypto";
 import { SYSTEM_ROLE, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-// Aliased — an un-aliased `Temporal` would shadow the ambient global
-// `Temporal` TYPE `SubscriptionView.currentPeriodEnd`/`.cancelAt` resolve
-// against, same reasoning as constants.ts's own import.
-import { Temporal as TemporalPolyfill } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { findProviderPlugin } from "../checkout-core.js";
 import { isTerminalSubscriptionStatus, SubscriptionEventTypes } from "../constants.js";
@@ -37,18 +34,13 @@ export type SyncSubscriptionResult =
   | { readonly synced: true }
   | { readonly synced: false; readonly reason: SyncSubscriptionSkipReason };
 
-// Parses both sides fresh via the polyfill before comparing — tolerant of a
+// Parses both sides fresh via Temporal before comparing — tolerant of a
 // provider snapshot's ISO string using a different (but equivalent)
 // representation than `Temporal.Instant#toString()`'s canonical form
 // (offset spelling, sub-second precision, ...), unlike a plain `===` on the
 // raw strings.
 function isoInstantsEqual(a: string, b: string): boolean {
-  return (
-    TemporalPolyfill.Instant.compare(
-      TemporalPolyfill.Instant.from(a),
-      TemporalPolyfill.Instant.from(b),
-    ) === 0
-  );
+  return Temporal.Instant.compare(Temporal.Instant.from(a), Temporal.Instant.from(b)) === 0;
 }
 
 // Deterministic per (snapshot-content, current stream head) — not per-call.

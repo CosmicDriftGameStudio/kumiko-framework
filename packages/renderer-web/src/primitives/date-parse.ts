@@ -5,7 +5,7 @@
 // in timestamp-input.tsx (wire boundary, own test); this file is pure
 // calendar date.
 
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 // Prefer the native Temporal (Chromium 144+/Firefox 139+) over the bundled
 // polyfill so `instanceof` checks match values crossing package boundaries;

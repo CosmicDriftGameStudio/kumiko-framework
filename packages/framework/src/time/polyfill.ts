@@ -1,49 +1,27 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
-// Temporal polyfill bootstrap.
+// Temporal bootstrap.
 //
-// Temporal is native in Chromium 144+ / Firefox 139+, but missing in Safari,
-// iOS, and Hermes. Bun/Node coverage is incomplete. Boot installs
-// `temporal-polyfill` once so server/web/mobile share one API.
+// Temporal is native in Bun >= 1.4 and current Chromium/Firefox, but missing in
+// Safari, iOS and Hermes. `@cosmicdrift/kumiko-types/temporal` resolves one
+// implementation (native first, polyfill otherwise) so framework, consumer and
+// ambient-global code all see the same classes.
 //
 // Idempotent: if `globalThis.Temporal` already exists the call is a no-op.
-// The cache is the live global check — not a sticky module flag — so tests
-// that delete the ambient global (fw#1550) still re-install on the next call.
-// Re-install uses the value export + Object.assign (not `temporal-polyfill/global`
-// side-effect import): ESM caches the side-effect module and would not re-run
-// after a teardown.
+// The check is the live global — not a sticky module flag — so tests that
+// delete the ambient global (fw#1550) still get it back on the next call.
+// Re-install assigns the already-resolved module value: re-importing
+// `temporal-polyfill` here would put a polyfill instance on the global while
+// the rest of the code uses the native classes (instanceof mismatch).
 
-let polyfillPromise: Promise<void> | null = null;
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 /**
  * Ensure `globalThis.Temporal` is available. Idempotent.
  */
 export async function ensureTemporalPolyfill(): Promise<void> {
-  if ("Temporal" in globalThis) {
-    // skip: Temporal already on globalThis (native or prior polyfill)
-    return;
-  }
-  if (polyfillPromise) {
-    await polyfillPromise;
-    if ("Temporal" in globalThis) {
-      // skip: Concurrent boot — peer call finished install
-      return;
-    }
-    // Peer resolved but global still missing (torn down mid-flight).
-    polyfillPromise = null;
-  }
-
-  polyfillPromise = (async () => {
-    if ("Temporal" in globalThis) {
-      // skip: raced native/peer install
-      return;
-    }
-    // Value export — assign ourselves so teardown + re-call still works
-    // (side-effect `temporal-polyfill/global` is ESM-cached and silent on re-import).
-    const { Temporal } = await import("temporal-polyfill");
-    Object.assign(globalThis, { Temporal });
-  })();
-
-  await polyfillPromise;
+  // skip: Temporal global already present (native or installed by an earlier call)
+  if ("Temporal" in globalThis) return;
+  Object.assign(globalThis, { Temporal });
 }
 
 /**

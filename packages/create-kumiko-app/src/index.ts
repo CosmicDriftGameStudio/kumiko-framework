@@ -15,6 +15,8 @@ import { FEATURE_CONSTRUCTORS } from "./feature-constructors";
 import { loadManifest, type Manifest } from "./manifest";
 import { buildChoices, runPicker } from "./picker";
 
+const USAGE = "Usage: bun create kumiko-app <name> [--yes] [--print-manifest] [-h | --help]";
+
 export type CliArgs = {
   /** App name (kebab-case). Required for `scaffold` mode. */
   readonly name?: string;
@@ -22,6 +24,8 @@ export type CliArgs = {
   readonly printManifest?: boolean;
   /** Skip the interactive picker, take every `recommended:true` feature. */
   readonly yes?: boolean;
+  /** Print usage and exit 0 without scaffolding. */
+  readonly help?: boolean;
   /** Override cwd for scaffoldApp (mostly for the smoke test). */
   readonly cwd?: string;
   /** Override stdout sink (default: console.log). */
@@ -30,6 +34,10 @@ export type CliArgs = {
 
 export async function runCreate(args: CliArgs): Promise<number> {
   const log = args.log ?? ((line) => console.log(line));
+  if (args.help) {
+    log(USAGE);
+    return 0;
+  }
   const manifest = loadManifest();
 
   if (args.printManifest) {
@@ -38,7 +46,7 @@ export async function runCreate(args: CliArgs): Promise<number> {
   }
 
   if (!args.name) {
-    log("Usage: bun create kumiko-app <name> [--yes] [--print-manifest]");
+    log(USAGE);
     return 1;
   }
 
@@ -99,6 +107,7 @@ export function parseArgv(argv: readonly string[]): CliArgs {
   for (const arg of argv) {
     if (arg === "--print-manifest") out.printManifest = true;
     else if (arg === "--yes" || arg === "-y") out.yes = true;
+    else if (arg === "--help" || arg === "-h") out.help = true;
     else if (!arg.startsWith("-") && out.name === undefined) out.name = arg;
   }
   return out;

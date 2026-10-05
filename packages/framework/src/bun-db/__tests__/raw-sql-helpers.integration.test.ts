@@ -3,7 +3,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { ColumnMeta, EntityTableMeta } from "../../db/entity-table-meta.js";
 import { createTenantDb } from "../../db/tenant-db.js";
 import type { TenantId } from "../../engine/types/index.js";

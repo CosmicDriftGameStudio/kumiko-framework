@@ -7,7 +7,7 @@ import type {
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import type { Temporal } from "temporal-polyfill";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { templateResourceEntity, templateResourcesTable } from "../table.js";
 import { userContentEntriesTable, userContentEntryEntity } from "../user-content-table.js";
 

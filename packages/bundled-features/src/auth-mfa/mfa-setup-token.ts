@@ -10,7 +10,7 @@
 // signed-token.ts (userId-only payload) because setup needs to carry
 // generated secret material, not just re-derive it from a lookup.
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 export type MfaSetupPayload = {
   readonly userId: string;

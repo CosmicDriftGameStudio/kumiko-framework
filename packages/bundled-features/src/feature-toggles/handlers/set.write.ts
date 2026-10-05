@@ -5,7 +5,7 @@ import {
   VersionConflictError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import {
   FEATURE_TOGGLE_AGGREGATE_TYPE,

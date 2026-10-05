@@ -1,7 +1,7 @@
 import { defineUnmanagedTable, insertOne } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/stack";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { defineMetric, type MetricDefinition } from "../types.js";
 
 export const eventsTable = defineUnmanagedTable({

@@ -115,6 +115,7 @@
     "bin",
     "!src/**/__tests__/**",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "!bin/__tests__/**"
   ]
 }

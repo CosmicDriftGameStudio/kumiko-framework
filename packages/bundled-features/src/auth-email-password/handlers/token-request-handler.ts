@@ -15,7 +15,7 @@
 import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
-import type { Temporal } from "temporal-polyfill";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { UserQueries } from "../../user/index.js";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.js";

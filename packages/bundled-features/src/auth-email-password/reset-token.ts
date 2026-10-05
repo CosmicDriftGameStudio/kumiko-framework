@@ -3,7 +3,7 @@
 // the shared HMAC logic lives in one place. verification-token.ts mirrors
 // this pattern with purpose="verify".
 
-import type { Temporal } from "temporal-polyfill";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { signToken, TokenPurpose, verifyToken } from "./signed-token.js";
 
 export type VerifyResult =

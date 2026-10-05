@@ -23,11 +23,11 @@ import {
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type {
   Payment as MolliePayment,
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
-import { Temporal } from "temporal-polyfill";
 import { MOLLIE_PROVIDER_NAME } from "./constants.js";
 import type { MolliePriceConfig } from "./plugin-methods.js";
 

@@ -8,7 +8,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
 import { createSessionCallbacks } from "../session-callbacks.js";
 import { SESSION_REVOKED_EVENT_QN } from "../session-revoked-event.js";

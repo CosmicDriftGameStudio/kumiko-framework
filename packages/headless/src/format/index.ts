@@ -1,7 +1,7 @@
 // Pure format utilities — no web or platform dependencies.
 // Shared between renderer-web, renderer-native, and server-side tests.
 
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 function toPlainDate(raw: string): Temporal.PlainDate {
   try {

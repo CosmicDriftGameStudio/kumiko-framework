@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Temporal } from "temporal-polyfill";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createSystemUser } from "../../engine/index.js";
 import type {
   RateLimitConfig,

@@ -6,6 +6,8 @@ import {
   createStaticLocaleResolver,
   DashboardBodyProvider,
   DispatcherProvider,
+  type ExtensionSectionProps,
+  ExtensionSectionsProvider,
   KumikoScreen,
   kumikoDefaultTranslations,
   LocaleProvider,
@@ -30,7 +32,13 @@ function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
 function renderDashboard(
   dashboard: DashboardScreenDefinition,
   handlers: Readonly<Record<string, Handler>>,
-  options: { readonly locale?: string; readonly translations?: TranslationsByLocale } = {},
+  options: {
+    readonly locale?: string;
+    readonly translations?: TranslationsByLocale;
+    readonly extensionSections?: Readonly<
+      Record<string, (props: ExtensionSectionProps) => ReactNode>
+    >;
+  } = {},
 ): { readonly calls: { readonly type: string; readonly payload: Record<string, unknown> }[] } {
   const calls: { readonly type: string; readonly payload: Record<string, unknown> }[] = [];
   const dispatcher = createMockDispatcher({
@@ -46,9 +54,11 @@ function renderDashboard(
   const screenNode = (
     <BrowserNav>
       <DispatcherProvider dispatcher={dispatcher}>
-        <DashboardBodyProvider value={WebDashboardBody}>
-          <KumikoScreen schema={schema} qn={`${FEATURE}:screen:${dashboard.id}`} />
-        </DashboardBodyProvider>
+        <ExtensionSectionsProvider value={options.extensionSections ?? {}}>
+          <DashboardBodyProvider value={WebDashboardBody}>
+            <KumikoScreen schema={schema} qn={`${FEATURE}:screen:${dashboard.id}`} />
+          </DashboardBodyProvider>
+        </ExtensionSectionsProvider>
       </DispatcherProvider>
     </BrowserNav>
   );
@@ -909,5 +919,304 @@ describe("dashboard currency valueFormat and scrollable charts", () => {
     });
     await waitFor(() => expect(screen.getByTestId("dashboard-chart-main")).toBeTruthy());
     expect(screen.queryByTestId("chart-scroll-container")).toBeNull();
+  });
+});
+
+describe("dashboard panel gates (visibleWhen)", () => {
+  const GATE = { query: "demo:query:portfolio:state", field: "state", eq: "filled" } as const;
+  const gatedScreen: DashboardScreenDefinition = {
+    id: "gated",
+    type: "dashboard",
+    filter: {
+      id: "region",
+      label: "demo:filter-region",
+      kind: "select",
+      options: [{ value: "eu", label: "demo:region-eu" }],
+    },
+    panels: [
+      {
+        kind: "stat",
+        id: "always",
+        label: "demo:always",
+        query: "demo:query:kpi:always",
+        valueField: "value",
+      },
+      {
+        kind: "stat",
+        id: "total",
+        label: "demo:total",
+        query: "demo:query:kpi:total",
+        valueField: "value",
+        visibleWhen: GATE,
+      },
+      {
+        kind: "stat",
+        id: "global",
+        label: "demo:global",
+        query: "demo:query:kpi:global",
+        valueField: "value",
+        ignoreScreenFilter: true,
+        visibleWhen: GATE,
+      },
+      {
+        kind: "stat-group",
+        id: "kpis",
+        visibleWhen: GATE,
+        stats: [
+          {
+            kind: "stat",
+            id: "child",
+            label: "demo:child",
+            query: "demo:query:kpi:child",
+            valueField: "value",
+            ignoreScreenFilter: true,
+          },
+        ],
+      },
+      {
+        kind: "feed",
+        id: "events",
+        label: "demo:events",
+        query: "demo:query:feed:events",
+        visibleWhen: GATE,
+      },
+      {
+        kind: "progress-list",
+        id: "progress",
+        label: "demo:progress",
+        query: "demo:query:prog:rows",
+        visibleWhen: GATE,
+      },
+    ],
+  };
+  const panelHandlers = {
+    "demo:query:kpi:always": () => ok({ value: "always-value" }),
+    "demo:query:kpi:total": () => ok({ value: "total-value" }),
+    "demo:query:kpi:global": () => ok({ value: "global-value" }),
+    "demo:query:kpi:child": () => ok({ value: "child-value" }),
+    "demo:query:feed:events": () => ok({ rows: [{ primary: "event-row" }] }),
+    "demo:query:prog:rows": () =>
+      ok({ rows: [{ label: "progress-row", value: "1", fraction: 0.5 }] }),
+  };
+  const GATED_IDS = ["total", "global", "kpis", "events", "progress"] as const;
+
+  test("an unmet gate hides the panels and their queries never run; one gate query per payload", async () => {
+    window.history.replaceState(null, "", "/gated?region=eu");
+    const { calls } = renderDashboard(gatedScreen, {
+      ...panelHandlers,
+      "demo:query:portfolio:state": () => ok({ state: "empty" }),
+    });
+    await waitFor(() => expect(screen.getByText("always-value")).toBeTruthy());
+    await waitFor(() =>
+      expect(calls.filter((c) => c.type === "demo:query:portfolio:state").length).toBeGreaterThan(
+        1,
+      ),
+    );
+    for (const id of GATED_IDS) expect(screen.queryByTestId(`dashboard-panel-${id}`)).toBeNull();
+    const panelQueries = ["total", "global", "child"].map((id) => `demo:query:kpi:${id}`);
+    expect(calls.some((c) => panelQueries.includes(c.type))).toBe(false);
+    expect(calls.some((c) => c.type === "demo:query:feed:events")).toBe(false);
+    const gatePayloads = new Set(
+      calls
+        .filter((c) => c.type === "demo:query:portfolio:state")
+        .map((c) => JSON.stringify(c.payload)),
+    );
+    expect([...gatePayloads].sort()).toEqual(
+      [JSON.stringify({}), JSON.stringify({ region: "eu" })].sort(),
+    );
+  });
+
+  test("a met gate renders every gated panel", async () => {
+    window.history.replaceState(null, "", "/gated?region=eu");
+    renderDashboard(gatedScreen, {
+      ...panelHandlers,
+      "demo:query:portfolio:state": () => ok({ state: "filled" }),
+    });
+    for (const text of [
+      "total-value",
+      "global-value",
+      "child-value",
+      "event-row",
+      "progress-row",
+    ]) {
+      await waitFor(() => expect(screen.getByText(text)).toBeTruthy());
+    }
+  });
+
+  test("a failing gate query shows the error in the panel's cell instead of dropping it", async () => {
+    renderDashboard(gatedScreen, {
+      ...panelHandlers,
+      "demo:query:portfolio:state": () => failure,
+    });
+    await waitFor(() =>
+      expect(within(screen.getByTestId("dashboard-panel-events")).getByRole("alert")).toBeTruthy(),
+    );
+    expect(screen.queryByText("event-row")).toBeNull();
+  });
+});
+
+describe("dashboard stat-group subtitle, strip icons and progress sub line", () => {
+  function KpiIcon(): ReactNode {
+    return <svg data-testid="kpi-icon" aria-hidden="true" />;
+  }
+
+  test("a labeled stat-group shows its subtitle under the title", async () => {
+    renderDashboard(
+      {
+        id: "group",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "stat-group",
+            id: "net-worth",
+            label: "demo:net-worth",
+            subtitle: "demo:net-worth-sub",
+            stats: [
+              {
+                kind: "stat",
+                id: "assets",
+                label: "demo:assets",
+                query: "demo:query:kpi:assets",
+                valueField: "value",
+              },
+            ],
+          },
+        ],
+      },
+      { "demo:query:kpi:assets": () => ok({ value: "120.000 €" }) },
+    );
+    await waitFor(() => expect(screen.getByText("120.000 €")).toBeTruthy());
+    expect(
+      within(screen.getByTestId("dashboard-panel-net-worth")).getByText("demo:net-worth-sub"),
+    ).toBeTruthy();
+  });
+
+  test("an unlabeled stat-group keeps each child's icon and accent color", async () => {
+    renderDashboard(
+      {
+        id: "strip",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "stat-group",
+            id: "kpis",
+            stats: [
+              {
+                kind: "stat",
+                id: "debt",
+                label: "demo:debt",
+                query: "demo:query:kpi:debt",
+                valueField: "value",
+                icon: { react: { __component: "kpi-icon" } },
+                accentColor: "#123456",
+              },
+            ],
+          },
+        ],
+      },
+      { "demo:query:kpi:debt": () => ok({ value: "90.000 €" }) },
+      { extensionSections: { "kpi-icon": KpiIcon } },
+    );
+    await waitFor(() => expect(screen.getByTestId("kpi-icon")).toBeTruthy());
+    const chip = screen.getByTestId("kpi-icon").parentElement;
+    expect(chip?.getAttribute("style") ?? "").toContain("#123456");
+    expect(within(screen.getByTestId("dashboard-panel-debt")).getByText("demo:debt")).toBeTruthy();
+  });
+
+  test("a progress row sub line is translated", async () => {
+    renderDashboard(
+      {
+        id: "prog",
+        type: "dashboard",
+        panels: [
+          { kind: "progress-list", id: "prog", label: "demo:prog", query: "demo:query:prog:rows" },
+        ],
+      },
+      {
+        "demo:query:prog:rows": () =>
+          ok({
+            rows: [
+              {
+                label: "Baudarlehen",
+                value: "42.000 €",
+                fraction: 0.4,
+                sub: { i18nKey: "demo.paid", i18nParams: { pct: 40 } },
+              },
+            ],
+          }),
+      },
+      { locale: "en", translations: { en: { "demo.paid": "{pct} % paid off" } } },
+    );
+    await waitFor(() => expect(screen.getByText("40 % paid off")).toBeTruthy());
+  });
+});
+
+describe("dashboard stacked-area lines, marker kinds and ranges", () => {
+  const MONTH_COUNT = 37;
+  const jan2026 = Date.UTC(2026, 0, 1);
+  const monthAt = (index: number) => Date.UTC(2026, index, 1);
+  const monthly = (value: (index: number) => number) =>
+    Array.from({ length: MONTH_COUNT }, (_, i) => ({ atMs: monthAt(i), value: value(i) }));
+  const planPayload = {
+    windowStartMs: jan2026,
+    windowEndMs: monthAt(MONTH_COUNT - 1),
+    todayMs: jan2026,
+    series: [{ key: "remaining", label: "demo:remaining", points: monthly((i) => 1000 - i * 10) }],
+    lines: [
+      { key: "rent", label: "demo:rent", points: monthly(() => 400) },
+      { key: "rent-min", label: "demo:rent-min", dashed: true, points: monthly(() => 300) },
+    ],
+    markers: [
+      { atMs: monthAt(6), label: "Extra", kind: "extra" },
+      { atMs: monthAt(30), label: "Payoff", kind: "payoff" },
+      { atMs: monthAt(8), label: "Unknown kind", kind: "nope" },
+    ],
+  };
+
+  test("lines and marker kinds render with translated labels and configured colors", async () => {
+    renderDashboard(
+      chartScreen("stacked-area", {
+        seriesColors: { remaining: "var(--color-debt)", rent: "var(--color-rent)" },
+        markerKinds: { extra: { color: "var(--color-extra)" }, payoff: { tone: "positive" } },
+        legendTotals: false,
+      }),
+      { "demo:query:metric:chart": () => ok(planPayload) },
+    );
+    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    expect(screen.getByTestId("chart-line-rent").getAttribute("stroke")).toBe("var(--color-rent)");
+    expect(screen.getByTestId("chart-line-rent-min").getAttribute("stroke-dasharray")).toBe("6 4");
+    expect(screen.getByTestId("chart-legend-rent").textContent).toBe("demo:rent");
+    expect(screen.getByTestId("chart-legend-remaining").textContent).toBe("demo:remaining");
+    const guides = screen.getAllByTestId("chart-marker-guide");
+    expect(guides.map((g) => g.getAttribute("stroke"))).toEqual([
+      "var(--color-extra)",
+      "var(--color-status-ok)",
+    ]);
+    expect(screen.getAllByTestId("chart-marker-pin")).toHaveLength(3);
+  });
+
+  test("the range switch windows bands, lines and markers; max shows everything", async () => {
+    renderDashboard(
+      chartScreen("stacked-area", {
+        ranges: {
+          options: [
+            { value: "1y", label: "demo:range-1y", months: 12 },
+            { value: "max", label: "demo:range-max" },
+          ],
+          default: "1y",
+        },
+      }),
+      { "demo:query:metric:chart": () => ok(planPayload) },
+    );
+    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    const rangeSwitch = screen.getByTestId("dashboard-chart-range-main");
+    expect(rangeSwitch.closest("header")).not.toBeNull();
+    expect(screen.getAllByTestId("chart-marker-pin")).toHaveLength(2);
+    expect(screen.getByTestId("chart-line-rent").getAttribute("d")?.match(/L /g)).toHaveLength(12);
+    await userEvent.click(within(rangeSwitch).getByRole("button", { name: "demo:range-max" }));
+    await waitFor(() => expect(screen.getAllByTestId("chart-marker-pin")).toHaveLength(3));
+    expect(screen.getByTestId("chart-line-rent").getAttribute("d")?.match(/L /g)).toHaveLength(
+      MONTH_COUNT - 1,
+    );
   });
 });

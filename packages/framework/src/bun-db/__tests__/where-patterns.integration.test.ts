@@ -10,7 +10,7 @@
 // JSONB top-level equality: wird getestet (JSON.stringify + ::jsonb cast in prepareValue).
 // Deep-path-queries (->>'key') sind out-of-scope für bun-db's WhereObject.
 import { afterAll, describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { insertMany, selectMany } from "../query.js";
 import { closeDb, withTable } from "./_helpers.js";
 

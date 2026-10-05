@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { EntityTableMeta } from "../../db/entity-table-meta.js";
 import { selectMany } from "../query.js";
 

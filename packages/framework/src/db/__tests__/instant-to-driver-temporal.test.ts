@@ -1,6 +1,6 @@
 // kumiko-framework#1480 twin bug: instantToDriver referenced the global
 // `Temporal` the same way instantFromDriver in bun-db/query.ts did. Fixed
-// the same way — static `import { Temporal } from "temporal-polyfill"` in
+// the same way — static import of `@cosmicdrift/kumiko-types/temporal` in
 // dialect.ts. This test deletes globalThis.Temporal before calling it,
 // proving the write path no longer depends on the global either.
 

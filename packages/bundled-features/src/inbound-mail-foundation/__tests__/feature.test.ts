@@ -1,7 +1,7 @@
 // feature.ts contract tests for inbound-mail-foundation.
 
 import { describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.js";
 import {
   INBOUND_MAIL_FOUNDATION_FEATURE,

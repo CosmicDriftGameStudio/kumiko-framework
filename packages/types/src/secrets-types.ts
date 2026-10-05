@@ -80,23 +80,35 @@ type SafeLeaf =
   | Map<unknown, unknown>
   | Set<unknown>;
 
-export type ContainsSecret<T> = [T] extends [never]
+// Depth bound: self-referential types (DashboardI18nText -> i18nParams ->
+// DashboardI18nText) make a depth-less mapped-type fold fail with TS2615
+// (circular mapped type). Each recursion step instantiates with a longer
+// tuple, so TS sees distinct instantiations; beyond MaxSecretDepth the answer
+// is `false` = allowed (same bias as above, the runtime leak guard is the
+// backstop for a Secret buried deeper than any real response shape).
+type MaxSecretDepth = 8;
+
+export type ContainsSecret<T, Depth extends readonly unknown[] = []> = [T] extends [never]
   ? false
   : unknown extends T
     ? false
-    : T extends Secret<unknown>
-      ? true
-      : T extends Primitive
-        ? false
-        : T extends SafeLeaf
+    : Depth["length"] extends MaxSecretDepth
+      ? false
+      : T extends Secret<unknown>
+        ? true
+        : T extends Primitive
           ? false
-          : T extends readonly (infer U)[]
-            ? ContainsSecret<U>
-            : T extends object
-              ? true extends { [K in keyof T]-?: ContainsSecret<T[K]> }[keyof T]
-                ? true
-                : false
-              : false;
+          : T extends SafeLeaf
+            ? false
+            : T extends readonly (infer U)[]
+              ? ContainsSecret<U, [...Depth, unknown]>
+              : T extends object
+                ? true extends {
+                    [K in keyof T]-?: ContainsSecret<T[K], [...Depth, unknown]>;
+                  }[keyof T]
+                  ? true
+                  : false
+                : false;
 
 // Per-read audit context. Populated by requireSecretsContext() wrapper so
 // handlers don't need to pass userId/handlerName manually on every call.

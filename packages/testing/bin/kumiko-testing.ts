@@ -19,7 +19,12 @@ const USAGE = `kumiko-testing <command>
   integration [--parallel N]               run every *.integration.test.ts under the cwd,
               [--timings <file>] [--update-timings]  or only the given file(s) when passed
               [file...]                               as positional args
+  -h, --help                               print this help (also works after a command)
 `;
+
+function isHelpFlag(arg: string | undefined): boolean {
+  return arg === "--help" || arg === "-h";
+}
 
 function runBunfig(args: readonly string[]): number {
   const { values } = parseArgs({
@@ -99,6 +104,10 @@ async function runIntegration(args: readonly string[]): Promise<number> {
 }
 
 const [command, ...rest] = process.argv.slice(2);
+if (isHelpFlag(command) || rest.some(isHelpFlag)) {
+  console.log(USAGE);
+  process.exit(0);
+}
 if (command === "bunfig") process.exit(runBunfig(rest));
 if (command === "integration") process.exit(await runIntegration(rest));
 console.error(USAGE);

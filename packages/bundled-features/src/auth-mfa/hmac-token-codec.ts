@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
 function hmacSign(input: string, secret: string): string {
   return createHmac("sha256", secret).update(input).digest("base64url");

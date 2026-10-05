@@ -7,6 +7,7 @@ import {
   sectionFieldSpecs,
 } from "../engine/screen-helpers.js";
 import type {
+  DashboardChartPanel,
   DashboardFilterDefinition,
   DashboardPanelDefinition,
   DashboardScreenDefinition,
@@ -137,7 +138,8 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
   // skip: custom-Panel übersetzt sich selbst, kein Key hier
   if (panel.kind === "custom") return;
   pushKey(out, panel.label);
-  if (panel.kind === "chart") pushKey(out, panel.subtitle);
+  if (panel.kind === "chart" || panel.kind === "stat-group") pushKey(out, panel.subtitle);
+  if (panel.kind === "chart") pushDashboardChartRangeKeys(out, panel);
   if (
     panel.kind === "chart" ||
     panel.kind === "list" ||
@@ -156,6 +158,10 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
       if (normalized.label !== undefined) pushKey(out, normalized.label);
     }
   }
+}
+
+function pushDashboardChartRangeKeys(out: Set<string>, panel: DashboardChartPanel): void {
+  for (const option of panel.ranges?.options ?? []) pushKey(out, option.label);
 }
 
 function pushDashboardFilterKeys(out: Set<string>, filter: DashboardFilterDefinition): void {

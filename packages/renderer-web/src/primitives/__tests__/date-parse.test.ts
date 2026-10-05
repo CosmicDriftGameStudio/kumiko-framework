@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { kumikoDefaultTranslations } from "@cosmicdrift/kumiko-renderer";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   formatDateForInput,
   formatDatePlaceholder,

@@ -7,7 +7,7 @@
 // midnight and the coercion must read it via that anchor, not local getters.
 
 import { describe, expect, test } from "bun:test";
-import { Temporal } from "temporal-polyfill";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { coerceRow, type TableInfo } from "../query.js";
 
 function dateTableInfo(): TableInfo {

@@ -5,8 +5,9 @@ import { CollapsibleSection } from "../collapsible-section.js";
 import { DetailList } from "../detail-list.js";
 import { ModeSwitch } from "../mode-switch.js";
 import { ProgressBar } from "../progress-bar.js";
+import { ProgressList } from "../progress-list.js";
 import { SectionCard } from "../section-card.js";
-import { MiniStat, StatCard } from "../stat.js";
+import { MiniStat, StatCard, StatStripCell } from "../stat.js";
 import { EmptyState } from "../states.js";
 import { StatusBadge } from "../status-badge.js";
 import { StepBar } from "../step-bar.js";
@@ -895,5 +896,111 @@ describe("StackedAreaChart", () => {
     );
     expect(container.querySelectorAll("circle").length).toBe(0);
     expect(container.querySelectorAll("path").length).toBe(1);
+  });
+
+  const areaSeries = [
+    { key: "debt", label: "Restschuld", points: [point(0, 10), point(2000, 20)] },
+  ];
+
+  test("lines draw over the bands, scale the y axis and break at null", () => {
+    render(
+      <StackedAreaChart
+        {...baseProps}
+        series={areaSeries}
+        lines={[
+          {
+            key: "rent",
+            label: "Miete",
+            points: [point(0, 40), { atMs: 1000, value: null }, point(2000, 100)],
+          },
+          {
+            key: "rent-min",
+            label: "Mindestmiete",
+            dashed: true,
+            points: [point(0, 30), point(2000, 30)],
+          },
+        ]}
+      />,
+    );
+    const rent = screen.getByTestId("chart-line-rent");
+    expect(rent.getAttribute("d")?.match(/M /g)).toHaveLength(2);
+    expect(rent.getAttribute("stroke-dasharray")).toBeNull();
+    expect(screen.getByTestId("chart-line-rent-min").getAttribute("stroke-dasharray")).toBe("6 4");
+    expect(screen.getByText("100")).toBeTruthy();
+    const legend = screen.getByTestId("chart-legend-rent");
+    expect(legend.textContent).toBe("Miete");
+  });
+
+  test("showLegendTotals=false drops the series sums; colors win over tones", () => {
+    render(
+      <StackedAreaChart
+        {...baseProps}
+        series={areaSeries}
+        tones={{ debt: "negative" }}
+        colors={{ debt: "var(--color-debt)" }}
+        showLegendTotals={false}
+      />,
+    );
+    const legend = screen.getByTestId("chart-legend-debt");
+    expect(legend.textContent).toBe("Restschuld");
+    expect(legend.querySelector("span")?.getAttribute("style")).toContain("var(--color-debt)");
+  });
+
+  test("colored markers get a guide line and a colored pin; duplicates keep both pins", () => {
+    render(
+      <StackedAreaChart
+        {...baseProps}
+        series={areaSeries}
+        markers={[
+          { atMs: 1000, label: "Sondertilgung", color: "var(--color-extra)" },
+          { atMs: 1000, label: "Sondertilgung", color: "var(--color-extra)" },
+          { atMs: 1500, label: "Neutral" },
+        ]}
+      />,
+    );
+    expect(screen.getAllByTestId("chart-marker-guide")).toHaveLength(2);
+    const pins = screen.getAllByTestId("chart-marker-pin");
+    expect(pins).toHaveLength(3);
+    expect(pins[0]?.getAttribute("style")).toContain("var(--color-extra)");
+    expect(pins[2]?.className).toContain("bg-foreground");
+  });
+});
+
+describe("StatStripCell", () => {
+  test("renders the icon chip before the label, colored by accentColor", () => {
+    render(
+      <StatStripCell
+        icon={<svg data-testid="strip-icon" aria-hidden="true" />}
+        label="Restschuld"
+        value="120.000 €"
+        accentColor="#123456"
+        testId="cell"
+      />,
+    );
+    const chip = screen.getByTestId("strip-icon").parentElement;
+    expect(chip?.getAttribute("style") ?? "").toContain("#123456");
+    expect(chip?.nextElementSibling?.textContent).toBe("Restschuld");
+  });
+
+  test("without icon no chip renders", () => {
+    const { container } = render(
+      <StatStripCell label="Rate" value="890 €" accentColor="#123456" />,
+    );
+    expect(container.querySelector("span[style]")).toBeNull();
+  });
+});
+
+describe("ProgressList", () => {
+  test("a row sub line renders under the bar", () => {
+    render(
+      <ProgressList
+        rows={[
+          { id: "1", label: "Baudarlehen", value: "42.000 €", fraction: 0.4, sub: "40 % getilgt" },
+        ]}
+      />,
+    );
+    const sub = screen.getByText("40 % getilgt");
+    const bar = screen.getByRole("progressbar");
+    expect(bar.compareDocumentPosition(sub) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
