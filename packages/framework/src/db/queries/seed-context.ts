@@ -2,6 +2,7 @@ import type { DbRunner } from "../connection.js";
 import type { AnyDb } from "../query.js";
 import { unsafeReadRetrying } from "../query.js";
 import { tableExists } from "../schema-inspection.js";
+import { SOFT_DELETE_LIVE_ROW_PREDICATE } from "../table-builder.js";
 
 export type SeedUserRow = {
   readonly id: string;
@@ -88,7 +89,7 @@ export async function selectTemplateResources(
   filter: SeedTemplateResourceDbFilter,
 ): Promise<readonly SeedTemplateResourceDbRow[]> {
   if (!(await tableExists(db, "read_template_resources"))) return [];
-  const conditions = ["tenant_id = $1"];
+  const conditions = ["tenant_id = $1", SOFT_DELETE_LIVE_ROW_PREDICATE];
   const params: unknown[] = [filter.tenantId];
   for (const [column, value] of [
     ["slug", filter.slug],

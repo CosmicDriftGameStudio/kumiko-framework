@@ -142,10 +142,8 @@ export type RollingCapResolver = (
  * appending a `rolling-incremented` event before the handler transaction; a release appends
  * `rolling-released`.
  *
- * **Notification-Storm-Caveat:** rolling-counter trackt KEIN
- * lastSoftWarnedAt — der Notifier feuert bei JEDEM Call solange
- * der counter im soft-Bereich ist. Caller sollte einen TTL-Cache
- * (`Map<capName, lastNotifiedAt>`) im notify-callback einbauen.
+ * Rolling counters track no lastSoftWarnedAt, so the notifier fires on every call while usage
+ * sits in the soft range; throttle inside the notify callback (e.g. a per-capName TTL cache).
  */
 export function withRollingCapEnforcement(
   handler: WriteHandlerDef,

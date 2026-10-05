@@ -1,20 +1,9 @@
-// @no-server-stack: testet die SeedMigrationContext-Read-Helper (nur ctx.db);
-// der feature-lose Dispatcher wird nur zum Bauen des Context gebraucht, kein
-// HTTP-Pfad.
+// @no-server-stack: covers the SeedMigrationContext read helpers (ctx.db only); the
+// feature-less dispatcher is only needed to build the context, there is no HTTP path.
 //
-// Integration-Tests für SeedMigrationContext-Read-Helpers + skippable-
-// integration. Verifizieren dass:
-// - findUserByEmail liest read_users korrekt (typed result-cast)
-// - findMembershipsOfUser parst JSON-encoded roles korrekt
-// - findTenants returnt sorted-by-inserted_at
-// - skippable + env-flag: kein marker geschrieben (gegen real-DB)
-// - findTemplateResources filtert per Bind-Parameter, defaultet auf den
-//   System-Tenant und liefert [] ohne template-Tabelle
-// - ctx.db ist DbRunner (Escape-Hatch für direct-reads)
-//
-// Schema-stubs sind raw CREATE TABLE, weil das vollständige user/tenant-
-// Feature in den Tests zu schwer wäre — wir testen nur den Read-Helper-
-// Layer, nicht die volle Event-Store-Pipeline.
+// Schema stubs are raw CREATE TABLE statements because mounting the full user/tenant/
+// template-resolver features here would be too heavy: these tests target the read-helper
+// layer, not the event-store pipeline.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -400,11 +389,20 @@ describe("SeedMigrationContext.findTemplateResources (integration)", () => {
     readonly kind: string;
     readonly locale: string;
     readonly status: string;
+    readonly isDeleted?: boolean;
   }): Promise<void> {
     await asRawClient(testDb.db).unsafe(
-      `INSERT INTO read_template_resources (id, tenant_id, slug, kind, locale, status)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6)`,
-      [args.id, args.tenantId, args.slug, args.kind, args.locale, args.status],
+      `INSERT INTO read_template_resources (id, tenant_id, slug, kind, locale, status, is_deleted)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7)`,
+      [
+        args.id,
+        args.tenantId,
+        args.slug,
+        args.kind,
+        args.locale,
+        args.status,
+        args.isDeleted ?? false,
+      ],
     );
   }
 
@@ -416,7 +414,8 @@ describe("SeedMigrationContext.findTemplateResources (integration)", () => {
         slug      text NOT NULL,
         kind      text NOT NULL,
         locale    text NOT NULL,
-        status    text NOT NULL
+        status    text NOT NULL,
+        is_deleted boolean NOT NULL DEFAULT false
       )
     `);
   }
@@ -500,6 +499,19 @@ describe("SeedMigrationContext.findTemplateResources (integration)", () => {
       expect(
         await buildContext().findTemplateResources({ slug: "welcome", status: "archived" }),
       ).toEqual([]);
+    });
+
+    test("soft-deleted rows are not returned", async () => {
+      await insertTemplate({
+        id: "00000000-0000-4000-8000-0000000000d1",
+        tenantId: SYSTEM_TENANT_ID,
+        slug: "deleted-template",
+        kind: "notification",
+        locale: "en",
+        status: "active",
+        isDeleted: true,
+      });
+      expect(await buildContext().findTemplateResources({ slug: "deleted-template" })).toEqual([]);
     });
 
     test("tenantId selects another tenant's rows", async () => {
