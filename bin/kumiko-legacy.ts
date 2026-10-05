@@ -329,6 +329,11 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     name: "Changes-JSON Guard",
     cmd: `bun "${join(FRAMEWORK_REPO_ROOT, "scripts/guard-changes-json.ts")}"`,
   });
+  // The platform docs build rejects bare ts blocks in guides it copies from here.
+  steps.push({
+    name: "Guide-Code-Blocks Guard",
+    cmd: `bun "${join(FRAMEWORK_REPO_ROOT, "scripts/guard-guide-code-blocks.ts")}"`,
+  });
   // Local override only; the "kumiko check" step above already covers
   // raw-sql detection via the public package when this file is absent.
   const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
