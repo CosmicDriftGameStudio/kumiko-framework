@@ -23,6 +23,7 @@ import { useQuery } from "../hooks/use-query.js";
 import { referenceOptionSource } from "../hooks/use-reference-lookup.js";
 import { useLocale, useTranslation } from "../i18n.js";
 import { type FieldProps, usePrimitives } from "../primitives.js";
+import { AvailabilityOptionsSelect, staticSelectOptions } from "./availability-options-select.js";
 import { EmbeddedListField } from "./embedded-list-field.js";
 import { MultiSelectCheckboxes } from "./multi-select-checkboxes.js";
 import { QueryOptionsSelect } from "./query-options-select.js";
@@ -159,6 +160,18 @@ export function RenderField({
         field={field}
         query={field.selectOptionsQuery.query}
         payload={field.selectOptionsQuery.payload}
+        row={row ?? { [field.field]: field.value }}
+        id={id}
+        hasError={hasError}
+        onChange={onChange}
+      />
+    ) : field.type === "select" &&
+      field.selectOptionsAvailabilityQuery !== undefined &&
+      !readOnlyText ? (
+      <AvailabilityOptionsSelect
+        field={field}
+        query={field.selectOptionsAvailabilityQuery.query}
+        payload={field.selectOptionsAvailabilityQuery.payload}
         row={row ?? { [field.field]: field.value }}
         id={id}
         hasError={hasError}
@@ -797,12 +810,8 @@ function renderInput({
       // `<feature>:entity:<entity>:field:<field>:option:<value>`).
       // Wenn keine Translations registriert sind, fallback auf raw
       // value als Label — der ComboboxInput zeigt dann unverändert.
-      const rawOptions = field.options ?? [];
-      const labels = field.optionLabels;
       const selectOptions =
-        labels !== undefined
-          ? rawOptions.map((value: string) => ({ value, label: labels[value] ?? value }))
-          : rawOptions;
+        field.optionLabels !== undefined ? staticSelectOptions(field) : (field.options ?? []);
       // `display` is shared with multiSelect's "checkboxes", which is not a
       // select presentation — narrow to the two a select field can request.
       const display =

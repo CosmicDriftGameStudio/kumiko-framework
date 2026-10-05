@@ -5,7 +5,7 @@ File-based migrations for Event-Sourcing operations — like `kumiko schema appl
 ## What it shows
 
 - **`seedsDir`-Option** in `runProdApp({ seedsDir: "./seeds" })` — beim Boot werden pending Files in chronologischer Reihenfolge angewendet und in `kumiko_es_operations` markiert.
-- **`SeedMigration`-Interface** — default-Export einer seed-File mit `description` + `run(ctx)`. ctx liefert `systemWriteAs` (System-User bypassed Access-Check) + Read-Helpers (`findUserByEmail`, `findMembershipsOfUser`, `findTenants`).
+- **`SeedMigration`-Interface** — default-Export einer seed-File mit `description` + `run(ctx)`. ctx liefert `systemWriteAs` (System-User bypassed Access-Check) + Read-Helpers (`findUserByEmail`, `findMembershipsOfUser`, `findTenants`, `findTemplateResources`).
 - **Idempotency** — Marker landet nach Erfolg in der Tracking-Tabelle, zweiter Boot skipped applied Seeds.
 - **Tx-Atomicity** — Jede Migration läuft in eigener Transaction; Failure rollt zurück + bricht Boot ab (kein Partial-Apply).
 - **Chronologische File-IDs** — Filename `<date>-<slug>.ts` (z.B. `2026-05-20-fix-admin-roles.ts`) ist die ID.
@@ -34,6 +34,18 @@ seed: 2026-05-20-fix-admin-roles.ts
 ```
 
 Bei typo / drift fail-t mit klarer message + exit-code 1 — CI nutzt es als prä-build-step. App-Author muss in `smoke.ts` den `features`-Array gegen die eigene App-Feature-Set tauschen (siehe TODO im File).
+
+### Archive template rows
+
+`findTemplateResources({ slug?, kind?, status?, locale?, tenantId? })` replaces a raw `SELECT … FROM read_template_resources`. It defaults to the system tenant and returns `[]` when template-resolver is not mounted:
+
+```ts
+for (const t of await ctx.findTemplateResources({ kind: "notification", status: "active" })) {
+  await ctx.systemWriteAs("template-resolver:write:archive", { id: t.id }, SYSTEM_TENANT_ID, [
+    "SystemAdmin",
+  ]);
+}
+```
 
 ## When to reach for it
 

@@ -61,4 +61,9 @@ export const DELIVERY_ATTEMPT_EVENT = "delivery:event:attempt" as const;
 export const DeliveryJobNames = {
   render: "render",
   send: "send",
+  attemptLogRetention: "attempt-log-retention",
 } as const;
+
+// Clears recipientAddress on an attempt row after its recipient was forgotten.
+export const DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT =
+  "delivery:event:attempt-address-erased" as const;

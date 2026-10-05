@@ -6,19 +6,20 @@
 // the wrapper keeps the pattern explicit and co-located.
 //
 // **Calendar reservation:** the wrapper only declares the cap; the dispatcher runs the
-// reservation (reserveBeforeTransaction) before the handler transaction opens, in its own short
-// committed write, and releases it after that transaction ended without committing (rollback,
-// failure result, failed COMMIT). No connection is held across the handler, so capped requests
-// cannot exhaust the pool, and the counter stream is not locked while the handler runs. If a
-// COMMIT fails with an unknown outcome the release can under-count; a wrapped handler must not
-// book the same counter itself. Reached through a nested ctx.write the cap is not reserved, so
-// the dispatcher rejects that call unless the top-level batch reserved the same handler.
+// reservation (reserveBeforeTransaction) after all pre-handler gates and before the handler
+// transaction opens, in its own short committed write (counter increment plus a
+// store_cap_reservations row). The handler transaction deletes the row on its own commit; a release
+// after a rollback, failure result or failed COMMIT only gives back what is still booked, so an
+// unknown COMMIT outcome cannot under-count. No connection is held across the handler. Rows a
+// crashed process left behind expire after CAP_RESERVATION_TTL_MINUTES and are given back before the
+// next reserve of the same cap. Reached through a nested ctx.write the cap is not reserved, so the
+// dispatcher rejects that call unless the top-level batch reserved the same handler.
 //
-// Rolling booking still dispatches the SystemAdmin-only increment-rolling
-// handler and has no reservation: it would need a compensating event type,
-// a changed readRollingCapUsage and a version-guarded append behind the
-// SystemAdmin dispatch. Rolling callers need a SystemAdmin identity until
-// cap-counter declares an explicit foreign-booking opt-in.
+// The wrapper spreads the wrapped handler and chains its reserveBeforeTransaction: inner reserves
+// first, release runs in reverse, and an outer failure gives the inner reservation back.
+//
+// Rolling caps reserve the same way: a version-guarded `rolling-incremented` append plus a
+// reservation row, undone by a `rolling-released` event. The window sum is incremented minus released.
 //
 // No automatic markSoftWarned here — that's inside enforceCapAndMaybeNotify
 // (enforce-cap.ts).
@@ -28,9 +29,11 @@ import type {
   WriteEvent,
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
-import { bookCapUsage, releaseCapUsage } from "./book-cap-usage.js";
-import { CapCounterHandlers } from "./constants.js";
+import {
+  releaseExpiredCapReservations,
+  reserveCalendarCap,
+  reserveRollingCap,
+} from "./cap-reservation.js";
 import {
   assertBelowHardCap,
   type CapToleranceProfileName,
@@ -38,6 +41,7 @@ import {
   enforceRollingCapAndMaybeNotify,
   type SoftHitNotifier,
 } from "./enforce-cap.js";
+import { chainReservations } from "./reservation-chain.js";
 
 // =============================================================================
 // Calendar-Period-Wrapper
@@ -85,39 +89,31 @@ export function withCapEnforcement(
 ): WriteHandlerDef {
   return {
     ...handler,
-    reserveBeforeTransaction: async (event, ctx) => {
-      const cap = await capResolver(event, ctx);
+    reserveBeforeTransaction: chainReservations(
+      handler.reserveBeforeTransaction,
+      async (event, ctx) => {
+        const cap = await capResolver(event, ctx);
 
-      await enforceCapAndMaybeNotify(ctx, {
-        capName: cap.capName,
-        periodStartIso: cap.periodStartIso,
-        limit: cap.limit,
-        profile: cap.profile,
-        notify: cap.notify,
-        markSoftWarnedOutsideTransaction: true,
-        ...(cap.amount !== undefined && { amount: cap.amount }),
-      });
+        await releaseExpiredCapReservations(ctx, cap.capName);
+        await enforceCapAndMaybeNotify(ctx, {
+          capName: cap.capName,
+          periodStartIso: cap.periodStartIso,
+          limit: cap.limit,
+          profile: cap.profile,
+          notify: cap.notify,
+          markSoftWarnedOutsideTransaction: true,
+          ...(cap.amount !== undefined && { amount: cap.amount }),
+        });
 
-      const amount = cap.amount ?? 1;
-      const reserved = await bookCapUsage(ctx, {
-        capName: cap.capName,
-        amount,
-        periodStartIso: cap.periodStartIso,
-        outsideTransaction: true,
-        guardCurrentValue: (currentValue) => assertBelowHardCap(currentValue + amount - 1, cap),
-      });
-      if (!reserved.isSuccess) throw reraiseAsKumikoError(reserved.error);
-
-      return async () => {
-        const released = await releaseCapUsage(ctx, {
+        const amount = cap.amount ?? 1;
+        return reserveCalendarCap(ctx, {
           capName: cap.capName,
           amount,
           periodStartIso: cap.periodStartIso,
-          outsideTransaction: true,
+          guardCurrentValue: (currentValue) => assertBelowHardCap(currentValue + amount - 1, cap),
         });
-        if (!released.isSuccess) throw reraiseAsKumikoError(released.error);
-      };
-    },
+      },
+    ),
   };
 }
 
@@ -142,44 +138,41 @@ export type RollingCapResolver = (
 /**
  * Wrap a write-handler with rolling-window cap-enforcement.
  *
- * Same flow as `withCapEnforcement` but uses
- * `enforceRollingCapAndMaybeNotify` + dispatches
- * `cap-counter:write:increment-rolling` post-success.
+ * Same flow as `withCapEnforcement` but uses `enforceRollingCapAndMaybeNotify` and reserves by
+ * appending a `rolling-incremented` event before the handler transaction; a release appends
+ * `rolling-released`.
  *
- * **Notification-Storm-Caveat:** rolling-counter trackt KEIN
- * lastSoftWarnedAt — der Notifier feuert bei JEDEM Call solange
- * der counter im soft-Bereich ist. Caller sollte einen TTL-Cache
- * (`Map<capName, lastNotifiedAt>`) im notify-callback einbauen.
+ * Rolling counters track no lastSoftWarnedAt, so the notifier fires on every call while usage
+ * sits in the soft range; throttle inside the notify callback (e.g. a per-capName TTL cache).
  */
 export function withRollingCapEnforcement(
   handler: WriteHandlerDef,
   capResolver: RollingCapResolver,
 ): WriteHandlerDef {
   return {
-    name: handler.name,
-    schema: handler.schema,
-    access: handler.access,
-    handler: async (event, ctx) => {
-      const cap = await capResolver(event, ctx);
+    ...handler,
+    reserveBeforeTransaction: chainReservations(
+      handler.reserveBeforeTransaction,
+      async (event, ctx) => {
+        const cap = await capResolver(event, ctx);
 
-      await enforceRollingCapAndMaybeNotify(ctx, {
-        capName: cap.capName,
-        windowDays: cap.windowDays,
-        limit: cap.limit,
-        profile: cap.profile,
-        notify: cap.notify,
-      });
-
-      const result = await handler.handler(event, ctx);
-
-      if (result.isSuccess) {
-        await ctx.write(CapCounterHandlers.incrementRolling, {
+        await releaseExpiredCapReservations(ctx, cap.capName);
+        await enforceRollingCapAndMaybeNotify(ctx, {
           capName: cap.capName,
-          amount: cap.amount ?? 1,
+          windowDays: cap.windowDays,
+          limit: cap.limit,
+          profile: cap.profile,
+          notify: cap.notify,
         });
-      }
 
-      return result;
-    },
+        const amount = cap.amount ?? 1;
+        return reserveRollingCap(ctx, {
+          capName: cap.capName,
+          windowDays: cap.windowDays,
+          amount,
+          guardCurrentValue: (usage) => assertBelowHardCap(usage + amount - 1, cap),
+        });
+      },
+    ),
   };
 }

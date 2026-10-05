@@ -127,7 +127,7 @@ import { ProgressBar } from "../widgets/progress-bar.js";
 import { StatusBadge } from "../widgets/status-badge.js";
 import { StepBar } from "../widgets/step-bar.js";
 import { inFieldIconButtonClass } from "./calendar-popover.js";
-import { ComboboxInput } from "./combobox.js";
+import { ComboboxInput, type ComboboxOption } from "./combobox.js";
 import { DateInput } from "./date-input.js";
 import { DefaultDialog } from "./dialog.js";
 import { DefaultDrawer } from "./drawer.js";
@@ -678,7 +678,11 @@ function SegmentedSelect({
   readonly name: string;
   readonly value: string;
   readonly onChange: (v: string) => void;
-  readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly options: readonly {
+    readonly value: string;
+    readonly label: string;
+    readonly disabled?: boolean;
+  }[];
   readonly disabled?: boolean;
   readonly required?: boolean;
   readonly hasError?: boolean;
@@ -695,13 +699,22 @@ function SegmentedSelect({
     buttonRefs.current[index]?.focus();
   };
 
+  // Arrow keys skip disabled segments; with none enabled they stay put.
+  const nextEnabledIndex = (from: number, step: 1 | -1): number => {
+    for (let hop = 1; hop <= options.length; hop++) {
+      const candidate = (from + step * hop + options.length * hop) % options.length;
+      if (options[candidate]?.disabled !== true) return candidate;
+    }
+    return from;
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number): void => {
     if (e.key === "ArrowRight" || e.key === "ArrowDown") {
       e.preventDefault();
-      selectAt((index + 1) % options.length);
+      selectAt(nextEnabledIndex(index, 1));
     } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
       e.preventDefault();
-      selectAt((index - 1 + options.length) % options.length);
+      selectAt(nextEnabledIndex(index, -1));
     }
   };
 
@@ -731,7 +744,7 @@ function SegmentedSelect({
             role="radio"
             aria-checked={checked}
             tabIndex={index === tabStopIndex ? 0 : -1}
-            disabled={disabled}
+            disabled={disabled === true || opt.disabled === true}
             data-testid={`segmented-${id}-${opt.value}`}
             onClick={() => onChange(opt.value)}
             onKeyDown={(e) => handleKeyDown(e, index)}
@@ -793,6 +806,7 @@ function RadioListSelect({
     readonly label: string;
     readonly description?: string;
     readonly group?: string;
+    readonly disabled?: boolean;
   }[];
   readonly variant?: "list" | "card";
   readonly disabled?: boolean;
@@ -830,7 +844,7 @@ function RadioListSelect({
               className={
                 card
                   ? RADIO_CARD_CLASS
-                  : "flex items-start gap-2 text-sm font-normal text-foreground"
+                  : "flex items-start gap-2 text-sm font-normal text-foreground has-[:disabled]:opacity-50"
               }
             >
               <input
@@ -838,7 +852,7 @@ function RadioListSelect({
                 name={name}
                 value={opt.value}
                 checked={opt.value === value}
-                disabled={disabled}
+                disabled={disabled === true || opt.disabled === true}
                 aria-describedby={opt.description !== undefined ? descriptionIdOf(opt) : undefined}
                 data-testid={`radio-list-${id}-${opt.value}`}
                 onChange={() => onChange(opt.value)}
@@ -874,6 +888,16 @@ function normalizedTextareaRows(rows: number | undefined): number | undefined {
 // the textarea frame — py-2 top+bottom plus the 1px borders.
 function textareaMinHeight(rows: number): CSSProperties {
   return { minHeight: `calc(${rows} * 1lh + 1rem + 2px)` };
+}
+
+function withInlineDisabledHint(option: ComboboxOption): ComboboxOption {
+  if (option.disabled !== true || option.description === undefined) return option;
+  return {
+    value: option.value,
+    label: `${option.label} (${option.description})`,
+    disabled: true,
+    ...(option.group !== undefined && { group: option.group }),
+  };
 }
 
 function DefaultInput(props: InputProps): ReactNode {
@@ -1054,6 +1078,8 @@ function DefaultInput(props: InputProps): ReactNode {
       const comboOptions = props.options.map((o) =>
         typeof o === "string" ? { value: o, label: o } : o,
       );
+      // The dropdown shows a disabled option's hint inline, so it stays readable in the trigger and search.
+      const dropdownOptions = comboOptions.map(withInlineDisabledHint);
       // The radio group can't render the unselected placeholder as its own
       // segment, so it counts and renders on the real options only — the
       // dropdown below keeps comboOptions (placeholder included) since it
@@ -1113,7 +1139,7 @@ function DefaultInput(props: InputProps): ReactNode {
           name={props.name}
           value={props.value}
           onChange={props.onChange}
-          options={comboOptions}
+          options={dropdownOptions}
           {...(props.disabled !== undefined && { disabled: props.disabled })}
           {...(props.required !== undefined && { required: props.required })}
           {...(props.hasError !== undefined && { hasError: props.hasError })}

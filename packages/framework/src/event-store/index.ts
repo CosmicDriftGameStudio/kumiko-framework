@@ -70,6 +70,11 @@ export {
   snapshotsTable,
 } from "./snapshot.js";
 export {
+  type AppendEventInTenantDbOptions,
+  appendEventInTenantDb,
+  getStreamVersionInTenantDb,
+} from "./tenant-db-append.js";
+export {
   AGGREGATE_TRANSFER_STREAM_TYPE,
   AGGREGATE_TRANSFERRED_EVENT_TYPE,
   type TransferAggregateStreamsArgs,

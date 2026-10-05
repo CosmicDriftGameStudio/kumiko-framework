@@ -1,5 +1,10 @@
 export { hashUnsubscribeAddress } from "./address-opt-out.js";
 export {
+  type AttemptLogRetentionOptions,
+  DEFAULT_ATTEMPT_LOG_RETENTION_DAYS,
+  runAttemptLogRetention,
+} from "./attempt-log-retention.js";
+export {
   type ChatWebhookChannelOptions,
   chatMessageText,
   createChatWebhookChannel,
@@ -21,6 +26,7 @@ export {
 } from "./chat-webhook-sender.js";
 export type { DeliveryStatusValue } from "./constants.js";
 export {
+  DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
   DELIVERY_CHANNEL_EXTENSION,
   DELIVERY_FEATURE,
   DELIVERY_LOG_SCREEN_ID,

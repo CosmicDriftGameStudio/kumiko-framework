@@ -27,6 +27,7 @@ import {
   validateEmbeddedFields,
   validateEncryptedFields,
   validateEntityIndexes,
+  validateEntitySelectAvailabilityQuery,
   validateEntitySelectOptionsQuery,
   validateExtendSchemaCollisions,
   validateExtensionPreSaveWiring,
@@ -270,6 +271,7 @@ export function validateBoot(
     validateRecordOwnedSubjects(feature);
     validateApiExposureMatching(feature, allExposedApis, featureMap);
     validateEntitySelectOptionsQuery(feature);
+    validateEntitySelectAvailabilityQuery(feature, queryHandlerQns);
     validateEmbeddedFields(feature, featureMap, queryHandlerQns);
     validateMultiSelectFields(feature);
     validateImageVariants(feature);

@@ -37,6 +37,11 @@ type IncrementRollingPayload = z.infer<typeof incrementRollingSchema>;
  *  der Caller zahlt amount, wir hängen es 1:1 an den Stream. */
 export const rollingIncrementedSchema = incrementRollingSchema;
 
+/** Payload of the event that gives a reserved rolling amount back. */
+export const rollingReleasedSchema = incrementRollingSchema.extend({
+  amount: z.number().int().positive(),
+});
+
 // Rolling-Increment-Handler — append-only. Race-frei: zwei parallele
 // Increments für (tenant, cap) hängen sich am selben aggregate-stream
 // in unterschiedlichen versions auf, das event-store ordert.

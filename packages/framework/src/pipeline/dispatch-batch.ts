@@ -50,6 +50,15 @@ type ReservedCommandScope = {
   readonly afterCommitHooks: AfterCommitHook[];
 };
 
+function toReservedScope(
+  reservations: Extract<PreTransactionReservations, { isSuccess: true }>,
+  index: number,
+  cmd: BatchCommand,
+) {
+  const reservation = reservations.reservedCommands.get(index);
+  return reservation && { type: cmd.type, reservation };
+}
+
 async function runReservedCommand(
   scope: ReservedCommandScope,
   cmd: BatchCommand,
@@ -63,12 +72,10 @@ async function runReservedCommand(
   );
   origins.push(origin);
   const hookStart = afterCommitHooks.length;
-  const res = await runAsCommand(
-    reservations.reservedIndexes.has(index) ? cmd.type : undefined,
-    () =>
-      runWithWriteOrigin(origin, () =>
-        executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
-      ),
+  const res = await runAsCommand(toReservedScope(reservations, index, cmd), () =>
+    runWithWriteOrigin(origin, () =>
+      executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
+    ),
   );
   rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
   return res;

@@ -44,6 +44,7 @@ export function createChannelSlackFeature(options: SlackChannelOptions = {}): Fe
     r.translations({ keys: { "delivery.channel.slack": { en: "Slack" } } });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, "slack", {
       mode: channel.mode,
+      addressKind: "connection-name",
       send: channel.send,
     });
   });

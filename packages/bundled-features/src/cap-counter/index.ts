@@ -16,6 +16,8 @@ export {
   CapCounterQueries,
   ROLLING_INCREMENTED_EVENT_QN,
   ROLLING_INCREMENTED_EVENT_SHORT,
+  ROLLING_RELEASED_EVENT_QN,
+  ROLLING_RELEASED_EVENT_SHORT,
 } from "./constants.js";
 export {
   CAP_TOLERANCES,
@@ -34,12 +36,19 @@ export {
 } from "./enforce-cap.js";
 export { capCounterEntity } from "./entity.js";
 export { capCounterFeature } from "./feature.js";
+export { readPayloadField } from "./payload-field.js";
 export {
+  type CapGuardContext,
   type CapLimitContext,
   createStockCapGuard,
   type StockCapGuard,
   type StockCapSpec,
 } from "./stock-cap-guard.js";
+export {
+  createValueCapGuard,
+  type ValueCapGuard,
+  type ValueCapSpec,
+} from "./value-cap-guard.js";
 export {
   type CalendarCapDef,
   type CalendarCapResolver,

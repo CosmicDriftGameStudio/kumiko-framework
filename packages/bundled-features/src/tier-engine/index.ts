@@ -30,6 +30,13 @@ export {
   tierEngineFeature,
 } from "./feature.js";
 export {
+  createTierOptionGate,
+  type TierOptionAvailability,
+  type TierOptionGate,
+  type TierOptionGateDeps,
+  type TierOptionSpec,
+} from "./tier-option-gate.js";
+export {
   createTierResolver,
   type TierResolver,
   type TierResolverDeps,

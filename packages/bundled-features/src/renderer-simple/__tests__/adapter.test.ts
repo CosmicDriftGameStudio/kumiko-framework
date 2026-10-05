@@ -30,6 +30,21 @@ describe("renderer-simple :: adaptToFoundation", () => {
     }
   });
 
+  test("notification response carries the plain-text part from renderText", async () => {
+    const res = await adaptToFoundation(
+      {
+        kind: "notification",
+        payload: {
+          template: "welcome",
+          variables: { badge: { label: "New" }, header: "Hi", sections: [{ text: "Body" }] },
+        },
+      },
+      STUB_CTX,
+    );
+    if (res.kind !== "notification") throw new Error("expected notification response");
+    expect(res.text).toBe("[New]\n\nHi\n\nBody");
+  });
+
   test("leere variables → leerer body, kein crash", async () => {
     const res = await adaptToFoundation(
       {

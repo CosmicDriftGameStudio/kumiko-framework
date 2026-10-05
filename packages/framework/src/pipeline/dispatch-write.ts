@@ -4,13 +4,8 @@ import { asEntityTableMeta, selectMany } from "../db/query.js";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder.js";
 import { createTenantDb, hasTenantColumn } from "../db/tenant-db.js";
 import { tenantDbRunner } from "../db/tenant-db-runner.js";
-import { hasAccess } from "../engine/access.js";
 import { ConfigScopes } from "../engine/constants.js";
-import {
-  checkWriteFieldOwnership,
-  checkWriteFieldRoles,
-  maskWriteOnlyFields,
-} from "../engine/field-access.js";
+import { checkWriteFieldOwnership, maskWriteOnlyFields } from "../engine/field-access.js";
 import { defineTransitions, guardTransition } from "../engine/state-machine.js";
 import type {
   EntityDefinition,
@@ -19,16 +14,13 @@ import type {
   WriteResult,
 } from "../engine/types/index.js";
 import { HookPhases } from "../engine/types/index.js";
-import { runValidation } from "../engine/validation.js";
 import {
   AccessDeniedError,
   FrameworkReasons,
   InternalError,
-  isKumikoError,
   memberResolutionReadOnlyDenied,
   NotFoundError,
   ValidationError,
-  validationErrorFromZod,
   writeFailure,
 } from "../errors/index.js";
 import { CACHE_SYNC_TOPICS, type TenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
@@ -38,9 +30,6 @@ import {
   buildHandlerContext,
   CONFIG_WRITE_RESET_TYPE,
   CONFIG_WRITE_SET_TYPE,
-  checkFeatureEnabled,
-  enforcePayloadRateLimits,
-  enforceRateLimit,
   isMemberResolutionPrincipal,
   resolveDbSource,
   runHandlerInstrumented,
@@ -55,8 +44,8 @@ import {
   prefixValidationPath,
   wrapToKumiko,
 } from "./dispatcher-utils.js";
-import { handlerAccessError } from "./handler-access-error.js";
-import { consumeReservation } from "./pre-transaction-reservations.js";
+import { runPreHandlerGates } from "./pre-handler-gates.js";
+import { type ConsumedReservation, consumeReservation } from "./pre-transaction-reservations.js";
 import { runProjections } from "./projections-runner.js";
 
 function getTable(
@@ -460,6 +449,27 @@ export async function executeNestedWrite(
   return parentResult;
 }
 
+async function confirmReservation(
+  reservation: ConsumedReservation,
+  tx: DbTx | undefined,
+  user: SessionUser,
+): Promise<WriteResult | undefined> {
+  if (!reservation.confirmInTransaction) return undefined;
+  if (!tx) {
+    return writeFailure(
+      new InternalError({
+        message: "a reservation that settles in the transaction needs a transaction",
+      }),
+    );
+  }
+  try {
+    await reservation.confirmInTransaction({ tx, tenantId: user.tenantId });
+  } catch (e) {
+    return writeFailure(wrapToKumiko(e));
+  }
+  return undefined;
+}
+
 async function executeWriteInner(
   ctx: DispatchContext,
   type: string,
@@ -479,47 +489,24 @@ async function executeWriteInner(
     return writeFailure(memberResolutionReadOnlyDenied());
   }
 
-  // Feature-toggle gate: disabled handlers must short-circuit before any
-  // rate-limit/access/validation work — see executeQueryInner comment.
-  const disabledErr = await checkFeatureEnabled(ctx, type, user.tenantId);
-  if (disabledErr) return writeFailure(disabledErr);
-
-  // Rate-limit gate before access (same reasoning as in executeQueryInner).
-  // Throws RateLimitError; the outer wrapper turns it into a 429
-  // WriteFailure via toWriteErrorInfo. Apps that don't use L3 pay zero cost
-  // for non-systemScope handlers with no rateLimit declared; systemScope
-  // handlers pay one isHandlerSystemScoped lookup to check whether the
-  // default per-tenant limit applies.
-  try {
-    await enforceRateLimit(
-      ctx,
-      handler.rateLimit,
-      type,
-      user,
-      registry.isHandlerSystemScoped(type),
-    );
-  } catch (e) {
-    if (isKumikoError(e)) return writeFailure(e);
-    throw e;
-  }
-
-  // Default-deny: missing access rule is treated as "no one has access".
-  // The registry boot-validator refuses to register handlers without one,
-  // so in normal boots this branch shouldn't fire — the guard is belt-and-
-  // suspenders in case a handler sneaks through (e.g. runtime injection).
-  if (!hasAccess(user, handler.access)) {
-    return writeFailure(handlerAccessError(user, type));
-  }
-
-  const parsed = handler.schema.safeParse(payload);
-  if (!parsed.success) {
-    return writeFailure(validationErrorFromZod(parsed.error));
-  }
+  // A command the dispatcher reserved for was already billed against the rate limits; the
+  // gates only run again against the in-transaction state.
+  const reservation = handler.reserveBeforeTransaction ? consumeReservation(type) : undefined;
+  const gates = await runPreHandlerGates(
+    ctx,
+    handler,
+    type,
+    payload,
+    user,
+    reservation ? "recheck" : "charge",
+  );
+  if (!gates.isSuccess) return gates;
+  const parsedPayload = gates.payload;
 
   // A handler that reserves before the transaction cannot do so from inside an open one; running
   // it unreserved would skip the check entirely, so a nested ctx.write of a different capped
   // handler is rejected instead.
-  if (handler.reserveBeforeTransaction && !consumeReservation(type)) {
+  if (handler.reserveBeforeTransaction && !reservation) {
     return writeFailure(
       new InternalError({
         message: `handler "${type}" reserves before the transaction and cannot run as a nested write unless the top-level command reserved it`,
@@ -527,55 +514,7 @@ async function executeWriteInner(
     );
   }
 
-  try {
-    await enforcePayloadRateLimits(ctx, handler.additionalRateLimits, type, user, parsed.data);
-  } catch (e) {
-    if (isKumikoError(e)) return writeFailure(e);
-    throw e;
-  }
-
-  const hookErrors = runValidation(registry, type, parsed.data as DbRow); // @cast-boundary engine-payload
-  if (hookErrors) {
-    return writeFailure(
-      new ValidationError({
-        fields: hookErrors.map((e) => ({
-          path: e.field,
-          code: e.error,
-          i18nKey: `errors.validation.${e.error}`,
-        })),
-      }),
-    );
-  }
-
-  // Field-level write access check
   const entityName = registry.getHandlerEntity(type);
-  if (entityName) {
-    const entity = registry.getEntity(entityName);
-    if (entity) {
-      const fieldsToCheck = (parsed.data as DbRow)["changes"] as
-        | Record<string, unknown>
-        | undefined; // @cast-boundary engine-payload
-      const writePayload = fieldsToCheck ?? (parsed.data as DbRow); // @cast-boundary engine-payload
-      // Pre-handler check: role-only gate. Ownership-level row-match runs
-      // later in the executor where oldRow is loaded — that split lets
-      // updates with partial changes still pass the pre-handler check and
-      // get their full evaluation at save time.
-      const deniedField = checkWriteFieldRoles(entity, writePayload, user);
-      if (deniedField) {
-        return writeFailure(
-          new AccessDeniedError({
-            message: `field access denied: ${deniedField}`,
-            i18nKey: "errors.access.fieldDenied",
-            details: {
-              reason: FrameworkReasons.fieldAccessDenied,
-              field: deniedField,
-              handler: type,
-            },
-          }),
-        );
-      }
-    }
-  }
 
   const handlerContext = await buildHandlerContext(ctx, type, user, origin, tx, afterCommitHooks);
 
@@ -592,7 +531,7 @@ async function executeWriteInner(
   if (entityName && !handler.unsafeSkipTransitionGuard) {
     const entity = registry.getEntity(entityName);
     if (entity?.transitions && transitionGuardDb) {
-      const parsedData = parsed.data as DbRow; // @cast-boundary engine-payload
+      const parsedData = parsedPayload as DbRow; // @cast-boundary engine-payload
       const changes = (parsedData["changes"] as DbRow) ?? parsedData; // @cast-boundary engine-payload
       const id = (parsedData["id"] as number) ?? undefined; // @cast-boundary engine-payload
 
@@ -644,7 +583,7 @@ async function executeWriteInner(
   // writeFailure, not via a rethrow) so batches roll back naturally.
   let result: WriteResult;
   try {
-    result = await handler.handler({ type, payload: parsed.data, user }, handlerContext);
+    result = await handler.handler({ type, payload: parsedPayload, user }, handlerContext);
   } catch (e) {
     return writeFailure(wrapToKumiko(e));
   }
@@ -664,6 +603,11 @@ async function executeWriteInner(
           `Use defineWriteHandler() or wrap the return as { isSuccess: true as const, data: ... }.`,
       }),
     );
+  }
+
+  if (result.isSuccess && reservation) {
+    const confirmFailure = await confirmReservation(reservation, tx, user);
+    if (confirmFailure) return confirmFailure;
   }
 
   if (result.isSuccess) {
@@ -686,7 +630,7 @@ async function executeWriteInner(
     // jobRunner has external side-effects (BullMQ enqueue) — must NOT
     // fire for rolled-back writes. Defer to afterCommit.
     if (jobRunner) {
-      const eventData = (parsed.data ?? {}) as DbRow; // @cast-boundary engine-payload
+      const eventData = (parsedPayload ?? {}) as DbRow; // @cast-boundary engine-payload
       afterCommitHooks.push(() => jobRunner.handleEvent(type, eventData, user));
     }
 

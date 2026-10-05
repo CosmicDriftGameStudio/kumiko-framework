@@ -1,5 +1,12 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { deliveryAttemptsTable } from "../../delivery/index.js";
+import {
+  appendEventInTenantDb,
+  getStreamVersionInTenantDb,
+} from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
+  deliveryAttemptsTable,
+} from "../../delivery/index.js";
 import { featureMounted } from "./feature-mounted.js";
 
 // userData-Hooks for delivery's attempt log (deferred from #797, closed by
@@ -28,9 +35,32 @@ export const deliveryAttemptExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
-export const deliveryAttemptDeleteHook: UserDataDeleteHook = async () => {
-  // Deliberate no-op: erasure runs via crypto-shredding — the forget pipeline
-  // erases the recipient's DEK, which makes recipientAddress unreadable in
-  // BOTH the append-only events and the projected rows (#799). A read-side
-  // UPDATE here would be wiped on the next projection rebuild anyway.
+// Both strategies erase the address. The DEK shredding of a forget covers KMS deployments; the
+// erase event also covers plaintext mode, and unlike a read-side UPDATE it survives a projection
+// rebuild. Rows without an address are skipped, which makes a second run a no-op.
+export const deliveryAttemptDeleteHook: UserDataDeleteHook = async (ctx) => {
+  // skip: delivery not mounted — its table doesn't exist, nothing to erase.
+  if (!featureMounted(ctx, "delivery")) return;
+  const rows = await ctx.db.selectMany<{ id: string; recipientAddress: string | null }>(
+    deliveryAttemptsTable,
+    {
+      tenantId: ctx.tenantId,
+      recipientId: ctx.userId,
+    },
+  );
+  for (const row of rows) {
+    if (row.recipientAddress === null) continue;
+    await appendEventInTenantDb(
+      ctx.db,
+      {
+        aggregateType: "deliveryAttempt",
+        aggregateId: row.id,
+        expectedVersion: await getStreamVersionInTenantDb(ctx.db, row.id),
+        type: DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
+        payload: {},
+        metadata: { userId: "system" },
+      },
+      { registry: ctx.registry },
+    );
+  }
 };

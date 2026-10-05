@@ -48,6 +48,7 @@ export function createChannelTeamsFeature(options: TeamsChannelOptions = {}): Fe
     r.translations({ keys: { "delivery.channel.teams": { en: "Microsoft Teams" } } });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, "teams", {
       mode: channel.mode,
+      addressKind: "connection-name",
       send: channel.send,
     });
   });

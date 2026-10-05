@@ -146,6 +146,11 @@ const ENFORCING: Record<string, Violating> = {
     code: 'import { readFileSync } from "node:fs";\nexport const r = () => readFileSync("/tmp/x");',
     expectedMessage: /\[node:fs\] direct fs import outside allowlist/,
   },
+  "No-Temporal-Polyfill-Import Guard": {
+    path: `${PKG}/features/x/clock.ts`,
+    code: 'import { Temporal } from "temporal-polyfill";\nexport const now = () => Temporal.Now.instant();',
+    expectedMessage: /\[temporal-polyfill\] direct temporal-polyfill import/,
+  },
   "No-Broker-Subscribe Guard": {
     path: `${PKG}/features/x/sub.ts`,
     code: 'import { broker } from "k";\nexport const s = () => broker.subscribe("topic", () => {});',

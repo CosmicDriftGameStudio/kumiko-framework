@@ -11,9 +11,10 @@
 //             crashen (der Export-Runner hat kein per-Hook try/catch).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -26,7 +27,13 @@ import { createChannelInAppFeature, inAppMessagesTable } from "../../channel-in-
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { configValueEntity, createConfigFeature } from "../../config/index.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { createDeliveryFeature, notificationPreferenceEntity } from "../../delivery/index.js";
+import { logAttempt } from "../../delivery/attempt-log.js";
+import { DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT } from "../../delivery/constants.js";
+import {
+  createDeliveryFeature,
+  deliveryAttemptsTable,
+  notificationPreferenceEntity,
+} from "../../delivery/index.js";
 import { createFilesFeature } from "../../files/index.js";
 import { createJobsFeature, jobRunLogsTable, jobRunsTable } from "../../jobs/index.js";
 import {
@@ -45,6 +52,7 @@ import {
   apiTokenExportHook,
   configValueDeleteHook,
   configValueExportHook,
+  deliveryAttemptDeleteHook,
   deliveryAttemptExportHook,
   inAppMessageDeleteHook,
   inAppMessageExportHook,
@@ -396,6 +404,70 @@ describe("delivery-attempt userData-hooks (#799)", () => {
 
   test("export returns null for a user without attempts", async () => {
     expect(await deliveryAttemptExportHook(ctx("da-nobody"))).toBeNull();
+  });
+
+  describe("delete erases the address through an event", () => {
+    async function logAttemptFor(recipientId: string, tenantId: string): Promise<string> {
+      return logAttempt(full.db, full.registry, {
+        tenantId,
+        notificationType: "app:notify:ping",
+        channel: "email",
+        recipientId,
+        recipientAddress: `${recipientId}@example.com`,
+        status: "sent",
+        error: null,
+        priority: "normal",
+      });
+    }
+
+    async function addressOf(attemptId: string): Promise<string | null | undefined> {
+      const [row] = await selectMany<{ recipientAddress: string | null }>(
+        full.db,
+        deliveryAttemptsTable,
+        { id: attemptId },
+      );
+      return row?.recipientAddress;
+    }
+
+    async function eraseEventCount(attemptId: string): Promise<number> {
+      const events = await selectMany(full.db, eventsTable, {
+        aggregateId: attemptId,
+        type: DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
+      });
+      return events.length;
+    }
+
+    test("clears only the forgotten user's addresses in the hook tenant, idempotently", async () => {
+      const own = await logAttemptFor("erase-user", TENANT_A);
+      const ownSecond = await logAttemptFor("erase-user", TENANT_A);
+      const otherUser = await logAttemptFor("erase-other", TENANT_A);
+      const otherTenant = await logAttemptFor("erase-user", TENANT_B);
+      expect(await addressOf(own)).toBe("e***@example.com");
+
+      await deliveryAttemptDeleteHook(ctx("erase-user"), "anonymize");
+
+      expect(await addressOf(own)).toBeNull();
+      expect(await addressOf(ownSecond)).toBeNull();
+      expect(await addressOf(otherUser)).toBe("e***@example.com");
+      expect(await addressOf(otherTenant)).toBe("e***@example.com");
+      expect(await eraseEventCount(own)).toBe(1);
+      expect(await eraseEventCount(otherUser)).toBe(0);
+
+      await deliveryAttemptDeleteHook(ctx("erase-user"), "delete");
+      expect(await eraseEventCount(own)).toBe(1);
+    });
+
+    test("is a no-op without delivery mounted", async () => {
+      const attempt = await logAttemptFor("erase-unmounted", TENANT_A);
+
+      await deliveryAttemptDeleteHook(
+        { ...ctx("erase-unmounted"), registry: minimal.registry },
+        "anonymize",
+      );
+
+      expect(await addressOf(attempt)).toBe("e***@example.com");
+      expect(await eraseEventCount(attempt)).toBe(0);
+    });
   });
 });
 

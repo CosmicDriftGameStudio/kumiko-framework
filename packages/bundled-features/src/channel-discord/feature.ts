@@ -50,6 +50,7 @@ export function createChannelDiscordFeature(
     r.translations({ keys: { "delivery.channel.discord": { en: "Discord" } } });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, "discord", {
       mode: channel.mode,
+      addressKind: "connection-name",
       send: channel.send,
     });
   });

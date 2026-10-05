@@ -506,6 +506,9 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (typeof def["labelField"] === "string") out["labelField"] = def["labelField"];
   // fw#2780: author-supplied picker source — without it the client falls back to the list handler.
   if (typeof def["optionsQuery"] === "string") out["optionsQuery"] = def["optionsQuery"];
+  // Select: tier/tenant availability of the static options, loaded by the renderer.
+  if (typeof def["optionsAvailabilityQuery"] === "string")
+    out["optionsAvailabilityQuery"] = def["optionsAvailabilityQuery"];
   if (typeof def["multiple"] === "boolean") out["multiple"] = def["multiple"];
   // MultiSelect: display picks checkboxes vs. combobox in the renderer,
   // columns/maxRows size the checkbox grid — without these the renderer

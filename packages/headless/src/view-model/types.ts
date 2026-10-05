@@ -169,6 +169,13 @@ export type EditFieldViewModel = {
     readonly query: string;
     readonly payload: OptionsQueryPayload;
   };
+  /** Set for `type: "select"` when SelectFieldDef.optionsAvailabilityQuery is set:
+   *  the renderer loads `{ rows: { value, disabled?, hint? }[] }` from this query and
+   *  merges it onto `options`. `payload` is optionsQueryPayload, `{}` when absent. */
+  readonly selectOptionsAvailabilityQuery?: {
+    readonly query: string;
+    readonly payload: OptionsQueryPayload;
+  };
   /** Set for `type: "multiSelect"` when MultiSelectFieldDef.display is
    *  "checkboxes" — the renderer shows a checkbox grid with a select-all
    *  toggle instead of the default combobox dropdown. Set for

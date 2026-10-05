@@ -8,9 +8,28 @@ import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { append, getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { DELIVERY_ATTEMPT_EVENT } from "./constants.js";
+import { DELIVERY_ATTEMPT_EVENT, DELIVERY_CHANNEL_EXTENSION } from "./constants.js";
 import { deliveryAttemptSchema } from "./events.js";
-import type { DeliveryLogEntry } from "./types.js";
+import { maskRecipientAddress } from "./mask-recipient-address.js";
+import { type DeliveryLogEntry, isDeliveryChannelPlugin } from "./types.js";
+
+// Unknown channels count as personal: masking is the fail-closed default.
+function addressIsConnectionName(registry: Registry, channelName: string): boolean {
+  return registry
+    .getExtensionUsages(DELIVERY_CHANNEL_EXTENSION)
+    .some(
+      (usage) =>
+        usage.entityName === channelName &&
+        isDeliveryChannelPlugin(usage.options) &&
+        usage.options.addressKind === "connection-name",
+    );
+}
+
+function loggedAddress(registry: Registry, entry: DeliveryLogEntry): string | null {
+  return addressIsConnectionName(registry, entry.channel)
+    ? entry.recipientAddress
+    : maskRecipientAddress(entry.recipientAddress);
+}
 
 // Shared append + inline-projection write (low-level append() does not
 // auto-fire projections — only the dispatcher/executor paths do).
@@ -22,10 +41,14 @@ async function writeAttemptEvent(
   entry: DeliveryLogEntry,
 ): Promise<void> {
   const { tenantId, ...rest } = entry;
+  // Masked here, the only place attempt events are written, so no event or projection row ever holds the full address.
   // Schema-parse to match ctx.appendEvent's guarantee: a payload drift between
   // service/job + feature-registration fails loudly here instead of landing on
   // the events-table and crashing a consumer later.
-  const payload = deliveryAttemptSchema.parse(rest);
+  const payload = deliveryAttemptSchema.parse({
+    ...rest,
+    recipientAddress: loggedAddress(registry, entry),
+  });
   const stored = await append(db, {
     aggregateId: attemptId,
     aggregateType: "deliveryAttempt",

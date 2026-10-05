@@ -941,6 +941,28 @@ function assertNoSelectOptionsQuery(
   }
 }
 
+// A typo'd availability QN would only surface as a failed query when the form
+// mounts, so it is pinned at boot like the other option queries.
+export function validateEntitySelectAvailabilityQuery(
+  feature: FeatureDefinition,
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+): void {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      if (field.type !== "select" || field.optionsAvailabilityQuery === undefined) continue;
+      const query = field.optionsAvailabilityQuery;
+      if (query.length === 0 || !queryHandlers.has(query)) {
+        throw new Error(
+          `[Feature ${feature.name}] Select field "${fieldName}" on entity "${entityName}" ` +
+            `declares optionsAvailabilityQuery "${query}" which is not a registered query-handler. ` +
+            `Check the QN spelling (expected "<feature>:query:<short>") and that the handler ` +
+            `is declared via r.queryHandler(...).`,
+        );
+      }
+    }
+  }
+}
+
 export function validateMultiSelectFields(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {

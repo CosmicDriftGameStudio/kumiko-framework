@@ -54,7 +54,7 @@ describe("channel-telegram against a local HTTP stub", () => {
     });
     expect(row.status).toBe("sent");
     expect(row.error).toBeNull();
-    expect(row.recipientAddress).toBe("-1001234567890");
+    expect(row.recipientAddress).toBe("***7890");
     const [hit] = stub.hitsOn(sendMessagePath);
     const body = hit?.bodyJson as { chat_id: string; text: string; parse_mode?: string }; // @cast-boundary test-seam — stub request body
     expect(body.chat_id).toBe("-1001234567890");
@@ -66,7 +66,7 @@ describe("channel-telegram against a local HTTP stub", () => {
   test("a public @channel name is a valid address", async () => {
     const row = await harness.send("telegram", "@ops_channel", { title: "hi" });
     expect(row.status).toBe("sent");
-    expect(row.recipientAddress).toBe("@ops_channel");
+    expect(row.recipientAddress).toBe("***nnel");
   });
 
   test("malformed chat id -> failed invalid_address, no request", async () => {
@@ -92,7 +92,7 @@ describe("channel-telegram against a local HTTP stub", () => {
   test("attempt rows never contain the bot token or the API URL", () => {
     const serialized = serializeAttemptRows(harness.attemptRows);
     expect(harness.attemptRows.map((row) => row.error)).toContain("http_500");
-    expect(harness.attemptRows.map((row) => row.recipientAddress)).toContain("-1001234567890");
+    expect(harness.attemptRows.map((row) => row.recipientAddress)).toContain("***7890");
     for (const secret of [BOT_TOKEN, "tokenABCDEF_xyz", stub.origin, "/sendMessage"]) {
       expect(serialized).not.toContain(secret);
     }

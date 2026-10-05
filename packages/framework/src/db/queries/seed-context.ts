@@ -1,5 +1,8 @@
+import type { DbRunner } from "../connection.js";
 import type { AnyDb } from "../query.js";
 import { unsafeReadRetrying } from "../query.js";
+import { tableExists } from "../schema-inspection.js";
+import { SOFT_DELETE_LIVE_ROW_PREDICATE } from "../table-builder.js";
 
 export type SeedUserRow = {
   readonly id: string;
@@ -58,5 +61,52 @@ export async function selectAllTenants(db: AnyDb): Promise<readonly SeedTenantDb
      FROM read_tenants
      ORDER BY inserted_at`,
     [],
+  );
+}
+
+export type SeedTemplateResourceDbRow = {
+  readonly id: string;
+  readonly tenant_id: string;
+  readonly slug: string;
+  readonly kind: string;
+  readonly locale: string;
+  readonly status: string;
+};
+
+export type SeedTemplateResourceDbFilter = {
+  readonly tenantId: string;
+  readonly slug?: string;
+  readonly kind?: string;
+  readonly status?: string;
+  readonly locale?: string;
+};
+
+// Column names are fixed fragments; every filter value is a bound parameter.
+// template-resolver is an optional feature — without its table the answer is
+// "no templates", not an error.
+export async function selectTemplateResources(
+  db: DbRunner,
+  filter: SeedTemplateResourceDbFilter,
+): Promise<readonly SeedTemplateResourceDbRow[]> {
+  if (!(await tableExists(db, "read_template_resources"))) return [];
+  const conditions = ["tenant_id = $1", SOFT_DELETE_LIVE_ROW_PREDICATE];
+  const params: unknown[] = [filter.tenantId];
+  for (const [column, value] of [
+    ["slug", filter.slug],
+    ["kind", filter.kind],
+    ["status", filter.status],
+    ["locale", filter.locale],
+  ] as const) {
+    if (value === undefined) continue;
+    params.push(value);
+    conditions.push(`${column} = $${params.length}`);
+  }
+  return unsafeReadRetrying<SeedTemplateResourceDbRow>(
+    db,
+    `SELECT id::text AS id, tenant_id::text AS tenant_id, slug, kind, locale, status
+     FROM read_template_resources
+     WHERE ${conditions.join(" AND ")}
+     ORDER BY slug, locale`,
+    params,
   );
 }

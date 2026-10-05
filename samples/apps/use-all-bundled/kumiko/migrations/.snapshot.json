@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-04T06:14:37.499Z",
+  "generatedAt": "2026-10-05T09:30:44.447Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -3458,6 +3458,59 @@
       ],
       "source": "unmanaged",
       "piiSubjectFields": ["name"]
+    },
+    {
+      "tableName": "store_cap_reservations",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "cap_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "kind",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "period_start_iso",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "amount",
+          "pgType": "integer",
+          "notNull": true
+        },
+        {
+          "name": "expires_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "created_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_cap_reservations_tenant_id_cap_name_expires_at_idx",
+          "columns": ["tenant_id", "cap_name", "expires_at"]
+        }
+      ],
+      "source": "unmanaged"
     },
     {
       "tableName": "store_delivery_attempts",

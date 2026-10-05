@@ -11,12 +11,18 @@ import type { DbRunner } from "../db/index.js";
 import {
   selectAllTenants,
   selectMembershipsOfUser,
+  selectTemplateResources,
   selectUserByEmail,
 } from "../db/queries/seed-context.js";
 import { createSystemUser, SYSTEM_TENANT_ID } from "../engine/index.js";
 import type { Dispatcher } from "../pipeline/dispatcher.js";
 import { parseStringArrayJson } from "../utils/parse-string-array-json.js";
-import type { SeedMembershipRow, SeedMigrationContext, SeedTenantRow } from "./types.js";
+import type {
+  SeedMembershipRow,
+  SeedMigrationContext,
+  SeedTemplateResourceRow,
+  SeedTenantRow,
+} from "./types.js";
 
 export type CreateSeedMigrationContextArgs = {
   readonly dispatcher: Dispatcher;
@@ -88,6 +94,23 @@ export function createSeedMigrationContext(
     findTenants: async () => {
       const rows = await selectAllTenants(args.dbRunner);
       return rows.map((r): SeedTenantRow => ({ id: r.id, name: r.name, tenantKey: r.tenant_key }));
+    },
+
+    findTemplateResources: async (filter) => {
+      const rows = await selectTemplateResources(args.dbRunner, {
+        ...filter,
+        tenantId: filter?.tenantId ?? SYSTEM_TENANT_ID,
+      });
+      return rows.map(
+        (r): SeedTemplateResourceRow => ({
+          id: r.id,
+          tenantId: r.tenant_id,
+          slug: r.slug,
+          kind: r.kind,
+          locale: r.locale,
+          status: r.status,
+        }),
+      );
     },
 
     db: args.dbRunner,

@@ -7,6 +7,7 @@ import { describe, expect, mock, test } from "bun:test";
 // Temporal: rely on the global ambient declaration from temporal-spec.
 // The framework polyfill is loaded by setupTestStack, but pure unit
 // tests (no stack) need a manual polyfill — vitest.setup.ts does that.
+import { ROLLING_INCREMENTED_EVENT_QN } from "../constants.js";
 import {
   CAP_TOLERANCES,
   CapExceededError,
@@ -21,9 +22,18 @@ import {
 // plus legacy drizzle .select().from().where() chain stubs.
 
 function makeMockDb(rows: unknown[]) {
-  const selectMany = async (_table: unknown, _where?: unknown, options?: { limit?: number }) => {
-    const slice = options?.limit !== undefined ? rows.slice(0, options.limit) : rows;
-    return slice;
+  // Honors the event `type` filter (rolling usage reads incremented and released events
+  // separately); every other filter is ignored, as before.
+  const selectMany = async (
+    _table: unknown,
+    where?: { type?: string },
+    options?: { limit?: number },
+  ) => {
+    const matching =
+      where?.type === undefined
+        ? rows
+        : rows.filter((row) => (row as { type?: string }).type === where.type);
+    return options?.limit !== undefined ? matching.slice(0, options.limit) : matching;
   };
   return {
     unsafe: async () => rows,
@@ -50,7 +60,7 @@ function stubCalendarCtx(rows: { value: number; lastSoftWarnedAt: unknown }[]) {
 }
 
 function stubRollingCtx(eventPayloads: { amount: number }[]) {
-  const rows = eventPayloads.map((p) => ({ payload: p }));
+  const rows = eventPayloads.map((p) => ({ payload: p, type: ROLLING_INCREMENTED_EVENT_QN }));
   const ctx = {
     db: makeMockDb(rows),
     user: { tenantId: "tenant-test" },

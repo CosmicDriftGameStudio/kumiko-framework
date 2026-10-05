@@ -54,6 +54,7 @@ import {
   CAP_COUNTER_FEATURE,
   CAP_COUNTER_LIST_SCREEN_ID,
   ROLLING_INCREMENTED_EVENT_SHORT,
+  ROLLING_RELEASED_EVENT_SHORT,
 } from "./constants.js";
 import { capCounterEntity } from "./entity.js";
 import { getCounterQuery } from "./handlers/get-counter.query.js";
@@ -61,9 +62,11 @@ import { incrementCapHandler } from "./handlers/increment.write.js";
 import {
   incrementRollingCapHandler,
   rollingIncrementedSchema,
+  rollingReleasedSchema,
 } from "./handlers/increment-rolling.write.js";
 import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write.js";
 import { CAP_COUNTER_I18N } from "./i18n.js";
+import { capReservationsTableMeta } from "./tables.js";
 
 export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   r.describe(
@@ -75,6 +78,9 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
     recommended: false,
   });
   r.entity("cap-counter", capCounterEntity);
+  r.storeTable(capReservationsTableMeta, {
+    reason: "coordination.cap_reservation_ledger",
+  });
 
   // Custom Domain-Event für Rolling-Counter. r.defineEvent registriert
   // das Schema beim Registry; ctx.unsafeAppendEvent im Handler nutzt
@@ -82,6 +88,7 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   // "cap-counter:event:rolling-incremented" (siehe
   // ROLLING_INCREMENTED_EVENT_QN).
   r.defineEvent(ROLLING_INCREMENTED_EVENT_SHORT, rollingIncrementedSchema, { piiFields: "none" });
+  r.defineEvent(ROLLING_RELEASED_EVENT_SHORT, rollingReleasedSchema, { piiFields: "none" });
 
   // Custom write-handlers.
   // - increment: Calendar-Period (CRUD via projection-row).
