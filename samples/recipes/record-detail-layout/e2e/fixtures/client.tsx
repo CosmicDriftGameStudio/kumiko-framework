@@ -33,8 +33,22 @@ const ORDER_DETAIL_SCREEN_QN = "order-desk:screen:order-detail";
 // own Card/Section, exactly what guard-no-framed-extension-sections
 // enforces: the host's own tabs-mode Card is the only frame this gets.
 function OrderInternalNote(): ReactNode {
+  const tallPx = Number.parseInt(
+    new URLSearchParams(window.location.search).get("noteHeight") ?? "",
+    10,
+  );
   return (
-    <p data-testid="order-internal-note">Handled by Jonas Weber, escalate if unpaid past Sep 1.</p>
+    <div>
+      <p data-testid="order-internal-note">
+        Handled by Jonas Weber, escalate if unpaid past Sep 1.
+      </p>
+      {Number.isFinite(tallPx) && tallPx > 0 && (
+        <>
+          <div style={{ height: tallPx }} />
+          <p data-testid="order-internal-note-end">End of note</p>
+        </>
+      )}
+    </div>
   );
 }
 

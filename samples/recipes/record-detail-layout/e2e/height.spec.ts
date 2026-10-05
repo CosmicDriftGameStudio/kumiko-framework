@@ -35,19 +35,23 @@ function tabsLocator(page: Page) {
 }
 
 test.describe("record-detail-layout — tab-panel height (fw#2778)", () => {
-  test("short list: the tab-panel card sizes to its content, well short of the panel's available height", async ({
+  // The design refresh (#3381) made detail tabs a full-bleed "board": the
+  // relatedList scroll region fills the panel down to the footer instead of
+  // the card sizing to its rows (fw#2778's original behavior). What must
+  // still hold: the rows themselves keep their natural height, and the
+  // region never exceeds the panel.
+  test("short list: the scroll region fills the panel while the table keeps its content height", async ({
     page,
   }) => {
     await gotoOrderDetail(page, 3);
     const main = await mainLocator(page).boundingBox();
-    const card = await cardLocator(page).boundingBox();
-    if (main === null || card === null) throw new Error("missing bounding box");
-    expect(card.height).toBeLessThan(main.height * 0.6);
-    // The 3-row table itself accounts for most of the card's height — the
-    // card isn't leaving room it doesn't use, it just isn't stretching.
+    const region = await page.getByTestId("render-list-table-scroll").boundingBox();
     const table = await page.getByTestId("render-list-table").boundingBox();
-    if (table === null) throw new Error("missing table bounding box");
-    expect(card.height).toBeLessThan(table.height + 200);
+    if (main === null || region === null || table === null) throw new Error("missing bounding box");
+    expect(region.y + region.height).toBeLessThanOrEqual(main.y + main.height + 4);
+    expect(table.height).toBeLessThan(region.height);
+    expect(table.height).toBeLessThan(main.height * 0.4);
+    await expect(page.getByTestId("render-list-table-footer")).toBeVisible();
   });
 
   test("long list: the tab-panel card is capped at the panel's available height and the table scrolls internally", async ({
@@ -86,7 +90,7 @@ test.describe("record-detail-layout — tab-panel height (fw#2778)", () => {
     expect(tableWrapperOverflows).toBe(true);
   });
 
-  test("header card and tab strip stay fully visible, uncompressed, in both scenarios", async ({
+  test("record header (subtitle, metrics) and tab strip stay fully visible, uncompressed, in both scenarios", async ({
     page,
   }) => {
     for (const items of [3, 60]) {
@@ -94,7 +98,49 @@ test.describe("record-detail-layout — tab-panel height (fw#2778)", () => {
       const tabs = await tabsLocator(page).boundingBox();
       if (tabs === null) throw new Error(`missing tabs bounding box (items=${items})`);
       expect(tabs.height).toBeGreaterThan(20);
-      await expect(page.getByTestId("kumiko-screen-projection-detail-title")).toBeVisible();
+      // The title now lives in the shell's page header, not in the screen.
+      await expect(page.getByTestId("kumiko-screen-projection-detail-subtitle")).toBeVisible();
+      await expect(page.getByTestId("kumiko-screen-projection-detail-metrics")).toBeVisible();
     }
+  });
+});
+
+test.describe("record-detail-layout — tall tab panel scrolls", () => {
+  test.use({ viewport: { width: 1440, height: 772 } });
+
+  test("an extension tab taller than the viewport scrolls its sections wrapper to the last element", async ({
+    page,
+  }) => {
+    await page.goto("/?tab=internal-note&noteHeight=1400");
+    const note = page.getByTestId("order-internal-note");
+    await expect(note).toBeVisible();
+    const end = page.getByTestId("order-internal-note-end");
+
+    // Nearest scrollable ancestor of the panel content: the sections wrapper.
+    const scroller = await note.evaluateHandle((el) => {
+      let node: HTMLElement | null = el.parentElement;
+      while (node !== null && !/(auto|scroll)/.test(getComputedStyle(node).overflowY)) {
+        node = node.parentElement;
+      }
+      if (node === null) throw new Error("no scrollable ancestor");
+      return node;
+    });
+    const metrics = () =>
+      scroller.evaluate((el) => ({
+        scrollHeight: el.scrollHeight,
+        clientHeight: el.clientHeight,
+        scrollTop: el.scrollTop,
+      }));
+
+    const before = await metrics();
+    expect(before.scrollHeight).toBeGreaterThan(before.clientHeight);
+
+    const box = await note.boundingBox();
+    if (box === null) throw new Error("missing note bounding box");
+    await page.mouse.move(box.x + 10, box.y + 10);
+    await page.mouse.wheel(0, 3000);
+    await expect.poll(async () => (await metrics()).scrollTop).toBeGreaterThan(0);
+
+    await expect(end).toBeInViewport();
   });
 });

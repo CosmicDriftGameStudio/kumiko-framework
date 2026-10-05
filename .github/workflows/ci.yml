@@ -655,6 +655,7 @@ jobs:
             samples/apps/use-all-bundled/playwright.config.ts
             samples/apps/workspaces/playwright.config.ts
             samples/recipes/apex-landing/playwright.config.ts
+            samples/recipes/record-detail-layout/e2e/playwright.config.ts
             samples/recipes/wizard-form/e2e/playwright.config.ts
             samples/recipes/writeform-section/e2e/playwright.config.ts
           )
