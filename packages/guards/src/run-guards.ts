@@ -42,6 +42,7 @@ import { guard as loadallEvents } from "./guard-loadall-events";
 import { guard as noDateApi } from "./guard-no-date-api";
 import { guard as noDirectFs } from "./guard-no-direct-fs";
 import { guard as noLogicInViews } from "./guard-no-logic-in-views";
+import { guard as noTemporalPolyfillImport } from "./guard-no-temporal-polyfill-import";
 import { guard as openToAllReason } from "./guard-open-to-all-reason";
 import { guard as piiAnnotations } from "./guard-pii-annotations";
 import { guard as preEsPatterns } from "./guard-pre-es-patterns";
@@ -72,6 +73,7 @@ export const GUARDS = [
   htmlEscape,
   crossFeatureImports,
   noDateApi,
+  noTemporalPolyfillImport,
   restrictedSymbols,
   fakeTests,
   noLogicInViews,
