@@ -45,7 +45,7 @@ describe("channel-slack against a local HTTP stub", () => {
     });
     expect(row.status).toBe("sent");
     expect(row.error).toBeNull();
-    expect(row.recipientAddress).toBe("***");
+    expect(row.recipientAddress).toBe("ops");
     const [hit] = stub.hitsOn(webhookPath);
     expect(hit?.headers.get("content-type")).toContain("application/json");
     expect(hit?.bodyJson).toEqual({
@@ -67,7 +67,7 @@ describe("channel-slack against a local HTTP stub", () => {
     const serialized = serializeAttemptRows(harness.attemptRows);
     expect(harness.attemptRows.length).toBeGreaterThan(0);
     expect(harness.attemptRows.map((row) => row.error)).toContain("http_500");
-    expect(harness.attemptRows.map((row) => row.recipientAddress)).toContain("***");
+    expect(harness.attemptRows.map((row) => row.recipientAddress)).toContain("failing");
     expect(serialized).not.toContain(stub.origin);
     expect(serialized).not.toContain(webhookPath);
   });

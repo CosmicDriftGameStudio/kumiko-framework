@@ -4,7 +4,7 @@
 
 The delivery attempt log keeps masked recipient addresses and prunes old attempts
 
-New attempt events and log rows hold a masked address (`u***@example.com`, `https://hooks.example.com/***`, `***7890`) instead of the full one. A daily job prunes attempt events and log rows older than 90 days, and forgetting a user erases the address on that user's attempt rows with a `delivery:event:attempt-address-erased` event, which also survives projection rebuilds.
+New attempt events and log rows hold a masked address (`u***@example.com`, `https://hooks.example.com/***`, `***7890`) instead of the full one. Chat webhook channels (Slack, Discord, Teams) keep logging their connection name, which is not personal data; a custom channel opts in with `addressKind: "connection-name"`. A daily job prunes attempt events and log rows older than 90 days, and forgetting a user erases the address on that user's attempt rows with a `delivery:event:attempt-address-erased` event, which also survives projection rebuilds.
 
 <!-- kumiko-changes
 feature: delivery

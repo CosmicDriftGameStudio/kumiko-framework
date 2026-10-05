@@ -64,6 +64,9 @@ export type DeliveryChannel = {
   // Absent for channels addressed only through `route` (tenant-owned chat
   // targets): deliverToUser skips them without writing a no_address row.
   resolve?(userId: string, ctx: ChannelContext): Promise<string | null>;
+  // "connection-name": the address is a tenant-chosen connection name (chat webhooks), not
+  // personal data, so the attempt log keeps it unmasked. Absent = personal, masked.
+  readonly addressKind?: "connection-name";
   render?(message: ChannelMessage, ctx: ChannelContext): Promise<RenderedMessage>;
   send(
     address: string,
@@ -126,6 +129,7 @@ export function isDeliveryChannelPlugin(o: unknown): o is DeliveryChannelPlugin 
     DELIVERY_CHANNEL_MODES.some((mode) => mode === o.mode) &&
     (!("render" in o) || o.render === undefined || typeof o.render === "function") &&
     (!("resolve" in o) || o.resolve === undefined || typeof o.resolve === "function") &&
+    (!("addressKind" in o) || o.addressKind === undefined || o.addressKind === "connection-name") &&
     "send" in o &&
     typeof o.send === "function"
   );
