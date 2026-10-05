@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.351.0",
+    "type": "fix",
+    "title": "--help prints usage instead of running the command (init-deploy, build, dev, schema-check, kumiko-testing integration)",
+    "detail": "`--help` prints usage on every bin\n`kumiko-init-deploy --help` used to write the deploy files, and `kumiko-testing integration --help` crashed while parsing its arguments. Both now print their usage and exit 0, as do `kumiko-build`, `kumiko-dev`, `kumiko-schema-check` and `create-kumiko-app`."
+  },
+  {
     "version": "0.349.0",
     "type": "improvement",
     "title": "init-deploy reads kumiko.deploy.dbName for the migrate step's DATABASE_URL",

@@ -1,5 +1,52 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.351.0
+
+### Minor Changes
+
+- 44be746: Dashboard panel gates, stat-group subtitle, progress sub line, stacked-area lines, marker kinds and ranges
+
+  `stat`, `stat-group`, `chart`, `list`, `feed` and `progress-list` panels take `visibleWhen` (`DashboardPanelGate`), like `screen` panels. The gate query gets the screen filter and time range. The panel renders nothing while the gate loads or is unmet, and shows an error with retry when the gate query fails. Panels with the same gate query and payload share one live request. The boot validator checks the gate query and field and rejects `visibleWhen` on stat-group children.
+
+  A labeled `stat-group` takes a `subtitle`. In an unlabeled group (KPI strip) each child keeps its `icon` and `accentColor`. `progress-list` rows take an optional `sub` (`DashboardText`) shown under the bar.
+
+  `stacked-area` results can carry `lines` (`{ key, label, points, dashed? }`, drawn unstacked over the bands) and `markers[].kind`. New chart options: `seriesColors` (key to CSS color, wins over `seriesTones`), and only for stacked-area `markerKinds` (kind to `{ tone }` or `{ color }`: colored pin plus dashed guide line), `legendTotals: false` and `ranges` (a range switch in the panel header that windows bands, lines and markers by `months`). `StackedAreaChart` gets `lines`, `colors` and `showLegendTotals`; `ChartMarker` gets `color`.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Dashboard panels take visibleWhen; stat-group subtitle and strip icons, progress-list sub line, stacked-area lines, markerKinds, seriesColors, legendTotals and ranges
+  -->
+
+- 44be746: One Temporal implementation: `@cosmicdrift/kumiko-types/temporal`
+
+  The new export returns the native `globalThis.Temporal` when the runtime has it (Bun 1.4, current browsers) and falls back to `temporal-polyfill` otherwise, installing it on `globalThis`. Framework, bundled features and renderers import from there, so values made by the framework pass `instanceof` and `z.instanceof(Temporal.Instant)` checks in app code. `ensureTemporalPolyfill()` puts the same instance on the global. Apps should import `Temporal` from `@cosmicdrift/kumiko-types/temporal` instead of `temporal-polyfill`.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: New @cosmicdrift/kumiko-types/temporal export resolves one Temporal (native first, polyfill as fallback) for framework and app code
+  migration: Replace imports from "temporal-polyfill" with "@cosmicdrift/kumiko-types/temporal" so app code and framework share one set of Temporal classes.
+  -->
+
+### Patch Changes
+
+- 44be746: `kumiko-upgrade` ships with kumiko-cli and reads the repo's own version
+
+  Repos that depend only on `@cosmicdrift/kumiko-cli` and `@cosmicdrift/kumiko-guards` now get the `kumiko-upgrade` bin, which the upgrade-state guard runs. The installed version comes from the repo itself: its `node_modules`, the framework's package directories, then its `bun.lock`. It no longer walks up into a parent workspace, and with the isolated linker `installedVersion` is no longer `null`. Changelog entries newer than the installed version are not reported as pending, even when a parent workspace holds a newer install.
+
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: kumiko-upgrade ships with kumiko-cli and takes the installed version from the repo's own install or bun.lock
+  -->
+
+- Updated dependencies [44be746]
+- Updated dependencies [44be746]
+- Updated dependencies [44be746]
+  - @cosmicdrift/kumiko-types@0.351.0
+  - @cosmicdrift/kumiko-http@0.351.0
+
 ## 0.350.0
 
 ### Patch Changes

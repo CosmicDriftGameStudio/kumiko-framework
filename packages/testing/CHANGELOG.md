@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.351.0
+
+### Minor Changes
+
+- 44be746: The e2e seed route returns the plain-text part of captured mails
+
+  `CapturedMail` in the seed contract has an optional `text`, filled from the mail's text part, so e2e flows can assert on it.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: CapturedMail.text in the e2e seed route carries the mail's plain-text part
+  -->
+
+### Patch Changes
+
+- 44be746: `--help` prints usage on every bin
+
+  `kumiko-init-deploy --help` used to write the deploy files, and `kumiko-testing integration --help` crashed while parsing its arguments. Both now print their usage and exit 0, as do `kumiko-build`, `kumiko-dev`, `kumiko-schema-check` and `create-kumiko-app`.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: --help prints usage instead of running the command (init-deploy, build, dev, schema-check, kumiko-testing integration)
+  -->
+
+- Updated dependencies [44be746]
+- Updated dependencies [44be746]
+- Updated dependencies [44be746]
+- Updated dependencies [44be746]
+  - @cosmicdrift/kumiko-dev-server@0.351.0
+  - @cosmicdrift/kumiko-framework@0.351.0
+  - @cosmicdrift/kumiko-bundled-features@0.351.0
+
 ## 0.350.0
 
 ### Patch Changes
