@@ -819,12 +819,20 @@ export async function runUpgradeCli(
   for (const changelogFile of packageChangelogFiles) {
     allEntries.push(...readChangelogFile(changelogFile));
   }
-  const pending = sortEntries(filterEntriesAfter(allEntries, currentVersion));
+  // Installed version of the target the marker belongs to (cwd unless --dir).
+  const targetInstalledVersion = dirFlag ? readCurrentVersion(targetDir) : installedVersion;
+  // Changelogs can be found in a parent workspace's newer install. A change
+  // the repo has not installed yet is not pending for it.
+  const installedEntries =
+    targetInstalledVersion === null
+      ? allEntries
+      : allEntries.filter((entry) => compareVersions(entry.version, targetInstalledVersion) <= 0);
+  const pending = sortEntries(filterEntriesAfter(installedEntries, currentVersion));
 
   if (getFlag(args, "apply")) {
     // Marker must reflect what is actually installed under the target (or
     // cwd), not the filter baseline above — otherwise CI stays green forever.
-    const markerVersion = dirFlag ? readCurrentVersion(targetDir) : installedVersion;
+    const markerVersion = targetInstalledVersion;
     const dryRun = getFlag(args, "dry-run");
     if (markerVersion === null && !dryRun) {
       out.err("");

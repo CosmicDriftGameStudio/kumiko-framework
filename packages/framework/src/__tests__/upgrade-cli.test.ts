@@ -289,6 +289,34 @@ describe("upgrade command — installed version comes from the repo's own packag
 
     expect(await installedVersionAt(join(workspace, "consumer"))).toBeNull();
   });
+
+  test("changelog entries newer than the installed version are not pending", async () => {
+    const workspace = tmp({
+      "node_modules/@cosmicdrift/kumiko-bundled-features/src/billing/changes.json": JSON.stringify([
+        { version: "0.345.0", type: "fix", title: "installed fix" },
+        { version: "0.350.0", type: "breaking", title: "not installed yet" },
+      ]),
+      ...Object.fromEntries(
+        Object.entries({ ...ISOLATED_CONSUMER, "bun.lock": LOCKFILE }).map(([path, content]) => [
+          `.wt/consumer/${path}`,
+          content,
+        ]),
+      ),
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(
+      ["--from", "0.344.0", "--json"],
+      join(workspace, ".wt/consumer"),
+      spy.out,
+    );
+
+    expect(exit).toBe(0);
+    const titles = JSON.parse(spy.logs.join("\n")).pending.map(
+      (entry: { title: string }) => entry.title,
+    );
+    expect(titles).toEqual(["installed fix"]);
+  });
 });
 
 describe("upgrade command — every package's changelog, not just framework core", () => {

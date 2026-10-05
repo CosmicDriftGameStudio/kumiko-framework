@@ -34,7 +34,8 @@ period. Every breaking change carries a migration note in its package's
 the repo itself: its own `node_modules`, then the framework's package
 directories, then the repo's `bun.lock`. The lockfile covers the isolated
 linker, which keeps transitive packages out of `node_modules`. A parent
-workspace above the repo is never consulted.
+workspace above the repo is never consulted for the version, and changelog
+entries newer than the installed version are never pending.
 
 ## Breaking changes without a codemod
 
