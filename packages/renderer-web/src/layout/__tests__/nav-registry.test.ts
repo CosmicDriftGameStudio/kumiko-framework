@@ -70,6 +70,24 @@ describe("buildNavRegistrySlice", () => {
 });
 
 describe("buildNavRegistrySliceForApp", () => {
+  test("child whose parent does not exist in the schema is dropped, transitively", () => {
+    const app: AppSchema = {
+      features: [
+        feature(
+          [
+            { id: "group", label: "G", parent: "app-shell:nav:ai" },
+            { id: "leaf", label: "L", parent: "group" },
+            { id: "plain", label: "P" },
+          ],
+          "ai-foundation",
+        ),
+      ],
+    };
+    const slice = buildNavRegistrySliceForApp(app);
+    expect(slice.topLevel.map((n) => n.id)).toEqual(["ai-foundation:nav:plain"]);
+    expect(slice.byParent("ai-foundation:nav:group")).toEqual([]);
+  });
+
   test("qualifiziert Navs pro Feature (multi-feature)", () => {
     const app: AppSchema = {
       features: [

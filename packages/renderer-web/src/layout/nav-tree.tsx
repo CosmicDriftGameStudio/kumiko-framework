@@ -955,12 +955,13 @@ export function buildNavRegistrySliceForApp(
       });
     }
   }
+  const existing = dropNavsWithNonexistentParent(qualified);
   // Workspace filter: drop nav entries whose qualified id isn't in the
   // allow-set. A child whose parent gets dropped surfaces as a top-level
   // entry — the workspace owner should list parents explicitly if they
   // want the grouping preserved.
   const filtered =
-    allowedNavQns !== undefined ? qualified.filter((n) => allowedNavQns.has(n.id)) : qualified;
+    allowedNavQns !== undefined ? existing.filter((n) => allowedNavQns.has(n.id)) : existing;
   const allowedQnSet = new Set(filtered.map((n) => n.id));
   const topLevel: NavDefinition[] = [];
   const byParentMap = new Map<string, NavDefinition[]>();
@@ -981,6 +982,18 @@ export function buildNavRegistrySliceForApp(
     topLevel,
     byParent: (parent) => byParentMap.get(parent) ?? [],
   };
+}
+
+// A parent absent from the (role-projected) schema is not a workspace
+// filter result: the child must not leak to the top level. Transitive.
+function dropNavsWithNonexistentParent(navs: readonly NavDefinition[]): NavDefinition[] {
+  let current = [...navs];
+  for (;;) {
+    const ids = new Set(current.map((n) => n.id));
+    const kept = current.filter((n) => n.parent === undefined || ids.has(n.parent));
+    if (kept.length === current.length) return current;
+    current = kept;
+  }
 }
 
 // Exported (not part of the package's public index.ts surface) so other
