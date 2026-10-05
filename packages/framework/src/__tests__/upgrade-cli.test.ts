@@ -235,6 +235,62 @@ describe("upgrade command — framework core changelog", () => {
   });
 });
 
+describe("upgrade command — installed version comes from the repo's own package", () => {
+  const CLI_ENTRY = JSON.stringify([{ version: "0.340.0", type: "fix", title: "cli fix" }]);
+  const ISOLATED_CONSUMER = {
+    "node_modules/@cosmicdrift/kumiko-cli/package.json": JSON.stringify({ version: "0.345.0" }),
+    "node_modules/@cosmicdrift/kumiko-cli/src/changes.json": CLI_ENTRY,
+  };
+  const LOCKFILE = [
+    "{",
+    '  "packages": {',
+    '    "@cosmicdrift/kumiko-bundled-features": ["@cosmicdrift/kumiko-bundled-features@0.345.0", "", {}],',
+    '    "@cosmicdrift/kumiko-cli": ["@cosmicdrift/kumiko-cli@0.345.0", "", {}],',
+    "  }",
+    "}",
+  ].join("\n");
+
+  async function installedVersionAt(cwd: string): Promise<unknown> {
+    const spy = makeSpyOutput();
+    const exit = await runUpgradeCli(["--from", "0.300.0", "--json"], cwd, spy.out);
+    expect(exit).toBe(0);
+    return JSON.parse(spy.logs.join("\n")).installedVersion;
+  }
+
+  test("isolated linker: transitive bundled-features version is read from the own bun.lock", async () => {
+    const cwd = tmp({ ...ISOLATED_CONSUMER, "bun.lock": LOCKFILE });
+
+    expect(await installedVersionAt(cwd)).toBe("0.345.0");
+  });
+
+  test("worktree inside a parent workspace ignores the parent's installed version", async () => {
+    const workspace = tmp({
+      "node_modules/@cosmicdrift/kumiko-bundled-features/package.json": JSON.stringify({
+        version: "0.999.0",
+      }),
+      ...Object.fromEntries(
+        Object.entries({ ...ISOLATED_CONSUMER, "bun.lock": LOCKFILE }).map(([path, content]) => [
+          `.wt/consumer/${path}`,
+          content,
+        ]),
+      ),
+    });
+
+    expect(await installedVersionAt(join(workspace, ".wt/consumer"))).toBe("0.345.0");
+  });
+
+  test("without an own install or lockfile the parent's version is not borrowed", async () => {
+    const workspace = tmp({
+      "node_modules/@cosmicdrift/kumiko-bundled-features/package.json": JSON.stringify({
+        version: "0.999.0",
+      }),
+      "consumer/node_modules/@cosmicdrift/kumiko-cli/src/changes.json": CLI_ENTRY,
+    });
+
+    expect(await installedVersionAt(join(workspace, "consumer"))).toBeNull();
+  });
+});
+
 describe("upgrade command — every package's changelog, not just framework core", () => {
   const SERVER_RUNTIME_ENTRY = JSON.stringify([
     { version: "0.168.0", type: "breaking", title: "server-runtime breaking change" },

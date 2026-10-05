@@ -18,7 +18,8 @@
     "runtime": "dev"
   },
   "bin": {
-    "kumiko": "./bin/cli.ts"
+    "kumiko": "./bin/cli.ts",
+    "kumiko-upgrade": "./bin/kumiko-upgrade.ts"
   },
   "exports": {
     ".": {

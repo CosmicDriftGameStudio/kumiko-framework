@@ -27,44 +27,46 @@ export type UpgradeCliOut = {
   readonly err: (line: string) => void;
 };
 
-function readPackageVersion(cwd: string, pkgName: string, repoLocalPath: string): string | null {
-  // Walk up from cwd to find node_modules/@cosmicdrift/<pkgName>/package.json
-  // (handles bun workspace hoisting where packages live in parent node_modules)
-  let dir = cwd;
-  for (let i = 0; i < 10; i++) {
-    const nmPath = join(dir, `node_modules/@cosmicdrift/${pkgName}/package.json`);
-    if (existsSync(nmPath)) {
-      try {
-        const pkg = JSON.parse(readFileSync(nmPath, "utf-8"));
-        return pkg.version ?? null;
-      } catch {
-        return null;
-      }
-    }
-    const parent = join(dir, "..");
-    if (parent === dir) break;
-    dir = parent;
+function readPackageJsonVersion(packageJsonPath: string): string | null {
+  if (!existsSync(packageJsonPath)) return null;
+  try {
+    const pkg: unknown = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+    if (typeof pkg !== "object" || pkg === null || !("version" in pkg)) return null;
+    return typeof pkg.version === "string" ? pkg.version : null;
+  } catch {
+    return null;
   }
-  // Fallback: repo-local package root
-  const repoPath = join(cwd, repoLocalPath);
-  if (existsSync(repoPath)) {
-    try {
-      const pkg = JSON.parse(readFileSync(repoPath, "utf-8"));
-      return pkg.version ?? null;
-    } catch {
-      return null;
-    }
-  }
-  return null;
+}
+
+// bun.lock pins transitive packages too, so a repo that only depends on
+// kumiko-cli/-guards still records the bundled-features version it resolved.
+function readLockfileVersion(root: string, pkgName: string): string | null {
+  const lockPath = join(root, "bun.lock");
+  if (!existsSync(lockPath)) return null;
+  const pinned = new RegExp(
+    `"@cosmicdrift/${pkgName}": \\["@cosmicdrift/${pkgName}@(\\d+\\.\\d+\\.\\d+)"`,
+  ).exec(readFileSync(lockPath, "utf-8"));
+  return pinned?.[1] ?? null;
+}
+
+// Only the repo's own install, package dir and lockfile count. Walking up
+// from a worktree nested in a parent workspace read that workspace's version,
+// and the isolated linker keeps transitive packages out of node_modules.
+function readPackageVersion(root: string, pkgName: string, repoLocalPath: string): string | null {
+  return (
+    readPackageJsonVersion(join(root, `node_modules/@cosmicdrift/${pkgName}/package.json`)) ??
+    readPackageJsonVersion(join(root, repoLocalPath)) ??
+    readLockfileVersion(root, pkgName)
+  );
 }
 
 // Changelog entries come from @cosmicdrift/kumiko-bundled-features (see
 // findFeaturesDirs); comparing against the framework version instead
 // compares unrelated packages once the two stop being versioned in lockstep.
-function readCurrentVersion(cwd: string): string | null {
+function readCurrentVersion(root: string): string | null {
   return (
-    readPackageVersion(cwd, "kumiko-bundled-features", "packages/bundled-features/package.json") ??
-    readPackageVersion(cwd, "kumiko-framework", "packages/framework/package.json")
+    readPackageVersion(root, "kumiko-bundled-features", "packages/bundled-features/package.json") ??
+    readPackageVersion(root, "kumiko-framework", "packages/framework/package.json")
   );
 }
 
