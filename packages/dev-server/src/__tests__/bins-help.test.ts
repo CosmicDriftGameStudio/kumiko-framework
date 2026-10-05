@@ -7,7 +7,7 @@ import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const BIN_DIR = join(import.meta.dir, "..");
+const BIN_DIR = join(import.meta.dir, "..", "..", "bin");
 
 const bins = [
   { file: "kumiko-init-deploy.ts", usage: "Usage: kumiko-init-deploy" },

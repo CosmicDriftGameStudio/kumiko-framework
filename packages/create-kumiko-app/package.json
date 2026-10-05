@@ -43,6 +43,8 @@
     "src",
     "feature-manifest.json",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "!bin/__tests__/**",
+    "!src/**/__tests__/**"
   ]
 }
