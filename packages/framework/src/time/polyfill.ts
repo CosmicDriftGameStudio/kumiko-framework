@@ -19,6 +19,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
  * Ensure `globalThis.Temporal` is available. Idempotent.
  */
 export async function ensureTemporalPolyfill(): Promise<void> {
+  // skip: Temporal global already present (native or installed by an earlier call)
   if ("Temporal" in globalThis) return;
   Object.assign(globalThis, { Temporal });
 }

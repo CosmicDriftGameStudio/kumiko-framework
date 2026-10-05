@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 
-const CLI_PATH = join(import.meta.dir, "..", "cli.ts");
+const CLI_PATH = join(import.meta.dir, "..", "..", "bin", "cli.ts");
 
 describe("kumiko (packages/cli) --help", () => {
   for (const flag of ["--help", "-h"]) {
@@ -28,11 +28,14 @@ describe("kumiko-upgrade ships with packages/cli", () => {
   });
 
   test("--help prints the upgrade usage and exits 0", async () => {
-    const proc = Bun.spawn(["bun", join(import.meta.dir, "..", "kumiko-upgrade.ts"), "--help"], {
-      stdin: "ignore",
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const proc = Bun.spawn(
+      ["bun", join(import.meta.dir, "..", "..", "bin", "kumiko-upgrade.ts"), "--help"],
+      {
+        stdin: "ignore",
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
     const [stdout, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
 
     expect(exitCode).toBe(0);

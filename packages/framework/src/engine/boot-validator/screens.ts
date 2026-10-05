@@ -2867,16 +2867,7 @@ function validateDashboardChartDisplay(
       `${where} sets scrollable on chart "${panel.chart}" — only "stacked-area" supports it.`,
     );
   }
-  if (panel.chart !== "stacked-area") {
-    const stackedAreaOnly = (["markerKinds", "legendTotals", "ranges"] as const).filter(
-      (prop) => panel[prop] !== undefined,
-    );
-    if (stackedAreaOnly.length > 0) {
-      throw new Error(
-        `${where} sets ${stackedAreaOnly.join(", ")} on chart "${panel.chart}" — only "stacked-area" supports it.`,
-      );
-    }
-  }
+  validateStackedAreaOnlyProps(where, panel);
   if (panel.legendTotals !== undefined && typeof panel.legendTotals !== "boolean") {
     throw new Error(`${where} has a non-boolean legendTotals.`);
   }
@@ -2889,6 +2880,19 @@ function validateDashboardChartDisplay(
     validateDashboardChartMarkerKind(`${where} markerKinds["${kind}"]`, look);
   }
   if (panel.ranges !== undefined) validateDashboardChartRanges(`${where} ranges`, panel.ranges);
+}
+
+function validateStackedAreaOnlyProps(where: string, panel: DashboardChartPanel): void {
+  // skip: stacked-area is the one chart kind that supports these props
+  if (panel.chart === "stacked-area") return;
+  const stackedAreaOnly = (["markerKinds", "legendTotals", "ranges"] as const).filter(
+    (prop) => panel[prop] !== undefined,
+  );
+  if (stackedAreaOnly.length > 0) {
+    throw new Error(
+      `${where} sets ${stackedAreaOnly.join(", ")} on chart "${panel.chart}" — only "stacked-area" supports it.`,
+    );
+  }
 }
 
 const DASHBOARD_CHART_TONES: ReadonlySet<string> = new Set([
