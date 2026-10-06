@@ -38,9 +38,9 @@ beforeAll(async () => {
     content: [
       "## Angaben gemäß § 5 TMG",
       "",
-      "**Marc Frost**",
-      "Slevogtstr. 10",
-      "04159 Leipzig",
+      "**Alex Morgan**",
+      "Musterstraße 1",
+      "12345 Musterstadt",
       "Deutschland",
       "",
       "## Kontakt",
@@ -57,7 +57,7 @@ beforeAll(async () => {
     content: [
       "## 1. Verantwortlicher",
       "",
-      "Marc Frost, Slevogtstr. 10, 04159 Leipzig.",
+      "Alex Morgan, Musterstraße 1, 12345 Musterstadt.",
       "",
       "## 2. Erhobene Daten",
       "",
@@ -89,8 +89,8 @@ describe("legal-pages sample", () => {
     expect(imprint.status).toBe(200);
     const imprintBody = await imprint.text();
     expect(imprintBody).toContain("<!doctype html>");
-    expect(imprintBody).toContain("Marc Frost");
-    expect(imprintBody).toContain("Leipzig");
+    expect(imprintBody).toContain("Alex Morgan");
+    expect(imprintBody).toContain("Musterstadt");
 
     const privacy = await stack.app.request("/legal/datenschutz");
     expect(privacy.status).toBe(200);
@@ -110,7 +110,7 @@ describe("legal-pages sample", () => {
     const res = await stack.app.request("/legal/impressum");
     const body = await res.text();
     expect(body).toContain("<h2>Angaben gemäß § 5 TMG</h2>");
-    expect(body).toContain("<strong>Marc Frost</strong>");
+    expect(body).toContain("<strong>Alex Morgan</strong>");
   });
 
   test("Cache-Header zeigt 60s public-cache", async () => {

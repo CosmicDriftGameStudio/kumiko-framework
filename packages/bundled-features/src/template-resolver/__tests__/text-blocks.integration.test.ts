@@ -53,7 +53,7 @@ describe("text-blocks :: write", () => {
         slug: "imprint",
         locale: "de",
         title: "Impressum",
-        content: "## Angaben gemäß § 5 TMG\n\nMarc Frost",
+        content: "## Angaben gemäß § 5 TMG\n\nAlex Morgan",
       },
       tenantAdmin,
     );

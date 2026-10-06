@@ -606,20 +606,26 @@ export function Gallery(): ReactNode {
           <div className="flex flex-col gap-5 px-6 py-6">
             <div className="flex items-center gap-4">
               <div className="bg-muted text-foreground flex size-16 items-center justify-center rounded-full text-lg font-semibold">
-                MF
+                AM
               </div>
               <Button variant="secondary">Change avatar</Button>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field id="pf-name" label="Full name">
-                <Input kind="text" id="pf-name" name="pf-name" value="Marc Frost" onChange={noop} />
+                <Input
+                  kind="text"
+                  id="pf-name"
+                  name="pf-name"
+                  value="Alex Morgan"
+                  onChange={noop}
+                />
               </Field>
               <Field id="pf-email" label="Email">
                 <Input
                   kind="text"
                   id="pf-email"
                   name="pf-email"
-                  value="marc@cosmicdrift.dev"
+                  value="alex@example.com"
                   onChange={noop}
                 />
               </Field>

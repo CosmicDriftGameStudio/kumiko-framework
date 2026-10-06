@@ -306,7 +306,7 @@ export const ASSET_TEMPLATES: ReadonlyArray<AssetTemplate> = [
 // treffen ohne Sonderfall. Wird nur für status==="lent" konsultiert.
 export const OWNERS: ReadonlyArray<string> = [
   "",
-  "Marc Frost",
+  "Alex Morgan",
   "Anna Weber",
   "Lars Bergmann",
   "Sina Klein",
@@ -435,7 +435,7 @@ export const REPORTERS: ReadonlyArray<string> = [
 // unzugewiesen damit die Liste nicht zu uniform aussieht.
 export const ASSIGNEES: ReadonlyArray<string> = [
   "",
-  "Marc Frost",
+  "Alex Morgan",
   "IT-Team",
   "Sysadmin",
   "Helpdesk-L1",

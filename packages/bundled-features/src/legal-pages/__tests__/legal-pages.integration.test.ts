@@ -48,7 +48,7 @@ beforeAll(async () => {
     slug: "imprint",
     locale: "de",
     title: "Impressum",
-    content: "## Angaben gemäß § 5 TMG\n\n**Marc Frost**\n\nSlevogtstr. 10, Leipzig",
+    content: "## Angaben gemäß § 5 TMG\n\n**Alex Morgan**\n\nMusterstraße 1, Musterstadt",
   });
   await seedTextBlock(db, {
     tenantId: SYSTEM_TENANT_ID,
@@ -62,7 +62,7 @@ beforeAll(async () => {
     slug: "imprint",
     locale: "en",
     title: "Imprint",
-    content: "## Provider\n\n**Marc Frost**\n\nLeipzig, Germany",
+    content: "## Provider\n\n**Alex Morgan**\n\nLeipzig, Germany",
   });
 });
 
@@ -78,7 +78,7 @@ describe("legal-pages :: GET /legal/impressum", () => {
     const body = await res.text();
     expect(body).toContain("<title>Impressum</title>");
     expect(body).toContain('lang="de"');
-    expect(body).toContain("Marc Frost");
+    expect(body).toContain("Alex Morgan");
     expect(body).toContain("<h2>"); // markdown-rendered ## heading
   });
 });
@@ -287,14 +287,14 @@ describe("legal-pages :: SYSTEM_TENANT-routing (production-bug-regression)", () 
         slug: "imprint",
         locale: "de",
         title: "System-Impressum",
-        content: "## Plattform\n\nMarc Frost",
+        content: "## Plattform\n\nAlex Morgan",
       });
 
       const res = await hostScopedStack.app.request("/legal/impressum");
       expect(res.status).toBe(200);
       const body = await res.text();
       expect(body).toContain("System-Impressum");
-      expect(body).toContain("Marc Frost");
+      expect(body).toContain("Alex Morgan");
     } finally {
       await hostScopedStack.cleanup();
     }
@@ -380,7 +380,7 @@ describe("legal-pages :: configurable routes/requiredBlocks (non-DACH apps)", ()
         slug: "imprint",
         locale: "es",
         title: "Aviso legal",
-        content: "## Datos del titular\n\n**Marc Frost**",
+        content: "## Datos del titular\n\n**Alex Morgan**",
       });
 
       const res = await esStack.app.request("/legal/aviso-legal");

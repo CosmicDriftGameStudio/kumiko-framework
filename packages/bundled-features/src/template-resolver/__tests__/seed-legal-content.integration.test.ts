@@ -64,8 +64,8 @@ function readSystemTemplate(slug: string, locale: string, kind: SeedSystemTempla
 describe("seedLegalContentFromJson", () => {
   test("seeds all blocks into SYSTEM_TENANT_ID as SYSTEM_USER", async () => {
     const blocks: LegalContentBlock[] = [
-      { slug: "imprint", locale: "de", title: "Impressum", content: "Marc Frost" },
-      { slug: "imprint", locale: "en", title: "Imprint", content: "Marc Frost" },
+      { slug: "imprint", locale: "de", title: "Impressum", content: "Alex Morgan" },
+      { slug: "imprint", locale: "en", title: "Imprint", content: "Alex Morgan" },
     ];
     await seedLegalContentFromJson(db, blocks);
 
@@ -73,9 +73,9 @@ describe("seedLegalContentFromJson", () => {
       insertedById: string;
       modifiedById: string | null;
     };
-    expect(de).toMatchObject({ title: "Impressum", content: "Marc Frost" });
+    expect(de).toMatchObject({ title: "Impressum", content: "Alex Morgan" });
     expect(de.insertedById).toBe(SYSTEM_USER_ID);
-    expect(await read("imprint", "en")).toMatchObject({ title: "Imprint", content: "Marc Frost" });
+    expect(await read("imprint", "en")).toMatchObject({ title: "Imprint", content: "Alex Morgan" });
   });
 
   test("re-seed lifts an existing block to the new template state (ifExists:update)", async () => {
