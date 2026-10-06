@@ -164,7 +164,7 @@
     "nodemailer": "^10.0.13",
     "qrcode": "^1.5.4",
     "react": "^19.2.6",
-    "sharp": "^0.35.4",
+    "sharp": "^0.35.5",
     "stripe": "^22.6.2",
     "tailwind-merge": "^3.6.0",
     "temporal-polyfill": "^0.3.2",
