@@ -6,6 +6,9 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 export const tasksTranslations: TranslationsByLocale = {
   de: {
     "tasks.shell.tagline": "Design-Referenz",
+    "tasks.assistant.label": "Assistent",
+    "tasks.assistant.description": "Der Assistent ist im Walkthrough nicht angebunden.",
+    "tasks.assistant.close": "Schließen",
     "tasks.nav.group": "Allgemein",
     "tasks.nav.list": "Aufgaben",
     "tasks.nav.new": "Neue Aufgabe",
@@ -23,6 +26,9 @@ export const tasksTranslations: TranslationsByLocale = {
   },
   en: {
     "tasks.shell.tagline": "Design reference",
+    "tasks.assistant.label": "Assistant",
+    "tasks.assistant.description": "The assistant is not connected in the walkthrough.",
+    "tasks.assistant.close": "Close",
     "tasks.nav.group": "General",
     "tasks.nav.list": "Tasks",
     "tasks.nav.new": "New task",

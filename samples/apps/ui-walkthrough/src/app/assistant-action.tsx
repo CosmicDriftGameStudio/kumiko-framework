@@ -1,4 +1,4 @@
-import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { WandSparkles } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 
@@ -6,6 +6,7 @@ const noop = (): void => {};
 
 export function AssistantAction(): ReactNode {
   const { Dialog } = usePrimitives();
+  const t = useTranslation();
   const [open, setOpen] = useState(false);
 
   // Registered here on purpose: an overflow menu that unmounts this component
@@ -30,7 +31,7 @@ export function AssistantAction(): ReactNode {
         className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground hover:bg-accent"
       >
         <WandSparkles className="h-4 w-4" aria-hidden="true" />
-        Assistent
+        {t("tasks.assistant.label")}
         <kbd className="rounded border border-border px-1 font-sans text-xs text-muted-foreground">
           ⌘K
         </kbd>
@@ -38,9 +39,9 @@ export function AssistantAction(): ReactNode {
       <Dialog
         open={open}
         onOpenChange={setOpen}
-        title="Assistent"
-        description="Der Assistent ist im Walkthrough nicht angebunden."
-        confirmLabel="Schließen"
+        title={t("tasks.assistant.label")}
+        description={t("tasks.assistant.description")}
+        confirmLabel={t("tasks.assistant.close")}
         onConfirm={noop}
         testId="assistant-dialog"
       />
