@@ -105,4 +105,41 @@ describe("runProdApp kms slots", () => {
       /no usable master key/,
     );
   });
+
+  test("a decrypted slot value that violates the slot's own validator rejects the boot", async () => {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ plaintext: "too-short" }), {
+        status: 200,
+      })) as unknown as typeof globalThis.fetch;
+    console.log = () => {};
+    console.info = () => {};
+
+    const strictSchema: ComposedEnvSchema = {
+      schema: z.object({
+        KUMIKO_SECRETS_MASTER_KEY_V1: z
+          .string()
+          .regex(/^[A-Za-z0-9+/=]{44}$/)
+          .meta({ kumiko: { kms: true } }),
+      }),
+      sources: {},
+    };
+    const reported: unknown[] = [];
+
+    await expect(
+      runProdApp({
+        features: [encryptedFeature],
+        envSchema: strictSchema,
+        autoListen: false,
+        migrations: false,
+        bootErrorReporter: (err) => reported.push(err),
+        envSource: {
+          ...BASE_ENV,
+          KUMIKO_SECRETS_MASTER_KEY_V1_CIPHERTEXT: "Y2lwaGVy",
+          PLATFORM_KEK_KMS_KEY_ID: "key-1",
+          PLATFORM_KEK_KMS_TOKEN: "token",
+        },
+      }),
+    ).rejects.toThrow(/KUMIKO_SECRETS_MASTER_KEY_V1/);
+    expect(reported).toHaveLength(1);
+  });
 });
