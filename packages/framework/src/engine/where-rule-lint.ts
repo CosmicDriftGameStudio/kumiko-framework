@@ -24,9 +24,9 @@ const QUALIFIED_PARSE_RE = new RegExp(`^(${IDENT_SRC})(?:\\.(${IDENT_SRC}))?$`);
 
 // Resolve the SQL column names a table exposes, so the lint can tell a
 // real column reference apart from a table alias / function name / SQL
-// keyword. Returns an empty set when nothing is derivable; the column-aware
-// check then finds no bare column and is effectively skipped (only the
-// self-comparison check still applies).
+// keyword. Returns an empty set when nothing is derivable; callers that need
+// the column-aware check must treat that as "unknown" (see
+// assertQualifiedWhereFragment, which fails closed on it).
 export function tableColumnSqlNames(table: unknown): ReadonlySet<string> {
   if (table === null || typeof table !== "object") return new Set();
 
@@ -203,6 +203,12 @@ export function assertQualifiedWhereFragment(
   // column reference cannot bind against anything but the outer table, so
   // the fail-open shape this lint targets is impossible here.
   if (!/\bSELECT\b/i.test(cleaned)) return;
+
+  if (columnSqlNames.size === 0) {
+    throw new Error(
+      `[Kumiko Ownership] ${scope}: cannot verify where-rule SQL containing a subquery — the table's column set is unknown, so unqualified column references cannot be detected.`,
+    );
+  }
 
   const unqualified = findUnqualifiedColumnReference(cleaned, columnSqlNames);
   if (unqualified !== null) {

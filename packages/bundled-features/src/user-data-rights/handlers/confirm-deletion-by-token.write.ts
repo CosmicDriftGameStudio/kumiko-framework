@@ -37,7 +37,7 @@ async function readPendingDeletionRequestId(
 
 // Anonymous apex flow step 2: verify-link target. Verifies the HMAC token,
 // extracts the userId, and flips the grace period through the shared logic —
-// in ONE atomic step with the anchor spend (#3024): commitDeletion carries
+// in ONE atomic step with the anchor spend: commitDeletion carries
 // the actual grace-period transition, so a crash after the spend can no
 // longer lose the write step.
 //
@@ -47,7 +47,7 @@ async function readPendingDeletionRequestId(
 // a cancel-deletion (status → Active, pendingDeletionRequestId → null), a
 // replayed token fails against the nulled/renewed requestId — no re-arm.
 //
-// Concurrency (#3024): two simultaneous confirms of the same token both read
+// Concurrency: two simultaneous confirms of the same token both read
 // the same requestId and both verify the HMAC — commitDeletion spends the
 // anchor AND writes the transition atomically (expect: status===Active &&
 // pendingDeletionRequestId===requestId), so exactly one wins. The loser gets

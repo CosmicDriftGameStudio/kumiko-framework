@@ -38,7 +38,7 @@ export function redeemDeletionToken(args: {
   readonly secret: string | undefined;
   readonly loadPendingRequestId: (userId: string) => Promise<string | null>;
   // Spends the anchor AND performs the actual lifecycle transition in one
-  // atomic step (#3024) — the caller (confirm-deletion-by-token) folds the
+  // atomic step — the caller (confirm-deletion-by-token) folds the
   // Active→DeletionRequested write itself in here via `updateUserLifecycle`'s
   // `expect: { status: Active, pendingDeletionRequestId }`, so a write issued
   // after `ok: true` can't lose its work to a crash while the grant is

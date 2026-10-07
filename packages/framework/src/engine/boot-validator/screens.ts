@@ -18,6 +18,7 @@ import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.js"
 import {
   type FieldsOrGroupsSection,
   isExtensionEditSection,
+  isFieldsEditSection,
   isWriteFormEditSection,
   normalizeEditField,
   normalizeListColumn,
@@ -529,19 +530,44 @@ function validateDrawerTargetAction(
         `actionForm screen, or use kind:"navigate" for a full-page target.`,
     );
   }
-  // A prefill key the target form doesn't declare is dropped silently by the
-  // renderer (mergeSearchParamsIntoInitial iterates the target's fields), so
-  // the typo would only show up as an empty field at click time.
+  // The renderer (mergeSearchParamsIntoInitial) silently drops a prefill key
+  // when the target doesn't declare the field, marks it sensitive/password,
+  // or doesn't render it in its layout — each would only show up as an empty
+  // field at click time.
   // skip: no params extractor — nothing to check against the target's fields.
   if (action.params === undefined) return;
+  const renderedFieldNames = new Set<string>();
+  for (const section of target.layout.sections) {
+    if (!isFieldsEditSection(section)) continue;
+    for (const spec of sectionFieldSpecs(section))
+      renderedFieldNames.add(normalizeEditField(spec).field);
+  }
+  const where = `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}"`;
   for (const fieldName of rowFieldExtractorKeys(action.params)) {
-    if (Object.hasOwn(target.fields, fieldName)) continue;
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}" ` +
-        `params prefills "${fieldName}", which drawer-target "${action.screen}" does not declare as a ` +
-        `field — the renderer would drop it and leave the form empty. Target fields: ` +
-        `${Object.keys(target.fields).sort().join(", ") || "(none)"}.`,
-    );
+    if (!Object.hasOwn(target.fields, fieldName)) {
+      throw new Error(
+        `${where} params prefills "${fieldName}", which drawer-target "${action.screen}" does not declare as a ` +
+          `field — the renderer would drop it and leave the form empty. Target fields: ` +
+          `${Object.keys(target.fields).sort().join(", ") || "(none)"}.`,
+      );
+    }
+    const targetField = target.fields[fieldName];
+    const isSensitiveOrPassword =
+      targetField !== undefined &&
+      (("sensitive" in targetField && targetField.sensitive === true) ||
+        ("format" in targetField && targetField.format === "password"));
+    if (isSensitiveOrPassword) {
+      throw new Error(
+        `${where} params prefills "${fieldName}", which drawer-target "${action.screen}" marks as ` +
+          `sensitive or password — the renderer never prefills those fields and would leave the form empty.`,
+      );
+    }
+    if (!renderedFieldNames.has(fieldName)) {
+      throw new Error(
+        `${where} params prefills "${fieldName}", which drawer-target "${action.screen}" does not render in ` +
+          `its layout — the renderer only prefills fields the layout shows and would drop it.`,
+      );
+    }
   }
 }
 

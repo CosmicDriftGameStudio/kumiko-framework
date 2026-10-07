@@ -1583,11 +1583,17 @@ function buildExtraRouteHonoHandler(
             }
             return c.json(e.body, e.status);
           }
+          // The body goes to unauthenticated callers; infra errors thrown by
+          // verify() (secrets, DB) must not leak, so the detail stays in the log.
+          console.error(
+            `[kumiko:extra-route] signature verify() threw on ${c.req.path}:`,
+            e instanceof Error ? e.message : String(e),
+          );
           return c.json(
             {
               error: {
                 code: "extra_route_signature_invalid",
-                message: e instanceof Error ? e.message : String(e),
+                message: "signature verification failed",
               },
             },
             401,

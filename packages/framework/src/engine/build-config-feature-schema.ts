@@ -643,11 +643,19 @@ function buildSecretsEditScreen(
   // need a writable local type; each entry is still a fresh, never-mutated object.
   const translations: Record<string, TranslationEntry> = {};
   const sections: SecretsEditSection[] = [];
+  const seenFieldIds = new Map<string, string>();
 
   for (const feature of [...new Set(secrets.map((s) => s.feature))]) {
     const fieldIds: string[] = [];
     for (const s of secrets.filter((v) => v.feature === feature)) {
       const fieldId = `${s.feature}-${s.shortKey}`;
+      const prevQn = seenFieldIds.get(fieldId);
+      if (prevQn !== undefined) {
+        throw new Error(
+          `[Settings-Hub] secrets "${prevQn}" and "${s.qn}" both resolve to field id "${fieldId}" — rename one secret or its feature.`,
+        );
+      }
+      seenFieldIds.set(fieldId, s.qn);
       fieldIds.push(fieldId);
       secretKeys[fieldId] = s.qn;
       const labelKey = `config.secret.${s.feature}.${s.shortKey}.label`;
