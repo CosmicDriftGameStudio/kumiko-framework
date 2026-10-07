@@ -187,6 +187,17 @@ describe("denyQns removes a tool", () => {
     ).toThrow("deny-test:query:alpa");
   });
 
+  test("denyQns passed only to buildAgentManifest throws at catalog build instead of leaving entity CRUD tools exposed", () => {
+    const registry = createRegistry([buildDenyTestFeature()]);
+    const manifest = buildAgentManifest(registry, {
+      locale: "en",
+      roles: ["Admin"],
+      denyQns: [DENY_TEST_QN_A],
+    });
+
+    expect(() => buildToolCatalog(registry, manifest, { mode: "edit" })).toThrow(DENY_TEST_QN_A);
+  });
+
   test("denyQns passed only to buildToolCatalog still removes the tool, even though the manifest still lists the handler", () => {
     const registry = createRegistry([buildDenyTestFeature()]);
     const manifest = buildAgentManifest(registry, { locale: "en", roles: ["Admin"] });

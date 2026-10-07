@@ -19,6 +19,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
 import * as z from "zod";
+import { recordManifestDenyQns } from "./manifest-deny-qns.js";
 import type {
   AgentManifest,
   AgentManifestEntity,
@@ -446,7 +447,7 @@ export function buildAgentManifest(
   );
   const workspaces = buildWorkspaces(workspaceMap, translations, roles);
 
-  return {
+  const manifest: AgentManifest = {
     builtForRoles: [...roles],
     features: sortedByKey(features, (f) => f.name),
     entities: sortedByKey(entities, (e) => e.name),
@@ -459,4 +460,6 @@ export function buildAgentManifest(
       ...(options.currency && { currency: options.currency }),
     },
   };
+  recordManifestDenyQns(manifest, new Set(options.denyQns ?? []));
+  return manifest;
 }

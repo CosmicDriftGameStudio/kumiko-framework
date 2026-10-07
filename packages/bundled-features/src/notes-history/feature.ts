@@ -20,7 +20,7 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { hasWhereRule } from "../shared/index.js";
+import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.js";
 import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./constants.js";
 import { createNoteEntryEntity, noteMentionEntity } from "./entity.js";
 import { createNoteEntryExecutor } from "./executor.js";
@@ -123,17 +123,7 @@ export function createNotesHistoryFeature(
   ) {
     return notesHistoryFeature;
   }
-  if (hasWhereRule(opts.ownership?.write)) {
-    throw new Error(
-      "createNotesHistoryFeature({ ownership }): ownership.write must not contain a " +
-        '`{ kind: "where" }` rule — where-rules are evaluated only at the SQL ' +
-        "layer (the read path, via buildOwnershipClause). Write paths that " +
-        "consult access.write (userCanCreateFieldRow/userCanWriteFieldRow) can't " +
-        "evaluate them, so such a rule can only ever deny — boot validation " +
-        "rejects it too (fw#2626). Use a `from()` rule for ownership.write, or " +
-        "leave it unset.",
-    );
-  }
+  assertNoWhereRuleInOwnershipWrite("createNotesHistoryFeature", opts.ownership?.write);
   // A mount that accepts no parents at all can never take a note write —
   // that's a config mistake, not a valid allowlist. Omit `parents` instead
   // of passing an empty array.

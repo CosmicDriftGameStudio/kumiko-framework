@@ -101,6 +101,22 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
+describe("managed-pages :: server-render route rate limit", () => {
+  // by-slug allows 60 calls per IP and window; the 61st must answer 429 with
+  // Retry-After, not degrade to 503 "page unavailable".
+  test("exhausted bucket → 429 with Retry-After", async () => {
+    await stack.redis.flushNamespace();
+    for (let i = 0; i < 60; i++) {
+      const res = await stack.app.request("http://a.example.com/p/about");
+      expect(res.status).toBe(200);
+    }
+    const blocked = await stack.app.request("http://a.example.com/p/about");
+    expect(blocked.status).toBe(429);
+    expect(Number(blocked.headers.get("retry-after"))).toBeGreaterThan(0);
+    await stack.redis.flushNamespace();
+  }, 20000);
+});
+
 describe("managed-pages :: server-render route", () => {
   test("published Page → 200 mit gerendertem Markdown", async () => {
     const res = await stack.app.request("http://a.example.com/p/about");

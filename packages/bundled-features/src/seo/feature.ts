@@ -5,9 +5,10 @@ import {
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
 import { LEGAL_ROUTES } from "../legal-pages/index.js";
 import { cachedSecurePageResponse } from "../page-render/index.js";
-import type { SystemQueryFn } from "../shared/index.js";
+import { rateLimitedTextResponse, type SystemQueryFn } from "../shared/index.js";
 import { SEO_CONFIG_KEYS, SEO_DEFAULT_PATHS } from "./constants.js";
 import { seoConfigQuery } from "./handlers/seo-config.query.js";
 import { buildLlmsTxt } from "./llms-txt.js";
@@ -125,7 +126,9 @@ async function gatherEntries(
             lastmod: page.updatedAt,
           });
         }
-      } catch {
+      } catch (error) {
+        // A rate limit must not look like "pages removed" to a crawler.
+        if (error instanceof RateLimitError) throw error;
         // managed-pages unreachable/not mounted — degrade to callback-only entries.
       }
     }
@@ -188,7 +191,13 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
       anonymous: true,
       handler: async (c, { systemQuery }) => {
         const { origin, host } = requestHost(c);
-        const entries = await gatherEntries(opts, systemQuery, origin, host);
+        let entries: SitemapEntry[];
+        try {
+          entries = await gatherEntries(opts, systemQuery, origin, host);
+        } catch (error) {
+          if (error instanceof RateLimitError) return rateLimitedTextResponse(error);
+          throw error;
+        }
         const xml = buildSitemapXml(entries);
         const etag = computeRevisionEtag([host, xml]);
         return cachedSecurePageResponse(c.req.raw, {
@@ -209,10 +218,17 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
         const tenantId = opts.managedPages
           ? ((await opts.managedPages.resolveApexTenant(host)) ?? SYSTEM_TENANT_ID)
           : SYSTEM_TENANT_ID;
-        const [entries, seoConfig] = await Promise.all([
-          gatherEntries(opts, systemQuery, origin, host),
-          readSeoConfig(systemQuery, tenantId),
-        ]);
+        let entries: SitemapEntry[];
+        let seoConfig: SeoConfigValues;
+        try {
+          [entries, seoConfig] = await Promise.all([
+            gatherEntries(opts, systemQuery, origin, host),
+            readSeoConfig(systemQuery, tenantId),
+          ]);
+        } catch (error) {
+          if (error instanceof RateLimitError) return rateLimitedTextResponse(error);
+          throw error;
+        }
         const sections =
           entries.length > 0
             ? [

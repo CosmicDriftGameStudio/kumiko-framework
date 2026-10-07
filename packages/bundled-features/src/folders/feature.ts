@@ -25,7 +25,7 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { hasWhereRule } from "../shared/index.js";
+import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.js";
 import { DEFAULT_FOLDER_ACCESS, FOLDERS_FEATURE_NAME } from "./constants.js";
 import { createFolderAssignmentEntity, folderEntity } from "./entity.js";
 import { createClearFolderHandler } from "./handlers/clear-folder.write.js";
@@ -166,17 +166,7 @@ export function createFoldersFeature(opts: FoldersFeatureOptions = {}): typeof f
   ) {
     return foldersFeature;
   }
-  if (hasWhereRule(opts.ownership?.write)) {
-    throw new Error(
-      "createFoldersFeature({ ownership }): ownership.write must not contain a " +
-        '`{ kind: "where" }` rule — where-rules are evaluated only at the SQL ' +
-        "layer (the read path, via buildOwnershipClause). Write paths that " +
-        "consult access.write (userCanCreateFieldRow/userCanWriteFieldRow) can't " +
-        "evaluate them, so such a rule can only ever deny — boot validation " +
-        "rejects it too (fw#2626). Use a `from()` rule for ownership.write, or " +
-        "leave it unset.",
-    );
-  }
+  assertNoWhereRuleInOwnershipWrite("createFoldersFeature", opts.ownership?.write);
   if (opts.parents !== undefined && opts.parents.length === 0) {
     throw new Error(
       "createFoldersFeature({ parents }): parents must not be an empty array — " +

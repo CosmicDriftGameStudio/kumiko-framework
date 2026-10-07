@@ -30,9 +30,13 @@ import { createConfigAccessorFactory, createConfigFeature } from "../../config/f
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { FORM_DRAFT_FEATURE_NAME, FormDraftHandlers } from "../constants.js";
+import { selectStaleDraftsBatch } from "../db/queries/cleanup.js";
 import { formDraftEntity } from "../entity.js";
 import { formDraftFeature } from "../feature.js";
-import { FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY } from "../handlers/cleanup.job.js";
+import {
+  deleteStaleDraftsBatch,
+  FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY,
+} from "../handlers/cleanup.job.js";
 
 let stack: TestStack;
 
@@ -235,6 +239,36 @@ describe("form-draft cleanup job", () => {
       expect(await draftExists("wizard:once-saved")).toBe(false);
     });
     expect(await draftExists("wizard:fresh-once-saved")).toBe(true);
+  });
+});
+
+describe("form-draft cleanup job — batch sweep", () => {
+  // A row saved again between select and delete is skipped; the sweep loop
+  // keeps going on skips alone, so the skip count must be reported apart
+  // from deletes.
+  test("a row that is no longer stale counts as skipped, not deleted, and survives", async () => {
+    await saveDraft("wizard:resaved");
+    await backdate("wizard:resaved", 5);
+    const batch = await selectStaleDraftsBatch(stack.db, 1, 10);
+    expect(batch).toHaveLength(1);
+
+    const outcome = await deleteStaleDraftsBatch(batch, stack.db, 30, undefined);
+
+    expect(outcome.deletedRows).toHaveLength(0);
+    expect(outcome.skippedCount).toBe(1);
+    expect(await draftExists("wizard:resaved")).toBe(true);
+  });
+
+  test("a still-stale row is deleted and not counted as skipped", async () => {
+    await saveDraft("wizard:stale");
+    await backdate("wizard:stale", 5);
+    const batch = await selectStaleDraftsBatch(stack.db, 1, 10);
+
+    const outcome = await deleteStaleDraftsBatch(batch, stack.db, 1, undefined);
+
+    expect(outcome.deletedRows).toHaveLength(1);
+    expect(outcome.skippedCount).toBe(0);
+    expect(await draftExists("wizard:stale")).toBe(false);
   });
 });
 
