@@ -382,3 +382,20 @@ describe("validateBoot — select optionsAvailabilityQuery on entity fields", ()
     );
   });
 });
+
+describe("validateBoot — select optionTones", () => {
+  test("an unknown tone on an entity select field throws, a known one boots", () => {
+    const withTone = (tone: string) =>
+      defineFeature("shop", (r) => {
+        r.entity("item", {
+          fields: {
+            state: { type: "select", options: ["open"], optionTones: { open: tone } },
+          } as never,
+        });
+      });
+    expect(() => validateBoot([withTone("ok")])).not.toThrow();
+    expect(() => validateBoot([withTone("error")])).toThrow(
+      /Entity select field "item.state" optionTones\["open"\] is "error"/,
+    );
+  });
+});

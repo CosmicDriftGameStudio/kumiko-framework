@@ -3414,11 +3414,8 @@ function DataTableCell({
         ? optionTones[value]
         : undefined;
     const tone =
-      declaredTone !== undefined
-        ? statusToneForOptionTone(declaredTone)
-        : typeof value === "string"
-          ? statusToneForValue(value)
-          : undefined;
+      (declaredTone !== undefined ? statusToneForOptionTone(declaredTone) : undefined) ??
+      (typeof value === "string" ? statusToneForValue(value) : undefined);
     if (tone !== undefined) {
       return <StatusBadge tone={tone}>{label}</StatusBadge>;
     }

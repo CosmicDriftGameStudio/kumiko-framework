@@ -1,4 +1,5 @@
 import type { BlurRegion, VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
+import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
 import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import { ZodObject } from "zod";
 import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key.js";
@@ -11,6 +12,7 @@ import type {
   MultiSelectFieldDef,
   QueryHandlerDef,
 } from "../types/index.js";
+import { isSelectOptionTone } from "./select-option-tone.js";
 
 export const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 
@@ -911,13 +913,31 @@ function validateCheckboxDisplayOptions(
   }
 }
 
+function assertSelectOptionTones(
+  field: { readonly type: string; readonly optionTones?: Readonly<Record<string, unknown>> },
+  path: string,
+  featureName: string,
+): void {
+  if (field.type !== "select") return;
+  for (const [optionValue, tone] of Object.entries(field.optionTones ?? {})) {
+    if (!isSelectOptionTone(tone)) {
+      throw new Error(
+        `[Feature ${featureName}] Entity select field "${path}" optionTones["${optionValue}"] is ` +
+          `"${String(tone)}" — expected one of ${SELECT_OPTION_TONES.join(", ")}.`,
+      );
+    }
+  }
+}
+
 export function validateEntitySelectOptionsQuery(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       assertNoSelectOptionsQuery(field, `${entityName}.${fieldName}`, feature.name);
+      assertSelectOptionTones(field, `${entityName}.${fieldName}`, feature.name);
       if (field.type !== "embedded") continue;
       for (const [subName, subField] of Object.entries(field.schema ?? {})) {
         assertNoSelectOptionsQuery(subField, `${entityName}.${fieldName}.${subName}`, feature.name);
+        assertSelectOptionTones(subField, `${entityName}.${fieldName}.${subName}`, feature.name);
       }
     }
   }

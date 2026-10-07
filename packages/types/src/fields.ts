@@ -342,7 +342,9 @@ export type BooleanFieldDef = {
   readonly access?: FieldAccess;
 };
 
-export type SelectOptionTone = "ok" | "warn" | "bad" | "neutral";
+export const SELECT_OPTION_TONES = ["ok", "warn", "bad", "neutral"] as const;
+
+export type SelectOptionTone = (typeof SELECT_OPTION_TONES)[number];
 
 /** One `optionsQueryPayload` entry: a literal, or `{ field }` = the current value of
  *  a sibling field of the same form (config keys: another key of the owner feature). */

@@ -96,13 +96,13 @@ function agentSlots(source: {
   };
 }
 
-function requireInlineHandlerArgs<TSchema, THandler, TOptions extends object>(
+function requireInlineHandlerArgs<TSchema, THandler, TOptions extends { access?: unknown }>(
   kind: string,
   schema: TSchema | undefined,
   handler: THandler | undefined,
   options: TOptions | undefined,
 ): { schema: TSchema; handler: THandler; options: TOptions } {
-  if (!schema || !handler || !options) {
+  if (!schema || !handler || !options?.access) {
     throw new Error(`${kind} inline form requires schema + handler + options.access`);
   }
   return { schema, handler, options };
