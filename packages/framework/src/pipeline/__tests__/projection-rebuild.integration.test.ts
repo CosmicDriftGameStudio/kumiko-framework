@@ -1030,4 +1030,56 @@ describe("rebuildProjection — row level security guard (#2907)", () => {
       await raw.unsafe(`ALTER TABLE "read_rebuild_items_per_group" DISABLE ROW LEVEL SECURITY`);
     }
   });
+  test("swapShadowIntoLive waits out an in-flight ENABLE ROW LEVEL SECURITY instead of dropping RLS", async () => {
+    const group = "00000000-0000-4000-8000-000000000054";
+    await appendCreatedEvent(group, "item1");
+    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
+
+    const raw = asRawClient(testDb.db);
+    const db = testDb.db as DbConnection; // @cast-boundary test-harness (TestDb.db is intentionally unknown)
+    let enableStarted!: () => void;
+    const enableStartedSignal = new Promise<void>((resolve) => {
+      enableStarted = resolve;
+    });
+    let commitEnable!: () => void;
+    const commitEnableSignal = new Promise<void>((resolve) => {
+      commitEnable = resolve;
+    });
+    const enabler = db.begin(async (btx: DbTx) => {
+      await asRawClient(btx).unsafe(
+        `ALTER TABLE "read_rebuild_items_per_group" ENABLE ROW LEVEL SECURITY`,
+      );
+      enableStarted();
+      await commitEnableSignal;
+    });
+    try {
+      await enableStartedSignal;
+      // The shadow is deliberately absent: a swap that dropped the live table anyway
+      // would fail on SET SCHEMA with a different error than the RLS one asserted below.
+      const swap = db.begin(async (tx: DbTx) => {
+        await swapShadowIntoLive(tx, "read_rebuild_items_per_group");
+      });
+      const swapOutcome = swap.then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      for (let attempt = 0; attempt < 250; attempt++) {
+        const [waiting] = await raw.unsafe<{ n: number }>(
+          `SELECT count(*)::int AS n FROM pg_locks
+           WHERE NOT granted AND relation = 'public.read_rebuild_items_per_group'::regclass`,
+        );
+        if ((waiting?.n ?? 0) > 0) break;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      commitEnable();
+      await enabler;
+      const error = await swapOutcome;
+      expect(String(error)).toMatch(/shadow swap:.*row level security/);
+      expect(await getCount(group)).toBe(1);
+    } finally {
+      commitEnable();
+      await enabler.catch(() => undefined);
+      await raw.unsafe(`ALTER TABLE "read_rebuild_items_per_group" DISABLE ROW LEVEL SECURITY`);
+    }
+  });
 });

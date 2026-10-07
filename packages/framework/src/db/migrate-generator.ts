@@ -179,8 +179,10 @@ function diffOneTable(prev: EntityTableMeta, next: EntityTableMeta): TableDiff |
       (prevI.unique ?? false) === (idx.unique ?? false)
         ? undefined
         : { from: prevI.unique ?? false, to: idx.unique ?? false };
-    const whereSqlChanged =
-      prevI.whereSql === idx.whereSql ? undefined : { from: prevI.whereSql, to: idx.whereSql };
+    // Whitespace-only re-rendering of the predicate must not drop and rebuild a large index.
+    const whereSqlChanged = whereSqlEqual(prevI.whereSql, idx.whereSql)
+      ? undefined
+      : { from: prevI.whereSql, to: idx.whereSql };
     const needsManualWhereChanged =
       (prevI.needsManualWhere ?? false) === (idx.needsManualWhere ?? false)
         ? undefined
@@ -368,6 +370,11 @@ function renderColumnChange(tableName: string, change: ColumnChange): readonly s
 // line and escape into the executable body of the generated migration.
 function toSingleLine(text: string): string {
   return text.replace(/\s+/g, " ").trim();
+}
+
+function whereSqlEqual(a: string | undefined, b: string | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  return toSingleLine(a) === toSingleLine(b);
 }
 
 function describeIndexChange(change: IndexChange): string {
