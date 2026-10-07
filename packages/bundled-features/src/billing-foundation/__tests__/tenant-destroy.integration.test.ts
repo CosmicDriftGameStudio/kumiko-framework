@@ -5,8 +5,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { append, isStreamArchived, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { isStreamArchived, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -19,9 +19,7 @@ import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
   seedRow,
-  updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   ComplianceProfileHandlers,
   createComplianceProfilesFeature,
@@ -40,11 +38,10 @@ import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantMembershipEntity } from "../../tenant/index.js";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
 import {
-  TENANT_AGGREGATE_TYPE,
-  TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../../tenant-lifecycle/constants.js";
+  driveDestructionToCompletion,
+  seedDestroyingTenant,
+} from "../../tenant-lifecycle/__tests__/destroy-test-helpers.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
 import { createUserFeature } from "../../user/feature.js";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
 import { SubscriptionEventTypes, SubscriptionFoundationHandlers } from "../constants.js";
@@ -189,39 +186,6 @@ async function seedPayment(user: typeof tenantA, eventIdSuffix: string): Promise
   );
 }
 
-async function seedDestroyingTenant(tenantId: TenantId): Promise<void> {
-  const now = getTemporal().Now.instant();
-  await updateRows(
-    db,
-    tenantTable,
-    { status: "destroying", destroyStartedAt: now },
-    { id: tenantId },
-  );
-  await append(db, {
-    aggregateId: tenantId,
-    aggregateType: TENANT_AGGREGATE_TYPE,
-    tenantId,
-    expectedVersion: (await loadAggregate(db, tenantId, tenantId)).at(-1)?.version ?? 0,
-    type: TENANT_DESTRUCTION_STARTED_EVENT_QN,
-    payload: { startedAt: now.toString() },
-    metadata: { userId: "system", requestId: "test:destruction-started" },
-  });
-}
-
-async function driveDestructionToCompletion(tenantId: TenantId): Promise<string> {
-  const farFuture = getTemporal()
-    .Now.instant()
-    .add({ hours: 24 * 3650 });
-  let status = "";
-  for (let i = 0; i < 20; i++) {
-    await runTenantDestructionSweep({ db: stack.db, registry: stack.registry, now: farFuture });
-    const rows = await selectMany(db, tenantTable, { id: tenantId });
-    status = String(rows[0]?.["status"]);
-    if (status === "destroyed" || status === "destroyFailed") break;
-  }
-  return status;
-}
-
 describe("billing-foundation :: tenant destroy (#3196)", () => {
   test("deletes the subscription row for the destroyed tenant, archives its stream, leaves another tenant's row untouched", async () => {
     await seedTenant(tenantA);
@@ -232,9 +196,9 @@ describe("billing-foundation :: tenant destroy (#3196)", () => {
     await seedPayment(tenantA, "a");
     await seedPayment(tenantB, "b");
 
-    await seedDestroyingTenant(tenantA.tenantId);
+    await seedDestroyingTenant(db, tenantA.tenantId);
 
-    const finalStatus = await driveDestructionToCompletion(tenantA.tenantId);
+    const finalStatus = await driveDestructionToCompletion(stack, db, tenantA.tenantId);
     expect(finalStatus).toBe("destroyed");
 
     const rowsA = await selectMany(db, subscriptionsProjectionTable, {
@@ -269,9 +233,9 @@ describe("billing-foundation :: tenant destroy (#3196)", () => {
     await seedSubscription(tenantHgb, "c");
     await seedPayment(tenantHgb, "c");
 
-    await seedDestroyingTenant(tenantHgb.tenantId);
+    await seedDestroyingTenant(db, tenantHgb.tenantId);
 
-    const finalStatus = await driveDestructionToCompletion(tenantHgb.tenantId);
+    const finalStatus = await driveDestructionToCompletion(stack, db, tenantHgb.tenantId);
     expect(finalStatus).toBe("destroyed");
 
     const rowsA = await selectMany(db, subscriptionsProjectionTable, {
@@ -320,8 +284,8 @@ describe("billing-foundation :: tenant destroy (#3196)", () => {
     const before = await loadAggregate(db, paymentStream, tenant.tenantId);
     expect(before.filter((e) => e.type === CHECKOUT_CONSENT_RECORDED_EVENT_QN)).toHaveLength(1);
 
-    await seedDestroyingTenant(tenant.tenantId);
-    expect(await driveDestructionToCompletion(tenant.tenantId)).toBe("destroyed");
+    await seedDestroyingTenant(db, tenant.tenantId);
+    expect(await driveDestructionToCompletion(stack, db, tenant.tenantId)).toBe("destroyed");
 
     expect(await isStreamArchived(db, tenant.tenantId, paymentStream)).toBe(true);
     expect(await loadAggregate(db, paymentStream, tenant.tenantId)).toHaveLength(0);

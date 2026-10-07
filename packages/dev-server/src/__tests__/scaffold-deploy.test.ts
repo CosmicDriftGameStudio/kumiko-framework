@@ -608,6 +608,7 @@ describe("scaffoldDeploy", () => {
         expect(result.detected.installFromFullTree).toBe(false);
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn.mock.calls[0]?.[0]).toContain("is not valid JSON");
+        expect(warn.mock.calls[0]?.[0]).toContain("falls back to the defaults");
       } finally {
         warn.mockRestore();
       }
@@ -627,6 +628,8 @@ describe("scaffoldDeploy", () => {
         const result = scaffoldDeploy({ appName: "shapeissue", destination: tmp });
         expect(result.detected.hasPrivateGhPackages).toBe(false);
         expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0]?.[0]).not.toContain("not valid JSON");
+        expect(warn.mock.calls[0]?.[0]).toContain("unexpected dependencies/workspaces shape");
         const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
         expect(migrate).toContain(
           'postgresql://kumiko:$(urlencode "$DB_PASSWORD")@db:5432/shapeissue',

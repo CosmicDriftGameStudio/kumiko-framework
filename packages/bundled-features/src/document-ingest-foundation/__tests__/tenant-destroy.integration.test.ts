@@ -6,15 +6,14 @@ import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, updateRows } from "@cosmicdrift/kumiko-framework/testing";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -26,11 +25,10 @@ import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantMembershipEntity } from "../../tenant/index.js";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
 import {
-  TENANT_AGGREGATE_TYPE,
-  TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../../tenant-lifecycle/constants.js";
+  driveDestructionToCompletion,
+  seedDestroyingTenant,
+} from "../../tenant-lifecycle/__tests__/destroy-test-helpers.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
 import { documentExtractEntity, documentExtractsTable } from "../entity.js";
 import { documentIngestFoundationFeature } from "../feature.js";
 import { writeIngestPages } from "../pages.js";
@@ -103,42 +101,6 @@ async function seedDocumentExtract(tenantId: TenantId, fileRefId: string): Promi
   return String(result.data.id);
 }
 
-// Sidesteps the `request-destruction` write handler (needs user/auth/sessions
-// features wired) by seeding the same "destroying" state it would produce —
-// same pattern as files-tenant-data's hooks.integration.test.ts.
-async function seedDestroyingTenant(tenantId: TenantId): Promise<void> {
-  const now = getTemporal().Now.instant();
-  await updateRows(
-    db,
-    tenantTable,
-    { status: "destroying", destroyStartedAt: now },
-    { id: tenantId },
-  );
-  await append(db, {
-    aggregateId: tenantId,
-    aggregateType: TENANT_AGGREGATE_TYPE,
-    tenantId,
-    expectedVersion: (await loadAggregate(db, tenantId, tenantId)).at(-1)?.version ?? 0,
-    type: TENANT_DESTRUCTION_STARTED_EVENT_QN,
-    payload: { startedAt: now.toString() },
-    metadata: { userId: "system", requestId: "test:destruction-started" },
-  });
-}
-
-async function driveDestructionToCompletion(tenantId: TenantId): Promise<string> {
-  const farFuture = getTemporal()
-    .Now.instant()
-    .add({ hours: 24 * 3650 });
-  let status = "";
-  for (let i = 0; i < 20; i++) {
-    await runTenantDestructionSweep({ db: stack.db, registry: stack.registry, now: farFuture });
-    const rows = await selectMany(db, tenantTable, { id: tenantId });
-    status = String(rows[0]?.["status"]);
-    if (status === "destroyed" || status === "destroyFailed") break;
-  }
-  return status;
-}
-
 describe("document-ingest-foundation :: tenant destroy (#3196)", () => {
   test("purges documentExtract rows for the destroyed tenant, leaving another tenant's row untouched", async () => {
     await seedTenant(tenantA);
@@ -147,9 +109,9 @@ describe("document-ingest-foundation :: tenant destroy (#3196)", () => {
     const idA = await seedDocumentExtract(tenantA.tenantId, "file-a");
     await seedDocumentExtract(tenantB.tenantId, "file-b");
 
-    await seedDestroyingTenant(tenantA.tenantId);
+    await seedDestroyingTenant(db, tenantA.tenantId);
 
-    const finalStatus = await driveDestructionToCompletion(tenantA.tenantId);
+    const finalStatus = await driveDestructionToCompletion(stack, db, tenantA.tenantId);
     expect(finalStatus).toBe("destroyed");
 
     const rowsA = await selectMany(db, documentExtractsTable, { tenantId: tenantA.tenantId });

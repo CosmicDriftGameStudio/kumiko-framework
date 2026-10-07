@@ -7,7 +7,7 @@ import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { append, isStreamArchived, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { isStreamArchived } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -16,11 +16,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import {
-  resetPiiSubjectKmsForTests,
-  resetTestTables,
-  updateRows,
-} from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   ComplianceProfileHandlers,
@@ -39,11 +35,10 @@ import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantMembershipEntity } from "../../tenant/index.js";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
 import {
-  TENANT_AGGREGATE_TYPE,
-  TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../../tenant-lifecycle/constants.js";
+  driveDestructionToCompletion,
+  seedDestroyingTenant,
+} from "../../tenant-lifecycle/__tests__/destroy-test-helpers.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
 import { InboundMailFoundationHandlers } from "../constants.js";
 import {
   seenMessageEntity,
@@ -132,39 +127,6 @@ async function seedMailAccount(user: typeof tenantA, address: string): Promise<s
   return result.accountId;
 }
 
-async function seedDestroyingTenant(tenantId: TenantId): Promise<void> {
-  const now = getTemporal().Now.instant();
-  await updateRows(
-    db,
-    tenantTable,
-    { status: "destroying", destroyStartedAt: now },
-    { id: tenantId },
-  );
-  await append(db, {
-    aggregateId: tenantId,
-    aggregateType: TENANT_AGGREGATE_TYPE,
-    tenantId,
-    expectedVersion: (await loadAggregate(db, tenantId, tenantId)).at(-1)?.version ?? 0,
-    type: TENANT_DESTRUCTION_STARTED_EVENT_QN,
-    payload: { startedAt: now.toString() },
-    metadata: { userId: "system", requestId: "test:destruction-started" },
-  });
-}
-
-async function driveDestructionToCompletion(tenantId: TenantId): Promise<string> {
-  const farFuture = getTemporal()
-    .Now.instant()
-    .add({ hours: 24 * 3650 });
-  let status = "";
-  for (let i = 0; i < 20; i++) {
-    await runTenantDestructionSweep({ db: stack.db, registry: stack.registry, now: farFuture });
-    const rows = await selectMany(db, tenantTable, { id: tenantId });
-    status = String(rows[0]?.["status"]);
-    if (status === "destroyed" || status === "destroyFailed") break;
-  }
-  return status;
-}
-
 describe("inbound-mail-foundation :: tenant destroy (#3196)", () => {
   test("deletes the mail-account row for the destroyed tenant, archives its stream, leaves another tenant's row untouched", async () => {
     await seedTenant(tenantA);
@@ -173,9 +135,9 @@ describe("inbound-mail-foundation :: tenant destroy (#3196)", () => {
     const accountIdA = await seedMailAccount(tenantA, "inbox-a@tenant.example");
     await seedMailAccount(tenantB, "inbox-b@tenant.example");
 
-    await seedDestroyingTenant(tenantA.tenantId);
+    await seedDestroyingTenant(db, tenantA.tenantId);
 
-    const finalStatus = await driveDestructionToCompletion(tenantA.tenantId);
+    const finalStatus = await driveDestructionToCompletion(stack, db, tenantA.tenantId);
     expect(finalStatus).toBe("destroyed");
 
     const rowsA = await selectMany(db, mailAccountsProjectionTable, { tenantId: tenantA.tenantId });
@@ -238,8 +200,10 @@ describe("inbound-mail-foundation :: tenant destroy (#3196)", () => {
     expect(beforeA.seen).toHaveLength(1);
     const beforeB = await ownedRows(survivingTenant.tenantId, accountIdB);
 
-    await seedDestroyingTenant(destroyedTenant.tenantId);
-    expect(await driveDestructionToCompletion(destroyedTenant.tenantId)).toBe("destroyed");
+    await seedDestroyingTenant(db, destroyedTenant.tenantId);
+    expect(await driveDestructionToCompletion(stack, db, destroyedTenant.tenantId)).toBe(
+      "destroyed",
+    );
 
     const afterA = await ownedRows(destroyedTenant.tenantId, accountIdA);
     expect(afterA.messages).toHaveLength(0);

@@ -1,18 +1,19 @@
 import { resolve, sep } from "node:path";
 import {
-  buildRequestContextDataFromRequest,
   type CachePolicy,
   type ClientIpResolver,
   cachedResponse,
   computeStrongEtag,
   computeWeakEtag,
   createClientIpResolver,
-  requestContext,
 } from "@cosmicdrift/kumiko-framework/api";
-import { createAnonymousUser, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-headless/apex";
 import { ASSETS_DIR } from "./build-prod-bundle.js";
 import { BUNDLED_ASSETS_DIST_DIR } from "./bundled-assets.js";
+import {
+  buildRequestBoundSystemQuery,
+  type QueryDispatcher,
+} from "./request-bound-system-query.js";
 import type { HostDispatchFn, PageHeadResolver, PageHeadSystemQuery } from "./run-prod-app.js";
 import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first.js";
 
@@ -128,13 +129,6 @@ export function mimeTypeFor(filePath: string): string {
   }
 }
 
-// Minimal structural shape of the dispatcher buildStaticFallback needs —
-// not the full Dispatcher type, so this file doesn't have to import the
-// pipeline package just to type one param.
-type QueryDispatcher = {
-  readonly query: (type: string, payload: unknown, user: SessionUser) => Promise<unknown>;
-};
-
 // `mtimeMs` is absent once page head was injected: the bytes then depend on
 // DB-resolved metadata, so a shell-file mtime must not drive If-Modified-Since
 // 304s (crawlers sending only that header would keep stale link previews).
@@ -227,12 +221,12 @@ export function buildStaticFallback(
     if (!pageHead) return html;
     const url = new URL(req.url);
     const host = req.headers.get("host") ?? url.host;
-    const systemQuery: PageHeadSystemQuery = (type, payload, tenantId) =>
-      requestContext.run(
-        requestContext.get() ??
-          buildRequestContextDataFromRequest(req, { resolver: clientIpResolver, socketAddress }),
-        () => pageHead.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
-      );
+    const systemQuery = buildRequestBoundSystemQuery({
+      req,
+      dispatcher: pageHead.dispatcher,
+      resolver: clientIpResolver,
+      socketAddress,
+    });
     const text = new TextDecoder().decode(html.bytes);
     const injected = await resolveAndInjectPageHead(text, pageHead.resolvePageHead, {
       path: url.pathname,
@@ -262,11 +256,12 @@ export function buildStaticFallback(
           "hostDispatch called deps.systemQuery but buildStaticFallback got no hostDispatchDispatcher",
         );
       }
-      return requestContext.run(
-        requestContext.get() ??
-          buildRequestContextDataFromRequest(req, { resolver: clientIpResolver, socketAddress }),
-        () => hostDispatchDispatcher.query(type, payload, createAnonymousUser(tenantId)),
-      );
+      return buildRequestBoundSystemQuery({
+        req,
+        dispatcher: hostDispatchDispatcher,
+        resolver: clientIpResolver,
+        socketAddress,
+      })(type, payload, tenantId);
     };
     const result = await hostDispatch(
       { host, path: url.pathname, search: url.search },
