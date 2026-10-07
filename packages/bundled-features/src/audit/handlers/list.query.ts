@@ -52,6 +52,7 @@ function buildAuditWhere(
     cursor?: string;
     before?: string;
   },
+  direction: "asc" | "desc",
 ): WhereObject {
   const where: WhereObject = { tenantId };
   if (p.aggregateType) where["aggregateType"] = p.aggregateType;
@@ -62,7 +63,9 @@ function buildAuditWhere(
   const range = buildDateRange(p.from, p.to);
   if (range) where["createdAt"] = range;
   const cursor = p.cursor ?? p.before;
-  if (cursor) where["id"] = { lt: BigInt(cursor) };
+  // The cursor is an event id, so it only walks pages in id order: ascending
+  // pages continue past it, descending pages stop before it.
+  if (cursor) where["id"] = direction === "asc" ? { gt: BigInt(cursor) } : { lt: BigInt(cursor) };
   return where;
 }
 
@@ -94,10 +97,15 @@ export const listQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     const p = query.payload;
     const scopeFilter = resolveAuditScopeFilter(query.user, p.scope);
-    const where = buildAuditWhere(scopeFilter.tenantId, {
-      ...p,
-      aggregateType: scopeFilter.aggregateType ?? p.aggregateType,
-    });
+    const direction = p.sortDirection ?? "desc";
+    const where = buildAuditWhere(
+      scopeFilter.tenantId,
+      {
+        ...p,
+        aggregateType: scopeFilter.aggregateType ?? p.aggregateType,
+      },
+      direction,
+    );
 
     const rows = await selectMany<{
       id: bigint;
@@ -110,10 +118,11 @@ export const listQuery = defineQueryHandler({
       createdAt: unknown;
       createdBy: string;
     }>(ctx.db, eventsTable, where, {
-      orderBy: {
-        col: query.payload.sort === "type" ? "type" : "createdAt",
-        direction: query.payload.sortDirection ?? "desc",
-      },
+      // `id` as tie-breaker keeps the order total, so pages never overlap.
+      orderBy: [
+        { col: p.sort === "type" ? "type" : "createdAt", direction },
+        { col: "id", direction },
+      ],
       limit: p.limit,
     });
 
@@ -129,7 +138,8 @@ export const listQuery = defineQueryHandler({
       createdBy: r.createdBy,
     }));
     const last = serialised[serialised.length - 1];
-    const nextId = serialised.length === p.limit && last ? last.id : null;
+    // An id cursor cannot resume a type-ordered listing, so that sort is one page.
+    const nextId = serialised.length === p.limit && last && p.sort !== "type" ? last.id : null;
     return {
       rows: serialised,
       nextCursor: nextId,

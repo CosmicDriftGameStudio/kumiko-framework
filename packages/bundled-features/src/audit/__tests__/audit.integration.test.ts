@@ -416,6 +416,30 @@ describe("audit: list query", () => {
     expect(page3.nextBefore).toBeNull();
   });
 
+  test("pagination: ascending sort pages forward without overlap", async () => {
+    for (let i = 0; i < 5; i++) {
+      await createWidget(admin, `W${i}`);
+    }
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 20; page++) {
+      const res: AuditResponse = await stack.http.queryOk<AuditResponse>(
+        AuditQueries.list,
+        { limit: 2, sortDirection: "asc", ...(cursor !== null && { cursor }) },
+        admin,
+      );
+      seen.push(...res.rows.map((r) => r.id));
+      cursor = res.nextBefore;
+      if (cursor === null) break;
+    }
+
+    expect(cursor).toBeNull();
+    expect(new Set(seen).size).toBe(seen.length);
+    const ids = seen.map(BigInt);
+    for (let i = 1; i < ids.length; i++) expect(ids[i]! > ids[i - 1]!).toBe(true);
+  });
+
   test("response carries the full event payload + metadata (the audit-relevant detail)", async () => {
     const id = await createWidget(admin, "Auditable", "green");
     await stack.http.writeOk(
