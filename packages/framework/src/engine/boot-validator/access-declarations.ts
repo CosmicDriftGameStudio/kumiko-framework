@@ -222,6 +222,7 @@ function validatePublicIntakeRateLimit(
 ): void {
   // skip: not a public-intake handler, or its rateLimit is active
   if (declaredPersonalData(handler.access) !== "public-intake") return;
+  // skip: rateLimit is active
   if (!isRateLimitDisabled(handler.rateLimit)) return;
   throw new Error(
     `[Feature ${feature.name}] write handler "${handlerName}" declares ` +

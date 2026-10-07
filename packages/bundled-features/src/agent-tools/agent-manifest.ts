@@ -335,6 +335,16 @@ function detailIdParam(screen: ScreenDefinition): string {
   return screen.type === "projectionDetail" ? (screen.idParam ?? "id") : "id";
 }
 
+function screenTitles(
+  translations: TranslationKeys,
+  screenId: string,
+  shortId: string,
+): AgentManifestScreen["titles"] {
+  return entryAsLabels(
+    translations[`${screenId}.title`] ?? translations[`screen:${shortId}.title`] ?? {},
+  );
+}
+
 function buildScreens(
   screens: ReadonlyMap<string, ScreenDefinition>,
   navs: ReadonlyMap<string, NavDefinition>,
@@ -373,9 +383,7 @@ function buildScreens(
     result.push({
       id: screen.id,
       type: screen.type,
-      titles: entryAsLabels(
-        translations[`${screen.id}.title`] ?? translations[`screen:${shortId}.title`] ?? {},
-      ),
+      titles: screenTitles(translations, screen.id, shortId),
       // `screen.description` may be a raw i18n key (`registry.getAllTranslations()`
       // double-prefixes it, see build-app-schema.ts:77-81) — match on suffix like
       // `labelsForSuffix` does for entity/field labels, else fall back to the

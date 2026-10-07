@@ -536,17 +536,30 @@ function validateDrawerTargetAction(
   // field at click time.
   // skip: no params extractor — nothing to check against the target's fields.
   if (action.params === undefined) return;
+  validateDrawerPrefillKeys(
+    `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}"`,
+    action.screen,
+    target,
+    action.params,
+  );
+}
+
+function validateDrawerPrefillKeys(
+  where: string,
+  targetScreenId: string,
+  target: ActionFormScreenDefinition,
+  params: RowFieldExtractor,
+): void {
   const renderedFieldNames = new Set<string>();
   for (const section of target.layout.sections) {
     if (!isFieldsEditSection(section)) continue;
     for (const spec of sectionFieldSpecs(section))
       renderedFieldNames.add(normalizeEditField(spec).field);
   }
-  const where = `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}"`;
-  for (const fieldName of rowFieldExtractorKeys(action.params)) {
+  for (const fieldName of rowFieldExtractorKeys(params)) {
     if (!Object.hasOwn(target.fields, fieldName)) {
       throw new Error(
-        `${where} params prefills "${fieldName}", which drawer-target "${action.screen}" does not declare as a ` +
+        `${where} params prefills "${fieldName}", which drawer-target "${targetScreenId}" does not declare as a ` +
           `field — the renderer would drop it and leave the form empty. Target fields: ` +
           `${Object.keys(target.fields).sort().join(", ") || "(none)"}.`,
       );
@@ -558,13 +571,13 @@ function validateDrawerTargetAction(
         ("format" in targetField && targetField.format === "password"));
     if (isSensitiveOrPassword) {
       throw new Error(
-        `${where} params prefills "${fieldName}", which drawer-target "${action.screen}" marks as ` +
+        `${where} params prefills "${fieldName}", which drawer-target "${targetScreenId}" marks as ` +
           `sensitive or password — the renderer never prefills those fields and would leave the form empty.`,
       );
     }
     if (!renderedFieldNames.has(fieldName)) {
       throw new Error(
-        `${where} params prefills "${fieldName}", which drawer-target "${action.screen}" does not render in ` +
+        `${where} params prefills "${fieldName}", which drawer-target "${targetScreenId}" does not render in ` +
           `its layout — the renderer only prefills fields the layout shows and would drop it.`,
       );
     }

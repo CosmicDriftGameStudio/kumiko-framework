@@ -792,6 +792,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const runMode = parseRunMode(rawEnvSource["KUMIKO_DRY_RUN_ENV"]);
   const composedEnvSchema = options.envSchema;
   const validateEnv = (source: Record<string, string | undefined>): void => {
+    // skip: app declares no env schema, nothing to validate
     if (!composedEnvSchema) return;
     try {
       const schema = options.masterKey
