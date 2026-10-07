@@ -11,10 +11,30 @@ function dedupeOptionsShallowEqual(
   return true;
 }
 
+function sameKeys(a: object | undefined, b: object | undefined): boolean {
+  const aKeys = Object.keys(a ?? {});
+  const bKeys = new Set(Object.keys(b ?? {}));
+  return aKeys.length === bKeys.size && aKeys.every((key) => bKeys.has(key));
+}
+
+// dedupeOptions is a declaration, not proof: two same-named features that both
+// carry `{}` but register different surface must still clash, not silently drop one.
+function sameRegisteredSurface(a: FeatureDefinition, b: FeatureDefinition): boolean {
+  return (
+    sameKeys(a.entities, b.entities) &&
+    sameKeys(a.writeHandlers, b.writeHandlers) &&
+    sameKeys(a.queryHandlers, b.queryHandlers) &&
+    sameKeys(a.streamHandlers, b.streamHandlers)
+  );
+}
+
 function isInterchangeable(existing: FeatureDefinition, next: FeatureDefinition): boolean {
   if (existing === next) return true;
   if (existing.dedupeOptions !== undefined && next.dedupeOptions !== undefined) {
-    return dedupeOptionsShallowEqual(existing.dedupeOptions, next.dedupeOptions);
+    return (
+      dedupeOptionsShallowEqual(existing.dedupeOptions, next.dedupeOptions) &&
+      sameRegisteredSurface(existing, next)
+    );
   }
   return false;
 }

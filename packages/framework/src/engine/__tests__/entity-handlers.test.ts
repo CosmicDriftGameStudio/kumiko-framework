@@ -545,6 +545,24 @@ describe("registerEntityCrud", () => {
     expect(writes.find((w) => w.name === "note:update")?.description).toBe("Shared write text.");
   });
 
+  test("agents: per-verb hints raise risk on that verb only", () => {
+    const { r, writes } = createCrudRegistrarMock();
+    registerEntityCrud(r, "note", noteEntity, {
+      write: { access: { roles: ["Admin"] }, description: "Writes notes." },
+      agents: { delete: { risk: "high" } },
+      verbs: { list: false, detail: false },
+    });
+
+    const risk = (name: string) => {
+      const def = writes.find((w) => w.name === name);
+      if (!def) throw new Error(`${name} missing`);
+      return resolveAgentExposure(def, "write").risk;
+    };
+    expect(risk("note:delete")).toBe("high");
+    expect(risk("note:create")).toBe("mid");
+    expect(risk("note:update")).toBe("mid");
+  });
+
   test("agent hints on the per-handler options raise the resolved risk", () => {
     const del = defineEntityDeleteHandler("note", noteEntity, {
       access: { roles: ["Admin"] },

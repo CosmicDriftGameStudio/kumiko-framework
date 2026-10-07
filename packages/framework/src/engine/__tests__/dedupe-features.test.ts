@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import * as z from "zod";
 import { createApp, createRegistry, dedupeFeatures, defineFeature } from "../index.js";
 
 describe("dedupeFeatures", () => {
@@ -91,5 +92,23 @@ describe("dedupeFeatures", () => {
         features: [a, b],
       }),
     ).not.toThrow();
+  });
+
+  test("same name and equal dedupeOptions but different registered handlers throws", () => {
+    const a = defineFeature("x", () => {}, { dedupeOptions: {} });
+    const b = defineFeature(
+      "x",
+      (r) => {
+        r.writeHandler({
+          name: "x:do",
+          schema: z.object({}),
+          handler: async () => undefined as never,
+          access: { roles: ["Admin"] },
+        });
+      },
+      { dedupeOptions: {} },
+    );
+
+    expect(() => dedupeFeatures([a, b])).toThrow(/Duplicate feature: "x"/);
   });
 });
