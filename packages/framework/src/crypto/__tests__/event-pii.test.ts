@@ -153,6 +153,16 @@ describe("defineEvent piiFields validation", () => {
     ).toThrow(/cannot use itself as the owner field/);
   });
 
+  test('owner field "id" is rejected (entity record-owned vocabulary does not carry over)', () => {
+    expect(() =>
+      defineFeature("mailer", (r) => {
+        r.defineEvent("attempt", attemptSchema, {
+          piiFields: { recipientAddress: { personal: { of: "id" } } },
+        });
+      }),
+    ).toThrow(/owner field "id"/);
+  });
+
   test("omitting the options argument throws an explicit PII stance error (fw#2558)", () => {
     expect(() =>
       defineFeature("mailer", (r) => {
