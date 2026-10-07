@@ -74,6 +74,10 @@
       "types": "./src/try-hono-first.ts",
       "default": "./src/try-hono-first.ts"
     },
+    "./request-bound-system-query": {
+      "types": "./src/request-bound-system-query.ts",
+      "default": "./src/request-bound-system-query.ts"
+    },
     "./build-prod-bundle": {
       "types": "./src/build-prod-bundle.ts",
       "default": "./src/build-prod-bundle.ts"
@@ -148,6 +152,10 @@
       "./try-hono-first": {
         "types": "./dist/try-hono-first.d.ts",
         "default": "./dist/try-hono-first.js"
+      },
+      "./request-bound-system-query": {
+        "types": "./dist/request-bound-system-query.d.ts",
+        "default": "./dist/request-bound-system-query.js"
       },
       "./build-prod-bundle": {
         "types": "./dist/build-prod-bundle.d.ts",

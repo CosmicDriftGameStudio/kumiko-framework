@@ -334,8 +334,10 @@ function detectOptionalSurfaces(sourceDir: string, appName: string): ScaffoldDep
   let deployConfigRaw: unknown;
   const pkgJsonPath = join(sourceDir, "package.json");
   if (existsSync(pkgJsonPath)) {
+    let jsonParsed = false;
     try {
       const raw: unknown = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+      jsonParsed = true;
       // Read ahead of packageJsonSchema.parse: an unrelated shape problem in
       // `dependencies`/`workspaces` must not silently discard a valid deploy
       // config along with it (that's caught by the outer catch below).
@@ -358,10 +360,12 @@ function detectOptionalSurfaces(sourceDir: string, appName: string): ScaffoldDep
       // back to defaults (an invalid deploy config must THROW, but
       // unreadable JSON can't distinguish "no deploy config" from "invalid
       // deploy config" — it already surfaces via this warning).
+      const reason = err instanceof Error ? err.message : String(err);
+      const message = jsonParsed
+        ? `scaffoldDeploy: package.json at ${pkgJsonPath} has an unexpected dependencies/workspaces shape — private-GH-packages/install-layout detection skipped (${reason})`
+        : `scaffoldDeploy: package.json at ${pkgJsonPath} is not valid JSON — private-GH-packages/install-layout detection skipped and kumiko.deploy (dbUser/dbName/stackNetwork) falls back to the defaults (${reason})`;
       // biome-ignore lint/suspicious/noConsole: scaffold visibility for skipped private-package detection
-      console.warn(
-        `scaffoldDeploy: package.json at ${pkgJsonPath} is not valid JSON — private-GH-packages/install-layout detection skipped (${err instanceof Error ? err.message : String(err)})`,
-      );
+      console.warn(message);
     }
   }
   const registryConfigFiles = REGISTRY_CONFIG_FILES.filter((f) => existsSync(join(sourceDir, f)));

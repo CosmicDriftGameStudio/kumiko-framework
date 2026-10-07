@@ -23,17 +23,11 @@ import { join, resolve, sep } from "node:path";
 import { resolveAnonymousAccessFromRegistry } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   type AuthRoutesConfig,
-  buildRequestContextDataFromRequest,
   createClientIpResolver,
   type ExtraRouteDefinition,
   generateToken,
-  requestContext,
 } from "@cosmicdrift/kumiko-framework/api";
-import {
-  buildAppSchema,
-  createAnonymousUser,
-  type FeatureDefinition,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -62,6 +56,7 @@ import {
   RENDERER_WEB_FONTS_URL_PREFIX,
   resolveRendererWebFontsDir,
 } from "@cosmicdrift/kumiko-server-runtime/renderer-web-fonts";
+import { buildRequestBoundSystemQuery } from "@cosmicdrift/kumiko-server-runtime/request-bound-system-query";
 import {
   canResolveTailwindStylesheet,
   resolveTailwindCli,
@@ -1076,17 +1071,13 @@ export async function createKumikoServer(
     options.trustedProxyHops ?? 0,
     "createKumikoServer(pageHead)",
   );
-  const buildDevSystemQuery =
-    (req: Request, socketAddress?: string): PageHeadSystemQuery =>
-    (type, payload, tenantId) =>
-      requestContext.run(
-        requestContext.get() ??
-          buildRequestContextDataFromRequest(req, {
-            resolver: pageHeadClientIpResolver,
-            socketAddress,
-          }),
-        () => stack.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
-      );
+  const buildDevSystemQuery = (req: Request, socketAddress?: string): PageHeadSystemQuery =>
+    buildRequestBoundSystemQuery({
+      req,
+      dispatcher: stack.dispatcher,
+      resolver: pageHeadClientIpResolver,
+      socketAddress,
+    });
 
   // resolvePageHead goes through the same headless resolveAndInjectPageHead
   // that runProdApp uses, so dev and e2e exercise the one timeout and
