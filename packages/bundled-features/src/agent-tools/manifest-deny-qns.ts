@@ -14,6 +14,7 @@ export function assertCatalogMirrorsManifestDenyQns(
   catalogDenyQns: ReadonlySet<string>,
 ): void {
   const manifestDenyQns = denyQnsByManifest.get(manifest);
+  // skip: manifest has no registered deny list, nothing to mirror
   if (!manifestDenyQns) return;
   const missing = [...manifestDenyQns].filter((qn) => !catalogDenyQns.has(qn));
   if (missing.length > 0) {

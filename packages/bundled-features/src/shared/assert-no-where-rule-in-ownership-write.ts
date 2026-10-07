@@ -6,10 +6,12 @@ export function assertNoWhereRuleInOwnershipWrite(
   factoryName: string,
   writeOwnership: OwnershipMap | undefined,
 ): void {
+  // skip: no write ownership declared, nothing to validate
   if (!writeOwnership) return;
   const hasWhereRule = Object.values(writeOwnership).some(
     (rule) => rule !== "all" && rule.kind === "where",
   );
+  // skip: no where-rule present, the option is valid
   if (!hasWhereRule) return;
   throw new Error(
     `${factoryName}({ ownership }): ownership.write must not contain a ` +
