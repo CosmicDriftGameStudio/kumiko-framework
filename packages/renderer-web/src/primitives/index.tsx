@@ -367,7 +367,27 @@ const FieldLayoutContext = createContext<FieldProps["layout"]>("stacked");
 const ScreenFormContext = createContext(false);
 const DrawerBodyContext = createContext(false);
 
-function DefaultField({
+// aria-labelledby into a Field label that doesn't exist leaves a radiogroup
+// without any accessible name — fall back to the control's name instead.
+const FieldLabelledContext = createContext(false);
+
+function useFieldLabelProps(
+  id: string,
+  name: string,
+): { "aria-labelledby": string } | { "aria-label": string } {
+  const insideLabelledField = useContext(FieldLabelledContext);
+  return insideLabelledField ? { "aria-labelledby": fieldLabelId(id) } : { "aria-label": name };
+}
+
+function DefaultField(props: FieldProps): ReactNode {
+  return (
+    <FieldLabelledContext.Provider value={props.label !== ""}>
+      <DefaultFieldBody {...props} />
+    </FieldLabelledContext.Provider>
+  );
+}
+
+function DefaultFieldBody({
   id,
   label,
   required,
@@ -687,6 +707,7 @@ function SegmentedSelect({
   readonly required?: boolean;
   readonly hasError?: boolean;
 }): ReactNode {
+  const labelProps = useFieldLabelProps(id, name);
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   // An unknown/legacy value checks no segment; the first one must still be tabbable.
   const selectedIndex = options.findIndex((opt) => opt.value === value);
@@ -721,7 +742,7 @@ function SegmentedSelect({
   return (
     <div
       role="radiogroup"
-      aria-labelledby={fieldLabelId(id)}
+      {...labelProps}
       aria-required={required}
       aria-invalid={hasError === true ? true : undefined}
       data-testid={`segmented-${id}`}
@@ -813,6 +834,7 @@ function RadioListSelect({
   readonly required?: boolean;
   readonly hasError?: boolean;
 }): ReactNode {
+  const labelProps = useFieldLabelProps(id, name);
   const card = variant === "card";
   // One radiogroup over all sections keeps native arrow-key navigation across groups
   // (radios share `name` in DOM order).
@@ -821,7 +843,7 @@ function RadioListSelect({
   return (
     <div
       role="radiogroup"
-      aria-labelledby={fieldLabelId(id)}
+      {...labelProps}
       aria-required={required}
       aria-invalid={hasError === true ? true : undefined}
       data-testid={`radio-list-${id}`}
@@ -1947,14 +1969,15 @@ function DefaultDataTable({
             // The "·" is a real element, not ::before content: consumers Tailwind-scan the published
             // dist, where the arbitrary content class is never generated. The row is shifted 12px
             // left (inline-start) inside an overflow-hidden box, so the separator of whichever item starts a line
-            // (first item or a wrapped one) is clipped.
+            // (first item or a wrapped one) is clipped. Items are pinned to h-5 so every wrapped line is
+            // exactly one leading-5 tall and max-h-10 clamps at a line boundary, never mid-glyph.
             <div className="min-w-0 max-h-10 overflow-hidden text-[13px] leading-5 tabular-nums text-foreground-secondary">
               <div
                 data-testid={`card-meta-${row.id}`}
                 className="-ms-3 flex flex-wrap items-center"
               >
                 {metaColumns.map((col) => (
-                  <span key={col.field} className="flex min-w-0 max-w-full items-center">
+                  <span key={col.field} className="flex h-5 min-w-0 max-w-full items-center">
                     <span aria-hidden="true" className="w-3 shrink-0 text-center">
                       ·
                     </span>

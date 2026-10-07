@@ -1632,7 +1632,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         <Button
           type="submit"
           disabled={
-            (snapshot.isUnchanged && !extensionDirty && !isFieldless && !insideDrawer) ||
+            (snapshot.isUnchanged && !extensionDirty && !isFieldlessSubmitForm && !insideDrawer) ||
             isSubmitting ||
             disabled
           }
@@ -2151,14 +2151,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               }
               // No section title here (fw#3218) — the Tab strip right above
               // already names this panel, so a repeated Card title would just
-              // duplicate it. The title row only exists to carry actions, and
-              // then it carries only the actions, never the title text.
+              // duplicate it. The header row only exists to carry the section
+              // description and actions, never the title text.
               const cardEl = (
                 <Card
                   key={sectionKey}
                   options={{ framed: false }}
-                  {...(sectionActionsEl !== undefined && {
-                    slots: { headerActions: sectionActionsEl },
+                  {...((sectionActionsEl !== undefined || section.description !== undefined) && {
+                    slots: {
+                      ...(section.description !== undefined && { subtitle: section.description }),
+                      ...(sectionActionsEl !== undefined && { headerActions: sectionActionsEl }),
+                    },
                   })}
                   testId={`section-${sectionKey}`}
                 >

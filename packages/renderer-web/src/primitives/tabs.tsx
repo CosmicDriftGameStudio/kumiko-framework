@@ -122,6 +122,9 @@ export function DefaultTabs({ items, activeId, onSelect, testId }: TabsProps): R
               key={item.id}
               value={item.id}
               className={TAB_TRIGGER_CLASS}
+              // The strip renders no TabsContent (the caller mounts the panel), so Radix's
+              // auto aria-controls would point at a panel id that never exists.
+              aria-controls={undefined}
               data-testid={testId !== undefined ? `${testId}-${item.id}` : undefined}
             >
               {item.label}
