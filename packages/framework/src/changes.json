@@ -1,5 +1,32 @@
 [
   {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "appendEventInTenantDb and getStreamVersionInTenantDb append and read stream versions through a TenantDb, optionally running inline projections",
+    "detail": "`appendEventInTenantDb` appends an event on a TenantDb's own connection or transaction\nFramework-side code that holds a `TenantDb` (for example inside `runInOwnTransaction`) could not append to the event store without a raw runner. `appendEventInTenantDb(tenantDb, event, { registry })` and `getStreamVersionInTenantDb(tenantDb, aggregateId)` from `@cosmicdrift/kumiko-framework/event-store` do it: the tenant is always the TenantDb's own, the append goes through `append()` (PII encryption, origin stamping), and with `registry` the inline projections run on the same runner."
+  },
+  {
+    "version": "0.352.0",
+    "type": "fix",
+    "title": "Rate-limited, denied or invalid callers no longer consume cap usage or trigger soft-warn, because pre-handler gates run before reserveBeforeTransaction"
+  },
+  {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "reserveBeforeTransaction may return a ReservationHandle whose confirmInTransaction settles the reservation inside the handler transaction"
+  },
+  {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "Seeds can find template rows with ctx.findTemplateResources",
+    "detail": "Seeds can replace a raw SELECT … FROM read_template_resources with ctx.findTemplateResources, which binds every filter value as a parameter."
+  },
+  {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "Boot validation and the client schema cover select optionsAvailabilityQuery on entity and screen fields"
+  },
+  {
     "version": "0.349.0",
     "type": "improvement",
     "title": "kumiko-upgrade advances in one --apply run, tracks open manual migrations with ids and resolves them via --resolve",

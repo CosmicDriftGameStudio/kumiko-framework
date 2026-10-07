@@ -1,5 +1,88 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.352.0
+
+### Minor Changes
+
+- b905d4b: Stat groups take a span, and a labeled group sizes its columns to its values
+
+  `stat-group` panels accept `span: "half" | "full"` like chart, list, feed and progress-list panels; without it a group still takes the full row. A labeled group lays out one column per value up to three, so a group with two values no longer leaves an empty third column and a single value takes the whole card width. To color a value and its icon chip by result (for example by sign), return a tone from `toneField` and leave `accentColor` unset; the chip then follows the tone.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Stat group span and column count
+  detail: Set span: "half" on a stat-group to place two groups side by side.
+  -->
+
+- 9fb0657: Select options can be disabled per tenant, and the tier-engine gates them on write
+
+  A select option in the `select` primitive takes `disabled`, with the existing `description` as the hint. `renderer-web` mutes a disabled option and does not let it be chosen in the dropdown, the radio list, the radio cards and the segmented control; the dropdown appends the hint to the label in parentheses, the radio variants show it as the description line.
+
+  `SelectFieldDef.optionsAvailabilityQuery` names a query that returns `{ rows: { value, disabled?, hint? }[] }`. The renderer loads it, resolving `optionsQueryPayload` like `optionsQuery` does, and merges it onto the static `options`: `disabled` disables the option, `hint` becomes its description. Static options stay authoritative, rows for unknown values are ignored, and the currently stored value always stays enabled so a downgraded tenant keeps seeing it. The field is also allowed on entity fields, and boot fails when the query is not a registered query handler.
+
+  `createTierOptionGate` in the tier-engine takes the ascending tier order, `capsForTier` and `resolveTier`. Its `optionAvailability` builds the rows for such a query (an option the current tier does not allow is disabled and its hint names the lowest tier that allows it), and `withTierOptionGate` rejects a disallowed option on write with `UnprocessableError(code, { i18nKey, details: { field, value, requiredTier } })`. An update that resends the unchanged stored value of a no longer allowed option passes when the spec names the entity `table`. The wrapper spreads the wrapped handler, so `withCapEnforcement` and rate limits keep working.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: SelectFieldDef.optionsAvailabilityQuery marks static select options as unavailable per tenant
+  detail: The query returns { rows: { value, disabled?, hint? }[] }; the renderer merges it onto options and keeps the stored value enabled.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validation and the client schema cover select optionsAvailabilityQuery on entity and screen fields
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: Edit view-model carries selectOptionsAvailabilityQuery for select fields
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Select inputs accept disabled options and load their availability from optionsAvailabilityQuery
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Disabled select options are muted and not choosable in dropdown, radio list, radio cards and segmented control
+  -->
+
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: improvement
+  title: createTierOptionGate builds the availability rows and gates select options by tier on write
+  detail: withTierOptionGate rejects a disallowed option with the lowest tier that allows it and lets an unchanged stored value pass on update.
+  -->
+
+### Patch Changes
+
+- e05c143: Navs whose parent does not exist in the app schema are dropped, transitively, instead of being promoted to the top level. A role-projected schema no longer shows an adopted child nav (e.g. AI providers for a TenantAdmin) when its parent section is system-admin only. Children whose parent exists but is filtered out by a workspace allowlist still surface at the top level.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: The sidebar drops navs whose parent is missing from the role-projected schema instead of promoting them to the top level
+  -->
+
+- Updated dependencies [9fb0657]
+- Updated dependencies [9fb0657]
+- Updated dependencies [b905d4b]
+- Updated dependencies [9fb0657]
+- Updated dependencies [9fb0657]
+- Updated dependencies [9fb0657]
+  - @cosmicdrift/kumiko-framework@0.352.0
+  - @cosmicdrift/kumiko-types@0.352.0
+  - @cosmicdrift/kumiko-headless@0.352.0
+  - @cosmicdrift/kumiko-renderer@0.352.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.352.0
+
 ## 0.351.0
 
 ### Minor Changes

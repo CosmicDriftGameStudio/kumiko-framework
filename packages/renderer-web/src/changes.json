@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "Stat group span and column count",
+    "detail": "Set span: \"half\" on a stat-group to place two groups side by side."
+  },
+  {
+    "version": "0.352.0",
+    "type": "fix",
+    "title": "The sidebar drops navs whose parent is missing from the role-projected schema instead of promoting them to the top level",
+    "detail": "Navs whose parent does not exist in the app schema are dropped, transitively, instead of being promoted to the top level. A role-projected schema no longer shows an adopted child nav (e.g. AI providers for a TenantAdmin) when its parent section is system-admin only. Children whose parent exists but is filtered out by a workspace allowlist still surface at the top level."
+  },
+  {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "Disabled select options are muted and not choosable in dropdown, radio list, radio cards and segmented control"
+  },
+  {
     "version": "0.351.0",
     "type": "improvement",
     "title": "Dashboard panels take visibleWhen; stat-group subtitle and strip icons, progress-list sub line, stacked-area lines, markerKinds, seriesColors, legendTotals and ranges",

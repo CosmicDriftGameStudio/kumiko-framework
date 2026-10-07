@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.352.0",
+    "type": "breaking",
+    "title": "Delivery attempt log stores masked recipient addresses; attempts older than 90 days are pruned",
+    "detail": "The log query, the export and the stored events show masked addresses, and the feature registers the daily attempt-log-retention job.",
+    "migration": "Read recipients from your own data, not from the attempt log, because it only shows masked addresses now. Set `attemptLogRetentionDays` on createDeliveryFeature to another number of days, or to `false` to keep the log, if 90 days does not fit. Schedule nothing extra, the feature registers the cron job itself. Existing full-address entries are removed by the retention job once they are older than the window, or erased when their user is forgotten."
+  },
+  {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "Forgetting a user erases the recipient address of their delivery attempts in plaintext mode too, through an event that survives projection rebuilds"
+  },
+  {
     "version": "0.343.0",
     "type": "improvement",
     "title": "Delivery log marks sends the provider did not confirm",

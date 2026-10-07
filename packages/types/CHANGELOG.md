@@ -1,5 +1,131 @@
 # @cosmicdrift/kumiko-types
 
+## 0.352.0
+
+### Minor Changes
+
+- 9fb0657: Cap reservations run after every pre-handler gate and settle with the handler transaction
+
+  Handlers wrapped with `withCapEnforcement` used to reserve capacity before rate limits, access and payload validation had run, so a rejected caller could use up cap or trigger a soft-warn. The dispatcher now runs the same gates, billing rate limits once, before it calls `reserveBeforeTransaction`; a failing gate rejects the command and releases the reservations taken before it. A hook that returns a `ReservationHandle` also confirms inside the handler transaction after the handler succeeded, and a confirm failure fails the write.
+
+  Calendar reservations are now rows in the new `store_cap_reservations` table: the counter increment and the row commit together, the handler transaction deletes the row on its own commit, and a release only gives back what is still booked. Rolling caps reserve the same way: a version-guarded `rolling-incremented` append plus a reservation row before the handler transaction, undone by the new `cap-counter:event:rolling-released` event. `readRollingCapUsage` returns incremented minus released amounts in the window, never below 0. Rows a crashed process left behind expire after 60 minutes and are given back before the next reserve for the same cap. `withCapEnforcement` keeps the wrapped handler's other settings and chains an existing `reserveBeforeTransaction` of that handler: the inner reservation is taken first and given back if the outer one fails.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: breaking
+  title: Calendar cap reservations are stored in the new store_cap_reservations table
+  detail: Capped writes now insert and delete rows in store_cap_reservations, so they fail until the table exists.
+  migration: Generate and apply a migration with `kumiko-schema generate` — capped writes fail without the new store_cap_reservations table
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Rate-limited, denied or invalid callers no longer consume cap usage or trigger soft-warn, because pre-handler gates run before reserveBeforeTransaction
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: reserveBeforeTransaction may return a ReservationHandle whose confirmInTransaction settles the reservation inside the handler transaction
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: Reservations expire after 60 minutes and are swept before the next reserve of the same cap
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: withCapEnforcement keeps the wrapped handler's settings (rateLimit, additionalRateLimits) and composes with an inner reserveBeforeTransaction
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: withRollingCapEnforcement reserves before the handler transaction and releases through the new rolling-released event, so rejected or failed writes no longer consume rolling cap
+  -->
+
+- b905d4b: Stat groups take a span, and a labeled group sizes its columns to its values
+
+  `stat-group` panels accept `span: "half" | "full"` like chart, list, feed and progress-list panels; without it a group still takes the full row. A labeled group lays out one column per value up to three, so a group with two values no longer leaves an empty third column and a single value takes the whole card width. To color a value and its icon chip by result (for example by sign), return a tone from `toneField` and leave `accentColor` unset; the chip then follows the tone.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Stat group span and column count
+  detail: Set span: "half" on a stat-group to place two groups side by side.
+  -->
+
+- 9fb0657: Select options can be disabled per tenant, and the tier-engine gates them on write
+
+  A select option in the `select` primitive takes `disabled`, with the existing `description` as the hint. `renderer-web` mutes a disabled option and does not let it be chosen in the dropdown, the radio list, the radio cards and the segmented control; the dropdown appends the hint to the label in parentheses, the radio variants show it as the description line.
+
+  `SelectFieldDef.optionsAvailabilityQuery` names a query that returns `{ rows: { value, disabled?, hint? }[] }`. The renderer loads it, resolving `optionsQueryPayload` like `optionsQuery` does, and merges it onto the static `options`: `disabled` disables the option, `hint` becomes its description. Static options stay authoritative, rows for unknown values are ignored, and the currently stored value always stays enabled so a downgraded tenant keeps seeing it. The field is also allowed on entity fields, and boot fails when the query is not a registered query handler.
+
+  `createTierOptionGate` in the tier-engine takes the ascending tier order, `capsForTier` and `resolveTier`. Its `optionAvailability` builds the rows for such a query (an option the current tier does not allow is disabled and its hint names the lowest tier that allows it), and `withTierOptionGate` rejects a disallowed option on write with `UnprocessableError(code, { i18nKey, details: { field, value, requiredTier } })`. An update that resends the unchanged stored value of a no longer allowed option passes when the spec names the entity `table`. The wrapper spreads the wrapped handler, so `withCapEnforcement` and rate limits keep working.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: SelectFieldDef.optionsAvailabilityQuery marks static select options as unavailable per tenant
+  detail: The query returns { rows: { value, disabled?, hint? }[] }; the renderer merges it onto options and keeps the stored value enabled.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validation and the client schema cover select optionsAvailabilityQuery on entity and screen fields
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: Edit view-model carries selectOptionsAvailabilityQuery for select fields
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Select inputs accept disabled options and load their availability from optionsAvailabilityQuery
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Disabled select options are muted and not choosable in dropdown, radio list, radio cards and segmented control
+  -->
+
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: improvement
+  title: createTierOptionGate builds the availability rows and gates select options by tier on write
+  detail: withTierOptionGate rejects a disallowed option with the lowest tier that allows it and lets an unchanged stored value pass on update.
+  -->
+
+### Patch Changes
+
+- 9fb0657: Direct `temporal-polyfill` imports are now a manual upgrade step and a guard error
+
+  Since 0.351.0 the native `globalThis.Temporal` is the single Temporal source whenever the runtime has one. App code that still imports `Temporal` from `temporal-polyfill` gets the polyfill classes, while the framework hands it native ones, so `instanceof Temporal.Instant` and `z.instanceof(Temporal.Instant)` fail ("expected Instant, received Instant"). 0.351.0 shipped this as an improvement, so `kumiko-upgrade` never flagged it. It now shows up as an open manual step, and the new No-Temporal-Polyfill-Import guard reports every value import from `temporal-polyfill` (including `temporal-polyfill/global`, re-exports, `import()` and `require`) outside kumiko-types, with the replacement import. `import type` and `/// <reference types="temporal-polyfill/global" />` stay allowed.
+
+  <!-- kumiko-changes
+  feature: types
+  type: breaking
+  title: Apps must import Temporal from @cosmicdrift/kumiko-types/temporal instead of temporal-polyfill (affects every app since 0.351.0)
+  detail: Since 0.351.0 the native globalThis.Temporal wins over the polyfill. A Temporal imported from "temporal-polyfill" is a second implementation, so instanceof and z.instanceof(Temporal.Instant) reject values the framework creates. This applies whether you upgrade from before 0.351.0 or are already on it.
+  migration: Replace every value import from "temporal-polyfill" in app code and tests, e.g. `import { Temporal } from "temporal-polyfill"`, with `import { Temporal } from "@cosmicdrift/kumiko-types/temporal"`, and drop side-effect imports of "temporal-polyfill/global" (importing @cosmicdrift/kumiko-types/temporal already installs the global when the runtime has none). `import type` and `/// <reference types="temporal-polyfill/global" />` may stay. Then run `kumiko check`; the No-Temporal-Polyfill-Import guard lists anything left. Close the step with `kumiko-upgrade --resolve <id> --reason "<what you changed>"`, or add `--not-applicable` when the repo never imported temporal-polyfill.
+  -->
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New No-Temporal-Polyfill-Import guard reports direct temporal-polyfill value imports outside kumiko-types
+  detail: Scans source and test files (ts, tsx). Flags named, default, namespace and side-effect imports, re-exports, import() and require of "temporal-polyfill" or its subpaths, and prints the replacement import from @cosmicdrift/kumiko-types/temporal. Type-only imports and triple-slash type references pass.
+  -->
+
 ## 0.351.0
 
 ### Minor Changes

@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.352.0",
+    "type": "breaking",
+    "title": "Calendar cap reservations are stored in the new store_cap_reservations table",
+    "detail": "Capped writes now insert and delete rows in store_cap_reservations, so they fail until the table exists.",
+    "migration": "Generate and apply a migration with `kumiko-schema generate` — capped writes fail without the new store_cap_reservations table"
+  },
+  {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "Reservations expire after 60 minutes and are swept before the next reserve of the same cap"
+  },
+  {
+    "version": "0.352.0",
+    "type": "fix",
+    "title": "withCapEnforcement keeps the wrapped handler's settings (rateLimit, additionalRateLimits) and composes with an inner reserveBeforeTransaction"
+  },
+  {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "withRollingCapEnforcement reserves before the handler transaction and releases through the new rolling-released event, so rejected or failed writes no longer consume rolling cap"
+  },
+  {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "createValueCapGuard rejects a written number outside the min and max of the tenant's tier",
+    "detail": "A number written by a handler can be bounded per tier\n`createValueCapGuard(resolveTierCaps)` returns `checkValueCap` and `withValueCap`. The spec names the payload field, optional `min` and `max` functions over the tier caps (`undefined` means unbounded), an error code and an i18n key. The value is read from the payload or, for entity updates, from `changes`; an absent or non-numeric value passes. A value below the minimum or above the maximum is rejected with `UnprocessableError` and `details: { field, value, min, max }`. `withValueCap` spreads the wrapped handler, so it composes with `withCapEnforcement`."
+  },
+  {
     "version": "0.348.0",
     "type": "fix",
     "title": "withCapEnforcement reserves cap usage before the handler transaction so parallel calls cannot exceed the hard limit",

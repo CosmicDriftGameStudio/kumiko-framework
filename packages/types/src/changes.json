@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "SelectFieldDef.optionsAvailabilityQuery marks static select options as unavailable per tenant",
+    "detail": "The query returns { rows: { value, disabled?, hint? }[] }; the renderer merges it onto options and keeps the stored value enabled."
+  },
+  {
+    "version": "0.352.0",
+    "type": "breaking",
+    "title": "Apps must import Temporal from @cosmicdrift/kumiko-types/temporal instead of temporal-polyfill (affects every app since 0.351.0)",
+    "detail": "Since 0.351.0 the native globalThis.Temporal wins over the polyfill. A Temporal imported from \"temporal-polyfill\" is a second implementation, so instanceof and z.instanceof(Temporal.Instant) reject values the framework creates. This applies whether you upgrade from before 0.351.0 or are already on it.",
+    "migration": "Replace every value import from \"temporal-polyfill\" in app code and tests, e.g. `import { Temporal } from \"temporal-polyfill\"`, with `import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\"`, and drop side-effect imports of \"temporal-polyfill/global\" (importing @cosmicdrift/kumiko-types/temporal already installs the global when the runtime has none). `import type` and `/// <reference types=\"temporal-polyfill/global\" />` may stay. Then run `kumiko check`; the No-Temporal-Polyfill-Import guard lists anything left. Close the step with `kumiko-upgrade --resolve <id> --reason \"<what you changed>\"`, or add `--not-applicable` when the repo never imported temporal-polyfill."
+  },
+  {
     "version": "0.351.0",
     "type": "fix",
     "title": "ContainsSecret no longer fails with TS2615 on recursive types such as DashboardI18nText",

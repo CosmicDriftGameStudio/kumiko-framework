@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "createTierOptionGate builds the availability rows and gates select options by tier on write",
+    "detail": "withTierOptionGate rejects a disallowed option with the lowest tier that allows it and lets an unchanged stored value pass on update."
+  },
+  {
     "version": "0.278.0",
     "type": "breaking",
     "title": "createTierResolver's resolveTier/resolveTierCaps take only a TenantDb — no separate tenantId argument (fw#2854).",
