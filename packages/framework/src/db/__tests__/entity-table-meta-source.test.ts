@@ -90,3 +90,25 @@ describe("unmanaged builders reject read_ prefix (#1208)", () => {
     ).toThrow(/the "read_" prefix is reserved/);
   });
 });
+
+describe("deriveEntityTableMeta — recordOwned on a serial unmanaged store", () => {
+  const serialEntity = createEntity({
+    table: "store_serial_record_owned",
+    idType: "serial",
+    fields: { body: createTextField({ personal: { of: "id" }, find: "none" }) },
+  });
+
+  test("unmanaged + idType serial + recordOwned field throws, naming entity and field", () => {
+    expect(() => deriveEntityTableMeta("x", serialEntity, { source: "unmanaged" })).toThrow(
+      /"x".*"body".*recordOwned/,
+    );
+  });
+
+  test("the same entity with a uuid id derives fine", () => {
+    const uuidEntity = createEntity({
+      table: "store_uuid_record_owned",
+      fields: { body: createTextField({ personal: { of: "id" }, find: "none" }) },
+    });
+    expect(() => deriveEntityTableMeta("x", uuidEntity, { source: "unmanaged" })).not.toThrow();
+  });
+});
