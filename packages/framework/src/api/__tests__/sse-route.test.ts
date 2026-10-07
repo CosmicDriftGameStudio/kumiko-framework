@@ -354,8 +354,8 @@ describe("sse-route access invalidation", () => {
     return recording;
   }
 
-  async function openStream(recording: Recording, sid: string) {
-    const jwt = createJwtHelper(JWT_SECRET);
+  async function openStream(recording: Recording, sid: string, ttlSeconds?: number) {
+    const jwt = createJwtHelper(JWT_SECRET, "kumiko", ttlSeconds);
     const token = await jwt.sign({ ...TestUsers.user, sid });
     const app = new Hono();
     app.use("/api/*", authMiddleware(jwt));
@@ -381,6 +381,20 @@ describe("sse-route access invalidation", () => {
     const invalidate = await recording.invalidate;
 
     invalidate();
+
+    let done = false;
+    while (!done) {
+      ({ done } = await reader.read());
+    }
+
+    expect(recording.removeClientCalls).toBe(1);
+    expect(recording.unsubscribeCalls).toBe(1);
+  });
+
+  test("a stream outlasting its JWT ends on its own and releases client and subscription exactly once", async () => {
+    const recording = createRecordingBroker();
+    const reader = await openStream(recording, "sid-1", 1);
+    await recording.invalidate;
 
     let done = false;
     while (!done) {

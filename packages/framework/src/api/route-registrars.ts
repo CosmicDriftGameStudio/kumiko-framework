@@ -4,7 +4,7 @@
 // actually reads — no monolithic `options` parameter, because these
 // helpers exist to make each step's dependencies visible at the call-site.
 
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { DbConnection } from "../db/connection.js";
 import type { Lifecycle } from "../lifecycle/index.js";
@@ -42,6 +42,17 @@ export function registerBodyLimit(app: Hono, maxBytes: number): void {
     if (BODY_LIMIT_OPT_OUT_PATHS.has(c.req.path)) return next();
     return limit(c, next);
   });
+}
+
+// registerBodyLimit only covers /api/*; signature routes outside it (webhook
+// receivers, OAuth callbacks) read the raw body before verify() runs and so
+// need the same cap on their own handler chain.
+export function bodyLimitForRoutePath(
+  path: string,
+  maxBytes: number,
+): readonly MiddlewareHandler[] {
+  if (maxBytes <= 0 || path === "/api" || path.startsWith("/api/")) return [];
+  return [bodyLimit({ maxSize: maxBytes })];
 }
 
 // --- /metrics (Prometheus scrape) -----------------------------------------

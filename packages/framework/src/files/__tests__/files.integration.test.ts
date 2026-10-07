@@ -246,7 +246,14 @@ describe("file validation", () => {
     0xe1,
     ...Array(20).fill(0),
   ]);
-  const docxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...Array(20).fill(0)]);
+  const docxBytes = new Uint8Array([
+    0x50,
+    0x4b,
+    0x03,
+    0x04,
+    ...Array(20).fill(0),
+    ...new TextEncoder().encode("word/document.xml"),
+  ]);
 
   test("validateFile accepts a .doc/.docx upload on extension/mimeType alone", () => {
     expect(
@@ -270,6 +277,19 @@ describe("file validation", () => {
   test("validateFileContent accepts .doc/.docx bytes matching their declared extension", () => {
     expect(validateFileContent("report.doc", docBytes)).toEqual({ kind: "ok" });
     expect(validateFileContent("report.docx", docxBytes)).toEqual({ kind: "ok" });
+  });
+
+  test("validateFileContent rejects a plain ZIP (no word/document.xml) uploaded as .docx", () => {
+    const plainZip = new Uint8Array([
+      0x50,
+      0x4b,
+      0x03,
+      0x04,
+      ...new TextEncoder().encode("xl/workbook.xml"),
+    ]);
+    const result = validateFileContent("report.docx", plainZip, ["docx"]);
+    expect(result.kind).toBe("rejected");
+    expectErrorIncludes(result.kind === "rejected" ? result.error : null, "content_mismatch");
   });
 
   test("validateFileContent rejects .doc/.docx whose content doesn't match the extension", () => {
@@ -700,7 +720,14 @@ describe("doc/docx upload is content-verified against magic bytes", () => {
     0xe1,
     ...Array(20).fill(0),
   ]);
-  const docxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...Array(20).fill(0)]);
+  const docxBytes = new Uint8Array([
+    0x50,
+    0x4b,
+    0x03,
+    0x04,
+    ...Array(20).fill(0),
+    ...new TextEncoder().encode("word/document.xml"),
+  ]);
 
   test("a real .doc upload succeeds", async () => {
     const res = await uploadFile(adminUser, "report.doc", docBytes, "application/msword");
@@ -754,7 +781,14 @@ describe("content_mismatch is enforced by filename extension for every signature
     0xe1,
     ...Array(20).fill(0),
   ]);
-  const docxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...Array(20).fill(0)]);
+  const docxBytes = new Uint8Array([
+    0x50,
+    0x4b,
+    0x03,
+    0x04,
+    ...Array(20).fill(0),
+    ...new TextEncoder().encode("word/document.xml"),
+  ]);
 
   test("PDF bytes uploaded as x.jpg against an accept: [png, jpg] field are rejected with content_mismatch", async () => {
     const res = await uploadFile(adminUser, "x.jpg", pdfBytes, "image/jpeg", {
@@ -1227,6 +1261,18 @@ describe("error handling", () => {
       entityType: "tenant",
       entityId: "1",
       fieldName: "no-such-field",
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain("unresolvable_field");
+  });
+
+  test("upload attached to a registered non-file field is rejected", async () => {
+    const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "name",
     });
     expect(res.status).toBe(400);
     const body = await res.json();

@@ -97,6 +97,8 @@ function extensionsForMimeType(mimeType: string): readonly string[] {
 // application/octet-stream in resolveServedContentType below — this also
 // guarantees text/html and image/svg+xml are never served inline, even for
 // an honestly-declared upload.
+const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
 const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
   readonly mimeType: string;
   readonly matches: (bytes: Uint8Array) => boolean;
@@ -124,10 +126,22 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
   // ZIP local-file-header signature — .docx/.xlsx/.pptx/plain .zip all share
   // it; same caveat as OLE above.
   {
-    mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    mimeType: DOCX_MIME_TYPE,
     matches: (bytes) => startsWithBytes(bytes, [0x50, 0x4b, 0x03, 0x04]),
   },
 ];
+
+// ZIP entry names are stored uncompressed in the local and central headers,
+// so a byte search finds the mandatory docx main part without unzipping.
+const DOCX_MAIN_PART_NAME = "word/document.xml";
+
+function containsAscii(bytes: Uint8Array, ascii: string): boolean {
+  const first = ascii.charCodeAt(0);
+  for (let i = bytes.indexOf(first); i !== -1; i = bytes.indexOf(first, i + 1)) {
+    if (startsWithAscii(bytes, ascii, i)) return true;
+  }
+  return false;
+}
 
 function startsWithBytes(bytes: Uint8Array, signature: readonly number[]): boolean {
   if (bytes.length < signature.length) return false;
@@ -262,6 +276,13 @@ export function validateFileContent(
   const signatureMimeTypes = signatureMimeTypesForExtension(ext);
   if (signatureMimeTypes.length === 0) return { kind: "ok" };
   const sniffed = sniffMimeType(content);
+  // sniffMimeType only sees the ZIP container; any .xlsx/.pptx/.zip shares it.
+  if (sniffed === DOCX_MIME_TYPE && !containsAscii(content, DOCX_MAIN_PART_NAME)) {
+    return {
+      kind: "rejected",
+      error: `content_mismatch: ".${ext}" upload bytes are a ZIP archive without ${DOCX_MAIN_PART_NAME}, not a docx`,
+    };
+  }
   if (sniffed && signatureMimeTypes.includes(sniffed)) return { kind: "ok" };
   if (sniffed) {
     const candidateExtensions = extensionsForMimeType(sniffed);

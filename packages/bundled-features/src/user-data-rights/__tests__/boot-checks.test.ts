@@ -95,6 +95,15 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/Art\.17/);
   });
 
+  test("V2: EXT_USER_DATA registered with an empty bag via a string-typed extension name → boot throws", () => {
+    const untypedName: string = EXT_USER_DATA;
+    const bad = defineFeature("bad-empty", (r) => {
+      r.requires("user-data-rights");
+      r.useExtension(untypedName, "badEntity", {});
+    });
+    expect(() => validateBoot([...baseFeatures(), bad])).toThrow(/neither an export nor a delete/);
+  });
+
   test("V3: pii entity without any EXT_USER_DATA hook → throws the guard's own message", () => {
     const bad = defineFeature("crm", (r) => {
       r.entity(

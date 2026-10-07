@@ -13,6 +13,11 @@
 // Lead-Time aus dem Compliance-Profile (typisch 30d). Cron-Job kommt
 // in Sprint 1 (compliance-profiles).
 //
+// SubProcessor has no "removed" state yet: a removed entry is deleted from
+// the array, so until the notification cron exists a removal is documented
+// only in the changelog. Removed so far: Mailbox.org (mailbox hosting),
+// replaced by ALL-INKL.COM on 2026-09-02.
+//
 // Quelle: docs/plans/datenschutz/compliance-profiles.md "Sub-Processor-
 // Management" + docs/plans/datenschutz/legal-artifacts.md.
 

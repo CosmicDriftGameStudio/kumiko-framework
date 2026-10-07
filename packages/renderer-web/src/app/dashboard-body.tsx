@@ -83,7 +83,15 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { EmbeddedFormProvider } from "../primitives/index.js";
 import { PageSection } from "../primitives/layout.js";
 import { formatMoney } from "../primitives/money-input.js";
@@ -374,6 +382,7 @@ function QueryPanel<TData>({
     panelPayload(panel, screenParams),
     { live: true },
   );
+  useReportPanelLoaded(data);
   let body: ReactNode;
   if (loading && data === null) {
     body = <PanelSkeleton shape={skeleton} />;
@@ -469,6 +478,7 @@ function StatPanelBody({
     panelPayload(panel, screenParams),
     { live: true },
   );
+  useReportPanelLoaded(data);
   if (loading && data === null) return <LoadingState rows={2} />;
   if (error !== null) {
     return <PanelError label={label} error={error} onRetry={() => void refetch()} />;
@@ -1398,13 +1408,30 @@ function ScreenPanelTile({
   );
 }
 
-// Render time of the screen, refreshed whenever the merged query params
-// change — the closest cheap proxy for "last loaded".
-function useLoadedAt(screenParams: ScreenParams): number {
+// Starts at render time and restarts whenever the merged query params change;
+// panels additionally report each successful (re)load, so live refetches and
+// retries keep the stamp current.
+function useLoadedAt(screenParams: ScreenParams): {
+  readonly loadedAtMs: number;
+  readonly reportLoaded: (atMs: number) => void;
+} {
   const paramsKey = JSON.stringify([screenParams.filterParams, screenParams.rangeParams]);
   const [loaded, setLoaded] = useState(() => ({ paramsKey, atMs: Date.now() }));
   if (loaded.paramsKey !== paramsKey) setLoaded({ paramsKey, atMs: Date.now() });
-  return loaded.atMs;
+  const reportLoaded = useCallback(
+    (atMs: number) => setLoaded((prev) => (prev.atMs >= atMs ? prev : { ...prev, atMs })),
+    [],
+  );
+  return { loadedAtMs: loaded.atMs, reportLoaded };
+}
+
+const PanelLoadedContext = createContext<(atMs: number) => void>(() => {});
+
+function useReportPanelLoaded(data: unknown): void {
+  const reportLoaded = useContext(PanelLoadedContext);
+  useEffect(() => {
+    if (data !== null) reportLoaded(Date.now());
+  }, [data, reportLoaded]);
 }
 
 export function WebDashboardBody({
@@ -1420,7 +1447,7 @@ export function WebDashboardBody({
   const { params: filterParams, picker } = useFilterParams(screen);
   const { params: rangeParams, control: rangeControl } = useTimeRange(screen, effectiveTranslate);
   const screenParams: ScreenParams = { filterParams, rangeParams };
-  const loadedAtMs = useLoadedAt(screenParams);
+  const { loadedAtMs, reportLoaded } = useLoadedAt(screenParams);
   const visibilityGates = distinctVisibilityGates(screen.panels, screenParams);
   const scope = screen.scope;
   // A raw description is agent-facing prose; only an i18n key is user-facing copy.
@@ -1437,72 +1464,74 @@ export function WebDashboardBody({
   // The shell header owns the title; the badge sits right after it there.
   const badgeInHeader = scopeBadge !== null && headerSlotAvailable && PageHeader !== undefined;
   return (
-    <PageSection className="flex flex-col gap-4" testId={`dashboard-${screen.id}`}>
-      {badgeInHeader && <PageHeader status={scopeBadge} />}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {!badgeInHeader && scopeBadge}
-          {picker}
+    <PanelLoadedContext.Provider value={reportLoaded}>
+      <PageSection className="flex flex-col gap-4" testId={`dashboard-${screen.id}`}>
+        {badgeInHeader && <PageHeader status={scopeBadge} />}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {!badgeInHeader && scopeBadge}
+            {picker}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {screen.showUpdatedAt !== false && (
+              <span
+                data-testid={`dashboard-${screen.id}-updated-at`}
+                className="text-xs tabular-nums text-muted-foreground"
+              >
+                {t("kumiko.dashboard.updated-at", { time: formatDateTime(loadedAtMs) })}
+              </span>
+            )}
+            {rangeControl}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {screen.showUpdatedAt !== false && (
-            <span
-              data-testid={`dashboard-${screen.id}-updated-at`}
-              className="text-xs tabular-nums text-muted-foreground"
-            >
-              {t("kumiko.dashboard.updated-at", { time: formatDateTime(loadedAtMs) })}
-            </span>
-          )}
-          {rangeControl}
-        </div>
-      </div>
-      {description !== undefined && (
-        <Text variant="muted" testId={`dashboard-${screen.id}-description`}>
-          {description}
-        </Text>
-      )}
-      {scope?.notice !== undefined && (
-        <Banner variant="info" testId={`dashboard-${screen.id}-scope-notice`}>
-          {effectiveTranslate(scope.notice)}
-        </Banner>
-      )}
-      <VisibilityQueryScopes gates={visibilityGates}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {screen.panels.map((panel) => {
-            if (panel.kind === "screen") {
+        {description !== undefined && (
+          <Text variant="muted" testId={`dashboard-${screen.id}-description`}>
+            {description}
+          </Text>
+        )}
+        {scope?.notice !== undefined && (
+          <Banner variant="info" testId={`dashboard-${screen.id}-scope-notice`}>
+            {effectiveTranslate(scope.notice)}
+          </Banner>
+        )}
+        <VisibilityQueryScopes gates={visibilityGates}>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {screen.panels.map((panel) => {
+              if (panel.kind === "screen") {
+                return (
+                  <ScreenPanelTile
+                    key={panel.id}
+                    panel={panel}
+                    featureName={featureName}
+                    translate={effectiveTranslate}
+                  />
+                );
+              }
+              const label =
+                panel.kind === "custom" || panel.label === undefined
+                  ? undefined
+                  : effectiveTranslate(panel.label);
               return (
-                <ScreenPanelTile
+                <GatedGridCell
                   key={panel.id}
                   panel={panel}
-                  featureName={featureName}
-                  translate={effectiveTranslate}
-                />
-              );
-            }
-            const label =
-              panel.kind === "custom" || panel.label === undefined
-                ? undefined
-                : effectiveTranslate(panel.label);
-            return (
-              <GatedGridCell
-                key={panel.id}
-                panel={panel}
-                screenParams={screenParams}
-                label={label ?? panel.id}
-                className={panelSpanClassName(panel)}
-              >
-                <PanelBody
-                  panel={panel}
-                  label={label}
-                  screenId={screen.id}
                   screenParams={screenParams}
-                  translate={effectiveTranslate}
-                />
-              </GatedGridCell>
-            );
-          })}
-        </div>
-      </VisibilityQueryScopes>
-    </PageSection>
+                  label={label ?? panel.id}
+                  className={panelSpanClassName(panel)}
+                >
+                  <PanelBody
+                    panel={panel}
+                    label={label}
+                    screenId={screen.id}
+                    screenParams={screenParams}
+                    translate={effectiveTranslate}
+                  />
+                </GatedGridCell>
+              );
+            })}
+          </div>
+        </VisibilityQueryScopes>
+      </PageSection>
+    </PanelLoadedContext.Provider>
   );
 }
