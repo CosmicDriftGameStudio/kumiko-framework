@@ -56,12 +56,14 @@ workspace_versions="$(jq -s 'map({(.name): .version}) | add' packages/*/package.
 # interrupted earlier run already staged this exact version (#2576). The
 # registry finalizes such a version on its own, so it counts as released — but
 # it stays unresolvable for a while, so the `latest` move can still fail. On the
-# staged path that move is deferred to the registry-repair in the skip branch
-# above, which the next release run reaches. A genuine publish whose `latest`
-# move fails still fails hard.
+# staged path the move is retried for a bounded window; if the version still does
+# not resolve, the package counts as skipped (no tag/release) and the repair is
+# left to the registry-repair in the skip branch of a later release run. A
+# genuine publish whose `latest` move fails still fails hard.
 publish_and_tag() {
-  local tarball="$1" name="$2" version="$3" log staged=0
+  local tarball="$1" name="$2" version="$3" log staged=0 attempt
   already_published_via_e403=0
+  staged_unconfirmed=0
   if log="$(npm publish "$tarball" --provenance --access public --tag kumiko-tmp 2>&1)"; then
     printf '%s\n' "$log" >&2
   else
@@ -100,8 +102,20 @@ publish_and_tag() {
     return 0
   fi
   [ "$staged" = 1 ] || return 1
-  echo "[warn] $name@$version was already staged; latest move deferred to the next run's registry repair (#2576)" >&2
-  echo "::warning::$name@$version staged but not yet resolvable; the latest dist-tag was not moved and stays on the previous version until a later run repairs it" >&2
+  local max_attempts="${STAGED_POLL_ATTEMPTS:-10}" interval="${STAGED_POLL_INTERVAL_SECONDS:-15}"
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    echo "[wait] $name@$version staged, not yet resolvable; retrying latest move ($attempt/$max_attempts)" >&2
+    sleep "$interval"
+    if npm dist-tag add "$name@$version" latest >&2; then
+      return 0
+    fi
+  done
+  staged_unconfirmed=1
+  local message="$name@$version staged but still not resolvable; the latest dist-tag was not moved and stays on the previous version until a later release run repairs it"
+  echo "::warning::$message" >&2
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    printf '%s\n' "- :warning: $message" >>"$GITHUB_STEP_SUMMARY"
+  fi
   return 0
 }
 
@@ -195,13 +209,14 @@ for pkg_json in packages/*/package.json; do
   # NODE_AUTH_TOKEN (set in the release job).
   elif publish_and_tag "$pkg_dir/$TARBALL" "$name" "$version"; then
     npm dist-tag rm "$name" kumiko-tmp >&2 2>/dev/null || true
-    if [ "$already_published_via_e403" = 1 ]; then
-      # Detected late (#2586): the exact-version check above still lagged,
-      # so this counts as skipped rather than published. No `latest` move
+    if [ "$already_published_via_e403" = 1 ] || [ "$staged_unconfirmed" = 1 ]; then
+      # Detected late (#2586), or staged without ever resolving (#2576): this
+      # run did not confirm the version, so it counts as skipped rather than
+      # published and emits no tag/release. No `latest` move
       # here — the version is still unresolvable in this window (that's the
       # whole reason npm rejected the publish), the next run's early-skip
       # branch above repairs `latest` once the registry catches up.
-      echo "[skip] $name@$version (already on registry, detected via E403)" >&2
+      echo "[skip] $name@$version (not confirmed on registry: E403 or staged)" >&2
       skipped=$((skipped + 1))
     else
       published=$((published + 1))

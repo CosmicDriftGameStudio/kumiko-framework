@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
+import { join } from "node:path";
+import { parseEnv } from "node:util";
 import { isRealProviderRun } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import {
   defineConfig,
@@ -32,16 +35,25 @@ const OPT_IN_SERVICE_ENV_KEYS: readonly string[] = [
   "MEILI_MASTER_KEY",
 ] satisfies readonly (keyof typeof SERVICE_ENV_DEFAULTS)[];
 
-// A `??` merge per key, not a raw process.env spread — CI or the shell
-// environment wins over the local-dev default without leaking unrelated
-// host env vars into the webServer process.
+// Bun never overrides a variable that is already set, so a default placed in
+// webServer.env would beat the same key in the app's `.env`. Keys the app's
+// `.env` defines are therefore left out and stay with the server's own loading.
+function keysDefinedInAppDotenv(): ReadonlySet<string> {
+  const dotenvPath = join(process.cwd(), ".env");
+  if (!existsSync(dotenvPath)) return new Set();
+  return new Set(Object.keys(parseEnv(readFileSync(dotenvPath, "utf-8"))));
+}
+
+// Precedence per key: shell/CI environment, then the app's `.env`, then the local-dev default.
 function infraEnvDefaults(): Record<string, string> {
+  const definedInAppDotenv = keysDefinedInAppDotenv();
   return Object.fromEntries(
     Object.entries(SERVICE_ENV_DEFAULTS).flatMap(([key, value]) => {
       const fromEnvironment = process.env[key];
       if (OPT_IN_SERVICE_ENV_KEYS.includes(key)) {
         return fromEnvironment === undefined ? [] : [[key, fromEnvironment]];
       }
+      if (fromEnvironment === undefined && definedInAppDotenv.has(key)) return [];
       return [[key, fromEnvironment ?? value]];
     }),
   );

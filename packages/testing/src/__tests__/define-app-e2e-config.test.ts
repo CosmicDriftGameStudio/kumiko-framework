@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   PROD_BUNDLES_ENV as DEV_SERVER_PROD_BUNDLES_ENV,
   STYLESHEET_WATCH_ENV as DEV_SERVER_STYLESHEET_WATCH_ENV,
@@ -201,6 +204,36 @@ describe("defineAppE2eConfig defaults", () => {
     } finally {
       if (saved === undefined) delete process.env["DATABASE_URL"];
       else process.env["DATABASE_URL"] = saved;
+    }
+  });
+
+  test("webServer env leaves a key to the app's .env instead of overriding it with the template default", () => {
+    const appDir = mkdtempSync(join(tmpdir(), "e2e-config-dotenv-"));
+    writeFileSync(
+      join(appDir, ".env"),
+      'DATABASE_URL="postgresql://app:app@app-host:5432/app_db"\n',
+    );
+    const originalCwd = process.cwd();
+    const savedDatabaseUrl = process.env["DATABASE_URL"];
+    delete process.env["DATABASE_URL"];
+    try {
+      process.chdir(appDir);
+      const server = defineAppE2eConfig({ port: 1 }).webServer;
+      if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
+      expect(server.env).not.toHaveProperty("DATABASE_URL");
+      expect(server.env?.["REDIS_URL"]).toBe("redis://localhost:16379");
+
+      process.env["DATABASE_URL"] = "postgresql://ci:ci@ci-host:5432/ci_db";
+      const ciServer = defineAppE2eConfig({ port: 1 }).webServer;
+      if (Array.isArray(ciServer) || ciServer === undefined) {
+        throw new Error("expected one webServer");
+      }
+      expect(ciServer.env?.["DATABASE_URL"]).toBe("postgresql://ci:ci@ci-host:5432/ci_db");
+    } finally {
+      process.chdir(originalCwd);
+      rmSync(appDir, { recursive: true, force: true });
+      if (savedDatabaseUrl === undefined) delete process.env["DATABASE_URL"];
+      else process.env["DATABASE_URL"] = savedDatabaseUrl;
     }
   });
 

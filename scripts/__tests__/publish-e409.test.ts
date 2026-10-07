@@ -112,7 +112,8 @@ function runWithNpmStub(spec: NpmStubSpec): { exitCode: number; stdout: string; 
     runner,
     `#!/usr/bin/env bash\nset -euo pipefail\n\n${PUBLISH_AND_TAG_FN}\n\n` +
       `publish_and_tag /tmp/fake.tgz @cosmicdrift/kumiko-types 0.233.0\n` +
-      `echo "already_published_via_e403=$already_published_via_e403"\n`,
+      `echo "already_published_via_e403=$already_published_via_e403"\n` +
+      `echo "staged_unconfirmed=$staged_unconfirmed"\n`,
     { mode: 0o755 },
   );
 
@@ -124,6 +125,8 @@ function runWithNpmStub(spec: NpmStubSpec): { exitCode: number; stdout: string; 
       PATH: `${dir}:${process.env.PATH ?? ""}`,
       STUB_PUBLISH_OUTPUT: spec.publishOutput,
       STUB_DIST_TAG_OUTPUT: spec.distTagOutput,
+      STAGED_POLL_ATTEMPTS: "2",
+      STAGED_POLL_INTERVAL_SECONDS: "0",
     },
   });
 
@@ -151,8 +154,8 @@ describe("publish-with-oidc.sh publish_and_tag()", () => {
     expect(exitCode).toBe(0);
   });
 
-  test("treats E409 'previously staged version' as success even when the immediate latest move 404s (#2576)", () => {
-    const { exitCode, stderr } = runWithNpmStub({
+  test("treats E409 'previously staged version' as unconfirmed success when latest never resolves (#2576)", () => {
+    const { exitCode, stdout, stderr } = runWithNpmStub({
       publishExitCode: 1,
       publishOutput:
         "npm error code E409\n" +
@@ -161,7 +164,22 @@ describe("publish-with-oidc.sh publish_and_tag()", () => {
       distTagOutput: "npm error code E404\nnpm error 404 Not Found - version not found",
     });
     expect(exitCode).toBe(0);
-    expect(stderr).toContain("latest move deferred");
+    expect(stderr).toContain("retrying latest move (2/2)");
+    expect(stderr).toContain("::warning::");
+    expect(stdout).toContain("staged_unconfirmed=1");
+  });
+
+  test("E409 staged version resolving during the poll window moves latest and counts as confirmed", () => {
+    const { exitCode, stdout } = runWithNpmStub({
+      publishExitCode: 1,
+      publishOutput:
+        "npm error code E409\n" +
+        'npm error 409 Conflict - PUT https://registry.npmjs.org/@cosmicdrift%2fkumiko-types - Cannot publish over previously staged version "0.233.0".',
+      distTagExitCode: 0,
+      distTagOutput: "+@cosmicdrift/kumiko-types@0.233.0",
+    });
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("staged_unconfirmed=0");
   });
 
   test("fails hard when a genuine publish succeeds but the latest dist-tag move fails", () => {
@@ -249,7 +267,7 @@ describe("publish-with-oidc.sh publish_and_tag()", () => {
 // literal extracted branch — rather than re-deriving its behaviour — proves
 // the E403-detected case increments `skipped`, not `published`, and never
 // emits "New tag:".
-function runPublishOutcomeBranch(alreadyPublishedViaE403: boolean): {
+function runPublishOutcomeBranch(unconfirmed: "none" | "e403" | "staged"): {
   exitCode: number;
   stdout: string;
 } {
@@ -273,7 +291,8 @@ function runPublishOutcomeBranch(alreadyPublishedViaE403: boolean): {
       "skipped=0",
       "failed=()",
       'published_json="[]"',
-      `already_published_via_e403=${alreadyPublishedViaE403 ? 1 : 0}`,
+      `already_published_via_e403=${unconfirmed === "e403" ? 1 : 0}`,
+      `staged_unconfirmed=${unconfirmed === "staged" ? 1 : 0}`,
       "if true; then",
       PUBLISH_OUTCOME_BRANCH,
       "else",
@@ -297,7 +316,15 @@ function runPublishOutcomeBranch(alreadyPublishedViaE403: boolean): {
 
 describe("publish-with-oidc.sh per-package outcome branch", () => {
   test("counts the E403-detected already-published case as skipped and emits no New tag", () => {
-    const { exitCode, stdout } = runPublishOutcomeBranch(true);
+    const { exitCode, stdout } = runPublishOutcomeBranch("e403");
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("published=0");
+    expect(stdout).toContain("skipped=1");
+    expect(stdout).not.toContain("New tag:");
+  });
+
+  test("counts a staged-but-unconfirmed version as skipped and emits no New tag (#2578)", () => {
+    const { exitCode, stdout } = runPublishOutcomeBranch("staged");
     expect(exitCode).toBe(0);
     expect(stdout).toContain("published=0");
     expect(stdout).toContain("skipped=1");
@@ -305,7 +332,7 @@ describe("publish-with-oidc.sh per-package outcome branch", () => {
   });
 
   test("counts a genuine publish as published and emits New tag", () => {
-    const { exitCode, stdout } = runPublishOutcomeBranch(false);
+    const { exitCode, stdout } = runPublishOutcomeBranch("none");
     expect(exitCode).toBe(0);
     expect(stdout).toContain("published=1");
     expect(stdout).toContain("skipped=0");
