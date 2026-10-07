@@ -1391,6 +1391,7 @@ type WebSocketRouteHandlerDeps = {
 };
 
 const webSocketLog = createFallbackLogger("websocket");
+const extraRouteLog = createFallbackLogger("extra-route");
 
 function webSocketErrorResponse(
   c: import("hono").Context,
@@ -1585,10 +1586,9 @@ function buildExtraRouteHonoHandler(
           }
           // The body goes to unauthenticated callers; infra errors thrown by
           // verify() (secrets, DB) must not leak, so the detail stays in the log.
-          console.error(
-            `[kumiko:extra-route] signature verify() threw on ${c.req.path}:`,
-            e instanceof Error ? e.message : String(e),
-          );
+          extraRouteLog.error(`signature verify() threw on ${c.req.path}`, {
+            error: e instanceof Error ? e.message : String(e),
+          });
           return c.json(
             {
               error: {
