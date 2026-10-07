@@ -27,7 +27,7 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { hasWhereRule } from "../shared/index.js";
+import { assertNoWhereRuleInOwnershipWrite } from "../shared/index.js";
 import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./constants.js";
 import { createTagAssignmentEntity, tagEntity } from "./entity.js";
 import { createTagAssignmentExecutor } from "./executor.js";
@@ -201,17 +201,7 @@ export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof tagsFea
         "admissible as a host instead.",
     );
   }
-  if (hasWhereRule(opts.ownership?.write)) {
-    throw new Error(
-      "createTagsFeature({ ownership }): ownership.write must not contain a " +
-        '`{ kind: "where" }` rule — where-rules are evaluated only at the SQL ' +
-        "layer (the read path, via buildOwnershipClause). Write paths that " +
-        "consult access.write (userCanCreateFieldRow/userCanWriteFieldRow) can't " +
-        "evaluate them, so such a rule can only ever deny — boot validation " +
-        "rejects it too (fw#2626). Use a `from()` rule for ownership.write, or " +
-        "leave it unset.",
-    );
-  }
+  assertNoWhereRuleInOwnershipWrite("createTagsFeature", opts.ownership?.write);
   const access = resolveAccess(opts);
   return defineFeature(TAGS_FEATURE_NAME, (r) =>
     registerTags(r, access, opts.toggleable, opts.ownership, opts.parents),

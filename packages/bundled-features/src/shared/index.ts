@@ -1,4 +1,5 @@
 export { collectErasureFailure, throwIfErasureFailed } from "./assert-erased.js";
+export { assertNoWhereRuleInOwnershipWrite } from "./assert-no-where-rule-in-ownership-write.js";
 export {
   type ChunkedMigrationOptions,
   type ChunkedMigrationResult,
@@ -14,7 +15,6 @@ export { decryptStoredPii } from "./decrypt-stored-pii.js";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.js";
 export { entitiesOf } from "./entities-of.js";
 export { isWithinGracePeriod } from "./grace-period.js";
-export { hasWhereRule } from "./has-where-rule.js";
 export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash.js";
 export { isTenantDb } from "./is-tenant-db.js";
 export { createLockoutCounter, type LockoutCounterState } from "./lockout-counter.js";
@@ -25,6 +25,7 @@ export {
   parentRowIsVisible,
 } from "./parent-visibility.js";
 export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing.js";
+export { rateLimitedTextResponse } from "./rate-limited-text-response.js";
 export {
   redactBotTokens,
   redactEmailAddresses,

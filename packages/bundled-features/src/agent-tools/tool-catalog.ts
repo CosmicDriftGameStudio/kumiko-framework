@@ -6,6 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { hasAccess, normalizeAccessEntry } from "@cosmicdrift/kumiko-framework/engine";
 import { FILTER_OPS, isRecord } from "./filter-ops.js";
+import { assertCatalogMirrorsManifestDenyQns } from "./manifest-deny-qns.js";
 import type {
   AgentManifest,
   AgentManifestEntity,
@@ -628,7 +629,8 @@ function addClientTools(manifest: AgentManifest, mode: AgentToolMode, sink: Cata
  *  to drop an entity CRUD tool, which no `agent.expose` on the manifest side can reach. It is
  *  NOT read off the manifest on purpose — the manifest is prompt payload, and a list of the
  *  handlers the model may not call has no business travelling to the provider. Pass the same
- *  list to `buildAgentManifest` so the manifest stops describing what the catalog withholds. */
+ *  list to `buildAgentManifest` so the manifest stops describing what the catalog withholds;
+ *  a manifest built with `denyQns` that the catalog lacks throws. */
 export function buildToolCatalog(
   registry: RegistrySearchView,
   manifest: AgentManifest,
@@ -639,6 +641,7 @@ export function buildToolCatalog(
   const locale = manifest.tenantSettings.locale;
   const entityByName = new Map(manifest.entities.map((entity) => [entity.name, entity]));
   const denyQns = new Set(options.denyQns ?? []);
+  assertCatalogMirrorsManifestDenyQns(manifest, denyQns);
 
   addRegistrySearchTools(registry, roleFilter, denyQns, sink);
   const { detailQnByEntity, listQnByEntity, entityListDetailQns } = collectEntityHandlerQns(

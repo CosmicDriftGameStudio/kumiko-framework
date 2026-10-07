@@ -121,20 +121,24 @@ export function groupStaleDraftIdsByTenant(
 // resurrects, PII included. formDraftExecutor.delete() is the event-sourced
 // path; it needs a tenant-scoped db + a SessionUser, so rows are grouped by
 // tenant first (see groupStaleDraftIdsByTenant above).
-async function deleteStaleDraftsBatch(
+export async function deleteStaleDraftsBatch(
   batch: readonly StaleDraftRow[],
   db: DbConnection,
   retentionDays: number,
   log: AppContext["log"],
-): Promise<readonly StaleDraftRow[]> {
+): Promise<{ readonly deletedRows: readonly StaleDraftRow[]; readonly skippedCount: number }> {
   const deletedRows: StaleDraftRow[] = [];
+  let skippedCount = 0;
   const byId = new Map(batch.map((row) => [row.id, row]));
   for (const [tenantId, ids] of groupStaleDraftIdsByTenant(batch)) {
     const systemUser = createSystemUser(tenantId);
     const tenantDb = createTenantDb(db, tenantId, "system");
     for (const id of ids) {
       // Race: user may have saved between select and here — skip if no longer stale.
-      if (!(await isDraftStillStale(db, id, retentionDays))) continue;
+      if (!(await isDraftStillStale(db, id, retentionDays))) {
+        skippedCount++;
+        continue;
+      }
       const result = await formDraftExecutor.delete({ id }, systemUser, tenantDb);
       if (result.isSuccess) {
         const row = byId.get(id);
@@ -146,7 +150,7 @@ async function deleteStaleDraftsBatch(
       }
     }
   }
-  return deletedRows;
+  return { deletedRows, skippedCount };
 }
 
 export async function cleanupDraftsJob(
@@ -189,12 +193,20 @@ export async function cleanupDraftsJob(
     // entirely for rows with no FileRefs in the blob, the common case.
     // Delete first (with staleness re-check), then release binaries from rows
     // that actually disappeared — never release a draft the user just saved.
-    const deletedRows = await deleteStaleDraftsBatch(batch, db, retentionDays, ctx.log);
+    const { deletedRows, skippedCount } = await deleteStaleDraftsBatch(
+      batch,
+      db,
+      retentionDays,
+      ctx.log,
+    );
     for (const row of deletedRows) {
       await releaseRowFileRefs(row, db, fileProviderResolver, ctx.log);
     }
     deleted += deletedRows.length;
-    if (deletedRows.length === 0 || batch.length < DEFAULT_BATCH_SIZE) break;
+    // A skipped row is no longer stale, so the next select drops it — a fully
+    // skipped batch still makes progress. Only a batch with neither deletes nor
+    // skips (all failed) would reselect the same rows forever.
+    if (deletedRows.length + skippedCount === 0 || batch.length < DEFAULT_BATCH_SIZE) break;
   }
   ctx.log?.info?.(`[form-draft:cleanup] deleted=${deleted} retentionDays=${retentionDays}`);
 }

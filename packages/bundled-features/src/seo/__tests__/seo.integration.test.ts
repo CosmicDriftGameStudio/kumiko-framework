@@ -159,6 +159,24 @@ describe("seo :: GET /sitemap.xml", () => {
   });
 });
 
+describe("seo :: rate-limited managed-pages read", () => {
+  // by-tenant-published allows 60 calls per IP and window; the 61st read
+  // must surface as 429 instead of a sitemap that silently lost its pages.
+  test("sitemap.xml and llms.txt answer 429 with Retry-After once the bucket is exhausted", async () => {
+    await stack.redis.flushNamespace();
+    for (let i = 0; i < 60; i++) {
+      const res = await stack.app.request("http://a.example.com/sitemap.xml");
+      expect(res.status).toBe(200);
+    }
+    const sitemap = await stack.app.request("http://a.example.com/sitemap.xml");
+    expect(sitemap.status).toBe(429);
+    expect(Number(sitemap.headers.get("retry-after"))).toBeGreaterThan(0);
+    const llms = await stack.app.request("http://a.example.com/llms.txt");
+    expect(llms.status).toBe(429);
+    await stack.redis.flushNamespace();
+  }, 20000);
+});
+
 describe("seo :: GET /llms.txt", () => {
   test("emits org name + summary + a Pages section with all entries", async () => {
     const res = await stack.app.request("http://a.example.com/llms.txt");

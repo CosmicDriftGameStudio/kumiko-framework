@@ -1,5 +1,6 @@
 import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   type BrandingTokens,
   cachedSecurePageResponse,
@@ -7,7 +8,7 @@ import {
   renderSafeMarkdown,
   wrapInLayout,
 } from "../page-render/index.js";
-import type { SystemQueryFn } from "../shared/index.js";
+import { rateLimitedTextResponse, type SystemQueryFn } from "../shared/index.js";
 import { BRANDING_KEYS, BRANDING_QUERY_QN, CUSTOM_CSS_KEY, coerceBranding } from "./branding.js";
 import { createBrandingQuery } from "./handlers/branding.query.js";
 import { bySlugQuery } from "./handlers/by-slug.query.js";
@@ -51,16 +52,18 @@ function brandingRevisionSeed(branding: BrandingTokens): string {
   ]);
 }
 
-// Never throws: a query failure or malformed result degrades to the
-// unbranded default (branding is decoration, not a hard dependency of the
-// page render).
+// A query failure or malformed result degrades to the unbranded default
+// (branding is decoration, not a hard dependency of the page render). A rate
+// limit is rethrown so the route answers 429 instead of serving (and caching)
+// an unbranded page.
 async function readBrandingViaSystemQuery(
   systemQuery: SystemQueryFn,
   tenantId: string,
 ): Promise<BrandingTokens> {
   try {
     return coerceBranding(await systemQuery(BRANDING_QUERY_QN, {}, tenantId));
-  } catch {
+  } catch (error) {
+    if (error instanceof RateLimitError) throw error;
     return EMPTY_BRANDING;
   }
 }
@@ -207,12 +210,22 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
         // von resolverTrust: "authoritative" zurecht abgelehnt; siehe
         // systemQuery's Doc in http-route.ts). Branding ist Deko → ein
         // Fehlschlag degradiert zum unbranded Default, blockt nie die Page.
-        const [pageSettled, brandingResult] = await Promise.all([
-          systemQuery(BY_SLUG_QN, { slug, lang }, tenantId)
-            .then((data) => ({ ok: true as const, data: data as BySlugQueryResult }))
-            .catch(() => ({ ok: false as const, data: null as BySlugQueryResult })),
-          readBrandingViaSystemQuery(systemQuery, tenantId),
-        ]);
+        let pageSettled: { ok: true; data: BySlugQueryResult } | { ok: false };
+        let brandingResult: BrandingTokens;
+        try {
+          [pageSettled, brandingResult] = await Promise.all([
+            systemQuery(BY_SLUG_QN, { slug, lang }, tenantId)
+              .then((data) => ({ ok: true as const, data: data as BySlugQueryResult }))
+              .catch((error: unknown) => {
+                if (error instanceof RateLimitError) throw error;
+                return { ok: false as const };
+              }),
+            readBrandingViaSystemQuery(systemQuery, tenantId),
+          ]);
+        } catch (error) {
+          if (error instanceof RateLimitError) return rateLimitedTextResponse(error);
+          throw error;
+        }
         if (!pageSettled.ok) return c.text("page unavailable", 503);
 
         const data = pageSettled.data;
