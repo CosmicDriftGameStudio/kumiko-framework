@@ -2821,6 +2821,18 @@ function validateDashboardPanelVisibleWhen(
   }
 }
 
+function validateDashboardPanelSpan(
+  featureName: string,
+  screenId: string,
+  panel: { readonly id: string; readonly span?: unknown },
+): void {
+  if (panel.span !== undefined && panel.span !== "half" && panel.span !== "full") {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has span "${String(panel.span)}" — expected "half" or "full".`,
+    );
+  }
+}
+
 function validateDashboardStatGroupPanel(
   featureName: string,
   screenId: string,
@@ -2836,6 +2848,7 @@ function validateDashboardStatGroupPanel(
       `${context} sets subtitle without label — an unlabeled group renders as a KPI strip without a header.`,
     );
   }
+  validateDashboardPanelSpan(featureName, screenId, panel);
   validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
   for (const stat of panel.stats) {
     addPanelId(stat.id, "stat-group child");
@@ -3003,16 +3016,7 @@ function validateDashboardQueryPanel(
       `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has empty or non-string query.`,
     );
   }
-  if (
-    "span" in panel &&
-    panel.span !== undefined &&
-    panel.span !== "half" &&
-    panel.span !== "full"
-  ) {
-    throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has span "${String(panel.span)}" — expected "half" or "full".`,
-    );
-  }
+  validateDashboardPanelSpan(featureName, screenId, panel);
   if (panel.kind === "stat") {
     if (panel.valueField.length === 0) {
       throw new Error(

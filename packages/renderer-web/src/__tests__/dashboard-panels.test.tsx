@@ -1091,6 +1091,54 @@ describe("dashboard stat-group subtitle, strip icons and progress sub line", () 
     ).toBeTruthy();
   });
 
+  function labeledGroup(id: string, valueCount: number, span?: "half" | "full") {
+    return {
+      kind: "stat-group" as const,
+      id,
+      label: `demo:${id}`,
+      ...(span !== undefined && { span }),
+      stats: Array.from({ length: valueCount }, (_, index) => ({
+        kind: "stat" as const,
+        id: `${id}-${index}`,
+        label: `demo:${id}-${index}`,
+        query: "demo:query:kpi:any",
+        valueField: "value",
+      })),
+    };
+  }
+
+  test("a stat-group takes span half, default stays the full row", async () => {
+    renderDashboard(
+      {
+        id: "group-span",
+        type: "dashboard",
+        panels: [labeledGroup("narrow", 2, "half"), labeledGroup("wide", 2)],
+      },
+      { "demo:query:kpi:any": () => ok({ value: "1" }) },
+    );
+    const cell = (id: string) =>
+      screen.getByTestId(`dashboard-panel-${id}`).parentElement?.className ?? "";
+    await waitFor(() => expect(cell("narrow")).toContain("lg:col-span-2"));
+    expect(cell("wide")).toContain("lg:col-span-4");
+  });
+
+  test("a labeled stat-group sizes its columns to its values", async () => {
+    renderDashboard(
+      {
+        id: "group-cols",
+        type: "dashboard",
+        panels: [labeledGroup("one", 1), labeledGroup("two", 2), labeledGroup("three", 3)],
+      },
+      { "demo:query:kpi:any": () => ok({ value: "1" }) },
+    );
+    const grid = (id: string) =>
+      screen.getByTestId(`dashboard-panel-${id}`).querySelector("section.grid")?.className ?? "";
+    await waitFor(() => expect(grid("two")).toContain("sm:grid-cols-2"));
+    expect(grid("two")).not.toContain("sm:grid-cols-3");
+    expect(grid("three")).toContain("sm:grid-cols-3");
+    expect(grid("one")).not.toContain("sm:grid-cols");
+  });
+
   test("an unlabeled stat-group keeps each child's icon and accent color", async () => {
     renderDashboard(
       {

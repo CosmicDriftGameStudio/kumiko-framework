@@ -94,6 +94,21 @@ describe("validateBoot — dashboard screens", () => {
     expect(() => validateBoot([list("third")])).toThrow(/expected "half" or "full"/);
   });
 
+  test("accepts span on a stat-group and rejects anything but half/full", () => {
+    const group = (span: string) =>
+      dashboardFeature([
+        {
+          kind: "stat-group",
+          id: "totals",
+          label: "demo:dashboard:panel:latest",
+          span: span as "half",
+          stats: [STAT_PANEL],
+        },
+      ]);
+    expect(() => validateBoot([group("half")])).not.toThrow();
+    expect(() => validateBoot([group("third")])).toThrow(/expected "half" or "full"/);
+  });
+
   test("rejects a stat panel with empty valueField", () => {
     const feature = dashboardFeature([{ ...STAT_PANEL, valueField: "" }]);
     expect(() => validateBoot([feature])).toThrow(/empty valueField/);

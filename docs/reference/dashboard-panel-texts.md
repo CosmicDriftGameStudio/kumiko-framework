@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-05
-evidence: "packages/types/src/screen.ts (DashboardText, DashboardValueFormat, DashboardPanelGate, DashboardChartPanel); packages/renderer-web/src/app/dashboard-body.tsx; packages/renderer-web/src/widgets/charts.tsx (StackedAreaChart scrollable, lines, markers); packages/framework/src/engine/boot-validator/screens.ts"
+verified: 2026-10-07
+evidence: "packages/types/src/screen.ts (DashboardText, DashboardValueFormat, DashboardPanelGate, DashboardChartPanel); packages/renderer-web/src/app/dashboard-body.tsx; packages/renderer-web/src/widgets/stat.tsx; packages/renderer-web/src/widgets/charts.tsx (StackedAreaChart scrollable, lines, markers); packages/framework/src/engine/boot-validator/screens.ts"
 ---
 
 # Dashboard panel texts and value formats
@@ -86,9 +86,13 @@ The gate query returns a flat record. The panel renders only when `field` equals
 
 The boot validator checks that the gate query is registered and that `field` is in its `outputSchema`. It rejects `visibleWhen` on a `stat-group` child (gate the whole group instead) and an empty query or field.
 
-## Stat groups: `subtitle` and strip icons
+## Stat groups: `subtitle`, `span` and strip icons
 
 A labeled `stat-group` takes an optional `subtitle` (i18n key) shown next to its title. The boot validator rejects a `subtitle` without `label`. An unlabeled group renders as a KPI strip; each child keeps its `icon` and `accentColor` there too, as a small chip before the label.
+
+A `stat-group` takes `span: "half"` or `"full"` like the other panels and defaults to the full row. Two half-width groups sit next to each other on large screens. A labeled group gets one column per value, up to three.
+
+`accentColor` is static. When the icon chip should change color with the result, for example a net cash flow that turns from positive to negative, leave `accentColor` unset and return the tone from `toneField`: the value and the chip both follow it.
 
 ## Stacked-area extras: lines, marker kinds, colors, ranges
 

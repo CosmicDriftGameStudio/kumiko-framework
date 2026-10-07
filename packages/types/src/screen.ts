@@ -910,8 +910,8 @@ export type DashboardPanelGate = {
   readonly visibleWhen?: DashboardPanelVisibility;
 };
 
-// Grid width of chart/list/feed/progress-list panels. Default: charts and lists
-// span the full row, feed and progress-list half of it.
+// Grid width of stat-group/chart/list/feed/progress-list panels. Default:
+// stat-groups, charts and lists span the full row, feed and progress-list half of it.
 export type DashboardPanelSpan = "half" | "full";
 
 // Empty state of chart/list/feed/progress-list panels (i18n keys).
@@ -962,7 +962,10 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     /** Static CSS color value (e.g. "var(--color-debt)") for the icon chip,
      *  passed straight to the tile without a registry lookup. Applies ONLY when
      *  `icon` is set (StatCard renders the chip only together with an icon);
-     *  without an icon the value is silently dropped. */
+     *  without an icon the value is silently dropped. Without `accentColor` the
+     *  chip follows the tone, including a `toneField` value delivered per result.
+     *  An accent that should change with the result (e.g. by sign) goes through
+     *  `toneField`; leave `accentColor` unset then. */
     readonly accentColor?: string;
   };
 
@@ -1062,6 +1065,7 @@ export type DashboardStatGroupPanel = DashboardPanelGate & {
   readonly label?: string;
   /** i18n key, a line under `label`; the boot validator requires `label`. */
   readonly subtitle?: string;
+  readonly span?: DashboardPanelSpan;
   readonly stats: readonly DashboardStatPanel[];
 };
 

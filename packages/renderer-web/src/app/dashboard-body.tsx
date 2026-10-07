@@ -18,7 +18,8 @@
 //                   custom panels, accentColor is a raw CSS color value.
 //   stat-group    → several stat panels, each child stays an independent
 //                   query; with a label it sits under a section title,
-//                   without one it renders as a flat KPI strip.
+//                   without one it renders as a flat KPI strip. `span` works
+//                   like on other panels; columns follow the number of values.
 //   chart         → depends on `chart`: timeseries { points, windowStartMs,
 //                   windowEndMs, markers? }, stacked-bars / stacked-area
 //                   { series, windowStartMs, windowEndMs, todayMs?, markers? }
@@ -542,6 +543,11 @@ function readDelta(
   return { value: String(value), direction, ...(tone !== undefined && { tone }) };
 }
 
+function labeledGroupColumns(valueCount: number): string {
+  if (valueCount <= 1) return "";
+  return valueCount === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3";
+}
+
 function StatGroupPanelBody({
   panel,
   label,
@@ -582,7 +588,7 @@ function StatGroupPanelBody({
       {...(panel.subtitle !== undefined && { subtitle: translate(panel.subtitle) })}
       testId={testId}
     >
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section className={`grid grid-cols-1 gap-3 ${labeledGroupColumns(panel.stats.length)}`}>
         {panel.stats.map((stat) => (
           <StatPanelBody
             key={stat.id}
