@@ -665,6 +665,7 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
 
     await waitFor(() => screen.getByTestId("notes-touch"));
     const submit = await waitFor(() => screen.getByTestId("render-edit-submit"));
+    expect((submit as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByTestId("notes-touch"));
     await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
     await act(async () => {
