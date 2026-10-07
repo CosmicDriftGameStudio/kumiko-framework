@@ -11,6 +11,7 @@ import type {
   TextFieldDef,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.js";
@@ -367,6 +368,44 @@ describe("SecretMintBody (fw#2548)", () => {
 
     await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
     expect(writeCalls.map((c) => c.command)).toEqual(["shop:write:token:mint"]);
+  });
+});
+
+describe("SecretMintBody tenant-declared money currency (fw#2933)", () => {
+  const moneyMintScreen: SecretMintScreenDefinition = {
+    id: "mint-token",
+    type: "secretMint",
+    handler: "shop:write:token:mint",
+    fields: {
+      limit: { type: "money", currency: { kind: "tenant" } } as unknown as TextFieldDef,
+    },
+    layout: { sections: [{ title: "Mint", fields: ["limit"] }] },
+    reveal: { fields: [{ field: "token", label: "Token" }] },
+  };
+
+  test("holds the mint form until the tenant currency landed, then renders it", async () => {
+    let releaseConfig: (() => void) | undefined;
+    const configLanded = new Promise<void>((resolve) => {
+      releaseConfig = resolve;
+    });
+    const { dispatcher: base } = stubDispatcher({ token: "kpat_secret" });
+    const dispatcher: Dispatcher = {
+      ...base,
+      query: (async () => {
+        await configLanded;
+        return {
+          isSuccess: true,
+          data: { [TENANT_CURRENCY_CONFIG_KEY]: { value: "CHF" } },
+        };
+      }) as unknown as Dispatcher["query"],
+    };
+    renderMintScreen(dispatcher, moneyMintScreen);
+
+    expect(rtlScreen.queryByTestId("kumiko-screen-loading")).not.toBeNull();
+    expect(rtlScreen.queryByTestId("render-edit-submit")).toBeNull();
+
+    releaseConfig?.();
+    await waitFor(() => expect(rtlScreen.queryByTestId("render-edit-submit")).not.toBeNull());
   });
 });
 
