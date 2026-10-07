@@ -576,6 +576,20 @@ describe("extraRoutes: entry:signature", () => {
 
   afterAll(() => stack.cleanup());
 
+  test("an oversized body on a signature route outside /api is rejected with 413 before verify() runs", async () => {
+    const rawBody = JSON.stringify({ note: "x".repeat(2_000_000) });
+    const res = await stack.app.request("/webhooks/probe", {
+      method: "POST",
+      headers: {
+        "x-hmac": signHmac(rawBody),
+        "content-type": "application/json",
+        "content-length": String(rawBody.length),
+      },
+      body: rawBody,
+    });
+    expect(res.status).toBe(413);
+  });
+
   test("wrong signature → 401 extra_route_signature_invalid", async () => {
     const res = await stack.app.request("/webhooks/probe", {
       method: "POST",

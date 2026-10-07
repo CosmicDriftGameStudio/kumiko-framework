@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
@@ -349,6 +349,33 @@ describe("dashboard panel states", () => {
     await waitFor(() => expect(screen.getByText("Recovered")).toBeTruthy());
     expect(calls.filter((c) => c.type === "demo:query:feed:broken").length).toBeGreaterThan(before);
     expect(screen.queryByText("The other panels are not affected.")).toBeNull();
+  });
+
+  test("a retry that loads a panel moves the updated-at stamp past the initial render time", async () => {
+    const clock = spyOn(Date, "now");
+    clock.mockReturnValue(Date.UTC(2026, 0, 1, 8, 0, 0));
+    try {
+      let brokenCalls = 0;
+      renderDashboard(twoPanels, {
+        "demo:query:feed:broken": () => {
+          brokenCalls += 1;
+          return brokenCalls === 1 ? failure : ok({ rows: [{ primary: "Recovered" }] });
+        },
+        "demo:query:feed:healthy": () => ok({ rows: [{ primary: "Still here" }] }),
+      });
+      await waitFor(() => expect(screen.getByText("demo:broken could not be loaded")).toBeTruthy());
+      const stampTestId = `dashboard-${twoPanels.id}-updated-at`;
+      const stampAtRender = screen.getByTestId(stampTestId).textContent;
+
+      clock.mockReturnValue(Date.UTC(2026, 0, 1, 14, 30, 0));
+      await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
+      await waitFor(() => expect(screen.getByText("Recovered")).toBeTruthy());
+      await waitFor(() =>
+        expect(screen.getByTestId(stampTestId).textContent).not.toBe(stampAtRender),
+      );
+    } finally {
+      clock.mockRestore();
+    }
   });
 });
 

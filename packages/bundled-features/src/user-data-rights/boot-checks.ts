@@ -24,6 +24,13 @@ export function validateGdprHookCompleteness(features: readonly FeatureDefinitio
       if (usage.extensionName !== EXT_USER_DATA) continue;
       const hasExport = typeof usage.options?.["export"] === "function";
       const hasDelete = typeof usage.options?.["delete"] === "function";
+      // The compile-time "at least one hook" type is bypassed by string-typed
+      // extension names and casts; without this an empty bag registers nothing.
+      if (!hasExport && !hasDelete) {
+        throw new Error(
+          `[kumiko:boot] Feature "${feature.name}" registers EXT_USER_DATA for entity "${usage.entityName}" with neither an export nor a delete hook — the entity silently stays out of the Art.15/17/20 pipeline. Register at least one hook.`,
+        );
+      }
       if (hasExport && !hasDelete) {
         throw new Error(
           `[kumiko:boot] Feature "${feature.name}" exports entity "${usage.entityName}" via EXT_USER_DATA but registers no delete hook — data is included in Art.20 exports but never erased on forget (Art.17 violation). Add a delete hook. If erasure is intentionally handled elsewhere (e.g. crypto-shredding key-erase, parent cascade), register a no-op delete: async () => {} with a comment explaining why.`,

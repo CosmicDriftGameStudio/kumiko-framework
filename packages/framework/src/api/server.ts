@@ -120,6 +120,7 @@ import { createDefaultSseBroker, type RedisSseBroker } from "./redis-sse-broker.
 import { type RequestContextData, requestContext } from "./request-context.js";
 import { buildRequestContextData, requestIdMiddleware } from "./request-id-middleware.js";
 import {
+  bodyLimitForRoutePath,
   DEFAULT_MAX_REQUEST_BYTES,
   registerBodyLimit,
   registerHealthRoutes,
@@ -1198,7 +1199,15 @@ export function buildServer(options: ServerOptions): KumikoServer {
         dispatchSystemQuery,
         clientIpResolver,
       });
-      mountHonoRoute(app, route.method, route.path, honoHandler);
+      mountHonoRoute(
+        app,
+        route.method,
+        route.path,
+        honoHandler,
+        route.entry === ExtraRouteEntries.signature
+          ? bodyLimitForRoutePath(route.path, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES)
+          : [],
+      );
     }
   }
 

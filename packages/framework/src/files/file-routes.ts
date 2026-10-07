@@ -20,7 +20,7 @@ import {
   resolveRenderer,
 } from "../derivatives/index.js";
 import {
-  type FieldDefinition,
+  type AnyFileFieldDef,
   isFileField,
   isUuid,
   type Registry,
@@ -116,7 +116,7 @@ function createDefaultGuard(privilegedRoles: readonly string[]): FileAccessGuard
 
 type AttachedFieldResolution =
   | { readonly kind: "unattached" }
-  | { readonly kind: "resolved"; readonly fieldDef: FieldDefinition }
+  | { readonly kind: "resolved"; readonly fieldDef: AnyFileFieldDef }
   | { readonly kind: "unresolvable" };
 
 // entityType/fieldName drive the GDPR-forget decision downstream
@@ -133,7 +133,8 @@ function resolveAttachedField(
   if (entityType === undefined && fieldName === undefined) return { kind: "unattached" };
   const entity = entityType !== undefined ? registry?.getEntity(entityType) : undefined;
   const fieldDef = entity && fieldName !== undefined ? entity.fields[fieldName] : undefined;
-  if (!entityType || !fieldName || !entity || !fieldDef) return { kind: "unresolvable" };
+  if (!entityType || !fieldName || !entity || !fieldDef || !isFileField(fieldDef))
+    return { kind: "unresolvable" };
   return { kind: "resolved", fieldDef };
 }
 
@@ -281,12 +282,12 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       return c.json(
         {
           error:
-            "unresolvable_field: entityType/fieldName must resolve to a registered entity field, or both must be omitted for an unattached upload",
+            "unresolvable_field: entityType/fieldName must resolve to a registered file field, or both must be omitted for an unattached upload",
         },
         400,
       );
     }
-    if (attachedField.kind === "resolved" && isFileField(attachedField.fieldDef)) {
+    if (attachedField.kind === "resolved") {
       if (attachedField.fieldDef.maxSize) maxSize = attachedField.fieldDef.maxSize;
       if (attachedField.fieldDef.accept) accept = attachedField.fieldDef.accept;
     }

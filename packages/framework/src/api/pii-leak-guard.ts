@@ -16,6 +16,9 @@ const CIPHERTEXT_REDACT_RE = new RegExp(CIPHERTEXT_RE.source, "g");
 // red; prod redacts + logs instead of shipping the blob. Scans unconditionally:
 // legacy ciphertext rows can outlive a subject KMS that later became
 // unconfigured, and the marker check itself needs no KMS access to run.
+// Buffers every JSON body (no streaming, roughly double peak memory for large
+// exports) on purpose: a size threshold or opt-out would be a leak bypass for
+// exactly the large responses most likely to carry raw rows.
 export function piiCiphertextResponseGuard(): MiddlewareHandler {
   return async (c, next) => {
     await next();

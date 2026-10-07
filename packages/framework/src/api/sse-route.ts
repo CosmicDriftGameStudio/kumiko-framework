@@ -4,7 +4,7 @@ import { tenantChannel } from "../engine/constants.js";
 import { isAnonymousSessionUser } from "../engine/system-user.js";
 import type { SessionUser } from "../engine/types/index.js";
 import { Routes } from "./api-constants.js";
-import { getUser } from "./auth-middleware.js";
+import { getAuthTokenExpiry, getUser } from "./auth-middleware.js";
 import { accessInvalidationCredentialFor, type SseBroker, type SseEvent } from "./sse-broker.js";
 
 /**
@@ -119,6 +119,10 @@ function decideWireFrame(
   return { name: event.type, data };
 }
 
+// setTimeout overflows (fires immediately) above 2^31-1 ms; a token that
+// outlives it just gets its stream recycled early, the client reconnects.
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
+
 export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
   const route = new Hono();
 
@@ -127,6 +131,9 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
     // Channel is server-derived from authenticated user — never trust client input.
     // Allowing ?channel=... would let any authenticated user subscribe to other tenants' feeds.
     const channel = tenantChannel(user.tenantId);
+    // JWT expiry raises no access-invalidation event, so the stream must end
+    // itself when the token it was opened with expires.
+    const tokenExpiresAtSec = getAuthTokenExpiry(c);
 
     return streamSSE(c, async (stream) => {
       let resolveEnded!: () => void;
@@ -154,6 +161,14 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
         accessInvalidationCredentialFor(user),
       );
 
+      const expiryTimer =
+        tokenExpiresAtSec === undefined
+          ? undefined
+          : setTimeout(
+              closeStream,
+              Math.min(MAX_TIMER_DELAY_MS, Math.max(0, tokenExpiresAtSec * 1000 - Date.now())),
+            );
+
       let released = false;
       const release = () => {
         // skip: onAbort and the finally block both release, the second call is a no-op
@@ -161,6 +176,7 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
         released = true;
         // A client disconnect must also wake the heartbeat sleep, not only a server close.
         resolveEnded();
+        clearTimeout(expiryTimer);
         broker.removeClient(channel, clientId);
         unsubscribeAccessInvalidation();
       };
