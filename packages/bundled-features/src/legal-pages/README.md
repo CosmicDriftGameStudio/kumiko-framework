@@ -201,10 +201,10 @@ await seedTextBlock(db, {
   title: "Impressum",
   content: `## Angaben gemäß § 5 TMG
 
-**Marc Frost**
+**Alex Morgan**
 
-Slevogtstr. 10
-04159 Leipzig
+Musterstraße 1
+12345 Musterstadt
 
 ## Kontakt
 

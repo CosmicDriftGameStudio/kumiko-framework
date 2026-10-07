@@ -58,7 +58,7 @@ export function AppShell({
           ],
         ])
       }
-      sidebarFooter={<SidebarUser name="Marc Frost" email="marc@cosmicdrift.dev" />}
+      sidebarFooter={<SidebarUser name="Alex Morgan" email="alex@example.com" />}
     >
       {activeTarget !== undefined ? <EditorPanel resolvers={resolvers} /> : children}
     </DefaultAppShell>

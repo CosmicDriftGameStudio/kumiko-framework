@@ -13,6 +13,7 @@ import {
   SidebarBrand,
   ThemeMenuItem,
   ThemeToggle,
+  useTranslation,
 } from "@cosmicdrift/kumiko-renderer-web";
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
@@ -20,7 +21,6 @@ import { AssistantAction } from "./assistant-action";
 import { BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 
 const APP_NAME = "Kumiko Walkthrough";
-const APP_TAGLINE = "Design-Referenz";
 
 const tenantName = (tenantId: string): string => {
   if (tenantId === DEV_TENANT_ID) return "Dev Tenant";
@@ -40,9 +40,10 @@ export function AppShell({
   readonly children: ReactNode;
   readonly schema: AppSchema;
 }): ReactNode {
+  const t = useTranslation();
   return (
     <DefaultAppShell
-      brand={<SidebarBrand name={APP_NAME} plan={APP_TAGLINE} />}
+      brand={<SidebarBrand name={APP_NAME} plan={t("tasks.shell.tagline")} />}
       schema={schema}
       headerActions={
         <>

@@ -8,7 +8,7 @@
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import { clearSession, runMatrix, type Scenario } from "@cosmicdrift/kumiko-testing/e2e";
-import type { Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_NOTE_ID } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
 
@@ -17,6 +17,19 @@ async function applyTheme(page: Page, theme: (typeof THEMES)[number]): Promise<v
   await page.evaluate((t) => {
     document.documentElement.classList.toggle("dark", t === "default-dark");
   }, theme);
+}
+
+// The login handler allows 20 attempts per IP and minute and the matrix has
+// more scenarios than that, so each worker logs in once and reuses the cookies.
+let adminSessionCookies: Awaited<ReturnType<BrowserContext["cookies"]>> | undefined;
+
+async function signInAsAdmin(page: Page): Promise<void> {
+  if (adminSessionCookies !== undefined) {
+    await page.context().addCookies(adminSessionCookies);
+    return;
+  }
+  await loginAsAdmin(page);
+  adminSessionCookies = await page.context().cookies();
 }
 
 async function csrfTokenOf(page: Page): Promise<string> {
@@ -30,14 +43,14 @@ async function csrfTokenOf(page: Page): Promise<string> {
 // then navigate. WorkspaceShell routes as `/<workspace>/<screen>` — admin-shell
 // owns tenant-admin (default) + platform; Settings-Hub owns settings.
 const admin = (path: string) => async (page: Page) => {
-  await loginAsAdmin(page);
+  await signInAsAdmin(page);
   await page.goto(path);
 };
 
 // Detail screens need a real row instead of a guessed URL id. Audit entries
 // are created by the screenshot seed; the job flow triggers one explicitly.
 const auditLogDetailFlow = () => async (page: Page) => {
-  await loginAsAdmin(page);
+  await signInAsAdmin(page);
   await page.goto("/tenant-admin/audit-log");
   const table = page.getByTestId(/^render-list-table/);
   await table.getByRole("row").nth(1).waitFor();
@@ -46,7 +59,7 @@ const auditLogDetailFlow = () => async (page: Page) => {
 };
 
 const jobRunDetailFlow = () => async (page: Page) => {
-  await loginAsAdmin(page);
+  await signInAsAdmin(page);
   await page.goto("/platform/job-runs");
   await page.getByRole("button", { name: "Run a job" }).click();
   await page.getByTestId("render-edit-form").waitFor();
@@ -59,7 +72,7 @@ const jobRunDetailFlow = () => async (page: Page) => {
 };
 
 const jobTriggerFlow = () => async (page: Page) => {
-  await loginAsAdmin(page);
+  await signInAsAdmin(page);
   await page.goto("/platform/job-runs");
   await page.getByRole("button", { name: "Run a job" }).click();
   await page.getByTestId("render-edit-form").waitFor();
@@ -71,7 +84,7 @@ const jobTriggerFlow = () => async (page: Page) => {
 // the sidebar, the rich editor, and the variable chips its variableSchema
 // declares.
 const collectionEditor = () => async (page: Page) => {
-  await loginAsAdmin(page);
+  await signInAsAdmin(page);
   await page.goto("/platform");
   // Collection nodes render expanded, so no click on the node itself — that
   // would collapse it and hide the very entries the shot is about.
@@ -87,7 +100,7 @@ const collectionEditor = () => async (page: Page) => {
 // privacy-center "Export my data" button calls — dispatch it directly for
 // the admin so the inspector has a row to show.
 const exportJobListFlow = () => async (page: Page) => {
-  await loginAsAdmin(page);
+  await signInAsAdmin(page);
   const csrfToken = await csrfTokenOf(page);
   const res = await page.request.post("/api/write", {
     headers: { "X-CSRF-Token": csrfToken },
@@ -110,7 +123,7 @@ const exportJobListFlow = () => async (page: Page) => {
 // explicit workspace prefix. Click "Start setup" so the screenshot shows the
 // QR/recovery-code step, not just the entry button.
 const adminMfaEnroll = () => async (page: Page) => {
-  await loginAsAdmin(page);
+  await signInAsAdmin(page);
   await page.goto("/tenant-admin/auth-mfa-enable");
   await page.getByRole("button", { name: "Start setup" }).click();
   await page.locator("svg").first().waitFor();
@@ -125,7 +138,7 @@ const adminMfaEnroll = () => async (page: Page) => {
 // rest of this server process (one shared ephemeral DB per run), which
 // would otherwise challenge every other admin-flow scenario.
 const adminMfaLoginChallenge = () => async (page: Page) => {
-  await loginAsAdmin(page);
+  await signInAsAdmin(page);
   const csrfToken = await csrfTokenOf(page);
   const start = await page.request.post("/api/write", {
     headers: { "X-CSRF-Token": csrfToken },
@@ -237,7 +250,7 @@ const SCENARIOS: readonly Scenario[] = [
     flow: admin("/settings/tenant-settings-tenant"),
   },
   // session-list — sortable projectionList over store_user_sessions.
-  // loginAsAdmin's own login already creates one live session row.
+  // The admin sign-in already creates one live session row.
   {
     name: "session-list",
     flow: admin("/tenant-admin/session-list"),

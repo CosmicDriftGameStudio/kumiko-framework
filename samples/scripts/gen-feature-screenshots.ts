@@ -101,9 +101,18 @@ const SCREENSHOT_RUNNERS: readonly Runner[] = [
     out: `${APPS_OUT}/marketing-demo`,
   },
   {
+    // Its screenshots.spec.ts is the German design review (`bun run
+    // screenshots` there); the docs embed only this matrix.
     id: "ui-walkthrough",
     cwd: resolve(SAMPLES_ROOT, "apps/ui-walkthrough"),
-    command: SCREENSHOTS_CMD,
+    command: [
+      "bun",
+      "x",
+      "playwright",
+      "test",
+      "e2e/docs-matrix.screenshots.spec.ts",
+      "--config=playwright.config.ts",
+    ],
     out: sampleOut("apps/ui-walkthrough"),
     cleanOut: true,
   },
