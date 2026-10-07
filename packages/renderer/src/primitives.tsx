@@ -1469,8 +1469,11 @@ const STATUS_TONE_BY_OPTION_TONE: Readonly<Record<SelectOptionTone, StatusTone>>
   neutral: "muted",
 };
 
-export function statusToneForOptionTone(tone: SelectOptionTone): StatusTone {
-  return STATUS_TONE_BY_OPTION_TONE[tone];
+// Own-key check: an unknown tone from an untyped definition must yield undefined so callers fall back to the value heuristic.
+export function statusToneForOptionTone(tone: SelectOptionTone): StatusTone | undefined {
+  return Object.hasOwn(STATUS_TONE_BY_OPTION_TONE, tone)
+    ? STATUS_TONE_BY_OPTION_TONE[tone]
+    : undefined;
 }
 
 export function statusToneForValue(value: string): StatusTone | undefined {

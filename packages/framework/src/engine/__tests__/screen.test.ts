@@ -136,6 +136,21 @@ describe("r.screen() — registration", () => {
     expect(() => validateBoot(features)).toThrow(/empty sections list/i);
   });
 
+  test("validateBoot rejects an unknown header.statusTones tone", () => {
+    const features = [
+      defineFeature("app", (r) => {
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "app:query:foo:detail",
+          header: { title: "name", status: "state", statusTones: { open: "error" as never } },
+          layout: { sections: [{ title: "s", fields: ["name"] }] },
+        });
+      }),
+    ];
+    expect(() => validateBoot(features)).toThrow(/header\.statusTones\["open"\] is "error"/);
+  });
+
   test("validateBoot rejects a projectionDetail section with zero fields", () => {
     const features = [
       defineFeature("app", (r) => {

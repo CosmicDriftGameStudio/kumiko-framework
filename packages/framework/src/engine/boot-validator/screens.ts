@@ -6,7 +6,11 @@
 
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import type { OptionsQueryPayload } from "@cosmicdrift/kumiko-types/fields";
-import { NO_WIDGET_FIELD_TYPES, optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
+import {
+  NO_WIDGET_FIELD_TYPES,
+  optionsQueryFieldRefs,
+  SELECT_OPTION_TONES,
+} from "@cosmicdrift/kumiko-types/fields";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
 import { rowMetaFieldNames } from "../../db/table-builder.js";
@@ -64,6 +68,7 @@ import type {
   ToolbarAction,
 } from "../types/screen.js";
 import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.js";
+import { isSelectOptionTone } from "./select-option-tone.js";
 
 // entityList and projectionList both allow a rowAction to double as the
 // row-body click target (rowClick: true, fw#1708/#2164) — at most one per
@@ -905,7 +910,7 @@ function validateFieldsXorGroups(
         `when using groups.`,
     );
   }
-  if (section.fields.length === 0 && section.groups === undefined) {
+  if (section.fields.length === 0 && (section.groups?.length ?? 0) === 0) {
     throw new Error(
       `${errorPrefix} has a section "${section.title}" with zero fields — drop the section or add ` +
         `fields (or groups) to it.`,
@@ -1785,6 +1790,14 @@ export function validateScreens(
               );
             }
           }
+        }
+      }
+      for (const [statusValue, tone] of Object.entries(screen.header?.statusTones ?? {})) {
+        if (!isSelectOptionTone(tone)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) header.statusTones["${statusValue}"] ` +
+              `is "${String(tone)}" — expected one of ${SELECT_OPTION_TONES.join(", ")}.`,
+          );
         }
       }
       if (Array.isArray(screen.header?.subtitle)) {

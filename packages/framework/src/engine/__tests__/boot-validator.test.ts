@@ -2803,6 +2803,12 @@ describe("boot-validator", () => {
       ).toThrow(/section "Empty" with zero fields/);
     });
 
+    test("section mit fields: [] und groups: [] → Throw (leere Card)", () => {
+      expect(() =>
+        validateBoot([makeFeature({ sections: [{ title: "Empty", fields: [], groups: [] }] })]),
+      ).toThrow(/section "Empty" with zero fields/);
+    });
+
     test("layout referenziert unknown field → Throw", () => {
       expect(() =>
         validateBoot([makeFeature({ sections: [{ title: "x", fields: ["ghost"] }] })]),

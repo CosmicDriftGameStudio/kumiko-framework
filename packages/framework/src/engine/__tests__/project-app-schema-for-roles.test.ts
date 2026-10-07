@@ -156,6 +156,28 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
       listScreenId: SECRET_SCREEN_ID,
     });
     r.screen({
+      id: "host-mint",
+      type: "secretMint",
+      handler: "host:write:noop",
+      fields: {},
+      layout: { sections: [] },
+      reveal: { fields: [{ field: "token", label: "Token" }] },
+      confirm: {
+        handler: "host:write:noop",
+        fields: { proof: { type: "text" } },
+        layout: {
+          sections: [
+            {
+              fields: ["proof"],
+              actions: [
+                { kind: "navigate", id: "confirm-open", label: "Open", screen: SECRET_SCREEN_ID },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    r.screen({
       id: "detail",
       type: "projectionDetail",
       query: "host:query:record:detail",
@@ -258,6 +280,10 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     if (board?.type !== "dashboard") throw new Error("unreachable");
     expect(board.panels).toHaveLength(1);
 
+    const mint = host.screens.find((s) => s.id === "host-mint");
+    if (mint?.type !== "secretMint") throw new Error("unreachable");
+    expect(mint.confirm?.layout.sections[0]).toHaveProperty("actions");
+
     const hostAction = host.screens.find((s) => s.id === "host-action");
     expect(hostAction?.type).toBe("actionForm");
     if (hostAction?.type !== "actionForm") throw new Error("unreachable");
@@ -338,6 +364,10 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     expect(edit?.type).toBe("entityEdit");
     if (edit?.type !== "entityEdit") throw new Error("unreachable");
     expect(edit.redirect).toBeUndefined();
+
+    const mint = host.screens.find((s) => s.id === "host-mint");
+    if (mint?.type !== "secretMint") throw new Error("unreachable");
+    expect(mint.confirm?.layout.sections[0]).not.toHaveProperty("actions");
 
     const board = host.screens.find((s) => s.id === "board");
     expect(board?.type).toBe("dashboard");

@@ -778,20 +778,27 @@ function projectSecretMintScreen(
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
 ): ScreenDefinition {
-  const { redirect, cancelTarget, layout, listScreenId, ...rest } = screen;
+  const { redirect, cancelTarget, layout, listScreenId, confirm, ...rest } = screen;
   const nextRedirect = projectRedirect(feature.featureName, redirect, keptScreenQns);
   const nextCancelTarget = projectCancelTarget(feature.featureName, cancelTarget, keptScreenQns);
   const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
   const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
+  const nextConfirmLayout =
+    confirm === undefined
+      ? undefined
+      : projectEditLayout(confirm.layout, feature, indices, keptScreenQns);
   const unchanged =
     nextRedirect === redirect &&
     nextCancelTarget === cancelTarget &&
     nextLayout === layout &&
-    nextListScreenId === listScreenId;
+    nextListScreenId === listScreenId &&
+    nextConfirmLayout === confirm?.layout;
   if (unchanged) return screen;
   return {
     ...rest,
     layout: nextLayout,
+    ...(confirm !== undefined &&
+      nextConfirmLayout !== undefined && { confirm: { ...confirm, layout: nextConfirmLayout } }),
     ...(nextRedirect !== undefined && { redirect: nextRedirect }),
     ...(nextCancelTarget !== undefined && { cancelTarget: nextCancelTarget }),
     ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),

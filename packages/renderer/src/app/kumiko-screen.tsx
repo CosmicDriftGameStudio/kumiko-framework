@@ -3139,7 +3139,8 @@ function headerStatusTone(
     header.statusTones !== undefined && Object.hasOwn(header.statusTones, value)
       ? header.statusTones[value]
       : undefined;
-  return declared !== undefined ? statusToneForOptionTone(declared) : statusToneForValue(value);
+  const declaredTone = declared !== undefined ? statusToneForOptionTone(declared) : undefined;
+  return declaredTone ?? statusToneForValue(value);
 }
 
 function resolveSubtitleHref(
