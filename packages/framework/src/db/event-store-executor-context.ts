@@ -19,7 +19,12 @@ import type {
   SessionUser,
   TenantId,
 } from "../engine/types/index.js";
-import { UniqueViolationError, type WriteFailure, writeFailure } from "../errors/index.js";
+import {
+  InternalError,
+  UniqueViolationError,
+  type WriteFailure,
+  writeFailure,
+} from "../errors/index.js";
 import { ArchivedStreamError, type EventMetadata, isStreamArchived } from "../event-store/index.js";
 import type { EntityCache } from "../pipeline/entity-cache.js";
 import type { SearchAdapter } from "../search/types.js";
@@ -430,6 +435,18 @@ export function buildExecutorContext(
     streamTenantId: TenantId,
     expectKeys: readonly string[],
   ): Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }> {
+    for (const key of expectKeys) {
+      if (table[key] === undefined) {
+        throw new InternalError({
+          message: `expect: "${key}" is not a column of entity "${entityName}"`,
+        });
+      }
+      if (encryptedFields.has(key) || piiSubjectFields.includes(key)) {
+        throw new InternalError({
+          message: `expect: "${key}" on entity "${entityName}" is stored encrypted and cannot be compared as plaintext`,
+        });
+      }
+    }
     const quote = (name: string): string => `"${name.replace(/"/g, '""')}"`;
     const columnOf = (field: string): string =>
       quote((table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field));

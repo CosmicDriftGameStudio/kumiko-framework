@@ -11,7 +11,7 @@
 // Deep-path-queries (->>'key') sind out-of-scope für bun-db's WhereObject.
 import { afterAll, describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { insertMany, selectMany } from "../query.js";
+import { asRawClient, insertMany, selectMany } from "../query.js";
 import { closeDb, withTable } from "./_helpers.js";
 
 afterAll(async () => {
@@ -222,6 +222,31 @@ describe("where — ordering/pattern operators on a jsonb option array", () => {
         const rows = await selectMany(db, meta, { tags: { [op]: "a" } });
         expect(rows).toEqual([]);
       }
+    });
+  });
+});
+
+describe("where — scalar filter on a jsonb column holding scalars", () => {
+  const jsonbCols = [
+    { name: "label", pgType: "text" as const, notNull: true },
+    { name: "flag", pgType: "jsonb" as const, notNull: true },
+  ] as const;
+
+  test("eq, in and ne still match the stored scalar exactly", async () => {
+    await withTable(jsonbCols, async ({ db, meta }) => {
+      await asRawClient(db).unsafe(
+        `INSERT INTO "${meta.tableName}" ("id", "label", "flag") VALUES
+           (gen_random_uuid(), 'on', 'true'::jsonb),
+           (gen_random_uuid(), 'off', 'false'::jsonb),
+           (gen_random_uuid(), 'word', '"x"'::jsonb)`,
+      );
+      const labelsOf = async (where: Record<string, unknown>) =>
+        (await selectMany<{ label: string }>(db, meta, where)).map((r) => r.label).sort();
+
+      expect(await labelsOf({ flag: true })).toEqual(["on"]);
+      expect(await labelsOf({ flag: "x" })).toEqual(["word"]);
+      expect(await labelsOf({ flag: { in: [true, "x"] } })).toEqual(["on", "word"]);
+      expect(await labelsOf({ flag: { ne: true } })).toEqual(["off", "word"]);
     });
   });
 });

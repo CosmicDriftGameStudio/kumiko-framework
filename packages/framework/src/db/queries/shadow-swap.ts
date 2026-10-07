@@ -457,10 +457,13 @@ export async function countColumnDrift(
 // object depends on the live table the swap fails loud and the whole rebuild
 // rolls back, leaving the old table untouched.
 export async function swapShadowIntoLive(tx: AnyDb, tableName: string): Promise<void> {
-  // Re-checked right before DROP: RLS could have been enabled after the early check.
-  await assertLiveTableHasNoRowLevelSecurity(tx, tableName);
   const raw = asRawClient(tx);
   const ident = quoteTableIdent(tableName);
+  // Held before the re-check so a concurrent ENABLE ROW LEVEL SECURITY either commits first
+  // (and is seen) or waits behind the DROP. Without it the catalog read takes no lock, and
+  // the unfenced paths (MSP rebuild, projection with no subscribed events) would drop RLS.
+  await raw.unsafe(`LOCK TABLE public.${ident} IN ACCESS EXCLUSIVE MODE`);
+  await assertLiveTableHasNoRowLevelSecurity(tx, tableName);
   await raw.unsafe(`DROP TABLE public.${ident}`);
   await raw.unsafe(`ALTER TABLE ${SCHEMA_IDENT}.${ident} SET SCHEMA public`);
 }

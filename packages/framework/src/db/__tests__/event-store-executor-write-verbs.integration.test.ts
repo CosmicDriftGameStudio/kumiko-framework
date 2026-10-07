@@ -17,6 +17,11 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack/index.js";
+import { createTestEnvelopeCipher } from "../../testing/index.js";
+import {
+  configureEntityFieldEncryption,
+  resetEntityFieldEncryptionCacheForTests,
+} from "../entity-field-encryption.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb, type TenantDb } from "../tenant-db.js";
@@ -412,6 +417,7 @@ const expectEntity = createEntity({
     email: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     status: createTextField({ personal: false, reason: "test_fixture" }),
     note: createTextField({ personal: false, reason: "test_fixture" }),
+    secret: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
   },
 });
 const expectTable = buildEntityTable("esWriteExpect", expectEntity);
@@ -422,7 +428,14 @@ describe("event-store-executor write-verbs — expect precondition (#3024)", () 
   });
 
   beforeAll(async () => {
+    configureEntityFieldEncryption(
+      createTestEnvelopeCipher(Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64")),
+    );
     await unsafeCreateEntityTable(testDb.db, expectEntity, "esWriteExpect");
+  });
+
+  afterAll(() => {
+    resetEntityFieldEncryptionCacheForTests();
   });
 
   beforeEach(async () => {
@@ -463,6 +476,20 @@ describe("event-store-executor write-verbs — expect precondition (#3024)", () 
       [created.data.id],
     );
     expect((row as unknown as { status: string }[])[0]?.status).toBe("Requested");
+  });
+
+  test("expect on an unknown field or an encrypted field is a developer error naming the field", async () => {
+    const created = await crud.create({ email: "bad-expect@test.de" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    const id = created.data.id;
+    const attempt = (expect: Readonly<Record<string, string>>) =>
+      crud.update({ id, changes: { status: "Requested" } }, admin, tdb, {
+        skipOptimisticLock: true,
+        expect,
+      });
+
+    await expect(attempt({ nonexistent: "x" })).rejects.toThrow(/"nonexistent"/);
+    await expect(attempt({ secret: "x" })).rejects.toThrow(/"secret".*encrypted/);
   });
 
   test("multiple expect fields, one mismatches → precondition_failed", async () => {

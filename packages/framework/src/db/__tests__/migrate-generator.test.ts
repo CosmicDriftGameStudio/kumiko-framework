@@ -348,6 +348,19 @@ describe("renderMigrationSql — changed index predicates (kumiko-framework#2492
     expect(diffSnapshots(prev, next).changedTables).toEqual([]);
   });
 
+  test("whitespace-only re-rendering of an index whereSql is not a diff", () => {
+    const base: IndexMeta = {
+      name: "read_a_status_idx",
+      columns: ["status"],
+      whereSql: '"a" IS NOT NULL AND "b" = false',
+    };
+    const prev = snapshotFromMetas([metaWithIndexes("read_a", [base])]);
+    const next = snapshotFromMetas([
+      metaWithIndexes("read_a", [{ ...base, whereSql: '"a" IS NOT NULL\n  AND "b" = false ' }]),
+    ]);
+    expect(diffSnapshots(prev, next).changedTables).toEqual([]);
+  });
+
   test("new index with needsManualWhere is rendered commented-out, not silently as a bare CREATE INDEX (render-ddl consolidation)", () => {
     // migrate-generator.ts used to carry its own renderIndex() copy that
     // didn't check needsManualWhere — a new partial index with an

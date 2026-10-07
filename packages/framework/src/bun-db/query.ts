@@ -650,6 +650,11 @@ function buildWhereClause(
         parts.push(`${ref(col)} @> $${idx++}${p.sql}`);
         values.push(p.bound);
       }
+      // A jsonb column holding the scalar itself is never `@>` an array of it.
+      if (isJsonbScalar(v)) {
+        parts.push(`${ref(col)} = $${idx++}::text::jsonb`);
+        values.push(JSON.stringify(v));
+      }
     }
     return parts.length > 0 ? `(${parts.join(" OR ")})` : "FALSE";
   }
@@ -735,8 +740,10 @@ function buildWhereClause(
         if (opKey === "ne" && pgType === "jsonb" && isJsonbScalar(opVal)) {
           const p = prepareJsonbValue([opVal]);
           if (p && p.kind === "param") {
-            conditions.push(`(${ref(col)} IS NULL OR NOT (${ref(col)} @> $${idx++}${p.sql}))`);
-            values.push(p.bound);
+            conditions.push(
+              `(${ref(col)} IS NULL OR NOT (${ref(col)} @> $${idx++}${p.sql} OR ${ref(col)} = $${idx++}::text::jsonb))`,
+            );
+            values.push(p.bound, JSON.stringify(opVal));
             continue;
           }
         }
