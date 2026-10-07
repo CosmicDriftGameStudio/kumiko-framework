@@ -1,5 +1,170 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.352.0
+
+### Minor Changes
+
+- 9fb0657: Cap reservations run after every pre-handler gate and settle with the handler transaction
+
+  Handlers wrapped with `withCapEnforcement` used to reserve capacity before rate limits, access and payload validation had run, so a rejected caller could use up cap or trigger a soft-warn. The dispatcher now runs the same gates, billing rate limits once, before it calls `reserveBeforeTransaction`; a failing gate rejects the command and releases the reservations taken before it. A hook that returns a `ReservationHandle` also confirms inside the handler transaction after the handler succeeded, and a confirm failure fails the write.
+
+  Calendar reservations are now rows in the new `store_cap_reservations` table: the counter increment and the row commit together, the handler transaction deletes the row on its own commit, and a release only gives back what is still booked. Rolling caps reserve the same way: a version-guarded `rolling-incremented` append plus a reservation row before the handler transaction, undone by the new `cap-counter:event:rolling-released` event. `readRollingCapUsage` returns incremented minus released amounts in the window, never below 0. Rows a crashed process left behind expire after 60 minutes and are given back before the next reserve for the same cap. `withCapEnforcement` keeps the wrapped handler's other settings and chains an existing `reserveBeforeTransaction` of that handler: the inner reservation is taken first and given back if the outer one fails.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: breaking
+  title: Calendar cap reservations are stored in the new store_cap_reservations table
+  detail: Capped writes now insert and delete rows in store_cap_reservations, so they fail until the table exists.
+  migration: Generate and apply a migration with `kumiko-schema generate` — capped writes fail without the new store_cap_reservations table
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Rate-limited, denied or invalid callers no longer consume cap usage or trigger soft-warn, because pre-handler gates run before reserveBeforeTransaction
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: reserveBeforeTransaction may return a ReservationHandle whose confirmInTransaction settles the reservation inside the handler transaction
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: Reservations expire after 60 minutes and are swept before the next reserve of the same cap
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: withCapEnforcement keeps the wrapped handler's settings (rateLimit, additionalRateLimits) and composes with an inner reserveBeforeTransaction
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: withRollingCapEnforcement reserves before the handler transaction and releases through the new rolling-released event, so rejected or failed writes no longer consume rolling cap
+  -->
+
+- 9fb0657: The delivery attempt log keeps masked recipient addresses and prunes old attempts
+
+  New attempt events and log rows hold a masked address (`u***@example.com`, `https://hooks.example.com/***`, `***7890`) instead of the full one. Chat webhook channels (Slack, Discord, Teams) keep logging their connection name, which is not personal data; a custom channel opts in with `addressKind: "connection-name"`. A daily job prunes attempt events and log rows older than 90 days, and forgetting a user erases the address on that user's attempt rows with a `delivery:event:attempt-address-erased` event, which also survives projection rebuilds.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Delivery attempt log stores masked recipient addresses; attempts older than 90 days are pruned
+  detail: The log query, the export and the stored events show masked addresses, and the feature registers the daily attempt-log-retention job.
+  migration: Read recipients from your own data, not from the attempt log, because it only shows masked addresses now. Set `attemptLogRetentionDays` on createDeliveryFeature to another number of days, or to `false` to keep the log, if 90 days does not fit. Schedule nothing extra, the feature registers the cron job itself. Existing full-address entries are removed by the retention job once they are older than the window, or erased when their user is forgotten.
+  -->
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Forgetting a user erases the recipient address of their delivery attempts in plaintext mode too, through an event that survives projection rebuilds
+  -->
+
+- 9fb0657: The simple mail renderer gets a badge, a stage track and chips, and notification renders carry a text part
+
+  `EmailTemplateData.badge` (`{ label, tone? }`) renders a small pill above the header. Two new section kinds are available: `{ stages: { label, state: "done" | "current" | "upcoming" }[] }` renders an email-safe horizontal track from a table with inline styles, and `{ chips: { label, tone? }[] }` renders inline pills. Tones are `neutral`, `info`, `success`, `warning` and `danger`; a missing or unknown tone renders as neutral. Malformed stage and chip entries are skipped, every label is escaped. `renderText` prints the badge as `[label]`, stages as `✓ A → ▶ B → ○ C` and chips joined with `·`. The `renderer-simple` plugin now fills the optional `text` of the `notification` render response through `renderText`.
+
+  <!-- kumiko-changes
+  feature: renderer-simple
+  type: improvement
+  title: Badge, stages track and chips for the simple mail renderer
+  detail: Use badge, { stages } and { chips } in the template variables; the notification RenderResponse carries the matching plain text in text.
+  -->
+
+- 9fb0657: Select options can be disabled per tenant, and the tier-engine gates them on write
+
+  A select option in the `select` primitive takes `disabled`, with the existing `description` as the hint. `renderer-web` mutes a disabled option and does not let it be chosen in the dropdown, the radio list, the radio cards and the segmented control; the dropdown appends the hint to the label in parentheses, the radio variants show it as the description line.
+
+  `SelectFieldDef.optionsAvailabilityQuery` names a query that returns `{ rows: { value, disabled?, hint? }[] }`. The renderer loads it, resolving `optionsQueryPayload` like `optionsQuery` does, and merges it onto the static `options`: `disabled` disables the option, `hint` becomes its description. Static options stay authoritative, rows for unknown values are ignored, and the currently stored value always stays enabled so a downgraded tenant keeps seeing it. The field is also allowed on entity fields, and boot fails when the query is not a registered query handler.
+
+  `createTierOptionGate` in the tier-engine takes the ascending tier order, `capsForTier` and `resolveTier`. Its `optionAvailability` builds the rows for such a query (an option the current tier does not allow is disabled and its hint names the lowest tier that allows it), and `withTierOptionGate` rejects a disallowed option on write with `UnprocessableError(code, { i18nKey, details: { field, value, requiredTier } })`. An update that resends the unchanged stored value of a no longer allowed option passes when the spec names the entity `table`. The wrapper spreads the wrapped handler, so `withCapEnforcement` and rate limits keep working.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: SelectFieldDef.optionsAvailabilityQuery marks static select options as unavailable per tenant
+  detail: The query returns { rows: { value, disabled?, hint? }[] }; the renderer merges it onto options and keeps the stored value enabled.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validation and the client schema cover select optionsAvailabilityQuery on entity and screen fields
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: Edit view-model carries selectOptionsAvailabilityQuery for select fields
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Select inputs accept disabled options and load their availability from optionsAvailabilityQuery
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Disabled select options are muted and not choosable in dropdown, radio list, radio cards and segmented control
+  -->
+
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: improvement
+  title: createTierOptionGate builds the availability rows and gates select options by tier on write
+  detail: withTierOptionGate rejects a disallowed option with the lowest tier that allows it and lets an unchanged stored value pass on update.
+  -->
+
+- 9fb0657: A number written by a handler can be bounded per tier
+
+  `createValueCapGuard(resolveTierCaps)` returns `checkValueCap` and `withValueCap`. The spec names the payload field, optional `min` and `max` functions over the tier caps (`undefined` means unbounded), an error code and an i18n key. The value is read from the payload or, for entity updates, from `changes`; an absent or non-numeric value passes. A value below the minimum or above the maximum is rejected with `UnprocessableError` and `details: { field, value, min, max }`. `withValueCap` spreads the wrapped handler, so it composes with `withCapEnforcement`.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: createValueCapGuard rejects a written number outside the min and max of the tenant's tier
+  -->
+
+### Patch Changes
+
+- c0be608: Bump sharp to 0.35.5 (librsvg advisory GHSA-WQ5F-XC86-PV6W)
+
+  <!-- kumiko-changes
+  feature: derivatives-sharp
+  type: fix
+  title: sharp is bumped to 0.35.5 to pick up the librsvg security fix
+  -->
+
+- fd0a878: The legal-pages README seeds its imprint example with a fictional demo identity and address instead of a real person's details.
+
+  <!-- kumiko-changes
+  feature: legal-pages
+  type: fix
+  title: The legal-pages README imprint example uses a fictional demo identity
+  -->
+
+- Updated dependencies [9fb0657]
+- Updated dependencies [9fb0657]
+- Updated dependencies [b905d4b]
+- Updated dependencies [e05c143]
+- Updated dependencies [9fb0657]
+- Updated dependencies [9fb0657]
+- Updated dependencies [9fb0657]
+  - @cosmicdrift/kumiko-framework@0.352.0
+  - @cosmicdrift/kumiko-types@0.352.0
+  - @cosmicdrift/kumiko-renderer-web@0.352.0
+  - @cosmicdrift/kumiko-headless@0.352.0
+  - @cosmicdrift/kumiko-renderer@0.352.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.352.0
+
 ## 0.351.0
 
 ### Patch Changes

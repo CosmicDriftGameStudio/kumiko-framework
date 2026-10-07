@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.352.0",
+    "type": "fix",
+    "title": "sharp is bumped to 0.35.5 to pick up the librsvg security fix",
+    "detail": "Bump sharp to 0.35.5 (librsvg advisory GHSA-WQ5F-XC86-PV6W)"
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Overlay and blur intermediates are lossless and QR overlays render crisp at their final size",

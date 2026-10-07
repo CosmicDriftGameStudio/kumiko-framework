@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "Badge, stages track and chips for the simple mail renderer",
+    "detail": "Use badge, { stages } and { chips } in the template variables; the notification RenderResponse carries the matching plain text in text."
+  },
+  {
     "version": "0.344.0",
     "type": "improvement",
     "title": "Heading and Markdown sections in the simple mail renderer",

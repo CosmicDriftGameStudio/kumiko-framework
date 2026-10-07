@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.352.0",
+    "type": "improvement",
+    "title": "Edit view-model carries selectOptionsAvailabilityQuery for select fields"
+  },
+  {
     "version": "0.328.0",
     "type": "breaking",
     "title": "Dates format with two-digit day and month",

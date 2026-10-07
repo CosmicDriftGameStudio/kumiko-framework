@@ -2,13 +2,47 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-04
+verified: 2026-10-07
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.352.0
+
+### cap-counter
+
+**Calendar cap reservations are stored in the new store_cap_reservations table**
+
+Capped writes now insert and delete rows in store_cap_reservations, so they fail until the table exists.
+
+**Migration:** Generate and apply a migration with `kumiko-schema generate` — capped writes fail without the new store_cap_reservations table
+
+### delivery
+
+**Delivery attempt log stores masked recipient addresses; attempts older than 90 days are pruned**
+
+The log query, the export and the stored events show masked addresses, and the feature registers the daily attempt-log-retention job.
+
+**Migration:** Read recipients from your own data, not from the attempt log, because it only shows masked addresses now. Set `attemptLogRetentionDays` on createDeliveryFeature to another number of days, or to `false` to keep the log, if 90 days does not fit. Schedule nothing extra, the feature registers the cron job itself. Existing full-address entries are removed by the retention job once they are older than the window, or erased when their user is forgotten.
+
+### enterprise:guards
+
+**upgrade-state guard fails on open manual upgrade steps**
+
+Every entry in the marker's pendingManual list now produces a guard violation until it is resolved.
+
+**Migration:** Run `kumiko-upgrade --resolve <id> --reason "<what you did>"` for each open step once you applied it, or add `--not-applicable` when it does not concern your repo. The guard passes when no manual step is left open.
+
+### enterprise:types
+
+**Apps must import Temporal from @cosmicdrift/kumiko-types/temporal instead of temporal-polyfill (affects every app since 0.351.0)**
+
+Since 0.351.0 the native globalThis.Temporal wins over the polyfill. A Temporal imported from "temporal-polyfill" is a second implementation, so instanceof and z.instanceof(Temporal.Instant) reject values the framework creates. This applies whether you upgrade from before 0.351.0 or are already on it.
+
+**Migration:** Replace every value import from "temporal-polyfill" in app code and tests, e.g. `import { Temporal } from "temporal-polyfill"`, with `import { Temporal } from "@cosmicdrift/kumiko-types/temporal"`, and drop side-effect imports of "temporal-polyfill/global" (importing @cosmicdrift/kumiko-types/temporal already installs the global when the runtime has none). `import type` and `/// <reference types="temporal-polyfill/global" />` may stay. Then run `kumiko check`; the No-Temporal-Polyfill-Import guard lists anything left. Close the step with `kumiko-upgrade --resolve <id> --reason "<what you changed>"`, or add `--not-applicable` when the repo never imported temporal-polyfill.
 
 ## 0.346.0
 

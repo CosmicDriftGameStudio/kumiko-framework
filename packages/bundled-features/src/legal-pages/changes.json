@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.352.0",
+    "type": "fix",
+    "title": "The legal-pages README imprint example uses a fictional demo identity",
+    "detail": "The legal-pages README seeds its imprint example with a fictional demo identity and address instead of a real person's details."
+  },
+  {
     "version": "0.344.0",
     "type": "improvement",
     "title": "Optional title heading on legal pages",

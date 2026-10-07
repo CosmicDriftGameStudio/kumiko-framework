@@ -1,5 +1,140 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.352.0
+
+### Minor Changes
+
+- 9fb0657: `appendEventInTenantDb` appends an event on a TenantDb's own connection or transaction
+
+  Framework-side code that holds a `TenantDb` (for example inside `runInOwnTransaction`) could not append to the event store without a raw runner. `appendEventInTenantDb(tenantDb, event, { registry })` and `getStreamVersionInTenantDb(tenantDb, aggregateId)` from `@cosmicdrift/kumiko-framework/event-store` do it: the tenant is always the TenantDb's own, the append goes through `append()` (PII encryption, origin stamping), and with `registry` the inline projections run on the same runner.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: appendEventInTenantDb and getStreamVersionInTenantDb append and read stream versions through a TenantDb, optionally running inline projections
+  -->
+
+- 9fb0657: Cap reservations run after every pre-handler gate and settle with the handler transaction
+
+  Handlers wrapped with `withCapEnforcement` used to reserve capacity before rate limits, access and payload validation had run, so a rejected caller could use up cap or trigger a soft-warn. The dispatcher now runs the same gates, billing rate limits once, before it calls `reserveBeforeTransaction`; a failing gate rejects the command and releases the reservations taken before it. A hook that returns a `ReservationHandle` also confirms inside the handler transaction after the handler succeeded, and a confirm failure fails the write.
+
+  Calendar reservations are now rows in the new `store_cap_reservations` table: the counter increment and the row commit together, the handler transaction deletes the row on its own commit, and a release only gives back what is still booked. Rolling caps reserve the same way: a version-guarded `rolling-incremented` append plus a reservation row before the handler transaction, undone by the new `cap-counter:event:rolling-released` event. `readRollingCapUsage` returns incremented minus released amounts in the window, never below 0. Rows a crashed process left behind expire after 60 minutes and are given back before the next reserve for the same cap. `withCapEnforcement` keeps the wrapped handler's other settings and chains an existing `reserveBeforeTransaction` of that handler: the inner reservation is taken first and given back if the outer one fails.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: breaking
+  title: Calendar cap reservations are stored in the new store_cap_reservations table
+  detail: Capped writes now insert and delete rows in store_cap_reservations, so they fail until the table exists.
+  migration: Generate and apply a migration with `kumiko-schema generate` — capped writes fail without the new store_cap_reservations table
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Rate-limited, denied or invalid callers no longer consume cap usage or trigger soft-warn, because pre-handler gates run before reserveBeforeTransaction
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: reserveBeforeTransaction may return a ReservationHandle whose confirmInTransaction settles the reservation inside the handler transaction
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: Reservations expire after 60 minutes and are swept before the next reserve of the same cap
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: withCapEnforcement keeps the wrapped handler's settings (rateLimit, additionalRateLimits) and composes with an inner reserveBeforeTransaction
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: withRollingCapEnforcement reserves before the handler transaction and releases through the new rolling-released event, so rejected or failed writes no longer consume rolling cap
+  -->
+
+- b905d4b: Stat groups take a span, and a labeled group sizes its columns to its values
+
+  `stat-group` panels accept `span: "half" | "full"` like chart, list, feed and progress-list panels; without it a group still takes the full row. A labeled group lays out one column per value up to three, so a group with two values no longer leaves an empty third column and a single value takes the whole card width. To color a value and its icon chip by result (for example by sign), return a tone from `toneField` and leave `accentColor` unset; the chip then follows the tone.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Stat group span and column count
+  detail: Set span: "half" on a stat-group to place two groups side by side.
+  -->
+
+- 9fb0657: Seeds can look up template rows with ctx.findTemplateResources
+
+  `SeedMigrationContext.findTemplateResources(filter?)` returns the template resource rows (`id`, `tenantId`, `slug`, `kind`, `locale`, `status`) ordered by slug and locale. The filter takes `tenantId` (default: the system tenant), `slug`, `kind`, `status` and `locale`. Without the template-resolver feature mounted it returns an empty list.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Seeds can find template rows with ctx.findTemplateResources
+  detail: Seeds can replace a raw SELECT … FROM read_template_resources with ctx.findTemplateResources, which binds every filter value as a parameter.
+  -->
+
+- 9fb0657: Select options can be disabled per tenant, and the tier-engine gates them on write
+
+  A select option in the `select` primitive takes `disabled`, with the existing `description` as the hint. `renderer-web` mutes a disabled option and does not let it be chosen in the dropdown, the radio list, the radio cards and the segmented control; the dropdown appends the hint to the label in parentheses, the radio variants show it as the description line.
+
+  `SelectFieldDef.optionsAvailabilityQuery` names a query that returns `{ rows: { value, disabled?, hint? }[] }`. The renderer loads it, resolving `optionsQueryPayload` like `optionsQuery` does, and merges it onto the static `options`: `disabled` disables the option, `hint` becomes its description. Static options stay authoritative, rows for unknown values are ignored, and the currently stored value always stays enabled so a downgraded tenant keeps seeing it. The field is also allowed on entity fields, and boot fails when the query is not a registered query handler.
+
+  `createTierOptionGate` in the tier-engine takes the ascending tier order, `capsForTier` and `resolveTier`. Its `optionAvailability` builds the rows for such a query (an option the current tier does not allow is disabled and its hint names the lowest tier that allows it), and `withTierOptionGate` rejects a disallowed option on write with `UnprocessableError(code, { i18nKey, details: { field, value, requiredTier } })`. An update that resends the unchanged stored value of a no longer allowed option passes when the spec names the entity `table`. The wrapper spreads the wrapped handler, so `withCapEnforcement` and rate limits keep working.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: SelectFieldDef.optionsAvailabilityQuery marks static select options as unavailable per tenant
+  detail: The query returns { rows: { value, disabled?, hint? }[] }; the renderer merges it onto options and keeps the stored value enabled.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validation and the client schema cover select optionsAvailabilityQuery on entity and screen fields
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: Edit view-model carries selectOptionsAvailabilityQuery for select fields
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Select inputs accept disabled options and load their availability from optionsAvailabilityQuery
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Disabled select options are muted and not choosable in dropdown, radio list, radio cards and segmented control
+  -->
+
+  <!-- kumiko-changes
+  feature: tier-engine
+  type: improvement
+  title: createTierOptionGate builds the availability rows and gates select options by tier on write
+  detail: withTierOptionGate rejects a disallowed option with the lowest tier that allows it and lets an unchanged stored value pass on update.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [9fb0657]
+- Updated dependencies [b905d4b]
+- Updated dependencies [9fb0657]
+- Updated dependencies [9fb0657]
+  - @cosmicdrift/kumiko-types@0.352.0
+  - @cosmicdrift/kumiko-http@0.352.0
+
 ## 0.351.0
 
 ### Minor Changes
