@@ -77,15 +77,26 @@ function changedFiles(
   return new TextDecoder().decode(result.stdout).split("\n").filter(Boolean);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function pullRequestHeadRepoFullName(event: unknown): string | undefined {
+  if (!isRecord(event) || !isRecord(event["pull_request"])) return undefined;
+  const head = event["pull_request"]["head"];
+  if (!isRecord(head) || !isRecord(head["repo"])) return undefined;
+  const fullName = head["repo"]["full_name"];
+  return typeof fullName === "string" ? fullName : undefined;
+}
+
 // GITHUB_HEAD_REF is just the PR author's branch name, so a fork could pick "changeset-release/main".
 // Fail closed: an unreadable event payload counts as a fork.
 function isForkPullRequest(env: Readonly<Record<string, string | undefined>>): boolean {
   const eventPath = env["GITHUB_EVENT_PATH"];
   if (!eventPath) return true;
   try {
-    const event: unknown = JSON.parse(readFileSync(eventPath, "utf-8"));
-    const headRepo = (event as { pull_request?: { head?: { repo?: { full_name?: unknown } } } }).pull_request?.head?.repo?.full_name;
-    return typeof headRepo !== "string" || headRepo !== env["GITHUB_REPOSITORY"];
+    const headRepo = pullRequestHeadRepoFullName(JSON.parse(readFileSync(eventPath, "utf-8")));
+    return headRepo === undefined || headRepo !== env["GITHUB_REPOSITORY"];
   } catch {
     return true;
   }
