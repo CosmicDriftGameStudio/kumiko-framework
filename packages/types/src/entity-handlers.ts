@@ -56,6 +56,9 @@ export type RegisterEntityCrudOptions = {
    *  manifest exposes only the verbs described here (fail-closed, same rule as
    *  hand-written handlers). Falls back to `write.description`/`read.description`. */
   readonly descriptions?: Partial<Record<EntityCrudVerb, string>>;
+  /** Per-verb agent hints; win over `write.agent`/`read.agent`, so one irreversible
+   *  verb (e.g. a hard delete) can be `risk: "high"` without raising create/update. */
+  readonly agents?: Partial<Record<EntityCrudVerb, AgentHandlerHints>>;
   /** Per-verb `excludeFields` for the generic create/update handlers — see
    *  EntityWriteHandlerOptions. */
   readonly excludeFields?: Partial<Record<"create" | "update", readonly string[]>>;

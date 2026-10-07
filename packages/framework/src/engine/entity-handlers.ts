@@ -756,18 +756,24 @@ export function registerEntityCrud(
   const resolveWriteOpts = (verb: EntityCrudVerb): EntityWriteHandlerOptions => {
     const excludeFields =
       verb === "create" || verb === "update" ? options?.excludeFields?.[verb] : undefined;
+    const verbAgent = options?.agents?.[verb];
     return {
       ...writeOpts,
       access: requireAccess(verb, options?.verbAccess?.[verb] ?? writeOpts?.access),
       description: options?.descriptions?.[verb] ?? writeOpts?.description,
+      ...(verbAgent !== undefined && { agent: verbAgent }),
       ...(excludeFields !== undefined && { excludeFields }),
     };
   };
-  const resolveReadOpts = (verb: EntityCrudVerb): EntityQueryHandlerOptions => ({
-    ...readOpts,
-    access: requireAccess(verb, options?.verbAccess?.[verb] ?? readOpts?.access),
-    description: options?.descriptions?.[verb] ?? readOpts?.description,
-  });
+  const resolveReadOpts = (verb: EntityCrudVerb): EntityQueryHandlerOptions => {
+    const verbAgent = options?.agents?.[verb];
+    return {
+      ...readOpts,
+      access: requireAccess(verb, options?.verbAccess?.[verb] ?? readOpts?.access),
+      description: options?.descriptions?.[verb] ?? readOpts?.description,
+      ...(verbAgent !== undefined && { agent: verbAgent }),
+    };
+  };
 
   if (verbs.create) {
     r.writeHandler(defineEntityCreateHandler(entityName, entity, resolveWriteOpts("create")));
