@@ -1,4 +1,4 @@
-import { escapeHatchGrantsProblem } from "@cosmicdrift/kumiko-types/handlers";
+import { escapeHatchGrantsProblem, isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import {
   accessAllowsAnonymous,
   declaredPersonalData,
@@ -213,6 +213,24 @@ function validateAnonymousPersonalData(
   );
 }
 
+// The rateLimit is the only protection of a public-intake handler, so the
+// generic anonymous opt-out (rateLimit: { disabled: true }) must not apply.
+function validatePublicIntakeRateLimit(
+  feature: FeatureDefinition,
+  handlerName: string,
+  handler: WriteHandlerDef,
+): void {
+  // skip: not a public-intake handler, or its rateLimit is active
+  if (declaredPersonalData(handler.access) !== "public-intake") return;
+  if (!isRateLimitDisabled(handler.rateLimit)) return;
+  throw new Error(
+    `[Feature ${feature.name}] write handler "${handlerName}" declares ` +
+      'access.personalData: "public-intake" with rateLimit: { disabled: true } — the rateLimit ' +
+      'is the only protection for anonymous personal-data writes. Declare rateLimit: { per: "ip" ' +
+      'or "ip+handler", ... } instead.',
+  );
+}
+
 export function validateAccessDeclarations(feature: FeatureDefinition): void {
   for (const [handlerName, handler] of Object.entries(feature.writeHandlers)) {
     validateOpenToAllReason(feature, "write", handlerName, handler.access);
@@ -220,6 +238,7 @@ export function validateAccessDeclarations(feature: FeatureDefinition): void {
     validatePersonalDataValue(feature, handlerName, handler.access);
     validateOpenToAllPersonalData(feature, handlerName, handler);
     validateAnonymousPersonalData(feature, handlerName, handler);
+    validatePublicIntakeRateLimit(feature, handlerName, handler);
   }
   for (const [handlerName, handler] of Object.entries(feature.queryHandlers)) {
     validateOpenToAllReason(feature, "query", handlerName, handler.access);

@@ -267,6 +267,20 @@ export function deriveEntityTableMeta(
     assertUnmanagedTableName(tableName, "deriveEntityTableMeta/buildEntityTableMeta");
   }
   const idType = entity.idType ?? "uuid";
+  if (source === "unmanaged" && idType === "serial") {
+    // Unmanaged direct-write stores bypass validateRecordOwnedSubjects (it only walks
+    // feature.entities), yet encryptForDirectWrite still keys recordOwned fields as
+    // `record:<entity>:<id>`; forgetSubject requires a UUID, so the value could never be shredded.
+    const recordOwnedField = Object.entries(entity.fields).find(
+      // @cast-boundary schema-walk — PII flags live on the resolved field annotation
+      ([, field]) => (field as { recordOwned?: boolean }).recordOwned === true,
+    );
+    if (recordOwnedField) {
+      throw new Error(
+        `deriveEntityTableMeta("${entityName}", { source: "unmanaged" }): field "${recordOwnedField[0]}" is recordOwned but the entity declares idType: "serial" — the record subject key is "record:${entityName}:<id>" and forgetSubject validates that id as a UUID, so this field could never be shredded. Use idType: "uuid", or give the field a different personal stance.`,
+      );
+    }
+  }
 
   // Base columns first, then user-fields. User-fields with the same
   // pg-name as a base-column OVERRIDE the base-column (last-wins, same

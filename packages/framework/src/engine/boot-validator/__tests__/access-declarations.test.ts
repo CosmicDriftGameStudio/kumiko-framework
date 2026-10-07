@@ -658,6 +658,38 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
 
+  test('personalData: "public-intake" with rateLimit { disabled: true } throws', () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.writeHandler(
+        "note:signup",
+        z.object({ email: z.string() }),
+        async () => ({ isSuccess: true as const, data: {} }),
+        {
+          access: { roles: ["anonymous"], personalData: "public-intake" },
+          rateLimit: { disabled: true, reason: "test" },
+        },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:signup".*rateLimit/);
+  });
+
+  test('personalData: "public-intake" with an active ip rateLimit boots fine', () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.writeHandler(
+        "note:signup",
+        z.object({ email: z.string() }),
+        async () => ({ isSuccess: true as const, data: {} }),
+        {
+          access: { roles: ["anonymous"], personalData: "public-intake" },
+          rateLimit: { per: "ip", limit: 5, windowSeconds: 60 },
+        },
+      );
+    });
+    expect(() => validateAccessDeclarations(feature)).not.toThrow();
+  });
+
   test('an owner-bound personal-data field is not exempted for an anonymous handler — anonymous callers share one user.id, so from("user:id", ...) binds no one', () => {
     const ownedByCaller: OwnershipMap = { Member: from("user:id", "ownerUserId") };
     const entity = createEntity({
