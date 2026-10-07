@@ -83,6 +83,20 @@ describe("assertQualifiedWhereFragment — throws (fail-closed)", () => {
   });
 });
 
+describe("assertQualifiedWhereFragment — unknown column set", () => {
+  const subquery = "EXISTS (SELECT 1 FROM teams t WHERE t.entity_id = entity_id)";
+
+  test("a subquery against an empty column set throws instead of skipping the lint", () => {
+    expect(() => assertQualifiedWhereFragment(subquery, new Set(), "scope")).toThrow(
+      /column set is unknown/,
+    );
+  });
+
+  test("an empty column set is fine when there is no subquery", () => {
+    expect(() => assertQualifiedWhereFragment("owner_id = $1", new Set(), "scope")).not.toThrow();
+  });
+});
+
 describe("tableColumnSqlNames", () => {
   test("plain-object table maps field keys to snake_case SQL names", () => {
     const names = tableColumnSqlNames({ teamId: { name: "team_id" } });

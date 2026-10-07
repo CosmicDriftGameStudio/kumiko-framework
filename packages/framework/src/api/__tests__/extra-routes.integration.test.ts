@@ -536,6 +536,9 @@ describe("extraRoutes: entry:signature", () => {
       if (req.headers["x-force-503"] === "plain") {
         throw new ExtraRouteRejection(503, { error: "not-ready" });
       }
+      if (req.headers["x-force-internal"] === "1") {
+        throw new Error("connect ECONNREFUSED secrets-db.internal:5432");
+      }
       if (req.headers["x-hmac"] !== signHmac(req.rawBody)) {
         throw new Error("signature mismatch");
       }
@@ -582,6 +585,18 @@ describe("extraRoutes: entry:signature", () => {
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("extra_route_signature_invalid");
+  });
+
+  test("an infrastructure error thrown by verify() is not leaked in the 401 body", async () => {
+    const res = await stack.app.request("/webhooks/probe", {
+      method: "POST",
+      headers: { "x-force-internal": "1", "content-type": "application/json" },
+      body: JSON.stringify({ note: "x" }),
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("extra_route_signature_invalid");
+    expect(body.error.message).toBe("signature verification failed");
   });
 
   test("right signature → 200, dispatchSystemWrite's SystemAdmin write is visible in the response", async () => {

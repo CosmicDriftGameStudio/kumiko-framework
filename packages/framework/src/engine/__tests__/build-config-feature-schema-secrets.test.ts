@@ -39,6 +39,20 @@ function navById(
   return schema.navs.find((n) => n.id === id);
 }
 
+describe("buildConfigFeatureSchema — secrets field-id collisions", () => {
+  test("hyphenated feature name + secret key colliding on one field id throws", () => {
+    const hyphenated = defineFeature("a-b", (r) => {
+      r.secret("c", { label: { en: "C" }, scope: "tenant" });
+    });
+    const plain = defineFeature("a", (r) => {
+      r.secret("bC", { label: { en: "B C" }, scope: "tenant" });
+    });
+    expect(() =>
+      buildConfigFeatureSchema(createRegistry([secretsFeature(), hyphenated, plain])),
+    ).toThrow(/both resolve to field id "a-b-c"/);
+  });
+});
+
 describe("buildConfigFeatureSchema — secrets derivation", () => {
   test("mounted secrets feature + declared r.secret() yields exactly one secretsEdit screen", () => {
     const stripe = defineFeature("stripe", (r) => {

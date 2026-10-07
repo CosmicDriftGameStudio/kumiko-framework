@@ -417,30 +417,13 @@ export function buildExecutorContext(
     ];
   }
 
-  // Combined, atomic read for the `expect:` precondition: the projection
-  // row's expect-checked fields AND the events table's current MAX(version)
-  // for this aggregate, in ONE SQL statement.
-  //
-  // Two separate reads leave a gap: applyEntityEvent writes the projection in
-  // a separate statement after its event commits, so a second reader can see
-  // a version that already reflects a concurrent writer's event while its read
-  // of the expect fields still shows the pre-write row. One query runs against
-  // a single consistent snapshot.
-  //
-  // The row's own `version` column can't be trusted instead: it is only in
-  // lock-step with the events for rows this executor wrote. A raw-seeded row
-  // (test fixtures, legacy data) can carry a default version with zero
-  // matching events, so deriving expectedVersion from it makes the append
-  // target a non-existent predecessor and fail.
-  // The events table's MAX(version) (0 for such a row) is the only value
-  // append() can safely use as expectedVersion — exactly what
-  // getStreamVersion() already returns for every other (non-`expect`)
-  // caller; this reads it in the same statement as the expect columns
-  // instead of a second round-trip.
-  //
-  // Reads raw column values — no decryptForRead pass — so `expect:` only
-  // supports plain (non-pii, non-encrypted) columns: business-state fields
-  // like status flags or foreign-key ids, not PII.
+  // Reads the `expect:` fields and the aggregate's MAX(version) in ONE statement:
+  // projection rows are written after their event commits, so two reads can
+  // pair a post-write version with a pre-write row.
+  // row.version can't stand in for MAX(version) — raw-seeded/legacy rows carry
+  // a default version with no matching events, so the append would target a
+  // non-existent predecessor.
+  // Raw column values, no decrypt pass: plain (non-pii, non-encrypted) columns only.
   async function loadExpectSnapshot(
     db: TenantDb,
     id: EntityId,
