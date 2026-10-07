@@ -89,6 +89,7 @@ export function createMemberReaderFn(
 
   // Only successful resolutions are cached — a rejected/failed resolution
   // deletes its own entry so a transient error can't poison the rest of the run.
+  // No TTL: a membership revoked mid-run is only noticed by the next reader.
   const cache = new Map<string, Promise<SessionUser>>();
 
   function resolve(userId: string): Promise<SessionUser> {

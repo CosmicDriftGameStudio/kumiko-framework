@@ -103,9 +103,28 @@ export function buildPipelineSteps<
   pipelineDef: PipelineDef<TPayload, unknown, TAwaits>,
   event: WriteEvent<TPayload>,
 ): readonly StepInstance[] {
-  return pipelineDef.build({
+  const steps = pipelineDef.build({
     event,
     r: stepBuilder,
     awaits: (pipelineDef.awaits ?? {}) as TAwaits,
   });
+  assertUniqueWaitForEventTypes(steps);
+  return steps;
+}
+
+// waitForEvent's result key is the awaited event type, so a second wait on the
+// same type would overwrite the first one's resumed payload.
+function assertUniqueWaitForEventTypes(steps: readonly StepInstance[]): void {
+  const seen = new Set<unknown>();
+  for (const step of steps) {
+    if (step.kind !== "workflow.waitForEvent") continue;
+    const { event } = step.args as { readonly event: unknown }; // @cast-boundary engine-payload
+    if (seen.has(event)) {
+      throw new Error(
+        `r.step.waitForEvent: event "${String(event)}" is awaited more than once in one workflow — ` +
+          "each awaits entry can back only one waitForEvent step.",
+      );
+    }
+    seen.add(event);
+  }
 }

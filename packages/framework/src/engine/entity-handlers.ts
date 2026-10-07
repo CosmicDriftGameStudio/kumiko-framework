@@ -324,13 +324,16 @@ export function defineEntityWriteHandler(
   // every tenant without making the whole feature r.systemScope().
   const crossTenantReason = resolveCrossTenantReason(name, options);
 
+  // create always writes into the acting user's own tenant, so its FK,
+  // unique and preSave lookups must stay tenant-filtered even when the
+  // handler declares cross-tenant access for the row-addressing verbs.
   const dbFor = (ctx: HandlerContext): TenantDb => {
     if (ctx.systemDb) {
       return ctx.systemDb.acknowledgeCrossTenant(
         `entity convention handler for r.systemScope() feature (${name})`,
       );
     }
-    return crossTenantReason !== undefined
+    return crossTenantReason !== undefined && verb !== "create"
       ? acknowledgeConventionCrossTenant(ctx.db, crossTenantReason)
       : ctx.db;
   };

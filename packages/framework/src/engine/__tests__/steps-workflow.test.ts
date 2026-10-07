@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { getStep } from "../define-step.js";
+import { defineWorkflow } from "../define-workflow.js";
+import { createSystemUser } from "../index.js";
+import { buildPipelineSteps, stepsPipeline } from "../pipeline.js";
 import { evaluateEventMatch } from "../steps/_event-match.js";
 import {
   SUSPEND_SENTINEL,
@@ -374,5 +377,41 @@ describe("calculateBackoff", () => {
     expect(calculateBackoff(2, "exponential")).toBe(20_000);
     expect(calculateBackoff(3, "exponential")).toBe(40_000);
     expect(calculateBackoff(4, "exponential")).toBe(80_000);
+  });
+});
+
+describe("buildPipelineSteps with duplicate waitForEvent", () => {
+  const event = {
+    type: "x",
+    payload: {},
+    user: createSystemUser("00000000-0000-4000-8000-000000000001"),
+  };
+
+  it("rejects two waitForEvent steps on the same awaits event", () => {
+    const workflow = defineWorkflow({
+      name: "dup-await",
+      trigger: { kind: "event", eventType: "x" },
+      awaits: { confirmed: "user.confirmed-email" },
+      steps: stepsPipeline<unknown, unknown, { confirmed: AwaitedEventType }>(({ r, awaits }) => [
+        r.step.waitForEvent({ event: awaits.confirmed, timeout: "P1D" }),
+        r.step.waitForEvent({ event: awaits.confirmed, timeout: "P2D" }),
+      ]),
+    });
+    expect(() => buildPipelineSteps(workflow.pipelineDef, event)).toThrow(/awaited more than once/);
+  });
+
+  it("allows waits on distinct awaits events", () => {
+    const workflow = defineWorkflow({
+      name: "distinct-awaits",
+      trigger: { kind: "event", eventType: "x" },
+      awaits: { first: "a.done", second: "b.done" },
+      steps: stepsPipeline<unknown, unknown, { first: AwaitedEventType; second: AwaitedEventType }>(
+        ({ r, awaits }) => [
+          r.step.waitForEvent({ event: awaits.first, timeout: "P1D" }),
+          r.step.waitForEvent({ event: awaits.second, timeout: "P1D" }),
+        ],
+      ),
+    });
+    expect(buildPipelineSteps(workflow.pipelineDef, event)).toHaveLength(2);
   });
 });

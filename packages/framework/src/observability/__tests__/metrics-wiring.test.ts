@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import * as z from "zod";
-import { composeEnvSchema, readKumikoMeta } from "../../env/index.js";
+import { composeEnvSchema, KumikoBootError, parseEnv, readKumikoMeta } from "../../env/index.js";
 import { prometheusMetricsEnvSchema, resolveObservabilityWiring } from "../metrics-wiring.js";
 
 describe("resolveObservabilityWiring", () => {
@@ -57,5 +57,18 @@ describe("prometheusMetricsEnvSchema", () => {
     const meta = readKumikoMeta(field);
     expect(meta.pulumi?.secret).toBe(true);
     expect(meta.pulumi?.generator).toBe("openssl rand -base64 32");
+  });
+});
+
+describe("prometheusMetricsEnvSchema", () => {
+  it("treats an empty PROMETHEUS_METRICS_TOKEN as unset", () => {
+    const env = parseEnv(prometheusMetricsEnvSchema, { PROMETHEUS_METRICS_TOKEN: "" });
+    expect(env.PROMETHEUS_METRICS_TOKEN).toBeUndefined();
+  });
+
+  it("still rejects a non-empty token shorter than 32 characters", () => {
+    expect(() =>
+      parseEnv(prometheusMetricsEnvSchema, { PROMETHEUS_METRICS_TOKEN: "short" }),
+    ).toThrow(KumikoBootError);
   });
 });
