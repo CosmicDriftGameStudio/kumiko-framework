@@ -372,7 +372,9 @@ function buildScreens(
     result.push({
       id: screen.id,
       type: screen.type,
-      titles: labelsForSuffix(translations, `screen:${shortId}.title`),
+      titles: entryAsLabels(
+        translations[`${screen.id}.title`] ?? translations[`screen:${shortId}.title`] ?? {},
+      ),
       // `screen.description` may be a raw i18n key (`registry.getAllTranslations()`
       // double-prefixes it, see build-app-schema.ts:77-81) — match on suffix like
       // `labelsForSuffix` does for entity/field labels, else fall back to the

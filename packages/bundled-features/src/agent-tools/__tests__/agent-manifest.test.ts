@@ -364,3 +364,26 @@ describe("buildAgentManifest", () => {
     expect(widget?.fields.find((f) => f.name === "status")?.labels).toEqual({});
   });
 });
+
+describe("screen titles with a shared short id", () => {
+  const featureWithSettingsScreen = (name: string, title: string) =>
+    defineFeature(name, (r) => {
+      r.translations({ keys: { "screen:settings.title": { en: title } } });
+      r.screen({ id: "settings", type: "custom", renderer: { react: "stub" } });
+    });
+
+  test.each([
+    ["a then b", ["title-a", "title-b"]],
+    ["b then a", ["title-b", "title-a"]],
+  ])("each screen keeps its own feature's title regardless of mount order (%s)", (_, order) => {
+    const features = order.map((name) => featureWithSettingsScreen(name, `Title of ${name}`));
+    const manifest = buildAgentManifest(createRegistry(features), {
+      locale: "en",
+      roles: ["admin"],
+    });
+    for (const name of order) {
+      const screen = manifest.screens.find((s) => s.id === `${name}:screen:settings`);
+      expect(screen?.titles["en"]).toBe(`Title of ${name}`);
+    }
+  });
+});

@@ -170,8 +170,9 @@ export const fileRefStorageDestroyHook: StorageProviderDestroyTenantHook = async
   }
   // Provider resolved — a list()/delete() failure from here IS fail-closed:
   // the "files" stage throws, tenant-lifecycle's retry/abandon handling sees
-  // it, and the next sweep tick retries (list+delete are idempotent, so this
-  // converges rather than double-deleting or erroring on a missing key).
+  // it and retries up to the stage's attempt cap before abandoning the destroy
+  // (list+delete are idempotent, so a retry converges rather than
+  // double-deleting or erroring on a missing key).
   for (const prefix of tenantStoragePrefixes(tenantId)) {
     const keys = await provider.list(prefix);
     const keptStemPrefixes = await survivorStemPrefixes(ctx.db, keys);

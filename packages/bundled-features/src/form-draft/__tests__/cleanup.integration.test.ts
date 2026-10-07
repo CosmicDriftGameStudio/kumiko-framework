@@ -291,6 +291,47 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
     expect(providerB.keys()).not.toContain(keyA);
   });
 
+  test("releases a batch's rows one at a time, oldest first (the order the sentinel tests below rely on)", async () => {
+    const keys = [
+      "tenant-a/vehicle/oldest.jpg",
+      "tenant-a/vehicle/middle.jpg",
+      "tenant-a/vehicle/newest.jpg",
+    ];
+    const ages = [45, 38, 31];
+    for (const [index, key] of keys.entries()) {
+      await providerA.write(key, new Uint8Array([index]), "image/jpeg");
+      await seedFileRef(key);
+      const draftKey = `wizard:ordered-${index}`;
+      await saveDraft(draftKey, { photo: fileRefPointer(key) });
+      await backdate(draftKey, ages[index] ?? 31);
+    }
+
+    const deleteOrder: string[] = [];
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const originalDelete = providerA.delete.bind(providerA);
+    providerA.delete = async (key: string) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      // Yield so overlapping deletes would be observable as inFlight > 1.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      deleteOrder.push(key);
+      await originalDelete(key);
+      inFlight--;
+    };
+    try {
+      await dispatchCleanup();
+      await waitFor(() => {
+        expect(deleteOrder).toHaveLength(keys.length);
+      });
+    } finally {
+      providerA.delete = originalDelete;
+    }
+
+    expect(deleteOrder).toEqual(keys);
+    expect(maxInFlight).toBe(1);
+  });
+
   test("does NOT release a storageKey with no owned file_refs row (forged draft value)", async () => {
     const forgedKey = "tenant-a/vehicle/victim.jpg";
     await providerA.write(forgedKey, new Uint8Array([9, 9, 9]), "image/jpeg");
