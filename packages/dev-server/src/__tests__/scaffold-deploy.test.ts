@@ -195,7 +195,21 @@ describe("scaffoldDeploy", () => {
       expect(df).toContain("ES-Operations seed migrations");
     });
 
+    it("rejects @cosmicdriftgamestudio/* deps without a bunfig.toml/.npmrc scope config", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({
+          name: "noregistry",
+          dependencies: { "@cosmicdriftgamestudio/kumiko-ai-foundation": "^0.2.0" },
+        }),
+      );
+      expect(() => scaffoldDeploy({ appName: "noregistry", destination: tmp })).toThrow(
+        /bunfig\.toml or \.npmrc/,
+      );
+    });
+
     it("emits GITHUB_TOKEN blocks when @cosmicdriftgamestudio/* dep is present", () => {
+      writeFileSync(join(tmp, "bunfig.toml"), "");
       writeFileSync(
         join(tmp, "package.json"),
         JSON.stringify({

@@ -790,6 +790,25 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    needed in 9.1's audit (37 references, 25 distinct vars).
   const rawEnvSource = options.envSource ?? process.env;
   const runMode = parseRunMode(rawEnvSource["KUMIKO_DRY_RUN_ENV"]);
+  const composedEnvSchema = options.envSchema;
+  const validateEnv = (source: Record<string, string | undefined>): void => {
+    if (!composedEnvSchema) return;
+    try {
+      const schema = options.masterKey
+        ? withOptionalEnvKeys(composedEnvSchema.schema, SECRETS_MASTER_KEK_ENV_KEYS)
+        : composedEnvSchema.schema;
+      parseEnv(schema, source, {
+        sources: composedEnvSchema.sources,
+        ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
+      });
+    } catch (err) {
+      if (err instanceof KumikoBootError) {
+        const reporter = options.bootErrorReporter ?? defaultBootErrorReporter;
+        reporter(err);
+      }
+      throw err;
+    }
+  };
   if (options.envSchema) {
     if (isRenderMode(runMode)) {
       // biome-ignore lint/suspicious/noConsole: dry-run output IS the deliverable
@@ -810,21 +829,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     // boot-mode AND normal-boot both run env-validation. boot-mode wants
     // a real env-check (all required vars present + schema-valid) before
     // it asserts feature-wiring works.
-    try {
-      const envSchema = options.masterKey
-        ? withOptionalEnvKeys(options.envSchema.schema, SECRETS_MASTER_KEK_ENV_KEYS)
-        : options.envSchema.schema;
-      parseEnv(envSchema, rawEnvSource, {
-        sources: options.envSchema.sources,
-        ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
-      });
-    } catch (err) {
-      if (err instanceof KumikoBootError) {
-        const reporter = options.bootErrorReporter ?? defaultBootErrorReporter;
-        reporter(err);
-      }
-      throw err;
-    }
+    validateEnv(rawEnvSource);
   }
 
   // Slots the schema marks `kms` are decrypted once here so every consumer
@@ -835,6 +840,16 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         logPrefix: "[runProdApp]",
       })
     : rawEnvSource;
+  // The first parse relaxes ciphertext-only slots, so their decrypted
+  // plaintext never met the slot's own validators (.regex/.min/.refine).
+  if (
+    options.envSchema &&
+    kmsSlotsOf(options.envSchema.schema).some(
+      (slot) => rawEnvSource[slot] === undefined && envSource[slot] !== undefined,
+    )
+  ) {
+    validateEnv(envSource);
+  }
 
   // 1. Polyfill before anything else — feature code references Temporal.
   const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");

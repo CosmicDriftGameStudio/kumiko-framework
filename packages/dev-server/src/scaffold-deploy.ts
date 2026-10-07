@@ -142,6 +142,14 @@ export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDepl
   // `failed to compute cache key: "/app/seeds": not found`.
   const sourceDir = options.sourceDir ?? destinationRoot;
   const detected = detectOptionalSurfaces(sourceDir, options.appName);
+  if (detected.hasPrivateGhPackages && detected.registryConfigFiles.length === 0) {
+    // The Dockerfile only forwards the auth build-arg; without a registry
+    // config scope entry bun resolves @cosmicdriftgamestudio/* against npmjs
+    // and the image build fails late with a 404.
+    throw new Error(
+      `renderDeployFiles: private @cosmicdriftgamestudio/* deps need a bunfig.toml or .npmrc in ${sourceDir} with a scope entry for the private registry`,
+    );
+  }
 
   const installManifests = ["package.json", "bun.lock", ...detected.registryConfigFiles].join(" ");
 
