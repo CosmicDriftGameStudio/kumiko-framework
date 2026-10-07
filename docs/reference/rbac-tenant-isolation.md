@@ -59,6 +59,11 @@ carries `origin: "member-resolution"`, no `sid`, and is read-only — writes
 through it fail closed (`member_resolution_read_only`), and it is never
 signed into a JWT.
 
+The resolution is cached per user for the lifetime of the reader: one handler
+invocation (shared with its hooks) or one job run. A membership revoked or a
+principal set to `Restricted` while a long-running job loops over
+`ctx.queryAsMember` is not noticed until the next run.
+
 ## Decision 2 — reserved roles are global-only (the invariant)
 
 `{ system, SystemAdmin, all, anonymous }` (derived from the engine access

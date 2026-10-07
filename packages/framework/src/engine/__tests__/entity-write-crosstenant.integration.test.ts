@@ -286,6 +286,7 @@ describe("entity write/list handlers: crossTenant vs. escapeHatch (fw#2650/fw#29
   );
 
   test("escapeHatch create: the row lands in the acting user's tenant", async () => {
+    escapeHatchAuditEvents.length = 0;
     const created = await escapeHatchStack.http.writeOk<{ id: string }>(
       "ctwrite:write:thing:create",
       { label: "created-through-escape-hatch" },
@@ -293,6 +294,8 @@ describe("entity write/list handlers: crossTenant vs. escapeHatch (fw#2650/fw#29
     );
     const rows = await selectMany(noneStack.db, thingTable, { id: created.id });
     expect(rows[0]?.["tenantId"]).toBe(TestUsers.admin.tenantId);
+    // create keeps its lookups tenant-filtered, so no cross-tenant ack is reported
+    expect(escapeHatchAuditEvents.filter((e) => e.kind === "acknowledge-cross-tenant")).toEqual([]);
   });
 
   test("systemStream entity: the stream stays on the system tenant, the acting tenant is not rewritten", async () => {

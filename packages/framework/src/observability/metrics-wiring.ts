@@ -4,9 +4,9 @@ import { createPrometheusMeter, type PrometheusMeter } from "./prometheus-meter.
 import type { ObservabilityProvider } from "./types/index.js";
 
 export const prometheusMetricsEnvSchema = z.object({
+  // An empty value (blank .env line, empty k8s secret) means "unset", not "invalid".
   PROMETHEUS_METRICS_TOKEN: z
-    .string()
-    .min(32)
+    .union([z.literal("").transform(() => undefined), z.string().min(32)])
     .optional()
     .describe("Bearer token for /metrics; unset keeps the endpoint off.")
     .meta({ kumiko: { pulumi: { secret: true, generator: "openssl rand -base64 32" } } }),

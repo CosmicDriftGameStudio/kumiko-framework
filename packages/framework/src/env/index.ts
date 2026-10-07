@@ -368,6 +368,10 @@ function safeParseReportingThrows(
   }
 }
 
+/** Validates `env` against `schema` and throws KumikoBootError on any issue.
+ *  A `kms: true` field delivered only as `<NAME>_CIPHERTEXT` passes validation but
+ *  is `undefined` in the result despite its `string` type — it is only set once
+ *  the boot-time decrypt (resolvePlatformKeks) has run. */
 export function parseEnv<S extends z.ZodObject<z.ZodRawShape>>(
   schema: S,
   env: Record<string, string | undefined>,
