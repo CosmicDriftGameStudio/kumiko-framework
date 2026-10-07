@@ -59,6 +59,14 @@
 @source "../../kumiko-bundled-features/src/**/*.{ts,tsx}";
 @source "../../kumiko-bundled-features/dist/**/*.js";
 @source "../../../samples/**/src/**/*.{ts,tsx}";
+/* In the monorepo `tsc --build` emits composite output (incl. compiled tests
+   and stale files of deleted components) into dist; scanning it would make the
+   CSS depend on whether a build ran before. Published dist has no __tests__. */
+@source not "../dist/**/__tests__/**";
+@source not "../../renderer/dist/**/__tests__/**";
+@source not "../../kumiko-renderer/dist/**/__tests__/**";
+@source not "../../bundled-features/dist/**/__tests__/**";
+@source not "../../kumiko-bundled-features/dist/**/__tests__/**";
 
 /* Dark-Mode via class-selector (nicht media). Erlaubt JS-Toggle
    und überschreibt System-Preference wenn die App will. */

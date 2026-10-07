@@ -3,7 +3,8 @@
 // locale string ("28000"). Not type=number: browsers reject formatted
 // strings and locale decimal commas there. The parent value is updated while
 // typing (every parseable draft), so submit shortcuts that skip blur still
-// see the typed value; blur only normalizes the display.
+// see the typed value; blur only normalizes the display. A draft that does
+// not parse clears the value, so the parent never holds a stale prefix.
 
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
@@ -74,7 +75,12 @@ export function NumberInput({
       return;
     }
     const parsed = parseLocaleNumber(raw, resolvedLocale);
-    if (Number.isNaN(parsed) || (integer && !Number.isInteger(parsed))) return;
+    // An unparseable draft clears the value instead of leaving the last
+    // parseable prefix behind ("12abc" must not keep submitting 12).
+    if (Number.isNaN(parsed) || (integer && !Number.isInteger(parsed))) {
+      onChange(undefined);
+      return;
+    }
     onChange(parsed);
   };
 

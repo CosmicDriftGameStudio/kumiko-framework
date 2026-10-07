@@ -12,8 +12,9 @@ import {
 import type { FeatureSchema } from "./feature-schema.js";
 import {
   buildInitialValues,
-  literalCurrencyOverrides,
   mergeSearchParamsIntoInitial,
+  tenantCurrencyMoneyFieldNames,
+  useMoneyCurrencyOverrides,
 } from "./kumiko-screen.js";
 import { layoutFieldNames } from "./layout-fields.js";
 import { useInitialValuesHandoff, useNav } from "./nav.js";
@@ -45,6 +46,10 @@ function extractCarriedValues(
   return carried;
 }
 
+// Entity-less forms have no `entity.defaultCurrency`; same fallback as actionForm.
+const SECRET_MINT_CURRENCY_FALLBACK = "EUR";
+const NO_FIELDS: Readonly<Record<string, unknown>> = {};
+
 function isBlank(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return true;
   return Array.isArray(value) && value.length === 0;
@@ -70,6 +75,16 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
   const handoffValues = useInitialValuesHandoff(screen.id);
+  const mintTenantCurrencyFields = useMemo(
+    () => tenantCurrencyMoneyFieldNames(screen.fields),
+    [screen.fields],
+  );
+  const { overrides: mintCurrencyOverrides, loading: mintCurrencyLoading } =
+    useMoneyCurrencyOverrides(
+      screen.fields,
+      mintTenantCurrencyFields,
+      SECRET_MINT_CURRENCY_FALLBACK,
+    );
   const initial = useMemo(
     () =>
       mergeSearchParamsIntoInitial(screen.fields, {
@@ -77,13 +92,20 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         urlPrefillFields: screen.urlPrefillFields,
         renderableFields: layoutFieldNames(synthScreen),
         // A mint form has no entity either, so its money fields name their own
-        // currency source (fw#2839). Only the literal form is resolved here:
-        // `{ kind: "tenant" }` would need the config query this screen never
-        // runs, and a one-time secret mint has no money use case to justify it.
-        moneyCurrencyOverrides: literalCurrencyOverrides(screen.fields),
+        // currency source (fw#2839, fw#2933).
+        ...(mintCurrencyOverrides !== undefined && {
+          moneyCurrencyOverrides: mintCurrencyOverrides,
+        }),
         ...(handoffValues !== undefined && { handoffValues }),
       }) as FormValues,
-    [screen.fields, screen.urlPrefillFields, nav.searchParams, synthScreen, handoffValues],
+    [
+      screen.fields,
+      screen.urlPrefillFields,
+      nav.searchParams,
+      synthScreen,
+      handoffValues,
+      mintCurrencyOverrides,
+    ],
   );
   const [revealed, setRevealed] = useState<Readonly<Record<string, unknown>> | null>(null);
   const [done, setDone] = useState(false);
@@ -103,16 +125,23 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
     () => (confirm !== undefined ? synthesizeSecretMintConfirmScreen(screen, confirm) : undefined),
     [screen, confirm],
   );
+  const confirmFields = confirm?.fields ?? NO_FIELDS;
+  const confirmTenantCurrencyFields = useMemo(
+    () => tenantCurrencyMoneyFieldNames(confirmFields),
+    [confirmFields],
+  );
+  const { overrides: confirmCurrencyOverrides, loading: confirmCurrencyLoading } =
+    useMoneyCurrencyOverrides(
+      confirmFields,
+      confirmTenantCurrencyFields,
+      SECRET_MINT_CURRENCY_FALLBACK,
+    );
   const confirmInitial = useMemo(
     () =>
       confirm !== undefined
-        ? (buildInitialValues(
-            confirm.fields,
-            undefined,
-            literalCurrencyOverrides(confirm.fields),
-          ) as FormValues)
+        ? (buildInitialValues(confirm.fields, undefined, confirmCurrencyOverrides) as FormValues)
         : undefined,
-    [confirm],
+    [confirm, confirmCurrencyOverrides],
   );
 
   const handleSubmitted = useCallback(
@@ -256,6 +285,15 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
     // keys stop the mint and confirm forms sharing one instance (and its
     // submit state) across phases.
     if (confirm !== undefined && confirmEntity !== undefined && confirmScreen !== undefined) {
+      // Hold until a tenant-declared currency lands, else the form would seed (and
+      // on a fast click submit) the fallback currency (fw#2933).
+      if (confirmCurrencyLoading) {
+        return (
+          <Banner padded variant="loading" testId="kumiko-screen-loading">
+            Loading…
+          </Banner>
+        );
+      }
       return (
         <RenderEdit
           key="confirm"
@@ -288,6 +326,14 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
           {effectiveTranslate(screen.reveal.confirmLabel ?? "kumiko.secretMint.confirm")}
         </Button>
       </Card>
+    );
+  }
+
+  if (mintCurrencyLoading) {
+    return (
+      <Banner padded variant="loading" testId="kumiko-screen-loading">
+        Loading…
+      </Banner>
     );
   }
 

@@ -42,7 +42,14 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
   const columns: ListColumnViewModel[] = [];
   for (const spec of screen.columns) {
     const normalized = normalizeListColumn(spec);
-    if (normalized.refEntity !== undefined) {
+    const storedFieldType = entity.fields[normalized.field]?.type;
+    // A real non-text entity field keeps its own type (documented on
+    // ListColumnSpec.refEntity); only the all-"text" pseudo-entities of the
+    // projection shims and fields without a stored def take the declared path.
+    if (
+      normalized.refEntity !== undefined &&
+      (storedFieldType === undefined || storedFieldType === "text")
+    ) {
       // Declared reference metadata (ListColumnSpec.refEntity) — for
       // projectionList/relatedList columns, which have no EntityDefinition
       // field to carry a real "reference" type. Checked before the

@@ -86,12 +86,8 @@ describe("NumberInput", () => {
       const input = renderNumber({ value: "", onChange, locale });
       fireEvent.focus(input);
       fireEvent.change(input, { target: { value: typed } });
-      if (expected === undefined) {
-        expect(onChange).not.toHaveBeenCalled();
-        expect(input.value).toBe(typed);
-      } else {
-        expect(onChange).toHaveBeenLastCalledWith(expected);
-      }
+      expect(onChange).toHaveBeenLastCalledWith(expected);
+      expect(input.value).toBe(typed);
     },
   );
 
@@ -113,17 +109,24 @@ describe("NumberInput", () => {
     expect(onChange).toHaveBeenLastCalledWith(28500);
   });
 
-  test("clearing emits undefined; garbage emits nothing and blur restores the value", () => {
+  test("clearing and garbage both emit undefined, never a parseable prefix", () => {
     const onChange = mock((_v: number | undefined) => undefined);
     const input = renderNumber({ onChange });
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "12abc" } });
-    expect(onChange).not.toHaveBeenCalled();
-    fireEvent.blur(input);
-    expect(input.value).toBe("28.000");
-    fireEvent.focus(input);
+    expect(onChange).toHaveBeenLastCalledWith(undefined);
     fireEvent.change(input, { target: { value: "" } });
     expect(onChange).toHaveBeenLastCalledWith(undefined);
+  });
+
+  test("typing a value that ends invalid does not leave the earlier prefix behind", () => {
+    const onChange = mock((_v: number | undefined) => undefined);
+    const input = renderNumber({ value: "", integer: true, onChange });
+    fireEvent.focus(input);
+    for (const draft of ["12", "12,", "12,5"]) {
+      fireEvent.change(input, { target: { value: draft } });
+    }
+    expect(onChange.mock.calls.map(([v]) => v)).toEqual([12, 12, undefined]);
   });
 
   test("integer mode rejects a fractional entry", () => {
@@ -132,7 +135,7 @@ describe("NumberInput", () => {
     expect(input.inputMode).toBe("numeric");
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "12,5" } });
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenLastCalledWith(undefined);
   });
 
   test("an invalid locale tag does not throw and falls back to en-US", () => {

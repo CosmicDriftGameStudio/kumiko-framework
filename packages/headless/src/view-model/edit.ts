@@ -553,8 +553,11 @@ export function computeEditViewModel<
       // every field as "text" (projection-detail-shim) — real entityEdit
       // screens never set this, so their fieldDef.type === "reference"
       // branch is unaffected.
+      // A real non-text field (e.g. a `reference` with `multiple`) keeps its own
+      // type and hints, as documented on EditFieldSpec.refEntity; the shim's
+      // pseudo-entity only ever declares "text".
       const declaredRefTarget =
-        normalized.refEntity !== undefined
+        normalized.refEntity !== undefined && fieldDef.type === "text"
           ? parseRefTarget(normalized.refEntity, featureName)
           : undefined;
       const effectiveType = declaredRefTarget !== undefined ? "reference" : fieldDef.type;

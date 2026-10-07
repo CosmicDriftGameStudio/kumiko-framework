@@ -848,6 +848,23 @@ describe("computeEditViewModel — declared reference metadata (fw#2662)", () =>
     expect(field?.refMultiple).toBeUndefined();
   });
 
+  test("EditFieldSpec.refEntity does not demote a real multi-reference field to a single picker", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [{ fields: [{ field: "ownerIds", refEntity: "user:user" }] }],
+      }),
+      entity: {
+        fields: { ownerIds: { type: "reference", entity: "team", multiple: true } },
+      } as unknown as EntityDefinition,
+      values: { ownerIds: [] },
+      translate,
+      featureName: "sessions",
+    });
+
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field).toMatchObject({ type: "reference", refEntity: "team", refMultiple: true });
+  });
+
   test("a reference field's optionsQuery reaches the field view-model, labelField untouched (fw#2780)", () => {
     const entity = {
       fields: {

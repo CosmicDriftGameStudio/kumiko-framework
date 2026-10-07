@@ -378,6 +378,21 @@ describe("computeListViewModel", () => {
     });
   });
 
+  test("ListColumnSpec.refEntity is ignored on a real sortable non-text field (own type wins)", () => {
+    const vm = computeListViewModel({
+      screen: listScreen([{ field: "quantity", refEntity: "tenant:tenant" }]),
+      entity: {
+        fields: { quantity: { type: "number", sortable: true } },
+      } as unknown as EntityDefinition,
+      rows: [],
+      translate,
+      featureName: "delivery",
+    });
+
+    expect(vm.columns[0]).toMatchObject({ field: "quantity", type: "number", sortable: true });
+    expect(vm.columns[0]?.refEntity).toBeUndefined();
+  });
+
   test("non-regression: a projectionList column without refEntity metadata stays 'text', unchanged (fw#2662)", () => {
     const vm = computeListViewModel({
       screen: listScreen([{ field: "type", label: "delivery.log.col.type" }]),
