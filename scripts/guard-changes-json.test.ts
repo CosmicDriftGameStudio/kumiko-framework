@@ -232,10 +232,31 @@ describe("findChangesetViolations", () => {
     const root = makeTempRoot("changeset-guard-");
     mkdirSync(join(root, ".changeset"), { recursive: true });
 
-    expect(isReleaseBranch({ GITHUB_REF_NAME: "changeset-release/main" })).toBe(true);
+    expect(isReleaseBranch({ GITHUB_EVENT_NAME: "push", GITHUB_REF_NAME: "changeset-release/main" })).toBe(true);
     expect(findChangesetViolations(root, ["packages/framework/src/changes.json"], {
+      GITHUB_EVENT_NAME: "push",
       GITHUB_REF_NAME: "changeset-release/main",
     })).toEqual([]);
+  });
+
+  it("trusts a changeset-release head ref only for same-repo pull requests", () => {
+    const root = makeTempRoot("changeset-guard-");
+    const eventFor = (headRepo: string) => {
+      const path = join(root, `event-${headRepo.replace("/", "-")}.json`);
+      writeFileSync(path, JSON.stringify({ pull_request: { head: { repo: { full_name: headRepo } } } }));
+      return path;
+    };
+    const pullRequestContext = (eventPath?: string) => ({
+      GITHUB_EVENT_NAME: "pull_request",
+      GITHUB_HEAD_REF: "changeset-release/main",
+      GITHUB_REPOSITORY: "org/repo",
+      GITHUB_EVENT_PATH: eventPath,
+    });
+
+    expect(isReleaseBranch(pullRequestContext(eventFor("org/repo")))).toBe(true);
+    expect(isReleaseBranch(pullRequestContext(eventFor("attacker/repo")))).toBe(false);
+    expect(isReleaseBranch(pullRequestContext(undefined))).toBe(false);
+    expect(isReleaseBranch({ ...pullRequestContext(eventFor("org/repo")), GITHUB_EVENT_NAME: "workflow_dispatch" })).toBe(false);
   });
 
   it("ignores deleted changesets", () => {
