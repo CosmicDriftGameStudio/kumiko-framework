@@ -140,6 +140,11 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" cannot use itself as the owner field — the subject id is a plaintext pseudonymous fk, the pii field is the value it owns.`,
         );
       }
+      if (normalized.ownerField === "id") {
+        throw new Error(
+          `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" uses owner field "id" — on entities \`of: "id"\` means record-owned, but on events it would encrypt under a phantom user key that a forget never reaches. Use \`personal: "self"\` for a record-owned event field.`,
+        );
+      }
       for (const required of [field, normalized.ownerField]) {
         if (shape && !(required in shape)) {
           throw new Error(

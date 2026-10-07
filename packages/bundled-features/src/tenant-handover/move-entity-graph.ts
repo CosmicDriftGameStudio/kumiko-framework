@@ -268,7 +268,7 @@ export async function moveTransferGraph(args: {
     { entityName: rootEntityName, rowIds: [rootRowId] },
   ];
 
-  for (let round = 0; round < MAX_TRANSFER_DEPTH && pending.length > 0; round++) {
+  for (let round = 0; round <= MAX_TRANSFER_DEPTH && pending.length > 0; round++) {
     // Merged per type so an edge leaving a type runs once per round, not once
     // per edge that reached it.
     const discovered = new Map<string, string[]>();
@@ -330,25 +330,18 @@ export async function moveTransferGraph(args: {
       }
     }
 
-    pending = [...discovered].map(([entityName, rowIds]) => ({ entityName, rowIds }));
-  }
+    // The extra round past the limit is a probe: it only exists to find out
+    // whether rows still hang below the last allowed hop. Its moves are rolled
+    // back with the transaction when this throws.
+    const [strandedEntityName] = discovered.keys();
+    if (round === MAX_TRANSFER_DEPTH && strandedEntityName !== undefined) {
+      throw new UnprocessableError("transfer_graph_too_deep", {
+        i18nKey: "errors.tenantHandover.transferGraphTooDeep",
+        details: { entityName: strandedEntityName },
+      });
+    }
 
-  // The depth limit is a safety net, not a licence to move part of a graph: if
-  // rounds ran out while rows remain whose type still leads somewhere, the
-  // declaration reaches further than the mover does, and returning quietly
-  // would leave exactly the orphaned rows #3088 is about.
-  //
-  // Rounds count hops of both edge kinds, while the boot validator measures
-  // reference chains between transferable entities only. A graph that fills the
-  // limit with reference hops and then adds a parentRef child therefore boots
-  // clean and fails here instead — the residual the validator cannot see, and
-  // the reason this check has to exist rather than trusting boot alone.
-  const stranded = pending.find(({ entityName }) => (adjacency.get(entityName) ?? []).length > 0);
-  if (stranded !== undefined) {
-    throw new UnprocessableError("transfer_graph_too_deep", {
-      i18nKey: "errors.tenantHandover.transferGraphTooDeep",
-      details: { entityName: stranded.entityName },
-    });
+    pending = [...discovered].map(([entityName, rowIds]) => ({ entityName, rowIds }));
   }
 
   return movedCounts;

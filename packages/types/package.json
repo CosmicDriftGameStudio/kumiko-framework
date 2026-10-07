@@ -276,7 +276,7 @@
   },
   "peerDependencies": {
     "hono": "^4.13.1",
-    "postgres": "npm:@bender0oo0/postgres@3.4.9-kumiko.1",
+    "postgres": "^3.4.9",
     "temporal-polyfill": "^0.3.2",
     "zod": "^4.4.3",
     "ioredis": "^5.10.1"

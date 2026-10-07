@@ -682,13 +682,14 @@ describe("tenant-handover :: claim", () => {
   // clean and only the mover can catch it. Failing the whole claim is the
   // point: the alternative is moving the first five hops and leaving the rest,
   // which is the silent partial move #3088 exists to end.
-  test("fails the claim when the rounds run out with rows still leading somewhere", async () => {
+  test("fails the claim when rows still hang below the last allowed hop", async () => {
     const runId = await seedRun(SOURCE_TENANT, "my run");
     const a1 = await seedLinkA(SOURCE_TENANT, { runId });
     const b1 = await seedLinkB(SOURCE_TENANT, a1);
     const a2 = await seedLinkA(SOURCE_TENANT, { viaB: b1 });
     const b2 = await seedLinkB(SOURCE_TENANT, a2);
     const a3 = await seedLinkA(SOURCE_TENANT, { viaB: b2 });
+    const b3 = await seedLinkB(SOURCE_TENANT, a3);
 
     const dest = destinationUser(1);
     const err = await stack.http.writeErr(
@@ -704,6 +705,28 @@ describe("tenant-handover :: claim", () => {
     expect(await readTenantId("handover_run", runId)).toBe(SOURCE_TENANT);
     expect(await readTenantId("handover_link_a", a1)).toBe(SOURCE_TENANT);
     expect(await readTenantId("handover_link_a", a3)).toBe(SOURCE_TENANT);
+    expect(await readTenantId("handover_link_b", b3)).toBe(SOURCE_TENANT);
+  });
+
+  // The edges still lead further (linkA -> linkB exists in the declaration), but
+  // no row hangs below the fifth hop: nothing is stranded, so the claim succeeds.
+  test("succeeds when the chain ends exactly at the last allowed hop", async () => {
+    const runId = await seedRun(SOURCE_TENANT, "my run");
+    const a1 = await seedLinkA(SOURCE_TENANT, { runId });
+    const b1 = await seedLinkB(SOURCE_TENANT, a1);
+    const a2 = await seedLinkA(SOURCE_TENANT, { viaB: b1 });
+    const b2 = await seedLinkB(SOURCE_TENANT, a2);
+    const a3 = await seedLinkA(SOURCE_TENANT, { viaB: b2 });
+
+    const dest = destinationUser(1);
+    const data = await stack.http.writeOk<{ movedEntities: Record<string, number> }>(
+      CLAIM,
+      { token: grantFor(runId), entityType: "run" },
+      dest,
+    );
+
+    expect(data.movedEntities).toEqual({ run: 1, linkA: 3, linkB: 2 });
+    expect(await readTenantId("handover_link_a", a3)).toBe(dest.tenantId);
   });
 
   test("replaying the same grant fails the same way an invalid one would, and changes nothing", async () => {

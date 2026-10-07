@@ -23,7 +23,11 @@ import {
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { workflowRunAggregateId } from "./aggregate-id.js";
 import { registerEventWakeup } from "./event-subscriber.js";
-import { startAndRunWorkflow, type WorkflowRunFailedPayload } from "./runner.js";
+import {
+  startAndRunWorkflow,
+  type WorkflowRunFailedPayload,
+  WorkflowSuspensionUnsupportedError,
+} from "./runner.js";
 import { registerWorkflow } from "./workflow-registry.js";
 
 const log = createFallbackLogger("workflow-runner");
@@ -98,15 +102,19 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
             handlerCtx: ctx as never,
           });
         } catch (error) {
+          // Only the suspension error knows its step; a throw inside a step
+          // carries no index, so it still reports 0.
+          const stepIndex =
+            error instanceof WorkflowSuspensionUnsupportedError ? error.stepIndex : 0;
           log.warn("workflow run failed", {
             runId,
             workflowName: workflow.name,
-            stepIndex: 0,
+            stepIndex,
             error: String(error),
           });
           const failedPayload: WorkflowRunFailedPayload = {
             workflowName: workflow.name,
-            stepIndex: 0,
+            stepIndex,
             error: describeWorkflowStepError(error),
           };
           await ctx.unsafeAppendEvent({
