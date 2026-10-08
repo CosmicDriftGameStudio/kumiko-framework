@@ -6,8 +6,7 @@ Canonical smoke-sample. Mounts every bundled-feature so framework-CI catches fea
 
 Sprint 9.8 found 12 framework bugs in a Studio deployment that all could have
 been caught earlier: 27 of 30 bundled features had zero integration coverage
-from any real app. This sample is the gate; deployment-specific rollout notes
-belong to your private operations documentation.
+from any real app. This sample is the gate.
 
 ## CI-Gate
 

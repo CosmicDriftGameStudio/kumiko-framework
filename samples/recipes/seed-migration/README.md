@@ -88,6 +88,4 @@ Wenn eine kaputte Migration den Boot blockiert: setze `skippable: true` im seed-
 
 ## See also
 
-- **Plan-Doc:** your deployment team's private operations documentation —
-  Phase-2+ Operations (projection-rebuild, event-replay, stream-migration, ...)
 - **Driver-Use-Case:** `seeds/2026-02-01-fix-admin-roles.ts` in this recipe

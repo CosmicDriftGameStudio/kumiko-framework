@@ -141,8 +141,7 @@ await seedTextBlock(db, {
 ```
 
 → Templates for full legally-sound texts: e-recht24.de
-or datenschutz-generator.de by Dr. Schwenke. Follow your deployment team's
-private legal-template documentation for the approved source process.
+or datenschutz-generator.de by Dr. Schwenke.
 
 ### 4. Visit the pages
 
