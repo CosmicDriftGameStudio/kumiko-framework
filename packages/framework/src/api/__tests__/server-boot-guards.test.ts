@@ -327,3 +327,52 @@ describe("buildServer — tenant-lifecycle gate derivation", () => {
     ).not.toThrow();
   });
 });
+
+describe("buildServer — systemScope without RateLimitResolver boot warning", () => {
+  const systemScopedFeature = defineFeature("sys-scoped-probe", (r) => {
+    r.systemScope();
+    r.queryHandler(
+      defineQueryHandler({
+        name: "ping",
+        schema: z.object({}),
+        handler: async () => [],
+        access: { roles: ["SystemAdmin"] },
+      }),
+    );
+  });
+
+  function bootWarnings(): { calls: unknown[][]; restore: () => void } {
+    const calls: unknown[][] = [];
+    const spy = spyOn(console, "warn").mockImplementation((...args) => {
+      calls.push(args);
+    });
+    return { calls, restore: () => spy.mockRestore() };
+  }
+  const hasWarning = (calls: unknown[][]) =>
+    calls.some((a) => typeof a[0] === "string" && a[0].includes("r.systemScope() features"));
+
+  test("warns naming the feature when no resolver is configured", () => {
+    const { calls, restore } = bootWarnings();
+    try {
+      buildServer({
+        registry: createRegistry([systemScopedFeature]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+      });
+      const hit = calls.find((a) => String(a[0]).includes("r.systemScope() features"));
+      expect(String(hit?.[0])).toContain("sys-scoped-probe");
+    } finally {
+      restore();
+    }
+  });
+
+  test("stays silent without any systemScope feature", () => {
+    const { calls, restore } = bootWarnings();
+    try {
+      buildServer({ registry: createRegistry([]), context: {}, jwtSecret: JWT_SECRET });
+      expect(hasWarning(calls)).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+});
