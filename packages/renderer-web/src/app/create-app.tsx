@@ -154,6 +154,12 @@ export type CreateKumikoAppOptions = {
   readonly schema?: AppSchema | FeatureSchema;
   readonly rootId?: string;
   readonly dispatcher?: Dispatcher;
+  /** URL of the authenticated schema endpoint, fetched when no `schema` is
+   *  given. Default `/api/schema` (same origin). Set an absolute URL when the
+   *  API lives on another origin than the SPA (e.g. a `baseUrl` on
+   *  `createLiveDispatcher`); a cross-origin URL is fetched with
+   *  `credentials: "include"`. */
+  readonly schemaUrl?: string;
   /** RenderEdit's create-mode draftId storage (issue #1913) — where a
    *  same-tab reload finds which of several parallel create-sessions on a
    *  screen to resume. Default: `createBrowserDraftStorage()`
@@ -369,6 +375,7 @@ function warnMissingCustomScreens(
 
 type KumikoAppRootProps = {
   readonly initialApp: AppSchema | undefined;
+  readonly schemaUrl?: string;
   readonly screenQn?: string;
   readonly clientFeatures: readonly ClientFeatureDefinition[];
   readonly providers: readonly ComponentType<{ readonly children: ReactNode }>[];
@@ -447,6 +454,7 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
     <AppSchemaBoundary
       app={app}
       screenQn={props.screenQn}
+      {...(props.schemaUrl !== undefined && { schemaUrl: props.schemaUrl })}
       navAdapter={props.navAdapter}
       onAppLoaded={(loaded) => {
         warnMissingCustomScreens(loaded, props.customScreens);
@@ -510,6 +518,7 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
 function AppSchemaBoundary({
   app,
   screenQn,
+  schemaUrl,
   navAdapter,
   onAppLoaded,
   schemaIsRoleProjected,
@@ -520,6 +529,7 @@ function AppSchemaBoundary({
 }: {
   readonly app: AppSchema | undefined;
   readonly screenQn?: string;
+  readonly schemaUrl?: string;
   readonly navAdapter: (options?: {
     readonly hasWorkspaces?: boolean;
     readonly features?: readonly FeatureSchema[];
@@ -558,7 +568,9 @@ function AppSchemaBoundary({
   }, []);
 
   if (app === undefined) {
-    return <AppSchemaFetchBoot onLoaded={onAppLoaded} />;
+    return (
+      <AppSchemaFetchBoot onLoaded={onAppLoaded} {...(schemaUrl !== undefined && { schemaUrl })} />
+    );
   }
 
   const fallbackQn = resolveRootScreenQn(app.features, screenQn, schemaIsRoleProjected);
@@ -673,6 +685,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     <KumikoAppRoot
       initialApp={initialApp}
       screenQn={options.screenQn}
+      {...(options.schemaUrl !== undefined && { schemaUrl: options.schemaUrl })}
       clientFeatures={clientFeatures}
       providers={providers}
       gates={gates}

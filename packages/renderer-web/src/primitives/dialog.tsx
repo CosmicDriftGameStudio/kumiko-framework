@@ -26,7 +26,9 @@ export function DefaultDialog({
   const [loading, setLoading] = useState(false);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
-  const focusTarget = initialFocus ?? (children === undefined ? "confirm" : undefined);
+  // A danger dialog defaults to the safe choice, so a reflexive Enter cannot run a destructive action.
+  const defaultFocus = variant === "danger" ? "cancel" : "confirm";
+  const focusTarget = initialFocus ?? (children === undefined ? defaultFocus : undefined);
 
   const effectiveConfirmLabel = confirmLabel ?? t("kumiko.dialog.confirm");
   const effectiveCancelLabel = cancelLabel ?? t("kumiko.dialog.cancel");

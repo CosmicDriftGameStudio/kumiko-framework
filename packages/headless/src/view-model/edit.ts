@@ -242,7 +242,7 @@ function deriveSelectFieldHints(
   };
 }
 
-type TextFieldHints = Pick<EditFieldViewModel, "multiline" | "format" | "writeOnly">;
+type TextFieldHints = Pick<EditFieldViewModel, "multiline" | "format" | "writeOnly" | "sensitive">;
 
 function deriveTextFieldHints(fieldDef: EntityFieldDef): TextFieldHints {
   const multiline =
@@ -253,6 +253,7 @@ function deriveTextFieldHints(fieldDef: EntityFieldDef): TextFieldHints {
     ...(multiline !== undefined && { multiline }),
     ...(format !== undefined && { format }),
     ...(writeOnly && { writeOnly: true as const }),
+    ...("sensitive" in fieldDef && fieldDef.sensitive === true && { sensitive: true as const }),
   };
 }
 

@@ -828,6 +828,17 @@ describe("createKumikoApp", () => {
       expect(schemaCalls()[0]?.init?.credentials).toBe("same-origin");
     });
 
+    test("schemaUrl with a cross-origin base → fetches that URL with include credentials", async () => {
+      mountRoot();
+      mockFetch(() => new Response(JSON.stringify(toAppSchema(baseSchema)), { status: 200 }));
+      const schemaUrl = `https://api.example.com${APP_SCHEMA_API_PATH}`;
+      await mountApp({ dispatcher: makeDispatcher(), schemaUrl });
+      await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+      expect(schemaCalls().length).toBe(1);
+      expect(schemaCalls()[0]?.url).toBe(schemaUrl);
+      expect(schemaCalls()[0]?.init?.credentials).toBe("include");
+    });
+
     test("fetch → 401 → unauthorized text, no throw, exactly one fetch even after further updates", async () => {
       mountRoot();
       mockFetch(() => new Response(null, { status: 401 }));
