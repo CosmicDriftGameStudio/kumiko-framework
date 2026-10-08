@@ -54,6 +54,15 @@ function anchoredPurpose(purpose: string, anchor: string): string {
   return `${purpose}:${anchor}`;
 }
 
+// The HMAC input is `${purpose}:${anchor}:${subject}.${expiresAtMs}` with no
+// length prefixes. Colon-free anchor and subject make the split unambiguous
+// from the right, so two different (purpose, anchor, subject) triples can
+// never share a signature. The purpose may keep colons (tenant-handover
+// namespaces its purpose by entity type).
+function hasDelimiter(value: string): boolean {
+  return value.includes(":");
+}
+
 export function signRowBoundGrant(args: {
   readonly subject: string;
   readonly purpose: string;
@@ -62,6 +71,9 @@ export function signRowBoundGrant(args: {
   readonly secret: string;
   readonly now?: Temporal.Instant;
 }): { readonly token: string; readonly expiresAt: Temporal.Instant } {
+  if (hasDelimiter(args.anchor) || hasDelimiter(args.subject)) {
+    throw new Error("row-bound grant: subject and anchor must not contain ':'");
+  }
   return signToken(
     args.subject,
     anchoredPurpose(args.purpose, args.anchor),
@@ -90,7 +102,7 @@ export async function redeemRowBoundGrant(args: {
   if (!args.secret) return FAILED;
 
   const subject = peekTokenSubject(args.token);
-  if (!subject) return FAILED;
+  if (!subject || hasDelimiter(subject)) return FAILED;
 
   // The subject is unverified attacker input at this point, so a lookup that
   // throws on it (e.g. a non-uuid value against a uuid column) must not
@@ -107,7 +119,7 @@ export async function redeemRowBoundGrant(args: {
     });
     return FAILED;
   }
-  if (!anchor) return FAILED;
+  if (!anchor || hasDelimiter(anchor)) return FAILED;
 
   const verified = verifyToken(
     args.token,
