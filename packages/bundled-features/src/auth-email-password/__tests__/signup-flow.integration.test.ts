@@ -347,6 +347,36 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(loginRes.status).toBe(200);
   });
 
+  test("a confirm request with X-Locale stores the locale and the first JWT carries it", async () => {
+    const email = "locale-claim@example.com";
+    const token = await requestSignup(email);
+
+    const res = await stack.http.raw(
+      "POST",
+      "/api/auth/signup-confirm",
+      { token, password: "fresh-secure-pw-1234" },
+      { [LOCALE_HEADER_NAME]: "de-DE" },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string };
+
+    const payload = await stack.jwt.verify(body.token);
+    expect(payload.locale).toBe("de-DE");
+    const rows = await selectMany(stack.db, userTable, { email });
+    expect(rows[0]?.["locale"]).toBe("de-DE");
+  });
+
+  test("a confirm request without a locale signal leaves the locale unset", async () => {
+    const email = "no-locale-claim@example.com";
+    const token = await requestSignup(email);
+
+    const res = await postSignupConfirm(token, "fresh-secure-pw-1234");
+    const body = (await res.json()) as { token: string };
+
+    const payload = await stack.jwt.verify(body.token);
+    expect(payload.locale).toBeUndefined();
+  });
+
   test("Single-Use-Burn: zweiter confirm mit gleichem Token → 422 invalid_signup_token", async () => {
     const email = "burn@example.com";
     const password = "burn-test-pw-1234";
