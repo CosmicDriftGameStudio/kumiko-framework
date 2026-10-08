@@ -284,10 +284,11 @@ const SCENARIOS: readonly Scenario[] = [
     flow: admin(`/tenant-admin/note-edit/${DEMO_NOTE_ID}`),
     fullPage: true,
   },
-  // cap-overview — tenant cap list: per-cap quota cards + usage bars on the
-  // /tenant-admin/my-caps screen ("Plans & Caps" in the admin sidebar).
+  // cap-overview — my-caps dashboard: per-cap quota cards + usage bars on the
+  // /tenant-admin/my-caps screen ("Plans & Caps" in the admin sidebar). Not the
+  // platform-admin `tenant-cap-list` table screen, whose name stays free.
   {
-    name: "tenant-cap-list",
+    name: "cap-overview",
     flow: admin("/tenant-admin/my-caps"),
     waitFor: '[data-testid="cap-cards-panel"]',
     fullPage: true,
