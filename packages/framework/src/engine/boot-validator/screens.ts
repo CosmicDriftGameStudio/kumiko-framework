@@ -20,6 +20,7 @@ import { parseRefTarget } from "../parse-ref-target.js";
 import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name.js";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.js";
 import {
+  explicitListScreenId,
   type FieldsOrGroupsSection,
   isExtensionEditSection,
   isFieldsEditSection,
@@ -1269,6 +1270,24 @@ function getNavAreaIndex(featureMap: ReadonlyMap<string, FeatureDefinition>): Na
   return index;
 }
 
+// resolveNavParentScreen falls back to a heuristic when the explicit
+// listScreenId matches no screen, so a typo would silently get the guess.
+function validateExplicitListScreenExists(
+  featureName: string,
+  screenId: string,
+  screen: ScreenDefinition,
+  screensByShortId: ReadonlyMap<string, unknown>,
+): void {
+  const listScreenId = explicitListScreenId(screen);
+  if (listScreenId === undefined) return;
+  const shortId = listScreenId.slice(listScreenId.lastIndexOf(":") + 1);
+  if (screensByShortId.has(shortId)) return;
+  throw new Error(
+    `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) listScreenId "${listScreenId}" ` +
+      `matches no mounted screen — fix the id or mount the list screen.`,
+  );
+}
+
 // Every screen must resolve nav via `nav`, `r.nav()`, a parent list, or
 // `dormant: true`. Skipped when the composed set has no nav entries at all.
 function validateScreenHasNavArea(
@@ -1570,6 +1589,19 @@ export function validateScreens(
     detailForScreens,
   };
   for (const [screenId, screen] of Object.entries(feature.screens)) {
+    validateExplicitListScreenExists(feature.name, screenId, screen, screensByShortId);
+    // Output of buildAppSchema, which overwrites it — an authored value would be a silent no-op.
+    if (
+      (screen.type === "entityEdit" ||
+        screen.type === "actionForm" ||
+        screen.type === "secretMint") &&
+      screen.urlPrefillFields !== undefined
+    ) {
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" (${screen.type}) sets urlPrefillFields — ` +
+          `it is derived from navigate params by buildAppSchema; declare params on the navigating action instead.`,
+      );
+    }
     validateScreenHasNavArea(feature, screenId, screen, featureMap);
     validateScreenVisibleWhen(feature, screenId, screen, allScreenQns, featureMap);
     if (screen.type === "custom") {
@@ -1600,6 +1632,7 @@ export function validateScreens(
       for (const col of screen.columns) {
         const normalizedCol = normalizeListColumn(col);
         validateColumnRendererForm(feature.name, screenId, normalizedCol);
+        rejectInertColumnSortable(feature.name, screenId, "projectionList", normalizedCol);
         if (normalizedCol.refEntity !== undefined) {
           assertRefTargetRegistered(
             `[Feature ${feature.name}] Screen "${screenId}" (projectionList)`,
@@ -2334,6 +2367,7 @@ export function validateScreens(
           );
         }
         validateColumnRendererForm(feature.name, screenId, normalized);
+        rejectInertColumnSortable(feature.name, screenId, "entityList", normalized);
         if (normalized.refEntity !== undefined) {
           assertRefTargetRegistered(
             `[Feature ${feature.name}] Screen "${screenId}" (entityList)`,
@@ -3164,6 +3198,28 @@ function validateDashboardFilterDefinition(
 // stimmt: wenn `react` als Object gesetzt ist, MUSS `__component` ein
 // nicht-leerer String sein. Ein client-seitig ausgelassener Key löst
 // nur eine Warnung aus, kein Boot-Fail.
+// Column-level sortable: true only enables relatedList headers. On entityList
+// the entity field's flag wins; on projectionList sortable comes from the
+// query schema and a column can only opt OUT with sortable: false.
+function rejectInertColumnSortable(
+  featureName: string,
+  screenId: string,
+  screenType: "entityList" | "projectionList",
+  column: { readonly field: string; readonly sortable?: boolean },
+): void {
+  const isInert =
+    screenType === "entityList" ? column.sortable !== undefined : column.sortable === true;
+  if (!isInert) return;
+  const source =
+    screenType === "entityList"
+      ? "set sortable: true on the entity field instead"
+      : "sorting is derived from the query's Zod schema; only sortable: false is honored";
+  throw new Error(
+    `[Feature ${featureName}] Screen "${screenId}" (${screenType}) column "${column.field}" sets sortable — ` +
+      `it is ignored here; ${source}.`,
+  );
+}
+
 export function validateColumnRendererForm(
   featureName: string,
   screenId: string,

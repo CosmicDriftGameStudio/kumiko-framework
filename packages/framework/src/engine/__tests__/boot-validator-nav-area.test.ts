@@ -147,6 +147,22 @@ describe("validateBoot — every screen must resolve its own nav area", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
+  test("a listScreenId that matches no mounted screen → Throw, even on a dormant screen", () => {
+    const feature = defineFeature("app", (r) => {
+      r.nav({ id: "home", label: "app.nav.home" });
+      r.screen({
+        id: "orphan",
+        type: "custom",
+        renderer: { react: "Orphan" },
+        dormant: true,
+        listScreenId: "orphan-lsit",
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /listScreenId "orphan-lsit" matches no mounted screen/,
+    );
+  });
+
   test("a feature set with no nav entries at all (sample/recipe) → the check does not run", () => {
     const feature = defineFeature("recipe", (r) => {
       r.screen({ id: "orphan", type: "custom", renderer: { react: "Orphan" } });
