@@ -48,6 +48,7 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
     access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
+      grants: ["systemIdentity", "unsafeRaw"],
       reason:
         "Pre-auth MFA step has no session yet — re-derives it via ctx.queryAs(SYSTEM, " +
         "user:findForAuth) and ctx.resolveActiveMembership for the user the challenge token names. " +

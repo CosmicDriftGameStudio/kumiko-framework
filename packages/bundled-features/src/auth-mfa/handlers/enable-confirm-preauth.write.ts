@@ -71,6 +71,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
     access: { roles: ["anonymous"], personalData: "public-intake" },
     rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
+      grants: ["systemIdentity", "unsafeRaw"],
       reason:
         "Pre-auth MFA enrollment step has no session yet — re-checks status via ctx.queryAs(SYSTEM, " +
         "user:findForAuth) and membership via ctx.resolveActiveMembership for the setup token's user. " +
