@@ -77,8 +77,10 @@ export type HttpRouteDefinition = {
   /** URL-Pfad (Hono-Pattern, z.B. "/feed.xml" oder "/og/:tenantId.png"). */
   readonly path: string;
   /** true = public, no session required. false = mounted behind the
-   *  session auth chain (no anonymous fallthrough, PAT rate limit,
-   *  origin + CSRF guards) — a request without a session gets 401. The
+   *  session auth chain (global IP rate limit when configured, PII
+   *  ciphertext tripwire, no anonymous fallthrough, origin + CSRF guards;
+   *  PATs are rejected). requestId, body limit and observability are the
+   *  `/api/*` chain only. A request without a session gets 401. The
    *  handler reads the caller via getUser(c). */
   readonly anonymous: boolean;
   /** Hono-Handler. Bekommt Hono-Context + Framework-Deps; returnt
