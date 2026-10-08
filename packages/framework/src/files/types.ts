@@ -132,8 +132,9 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
 ];
 
 // ZIP entry names are stored uncompressed in the local and central headers,
-// so a byte search finds the mandatory docx main part without unzipping.
-const DOCX_MAIN_PART_NAME = "word/document.xml";
+// so a byte search finds the docx part directory without unzipping. The main
+// part is resolved via _rels/.rels and may be named e.g. word/document2.xml.
+const DOCX_PART_PREFIX = "word/";
 
 function containsAscii(bytes: Uint8Array, ascii: string): boolean {
   const first = ascii.charCodeAt(0);
@@ -277,10 +278,10 @@ export function validateFileContent(
   if (signatureMimeTypes.length === 0) return { kind: "ok" };
   const sniffed = sniffMimeType(content);
   // sniffMimeType only sees the ZIP container; any .xlsx/.pptx/.zip shares it.
-  if (sniffed === DOCX_MIME_TYPE && !containsAscii(content, DOCX_MAIN_PART_NAME)) {
+  if (sniffed === DOCX_MIME_TYPE && !containsAscii(content, DOCX_PART_PREFIX)) {
     return {
       kind: "rejected",
-      error: `content_mismatch: ".${ext}" upload bytes are a ZIP archive without ${DOCX_MAIN_PART_NAME}, not a docx`,
+      error: `content_mismatch: ".${ext}" upload bytes are a ZIP archive without ${DOCX_PART_PREFIX} entries, not a docx`,
     };
   }
   if (sniffed && signatureMimeTypes.includes(sniffed)) return { kind: "ok" };

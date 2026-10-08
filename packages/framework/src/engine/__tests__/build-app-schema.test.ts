@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema.js";
-import { access, createSystemConfig } from "../config-helpers.js";
+import { access, createSystemConfig, createTenantConfig } from "../config-helpers.js";
 import { defineFeature } from "../define-feature.js";
 import { createRegistry } from "../registry.js";
 import type { EntityDefinition, MultiSelectFieldDef } from "../types/fields.js";
@@ -616,6 +616,23 @@ describe("buildAppSchema", () => {
         /"thing" field "notes": multiline\.rows must be a positive integer/,
       );
     }
+  });
+
+  test("multiline.rows that is not a positive integer on a configEdit screen field fails the build", () => {
+    const f = defineFeature("cfg", (r) => {
+      r.config({ keys: { note: createTenantConfig("text", { default: "" }) } });
+      r.screen({
+        id: "settings",
+        type: "configEdit",
+        scope: "tenant",
+        configKeys: { note: "cfg:config:note" },
+        fields: { note: { type: "text", multiline: { rows: 0 } } } as never,
+        layout: { sections: [{ title: "Basics", fields: ["note"] }] } as never,
+      });
+    });
+    expect(() => buildAppSchema(createRegistry([f]))).toThrow(
+      /"cfg:settings" field "note": multiline\.rows must be a positive integer/,
+    );
   });
 
   test("text: writeOnly survives the projection (the renderer picks the masked input from it)", () => {
