@@ -816,6 +816,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // resolver is the auto-wired one (or `context.rateLimit` if set);
   // boot-fails loudly when the caller asked for middleware without a
   // working Redis to back it.
+  let globalRateLimitGuard: MiddlewareHandler | undefined;
   if (wantsL1L2) {
     if (!rateLimitResolver) {
       throw new Error(
@@ -824,14 +825,12 @@ export function buildServer(options: ServerOptions): KumikoServer {
       );
     }
     if (options.rateLimit?.global) {
-      app.use(
-        "/api/*",
-        globalIpRateLimit({
-          ...options.rateLimit.global,
-          resolver: rateLimitResolver,
-          clientIpResolver,
-        }),
-      );
+      globalRateLimitGuard = globalIpRateLimit({
+        ...options.rateLimit.global,
+        resolver: rateLimitResolver,
+        clientIpResolver,
+      });
+      app.use("/api/*", globalRateLimitGuard);
     }
     if (options.rateLimit?.auth) {
       const { path: l2Path = "/api/auth/*", ...l2Opts } = options.rateLimit.auth;
@@ -960,7 +959,12 @@ export function buildServer(options: ServerOptions): KumikoServer {
   });
 
   // No PAT rate-limit here: patRouteGuardMiddleware rejects every PAT on httpRoutes before it could count.
+  // httpRoutes sit outside /api/*, so the pre-auth /api/* middlewares do not run for them: the
+  // global IP limit (an unauthenticated flood must not reach JWT verify / session checks) and the
+  // PII ciphertext tripwire are re-attached here. requestId, body limit and observability are not.
   const sessionOnlyHttpRouteGuards: readonly MiddlewareHandler[] = [
+    ...(globalRateLimitGuard ? [globalRateLimitGuard] : []),
+    piiCiphertextResponseGuard(),
     sessionOnlyGuard,
     patRouteGuardMiddleware,
     ...(originGuard ? [originGuard] : []),
