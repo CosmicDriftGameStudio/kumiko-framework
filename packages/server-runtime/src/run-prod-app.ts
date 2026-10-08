@@ -1071,6 +1071,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     registry,
     hasAuth: !!effectiveAuth,
     sseBroker,
+    redis,
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
     ...(bootLogger && { log: bootLogger }),

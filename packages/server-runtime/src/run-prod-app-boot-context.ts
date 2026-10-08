@@ -48,6 +48,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import type { Redis } from "ioredis";
 import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto.js";
 import type {
   AuthMailOptions,
@@ -103,12 +104,14 @@ function buildDeliveryNotifyFactory(opts: {
   readonly sseBroker?: SseBroker;
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly log?: Logger;
+  readonly redis?: Redis;
   readonly deliverQueuedInline: boolean | undefined;
 }): NotifyFactory {
   const deliveryService = createDeliveryService({
     db: opts.db,
     registry: opts.registry,
     channels: collectChannels(opts.registry),
+    ...(opts.redis && { idempotencyRedis: opts.redis }),
     ...(opts.secrets && { secrets: opts.secrets }),
     ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
     ...(opts.escapeHatchAuditSink && { escapeHatchAuditSink: opts.escapeHatchAuditSink }),
@@ -168,6 +171,8 @@ export function buildBootExtraContext(opts: {
   readonly crypto?: BootCrypto;
   readonly masterKey?: MasterKeyProvider;
   readonly sseBroker?: SseBroker;
+  /** Backs notify's idempotencyKey dedup; without it such a notify throws. */
+  readonly redis?: Redis;
   readonly kms?: KmsAdapter;
   /** One-shot process (runBootstrap): nothing drains its job queue once it
    *  exits, so queued channels must send inline instead of enqueueing. */
@@ -189,6 +194,7 @@ export function buildBootExtraContext(opts: {
         registry: opts.registry,
         ...(secrets && { secrets }),
         ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
+        ...(opts.redis && { redis: opts.redis }),
         ...(escapeHatchAuditSink && { escapeHatchAuditSink }),
         ...(opts.log && { log: opts.log }),
         deliverQueuedInline: opts.deliverQueuedInline,
