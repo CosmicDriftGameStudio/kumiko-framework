@@ -7,9 +7,14 @@
 
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
-import { clearSession, runMatrix, type Scenario } from "@cosmicdrift/kumiko-testing/e2e";
+import {
+  clearSession,
+  runMatrix,
+  type Scenario,
+  type ScenarioFixtures,
+} from "@cosmicdrift/kumiko-testing/e2e";
 import type { BrowserContext, Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_NOTE_ID } from "../src/app/auth-constants";
+import { DEMO_NOTE_ID } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
 
 const THEMES = ["default-light", "default-dark"] as const;
@@ -130,44 +135,47 @@ const adminMfaEnroll = () => async (page: Page) => {
 };
 
 // auth-mfa-verify — the login-time challenge step (gate swaps LoginScreen
-// for MfaVerifyScreen when /auth/login answers mfaRequired). Enrolls admin
-// via direct write-dispatch first (no UI dependency on the enable screen),
-// computing a real TOTP code with the same helper the server verifies
-// against — then logs out and re-submits the login FORM so the gate swap
-// fires. Runs LAST in SCENARIOS: admin keeps its MFA enrollment for the
-// rest of this server process (one shared ephemeral DB per run), which
-// would otherwise challenge every other admin-flow scenario.
-const adminMfaLoginChallenge = () => async (page: Page) => {
-  await signInAsAdmin(page);
-  const csrfToken = await csrfTokenOf(page);
-  const start = await page.request.post("/api/write", {
-    headers: { "X-CSRF-Token": csrfToken },
-    data: {
-      type: "auth-mfa:write:enable-start",
-      payload: { accountLabel: ADMIN_EMAIL },
-    },
-  });
-  const startBody = (await start.json()) as {
-    data: { setupToken: string; otpauthUri: string };
-  };
-  const secretParam =
-    new URLSearchParams(startBody.data.otpauthUri.split("?")[1]).get("secret") ?? "";
-  const secret = base32Decode(secretParam);
-  await page.request.post("/api/write", {
-    headers: { "X-CSRF-Token": csrfToken },
-    data: {
-      type: "auth-mfa:write:enable-confirm",
-      payload: { setupToken: startBody.data.setupToken, code: currentTotpCode(secret) },
-    },
-  });
+// for MfaVerifyScreen when /auth/login answers mfaRequired). Enrolls via
+// direct write-dispatch (no UI dependency on the enable screen) with a real
+// TOTP code, then re-submits the login FORM so the gate swap fires. Uses its
+// own seedTenant() user: enable-confirm revokes all other sessions of the
+// enrolling user, which would kill the cached ADMIN_EMAIL cookies of
+// parallel workers.
+const adminMfaLoginChallenge =
+  () =>
+  async (page: Page, { seedTenant }: ScenarioFixtures) => {
+    const tenant = await seedTenant();
+    const { email, password } = tenant.admin;
+    await tenant.loginAs(page, tenant.admin);
+    const csrfToken = await csrfTokenOf(page);
+    const start = await page.request.post("/api/write", {
+      headers: { "X-CSRF-Token": csrfToken },
+      data: {
+        type: "auth-mfa:write:enable-start",
+        payload: { accountLabel: email },
+      },
+    });
+    const startBody = (await start.json()) as {
+      data: { setupToken: string; otpauthUri: string };
+    };
+    const secretParam =
+      new URLSearchParams(startBody.data.otpauthUri.split("?")[1]).get("secret") ?? "";
+    const secret = base32Decode(secretParam);
+    await page.request.post("/api/write", {
+      headers: { "X-CSRF-Token": csrfToken },
+      data: {
+        type: "auth-mfa:write:enable-confirm",
+        payload: { setupToken: startBody.data.setupToken, code: currentTotpCode(secret) },
+      },
+    });
 
-  await clearSession(page);
-  await page.goto("/");
-  await page.getByLabel("Email").fill(ADMIN_EMAIL);
-  await page.getByLabel("Password").fill(ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.getByLabel("Code").waitFor();
-};
+    await clearSession(page);
+    await page.goto("/");
+    await page.getByLabel("Email").fill(email);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByLabel("Code").waitFor();
+  };
 
 const SCENARIOS: readonly Scenario[] = [
   // auth-email-password — Login-Surface, ausgeloggt.
@@ -285,8 +293,7 @@ const SCENARIOS: readonly Scenario[] = [
     fullPage: true,
   },
   // auth-mfa — login-time challenge step (MfaVerifyScreen swapped in after
-  // /auth/login answers mfaRequired). MUST run last — see comment above
-  // adminMfaLoginChallenge.
+  // /auth/login answers mfaRequired).
   { name: "auth-mfa-verify", flow: adminMfaLoginChallenge() },
 ];
 

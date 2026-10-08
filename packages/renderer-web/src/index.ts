@@ -125,7 +125,7 @@ export { LanguageMenuItems } from "./layout/language-menu-items.js";
 export type { LanguageSwitcherProps, LocaleOption } from "./layout/language-switcher.js";
 export { LanguageSwitcher } from "./layout/language-switcher.js";
 export type { NavTreeProps } from "./layout/nav-tree.js";
-export { buildNavRegistrySlice, NavTree } from "./layout/nav-tree.js";
+export { buildNavRegistrySlice, buildNavRegistrySliceForApp, NavTree } from "./layout/nav-tree.js";
 export type { ProfileMenuItem, ProfileMenuProps } from "./layout/profile-menu.js";
 export { ProfileMenu } from "./layout/profile-menu.js";
 export type { SidebarProps } from "./layout/sidebar.js";

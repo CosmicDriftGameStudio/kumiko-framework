@@ -27,6 +27,34 @@ export const WIDGETS_I18N = {
   "widgets:dashboard:filter-region": { de: "Region", en: "Region" },
   "widgets:dashboard:filter-region-eu": { de: "Europa", en: "Europe" },
   "widgets:dashboard:filter-region-us": { de: "USA", en: "USA" },
+  "widgets:dashboard:filter-echo-title": { de: "Custom-Panel", en: "Custom panel" },
+  "widgets:dashboard:filter-echo-filtered": {
+    de: "Gefiltert nach Region: {region}",
+    en: "Filtered by region: {region}",
+  },
+  "widgets:dashboard:filter-echo-unfiltered": {
+    de: "Ungefiltert (alle Regionen)",
+    en: "Unfiltered (all regions)",
+  },
+  "widgets:dashboard:demo-incident-timeout": {
+    de: "API-Timeout eu-central",
+    en: "API timeout eu-central",
+  },
+  "widgets:dashboard:demo-incident-certificate": {
+    de: "Zertifikat erneuert",
+    en: "Certificate renewed",
+  },
+  "widgets:dashboard:demo-event-rate-adjustment": {
+    de: "Zinsanpassung Baudarlehen",
+    en: "Mortgage rate adjustment",
+  },
+  "widgets:dashboard:demo-event-savings-contract": {
+    de: "Bausparvertrag zuteilungsreif",
+    en: "Building savings contract ready for allocation",
+  },
+  "widgets:dashboard:demo-goal-mortgage": { de: "Baudarlehen", en: "Mortgage" },
+  "widgets:dashboard:demo-goal-car-loan": { de: "Autokredit", en: "Car loan" },
+  "widgets:dashboard:demo-amount-open": { de: "{amount} offen", en: "{amount} outstanding" },
   "widgets:catalog:portfolio": { de: "Portfolio", en: "Portfolio" },
   "widgets:catalog:portfolio-sub": { de: "über 4 Konten", en: "across 4 accounts" },
   "widgets:catalog:remaining-debt": { de: "Restschuld", en: "Remaining debt" },
