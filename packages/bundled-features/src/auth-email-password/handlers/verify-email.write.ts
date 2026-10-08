@@ -29,6 +29,7 @@ export function createVerifyEmailHandler(opts: VerifyEmailOptions) {
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
+      grants: ["systemIdentity"],
       reason:
         "Anonymous token holder has no session — runConfirmTokenFlow loads and updates the " +
         "target user via ctx.writeAs(SYSTEM, user:update) to set emailVerified.",

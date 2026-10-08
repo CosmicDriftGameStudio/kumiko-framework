@@ -66,6 +66,7 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
       },
     },
     escapeHatch: {
+      grants: ["systemIdentity"],
       reason:
         "Reads the caller's own passwordHash (privileged-only field) via ctx.queryAs(SYSTEM, " +
         "user:findForAuth) to re-verify the current password before minting the token. Also " +

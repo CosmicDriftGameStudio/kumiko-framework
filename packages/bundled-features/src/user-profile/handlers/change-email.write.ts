@@ -38,6 +38,7 @@ export const changeEmailWrite = defineWriteHandler({
   }),
   access: { roles: access.authenticated },
   escapeHatch: {
+    grants: ["systemIdentity"],
     reason:
       "Reads the caller's own passwordHash via ctx.queryAs(SYSTEM, user:findForAuth), checks " +
       "email uniqueness the same way, and writes the new email via ctx.writeAs(SYSTEM, " +

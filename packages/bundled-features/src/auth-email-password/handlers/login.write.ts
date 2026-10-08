@@ -277,6 +277,7 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
+      grants: ["systemIdentity", "unsafeRaw"],
       reason:
         "Unauthenticated login has no caller identity yet — it looks up the user row by " +
         "email via ctx.queryAs(SYSTEM, ...) and resolves tenant membership via " +

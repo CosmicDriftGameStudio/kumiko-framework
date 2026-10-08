@@ -22,6 +22,7 @@ export const changePasswordWrite = defineWriteHandler({
   }),
   access: { roles: access.authenticated },
   escapeHatch: {
+    grants: ["systemIdentity"],
     reason:
       "Reads the caller's own passwordHash (privileged-only field) via ctx.queryAs(SYSTEM, ...) " +
       "and writes the new hash via ctx.writeAs(SYSTEM, user:update) — the caller's own " +

@@ -109,6 +109,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     additionalRateLimits: [{ per: { payloadField: "email" }, limit: 5, windowSeconds: 86400 }],
     escapeHatch: {
+      grants: ["systemIdentity"],
       reason:
         "Anonymous requester has no session — looks up the target user by email via " +
         "ctx.queryAs(SYSTEM, user:findForAuth) to mint the out-of-band token.",
