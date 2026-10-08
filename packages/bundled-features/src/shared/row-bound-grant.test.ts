@@ -1,6 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { redeemRowBoundGrant, signRowBoundGrant } from "./row-bound-grant.js";
+import { signToken } from "./signed-token.js";
 
 const SECRET = "test-secret-value";
 const PURPOSE = "waitlist-enrich";
@@ -161,6 +162,50 @@ describe("redeemRowBoundGrant", () => {
     const result = await redeemRowBoundGrant({
       token: grantFor("pending"),
       purpose: "waitlist-delete",
+      secret: SECRET,
+      loadAnchor: anchorIs("pending"),
+      commitAnchor: SKIP_COMMIT,
+      now: NOW,
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  test("a grant for (purpose 'p:a', anchor 'b') cannot be redeemed as (purpose 'p', anchor 'a:b')", async () => {
+    const { token } = signRowBoundGrant({
+      subject: SUBJECT,
+      purpose: "p:a",
+      anchor: "b",
+      ttlMinutes: 30,
+      secret: SECRET,
+      now: NOW,
+    });
+
+    const result = await redeemRowBoundGrant({
+      token,
+      purpose: "p",
+      secret: SECRET,
+      loadAnchor: anchorIs("a:b"),
+      commitAnchor: SKIP_COMMIT,
+      now: NOW,
+    });
+
+    expect(result.ok).toBe(false);
+  });
+
+  test("refuses to mint a grant whose anchor or subject contains the delimiter", () => {
+    const base = { ttlMinutes: 30, secret: SECRET, now: NOW, purpose: PURPOSE };
+
+    expect(() => signRowBoundGrant({ ...base, subject: SUBJECT, anchor: "a:b" })).toThrow(/':'/);
+    expect(() => signRowBoundGrant({ ...base, subject: "b:s", anchor: "a" })).toThrow(/':'/);
+  });
+
+  test("rejects a subject that carries the delimiter", async () => {
+    const forged = signToken("b:s", `${PURPOSE}:pending`, 30, SECRET, NOW).token;
+
+    const result = await redeemRowBoundGrant({
+      token: forged,
+      purpose: PURPOSE,
       secret: SECRET,
       loadAnchor: anchorIs("pending"),
       commitAnchor: SKIP_COMMIT,
