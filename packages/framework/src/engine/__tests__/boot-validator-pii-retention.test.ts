@@ -766,6 +766,10 @@ describe("validateBoot — retention", () => {
       String(args[0]).includes('strategy="blockDelete" but no field has an anonymize-function'),
     );
     expect(matchingWarn).toBeDefined();
+    expect(String(matchingWarn?.[0])).toContain(
+      "the data-retention cron anonymizes nothing and the row keeps its PII",
+    );
+    expect(String(matchingWarn?.[0])).not.toContain("Forget will return error");
   });
 
   test("blockDelete without any subject-annotated field stays silent (#1622)", () => {
