@@ -636,6 +636,7 @@ type TenantConfigValuesResponse = Readonly<
 type TenantCurrencyResolution =
   | { readonly status: "not-needed" }
   | { readonly status: "loading" }
+  | { readonly status: "unresolved" }
   | { readonly status: "ready"; readonly currency: string };
 
 // Resolves what a tenant-declared money field's currency should be, from the
@@ -646,19 +647,21 @@ type TenantCurrencyResolution =
 function resolveTenantCurrency(
   fieldNames: readonly string[],
   query: UseQueryResult<TenantConfigValuesResponse>,
-  fallback: string,
+  fallback: string | undefined,
 ): TenantCurrencyResolution {
   if (fieldNames.length === 0) return { status: "not-needed" };
-  if (query.error) return { status: "ready", currency: fallback };
+  if (query.error) {
+    return fallback === undefined
+      ? { status: "unresolved" }
+      : { status: "ready", currency: fallback };
+  }
   if (query.data === null) return { status: "loading" };
   const raw = query.data[TENANT_CURRENCY_CONFIG_KEY]?.value;
-  return { status: "ready", currency: typeof raw === "string" && raw !== "" ? raw : fallback };
+  if (typeof raw === "string" && raw !== "") return { status: "ready", currency: raw };
+  return fallback === undefined
+    ? { status: "unresolved" }
+    : { status: "ready", currency: fallback };
 }
-
-// An entity-less form screen has no `entity.defaultCurrency` to fall back on,
-// so a tenant-declared field whose config query errors or returns no value
-// lands here — same last resort as the entityEdit path's `?? "EUR"`.
-const ACTION_FORM_CURRENCY_FALLBACK = "EUR";
 
 const HEADER_CARD_DEFAULT_WIDTH = "4xl" as const;
 
@@ -695,10 +698,13 @@ export function literalCurrencyOverrides(
 export function useMoneyCurrencyOverrides(
   fields: Readonly<Record<string, unknown>>,
   tenantFieldNames: readonly string[],
-  fallback: string,
+  // `undefined` = no safe last resort (entity-less forms): an unresolvable
+  // tenant currency is reported via `unresolved` instead of guessing a code.
+  fallback: string | undefined,
 ): {
   readonly overrides: Readonly<Record<string, string>> | undefined;
   readonly loading: boolean;
+  readonly unresolved: boolean;
 } {
   const query = useQuery<TenantConfigValuesResponse>(
     "config:query:values",
@@ -714,7 +720,11 @@ export function useMoneyCurrencyOverrides(
     }
     return Object.keys(out).length > 0 ? out : undefined;
   }, [fields, tenantFieldNames, resolvedTenantCurrency]);
-  return { overrides, loading: resolution.status === "loading" };
+  return {
+    overrides,
+    loading: resolution.status === "loading",
+    unresolved: resolution.status === "unresolved",
+  };
 }
 
 function multiSelectOptionValues(shape: {
@@ -4087,18 +4097,18 @@ function ActionFormBody({
   const handoffValues = onSuccess === undefined ? pendingHandoff : undefined;
   // This screen has no entity, so a money field here declares its own currency
   // source (fw#2839, boot-enforced) — without one the form would seed a bare
-  // `0` the handler's schema rejects. ACTION_FORM_CURRENCY_FALLBACK only
-  // applies when a tenant-declared field's config query errors or holds no
-  // value, matching the entityEdit path's behaviour (fw#2937).
+  // `0` the handler's schema rejects. When a tenant-declared field's config
+  // query errors or holds no value there is no entity default to use, and
+  // submitting a guessed currency would mis-book the amount — block instead.
   const tenantCurrencyFieldNames = useMemo(
     () => tenantCurrencyMoneyFieldNames(screen.fields),
     [screen.fields],
   );
-  const { overrides: moneyCurrencyOverrides, loading: currencyLoading } = useMoneyCurrencyOverrides(
-    screen.fields,
-    tenantCurrencyFieldNames,
-    ACTION_FORM_CURRENCY_FALLBACK,
-  );
+  const {
+    overrides: moneyCurrencyOverrides,
+    loading: currencyLoading,
+    unresolved: currencyUnresolved,
+  } = useMoneyCurrencyOverrides(screen.fields, tenantCurrencyFieldNames, undefined);
   const initial = useMemo(
     () =>
       mergeSearchParamsIntoInitial(screen.fields, {
@@ -4204,6 +4214,13 @@ function ActionFormBody({
     return (
       <Banner padded variant="loading" testId="kumiko-screen-loading">
         Loading…
+      </Banner>
+    );
+  }
+  if (currencyUnresolved) {
+    return (
+      <Banner padded variant="error" testId="kumiko-screen-currency-unresolved">
+        The tenant currency could not be loaded, so this form cannot be submitted.
       </Banner>
     );
   }
