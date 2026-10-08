@@ -16,7 +16,8 @@ import {
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { tenantEntity, tenantMembershipsTable } from "../../tenant/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature, tenantEntity, tenantMembershipsTable } from "../../tenant/index.js";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
 import { UserErrors, UserHandlers, UserQueries } from "../constants.js";
 import { createUserFeature } from "../feature.js";
@@ -28,7 +29,9 @@ const systemAdmin = TestUsers.systemAdmin;
 const userFeature = createUserFeature();
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [userFeature] });
+  stack = await setupTestStack({
+    features: [userFeature, createConfigFeature(), createTenantFeature()],
+  });
   await unsafeCreateEntityTable(stack.db, userEntity);
   // Not part of userFeature — list.query.ts cross-feature-joins these to
   // derive the `tenants` column, so the tables must exist for that test.
