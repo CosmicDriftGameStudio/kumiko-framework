@@ -918,8 +918,8 @@ function assertSelectOptionTones(
   path: string,
   featureName: string,
 ): void {
-  if (field.type !== "select") return;
-  for (const [optionValue, tone] of Object.entries(field.optionTones ?? {})) {
+  const tones = field.type === "select" ? Object.entries(field.optionTones ?? {}) : [];
+  for (const [optionValue, tone] of tones) {
     if (!isSelectOptionTone(tone)) {
       throw new Error(
         `[Feature ${featureName}] Entity select field "${path}" optionTones["${optionValue}"] is ` +

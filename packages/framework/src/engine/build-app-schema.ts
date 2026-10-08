@@ -478,13 +478,11 @@ function assertValidMultilineRows(
   fieldName: string,
   fieldDef: FieldDefinition,
 ): void {
-  if (fieldDef.type !== "text" && fieldDef.type !== "longText") return;
-  const multiline = fieldDef.multiline;
-  if (typeof multiline !== "object") return;
-  const rows: unknown = multiline.rows;
+  const multiline =
+    fieldDef.type === "text" || fieldDef.type === "longText" ? fieldDef.multiline : undefined;
+  const rows: unknown = typeof multiline === "object" ? multiline.rows : undefined;
   // Non-number values are not JSON-safe and get dropped by the projection below.
-  if (typeof rows !== "number") return;
-  if (!Number.isInteger(rows) || rows < 1) {
+  if (typeof rows === "number" && (!Number.isInteger(rows) || rows < 1)) {
     throw new Error(
       `${owner} field "${fieldName}": multiline.rows must be a positive integer, got ${rows}`,
     );

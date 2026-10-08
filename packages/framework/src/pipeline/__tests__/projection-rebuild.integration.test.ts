@@ -41,6 +41,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
 
 // --- Test fixtures ---
 
@@ -1063,14 +1064,13 @@ describe("rebuildProjection — row level security guard (#2907)", () => {
         () => undefined,
         (error: unknown) => error,
       );
-      for (let attempt = 0; attempt < 250; attempt++) {
+      await waitFor(async () => {
         const [waiting] = await raw.unsafe<{ n: number }>(
           `SELECT count(*)::int AS n FROM pg_locks
            WHERE NOT granted AND relation = 'public.read_rebuild_items_per_group'::regclass`,
         );
-        if ((waiting?.n ?? 0) > 0) break;
-        await new Promise((resolve) => setTimeout(resolve, 20));
-      }
+        return (waiting?.n ?? 0) > 0;
+      });
       commitEnable();
       await enabler;
       const error = await swapOutcome;

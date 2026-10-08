@@ -21,7 +21,7 @@ Entity convention `create` handlers keep tenant-filtered lookups even when the h
 Text fields accept `minLength` (enforced by the generated write schema), `enumOption` renders array values per entry, list columns can opt out of sorting with `sortable: false`, and `BUILT_IN_MEMBERSHIP_ROLES` exposes the ranked membership roles. The PAT list translates its scopes column, MFA code fields enforce their minimum length, plan checkout no longer repeats the billing-enabled and active-subscription gates.
 
 <!-- kumiko-changes
-feature: screens
+feature: framework
 type: fix
 title: Unknown status tones fail boot and secretMint confirm actions respect role gating
 -->

@@ -25,6 +25,31 @@ async function decryptRunRow<T extends Record<string, unknown>>(row: T): Promise
   return result;
 }
 
+type JobRunStatus = z.infer<typeof jobRunStatusSchema>;
+
+function buildListWhere(payload: {
+  readonly jobName?: string | undefined;
+  readonly status?: JobRunStatus | undefined;
+  readonly filters?: readonly { readonly value: readonly JobRunStatus[] }[] | undefined;
+}): WhereObject {
+  const where: WhereObject = {};
+  if (payload.jobName) where["jobName"] = payload.jobName;
+  const statuses = payload.filters?.[0]?.value ?? (payload.status ? [payload.status] : []);
+  if (statuses.length === 1) where["status"] = statuses[0];
+  else if (statuses.length > 1) where["status"] = { in: statuses };
+  return where;
+}
+
+function parseOffsetCursor(cursor: string | undefined): number {
+  const offset = cursor ? Number(decodeCursor(cursor)) : 0;
+  if (!Number.isInteger(offset) || offset < 0) {
+    throw new ValidationError({
+      fields: [{ path: "cursor", code: "invalid_cursor", i18nKey: "jobs.errors.invalidCursor" }],
+    });
+  }
+  return offset;
+}
+
 export const listQuery = defineQueryHandler({
   name: "list",
   description:
@@ -57,20 +82,10 @@ export const listQuery = defineQueryHandler({
     const db = ctx.systemDb.unsafeRaw(
       "cross-tenant job monitoring: SystemAdmin lists job runs of every tenant",
     );
-    const where: WhereObject = {};
-    if (query.payload.jobName) where["jobName"] = query.payload.jobName;
-    const statusFilter = query.payload.filters?.find((filter) => filter.field === "status");
-    const statuses = statusFilter?.value ?? (query.payload.status ? [query.payload.status] : []);
-    if (statuses.length === 1) where["status"] = statuses[0];
-    else if (statuses.length > 1) where["status"] = { in: statuses };
+    const where = buildListWhere(query.payload);
     const sortColumn = query.payload.sort ?? "startedAt";
     const limit = query.payload.limit ?? DEFAULT_PAGE_SIZE;
-    const offset = query.payload.cursor ? Number(decodeCursor(query.payload.cursor)) : 0;
-    if (!Number.isInteger(offset) || offset < 0) {
-      throw new ValidationError({
-        fields: [{ path: "cursor", code: "invalid_cursor", i18nKey: "jobs.errors.invalidCursor" }],
-      });
-    }
+    const offset = parseOffsetCursor(query.payload.cursor);
     const direction = query.payload.sortDirection ?? "desc";
     // selectMany has no OFFSET: read through the end of the page plus one probe
     // row, then slice. `id` as tiebreaker keeps pages stable for non-unique sorts.
