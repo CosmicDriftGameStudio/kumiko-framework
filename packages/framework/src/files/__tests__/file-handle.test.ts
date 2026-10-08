@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { variantSuffix } from "../../derivatives/variant-key.js";
 import {
   createFileContext,
   createFileHandle,
@@ -77,9 +78,10 @@ describe("FileHandle", () => {
   test("derive produces an independent handle at the derived key", async () => {
     const provider = createInMemoryFileProvider();
     const original = createFileHandle("tenant/photo.jpg", () => Promise.resolve(provider));
-    const thumb = original.derive("thumb");
+    const suffix = variantSuffix("thumb", { maxEdge: 64 });
+    const thumb = original.derive(suffix);
 
-    expect(thumb.key).toBe("tenant/photo.thumb.jpg");
+    expect(thumb.key).toBe(`tenant/photo.${suffix}.jpg`);
 
     await original.write(new Uint8Array([1, 2]));
     await thumb.write(new Uint8Array([9, 9, 9]));
@@ -89,6 +91,14 @@ describe("FileHandle", () => {
     // Deleting the derived handle must not touch the original.
     await thumb.delete();
     expect(await original.exists()).toBe(true);
+  });
+
+  test("derive rejects a suffix the erasure sweep could not recognize", () => {
+    const provider = createInMemoryFileProvider();
+    const original = createFileHandle("tenant/photo.jpg", () => Promise.resolve(provider));
+
+    expect(() => original.derive("thumb")).toThrow(/variantSuffix/);
+    expect(() => original.derive("../x-0123456789abcdef")).toThrow(/variantSuffix/);
   });
 
   test("writes copy the buffer — caller mutations don't corrupt stored data", async () => {
@@ -127,6 +137,18 @@ describe("createFileContext", () => {
 
     const keys = await files.list("tenant/");
     expect([...keys].sort()).toEqual(["tenant/photo.jpg", "tenant/photo.medium.jpg"].sort());
+  });
+
+  test("a tenant-bound list refuses prefixes outside the tenant key space", async () => {
+    const provider = createInMemoryFileProvider();
+    await provider.write("t1/a.jpg", new Uint8Array([1]));
+    await provider.write("t2/b.jpg", new Uint8Array([2]));
+    const files = createFileContext(() => Promise.resolve(provider), "t1");
+
+    expect([...(await files.list("t1/"))]).toEqual(["t1/a.jpg"]);
+    await expect(files.list("")).rejects.toThrow(/must start with "t1\/"/);
+    await expect(files.list("t2/")).rejects.toThrow(/must start with/);
+    await expect(files.list("t10/")).rejects.toThrow(/must start with/);
   });
 
   test("the provider is resolved once and memoized across ref() and list()", async () => {

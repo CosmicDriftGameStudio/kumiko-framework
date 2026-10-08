@@ -41,7 +41,7 @@ export type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = 
   // the app booted with `files.storageProvider`; undefined otherwise.
   // Post-processing MSPs (resize, EXIF-strip, virus-scan) read bytes via
   // `ctx.files.ref(payload.storageKey).read()` and write derivates via
-  // `.derive("thumb").write(...)` — binaries never ride through events.
+  // `.derive(variantSuffix("thumb", spec)).write(...)` — binaries never ride through events.
   readonly files?: FileContext;
   // Derive-on-first-use variants, mirrors AppContext.derivatives. Present
   // exactly when `files` is — same file-foundation-provider precondition.

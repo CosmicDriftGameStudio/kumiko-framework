@@ -7,10 +7,12 @@
 // the bytes, and big files stay in the storage layer where they belong.
 //
 // `derive(suffix)` is the primitive for thumbnail/variant keys: it inserts a
-// suffix before the file extension — `foo/bar.jpg` + `"medium"` →
-// `foo/bar.medium.jpg`. Stable, reversible, no extra lookup tables.
+// suffix before the file extension — `foo/bar.jpg` + `"medium-<16 hex>"` →
+// `foo/bar.medium-<16 hex>.jpg`. The suffix must be a `variantSuffix(...)` so
+// the erasure sweep recognizes it. Stable, reversible, no extra lookup tables.
 
 import type { FileContext, FileHandle } from "@cosmicdrift/kumiko-types/file-handle-types";
+import { isDerivativeSuffix } from "../derivatives/variant-key.js";
 import type { FileStorageProvider } from "./types.js";
 
 export type { FileContext, FileHandle };
@@ -28,7 +30,17 @@ export function createFileHandle(
     write: async (data, mimeType) => (await getProvider()).write(key, data, mimeType),
     delete: async () => (await getProvider()).delete(key),
     exists: async () => (await getProvider()).exists(key),
-    derive: (suffix) => createFileHandle(deriveKey(key, suffix), getProvider),
+    derive: (suffix) => {
+      // A suffix outside the derivative grammar would write a key that the
+      // forget/tenant-destroy sweep (isDerivativeKeyOf) can never recognize,
+      // so the binary would survive erasure.
+      if (!isDerivativeSuffix(suffix)) {
+        throw new Error(
+          `FileHandle.derive: suffix "${suffix}" must be <name>-<16 hex chars>; build it with variantSuffix(name, spec)`,
+        );
+      }
+      return createFileHandle(deriveKey(key, suffix), getProvider);
+    },
   };
 }
 
@@ -37,7 +49,14 @@ export function createFileHandle(
 // produces — never a process-global cache, since each FileContext is bound to a
 // single request/event tenant; sharing would leak one tenant's provider (and
 // its bucket/credentials) to another.
-export function createFileContext(resolve: () => Promise<FileStorageProvider>): FileContext {
+//
+// With `tenantId`, `list` only accepts prefixes inside `${tenantId}/` — the key
+// space is the isolation boundary in a store shared by several tenants, and a
+// request-derived prefix (or "") would otherwise enumerate every tenant's keys.
+export function createFileContext(
+  resolve: () => Promise<FileStorageProvider>,
+  tenantId?: string,
+): FileContext {
   let cached: Promise<FileStorageProvider> | undefined;
   const getProvider = () => {
     cached ??= resolve();
@@ -45,7 +64,12 @@ export function createFileContext(resolve: () => Promise<FileStorageProvider>): 
   };
   return {
     ref: (key) => createFileHandle(key, getProvider),
-    list: async (prefix) => (await getProvider()).list(prefix),
+    list: async (prefix) => {
+      if (tenantId !== undefined && !prefix.startsWith(`${tenantId}/`)) {
+        throw new Error(`FileContext.list: prefix must start with "${tenantId}/"`);
+      }
+      return (await getProvider()).list(prefix);
+    },
   };
 }
 
