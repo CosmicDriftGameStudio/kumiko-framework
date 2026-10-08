@@ -143,6 +143,12 @@ describe("scanLinesForSecretLiterals", () => {
         'const s = env.JWT_SECRET ?? "hardcoded-prod-secret";',
       ]),
     ).toEqual(["JWT_SECRET"]);
+    expect(
+      flaggedNames([
+        "// kumiko-lint-ignore no-inline-styles,secret-literal fixture secret",
+        'const s = env.JWT_SECRET ?? "hardcoded-prod-secret";',
+      ]),
+    ).toEqual([]);
   });
 });
 

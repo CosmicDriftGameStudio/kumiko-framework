@@ -40,6 +40,7 @@
 import * as path from "node:path";
 import type { SourceFile } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import { lineHasIgnoreTag } from "./_lib/ignore-tag";
 
 const ROOT = process.cwd();
 
@@ -178,9 +179,9 @@ function isIgnored(sf: SourceFile, importLine: number): boolean {
   const text = sf.getFullText();
   const lines = text.split("\n");
   const onLine = lines[importLine - 1] ?? "";
-  if (onLine.includes(IGNORE_TAG)) return true;
+  if (lineHasIgnoreTag(onLine, IGNORE_TAG)) return true;
   const above = lines[importLine - 2] ?? "";
-  return above.trim().startsWith("//") && above.includes(IGNORE_TAG);
+  return above.trim().startsWith("//") && lineHasIgnoreTag(above, IGNORE_TAG);
 }
 
 function findCrossFeatureViolations(sf: SourceFile): Omit<Violation, "file">[] {
