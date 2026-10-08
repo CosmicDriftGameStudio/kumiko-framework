@@ -175,6 +175,23 @@ describe("sweepOrphanedDerivativesJob", () => {
     expect(await provider.exists(original)).toBe(true);
   });
 
+  test("keeps a derivative whose original still exists in storage without a fileRef row", async () => {
+    await seedTenant(tenantA);
+    const original = buildStorageKey(tenantA.tenantId, "fileRef", 1, "attachment", "a.jpg", "u1");
+    const derivative = derivativeOf(original);
+    await provider.write(original, new Uint8Array([1]));
+    await provider.write(derivative, new Uint8Array([2]));
+
+    await sweepOrphanedDerivativesJob(
+      {},
+      makeCtx(async () => provider),
+      stack.db,
+    );
+
+    expect(await provider.exists(derivative)).toBe(true);
+    expect(await provider.exists(original)).toBe(true);
+  });
+
   test("keeps a derivative whose original fileRef row is soft-deleted (trashed, not forgotten)", async () => {
     await seedTenant(tenantA);
     const original = buildStorageKey(tenantA.tenantId, "fileRef", 1, "attachment", "a.jpg", "u1");
