@@ -39,8 +39,10 @@ export type BillingInfo<TTier extends string> = {
     readonly tier: string;
     readonly providerName: string;
   } | null;
-  readonly prices: Readonly<Partial<Record<string, string>>>;
+  readonly prices: TierPrices<TTier>;
 };
+
+export type TierPrices<TTier extends string> = { readonly [K in TTier]?: string };
 
 export type BillingInfoQueryDeps<TTier extends string> = {
   readonly roles: readonly string[];
@@ -48,9 +50,7 @@ export type BillingInfoQueryDeps<TTier extends string> = {
   // ctx is the same HandlerContext the returned handler receives — apps read
   // their extraContext fields (e.g. `billingPrices`) off it and validate them
   // at that boundary.
-  readonly getBillingPrices: (
-    ctx: HandlerContext,
-  ) => Readonly<Partial<Record<string, string>>> | null;
+  readonly getBillingPrices: (ctx: HandlerContext) => TierPrices<TTier> | null;
 };
 
 export function createBillingInfoQueryConfig<TTier extends string>(
