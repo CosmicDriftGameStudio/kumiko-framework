@@ -2605,6 +2605,7 @@ describe("boot-validator", () => {
       readonly redirect?: string | { readonly screen: string; readonly idFrom: string };
       readonly cancelTarget?: string | false;
       readonly extraScreens?: readonly string[];
+      readonly extraDetailScreens?: readonly string[];
       readonly mode?: "single" | "wizard";
       readonly draft?: boolean;
     };
@@ -2648,6 +2649,19 @@ describe("boot-validator", () => {
             id: extra,
             type: "custom",
             renderer: { react: "stub" },
+          });
+        }
+        if (override.extraDetailScreens?.length) {
+          r.queryHandler("order:detail", z.object({}), async () => [], {
+            access: { roles: ["Admin"] },
+          });
+        }
+        for (const extra of override.extraDetailScreens ?? []) {
+          r.screen({
+            id: extra,
+            type: "projectionDetail",
+            query: "shop:query:order:detail",
+            layout: { sections: [{ title: "s", fields: ["total"] }] },
           });
         }
       });
@@ -2875,7 +2889,18 @@ describe("boot-validator", () => {
     });
 
     // --- redirect object form with idFrom (fw#2670) ---
-    test("redirect object → existing screen-id → kein Throw", () => {
+    test("redirect object → existing id-carrying screen → kein Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            redirect: { screen: "after-form", idFrom: "leaseId" },
+            extraDetailScreens: ["after-form"],
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("redirect object mit idFrom → Screen ohne Id (custom) → Throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -2883,7 +2908,7 @@ describe("boot-validator", () => {
             extraScreens: ["after-form"],
           }),
         ]),
-      ).not.toThrow();
+      ).toThrow(/redirect\.idFrom is set but target screen "after-form" \(custom\) carries no id/);
     });
 
     test("redirect object → unknown screen-id → Throw (unwrap umgeht die Validierung nicht)", () => {
@@ -3602,12 +3627,20 @@ describe("boot-validator", () => {
     });
 
     // --- redirect object form with idFrom (same rule as actionForm's) ---
-    test("redirect object → existing screen-id → kein Throw", () => {
+    test("redirect object → existing id-carrying screen → kein Throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ screen: "product-edit", idFrom: "parentId" })]),
+      ).not.toThrow();
+    });
+
+    test("redirect object mit idFrom → Screen ohne Id (custom) → Throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({ screen: "product-list", idFrom: "parentId" }, ["product-list"]),
         ]),
-      ).not.toThrow();
+      ).toThrow(
+        /redirect\.idFrom is set but target screen "product-list" \(custom\) carries no id/,
+      );
     });
 
     test("redirect object → unknown screen-id → Throw", () => {
