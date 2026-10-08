@@ -137,6 +137,36 @@ describe("actionForm money field currency source (fw#2839)", () => {
     expect(configPayloads).toEqual([{ keys: ["tenant-settings:config:currency"] }]);
   });
 
+  test("a failing or empty tenant currency lookup blocks the form instead of submitting a guessed currency", async () => {
+    const failing = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: false,
+        error: { code: "internal", i18nKey: "errors.internal" },
+      })) as unknown as Dispatcher["query"],
+    });
+    const { unmount } = render(
+      <DispatcherProvider dispatcher={failing}>
+        <KumikoScreen schema={makeSchema({ kind: "tenant" })} qn="billing:screen:invoice-pay" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("kumiko-screen-currency-unresolved")).toBeTruthy(),
+    );
+    expect(screen.queryByTestId("render-edit-form")).toBeNull();
+    unmount();
+
+    const empty = makeDispatcher([], { "tenant-settings:config:currency": { value: "" } });
+    render(
+      <DispatcherProvider dispatcher={empty}>
+        <KumikoScreen schema={makeSchema({ kind: "tenant" })} qn="billing:screen:invoice-pay" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("kumiko-screen-currency-unresolved")).toBeTruthy(),
+    );
+    expect(screen.queryByTestId("render-edit-form")).toBeNull();
+  });
+
   test("a form with only literal-declared money fields never calls config:query:values", async () => {
     const queriedTypes: string[] = [];
     const dispatcher = createMockDispatcher({
