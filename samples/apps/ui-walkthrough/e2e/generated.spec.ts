@@ -245,9 +245,11 @@ async function expectEditFillApplied(wrapper: Locator, op: EditFillOp): Promise<
       );
       return;
     case "select":
-      // Both select primitives mirror the current value into a hidden input —
-      // the one readable signal they share.
-      await expect(wrapper.locator('input[type="hidden"]')).toHaveValue(op.value);
+      // SegmentedSelect and the combobox mirror the current value into a hidden
+      // input; RadioListSelect has none and exposes it as its checked native radio.
+      await expect(
+        wrapper.locator('input[type="hidden"]').or(wrapper.locator('input[type="radio"]:checked')),
+      ).toHaveValue(op.value);
       return;
   }
 }

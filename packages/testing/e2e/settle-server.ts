@@ -59,6 +59,21 @@ const IDENTITY_PAGE = `<!doctype html>
   </body>
 </html>`;
 
+// Cases for fit: "content": an h-svh shell whose inner pane scrolls (document.scrollHeight never
+// sees it), an overflow-x-auto wrapper that overflows by exactly 1px
+// (sub-pixel rounding, not content) and a filled textarea whose overflow does
+// not depend on the viewport.
+const CONTENT_FIT_PAGE = `<!doctype html>
+<html>
+  <body style="margin:0">
+    <div style="height:100vh;display:flex;flex-direction:column">
+      <div id="pane" style="flex:1;min-height:0;overflow:auto">
+        <div style="height:1400px">tall content</div>
+      </div>
+    </div>
+  </body>
+</html>`;
+
 // Per key, the second /api/data request hangs until the browser drops it:
 // the first load settles normally, a reload creates the dead request, and
 // the next reload loads again.
@@ -86,6 +101,17 @@ Bun.serve({
     if (url.pathname === "/api/slow") {
       await Bun.sleep(SLOW_RESPONSE_MS);
       return new Response("slow");
+    }
+    if (url.pathname === "/api/echo-headers") {
+      return Response.json({
+        forwardedFor: request.headers.get("x-forwarded-for"),
+        cookie: request.headers.get("cookie"),
+      });
+    }
+    if (url.pathname === "/content-fit") {
+      return new Response(CONTENT_FIT_PAGE, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
     }
     if (url.pathname === "/identity") {
       return new Response(IDENTITY_PAGE, {

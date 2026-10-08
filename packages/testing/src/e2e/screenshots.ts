@@ -89,11 +89,18 @@ function isMainFrameNavigationRequest(page: Page, request: Request): boolean {
   }
 }
 
+function urlWithoutHash(url: string): string {
+  const hashStart = url.indexOf("#");
+  return hashStart === -1 ? url : url.slice(0, hashStart);
+}
+
 // Chromium drops the old document's fetches on a cross-document navigation
 // (reload, goto, location.href) without requestfinished or requestfailed, so
 // they would stay in flight forever. framenavigated alone can't tell that commit
-// apart from a pushState, which must keep them: only a framenavigated preceded by
-// a main-frame navigation request is a new document.
+// apart from a pushState, which must keep them: only a framenavigated at the URL
+// of the pending main-frame navigation request is a new document. A pushState of
+// the old document while that navigation is still loading lands on another URL.
+// A redirect issues a fresh request, which replaces the pending one.
 function countInFlightDataRequests(page: Page): () => number {
   const inFlight = new Set<Request>();
   let pendingDocumentNavigation: Request | undefined;
@@ -102,7 +109,11 @@ function countInFlightDataRequests(page: Page): () => number {
     else if (isMainFrameNavigationRequest(page, request)) pendingDocumentNavigation = request;
   });
   page.on("framenavigated", (frame) => {
-    if (frame === page.mainFrame() && pendingDocumentNavigation !== undefined) {
+    if (
+      frame === page.mainFrame() &&
+      pendingDocumentNavigation !== undefined &&
+      urlWithoutHash(frame.url()) === urlWithoutHash(pendingDocumentNavigation.url())
+    ) {
       pendingDocumentNavigation = undefined;
       inFlight.clear();
     }
@@ -714,6 +725,10 @@ async function growViewportToContent(page: Page, name: string, width: number): P
 // spec (solon's `shot(page, id)`, offlot's inline docs/screenshots/e2e/* writes) —
 // reuses the runner's settle logic and reduced-motion default, and is a no-op
 // when SCREENSHOT_DIR is unset so a plain e2e run never writes into the repo.
+// Limitation: the in-flight tracker attaches on the first call per page, so data
+// requests already running at that moment are invisible to it. Right after a
+// click, `await expect(...)` the loaded state (or call this once earlier on the
+// page) before the first shot.
 export async function captureScreenshot(
   page: Page,
   name: string,
