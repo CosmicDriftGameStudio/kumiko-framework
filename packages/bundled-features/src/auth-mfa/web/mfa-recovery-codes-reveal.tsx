@@ -22,14 +22,7 @@ export function MfaRecoveryCodesReveal({
   const [acknowledged, setAcknowledged] = useState(false);
 
   return (
-    <Section
-      testId="mfa-regenerate-reveal"
-      actions={
-        <Button variant="primary" onClick={onDismiss} disabled={!acknowledged}>
-          {t("auth.mfa.regenerate.done")}
-        </Button>
-      }
-    >
+    <Section testId="mfa-regenerate-reveal">
       <div className="flex flex-col items-center gap-2 text-center">
         <span className="text-sm font-semibold">{t("auth.mfa.regenerate.newCodesTitle")}</span>
         <span className="text-xs text-muted-foreground">
@@ -48,6 +41,11 @@ export function MfaRecoveryCodesReveal({
           onChange={setAcknowledged}
         />
       </Field>
+      <div className="flex justify-end">
+        <Button variant="primary" onClick={onDismiss} disabled={!acknowledged}>
+          {t("auth.mfa.regenerate.done")}
+        </Button>
+      </div>
     </Section>
   );
 }
