@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "buildToolCatalog throws when the manifest was built with denyQns the catalog options lack",
+    "migration": "Pass the same denyQns list to buildAgentManifest and buildToolCatalog."
+  },
+  {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "Agent manifest screen titles resolve per feature instead of by mount order",
+    "detail": "Agent manifest screen titles no longer depend on feature mount order\nTwo features with a screen of the same short id used to get the title of whichever feature was mounted first. The manifest now looks up the screen's own feature-prefixed title key first and falls back to the unprefixed key."
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "entity get/list tools honour agent.risk, PII-bearing system lists are high risk",

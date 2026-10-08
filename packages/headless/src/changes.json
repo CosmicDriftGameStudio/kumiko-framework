@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "refEntity no longer overrides a real non-text entity field on list columns and edit fields"
+  },
+  {
     "version": "0.352.0",
     "type": "improvement",
     "title": "Edit view-model carries selectOptionsAvailabilityQuery for select fields"

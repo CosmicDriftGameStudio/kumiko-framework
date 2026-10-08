@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "Boot rejects decrypted kms env slots that violate their schema validators",
+    "detail": "runProdApp validates Key-Manager-decrypted env slots against their schema\nA `kms` slot delivered only as `_CIPHERTEXT` skipped its own `.regex`/`.min`/`.refine` because the first parse relaxes it. After decryption the env is now parsed again, so a malformed plaintext aborts the boot with a `KumikoBootError` naming the slot."
+  },
+  {
+    "version": "0.353.0",
+    "type": "improvement",
+    "title": "Prod static files and the dev server share one request-bound systemQuery wiring",
+    "detail": "Shared request-bound systemQuery wiring and clearer deploy scaffold warnings\n`@cosmicdrift/kumiko-server-runtime/request-bound-system-query` exports the systemQuery wiring that the prod static-file path and the dev server previously each copied. `scaffoldDeploy` now tells a broken `package.json` (deploy settings fall back to defaults) apart from an unexpected `dependencies`/`workspaces` shape in its warning."
+  },
+  {
     "version": "0.347.0",
     "type": "fix",
     "title": "runProdApp and runDevApp forward auth.retiredCookieDomains to the auth routes",

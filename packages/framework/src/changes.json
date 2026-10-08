@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.353.0",
+    "type": "improvement",
+    "title": "Boot validation rejects public-intake handlers without rate limit and serial-id unmanaged entities with recordOwned fields",
+    "detail": "Boot validation rejects `personalData: \"public-intake\"` handlers with `rateLimit: { disabled: true }` and unmanaged `idType: \"serial\"` entities with `recordOwned` fields\nBoth combinations were silently accepted before: the first left an anonymous personal-data write without its only abuse protection, the second produced record-owned ciphertext that `forgetSubject` can never shred."
+  },
+  {
+    "version": "0.353.0",
+    "type": "improvement",
+    "title": "r.crud accepts per-verb agent hints and dedupeFeatures no longer drops a same-named feature that registers different handlers",
+    "detail": "`r.crud` takes per-verb `agents` hints, and same-named features only dedupe when their registered surface matches\n`registerEntityCrud` accepts `agents: { delete: { risk: \"high\" } }` so one irreversible verb can be raised without raising create/update. `dedupeFeatures` additionally requires equal entity and handler key sets before collapsing two same-named features with equal `dedupeOptions`; otherwise it throws the existing duplicate-feature error instead of silently dropping the second one. `i18nKey()` marks live on a `globalThis` registry so two installed framework copies agree."
+  },
+  {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "Event piiFields reject owner field \"id\" instead of encrypting under a phantom user key",
+    "detail": "`defineEvent` rejects `personal: { of: \"id\" }` in `piiFields` at boot\nOn entities `of: \"id\"` means record-owned, but on events it encrypted under a user key named after the payload id, which a forget never reaches, so crypto-shredding silently did nothing. Declare a record-owned event field with `personal: \"self\"` instead."
+  },
+  {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "Webhook signature 401 hides verify() error details; boot rejects silently dropped drawer prefills, colliding secret field ids and unlintable where-rule tables",
+    "detail": "Signature extra routes no longer return the verify() error text in the 401 body, drawer prefill and secret field ids fail at boot when they would silently misbehave\nA non-`ExtraRouteRejection` throw from a signature route's `verify()` now answers with the generic message \"signature verification failed\" and logs the detail server-side. Boot now rejects a drawer `params` prefill that targets a sensitive or password field or a field the target layout does not render, a secrets screen whose field ids collide across hyphenated feature names, and a where-rule subquery on a table whose column set cannot be derived."
+  },
+  {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "Unknown status tones fail boot and secretMint confirm actions respect role gating",
+    "detail": "Stricter boot checks and role projection for screens and handlers\nInline handler registration without `options.access` now throws immediately, a section with `fields: []` and `groups: []` fails boot, and unknown tones in `header.statusTones` or select `optionTones` fail boot instead of dropping the badge colour. The renderer falls back to the value heuristic for an unknown tone, and `statusToneForOptionTone` now returns `undefined` for it. `secretMint` confirm-step actions are stripped for roles that cannot see the target screen.\nEntity convention `create` handlers keep tenant-filtered lookups even when the handler declares `escapeHatch`/`crossTenant`. Duplicate `waitForEvent` steps on the same `awaits` event are rejected when the workflow pipeline is built. An empty `PROMETHEUS_METRICS_TOKEN` counts as unset instead of failing boot.\n`GET /api/sse` now closes itself when the JWT it was opened with expires. File uploads must attach to a registered file field (a non-file field answers 400 `unresolvable_field`), and a `.docx` upload must be a ZIP containing `word/` entries. Signature extra routes outside `/api` get the request-body cap (`maxRequestBytes`) before their body is read. `EXT_USER_DATA` registrations with neither an export nor a delete hook fail boot. The dashboard updated-at stamp follows live refetches and retries.\nText fields accept `minLength` (enforced by the generated write schema), `enumOption` renders array values per entry, list columns can opt out of sorting with `sortable: false`, and `BUILT_IN_MEMBERSHIP_ROLES` exposes the ranked membership roles. The PAT list translates its scopes column, MFA code fields enforce their minimum length, plan checkout no longer repeats the billing-enabled and active-subscription gates."
+  },
+  {
     "version": "0.352.0",
     "type": "improvement",
     "title": "appendEventInTenantDb and getStreamVersionInTenantDb append and read stream versions through a TenantDb, optionally running inline projections",

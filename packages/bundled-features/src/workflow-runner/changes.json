@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "workflow.run-failed carries the real stepIndex when a run suspends in an unsupported step"
+  },
+  {
     "version": "0.340.0",
     "type": "improvement",
     "title": "The resume job reads due runs through the job's TenantDb",
