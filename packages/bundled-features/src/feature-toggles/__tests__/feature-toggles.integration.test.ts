@@ -663,6 +663,46 @@ describe("multi-instance cache-sync via toggle-cache-sync MSP", () => {
     expect(runtimeB.effectiveFeatures().has("widget")).toBe(true);
   });
 
+  test("HTTP set on instance A reaches instance B through the dispatcher tick + toggle-cache-sync MSP", async () => {
+    signalA = createRedisToggleSyncSignal(testRedis.redisUrl);
+    signalB = createRedisToggleSyncSignal(testRedis.redisUrl);
+    const holderA = createLateBoundHolder<GlobalFeatureToggleRuntime>("runtimeA");
+    const stackA = await setupTestStack({
+      features: [widgetFeature(), createFeatureTogglesFeature({ getRuntime: () => holderA.get() })],
+      systemHooks: [],
+    });
+    try {
+      const runtimeA = new GlobalFeatureToggleRuntime(stackA.db, stackA.registry, signalA);
+      await runtimeA.initialize();
+      holderA.set(runtimeA);
+      const runtimeB = new GlobalFeatureToggleRuntime(stackA.db, stackA.registry, signalB);
+      await runtimeB.initialize();
+      expect(runtimeB.effectiveFeatures().has("widget")).toBe(true);
+
+      // B's psubscribe may not have landed yet. Probe with a throwaway name so
+      // the real flip below is published exactly once (the MSP fires once per event).
+      await waitFor(() => {
+        runtimeA.broadcastToggle("subscription-probe", true);
+        return runtimeB.readOverride("subscription-probe") === true;
+      });
+
+      const res = await stackA.http.write(
+        "feature-toggles:write:set",
+        { featureName: "widget", enabled: false },
+        admin,
+      );
+      expect(res.status).toBe(200);
+      // A applied locally in the handler; B has not heard anything yet.
+      expect(runtimeA.effectiveFeatures().has("widget")).toBe(false);
+      expect(runtimeB.effectiveFeatures().has("widget")).toBe(true);
+
+      await stackA.eventDispatcher?.runOnce();
+      await waitFor(() => !runtimeB.effectiveFeatures().has("widget"));
+    } finally {
+      await stackA.cleanup();
+    }
+  });
+
   test("shared delivery: the primary stack's own dispatcher tick re-applies idempotently", async () => {
     // The feature registers the MSP with delivery="shared" — a single
     // process (here, the primary test stack, which has no syncSignal
