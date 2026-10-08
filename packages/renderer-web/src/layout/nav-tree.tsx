@@ -530,14 +530,17 @@ function TreeActionControl({
   readonly workspaceId: string | undefined;
   readonly children: ReactNode;
 }): ReactNode {
-  if (action.screen !== undefined && action.target !== undefined) {
+  // Authored actions are typed screen-XOR-target, but schemas can arrive
+  // untyped over the wire — read both fields to stay defensive at runtime.
+  const loose: { readonly screen?: string; readonly target?: TargetRef } = action;
+  if (loose.screen !== undefined && loose.target !== undefined) {
     warnTreeActionMisconfigured(
       action.label,
       'has both "screen" and "target" set — using "screen", "target" is ignored.',
     );
   }
-  if (action.screen !== undefined) {
-    const screenId = lastSegment(action.screen);
+  if (loose.screen !== undefined) {
+    const screenId = lastSegment(loose.screen);
     return (
       <KumikoLink
         to={{ ...(workspaceId !== undefined && { workspaceId }), screenId }}
@@ -549,8 +552,8 @@ function TreeActionControl({
       </KumikoLink>
     );
   }
-  if (action.target !== undefined) {
-    const target = action.target;
+  if (loose.target !== undefined) {
+    const target = loose.target;
     return (
       <button
         type="button"

@@ -4,6 +4,7 @@ import { validateBoot as validateBootRaw } from "../boot-validator.js";
 import { defineFeature } from "../define-feature.js";
 import { createEntity, createTextField } from "../factories.js";
 import { createRegistry } from "../registry.js";
+import type { TreeAction } from "../types/index.js";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -368,7 +369,7 @@ describe("validateBoot — nav action validation (fw#2750)", () => {
       r.nav({
         id: "catalog",
         label: "x",
-        createAction: { icon: "plus", label: "New" },
+        createAction: { icon: "plus", label: "New" } as TreeAction,
       });
     });
     expect(() => validateBoot([feature])).toThrow(/createAction.*must set exactly one/);
@@ -391,7 +392,7 @@ describe("validateBoot — nav action validation (fw#2750)", () => {
           label: "New",
           screen: "shop:screen:products",
           target: { featureId: "shop", action: "create" },
-        },
+        } as unknown as TreeAction,
       });
     });
     expect(() => validateBoot([feature])).toThrow(/createAction.*must set exactly one/);

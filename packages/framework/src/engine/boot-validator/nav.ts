@@ -88,6 +88,7 @@ function validateTreeAction(
   navId: string,
   actionPath: string,
   action: { readonly screen?: string; readonly target?: unknown },
+  // Loose on purpose: this is the runtime guard for untyped input.
   allScreenQns: ReadonlySet<string>,
 ): void {
   const { screen, target } = action;

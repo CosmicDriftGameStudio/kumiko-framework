@@ -24,7 +24,7 @@ import type { TargetRef } from "./target-ref.js";
 
 export type TreeNodeState = "filled" | "stub" | "empty" | "loading" | "error";
 
-export type TreeAction = {
+type TreeActionBase = {
   // Icon-Key — vom Renderer-Icon-Registry interpretiert. Konvention
   // matched NavDefinition.icon: unbekannte Icons surface als missing-icon
   // im UI, nicht als Boot-Failure.
@@ -32,15 +32,19 @@ export type TreeAction = {
   // i18n-Translation-Key oder roher String. Vom Renderer aufgelöst, Engine
   // behandelt opak (mirrors NavDefinition.label, WorkspaceDefinition.label).
   readonly label: string;
-  // Qualified screen name ("<feature>:screen:<id>") — renders as a route
-  // link. Exactly one of `screen`/`target` must be set; an action with
-  // neither is a Hover-Icon that does nothing, the boot validator rejects
-  // it.
-  readonly screen?: string;
-  // EditorPanel dispatch target — renders as a click-dispatch button.
-  // Exactly one of `screen`/`target` must be set.
-  readonly target?: TargetRef;
 };
+
+// Exactly one of `screen`/`target`: a route link or an EditorPanel
+// click-dispatch. The boot validator still guards untyped input.
+export type TreeAction = TreeActionBase &
+  (
+    | {
+        // Qualified screen name ("<feature>:screen:<id>").
+        readonly screen: string;
+        readonly target?: never;
+      }
+    | { readonly target: TargetRef; readonly screen?: never }
+  );
 
 export type TreeNode = {
   // i18n-Translation-Key oder roher String. Vom Renderer beim Rendern
