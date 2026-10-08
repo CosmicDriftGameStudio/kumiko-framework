@@ -13,6 +13,7 @@ import type {
   Registry,
   TenantId,
 } from "../../engine/types/index.js";
+import { SYSTEM_TENANT_ID } from "../../engine/types/index.js";
 import { createInMemoryFileProvider } from "../../files/in-memory-provider.js";
 import { RedisKeys } from "../../pipeline/redis-keys.js";
 import { createTestRedis, type TestRedis, TestUsers } from "../../stack/index.js";
@@ -350,11 +351,14 @@ describe("scenario 3b: ctx.files resolves through the file provider", () => {
   test("job handler can read back a file via ctx.files.ref(key)", async () => {
     clearLog();
     const provider = createInMemoryFileProvider();
-    await provider.write("probe/hello.txt", new TextEncoder().encode("hello from files probe"));
+    // A tenant-less manual dispatch runs as the system tenant, whose ctx.files
+    // only accepts keys under its own prefix.
+    const key = `${SYSTEM_TENANT_ID}/probe/hello.txt`;
+    await provider.write(key, new TextEncoder().encode("hello from files probe"));
 
     await withRunner(
       async (runner) => {
-        await runner.dispatch("test:job:files-probe", { key: "probe/hello.txt" });
+        await runner.dispatch("test:job:files-probe", { key });
         await waitFor(() => {
           const entries = jobLog.filter((e) => e.name === "test:job:files-probe");
           expect(entries.length).toBe(1);

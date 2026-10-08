@@ -50,9 +50,9 @@ export function createFileHandle(
 // single request/event tenant; sharing would leak one tenant's provider (and
 // its bucket/credentials) to another.
 //
-// With `tenantId`, `list` only accepts prefixes inside `${tenantId}/` — the key
-// space is the isolation boundary in a store shared by several tenants, and a
-// request-derived prefix (or "") would otherwise enumerate every tenant's keys.
+// With `tenantId`, `ref` and `list` only accept keys/prefixes inside `${tenantId}/` —
+// the key space is the isolation boundary in a store shared by several tenants, and
+// a request-derived key or prefix (or "") would otherwise reach every tenant's keys.
 export function createFileContext(
   resolve: () => Promise<FileStorageProvider>,
   tenantId?: string,
@@ -63,7 +63,12 @@ export function createFileContext(
     return cached;
   };
   return {
-    ref: (key) => createFileHandle(key, getProvider),
+    ref: (key) => {
+      if (tenantId !== undefined && !key.startsWith(`${tenantId}/`)) {
+        throw new Error(`FileContext.ref: key must start with "${tenantId}/"`);
+      }
+      return createFileHandle(key, getProvider);
+    },
     list: async (prefix) => {
       if (tenantId !== undefined && !prefix.startsWith(`${tenantId}/`)) {
         throw new Error(`FileContext.list: prefix must start with "${tenantId}/"`);
