@@ -57,6 +57,7 @@ export async function selectStaleDraftsBatch(
 /** Re-check staleness after the select→release window so a freshly saved draft is not deleted. */
 export async function isDraftStillStale(
   db: DbConnection,
+  tenantId: TenantId,
   id: string,
   olderThanDays: number,
 ): Promise<boolean> {
@@ -64,9 +65,10 @@ export async function isDraftStillStale(
     db,
     `SELECT 1 FROM "read_form_drafts"
      WHERE "id" = $1
-       AND COALESCE("modified_at", "inserted_at") < now() - ($2::int * interval '1 day')
+       AND "tenant_id" = $2
+       AND COALESCE("modified_at", "inserted_at") < now() - ($3::int * interval '1 day')
      LIMIT 1`,
-    [id, olderThanDays],
+    [id, tenantId, olderThanDays],
   )) as readonly unknown[];
   return rows.length > 0;
 }

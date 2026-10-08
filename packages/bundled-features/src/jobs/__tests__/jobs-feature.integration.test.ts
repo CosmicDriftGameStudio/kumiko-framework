@@ -232,6 +232,31 @@ describe("scenario 3: jobs.list filters", () => {
     for (const status of statuses) expect(["completed", "failed"]).toContain(status);
   });
 
+  test("cursor pages through older runs without repeating or skipping any", async () => {
+    const all = await query(systemAdmin, JobQueries.list, {});
+    const allIds: number[] = all.data.rows.map((run: { id: number }) => run.id);
+    expect(allIds.length).toBeGreaterThanOrEqual(2);
+
+    const seen: number[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page <= allIds.length; page++) {
+      const result = await query(systemAdmin, JobQueries.list, { limit: 1, cursor });
+      expect(result.data.rows.length).toBe(1);
+      seen.push(result.data.rows[0].id);
+      cursor = result.data.nextCursor ?? undefined;
+      if (cursor === undefined) break;
+    }
+    expect(seen).toEqual(allIds);
+  });
+
+  test("a malformed cursor is rejected", async () => {
+    const res = await req("POST", "/api/query", systemAdmin, {
+      type: JobQueries.list,
+      payload: { cursor: Buffer.from("-3").toString("base64url") },
+    });
+    expect(res.status).toBe(400);
+  });
+
   test("filter on an unknown field is rejected instead of ignored", async () => {
     const res = await req("POST", "/api/query", systemAdmin, {
       type: JobQueries.list,

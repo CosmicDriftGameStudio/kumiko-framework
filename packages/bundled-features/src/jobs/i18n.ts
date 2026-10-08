@@ -36,6 +36,7 @@ export const JOBS_I18N: Readonly<Record<string, LocalizedString>> = {
   "jobs.detail.logs": { en: "Logs" },
   "jobs.detail.retry": { en: "Retry" },
   "jobs.trigger.title": { en: "Run a job" },
+  "jobs.errors.invalidCursor": { en: "The pagination cursor is invalid." },
   "jobs.trigger.submit": { en: "Run" },
   "jobs.errors.unknownJob": { en: "Unknown job." },
   "jobs.errors.notManual": {
