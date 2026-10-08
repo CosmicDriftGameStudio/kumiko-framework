@@ -21,8 +21,9 @@
 
 import { relative as pathRelative } from "node:path";
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
-import { literalReasonText } from "./_lib/generic-reason";
+import { isGenericReason, literalReasonText } from "./_lib/generic-reason";
 import {
+  ALL_REPO_KINDS,
   type AstGuard,
   findRepoRootFor,
   isAllowlisted,
@@ -33,6 +34,7 @@ import {
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const SCAN: ScanSpec = {
+  kinds: ALL_REPO_KINDS,
   scope: "source",
   extensions: ["ts"],
   frameworkWithin: ["packages/*/src/**", "samples/**"],
@@ -57,12 +59,20 @@ interface Violation {
 // `const self = this` binding was a systematic FP (infra#582).
 const GLOBAL_FETCH_RECEIVERS = new Set(["globalThis", "window"]);
 
-function hasAllowMarker(sf: SourceFile, line: number): boolean {
+// The marker is a per-line skip for a security guard, so it only counts with a
+// non-generic reason after it — a bare marker still reports the finding.
+function hasAllowMarkerWithReason(sf: SourceFile, line: number): boolean {
   const lines = sf.getFullText().split("\n");
   const idx = line - 1;
-  const cur = lines[idx] ?? "";
-  const prev = lines[idx - 1] ?? "";
-  return cur.includes(ALLOW_MARKER) || prev.includes(ALLOW_MARKER);
+  return [lines[idx] ?? "", lines[idx - 1] ?? ""].some((text) => {
+    const markerAt = text.indexOf(ALLOW_MARKER);
+    if (markerAt < 0) return false;
+    const reason = text
+      .slice(markerAt + ALLOW_MARKER.length)
+      .replace(/^\s*(?:—|–|-|:)\s*/, "")
+      .trim();
+    return !isGenericReason(reason);
+  });
 }
 
 /** Same-origin path literal (`"/api/..."`, '`/demo`') — not an SSRF risk. */
@@ -117,7 +127,7 @@ export const guard: AstGuard = {
   security: true,
   hint:
     "Replace raw fetch(...) with egress(policy)(...) from @cosmicdrift/kumiko-framework/http (framework#2147). " +
-    'Same-origin path literal (`"/api/..."`) is allowed; otherwise put `// guard-allow: same-origin fetch` on the line above. ' +
+    'Same-origin path literal (`"/api/..."`) is allowed; otherwise put `// guard-allow: same-origin fetch — <specific reason>` on the line above (a bare marker does not count). ' +
     "Local bindings named fetch are flagged (false positive — unblock via that marker). " +
     'Known gap: bracket access (globalThis["fetch"](...)).',
   run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
@@ -132,7 +142,7 @@ export const guard: AstGuard = {
         root === undefined ? undefined : `${root.name}/${pathRelative(root.absPath, file)}`;
       if (key !== undefined && isAllowlisted(key, ALLOWLIST)) continue;
       for (const v of findRawFetchCalls(sf)) {
-        if (hasAllowMarker(sf, v.line)) continue;
+        if (hasAllowMarkerWithReason(sf, v.line)) continue;
         violations.push({
           // cwd-relative, not repo-relative `rel` — the security baseline
           // needs an unambiguous path to resolve back to (repo, relPath).
