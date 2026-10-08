@@ -16,6 +16,7 @@
 
 import { afterEach, beforeAll, describe, expect, setSystemTime, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { recordConsumerPassFailure } from "../../db/queries/event-consumer.js";
 import { asRawClient } from "../../db/query.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
 import { defineFeature } from "../../engine/index.js";
@@ -277,5 +278,45 @@ describe("event-dispatcher — pass-level throw survives the rolled-back tx (#26
     // must not, since none of them ran a real delivery pass.
     expect(after?.attempts).toBe(9);
     expect(after?.status).not.toBe("dead");
+  });
+
+  describe("recordConsumerPassFailure — concurrent replica on the same (name, instance_id)", () => {
+    const name = "passfailure:record-guard";
+    const consumer: EventConsumer = { name, handler: async () => {} };
+
+    async function registerWithCursor(cursor: bigint): Promise<string> {
+      const dispatcher = buildDispatcher([consumer], getFallbackMeter());
+      await dispatcher.ensureRegistered();
+      await asRawClient(stack.db).unsafe(
+        `UPDATE "kumiko_event_consumers" SET "last_processed_event_id" = $1, "last_error" = NULL WHERE "name" = $2`,
+        [cursor, name],
+      );
+      const state = await getConsumerState(stack.db, name);
+      return state?.instanceId ?? "";
+    }
+
+    test("writes last_error when the cursor is still where the failed pass started", async () => {
+      const instanceId = await registerWithCursor(5n);
+      await recordConsumerPassFailure(stack.db, name, instanceId, "boom", 5n);
+      expect((await getConsumerState(stack.db, name))?.lastError).toBe("boom");
+    });
+
+    test("a pass another replica committed meanwhile is not overwritten by the stale error", async () => {
+      const instanceId = await registerWithCursor(9n);
+      await recordConsumerPassFailure(stack.db, name, instanceId, "stale", 5n);
+      expect((await getConsumerState(stack.db, name))?.lastError).toBeNull();
+    });
+
+    test("a row another pass holds locked is skipped instead of blocking the catch path", async () => {
+      const instanceId = await registerWithCursor(5n);
+      await stack.db.begin(async (tx) => {
+        await asRawClient(tx).unsafe(
+          `SELECT 1 FROM "kumiko_event_consumers" WHERE "name" = $1 FOR UPDATE`,
+          [name],
+        );
+        await recordConsumerPassFailure(stack.db, name, instanceId, "blocked?", 5n);
+      });
+      expect((await getConsumerState(stack.db, name))?.lastError).toBeNull();
+    });
   });
 });

@@ -209,6 +209,51 @@ describe("Second audit — LISTEN gauge", () => {
     }
   });
 
+  test("a non-connection pre-check failure leaves the LISTEN gauge at 1 (fw#3252)", async () => {
+    const metricEvents: MetricEvent[] = [];
+    const meter = new RecordingMeter((e) => metricEvents.push(e));
+    const recordingProvider: ObservabilityProvider = {
+      name: "recording",
+      meter,
+      tracer: new RecordingTracer({
+        sensitiveConfig: DEFAULT_SENSITIVE_CONFIG,
+        onSpanEnd: () => {},
+      }),
+      shutdown: async () => {},
+    };
+    const recStack = await setupTestStack({
+      features: [auditFeature],
+      systemHooks: [],
+      observability: recordingProvider,
+    });
+    const raw = asRawClient(recStack.db);
+    try {
+      await unsafeCreateEntityTable(recStack.db, sharedWidgetEntity, "widget");
+      await recStack.eventDispatcher?.start();
+      try {
+        // undefined_table (42P01): the pre-check fails, the LISTEN connection is untouched.
+        await raw.unsafe(
+          `ALTER TABLE "kumiko_event_consumers" RENAME TO "kumiko_event_consumers_x"`,
+        );
+        try {
+          await recStack.eventDispatcher?.runOnce().catch(() => {});
+        } finally {
+          await raw.unsafe(
+            `ALTER TABLE "kumiko_event_consumers_x" RENAME TO "kumiko_event_consumers"`,
+          );
+        }
+        const gauges = metricEvents.filter(
+          (e) => e.type === "gauge.set" && e.name === "kumiko_event_dispatcher_listen_connected",
+        );
+        expect(gauges[gauges.length - 1]?.value).toBe(1);
+      } finally {
+        await recStack.eventDispatcher?.stop();
+      }
+    } finally {
+      await recStack.cleanup();
+    }
+  });
+
   test("onlisten fires again on silent reconnect — gauge flips to 1 a second time", async () => {
     // This is the claim that justifies the onlisten-callback over a
     // simpler .set(1) after `await listen()`: on a dropped TCP, postgres.js

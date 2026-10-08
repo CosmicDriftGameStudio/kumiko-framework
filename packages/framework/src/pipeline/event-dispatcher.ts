@@ -1,4 +1,5 @@
 import type { DbTx, PgClient } from "../db/connection.js";
+import { extractPgError } from "../db/pg-error.js";
 import {
   recordConsumerPassFailure,
   selectSnapshotXmax,
@@ -217,6 +218,25 @@ const DEFAULT_POLL_MS = 100;
 const DEFAULT_MAX_ATTEMPTS = 10;
 const DEFAULT_REARM_COOLDOWN_MS = 5 * 60_000;
 const DEFAULT_MAX_REARM_COUNT = 3;
+const PENDING_GAPS_WARN_THRESHOLD = 1000;
+
+// Only these say the database socket itself is gone; timeouts, schema or pool errors do not
+// imply the dedicated LISTEN connection dropped.
+const CONNECTION_LOSS_CODES: ReadonlySet<string> = new Set([
+  "CONNECTION_CLOSED",
+  "CONNECTION_DESTROYED",
+  "CONNECTION_ENDED",
+  "CONNECT_TIMEOUT",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ERR_POSTGRES_CONNECTION_CLOSED",
+  "57P01",
+]);
+
+function isConnectionLossError(e: unknown): boolean {
+  const code = extractPgError(e)?.code;
+  return code !== undefined && CONNECTION_LOSS_CODES.has(code);
+}
 // Backoff for a consumer whose pass THREW (the processConsumer catch below)
 // — an infra-level failure (db.begin's callback rejected outside deliverEvents'
 // own per-event try/catch), not a poisoned event. Doubles per consecutive
@@ -273,6 +293,20 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // which is fine: a fresh process re-observing a still-dead consumer is
   // exactly the "still needs a human" signal ops wants.
   const reportedDeadConsumers = new Set<string>();
+  // Same once-per-process dedup for the pending_gaps size warning.
+  const reportedLargeGapSets = new Set<string>();
+
+  // A long-running writer transaction pins the cluster-wide xmin, so rolled-back appends
+  // (each burns a sequence id) accumulate as gaps and every turn ships them all to the fetch.
+  const warnOnceOnLargeGapSet = (consumerName: string, instance: string, count: number): void => {
+    const key = `${consumerName}:${instance}`;
+    if (count <= PENDING_GAPS_WARN_THRESHOLD || reportedLargeGapSets.has(key)) return;
+    reportedLargeGapSets.add(key);
+    logDispatcherError(
+      `[event-dispatcher] ${consumerName} tracks ${count} pending gap ranges (> ${PENDING_GAPS_WARN_THRESHOLD}); ` +
+        `a long-running write transaction is probably holding back the snapshot xmin`,
+    );
+  };
 
   // Per-(consumer, instanceId) backoff after a thrown pass (see the catch in
   // processConsumer). Keyed the same way as reportedDeadConsumers.
@@ -290,6 +324,9 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // unrelated outage gets its own fresh log line instead of staying
   // permanently suppressed by this process's flag.
   let idlePreCheckErrorLogged = false;
+  // Mirrors the last gauge value derived from the LISTEN connection (set by onlisten), so the
+  // pre-check recovery can restore it after a connection-loss error flipped it to 0.
+  let listenSubscribed = false;
 
   let running = false;
   // Separate from `running` on purpose: pre-registration of consumer state
@@ -491,6 +528,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       );
       if (idlePreCheckErrorLogged) {
         idlePreCheckErrorLogged = false;
+        emitEventDispatcherListenConnected(meter, listenSubscribed);
         const recoveredMsg =
           "[event-dispatcher] idle pre-check recovered, database reachable again";
         if (context.log) {
@@ -507,9 +545,9 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // signal for ops, not a delivery failure.
       if (!idlePreCheckErrorLogged) {
         idlePreCheckErrorLogged = true;
-        // The LISTEN peer talks to the same DB, so it is gone too; only a
-        // later onlisten may flip the gauge back to 1.
-        emitEventDispatcherListenConnected(meter, false);
+        // A lost DB socket takes the LISTEN peer down with it; other pre-check failures
+        // (statement_timeout, pool exhaustion, schema errors) say nothing about LISTEN.
+        if (isConnectionLossError(e)) emitEventDispatcherListenConnected(meter, false);
         const msg = e instanceof Error ? e.message : String(e);
         const logMsg = `[event-dispatcher] idle pre-check failed, falling back to per-consumer locking every tick until it recovers: ${msg}`;
         logDispatcherError(logMsg);
@@ -549,6 +587,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       },
     });
 
+    let cursorBeforePass: bigint | undefined;
     try {
       await db.begin(async (tx: DbTx) => {
         const acquired = await acquireConsumerState(
@@ -579,6 +618,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         reportedDeadConsumers.delete(`${consumer.name}:${instanceId}`);
 
         const oldCursor = acquired.state.lastProcessedEventId;
+        cursorBeforePass = oldCursor;
         const pendingGaps = acquired.state.pendingGaps;
         // xmin BEFORE the fetch: a range is provably burnt only once this has
         // passed the xmax recorded with it. Only needed when ranges exist.
@@ -657,6 +697,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
           pendingGaps: [...keptGaps, ...newGaps],
         };
 
+        warnOnceOnLargeGapSet(consumer.name, instanceId, persistedOutcome.pendingGaps.length);
         await persistConsumerOutcome(tx, consumer.name, instanceId, persistedOutcome);
         await emitLagFromTx(tx, consumer.name, instanceId, outcome.cursor, meter);
       });
@@ -694,7 +735,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // so any failure here is swallowed after logging.
       try {
         await db.begin(async (tx: DbTx) => {
-          await recordConsumerPassFailure(tx, consumer.name, instanceId, msg);
+          await recordConsumerPassFailure(tx, consumer.name, instanceId, msg, cursorBeforePass);
         });
       } catch (persistErr) {
         const persistMsg = persistErr instanceof Error ? persistErr.message : String(persistErr);
@@ -766,6 +807,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
               // ponytail: no own LISTEN reconnect, the backoff gap is polled;
               // add a dedicated LISTEN connection if prod wires a pgClient
               // and that latency matters.
+              listenSubscribed = true;
               emitEventDispatcherListenConnected(meter, true);
             },
           );
@@ -794,6 +836,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
           // subscription is being torn down anyway.
         });
         pgUnlisten = null;
+        listenSubscribed = false;
         emitEventDispatcherListenConnected(meter, false);
       }
 

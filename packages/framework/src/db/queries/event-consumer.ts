@@ -209,18 +209,32 @@ export async function markConsumerProcessing(
 // caller's console.error — status and the cursor are left as-is too, since
 // we don't know at this point whether the consumer should be "dead" (that's
 // the deliverEvents/maxAttempts contract, which never ran this pass).
+//
+// Another replica sharing this (name, instance_id) may commit a successful
+// pass between the rollback and this write. `cursorBeforePass` pins the
+// write to the state the failed pass started from, so a stale error can't
+// overwrite that success; a row another pass currently holds is skipped
+// instead of blocking this catch path on its lock. Undefined when the pass
+// failed before it read the cursor.
 export async function recordConsumerPassFailure(
   db: AnyDb,
   name: string,
   instanceId: string,
   errorMessage: string,
+  cursorBeforePass?: bigint,
 ): Promise<void> {
   await asRawClient(db).unsafe(
     `UPDATE "kumiko_event_consumers" SET
        "last_error" = $1,
        "updated_at" = now()
-     WHERE "name" = $2 AND "instance_id" = $3`,
-    [errorMessage, name, instanceId],
+     WHERE "name" = $2 AND "instance_id" = $3
+       AND ($4::bigint IS NULL OR "last_processed_event_id" = $4::bigint)
+       AND ("name", "instance_id") IN (
+         SELECT "name", "instance_id" FROM "kumiko_event_consumers"
+         WHERE "name" = $2 AND "instance_id" = $3
+         FOR UPDATE SKIP LOCKED
+       )`,
+    [errorMessage, name, instanceId, cursorBeforePass ?? null],
   );
 }
 
