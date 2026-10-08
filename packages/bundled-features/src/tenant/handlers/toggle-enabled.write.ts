@@ -14,6 +14,8 @@ function createToggleTenantHandler(enable: boolean) {
     name: verbName,
     schema: z.object({ id: z.uuid() }),
     access: { roles: ["SystemAdmin"] },
+    // Disabling locks every member out; enabling is its undo.
+    ...(enable ? {} : { agent: { risk: "high" as const } }),
     description: enable
       ? "Re-enables a disabled tenant so its members can sign in and switch to it again; this is the undo for tenant:write:disable."
       : "Marks a tenant disabled so it stops counting as a membership — its members can no longer sign in to it or switch to it — while leaving all of its data in place.",

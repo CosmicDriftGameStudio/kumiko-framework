@@ -67,6 +67,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
         .refine((t) => !opts.validTiers || opts.validTiers.has(t), { message: "unknown tier" }),
     }),
     access: { roles: ["SystemAdmin"] },
+    agent: { risk: "high" },
     escapeHatch: {
       grants: ["unsafeRaw"],
       reason: SET_TENANT_TIER_REASON,
