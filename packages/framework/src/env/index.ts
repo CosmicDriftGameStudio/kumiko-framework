@@ -203,11 +203,51 @@ export function withOptionalEnvKeys(
   return Object.keys(relaxed).length === 0 ? schema : schema.safeExtend(relaxed);
 }
 
+// The very same field instance is a shared fragment (several features read one
+// variable), not a conflict; the first declaring feature owns it.
+function isSharedFeatureFragment(
+  featureFields: ReadonlyMap<string, z.ZodType>,
+  key: string,
+  field: z.ZodType,
+): boolean {
+  return featureFields.get(key) === field;
+}
+
+function envVarConflictError(key: string, firstOwner: string | undefined, secondOwner: string) {
+  return new KumikoBootError([
+    {
+      name: key,
+      kind: "invalid",
+      message:
+        `env-var conflict: "${key}" declared by both ` +
+        `"${firstOwner}" and "${secondOwner}" — pick one owner.`,
+    },
+  ]);
+}
+
+// The twin follows from the slot, so a versioned family (`…_V2`) needs no
+// second declaration. An already declared twin (apps that predate this) stays.
+function declareKmsCiphertextTwins(
+  merged: Record<string, z.ZodType>,
+  sources: Record<string, string>,
+  kmsFields: readonly { readonly name: string; readonly source: string }[],
+): void {
+  for (const { name, source } of kmsFields) {
+    const twin = `${name}_CIPHERTEXT`;
+    if (merged[twin] !== undefined) continue;
+    merged[twin] = z
+      .string()
+      .min(1)
+      .optional()
+      .describe(`Key-Manager ciphertext of ${name}; used when ${name} is unset.`);
+    sources[twin] = source;
+  }
+}
+
 export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvSchema {
   const optionalSet = new Set(options.optionalFeatures ?? []);
   const merged: Record<string, z.ZodType> = {};
   const sources: Record<string, string> = {};
-  const featureFields = new Map<string, z.ZodType>();
   const kmsFields: { readonly name: string; readonly source: string }[] = [];
   const noteKms = (name: string, field: z.ZodType, source: string): void => {
     if (readKumikoMeta(field).kms === true) kmsFields.push({ name, source });
@@ -227,24 +267,14 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
     }
   }
 
+  const featureFields = new Map<string, z.ZodType>();
   for (const feature of options.features) {
     if (!feature.envSchema) continue;
-    const shape = zodShape(feature.envSchema);
     const wrap = optionalSet.has(feature.name);
-    for (const [key, field] of Object.entries(shape)) {
+    for (const [key, field] of Object.entries(zodShape(feature.envSchema))) {
       if (merged[key] !== undefined) {
-        // The very same field instance is a shared fragment (several features
-        // read one variable), not a conflict; the first declaring feature owns it.
-        if (featureFields.get(key) === field) continue;
-        throw new KumikoBootError([
-          {
-            name: key,
-            kind: "invalid",
-            message:
-              `env-var conflict: "${key}" declared by both ` +
-              `"${sources[key]}" and "${feature.name}" — pick one owner.`,
-          },
-        ]);
+        if (isSharedFeatureFragment(featureFields, key, field)) continue;
+        throw envVarConflictError(key, sources[key], feature.name);
       }
       featureFields.set(key, field);
       merged[key] = wrap ? optionalKeepingKmsMeta(field) : field;
@@ -272,18 +302,7 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
     }
   }
 
-  // The twin follows from the slot, so a versioned family (`…_V2`) needs no
-  // second declaration. An already declared twin (apps that predate this) stays.
-  for (const { name, source } of kmsFields) {
-    const twin = `${name}_CIPHERTEXT`;
-    if (merged[twin] !== undefined) continue;
-    merged[twin] = z
-      .string()
-      .min(1)
-      .optional()
-      .describe(`Key-Manager ciphertext of ${name}; used when ${name} is unset.`);
-    sources[twin] = source;
-  }
+  declareKmsCiphertextTwins(merged, sources, kmsFields);
 
   return {
     schema: z.object(merged),

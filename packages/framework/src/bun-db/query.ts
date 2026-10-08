@@ -450,6 +450,7 @@ const MS_PER_DAY = 86_400_000;
 const dateColumnDriftLog = createFallbackLogger("bun-db");
 
 function warnIfNotDateColumn(epochMs: number, column: string): void {
+  // skip: midnight value is a correct date column, and an already-warned column is deduped
   if (epochMs % MS_PER_DAY === 0 || warnedNonMidnightDateColumns.has(column)) return;
   warnedNonMidnightDateColumns.add(column);
   dateColumnDriftLog.warn(

@@ -1279,8 +1279,10 @@ function validateExplicitListScreenExists(
   screensByShortId: ReadonlyMap<string, unknown>,
 ): void {
   const listScreenId = explicitListScreenId(screen);
+  // skip: no explicit listScreenId, the nav heuristic applies and there is nothing to validate
   if (listScreenId === undefined) return;
   const shortId = listScreenId.slice(listScreenId.lastIndexOf(":") + 1);
+  // skip: the explicit listScreenId resolves to a mounted screen
   if (screensByShortId.has(shortId)) return;
   throw new Error(
     `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) listScreenId "${listScreenId}" ` +
@@ -3209,6 +3211,7 @@ function rejectInertColumnSortable(
 ): void {
   const isInert =
     screenType === "entityList" ? column.sortable !== undefined : column.sortable === true;
+  // skip: the sortable flag is meaningful for this screen type
   if (!isInert) return;
   const source =
     screenType === "entityList"

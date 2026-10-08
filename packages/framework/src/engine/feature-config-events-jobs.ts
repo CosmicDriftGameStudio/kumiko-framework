@@ -69,6 +69,29 @@ function neverYieldsString(field: ZodType): boolean {
   }
 }
 
+function assertOwnerFieldYieldsPresentString(args: {
+  readonly featureName: string;
+  readonly eventName: string;
+  readonly field: string;
+  readonly ownerField: string;
+  readonly owner: ZodType;
+}): void {
+  const { featureName, eventName, field, ownerField, owner } = args;
+  if (neverYieldsString(owner)) {
+    throw new Error(
+      `[Feature ${featureName}] defineEvent("${eventName}"): piiFields."${field}" is owned by "${ownerField}", whose payload schema is not a string — the subject id must be a non-empty string, so every append would fail. ` +
+        `Use a string owner field, or declare whenAbsent ("tenant" | "plaintext").`,
+    );
+  }
+  if (isAbsentable(owner)) {
+    throw new Error(
+      `[Feature ${featureName}] defineEvent("${eventName}"): piiFields."${field}" is owned by "${ownerField}", which the payload schema allows to be null/undefined. ` +
+        `Declare what happens then: { personal: { of: "${ownerField}", whenAbsent: "tenant" } } encrypts under the envelope tenant key, ` +
+        `whenAbsent: "plaintext" acknowledges that the value ships unencrypted and cannot be crypto-shredded (fw#2776).`,
+    );
+  }
+}
+
 // Builds config/secrets/claims/events/jobs/notifications registrar methods.
 export function buildConfigEventsJobsMethods<TName extends string>(
   state: FeatureBuilderState,
@@ -175,18 +198,14 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         }
       }
       const owner = shape?.[normalized.ownerField];
-      if (normalized.whenAbsent === undefined && owner !== undefined && neverYieldsString(owner)) {
-        throw new Error(
-          `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" is owned by "${normalized.ownerField}", whose payload schema is not a string — the subject id must be a non-empty string, so every append would fail. ` +
-            `Use a string owner field, or declare whenAbsent ("tenant" | "plaintext").`,
-        );
-      }
-      if (normalized.whenAbsent === undefined && owner !== undefined && isAbsentable(owner)) {
-        throw new Error(
-          `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" is owned by "${normalized.ownerField}", which the payload schema allows to be null/undefined. ` +
-            `Declare what happens then: { personal: { of: "${normalized.ownerField}", whenAbsent: "tenant" } } encrypts under the envelope tenant key, ` +
-            `whenAbsent: "plaintext" acknowledges that the value ships unencrypted and cannot be crypto-shredded (fw#2776).`,
-        );
+      if (normalized.whenAbsent === undefined && owner !== undefined) {
+        assertOwnerFieldYieldsPresentString({
+          featureName: name,
+          eventName,
+          field,
+          ownerField: normalized.ownerField,
+          owner,
+        });
       }
     }
   }

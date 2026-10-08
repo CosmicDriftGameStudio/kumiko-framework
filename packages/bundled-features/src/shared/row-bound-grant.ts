@@ -63,6 +63,10 @@ function hasDelimiter(value: string): boolean {
   return value.includes(":");
 }
 
+function isUnambiguousPart(value: string | null | undefined): value is string {
+  return !!value && !hasDelimiter(value);
+}
+
 export function signRowBoundGrant(args: {
   readonly subject: string;
   readonly purpose: string;
@@ -102,7 +106,7 @@ export async function redeemRowBoundGrant(args: {
   if (!args.secret) return FAILED;
 
   const subject = peekTokenSubject(args.token);
-  if (!subject || hasDelimiter(subject)) return FAILED;
+  if (!isUnambiguousPart(subject)) return FAILED;
 
   // The subject is unverified attacker input at this point, so a lookup that
   // throws on it (e.g. a non-uuid value against a uuid column) must not
@@ -119,7 +123,7 @@ export async function redeemRowBoundGrant(args: {
     });
     return FAILED;
   }
-  if (!anchor || hasDelimiter(anchor)) return FAILED;
+  if (!isUnambiguousPart(anchor)) return FAILED;
 
   const verified = verifyToken(
     args.token,

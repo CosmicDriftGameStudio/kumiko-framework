@@ -300,6 +300,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   // (each burns a sequence id) accumulate as gaps and every turn ships them all to the fetch.
   const warnOnceOnLargeGapSet = (consumerName: string, instance: string, count: number): void => {
     const key = `${consumerName}:${instance}`;
+    // skip: below the warn threshold, or already reported once for this consumer instance
     if (count <= PENDING_GAPS_WARN_THRESHOLD || reportedLargeGapSets.has(key)) return;
     reportedLargeGapSets.add(key);
     logDispatcherError(
