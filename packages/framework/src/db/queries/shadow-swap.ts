@@ -390,6 +390,7 @@ export async function assertNoBlindIndexLoss(
   const raw = asRawClient(tx);
   if (configuredBlindIndexKey() !== undefined) {
     await assertBlindIndexKeyMatchesLive(raw, tableName, t, bidxCols, projectionName);
+    // skip: a configured key is verified against live rows above, the null-count check below is for keyless boots
     return;
   }
   const where = bidxCols.map((c) => `${quoteTableIdent(c.name)} IS NOT NULL`).join(" OR ");

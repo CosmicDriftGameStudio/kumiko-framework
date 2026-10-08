@@ -19,7 +19,6 @@
 // bei !committed wird der burn released damit ein legitimer Retry
 // nicht durch einen stale Marker geblockt wird (wie reset/verify).
 
-import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -40,9 +39,9 @@ import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import {
   findSignupHandoverProvider,
+  registrationLocaleFromRequest,
   SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE,
   type SignupHandoverBinding,
-  sessionLocaleField,
 } from "../../shared/index.js";
 // kumiko-lint-ignore cross-feature-import signup-confirm reads tenants.key for slug-uniqueness check (TOCTOU + DB-unique-index zusammen)
 import { tenantTable } from "../../tenant/schema/tenant.js";
@@ -188,9 +187,7 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
         // den Tenant-Namen + sein eigenes displayName später ändern.
         const displayName = email.split("@")[0] ?? email;
 
-        // Only an explicit request signal (X-Locale) is persisted: the boot
-        // default is not a choice the new user made.
-        const registrationLocale = sessionLocaleField(requestContext.get()?.locale);
+        const registrationLocale = registrationLocaleFromRequest();
 
         let provisioned: { readonly userId: string; readonly tenantId: TenantId };
         try {
@@ -204,7 +201,7 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
               tenantKey,
               // Generated slug as default name: no personal data (the email) in the tenant name.
               tenantName: tenantKey,
-              ...(registrationLocale.locale !== undefined && { locale: registrationLocale.locale }),
+              ...registrationLocale,
             },
             // #1463: seedTenant's postSave hooks (tier-engine's auto-default-
             // tier, an app's auto-default-compliance) must fire on self-signup

@@ -38,7 +38,7 @@ export {
   signRowBoundGrant,
 } from "./row-bound-grant.js";
 export { runInSubTransaction } from "./run-in-sub-transaction.js";
-export { sessionLocaleField } from "./session-locale-field.js";
+export { registrationLocaleFromRequest, sessionLocaleField } from "./session-locale-field.js";
 export { sessionTimezoneField } from "./session-timezone-field.js";
 export {
   peekTokenSubject,

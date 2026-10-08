@@ -159,6 +159,16 @@ function resolveBootSecrets(
   });
 }
 
+function bootCryptoContext(crypto: BootCrypto): Record<string, unknown> {
+  return {
+    ...(crypto.masterKeyProvider && { masterKeyProvider: crypto.masterKeyProvider }),
+    // Encrypt/decrypt partner for `encrypted: true` config keys. Wired
+    // whenever a master key exists — NOT gated on the secrets feature,
+    // config encryption must work without mounting ctx.secrets.
+    ...(crypto.configCipher && { configEncryption: crypto.configCipher }),
+  };
+}
+
 export function buildBootExtraContext(opts: {
   readonly db: DbConnection;
   readonly features: readonly FeatureDefinition[];
@@ -202,11 +212,7 @@ export function buildBootExtraContext(opts: {
     }),
     // Top-level provider so feature jobs (secrets rotate, config reencrypt)
     // reach it via ctx — previously only test-stack wired it.
-    ...(crypto.masterKeyProvider && { masterKeyProvider: crypto.masterKeyProvider }),
-    // Encrypt/decrypt partner for `encrypted: true` config keys. Wired
-    // whenever a master key exists — NOT gated on the secrets feature,
-    // config encryption must work without mounting ctx.secrets.
-    ...(crypto.configCipher && { configEncryption: crypto.configCipher }),
+    ...bootCryptoContext(crypto),
     ...(secrets && { secrets }),
     ...(opts.hasAuth && {
       configResolver: createConfigResolver({
