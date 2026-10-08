@@ -171,6 +171,31 @@ describe("TenantDb.global()", () => {
     expect(captured).toHaveLength(1);
   });
 
+  test("writes on an executor-managed entity table reject even with a grant, reads still work", async () => {
+    const captured: { sql: string }[] = [];
+    const db: DbRunner = {
+      unsafe: async (sql: string) => {
+        captured.push({ sql });
+        return [];
+      },
+      begin: async () => {
+        throw new Error("begin not used in this test");
+      },
+    } as DbRunner;
+    const tdb = createTenantDb(db, own, "tenant", undefined, undefined, undefined, {
+      globalWrites: { reason: "cross-tenant backfill job" },
+    });
+    const erased = tdb.global(
+      globalManagedTable as unknown as EntityTableMeta & TenancyBrand<"global">,
+    );
+    await expect(erased.insertOne({ name: "x" })).rejects.toThrow(/entity executor/);
+    await expect(erased.updateMany({ name: "y" }, { id: "x" })).rejects.toThrow(/entity executor/);
+    await expect(erased.deleteMany({ id: "x" })).rejects.toThrow(/entity executor/);
+    expect(captured).toHaveLength(0);
+    await erased.selectMany({ name: "x" });
+    expect(captured).toHaveLength(1);
+  });
+
   test("write with an escapeHatch reports global-write once with the grant's reason", async () => {
     const db: DbRunner = {
       unsafe: async () => [{ id: "x" }],
@@ -341,5 +366,76 @@ describe("UncheckedSystemDb.unsafeRaw", () => {
     const sysDb = createUncheckedSystemDb(tdb, undefined, report);
     sysDb.unsafeRaw("cleanup job");
     expect(calls).toEqual([{ kind: "unsafe-raw", reason: "cleanup job", target: undefined }]);
+  });
+});
+
+describe("unsafeRaw gate inheritance", () => {
+  const denyingGate = (): never => {
+    throw new AccessDeniedError({ message: "public_intake_required" });
+  };
+
+  // Mirrors the driver surface that hands out derived handles: begin/transaction/
+  // beginDistributed take a callback, reserve resolves to a connection.
+  function driverWithDerivedHandles(): DbRunner {
+    const handle = { unsafe: async () => [] } as unknown as DbRunner;
+    return {
+      unsafe: async () => [],
+      begin: async (cb: (tx: DbRunner) => unknown) => cb(handle),
+      transaction: async (cb: (tx: DbRunner) => unknown) => cb(handle),
+      beginDistributed: async (_name: string, cb: (tx: DbRunner) => unknown) => cb(handle),
+      reserve: async () => handle,
+    } as unknown as DbRunner;
+  }
+
+  async function insertThroughDerivedHandle(
+    derive: (raw: DbRunner) => Promise<DbRunner>,
+  ): Promise<unknown> {
+    const tdb = createTenantDb(
+      driverWithDerivedHandles(),
+      own,
+      "system",
+      undefined,
+      undefined,
+      undefined,
+      {
+        unsafeRaw: { reason: "test: derived handles keep the gate" },
+        personalDataGate: denyingGate,
+      },
+    );
+    const derived = await derive(tdb.unsafeRaw());
+    return createTenantDb(derived, own, "system")
+      .insertOne(tenantEntityTable as unknown as TableColumns, { name: "x" })
+      .then(
+        () => "inserted",
+        (e: unknown) => (e instanceof AccessDeniedError ? "denied" : e),
+      );
+  }
+
+  test("begin() handle is gated", async () => {
+    expect(
+      await insertThroughDerivedHandle((raw) =>
+        (raw as unknown as { begin: (cb: (tx: DbRunner) => unknown) => Promise<DbRunner> }).begin(
+          async (tx) => tx,
+        ),
+      ),
+    ).toBe("denied");
+  });
+
+  test("transaction() handle is gated", async () => {
+    expect(
+      await insertThroughDerivedHandle((raw) =>
+        (
+          raw as unknown as { transaction: (cb: (tx: DbRunner) => unknown) => Promise<DbRunner> }
+        ).transaction(async (tx) => tx),
+      ),
+    ).toBe("denied");
+  });
+
+  test("reserve() connection is gated", async () => {
+    expect(
+      await insertThroughDerivedHandle((raw) =>
+        (raw as unknown as { reserve: () => Promise<DbRunner> }).reserve(),
+      ),
+    ).toBe("denied");
   });
 });

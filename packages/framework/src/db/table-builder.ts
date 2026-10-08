@@ -495,18 +495,16 @@ export type BuildEntityTableOptions = {
   readonly relations?: EntityRelations;
 };
 
-function stampGlobalTenancyMeta<E extends EntityDefinition>(
-  table: EntityTable<E>,
-  entity: E,
-): void {
-  // skip: non-global entities keep pgTable's default tenancy meta
-  if (entity.tenancy !== "global") return;
+// pgTable's own meta stamp sees neither entity.tenancy nor that this table is an executor-managed projection;
+// patch both so db.global()'s runtime guards match the type brands.
+function stampEntityTableMeta<E extends EntityDefinition>(table: EntityTable<E>, entity: E): void {
   const meta = (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL];
   // skip: no meta stamp present — nothing to patch
   if (!meta) return;
   (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL] = {
     ...meta,
-    tenancy: "global",
+    source: "managed",
+    ...(entity.tenancy === "global" && { tenancy: "global" as const }),
   };
 }
 
@@ -679,7 +677,6 @@ export function buildEntityTable<E extends EntityDefinition>(
     },
   ) as unknown as EntityTable<E>;
 
-  // pgTable's own meta stamp doesn't see entity.tenancy — patch it so db.global()'s runtime guard matches the type brand.
-  stampGlobalTenancyMeta(built, entity);
+  stampEntityTableMeta(built, entity);
   return built;
 }

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.353.0",
+    "type": "breaking",
+    "title": "db.global(table) writes on executor-managed entity tables are rejected",
+    "detail": "A handler with a globalWrites grant could write straight into an entity table and bypass the event store. insertOne/updateMany/deleteMany through db.global now throw AccessDenied for tables built by buildEntityTable; read through db.global is unchanged. Write entities through the entity executor, and keep db.global for hand-written unmanaged tables."
+  },
+  {
     "version": "0.352.0",
     "type": "improvement",
     "title": "SelectFieldDef.optionsAvailabilityQuery marks static select options as unavailable per tenant",
