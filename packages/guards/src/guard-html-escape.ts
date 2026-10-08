@@ -42,11 +42,12 @@ import {
   type TemplateExpression,
   type Type,
 } from "ts-morph";
-import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
 const ROOT = process.cwd();
 
 const SCAN: ScanSpec = {
+  kinds: ALL_REPO_KINDS,
   scope: "source",
   extensions: ["ts", "tsx"],
   frameworkWithin: ["packages/*/src/**"],

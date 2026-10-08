@@ -22,12 +22,12 @@
 import * as path from "node:path";
 import { type CallExpression, type Identifier, type SourceFile, SyntaxKind } from "ts-morph";
 import { findRepoRootFor } from "./_lib/baseline-compare";
-import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
 
-const SCAN: ScanSpec = { scope: "source", extensions: ["ts"] };
+const SCAN: ScanSpec = { kinds: ALL_REPO_KINDS, scope: "source", extensions: ["ts"] };
 
 // Test files may use the API freely — they are the primary verifiers.
 // App code is never shipped through tests.

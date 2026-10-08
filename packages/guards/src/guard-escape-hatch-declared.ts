@@ -82,9 +82,16 @@ import {
 } from "ts-morph";
 import { isFrameworkImportOf } from "./_lib/framework-import";
 import { isGenericReason, resolveReasonText } from "./_lib/generic-reason";
-import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  ALL_REPO_KINDS,
+  type AstGuard,
+  type GuardViolation,
+  runStandalone,
+  type ScanSpec,
+} from "./_lib/guard-kit";
 
 const SCAN: ScanSpec = {
+  kinds: ALL_REPO_KINDS,
   scope: "source",
   extensions: ["ts"],
   frameworkWithin: ["packages/*/src/**", "samples/**"],
