@@ -1,4 +1,4 @@
-import type { AgentExposure, AgentHandlerHints } from "./handlers.js";
+import type { AgentExposure, AgentHandlerHints, AgentScreenHints } from "./handlers.js";
 
 /** Fail-closed: a handler without a `description` stays invisible to the agent
  *  unless it opts in explicitly. `kind` is a parameter because write and query
@@ -17,6 +17,6 @@ export function resolveAgentExposure(
  *  screen regardless of `description`, so only an explicit opt-out hides one.
  *  Reusing `resolveAgentExposure`'s fail-closed default here would silently
  *  drop every screen without a description from the agent's view. */
-export function isAgentVisibleScreen(screen: { readonly agent?: AgentHandlerHints }): boolean {
+export function isAgentVisibleScreen(screen: { readonly agent?: AgentScreenHints }): boolean {
   return screen.agent?.expose !== false;
 }

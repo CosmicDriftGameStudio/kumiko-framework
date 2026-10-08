@@ -8,6 +8,7 @@ describe("emitEvent", () => {
     name: "pubsub-orders:event:order-placed",
     schema: z.object({ id: z.string(), customer: z.string() }),
     version: 1,
+    piiFields: "none",
   };
 
   test("delegates to ctx.appendEvent with eventDef.name as the type", async () => {
@@ -44,6 +45,7 @@ describe("typedPayload", () => {
     name: "invoices:event:approved",
     schema: z.object({ amountCents: z.number(), approvedBy: z.string() }),
     version: 1,
+    piiFields: "none",
   };
 
   test("returns the payload narrowed to the EventDef's TPayload when the event type matches", () => {

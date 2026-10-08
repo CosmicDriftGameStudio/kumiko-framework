@@ -24,6 +24,12 @@ import type { Dispatcher, FieldIssue, WriteResult } from "../dispatcher/index.js
 
 export type FormValues = Record<string, unknown>;
 
+// A scope entry is a top-level field or a dotted path into it, so a typo in a
+// wizard step's field list fails to compile instead of validating nothing.
+export type FormScopeKey<TValues extends FormValues> =
+  | (keyof TValues & string)
+  | `${keyof TValues & string}.${string}`;
+
 // Per-field conditional rules (Kumiko's "visible/readonly/required as
 // functions" decision, 2026-03-30). A rule is either a static boolean or a
 // predicate `(values, ctx) => boolean`. The controller evaluates them on
@@ -147,7 +153,7 @@ export type FormController<TValues extends FormValues> = {
   // calls (wizard steps, #1885). `submit()` always re-includes them even
   // when `validateScope` is set so RenderEdit `fields={…}` cannot skip
   // cross-field rules (#1907).
-  validate(scope?: readonly string[]): boolean;
+  validate(scope?: readonly FormScopeKey<TValues>[]): boolean;
 
   // Reverts values to `initial`, clears errors. Doesn't fire a new
   // "initial" baseline — to adopt the current values as the new baseline

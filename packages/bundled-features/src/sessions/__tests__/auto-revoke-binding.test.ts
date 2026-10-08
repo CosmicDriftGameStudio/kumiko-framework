@@ -1,5 +1,9 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { AppContext, SaveContext } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AppContext,
+  dedupeFeatures,
+  type SaveContext,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { bindAutoRevokeFromFeature, createSessionsFeature } from "../feature.js";
 
 // The postSave hook is registered unconditionally; the revoker arrives either
@@ -67,5 +71,18 @@ describe("sessions auto-revoke binding", () => {
 
     expect(explicit).toHaveBeenCalledWith("user-1");
     expect(lateBound).not.toHaveBeenCalled();
+  });
+
+  test("a revoker bound on the instance dedupe dropped never fires — bind the kept instance", async () => {
+    const revoker = mock(async (_userId: string) => 1);
+    const kept = createSessionsFeature();
+    const dropped = createSessionsFeature();
+    const [survivor] = dedupeFeatures([kept, dropped]);
+    expect(survivor).toBe(kept);
+
+    bindAutoRevokeFromFeature(dropped)?.(revoker);
+    await userPostSaveHook(kept)(passwordChange);
+
+    expect(revoker).not.toHaveBeenCalled();
   });
 });

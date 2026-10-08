@@ -54,6 +54,12 @@ export const APP_FEATURES = [
 For an app that does not mount `dsgvoSelfServiceFeatures()`, use
 `securityBaselineFeatures()` with its default options, as this recipe does.
 
+Dedupe keeps the first mounted instance. Late-bound state such as
+`bindAutoRevokeOnPasswordChange` must be bound on the instance returned by
+`composeFeatures`/`createApp`, not on a locally held handle to the dropped one:
+the dropped instance's hooks never run and password changes silently stop
+revoking sessions.
+
 A `createSessionsFeature({ ... })` mounted with different options than the
 preset's own no-arg instance still produces a clear boot error — dedupe only
 collapses provably interchangeable instances, never silently picks one:

@@ -1103,7 +1103,7 @@ export type EventDef<TPayload = unknown, TName extends string = string> = {
   // upcasts older stored events. Reads consult this to decide if upcasters
   // need to run before the payload hits consumer code.
   readonly version: number;
-  readonly piiFields?: EventPiiStance;
+  readonly piiFields: EventPiiStance;
 };
 
 // Args for ctx.appendEvent — explicit aggregate target, Marten-style.
@@ -1339,6 +1339,9 @@ export type AgentHandlerHints = {
   readonly expose?: boolean;
   readonly risk?: AgentRisk;
 };
+
+/** Screens only read `expose`; `risk` ranks handler tool calls, so it is not offered here. */
+export type AgentScreenHints = Pick<AgentHandlerHints, "expose">;
 
 export type AgentExposure = {
   readonly expose: boolean;

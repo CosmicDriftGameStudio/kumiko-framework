@@ -1,6 +1,6 @@
 import type { FieldIconKey } from "./field-icon.js";
 import type { FieldDefinition, FormFieldDefinition, SelectOptionTone } from "./fields.js";
-import type { AccessRule, AgentHandlerHints } from "./handlers.js";
+import type { AccessRule, AgentScreenHints } from "./handlers.js";
 import type { IconKey, NavIconKey } from "./nav-icon.js";
 
 export type { FieldIconKey } from "./field-icon.js";
@@ -519,7 +519,7 @@ export type EntityListScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
+  readonly agent?: AgentScreenHints;
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
@@ -663,7 +663,7 @@ export type ProjectionListScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
+  readonly agent?: AgentScreenHints;
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
@@ -786,7 +786,7 @@ export type ProjectionDetailScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
+  readonly agent?: AgentScreenHints;
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
@@ -1171,7 +1171,7 @@ export type DashboardScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
+  readonly agent?: AgentScreenHints;
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
@@ -1554,7 +1554,7 @@ export type EntityEditScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
+  readonly agent?: AgentScreenHints;
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
@@ -1670,7 +1670,7 @@ export type ActionFormScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
+  readonly agent?: AgentScreenHints;
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
@@ -1841,7 +1841,7 @@ export type SecretMintScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
+  readonly agent?: AgentScreenHints;
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
@@ -1887,8 +1887,7 @@ export type CustomScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
-  /** Only `expose` is read for screens; `risk` ranks handler tool calls. */
-  readonly agent?: AgentHandlerHints;
+  readonly agent?: AgentScreenHints;
   readonly renderer: PlatformComponent;
   readonly routes?: readonly CustomScreenRoute[];
   /** Parent list screen for breadcrumb when this detail is not in nav. */
@@ -1953,7 +1952,7 @@ export type ConfigEditScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
+  readonly agent?: AgentScreenHints;
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
@@ -2009,7 +2008,7 @@ export type SecretsEditScreenDefinition = {
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
-  readonly agent?: AgentHandlerHints;
+  readonly agent?: AgentScreenHints;
   /** Screen has no nav entry by design (opened via link or navved by the
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;

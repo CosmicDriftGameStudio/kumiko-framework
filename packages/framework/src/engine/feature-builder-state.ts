@@ -1,6 +1,5 @@
 import type { WebSocketRouteDefinition } from "@cosmicdrift/kumiko-types/websocket-route";
 import type * as z from "zod";
-import type { ZodType } from "zod";
 import { LifecycleHookTypes } from "./constants.js";
 import type { HttpRouteDefinition } from "./types/http-route.js";
 import type {
@@ -11,6 +10,7 @@ import type {
   ConfigSeedDef,
   EntityDefinition,
   EntityProjectionExtension,
+  EventDef,
   EventMigrationDef,
   ExtensionSelectorDef,
   FeatureMetricDef,
@@ -71,7 +71,7 @@ export type FeatureBuilderState = {
   configKeys: Record<string, ConfigKeyDefinition>;
   configSeeds: ConfigSeedDef[];
   jobs: Record<string, JobDefinition>;
-  events: Record<string, { name: string; schema: ZodType; version: number }>;
+  events: Record<string, EventDef>;
   eventMigrations: Record<string, EventMigrationDef[]>;
   configReads: string[];
   entityPostSave: Record<string, PhasedHook<PostSaveHookFn>[]>;
