@@ -93,15 +93,33 @@ test.describe("record-detail-layout — tab-panel height (fw#2778)", () => {
   test("record header (subtitle, metrics) and tab strip stay fully visible, uncompressed, in both scenarios", async ({
     page,
   }) => {
+    const subtitle = page.getByTestId("kumiko-screen-projection-detail-subtitle");
+    const metrics = page.getByTestId("kumiko-screen-projection-detail-metrics");
+    const heights: { tabs: number; subtitle: number; metrics: number }[] = [];
     for (const items of [3, 60]) {
       await gotoOrderDetail(page, items);
       const tabs = await tabsLocator(page).boundingBox();
       if (tabs === null) throw new Error(`missing tabs bounding box (items=${items})`);
       expect(tabs.height).toBeGreaterThan(20);
       // The title now lives in the shell's page header, not in the screen.
-      await expect(page.getByTestId("kumiko-screen-projection-detail-subtitle")).toBeVisible();
-      await expect(page.getByTestId("kumiko-screen-projection-detail-metrics")).toBeVisible();
+      await expect(subtitle).toBeVisible();
+      await expect(metrics).toBeVisible();
+      const subtitleBox = await subtitle.boundingBox();
+      const metricsBox = await metrics.boundingBox();
+      if (subtitleBox === null || metricsBox === null) {
+        throw new Error(`missing header bounding box (items=${items})`);
+      }
+      heights.push({ tabs: tabs.height, subtitle: subtitleBox.height, metrics: metricsBox.height });
+      for (const region of [subtitle, metrics]) {
+        const clipped = await region.evaluate((el) => el.scrollHeight > el.clientHeight + 1);
+        expect(clipped).toBe(false);
+      }
     }
+    const [few, many] = heights;
+    if (few === undefined || many === undefined) throw new Error("missing height samples");
+    expect(many.tabs).toBeCloseTo(few.tabs, 0);
+    expect(many.subtitle).toBeCloseTo(few.subtitle, 0);
+    expect(many.metrics).toBeCloseTo(few.metrics, 0);
   });
 });
 

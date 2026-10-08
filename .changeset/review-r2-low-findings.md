@@ -6,6 +6,8 @@
 "@cosmicdrift/kumiko-types": patch
 "@cosmicdrift/kumiko-headless": patch
 "@cosmicdrift/kumiko-testing": patch
+"@cosmicdrift/kumiko-locale-de": patch
+"@cosmicdrift/kumiko-locale-es": patch
 ---
 
 Stricter boot checks and role projection for screens and handlers
@@ -33,3 +35,5 @@ A text or longText field with `multiline.rows` that is not a positive integer no
 `createKumikoApp` accepts `schemaUrl` for the schema fetch when the API lives on another origin than the SPA (a cross-origin URL is fetched with `credentials: "include"`). List select cells and a danger `Dialog` now follow the registered primitives: select pills use the registered `StatusBadge`, and a danger dialog focuses Cancel by default. Form drafts no longer store fields marked `sensitive: true`.
 
 `captureScreenshot` no longer treats a `pushState` of the old document as the commit of a still-loading navigation, so in-flight data requests stay counted until the navigation URL is reached.
+
+German and Spanish translations for `jobs.errors.invalidCursor` were missing.

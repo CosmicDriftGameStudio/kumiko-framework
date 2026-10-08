@@ -35,6 +35,7 @@ export function isAppSuppliedKey(key: string): boolean {
 export type EnHarvest = {
   readonly en: Readonly<Record<string, TranslationValue>>;
   readonly conflicts: readonly string[];
+  readonly entryCountByOrigin: Readonly<Record<string, number>>;
 };
 
 function isZeroArgFactory(value: unknown): value is () => unknown {
@@ -98,6 +99,11 @@ export async function harvestEnglish(): Promise<EnHarvest> {
   sources.push({ origin: "mail:auth", entries: Object.entries(AUTH_MAIL_EN) });
   sources.push({ origin: "mail:gdpr", entries: Object.entries(GDPR_MAIL_EN) });
 
+  const entryCountByOrigin: Record<string, number> = {};
+  for (const { origin, entries } of sources) {
+    entryCountByOrigin[origin] = (entryCountByOrigin[origin] ?? 0) + entries.length;
+  }
+
   const en: Record<string, TranslationValue> = {};
   const firstOrigin = new Map<string, string>();
   const conflicts: string[] = [];
@@ -115,5 +121,5 @@ export async function harvestEnglish(): Promise<EnHarvest> {
       if (!firstOrigin.has(key)) firstOrigin.set(key, origin);
     }
   }
-  return { en, conflicts };
+  return { en, conflicts, entryCountByOrigin };
 }

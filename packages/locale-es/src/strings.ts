@@ -602,6 +602,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "jobs.errors.payloadErased":
     "El payload de esta ejecución ya no se puede leer: se borraron los datos del usuario que la inició.",
   "jobs.errors.unknownJob": "Trabajo desconocido.",
+  "jobs.errors.invalidCursor": "El cursor de paginación no es válido.",
   "jobs.runs.col.duration": "Duración (ms)",
   "jobs.runs.col.job": "Trabajo",
   "jobs.runs.col.started": "Iniciado",
