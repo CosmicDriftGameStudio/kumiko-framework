@@ -15,6 +15,7 @@
 // code is touched to make this reproducible.
 
 import { afterEach, beforeAll, describe, expect, setSystemTime, test } from "bun:test";
+import type { DbTx } from "../../db/connection.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { recordConsumerPassFailure } from "../../db/queries/event-consumer.js";
 import { asRawClient } from "../../db/query.js";
@@ -309,7 +310,7 @@ describe("event-dispatcher — pass-level throw survives the rolled-back tx (#26
 
     test("a row another pass holds locked is skipped instead of blocking the catch path", async () => {
       const instanceId = await registerWithCursor(5n);
-      await stack.db.begin(async (tx) => {
+      await stack.db.begin(async (tx: DbTx) => {
         await asRawClient(tx).unsafe(
           `SELECT 1 FROM "kumiko_event_consumers" WHERE "name" = $1 FOR UPDATE`,
           [name],
