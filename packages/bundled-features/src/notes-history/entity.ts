@@ -122,6 +122,8 @@ export function createNoteMentionEntity() {
       }),
       subjectId: createTextField({ required: true, maxLength: 64, personal: "ref" }),
     },
+    // The forget cascade looks mentions up by subject within one tenant.
+    indexes: [{ columns: ["tenantId", "subjectId"] }],
   });
 }
 

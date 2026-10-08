@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-08T11:58:56.132Z",
+  "generatedAt": "2026-10-08T12:29:01.622Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1688,6 +1688,10 @@
         {
           "name": "read_note_mentions_tenant_id_idx",
           "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_note_mentions_tenant_id_subject_id_idx",
+          "columns": ["tenant_id", "subject_id"]
         }
       ],
       "source": "managed"
@@ -3936,7 +3940,20 @@
           "defaultSql": "now()"
         }
       ],
-      "indexes": [],
+      "indexes": [
+        {
+          "name": "store_tenant_job_failures_tenant_job_subject_idx",
+          "columns": ["tenant_id", "job_name", "subject"]
+        },
+        {
+          "name": "store_tenant_job_failures_tenant_failed_at_idx",
+          "columns": ["tenant_id", "failed_at"]
+        },
+        {
+          "name": "store_tenant_job_failures_failed_at_idx",
+          "columns": ["failed_at"]
+        }
+      ],
       "source": "unmanaged"
     },
     {
