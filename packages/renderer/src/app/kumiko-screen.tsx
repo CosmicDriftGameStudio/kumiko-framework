@@ -698,7 +698,7 @@ export function useMoneyCurrencyOverrides(
 } {
   const query = useQuery<TenantConfigValuesResponse>(
     "config:query:values",
-    {},
+    { keys: [TENANT_CURRENCY_CONFIG_KEY] },
     { enabled: tenantFieldNames.length > 0 },
   );
   const resolution = resolveTenantCurrency(tenantFieldNames, query, fallback);

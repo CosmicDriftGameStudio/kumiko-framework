@@ -115,6 +115,28 @@ describe("actionForm money field currency source (fw#2839)", () => {
     });
   });
 
+  test("the tenant currency lookup asks for the currency key only, not every readable config key", async () => {
+    const configPayloads: unknown[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string, payload: unknown) => {
+        if (type === "config:query:values") {
+          configPayloads.push(payload);
+          return { isSuccess: true, data: TENANT_CURRENCY_VALUES };
+        }
+        return { isSuccess: true, data: { rows: [], nextCursor: null } };
+      }) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={makeSchema({ kind: "tenant" })} qn="billing:screen:invoice-pay" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    expect(configPayloads).toEqual([{ keys: ["tenant-settings:config:currency"] }]);
+  });
+
   test("a form with only literal-declared money fields never calls config:query:values", async () => {
     const queriedTypes: string[] = [];
     const dispatcher = createMockDispatcher({

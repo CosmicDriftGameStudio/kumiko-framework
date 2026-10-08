@@ -13,8 +13,10 @@ import { hasConfigAccess } from "../write-helpers.js";
 export const valuesQuery = defineQueryHandler({
   name: "values",
   description:
-    "Returns the effective value, scope and winning source for every config key the caller may read, with encrypted and secret-backed values masked; use it to inspect the current settings.",
-  schema: z.object({}),
+    "Returns the effective value, scope and winning source for every config key the caller may read (optionally narrowed to `keys`), with encrypted and secret-backed values masked; use it to inspect the current settings.",
+  schema: z.object({
+    keys: z.array(z.string()).optional(),
+  }),
   // Per-key read access enforced via hasConfigAccess inside the handler.
   access: {
     openToAll: {
@@ -37,7 +39,10 @@ export const valuesQuery = defineQueryHandler({
     const allKeys = registry.getAllConfigKeys();
     const keyDefs = new Map<string, ConfigKeyDefinition>();
     const filteredKeys: string[] = [];
+    const requestedKeys =
+      query.payload.keys === undefined ? undefined : new Set(query.payload.keys);
     for (const [qualifiedKey, keyDef] of allKeys) {
+      if (requestedKeys !== undefined && !requestedKeys.has(qualifiedKey)) continue;
       if (!hasConfigAccess(keyDef.access.read, query.user.roles)) continue;
       keyDefs.set(qualifiedKey, keyDef);
       filteredKeys.push(qualifiedKey);

@@ -604,6 +604,20 @@ describe("buildAppSchema", () => {
     expect(fields["title"]?.["multiline"]).toBeUndefined();
   });
 
+  test("multiline.rows that is not a positive integer fails the build with the field name", () => {
+    for (const rows of [0, -3, 2.5]) {
+      const entity = {
+        fields: { notes: { type: "text", multiline: { rows } } },
+      } as unknown as EntityDefinition;
+      const f = defineFeature("ent", (r) => {
+        r.entity("thing", entity);
+      });
+      expect(() => buildAppSchema(createRegistry([f]))).toThrow(
+        /"thing" field "notes": multiline\.rows must be a positive integer/,
+      );
+    }
+  });
+
   test("text: writeOnly survives the projection (the renderer picks the masked input from it)", () => {
     const entity = {
       fields: {

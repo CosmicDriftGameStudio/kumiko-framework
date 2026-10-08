@@ -48,14 +48,6 @@ describe("textarea rows → min-height (#2677)", () => {
     expect(renderTextarea().style.minHeight).toBe("");
   });
 
-  test("a row count that is not a positive integer falls back to the default", () => {
-    for (const rows of [0, -3, 2.5]) {
-      const textarea = renderTextarea(rows);
-      expect(textarea.style.minHeight).toBe("");
-      expect(textarea.getAttribute("rows")).toBe("4");
-    }
-  });
-
   // textareaMinHeight hardcodes the vendored frame (py-2 + 1px border); a
   // shadcn re-sync that changes either must fail here instead of drifting silently.
   test("vendored textarea still carries the frame classes the min-height addend assumes", () => {
