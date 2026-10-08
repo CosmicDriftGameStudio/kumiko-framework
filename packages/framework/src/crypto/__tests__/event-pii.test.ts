@@ -267,6 +267,24 @@ describe("defineEvent piiFields validation", () => {
       }),
     ).not.toThrow();
   });
+
+  test("a non-string owner field without whenAbsent fails registration, with whenAbsent it registers", () => {
+    const numeric = z.object({ ownerNo: z.number(), recipientAddress: z.string() });
+    expect(() =>
+      defineFeature("mailer", (r) => {
+        r.defineEvent("attempt", numeric, {
+          piiFields: { recipientAddress: { personal: { of: "ownerNo" } } },
+        });
+      }),
+    ).toThrow(/is not a string/);
+    expect(() =>
+      defineFeature("mailer", (r) => {
+        r.defineEvent("attempt", numeric, {
+          piiFields: { recipientAddress: { personal: { of: "ownerNo", whenAbsent: "tenant" } } },
+        });
+      }),
+    ).not.toThrow();
+  });
 });
 
 describe("encryptEventPayloadPii", () => {
