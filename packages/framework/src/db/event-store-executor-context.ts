@@ -180,6 +180,16 @@ export type ExecutorContext = {
       | { kind: "empty" }
       | { kind: "sql"; sqlText: string; params: readonly unknown[] },
   ) => Promise<Record<string, unknown>[]>;
+  readonly loadDetailSnapshot: (
+    db: TenantDb,
+    idWhere: WhereObject,
+    ownership:
+      | { kind: "pass" }
+      | { kind: "empty" }
+      | { kind: "sql"; sqlText: string; params: readonly unknown[] },
+    streamTenantId: TenantId,
+    aggregateId: string,
+  ) => Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }>;
   readonly loadExpectSnapshot: (
     db: TenantDb,
     id: EntityId,
@@ -397,6 +407,21 @@ export function buildExecutorContext(
     // ownership has raw SQL — splice it into a raw query alongside the
     // idFilter + tenant-filter that TenantDb would have added.
     const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+    const { whereParts, params } = buildRawIdWhere(db, idWhere, ownership);
+    const sqlText = `SELECT * FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
+    return [
+      ...(await executeRawQueryRead<Record<string, unknown>>(tenantDbRunner(db), sqlText, params)),
+    ];
+  }
+
+  // Tenant filter + idFilter + ownership predicate as raw SQL, mirroring what
+  // TenantDb.fetchOne/readWhere add. idFilter only yields `id` and a boolean
+  // `isDeleted`, so no null/IS NULL branch is needed.
+  function buildRawIdWhere(
+    db: TenantDb,
+    idWhere: WhereObject,
+    ownership: { kind: "pass" } | { kind: "sql"; sqlText: string; params: readonly unknown[] },
+  ): { whereParts: string[]; params: unknown[] } {
     const colSql = (field: string): string =>
       `"${(table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field)}"`;
     const whereParts: string[] = [];
@@ -413,13 +438,53 @@ export function buildExecutorContext(
         whereParts.push(`${colSql(field)} = $${params.length}`);
       }
     }
-    const shifted = shiftParams(ownership, params.length);
-    whereParts.push(shifted.sqlText);
-    for (const p of shifted.params) params.push(p);
-    const sqlText = `SELECT * FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
-    return [
-      ...(await executeRawQueryRead<Record<string, unknown>>(tenantDbRunner(db), sqlText, params)),
-    ];
+    if (ownership.kind === "sql") {
+      const shifted = shiftParams(ownership, params.length);
+      whereParts.push(shifted.sqlText);
+      for (const p of shifted.params) params.push(p);
+    }
+    return { whereParts, params };
+  }
+
+  function streamVersionSubquerySql(aggregateIdParam: number, tenantIdParam: number): string {
+    return (
+      `(SELECT MAX("version") FROM "kumiko_events" WHERE "aggregate_id" = $${aggregateIdParam} ` +
+      `AND "tenant_id" = $${tenantIdParam}) AS "__streamVersion"`
+    );
+  }
+
+  // Row and MAX(version) in ONE statement: two reads can pair a post-write
+  // version with a pre-write row, and update({version: detail.version}) would
+  // then pass the optimistic lock and overwrite the newer write (lost update).
+  async function loadDetailSnapshot(
+    db: TenantDb,
+    idWhere: WhereObject,
+    ownership:
+      | { kind: "pass" }
+      | { kind: "empty" }
+      | { kind: "sql"; sqlText: string; params: readonly unknown[] },
+    streamTenantId: TenantId,
+    aggregateId: string,
+  ): Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }> {
+    if (ownership.kind === "empty") return { row: null, streamVersion: 0 };
+    const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+    const { whereParts, params } = buildRawIdWhere(db, idWhere, ownership);
+    params.push(aggregateId, streamTenantId);
+    const sqlText =
+      `SELECT *, ${streamVersionSubquerySql(params.length - 1, params.length)} ` +
+      `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
+    const rows = await executeRawQueryRead<Record<string, unknown>>(
+      tenantDbRunner(db),
+      sqlText,
+      params,
+    );
+    const first = rows[0];
+    if (!first) return { row: null, streamVersion: 0 };
+    const { __streamVersion, ...row } = first;
+    return {
+      row,
+      streamVersion: typeof __streamVersion === "number" ? __streamVersion : 0,
+    };
   }
 
   // Reads the `expect:` fields and the aggregate's MAX(version) in ONE statement:
@@ -465,8 +530,7 @@ export function buildExecutorContext(
 
     const sqlText =
       `SELECT ${selectCols.join(", ")}, ` +
-      `(SELECT MAX("version") FROM "kumiko_events" WHERE "aggregate_id" = $${streamAggregateIdx} ` +
-      `AND "tenant_id" = $${streamTenantIdx}) AS "__streamVersion" ` +
+      `${streamVersionSubquerySql(streamAggregateIdx, streamTenantIdx)} ` +
       `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
 
     const rows = await executeRawQueryRead<Record<string, unknown>>(
@@ -495,6 +559,7 @@ export function buildExecutorContext(
     loadById,
     assertStreamWritable,
     loadWithOwnership,
+    loadDetailSnapshot,
     loadExpectSnapshot,
     encryptForStorage,
     decryptForRead,

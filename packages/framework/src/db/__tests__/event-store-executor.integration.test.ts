@@ -349,6 +349,54 @@ describe("event-store-executor — detail liefert die Stream-Version", () => {
     );
     expect(updated.isSuccess).toBe(true);
   });
+
+  // A's detail() reads row and stream version; B commits an update in between
+  // the two reads of the old implementation. Handing out (old row, new
+  // version) lets A's update pass the optimistic lock and overwrite B.
+  test("concurrent update during detail(): A's update on detail.version conflicts, B's write survives", async () => {
+    const created = await crud.create({ email: "race@test.de", firstName: "orig" }, adminUser, tdb);
+    expect(created.isSuccess).toBe(true);
+    if (!created.isSuccess) return;
+    const id = created.data.id;
+
+    let afterNextStatement: (() => Promise<void>) | undefined;
+    const hookedDb = new Proxy(testDb.db, {
+      get(target, prop) {
+        const value = Reflect.get(target, prop, target);
+        if (typeof value !== "function") return value;
+        if (prop !== "unsafe") return value.bind(target);
+        return async (...args: unknown[]) => {
+          const result = await value.apply(target, args);
+          const hook = afterNextStatement;
+          afterNextStatement = undefined;
+          if (hook) await hook();
+          return result;
+        };
+      },
+    });
+    const tdbA = createTenantDb(hookedDb, adminUser.tenantId);
+
+    afterNextStatement = async () => {
+      const b = await crud.update({ id, version: 1, changes: { firstName: "B" } }, adminUser, tdb);
+      expect(b.isSuccess).toBe(true);
+      if (b.isSuccess) expect(b.data.data["version"]).toBe(2);
+    };
+    const detailA = await crud.detail({ id }, adminUser, tdbA);
+    expect(afterNextStatement).toBeUndefined();
+    expect(detailA).not.toBeNull();
+
+    const updateA = await crud.update(
+      { id, version: Number(detailA?.["version"]), changes: { firstName: "A" } },
+      adminUser,
+      tdb,
+    );
+    expect(updateA.isSuccess).toBe(false);
+    if (updateA.isSuccess) return;
+    expect(updateA.error.code).toBe("version_conflict");
+
+    const after = await crud.detail({ id }, adminUser, tdb);
+    expect(after?.["firstName"]).toBe("B");
+  });
 });
 
 const ENCRYPTION_TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
@@ -625,6 +673,68 @@ describe("event-store-executor — entity cache read-through", () => {
 
     const second = await cachedCrud.detail({ id }, adminUser, tdb);
     expect(second?.["email"]).toBe("from-cache@test.de");
+  });
+
+  test("stale cache entry re-set after a concurrent update is ignored: detail returns the live row, old-version update conflicts", async () => {
+    const created = await cachedCrud.create(
+      { email: "stale@test.de", firstName: "orig" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = created.data.id;
+    const storeKey = `${adminUser.tenantId}:esExecUser:${id}`;
+
+    await cachedCrud.detail({ id }, adminUser, tdb);
+    const staleEntry = store.get(storeKey);
+    if (!staleEntry) throw new Error("cache not populated");
+
+    const b = await cachedCrud.update(
+      { id, version: 1, changes: { firstName: "B" } },
+      adminUser,
+      tdb,
+    );
+    expect(b.isSuccess).toBe(true);
+    expect(store.has(storeKey)).toBe(false);
+    // A detail() that read before B's commit lands its set() after B's del().
+    store.set(storeKey, staleEntry);
+
+    const detail = await cachedCrud.detail({ id }, adminUser, tdb);
+    expect(detail?.["firstName"]).toBe("B");
+    expect(detail?.["version"]).toBe(2);
+
+    const updateA = await cachedCrud.update(
+      { id, version: 1, changes: { firstName: "A" } },
+      adminUser,
+      tdb,
+    );
+    expect(updateA.isSuccess).toBe(false);
+    if (!updateA.isSuccess) expect(updateA.error.code).toBe("version_conflict");
+  });
+
+  test("cache entry cached before a stream bump is a miss; detail returns version 2", async () => {
+    const created = await cachedCrud.create({ email: "bump@test.de" }, adminUser, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = created.data.id;
+    const storeKey = `${adminUser.tenantId}:esExecUser:${id}`;
+
+    await cachedCrud.detail({ id }, adminUser, tdb);
+    store.set(storeKey, { ...store.get(storeKey)!, email: "from-cache@test.de" });
+
+    await append(testDb.db, {
+      aggregateId: String(id),
+      aggregateType: "esExecUser",
+      tenantId: adminUser.tenantId,
+      expectedVersion: 1,
+      type: "esExecUser.lifecycle-bumped",
+      payload: { note: "stream moved past the cached row" },
+      metadata: { userId: String(adminUser.id) },
+    });
+
+    const detail = await cachedCrud.detail({ id }, adminUser, tdb);
+    expect(detail?.["version"]).toBe(2);
+    expect(detail?.["email"]).toBe("bump@test.de");
+    expect(store.get(storeKey)?.["version"]).toBe(2);
   });
 });
 
