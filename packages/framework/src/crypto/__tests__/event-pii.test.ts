@@ -282,6 +282,17 @@ describe("encryptEventPayloadPii", () => {
     expect(await encryptEventPayloadPii(EVENT_TYPE, payload, ENVELOPE)).toBe(payload);
   });
 
+  test("no KMS + null owner without whenAbsent still fails closed (dev/prod parity)", async () => {
+    catalogWithAttempt();
+    await expect(
+      encryptEventPayloadPii(
+        EVENT_TYPE,
+        { recipientId: null, recipientAddress: "ops@example.com", status: "sent" },
+        ENVELOPE,
+      ),
+    ).rejects.toThrow(/carries no id and the event declares no whenAbsent fallback/);
+  });
+
   test("encrypts under the subject's DEK; subject fk stays plaintext", async () => {
     catalogWithAttempt();
     const kms = new InMemoryKmsAdapter();
