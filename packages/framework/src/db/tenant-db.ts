@@ -3,6 +3,7 @@ import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-met
 import type {
   EscapeHatchDeclaration,
   EscapeHatchReporter,
+  EscapeHatchTarget,
 } from "@cosmicdrift/kumiko-types/handlers";
 import { KUMIKO_NAME_SYMBOL, type SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
@@ -83,7 +84,19 @@ function boundRunner(
     get(target, prop, _receiver) {
       const value = Reflect.get(target, prop, target);
       if (typeof value !== "function") return value;
-      if (prop === "begin" || prop === "savepoint") {
+      if (prop === "reserve") {
+        // Bun.SQL and postgres.js hand back a raw connection; re-wrap it so the gate survives.
+        return async (...args: unknown[]) => {
+          const reserved: DbRunner = await Reflect.apply(value, target, args);
+          return boundRunner(reserved, gate, projectionRegistry);
+        };
+      }
+      if (
+        prop === "begin" ||
+        prop === "transaction" ||
+        prop === "beginDistributed" ||
+        prop === "savepoint"
+      ) {
         // createTenantDb(tx, ...) inside the callback must inherit the gate too.
         return (...args: unknown[]) => {
           const callback = args[args.length - 1];
@@ -397,10 +410,20 @@ export function withUnsafeRawGrant(
   return rebind ? rebind(grant) : tenantDb;
 }
 
-const crossTenantRebinders = new WeakMap<TenantDb, (reason: string) => TenantDb>();
+const crossTenantRebinders = new WeakMap<
+  TenantDb,
+  (reason: string, deferReport: boolean) => TenantDb
+>();
+const crossTenantUseReporters = new WeakMap<TenantDb, (target?: EscapeHatchTarget) => void>();
 
 // Framework-private (not re-exported from db/index.ts): lifting the tenant filter needs a registered declaration.
-export function acknowledgeConventionCrossTenant(tenantDb: TenantDb, reason: string): TenantDb {
+// `deferReport` leaves the audit entry to reportConventionCrossTenantUse, so a caller that learns
+// which foreign row it touches can attach that row as the entry's target.
+export function acknowledgeConventionCrossTenant(
+  tenantDb: TenantDb,
+  reason: string,
+  options?: { readonly deferReport?: boolean },
+): TenantDb {
   if (reason.trim().length === 0) {
     throw new Error("acknowledgeConventionCrossTenant requires a non-empty reason");
   }
@@ -412,7 +435,24 @@ export function acknowledgeConventionCrossTenant(tenantDb: TenantDb, reason: str
         "no cross-tenant rebinder bound.",
     });
   }
-  return rebind(reason);
+  return rebind(reason, options?.deferReport === true);
+}
+
+// The report that acknowledgeConventionCrossTenant(..., { deferReport: true }) held back; the
+// target keeps the 60s audit dedup from collapsing touches of different rows into one entry.
+export function reportConventionCrossTenantUse(
+  acknowledged: TenantDb,
+  target?: EscapeHatchTarget,
+): void {
+  const reporter = crossTenantUseReporters.get(acknowledged);
+  if (!reporter) {
+    throw new InternalError({
+      message:
+        "reportConventionCrossTenantUse received a TenantDb not returned by " +
+        "acknowledgeConventionCrossTenant.",
+    });
+  }
+  reporter(target);
 }
 
 type OwnTransactionRunner = <T>(fn: (txDb: TenantDb) => Promise<T>) => Promise<T>;
@@ -544,6 +584,16 @@ export function createTenantDb(
     });
   }
 
+  // The ExecutorOnly brand is type-only; a type-erased table must still not reach the read model without an event.
+  function executorManagedWriteDenied(
+    table: Table | EntityTableMeta,
+  ): AccessDeniedError | undefined {
+    if (asEntityTableMeta(table)?.source === "unmanaged") return undefined;
+    return new AccessDeniedError({
+      message: `db.global(${tableNameOf(table)}): writes on executor-managed entity tables must go through the entity executor`,
+    });
+  }
+
   function globalWriteReason(): string {
     return grants?.globalWrites?.reason ?? "";
   }
@@ -609,6 +659,7 @@ export function createTenantDb(
       ): Promise<T | undefined> {
         const denied =
           missingEscapeHatch(table) ??
+          executorManagedWriteDenied(table) ??
           foreignTenantOnGlobalWrite(table, values["tenantId"]) ??
           personalDataDenied(table, Object.keys(values));
         if (denied) return Promise.reject(denied);
@@ -621,6 +672,7 @@ export function createTenantDb(
       ): Promise<readonly T[]> {
         const denied =
           missingEscapeHatch(table) ??
+          executorManagedWriteDenied(table) ??
           foreignTenantOnGlobalWrite(table, set["tenantId"]) ??
           personalDataDenied(table, Object.keys(set));
         if (denied) return Promise.reject(denied);
@@ -635,7 +687,7 @@ export function createTenantDb(
         return withDbSpan("update", table, async () => bunUpdateMany<T>(db, table, set, where));
       },
       deleteMany(where: WhereObject): Promise<void> {
-        const denied = missingEscapeHatch(table);
+        const denied = missingEscapeHatch(table) ?? executorManagedWriteDenied(table);
         if (denied) return Promise.reject(denied);
         if (!where || Object.keys(where).length === 0) {
           return Promise.reject(
@@ -773,9 +825,21 @@ export function createTenantDb(
       globalWrites: undefined,
     }),
   );
-  crossTenantRebinders.set(tenantDb, (reason) => {
-    report("acknowledge-cross-tenant", reason);
-    return createTenantDb(db, tenantId, "system", tracer, meter, signal, rebindGrants);
+  crossTenantRebinders.set(tenantDb, (reason, deferReport) => {
+    if (!deferReport) report("acknowledge-cross-tenant", reason);
+    const acknowledged = createTenantDb(
+      db,
+      tenantId,
+      "system",
+      tracer,
+      meter,
+      signal,
+      rebindGrants,
+    );
+    crossTenantUseReporters.set(acknowledged, (target) =>
+      report("acknowledge-cross-tenant", reason, target),
+    );
+    return acknowledged;
   });
   ownTransactionRebinders.set(tenantDb, async (fn) => {
     if (grants?.memberReadOnly) {

@@ -9,7 +9,11 @@ import {
 } from "../db/eagerload.js";
 import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.js";
 import { buildEntityTable, type EntityTable } from "../db/table-builder.js";
-import { acknowledgeConventionCrossTenant, type TenantDb } from "../db/tenant-db.js";
+import {
+  acknowledgeConventionCrossTenant,
+  reportConventionCrossTenantUse,
+  type TenantDb,
+} from "../db/tenant-db.js";
 import { isSystemIdentity } from "../pipeline/system-identity-switch.js";
 import { assertUnreachable } from "../utils/index.js";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.js";
@@ -24,6 +28,7 @@ import type {
   EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
 } from "./types/entity-handlers.js";
+import { parseTenantId } from "./types/identifiers.js";
 import type {
   AccessRule,
   AgentHandlerHints,
@@ -334,9 +339,16 @@ export function defineEntityWriteHandler(
       );
     }
     return crossTenantReason !== undefined && verb !== "create"
-      ? acknowledgeConventionCrossTenant(ctx.db, crossTenantReason)
+      ? acknowledgeConventionCrossTenant(ctx.db, crossTenantReason, {
+          deferReport: reportsPerTouchedRow(ctx),
+        })
       : ctx.db;
   };
+
+  // actingUserFor reads the row it is about to touch anyway, so for these calls it reports the
+  // cross-tenant use per row (with that row as target) instead of dbFor reporting once up front.
+  const reportsPerTouchedRow = (ctx: HandlerContext): boolean =>
+    ctx.systemDb === undefined && crossTenantReason !== undefined && !entity.systemStream;
 
   // The event stream is keyed by the acting user's tenantId (streamTenantFor in
   // event-store-executor-context.ts), not by the db handed to the executor — an
@@ -348,10 +360,20 @@ export function defineEntityWriteHandler(
     user: SessionUser,
     id: unknown,
     db: TenantDb,
+    ctx: HandlerContext,
   ): Promise<SessionUser> => {
     if (crossTenantReason === undefined || entity.systemStream) return user;
     const row = await db.fetchOne<Record<string, unknown>>(table, { id });
     const rowTenantId = row?.["tenantId"];
+    if (reportsPerTouchedRow(ctx)) {
+      const targetTenantId = parseTenantId(rowTenantId);
+      reportConventionCrossTenantUse(
+        db,
+        targetTenantId !== null && typeof id === "string"
+          ? { id, tenantId: targetTenantId }
+          : undefined,
+      );
+    }
     if (typeof rowTenantId !== "string" || rowTenantId === user.tenantId) return user;
     return { ...user, tenantId: rowTenantId };
   };
@@ -395,7 +417,7 @@ export function defineEntityWriteHandler(
           ...submitted,
           changes: dropEmptyWriteOnlyValues(entity, submitted.changes),
         };
-        const user = await actingUserFor(event.user, payload.id, db);
+        const user = await actingUserFor(event.user, payload.id, db, ctx);
         // skipUnchanged (#464): API-driven updates diff against the stored
         // row so a resubmitted-but-identical field doesn't force a fresh
         // pii/encrypted ciphertext. Direct executor.update() callers (e.g.
@@ -415,7 +437,7 @@ export function defineEntityWriteHandler(
       handler = async (event, ctx) => {
         const db = dbFor(ctx);
         const payload = event.payload as IdPayload; // @cast-boundary engine-payload
-        const user = await actingUserFor(event.user, payload.id, db);
+        const user = await actingUserFor(event.user, payload.id, db, ctx);
         return executor.delete(payload, user, db);
       };
       break;
@@ -424,7 +446,7 @@ export function defineEntityWriteHandler(
       handler = async (event, ctx) => {
         const db = dbFor(ctx);
         const payload = event.payload as IdPayload; // @cast-boundary engine-payload
-        const user = await actingUserFor(event.user, payload.id, db);
+        const user = await actingUserFor(event.user, payload.id, db, ctx);
         return executor.restore(payload, user, db);
       };
       break;

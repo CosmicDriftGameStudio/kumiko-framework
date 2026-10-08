@@ -253,6 +253,7 @@ describe("entity write/list handlers: crossTenant vs. escapeHatch (fw#2650/fw#29
         reason: ESCAPE_HATCH_REASON,
         tenantId: TestUsers.systemAdmin.tenantId,
         actor: TestUsers.systemAdmin.id,
+        target: { id: created.id, tenantId: testTenantId(2) },
       },
     ]);
   });
