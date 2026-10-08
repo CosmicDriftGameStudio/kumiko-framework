@@ -442,7 +442,22 @@ function isTemporalPlainDateTimeLike(v: unknown): v is { toPlainDate(): Temporal
 // back deterministically without ever touching a local Date getter — the
 // same +value idiom instantFromDriver uses (guard-no-date-api: no
 // `.getTime()`), just anchored to a fixed zone instead of process-local.
-function plainDateFromDriver(value: unknown): Temporal.PlainDate | null {
+// A real `date` column always arrives as a UTC-midnight Date. Anything else means the column is
+// still timestamptz (declared `date` before its ALTER ran); the UTC anchor then silently shifts
+// the day, so say so once per column instead of returning the wrong day quietly.
+const warnedNonMidnightDateColumns = new Set<string>();
+const MS_PER_DAY = 86_400_000;
+const dateColumnDriftLog = createFallbackLogger("bun-db");
+
+function warnIfNotDateColumn(epochMs: number, column: string): void {
+  if (epochMs % MS_PER_DAY === 0 || warnedNonMidnightDateColumns.has(column)) return;
+  warnedNonMidnightDateColumns.add(column);
+  dateColumnDriftLog.warn(
+    `column "${column}" is declared as date but returned a non-midnight timestamp; it is probably still timestamptz. Run the ALTER ... TYPE date migration, otherwise days can shift.`,
+  );
+}
+
+function plainDateFromDriver(value: unknown, column: string): Temporal.PlainDate | null {
   if (value === null || value === undefined) return null;
   if (isTemporalPlainDate(value)) return value;
   if (typeof value === "string") {
@@ -455,6 +470,7 @@ function plainDateFromDriver(value: unknown): Temporal.PlainDate | null {
     }
   }
   if (value instanceof Date) {
+    warnIfNotDateColumn(+value, column);
     return Temporal.Instant.fromEpochMilliseconds(+value).toZonedDateTimeISO("UTC").toPlainDate();
   }
   return null;
@@ -485,7 +501,7 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
       const t = instantFromDriver(value);
       if (t !== null) coerced = t;
     } else if (pgType === "date") {
-      const d = plainDateFromDriver(value);
+      const d = plainDateFromDriver(value, key);
       if (d !== null) coerced = d;
     } else if (pgType === "jsonb" && typeof value === "string") {
       coerced = parseJsonSafe(value, value);
@@ -736,6 +752,19 @@ function buildWhereClause(
         if (pgType === "jsonb" && opKey !== "ne") {
           conditions.push("FALSE");
           continue;
+        }
+        // Mirrors applyMultiSelectFilter: an array `ne` means "does not contain all of these".
+        if (opKey === "ne" && pgType === "jsonb" && Array.isArray(opVal)) {
+          if (opVal.length === 0) {
+            conditions.push("FALSE");
+            continue;
+          }
+          const p = prepareJsonbValue(opVal);
+          if (p && p.kind === "param") {
+            conditions.push(`(${ref(col)} IS NULL OR NOT (${ref(col)} @> $${idx++}${p.sql}))`);
+            values.push(p.bound);
+            continue;
+          }
         }
         if (opKey === "ne" && pgType === "jsonb" && isJsonbScalar(opVal)) {
           const p = prepareJsonbValue([opVal]);
