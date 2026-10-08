@@ -64,10 +64,12 @@ publish_and_tag() {
   local tarball="$1" name="$2" version="$3" log staged=0 attempt
   already_published_via_e403=0
   staged_unconfirmed=0
-  if log="$(npm publish "$tarball" --provenance --access public --tag kumiko-tmp 2>&1)"; then
-    printf '%s\n' "$log" >&2
+  # tee streams the publish output live (a hung OIDC exchange or upload stays
+  # visible, and a cancelled job keeps its log) while $log still captures it
+  # for the E403/E409 matching; pipefail keeps npm's exit status.
+  if log="$(npm publish "$tarball" --provenance --access public --tag kumiko-tmp 2>&1 | tee /dev/stderr)"; then
+    :
   else
-    printf '%s\n' "$log" >&2
     # Registry replication lag (#2586): the exact-version check above (`npm
     # view "$name@$version"`) can still answer with the prior version for a
     # short while after another job's publish already landed, so this rescue
@@ -160,7 +162,11 @@ for pkg_json in packages/*/package.json; do
     fi
     # An interrupted run can leave the throwaway tag behind (#2576); dropping it
     # here is idempotent and keeps the registry clean without an extra release.
-    npm dist-tag rm "$name" kumiko-tmp >/dev/null 2>&1 || true
+    # Only when the tag exists: the common case needs no write, and a failing
+    # `dist-tag rm` (auth) is no longer swallowed for packages that have none.
+    if npm dist-tag ls "$name" | grep -q '^kumiko-tmp:'; then
+      npm dist-tag rm "$name" kumiko-tmp >&2
+    fi
     skipped=$((skipped + 1))
     continue
   fi
