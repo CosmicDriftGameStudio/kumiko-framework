@@ -3,7 +3,7 @@
 // biome-ignore-all lint/suspicious/noConsole: CLI script
 //
 // Generates feature-reference + sample preview PNGs.
-// Usage: bun run gen:feature-screenshots
+// Usage: SCREENSHOT_DIR=<out> bun run gen:feature-screenshots
 //
 // One ordered runner list: use-all-bundled (feature matrix) → recipes → sample
 // apps. Each entry spawns Playwright in its cwd with SCREENSHOT_DIR=<out>.
@@ -11,36 +11,33 @@
 // Two output trees: screenshots/features/ backs the feature reference, while
 // screenshots/samples/<recipe-dir>/ backs the sample pages — docgen reads that
 // tree back and injects a ScreenshotPreview per scenario, so a new scenario
-// needs no docs change. marketing-demo is the exception: its PNGs are copied
-// from the marketing app's assets, not rendered here.
+// needs no docs change.
 //
 // Requires Postgres + Redis + a samples .env for app runners; apex-landing uses
 // setContent only. Set SKIP_APP_SCREENSHOTS=1 to skip live captures (syncs
 // committed hero-app.png into showcase public/ only).
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { syncLightboxAssets } from "./sync-lightbox-assets.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SAMPLES_ROOT = resolve(HERE, "..");
-const DEFAULT_OUT = resolve(
-  SAMPLES_ROOT,
-  "../../kumiko-platform/apps/docs/public/screenshots/features",
-);
-
-const OUT_DIR = process.env["SCREENSHOT_DIR"] ?? DEFAULT_OUT;
+const OUT_DIR = process.env["SCREENSHOT_DIR"];
+if (OUT_DIR === undefined || OUT_DIR === "") {
+  throw new Error(
+    "SCREENSHOT_DIR is required: the directory the feature screenshots are written to",
+  );
+}
 const APPS_OUT = `${OUT_DIR}/apps`;
 
 // Sample-app matrices live next to the feature matrix, keyed by the recipe's
 // directory path — the docgen derives the same path from the sample's source,
-// so a preview needs no name mapping. Only escape OUT_DIR by default (repo
-// layout: kumiko-platform sits next to samples/); an explicit SCREENSHOT_DIR
-// override nests samples inside it instead of writing outside the requested dir.
-const SAMPLES_NESTED = process.env["SCREENSHOT_DIR"] !== undefined;
-const SAMPLES_OUT = SAMPLES_NESTED ? join(OUT_DIR, "samples") : resolve(OUT_DIR, "..", "samples");
-const SAMPLES_URL_PREFIX = SAMPLES_NESTED ? "samples" : "../samples";
+// so a preview needs no name mapping. They nest inside OUT_DIR so nothing is
+// written outside the requested dir.
+const SAMPLES_OUT = join(OUT_DIR, "samples");
+const SAMPLES_URL_PREFIX = "samples";
 const sampleOut = (dirPath: string) => join(SAMPLES_OUT, dirPath);
 
 type Runner = {
@@ -165,25 +162,6 @@ async function runRunner(r: Runner): Promise<void> {
   r.after?.();
 }
 
-function dirHasPng(dir: string): boolean {
-  return existsSync(dir) && readdirSync(dir).some((f) => f.endsWith(".png"));
-}
-
-function copyMarketingFallback(): void {
-  const src = resolve(SAMPLES_ROOT, "../../kumiko-platform/apps/marketing/src/assets/screenshots");
-  const dest = `${APPS_OUT}/marketing-demo`;
-  if (!existsSync(src)) return;
-  mkdirSync(dest, { recursive: true });
-  let copied = 0;
-  for (const name of readdirSync(src)) {
-    if (!name.endsWith(".png")) continue;
-    copyFileSync(join(src, name), join(dest, name));
-    copied++;
-  }
-  if (copied > 0)
-    console.log(`copied ${copied} marketing-demo PNGs from kumiko-platform marketing assets`);
-}
-
 async function runAllScreenshots(): Promise<void> {
   if (process.env["SKIP_APP_SCREENSHOTS"] === "1") {
     console.log("SKIP_APP_SCREENSHOTS=1 — skipping live captures");
@@ -191,9 +169,6 @@ async function runAllScreenshots(): Promise<void> {
     return;
   }
   for (const runner of SCREENSHOT_RUNNERS) await runRunner(runner);
-  if (!dirHasPng(`${APPS_OUT}/marketing-demo`)) {
-    copyMarketingFallback();
-  }
 }
 
 function listPngs(
