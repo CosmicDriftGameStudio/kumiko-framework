@@ -445,6 +445,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       registry: deps.registry,
       hasAuth: false,
       sseBroker: deps.sseBroker,
+      redis: deps.redis,
       crypto: bootCrypto,
       ...(bootLogger && { log: bootLogger }),
     });

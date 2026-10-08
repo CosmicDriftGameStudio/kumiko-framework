@@ -243,6 +243,7 @@ export async function bootWorkerProcess(
     envSource,
     registry,
     hasAuth: includeBundled,
+    redis,
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
     ...(profile.deliverQueuedInline === true && { deliverQueuedInline: true }),
