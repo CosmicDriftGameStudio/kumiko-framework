@@ -22,6 +22,7 @@ import {
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { hashPassword } from "../shared/index.js";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
@@ -34,6 +35,8 @@ import {
   rewriteSeededUserEmail,
   seedUser,
 } from "../user/seeding.js";
+
+const log = createFallbackLogger("auth-email-password-seeding");
 
 // Re-export für ergonomische Single-Import-Site in tests/seed-scripts.
 // Das Auth-Feature ist der natürliche Aufrufer für "seed admin user mit
@@ -330,7 +333,7 @@ async function findExistingUserIdForEmail(
     if (decrypted["email"] === email) matches.push(row);
   }
   if (undecryptableRows > 0) {
-    console.warn(
+    log.warn(
       `seedAdminGuarded: skipped ${undecryptableRows} user row(s) whose email could not be decrypted`,
     );
   }
