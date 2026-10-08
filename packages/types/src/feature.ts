@@ -427,6 +427,8 @@ export type FeatureDefinition = {
   // been migrated yet — Sprint-9 migration is add-only per phase).
   readonly envSchema?: z.ZodObject<z.ZodRawShape>;
   // Factory guarantee: two instances with shallow-equal dedupeOptions are interchangeable.
+  // Compared with Object.is per key: values must be primitives or stable function
+  // references; defineFeature rejects nested objects.
   readonly dedupeOptions?: Readonly<Record<string, unknown>>;
 };
 
