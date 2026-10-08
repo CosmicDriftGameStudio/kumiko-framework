@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -145,13 +145,14 @@ afterEach(() => {
 
 describe("publish-with-oidc.sh publish_and_tag()", () => {
   test("succeeds when npm publish and the latest dist-tag move both succeed", () => {
-    const { exitCode } = runWithNpmStub({
+    const { exitCode, stderr } = runWithNpmStub({
       publishExitCode: 0,
       publishOutput: "+ @cosmicdrift/kumiko-types@0.233.0",
       distTagExitCode: 0,
       distTagOutput: "+@cosmicdrift/kumiko-types@0.233.0",
     });
     expect(exitCode).toBe(0);
+    expect(stderr).toContain("+ @cosmicdrift/kumiko-types@0.233.0");
   });
 
   test("treats E409 'previously staged version' as unconfirmed success when latest never resolves (#2576)", () => {
@@ -313,6 +314,78 @@ function runPublishOutcomeBranch(unconfirmed: "none" | "e403" | "staged"): {
     stdout: result.stdout.toString("utf-8"),
   };
 }
+
+function extractAlreadyOnRegistryBranch(): string {
+  const script = readFileSync(SCRIPT_PATH, "utf-8");
+  const match = script.match(
+    /if \[ "\$version" = "\$exact_version" \]; then\n([\s\S]*?\n {4}continue)\n {2}fi/,
+  );
+  if (!match) {
+    throw new Error(
+      "Could not extract the already-on-registry skip branch from publish-with-oidc.sh — did the call site get reshaped?",
+    );
+  }
+  return match[1];
+}
+
+const ALREADY_ON_REGISTRY_BRANCH = extractAlreadyOnRegistryBranch();
+
+function runSkipBranch(distTagLs: string): { exitCode: number; npmCalls: string[] } {
+  const dir = makeTempDir();
+  const callLog = join(dir, "npm-calls.log");
+  writeFileSync(
+    join(dir, "npm"),
+    [
+      "#!/usr/bin/env bash",
+      'echo "$*" >> "$STUB_CALL_LOG"',
+      'if [ "$1 $2" = "dist-tag ls" ]; then printf \'%b\' "$STUB_DIST_TAG_LS"; fi',
+      "exit 0",
+    ].join("\n") + "\n",
+    { mode: 0o755 },
+  );
+  const runner = join(dir, "runner.sh");
+  writeFileSync(
+    runner,
+    [
+      "#!/usr/bin/env bash",
+      "set -euo pipefail",
+      'name="@cosmicdrift/kumiko-types"',
+      'version="0.233.0"',
+      'registry_version="0.233.0"',
+      'exact_version="0.233.0"',
+      "skipped=0",
+      "for _ in 1; do",
+      "if true; then",
+      ALREADY_ON_REGISTRY_BRANCH,
+      "fi",
+      "done",
+    ].join("\n") + "\n",
+    { mode: 0o755 },
+  );
+  // The extracted branch ends at `continue`; the closing `fi` is re-added above.
+  const result = Bun.spawnSync(["bash", runner], {
+    env: {
+      ...process.env,
+      PATH: `${dir}:${process.env.PATH ?? ""}`,
+      STUB_CALL_LOG: callLog,
+      STUB_DIST_TAG_LS: distTagLs,
+    },
+  });
+  const calls = existsSync(callLog) ? readFileSync(callLog, "utf-8").trim().split("\n") : [];
+  return { exitCode: result.exitCode ?? -1, npmCalls: calls };
+}
+
+describe("publish-with-oidc.sh already-on-registry skip branch", () => {
+  test("removes the kumiko-tmp tag only when it exists", () => {
+    const withTag = runSkipBranch("latest: 0.233.0\\nkumiko-tmp: 0.233.0\\n");
+    expect(withTag.exitCode).toBe(0);
+    expect(withTag.npmCalls).toContain("dist-tag rm @cosmicdrift/kumiko-types kumiko-tmp");
+
+    const withoutTag = runSkipBranch("latest: 0.233.0\\n");
+    expect(withoutTag.exitCode).toBe(0);
+    expect(withoutTag.npmCalls).not.toContain("dist-tag rm @cosmicdrift/kumiko-types kumiko-tmp");
+  });
+});
 
 describe("publish-with-oidc.sh per-package outcome branch", () => {
   test("counts the E403-detected already-published case as skipped and emits no New tag", () => {
