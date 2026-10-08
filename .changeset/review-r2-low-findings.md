@@ -37,3 +37,5 @@ A text or longText field with `multiline.rows` that is not a positive integer no
 `captureScreenshot` no longer treats a `pushState` of the old document as the commit of a still-loading navigation, so in-flight data requests stay counted until the navigation URL is reached.
 
 German and Spanish translations for `jobs.errors.invalidCursor` were missing.
+
+The release workflow waits for npm `latest` only on the packages the changesets run actually published and skips packages published under another dist-tag. `check:dist` compiles the installed `styles.css` and fails when classes from renderer-web or the renderer's compiled dist are missing.

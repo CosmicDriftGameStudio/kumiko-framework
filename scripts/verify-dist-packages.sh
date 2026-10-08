@@ -124,6 +124,23 @@ if [ -d "$consumer/node_modules/@cosmicdrift/kumiko-server-runtime" ] && [ -d "$
     || problems+=("server-runtime: @cosmicdrift/kumiko-renderer-web/styles.css does not resolve from the installed package")
 fi
 
+# The published stylesheet finds class names only through its @source lines; a wrong path in the installed layout compiles fine but ships unstyled UI. Compile it from the installed package and look for one class from renderer-web and one that exists only in the renderer's compiled dist.
+renderer_web="$consumer/node_modules/@cosmicdrift/kumiko-renderer-web"
+if [ -d "$renderer_web" ] && [ -d "$consumer/node_modules/@cosmicdrift/kumiko-renderer/dist" ]; then
+  tailwind_bin="$repo_root/node_modules/.bin/tailwindcss"
+  compiled_css="$scratch/compiled-styles.css"
+  if [ ! -x "$tailwind_bin" ]; then
+    problems+=("published styles.css: $tailwind_bin is missing, @source check did not run")
+  elif ! "$tailwind_bin" -i "$renderer_web/src/styles.css" -o "$compiled_css" >/dev/null 2>&1; then
+    problems+=("published styles.css: tailwind failed to compile the installed stylesheet")
+  else
+    grep -qF '.min-h-screen' "$compiled_css" \
+      || problems+=("published styles.css: class from renderer-web (min-h-screen) missing after compile")
+    grep -qF 'first-child\]\:pb-2' "$compiled_css" \
+      || problems+=("published styles.css: class that only exists in kumiko-renderer/dist is missing, @source does not reach the installed renderer dist")
+  fi
+fi
+
 # dev-server ships bin/*.ts that reach the package's own dist through a self-reference, and scaffold-deploy finds templates/ relative to dist/; neither shows up in an import check or the typecheck.
 dev_server="$consumer/node_modules/@cosmicdrift/kumiko-dev-server"
 if [ -d "$dev_server" ]; then

@@ -926,6 +926,10 @@ jobs:
         continue-on-error: true
         timeout-minutes: 16
         id: npm-visibility
+        env:
+          # Only set when the changesets action published; the rescue path
+          # leaves it empty and the script falls back to the workspace scan.
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.published == 'true' && steps.changesets.outputs.publishedPackages || '' }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Wait for npm packuments to catch up" -- bun scripts/wait-for-npm-visibility.ts
 
       - name: Create Renovate dispatch token
