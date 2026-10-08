@@ -687,6 +687,24 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
     expect(loginRes.status).toBe(200);
   });
 
+  test("a registration request with X-Locale stores the locale and the first JWT carries it", async () => {
+    const token = await inviteEmail("dora-locale@example.com", "Admin");
+
+    const res = await stack.http.raw(
+      "POST",
+      "/api/auth/invite-signup-complete",
+      { token, password: CAROL_PASSWORD },
+      { "x-locale": "de-DE" },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token: string };
+
+    const payload = await stack.jwt.verify(body.token);
+    expect(payload.locale).toBe("de-DE");
+    const rows = await selectMany(stack.db, userTable, { email: "dora-locale@example.com" });
+    expect(rows[0]?.["locale"]).toBe("de-DE");
+  });
+
   test("common password → 400 (schema rejects breach-list password) (#1340)", async () => {
     const token = await inviteEmail(CAROL_EMAIL, "Editor");
     const res = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {

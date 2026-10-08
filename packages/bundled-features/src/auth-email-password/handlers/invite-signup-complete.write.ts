@@ -17,6 +17,7 @@
 //      e. Invitation → accepted, Token gelöscht
 //   5. Response: SessionUser + tenantId für Auto-Login
 
+import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
@@ -32,7 +33,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared/index.js";
+import { decryptStoredPii, sessionLocaleField } from "../../shared/index.js";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
   INVITATION_STATUS,
@@ -161,11 +162,15 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
         // @cast-boundary db-runner — helpers use only the query API that
         // DbConnection and DbTx share.
         const dbConn = ctx.db.unsafeRaw() as DbConnection;
+        // Only an explicit request signal (X-Locale) is persisted: the boot
+        // default is not a choice the new user made.
+        const registrationLocale = sessionLocaleField(requestContext.get()?.locale);
         const { id: userId } = await seedUserWithPassword(dbConn, {
           email: invitationEmail,
           password: event.payload.password,
           displayName: invitationEmail.split("@")[0] ?? invitationEmail,
           emailVerified: true,
+          ...(registrationLocale.locale !== undefined && { locale: registrationLocale.locale }),
           ...(invitationGlobalRoles.length > 0 && { roles: invitationGlobalRoles }),
         });
 
@@ -221,6 +226,7 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
           id: userId,
           tenantId: invitationTenantId,
           roles: mergedRoles,
+          ...registrationLocale,
         };
 
         committed = true;

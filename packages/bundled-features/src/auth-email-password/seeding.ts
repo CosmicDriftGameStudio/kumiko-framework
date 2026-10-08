@@ -133,6 +133,8 @@ export type ProvisionSignupAccountOptions = {
   readonly tenantName: string;
   readonly tenantId: TenantId;
   readonly memberRoles?: readonly string[];
+  /** Stored on the new user row so the first session already carries the locale claim. */
+  readonly locale?: string;
 };
 
 export async function provisionSignupAccount(
@@ -173,6 +175,7 @@ export async function provisionSignupAccount(
       password: options.password,
       displayName: options.displayName,
       emailVerified: true,
+      ...(options.locale !== undefined && { locale: options.locale }),
     },
     hooks,
   );
