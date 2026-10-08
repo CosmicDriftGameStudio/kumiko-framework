@@ -141,6 +141,15 @@ member_resolution_read_only:
     to write (`ctx.write`/`writeAs`/`appendEvent`/`jobRunner`/...). Resolved
     member principals are read-only — there is no `writeAsMember`.
 
+subject_erased:
+  endUser: |
+    This person's data has been deleted and can no longer be changed.
+  developer: |
+    `ConflictError`: a write touched a personal-data field (`pii`, `userOwned`,
+    `tenantOwned`) of a data subject whose key was erased (crypto-shredding).
+    A forgotten subject never receives new data; the encrypt step refuses the
+    write instead of minting a fresh key.
+
 public_intake_required:
   endUser: |
     This action isn't allowed.

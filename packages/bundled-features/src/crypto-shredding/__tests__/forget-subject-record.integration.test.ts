@@ -27,8 +27,10 @@ import {
   createEntity,
   createTextField,
   defineFeature,
+  registerEntityCrud,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
@@ -57,6 +59,7 @@ import { createCryptoShreddingFeature } from "../feature.js";
 
 const FORGET = "crypto-shredding:write:forget-subject";
 const RECORD_PROBE_ENTITY_NAME = "recordProbe";
+const UPDATE_PROBE = `forget-subject-record-probe:write:record-probe:update`;
 const REASON = "authority request #2786 (Art. 17 row-subject)";
 
 const recordProbeEntity = createEntity({
@@ -72,7 +75,10 @@ const recordProbeEntity = createEntity({
 });
 const recordProbeTable = buildEntityTable("forgetSubjectRecordProbe", recordProbeEntity);
 const recordProbeFeature = defineFeature("forget-subject-record-probe", (r) => {
-  r.entity(RECORD_PROBE_ENTITY_NAME, recordProbeEntity);
+  registerEntityCrud(r, RECORD_PROBE_ENTITY_NAME, recordProbeEntity, {
+    verbs: { create: false, delete: false, detail: false, list: false },
+    write: { access: { roles: ["DataProtectionOfficer"] } },
+  });
 });
 
 function recordProbeExecutor() {
@@ -191,15 +197,11 @@ describe("crypto-shredding :: forget-subject (record subject, #2786)", () => {
     });
   });
 
-  // Empirical: update()'s previous-row re-encrypt (encryptForStorage(previous))
-  // sees the erased sentinel and passes it through unchanged (pii-field-
-  // encryption.ts's isPiiCiphertext/PII_ERASED_SENTINEL short-circuit) — but
-  // the NEW value in `changes` is real plaintext, so it still needs a DEK.
-  // getOrCreateDek's getKey call on a tombstoned subject throws KeyErasedError,
-  // which propagates out of update() uncaught (only version-conflict errors
-  // are caught there). Not record-specific: the same getOrCreateDek path runs
-  // for a user/tenant PII field after that subject is forgotten.
-  test("update on an already-shredded row rejects instead of writing a fresh plaintext value", async () => {
+  // update()'s previous-row re-encrypt passes the erased sentinel through
+  // unchanged, but the NEW value in `changes` is real plaintext and needs a DEK;
+  // a tombstoned subject makes getOrCreateDek throw KeyErasedError, which must
+  // surface as 409 subject_erased instead of an unhandled 500.
+  test("update on an already-shredded row answers 409 subject_erased instead of writing a fresh plaintext value", async () => {
     const tenantDb = createTenantDb(stack.db, TENANT, "system");
     const created = await recordProbeExecutor().create(
       { body: "pre-shred content" },
@@ -215,14 +217,21 @@ describe("crypto-shredding :: forget-subject (record subject, #2786)", () => {
       dpoUser,
     );
 
-    await expect(
-      recordProbeExecutor().update(
-        { id: rowId, changes: { body: "post-shred content" } },
-        dpoUser,
-        tenantDb,
-        { skipOptimisticLock: true },
-      ),
-    ).rejects.toThrow(`Subject key erased: record:${RECORD_PROBE_ENTITY_NAME}:${rowId}`);
+    // The stream version is authoritative and forget-subject appended its own event to it.
+    const streamEvents = (await selectMany(stack.db, eventsTable, {
+      aggregateId: rowId,
+    })) as Array<{ version: number }>;
+    const streamVersion = Math.max(...streamEvents.map((e) => e.version));
+
+    const err = await stack.http.writeErr(
+      UPDATE_PROBE,
+      { id: rowId, version: streamVersion, changes: { body: "post-shred content" } },
+      dpoUser,
+    );
+    expect(err.httpStatus).toBe(409);
+    expect((err.details as { reason?: string } | undefined)?.reason).toBe(
+      FrameworkReasons.subjectErased,
+    );
   });
 });
 

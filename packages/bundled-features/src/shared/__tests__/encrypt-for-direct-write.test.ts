@@ -5,6 +5,7 @@ import {
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/engine";
+import { ConflictError, FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { encryptForDirectWrite } from "../encrypt-for-direct-write.js";
 
@@ -38,5 +39,25 @@ describe("encryptForDirectWrite", () => {
       "test-request",
     );
     expect(isPiiCiphertext(row["secretNote"])).toBe(true);
+  });
+
+  test("a write for an erased subject fails as 409 subject_erased, not a raw KeyErasedError", async () => {
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    const id = "22222222-2222-4222-8222-222222222222";
+    const subject = { kind: "record", entity: "direct-write-record-owned", id } as const;
+    await kms.createKey(subject);
+    await kms.eraseKey(subject);
+
+    const failure = await encryptForDirectWrite(
+      recordOwnedEntity,
+      "direct-write-record-owned",
+      { id, secretNote: "plain" },
+      "test-request",
+    ).catch((e: unknown) => e);
+
+    expect(failure).toBeInstanceOf(ConflictError);
+    expect((failure as ConflictError).httpStatus).toBe(409);
+    expect((failure as ConflictError).details).toEqual({ reason: FrameworkReasons.subjectErased });
   });
 });
