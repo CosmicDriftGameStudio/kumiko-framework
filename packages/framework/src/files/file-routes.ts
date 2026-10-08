@@ -33,7 +33,7 @@ import { createFileContext } from "./file-handle.js";
 import { fileRefEntity } from "./file-ref-entity.js";
 import { fileRefsTable } from "./file-ref-table.js";
 import type { FileProviderResolver } from "./provider-resolver.js";
-import { resolveContentType } from "./resolve-content-type.js";
+import { neutralFileNameForMimeType, resolveContentType } from "./resolve-content-type.js";
 import {
   buildStorageKey,
   parseMaxSize,
@@ -193,6 +193,8 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   const projectionGrants = options.registry ? { projectionRegistry: options.registry } : undefined;
   const tenantDbFor = (tenantId: TenantId): TenantDb =>
     createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, projectionGrants);
+
+  const fileNameIsPersonal = piiSubjectFields.includes("fileName");
 
   function kmsContextFor(): KmsContext {
     return { requestId: requestContext.get()?.requestId ?? "file-routes" };
@@ -547,10 +549,17 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const expiresInSeconds = SIGNED_URL_DEFAULT_EXPIRY_SECONDS;
     const url = await storageProvider.getSignedUrl(fileRef.storageKey, expiresInSeconds, {
       // Hint the provider to set Content-Disposition so the browser prompts
-      // with the original filename instead of the UUID-based storage key.
+      // with a readable filename instead of the UUID-based storage key.
       // Sanitised via buildContentDispositionHeader — the same attacker-
       // controlled fileName reaches the provider's presigned response.
-      contentDisposition: buildContentDispositionHeader(await resolveFileName(fileRef)),
+      // A personal fileName never goes into the URL: the signed query string
+      // lands in storage access logs and proxies and outlives a crypto-shred.
+      // The streaming route keeps the real name in a response header only.
+      contentDisposition: buildContentDispositionHeader(
+        fileNameIsPersonal
+          ? neutralFileNameForMimeType(fileRef.mimeType)
+          : await resolveFileName(fileRef),
+      ),
     });
     const expiresAt = new Date(Date.now() + expiresInSeconds * 1000).toISOString();
     return c.json({ url, expiresAt });
