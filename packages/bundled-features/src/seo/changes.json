@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "sitemap.xml and llms.txt answer 429 when the managed-pages read is rate limited instead of omitting the pages"
+  },
+  {
     "version": "0.147.3",
     "type": "fix",
     "title": "`managed-pages`' `GET {basePath}/:slug` render route and `seo`'s `sitemap.xml`/`llms.txt`…",

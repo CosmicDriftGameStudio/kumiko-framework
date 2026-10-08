@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "A rate-limited page request answers 429 with Retry-After instead of 503 or an unbranded page",
+    "detail": "Managed pages and sitemap answer 429 when rate limited, agent catalog checks the deny list, draft cleanup continues past skipped rows\nA rate-limited managed-page request now answers 429 with `Retry-After` instead of 503 or an unbranded page, and `sitemap.xml` and `llms.txt` answer 429 instead of silently dropping the managed-page entries. `buildToolCatalog` throws when its manifest was built with `denyQns` that the catalog options lack. The form-draft cleanup no longer stops when a whole batch was re-saved by users in the meantime."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Anonymous queries rate-limit per IP and handler instead of sharing one bucket"

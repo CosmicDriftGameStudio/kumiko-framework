@@ -1,1 +1,7 @@
-[]
+[
+  {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "The stale-draft cleanup keeps sweeping when a whole batch was re-saved in the meantime"
+  }
+]

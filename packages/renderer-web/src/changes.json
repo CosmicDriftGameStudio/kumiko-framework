@@ -1,5 +1,28 @@
 [
   {
+    "version": "0.353.0",
+    "type": "improvement",
+    "title": "buildNavRegistrySliceForApp is exported from the renderer-web entry",
+    "detail": "`buildNavRegistrySliceForApp` is now exported from the package entry next to `buildNavRegistrySlice`, so consumers can build the multi-feature nav slice from an `AppSchema`"
+  },
+  {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "Tabs-mode section descriptions, disabled Save on untouched projectionDetail extensions and radiogroup/tab ARIA references are fixed",
+    "detail": "Tabs-mode section descriptions render again, Save stays disabled on an untouched projectionDetail with extensions, select radiogroups and tab triggers no longer reference missing elements\nIn `layout.mode: \"tabs\"` a fields section's `description` is shown as the card subtitle instead of being dropped. A projectionDetail without a fields section whose extension registers with the form host no longer shows an always-active Save. A select rendered as radio group outside a `Field` is named via `aria-label` instead of a dangling `aria-labelledby`, tab triggers drop the `aria-controls` that pointed at a tabpanel the strip never renders, and card-list meta items are pinned to one line height so the two-line clamp cuts between lines."
+  },
+  {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "NumberInput clears an unparseable draft instead of keeping the last parseable prefix"
+  },
+  {
+    "version": "0.353.0",
+    "type": "improvement",
+    "title": "The stacked-area panel and the StackedAreaChart widget accept brush and ranges, with the window anchored at today",
+    "detail": "Stacked-area charts get a brush to drag the visible window, and the widget takes range presets itself\nThe `stacked-area` dashboard panel accepts `brush: true`: a scrubber under the plot shows the whole series and lets the user drag or resize the visible window. Without `ranges` the window starts at today. A dragged window deselects the range switch, a range click resets the brush. The exported `StackedAreaChart` widget takes `ranges` and `brush` directly and renders its own range switch, so an app chart sets two props instead of carrying window logic. Panels and widgets without the new props render as before."
+  },
+  {
     "version": "0.352.0",
     "type": "improvement",
     "title": "Stat group span and column count",

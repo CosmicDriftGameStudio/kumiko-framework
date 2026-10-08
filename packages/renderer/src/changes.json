@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "secretMint with tenant currency waits for the tenant currency in mint and confirm step",
+    "detail": "Number inputs no longer keep a typed prefix, secretMint honours tenant currency, refEntity respects real field types\nA `NumberInput` draft that does not parse (\"12abc\", \"12,5\" on an integer field) now clears the value instead of leaving the last parseable prefix (\"12\") to be submitted. A `secretMint` screen with `currency: { kind: \"tenant\" }` money fields now waits for the tenant currency in both the mint and the confirm step, like `actionForm`, instead of seeding a bare `0`. `refEntity` on an `entityList` column or `entityEdit` field no longer overrides a real non-text entity field (a multi-reference stays multi, a sortable column stays sortable). The Tailwind scan skips compiled `__tests__` in `dist`."
+  },
+  {
     "version": "0.352.0",
     "type": "improvement",
     "title": "Select inputs accept disabled options and load their availability from optionsAvailabilityQuery"

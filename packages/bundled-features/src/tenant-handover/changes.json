@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "Tenant handover claims fail with transfer_graph_too_deep only when rows exist beyond the last allowed hop",
+    "detail": "Tenant handover only fails with `transfer_graph_too_deep` when rows really hang below the fifth hop, and failed workflow runs report the suspended step\nA claim used to fail whenever the last round's entity type had outgoing edges, even with no rows behind them, so a chain of exactly five hops with an unrestricted `parentRef` entity registered was rejected. `workflow.run-failed` carries the real `stepIndex` for the unsupported-suspension case instead of always 0."
+  },
+  {
     "version": "0.321.0",
     "type": "improvement",
     "title": "Claim now moves event-store ownership through transferAggregateStreams instead of raw SQL",

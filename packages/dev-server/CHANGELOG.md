@@ -1,5 +1,57 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.353.0
+
+### Patch Changes
+
+- 8310091: init-deploy rejects private GitHub packages without a registry config
+
+  An app with `@cosmicdriftgamestudio/*` dependencies but no `bunfig.toml`/`.npmrc` used to get a Dockerfile whose `bun install` failed with a 404 only inside the image build. `scaffoldDeploy`, `renderDeployFiles` and `checkDeployDrift` now throw with a hint to add the scope entry.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: init-deploy fails early when private GitHub packages have no bunfig.toml or .npmrc
+  -->
+
+- 649b512: Shared request-bound systemQuery wiring and clearer deploy scaffold warnings
+
+  `@cosmicdrift/kumiko-server-runtime/request-bound-system-query` exports the systemQuery wiring that the prod static-file path and the dev server previously each copied. `scaffoldDeploy` now tells a broken `package.json` (deploy settings fall back to defaults) apart from an unexpected `dependencies`/`workspaces` shape in its warning.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Prod static files and the dev server share one request-bound systemQuery wiring
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Deploy scaffold warnings distinguish broken package.json from unexpected dependency shapes
+  -->
+
+- Updated dependencies [4d6ce00]
+- Updated dependencies [8be6e6e]
+- Updated dependencies [e1862ae]
+- Updated dependencies [e1862ae]
+- Updated dependencies [3932e47]
+- Updated dependencies [8310091]
+- Updated dependencies [f05c4e7]
+- Updated dependencies [4ec1c59]
+- Updated dependencies [4ec1c59]
+- Updated dependencies [0609d09]
+- Updated dependencies [4c9cf19]
+- Updated dependencies [50f6ccb]
+- Updated dependencies [649b512]
+- Updated dependencies [d32c9b3]
+- Updated dependencies [a9ab2be]
+- Updated dependencies [b5466a7]
+  - @cosmicdrift/kumiko-bundled-features@0.353.0
+  - @cosmicdrift/kumiko-renderer-web@0.353.0
+  - @cosmicdrift/kumiko-framework@0.353.0
+  - @cosmicdrift/kumiko-server-runtime@0.353.0
+  - @cosmicdrift/kumiko-headless@0.353.0
+
 ## 0.352.0
 
 ### Patch Changes

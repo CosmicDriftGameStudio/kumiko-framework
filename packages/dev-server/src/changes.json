@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.353.0",
+    "type": "fix",
+    "title": "init-deploy fails early when private GitHub packages have no bunfig.toml or .npmrc",
+    "detail": "init-deploy rejects private GitHub packages without a registry config\nAn app with `@cosmicdriftgamestudio/*` dependencies but no `bunfig.toml`/`.npmrc` used to get a Dockerfile whose `bun install` failed with a 404 only inside the image build. `scaffoldDeploy`, `renderDeployFiles` and `checkDeployDrift` now throw with a hint to add the scope entry."
+  },
+  {
+    "version": "0.353.0",
+    "type": "improvement",
+    "title": "Deploy scaffold warnings distinguish broken package.json from unexpected dependency shapes"
+  },
+  {
     "version": "0.351.0",
     "type": "fix",
     "title": "--help prints usage instead of running the command (init-deploy, build, dev, schema-check, kumiko-testing integration)",

@@ -1,5 +1,104 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.353.0
+
+### Minor Changes
+
+- a9ab2be: Stacked-area charts get a brush to drag the visible window, and the widget takes range presets itself
+
+  The `stacked-area` dashboard panel accepts `brush: true`: a scrubber under the plot shows the whole series and lets the user drag or resize the visible window. Without `ranges` the window starts at today. A dragged window deselects the range switch, a range click resets the brush. The exported `StackedAreaChart` widget takes `ranges` and `brush` directly and renders its own range switch, so an app chart sets two props instead of carrying window logic. Panels and widgets without the new props render as before.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: The stacked-area panel and the StackedAreaChart widget accept brush and ranges, with the window anchored at today
+  -->
+
+### Patch Changes
+
+- 8be6e6e: `buildNavRegistrySliceForApp` is now exported from the package entry next to `buildNavRegistrySlice`, so consumers can build the multi-feature nav slice from an `AppSchema`
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: buildNavRegistrySliceForApp is exported from the renderer-web entry
+  -->
+
+- 4c9cf19: Tabs-mode section descriptions render again, Save stays disabled on an untouched projectionDetail with extensions, select radiogroups and tab triggers no longer reference missing elements
+
+  In `layout.mode: "tabs"` a fields section's `description` is shown as the card subtitle instead of being dropped. A projectionDetail without a fields section whose extension registers with the form host no longer shows an always-active Save. A select rendered as radio group outside a `Field` is named via `aria-label` instead of a dangling `aria-labelledby`, tab triggers drop the `aria-controls` that pointed at a tabpanel the strip never renders, and card-list meta items are pinned to one line height so the two-line clamp cuts between lines.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Tabs-mode section descriptions, disabled Save on untouched projectionDetail extensions and radiogroup/tab ARIA references are fixed
+  -->
+
+- 50f6ccb: Number inputs no longer keep a typed prefix, secretMint honours tenant currency, refEntity respects real field types
+
+  A `NumberInput` draft that does not parse ("12abc", "12,5" on an integer field) now clears the value instead of leaving the last parseable prefix ("12") to be submitted. A `secretMint` screen with `currency: { kind: "tenant" }` money fields now waits for the tenant currency in both the mint and the confirm step, like `actionForm`, instead of seeding a bare `0`. `refEntity` on an `entityList` column or `entityEdit` field no longer overrides a real non-text entity field (a multi-reference stays multi, a sortable column stays sortable). The Tailwind scan skips compiled `__tests__` in `dist`.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: secretMint with tenant currency waits for the tenant currency in mint and confirm step
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: NumberInput clears an unparseable draft instead of keeping the last parseable prefix
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: fix
+  title: refEntity no longer overrides a real non-text entity field on list columns and edit fields
+  -->
+
+- d32c9b3: Stricter boot checks and role projection for screens and handlers
+
+  Inline handler registration without `options.access` now throws immediately, a section with `fields: []` and `groups: []` fails boot, and unknown tones in `header.statusTones` or select `optionTones` fail boot instead of dropping the badge colour. The renderer falls back to the value heuristic for an unknown tone, and `statusToneForOptionTone` now returns `undefined` for it. `secretMint` confirm-step actions are stripped for roles that cannot see the target screen.
+
+  Entity convention `create` handlers keep tenant-filtered lookups even when the handler declares `escapeHatch`/`crossTenant`. Duplicate `waitForEvent` steps on the same `awaits` event are rejected when the workflow pipeline is built. An empty `PROMETHEUS_METRICS_TOKEN` counts as unset instead of failing boot.
+
+  `GET /api/sse` now closes itself when the JWT it was opened with expires. File uploads must attach to a registered file field (a non-file field answers 400 `unresolvable_field`), and a `.docx` upload must be a ZIP containing `word/` entries. Signature extra routes outside `/api` get the request-body cap (`maxRequestBytes`) before their body is read. `EXT_USER_DATA` registrations with neither an export nor a delete hook fail boot. The dashboard updated-at stamp follows live refetches and retries.
+
+  Text fields accept `minLength` (enforced by the generated write schema), `enumOption` renders array values per entry, list columns can opt out of sorting with `sortable: false`, and `BUILT_IN_MEMBERSHIP_ROLES` exposes the ranked membership roles. The PAT list translates its scopes column, MFA code fields enforce their minimum length, plan checkout no longer repeats the billing-enabled and active-subscription gates.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Unknown status tones fail boot and secretMint confirm actions respect role gating
+  -->
+
+  `jobs:query:list` (job-runs screen) now pages with a `cursor` and returns `nextCursor` while older runs exist. Ledger `create-transaction` requires `subjectType` and `subjectId` together and rejects empty strings (also on schedule fields). The form-draft sweep re-check is tenant-scoped. A workflow run resumed without a stored definition fingerprint logs a warning.
+
+  `EventDef.piiFields` is now required in the type, screen definitions accept only `agent: { expose }` (`AgentScreenHints`), and `FormController.validate(scope)` rejects field names that the form values do not have. The dedupe doc and the security-baseline recipe note that late-bound state (sessions auto-revoke) binds on the kept instance.
+
+  A text or longText field with `multiline.rows` that is not a positive integer now fails the app-schema build with the entity or screen and field name instead of silently rendering four rows. List columns of type multiSelect render one pill per value like select columns. `config:query:values` accepts an optional `keys` list, and the tenant-currency lookup of money fields asks for its one key only.
+
+  `createKumikoApp` accepts `schemaUrl` for the schema fetch when the API lives on another origin than the SPA (a cross-origin URL is fetched with `credentials: "include"`). List select cells and a danger `Dialog` now follow the registered primitives: select pills use the registered `StatusBadge`, and a danger dialog focuses Cancel by default. Form drafts no longer store fields marked `sensitive: true`.
+
+  German and Spanish translations for `jobs.errors.invalidCursor` were missing.
+
+  The release workflow waits for npm `latest` only on the packages the changesets run actually published and skips packages published under another dist-tag. `check:dist` compiles the installed `styles.css` and fails when classes from renderer-web or the renderer's compiled dist are missing.
+
+- Updated dependencies [3932e47]
+- Updated dependencies [f05c4e7]
+- Updated dependencies [4ec1c59]
+- Updated dependencies [0609d09]
+- Updated dependencies [4c9cf19]
+- Updated dependencies [50f6ccb]
+- Updated dependencies [d32c9b3]
+- Updated dependencies [a9ab2be]
+- Updated dependencies [b5466a7]
+  - @cosmicdrift/kumiko-framework@0.353.0
+  - @cosmicdrift/kumiko-types@0.353.0
+  - @cosmicdrift/kumiko-renderer@0.353.0
+  - @cosmicdrift/kumiko-headless@0.353.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.353.0
+
 ## 0.352.0
 
 ### Minor Changes

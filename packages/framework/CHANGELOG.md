@@ -1,5 +1,106 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.353.0
+
+### Minor Changes
+
+- a9ab2be: Stacked-area charts get a brush to drag the visible window, and the widget takes range presets itself
+
+  The `stacked-area` dashboard panel accepts `brush: true`: a scrubber under the plot shows the whole series and lets the user drag or resize the visible window. Without `ranges` the window starts at today. A dragged window deselects the range switch, a range click resets the brush. The exported `StackedAreaChart` widget takes `ranges` and `brush` directly and renders its own range switch, so an app chart sets two props instead of carrying window logic. Panels and widgets without the new props render as before.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: The stacked-area panel and the StackedAreaChart widget accept brush and ranges, with the window anchored at today
+  -->
+
+- b5466a7: Tenant names are PII encrypted under the tenant record and crypto-shredded on tenant destroy
+
+  `tenant.name` is now `personal: { of: "id" }`, so it is stored as `kumiko-pii:` ciphertext in events and in `read_tenants`. Signup no longer writes the email into the tenant name; it uses the generated tenant key. The tenant destroy job erases the tenant record key and purges the tenant's search documents. The tenant queries (`me`, memberships, tenant-directory, user list, cap-overview, tenants-missing-profile) decrypt the name, and the tenant list sorts by `key` because encrypted names are not sortable.
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: breaking
+  title: Tenant names are encrypted under the tenant record and crypto-shredded when the tenant is destroyed
+  migration: After the bump run the PII backfill (backfillEventPiiEncryption), then rebuild the read_tenants projection; the backfill only encrypts event payloads. Raw reads of read_tenants.name in apps now return ciphertext and must go through decryptStoredPii or the tenant query handlers. Tenants that were already destroyed (read_tenants.destroyed_at set) get the erased sentinel instead of a fresh record key.
+  -->
+
+### Patch Changes
+
+- 3932e47: Boot validation rejects `personalData: "public-intake"` handlers with `rateLimit: { disabled: true }` and unmanaged `idType: "serial"` entities with `recordOwned` fields
+
+  Both combinations were silently accepted before: the first left an anonymous personal-data write without its only abuse protection, the second produced record-owned ciphertext that `forgetSubject` can never shred.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validation rejects public-intake handlers without rate limit and serial-id unmanaged entities with recordOwned fields
+  -->
+
+- f05c4e7: `r.crud` takes per-verb `agents` hints, and same-named features only dedupe when their registered surface matches
+
+  `registerEntityCrud` accepts `agents: { delete: { risk: "high" } }` so one irreversible verb can be raised without raising create/update. `dedupeFeatures` additionally requires equal entity and handler key sets before collapsing two same-named features with equal `dedupeOptions`; otherwise it throws the existing duplicate-feature error instead of silently dropping the second one. `i18nKey()` marks live on a `globalThis` registry so two installed framework copies agree.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.crud accepts per-verb agent hints and dedupeFeatures no longer drops a same-named feature that registers different handlers
+  -->
+
+- 4ec1c59: `defineEvent` rejects `personal: { of: "id" }` in `piiFields` at boot
+
+  On entities `of: "id"` means record-owned, but on events it encrypted under a user key named after the payload id, which a forget never reaches, so crypto-shredding silently did nothing. Declare a record-owned event field with `personal: "self"` instead.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Event piiFields reject owner field "id" instead of encrypting under a phantom user key
+  -->
+
+- 0609d09: Signature extra routes no longer return the verify() error text in the 401 body, drawer prefill and secret field ids fail at boot when they would silently misbehave
+
+  A non-`ExtraRouteRejection` throw from a signature route's `verify()` now answers with the generic message "signature verification failed" and logs the detail server-side. Boot now rejects a drawer `params` prefill that targets a sensitive or password field or a field the target layout does not render, a secrets screen whose field ids collide across hyphenated feature names, and a where-rule subquery on a table whose column set cannot be derived.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Webhook signature 401 hides verify() error details; boot rejects silently dropped drawer prefills, colliding secret field ids and unlintable where-rule tables
+  -->
+
+- d32c9b3: Stricter boot checks and role projection for screens and handlers
+
+  Inline handler registration without `options.access` now throws immediately, a section with `fields: []` and `groups: []` fails boot, and unknown tones in `header.statusTones` or select `optionTones` fail boot instead of dropping the badge colour. The renderer falls back to the value heuristic for an unknown tone, and `statusToneForOptionTone` now returns `undefined` for it. `secretMint` confirm-step actions are stripped for roles that cannot see the target screen.
+
+  Entity convention `create` handlers keep tenant-filtered lookups even when the handler declares `escapeHatch`/`crossTenant`. Duplicate `waitForEvent` steps on the same `awaits` event are rejected when the workflow pipeline is built. An empty `PROMETHEUS_METRICS_TOKEN` counts as unset instead of failing boot.
+
+  `GET /api/sse` now closes itself when the JWT it was opened with expires. File uploads must attach to a registered file field (a non-file field answers 400 `unresolvable_field`), and a `.docx` upload must be a ZIP containing `word/` entries. Signature extra routes outside `/api` get the request-body cap (`maxRequestBytes`) before their body is read. `EXT_USER_DATA` registrations with neither an export nor a delete hook fail boot. The dashboard updated-at stamp follows live refetches and retries.
+
+  Text fields accept `minLength` (enforced by the generated write schema), `enumOption` renders array values per entry, list columns can opt out of sorting with `sortable: false`, and `BUILT_IN_MEMBERSHIP_ROLES` exposes the ranked membership roles. The PAT list translates its scopes column, MFA code fields enforce their minimum length, plan checkout no longer repeats the billing-enabled and active-subscription gates.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Unknown status tones fail boot and secretMint confirm actions respect role gating
+  -->
+
+  `jobs:query:list` (job-runs screen) now pages with a `cursor` and returns `nextCursor` while older runs exist. Ledger `create-transaction` requires `subjectType` and `subjectId` together and rejects empty strings (also on schedule fields). The form-draft sweep re-check is tenant-scoped. A workflow run resumed without a stored definition fingerprint logs a warning.
+
+  `EventDef.piiFields` is now required in the type, screen definitions accept only `agent: { expose }` (`AgentScreenHints`), and `FormController.validate(scope)` rejects field names that the form values do not have. The dedupe doc and the security-baseline recipe note that late-bound state (sessions auto-revoke) binds on the kept instance.
+
+  A text or longText field with `multiline.rows` that is not a positive integer now fails the app-schema build with the entity or screen and field name instead of silently rendering four rows. List columns of type multiSelect render one pill per value like select columns. `config:query:values` accepts an optional `keys` list, and the tenant-currency lookup of money fields asks for its one key only.
+
+  `createKumikoApp` accepts `schemaUrl` for the schema fetch when the API lives on another origin than the SPA (a cross-origin URL is fetched with `credentials: "include"`). List select cells and a danger `Dialog` now follow the registered primitives: select pills use the registered `StatusBadge`, and a danger dialog focuses Cancel by default. Form drafts no longer store fields marked `sensitive: true`.
+
+  German and Spanish translations for `jobs.errors.invalidCursor` were missing.
+
+  The release workflow waits for npm `latest` only on the packages the changesets run actually published and skips packages published under another dist-tag. `check:dist` compiles the installed `styles.css` and fails when classes from renderer-web or the renderer's compiled dist are missing.
+
+- Updated dependencies [f05c4e7]
+- Updated dependencies [d32c9b3]
+- Updated dependencies [a9ab2be]
+  - @cosmicdrift/kumiko-types@0.353.0
+  - @cosmicdrift/kumiko-http@0.353.0
+
 ## 0.352.0
 
 ### Minor Changes
