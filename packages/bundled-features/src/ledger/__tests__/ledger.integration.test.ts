@@ -97,6 +97,13 @@ async function listTransactions(
   return res.rows;
 }
 
+// Subject ids are only unique within their type, and the (tenant, type, id)
+// index only serves filters that carry both.
+const LEASE_1_SUBJECT_FILTERS = [
+  { field: "subjectType", op: "eq", value: "lease" },
+  { field: "subjectId", op: "eq", value: "lease-1" },
+];
+
 // jsonb may surface as a parsed array or a string depending on the driver path —
 // normalise so the assertions don't depend on it.
 function linesOf(row: Record<string, unknown>): Posting[] {
@@ -256,9 +263,7 @@ describe("ledger integration — reverse-transaction (Storno)", () => {
 
     await stack.http.writeOk(LedgerHandlers.reverseTransaction, { id: tx.id }, admin);
 
-    const rows = await listTransactions(admin, {
-      filter: { field: "subjectId", op: "eq", value: "lease-1" },
-    });
+    const rows = await listTransactions(admin, { filters: LEASE_1_SUBJECT_FILTERS });
     expect(rows).toHaveLength(2);
     for (const row of rows) {
       expect(row["subjectType"]).toBe("lease");
@@ -762,9 +767,7 @@ describe("ledger integration — subject dimension (filterable business-object r
       { description: "Miete WE2", subjectType: "lease", subjectId: "lease-2" },
     );
 
-    const rows = await listTransactions(admin, {
-      filter: { field: "subjectId", op: "eq", value: "lease-1" },
-    });
+    const rows = await listTransactions(admin, { filters: LEASE_1_SUBJECT_FILTERS });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["id"]).toBe(tx.id);
     expect(rows[0]?.["subjectType"]).toBe("lease");
@@ -798,7 +801,10 @@ describe("ledger integration — subject dimension (filterable business-object r
     );
 
     const rows = await listTransactions(admin, {
-      filters: [{ field: "subjectId", op: "in", value: ["lease-1", "lease-3"] }],
+      filters: [
+        { field: "subjectType", op: "eq", value: "lease" },
+        { field: "subjectId", op: "in", value: ["lease-1", "lease-3"] },
+      ],
     });
     expect(rows.map((r) => r["subjectId"]).sort()).toEqual(["lease-1", "lease-3"]);
   });
@@ -817,6 +823,7 @@ describe("ledger integration — subject dimension (filterable business-object r
           { accountId: bank, amount: 100 },
           { accountId: rent, amount: -100 },
         ],
+        subjectType: "lease",
         subjectId: tooLong,
       },
       admin,
@@ -832,12 +839,95 @@ describe("ledger integration — subject dimension (filterable business-object r
         amount: 100,
         debitAccountId: bank,
         creditAccountId: rent,
+        subjectType: "lease",
         subjectId: tooLong,
       },
       admin,
     );
     expect(scheduleErr.httpStatus).toBe(400);
     expect(await listTransactions()).toHaveLength(0);
+  });
+
+  describe("a schedule's subjectType and subjectId are set together", () => {
+    const newSchedule = (bank: string, rent: string, subject: Record<string, unknown>) => ({
+      description: "Miete WE1",
+      startDate: "2026-01-01",
+      interval: "monthly",
+      amount: 100,
+      debitAccountId: bank,
+      creditAccountId: rent,
+      ...subject,
+    });
+
+    test("create rejects a lone subjectId and a lone subjectType", async () => {
+      const bank = await createAccount("Bank", "asset");
+      const rent = await createAccount("Mieterträge", "income");
+
+      for (const subject of [
+        { subjectId: "lease-1" },
+        { subjectType: "lease" },
+        { subjectType: "", subjectId: "lease-1" },
+      ]) {
+        const err = await stack.http.writeErr(
+          LedgerHandlers.createSchedule,
+          newSchedule(bank, rent, subject),
+          admin,
+        );
+        // A preSave hook failure on create surfaces as 422 presave_hook_failed.
+        expect(err.httpStatus).toBe(422);
+      }
+    });
+
+    test("update cannot add just one of the two to a schedule that has neither", async () => {
+      const bank = await createAccount("Bank", "asset");
+      const rent = await createAccount("Mieterträge", "income");
+      const bare = await stack.http.writeOk<{ id: string }>(
+        LedgerHandlers.createSchedule,
+        newSchedule(bank, rent, {}),
+        admin,
+      );
+      const detail = await stack.http.queryOk<{ version: number }>(
+        LedgerQueries.scheduleDetail,
+        { id: bare.id },
+        admin,
+      );
+
+      const err = await stack.http.writeErr(
+        LedgerHandlers.updateSchedule,
+        { id: bare.id, version: detail.version, changes: { subjectId: "lease-1" } },
+        admin,
+      );
+      expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+      expect(JSON.stringify(err)).toContain("presave_hook_failed");
+    });
+
+    test("update cannot clear just one of the two, but may change one value", async () => {
+      const bank = await createAccount("Bank", "asset");
+      const rent = await createAccount("Mieterträge", "income");
+      const withSubject = await stack.http.writeOk<{ id: string }>(
+        LedgerHandlers.createSchedule,
+        newSchedule(bank, rent, { subjectType: "lease", subjectId: "lease-1" }),
+        admin,
+      );
+      const detail = await stack.http.queryOk<{ version: number }>(
+        LedgerQueries.scheduleDetail,
+        { id: withSubject.id },
+        admin,
+      );
+
+      const err = await stack.http.writeErr(
+        LedgerHandlers.updateSchedule,
+        { id: withSubject.id, version: detail.version, changes: { subjectType: null } },
+        admin,
+      );
+      expect(err.httpStatus).toBe(400);
+
+      await stack.http.writeOk(
+        LedgerHandlers.updateSchedule,
+        { id: withSubject.id, version: detail.version, changes: { subjectId: "lease-2" } },
+        admin,
+      );
+    });
   });
 
   test("the subject filter is tenant-isolated: the same subjectId in another tenant never leaks", async () => {
@@ -862,10 +952,9 @@ describe("ledger integration — subject dimension (filterable business-object r
       otherTenant,
     );
 
-    const filter = { field: "subjectId", op: "eq", value: "lease-1" };
-    const mineRows = await listTransactions(admin, { filter });
+    const mineRows = await listTransactions(admin, { filters: LEASE_1_SUBJECT_FILTERS });
     expect(mineRows.map((r) => r["id"])).toEqual([mine.id]);
-    const theirRows = await listTransactions(otherTenant, { filter });
+    const theirRows = await listTransactions(otherTenant, { filters: LEASE_1_SUBJECT_FILTERS });
     expect(theirRows.map((r) => r["id"])).toEqual([theirs.id]);
   });
 });
