@@ -125,6 +125,12 @@ export type ListColumnSpec =
        *  label; without one it is rejected at boot as an unknown field. `field`
        *  is then just a stable column key (pick any unique slug). */
       readonly label?: string;
+      /** Marks a column on a query-backed list (projectionList, relatedList,
+       *  dashboard list, expandableRow) as drawn by a renderer rather than read
+       *  from a row field. Without it, a query that declares an `outputSchema`
+       *  must return `field`; a `label` alone does not exempt the column, since
+       *  nearly every column carries one. */
+      readonly virtual?: boolean;
       /** Marks this column as a reference lookup instead of a plain value —
        *  for projectionList/relatedList columns, which have no
        *  `EntityDefinition` to carry a real `reference` field type. Same

@@ -55,8 +55,8 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
-  test("projectionList column with a label is exempt as a virtual/computed column", () => {
-    const feature = defineFeature("catalog", (r) => {
+  function featureWithColumn(column: { field: string; label: string; virtual?: boolean }) {
+    return defineFeature("catalog", (r) => {
       r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         outputSchema: pagedSchema,
@@ -65,7 +65,7 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         id: "items",
         type: "projectionList",
         query: "catalog:query:items:list",
-        columns: [{ field: "tags-chip", label: "catalog:screen:items.col.tags" }],
+        columns: [column],
       });
       r.translations({
         keys: {
@@ -74,7 +74,23 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
         },
       });
     });
+  }
+
+  test("projectionList column marked virtual is exempt from the row shape check", () => {
+    const feature = featureWithColumn({
+      field: "tags-chip",
+      label: "catalog:screen:items.col.tags",
+      virtual: true,
+    });
     expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("a label alone does not exempt a projectionList column that is not in the row shape", () => {
+    const feature = featureWithColumn({
+      field: "tags-chip",
+      label: "catalog:screen:items.col.tags",
+    });
+    expect(() => validateBoot([feature])).toThrow(/column "tags-chip" is not present/);
   });
 
   test("projectionList over a loose row schema skips the column check (extra keys are legitimate)", () => {
