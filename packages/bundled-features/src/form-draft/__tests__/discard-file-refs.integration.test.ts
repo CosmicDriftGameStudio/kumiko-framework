@@ -49,6 +49,8 @@ let stack: TestStack;
 let provider: InMemoryFileProvider;
 
 const owner = createTestUser({ id: 1, roles: ["TenantMember"] });
+// ctx.files only accepts keys inside the caller's tenant prefix.
+const tenantKey = (path: string) => `${owner.tenantId}/${path}`;
 
 beforeAll(async () => {
   provider = createInMemoryFileProvider();
@@ -99,7 +101,7 @@ async function seedFileRef(storageKey: string, ownerUser = owner): Promise<void>
 
 describe("form-draft discard — FileRef release", () => {
   test("discarding with releaseFiles: true and a single-file field releases its storage binary", async () => {
-    const key = "tenant/vehicle/photo/one.jpg";
+    const key = tenantKey("vehicle/photo/one.jpg");
     await saveDraft("wizard:one-photo", {}); // initial autosave, draft row created first
     await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
     await seedFileRef(key);
@@ -113,8 +115,8 @@ describe("form-draft discard — FileRef release", () => {
   });
 
   test("discarding with releaseFiles: true and a multi-file field releases every storage binary", async () => {
-    const keyA = "tenant/vehicle/photos/a.jpg";
-    const keyB = "tenant/vehicle/photos/b.jpg";
+    const keyA = tenantKey("vehicle/photos/a.jpg");
+    const keyB = tenantKey("vehicle/photos/b.jpg");
     await saveDraft("wizard:many-photos", {}); // initial autosave, draft row created first
     await provider.write(keyA, new Uint8Array([1]), "image/jpeg");
     await provider.write(keyB, new Uint8Array([2]), "image/jpeg");
@@ -132,7 +134,7 @@ describe("form-draft discard — FileRef release", () => {
   });
 
   test("discarding with releaseFiles: true does NOT release a storageKey whose file_refs row predates the draft (entity-prefilled edit-mode value)", async () => {
-    const key = "tenant/vehicle/photo/prefilled.jpg";
+    const key = tenantKey("vehicle/photo/prefilled.jpg");
     await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
     await seedFileRef(key); // uploaded long before this editing session's draft existed
     await saveDraft("wizard:edit-prefilled", { photo: fileRefPointer(key) });
@@ -151,7 +153,7 @@ describe("form-draft discard — FileRef release", () => {
     // than (or equal to) the draft row's own insertedAt. Unlike edit-mode,
     // there is no pre-existing domain entity here — every FileRef the
     // draft references is draft-owned and must remain releasable.
-    const key = "tenant/vehicle/photo/create-mode.jpg";
+    const key = tenantKey("vehicle/photo/create-mode.jpg");
     await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
     await seedFileRef(key); // file_refs row inserted before the draft row below
     await saveDraft("wizard:new:abc-123", { photo: fileRefPointer(key) });
@@ -162,7 +164,7 @@ describe("form-draft discard — FileRef release", () => {
   });
 
   test("discarding without releaseFiles leaves the storage binary intact (successful-submit default)", async () => {
-    const key = "tenant/vehicle/photo/kept.jpg";
+    const key = tenantKey("vehicle/photo/kept.jpg");
     await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
     await seedFileRef(key);
 
@@ -174,7 +176,7 @@ describe("form-draft discard — FileRef release", () => {
   });
 
   test("discarding with releaseFiles: true does NOT release a storageKey with no owned file_refs row", async () => {
-    const forgedKey = "tenant/vehicle/photo/victim.jpg";
+    const forgedKey = tenantKey("vehicle/photo/victim.jpg");
     await provider.write(forgedKey, new Uint8Array([9, 9, 9]), "image/jpeg");
     // Deliberately no seedFileRef(forgedKey) — the draft's `values` claims a
     // storageKey the caller never actually uploaded (e.g. a guessed/leaked
@@ -195,7 +197,7 @@ describe("form-draft discard — FileRef release", () => {
   });
 
   test("discarding a draftKey that was never saved is a no-op and touches no storage", async () => {
-    const key = "tenant/vehicle/photo/untouched.jpg";
+    const key = tenantKey("vehicle/photo/untouched.jpg");
     await provider.write(key, new Uint8Array([1]), "image/jpeg");
 
     await expect(discardDraft("wizard:never-saved", true)).resolves.toBeTruthy();
@@ -208,7 +210,7 @@ describe("form-draft discard — FileRef release", () => {
   // the event store; the file_refs row itself must be purged, not just
   // the storage binary.
   test("discarding with releaseFiles: true hard-purges the file_refs row through the event store, not just the storage binary", async () => {
-    const key = "tenant/vehicle/photo/row-purge.jpg";
+    const key = tenantKey("vehicle/photo/row-purge.jpg");
     await saveDraft("wizard:row-purge", {});
     await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
     await seedFileRef(key);

@@ -151,6 +151,17 @@ describe("createFileContext", () => {
     await expect(files.list("t10/")).rejects.toThrow(/must start with/);
   });
 
+  test("a tenant-bound ref refuses keys outside the tenant key space", async () => {
+    const provider = createInMemoryFileProvider();
+    await provider.write("t2/b.jpg", new Uint8Array([2]));
+    const files = createFileContext(() => Promise.resolve(provider), "t1");
+
+    expect(files.ref("t1/a.jpg").key).toBe("t1/a.jpg");
+    expect(() => files.ref("t2/b.jpg")).toThrow(/must start with "t1\/"/);
+    expect(() => files.ref("t10/b.jpg")).toThrow(/must start with/);
+    expect(() => files.ref("")).toThrow(/must start with/);
+  });
+
   test("the provider is resolved once and memoized across ref() and list()", async () => {
     const provider = createInMemoryFileProvider();
     let resolveCount = 0;
