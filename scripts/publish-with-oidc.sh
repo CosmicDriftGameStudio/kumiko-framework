@@ -66,8 +66,14 @@ publish_and_tag() {
   staged_unconfirmed=0
   # tee streams the publish output live (a hung OIDC exchange or upload stays
   # visible, and a cancelled job keeps its log) while $log still captures it
-  # for the E403/E409 matching; pipefail keeps npm's exit status.
-  if log="$(npm publish "$tarball" --provenance --access public --tag kumiko-tmp 2>&1 | tee /dev/stderr)"; then
+  # for the E403/E409 matching; pipefail keeps npm's exit status. The echo loop
+  # writes to the inherited fd 2 instead of `tee /dev/stderr`, which re-opens
+  # the device path and fails (ENXIO) when stderr is a socket (CI runners).
+  if log="$(npm publish "$tarball" --provenance --access public --tag kumiko-tmp 2>&1 \
+    | while IFS= read -r line || [ -n "$line" ]; do
+      printf '%s\n' "$line"
+      printf '%s\n' "$line" >&2
+    done)"; then
     :
   else
     # Registry replication lag (#2586): the exact-version check above (`npm
