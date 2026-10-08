@@ -1,7 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { RENDER_KINDS, TEMPLATE_STATUSES } from "../constants.js";
+import { TEMPLATE_KINDS, TEMPLATE_STATUSES } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 
 // List für Admin-UI: filterbar nach kind / locale / status. Liefert
@@ -10,7 +10,7 @@ import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 export const listQuery = defineQueryHandler({
   name: "list",
   schema: z.object({
-    kind: z.enum(RENDER_KINDS).optional(),
+    kind: z.enum(TEMPLATE_KINDS).optional(),
     locale: z.string().min(2).max(8).optional(),
     status: z.enum(TEMPLATE_STATUSES).optional(),
     includeSystem: z.boolean().default(true),
