@@ -78,7 +78,7 @@ export function UserMenu({ children, variant = "pill" }: UserMenuProps): ReactNo
           <DropdownMenuSeparator />
         </>
       )}
-      <DropdownMenuItem onSelect={() => void logout()}>
+      <DropdownMenuItem data-testid="user-menu-logout" onSelect={() => void logout()}>
         <LogOut className="h-4 w-4" />
         <span>{t("auth.user.menu.logout")}</span>
       </DropdownMenuItem>

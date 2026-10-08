@@ -5,6 +5,7 @@ import {
   authEmailPasswordEnvSchema,
   createAuthEmailPasswordFeature,
 } from "../auth-email-password/index.js";
+import { createAuthMfaFeature } from "../auth-mfa/index.js";
 import { createSecretsFeature, secretsEnvSchema } from "../secrets/index.js";
 import {
   createSubscriptionMollieFeature,
@@ -16,6 +17,14 @@ import {
 } from "../subscription-stripe/index.js";
 
 const validKek = randomBytes(32).toString("base64");
+
+function authMfaFeatureForEnvTests() {
+  return createAuthMfaFeature({
+    setupTokenSecret: "env-test-mfa-setup-secret-at-least-32-bytes!!",
+    issuer: "Kumiko Test",
+    challengeTokenSecret: "env-test-mfa-challenge-secret-at-least-32-bytes!!",
+  });
+}
 
 function asBootError(err: unknown): KumikoBootError {
   if (!(err instanceof KumikoBootError)) {
@@ -223,6 +232,22 @@ describe("compose across all Phase-2 features", () => {
     expect(sources["KUMIKO_SECRETS_MASTER_KEY_V1"]).toBe("secrets");
     expect(sources["STRIPE_API_KEY"]).toBe("subscription-stripe");
     expect(sources["MOLLIE_API_KEY"]).toBe("subscription-mollie");
+  });
+
+  it("auth-mfa alone declares the master-key slot it encrypts with", () => {
+    const { schema, sources } = composeEnvSchema({
+      features: [authMfaFeatureForEnvTests()],
+    });
+    expect(Object.keys(schema.shape)).toContain("KUMIKO_SECRETS_MASTER_KEY_V1");
+    expect(Object.keys(schema.shape)).toContain("KUMIKO_SECRETS_MASTER_KEY_V1_CIPHERTEXT");
+    expect(sources["KUMIKO_SECRETS_MASTER_KEY_V1"]).toBe("auth-mfa");
+  });
+
+  it("auth-mfa and secrets share the master-key variable without a conflict", () => {
+    const { sources } = composeEnvSchema({
+      features: [createSecretsFeature(), authMfaFeatureForEnvTests()],
+    });
+    expect(sources["KUMIKO_SECRETS_MASTER_KEY_V1"]).toBe("secrets");
   });
 
   it("KumikoBootError.format() shows feature-source for missing feature-env-vars", () => {

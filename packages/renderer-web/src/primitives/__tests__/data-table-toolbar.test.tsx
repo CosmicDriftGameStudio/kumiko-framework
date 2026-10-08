@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { defaultPrimitives } from "../index.js";
 
@@ -88,5 +89,40 @@ describe("DataTable facet-reset label goes through translation", () => {
     );
     expect(screen.getByTestId("facet-reset").textContent).toContain("Clear filters");
     expect(screen.getByTestId("facet-reset").textContent).not.toContain("Reset");
+  });
+});
+
+// A facet with dozens of options (e.g. one entry per property) ran past the
+// viewport bottom, so the lower options could not be clicked.
+describe("DataTable facet dropdown stays inside the viewport", () => {
+  test("the option list is height-capped to the available viewport space and scrolls", async () => {
+    const user = userEvent.setup();
+    render(
+      <DataTable
+        columns={[]}
+        rows={[]}
+        testId="tbl"
+        filterFacets={[
+          {
+            field: "property",
+            label: "Property",
+            options: Array.from({ length: 60 }, (_, i) => ({
+              value: `p${i}`,
+              label: `Property ${i}`,
+            })),
+          },
+        ]}
+        filterValues={{}}
+        onFilterChange={() => {}}
+        onFilterReset={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByTestId("facet-property"));
+
+    const menu = screen.getByRole("menu");
+    expect(menu.className).toContain("max-h-[var(--radix-dropdown-menu-content-available-height)]");
+    expect(menu.className).toContain("overflow-y-auto");
+    expect(within(menu).getAllByRole("menuitemcheckbox")).toHaveLength(60);
   });
 });

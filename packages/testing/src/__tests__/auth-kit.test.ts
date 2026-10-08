@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import {
+  CLIENT_IP_HEADER,
   csrfHeaderFromCookies,
   loginViaApi,
   syntheticClientIpFor,
@@ -75,6 +76,22 @@ describe("loginViaApi", () => {
     expect(captured?.options.headers?.["x-forwarded-for"]).toBe(
       syntheticClientIpFor("a@example.com"),
     );
+  });
+
+  test("bucketKey moves the rate-limit bucket off the account's email", async () => {
+    let captured: CapturedPost | undefined;
+    const context = fakeRequestContext((call) => {
+      captured = call;
+    });
+
+    await loginViaApi(
+      context,
+      { email: "a@example.com", password: "secret" },
+      { bucketKey: "own-bucket" },
+    );
+
+    expect(captured?.options.headers?.[CLIENT_IP_HEADER]).toBe(syntheticClientIpFor("own-bucket"));
+    expect(syntheticClientIpFor("own-bucket")).not.toBe(syntheticClientIpFor("a@example.com"));
   });
 
   test("throws when a secret is given but the server asks to set up MFA", async () => {

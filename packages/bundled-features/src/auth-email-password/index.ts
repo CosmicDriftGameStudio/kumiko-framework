@@ -58,3 +58,15 @@ export {
 // statt eigene HMAC-Logik zu duplizieren. Purpose-string diskriminiert
 // Cross-Replay zwischen Flows.
 export { signToken, TokenPurpose, type VerifyResult, verifyToken } from "./signed-token.js";
+export {
+  type IssuedSignupActivation,
+  type IssueSignupActivationArgs,
+  issueSignupActivation,
+  SIGNUP_ACTIVATION_NOTIFICATION_TYPE,
+} from "./signup-activation.js";
+export {
+  invalidateExistingSignupToken,
+  normalizeEmail,
+  SIGNUP_TOKEN_KEY_PREFIXES,
+  storeSignupToken,
+} from "./signup-token-store.js";

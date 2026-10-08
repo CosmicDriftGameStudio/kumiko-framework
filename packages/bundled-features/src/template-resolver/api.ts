@@ -3,7 +3,7 @@
 // ctx.templateResolver at runtime.
 
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -76,7 +76,7 @@ export type TemplateResolverApi = {
   readonly resolveTemplate: (args: ResolveRequest) => Promise<TemplateResource>;
 };
 
-export function createTemplateResolverApi(db: DbConnection): TemplateResolverApi {
+export function createTemplateResolverApi(db: DbRunner): TemplateResolverApi {
   return {
     findExact: async ({ tenantId, slug, kind, locale, scope }) => {
       const effectiveTenantId = scope === "system" ? SYSTEM_TENANT_ID : tenantId;
@@ -106,7 +106,7 @@ export function createTemplateResolverApi(db: DbConnection): TemplateResolverApi
 }
 
 async function fetchTemplate(
-  db: DbConnection,
+  db: DbRunner,
   tenantId: string,
   slug: string,
   kind: TemplateKind,

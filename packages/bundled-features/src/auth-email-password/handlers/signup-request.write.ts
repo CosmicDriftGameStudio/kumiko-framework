@@ -21,26 +21,15 @@
 // suppressing the link on the request side would be defense-in-depth, but
 // with an enumeration risk of its own (separate concern).
 
-import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { findSignupHandoverProvider, type SignupHandoverBinding } from "../../shared/index.js";
-import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants.js";
 import type { AuthMailLocale } from "../email-templates.js";
-import { renderActivationEmail } from "../email-templates.js";
-import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
+import { resolveHandlerMailLocale } from "../magic-link-mail.js";
 import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle.js";
-import {
-  invalidateExistingSignupToken,
-  normalizeEmail,
-  storeSignupHandover,
-  storeSignupToken,
-  takeOverSignupHandoverForResend,
-} from "../signup-token-store.js";
-
-const SIGNUP_NOTIFICATION_TYPE = "auth-email-password:signup-activation";
+import { issueSignupActivation } from "../signup-activation.js";
+import { storeSignupHandover, takeOverSignupHandoverForResend } from "../signup-token-store.js";
 
 const SignupRequestSchema = z.object({
   email: z.email(),
@@ -85,9 +74,6 @@ export type SignupRequestOptions = {
 };
 
 export function createSignupRequestHandler(opts: SignupRequestOptions) {
-  const ttlMinutes = opts.tokenTtlMinutes ?? AUTH_SIGNUP_DEFAULT_TTL_MINUTES;
-  const ttlSeconds = ttlMinutes * 60;
-
   return defineWriteHandler<"signup-request", typeof SignupRequestSchema, SignupRequestData>({
     name: "signup-request",
     schema: SignupRequestSchema,
@@ -138,94 +124,65 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
       // verified grant over to the new token instead of silently dropping it.
       const priorBinding = await takeOverSignupHandoverForResend(ctx.redis, email);
 
-      // At most one live signup token per email: invalidate whatever's
-      // there before minting the new one (see signup-token-store.ts).
-      await invalidateExistingSignupToken(ctx.redis, email);
-      // 32 random bytes = 256 bits unguessable randomness, base64url
-      // encoded to 43 chars. Math.random used to be a bug here:
-      // xorshift128+ has ~128 bits of state that's reconstructible after
-      // ~5 observed outputs — an attacker could trigger their own
-      // signup-requests and predict other users' tokens. generateToken
-      // uses randomBytes from node:crypto, the same source as CSRF/
-      // session tokens.
-      const token = generateToken();
-
-      const issuedAt = Temporal.Now.instant();
-      const expiresAt = issuedAt.add({ seconds: ttlSeconds });
-      const expiresAtIso = expiresAt.toString();
-
-      await storeSignupToken(ctx.redis, { email, token, ttlSeconds });
-
-      // A handover grant in this request re-verifies and replaces the prior
-      // binding; anything short of a fresh, verified grant (no provider
-      // mounted, or verification failed) falls back to it instead —
-      // dropping a still-live binding on a bad request would strand the
-      // visitor's run. A throw here must never skip the mail below, or the
-      // signup itself silently breaks for a bug in a provider this handler
-      // doesn't own.
-      let binding: SignupHandoverBinding | null = priorBinding;
-      if (event.payload.handover) {
-        const { entityType, token: grantToken } = event.payload.handover;
-        const provider = findSignupHandoverProvider(ctx.registry);
-        if (!provider) {
-          ctx.log?.warn(
-            "signup-request: handover payload present but no signupHandover provider mounted",
-          );
-        } else {
-          try {
-            const verified = await provider.verifyGrant({
-              db: ctx.db.unsafeRaw(),
-              registry: ctx.registry,
-              entityType,
-              token: grantToken,
-            });
-            if (verified) {
-              binding = verified;
-            } else {
-              ctx.log?.warn("signup-request: handover grant did not verify", { entityType });
-            }
-          } catch {
-            ctx.log?.warn("signup-request: handover grant verification threw", { entityType });
-          }
-        }
-      }
-      if (binding) {
-        await storeSignupHandover(ctx.redis, { token, binding, ttlSeconds });
-      }
-
-      // normalizeEmail from the store — one source of truth for
-      // normalization; the delivery recipient + lookup path consistently
-      // get the same format.
-      const normalizedEmail = normalizeEmail(email);
-
       const locale = resolveHandlerMailLocale(ctx, opts.locale);
+      const redis = ctx.redis;
 
-      await dispatchMagicLinkMail(
-        ctx.notify,
-        {
-          handlerName: "signup-request",
-          notificationType: SIGNUP_NOTIFICATION_TYPE,
-          renderContent: renderActivationEmail,
+      const issued = await issueSignupActivation({
+        redis,
+        notify: ctx.notify,
+        email,
+        appUrl: opts.appUrl,
+        timeZone: ctx.tz.user,
+        ...(opts.tokenTtlMinutes !== undefined && { tokenTtlMinutes: opts.tokenTtlMinutes }),
+        ...(opts.appName !== undefined && { appName: opts.appName }),
+        ...(locale !== undefined && { locale }),
+        // A handover grant in this request re-verifies and replaces the prior
+        // binding; anything short of a fresh, verified grant (no provider
+        // mounted, or verification failed) falls back to it instead —
+        // dropping a still-live binding on a bad request would strand the
+        // visitor's run. A throw here must never skip the mail, or the
+        // signup itself silently breaks for a bug in a provider this handler
+        // doesn't own.
+        onTokenStored: async ({ token, ttlSeconds }) => {
+          let binding: SignupHandoverBinding | null = priorBinding;
+          if (event.payload.handover) {
+            const { entityType, token: grantToken } = event.payload.handover;
+            const provider = findSignupHandoverProvider(ctx.registry);
+            if (!provider) {
+              ctx.log?.warn(
+                "signup-request: handover payload present but no signupHandover provider mounted",
+              );
+            } else {
+              try {
+                const verified = await provider.verifyGrant({
+                  db: ctx.db.unsafeRaw(),
+                  registry: ctx.registry,
+                  entityType,
+                  token: grantToken,
+                });
+                if (verified) {
+                  binding = verified;
+                } else {
+                  ctx.log?.warn("signup-request: handover grant did not verify", { entityType });
+                }
+              } catch {
+                ctx.log?.warn("signup-request: handover grant verification threw", { entityType });
+              }
+            }
+          }
+          if (binding) {
+            await storeSignupHandover(redis, { token, binding, ttlSeconds });
+          }
         },
-        {
-          email: normalizedEmail,
-          appUrl: opts.appUrl,
-          token,
-          expiresAt: expiresAtIso,
-          issuedAt: issuedAt.toString(),
-          timeZone: ctx.tz.user,
-          ...(opts.appName !== undefined && { appName: opts.appName }),
-          locale,
-        },
-      );
+      });
 
       return {
         isSuccess: true,
         data: {
           kind: "signup-requested",
-          email: normalizedEmail,
-          token,
-          expiresAt: expiresAtIso,
+          email: issued.email,
+          token: issued.token,
+          expiresAt: issued.expiresAt,
         },
       };
     },

@@ -1,5 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { secretsEnvSchema } from "../secrets/feature.js";
 import { type MfaRequiredPolicy, mfaRequiredConfigKey } from "./config.js";
 import { createDisableHandler } from "./handlers/disable.write.js";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write.js";
@@ -125,6 +126,10 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       category: "identity",
       recommended: true,
     });
+    // Same field instances as `secrets`, so composeEnvSchema treats them as one
+    // shared variable; an app mounting auth-mfa without `secrets` still gets the
+    // KEK slot (and its _CIPHERTEXT twin) declared.
+    r.envSchema(secretsEnvSchema);
     r.requires("user");
     r.requires("config");
     // verify.write.ts dispatches "tenant:query:memberships" — without this

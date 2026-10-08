@@ -65,10 +65,11 @@ async function postAuth(
   path: string,
   data: Record<string, unknown>,
   email: string,
+  bucketKey: string = email,
 ): Promise<APIResponse> {
   const response = await request.post(path, {
     data,
-    headers: { [CLIENT_IP_HEADER]: syntheticClientIpFor(email) },
+    headers: { [CLIENT_IP_HEADER]: syntheticClientIpFor(bucketKey) },
   });
   if (!response.ok()) {
     throw new Error(
@@ -96,15 +97,24 @@ function assertNoUnansweredMfa(email: string, reply: z.infer<typeof loginReplySc
   }
 }
 
+export type LoginViaApiOptions = {
+  // Rate-limit bucket (see syntheticClientIpFor) instead of the account's email,
+  // for runs that log the same account in repeatedly and must not share its bucket.
+  readonly bucketKey?: string;
+};
+
 export async function loginViaApi(
   request: APIRequestContext,
   credentials: LoginCredentials,
+  options: LoginViaApiOptions = {},
 ): Promise<void> {
+  const bucketKey = options.bucketKey ?? credentials.email;
   const response = await postAuth(
     request,
     "/api/auth/login",
     { email: credentials.email, password: credentials.password },
     credentials.email,
+    bucketKey,
   );
   const reply = loginReplySchema.parse(await response.json());
   if (credentials.mfaTotpSecret === undefined) {
@@ -131,6 +141,7 @@ export async function loginViaApi(
       code: await unburnedTotpCode(credentials.mfaTotpSecret),
     },
     credentials.email,
+    bucketKey,
   );
 }
 

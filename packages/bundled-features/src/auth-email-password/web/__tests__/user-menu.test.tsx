@@ -62,6 +62,14 @@ describe("UserMenu", () => {
     await user.click(screen.getByText("Sign out"));
     expect(session.logout).toHaveBeenCalledTimes(1);
   });
+  test("logout item carries a locale-independent test id", async () => {
+    const user = userEvent.setup();
+    const session = makeSessionApi();
+    renderWithProviders(<UserMenu />, { session });
+    await user.click(screen.getByRole("button", { name: /Test User/ }));
+    await user.click(screen.getByTestId("user-menu-logout"));
+    expect(session.logout).toHaveBeenCalledTimes(1);
+  });
   test("sidebar variant: NavUser-Row zeigt Name + Email, Dropdown trägt Logout", async () => {
     const user = userEvent.setup();
     const session = makeSessionApi({

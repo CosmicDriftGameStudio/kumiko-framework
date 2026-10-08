@@ -382,10 +382,24 @@ function useFieldLabelProps(
   return insideLabelledField ? { "aria-labelledby": fieldLabelId(id) } : { "aria-label": name };
 }
 
+// The Field description is the control's accessible description; the control
+// is a descendant (not a prop of Field), so the id travels via context. Always
+// provided (undefined without a description) so a nested Field never inherits
+// its parent's description id.
+const FieldDescriptionContext = createContext<string | undefined>(undefined);
+
+function fieldDescriptionId(id: string): string {
+  return `${id}-description`;
+}
+
 function DefaultField(props: FieldProps): ReactNode {
   return (
     <FieldLabelledContext.Provider value={props.label !== ""}>
-      <DefaultFieldBody {...props} />
+      <FieldDescriptionContext.Provider
+        value={props.description !== undefined ? fieldDescriptionId(props.id) : undefined}
+      >
+        <DefaultFieldBody {...props} />
+      </FieldDescriptionContext.Provider>
     </FieldLabelledContext.Provider>
   );
 }
@@ -510,6 +524,7 @@ function DefaultFieldBody({
         </div>
         {description !== undefined && (
           <div
+            id={fieldDescriptionId(id)}
             data-testid={testId !== undefined ? `${testId}-description` : undefined}
             className="min-w-0 text-sm text-muted-foreground @2xl:col-start-1 @2xl:row-start-2 @2xl:mt-1 @max-2xl:group-has-[[data-slot=switch]]/row:col-span-2"
           >
@@ -551,6 +566,7 @@ function DefaultFieldBody({
       </div>
       {description !== undefined && (
         <div
+          id={fieldDescriptionId(id)}
           data-testid={testId !== undefined ? `${testId}-description` : undefined}
           className="text-sm text-muted-foreground"
         >
@@ -922,10 +938,12 @@ function DefaultInput(props: InputProps): ReactNode {
   // Vendored ui/input + ui/checkbox stylen Fehler über `aria-invalid`
   // selbst — kein manuelles border-destructive mehr nötig.
   const booleanLayout = useContext(FieldLayoutContext);
+  const describedBy = useContext(FieldDescriptionContext);
   const common = {
     id: props.id,
     name: props.name,
     disabled: props.disabled,
+    "aria-describedby": describedBy,
     "aria-required": props.required,
     "aria-invalid": props.hasError === true ? true : undefined,
   } as const;
@@ -1373,7 +1391,12 @@ function FacetFilter({
           <ChevronDown className="text-muted-foreground" />
         </UiButton>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-44">
+      {/* Radix exposes the room left in the viewport; without the cap a long
+          option list runs off-screen and the lower options are unreachable. */}
+      <DropdownMenuContent
+        align="start"
+        className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-44 overflow-y-auto"
+      >
         {facet.options.map((opt) => (
           <DropdownMenuCheckboxItem
             key={opt.value}
