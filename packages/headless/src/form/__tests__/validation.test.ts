@@ -187,6 +187,17 @@ describe("createFormController — validate(scope)", () => {
     expect(form.getSnapshot().errors).toEqual({});
   });
 
+  test("scope rejects a field name the form values do not have", () => {
+    const form = createFormController({
+      initial: { a: "x" },
+      schema: z.object({ a: z.string().min(3) }),
+    });
+
+    // @ts-expect-error "aa" is a typo for "a": it would otherwise scope to nothing and validate nothing
+    expect(form.validate(["aa"])).toBe(true);
+    expect(form.validate(["a"])).toBe(false);
+  });
+
   test("nested scope path matches issue root segment (#1898)", () => {
     const schema = z.object({
       address: z.object({ city: z.string().min(1) }),

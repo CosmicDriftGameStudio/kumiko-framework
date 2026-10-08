@@ -44,7 +44,7 @@ export function assertPiiBootInvariants(
   // plaintext PII into kumiko_events with nothing to crypto-shred later.
   const piiEvents = features.flatMap((feature) =>
     Object.values(feature.events ?? {})
-      .filter((event) => event.piiFields !== undefined && event.piiFields !== "none")
+      .filter((event) => event.piiFields !== "none")
       .map((event) => event.name),
   );
   // skip: nothing PII-annotated is mounted — plaintext gate is moot.

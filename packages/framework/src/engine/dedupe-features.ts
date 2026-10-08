@@ -40,6 +40,8 @@ function isInterchangeable(existing: FeatureDefinition, next: FeatureDefinition)
 }
 
 // First occurrence wins: runtimes late-bind closure state (sessions' autoRevoke) on the kept instance.
+// An app holding its own handle to a later, dropped instance would bind state the registry never
+// runs — resolve the kept instance from the composed list (`features.find(name)`), not a local handle.
 export function dedupeFeatures(features: readonly FeatureDefinition[]): FeatureDefinition[] {
   const byName = new Map<string, FeatureDefinition>();
   const result: FeatureDefinition[] = [];
