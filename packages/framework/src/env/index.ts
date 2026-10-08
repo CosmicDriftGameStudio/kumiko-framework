@@ -213,6 +213,17 @@ function isSharedFeatureFragment(
   return featureFields.get(key) === field;
 }
 
+// Required beats optional, independent of feature order: a feature outside
+// optionalFeatures must not end up with a silently optional slot.
+function keepStrictestOfSharedFragment(
+  merged: Record<string, z.ZodType>,
+  key: string,
+  field: z.ZodType,
+  declaringFeatureIsOptional: boolean,
+): void {
+  if (!declaringFeatureIsOptional) merged[key] = field;
+}
+
 function envVarConflictError(key: string, firstOwner: string | undefined, secondOwner: string) {
   return new KumikoBootError([
     {
@@ -273,8 +284,11 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
     const wrap = optionalSet.has(feature.name);
     for (const [key, field] of Object.entries(zodShape(feature.envSchema))) {
       if (merged[key] !== undefined) {
-        if (isSharedFeatureFragment(featureFields, key, field)) continue;
-        throw envVarConflictError(key, sources[key], feature.name);
+        if (!isSharedFeatureFragment(featureFields, key, field)) {
+          throw envVarConflictError(key, sources[key], feature.name);
+        }
+        keepStrictestOfSharedFragment(merged, key, field, wrap);
+        continue;
       }
       featureFields.set(key, field);
       merged[key] = wrap ? optionalKeepingKmsMeta(field) : field;

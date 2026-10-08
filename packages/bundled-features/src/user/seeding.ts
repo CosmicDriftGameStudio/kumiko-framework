@@ -135,9 +135,10 @@ export async function rewriteSeededUserEmail(
   email: string,
   by: SessionUser,
 ): Promise<void> {
-  // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
-  // liefert die Projection-Row als Record<string, unknown>.
-  const id = existingRow["id"] as string;
+  const id = existingRow["id"];
+  if (typeof id !== "string") {
+    throw new Error("rewriteSeededUserEmail: existing user row has no string id");
+  }
   const tdb = createTenantDb(db, by.tenantId, "system");
   const result = await userExecutor.update(
     { id, version: existingRow["version"] as number, changes: { email } },

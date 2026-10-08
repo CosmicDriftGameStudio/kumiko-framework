@@ -1,6 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { secretsEnvSchema } from "../secrets/feature.js";
+import { secretsEnvSchema } from "../secrets/index.js";
 import { type MfaRequiredPolicy, mfaRequiredConfigKey } from "./config.js";
 import { createDisableHandler } from "./handlers/disable.write.js";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write.js";

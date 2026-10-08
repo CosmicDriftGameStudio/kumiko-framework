@@ -75,6 +75,48 @@ describe("composeEnvSchema", () => {
     });
   });
 
+  describe("shared field instance across optional and required features", () => {
+    const sharedKms = z.object({
+      SHARED_KEK: z.string().meta({ kumiko: { kms: true } }),
+    });
+    const featureA = defineFeature("feat-a", (r) => {
+      r.envSchema(sharedKms);
+    });
+    const featureB = defineFeature("feat-b", (r) => {
+      r.envSchema(sharedKms);
+    });
+
+    it("is required when the optional feature is declared first", () => {
+      const { schema } = composeEnvSchema({
+        features: [featureA, featureB],
+        optionalFeatures: ["feat-a"],
+      });
+
+      expect(schema.safeParse({}).success).toBe(false);
+      expect(kmsSlotsOf(schema)).toEqual(["SHARED_KEK"]);
+    });
+
+    it("is required when the required feature is declared first", () => {
+      const { schema } = composeEnvSchema({
+        features: [featureB, featureA],
+        optionalFeatures: ["feat-a"],
+      });
+
+      expect(schema.safeParse({}).success).toBe(false);
+      expect(kmsSlotsOf(schema)).toEqual(["SHARED_KEK"]);
+    });
+
+    it("stays optional when every declaring feature is optional", () => {
+      const { schema } = composeEnvSchema({
+        features: [featureA, featureB],
+        optionalFeatures: ["feat-a", "feat-b"],
+      });
+
+      expect(schema.safeParse({}).success).toBe(true);
+      expect(kmsSlotsOf(schema)).toEqual(["SHARED_KEK"]);
+    });
+  });
+
   it("detects feature/app env-var conflicts", () => {
     const a = defineFeature("feat-a", (r) => {
       r.envSchema(z.object({ DATABASE_URL: z.string() }));
