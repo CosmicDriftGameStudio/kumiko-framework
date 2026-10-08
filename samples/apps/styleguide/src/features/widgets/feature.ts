@@ -5,6 +5,7 @@
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { demoMoney, demoMonthYear, demoPercent, demoText } from "./demo-locale";
 import { WIDGETS_I18N } from "./i18n";
 
 // Statische Demo-Zeitreihe (48 Punkte à 30 Minuten) — kein Date-API,
@@ -32,6 +33,13 @@ const INBOX_MESSAGES = Array.from({ length: 18 }, (_, i) => ({
   // keinen Unterschied.
   unread: i % 4 === 0,
 }));
+
+function openAmount(amount: number, locale: string): string {
+  return demoText("widgets:dashboard:demo-amount-open", locale).replace(
+    "{amount}",
+    demoMoney(amount, "EUR", locale),
+  );
+}
 
 export const widgetsFeature = defineFeature("widgets", (r) => {
   r.screen({ id: "widgets", type: "custom", renderer: { react: { __component: "widgets" } } });
@@ -129,11 +137,14 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
   r.queryHandler(
     "metrics:portfolio-stat",
     z.object({ region: z.string().optional() }),
-    async ({ payload: { region } }) => ({
-      value: region === "us" ? "38.120 $" : region === "eu" ? "54.630 €" : "92.753 €",
-      sub: "über 4 Konten",
+    async ({ payload: { region } }, ctx) => ({
+      value:
+        region === "us"
+          ? demoMoney(38120, "USD", ctx.locale)
+          : demoMoney(region === "eu" ? 54630 : 92753, "EUR", ctx.locale),
+      sub: demoText("widgets:catalog:portfolio-sub", ctx.locale),
       tone: "positive",
-      delta: "12 %",
+      delta: demoPercent(0.12, ctx.locale),
       deltaDirection: "up",
       deltaTone: "positive",
     }),
@@ -150,7 +161,7 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
   r.queryHandler(
     "metrics:net-worth-assets",
     z.object({ region: z.string().optional() }),
-    async () => ({ value: "120.000 €" }),
+    async (_query, ctx) => ({ value: demoMoney(120000, "EUR", ctx.locale) }),
     {
       access: {
         openToAll: {
@@ -164,7 +175,7 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
   r.queryHandler(
     "metrics:net-worth-debts",
     z.object({ region: z.string().optional() }),
-    async () => ({ value: "65.370 €" }),
+    async (_query, ctx) => ({ value: demoMoney(65370, "EUR", ctx.locale) }),
     {
       access: {
         openToAll: {
@@ -196,10 +207,18 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
   r.queryHandler(
     "metrics:latest-items",
     z.object({}),
-    async () => ({
+    async (_query, ctx) => ({
       rows: [
-        { id: "i1", name: "API-Timeout eu-central", status: "resolved" },
-        { id: "i2", name: "Zertifikat erneuert", status: "done" },
+        {
+          id: "i1",
+          name: demoText("widgets:dashboard:demo-incident-timeout", ctx.locale),
+          status: "resolved",
+        },
+        {
+          id: "i2",
+          name: demoText("widgets:dashboard:demo-incident-certificate", ctx.locale),
+          status: "done",
+        },
       ],
       nextCursor: null,
     }),
@@ -249,10 +268,16 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
   r.queryHandler(
     "metrics:upcoming-events",
     z.object({}),
-    async () => ({
+    async (_query, ctx) => ({
       rows: [
-        { primary: "Zinsanpassung Baudarlehen", trailing: "Aug 2026" },
-        { primary: "Bausparvertrag zuteilungsreif", trailing: "Okt 2026" },
+        {
+          primary: demoText("widgets:dashboard:demo-event-rate-adjustment", ctx.locale),
+          trailing: demoMonthYear(2026, 8, ctx.locale),
+        },
+        {
+          primary: demoText("widgets:dashboard:demo-event-savings-contract", ctx.locale),
+          trailing: demoMonthYear(2026, 10, ctx.locale),
+        },
       ],
     }),
     {
@@ -268,10 +293,18 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
   r.queryHandler(
     "metrics:goal-progress",
     z.object({}),
-    async () => ({
+    async (_query, ctx) => ({
       rows: [
-        { label: "Baudarlehen", value: "42.000 € offen", fraction: 0.71 },
-        { label: "Autokredit", value: "3.200 € offen", fraction: 0.92 },
+        {
+          label: demoText("widgets:dashboard:demo-goal-mortgage", ctx.locale),
+          value: openAmount(42000, ctx.locale),
+          fraction: 0.71,
+        },
+        {
+          label: demoText("widgets:dashboard:demo-goal-car-loan", ctx.locale),
+          value: openAmount(3200, ctx.locale),
+          fraction: 0.92,
+        },
       ],
     }),
     {
