@@ -681,6 +681,43 @@ describe("event-store-executor.list — searchable reference to an encrypted/PII
     expect(res.rows).toHaveLength(0);
   });
 
+  test("a stale index document naming a foreign-tenant row never becomes a match, even for a full-access reader", async () => {
+    const [contact] = await seedRows(testDb.db, piiCustomerTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: otherTenantAdmin.tenantId,
+        ownerId: otherTenantAdmin.id,
+        name: "Stale Contact",
+      },
+    ]);
+    // Reference UUIDs carry no FK constraint, so an own-tenant order can point at the foreign row.
+    const [order] = await seedRows(testDb.db, piiOrderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "unrelated",
+        customerId: (contact as { id: string }).id,
+      },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
+    await searchAdapter.index(admin.tenantId, {
+      entityType: "refSearchPiiCustomer",
+      entityId: (contact as { id: string }).id,
+      weight: 1,
+      fields: { name: "Stale Contact" },
+    });
+
+    // Admin reads the target with `"all"`, so ownership alone adds no tenant predicate.
+    const res = await piiOrderExec.list({ search: "stale" }, admin, tdbA, {
+      searchAdapter,
+      referenceSearch: piiReferenceSearch,
+    });
+    expect(res.rows.map((r) => r["id"])).not.toContain((order as { id: string }).id);
+    expect(res.rows).toHaveLength(0);
+  });
+
   test("row-level ownership on the target entity intersects the search-index candidates, same as the target's own list would", async () => {
     const [ownRow, otherRow] = await seedRows(testDb.db, piiCustomerTable, [
       {

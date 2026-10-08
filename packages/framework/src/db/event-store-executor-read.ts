@@ -392,20 +392,32 @@ async function resolveReferenceMatchesViaSearchIndex(
   if (ownership.kind === "empty") return undefined;
 
   const candidateIds = results.map((r) => String(r.entityId));
-  if (ownership.kind === "pass") {
+  // The index is only trusted to name candidates: a stale or foreign-tenant document must
+  // never become a filter value, so tenant-scoped targets are always re-read from the DB.
+  const tenantScoped = targetTable["tenantId"] !== undefined && db.mode === "tenant";
+  if (ownership.kind === "pass" && !tenantScoped) {
     return { ownColumn: descriptor.ownColumn, ids: candidateIds };
   }
 
   const params: unknown[] = [...candidateIds];
   const idPlaceholders = candidateIds.map((_, i) => `$${i + 1}`);
-  const shifted = shiftParams(
-    { sqlText: ownership.sqlText, params: ownership.params },
-    params.length,
-  );
+  let tenantClause = "";
+  if (tenantScoped) {
+    params.push(db.tenantId, SYSTEM_TENANT_ID);
+    tenantClause = ` AND "${physicalColumnName(targetTable, "tenantId")}" IN ($${params.length - 1}, $${params.length})`;
+  }
+  let ownershipClause = "";
+  if (ownership.kind === "sql") {
+    const shifted = shiftParams(
+      { sqlText: ownership.sqlText, params: ownership.params },
+      params.length,
+    );
+    for (const p of shifted.params) params.push(p);
+    ownershipClause = ` AND ${shifted.sqlText}`;
+  }
   const sql =
-    `SELECT "id" FROM "${targetTableName}" WHERE "id" IN (${idPlaceholders.join(", ")}) ` +
-    `AND ${shifted.sqlText}`;
-  for (const p of shifted.params) params.push(p);
+    `SELECT "id" FROM "${targetTableName}" WHERE "id" IN (${idPlaceholders.join(", ")})` +
+    `${tenantClause}${ownershipClause}`;
   const rows = await executeRawQueryRead<{ id: string }>(tenantDbRunner(db), sql, params);
   if (rows.length === 0) return undefined;
   return { ownColumn: descriptor.ownColumn, ids: rows.map((r) => r.id) };
@@ -495,6 +507,7 @@ function buildReferenceSortExpr(
   descriptor: { readonly targetEntityName: string; readonly labelField: string },
   resolveEntity: (entityName: string) => EntityDefinition | undefined,
   db: TenantDb,
+  user: SessionUser,
 ): ((params: unknown[]) => string) | undefined {
   const targetEntity = resolveEntity(descriptor.targetEntityName);
   if (targetEntity === undefined) {
@@ -513,6 +526,15 @@ function buildReferenceSortExpr(
   }
 
   const targetTable = buildEntityTable(descriptor.targetEntityName, targetEntity);
+  // The order of labels the viewer may not read would leak them bit by bit, same as the search path.
+  const labelAccess = buildOwnershipClause(
+    user,
+    normalizeAccessEntry(targetEntity.fields[descriptor.labelField]?.access?.read),
+    targetTable,
+  );
+  if (labelAccess.kind !== "pass") return undefined;
+  const ownership = buildOwnershipClause(user, targetEntity.access?.read, targetTable);
+  if (ownership.kind === "empty") return undefined;
   const targetTableName = String(
     (targetTable as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL],
   );
@@ -533,9 +555,18 @@ function buildReferenceSortExpr(
       params.push(tenantId, SYSTEM_TENANT_ID);
       tenantClause = ` AND t."${tenantCol}" IN ($${params.length - 1}, $${params.length})`;
     }
+    let ownershipClause = "";
+    if (ownership.kind === "sql") {
+      const shifted = shiftParams(
+        { sqlText: ownership.sqlText, params: ownership.params },
+        params.length,
+      );
+      for (const p of shifted.params) params.push(p);
+      ownershipClause = ` AND ${shifted.sqlText}`;
+    }
     return (
       `(SELECT t."${labelCol}" FROM "${targetTableName}" t ` +
-      `WHERE t."id" = "${outerTableName}".${ownColumnSql}${tenantClause}${deletedClause})`
+      `WHERE t."id" = "${outerTableName}".${ownColumnSql}${tenantClause}${ownershipClause}${deletedClause})`
     );
   };
 }
@@ -711,6 +742,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
                 descriptor,
                 referenceSort.resolveEntity,
                 db,
+                user,
               )
             : undefined;
         if (referenceSortExpr !== undefined) sortField = sortCandidate;
