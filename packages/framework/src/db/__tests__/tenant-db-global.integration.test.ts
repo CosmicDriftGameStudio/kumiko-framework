@@ -15,7 +15,7 @@ import {
 import type { TableColumns } from "../dialect.js";
 import { defineUnmanagedTable } from "../entity-table-meta.js";
 import { insertOne } from "../query.js";
-import { createTenantDb } from "../tenant-db.js";
+import { createTenantDb, withUnsafeRawGrant } from "../tenant-db.js";
 
 const globalItemsTable = defineUnmanagedTable({
   tableName: "store_fw2858_global_items_it",
@@ -113,6 +113,21 @@ describe("TenantDb.global() — writes, real Postgres", () => {
     await expect(
       tdb.global(globalItemsTable).insertOne({ someField: "ungranted" }),
     ).rejects.toThrow(AccessDeniedError);
+  });
+
+  test("a hook's unsafeRaw rebind does not inherit the handler's globalWrites grant", async () => {
+    const handlerDb = createTenantDb(stack.db, tenantA, "tenant", undefined, undefined, undefined, {
+      globalWrites: { reason: "fw#2875 — handler-level global write grant" },
+    });
+    const hookDb = withUnsafeRawGrant(handlerDb, { reason: "fw#2875 — hook's own raw grant" });
+
+    await expect(
+      hookDb.global(globalItemsTable).insertOne({ someField: "hook-inherited" }),
+    ).rejects.toThrow(AccessDeniedError);
+    const viaHandler = await handlerDb
+      .global(globalItemsTable)
+      .insertOne<{ id: string }>({ someField: "handler-granted" });
+    expect(viaHandler?.id).toBeDefined();
   });
 
   test("insert/update/delete succeed when createTenantDb was given a globalWrites grant", async () => {
