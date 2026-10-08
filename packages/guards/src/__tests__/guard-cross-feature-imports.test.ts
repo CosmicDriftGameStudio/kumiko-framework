@@ -62,6 +62,18 @@ describe("Cross-Feature-Import Guard", () => {
     expect(guard.run(sfs).violations).toHaveLength(0);
   });
 
+  test("honours the ignore tag as one entry of a comma-separated slug list", () => {
+    const sfs = files({
+      ...featureB,
+      "packages/bundled-features/src/a/feature.ts": `
+					// kumiko-lint-ignore raw-sql,cross-feature-import shared bootstrap
+					import { feature } from "../b/feature";
+					export const a = feature;
+				`,
+    });
+    expect(guard.run(sfs).violations).toHaveLength(0);
+  });
+
   test("blocks importing another feature's registration module (feature.ts) directly", () => {
     const sfs = files({
       ...featureB,

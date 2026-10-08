@@ -45,7 +45,7 @@ import {
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
-import { hasIgnoreTag } from "./_lib/ignore-tag";
+import { hasIgnoreTag, lineHasIgnoreTag } from "./_lib/ignore-tag";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
@@ -111,7 +111,7 @@ function hasBudgetTag(fn: Node): boolean {
   const jsDocStartLine = fn.getStartLineNumber(true);
   if (jsDocStartLine === fn.getStartLineNumber()) return false;
   const lines = fn.getSourceFile().getFullText().split("\n");
-  return (lines[jsDocStartLine - 2] ?? "").includes(BUDGET_TAG);
+  return lineHasIgnoreTag(lines[jsDocStartLine - 2] ?? "", BUDGET_TAG);
 }
 
 export function computeComplexity(fn: Node): number {

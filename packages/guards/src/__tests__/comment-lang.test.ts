@@ -65,6 +65,16 @@ describe("kumiko-guards comment-lang", () => {
     expect(sites.map((site) => site.line)).toEqual([1]);
   });
 
+  test("scanner honours the ignore tag inside a comma-separated slug list", () => {
+    const sites = scanGermanComments(
+      ["// kumiko-lint-ignore raw-sql,comment-lang legacy text für Tests", "const b = 1;"].join(
+        "\n",
+      ),
+      "f.ts",
+    );
+    expect(sites).toEqual([]);
+  });
+
   test("--touched fails on a newly added German comment", async () => {
     await withFixtureRepo(async (dir) => {
       addCommit(dir, "src/new.ts", "// Dieser Wert wird nicht benötigt\nexport const x = 1;\n");

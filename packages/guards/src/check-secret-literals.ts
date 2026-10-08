@@ -27,6 +27,7 @@ import { join } from "node:path";
 import { Glob } from "bun";
 import { ts } from "ts-morph";
 import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
+import { lineHasIgnoreTag } from "./_lib/ignore-tag";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 // Server-side only: a declared sourceRoot under a mobile/client app has no server secrets to leak.
@@ -116,7 +117,8 @@ export function scanLinesForSecretLiterals(lines: readonly string[]): SecretLite
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i] ?? "";
     const code = maskedLines[i] ?? "";
-    if (raw.includes(IGNORE_TAG) || (lines[i - 1] ?? "").includes(IGNORE_TAG)) continue;
+    if (lineHasIgnoreTag(raw, IGNORE_TAG) || lineHasIgnoreTag(lines[i - 1] ?? "", IGNORE_TAG))
+      continue;
     // Every fallback on the line is inspected; the name is read only from the text since the
     // previous fallback, so an earlier assignee cannot lend its name to a later literal.
     let previousEnd = 0;

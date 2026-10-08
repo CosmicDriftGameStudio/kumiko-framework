@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { ts } from "ts-morph";
 import { gitEnv } from "./_lib/git-env";
 import { cliFlagsError, isLocalFinding } from "./_lib/guard-kit";
+import { lineHasIgnoreTag } from "./_lib/ignore-tag";
 import { resolveRepoRoots } from "./_lib/roots";
 import { type ScanSpec, scanFiles } from "./_lib/scan-scope";
 
@@ -71,7 +72,7 @@ export function scanGermanComments(fullText: string, file: string): Site[] {
       case ts.SyntaxKind.SingleLineCommentTrivia:
       case ts.SyntaxKind.MultiLineCommentTrivia: {
         const text = scanner.getTokenText();
-        if (!text.includes(IGNORE_TAG) && isGermanComment(text)) {
+        if (!lineHasIgnoreTag(text, IGNORE_TAG) && isGermanComment(text)) {
           const line = fullText.slice(0, scanner.getTokenStart()).split("\n").length;
           sites.push({
             file,
