@@ -96,6 +96,20 @@ describe("projection-rebuild — blind-index loss guard (fw#3091)", () => {
     expect(after).toEqual(before);
   });
 
+  test("populated bidx column + a DIFFERENT key in this process → rebuild throws, live table untouched", async () => {
+    const created = await crud.create({ email: "marc@example.com" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+    const before = await rawRow(String(created.data.id));
+
+    resetBlindIndexKeyForTests();
+    configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
+    await expect(rebuildProjection(implicitName, { db: testDb.db, registry })).rejects.toThrow(
+      /differs from the replayed one/,
+    );
+
+    expect(await rawRow(String(created.data.id))).toEqual(before);
+  });
+
   test("populated bidx column + key configured → rebuild succeeds, bidx recomputed", async () => {
     const created = await crud.create({ email: "marc@example.com" }, admin, tdb);
     if (!created.isSuccess) throw new Error("create failed");
