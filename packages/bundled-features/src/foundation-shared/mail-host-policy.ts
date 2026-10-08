@@ -10,17 +10,29 @@
 // internal relay or a dev/test server (mailpit, greenmail) — deliberately
 // an operator env var (KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS, read via
 // readAllowedPrivateMailHostsFromEnv), never a tenant-config key, so a
-// tenant can never grant themselves the bypass. Shared by both features
-// since a deploy commonly mounts both; declared once in mail-transport-
-// smtp's envSchema (see its feature.ts) to avoid the framework's env-var-
-// conflict check tripping when both features are mounted together.
+// tenant can never grant themselves the bypass. Both features register the
+// shared mailAllowedPrivateHostsEnvSchema below.
 
 import type { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { resolvePublicHostname } from "@cosmicdrift/kumiko-framework/http";
+import * as z from "zod";
 import { isHostAllowlisted, readHostAllowlistFromEnv } from "./host-allowlist.js";
 
 export const MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR = "KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS";
+
+// One schema instance, registered by every feature that reads the variable:
+// composeEnvSchema accepts the same field instance from several features, so
+// an app mounting only one of them still gets the variable validated and
+// documented.
+export const mailAllowedPrivateHostsEnvSchema = z.object({
+  [MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR]: z
+    .string()
+    .optional()
+    .describe(
+      "Comma-separated operator allowlist of private/internal hosts (e.g. a local mailpit/greenmail dev server) that bypass the public-address check for SMTP and IMAP host config. Shared by mail-transport-smtp and inbound-provider-imap — never a tenant-config value.",
+    ),
+});
 
 export function readAllowedPrivateMailHostsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,

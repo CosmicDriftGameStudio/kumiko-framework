@@ -58,6 +58,23 @@ describe("composeEnvSchema", () => {
     expect(() => composeEnvSchema({ features: [a, b] })).toThrow(KumikoBootError);
   });
 
+  it("accepts one shared field instance registered by several features", () => {
+    const shared = z.object({ MAIL_ALLOWED_HOSTS: z.string().optional() });
+    const a = defineFeature("feat-a", (r) => {
+      r.envSchema(shared);
+    });
+    const b = defineFeature("feat-b", (r) => {
+      r.envSchema(shared);
+    });
+
+    const composed = composeEnvSchema({ features: [a, b] });
+
+    expect(composed.sources).toEqual({ MAIL_ALLOWED_HOSTS: "feat-a" });
+    expect(composed.schema.parse({ MAIL_ALLOWED_HOSTS: "mailpit" })).toEqual({
+      MAIL_ALLOWED_HOSTS: "mailpit",
+    });
+  });
+
   it("detects feature/app env-var conflicts", () => {
     const a = defineFeature("feat-a", (r) => {
       r.envSchema(z.object({ DATABASE_URL: z.string() }));

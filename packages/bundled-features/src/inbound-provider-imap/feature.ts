@@ -23,6 +23,7 @@
 // (credential-document.ts) — kein Tenant-Config, weil mehrere Accounts
 // pro Tenant verschiedene Hosts haben.
 
+import { mailAllowedPrivateHostsEnvSchema } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
   INBOUND_MAIL_PROVIDER_EXTENSION,
   InboundAuthError,
@@ -282,5 +283,6 @@ export const inboundProviderImapFeature = defineFeature(FEATURE_NAME, (r) => {
   });
   r.requires("inbound-mail-foundation");
   r.requires("secrets");
+  r.envSchema(mailAllowedPrivateHostsEnvSchema);
   r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, IMAP_PROVIDER_KEY, imapInboundMailPlugin);
 });
