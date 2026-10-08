@@ -698,7 +698,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
       // cross-feature ctx.appendEvent calls at emit-site.
       const mspOwner = msp.name.split(":")[0];
       const mspFiles = fileProviderResolver
-        ? createFileContext(() => fileProviderResolver(event.tenantId))
+        ? createFileContext(() => fileProviderResolver(event.tenantId), event.tenantId)
         : undefined;
       const applyCtx = createMultiStreamApplyContext({
         registry: options.registry,

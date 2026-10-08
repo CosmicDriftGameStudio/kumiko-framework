@@ -454,7 +454,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
     // Built per request: createFileContext caches the resolved provider, so
     // one shared across requests would serve tenant A's store to tenant B.
-    const files = createFileContext(() => options.resolveProvider(user.tenantId));
+    const files = createFileContext(() => options.resolveProvider(user.tenantId), user.tenantId);
     const derivatives = createDerivativesContext({
       files,
       registry,

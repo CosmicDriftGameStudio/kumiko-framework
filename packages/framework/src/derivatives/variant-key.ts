@@ -46,6 +46,10 @@ export function variantSuffix(name: string, spec: VariantSpec): string {
 // the erasure sweep never matches a differently-cased sibling file.
 const DERIVATIVE_SUFFIX_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,31}-[0-9a-f]{16}$/;
 
+export function isDerivativeSuffix(suffix: string): boolean {
+  return DERIVATIVE_SUFFIX_PATTERN.test(suffix);
+}
+
 // Mirrors deriveKey's own split so callers get the exact same base/ext this
 // key's derivatives were built from.
 function splitKey(key: string): { readonly base: string; readonly ext: string } {
