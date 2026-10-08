@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -34,6 +34,8 @@ const otherAdmin = createTestUser({
 const normalUser = createTestUser({ id: 12 });
 
 let stack: TestStack;
+// Frozen only by the rate-limit test: no token refills while the 61 requests run.
+let frozenNowMs: number | undefined;
 
 // Host → Tenant: a.* → A, b.* → B, sonst kein Tenant (404). Steht für
 // publicstatus' Subdomain-Auflösung bzw. studios eigene.
@@ -58,6 +60,7 @@ beforeAll(async () => {
   const resolver = createConfigResolver();
   stack = await setupTestStack({
     features: [configFeature, managed],
+    rateLimitNowMs: () => frozenNowMs ?? Date.now(),
     anonymousAccess: {
       tenantExists: async (id) => id === TENANT_A || id === TENANT_B,
     },
@@ -97,6 +100,11 @@ beforeAll(async () => {
   });
 });
 
+afterEach(async () => {
+  frozenNowMs = undefined;
+  await stack.redis.flushNamespace();
+});
+
 afterAll(async () => {
   await stack.cleanup();
 });
@@ -106,15 +114,21 @@ describe("managed-pages :: server-render route rate limit", () => {
   // Retry-After, not degrade to 503 "page unavailable".
   test("exhausted bucket → 429 with Retry-After", async () => {
     await stack.redis.flushNamespace();
+    const frozenAtMs = Date.now();
+    frozenNowMs = frozenAtMs;
     for (let i = 0; i < 60; i++) {
       const res = await stack.app.request("http://a.example.com/p/about");
       expect(res.status).toBe(200);
     }
     const blocked = await stack.app.request("http://a.example.com/p/about");
     expect(blocked.status).toBe(429);
-    expect(Number(blocked.headers.get("retry-after"))).toBeGreaterThan(0);
-    await stack.redis.flushNamespace();
-  }, 20000);
+    const retryAfterSeconds = Number(blocked.headers.get("retry-after"));
+    expect(retryAfterSeconds).toBeGreaterThan(0);
+
+    frozenNowMs = frozenAtMs + retryAfterSeconds * 1000;
+    const afterRefill = await stack.app.request("http://a.example.com/p/about");
+    expect(afterRefill.status).toBe(200);
+  });
 });
 
 describe("managed-pages :: server-render route", () => {

@@ -223,6 +223,9 @@ export type TestStackOptions = {
    *  them themselves. Default true — false pushes only projection/MSP/
    *  storeTable sources, same as before fw#3102. */
   entityTables?: boolean;
+  /** Time source of the stack's rate-limit resolver, so tests can freeze the
+   *  clock instead of racing the window. Default: system time. */
+  rateLimitNowMs?: () => number;
   /** Forwarded to buildServer's top-level `ServerOptions.trustedProxyHops`
    *  — see there. Default 0. */
   trustedProxyHops?: number;
@@ -525,10 +528,15 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // `rateLimit` key, so reading it back needs the same relaxed boundary
     // extraContext itself is typed with.
     const explicitRateLimit = (appContext as { rateLimit?: unknown }).rateLimit;
-    const rateLimitFallback =
-      appContext.redis === undefined && explicitRateLimit === undefined
-        ? createRateLimitResolver({ redis: testRedis.redis })
-        : undefined;
+    const needsOwnRateLimitResolver =
+      explicitRateLimit === undefined &&
+      (appContext.redis === undefined || options.rateLimitNowMs !== undefined);
+    const rateLimitFallback = needsOwnRateLimitResolver
+      ? createRateLimitResolver({
+          redis: testRedis.redis,
+          ...(options.rateLimitNowMs ? { nowMs: options.rateLimitNowMs } : {}),
+        })
+      : undefined;
 
     const server = buildServer({
       registry,
