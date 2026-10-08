@@ -95,7 +95,17 @@ export type FooterActionMarker = {
  *  und sollte mit `disabled` kombiniert werden, wenn die Action wirklich
  *  blockiert bis das Loading durch ist (z.B. async submit). Native-
  *  Impls können den Spinner als Activity-Indicator rendern. */
-export type ButtonProps = {
+export type ButtonProps = ButtonBaseProps &
+  (
+    | { readonly children: ReactNode }
+    | {
+        readonly children?: undefined;
+        readonly icon: NavIconKey;
+        readonly ariaLabel: string;
+      }
+  );
+
+type ButtonBaseProps = {
   readonly type?: "button" | "submit";
   readonly onClick?: () => void | Promise<void>;
   readonly disabled?: boolean;
@@ -126,11 +136,6 @@ export type ButtonProps = {
    *  die Container-Breite (Karten/Panels). Andere Breiten sind Layout-Sache
    *  des Containers, kein Button-Prop (Kit hält arbiträres Sizing draußen). */
   readonly width?: "full" | "auto";
-  /** Optional for icon-only buttons (`size="icon"` with a resolved `icon`)
-   *  — the icon carries the content then, `ariaLabel` the accessible name.
-   *  Required in practice otherwise: without children and without `icon`
-   *  the button stays empty. */
-  readonly children?: ReactNode;
   readonly testId?: string;
   /** Layout extras — Web merges via cn(), native impls ignore it
    *  (precedent: LinkProps.className). */
