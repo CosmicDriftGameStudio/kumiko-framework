@@ -8,6 +8,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { billingFoundationFeature } from "../../billing-foundation/index.js";
 import {
   createComplianceProfilesFeature,
@@ -115,6 +116,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+  resetPiiSubjectKmsForTests();
 });
 
 describe("cap-overview tenant isolation", () => {

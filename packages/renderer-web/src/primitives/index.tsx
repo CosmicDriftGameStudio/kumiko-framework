@@ -67,6 +67,7 @@ import {
   type WizardStepGroupProps,
   WriteFailedError,
 } from "@cosmicdrift/kumiko-renderer";
+import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { cva } from "class-variance-authority";
 import {
   ArrowDown,
@@ -3380,6 +3381,9 @@ function DataTableCell({
         {EMPTY_CELL_PLACEHOLDER}
       </span>
     );
+  }
+  if (value === PII_ERASED_SENTINEL && translate !== undefined) {
+    return translate("kumiko.pii.erased");
   }
   if (typeof value === "boolean" && isUnlabeledBooleanFormat(renderer)) {
     return <BooleanCell value={value} translate={translate} />;

@@ -27,6 +27,7 @@ import {
   type KmsAdapter,
   type KmsContext,
   type LocalKeyKmsAdapter,
+  PII_ERASED_SENTINEL,
   type SubjectDek,
   type SubjectId,
   subjectIdFromKey,
@@ -41,9 +42,7 @@ import {
 import { resolveSubjectForField } from "./subject-resolver.js";
 
 // Spec value (crypto-shredding.md) — renderers show it verbatim.
-export { isPiiCiphertext, PII_CIPHERTEXT_PREFIX, PII_CIPHERTEXT_PREFIX_JSON };
-
-export const PII_ERASED_SENTINEL = "[[erased]]";
+export { isPiiCiphertext, PII_CIPHERTEXT_PREFIX, PII_CIPHERTEXT_PREFIX_JSON, PII_ERASED_SENTINEL };
 
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;

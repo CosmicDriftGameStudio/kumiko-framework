@@ -43,7 +43,7 @@ export const tenantListScreen: EntityListScreenDefinition = {
       entityId: "id",
     },
   ],
-  defaultSort: { field: "name", dir: "asc" },
+  defaultSort: { field: "key", dir: "asc" },
   searchable: true,
   access: { roles: ["SystemAdmin"] },
   // Inert until an app navs it (see file header) — no nav area to resolve

@@ -308,6 +308,8 @@ describe("POST /api/auth/signup-confirm", () => {
     const tenantRows = await selectMany(stack.db, tenantTable, { id: body.user?.tenantId ?? "" });
     expect(tenantRows).toHaveLength(1);
     expect(tenantRows[0]?.["key"]).toBe(body.tenantKey);
+    expect(tenantRows[0]?.["name"]).toBe(body.tenantKey);
+    expect(String(tenantRows[0]?.["name"])).not.toContain(email);
 
     const memberships = await selectMany(stack.db, tenantMembershipsTable, {
       userId: body.user?.id ?? "",

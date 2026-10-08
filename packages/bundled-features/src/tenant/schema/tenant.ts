@@ -28,19 +28,17 @@ export const tenantEntity = createEntity({
     key: createTextField({
       required: true,
       maxLength: 50,
+      sortable: true,
       personal: false,
       reason: "technical_reference",
     }),
-    // Workspace/company display name, not an individual's identity —
-    // same class as the `company.legalName` example in the boot-validator's
-    // own PII-heuristic doc-comment.
+    // Subject is the tenant record itself: tenant events live in the writer's (system) tenant stream, so `personal: "tenant"` would not resolve to this tenant.
     name: createTextField({
       required: true,
       maxLength: 200,
       searchable: true,
-      sortable: true,
-      personal: false,
-      reason: "is_business_data",
+      personal: { of: "id" },
+      find: "none",
     }),
     isEnabled: createBooleanField({ default: true, filterable: true }),
     // Tenant-destroy lifecycle (tenant-lifecycle feature). Defaults keep

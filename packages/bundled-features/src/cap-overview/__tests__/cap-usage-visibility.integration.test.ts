@@ -7,6 +7,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { billingFoundationFeature } from "../../billing-foundation/index.js";
 import {
   createComplianceProfilesFeature,
@@ -71,6 +72,7 @@ describe("caps:usage visibility defaults to admins", () => {
   });
   afterAll(async () => {
     await stack.cleanup();
+    resetPiiSubjectKmsForTests();
   });
 
   test("a regular User gets 403", async () => {
@@ -91,6 +93,7 @@ describe("caps:usage visibility with usageVisibleTo", () => {
   });
   afterAll(async () => {
     await stack.cleanup();
+    resetPiiSubjectKmsForTests();
   });
 
   test("a regular User reads own-tenant usage", async () => {

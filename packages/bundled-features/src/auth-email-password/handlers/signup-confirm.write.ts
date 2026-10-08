@@ -196,9 +196,8 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
               displayName,
               tenantId,
               tenantKey,
-              // Tenant-Display-Name als Default = Email. User wechselt das im
-              // Settings-Screen. Konzept "Tenant" leakt nicht in die Signup-UI.
-              tenantName: email,
+              // Generated slug as default name: no personal data (the email) in the tenant name.
+              tenantName: tenantKey,
             },
             // #1463: seedTenant's postSave hooks (tier-engine's auto-default-
             // tier, an app's auto-default-compliance) must fire on self-signup

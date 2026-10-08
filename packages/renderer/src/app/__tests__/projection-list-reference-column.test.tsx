@@ -12,6 +12,7 @@ import {
   SYSTEM_REFERENCE_LABELS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, RuntimeRenderer } from "@cosmicdrift/kumiko-headless";
+import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.js";
@@ -34,6 +35,7 @@ const REAL_TENANT_ID = "11111111-1111-4111-8111-111111111111";
 const SYSTEM_USER_ID = systemReferenceId("user:user");
 const REAL_USER_ID = "22222222-2222-4222-8222-222222222222";
 const DELETED_USER_ID = "33333333-3333-4333-8333-333333333333";
+const ERASED_TENANT_ID = "44444444-4444-4444-8444-444444444444";
 
 let capturedProps: DataTableProps | undefined;
 const captureDataTable: ComponentType<DataTableProps> = (props) => {
@@ -88,7 +90,13 @@ function stubDispatcher(): Dispatcher {
       if (type === "tenant:query:tenant-directory") {
         return {
           isSuccess: true,
-          data: { rows: [{ id: REAL_TENANT_ID, label: "Acme Inc" }], nextCursor: null },
+          data: {
+            rows: [
+              { id: REAL_TENANT_ID, label: "Acme Inc" },
+              { id: ERASED_TENANT_ID, label: PII_ERASED_SENTINEL },
+            ],
+            nextCursor: null,
+          },
         };
       }
       // user:user resolves through the tenant-scoped member directory, not the
@@ -189,6 +197,15 @@ describe("projectionList reference column resolves labels (fw#2662)", () => {
 
     await waitFor(() => {
       expect(referenceRenderer()(SYSTEM_TENANT_ID, { tenantId: SYSTEM_TENANT_ID })).toBe("System");
+    });
+  });
+
+  test("a destroyed tenant's erased name shows the translated deleted label", async () => {
+    capturedProps = undefined;
+    renderLogScreen();
+
+    await waitFor(() => {
+      expect(referenceRenderer()(ERASED_TENANT_ID, { tenantId: ERASED_TENANT_ID })).toBe("Deleted");
     });
   });
 });

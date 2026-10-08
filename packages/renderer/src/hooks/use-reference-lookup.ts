@@ -21,6 +21,7 @@ import {
   REFERENCE_LOOKUP_SOURCES,
   SYSTEM_REFERENCE_LABELS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { useMemo } from "react";
 import { toKebab } from "../app/qn.js";
 import { useTranslation } from "../i18n.js";
@@ -80,7 +81,10 @@ export function useReferenceLookup(
       if (id === undefined || id === null) continue;
       const idStr = String(id);
       const label = row[labelKey] ?? id;
-      out.set(idStr, String(label));
+      out.set(
+        idStr,
+        label === PII_ERASED_SENTINEL ? translate("kumiko.pii.erased") : String(label),
+      );
     }
     // System-scope ids (e.g. SYSTEM_TENANT_ID) never have a backing row, so
     // the bulk lookup above never covers them — inject the label directly.

@@ -3,6 +3,7 @@ import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/e
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
+import { decryptTenantNames } from "../decrypt-tenant-names.js";
 import { tenantMembershipsTable } from "../membership-table.js";
 import { tenantTable } from "../schema/tenant.js";
 
@@ -32,9 +33,12 @@ export const membershipsQuery = defineQueryHandler({
     // prefix would be indistinguishable). A single IN-batch over all
     // tenantIds instead of fetchOne per membership (#324).
     type TenantRow = { id: unknown; name?: unknown; key?: unknown; isEnabled?: unknown };
-    const tenants = await selectMany<TenantRow>(db, tenantTable, {
-      id: rows.map((row) => row["tenantId"]),
-    });
+    const tenants = await decryptTenantNames(
+      await selectMany<TenantRow>(db, tenantTable, {
+        id: rows.map((row) => row["tenantId"]),
+      }),
+      "tenant:memberships",
+    );
     const tenantById = new Map<unknown, TenantRow>(tenants.map((t) => [t.id, t]));
 
     return rows

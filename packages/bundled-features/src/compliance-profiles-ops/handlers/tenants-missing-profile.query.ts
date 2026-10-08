@@ -3,7 +3,7 @@ import { defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { tenantComplianceProfileTable } from "../../compliance-profiles/index.js";
-import { tenantTable } from "../../tenant/index.js";
+import { decryptTenantNames, tenantTable } from "../../tenant/index.js";
 
 // SystemAdmin platform-wide counterpart to needs-profile (#2089).
 //
@@ -34,9 +34,10 @@ export const tenantsMissingProfileQuery = defineQueryHandler({
       "platform operator scans every tenant for a missing compliance-profile selection",
     );
 
-    const tenants = await db.selectMany<{ id: TenantId; name: string }>(tenantTable, {
-      isEnabled: true,
-    });
+    const tenants = await decryptTenantNames(
+      await db.selectMany<{ id: TenantId; name: string }>(tenantTable, { isEnabled: true }),
+      "compliance-profiles-ops:tenants-missing-profile",
+    );
     const profileRows = await db.selectMany<{ tenantId: TenantId }>(
       tenantComplianceProfileTable,
       {},

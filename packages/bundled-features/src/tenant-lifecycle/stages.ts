@@ -1,5 +1,9 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { configuredPiiSubjectKms, type SubjectId } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  configuredPiiSubjectKms,
+  type SubjectId,
+  subjectIdToKey,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEventStoreExecutor,
   createTenantDb,
@@ -26,6 +30,10 @@ import {
   createEscapeHatchReporter,
   UNATTRIBUTED_ACTOR,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  purgeSearchDocumentsForSubject,
+  type SearchAdapter,
+} from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   tenantEntity,
@@ -45,6 +53,9 @@ export type DestructionStageCtx = {
   // "destroyTenant" hooks) — undefined when no file-provider is wired,
   // which those hooks must treat as "nothing to clean up", not an error.
   readonly fileProviderResolver?: FileProviderResolver;
+  // Derived search docs of the tenant record (its name) live in the writer's
+  // index, not the destroyed tenant's, so the subject-keys stage purges them.
+  readonly searchAdapter?: SearchAdapter;
   // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
   // systemUser.id); runTenantDataHooks uses them to attribute+audit any
   // EXT_TENANT_DATA usage's declared escapeHatch.
@@ -123,8 +134,10 @@ async function eraseSubjectKeys(ctx: DestructionStageCtx): Promise<void> {
   const memberships = await selectMany<{ userId: string }>(ctx.db, tenantMembershipsTable, {
     tenantId: ctx.tenantId,
   });
+  const tenantRecordSubject: SubjectId = { kind: "record", entity: "tenant", id: ctx.tenantId };
   const subjects: SubjectId[] = [
     { kind: "tenant", tenantId: ctx.tenantId },
+    tenantRecordSubject,
     ...memberships.map((m) => ({ kind: "user" as const, userId: m.userId })),
   ];
   for (const subject of subjects) {
@@ -132,6 +145,15 @@ async function eraseSubjectKeys(ctx: DestructionStageCtx): Promise<void> {
       requestId: `tenant-lifecycle:destroy:${ctx.tenantId}`,
       eraseReason: "tenant-destroy stage subject-keys",
     });
+  }
+  if (ctx.searchAdapter) {
+    await purgeSearchDocumentsForSubject(
+      ctx.db,
+      ctx.registry.features,
+      ctx.searchAdapter,
+      subjectIdToKey(tenantRecordSubject),
+      tenantRecordSubject,
+    );
   }
 }
 

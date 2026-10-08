@@ -732,6 +732,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.field.unsupported": "Este tipo de campo todavía no se puede editar aquí.",
   "kumiko.field.writeOnly.remove": "Quitar el valor guardado",
   "kumiko.field.writeOnly.set": "Establecido",
+  "kumiko.pii.erased": "Eliminado",
   "kumiko.field.writeOnly.setPlaceholder": "Establecido: dejar vacío para conservarlo",
   "kumiko.field.writeOnly.undo": "Deshacer",
   "kumiko.field.writeOnly.willRemove": "Se quitará al guardar",

@@ -7,6 +7,7 @@ export {
   TenantHandlers,
   TenantQueries,
 } from "./constants.js";
+export { decryptTenantNames } from "./decrypt-tenant-names.js";
 export { collectAssignableAppRoles, createTenantFeature } from "./feature.js";
 export type { InvitationStatus } from "./invitation-table.js";
 export {
