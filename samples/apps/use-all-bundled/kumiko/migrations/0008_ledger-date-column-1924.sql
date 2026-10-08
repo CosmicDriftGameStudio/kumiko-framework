@@ -11,8 +11,7 @@
 -- read_ledger_schedules
 -- managed projection — recreated + rebuilt from events (see .rebuild.json)
 -- WARN: destructive change (column type change: start_date, end_date) forces DROP+CREATE + full event replay.
--- Consider an Expand/Contract split across two releases to avoid the rebuild;
--- see the expand/contract migration guide.
+-- Consider an Expand/Contract split across two releases to avoid the rebuild — see docs/guides/expand-contract-managed-projections.md.
 DROP TABLE IF EXISTS "read_ledger_schedules";
 CREATE TABLE IF NOT EXISTS "read_ledger_schedules" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,8 +34,7 @@ CREATE INDEX IF NOT EXISTS "read_ledger_schedules_tenant_id_idx" ON "read_ledger
 -- read_ledger_transactions
 -- managed projection — recreated + rebuilt from events (see .rebuild.json)
 -- WARN: destructive change (column type change: date) forces DROP+CREATE + full event replay.
--- Consider an Expand/Contract split across two releases to avoid the rebuild;
--- see the expand/contract migration guide.
+-- Consider an Expand/Contract split across two releases to avoid the rebuild — see docs/guides/expand-contract-managed-projections.md.
 DROP TABLE IF EXISTS "read_ledger_transactions";
 CREATE TABLE IF NOT EXISTS "read_ledger_transactions" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),

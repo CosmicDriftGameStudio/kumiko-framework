@@ -11,8 +11,7 @@
 -- read_form_drafts
 -- managed projection — recreated + rebuilt from events (see .rebuild.json)
 -- WARN: destructive change (column(s) set NOT NULL: owner_id) forces DROP+CREATE + full event replay.
--- Consider an Expand/Contract split across two releases to avoid the rebuild;
--- see the expand/contract migration guide.
+-- Consider an Expand/Contract split across two releases to avoid the rebuild — see docs/guides/expand-contract-managed-projections.md.
 DROP TABLE IF EXISTS "read_form_drafts";
 CREATE TABLE IF NOT EXISTS "read_form_drafts" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
