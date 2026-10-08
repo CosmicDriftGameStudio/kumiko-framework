@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // --- Field Types ---
 
 import type { VariantSpec } from "./derivatives-types.js";

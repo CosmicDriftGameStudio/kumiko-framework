@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // Envelope Encryption types. Separating DEK (per-value) from KEK (central)
 // is what makes key rotation cheap: on rotation we only re-wrap the small
 // encryptedDek, never touch the ciphertext.

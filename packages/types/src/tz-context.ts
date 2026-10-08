@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // TzContext — the type contract for ctx.tz (pure types; the factory lives in
 // @cosmicdrift/kumiko-framework, time/tz-context.ts).
 //
