@@ -285,7 +285,9 @@ function reportRunOutcome(
 ): void {
   if (progress.failures.length > 0) {
     log.error(
-      `${progress.failures.length} event(s) could not be PII-encrypted and will be retried on the next boot`,
+      `${progress.failures.length} event(s) could not be PII-encrypted and will be retried on the next boot; ` +
+        "every boot rescans from the first failed event until it is fixed, or erased via " +
+        "backfillEventPiiEncryption(..., { eraseUnresolvableSubjects: true }) for unresolvable subjects",
       {
         failureCount: progress.failures.length,
         eventIds: progress.failures.slice(0, MAX_LOGGED_FAILURE_IDS).map((f) => f.eventId),

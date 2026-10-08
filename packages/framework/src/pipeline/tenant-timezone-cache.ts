@@ -4,12 +4,14 @@
 // SELECT (sometimes two, cascade + fallback) per request, often inside an
 // open write transaction. A tenant-keyed TTL cache removes the steady-state
 // cost; dispatch-write.ts invalidates entries synchronously on
-// config:write:set/reset for this key, so the TTL below only covers writes
-// that bypass that path (migrations, seeds, direct DB edits).
+// config:write:set/reset for this key, but only in the process that handled
+// the write. The TTL below therefore bounds how long OTHER replicas (and
+// writes that bypass that path: migrations, seeds, direct DB edits) keep
+// serving the old value, hence the short default.
 
 import type { TenantId } from "../engine/types/identifiers.js";
 
-const DEFAULT_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_TTL_MS = 30 * 1000;
 const DEFAULT_MAX_ENTRIES = 1000;
 
 export type TenantTimezoneCacheOptions = {
