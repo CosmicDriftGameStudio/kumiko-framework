@@ -264,6 +264,24 @@ describe("jobs:query:failures (fw#3079)", () => {
     expect(JSON.parse(raw).data.rows).toHaveLength(3);
     expect(raw).toContain(PROVIDER_MESSAGE);
   });
+  test("two rows left by concurrent failures of one key list as the newest one only", async () => {
+    const base = { tenantId: tenantB, jobName: "app:job:twice", subject: null };
+    await insertOne(db, tenantJobFailuresTable, {
+      ...base,
+      messageKey: DECLARED_KEY,
+      failedAt: Temporal.Instant.from("2026-01-01T10:00:00Z"),
+    });
+    await insertOne(db, tenantJobFailuresTable, {
+      ...base,
+      messageKey: BUDGET_KEY,
+      failedAt: Temporal.Instant.from("2026-01-01T11:00:00Z"),
+    });
+
+    const rows = await failures(userB, { jobName: "app:job:twice" });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.messageKey).toBe(BUDGET_KEY);
+  });
+
   test("a corrupt stored subject degrades to null instead of failing the list", async () => {
     await insertOne(db, tenantJobFailuresTable, {
       tenantId: tenantB,
