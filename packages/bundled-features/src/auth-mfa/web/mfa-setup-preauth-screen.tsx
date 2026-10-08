@@ -173,9 +173,9 @@ export function MfaSetupPreauthScreen({
       ) : null}
 
       {!setup && (
-        <Section
-          testId="mfa-setup-preauth-intro"
-          actions={
+        <Section testId="mfa-setup-preauth-intro">
+          <span className="text-sm text-muted-foreground">{t("auth.mfa.setup.intro")}</span>
+          <div className="flex justify-end">
             <Button
               variant="primary"
               onClick={() => void startSetup()}
@@ -184,27 +184,13 @@ export function MfaSetupPreauthScreen({
             >
               {t("auth.mfa.setup.start")}
             </Button>
-          }
-        >
-          <span className="text-sm text-muted-foreground">{t("auth.mfa.setup.intro")}</span>
+          </div>
         </Section>
       )}
 
       {setup && (
         <Form onSubmit={onSubmit}>
-          <Section
-            testId="mfa-setup-preauth-setup"
-            actions={
-              <Button
-                type="submit"
-                variant="primary"
-                loading={busy}
-                disabled={busy || !acknowledged || code.length !== 6}
-              >
-                {t("auth.mfa.setup.confirm")}
-              </Button>
-            }
-          >
+          <Section testId="mfa-setup-preauth-setup">
             <div className="flex flex-col items-center gap-2 text-center">
               <span className="text-sm font-semibold">{t("auth.mfa.enable.scanTitle")}</span>
               {/* qrcode's own SVG string output, not user input — safe to inline */}
@@ -251,6 +237,17 @@ export function MfaSetupPreauthScreen({
                 autoComplete="one-time-code"
               />
             </Field>
+
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                variant="primary"
+                loading={busy}
+                disabled={busy || !acknowledged || code.length !== 6}
+              >
+                {t("auth.mfa.setup.confirm")}
+              </Button>
+            </div>
           </Section>
         </Form>
       )}
