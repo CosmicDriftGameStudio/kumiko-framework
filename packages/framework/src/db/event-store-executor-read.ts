@@ -551,6 +551,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
     streamTenantFor,
     idFilter,
     loadWithOwnership,
+    loadDetailSnapshot,
     decryptForRead,
     encryptForStorage,
   } = ctx;
@@ -907,16 +908,12 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // out the stale row.version dooms the next CRUD update built on it
       // (entityEdit loads detail.version as its optimistic-lock base) to a
       // guaranteed version_conflict.
-      const withStreamVersion = async (
+      // A cache hit only counts when its version equals the live stream version:
+      // a late entityCache.set() can resurrect an old row after the writer's del().
+      const withVersion = (
         row: Record<string, unknown>,
-      ): Promise<Record<string, unknown>> => {
-        const streamVersion = await getStreamVersion(
-          tenantDbRunner(db),
-          String(payload.id),
-          streamTenantFor(user),
-        );
-        return streamVersion > 0 ? { ...row, version: streamVersion } : row;
-      };
+        streamVersion: number,
+      ): Record<string, unknown> => (streamVersion > 0 ? { ...row, version: streamVersion } : row);
 
       if (entityCache && entityName) {
         const cached = await entityCache.get(user.tenantId, entityName, payload.id);
@@ -929,32 +926,45 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
             const checkRows = await loadWithOwnership(db, idWhere, ownership);
             if (checkRows.length === 0) return null;
           }
-          // Cached rows are stored re-encrypted (see the `set` below) so an
-          // `encrypted` field's plaintext never sits in a second at-rest
-          // store (Redis) the field-encryption feature doesn't cover.
-          return withStreamVersion(await decryptForRead(cached));
+          const streamVersion = await getStreamVersion(
+            tenantDbRunner(db),
+            String(payload.id),
+            streamTenantFor(user),
+          );
+          if (!(streamVersion > 0 && cached["version"] !== streamVersion)) {
+            // Cached rows are stored re-encrypted (see the `set` below) so an
+            // `encrypted` field's plaintext never sits in a second at-rest
+            // store (Redis) the field-encryption feature doesn't cover.
+            return withVersion(await decryptForRead(cached), streamVersion);
+          }
         }
       }
 
-      const rows = await loadWithOwnership(db, idWhere, ownership);
-      const raw = rows[0];
+      const snapshot = await loadDetailSnapshot(
+        db,
+        idWhere,
+        ownership,
+        streamTenantFor(user),
+        String(payload.id),
+      );
+      const raw = snapshot.row;
       if (!raw) return null;
       // Same coerce-before-rehydrate/decrypt ordering as list() above — raw
-      // is snake_case only on the ownership.kind==="sql" branch (raw SQL);
-      // coerceRow is a no-op on the already-camelCase "pass" branch rows.
+      // is snake_case (raw SQL); coerceRow maps it to camelCase.
       const rowInfo = extractTableInfo(table);
       const coerced = await decryptForRead(rehydrateCompoundTypes(coerceRow(raw, rowInfo), entity));
+      const result = withVersion(coerced, snapshot.streamVersion);
 
       if (entityCache && entityName) {
         await entityCache.set(
           user.tenantId,
           entityName,
           payload.id,
-          await encryptForStorage(coerced, user),
+          await encryptForStorage(result, user),
         );
       }
 
-      return withStreamVersion(coerced);
+      return result;
     },
   };
 }
