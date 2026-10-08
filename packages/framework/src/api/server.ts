@@ -539,6 +539,26 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const rateLimitResolver =
     options.context.rateLimit ??
     (wrappedRedis && wantsResolver ? createRateLimitResolver({ redis: wrappedRedis }) : undefined);
+  if (!rateLimitResolver) {
+    // The systemScope default limit only exists once a resolver does, and an app that
+    // declared no explicit rateLimit anywhere never gets one auto-wired (wantsL3 stays
+    // false) — so its cross-tenant handlers are silently unlimited.
+    const unlimitedSystemScopeFeatures = [...options.registry.features.values()]
+      .filter(
+        (feature) =>
+          feature.systemScope &&
+          Object.keys(feature.writeHandlers).length + Object.keys(feature.queryHandlers).length > 0,
+      )
+      .map((feature) => feature.name);
+    if (unlimitedSystemScopeFeatures.length > 0) {
+      console.warn(
+        `[kumiko:boot] r.systemScope() features have handlers but no RateLimitResolver is configured, ` +
+          `so their default rate limit is not enforced: ${unlimitedSystemScopeFeatures.join(", ")}. ` +
+          "Wire a Redis client on context.redis and declare rateLimit on at least one handler (or pass " +
+          "context.rateLimit) to enable the resolver.",
+      );
+    }
+  }
   const contextWithObservability: AppContext = {
     ...contextWithFiles,
     ...(wrappedRedis ? { redis: wrappedRedis } : {}),
