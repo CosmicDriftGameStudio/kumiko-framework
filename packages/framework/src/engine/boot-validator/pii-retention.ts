@@ -366,7 +366,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         if (entityHasAnonymizableField && !hasAnonymize) {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
-            `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.strategy="blockDelete" but no field has an anonymize-function. User-Forget cannot anonymize — Forget will return error. Add { anonymize: () => null } or () => "[ANONYMIZED]" to PII fields.`,
+            `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.strategy="blockDelete" but no field has an anonymize-function. Once keepFor expires, the data-retention cron anonymizes nothing and the row keeps its PII. Add { anonymize: () => null } or () => "[ANONYMIZED]" to PII fields.`,
           );
         }
       }
