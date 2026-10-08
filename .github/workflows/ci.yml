@@ -386,12 +386,9 @@ jobs:
   # gegen den vollen Stack. Wall-clock perf gates laufen
   # separat via `test:integration:perf` (KUMIKO_PERF_GATE=1). Der env-Preload von @cosmicdrift/kumiko-testing
   # setzt die localhost-Env-Defaults selbst (kein --env-file nötig).
-  # cdgs-runner hat die docker-CLI aber kein compose-v2-Plugin → `docker run`
-  # + user-defined Network, damit der minio-Bucket-Init minio per
-  # Container-Name erreicht (wie es docker-compose.yml tat). Ersetzt den 2026
-  # entfernten postgres-smoke-Job (war flaky vor dem bun-db-Cutover).
+  # Services (pg/redis/meili/object storage) come from the
+  # .github/actions/kumiko-services action; image pins live in its service-images.txt.
   integration:
-    # GitHub-hosted: Services laufen via `docker run` (unten) → nativ auf ubuntu.
     runs-on: ubuntu-latest
     needs: version-pr-gate
     if: ${{ !cancelled() && needs.version-pr-gate.outputs.skip_heavy != 'true' }}
@@ -420,54 +417,15 @@ jobs:
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
       - name: Start services
-        run: |
-          docker network create kumiko-ci
-          # fsync/synchronous_commit/full_page_writes off (same variant the
-          # app CI Postgres and this repo's own docker-compose.yml already
-          # use): this container is torn down with the job, so durability
-          # against a host crash buys nothing, and DROP DATABASE otherwise
-          # forces a synchronous CHECKPOINT that stalls stack.cleanup() for
-          # seconds under --parallel.
-          docker run -d --name kumiko-ci-pg --network kumiko-ci -p 15432:5432 \
-            -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
-            postgres:18.4-alpine \
-            -c fsync=off -c synchronous_commit=off -c full_page_writes=off
-          docker run -d --name kumiko-ci-redis --network kumiko-ci -p 16379:6379 redis:8-alpine
-          docker run -d --name kumiko-ci-meili --network kumiko-ci -p 17700:7700 \
-            -e MEILI_MASTER_KEY=kumiko-dev-key -e MEILI_ENV=development \
-            getmeili/meilisearch:v1.12
-          docker run -d --name kumiko-ci-minio --network kumiko-ci -p 19000:9000 \
-            -e RUSTFS_ACCESS_KEY=kumiko -e RUSTFS_SECRET_KEY=kumiko-dev-secret \
-            rustfs/rustfs:1.0.0 /data
-          for i in $(seq 1 30); do
-            if docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres >/dev/null 2>&1; then break; fi
-            sleep 2
-          done
-          docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres
-          # bun-db tests connect directly to TEST_DATABASE_URL (kumiko_test);
-          # docker-compose.yml seeds it via postgres-init, which a bare
-          # `docker run` does not mount, so create it explicitly.
-          docker exec kumiko-ci-pg psql -U kumiko -d kumiko_dev -c "CREATE DATABASE kumiko_test;"
-          for i in $(seq 1 30); do
-            if docker exec kumiko-ci-redis redis-cli ping >/dev/null 2>&1; then break; fi
-            sleep 2
-          done
-          docker exec kumiko-ci-redis redis-cli ping
-          for i in $(seq 1 30); do
-            if docker exec kumiko-ci-meili wget -q --spider http://127.0.0.1:7700/health 2>/dev/null; then break; fi
-            sleep 2
-          done
-          docker exec kumiko-ci-meili wget -q --spider http://127.0.0.1:7700/health
-          aws_ci() {
-            docker run --rm --network kumiko-ci \
-              -e AWS_ACCESS_KEY_ID=kumiko -e AWS_SECRET_ACCESS_KEY=kumiko-dev-secret -e AWS_DEFAULT_REGION=us-east-1 \
-              amazon/aws-cli:2.37.1 --endpoint-url http://kumiko-ci-minio:9000 "$@"
-          }
-          for i in $(seq 1 30); do
-            if aws_ci s3 mb s3://kumiko-dev >/dev/null 2>&1; then break; fi
-            sleep 2
-          done
-          aws_ci s3 ls s3://kumiko-dev
+        uses: ./.github/actions/kumiko-services
+        with:
+          redis: "true"
+          meilisearch: "true"
+          object-storage: "true"
+          postgres-port: "15432"
+          redis-port: "16379"
+          meilisearch-port: "17700"
+          object-storage-port: "19000"
 
       - name: Run integration tests
         env:
@@ -504,9 +462,7 @@ jobs:
 
       - name: Stop services
         if: always()
-        run: |
-          docker rm -f kumiko-ci-pg kumiko-ci-redis kumiko-ci-meili kumiko-ci-minio || true
-          docker network rm kumiko-ci || true
+        uses: ./.github/actions/kumiko-services/stop
 
   # Event-store latency gate (#1940), isolated in its own job (removes bulk-suite contention) and gated on p95 for typical latency; p99 only has a loose 250ms tail budget because cold-Postgres warm-up alone spikes it to 47-73ms even fully isolated.
   # The job name is a required branch-protection check: rename only together with it.
@@ -538,38 +494,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
-      # Same fsync-off variant as the integration job and docker-compose.yml,
-      # plus checkpoint_timeout. This container only exists to be measured
-      # and thrown away — durability guarantees buy nothing here but add write-path variance
-      # (commit fsync wait, post-checkpoint full-page-write amplification)
-      # that showed up as scattered p95 spikes unrelated to event-store code.
-      # fsync/synchronous_commit/full_page_writes off removes that noise;
-      # checkpoint_timeout keeps a time-triggered checkpoint from firing
-      # mid-run (the ~5k rows this job writes never approach the default
-      # max_wal_size, so a volume-triggered checkpoint isn't a factor here).
       - name: Start postgres
-        run: |
-          docker run -d --name kumiko-ci-pg -p 15432:5432 \
-            -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
-            postgres:18.4-alpine \
-            -c fsync=off -c synchronous_commit=off -c full_page_writes=off \
-            -c checkpoint_timeout=1h
-          for i in $(seq 1 30); do
-            if pg_isready -h 127.0.0.1 -p 15432 -U kumiko >/dev/null 2>&1; then break; fi
-            sleep 2
-          done
-          psql "postgresql://kumiko:kumiko@127.0.0.1:15432/kumiko_dev" -c "SELECT 1" >/dev/null
-          psql "postgresql://kumiko:kumiko@127.0.0.1:15432/kumiko_dev" -c "CREATE DATABASE kumiko_test;"
+        uses: ./.github/actions/kumiko-services
+        with:
+          postgres-port: "15432"
 
       - name: Run event-store perf gate
-        env:
-          DATABASE_URL: postgresql://kumiko:kumiko@127.0.0.1:15432/kumiko_dev
-          TEST_DATABASE_URL: postgresql://kumiko:kumiko@127.0.0.1:15432/kumiko_test
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run event-store perf gate" -- bun run test:integration:perf:eventstore
 
       - name: Stop postgres
         if: always()
-        run: docker rm -f kumiko-ci-pg || true
+        uses: ./.github/actions/kumiko-services/stop
 
   # Job-Name ist ein Pflicht-Check der Branch-Protection: nur zusammen mit ihr
   # umbenennen. Fährt die Playwright-e2e-Suiten aus der Liste unten
@@ -607,25 +542,13 @@ jobs:
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install Playwright Chromium" -- bunx playwright install chromium
 
       - name: Start services
-        run: |
-          docker network create kumiko-ci
-          docker run -d --name kumiko-ci-pg --network kumiko-ci -p 15432:5432 \
-            -e POSTGRES_USER=kumiko -e POSTGRES_PASSWORD=kumiko -e POSTGRES_DB=kumiko_dev \
-            postgres:18.4-alpine
-          docker run -d --name kumiko-ci-redis --network kumiko-ci -p 16379:6379 redis:8-alpine
-          docker run -d --name kumiko-ci-meili --network kumiko-ci -p 17700:7700 \
-            -e MEILI_MASTER_KEY=kumiko-dev-key -e MEILI_ENV=development \
-            getmeili/meilisearch:v1.12
-          for i in $(seq 1 30); do
-            if docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres >/dev/null 2>&1; then break; fi
-            sleep 2
-          done
-          docker exec kumiko-ci-pg pg_isready -U kumiko -d postgres
-          for i in $(seq 1 30); do
-            if docker exec kumiko-ci-redis redis-cli ping >/dev/null 2>&1; then break; fi
-            sleep 2
-          done
-          docker exec kumiko-ci-redis redis-cli ping
+        uses: ./.github/actions/kumiko-services
+        with:
+          redis: "true"
+          meilisearch: "true"
+          postgres-port: "15432"
+          redis-port: "16379"
+          meilisearch-port: "17700"
 
       - name: Run e2e suites
         # Sequenziell (eigene webServer-Ports pro Suite, kein Parallel-Bedarf).
@@ -633,12 +556,7 @@ jobs:
         env:
           CI: "true"
           NODE_ENV: test
-          DATABASE_URL: postgresql://kumiko:kumiko@localhost:15432/kumiko_dev
-          TEST_DATABASE_URL: postgresql://kumiko:kumiko@localhost:15432/kumiko_test
-          REDIS_URL: redis://localhost:16379
           JWT_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          MEILI_URL: http://localhost:17700
-          MEILI_MASTER_KEY: kumiko-dev-key
           KUMIKO_SECRETS_MASTER_KEY_V1: "j1NOc6cu/65hhvGQU8uVXIy2lWg/SautKnWJ7anWbc4="
         run: |
           set +e
@@ -684,9 +602,7 @@ jobs:
 
       - name: Stop services
         if: always()
-        run: |
-          docker rm -f kumiko-ci-pg kumiko-ci-redis kumiko-ci-meili || true
-          docker network rm kumiko-ci || true
+        uses: ./.github/actions/kumiko-services/stop
 
   coverage-badge:
     # Merged unit+integration+dom lcov → .github/badges/coverage.json auf einem

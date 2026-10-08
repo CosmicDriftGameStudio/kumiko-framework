@@ -1,0 +1,72 @@
+name: Kumiko CI services
+description: Starts Postgres, Redis, Meilisearch and RustFS object storage as digest-pinned containers (GHCR mirror, upstream fallback).
+inputs:
+  postgres:
+    description: Start Postgres (creates kumiko_dev and kumiko_test).
+    default: "true"
+  redis:
+    description: Start Redis.
+    default: "false"
+  meilisearch:
+    description: Start Meilisearch.
+    default: "false"
+  object-storage:
+    description: Start RustFS object storage and create the kumiko-dev bucket.
+    default: "false"
+  postgres-port:
+    description: Fixed host port for Postgres; empty picks a random free port.
+    default: ""
+  redis-port:
+    description: Fixed host port for Redis; empty picks a random free port.
+    default: ""
+  meilisearch-port:
+    description: Fixed host port for Meilisearch; empty picks a random free port.
+    default: ""
+  object-storage-port:
+    description: Fixed host port for object storage; empty picks a random free port.
+    default: ""
+outputs:
+  postgres-port:
+    description: Host port of Postgres (empty if not started).
+    value: ${{ steps.start.outputs.postgres-port }}
+  redis-port:
+    description: Host port of Redis (empty if not started).
+    value: ${{ steps.start.outputs.redis-port }}
+  meilisearch-port:
+    description: Host port of Meilisearch (empty if not started).
+    value: ${{ steps.start.outputs.meilisearch-port }}
+  object-storage-port:
+    description: Host port of object storage (empty if not started).
+    value: ${{ steps.start.outputs.object-storage-port }}
+  database-url:
+    description: DATABASE_URL for kumiko_dev (empty if Postgres not started).
+    value: ${{ steps.start.outputs.database-url }}
+  test-database-url:
+    description: TEST_DATABASE_URL for kumiko_test (empty if Postgres not started).
+    value: ${{ steps.start.outputs.test-database-url }}
+  redis-url:
+    description: Redis URL (empty if not started).
+    value: ${{ steps.start.outputs.redis-url }}
+  meili-url:
+    description: Meilisearch URL (empty if not started).
+    value: ${{ steps.start.outputs.meili-url }}
+  object-storage-endpoint:
+    description: Object storage endpoint URL (empty if not started).
+    value: ${{ steps.start.outputs.object-storage-endpoint }}
+runs:
+  using: composite
+  steps:
+    - id: start
+      shell: bash
+      env:
+        INPUT_POSTGRES: ${{ inputs.postgres }}
+        INPUT_REDIS: ${{ inputs.redis }}
+        INPUT_MEILISEARCH: ${{ inputs.meilisearch }}
+        INPUT_OBJECT_STORAGE: ${{ inputs.object-storage }}
+        INPUT_POSTGRES_PORT: ${{ inputs.postgres-port }}
+        INPUT_REDIS_PORT: ${{ inputs.redis-port }}
+        INPUT_MEILISEARCH_PORT: ${{ inputs.meilisearch-port }}
+        INPUT_OBJECT_STORAGE_PORT: ${{ inputs.object-storage-port }}
+        MIRROR_PREFIX: ghcr.io/cosmicdriftgamestudio/ci-mirror
+        ACTION_DIR: ${{ github.action_path }}
+      run: bash "$ACTION_DIR/start.sh"

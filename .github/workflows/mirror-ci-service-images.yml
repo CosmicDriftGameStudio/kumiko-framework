@@ -1,0 +1,75 @@
+name: Mirror CI service images
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - .github/actions/kumiko-services/service-images.txt
+      - .github/workflows/mirror-ci-service-images.yml
+
+permissions: {}
+
+concurrency:
+  group: mirror-ci-service-images
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check skopeo
+        run: command -v skopeo >/dev/null || { echo "::error::skopeo is not installed on this runner image"; exit 1; }
+
+      - name: Log in to GHCR
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: skopeo login ghcr.io -u "$GHCR_USER" --password-stdin <<<"$GHCR_TOKEN"
+
+      - name: Copy pinned images
+        env:
+          MIRROR_PREFIX: ghcr.io/cosmicdriftgamestudio/ci-mirror
+        run: |
+          pins=$(bash .github/actions/kumiko-services/read-pins.sh)
+          while read -r key repo tag digest; do
+            target="$MIRROR_PREFIX/$key:$tag"
+            skopeo copy --all --preserve-digests --retry-times 3 "docker://$repo@$digest" "docker://$target"
+            actual="sha256:$(skopeo inspect --raw "docker://$target" | sha256sum | cut -d' ' -f1)"
+            if [ "$actual" != "$digest" ]; then
+              echo "::error::mirrored $target has digest $actual, expected $digest"
+              exit 1
+            fi
+            echo "mirrored $key:$tag $digest"
+          done <<<"$pins"
+
+  verify-anonymous-pull:
+    needs: mirror
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Inspect mirrored images without credentials
+        env:
+          MIRROR_PREFIX: ghcr.io/cosmicdriftgamestudio/ci-mirror
+        run: |
+          pins=$(bash .github/actions/kumiko-services/read-pins.sh)
+          failed=0
+          while read -r key _repo _tag digest; do
+            if ! skopeo inspect --raw "docker://$MIRROR_PREFIX/$key@$digest" >/dev/null; then
+              echo "::error::package ci-mirror/$key is not public: set its visibility to public in the package settings (one-time), then re-run"
+              failed=1
+            fi
+          done <<<"$pins"
+          exit "$failed"

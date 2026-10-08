@@ -1,0 +1,17 @@
+name: Kumiko CI services stop
+description: Removes all service containers started by the kumiko-services action in this job.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        run_label="${GITHUB_RUN_ID:-0}-${GITHUB_RUN_ATTEMPT:-0}-${GITHUB_JOB:-local}"
+        run_label="${run_label//[^A-Za-z0-9_.-]/_}"
+        ids=$(docker ps -aq --filter "label=kumiko-ci.run=$run_label" || true)
+        if [ -z "$ids" ]; then
+          echo "no kumiko-ci containers for run $run_label"
+        else
+          echo "removing:"
+          docker ps -a --filter "label=kumiko-ci.run=$run_label" --format '{{.Names}}' || true
+          echo "$ids" | xargs docker rm -f >/dev/null || true
+        fi
