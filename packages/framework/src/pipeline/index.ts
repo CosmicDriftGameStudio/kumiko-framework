@@ -7,6 +7,8 @@ export {
   reportEscapeHatchUse,
   UNATTRIBUTED_ACTOR,
 } from "../observability/escape-hatch-report.js";
+export type { AppendDomainEventCoreDeps } from "./append-event-core.js";
+export { appendDomainEventCore } from "./append-event-core.js";
 export type { ResolveAuthClaimsArgs } from "./auth-claims-resolver.js";
 export { resolveAuthClaims } from "./auth-claims-resolver.js";
 export { createCascadeDeleteHook } from "./cascade-handler.js";

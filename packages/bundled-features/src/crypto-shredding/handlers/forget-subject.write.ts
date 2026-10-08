@@ -31,8 +31,10 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { append } from "@cosmicdrift/kumiko-framework/event-store";
-import { assertIrreversibleOperationAllowed } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  appendDomainEventCore,
+  assertIrreversibleOperationAllowed,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
@@ -46,6 +48,7 @@ import {
 } from "../../user-data-rights/index.js";
 import {
   CRYPTO_SHREDDING_AGGREGATE_TYPE,
+  CRYPTO_SHREDDING_FEATURE_NAME,
   RECORD_ENTITY_NOT_REGISTERED,
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
@@ -234,16 +237,8 @@ async function appendDenialAuditEvent(
       }),
     );
   }
-  const eventDef = ctx.registry.getEvent(SUBJECT_FORGET_DENIED_EVENT_NAME);
-  if (!eventDef) {
-    return writeFailure(
-      new InternalError({
-        message: `[crypto-shredding] event "${SUBJECT_FORGET_DENIED_EVENT_NAME}" is not registered.`,
-      }),
-    );
-  }
   const blindIndexKey = configuredBlindIndexKey();
-  const payload = subjectForgetDeniedSchema.parse({
+  const payload: z.infer<typeof subjectForgetDeniedSchema> = {
     // The denial lands in the REQUESTING actor's own tenant-scoped stream —
     // it must never materialise the foreign subject's identifiers there. A
     // plaintext subjectKey/aggregateId would survive as a permanent record
@@ -260,28 +255,26 @@ async function appendDenialAuditEvent(
     forgottenBy: event.user.id,
     actorTenantId: event.user.tenantId,
     denial: denialCode,
-  });
-  const reqCtx = requestContext.get();
-  // This event is the only proof the denial happened. Skipping
-  // runProjectionsForEvent here is fine — nothing projects
-  // crypto-shredding:event:forget-denied.
-  await append(denialAuditRunner, {
-    aggregateId: generateId(),
-    aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
-    // MUST be event.user.tenantId, never SYSTEM_TENANT_ID — unsafeRaw
-    // bypasses TenantDb's scoping, so this is the only guard against a cross-tenant denial event (fw#2452).
-    tenantId: event.user.tenantId,
-    expectedVersion: 0,
-    type: SUBJECT_FORGET_DENIED_EVENT_NAME,
-    eventVersion: eventDef.version,
-    payload,
-    metadata: {
-      userId: event.user.id,
-      ...(reqCtx?.requestId ? { requestId: reqCtx.requestId } : {}),
-      ...(reqCtx?.correlationId ? { correlationId: reqCtx.correlationId } : {}),
-      ...(reqCtx?.causationId ? { causationId: reqCtx.causationId } : {}),
+  };
+  await appendDomainEventCore(
+    {
+      registry: ctx.registry,
+      db: denialAuditRunner,
+      // MUST be event.user.tenantId, never SYSTEM_TENANT_ID — unsafeRaw
+      // bypasses TenantDb's scoping, so this is the only guard against a cross-tenant denial event (fw#2452).
+      tenantId: event.user.tenantId,
+      userId: String(event.user.id),
+      callSiteLabel: "forget-subject denial audit",
+      callerFeature: CRYPTO_SHREDDING_FEATURE_NAME,
     },
-  });
+    {
+      // Fresh stream per denial: no version to read, nothing to conflict with.
+      aggregateId: generateId(),
+      aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+      type: SUBJECT_FORGET_DENIED_EVENT_NAME,
+      payload,
+    },
+  );
   return null;
 }
 
