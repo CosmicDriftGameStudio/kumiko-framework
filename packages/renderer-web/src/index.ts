@@ -95,7 +95,11 @@ export {
   useUserRoles,
 } from "@cosmicdrift/kumiko-renderer";
 // --- Web-platform specifics ---
-export { createBrowserLocaleResolver } from "./app/browser-locale.js";
+export {
+  BROWSER_LOCALE_STORAGE_KEY,
+  type CreateBrowserLocaleResolverOptions,
+  createBrowserLocaleResolver,
+} from "./app/browser-locale.js";
 export type { ClientFeatureDefinition } from "./app/client-plugin.js";
 export type { CreateKumikoAppOptions } from "./app/create-app.js";
 export { createKumikoApp } from "./app/create-app.js";

@@ -21,20 +21,34 @@ export type CreateBrowserLocaleResolverOptions = {
   /** Fallback wenn weder localStorage noch navigator.language liefern.
    *  Default: `"en"`. */
   readonly defaultLocale?: string;
+  /** Maps a stored or browser-reported tag onto one of the app's locales;
+   *  `undefined` rejects it (a stored tag then falls through to
+   *  navigator.language, the browser tag to `defaultLocale`). Only applied to
+   *  the initial detection, not to `setLocale`. */
+  readonly normalizeLocale?: (tag: string) => string | undefined;
 };
 
-function detectInitialLocale(storageKey: string, fallback: string): string {
+export const BROWSER_LOCALE_STORAGE_KEY = "kumiko:locale";
+
+function detectInitialLocale(
+  storageKey: string,
+  fallback: string,
+  normalizeLocale: (tag: string) => string | undefined,
+): string {
   if (typeof localStorage !== "undefined") {
     try {
       const stored = localStorage.getItem(storageKey);
-      if (stored !== null && stored.length > 0) return stored;
+      if (stored !== null && stored.length > 0) {
+        const normalized = normalizeLocale(stored);
+        if (normalized !== undefined) return normalized;
+      }
     } catch {
       // localStorage kann throwen (safari private mode, disabled) —
       // leise auf navigator zurückfallen.
     }
   }
   if (typeof navigator !== "undefined" && navigator.language) {
-    return navigator.language;
+    return normalizeLocale(navigator.language) ?? fallback;
   }
   return fallback;
 }
@@ -56,9 +70,11 @@ function detectTimeZone(): string {
 export function createBrowserLocaleResolver(
   options: CreateBrowserLocaleResolverOptions = {},
 ): LocaleResolver {
-  const storageKey = options.storageKey ?? "kumiko:locale";
+  const storageKey = options.storageKey ?? BROWSER_LOCALE_STORAGE_KEY;
   const fallback = options.defaultLocale ?? "en";
-  const store = createStore(detectInitialLocale(storageKey, fallback));
+  const store = createStore(
+    detectInitialLocale(storageKey, fallback, options.normalizeLocale ?? ((tag) => tag)),
+  );
   const timeZone = detectTimeZone();
 
   return {

@@ -66,6 +66,10 @@
       "types": "./src/e2e/index.ts",
       "default": "./src/e2e/index.ts"
     },
+    "./e2e/constants": {
+      "types": "./src/e2e/constants.ts",
+      "default": "./src/e2e/constants.ts"
+    },
     "./e2e/seed-route": {
       "types": "./src/e2e/seed-route.ts",
       "default": "./src/e2e/seed-route.ts"

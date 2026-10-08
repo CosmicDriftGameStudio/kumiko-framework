@@ -1,3 +1,4 @@
+export { TENANT_MODEL_CONFIG_KEY } from "./constants.js";
 export { createUserDataRightsFeature, type UserDataRightsOptions } from "./feature.js";
 export type { SendDeletionVerificationEmailFn } from "./handlers/request-deletion-by-email.write.js";
 export {

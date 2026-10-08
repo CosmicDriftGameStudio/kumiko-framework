@@ -26,10 +26,16 @@ export function normalizeEmail(email: string): string {
   return email.toLowerCase();
 }
 
+export const SIGNUP_TOKEN_KEY_PREFIXES = {
+  token: "signup:by-token:",
+  email: "signup:by-email:",
+  burn: "signup:burn:",
+} as const;
+
 const store = createSingleUseTokenStore({
-  tokenPrefix: "signup:by-token:",
-  subjectPrefix: "signup:by-email:",
-  burnPrefix: "signup:burn:",
+  tokenPrefix: SIGNUP_TOKEN_KEY_PREFIXES.token,
+  subjectPrefix: SIGNUP_TOKEN_KEY_PREFIXES.email,
+  burnPrefix: SIGNUP_TOKEN_KEY_PREFIXES.burn,
 });
 
 /** Stores the pair bidirectionally and sets TTL on both keys.
