@@ -51,6 +51,12 @@ describe("buildInsertSchema", () => {
       invalid: { name: "toolong" },
     },
     {
+      name: "text field with minLength",
+      fields: { code: createTextField({ minLength: 6, personal: false, reason: "test_fixture" }) },
+      valid: { code: "123456" },
+      invalid: { code: "123" },
+    },
+    {
       name: "email format",
       fields: {
         email: createTextField({

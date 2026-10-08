@@ -20,6 +20,11 @@ const ROLE_RANKS = new Map<string, number>([
   ["system", 5],
 ]);
 
+/** Every membership role the engine ranks, excluding the internal `system` actor. */
+export const BUILT_IN_MEMBERSHIP_ROLES: readonly string[] = [...ROLE_RANKS.keys()].filter(
+  (role) => role !== "system",
+);
+
 const ASSIGNABLE_FROM_ROLE_LIST = [
   "User",
   "Member",

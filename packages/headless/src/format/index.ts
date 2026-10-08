@@ -216,12 +216,16 @@ export function applyFormatSpec(
       return `${prefix}${value}`;
     }
     case "enumOption": {
-      const raw = typeof value === "string" ? value : String(value);
       const keyPrefix = spec["keyPrefix"] as string | undefined;
-      if (keyPrefix === undefined || translate === undefined) return raw;
-      const key = `${keyPrefix}${raw}`;
-      const translated = translate(key);
-      return translated === key ? raw : translated;
+      const labelFor = (item: unknown): string => {
+        const raw = typeof item === "string" ? item : String(item);
+        if (keyPrefix === undefined || translate === undefined) return raw;
+        const key = `${keyPrefix}${raw}`;
+        const translated = translate(key);
+        return translated === key ? raw : translated;
+      };
+      // multiSelect-style columns hold an array of option values
+      return Array.isArray(value) ? value.map(labelFor).join(", ") : labelFor(value);
     }
     case "json":
       return stringifyJsonOrString(value, typeof spec["indent"] === "number" ? spec["indent"] : 2);

@@ -3,6 +3,7 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnconfiguredError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
+  assertCheckoutAllowed,
   assertRedirectOrigins,
   isBillingEnabled,
   isNonEmptyStringArray,
@@ -174,5 +175,58 @@ describe("isBillingEnabled", () => {
     const plugin: SubscriptionProviderPlugin = { verifyAndParseWebhook: async () => null };
     const ctx = fakeCtxWithProvider([{ entityName: "stripe", options: plugin }]);
     expect(await isBillingEnabled(ctx, "stripe")).toBe(true);
+  });
+});
+
+describe("assertCheckoutAllowed — caller-supplied gate results", () => {
+  const now = () => Temporal.Instant.from("2024-03-01T00:00:00Z");
+  const input = {
+    providerName: "stripe",
+    priceId: "price_pro",
+    successUrl: "https://app.test/ok",
+    cancelUrl: "https://app.test/cancel",
+  };
+
+  function setup(billingEnabled: boolean) {
+    const calls = { billingEnabled: 0 };
+    const plugin: SubscriptionProviderPlugin = {
+      verifyAndParseWebhook: async () => null,
+      priceToTier: { price_pro: "pro" },
+      createCheckoutSession: async () => ({ url: "https://pay.test/s" }),
+      isBillingEnabled: async () => {
+        calls.billingEnabled += 1;
+        return billingEnabled;
+      },
+    };
+    // No `db`: a repeated subscription lookup would throw, proving it is skipped.
+    const ctx = fakeCtxWithProvider([{ entityName: "stripe", options: plugin }]);
+    return { calls, ctx };
+  }
+
+  test("billingEnabledChecked + checkedSubscription skip the repeated gates", async () => {
+    const { calls, ctx } = setup(true);
+    await assertCheckoutAllowed(
+      ctx,
+      {
+        baseUrl: "https://app.test",
+        now,
+        billingEnabledChecked: true,
+        checkedSubscription: null,
+      },
+      input,
+    );
+    expect(calls.billingEnabled).toBe(0);
+  });
+
+  test("without billingEnabledChecked a disabled provider is rejected here", async () => {
+    const { calls, ctx } = setup(false);
+    await expect(
+      assertCheckoutAllowed(
+        ctx,
+        { baseUrl: "https://app.test", now, checkedSubscription: null },
+        input,
+      ),
+    ).rejects.toMatchObject({ name: "FeatureDisabledError" });
+    expect(calls.billingEnabled).toBe(1);
   });
 });

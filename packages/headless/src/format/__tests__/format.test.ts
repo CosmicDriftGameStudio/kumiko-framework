@@ -244,6 +244,12 @@ describe("applyFormatSpec — enumOption (fw#2315)", () => {
     expect(applyFormatSpec(spec, 1, translate)).toBe("Eins");
   });
 
+  test("Array-Wert: jeder Eintrag wird einzeln übersetzt und komma-verbunden", () => {
+    const translate = (key: string) =>
+      key === "contact:entity:contact:field:status:option:active" ? "Aktiv" : key;
+    expect(applyFormatSpec(spec, ["active", "other"], translate)).toBe("Aktiv, other");
+  });
+
   test("leerer Wert collapst zu '' wie jedes andere Nicht-priority-Format", () => {
     expect(applyFormatSpec(spec, null, (k) => k)).toBe("");
     expect(applyFormatSpec(spec, "", (k) => k)).toBe("");

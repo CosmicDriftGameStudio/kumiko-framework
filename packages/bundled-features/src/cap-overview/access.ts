@@ -1,4 +1,4 @@
-import { access } from "@cosmicdrift/kumiko-framework/engine";
+import { access, BUILT_IN_MEMBERSHIP_ROLES } from "@cosmicdrift/kumiko-framework/engine";
 
 // Usage numbers are an operator concern by default; wider visibility is an
 // explicit `usageVisibleTo` opt-in on createCapOverviewFeature. The my-caps
@@ -9,14 +9,7 @@ export const DEFAULT_CAP_USAGE_ROLES: readonly string[] = access.roles(...access
 // Roles the engine itself knows (role-assignment.ts ranks). App-declared roles
 // (assignableRole) only exist once the registry is composed, which is after
 // this feature is defined, so they cannot be validated here.
-const BUILT_IN_USAGE_VISIBLE_ROLES: ReadonlySet<string> = new Set([
-  "User",
-  "Member",
-  "Editor",
-  "Admin",
-  "TenantAdmin",
-  "SystemAdmin",
-]);
+const BUILT_IN_USAGE_VISIBLE_ROLES: ReadonlySet<string> = new Set(BUILT_IN_MEMBERSHIP_ROLES);
 
 export function resolveCapUsageRoles(
   usageVisibleTo: readonly string[] | undefined,

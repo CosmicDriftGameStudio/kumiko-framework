@@ -58,7 +58,7 @@ export const mfaEnableScreen: SecretMintScreenDefinition = {
   confirm: {
     handler: AuthMfaHandlers.enableConfirm,
     fields: {
-      code: { type: "text", required: true, maxLength: 6 },
+      code: { type: "text", required: true, minLength: 6, maxLength: 6 },
     },
     layout: { sections: [{ fields: ["code"] }] },
     carry: ["setupToken"],
@@ -69,7 +69,7 @@ export const mfaEnableScreen: SecretMintScreenDefinition = {
 
 // Either a 6-digit TOTP code or a 9-char recovery code proves possession —
 // same bounds as the disable/regenerate-recovery handler schemas.
-const possessionCodeField = { type: "text", required: true, maxLength: 9 } as const;
+const possessionCodeField = { type: "text", required: true, minLength: 6, maxLength: 9 } as const;
 
 export const mfaDisableScreen: ActionFormScreenDefinition = {
   id: MFA_DISABLE_SCREEN_ID,
