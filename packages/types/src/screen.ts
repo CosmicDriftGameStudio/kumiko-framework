@@ -1040,6 +1040,8 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     readonly legendTotals?: boolean;
     /** Only for chart "stacked-area": range switch in the panel header. */
     readonly ranges?: DashboardChartRanges;
+    /** Only for chart "stacked-area": scrubber under the plot to drag the visible window; starts at today. */
+    readonly brush?: boolean;
   };
 
 // Kurzliste im Dashboard — Query-Contract wie projectionList

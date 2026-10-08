@@ -122,6 +122,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dashboard.panel.error.title": "{label} could not be loaded",
     "kumiko.dashboard.time-range": "Time range",
     "kumiko.screen.unavailable": "This page is not available right now.",
+    "kumiko.dashboard.brush-end": "Window end",
+    "kumiko.dashboard.brush-start": "Window start",
     "kumiko.dashboard.today": "Today",
     "kumiko.dashboard.updated-at": "As of {time}",
 

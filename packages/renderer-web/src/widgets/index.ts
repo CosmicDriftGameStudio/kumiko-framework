@@ -9,6 +9,11 @@ export {
   AiTextField,
   type AiTextFieldProps,
 } from "./ai-text-field.js";
+export type {
+  StackedAreaRangeOption,
+  StackedAreaRanges,
+  StackedAreaWindowSelection,
+} from "./chart-window.js";
 export {
   type ChartMarker,
   type ChartSeries,

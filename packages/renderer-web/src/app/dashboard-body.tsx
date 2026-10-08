@@ -23,8 +23,8 @@
 //   chart         → depends on `chart`: timeseries { points, windowStartMs,
 //                   windowEndMs, markers? }, stacked-bars / stacked-area
 //                   { series, windowStartMs, windowEndMs, todayMs?, markers? }
-//                   (marker labels: DashboardText; `scrollable` only for
-//                   stacked-area),
+//                   (marker labels: DashboardText; `scrollable`, `ranges` and
+//                   `brush` only for stacked-area),
 //                   segment-bars { rows: { key, label, value, segments }[] }
 //   list          → paged envelope { rows, nextCursor, total? } like
 //                   projectionList.
@@ -46,7 +46,6 @@
 import type {
   DashboardChartMarkerKind,
   DashboardChartPanel,
-  DashboardChartRanges,
   DashboardCustomPanel,
   DashboardDateParam,
   DashboardFeedPanel,
@@ -96,6 +95,7 @@ import { EmbeddedFormProvider } from "../primitives/index.js";
 import { PageSection } from "../primitives/layout.js";
 import { formatMoney } from "../primitives/money-input.js";
 import { Skeleton } from "../ui/skeleton.js";
+import { initialWindowSelection, type StackedAreaRanges } from "../widgets/chart-window.js";
 import {
   type ChartLine,
   type ChartMarker,
@@ -659,40 +659,6 @@ type ChartEnvelope = {
   readonly lines?: readonly LineEnvelope[];
 };
 
-function addUtcMonths(atMs: number, months: number): number {
-  const date = new Date(atMs);
-  date.setUTCMonth(date.getUTCMonth() + months);
-  return date.getTime();
-}
-
-type ChartWindow = { readonly startMs: number; readonly endMs: number };
-
-// Same window as a "1/3/5 years" switch over a plan: `months` ahead of today,
-// pulled back when the data ends earlier, never before the first bucket.
-function rangeWindow(
-  months: number,
-  anchorMs: number,
-  firstMs: number,
-  lastMs: number,
-): ChartWindow {
-  const endMs = Math.min(lastMs, addUtcMonths(anchorMs, months));
-  return { startMs: Math.max(firstMs, addUtcMonths(endMs, -months)), endMs };
-}
-
-function pointsWithin<T extends { readonly atMs: number }>(
-  points: readonly T[],
-  window: ChartWindow,
-): readonly T[] {
-  return points.filter((p) => p.atMs >= window.startMs && p.atMs <= window.endMs);
-}
-
-function selectedRangeMonths(
-  ranges: DashboardChartRanges | undefined,
-  selected: string | undefined,
-): number | undefined {
-  return ranges?.options.find((option) => option.value === selected)?.months;
-}
-
 // A plain bar chart ("changes per day") ships `points` without `series`.
 const SINGLE_SERIES_KEY = "value";
 
@@ -753,17 +719,26 @@ function ChartPanelBody({
   const tones = panel.seriesTones;
   const colors = panel.seriesColors;
   const testId = `dashboard-chart-${panel.id}`;
-  const ranges = panel.chart === "stacked-area" ? panel.ranges : undefined;
-  const [selectedRange, setSelectedRange] = useState(ranges?.default);
+  const ranges: StackedAreaRanges | undefined =
+    panel.chart === "stacked-area" && panel.ranges !== undefined
+      ? {
+          default: panel.ranges.default,
+          options: panel.ranges.options.map((option) => ({
+            ...option,
+            label: translate(option.label),
+          })),
+        }
+      : undefined;
+  const [windowSelection, setWindowSelection] = useState(() => initialWindowSelection(ranges));
   const rangeSwitch =
-    ranges !== undefined && selectedRange !== undefined ? (
+    ranges !== undefined ? (
       <ModeSwitch
-        value={selectedRange}
+        value={windowSelection?.kind === "range" ? windowSelection.value : null}
         options={ranges.options.map((option) => ({
           value: option.value,
-          label: translate(option.label),
+          label: option.label,
         }))}
-        onChange={setSelectedRange}
+        onChange={(value) => setWindowSelection({ kind: "range", value })}
         ariaLabel={label}
         variant="pill"
         testId={`dashboard-chart-range-${panel.id}`}
@@ -834,38 +809,24 @@ function ChartPanelBody({
             label: translate(line.label),
           }));
           const todayMs = data.todayMs ?? undefined;
-          const months = selectedRangeMonths(ranges, selectedRange);
-          const bucketTimes = series.flatMap((s) => s.points.map((p) => p.atMs));
-          const window =
-            months === undefined || bucketTimes.length === 0
-              ? { startMs, endMs }
-              : rangeWindow(
-                  months,
-                  todayMs ?? Math.max(...bucketTimes),
-                  Math.min(...bucketTimes),
-                  Math.max(...bucketTimes),
-                );
-          const isWindowed = months !== undefined;
           return (
             <StackedAreaChart
-              series={
-                isWindowed
-                  ? series.map((s) => ({ ...s, points: pointsWithin(s.points, window) }))
-                  : series
-              }
-              lines={
-                isWindowed
-                  ? lines.map((line) => ({ ...line, points: pointsWithin(line.points, window) }))
-                  : lines
-              }
-              windowStartMs={window.startMs}
-              windowEndMs={window.endMs}
+              series={series}
+              lines={lines}
+              windowStartMs={startMs}
+              windowEndMs={endMs}
               {...(todayMs !== undefined && { todayMs })}
               tones={tones}
               colors={colors}
-              markers={
-                isWindowed && markers !== undefined ? pointsWithin(markers, window) : markers
-              }
+              markers={markers}
+              {...(ranges !== undefined && { ranges })}
+              brush={panel.brush === true}
+              windowSelection={windowSelection}
+              onWindowSelectionChange={setWindowSelection}
+              brushLabels={{
+                start: t("kumiko.dashboard.brush-start"),
+                end: t("kumiko.dashboard.brush-end"),
+              }}
               ariaLabel={label}
               todayLabel={todayLabel}
               formatBucketLabel={formats.formatDay}

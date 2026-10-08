@@ -14,7 +14,8 @@ export function ModeSwitch<T extends string>({
   className,
   testId,
 }: {
-  readonly value: T;
+  /** `null`: no option active. */
+  readonly value: T | null;
   readonly options: readonly {
     readonly value: T;
     readonly label: string;

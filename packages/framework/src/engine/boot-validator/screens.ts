@@ -2939,8 +2939,11 @@ function validateDashboardChartDisplay(
     );
   }
   validateStackedAreaOnlyProps(where, panel);
-  if (panel.legendTotals !== undefined && typeof panel.legendTotals !== "boolean") {
-    throw new Error(`${where} has a non-boolean legendTotals.`);
+  const nonBooleanProp = (["brush", "legendTotals"] as const).find(
+    (prop) => panel[prop] !== undefined && typeof panel[prop] !== "boolean",
+  );
+  if (nonBooleanProp !== undefined) {
+    throw new Error(`${where} has a non-boolean ${nonBooleanProp}.`);
   }
   for (const [key, color] of Object.entries(panel.seriesColors ?? {})) {
     if (typeof color !== "string" || color.trim() === "") {
@@ -2956,7 +2959,7 @@ function validateDashboardChartDisplay(
 function validateStackedAreaOnlyProps(where: string, panel: DashboardChartPanel): void {
   // skip: stacked-area is the one chart kind that supports these props
   if (panel.chart === "stacked-area") return;
-  const stackedAreaOnly = (["markerKinds", "legendTotals", "ranges"] as const).filter(
+  const stackedAreaOnly = (["markerKinds", "legendTotals", "ranges", "brush"] as const).filter(
     (prop) => panel[prop] !== undefined,
   );
   if (stackedAreaOnly.length > 0) {
