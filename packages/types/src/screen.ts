@@ -1396,7 +1396,9 @@ export type EditRelatedListSection = {
    *  of a bespoke child-rows handler. Mutually exclusive with `parentParam`
    *  (the boot-validator rejects both). `field` must be a real field on the
    *  entity behind `query`, and that query's Zod schema must accept
-   *  `filter` (same requirement `filter`/`facets` already have). */
+   *  `filter` (same requirement `filter`/`facets` already have). The filter is
+   *  client-supplied: any caller may omit it, so the bound query must authorize
+   *  the ENTIRE row set it can return, not just the parent's children. */
   readonly parentFilter?: { readonly field: string };
   readonly columns: readonly ListColumnSpec[];
   /** Entity the query's rows belong to: an entity name (same feature) or
