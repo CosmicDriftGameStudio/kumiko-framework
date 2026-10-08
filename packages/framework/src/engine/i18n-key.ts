@@ -1,8 +1,7 @@
 // Dot-form labels are indistinguishable from literal display text ("actions.open"),
 // so authors mark the i18n ones explicitly; the registry is what boot validation reads.
-// Marking is by string value and therefore global across features. The registry sits on
-// globalThis so a second installed copy of the framework still reads the marks the
-// other copy wrote; otherwise they are silently ignored and #2313 reopens.
+// A mark applies process-wide, by string value, across all features and framework copies.
+// The registry sits on globalThis so a second installed copy reads the other's marks.
 const REGISTRY_KEY = Symbol.for("kumiko.i18n.explicitDotFormKeys");
 
 function explicitDotFormKeys(): Set<string> {
