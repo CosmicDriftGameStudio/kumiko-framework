@@ -23,7 +23,7 @@ Exported env (only for started services): `PG_CONTAINER`, `DATABASE_URL`, `TEST_
 
 ## Pins
 
-`service-images.txt` is the only place images are pinned (tag plus multi-arch index digest, from `docker buildx imagetools inspect <ref>`). Change the line; after merge the workflow "Mirror CI service images" copies it to GHCR.
+`service-images.txt` is the only place images are pinned (tag plus multi-arch index digest, from `docker buildx imagetools inspect <ref>`). Renovate bumps tag and digest through a regex manager in `.github/renovate.json`, or change the line by hand; after merge the workflow "Mirror CI service images" copies it to GHCR.
 
 ## Mirror
 

@@ -1,4 +1,28 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>CosmicDriftGameStudio/infra//renovate/publisher.json"]
+  "extends": [
+    "github>CosmicDriftGameStudio/infra//renovate/publisher.json"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "CI service image pins (tag + index digest) of the kumiko-services action; the mirror workflow copies them to GHCR after merge",
+      "managerFilePatterns": [
+        "/^\\.github/actions/kumiko-services/service-images\\.txt$/"
+      ],
+      "matchStrings": [
+        "(?<depName>[a-z0-9.-]+(?:/[a-z0-9._-]+)+):(?<currentValue>[A-Za-z0-9._-]+)\\s+(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "groupName": "ci-service-images",
+      "matchFileNames": [
+        ".github/actions/kumiko-services/service-images.txt"
+      ],
+      "automerge": false
+    }
+  ]
 }
