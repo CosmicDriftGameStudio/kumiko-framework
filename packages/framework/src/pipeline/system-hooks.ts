@@ -677,7 +677,7 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         // poison would otherwise permanently stop access-invalidation for
         // every user behind one bad row).
         if (typeof userId !== "string" || userId.length === 0) return;
-        sseBroker.publishAccessInvalidation(userId, readSessionRevokedScope(event.payload));
+        await sseBroker.publishAccessInvalidation(userId, readSessionRevokedScope(event.payload));
       }
 
       if (event.type === PAT_REVOKED_EVENT_TYPE) {
@@ -685,7 +685,7 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         // skip: malformed pat-revoked payload — same fail-open reasoning as
         // session-revoked above.
         if (typeof userId !== "string" || userId.length === 0) return;
-        sseBroker.publishAccessInvalidation(userId, readPatRevokedScope(event.payload));
+        await sseBroker.publishAccessInvalidation(userId, readPatRevokedScope(event.payload));
       }
 
       if (
@@ -696,7 +696,7 @@ export function createAccessInvalidationEventConsumer(sseBroker: SseBroker): Eve
         // skip: previous snapshot missing/malformed userId — same fail-open
         // reasoning as above.
         if (userId === undefined) return;
-        sseBroker.publishAccessInvalidation(userId);
+        await sseBroker.publishAccessInvalidation(userId);
       }
     },
   };

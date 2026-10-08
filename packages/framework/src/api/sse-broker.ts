@@ -67,7 +67,9 @@ export type SseBroker = {
   // `scope` narrows which credential(s) close; omitted = userwide (every
   // listener), the historical default and still what unrelated
   // reasons (role change, membership removal) use.
-  publishAccessInvalidation(userId: string, scope?: AccessInvalidationScope): void;
+  // A returned promise rejects when the invalidation could not be handed to the transport, so
+  // the event consumer fails and the dispatcher redelivers instead of losing a revocation.
+  publishAccessInvalidation(userId: string, scope?: AccessInvalidationScope): void | Promise<void>;
 };
 
 // Fail-closed: a narrow scope only spares/limits a listener it can positively
@@ -95,7 +97,12 @@ export function shouldInvalidateListener(
   }
 }
 
-export function createSseBroker(): SseBroker {
+// The local broker delivers synchronously and cannot fail, so its callers need no promise handling.
+export type LocalSseBroker = Omit<SseBroker, "publishAccessInvalidation"> & {
+  publishAccessInvalidation(userId: string, scope?: AccessInvalidationScope): void;
+};
+
+export function createSseBroker(): LocalSseBroker {
   // Purely local: no cross-replica fanout. buildServer wraps this in
   // createRedisSseBroker (fw#2625) whenever REDIS_URL is set, which is what
   // makes pushToChannel/publishAccessInvalidation reach every replica's

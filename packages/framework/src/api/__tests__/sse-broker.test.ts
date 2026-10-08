@@ -1,12 +1,12 @@
 import { describe, expect, mock, test } from "bun:test";
 import {
   createSseBroker,
-  type SseBroker,
+  type LocalSseBroker,
   type SseEvent,
   shouldInvalidateListener,
 } from "../sse-broker.js";
 
-function requireAccessInvalidation(broker: SseBroker) {
+function requireAccessInvalidation(broker: LocalSseBroker) {
   const subscribe = broker.subscribeAccessInvalidation;
   const publish = broker.publishAccessInvalidation;
   if (!subscribe || !publish) {
