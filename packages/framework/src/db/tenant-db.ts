@@ -769,6 +769,8 @@ export function createTenantDb(
     createTenantDb(db, tenantId, mode, tracer, meter, signal, {
       ...rebindGrants,
       unsafeRaw: grant,
+      // db.global() writes are write-handler-only: a rebind (a hook's own grant) must not inherit them.
+      globalWrites: undefined,
     }),
   );
   crossTenantRebinders.set(tenantDb, (reason) => {
