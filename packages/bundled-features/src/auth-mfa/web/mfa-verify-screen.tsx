@@ -20,7 +20,7 @@ export type MfaVerifyScreenProps = {
   /** Called after the server confirms the code and the session state has
    *  refreshed. Optional — apps that swap this screen back out purely on
    *  session.status changing to "authenticated" don't need it. */
-  readonly onSuccess?: () => void;
+  readonly onSuccess?: (landingPath?: string) => void;
   // Some failures (challenge_expired, too_many_attempts) have no retry path —
   // the challengeToken is dead. Without this, the host has no way back to
   // login short of a full page reload. Optional: apps that always mount
@@ -68,7 +68,7 @@ export function MfaVerifyScreen({
     if (res.kind === "success") {
       await session.refresh();
       setSubmitting(false);
-      onSuccess?.();
+      onSuccess?.(res.data.landingPath);
       return;
     }
     setSubmitting(false);

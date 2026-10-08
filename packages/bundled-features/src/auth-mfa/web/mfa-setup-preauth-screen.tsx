@@ -67,7 +67,7 @@ export type MfaSetupPreauthScreenProps = {
   readonly subtitle?: ReactNode;
   /** Fired once confirm succeeds — the caller owns session refresh, see the
    *  file-level comment above. */
-  readonly onSuccess?: () => void;
+  readonly onSuccess?: (landingPath?: string) => void;
   readonly onCancel?: () => void;
 };
 
@@ -146,7 +146,7 @@ export function MfaSetupPreauthScreen({
         }
         return;
       }
-      onSuccess?.();
+      onSuccess?.(res.data.landingPath);
     } catch {
       setError("setup_failed");
     } finally {

@@ -72,3 +72,18 @@ export function followNextAfterLogin(
   location.replace(next);
   return true;
 }
+
+// An explicit `next` (the page the user was sent away from) beats the server's
+// landingPath (auth.postAuthLanding); without either the caller keeps its own
+// client-side routing. landingPath is re-validated like `next`, so a
+// misconfigured resolver cannot turn the login into an open redirect.
+export function followNextOrLandingAfterLogin(
+  landingPath: string | undefined,
+  location: Pick<Location, "search" | "pathname" | "replace"> = window.location,
+): boolean {
+  if (followNextAfterLogin(location)) return true;
+  if (landingPath === undefined || !isSafeNextPath(landingPath)) return false;
+  if (new URL(landingPath, "https://next.invalid").pathname === location.pathname) return false;
+  location.replace(landingPath);
+  return true;
+}

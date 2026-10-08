@@ -3,6 +3,7 @@ import {
   assertNavigableUrl,
   buildLoginRedirectUrl,
   followNextAfterLogin,
+  followNextOrLandingAfterLogin,
   isSafeNextPath,
   readNextFromSearch,
 } from "../auth-redirect.js";
@@ -124,6 +125,36 @@ describe("followNextAfterLogin", () => {
     for (const search of ["", "?next=%2Flogin%3Fx%3D1"]) {
       const { location, replace } = locationAt("/login", search);
       expect(followNextAfterLogin(location)).toBe(false);
+      expect(replace).not.toHaveBeenCalled();
+    }
+  });
+});
+
+describe("followNextOrLandingAfterLogin", () => {
+  function locationAt(pathname: string, search: string) {
+    const replace = mock((_url: string): void => {});
+    return { location: { pathname, search, replace }, replace };
+  }
+
+  test("server landingPath is followed when there is no next", () => {
+    const { location, replace } = locationAt("/login", "");
+
+    expect(followNextOrLandingAfterLogin("/a/vehicle-create", location)).toBe(true);
+    expect(replace).toHaveBeenCalledWith("/a/vehicle-create");
+  });
+
+  test("an explicit next beats the landingPath", () => {
+    const { location, replace } = locationAt("/login", "?next=%2Fa%2Fsettings");
+
+    expect(followNextOrLandingAfterLogin("/a/vehicle-create", location)).toBe(true);
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledWith("/a/settings");
+  });
+
+  test("no landingPath, an unsafe one, or one pointing at the current page does not navigate", () => {
+    for (const landingPath of [undefined, "https://evil.example", "//evil.example", "/login"]) {
+      const { location, replace } = locationAt("/login", "");
+      expect(followNextOrLandingAfterLogin(landingPath, location)).toBe(false);
       expect(replace).not.toHaveBeenCalled();
     }
   });

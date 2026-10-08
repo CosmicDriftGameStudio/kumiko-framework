@@ -45,6 +45,35 @@ describe("LoginScreen", () => {
     });
   });
 
+  test("server landingPath wins after a successful login", async () => {
+    const originalReplace = window.location.replace;
+    const replaceMock = mock((_url: string | URL): void => {});
+    window.location.replace = replaceMock as typeof window.location.replace;
+    try {
+      const session = makeSessionApi({
+        status: "unauthenticated",
+        user: null,
+        login: mock<SessionApi["login"]>(async () => ({
+          kind: "success",
+          data: {
+            token: "t",
+            user: { id: "u1", tenantId: "t1", roles: [] },
+            landingPath: "/app/home",
+          },
+        })),
+      });
+      renderWithProviders(<LoginScreen />, { session });
+
+      fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "demo@example.com" } });
+      fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "secret" } });
+      fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+      await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/app/home"));
+    } finally {
+      window.location.replace = originalReplace;
+    }
+  });
+
   test("invalid_credentials → renders translated error message", async () => {
     const session = makeSessionApi({
       status: "unauthenticated",
