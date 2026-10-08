@@ -13,8 +13,36 @@ describe("assignable app role declarations at boot (tenant r.bootCheck)", () => 
   function bootWith(declare: Parameters<typeof defineFeature>[1]) {
     const app = defineFeature("assignable-boot-app", declare);
     return () =>
-      validateBoot([createConfigFeature(), createUserFeature(), createTenantFeature(), app]);
+      validateBoot([
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature({ assignableAppRoles: collectAssignableAppRoles([app]) }),
+        app,
+      ]);
   }
+
+  test("a declaration the tenant screens were not given fails the boot", () => {
+    const app = defineFeature("assignable-boot-unwired-app", (r) => {
+      r.requires("tenant");
+      r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
+    });
+    expect(() =>
+      validateBoot([createConfigFeature(), createUserFeature(), createTenantFeature(), app]),
+    ).toThrow(/"PropertyManager".*collectAssignableAppRoles/);
+  });
+
+  test("a screen option with a different assignableFrom fails the boot", () => {
+    const app = defineFeature("assignable-boot-mismatch-app", (r) => {
+      r.requires("tenant");
+      r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager", { assignableFrom: "TenantAdmin" });
+    });
+    const tenant = createTenantFeature({
+      assignableAppRoles: new Map([["PropertyManager", "Admin"]]),
+    });
+    expect(() => validateBoot([createConfigFeature(), createUserFeature(), tenant, app])).toThrow(
+      /"PropertyManager"/,
+    );
+  });
 
   test("a valid declaration boots", () => {
     expect(
@@ -44,7 +72,13 @@ describe("assignable app role declarations at boot (tenant r.bootCheck)", () => 
       r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
     });
     expect(() =>
-      validateBoot([createConfigFeature(), createUserFeature(), createTenantFeature(), app, other]),
+      validateBoot([
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature({ assignableAppRoles: collectAssignableAppRoles([app]) }),
+        app,
+        other,
+      ]),
     ).toThrow(/conflicting assignableFrom/);
   });
 });

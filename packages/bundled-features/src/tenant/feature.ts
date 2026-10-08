@@ -81,8 +81,15 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
     r.systemScope();
     r.requires("config");
     r.extendsRegistrar(EXT_ASSIGNABLE_ROLE, {});
+    // The elevation guards read the registry, the screens only these options: a role the
+    // server accepts but the screen omits is silently stripped on the next member-roles save.
     r.bootCheck(({ features }) => {
-      collectAssignableAppRoles(features);
+      for (const [role, assignableFrom] of collectAssignableAppRoles(features)) {
+        if (options?.assignableAppRoles?.get(role) === assignableFrom) continue;
+        throw new Error(
+          `[tenant] assignable app role "${role}" (assignableFrom "${assignableFrom}") is declared but missing from the tenant screens' options; pass assignableAppRoles: collectAssignableAppRoles(appFeatures) to createTenantFeature.`,
+        );
+      }
     });
     r.entity("tenant", tenantEntity);
     r.entity("tenant-membership", tenantMembershipEntity);

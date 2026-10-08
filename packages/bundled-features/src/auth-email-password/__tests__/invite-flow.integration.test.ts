@@ -43,7 +43,12 @@ import { createRendererFoundationFeature } from "../../renderer-foundation/featu
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { hashPassword } from "../../shared/index.js";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { createTenantFeature, TenantErrors, TenantHandlers } from "../../tenant/index.js";
+import {
+  collectAssignableAppRoles,
+  createTenantFeature,
+  TenantErrors,
+  TenantHandlers,
+} from "../../tenant/index.js";
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
@@ -105,7 +110,9 @@ beforeAll(async () => {
     features: [
       createConfigFeature(),
       createUserFeature(),
-      createTenantFeature(),
+      createTenantFeature({
+        assignableAppRoles: collectAssignableAppRoles([assignableRolesAppFeature]),
+      }),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createDeliveryFeature(),
