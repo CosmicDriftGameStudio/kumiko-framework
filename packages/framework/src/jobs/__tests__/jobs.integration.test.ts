@@ -1440,6 +1440,35 @@ describe("boot gates", () => {
     }
   });
 
+  test("a job queued before boot is not consumed while the gate fails", async () => {
+    const executed: string[] = [];
+    const feature = defineFeature("queuedgate", (r) => {
+      r.job("check", { trigger: { manual: true }, bootGate: true }, async () => {
+        await sleep(300);
+        throw new Error(GATE_FAILURE);
+      });
+      r.job("pending", { trigger: { manual: true } }, async () => {
+        executed.push("pending");
+      });
+    });
+    const prefix = uniquePrefix();
+    const runner = createGateRunner(feature, prefix);
+    const queue = new Queue(`${prefix}-worker`, {
+      connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
+    });
+    queue.on("error", () => {});
+    try {
+      await queue.add("queuedgate:job:pending", {});
+      await expect(runner.start()).rejects.toThrow(GATE_FAILURE);
+      await sleep(300);
+      expect(executed).toEqual([]);
+    } finally {
+      await queue.close();
+      await runner.stop();
+      await purge(prefix);
+    }
+  });
+
   test("a hung gate rejects start() naming the gate once its timeout elapses", async () => {
     let releaseGate: () => void = () => {};
     const gateHang = new Promise<void>((resolve) => {
