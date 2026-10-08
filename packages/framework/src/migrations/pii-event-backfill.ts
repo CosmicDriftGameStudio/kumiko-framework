@@ -315,7 +315,9 @@ export async function runPiiEventBackfill(
     db,
     registry,
     fingerprint,
-    migrationId: `${PII_BACKFILL_MIGRATION_PREFIX}${fingerprint.slice(0, 12)}`,
+    // The per-run suffix keeps a peer replica's re-queue of the same table (new
+    // migration_id via the upsert) from being deleted by this run's clear.
+    migrationId: `${PII_BACKFILL_MIGRATION_PREFIX}${fingerprint.slice(0, 12)}:${crypto.randomUUID()}`,
     mode,
     batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
   };
