@@ -1216,8 +1216,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           ...(gateTimeout ? [gateTimeout.promise] : []),
         ]);
       } catch (err) {
-        // The worker is already consuming here; leaving its Redis connections
-        // open would keep the event loop alive and turn the aborted boot into
+        // Leaving the worker's Redis connections open would keep the event loop alive and turn the aborted boot into
         // a hanging process instead of a non-zero exit.
         await worker?.close();
         worker = null;
@@ -1243,6 +1242,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       worker = new Worker(queueNameFor(queueNamePrefix, consumerLane), handleJob, {
         connection: redisOpts,
         concurrency: 5,
+        // Not consuming until the boot gates passed: a job already queued from a
+        // previous run must not execute against an unmet boot precondition.
+        autorun: false,
       });
       worker.on("error", (err) => {
         const log = stopping ? errorLogger.debug : errorLogger.error;
@@ -1270,6 +1272,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // Ahead of cron/runOnBoot wiring on purpose: a failed gate must not
       // leave recurring schedulers behind.
       await runBootGates(consumerLane);
+      // Floating on purpose: run() resolves only when the worker closes.
+      void worker.run().catch((err: unknown) => {
+        const log = stopping ? errorLogger.debug : errorLogger.error;
+        log("worker run loop failed", { error: err instanceof Error ? err.message : String(err) });
+      });
 
       // Only schedule cron + boot for jobs that belong to this lane. Jobs
       // assigned to the other lane get their cron/boot wiring from the
