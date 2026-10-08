@@ -14,7 +14,7 @@ import { type ComponentType, type ReactNode, useEffect, useState } from "react";
 import {
   assertNavigableUrl,
   buildLoginRedirectUrl,
-  followNextAfterLogin,
+  followNextOrLandingAfterLogin,
 } from "./auth-redirect.js";
 import { LoginScreen, type LoginScreenProps } from "./login-screen.js";
 import { SessionProvider, useSession } from "./session.js";
@@ -26,7 +26,7 @@ import { SessionBootstrapErrorScreen } from "./session-bootstrap-error.js";
 // wire auth-mfa's MfaVerifyScreen in here via EmailPasswordClientOptions.
 export type MfaVerifyComponentProps = {
   readonly challengeToken: string;
-  readonly onSuccess?: () => void;
+  readonly onSuccess?: (landingPath?: string) => void;
   readonly onCancel?: () => void;
 };
 
@@ -36,7 +36,7 @@ export type MfaVerifyComponentProps = {
 export type MfaSetupComponentProps = {
   readonly preauthSetupToken: string;
   readonly accountLabel: string;
-  readonly onSuccess?: () => void;
+  readonly onSuccess?: (landingPath?: string) => void;
   readonly onCancel?: () => void;
 };
 
@@ -113,9 +113,9 @@ export function createLoginRoute(
       return (
         <MfaVerifyComponent
           challengeToken={challengeToken}
-          onSuccess={() => {
+          onSuccess={(landingPath) => {
             setChallengeToken(null);
-            followNextAfterLogin();
+            followNextOrLandingAfterLogin(landingPath);
           }}
           onCancel={() => setChallengeToken(null)}
         />
@@ -128,7 +128,7 @@ export function createLoginRoute(
         <MfaSetupComponent
           preauthSetupToken={setupRequest.preauthSetupToken}
           accountLabel={setupRequest.accountLabel}
-          onSuccess={() => {
+          onSuccess={(landingPath) => {
             // MfaSetupPreauthScreen has no session to refresh itself with
             // (it runs pre-auth) — the gate owns the session, so it refreshes.
             // refresh() never rejects: a failed refresh surfaces as status
@@ -136,7 +136,7 @@ export function createLoginRoute(
             // success path needs to clear setupRequest.
             void refresh().then(() => {
               setSetupRequest(null);
-              followNextAfterLogin();
+              followNextOrLandingAfterLogin(landingPath);
             });
           }}
           onCancel={() => setSetupRequest(null)}
