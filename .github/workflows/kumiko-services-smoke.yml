@@ -1,0 +1,66 @@
+name: kumiko-services smoke
+
+on:
+  pull_request:
+    paths:
+      - .github/actions/kumiko-services/**
+      - .github/workflows/kumiko-services-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Start services (random ports)
+        id: services
+        uses: ./.github/actions/kumiko-services
+        with:
+          redis: "true"
+          meilisearch: "true"
+          object-storage: "true"
+
+      - name: Verify services from the host
+        env:
+          OUT_POSTGRES_PORT: ${{ steps.services.outputs.postgres-port }}
+          OUT_REDIS_PORT: ${{ steps.services.outputs.redis-port }}
+          OUT_MEILI_PORT: ${{ steps.services.outputs.meilisearch-port }}
+          OUT_OBJECT_STORAGE_PORT: ${{ steps.services.outputs.object-storage-port }}
+          OUT_DATABASE_URL: ${{ steps.services.outputs.database-url }}
+          OUT_TEST_DATABASE_URL: ${{ steps.services.outputs.test-database-url }}
+          OUT_REDIS_URL: ${{ steps.services.outputs.redis-url }}
+          OUT_MEILI_URL: ${{ steps.services.outputs.meili-url }}
+          OUT_OBJECT_STORAGE_ENDPOINT: ${{ steps.services.outputs.object-storage-endpoint }}
+        run: |
+          for name in $(compgen -v OUT_); do
+            [ -n "${!name}" ] || { echo "::error::output $name is empty"; exit 1; }
+          done
+          docker exec "$PG_CONTAINER" psql -U kumiko -d kumiko_test -c 'select 1'
+          exec 3<>"/dev/tcp/127.0.0.1/$OUT_REDIS_PORT"
+          printf 'PING\r\n' >&3
+          read -r -t 3 reply <&3 || true
+          exec 3>&-
+          reply=${reply%$'\r'}
+          [ "$reply" = "+PONG" ] || { echo "::error::redis PING answered '$reply'"; exit 1; }
+          if [ "$REDIS_URL" != "$OUT_REDIS_URL" ] || [ "$DATABASE_URL" != "$OUT_DATABASE_URL" ]; then
+            echo "::error::exported env does not match the action outputs"
+            exit 1
+          fi
+          curl -fsS "$MEILI_URL/health"
+          curl -fsS "$MINIO_ENDPOINT/minio/health/live"
+
+      - name: Stop services
+        if: always()
+        uses: ./.github/actions/kumiko-services/stop
+
+      - name: Verify no containers are left
+        if: always()
+        run: |
+          run_label="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}"
+          left=$(docker ps -a --filter "label=kumiko-ci.run=${run_label//[^A-Za-z0-9_.-]/_}" --format '{{.Names}}')
+          [ -z "$left" ] || { echo "::error::containers left: $left"; exit 1; }
