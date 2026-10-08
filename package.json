@@ -61,7 +61,7 @@
     "kumiko": "bun run bin/kumiko.ts",
     "test": "bun test --dots",
     "test:dom": "bun test --dots --config=bunfig.dom.toml --timeout=15000 .test.tsx",
-    "test:dom:isolated": "bash -c 'fail=0; for f in ./packages/bundled-features/src/user-data-rights/web/__tests__/deletion-screens.test.tsx ./packages/bundled-features/src/user-data-rights/web/__tests__/privacy-center-screen.test.tsx ./packages/renderer-web/src/__tests__/kumiko-screen-singleton-entity-edit.test.tsx ./packages/renderer-web/src/__tests__/return-to-singleton.test.tsx ./packages/renderer-web/src/__tests__/kumiko-screen-money-tenant-currency.test.tsx ./packages/renderer-web/src/__tests__/kumiko-screen-action-form-money-currency.test.tsx; do bun test --config=bunfig.ci-dom.toml --timeout=15000 \"$f\" || fail=1; done; exit $fail'",
+    "test:dom:isolated": "bash -c 'fail=0; i=0; for f in ./packages/bundled-features/src/user-data-rights/web/__tests__/deletion-screens.test.tsx ./packages/bundled-features/src/user-data-rights/web/__tests__/privacy-center-screen.test.tsx ./packages/renderer-web/src/__tests__/kumiko-screen-singleton-entity-edit.test.tsx ./packages/renderer-web/src/__tests__/return-to-singleton.test.tsx ./packages/renderer-web/src/__tests__/kumiko-screen-money-tenant-currency.test.tsx ./packages/renderer-web/src/__tests__/kumiko-screen-action-form-money-currency.test.tsx; do i=$((i+1)); bun test --config=bunfig.ci-dom.toml --timeout=15000 --coverage --coverage-reporter=lcov --coverage-dir=coverage/dom-isolated/$i \"$f\" || fail=1; done; exit $fail'",
     "test:run": "bun test --dots",
     "test:verbose": "bun test",
     "test:integration": "bun scripts/run-integration-tests.ts",

@@ -189,6 +189,16 @@ jobs:
           path: coverage/dom/lcov.info
           retention-days: 1
 
+      - name: Upload isolated dom coverage
+        # lcov of the per-file `test:dom:isolated` runs (bunfig.ci-dom.toml);
+        # their tests are excluded from the shared dom run above.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-dom-isolated
+          path: coverage/dom-isolated
+          retention-days: 1
+
   tz-matrix:
     # Timezones epic (kumiko-framework#268), item 12. Runs the TZ-sensitive
     # tests under several non-UTC process zones, so a future process-TZ-dependent
@@ -654,6 +664,12 @@ jobs:
         with:
           name: coverage-dom
           path: coverage/dom
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: coverage-dom-isolated
+          path: coverage/dom-isolated
 
       - name: Compute badge
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Compute badge" -- bun scripts/coverage-badge.ts
