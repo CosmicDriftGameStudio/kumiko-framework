@@ -896,13 +896,6 @@ function RadioListSelect({
   );
 }
 
-// The row count reaches the textarea through an untyped view-model hint, so a
-// sloppy schema can hand over a fraction or a zero — neither renders a sane
-// attribute nor a sane min-height, so both fall back to the default instead.
-function normalizedTextareaRows(rows: number | undefined): number | undefined {
-  return rows !== undefined && Number.isInteger(rows) && rows >= 1 ? rows : undefined;
-}
-
 // The vendored shadcn Textarea carries `field-sizing: content`, which derives
 // the box height from the content and makes the `rows` attribute inert (#2677).
 // A declared row count therefore only survives as a min-height floor: the field
@@ -1242,7 +1235,7 @@ function DefaultInput(props: InputProps): ReactNode {
         />
       );
     case "textarea": {
-      const rows = normalizedTextareaRows(props.rows);
+      const rows = props.rows;
       const onSubmitShortcut = props.onSubmitShortcut;
       const onKeyDown = props.onKeyDown;
       return (
@@ -2497,7 +2490,11 @@ function showsBareCheckMark(type: string, value: unknown, renderer: unknown): bo
 
 // Badges (select pills, component renderers) must never be clipped by the card's meta truncation.
 function isBadgeColumn(col: { readonly type: string; readonly renderer?: unknown }): boolean {
-  return col.type === "select" || isComponentRendererRef(col.renderer) !== undefined;
+  return (
+    col.type === "select" ||
+    col.type === "multiSelect" ||
+    isComponentRendererRef(col.renderer) !== undefined
+  );
 }
 
 // The first cell is the keyboard-reachable entry point of a clickable row; the
@@ -3251,6 +3248,31 @@ function cellTitle(value: unknown): string | undefined {
   return undefined;
 }
 
+function selectPill(
+  value: unknown,
+  optionLabels: Readonly<Record<string, string>> | undefined,
+  optionTones: Readonly<Partial<Record<string, SelectOptionTone>>> | undefined,
+  locale: string | undefined,
+): ReactNode {
+  const label = defaultCellRender(value, "select", optionLabels, locale);
+  const declaredTone =
+    typeof value === "string" && optionTones && Object.hasOwn(optionTones, value)
+      ? optionTones[value]
+      : undefined;
+  const tone =
+    (declaredTone !== undefined ? statusToneForOptionTone(declaredTone) : undefined) ??
+    (typeof value === "string" ? statusToneForValue(value) : undefined);
+  if (tone !== undefined) {
+    return <StatusBadge tone={tone}>{label}</StatusBadge>;
+  }
+  // dashboard-01 pattern: outline badge + muted instead of a filled secondary.
+  return (
+    <Badge variant="outline" className="px-1.5 text-muted-foreground">
+      {label}
+    </Badge>
+  );
+}
+
 type DataTableCellProps = {
   readonly value: unknown;
   readonly row: Readonly<Record<string, unknown>>;
@@ -3408,22 +3430,18 @@ function DataTableCell({
   // detail view of the same value was coloured (fw#2579). Unknown values
   // keep the neutral outline pill.
   if (type === "select" && value !== null && value !== undefined && value !== "") {
-    const label = defaultCellRender(value, type, optionLabels, locale);
-    const declaredTone =
-      typeof value === "string" && optionTones && Object.hasOwn(optionTones, value)
-        ? optionTones[value]
-        : undefined;
-    const tone =
-      (declaredTone !== undefined ? statusToneForOptionTone(declaredTone) : undefined) ??
-      (typeof value === "string" ? statusToneForValue(value) : undefined);
-    if (tone !== undefined) {
-      return <StatusBadge tone={tone}>{label}</StatusBadge>;
-    }
-    // dashboard-01 pattern: outline badge + muted instead of a filled secondary.
+    return selectPill(value, optionLabels, optionTones, locale);
+  }
+  // One pill per picked value; a single pill would hold the whole joined list.
+  if (type === "multiSelect" && Array.isArray(value) && value.length > 0) {
     return (
-      <Badge variant="outline" className="px-1.5 text-muted-foreground">
-        {label}
-      </Badge>
+      <span className="flex flex-wrap gap-1">
+        {value.map((entry) => (
+          <Fragment key={String(entry)}>
+            {selectPill(entry, optionLabels, optionTones, locale)}
+          </Fragment>
+        ))}
+      </span>
     );
   }
   return defaultCellRender(value, type, optionLabels, locale, field, grouping);

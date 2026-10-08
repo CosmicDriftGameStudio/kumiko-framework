@@ -936,6 +936,16 @@ describe("config.values query handler", () => {
     expect(values["app:config:service-url"]).toBeUndefined();
     expect(values["app:config:mail-server"]).toBeUndefined();
   });
+
+  test("keys narrows the result to the requested keys, still behind read access", async () => {
+    const values = await stack.http.queryOk<Record<string, { value: unknown; scope: string }>>(
+      ConfigQueries.values,
+      { keys: ["orders:config:max-order-count", "app:config:service-url"] },
+      normalUser,
+    );
+
+    expect(Object.keys(values)).toEqual(["orders:config:max-order-count"]);
+  });
 });
 
 // --- config.schema query ---

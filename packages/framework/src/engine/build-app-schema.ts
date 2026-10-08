@@ -416,7 +416,7 @@ function projectEntities(
 ): Readonly<Record<string, EntityDefinition>> {
   const out: Record<string, EntityDefinition> = {};
   for (const [name, entity] of Object.entries(entities)) {
-    out[name] = projectEntity(entity);
+    out[name] = projectEntity(name, entity);
   }
   return out;
 }
@@ -426,9 +426,10 @@ function projectEntities(
 // einzeln auszuhandeln, walken wir die Field-Map und filtern auf die
 // Whitelist. Was nicht durchkommt: Server-only-runtime wie ZodValidate-
 // Functions, Computed-Functions, Default-Functions.
-function projectEntity(entity: EntityDefinition): EntityDefinition {
+function projectEntity(entityName: string, entity: EntityDefinition): EntityDefinition {
   const fieldsOut: Record<string, FieldDefinition> = {};
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
+    assertValidMultilineRows(entityName, fieldName, fieldDef);
     fieldsOut[fieldName] = projectField(fieldDef);
   }
   // derivedFields MÜSSEN mit ins Client-Schema (nur die Metadaten, nicht die
@@ -467,6 +468,26 @@ function projectEntity(entity: EntityDefinition): EntityDefinition {
 // die keine derive-fn hat.
 function projectDerivedField(derivedDef: DerivedFieldDef): ClientDerivedFieldDef {
   return { valueType: derivedDef.valueType };
+}
+
+// A textarea height that is not a positive integer cannot render anywhere; fail
+// at boot with the field name instead of letting each renderer guess a fallback.
+function assertValidMultilineRows(
+  entityName: string,
+  fieldName: string,
+  fieldDef: FieldDefinition,
+): void {
+  if (fieldDef.type !== "text" && fieldDef.type !== "longText") return;
+  const multiline = fieldDef.multiline;
+  if (typeof multiline !== "object") return;
+  const rows: unknown = multiline.rows;
+  // Non-number values are not JSON-safe and get dropped by the projection below.
+  if (typeof rows !== "number") return;
+  if (!Number.isInteger(rows) || rows < 1) {
+    throw new Error(
+      `Entity "${entityName}" field "${fieldName}": multiline.rows must be a positive integer, got ${rows}`,
+    );
+  }
 }
 
 // Per-field whitelist. Every forwarded value must be JSON-safe (literal, or

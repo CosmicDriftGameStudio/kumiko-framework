@@ -246,13 +246,8 @@ type TextFieldHints = Pick<EditFieldViewModel, "multiline" | "format" | "writeOn
 
 function deriveTextFieldHints(fieldDef: EntityFieldDef): TextFieldHints {
   const multiline =
-    fieldDef.type === "text" || fieldDef.type === "longText"
-      ? (fieldDef as unknown as { multiline?: boolean | { rows?: number } }).multiline
-      : undefined;
-  const format =
-    fieldDef.type === "text"
-      ? (fieldDef as unknown as { format?: "email" | "url" | "phone" | "password" }).format
-      : undefined;
+    fieldDef.type === "text" || fieldDef.type === "longText" ? fieldDef.multiline : undefined;
+  const format = fieldDef.type === "text" ? fieldDef.format : undefined;
   const writeOnly = fieldDef.type === "text" && fieldDef.writeOnly === true;
   return {
     ...(multiline !== undefined && { multiline }),
