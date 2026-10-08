@@ -852,6 +852,7 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
     ["markerKinds", { markerKinds: { payoff: { tone: "positive" } } }],
     ["legendTotals", { legendTotals: false }],
     ["ranges", { ranges: RANGES }],
+    ["brush", { brush: true }],
   ] as const)("rejects %s on a chart kind other than stacked-area", (prop, extra) => {
     const feature = gatedFeature([{ ...AREA, chart: "stacked-bars", ...extra }]);
     expect(() => validateBoot([feature])).toThrow(
@@ -884,6 +885,12 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
   ] as const)("rejects invalid ranges (%s)", (_name, ranges, message) => {
     const feature = gatedFeature([{ ...AREA, ranges }]);
     expect(() => validateBoot([feature])).toThrow(message);
+  });
+
+  test("accepts brush on stacked-area and rejects a non-boolean brush", () => {
+    expect(() => validateBoot([gatedFeature([{ ...AREA, brush: true }])])).not.toThrow();
+    const feature = gatedFeature([{ ...AREA, brush: "yes" as unknown as boolean }]);
+    expect(() => validateBoot([feature])).toThrow(/non-boolean brush/);
   });
 
   test("rejects a marker kind without tone and color", () => {

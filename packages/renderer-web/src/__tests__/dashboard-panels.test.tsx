@@ -18,7 +18,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { WebDashboardBody } from "../app/dashboard-body.js";
 import { useBrowserNavApi } from "../app/nav.js";
-import { createMockDispatcher, render, screen, waitFor, within } from "./test-utils.js";
+import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.js";
 
 type Handler = (payload: Readonly<Record<string, unknown>>) => unknown | Promise<unknown>;
 
@@ -1293,5 +1293,42 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
     expect(screen.getByTestId("chart-line-rent").getAttribute("d")?.match(/L /g)).toHaveLength(
       MONTH_COUNT - 1,
     );
+  });
+
+  test("the brush scrubs the window by keyboard and deselects the header range switch", async () => {
+    renderDashboard(
+      chartScreen("stacked-area", {
+        brush: true,
+        ranges: {
+          options: [
+            { value: "1y", label: "demo:range-1y", months: 12 },
+            { value: "max", label: "demo:range-max" },
+          ],
+          default: "1y",
+        },
+      }),
+      { "demo:query:metric:chart": () => ok(planPayload) },
+    );
+    await waitFor(() => expect(screen.getByTestId("dashboard-chart-main-brush")).toBeTruthy());
+    const rangeSwitch = screen.getByTestId("dashboard-chart-range-main");
+    expect(rangeSwitch.closest("header")).not.toBeNull();
+    expect(screen.getByTestId("dashboard-chart-main").contains(rangeSwitch)).toBe(false);
+    const oneYear = within(rangeSwitch).getByRole("button", { name: "demo:range-1y" });
+    expect(oneYear.getAttribute("aria-pressed")).toBe("true");
+    const [startHandle] = screen.getAllByRole("slider");
+    if (startHandle === undefined) throw new Error("start handle missing");
+    fireEvent.keyDown(startHandle, { key: "ArrowRight" });
+    await waitFor(() => expect(oneYear.getAttribute("aria-pressed")).toBe("false"));
+    await userEvent.click(oneYear);
+    await waitFor(() => expect(oneYear.getAttribute("aria-pressed")).toBe("true"));
+  });
+
+  test("brush alone starts at today and renders no range switch", async () => {
+    renderDashboard(chartScreen("stacked-area", { brush: true }), {
+      "demo:query:metric:chart": () => ok({ ...planPayload, todayMs: monthAt(12) }),
+    });
+    await waitFor(() => expect(screen.getByTestId("dashboard-chart-main-brush")).toBeTruthy());
+    expect(screen.queryByTestId("dashboard-chart-range-main")).toBeNull();
+    expect(screen.getAllByRole("slider")[0]?.getAttribute("aria-valuenow")).toBe("12");
   });
 });
