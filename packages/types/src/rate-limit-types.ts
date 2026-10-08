@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 import type { Temporal } from "./temporal.js";
 
 export type RateLimitDecision = {

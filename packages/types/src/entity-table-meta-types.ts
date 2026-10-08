@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // Plain-data types for EntityTableMeta — split from the runtime
 // (deriveEntityTableMeta, resolveTableName, defineUnmanagedTable) in
 // entity-table-meta.ts. Prep step for the types-only package extraction

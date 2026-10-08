@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 import type { TenantId } from "./identifiers.js";
 
 // Structural shape of kumiko-framework's VersionConflictError. The class

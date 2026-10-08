@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 import type { Redis } from "ioredis";
 import type { ZodType } from "zod";
 import type { CacheSyncBus } from "./cache-sync-types.js";

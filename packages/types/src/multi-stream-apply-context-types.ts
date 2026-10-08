@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 import type { DerivativesContext } from "./derivatives-types.js";
 import type { StoredEvent } from "./event-store-types.js";
 import type { KumikoEventTypeMap } from "./event-type-map.js";
