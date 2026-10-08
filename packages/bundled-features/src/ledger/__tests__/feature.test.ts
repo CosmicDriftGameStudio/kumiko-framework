@@ -106,6 +106,27 @@ describe("createTransactionPayloadSchema — double-entry invariants", () => {
     expect(createTransactionPayloadSchema.safeParse(ok).success).toBe(true);
   });
 
+  test("rejects a subjectId without subjectType and vice versa", () => {
+    expect(createTransactionPayloadSchema.safeParse({ ...ok, subjectId: "lease-1" }).success).toBe(
+      false,
+    );
+    expect(createTransactionPayloadSchema.safeParse({ ...ok, subjectType: "lease" }).success).toBe(
+      false,
+    );
+    expect(
+      createTransactionPayloadSchema.safeParse({
+        ...ok,
+        subjectType: "lease",
+        subjectId: "lease-1",
+      }).success,
+    ).toBe(true);
+  });
+
+  test("rejects empty subject strings", () => {
+    const bad = { ...ok, subjectType: "", subjectId: "" };
+    expect(createTransactionPayloadSchema.safeParse(bad).success).toBe(false);
+  });
+
   test("rejects an unbalanced entry (Σ ≠ 0)", () => {
     const bad = {
       ...ok,

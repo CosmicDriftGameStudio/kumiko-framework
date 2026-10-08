@@ -135,7 +135,7 @@ export async function deleteStaleDraftsBatch(
     const tenantDb = createTenantDb(db, tenantId, "system");
     for (const id of ids) {
       // Race: user may have saved between select and here — skip if no longer stale.
-      if (!(await isDraftStillStale(db, id, retentionDays))) {
+      if (!(await isDraftStillStale(db, tenantId, id, retentionDays))) {
         skippedCount++;
         continue;
       }

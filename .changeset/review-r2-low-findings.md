@@ -22,3 +22,5 @@ feature: screens
 type: fix
 title: Unknown status tones fail boot and secretMint confirm actions respect role gating
 -->
+
+`jobs:query:list` (job-runs screen) now pages with a `cursor` and returns `nextCursor` while older runs exist. Ledger `create-transaction` requires `subjectType` and `subjectId` together and rejects empty strings (also on schedule fields). The form-draft sweep re-check is tenant-scoped. A workflow run resumed without a stored definition fingerprint logs a warning.

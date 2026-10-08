@@ -94,12 +94,14 @@ export const transactionEntity = createEntity({
     // Optional business-object reference (e.g. a lease contract) so entries can
     // be filtered by what they're about, not just grepped out of `reference`.
     subjectType: createTextField({
+      minLength: 1,
       maxLength: 64,
       personal: false,
       reason: "technical_reference",
       filterable: true,
     }),
     subjectId: createTextField({
+      minLength: 1,
       maxLength: 128,
       personal: false,
       reason: "technical_reference",
@@ -147,12 +149,14 @@ export const scheduleEntity = createEntity({
     // Confirmed periods inherit this from the schedule (see
     // confirm-schedule-period.write.ts) rather than repeating it per period.
     subjectType: createTextField({
+      minLength: 1,
       maxLength: 64,
       personal: false,
       reason: "technical_reference",
       filterable: true,
     }),
     subjectId: createTextField({
+      minLength: 1,
       maxLength: 128,
       personal: false,
       reason: "technical_reference",

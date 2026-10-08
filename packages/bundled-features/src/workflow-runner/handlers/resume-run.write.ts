@@ -92,6 +92,11 @@ function checkQ7Fingerprint(
   storedFingerprint: string | null,
 ): WorkflowRunFailedPayload | null {
   const currentFingerprint = computeDefinitionFingerprint(workflow);
+  if (storedFingerprint === null) {
+    log.warn(
+      `Run ${runId} of workflow "${workflowName}" has no stored definition fingerprint — resuming against the current definition unchecked.`,
+    );
+  }
   const fingerprintChanged = storedFingerprint !== null && currentFingerprint !== storedFingerprint;
   if (!fingerprintChanged) {
     return null;

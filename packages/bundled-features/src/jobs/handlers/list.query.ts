@@ -1,11 +1,13 @@
 import { countWhere, selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
+import { decodeCursor, encodeCursor } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
 import { jobRunsTable } from "../job-run-table.js";
 
 const KMS_POOL_CONCURRENCY = 4;
+const DEFAULT_PAGE_SIZE = 50;
 
 const jobRunStatusSchema = z.enum(["queued", "running", "completed", "failed"]);
 
@@ -42,6 +44,7 @@ export const listQuery = defineQueryHandler({
     sort: z.enum(["jobName", "status", "startedAt", "duration"]).optional(),
     sortDirection: z.enum(["asc", "desc"]).optional(),
     limit: z.number().optional(),
+    cursor: z.string().optional(),
     totalCount: z.boolean().optional(),
   }),
   access: { roles: ["SystemAdmin"] },
@@ -61,10 +64,25 @@ export const listQuery = defineQueryHandler({
     if (statuses.length === 1) where["status"] = statuses[0];
     else if (statuses.length > 1) where["status"] = { in: statuses };
     const sortColumn = query.payload.sort ?? "startedAt";
-    const rows = await selectMany(db, jobRunsTable, where, {
-      orderBy: { col: sortColumn, direction: query.payload.sortDirection ?? "desc" },
-      limit: query.payload.limit ?? 50,
+    const limit = query.payload.limit ?? DEFAULT_PAGE_SIZE;
+    const offset = query.payload.cursor ? Number(decodeCursor(query.payload.cursor)) : 0;
+    if (!Number.isInteger(offset) || offset < 0) {
+      throw new ValidationError({
+        fields: [{ path: "cursor", code: "invalid_cursor", i18nKey: "jobs.errors.invalidCursor" }],
+      });
+    }
+    const direction = query.payload.sortDirection ?? "desc";
+    // selectMany has no OFFSET: read through the end of the page plus one probe
+    // row, then slice. `id` as tiebreaker keeps pages stable for non-unique sorts.
+    const fetched = await selectMany(db, jobRunsTable, where, {
+      orderBy: [
+        { col: sortColumn, direction },
+        { col: "id", direction },
+      ],
+      limit: offset + limit + 1,
     });
+    const hasMore = fetched.length > offset + limit;
+    const rows = fetched.slice(offset, offset + limit);
     // countWhere reruns the SAME `where` without the limit — `rows.length` is
     // capped at the page size and would silently undercount the total.
     const total =
@@ -72,7 +90,7 @@ export const listQuery = defineQueryHandler({
     // payload/error are stored encrypted under the triggering user's DEK (#799, #2307).
     return {
       rows: await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, decryptRunRow),
-      nextCursor: null,
+      nextCursor: hasMore ? encodeCursor(String(offset + limit)) : null,
       ...(total !== undefined && { total }),
     };
   },
