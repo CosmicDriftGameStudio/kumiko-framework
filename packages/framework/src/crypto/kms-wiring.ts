@@ -142,8 +142,12 @@ function assertNoUnresolvedCiphertext(env: KmsWiringEnv, logPrefix: string | und
   }
 }
 
-function assertTrioConsistent(env: KmsWiringEnv, logPrefix: string | undefined): boolean {
-  assertNoUnresolvedCiphertext(env, logPrefix);
+function assertTrioConsistent(
+  env: KmsWiringEnv,
+  logPrefix: string | undefined,
+  rejectUnresolvedCiphertext: boolean,
+): boolean {
+  if (rejectUnresolvedCiphertext) assertNoUnresolvedCiphertext(env, logPrefix);
   const trio = [env.PLATFORM_KEK, env.SUBJECT_KEYS_DATABASE_URL, env.KUMIKO_BLIND_INDEX_KEY];
   const complete = trio.every(Boolean);
   if (!complete && trio.some(Boolean)) {
@@ -173,7 +177,18 @@ function assertTrioConsistent(env: KmsWiringEnv, logPrefix: string | undefined):
  *
  *  Prod entry points that must never fall back: use `requireKmsWiring`. */
 export function resolveKmsWiring(env: KmsWiringEnv, options: KmsWiringOptions = {}): KmsWiring {
-  const complete = assertTrioConsistent(env, options.logPrefix);
+  return wireKms(env, options, true);
+}
+
+// The async entry points resolve only their declared slots; a ciphertext slot
+// outside that list is the caller's deliberate choice, so only the sync entry
+// points treat a leftover ciphertext as a wiring error.
+function wireKms(
+  env: KmsWiringEnv,
+  options: KmsWiringOptions,
+  rejectUnresolvedCiphertext: boolean,
+): KmsWiring {
+  const complete = assertTrioConsistent(env, options.logPrefix, rejectUnresolvedCiphertext);
   if (complete && env.PLATFORM_KEK && env.SUBJECT_KEYS_DATABASE_URL && env.KUMIKO_BLIND_INDEX_KEY) {
     const kms = createPgKmsAdapter(
       buildPgKmsOptions({
@@ -202,7 +217,10 @@ export function requireKmsWiring(
   env: KmsWiringEnv,
   options: KmsWiringOptions = {},
 ): ActiveKmsWiring {
-  const wiring = resolveKmsWiring(env, options);
+  return requireActive(wireKms(env, options, true), options);
+}
+
+function requireActive(wiring: KmsWiring, options: KmsWiringOptions): ActiveKmsWiring {
   if ("allowPlaintextPii" in wiring) {
     throw new Error(
       `${options.logPrefix ? `${options.logPrefix} ` : ""}PLATFORM_KEK / ` +
@@ -221,7 +239,7 @@ export async function resolveKmsWiringAsync(
   env: KmsWiringEnv,
   options: KmsWiringOptions & KekSourceOptions,
 ): Promise<KmsWiring> {
-  return resolveKmsWiring(await resolvePlatformKeks(env, options), options);
+  return wireKms(await resolvePlatformKeks(env, options), options, false);
 }
 
 /** Async counterpart to `requireKmsWiring`, KEK-resolving like `resolveKmsWiringAsync`. */
@@ -229,5 +247,5 @@ export async function requireKmsWiringAsync(
   env: KmsWiringEnv,
   options: KmsWiringOptions & KekSourceOptions,
 ): Promise<ActiveKmsWiring> {
-  return requireKmsWiring(await resolvePlatformKeks(env, options), options);
+  return requireActive(wireKms(await resolvePlatformKeks(env, options), options, false), options);
 }

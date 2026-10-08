@@ -11,8 +11,6 @@
 // table growth; irreversible event-log purging is data-retention's job
 // (pruneEvents), a separate, consumer-lag-guarded path.
 
-import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
-import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { asEntityTableMeta, deleteMany, type WhereObject } from "../db/query.js";
 import { SYSTEM_USER_ID } from "./system-user.js";
 import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/config.js";
@@ -53,7 +51,7 @@ export function isSystemScopedSoftDeleteTable(
   return entity.tenancy === "global" || !hasTenantIdColumn(table);
 }
 
-function isGlobalTenancyTable(table: unknown): table is SchemaTable & TenancyBrand<"global"> {
+function isGlobalTenancyTable(table: unknown): boolean {
   return asEntityTableMeta(table)?.tenancy === "global";
 }
 
@@ -120,7 +118,8 @@ export const softDeleteCleanupSystemJob: JobHandlerFn = async (_payload, ctx) =>
     if (!isSystemScopedSoftDeleteTable(proj.table, entity)) continue;
     const where: WhereObject = { isDeleted: true, deletedAt: { lt: cutoff } };
     if (isGlobalTenancyTable(proj.table)) {
-      await db.global(proj.table).deleteMany(where);
+      // db.global() rejects writes on executor-managed tables; a retention purge has no event to append.
+      await deleteMany(db.unsafeRaw(), proj.table, where);
     } else {
       await deleteMany(db, proj.table, where);
     }
@@ -148,7 +147,7 @@ export function buildSoftDeleteCleanupSystemJob(): JobDefinition {
     escapeHatch: {
       reason:
         "hard-deletes expired soft-deleted rows of global entities (e.g. user) once, system-wide",
-      grants: ["globalWrites"],
+      grants: ["unsafeRaw"],
     },
   };
 }
