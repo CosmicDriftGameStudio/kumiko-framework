@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient } from "../../db/query.js";
-import { createEntity, createTextField } from "../../engine/index.js";
+import { createEntity, createTextField, from } from "../../engine/index.js";
 import type { EntityDefinition } from "../../engine/types/index.js";
 import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
 import { seedRows } from "../../testing/index.js";
@@ -54,6 +54,38 @@ const restrictedOrderEntity = createEntity({
   },
 });
 const restrictedOrderTable = buildEntityTable("refSortRestrictedOrder", restrictedOrderEntity);
+
+// Targets whose own read access restricts which rows / which label a viewer may see.
+const ownedCustomerEntity = createEntity({
+  table: "read_ref_sort_owned_customers",
+  fields: {
+    ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+  },
+  access: {
+    read: { Admin: "all", User: from("user:id", "ownerId") },
+  },
+});
+const ownedCustomerTable = buildEntityTable("refSortOwnedCustomer", ownedCustomerEntity);
+
+const labelRestrictedCustomerEntity = createEntity({
+  table: "read_ref_sort_label_restricted_customers",
+  fields: {
+    name: createTextField({
+      required: true,
+      personal: false,
+      reason: "test_fixture",
+      access: { read: { Admin: "all" } },
+    }),
+  },
+  access: {
+    read: { Admin: "all", User: "all" },
+  },
+});
+const labelRestrictedCustomerTable = buildEntityTable(
+  "refSortLabelRestrictedCustomer",
+  labelRestrictedCustomerEntity,
+);
 
 const CUSTOMER_MIKE = "11111111-1111-4111-8111-111111111111";
 const CUSTOMER_ALPHA = "22222222-2222-4222-8222-222222222222";
@@ -107,6 +139,12 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, customerEntity, "refSortCustomer");
   await unsafeCreateEntityTable(testDb.db, orderEntity, "refSortOrder");
   await unsafeCreateEntityTable(testDb.db, restrictedOrderEntity, "refSortRestrictedOrder");
+  await unsafeCreateEntityTable(testDb.db, ownedCustomerEntity, "refSortOwnedCustomer");
+  await unsafeCreateEntityTable(
+    testDb.db,
+    labelRestrictedCustomerEntity,
+    "refSortLabelRestrictedCustomer",
+  );
   tdbA = createTenantDb(testDb.db, admin.tenantId);
 });
 
@@ -117,7 +155,8 @@ afterAll(async () => {
 beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
     "TRUNCATE kumiko_events, read_ref_sort_customers, read_ref_sort_orders, " +
-      "read_ref_sort_restricted_orders RESTART IDENTITY CASCADE",
+      "read_ref_sort_restricted_orders, read_ref_sort_owned_customers, " +
+      "read_ref_sort_label_restricted_customers RESTART IDENTITY CASCADE",
   );
 });
 
@@ -269,6 +308,114 @@ describe("event-store-executor.list — sortable reference fields (fw#2741)", ()
       admin,
       tdbA,
       { referenceSort },
+    );
+    expect(idsOf(asAdmin.rows)).toEqual([ORDER_C, ORDER_B, ORDER_A]);
+  });
+
+  test("target rows the caller may not read contribute no label and sort last", async () => {
+    await seedRows(testDb.db, ownedCustomerTable, [
+      { id: CUSTOMER_MIKE, tenantId: admin.tenantId, ownerId: TestUsers.user.id, name: "Mike" },
+      { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, ownerId: admin.id, name: "Alpha" },
+      { id: CUSTOMER_ZULU, tenantId: admin.tenantId, ownerId: TestUsers.user.id, name: "Zulu" },
+    ]);
+    await seedRows(testDb.db, orderTable, [
+      { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
+      { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
+      { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
+    ]);
+    const ownedSort = {
+      fields: [
+        { fieldName: "customerId", targetEntityName: "refSortOwnedCustomer", labelField: "name" },
+      ],
+      resolveEntity: (name: string) =>
+        name === "refSortOwnedCustomer" ? ownedCustomerEntity : undefined,
+    };
+
+    // Alpha belongs to the admin: its label must not influence the User's order.
+    const asUser = await orderExec.list(
+      { sort: "customerId", sortDirection: "asc" },
+      TestUsers.user,
+      tdbA,
+      { referenceSort: ownedSort },
+    );
+    expect(idsOf(asUser.rows)).toEqual([ORDER_B, ORDER_A, ORDER_C]);
+
+    const asAdmin = await orderExec.list(
+      { sort: "customerId", sortDirection: "asc" },
+      admin,
+      tdbA,
+      { referenceSort: ownedSort },
+    );
+    expect(idsOf(asAdmin.rows)).toEqual([ORDER_C, ORDER_B, ORDER_A]);
+  });
+
+  test("a target without any read grant for the caller gets id order", async () => {
+    await seedRows(testDb.db, ownedCustomerTable, [
+      { id: CUSTOMER_MIKE, tenantId: admin.tenantId, ownerId: admin.id, name: "Mike" },
+      { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, ownerId: admin.id, name: "Alpha" },
+      { id: CUSTOMER_ZULU, tenantId: admin.tenantId, ownerId: admin.id, name: "Zulu" },
+    ]);
+    await seedRows(testDb.db, orderTable, [
+      { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
+      { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
+      { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
+    ]);
+
+    const res = await orderExec.list(
+      { sort: "customerId", sortDirection: "asc" },
+      TestUsers.driver,
+      tdbA,
+      {
+        referenceSort: {
+          fields: [
+            {
+              fieldName: "customerId",
+              targetEntityName: "refSortOwnedCustomer",
+              labelField: "name",
+            },
+          ],
+          resolveEntity: () => ownedCustomerEntity,
+        },
+      },
+    );
+    expect(idsOf(res.rows)).toEqual([ORDER_A, ORDER_B, ORDER_C]);
+  });
+
+  test("a label field with restricted read access is not sortable through the reference", async () => {
+    await seedRows(testDb.db, labelRestrictedCustomerTable, [
+      { id: CUSTOMER_MIKE, tenantId: admin.tenantId, name: "Mike" },
+      { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, name: "Alpha" },
+      { id: CUSTOMER_ZULU, tenantId: admin.tenantId, name: "Zulu" },
+    ]);
+    await seedRows(testDb.db, orderTable, [
+      { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
+      { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
+      { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
+    ]);
+    const restrictedSort = {
+      fields: [
+        {
+          fieldName: "customerId",
+          targetEntityName: "refSortLabelRestrictedCustomer",
+          labelField: "name",
+        },
+      ],
+      resolveEntity: () => labelRestrictedCustomerEntity,
+    };
+
+    const asUser = await orderExec.list(
+      { sort: "customerId", sortDirection: "asc" },
+      TestUsers.user,
+      tdbA,
+      { referenceSort: restrictedSort },
+    );
+    expect(idsOf(asUser.rows)).toEqual([ORDER_A, ORDER_B, ORDER_C]);
+
+    const asAdmin = await orderExec.list(
+      { sort: "customerId", sortDirection: "asc" },
+      admin,
+      tdbA,
+      { referenceSort: restrictedSort },
     );
     expect(idsOf(asAdmin.rows)).toEqual([ORDER_C, ORDER_B, ORDER_A]);
   });
