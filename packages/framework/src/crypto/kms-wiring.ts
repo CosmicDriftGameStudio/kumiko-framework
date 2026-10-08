@@ -122,7 +122,28 @@ export function buildPgKmsOptions(env: PgKmsRotationEnv): PgKmsAdapterOptions {
   };
 }
 
+const CIPHERTEXT_CAPABLE_SLOTS = [
+  "PLATFORM_KEK",
+  "PLATFORM_KEK_PREVIOUS",
+  "KUMIKO_BLIND_INDEX_KEY",
+] as const;
+
+// The sync entry points only read plaintext slots. A ciphertext-only slot
+// would otherwise surface as a misleading "trio required" error or, worse,
+// a silent plaintext-PII fallback in dev.
+function assertNoUnresolvedCiphertext(env: KmsWiringEnv, logPrefix: string | undefined): void {
+  for (const slot of CIPHERTEXT_CAPABLE_SLOTS) {
+    if (!env[slot] && env[`${slot}_CIPHERTEXT`]) {
+      throw new Error(
+        `${logPrefix ? `${logPrefix} ` : ""}${slot}_CIPHERTEXT is set but ${slot} is not — ` +
+          "the sync KMS wiring cannot resolve ciphertext slots; use resolveKmsWiringAsync / requireKmsWiringAsync.",
+      );
+    }
+  }
+}
+
 function assertTrioConsistent(env: KmsWiringEnv, logPrefix: string | undefined): boolean {
+  assertNoUnresolvedCiphertext(env, logPrefix);
   const trio = [env.PLATFORM_KEK, env.SUBJECT_KEYS_DATABASE_URL, env.KUMIKO_BLIND_INDEX_KEY];
   const complete = trio.every(Boolean);
   if (!complete && trio.some(Boolean)) {
