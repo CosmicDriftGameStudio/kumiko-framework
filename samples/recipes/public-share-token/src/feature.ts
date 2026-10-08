@@ -3,7 +3,7 @@
 // Pattern: authenticated create → plain token show-once → anonymous
 // read-by-token with SHA-256 lookup. Revoke sets revokedAt via executor.
 //
-// See money-horse for credit/folder snapshots, layouts, tier gates.
+// A full consumer adds domain snapshots, layouts and tier gates on top.
 
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";

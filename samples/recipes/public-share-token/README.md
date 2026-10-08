@@ -3,9 +3,8 @@
 Minimal pattern for **tokenized anonymous read surfaces**: authenticated users
 mint a link; visitors resolve it without login.
 
-Domain-agnostic — no credit/folder logic. Full consumer:
-[Cashcolt money-horse](https://github.com/CosmicDriftGameStudio/money-horse)
-(`share-by-token` + 5 layout templates).
+Domain-agnostic — no credit/folder logic. A full consumer adds snapshots,
+layout templates and tier gates on top.
 
 ## What it shows
 
@@ -16,8 +15,8 @@ Domain-agnostic — no credit/folder logic. Full consumer:
 - **`anonymousAccess`** on test stack (see integration test)
 
 Client wiring: [`recipes/apex-surface-auth`](../apex-surface-auth/) or a gate
-before `createKumikoApp` (money-horse uses `public-share-gate.tsx` like the public
-calculator).
+before `createKumikoApp` (a small gate component that renders the public view when
+the URL carries a share token).
 
 ## Handlers
 
