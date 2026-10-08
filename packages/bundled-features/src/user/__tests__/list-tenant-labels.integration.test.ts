@@ -18,12 +18,20 @@ import { userEntity } from "../schema/user.js";
 
 const systemAdmin = TestUsers.systemAdmin;
 
-async function seedUser(stack: TestStack): Promise<void> {
-  await stack.http.writeOk(
+let seededUserCount = 0;
+
+async function seedUser(stack: TestStack): Promise<string> {
+  seededUserCount += 1;
+  const created = await stack.http.writeOk<{ id: string }>(
     UserHandlers.create,
-    { email: "label-user@example.com", displayName: "Label User", passwordHash: "seeded-hash" },
+    {
+      email: `label-user-${seededUserCount}@example.com`,
+      displayName: "Label User",
+      passwordHash: "seeded-hash",
+    },
     systemAdmin,
   );
+  return created.id;
 }
 
 describe("user:list without the tenant feature", () => {
@@ -50,6 +58,19 @@ describe("user:list without the tenant feature", () => {
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]?.["tenants"] ?? "").toBe("");
   });
+
+  test("detail loads the user with an empty tenants label and no membership lookup", async () => {
+    const id = await seedUser(stack);
+
+    const detail = await stack.http.queryOk<Record<string, unknown>>(
+      UserQueries.detail,
+      { id },
+      systemAdmin,
+    );
+
+    expect(detail["id"]).toBe(id);
+    expect(detail["tenants"] ?? "").toBe("");
+  });
 });
 
 describe("user:list with the tenant feature", () => {
@@ -71,6 +92,15 @@ describe("user:list with the tenant feature", () => {
     await executeRawQuery(stack.db, "DROP TABLE read_tenant_memberships", []);
 
     const res = await stack.http.query(UserQueries.list, {}, systemAdmin);
+
+    expect(res.status).toBeGreaterThanOrEqual(500);
+  });
+
+  test("a failing membership lookup surfaces on detail too", async () => {
+    const id = await seedUser(stack);
+    await executeRawQuery(stack.db, "DROP TABLE IF EXISTS read_tenant_memberships", []);
+
+    const res = await stack.http.query(UserQueries.detail, { id }, systemAdmin);
 
     expect(res.status).toBeGreaterThanOrEqual(500);
   });
