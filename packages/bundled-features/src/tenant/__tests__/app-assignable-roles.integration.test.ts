@@ -20,7 +20,7 @@ import { createUserFeature } from "../../user/feature.js";
 import { userEntity } from "../../user/schema/user.js";
 import { seedUser } from "../../user/seeding.js";
 import { TenantHandlers } from "../constants.js";
-import { createTenantFeature } from "../feature.js";
+import { collectAssignableAppRoles, createTenantFeature } from "../feature.js";
 import { tenantMembershipsTable } from "../membership-table.js";
 import { tenantEntity } from "../schema/tenant.js";
 import { seedTenant, seedTenantMembership } from "../seeding.js";
@@ -56,7 +56,12 @@ async function setRoles(roles: string[], role: string) {
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createConfigFeature(), createUserFeature(), createTenantFeature(), appFeature],
+    features: [
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature({ assignableAppRoles: collectAssignableAppRoles([appFeature]) }),
+      appFeature,
+    ],
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);

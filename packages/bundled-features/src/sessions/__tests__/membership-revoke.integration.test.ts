@@ -27,7 +27,7 @@ import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { TenantHandlers, TenantQueries } from "../../tenant/constants.js";
-import { createTenantFeature } from "../../tenant/index.js";
+import { collectAssignableAppRoles, createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { seedTenantMembership } from "../../tenant/seeding.js";
@@ -82,7 +82,7 @@ beforeAll(async () => {
     features: [
       createConfigFeature(),
       createUserFeature(),
-      createTenantFeature(),
+      createTenantFeature({ assignableAppRoles: collectAssignableAppRoles([appFeature]) }),
       createAuthEmailPasswordFeature(),
       authFoundationFeature,
       createSessionsFeature(),
