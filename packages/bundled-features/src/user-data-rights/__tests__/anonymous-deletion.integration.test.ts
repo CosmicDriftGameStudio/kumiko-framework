@@ -7,6 +7,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { UNKNOWN_CLIENT_IP } from "@cosmicdrift/kumiko-framework/api";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -14,6 +15,7 @@ import {
   setupTestStack,
   type TestStack,
   testTenantId,
+  testUserId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
@@ -83,9 +85,13 @@ beforeEach(async () => {
   await stack.redis.flushNamespace();
 });
 
-async function seedAlice(status: string = USER_STATUS.Active, email: string = ALICE_EMAIL) {
+async function seedAlice(
+  status: string = USER_STATUS.Active,
+  email: string = ALICE_EMAIL,
+  id: string = aliceUser.id,
+) {
   await seedRow(stack.db, userTable, {
-    id: aliceUser.id,
+    id,
     tenantId: tenantA,
     email,
     passwordHash: "hashed",
@@ -98,13 +104,24 @@ async function seedAlice(status: string = USER_STATUS.Active, email: string = AL
   });
 }
 
-function tokenFromLastVerifyCall(): string {
-  const url = new URL(verifyCalls[0]?.verifyUrl ?? "");
+// stack.http.raw has no socket address, so every call lands in the "unknown"
+// IP bucket of its handler (see rate-limit/bucket.ts). The client carries the
+// per-stack key prefix.
+async function resetUnknownIpRateLimitBuckets(): Promise<void> {
+  await stack.redis.redis.del(
+    `kumiko:rl:ip+handler:${UNKNOWN_CLIENT_IP}:${REQUEST_BY_EMAIL}`,
+    `kumiko:rl:ip+handler:${UNKNOWN_CLIENT_IP}:${CONFIRM_BY_TOKEN}`,
+  );
+}
+
+function tokenFromLastVerifyCall(email?: string): string {
+  const call = email === undefined ? verifyCalls[0] : verifyCalls.find((c) => c.email === email);
+  const url = new URL(call?.verifyUrl ?? "");
   return new URLSearchParams(url.hash.slice(1)).get("token") ?? "";
 }
 
-async function statusOf(): Promise<string | undefined> {
-  const rows = (await selectMany(stack.db, userTable, { id: aliceUser.id })) as Array<{
+async function statusOf(id: string = aliceUser.id): Promise<string | undefined> {
+  const rows = (await selectMany(stack.db, userTable, { id })) as Array<{
     status: string;
   }>;
   return rows[0]?.status;
@@ -203,19 +220,24 @@ describe("anonymous deletion flow", () => {
     // the interleaving width varies between runs, hence 20 repetitions
     // instead of a single run (probabilistic test).
     for (let i = 0; i < 20; i++) {
-      await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
+      // A fresh user per iteration instead of truncating the tables: the
+      // per-iteration TRUNCATE dominated the runtime and pushed the loop past
+      // the test timeout under parallel load.
+      const iterationId = testUserId(1000 + i);
+      const iterationEmail = `alice.concurrent.${i}@example.com`;
       // Both handlers below are `per: "ip"` rate-limited (10/60s); this loop's
       // own 3 calls/iteration would otherwise trip that limiter well before
       // the 20th repetition, which has nothing to do with the concurrency
-      // behaviour under test.
-      await stack.redis.flushNamespace();
-      await seedAlice();
-      verifyCalls.length = 0;
+      // behaviour under test. Deleting the two buckets directly instead of
+      // flushNamespace: that SCANs the whole shared Redis keyspace, which cost
+      // hundreds of ms per iteration and blew the test timeout under parallel load.
+      await resetUnknownIpRateLimitBuckets();
+      await seedAlice(USER_STATUS.Active, iterationEmail, iterationId);
       await stack.http.raw("POST", "/api/write", {
         type: REQUEST_BY_EMAIL,
-        payload: { email: ALICE_EMAIL },
+        payload: { email: iterationEmail },
       });
-      const token = tokenFromLastVerifyCall();
+      const token = tokenFromLastVerifyCall(iterationEmail);
 
       const [first, second] = await Promise.all([
         stack.http.raw("POST", "/api/write", { type: CONFIRM_BY_TOKEN, payload: { token } }),
@@ -225,7 +247,7 @@ describe("anonymous deletion flow", () => {
       expect([first.status, second.status].sort()).toEqual([200, 422]);
       // Exactly ONE lifecycle transition: the row lands at DeletionRequested,
       // not in a last-write-wins in-between state from two applied writes.
-      expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
+      expect(await statusOf(iterationId)).toBe(USER_STATUS.DeletionRequested);
 
       const loser = first.status === 422 ? first : second;
       const body = (await loser.json()) as { error: { details?: { reason?: string } } };
