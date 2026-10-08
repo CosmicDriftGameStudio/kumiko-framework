@@ -159,6 +159,19 @@ describe("resolveKmsWiring", () => {
     expect(() => resolveKmsWiring({ ...fullTrio, ...extra })).toThrow(/must be set together/);
   });
 
+  test.each(["PLATFORM_KEK", "PLATFORM_KEK_PREVIOUS", "KUMIKO_BLIND_INDEX_KEY"])(
+    "rejects a ciphertext-only %s slot and points at the async entry point",
+    (slot) => {
+      const { [slot]: _removed, ...withoutSlot } = fullTrio;
+      expect(() => resolveKmsWiring({ ...withoutSlot, [`${slot}_CIPHERTEXT`]: "abc" })).toThrow(
+        /resolveKmsWiringAsync/,
+      );
+      expect(() => requireKmsWiring({ [`${slot}_CIPHERTEXT`]: "abc" })).toThrow(
+        /requireKmsWiringAsync/,
+      );
+    },
+  );
+
   test("builds the adapter when the trio is complete", () => {
     const wiring = resolveKmsWiring(fullTrio);
 
