@@ -42,7 +42,10 @@ type FileRefRow = {
 };
 
 // Declared variants are implicitly public once the entityType check passes — `fieldName`/`variant` allow per-variant opt-out.
+// entityType/entityId/fieldName of a FileRef are client-supplied at upload, so a predicate that
+// serves "the public image of X" must also match `fileRefId` against the row it trusts.
 export type DerivativePublicPredicateArgs = {
+  readonly fileRefId: string;
   readonly entityId: string;
   readonly tenantId: TenantId;
   readonly fieldName: string;
@@ -119,7 +122,13 @@ export const publicVariantQuery = defineQueryHandler({
     }
 
     const isPublic = await usage.options.isPublic(
-      { entityId, tenantId: ctx.user.tenantId, fieldName, variant: query.payload.variant },
+      {
+        fileRefId: query.payload.fileRefId,
+        entityId,
+        tenantId: ctx.user.tenantId,
+        fieldName,
+        variant: query.payload.variant,
+      },
       ctx,
     );
     if (!isPublic) return null;

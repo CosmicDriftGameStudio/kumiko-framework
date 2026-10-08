@@ -72,4 +72,17 @@ describe("sessions screens + query access alignment (kumiko-framework#255)", () 
     expect(rolesOf(sessions.queryHandlers["user-session:list"]?.access)).toEqual(roles);
     expect(rolesOf(sessions.queryHandlers["user-session:detail"]?.access)).toEqual(roles);
   });
+
+  test("adminAccess systemAdmin narrows list/detail queries and both admin screens together", () => {
+    const sessions = createSessionsFeature({ adminAccess: "systemAdmin" });
+    expect(rolesOf(sessions.queryHandlers["user-session:list"]?.access)).toEqual(["SystemAdmin"]);
+    expect(rolesOf(sessions.queryHandlers["user-session:detail"]?.access)).toEqual(["SystemAdmin"]);
+    for (const id of [SESSION_LIST_SCREEN_ID, SESSION_DETAIL_SCREEN_ID]) {
+      const screen = sessions.screens[id];
+      if (!screen || !("access" in screen) || !screen.access || !("roles" in screen.access)) {
+        throw new Error(`expected role-gated screen ${id}`);
+      }
+      expect(screen.access.roles).toEqual(["SystemAdmin"]);
+    }
+  });
 });

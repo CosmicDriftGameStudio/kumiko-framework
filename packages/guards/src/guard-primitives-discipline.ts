@@ -39,6 +39,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
+import { lineHasIgnoreTag } from "./_lib/ignore-tag";
 import { isFlatSrcLayout, type RepoRoot, sourceRootDirs } from "./_lib/roots";
 
 const FORBIDDEN_TAGS: ReadonlyArray<{
@@ -201,7 +202,7 @@ function isPublicPage(file: string): boolean {
 }
 
 function hasIgnore(currentLine: string, prevLine: string): boolean {
-  return currentLine.includes(IGNORE_TAG) || prevLine.includes(IGNORE_TAG);
+  return lineHasIgnoreTag(currentLine, IGNORE_TAG) || lineHasIgnoreTag(prevLine, IGNORE_TAG);
 }
 
 export function checkFile(

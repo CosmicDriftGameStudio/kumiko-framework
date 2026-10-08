@@ -25,68 +25,71 @@ function isSortableColumn(value: string): value is SortableColumn {
 // tenantId column. Includes revoked rows; UI shows revokedAt distinct.
 // No cursor — nextCursor is always null; `limit` only caps the page size,
 // it doesn't offset into a further one.
-export const listQuery = definePagedQueryHandler({
-  name: "user-session:list",
-  schema: z.object({
-    limit: z.number().int().nonnegative().max(MAX_LIST_LIMIT).optional(),
-    sort: z.string().optional(),
-    sortDirection: z.enum(["asc", "desc"]).optional(),
-  }),
-  access: { roles: access.admin },
-  description:
-    "Lists every session in the active tenant, live and revoked, sortable by id, user, creation, expiry or revocation, for an admin auditing who is signed in.",
-  outputSchema: z.object({
-    rows: z.array(
-      z.object({
-        id: z.string(),
-        userId: z.string(),
-        createdAt: z.unknown(),
-        expiresAt: z.unknown(),
-        revokedAt: z.unknown(),
-        ip: z.string().nullable(),
-        userAgent: z.string().nullable(),
-      }),
-    ),
-    nextCursor: z.string().nullable(),
-  }),
-  handler: async (query, ctx) => {
-    const requestedSort = query.payload.sort;
-    const sortColumn: SortableColumn =
-      requestedSort !== undefined && isSortableColumn(requestedSort) ? requestedSort : "createdAt";
-    const rows = await selectMany<{
-      id: string;
-      userId: string;
-      createdAt: unknown;
-      expiresAt: unknown;
-      revokedAt: unknown;
-      ip: string | null;
-      userAgent: string | null;
-    }>(ctx.db, userSessionTable, undefined, {
-      // `id` as a tie-breaker keeps row order (and, with `limit` set, row
-      // selection) deterministic across identical requests — sortColumn
-      // alone isn't unique (e.g. many NULL revokedAt, or equal timestamps).
-      orderBy:
-        sortColumn === "id"
-          ? { col: "id", direction: query.payload.sortDirection ?? "desc" }
-          : [
-              { col: sortColumn, direction: query.payload.sortDirection ?? "desc" },
-              { col: "id", direction: "asc" },
-            ],
-      ...(query.payload.limit !== undefined && { limit: query.payload.limit }),
-    });
-    const decryptedRows = await Promise.all(
-      rows.map(async (r) => ({
-        id: r.id,
-        userId: r.userId,
-        createdAt: r.createdAt,
-        expiresAt: r.expiresAt,
-        revokedAt: r.revokedAt,
-        ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:list") : r.ip,
-        userAgent: r.userAgent
-          ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:list")
-          : r.userAgent,
-      })),
-    );
-    return { rows: decryptedRows, nextCursor: null };
-  },
-});
+export const createListQuery = (adminRoles: readonly string[] = access.admin) =>
+  definePagedQueryHandler({
+    name: "user-session:list",
+    schema: z.object({
+      limit: z.number().int().nonnegative().max(MAX_LIST_LIMIT).optional(),
+      sort: z.string().optional(),
+      sortDirection: z.enum(["asc", "desc"]).optional(),
+    }),
+    access: { roles: adminRoles },
+    description:
+      "Lists every session in the active tenant, live and revoked, sortable by id, user, creation, expiry or revocation, for an admin auditing who is signed in.",
+    outputSchema: z.object({
+      rows: z.array(
+        z.object({
+          id: z.string(),
+          userId: z.string(),
+          createdAt: z.unknown(),
+          expiresAt: z.unknown(),
+          revokedAt: z.unknown(),
+          ip: z.string().nullable(),
+          userAgent: z.string().nullable(),
+        }),
+      ),
+      nextCursor: z.string().nullable(),
+    }),
+    handler: async (query, ctx) => {
+      const requestedSort = query.payload.sort;
+      const sortColumn: SortableColumn =
+        requestedSort !== undefined && isSortableColumn(requestedSort)
+          ? requestedSort
+          : "createdAt";
+      const rows = await selectMany<{
+        id: string;
+        userId: string;
+        createdAt: unknown;
+        expiresAt: unknown;
+        revokedAt: unknown;
+        ip: string | null;
+        userAgent: string | null;
+      }>(ctx.db, userSessionTable, undefined, {
+        // `id` as a tie-breaker keeps row order (and, with `limit` set, row
+        // selection) deterministic across identical requests — sortColumn
+        // alone isn't unique (e.g. many NULL revokedAt, or equal timestamps).
+        orderBy:
+          sortColumn === "id"
+            ? { col: "id", direction: query.payload.sortDirection ?? "desc" }
+            : [
+                { col: sortColumn, direction: query.payload.sortDirection ?? "desc" },
+                { col: "id", direction: "asc" },
+              ],
+        ...(query.payload.limit !== undefined && { limit: query.payload.limit }),
+      });
+      const decryptedRows = await Promise.all(
+        rows.map(async (r) => ({
+          id: r.id,
+          userId: r.userId,
+          createdAt: r.createdAt,
+          expiresAt: r.expiresAt,
+          revokedAt: r.revokedAt,
+          ip: r.ip ? await decryptStoredPii(r.ip, "ip", "sessions:list") : r.ip,
+          userAgent: r.userAgent
+            ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:list")
+            : r.userAgent,
+        })),
+      );
+      return { rows: decryptedRows, nextCursor: null };
+    },
+  });
