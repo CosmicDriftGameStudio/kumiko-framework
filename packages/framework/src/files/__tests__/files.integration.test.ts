@@ -1734,7 +1734,7 @@ describe("byte-serving routes with field-encrypted fileName", () => {
     expect(header).not.toContain("no-kms-later");
   });
 
-  test("GET /files/:id/download-url hints the decrypted fileName, never the ciphertext", async () => {
+  test("GET /files/:id/download-url hints a neutral mime-derived name, never the plaintext or ciphertext fileName", async () => {
     configurePiiSubjectKms(new InMemoryKmsAdapter());
 
     let capturedDisposition: string | undefined;
@@ -1783,7 +1783,8 @@ describe("byte-serving routes with field-encrypted fileName", () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       expect(res.status).toBe(200);
-      expect(capturedDisposition).toContain('filename="Krankheitsattest-Mai.png"');
+      expect(capturedDisposition).toContain('filename="download.png"');
+      expect(capturedDisposition ?? "").not.toContain("Krankheitsattest");
       expect(capturedDisposition ?? "").not.toContain("kumiko-pii");
     } finally {
       await isolatedDb.cleanup();

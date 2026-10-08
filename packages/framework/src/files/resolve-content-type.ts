@@ -31,6 +31,18 @@ const EXTENSION_FALLBACK: Readonly<Record<string, string>> = {
   txt: "text/plain",
 };
 
+const EXTENSION_BY_MIME_TYPE: ReadonlyMap<string, string> = new Map(
+  Object.entries(EXTENSION_FALLBACK)
+    .reverse()
+    .map(([extension, mime]) => [mime, extension]),
+);
+
+/** A name derived from the MIME type alone, for places a personal file name must not appear. */
+export function neutralFileNameForMimeType(mimeType: string): string {
+  const extension = EXTENSION_BY_MIME_TYPE.get(normalizeMimeType(mimeType));
+  return extension === undefined ? "download" : `download.${extension}`;
+}
+
 function hasPrefix(bytes: Uint8Array, prefix: readonly number[]): boolean {
   return prefix.every((byte, i) => bytes[i] === byte);
 }
