@@ -25,6 +25,34 @@ export interface PublishablePackage {
 
 type FetchLike = typeof fetch;
 
+function publishesUnderNonLatestTag(pkg: Record<string, unknown>): boolean {
+  const publishConfig = pkg.publishConfig;
+  if (publishConfig === null || typeof publishConfig !== "object") return false;
+  const tag = (publishConfig as Record<string, unknown>).tag;
+  return typeof tag === "string" && tag !== "latest";
+}
+
+/** Parses the changesets action's `publishedPackages` output (JSON `[{name,version}]`).
+ *  Returns null for unset/empty/malformed input so the caller falls back to the workspace scan. */
+export function parsePublishedPackages(raw: string | undefined): PublishablePackage[] | null {
+  if (raw === undefined || raw.trim() === "") return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed)) return null;
+  const packages: PublishablePackage[] = [];
+  for (const entry of parsed) {
+    if (entry === null || typeof entry !== "object") return null;
+    const { name, version } = entry as Record<string, unknown>;
+    if (typeof name !== "string" || typeof version !== "string") return null;
+    packages.push({ name, version });
+  }
+  return packages;
+}
+
 export function collectPublishablePackages(packagesDir: string): PublishablePackage[] {
   const packages: PublishablePackage[] = [];
   for (const relPath of new Glob("*/package.json").scanSync(packagesDir)) {
@@ -33,6 +61,7 @@ export function collectPublishablePackages(packagesDir: string): PublishablePack
       unknown
     >;
     if (pkg.private === true) continue;
+    if (publishesUnderNonLatestTag(pkg)) continue;
     if (typeof pkg.name === "string" && typeof pkg.version === "string") {
       packages.push({ name: pkg.name, version: pkg.version });
     }
@@ -127,7 +156,11 @@ export function parseTimeoutMs(raw: string | undefined): number {
 }
 
 if (import.meta.main) {
-  const packages = collectPublishablePackages(PACKAGES_DIR);
+  // Changesets path: only what this run actually published. The rescue path
+  // has no such output and falls back to every publishable workspace package.
+  const packages =
+    parsePublishedPackages(process.env.PUBLISHED_PACKAGES) ??
+    collectPublishablePackages(PACKAGES_DIR);
   const timeoutMs = parseTimeoutMs(process.env.NPM_VISIBILITY_TIMEOUT_MS);
 
   const { ok, missing } = await waitForNpmVisibility(packages, { timeoutMs });

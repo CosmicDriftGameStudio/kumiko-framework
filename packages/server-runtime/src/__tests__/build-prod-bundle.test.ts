@@ -11,7 +11,6 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  buildMissingTemplateError,
   buildProdBundle,
   type ClientEntry,
   type ClientEntryDeclaration,
@@ -706,35 +705,41 @@ describe("build-prod-bundle/discovery edges", () => {
   });
 });
 
-describe("build-prod-bundle/buildMissingTemplateError", () => {
-  function multiEntry(): ClientEntry {
-    return {
-      name: "features",
-      sourceFile: "/Users/dev/offlot-app/src/client-features.tsx",
-      manifestKey: "client-features.js",
-      htmlPath: "features.html",
-    };
-  }
+describe("buildProdBundle missing HTML template", () => {
+  let workDir = "";
 
-  test("names the declaring entry name and its sourceFile", () => {
-    const message = buildMissingTemplateError(
-      { "client-features.js": "/assets/client-features-abcd.js" },
-      multiEntry(),
-    );
-
-    expect(message).toContain("src/client-features.tsx");
-    expect(message).toContain("kumiko.clientEntries");
-    expect(message).toContain('Entry "features"');
+  beforeEach(async () => {
+    workDir = await mkdtemp(join(tmpdir(), "kumiko-build-missing-template-"));
+    await mkdir(join(workDir, "src"), { recursive: true });
   });
 
-  test("single-mode entry gets no declaration hint", () => {
-    const message = buildMissingTemplateError(
-      { "client.js": "/assets/client-abcd.js" },
-      clientEntry(),
-    );
+  afterEach(async () => {
+    await rm(workDir, { recursive: true, force: true });
+  });
 
-    expect(message).toContain("src/client.tsx");
-    expect(message).not.toContain("kumiko.clientEntries");
+  test("a multi-entry names its source file and the kumiko.clientEntries declaration", async () => {
+    await writeFile(join(workDir, "src/client-features.tsx"), "export {};\n");
+    const build = buildProdBundle({
+      cwd: workDir,
+      stylesheet: false,
+      clientEntries: [{ name: "features", sourceFile: "./src/client-features.tsx" }],
+    });
+
+    await expect(build).rejects.toThrow(/src\/client-features\.tsx/);
+    await expect(build).rejects.toThrow(/kumiko\.clientEntries/);
+    await expect(build).rejects.toThrow(/Entry "features"/);
+  });
+
+  test("single-mode entry gets no declaration hint", async () => {
+    await writeFile(join(workDir, "src/client.tsx"), "export {};\n");
+    const build = buildProdBundle({
+      cwd: workDir,
+      stylesheet: false,
+      clientEntry: "./src/client.tsx",
+    });
+
+    await expect(build).rejects.toThrow(/src\/client\.tsx/);
+    await expect(build).rejects.not.toThrow(/kumiko\.clientEntries/);
   });
 });
 

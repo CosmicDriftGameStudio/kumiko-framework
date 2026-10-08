@@ -5,6 +5,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   collectPublishablePackages,
   isLatestOnRegistry,
+  parsePublishedPackages,
   parseTimeoutMs,
   waitForNpmVisibility,
 } from "./wait-for-npm-visibility";
@@ -94,6 +95,38 @@ describe("collectPublishablePackages", () => {
       { name: "@cosmicdrift/kumiko-framework", version: "0.236.1" },
     ]);
   });
+
+  test("skips packages published under a non-latest dist-tag", () => {
+    const dir = makePackagesDir([
+      { name: "@cosmicdrift/kumiko-framework", version: "0.236.1" },
+      { name: "@cosmicdrift/kumiko-next", version: "1.0.0", publishConfig: { tag: "next" } },
+      { name: "@cosmicdrift/kumiko-types", version: "0.236.1", publishConfig: { tag: "latest" } },
+    ]);
+    expect(
+      collectPublishablePackages(dir)
+        .map((pkg) => pkg.name)
+        .sort(),
+    ).toEqual(["@cosmicdrift/kumiko-framework", "@cosmicdrift/kumiko-types"]);
+  });
+});
+
+describe("parsePublishedPackages", () => {
+  test("parses the changesets publishedPackages output", () => {
+    expect(
+      parsePublishedPackages('[{"name":"@cosmicdrift/kumiko-types","version":"0.236.1"}]'),
+    ).toEqual([{ name: "@cosmicdrift/kumiko-types", version: "0.236.1" }]);
+  });
+
+  test("an empty published list stays empty instead of falling back to the workspace scan", () => {
+    expect(parsePublishedPackages("[]")).toEqual([]);
+  });
+
+  test.each([undefined, "", "  ", "not json", "{}", '[{"name":"a"}]', "[null]"])(
+    "returns null for unusable input %p",
+    (raw) => {
+      expect(parsePublishedPackages(raw)).toBeNull();
+    },
+  );
 });
 
 describe("waitForNpmVisibility", () => {

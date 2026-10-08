@@ -928,10 +928,9 @@ async function renderHtml(
   return injectAssetTags(template, manifest, entry, buildInfo);
 }
 
-// @internal — exported for unit tests only. See #2305: the message must
-// name the source file and, for a declared multi-entry, which package.json
-// "kumiko.clientEntries" entry it came from.
-export function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry): string {
+// The message must name the source file and, for a declared multi-entry,
+// which package.json "kumiko.clientEntries" entry it came from.
+function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry): string {
   const cssLine = manifest["styles.css"]
     ? `    <link rel="stylesheet" href="/styles.css" />\n`
     : "";
