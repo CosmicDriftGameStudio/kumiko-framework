@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-05T09:30:44.447Z",
+  "generatedAt": "2026-10-08T11:58:56.132Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -163,7 +163,12 @@
           "defaultSql": "now()"
         }
       ],
-      "indexes": [],
+      "indexes": [
+        {
+          "name": "in_app_messages_tenant_user_created_idx",
+          "columns": ["tenant_id", "user_id", "created_at"]
+        }
+      ],
       "source": "unmanaged"
     },
     {
@@ -1108,7 +1113,7 @@
           "columns": ["tenant_id"]
         }
       ],
-      "source": "unmanaged"
+      "source": "managed"
     },
     {
       "tableName": "read_ledger_accounts",
@@ -1476,7 +1481,7 @@
           "columns": ["tenant_id"]
         }
       ],
-      "source": "unmanaged"
+      "source": "managed"
     },
     {
       "tableName": "read_mail_threads",
@@ -1547,7 +1552,7 @@
           "columns": ["tenant_id"]
         }
       ],
-      "source": "unmanaged"
+      "source": "managed"
     },
     {
       "tableName": "read_note_entries",
@@ -1988,7 +1993,7 @@
           "columns": ["tenant_id"]
         }
       ],
-      "source": "unmanaged"
+      "source": "managed"
     },
     {
       "tableName": "read_subscriptions",
@@ -2074,7 +2079,7 @@
           "columns": ["tenant_id"]
         }
       ],
-      "source": "unmanaged"
+      "source": "managed"
     },
     {
       "tableName": "read_tag_assignments",
