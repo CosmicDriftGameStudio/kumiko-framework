@@ -18,6 +18,7 @@ import {
 import type {
   NavIconKey,
   TargetRef,
+  TreeAction,
   TreeChildrenSubscribe,
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -866,7 +867,7 @@ describe("NavTree dynamic provider nodes", () => {
             id: "hero",
             label: "Hero",
             order: 10,
-            actions: [{ icon: "edit", label: "Broken action" }],
+            actions: [{ icon: "edit", label: "Broken action" } as TreeAction],
           },
         ],
       } satisfies FeatureSchema;
@@ -901,7 +902,7 @@ describe("NavTree dynamic provider nodes", () => {
                 label: "Ambiguous action",
                 screen: "cms:screen:hero-edit",
                 target: { featureId: "cms", action: "edit" },
-              },
+              } as unknown as TreeAction,
             ],
           },
         ],
