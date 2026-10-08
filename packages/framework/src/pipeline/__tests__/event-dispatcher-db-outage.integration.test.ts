@@ -66,13 +66,30 @@ async function appendWidget(name: string): Promise<void> {
   await executor.create({ name }, admin, tdb);
 }
 
-function recordingLogger(): Logger & { readonly lines: string[] } {
+type RecordingLogger = Logger & {
+  readonly lines: string[];
+  readonly lineIncluding: (fragment: string) => Promise<void>;
+};
+
+function recordingLogger(): RecordingLogger {
   const lines: string[] = [];
-  const logger: Logger & { lines: string[] } = {
+  const waiters = new Map<string, () => void>();
+  const record = (line: string): void => {
+    lines.push(line);
+    for (const [fragment, resolve] of waiters) {
+      if (line.includes(fragment)) resolve();
+    }
+  };
+  const logger: RecordingLogger = {
     lines,
-    info: (msg) => lines.push(`info:${msg}`),
-    warn: (msg) => lines.push(`warn:${msg}`),
-    error: (msg) => lines.push(`error:${msg}`),
+    lineIncluding: (fragment) =>
+      new Promise((resolve) => {
+        if (lines.some((line) => line.includes(fragment))) resolve();
+        else waiters.set(fragment, resolve);
+      }),
+    info: (msg) => record(`info:${msg}`),
+    warn: (msg) => record(`warn:${msg}`),
+    error: (msg) => record(`error:${msg}`),
     debug: () => {},
     child: () => logger,
   };
@@ -171,7 +188,12 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
 
       await proxy1.stop();
 
-      await waitFor(() => logger.lines.some((line) => line.includes("idle pre-check failed")));
+      // Restart the proxy the moment the outage is logged, not on a waitFor poll
+      // step: every failed reconnect while it is down raises postgres.js's
+      // backoff (~3^n/100 s, capped at 20 s) for the pool and the LISTEN client,
+      // so a poll that overshoots by 1-3 s on a loaded runner stretched recovery
+      // past the test budget.
+      await logger.lineIncluding("idle pre-check failed");
       expect(lastListenGauge()).toBe(0);
 
       const proxy2 = startDbProxy(dbUrl);
