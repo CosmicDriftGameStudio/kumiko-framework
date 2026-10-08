@@ -351,6 +351,7 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     expect(list.rowActions).toBeUndefined();
     expect(list.toolbarActions).toBeUndefined();
     expect(list.createScreen).toBeUndefined();
+    expect(list.createUnavailable).toBe(true);
     // The sub-list itself stays (its query is not a screen target); only the
     // navigate sites into the denied screen are stripped.
     expect(list.expandableRow?.title).toBe("Expanded");

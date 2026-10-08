@@ -543,11 +543,15 @@ function useNavigateToCreateFor(
   schema: FeatureSchema,
   entityName: string,
   createScreen?: string,
+  createUnavailable?: boolean,
 ): (() => void) | undefined {
   const nav = useNav();
   const host = useReturnHost();
   const editScreenId = useMemo(() => {
     if (createScreen !== undefined) return createScreen;
+    // The role may not open the declared create target; falling back to the
+    // entity's edit form would bypass the flow the app prescribes (e.g. a wizard).
+    if (createUnavailable === true) return undefined;
     // allowCreate:false = update-only Edit-Screen (Create läuft über einen
     // Lifecycle-Write) — der zählt nicht als „+ Neu"-Ziel. singleton:true
     // öffnet ohne entityId den vorhandenen Record (EntityEditSingletonBody)
@@ -560,7 +564,7 @@ function useNavigateToCreateFor(
         s.singleton !== true,
     );
     return edit !== undefined ? lastSegment(edit.id) : undefined;
-  }, [schema.screens, entityName, createScreen]);
+  }, [schema.screens, entityName, createScreen, createUnavailable]);
   const navigate = useCallback(() => {
     if (editScreenId !== undefined) navigateWithReturnTo(nav, { screenId: editScreenId }, host);
   }, [nav, editScreenId, host]);
@@ -2097,7 +2101,12 @@ function EntityListBody({
 }): ReactNode {
   const isEmbeddedScreen = useIsEmbeddedScreen();
   const featureName = schema.featureName;
-  const onCreate = useNavigateToCreateFor(schema, screen.entity, screen.createScreen);
+  const onCreate = useNavigateToCreateFor(
+    schema,
+    screen.entity,
+    screen.createScreen,
+    screen.createUnavailable,
+  );
   const { Banner } = usePrimitives();
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
   const nav = useNav();

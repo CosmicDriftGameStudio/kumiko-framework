@@ -653,7 +653,9 @@ function dropUnreachableCreateScreen(
   if (screen.type !== "entityList" || screen.createScreen === undefined) return screen;
   if (isScreenTargetKept(feature.featureName, screen.createScreen, keptScreenQns)) return screen;
   const { createScreen: _unreachable, ...rest } = screen;
-  return rest;
+  // Marker, not a bare delete: the renderer treats a missing createScreen as
+  // "not set" and would fall back to the entity's edit form.
+  return { ...rest, createUnavailable: true };
 }
 
 function projectListScreen(
