@@ -13,9 +13,9 @@ import {
   SessionQueries,
 } from "./constants.js";
 
-const listAccess = { roles: access.admin };
-
-export const sessionListScreen: ProjectionListScreenDefinition = {
+export const createSessionListScreen = (
+  adminRoles: readonly string[] = access.admin,
+): ProjectionListScreenDefinition => ({
   id: SESSION_LIST_SCREEN_ID,
   type: "projectionList",
   query: SessionQueries.list,
@@ -61,10 +61,12 @@ export const sessionListScreen: ProjectionListScreenDefinition = {
       rowClick: true,
     },
   ],
-  access: listAccess,
-};
+  access: { roles: adminRoles },
+});
 
-export const sessionDetailScreen: ProjectionDetailScreenDefinition = {
+export const createSessionDetailScreen = (
+  adminRoles: readonly string[] = access.admin,
+): ProjectionDetailScreenDefinition => ({
   id: SESSION_DETAIL_SCREEN_ID,
   type: "projectionDetail",
   query: SessionQueries.detail,
@@ -97,8 +99,8 @@ export const sessionDetailScreen: ProjectionDetailScreenDefinition = {
     ip: i18nKey("sessions.detail.field.ip"),
     userAgent: i18nKey("sessions.detail.field.userAgent"),
   },
-  access: listAccess,
-};
+  access: { roles: adminRoles },
+});
 
 // Revoke is hidden on the current session — it would sign the user out mid-click; logout covers it.
 export const sessionMineScreen: ProjectionListScreenDefinition = {

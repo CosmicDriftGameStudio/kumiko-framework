@@ -43,6 +43,7 @@ const TENANT = testTenantId(7);
 // denied even for an entityId the entityType-level check would otherwise
 // allow, proving a predicate can opt a specific variant out.
 let receivedArgs: DerivativePublicPredicateArgs[] = [];
+let spoofedFileRefId: string | null = null;
 const gadgetEntity = createEntity({
   table: "public_variant_predicate_gadgets",
   fields: {
@@ -60,6 +61,7 @@ const gadgetPredicateFeature = defineFeature("publicvariantpredicateargstest", (
   r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "gadget", {
     isPublic: (args: DerivativePublicPredicateArgs) => {
       receivedArgs.push(args);
+      if (args.fileRefId === spoofedFileRefId) return false;
       return args.variant !== "premium";
     },
   });
@@ -92,6 +94,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   receivedArgs = [];
+  spoofedFileRefId = null;
   await stack.redis.flushNamespace();
 });
 
@@ -123,10 +126,23 @@ describe("file-derivatives :: isPublic receives fieldName + variant", () => {
     expect(res.status).toBe(200);
     expect(receivedArgs).toHaveLength(1);
     expect(receivedArgs[0]).toMatchObject({
+      fileRefId: fileId,
       entityId: ENTITY_ID,
       fieldName: "img",
       variant: "thumb",
     });
+  });
+
+  test("a predicate can reject a client-spoofed FileRef that claims the same entityId/fieldName", async () => {
+    const legitFileId = await uploadGadgetImage();
+    const spoofedId = await uploadGadgetImage();
+    spoofedFileRefId = spoofedId;
+
+    const legitRes = await stack.app.request(`http://${HOST}/media/${legitFileId}/thumb`);
+    const spoofedRes = await stack.app.request(`http://${HOST}/media/${spoofedId}/thumb`);
+
+    expect(legitRes.status).toBe(200);
+    expect(spoofedRes.status).toBe(404);
   });
 
   test("a predicate that opts a specific variant out denies exactly that variant, not the whole entity", async () => {

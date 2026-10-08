@@ -16,36 +16,37 @@ const sessionRowSchema = z.object({
   userAgent: z.string().nullable(),
 });
 
-export const detailQuery = defineQueryHandler({
-  name: "user-session:detail",
-  schema: z.object({ id: z.uuid() }),
-  access: { roles: access.admin },
-  description:
-    "Loads one session of the active tenant by its id with owner, timestamps and decrypted IP/user-agent; use it when an admin investigates a specific session found through the session list.",
-  // Decrypted IP and user-agent.
-  agent: { risk: "high" },
-  outputSchema: sessionRowSchema.nullable(),
-  handler: async (query, ctx) => {
-    const row = await fetchOne<{
-      id: string;
-      userId: string;
-      createdAt: unknown;
-      expiresAt: unknown;
-      revokedAt: unknown;
-      ip: string | null;
-      userAgent: string | null;
-    }>(ctx.db, userSessionTable, { id: query.payload.id });
-    if (!row) return null;
-    return {
-      id: row.id,
-      userId: row.userId,
-      createdAt: row.createdAt,
-      expiresAt: row.expiresAt,
-      revokedAt: row.revokedAt,
-      ip: row.ip ? await decryptStoredPii(row.ip, "ip", "sessions:detail") : row.ip,
-      userAgent: row.userAgent
-        ? await decryptStoredPii(row.userAgent, "userAgent", "sessions:detail")
-        : row.userAgent,
-    };
-  },
-});
+export const createDetailQuery = (adminRoles: readonly string[] = access.admin) =>
+  defineQueryHandler({
+    name: "user-session:detail",
+    schema: z.object({ id: z.uuid() }),
+    access: { roles: adminRoles },
+    description:
+      "Loads one session of the active tenant by its id with owner, timestamps and decrypted IP/user-agent; use it when an admin investigates a specific session found through the session list.",
+    // Decrypted IP and user-agent.
+    agent: { risk: "high" },
+    outputSchema: sessionRowSchema.nullable(),
+    handler: async (query, ctx) => {
+      const row = await fetchOne<{
+        id: string;
+        userId: string;
+        createdAt: unknown;
+        expiresAt: unknown;
+        revokedAt: unknown;
+        ip: string | null;
+        userAgent: string | null;
+      }>(ctx.db, userSessionTable, { id: query.payload.id });
+      if (!row) return null;
+      return {
+        id: row.id,
+        userId: row.userId,
+        createdAt: row.createdAt,
+        expiresAt: row.expiresAt,
+        revokedAt: row.revokedAt,
+        ip: row.ip ? await decryptStoredPii(row.ip, "ip", "sessions:detail") : row.ip,
+        userAgent: row.userAgent
+          ? await decryptStoredPii(row.userAgent, "userAgent", "sessions:detail")
+          : row.userAgent,
+      };
+    },
+  });

@@ -38,6 +38,20 @@ describe("guard-primitives-discipline checkFile()", () => {
     expect(violationsFor(src)).toHaveLength(0);
   });
 
+  test("comma-separated slug list suppresses when the slug is any entry", () => {
+    for (const slugs of [
+      "primitives-discipline,no-custom-primitives",
+      "no-custom-primitives,primitives-discipline",
+    ]) {
+      expect(violationsFor(`// kumiko-lint-ignore ${slugs} demo\nalert("x");\n`)).toHaveLength(0);
+    }
+  });
+
+  test("a slug list without this guard's slug does not suppress", () => {
+    const src = '// kumiko-lint-ignore no-custom-primitives,direct-fs demo\nalert("x");\n';
+    expect(violationsFor(src)).toHaveLength(1);
+  });
+
   test("raw <input> in a spaceless ternary or after = / [ wird gemeldet, Array<input nicht", () => {
     expect(violationsFor("const a = cond?<input/>:<div/>;\n")).toHaveLength(1);
     expect(violationsFor("const b = <input/>;\n")).toHaveLength(1);

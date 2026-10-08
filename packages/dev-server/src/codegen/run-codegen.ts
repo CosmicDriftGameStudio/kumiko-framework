@@ -35,6 +35,9 @@ export type CodegenOptions = {
    *  Die Dev-Server-Integration übergibt die QNs direkt aus der gebooteten
    *  Registry — CLI ruft sie aus dem Manifest. */
   readonly handlerQns?: readonly string[];
+  /** Drift check for CI: nothing is written or removed; the `didWrite*` flags
+   *  report which files would have changed. */
+  readonly checkOnly?: boolean;
 };
 
 export type CodegenResult = {
@@ -77,7 +80,8 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
     };
   }
 
-  mkdirSync(outputDir, { recursive: true });
+  const checkOnly = opts.checkOnly === true;
+  if (!checkOnly) mkdirSync(outputDir, { recursive: true });
 
   const typesContent = renderTypesAugmentation(scan.events, outputDir);
   // `opts.handlerQns` undefined means the caller (kumiko-build) has no
@@ -129,13 +133,13 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
       )
     : defineContent;
 
-  const didWriteTypes = writeIfChanged(typesPath, finalTypesContent);
-  const didWriteDefine = writeIfChanged(definePath, finalDefineContent);
-  writeIfChanged(packageJsonPath, packageJsonContent);
+  const didWriteTypes = writeIfChanged(typesPath, finalTypesContent, checkOnly);
+  const didWriteDefine = writeIfChanged(definePath, finalDefineContent, checkOnly);
+  writeIfChanged(packageJsonPath, packageJsonContent, checkOnly);
   const didWriteSchemas =
     schemasContent !== undefined
-      ? writeIfChanged(schemasPath, schemasContent)
-      : removeIfExists(schemasPath);
+      ? writeIfChanged(schemasPath, schemasContent, checkOnly)
+      : removeIfExists(schemasPath, checkOnly);
 
   const warnings: readonly ScanWarning[] = shouldPreserveStaleBlock
     ? [
@@ -197,10 +201,10 @@ function renderKumikoPackageJson(): string {
  * must NOT trigger a full TS-language-server rebuild (which would
  * happen on every mtime change).
  */
-function writeIfChanged(path: string, content: string): boolean {
+function writeIfChanged(path: string, content: string, checkOnly: boolean): boolean {
   const existing = readExistingOrUndefined(path);
   if (existing === content) return false;
-  writeFileSync(path, content, "utf-8");
+  if (!checkOnly) writeFileSync(path, content, "utf-8");
   return true;
 }
 
@@ -252,9 +256,9 @@ function extractBlock(content: string | undefined, anchor: string): string | und
  * produces it (e.g. the last inline-schema was refactored to a named
  * export). Returns true when an actual unlink happened.
  */
-function removeIfExists(path: string): boolean {
+function removeIfExists(path: string, checkOnly: boolean): boolean {
   if (!existsSync(path)) return false;
-  rmSync(path, { force: true });
+  if (!checkOnly) rmSync(path, { force: true });
   return true;
 }
 

@@ -152,6 +152,24 @@ describe("change-email happy path", () => {
   });
 });
 
+describe("change-email access", () => {
+  test("a tenant member whose only role is TenantAdmin can change their own email", async () => {
+    const seed = await seedLoginUser({ email: "tadmin@example.com", password: "secret-pw-1" });
+    const signedIn = createTestUser({
+      id: seed.id,
+      tenantId: seed.tenantId,
+      roles: ["TenantAdmin"],
+    });
+
+    const result = await stack.http.writeOk<{ kind: string; email: string }>(
+      UserProfileHandlers.changeEmail,
+      { currentPassword: "secret-pw-1", newEmail: "tadmin-new@example.com" },
+      signedIn,
+    );
+    expect(result.email).toBe("tadmin-new@example.com");
+  });
+});
+
 describe("change-email guards", () => {
   test("falsches Passwort → invalid_credentials, Email unverändert", async () => {
     const seed = await seedLoginUser({ email: "guard@example.com", password: "secret-pw-1" });

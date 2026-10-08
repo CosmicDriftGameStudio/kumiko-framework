@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-08T12:29:01.622Z",
+  "generatedAt": "2026-10-08T18:22:41.907Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1626,6 +1626,10 @@
         {
           "name": "read_note_entries_tenant_id_idx",
           "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_note_entries_tenant_id_entity_type_entity_id_idx",
+          "columns": ["tenant_id", "entity_type", "entity_id"]
         }
       ],
       "source": "managed",
@@ -2845,7 +2849,8 @@
           "unique": true
         }
       ],
-      "source": "managed"
+      "source": "managed",
+      "piiSubjectFields": ["name"]
     },
     {
       "tableName": "read_tier_assignments",

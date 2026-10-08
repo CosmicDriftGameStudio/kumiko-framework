@@ -1,5 +1,4 @@
 import {
-  access,
   createSystemUser,
   defineWriteHandler,
   SYSTEM_TENANT_ID,
@@ -36,7 +35,13 @@ export const changeEmailWrite = defineWriteHandler({
     currentPassword: z.string().min(1),
     newEmail: z.email(),
   }),
-  access: { roles: access.authenticated },
+  access: {
+    openToAll: {
+      reason:
+        "self-service for any signed-in user, including tenant members whose only role is " +
+        "TenantAdmin; the handler only touches event.user.id and re-checks the caller's password",
+    },
+  },
   escapeHatch: {
     grants: ["systemIdentity"],
     reason:

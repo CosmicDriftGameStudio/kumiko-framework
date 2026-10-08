@@ -1,8 +1,25 @@
 import { type Node, SyntaxKind } from "ts-morph";
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** True when `line` carries `tag` (`<prefix> <slug>`), either alone or as one
+ *  entry of a comma-separated slug list: `// kumiko-lint-ignore a,b <reason>`. */
+export function lineHasIgnoreTag(line: string, tag: string): boolean {
+  if (line.includes(tag)) return true;
+  const slugStart = tag.lastIndexOf(" ");
+  if (slugStart < 0) return false;
+  const prefix = escapeRegExp(tag.slice(0, slugStart));
+  const slug = escapeRegExp(tag.slice(slugStart + 1));
+  return new RegExp(`${prefix}\\s+(?:[\\w-]+,)*${slug}(?=[\\s,]|$)`).test(line);
+}
+
 function lineHasTag(node: Node, line: number, tag: string): boolean {
   const lines = node.getSourceFile().getFullText().split("\n");
-  return (lines[line - 1] ?? "").includes(tag) || (lines[line - 2] ?? "").includes(tag);
+  return (
+    lineHasIgnoreTag(lines[line - 1] ?? "", tag) || lineHasIgnoreTag(lines[line - 2] ?? "", tag)
+  );
 }
 
 /** Inline allowlist convention: `// kumiko-lint-ignore <slug> <reason>` on the

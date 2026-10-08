@@ -4,18 +4,26 @@ import {
   type SessionStoreProvider,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { type DbConnection, deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { USER_SESSION_ENTITY_NAME } from "./constants.js";
 import { cleanupJob } from "./handlers/cleanup.job.js";
-import { detailQuery } from "./handlers/detail.query.js";
-import { listQuery } from "./handlers/list.query.js";
+import { createDetailQuery } from "./handlers/detail.query.js";
+import { createListQuery } from "./handlers/list.query.js";
 import { mineQuery } from "./handlers/mine.query.js";
 import { revokeWrite } from "./handlers/revoke.write.js";
 import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write.js";
 import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write.js";
 import { SESSIONS_I18N } from "./i18n.js";
 import { userSessionEntity } from "./schema/user-session.js";
-import { sessionDetailScreen, sessionListScreen, sessionMineScreen } from "./screens.js";
+import {
+  createSessionDetailScreen,
+  createSessionListScreen,
+  sessionMineScreen,
+} from "./screens.js";
 import {
   createSessionCallbacks,
   type SessionAllOthersRevoker,
@@ -45,6 +53,10 @@ export type SessionsFeatureOptions = {
   // Session JWT / store_user_sessions TTL. Was previously auth.sessions.expiresInMs
   // (#1372) — lives on the sessions feature now that sessionStore is the wiring.
   readonly expiresInMs?: number;
+  // Access preset for the admin list/detail queries and screens; they expose decrypted
+  // IP/user-agent of every session in the tenant. A preset name, not a role array, because
+  // dedupeOptions must stay primitive.
+  readonly adminAccess?: "admin" | "systemAdmin";
 };
 
 export type BindAutoRevokeOnPasswordChange = (revoker: SessionMassRevoker) => void;
@@ -89,6 +101,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
   return defineFeature(
     "sessions",
     (r) => {
+      const adminRoles = access[options?.adminAccess ?? "admin"];
       r.describe(
         "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
       );
@@ -162,8 +175,8 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
 
       const queries = {
         mine: r.queryHandler(mineQuery),
-        list: r.queryHandler(listQuery),
-        detail: r.queryHandler(detailQuery),
+        list: r.queryHandler(createListQuery(adminRoles)),
+        detail: r.queryHandler(createDetailQuery(adminRoles)),
       };
 
       // Retention: chunked DELETE of expired/revoked rows. Manual trigger
@@ -222,8 +235,8 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
 
       r.translations({ keys: SESSIONS_I18N });
 
-      r.screen(sessionListScreen);
-      r.screen(sessionDetailScreen);
+      r.screen(createSessionListScreen(adminRoles));
+      r.screen(createSessionDetailScreen(adminRoles));
       r.screen(sessionMineScreen);
       r.nav({
         id: "session-list",

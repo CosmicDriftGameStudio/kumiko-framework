@@ -51,6 +51,14 @@ export function RefinanceCreditCard() { return <div />; }`,
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
 
+  test("ignore tag as one entry of a comma-separated slug list", () => {
+    const sf = parse(
+      `// kumiko-lint-ignore primitives-discipline,no-custom-primitives Domain-Karte
+export function RefinanceCreditCard() { return <div />; }`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+
   describe("raw form HTML (infra#748)", () => {
     test("flags <input> when the file imports from kumiko-renderer-web", () => {
       const sf = parse(

@@ -91,6 +91,8 @@ export function createNoteEntryEntity(
         find: "none",
       }),
     },
+    // Every host detail screen reads its notes by tenant + host entity.
+    indexes: [{ columns: ["tenantId", "entityType", "entityId"] }],
   });
 }
 

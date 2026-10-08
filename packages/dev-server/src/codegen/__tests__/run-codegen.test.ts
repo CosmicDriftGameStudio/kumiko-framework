@@ -346,6 +346,36 @@ export default defineFeature("idem", (r) => {
     expect(second.didWriteDefine).toBe(false);
   });
 
+  test("checkOnly reports drift without writing, and is clean after a real run", () => {
+    const appRoot = makeAppDir();
+    write(
+      appRoot,
+      "src/feature/events.ts",
+      `import { z } from "zod";\nexport const sSchema = z.object({ id: z.string() });\n`,
+    );
+    write(
+      appRoot,
+      "src/feature/feature.ts",
+      `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { sSchema } from "./events";
+export default defineFeature("chk", (r) => {
+  r.defineEvent("only", sSchema);
+});
+`,
+    );
+
+    const drift = runCodegen({ appRoot, handlerQns: [], checkOnly: true });
+    expect(drift.didWriteTypes).toBe(true);
+    expect(drift.didWriteDefine).toBe(true);
+    expect(existsSync(join(appRoot, ".kumiko"))).toBe(false);
+
+    runCodegen({ appRoot, handlerQns: [] });
+    const clean = runCodegen({ appRoot, handlerQns: [], checkOnly: true });
+    expect(clean.didWriteTypes).toBe(false);
+    expect(clean.didWriteDefine).toBe(false);
+    expect(clean.didWriteSchemas).toBe(false);
+  });
+
   test("warns when schema is locally declared (not imported, not inline z.*)", () => {
     const appRoot = makeAppDir();
     // Schema is declared as a local const but referenced by a name that's

@@ -33,17 +33,33 @@ import {
 
 if (process.argv.slice(2).some((arg) => arg === "--help" || arg === "-h")) {
   process.stdout.write(
-    "Usage: kumiko-build [app-dir]   build client (dist/) and server (dist-server/) bundles\n",
+    "Usage: kumiko-build [--check] [app-dir]   build client (dist/) and server (dist-server/) bundles;\n" +
+      "       --check only verifies .kumiko/ is up to date (exit 1 on drift, writes nothing)\n",
   );
   process.exit(0);
 }
 
-const explicit = process.argv[2];
+const checkCodegenOnly = process.argv.includes("--check");
+const explicit = process.argv.slice(2).find((arg) => !arg.startsWith("-"));
 const cwd = explicit ? resolve(process.cwd(), explicit) : process.cwd();
 
 const red = "\x1b[31m";
 const yellow = "\x1b[33m";
 const reset = "\x1b[0m";
+
+if (checkCodegenOnly) {
+  const drift = runCodegen({ appRoot: cwd, checkOnly: true });
+  for (const w of drift.warnings) {
+    process.stderr.write(`${yellow}!${reset} [codegen] ${formatScanWarning(w)}\n`);
+  }
+  if (drift.didWriteTypes || drift.didWriteDefine || drift.didWriteSchemas) {
+    process.stderr.write(
+      `\n  ${red}✗${reset} .kumiko/ is stale; run kumiko-build or the dev-server and commit.\n\n`,
+    );
+    process.exit(1);
+  }
+  process.exit(0);
+}
 
 try {
   // Read once up front — resolveClientEntries can throw (mutual exclusion,
