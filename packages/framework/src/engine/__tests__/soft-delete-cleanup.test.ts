@@ -79,8 +79,13 @@ function makeCtx(opts: {
     deleteMany: async (table: unknown, where: Record<string, unknown>) => {
       opts.calls.push({ table, where });
     },
-    global: (table: unknown) => ({
-      deleteMany: async (where: Record<string, unknown>) => {
+    unsafeRaw: () => ({
+      tenantId: "t1",
+      selectMany: async () => [],
+      fetchOne: async () => undefined,
+      insertOne: async () => undefined,
+      updateMany: async () => [],
+      deleteMany: async (table: unknown, where: Record<string, unknown>) => {
         opts.globalCalls?.push({ table, where });
       },
     }),
@@ -169,7 +174,7 @@ describe("softDeleteCleanupJob handler", () => {
 });
 
 describe("softDeleteCleanupSystemJob handler", () => {
-  test("sweeps tenancy-global tables via db.global() and column-less tables via deleteMany", async () => {
+  test("sweeps tenancy-global tables via db.unsafeRaw() and column-less tables via deleteMany", async () => {
     const calls: DeleteCall[] = [];
     const globalCalls: DeleteCall[] = [];
     await softDeleteCleanupSystemJob({}, makeCtx({ calls, globalCalls }));

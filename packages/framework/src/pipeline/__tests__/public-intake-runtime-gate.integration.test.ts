@@ -309,7 +309,7 @@ const featureA = defineFeature("intakea", (r) => {
   }
 
   const GLOBAL_WRITE_REASON =
-    "test: db.global() write to prove the personal-data gate applies there";
+    "test: db.global() write to prove executor-managed tables stay closed to it";
   for (const declared of [false, true]) {
     const suffix = declared ? "declare" : "no-declare";
     const access = declared
@@ -747,49 +747,36 @@ describe("public-intake runtime gate", () => {
     }
   });
 
-  describe("db.global() writes", () => {
+  // db.global() refuses executor-managed entity tables outright, so the personal-data
+  // gate is never the deciding check there; a public-intake declaration must not reopen it.
+  describe("db.global() writes on an executor-managed table", () => {
     async function globalRows(): Promise<readonly Record<string, unknown>[]> {
       return selectMany<Record<string, unknown>>(stack.db, globalContactTable);
     }
 
-    test("global insertOne — blocked without declaration, nothing stored", async () => {
-      const res = await stack.http.raw("POST", "/api/write", {
-        type: "intakea:write:global-insert-no-declare",
-        payload: { note: "x" },
-      });
-      expect(res.status).toBe(403);
-      const body = (await res.json()) as { error: { details: { reason: string } } };
-      expect(body.error.details.reason).toBe("public_intake_required");
-      expect(await globalRows()).toHaveLength(0);
-    });
-
-    test("global insertOne — allowed once declared", async () => {
-      const res = await stack.http.raw("POST", "/api/write", {
-        type: "intakea:write:global-insert-declare",
-        payload: { note: "x" },
-      });
-      expect(res.status).toBe(200);
-      expect(await globalRows()).toHaveLength(1);
-    });
-
     for (const declared of [false, true]) {
-      test(`global updateMany — ${declared ? "allowed once declared" : "blocked without declaration, row untouched"}`, async () => {
+      const suffix = declared ? "declare" : "no-declare";
+
+      test(`global insertOne — rejected (${suffix}), nothing stored`, async () => {
+        const res = await stack.http.raw("POST", "/api/write", {
+          type: `intakea:write:global-insert-${suffix}`,
+          payload: { note: "x" },
+        });
+        expect(res.status).toBe(403);
+        expect(await globalRows()).toHaveLength(0);
+      });
+
+      test(`global updateMany — rejected (${suffix}), row untouched`, async () => {
         const id = crypto.randomUUID();
         await seedRows(stack.db, globalContactTable, [
           { id, tenantId: SYSTEM_TENANT_ID, email: "seed-global@example.com" },
         ]);
         const res = await stack.http.raw("POST", "/api/write", {
-          type: `intakea:write:global-update-many-${declared ? "declare" : "no-declare"}`,
+          type: `intakea:write:global-update-many-${suffix}`,
           payload: { id },
         });
-        const rows = await globalRows();
-        if (declared) {
-          expect(res.status).toBe(200);
-          expect(rows[0]?.["email"]).toBe("overwritten-global@example.com");
-        } else {
-          expect(res.status).toBe(403);
-          expect(rows[0]?.["email"]).toBe("seed-global@example.com");
-        }
+        expect(res.status).toBe(403);
+        expect((await globalRows())[0]?.["email"]).toBe("seed-global@example.com");
       });
     }
   });

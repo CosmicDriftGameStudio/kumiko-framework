@@ -15,6 +15,8 @@ import {
 import * as z from "zod";
 import {
   configureBlindIndexKey,
+  configuredEventPiiCatalog,
+  configureEventPiiCatalog,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
@@ -303,7 +305,15 @@ describe("backfillEventPiiEncryption", () => {
   });
 
   test("unresolvable catalog subject fails without the owner-resolution retry hint", async () => {
-    await appendPlain(generateId(), "Bad Type!", SELF_NOTE_EVENT_TYPE, { note: "secret" });
+    // Legacy row: appended while the event type was not yet catalogued, so the
+    // live owner resolution (which rejects an unshreddable aggregateType) never ran.
+    const catalog = configuredEventPiiCatalog();
+    configureEventPiiCatalog(new Map());
+    try {
+      await appendPlain(generateId(), "Bad Type!", SELF_NOTE_EVENT_TYPE, { note: "secret" });
+    } finally {
+      configureEventPiiCatalog(catalog);
+    }
 
     armKms();
     const result = await backfillEventPiiEncryption(testDb.db, registry);
