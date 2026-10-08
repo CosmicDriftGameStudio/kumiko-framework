@@ -125,6 +125,39 @@ export async function reconcileSeededUserEmailVerified(
   }
 }
 
+// Re-writes `email` through the executor so the PII write pipeline recomputes
+// `email_bidx`. Repairs rows whose blind index is NULL or stale (written before
+// the key existed, key rotated, subject-key erased), which would otherwise stay
+// invisible to every `fetchOne(userTable, { email })` lookup.
+export async function rewriteSeededUserEmail(
+  db: DbConnection,
+  existingRow: Record<string, unknown>,
+  email: string,
+  by: SessionUser,
+): Promise<void> {
+  // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
+  // liefert die Projection-Row als Record<string, unknown>.
+  const id = existingRow["id"] as string;
+  const tdb = createTenantDb(db, by.tenantId, "system");
+  const result = await userExecutor.update(
+    { id, version: existingRow["version"] as number, changes: { email } },
+    by,
+    tdb,
+  );
+  // version_conflict: a concurrent write already changed the row — fine for a seed helper.
+  // unique_violation: a duplicate row already holds the blind index; the repair
+  // has to wait for a manual duplicate cleanup.
+  if (
+    !result.isSuccess &&
+    result.error.code !== "version_conflict" &&
+    result.error.code !== "unique_violation"
+  ) {
+    throw new Error(
+      `rewriteSeededUserEmail failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
+    );
+  }
+}
+
 // Extrahiert die `id`-Spalte aus dem executor.create-Result. Der
 // Executor liefert ein Record<string, unknown> (die Projection-Row), in
 // das die DB die Aggregat-id reinschreibt — wir prüfen runtime statt

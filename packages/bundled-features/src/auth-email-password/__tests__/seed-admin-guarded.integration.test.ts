@@ -6,7 +6,7 @@
 // `email_bidx` companion column.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -198,6 +198,27 @@ describe("seedAdminGuarded (offlot#114)", () => {
     expect(await userIds()).toEqual([first.id]);
     const rows = await selectMany<{ id: string; emailVerified: boolean }>(stack.db, userTable);
     expect(rows.find((r) => r.id === first.id)?.emailVerified).toBe(true);
+  });
+
+  test("the canonical row's blind index is repaired so the account is findable again", async () => {
+    const first = await seedAdminGuarded(stack.db, seedOptions);
+    await blankBlindIndex();
+    expect(await fetchOne(stack.db, userTable, { email: SYSADMIN_EMAIL })).toBeUndefined();
+
+    await seedAdminGuarded(stack.db, seedOptions);
+
+    const found = await fetchOne(stack.db, userTable, { email: SYSADMIN_EMAIL });
+    expect(found?.["id"]).toBe(first.id);
+  });
+
+  test("a foreign row that cannot be decrypted does not abort the seed", async () => {
+    await seedUser(stack.db, { email: "foreign@offlot.app", displayName: "Foreign" });
+    // Fresh KMS store: the foreign row's subject key no longer exists.
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+    const admin = await seedAdminGuarded(stack.db, seedOptions);
+
+    expect(await userIds()).toContain(admin.id);
   });
 
   test("without a configured KMS, seeding runs the plaintext path unguarded", async () => {

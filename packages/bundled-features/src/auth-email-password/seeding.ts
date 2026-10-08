@@ -29,7 +29,11 @@ import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenan
 // kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
 import { USER_STATUS, userTable } from "../user/schema/user.js";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
-import { reconcileSeededUserEmailVerified, seedUser } from "../user/seeding.js";
+import {
+  reconcileSeededUserEmailVerified,
+  rewriteSeededUserEmail,
+  seedUser,
+} from "../user/seeding.js";
 
 // Re-export für ergonomische Single-Import-Site in tests/seed-scripts.
 // Das Auth-Feature ist der natürliche Aufrufer für "seed admin user mit
@@ -306,14 +310,29 @@ async function findExistingUserIdForEmail(
     status: { ne: USER_STATUS.Deleted },
   });
   const matches: ActiveUserRow[] = [];
+  let undecryptableRows = 0;
   for (const row of rows) {
     // Compared byte-exact, deliberately not case-folded: email_bidx is an
     // HMAC over the raw value and login matches case-sensitively, so a case
     // variant is a different account to every other code path.
-    const decrypted = await decryptPiiFieldValues({ email: row.email }, ["email"], kms, {
-      requestId: "seed-admin-guarded",
-    });
+    // One undecryptable foreign row (missing key row, ciphertext from another
+    // KMS store) must not abort the boot seed: the account we look for is
+    // decryptable by definition.
+    let decrypted: Record<string, unknown>;
+    try {
+      decrypted = await decryptPiiFieldValues({ email: row.email }, ["email"], kms, {
+        requestId: "seed-admin-guarded",
+      });
+    } catch {
+      undecryptableRows += 1;
+      continue;
+    }
     if (decrypted["email"] === email) matches.push(row);
+  }
+  if (undecryptableRows > 0) {
+    console.warn(
+      `seedAdminGuarded: skipped ${undecryptableRows} user row(s) whose email could not be decrypted`,
+    );
   }
   return matches.length === 0 ? undefined : pickCanonicalUserId(matches);
 }
@@ -351,9 +370,15 @@ export async function seedAdminGuarded(
   if (existingId === undefined) return seedAdmin(db, options);
 
   const by = options.by ?? TestUsers.systemAdmin;
-  if (options.emailVerified === true) {
-    const existingRow = await fetchOne(db, userTable, { id: existingId });
-    if (existingRow) await reconcileSeededUserEmailVerified(db, existingRow, by);
+  const existingRow = await fetchOne(db, userTable, { id: existingId });
+  if (existingRow) {
+    // Re-write the email so email_bidx is recomputed; without it the account
+    // stays unfindable for login and every boot re-scans the whole table.
+    await rewriteSeededUserEmail(db, existingRow, options.email, by);
+    if (options.emailVerified === true) {
+      const refreshed = (await fetchOne(db, userTable, { id: existingId })) ?? existingRow;
+      await reconcileSeededUserEmailVerified(db, refreshed, by);
+    }
   }
   for (const m of options.memberships) {
     await seedTenant(db, { id: m.tenantId, key: m.tenantKey, name: m.tenantName, by });
