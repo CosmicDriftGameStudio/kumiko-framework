@@ -25,6 +25,7 @@ export const detailQuery = {
   ) => {
     const result = await baseDetail.handler?.(query, ctx);
     if (result === null || typeof result !== "object") return result;
+    if (!ctx.registry.features.has("tenant")) return result;
     const [enriched] = await attachTenantLabels(
       [result as Record<string, unknown>],
       dbForList(ctx),
