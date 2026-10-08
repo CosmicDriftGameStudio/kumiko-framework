@@ -140,6 +140,10 @@ export async function sweepOrphanedDerivativesJob(
       { limit: 1 },
     );
     if (owners.length > 0) return "skipped";
+    // Binaries written through ctx.files.ref(key) (and their derive()d
+    // variants) never get a fileRef row; an original still sitting in storage
+    // means the derivative is not an orphan.
+    if (await candidate.provider.exists(candidate.originalKey)) return "skipped";
     if (dryRun) {
       dryRunWouldDelete++;
       return "skipped";
