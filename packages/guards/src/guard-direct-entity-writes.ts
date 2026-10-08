@@ -51,11 +51,12 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
-import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
 const ROOT = process.cwd();
 
 const SCAN: ScanSpec = {
+  kinds: ALL_REPO_KINDS,
   scope: "source",
   extensions: ["ts"],
   frameworkWithin: ["packages/*/src/**", "samples/**"],
@@ -323,11 +324,23 @@ function isTableWriteCall(call: CallExpression): boolean {
   );
 }
 
-function hasAnyTableWrite(files: readonly SourceFile[]): boolean {
+function isTableBuilderCall(call: CallExpression): boolean {
+  const callee = call.getExpression();
+  const calleeName =
+    callee.getKind() === SyntaxKind.PropertyAccessExpression
+      ? callee.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName()
+      : callee.getText();
+  return TABLE_BUILDER_NAMES.has(calleeName);
+}
+
+// Table declarations count as evidence too: when write resolution breaks
+// structurally (`tables.userTable`, re-exports) no write is recognised, but the
+// declarations are still visible, so the empty-set canary must not go green.
+function hasAnyTableWriteOrDeclaration(files: readonly SourceFile[]): boolean {
   for (const sf of files) {
     if (EXCLUDE.test(sf.getFilePath())) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-      if (isTableWriteCall(call)) return true;
+      if (isTableWriteCall(call) || isTableBuilderCall(call)) return true;
     }
   }
   return false;
@@ -399,14 +412,14 @@ export const guard: AstGuard = {
     if (esTables.size === 0) {
       // An empty set means either the repo has no event store at all, or the
       // scan lost the ES definitions while table writes are still present.
-      if (!hasAnyTableWrite(files)) return { violations: [] };
+      if (!hasAnyTableWriteOrDeclaration(files)) return { violations: [] };
       return {
         violations: [
           {
             file: "<scan>",
             line: 0,
             message:
-              "BLOCKED: guard found table writes but no createEventStoreExecutor or r.entity projection tables — scan is probably misconfigured.",
+              "BLOCKED: guard found table writes or table declarations but no createEventStoreExecutor or r.entity projection tables — scan is probably misconfigured.",
           },
         ],
       };

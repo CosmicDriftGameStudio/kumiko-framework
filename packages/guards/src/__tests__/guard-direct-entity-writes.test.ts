@@ -359,6 +359,23 @@ describe("guard.run() :: empty esTables canary", () => {
     ).toBe(true);
   });
 
+  test("BLOCK: table declarations present but write resolution finds nothing (tables.x access) — canary must not go green", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `
+        declare function pgTable(name: string, cols: unknown): unknown;
+        export const tables = { someTable: pgTable("some", {}) };
+        declare const db: { insert: (t: unknown) => { values: (v: unknown) => Promise<void> } };
+        export async function write() {
+          await db.insert(tables.someTable).values({ name: "x" });
+        }
+      `,
+    });
+    const outcome = guard.run(project.getSourceFiles());
+    expect(
+      outcome.violations.some((v) => v.message.includes("BLOCKED: guard found table writes")),
+    ).toBe(true);
+  });
+
   test("ALLOW: map.delete(key) / set.delete(id) are not table writes — no canary in a no-ES repo", () => {
     const project = makeProject({
       "/repo/foo.ts": `
