@@ -89,18 +89,11 @@ function isMainFrameNavigationRequest(page: Page, request: Request): boolean {
   }
 }
 
-function urlWithoutHash(url: string): string {
-  const hashStart = url.indexOf("#");
-  return hashStart === -1 ? url : url.slice(0, hashStart);
-}
-
 // Chromium drops the old document's fetches on a cross-document navigation
 // (reload, goto, location.href) without requestfinished or requestfailed, so
 // they would stay in flight forever. framenavigated alone can't tell that commit
-// apart from a pushState, which must keep them: only a framenavigated at the URL
-// of the pending main-frame navigation request is a new document. A pushState of
-// the old document while that navigation is still loading lands on another URL.
-// A redirect issues a fresh request, which replaces the pending one.
+// apart from a pushState, which must keep them: only a framenavigated preceded by
+// a main-frame navigation request is a new document.
 function countInFlightDataRequests(page: Page): () => number {
   const inFlight = new Set<Request>();
   let pendingDocumentNavigation: Request | undefined;
@@ -109,11 +102,7 @@ function countInFlightDataRequests(page: Page): () => number {
     else if (isMainFrameNavigationRequest(page, request)) pendingDocumentNavigation = request;
   });
   page.on("framenavigated", (frame) => {
-    if (
-      frame === page.mainFrame() &&
-      pendingDocumentNavigation !== undefined &&
-      urlWithoutHash(frame.url()) === urlWithoutHash(pendingDocumentNavigation.url())
-    ) {
+    if (frame === page.mainFrame() && pendingDocumentNavigation !== undefined) {
       pendingDocumentNavigation = undefined;
       inFlight.clear();
     }

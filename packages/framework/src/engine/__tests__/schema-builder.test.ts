@@ -1078,6 +1078,53 @@ describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () 
 
 // --- Update schema (all partial) ---
 
+describe("text minLength", () => {
+  const optionalCode = createEntity({
+    table: "Codes",
+    fields: { code: createTextField({ minLength: 6, personal: false, reason: "test_fixture" }) },
+  });
+  const requiredCode = createEntity({
+    table: "Codes",
+    fields: {
+      code: createTextField({
+        minLength: 6,
+        required: true,
+        personal: false,
+        reason: "test_fixture",
+      }),
+    },
+  });
+  const writeOnlyCode = createEntity({
+    table: "Codes",
+    fields: {
+      code: createTextField({
+        minLength: 6,
+        writeOnly: true,
+        sensitive: true,
+        personal: false,
+        reason: "test_fixture",
+      }),
+    },
+  });
+
+  test("rejects a value shorter than minLength", () => {
+    expect(buildInsertSchema(optionalCode).safeParse({ code: "123" }).success).toBe(false);
+  });
+
+  test("accepts an empty string on an optional field", () => {
+    expect(buildInsertSchema(optionalCode).safeParse({ code: "" }).success).toBe(true);
+  });
+
+  test("rejects an empty string on a required field", () => {
+    expect(buildInsertSchema(requiredCode).safeParse({ code: "" }).success).toBe(false);
+  });
+
+  test("accepts an empty string on a writeOnly update (unchanged)", () => {
+    expect(buildUpdateSchema(writeOnlyCode).safeParse({ code: "" }).success).toBe(true);
+    expect(buildUpdateSchema(writeOnlyCode).safeParse({ code: "123" }).success).toBe(false);
+  });
+});
+
 describe("buildUpdateSchema", () => {
   test("all fields are optional", () => {
     const entity = createEntity({

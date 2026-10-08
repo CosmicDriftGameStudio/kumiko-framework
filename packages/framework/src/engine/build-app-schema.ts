@@ -336,6 +336,7 @@ function projectScreens(
   encryptedConfigKeyQns: ReadonlySet<string>,
 ): ScreenDefinition[] {
   return Object.entries(screens).map(([shortId, screen]) => {
+    assertValidScreenMultilineRows(featureName, shortId, screen);
     if (screen.type === "configEdit") return projectConfigEditScreen(screen, encryptedConfigKeyQns);
     if (screen.type === "projectionList") return projectProjectionListScreen(screen, registry);
     if (
@@ -429,7 +430,7 @@ function projectEntities(
 function projectEntity(entityName: string, entity: EntityDefinition): EntityDefinition {
   const fieldsOut: Record<string, FieldDefinition> = {};
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
-    assertValidMultilineRows(entityName, fieldName, fieldDef);
+    assertValidMultilineRows(`Entity "${entityName}"`, fieldName, fieldDef);
     fieldsOut[fieldName] = projectField(fieldDef);
   }
   // derivedFields MÜSSEN mit ins Client-Schema (nur die Metadaten, nicht die
@@ -473,7 +474,7 @@ function projectDerivedField(derivedDef: DerivedFieldDef): ClientDerivedFieldDef
 // A textarea height that is not a positive integer cannot render anywhere; fail
 // at boot with the field name instead of letting each renderer guess a fallback.
 function assertValidMultilineRows(
-  entityName: string,
+  owner: string,
   fieldName: string,
   fieldDef: FieldDefinition,
 ): void {
@@ -485,8 +486,27 @@ function assertValidMultilineRows(
   if (typeof rows !== "number") return;
   if (!Number.isInteger(rows) || rows < 1) {
     throw new Error(
-      `Entity "${entityName}" field "${fieldName}": multiline.rows must be a positive integer, got ${rows}`,
+      `${owner} field "${fieldName}": multiline.rows must be a positive integer, got ${rows}`,
     );
+  }
+}
+
+// Screen forms carry their own inline field maps into the client schema.
+function assertValidScreenMultilineRows(
+  featureName: string,
+  shortId: string,
+  screen: ScreenDefinition,
+): void {
+  const owner = `Screen "${featureName}:${shortId}"`;
+  const check = (fields: Readonly<Record<string, FieldDefinition>>): void => {
+    for (const [fieldName, fieldDef] of Object.entries(fields)) {
+      assertValidMultilineRows(owner, fieldName, fieldDef);
+    }
+  };
+  if (screen.type === "configEdit" || screen.type === "actionForm") check(screen.fields);
+  if (screen.type === "secretMint") {
+    check(screen.fields);
+    if (screen.confirm !== undefined) check(screen.confirm.fields);
   }
 }
 
