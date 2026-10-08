@@ -31,6 +31,18 @@ const REMOVE_TOLERATED_ERROR_CODES: readonly string[] = [ErrorStatusCode.INDEX_N
 
 const INDEX_LIST_PAGE_SIZE = 100;
 
+// What an unconfigured Meilisearch index reports as searchableAttributes.
+const MEILI_ALL_ATTRIBUTES = "*";
+
+function isIndexNotFound(err: unknown): boolean {
+  const cause = typeof err === "object" && err !== null ? (err as { cause?: unknown }).cause : null;
+  return (
+    typeof cause === "object" &&
+    cause !== null &&
+    (cause as { code?: unknown }).code === ErrorStatusCode.INDEX_NOT_FOUND
+  );
+}
+
 export type MeilisearchAdapterOptions = {
   url: string;
   apiKey: string;
@@ -81,6 +93,25 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
   // found". A failed configure is never memoized — remove the map entry (iff
   // it's still the same in-flight promise) and rethrow, so a transient
   // Meili outage doesn't permanently poison the tenant for the process.
+  // The configured-tenants map is process memory only: after a restart a stored explicit
+  // configure() must not be overwritten by the registry default, so the default is applied only
+  // to an index that is missing or still carries Meilisearch's factory settings.
+  async function indexNeedsDefaultConfig(tenantId: TenantId): Promise<boolean> {
+    try {
+      const settings = await client.index(meilisearchTenantIndex(prefix, tenantId)).getSettings();
+      const searchable = settings.searchableAttributes ?? [MEILI_ALL_ATTRIBUTES];
+      const filterable = settings.filterableAttributes ?? [];
+      return (
+        searchable.length === 1 &&
+        searchable[0] === MEILI_ALL_ATTRIBUTES &&
+        !filterable.includes("_type")
+      );
+    } catch (err) {
+      if (isIndexNotFound(err)) return true;
+      throw err;
+    }
+  }
+
   async function ensureConfigured(tenantId: TenantId): Promise<void> {
     // skip: no registry-derived default — callers configure tenants explicitly.
     if (!defaultConfig) return;
@@ -90,11 +121,14 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       // skip: configured (or in flight) already for this tenant.
       return;
     }
-    await trackConfigure(tenantId, defaultConfig);
+    const config = defaultConfig;
+    await trackConfigure(tenantId, async () => {
+      if (await indexNeedsDefaultConfig(tenantId)) await applyConfig(tenantId, config);
+    });
   }
 
-  async function trackConfigure(tenantId: TenantId, config: SearchAdapterConfig): Promise<void> {
-    const pending = applyConfig(tenantId, config);
+  async function trackConfigure(tenantId: TenantId, run: () => Promise<void>): Promise<void> {
+    const pending = run();
     configuredTenants.set(tenantId, pending);
     try {
       await pending;
@@ -112,7 +146,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     },
 
     async configure(tenantId, config) {
-      await trackConfigure(tenantId, config);
+      await trackConfigure(tenantId, () => applyConfig(tenantId, config));
     },
 
     async index(tenantId, doc) {

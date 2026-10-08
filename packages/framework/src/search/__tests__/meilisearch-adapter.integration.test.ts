@@ -362,6 +362,25 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
     const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
     expect(await index.getSearchableAttributes()).toEqual(["a"]);
   });
+
+  test("an explicit configure() survives an adapter restart: the lazy default does not overwrite stored settings", async () => {
+    const tenant = uuid();
+    const options = { url: MEILI_URL, apiKey: MEILI_KEY, indexPrefix: lazyPrefix };
+    await createMeilisearchAdapter(options).configure(tenant, { searchableFields: ["a"] });
+
+    // New adapter instance = fresh process memory after a pod restart.
+    const restarted = createMeilisearchAdapter(options);
+    restarted.setDefaultConfig?.({ searchableFields: ["b"] });
+    await restarted.index(tenant, {
+      entityType: "user",
+      entityId: 1,
+      weight: 1,
+      fields: { a: "value" },
+    });
+
+    const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
+    expect(await index.getSearchableAttributes()).toEqual(["a"]);
+  });
 });
 
 describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {
