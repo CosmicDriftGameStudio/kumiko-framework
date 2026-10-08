@@ -13,3 +13,40 @@ A failing dispatcher pass no longer records its error on a consumer whose cursor
 `kumiko_event_dispatcher_listen_connected` only drops to 0 on a real connection-loss error and is restored when the pre-check recovers. A consumer logs once when it tracks more than 1000 pending gap ranges. The lazy Meilisearch default config no longer overwrites settings stored by an earlier `configure()` after a restart.
 
 Access invalidation publishes through `PubSubSignal.publishConfirmed`, so a Redis failure fails the consumer and the event is redelivered instead of being dropped (`SseBroker.publishAccessInvalidation` may return a promise). `KUMIKO_REDIS_CHANNEL_PREFIX` namespaces the SSE and feature-toggle Pub/Sub channels for apps sharing one Redis; `createRedisToggleSyncSignal` takes the prefix as an optional third argument. Types that mention `Temporal` now carry the `temporal-polyfill/global` reference into their `.d.ts` files.
+
+<!-- kumiko-changes
+feature: framework
+type: breaking
+title: db.global(table) writes on executor-managed entity tables are rejected
+migration: Write entities through the entity executor and keep db.global for hand-written unmanaged tables.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: unsafeRaw handles derived through begin, transaction or reserve keep the personal-data gate
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: A stale search index can no longer surface another tenant's row
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: A projection rebuild aborts when the blind-index key differs from the one used to build the live table
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: An array ne filter on a jsonb column means "does not contain all of these"
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: Access invalidation publishes with confirmation so a Redis failure redelivers the event
+-->
