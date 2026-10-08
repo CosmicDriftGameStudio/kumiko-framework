@@ -47,6 +47,28 @@ function isAbsentable(field: ZodType): boolean {
   });
 }
 
+const NON_STRING_SCHEMA_TYPES: ReadonlySet<string> = new Set([
+  "number",
+  "int",
+  "boolean",
+  "bigint",
+  "date",
+  "object",
+  "array",
+]);
+
+// An owner id is resolved through "non-empty string or absent" at append time,
+// so a schema that can never yield a string would make every append throw in
+// prod. Wrappers (optional/nullable/default/...) are looked through.
+function neverYieldsString(field: ZodType): boolean {
+  let current: ZodType = field;
+  for (;;) {
+    const def: { readonly type: string; readonly innerType?: ZodType } = current._zod.def;
+    if (def.innerType === undefined) return NON_STRING_SCHEMA_TYPES.has(def.type);
+    current = def.innerType;
+  }
+}
+
 // Builds config/secrets/claims/events/jobs/notifications registrar methods.
 export function buildConfigEventsJobsMethods<TName extends string>(
   state: FeatureBuilderState,
@@ -153,6 +175,12 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         }
       }
       const owner = shape?.[normalized.ownerField];
+      if (normalized.whenAbsent === undefined && owner !== undefined && neverYieldsString(owner)) {
+        throw new Error(
+          `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" is owned by "${normalized.ownerField}", whose payload schema is not a string — the subject id must be a non-empty string, so every append would fail. ` +
+            `Use a string owner field, or declare whenAbsent ("tenant" | "plaintext").`,
+        );
+      }
       if (normalized.whenAbsent === undefined && owner !== undefined && isAbsentable(owner)) {
         throw new Error(
           `[Feature ${name}] defineEvent("${eventName}"): piiFields."${field}" is owned by "${normalized.ownerField}", which the payload schema allows to be null/undefined. ` +
