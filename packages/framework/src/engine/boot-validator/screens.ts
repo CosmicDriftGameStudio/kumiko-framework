@@ -1012,6 +1012,21 @@ function validateRedirectTarget(
     allScreenQns,
     feature.screens,
   );
+  // idFrom only means something to a target that carries a record id; the
+  // renderer drops it silently otherwise. Cross-feature QN targets can't be
+  // typed from here and stay unchecked.
+  const sameFeatureTarget = feature.screens[redirectTarget];
+  if (
+    typeof redirect !== "string" &&
+    sameFeatureTarget !== undefined &&
+    sameFeatureTarget.type !== "entityEdit" &&
+    sameFeatureTarget.type !== "projectionDetail"
+  ) {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) redirect.idFrom is set but target screen ` +
+        `"${redirectTarget}" (${sameFeatureTarget.type}) carries no id — use the plain string form.`,
+    );
+  }
 }
 
 // redirect is only honored on record actions; on list/related-list row

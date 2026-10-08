@@ -241,6 +241,12 @@ describe("validateBoot — action wiring (no function values)", () => {
           }),
         );
         r.screen({ id: "overview", type: "custom", renderer: { react: "stub" } });
+        r.screen({
+          id: "order-detail-target",
+          type: "projectionDetail",
+          query: "shop:query:order:detail",
+          layout: { sections: [{ title: "s", fields: ["total"] }] },
+        });
         if (site.startsWith("projectionDetail")) {
           r.screen({
             id: "order-detail",
@@ -296,10 +302,18 @@ describe("validateBoot — action wiring (no function values)", () => {
         ).toThrow(/redirect\.idFrom is empty or not a string/);
       });
 
+      test(`${site}: object-form redirect with idFrom to a screen that carries no id → Throw`, () => {
+        expect(() =>
+          validateBoot([featureWithRedirect(site, { screen: "overview", idFrom: "id" })]),
+        ).toThrow(/redirect\.idFrom is set but target screen "overview" \(custom\) carries no id/);
+      });
+
       test(`${site}: object-form redirect to a registered screen does not trip the redirect check`, () => {
         let message = "";
         try {
-          validateBoot([featureWithRedirect(site, { screen: "overview", idFrom: "id" })]);
+          validateBoot([
+            featureWithRedirect(site, { screen: "order-detail-target", idFrom: "id" }),
+          ]);
         } catch (e) {
           message = e instanceof Error ? e.message : String(e);
         }
