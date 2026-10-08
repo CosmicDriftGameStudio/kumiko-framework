@@ -177,9 +177,10 @@ async function recordTenantJobFailure(
   // non-final failure must not show the tenant a failure the next attempt
   // may still resolve.
   if (!where || !messageKey || outcome?.finalAttempt !== true) return;
-  // ponytail: delete-then-insert instead of an upsert — two runs of the same
-  // key finishing at once can leave two rows, and the query returns the
-  // newest. Add a unique index + ON CONFLICT if that ever matters.
+  // Delete-then-insert instead of an upsert: the (tenant, job, subject) key
+  // has no unique index because subject is NULL for jobs without
+  // subjectFields. Two runs of one key finishing at once can leave two rows;
+  // tenantFailuresQuery collapses them to the newest per key.
   await deleteMany(db, tenantJobFailuresTable, where);
   await insertOne(db, tenantJobFailuresTable, {
     ...where,

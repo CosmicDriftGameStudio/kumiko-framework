@@ -1,6 +1,7 @@
 import { requireEntityTableMeta } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   type EntityTableMeta,
+  index,
   instant,
   table as pgTable,
   serial,
@@ -23,14 +24,24 @@ import {
 // canonical JSON of the job's declared subjectFields, or NULL for a job that
 // declares none — stored in clear, so a job must not declare a PII field
 // as its subject.
-export const tenantJobFailuresTable = pgTable("store_tenant_job_failures", {
-  id: serial("id").primaryKey(),
-  tenantId: uuid("tenant_id").notNull(),
-  jobName: text("job_name").notNull(),
-  subject: text("subject"),
-  messageKey: text("message_key").notNull(),
-  failedAt: instant("failed_at").default(sql`now()`).notNull(),
-});
+export const tenantJobFailuresTable = pgTable(
+  "store_tenant_job_failures",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: uuid("tenant_id").notNull(),
+    jobName: text("job_name").notNull(),
+    subject: text("subject"),
+    messageKey: text("message_key").notNull(),
+    failedAt: instant("failed_at").default(sql`now()`).notNull(),
+  },
+  (t) => [
+    // Every finished run of an opted-in job deletes by this key before it writes.
+    index("store_tenant_job_failures_tenant_job_subject_idx").on(t.tenantId, t.jobName, t.subject),
+    // The tenant list sorts by failed_at; retention filters on it alone.
+    index("store_tenant_job_failures_tenant_failed_at_idx").on(t.tenantId, t.failedAt),
+    index("store_tenant_job_failures_failed_at_idx").on(t.failedAt),
+  ],
+);
 
 export const tenantJobFailuresTableMeta: EntityTableMeta = requireEntityTableMeta(
   tenantJobFailuresTable,
