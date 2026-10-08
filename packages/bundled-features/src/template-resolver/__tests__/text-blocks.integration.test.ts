@@ -356,6 +356,23 @@ describe("text-blocks :: query (openToAll)", () => {
     );
     expect(result).toMatchObject({ title: "System-Impressum" });
   });
+
+  test("list can filter by the text-block kind", async () => {
+    await seedTextBlock(db, {
+      tenantId: tenantAdmin.tenantId,
+      slug: "list-filter-block",
+      locale: "de",
+      title: "Filterbar",
+      content: "Block",
+    });
+    const rows = await stack.http.queryOk<Array<{ slug: string; kind: string }>>(
+      TemplateResolverQueries.list,
+      { kind: TEXT_BLOCK_KIND, includeSystem: false },
+      tenantAdmin,
+    );
+    expect(rows.map((row) => row.slug)).toContain("list-filter-block");
+    expect(rows.every((row) => row.kind === TEXT_BLOCK_KIND)).toBe(true);
+  });
 });
 
 describe("text-blocks :: edge-cases", () => {
