@@ -218,7 +218,7 @@ function starterPatterns(): readonly FeaturePattern[] {
       entityName: "item",
       definition: {
         fields: {
-          title: { type: "text", required: true },
+          title: { type: "text", required: true, allowPlaintext: "is_business_data" },
         },
       },
     },

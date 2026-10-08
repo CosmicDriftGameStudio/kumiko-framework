@@ -430,6 +430,30 @@ describe("validateBoot — PII annotations", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
+  describe("raw text literals without a personal stance", () => {
+    const stanceWarning = () =>
+      warnSpy.mock.calls.find((args: unknown[]) =>
+        String(args[0]).includes("declares no personal"),
+      );
+
+    const bootWithField = (field: FieldDefinition) =>
+      validateBoot([
+        defineFeature("test", (r) => {
+          r.entity("item", createEntity({ fields: { title: field } }));
+        }),
+      ]);
+
+    test("a { type: text } literal warns that no stance is declared", () => {
+      bootWithField({ type: "text", required: true });
+      expect(stanceWarning()).toBeDefined();
+    });
+
+    test("a stance from the factory keeps the boot quiet", () => {
+      bootWithField(createTextField({ personal: false, reason: "is_business_data" }));
+      expect(stanceWarning()).toBeUndefined();
+    });
+  });
+
   describe("file fields without a personal annotation", () => {
     const fileFieldWarning = () =>
       warnSpy.mock.calls.find((args: unknown[]) => String(args[0]).includes("File field"));
