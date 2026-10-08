@@ -40,7 +40,7 @@ function stubDispatcher(): Dispatcher {
   };
 }
 
-function buildSchema(createScreen: string | undefined): FeatureSchema {
+function buildSchema(createScreen: string | undefined, createUnavailable = false): FeatureSchema {
   const entity: EntityDefinition = {
     fields: {
       name: { type: "text", maxLength: 200, required: false, searchable: false, sortable: false },
@@ -52,6 +52,7 @@ function buildSchema(createScreen: string | undefined): FeatureSchema {
     entity: "org",
     columns: ["name"],
     ...(createScreen !== undefined && { createScreen }),
+    ...(createUnavailable && { createUnavailable }),
   };
   const editScreen: EntityEditScreenDefinition = {
     id: "org-edit",
@@ -66,9 +67,13 @@ function buildSchema(createScreen: string | undefined): FeatureSchema {
   } as FeatureSchema;
 }
 
-async function clickCreateButton(createScreen: string | undefined): Promise<readonly NavTarget[]> {
+async function renderList(
+  createScreen: string | undefined,
+  createUnavailable = false,
+): Promise<{ navigated: NavTarget[]; onCreate: (() => void) | undefined }> {
   const navigated: NavTarget[] = [];
   let onCreate: (() => void) | undefined;
+  let tableRendered = false;
   const captureButton: ComponentType<ButtonProps> = (props) => {
     if (props.testId === "render-list-create" || props.testId === "render-list-empty-create") {
       onCreate = props.onClick;
@@ -80,12 +85,15 @@ async function clickCreateButton(createScreen: string | undefined): Promise<read
     Banner: passChildren,
     Field: passChildren,
     Input: noop,
-    DataTable: ({ toolbarEnd, emptyState }: DataTableProps) => (
-      <>
-        {toolbarEnd}
-        {emptyState}
-      </>
-    ),
+    DataTable: ({ toolbarEnd, emptyState }: DataTableProps) => {
+      tableRendered = true;
+      return (
+        <>
+          {toolbarEnd}
+          {emptyState}
+        </>
+      );
+    },
     Form: passChildren,
     Section: passChildren,
     Card: passChildren,
@@ -114,13 +122,22 @@ async function clickCreateButton(createScreen: string | undefined): Promise<read
           }}
         >
           <PrimitivesProvider value={primitives}>
-            <KumikoScreen schema={buildSchema(createScreen)} qn="orgs:screen:org-list" />
+            <KumikoScreen
+              schema={buildSchema(createScreen, createUnavailable)}
+              qn="orgs:screen:org-list"
+            />
           </PrimitivesProvider>
         </NavProvider>
       </DispatcherProvider>
     </LocaleProvider>,
   );
-  await waitFor(() => expect(onCreate).toBeDefined());
+  await waitFor(() => expect(tableRendered).toBe(true));
+  return { navigated, onCreate };
+}
+
+async function clickCreateButton(createScreen: string | undefined): Promise<readonly NavTarget[]> {
+  const { navigated, onCreate } = await renderList(createScreen);
+  expect(onCreate).toBeDefined();
   onCreate?.();
   return navigated;
 }
@@ -131,6 +148,11 @@ describe("entityList createScreen", () => {
     expect(navigated.map((target) => ("screenId" in target ? target.screenId : undefined))).toEqual(
       ["org-wizard"],
     );
+  });
+
+  test("createUnavailable (create target denied for the role) shows no create button instead of the edit-screen fallback", async () => {
+    const { onCreate } = await renderList(undefined, true);
+    expect(onCreate).toBeUndefined();
   });
 
   test("without createScreen the create button opens the entity's edit screen", async () => {

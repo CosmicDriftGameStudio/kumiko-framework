@@ -530,6 +530,8 @@ export type EntityListScreenDefinition = {
   readonly entity: string;
   /** Short screen id (same feature) the create button opens instead of the entity's default edit screen. */
   readonly createScreen?: string;
+  /** Set by the role projection when `createScreen` is not reachable for the role: the renderer then shows no create button instead of falling back to the entity's edit screen. Not for app authors. */
+  readonly createUnavailable?: boolean;
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
   // from `columns`. cardRenderer fills the same role on compact layouts.
