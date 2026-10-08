@@ -49,7 +49,9 @@ test.describe("mobile (< md)", () => {
     // Excludes the per-action `-action-{id}` buttons, which carry the same
     // `row-` testid prefix as the cards themselves.
     const cards = cardsContainer.locator('[data-testid^="row-"]:not([data-testid*="-action"])');
-    await expect(cards).toHaveCount(8);
+    await expect(cards.first()).toBeVisible();
+    // seed.ts does not deduplicate, so a persistent dev DB can hold more than the 8 seed rows.
+    expect(await cards.count()).toBeGreaterThanOrEqual(8);
 
     // Cards are compact rows: title, the select column as a status
     // badge on the right, and up to three non-empty value columns as one
@@ -59,8 +61,12 @@ test.describe("mobile (< md)", () => {
     // as "" when false (defaultCellRender) — #1 has isActive=false, which
     // would make that one cell legitimately empty/invisible regardless of
     // table-vs-cards layout; #2 has isActive=true so every column has content.
-    const sampleCard = cards.nth(1);
-    await expect(sampleCard.locator('[data-testid$="-name"]')).toHaveText("Demo item #2");
+    const sampleCard = cards
+      .filter({
+        has: page.locator('[data-testid$="-name"]', { hasText: /^Demo item #2$/ }),
+      })
+      .first();
+    await expect(sampleCard).toBeVisible();
 
     const shownFields = ["status", "isActive", "quantity", "publishedAt"] as const;
     for (const field of shownFields) {
