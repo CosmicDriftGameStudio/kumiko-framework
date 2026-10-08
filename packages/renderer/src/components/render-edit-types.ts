@@ -261,4 +261,9 @@ export type RenderEditControls<TValues extends FormValues> = {
    *  guard — a host showing a pre-filled proposal must be able to accept it
    *  untouched. */
   readonly submit: () => Promise<void>;
+  /** Wizard only (no-op elsewhere): validates the current step and advances,
+   *  like the built-in Next button. A `hideActions` host steps with this. */
+  readonly next: () => void;
+  /** Wizard only (no-op elsewhere): goes back one step without validating. */
+  readonly back: () => void;
 };

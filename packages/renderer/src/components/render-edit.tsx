@@ -701,7 +701,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // `handleSubmit` (defined below) is a fresh closure over this render's
   // snapshot/extensionDirty, while the onControlsReady effect fires once per
   // mount — the ref lets controls.submit() always reach the current one.
-  const handleSubmitRef = useRef<() => Promise<void>>(async () => {});
+  const handleSubmitRef = useRef<(options?: { readonly saveNow?: boolean }) => Promise<void>>(
+    async () => {},
+  );
+  const wizardNextRef = useRef<() => void>(() => {});
+  const wizardBackRef = useRef<() => void>(() => {});
   const currentStepRef = useRef(0);
   const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -755,7 +759,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       patch: patchAndScheduleDraftSave,
       validate: scopedValidate,
       getValues: () => controller.getSnapshot().values,
-      submit: () => handleSubmitRef.current(),
+      // saveNow: a host-driven submit must save on a wizard's intermediate
+      // steps too instead of silently advancing; stepping is next()/back().
+      submit: () => handleSubmitRef.current({ saveNow: true }),
+      next: () => wizardNextRef.current(),
+      back: () => wizardBackRef.current(),
     });
     // Dep on boolean presence only — inline-arrow identity must not redeliver.
   }, [hasControlsReady, controller, scopedValidate, patchAndScheduleDraftSave]);
@@ -1345,6 +1353,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     }
   }
   handleSubmitRef.current = handleSubmit;
+  wizardNextRef.current = isWizard ? handleWizardNext : () => {};
+  wizardBackRef.current = isWizard ? handleWizardBack : () => {};
 
   // Screen forms (entityEdit/actionForm filling the shell height) drop the card;
   // the title then lives in the shell header when the shell offers a slot.
