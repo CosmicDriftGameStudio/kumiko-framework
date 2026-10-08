@@ -46,6 +46,7 @@ import {
   InsideDrawerProvider,
   type LinkProps,
   needsActionConfirm,
+  type PrimitivesRegistry,
   type ProgressProps,
   type SecretRevealProps,
   type SectionProps,
@@ -60,6 +61,7 @@ import {
   useColumnRenderer,
   useInsideDrawer,
   useOptionalLocale,
+  useOptionalPrimitives,
   useOptionalTranslation,
   useTranslation,
   type WizardStepGroupProps,
@@ -3253,6 +3255,7 @@ function selectPill(
   optionLabels: Readonly<Record<string, string>> | undefined,
   optionTones: Readonly<Partial<Record<string, SelectOptionTone>>> | undefined,
   locale: string | undefined,
+  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"],
 ): ReactNode {
   const label = defaultCellRender(value, "select", optionLabels, locale);
   const declaredTone =
@@ -3263,6 +3266,10 @@ function selectPill(
     (declaredTone !== undefined ? statusToneForOptionTone(declaredTone) : undefined) ??
     (typeof value === "string" ? statusToneForValue(value) : undefined);
   if (tone !== undefined) {
+    // Same registered primitive as the projectionDetail header, so an app-provided badge applies to list cells too.
+    if (RegisteredStatusBadge !== undefined) {
+      return <RegisteredStatusBadge value={label} tone={tone} />;
+    }
     return <StatusBadge tone={tone}>{label}</StatusBadge>;
   }
   // dashboard-01 pattern: outline badge + muted instead of a filled secondary.
@@ -3366,6 +3373,7 @@ function DataTableCell({
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
+  const RegisteredStatusBadge = useOptionalPrimitives()?.StatusBadge;
   if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
     return (
       <span data-empty-cell="true" className="text-muted-foreground">
@@ -3430,7 +3438,7 @@ function DataTableCell({
   // detail view of the same value was coloured (fw#2579). Unknown values
   // keep the neutral outline pill.
   if (type === "select" && value !== null && value !== undefined && value !== "") {
-    return selectPill(value, optionLabels, optionTones, locale);
+    return selectPill(value, optionLabels, optionTones, locale, RegisteredStatusBadge);
   }
   // One pill per picked value; a single pill would hold the whole joined list.
   if (type === "multiSelect" && Array.isArray(value) && value.length > 0) {
@@ -3438,7 +3446,7 @@ function DataTableCell({
       <span className="flex flex-wrap gap-1">
         {value.map((entry) => (
           <Fragment key={String(entry)}>
-            {selectPill(entry, optionLabels, optionTones, locale)}
+            {selectPill(entry, optionLabels, optionTones, locale, RegisteredStatusBadge)}
           </Fragment>
         ))}
       </span>

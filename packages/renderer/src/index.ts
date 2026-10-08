@@ -278,6 +278,7 @@ export {
   shouldRenderActionsIconOnly,
   statusToneForOptionTone,
   statusToneForValue,
+  useOptionalPrimitives,
   usePrimitives,
 } from "./primitives.js";
 export type {

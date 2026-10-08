@@ -2361,6 +2361,73 @@ describe("RenderEdit wizard draft", () => {
     expect(JSON.stringify(saved.values)).not.toContain("hunter2");
   });
 
+  test("a sensitive field is stripped from the draft save payload", async () => {
+    const sensitiveEntity = {
+      fields: {
+        title: { type: "text", required: true },
+        iban: { type: "text", sensitive: true },
+        count: { type: "number" },
+      },
+    } as unknown as EntityDefinition;
+
+    const sensitiveScreen: EntityEditScreenDefinition = {
+      id: "orders:screen:order-wizard-draft-sensitive",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        draft: true,
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }, { field: "iban" }] },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+    };
+
+    const savedPayloads: DraftBlob[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
+      write: (async (type: string, payload: unknown) => {
+        if (type === "form-draft:write:save" && isDraftSavePayload(payload)) {
+          savedPayloads.push(payload);
+        }
+        return { isSuccess: true, data: { id: "1" } };
+      }) as Dispatcher["write"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <DraftStorageProvider value={createFakeDraftStorage()}>
+          <RenderEdit<TestValues & { iban?: string }>
+            screen={sensitiveScreen}
+            entity={sensitiveEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0, iban: "" }}
+            writeCommand="order:create"
+          />
+        </DraftStorageProvider>
+      </DispatcherProvider>,
+    );
+
+    fireEvent.change(screen.getByTestId("field-title").querySelector("input") as HTMLInputElement, {
+      target: { value: "Acme" },
+    });
+    fireEvent.change(screen.getByTestId("field-iban").querySelector("input") as HTMLInputElement, {
+      target: { value: "DE89370400440532013000" },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      await Promise.resolve();
+    });
+
+    expect(savedPayloads.length).toBeGreaterThan(0);
+    const saved = savedPayloads[0] as DraftBlob;
+    expect(saved.values["title"]).toBe("Acme");
+    expect(Object.keys(saved.values)).not.toContain("iban");
+    expect(JSON.stringify(saved.values)).not.toContain("DE89370400440532013000");
+  });
+
   // fw#1929: bare crypto.randomUUID() breaks in non-secure contexts and
   // React Native/Hermes without a polyfill. With it deleted, minting a
   // draftId must still work through the mintDraftId() fallback instead of

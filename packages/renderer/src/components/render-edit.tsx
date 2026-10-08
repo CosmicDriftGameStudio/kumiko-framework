@@ -1087,12 +1087,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       vm.sections.flatMap((section) =>
         section.kind === "fields"
           ? section.fields
-              .filter((f) => f.format === "password" || f.writeOnly === true)
+              .filter(
+                (f) => f.format === "password" || f.writeOnly === true || f.sensitive === true,
+              )
               .map((f) => f.field)
           : [],
       ),
     );
-    // A password or writeOnly field never enters the persisted draft blob — it would be stored in the clear and restored on resume.
+    // A password, writeOnly or sensitive field never enters the persisted draft blob — it would be stored in the clear and restored on resume.
     const draftValues = Object.fromEntries(
       Object.entries(controller.getSnapshot().values).filter(
         ([field]) => !secretFieldNames.has(field),

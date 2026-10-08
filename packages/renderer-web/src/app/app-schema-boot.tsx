@@ -34,15 +34,31 @@ function isAbortError(err: unknown): boolean {
   return err instanceof DOMException && err.name === "AbortError";
 }
 
+// Mirrors createLiveDispatcher: a cross-origin API (absolute baseUrl) needs
+// credentials "include" for the session cookie to travel; same-origin stays
+// "same-origin" so a relative path never widens.
+function schemaFetchCredentials(schemaUrl: string): RequestCredentials {
+  try {
+    return new URL(schemaUrl, window.location.href).origin === window.location.origin
+      ? "same-origin"
+      : "include";
+  } catch {
+    return "same-origin";
+  }
+}
+
 // Rejects only on abort (caller-cancelled) — every other failure mode
 // (network error, non-2xx, unparseable/invalid body) resolves to
 // `{ kind: "failed" }` so callers get one uniform result shape to branch
 // on instead of a mix of thrown errors and resolved results.
-export async function fetchAppSchema(signal: AbortSignal): Promise<AppSchemaFetchResult> {
+export async function fetchAppSchema(
+  signal: AbortSignal,
+  schemaUrl: string = APP_SCHEMA_API_PATH,
+): Promise<AppSchemaFetchResult> {
   let res: Response;
   try {
-    res = await fetch(APP_SCHEMA_API_PATH, {
-      credentials: "same-origin",
+    res = await fetch(schemaUrl, {
+      credentials: schemaFetchCredentials(schemaUrl),
       headers: { Accept: "application/json" },
       signal,
     });
@@ -69,8 +85,10 @@ export async function fetchAppSchema(signal: AbortSignal): Promise<AppSchemaFetc
 // mounts until the user is authenticated.
 export function AppSchemaFetchBoot({
   onLoaded,
+  schemaUrl,
 }: {
   readonly onLoaded: (app: AppSchema) => void;
+  readonly schemaUrl?: string;
 }): ReactNode {
   const t = useTranslation();
   const { Banner, Button } = usePrimitives();
@@ -89,7 +107,7 @@ export function AppSchemaFetchBoot({
   useEffect(() => {
     const controller = new AbortController();
     setStatus("loading");
-    fetchAppSchema(controller.signal)
+    fetchAppSchema(controller.signal, schemaUrl)
       .then((result) => {
         if (controller.signal.aborted) return;
         if (result.kind === "loaded") {
@@ -102,7 +120,7 @@ export function AppSchemaFetchBoot({
         if (!isAbortError(err)) setStatus("failed");
       });
     return () => controller.abort();
-  }, [attempt]);
+  }, [attempt, schemaUrl]);
 
   useEffect(() => {
     if (status === "session-ended") sessionEndedSignal?.notify();

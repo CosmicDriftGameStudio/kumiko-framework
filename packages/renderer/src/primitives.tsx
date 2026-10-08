@@ -1181,8 +1181,9 @@ export type DialogProps = {
   readonly cancelLabel?: string;
   /** `default` = Confirm primary, `danger` = Confirm danger. */
   readonly variant?: "default" | "danger";
-  /** Which button takes focus on open. Default: Confirm for a bare dialog,
-   *  the browser/Radix default when `children` are present. `"cancel"` for
+  /** Which button takes focus on open. Default: Confirm for a bare dialog
+   *  (Cancel when `variant` is `danger`), the browser/Radix default when
+   *  `children` are present. `"cancel"` for
    *  dialogs where the safe choice must be the one Enter triggers. */
   readonly initialFocus?: "confirm" | "cancel";
   /** Wird gefeuert wenn der User Confirm drückt. Async-Funktion ist
@@ -1748,6 +1749,11 @@ export type PrimitivesProviderProps = {
 
 export function PrimitivesProvider({ children, value }: PrimitivesProviderProps): ReactNode {
   return <PrimitivesContext.Provider value={value}>{children}</PrimitivesContext.Provider>;
+}
+
+/** Like `usePrimitives`, but `undefined` outside a provider — for components that also render standalone. */
+export function useOptionalPrimitives(): PrimitivesRegistry | undefined {
+  return useContext(PrimitivesContext);
 }
 
 export function usePrimitives(): PrimitivesRegistry {
