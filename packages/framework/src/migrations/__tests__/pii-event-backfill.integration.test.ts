@@ -336,6 +336,32 @@ describe("runPiiEventBackfill", () => {
     expect((await readMspRows()).map((r) => r.phone)).toEqual([contact.phone]);
   });
 
+  test("each run queues under its own migration id, so a peer's re-queue is not cleared by this run", async () => {
+    await createContact(1);
+    await drainDispatcher();
+    armKms();
+    failMspApply = true;
+    const queuedMigrationId = async (): Promise<string | undefined> => {
+      const rows = (await asRawClient(stack.db).unsafe(
+        `SELECT "migration_id" FROM "kumiko_pending_rebuilds" WHERE "table_name" = $1`,
+        [MSP_TABLE],
+      )) as ReadonlyArray<{ migration_id: string }>;
+      return rows[0]?.migration_id;
+    };
+
+    expectRan(await runPiiEventBackfill(stack.db, registryV2));
+    const firstRunId = await queuedMigrationId();
+    disarmKms();
+    await createContact(2);
+    armKms();
+    expectRan(await runPiiEventBackfill(stack.db, registryV2));
+    const secondRunId = await queuedMigrationId();
+
+    expect(firstRunId).toMatch(/^pii-backfill:[0-9a-f]{12}:.+/);
+    expect(secondRunId).toMatch(/^pii-backfill:[0-9a-f]{12}:.+/);
+    expect(secondRunId).not.toBe(firstRunId);
+  });
+
   test("a rebuilding run leaves foreign and unmappable queue rows untouched", async () => {
     await createContact(1);
     armKms();
