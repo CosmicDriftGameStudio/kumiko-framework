@@ -74,6 +74,10 @@ export const FrameworkReasons = {
   // delegation via ctx.write/writeAs from a lower-risk handler does not
   // inherit the gate.
   instructionFieldWriteRequiresHighRisk: "instruction_field_write_requires_high_risk",
+
+  // ConflictError: a write touched a personal-data field of a data subject whose
+  // key was erased (crypto-shredding); the subject can no longer receive data.
+  subjectErased: "subject_erased",
 } as const;
 
 export type FrameworkReason = (typeof FrameworkReasons)[keyof typeof FrameworkReasons];

@@ -36,6 +36,7 @@ export type { AgentReason, FrameworkReason } from "./reasons.js";
 export { AgentReasons, FrameworkReasons } from "./reasons.js";
 export type { ErrorLogEntry, ErrorResponseBody } from "./serialize.js";
 export { buildErrorLog, serializeError } from "./serialize.js";
+export { subjectErasedConflict } from "./subject-erased.js";
 export { toKumikoError } from "./to-kumiko-error.js";
 export type { InvalidTransitionDetails } from "./transition-details.js";
 export { buildInvalidTransitionDetails } from "./transition-details.js";

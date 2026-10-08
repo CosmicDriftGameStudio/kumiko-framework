@@ -5,6 +5,7 @@ import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
   encryptPiiFieldValues,
+  KeyErasedError,
   type KmsContext,
   type LocalKeyKmsAdapter,
 } from "../crypto/index.js";
@@ -21,6 +22,7 @@ import type {
 } from "../engine/types/index.js";
 import {
   InternalError,
+  subjectErasedConflict,
   UniqueViolationError,
   type WriteFailure,
   writeFailure,
@@ -308,12 +310,17 @@ export function buildExecutorContext(
     }
     const kms = piiKms();
     if (hasPiiFields && kms) {
-      out = await encryptPiiFieldValues(out, entity, piiSubjectFields, kms, kmsContextFor(user), {
-        tenantId: user.tenantId,
-        entityName,
-        ...(opts?.onlyKeys !== undefined && { onlyKeys: opts.onlyKeys }),
-        ...(opts?.subjectSource !== undefined && { subjectSource: opts.subjectSource }),
-      });
+      try {
+        out = await encryptPiiFieldValues(out, entity, piiSubjectFields, kms, kmsContextFor(user), {
+          tenantId: user.tenantId,
+          entityName,
+          ...(opts?.onlyKeys !== undefined && { onlyKeys: opts.onlyKeys }),
+          ...(opts?.subjectSource !== undefined && { subjectSource: opts.subjectSource }),
+        });
+      } catch (e) {
+        if (e instanceof KeyErasedError) throw subjectErasedConflict(e);
+        throw e;
+      }
     }
     return out;
   }

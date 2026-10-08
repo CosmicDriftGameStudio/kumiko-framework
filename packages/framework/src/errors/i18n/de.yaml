@@ -147,6 +147,16 @@ member_resolution_read_only:
     `jobRunner`/...). Aufgelöste Member-Principals sind nur lesend — es gibt
     kein `writeAsMember`.
 
+subject_erased:
+  endUser: |
+    Die Daten dieser Person wurden gelöscht und können nicht mehr geändert werden.
+  developer: |
+    `ConflictError`: ein Write hat ein Personendaten-Feld (`pii`, `userOwned`,
+    `tenantOwned`) eines Betroffenen berührt, dessen Schlüssel gelöscht wurde
+    (Crypto-Shredding). Ein vergessener Betroffener bekommt nie neue Daten; der
+    Verschlüsselungsschritt lehnt den Write ab, statt einen neuen Schlüssel
+    anzulegen.
+
 public_intake_required:
   endUser: |
     Diese Aktion ist nicht erlaubt.

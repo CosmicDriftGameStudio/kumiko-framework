@@ -3,8 +3,10 @@ import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
+  KeyErasedError,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { subjectErasedConflict } from "@cosmicdrift/kumiko-framework/errors";
 
 // Unmanaged direct-write stores (r.unmanagedTable) skip the executor, so its
 // PII encryption never runs — every insert of subject-annotated fields must
@@ -18,12 +20,17 @@ export async function encryptForDirectWrite(
 ): Promise<Record<string, unknown>> {
   const kms = configuredPiiSubjectKms();
   if (!kms) return row;
-  return encryptPiiFieldValues(
-    row,
-    entity,
-    collectPiiSubjectFields(entity),
-    kms,
-    { requestId: requestContext.get()?.requestId ?? fallbackRequestId },
-    { entityName },
-  );
+  try {
+    return await encryptPiiFieldValues(
+      row,
+      entity,
+      collectPiiSubjectFields(entity),
+      kms,
+      { requestId: requestContext.get()?.requestId ?? fallbackRequestId },
+      { entityName },
+    );
+  } catch (e) {
+    if (e instanceof KeyErasedError) throw subjectErasedConflict(e);
+    throw e;
+  }
 }
