@@ -17,9 +17,16 @@
 import * as path from "node:path";
 import { type SourceFile, SyntaxKind } from "ts-morph";
 import { isGenericReason, literalReasonText } from "./_lib/generic-reason";
-import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  ALL_REPO_KINDS,
+  type AstGuard,
+  type GuardViolation,
+  runStandalone,
+  type ScanSpec,
+} from "./_lib/guard-kit";
 
 const SCAN: ScanSpec = {
+  kinds: ALL_REPO_KINDS,
   scope: "source",
   extensions: ["ts"],
   frameworkWithin: ["packages/*/src/**", "samples/**"],

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Project, type SourceFile } from "ts-morph";
+import { ALL_REPO_KINDS } from "../_lib/guard-kit";
 import {
   findHandlersWithoutAccessDeniedTest,
   findRoleRestrictedWriteHandlers,
@@ -280,6 +281,7 @@ describe("guard", () => {
     expect(outcome.violations[0]?.message).toMatch(/has no access-denied test/);
     expect(guard.security).toBe(true);
     expect(guard.scan).toEqual({
+      kinds: ALL_REPO_KINDS,
       scope: "source+tests",
       extensions: ["ts"],
       frameworkWithin: ["packages/*/src/**", "samples/**"],

@@ -19,7 +19,13 @@
 import * as path from "node:path";
 import { type SourceFile, SyntaxKind } from "ts-morph";
 import { findRepoRootFor } from "./_lib/baseline-compare";
-import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  ALL_REPO_KINDS,
+  type AstGuard,
+  type GuardViolation,
+  runStandalone,
+  type ScanSpec,
+} from "./_lib/guard-kit";
 import {
   escapeRegExp,
   literalStringOf,
@@ -31,6 +37,7 @@ import { TEST_FILE_RE } from "./_lib/test-file";
 
 const ROOT = process.cwd();
 const SCAN: ScanSpec = {
+  kinds: ALL_REPO_KINDS,
   scope: "source+tests",
   extensions: ["ts"],
   frameworkWithin: ["packages/*/src/**", "samples/**"],

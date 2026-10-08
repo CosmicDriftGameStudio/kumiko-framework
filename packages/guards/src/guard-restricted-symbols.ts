@@ -17,6 +17,7 @@
 
 import { type SourceFile, SyntaxKind } from "ts-morph";
 import {
+  ALL_REPO_KINDS,
   type AstGuard,
   isAllowlisted,
   relFromRepoRoot,
@@ -26,6 +27,7 @@ import {
 import { resolveRepoRoots } from "./_lib/roots";
 
 const SCAN: ScanSpec = {
+  kinds: ALL_REPO_KINDS,
   scope: "source",
   extensions: ["ts"],
   frameworkWithin: ["packages/*/src/**", "samples/**"],

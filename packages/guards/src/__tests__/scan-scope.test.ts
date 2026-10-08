@@ -10,7 +10,11 @@ import {
 import { Project } from "ts-morph";
 import { type AstGuard, checkRootFloor, runGuards } from "../_lib/guard-kit";
 import { findLocalRepo, type RepoRoot } from "../_lib/roots";
-import { type ScanSpec, scanFiles, scanRoots } from "../_lib/scan-scope";
+import { keepsRootKind, type ScanSpec, scanFiles, scanRoots } from "../_lib/scan-scope";
+import { guard as htmlEscape } from "../guard-html-escape";
+import { guard as restrictedSymbols } from "../guard-restricted-symbols";
+import { guard as unsafeJsonParse } from "../guard-unsafe-json-parse";
+import { GUARDS } from "../run-guards";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -217,6 +221,27 @@ describe("kinds filter excludes roots (g)", () => {
 
     const spec: ScanSpec = { scope: "source", extensions: ["ts"] };
     expect(scanRoots(spec, [root]).map((s) => s.root.name)).toEqual([]);
+  });
+
+  test("security guards and the secret-handling scanners scan a tooling root", () => {
+    const dir = tmpDir("scan-scope-tooling-security-");
+    writeManifest(dir, { kind: "tooling", sourceRoots: ["src"], testGlobs: ["src/**/*.test.ts"] });
+    writeFile(join(dir, "src/a.ts"));
+    const root = rootAt("tooling-repo", dir);
+
+    const securityShaped = [
+      ...GUARDS.filter((guard) => guard.security === true),
+      unsafeJsonParse,
+      htmlEscape,
+      restrictedSymbols,
+    ];
+    expect(securityShaped.length).toBeGreaterThanOrEqual(11);
+    for (const guard of securityShaped) {
+      expect({ guard: guard.name, scanned: keepsRootKind(guard.scan, root) }).toEqual({
+        guard: guard.name,
+        scanned: true,
+      });
+    }
   });
 
   test("a tooling root is scanned once a guard names it in kinds", () => {

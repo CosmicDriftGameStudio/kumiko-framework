@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isSecurityGuard } from "../_lib/guard-kit";
+import { ALL_REPO_KINDS, isSecurityGuard } from "../_lib/guard-kit";
 import { resolveRepoRoots } from "../_lib/roots";
 import { scanFiles } from "../_lib/scan-scope";
 import { GUARDS } from "../run-guards";
@@ -19,13 +19,13 @@ const SECURITY_GUARD_NAMES = [
 ];
 
 describe("security guards — infra#787", () => {
-  test("all eight named guards are security:true and reach every repo kind (scan.kinds unset)", () => {
+  test("all eight named guards are security:true and name every repo kind explicitly (the unset default skips tooling)", () => {
     for (const name of SECURITY_GUARD_NAMES) {
       const guard = GUARDS.find((g) => g.name === name);
       expect(guard).toBeDefined();
       if (!guard) continue;
       expect(guard.security).toBe(true);
-      expect(guard.scan.kinds).toBeUndefined();
+      expect(guard.scan.kinds).toEqual(ALL_REPO_KINDS);
       expect(isSecurityGuard(guard)).toBe(true);
     }
   });

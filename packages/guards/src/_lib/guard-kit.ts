@@ -32,7 +32,7 @@ import {
 } from "./security-baseline";
 
 export { type BaselineRegression, compareToBaseline, findRepoRootFor } from "./baseline-compare";
-export type { ScanExtension, ScanScope, ScanSpec } from "./scan-scope";
+export { ALL_REPO_KINDS, type ScanExtension, type ScanScope, type ScanSpec } from "./scan-scope";
 
 export type GuardViolation = {
   readonly file: string;

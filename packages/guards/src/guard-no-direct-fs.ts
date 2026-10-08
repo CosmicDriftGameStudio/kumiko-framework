@@ -38,6 +38,7 @@ import { existsSync } from "node:fs";
 import { join, relative as pathRelative } from "node:path";
 import { Node, type SourceFile, SyntaxKind } from "ts-morph";
 import {
+  ALL_REPO_KINDS,
   type AstGuard,
   baselineRatchet,
   findRepoRootFor,
@@ -49,6 +50,7 @@ import {
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const SCAN: ScanSpec = {
+  kinds: ALL_REPO_KINDS,
   scope: "source",
   extensions: ["ts"],
   frameworkWithin: ["packages/*/src/**", "samples/**"],
