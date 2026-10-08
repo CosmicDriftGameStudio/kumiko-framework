@@ -103,8 +103,9 @@ describe("event-store performance — Gate A", () => {
     );
 
     expect(p95).toBeLessThan(WRITE_P95_BUDGET_MS);
-    // Tail budget: absorbs residual runner scheduling noise while still catching order-of-magnitude regressions.
-    expect(p99).toBeLessThan(250);
+    // Tail budget: p50 is ~1-2ms, so 100ms is a ~50-100x guard that still absorbs fsync and
+    // runner scheduling spikes (CI and local p99 are single-digit ms).
+    expect(p99).toBeLessThan(100);
   });
 
   test("read-latency p95 < 25ms for loadAggregate detail reads", async () => {
@@ -138,14 +139,16 @@ describe("event-store performance — Gate A", () => {
     const p50 = percentile(samples, 0.5);
     const p95 = percentile(samples, 0.95);
     const p99 = percentile(samples, 0.99);
+    const top5 = samples.slice(-5).map((s) => s.toFixed(1));
     console.log(
-      `  Read-latency:  p50=${p50.toFixed(2)}ms, p95=${p95.toFixed(2)}ms, p99=${p99.toFixed(2)}ms (n=${ids.length})`,
+      `  Read-latency:  p50=${p50.toFixed(2)}ms, p95=${p95.toFixed(2)}ms, p99=${p99.toFixed(2)}ms (n=${ids.length}) top5=${top5}`,
     );
 
     // 25ms budget kept from the original spike doc's 10ms — an
     // order-of-magnitude gate, not an idle-best-case one. Tracking: #325.
     expect(p95).toBeLessThan(25);
-    expect(p99).toBeLessThan(250);
+    // Read-only path (no fsync), so no write-side spike excuse: ~100x p50 at most.
+    expect(p99).toBeLessThan(100);
   });
 
   test("update-latency p95 < 30ms — exercises predecessor-check WHERE EXISTS path", async () => {
@@ -200,12 +203,13 @@ describe("event-store performance — Gate A", () => {
     const p50 = percentile(samples, 0.5);
     const p95 = percentile(samples, 0.95);
     const p99 = percentile(samples, 0.99);
+    const top5 = samples.slice(-5).map((s) => s.toFixed(1));
     console.log(
-      `  Update-latency: p50=${p50.toFixed(2)}ms, p95=${p95.toFixed(2)}ms, p99=${p99.toFixed(2)}ms (n=200)`,
+      `  Update-latency: p50=${p50.toFixed(2)}ms, p95=${p95.toFixed(2)}ms, p99=${p99.toFixed(2)}ms (n=200) top5=${top5}`,
     );
 
     expect(p95).toBeLessThan(30);
-    expect(p99).toBeLessThan(250);
+    expect(p99).toBeLessThan(100);
   });
 
   test("snapshot-load < 50ms for 1000-event aggregate (Gate A)", async () => {
