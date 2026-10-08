@@ -147,9 +147,16 @@ const pngBytes = new Uint8Array([
 const textBytes = new TextEncoder().encode("plain text, not a supported mime type");
 const oversizedPdfBytes = new Uint8Array(PROVIDER_A_MAX_BYTES + 100);
 oversizedPdfBytes.set(new TextEncoder().encode("%PDF-1.4"));
-// Real ZIP local-file-header signature — validateFileContent content-verifies
-// docx uploads against it independent of options.accept.
-const docxBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...Array(32).fill(0)]);
+// ZIP local-file-header signature plus a word/ entry name — validateFileContent
+// content-verifies docx uploads against both, independent of options.accept.
+const docxBytes = new Uint8Array([
+  0x50,
+  0x4b,
+  0x03,
+  0x04,
+  ...Array(26).fill(0),
+  ...new TextEncoder().encode("word/document.xml"),
+]);
 
 const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
