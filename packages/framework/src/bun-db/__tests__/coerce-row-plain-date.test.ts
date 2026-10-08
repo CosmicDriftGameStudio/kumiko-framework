@@ -6,7 +6,7 @@
 // non-UTC process TZ, because Bun.SQL hands back a Date anchored at UTC
 // midnight and the coercion must read it via that anchor, not local getters.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { coerceRow, type TableInfo } from "../query.js";
 
@@ -66,5 +66,37 @@ describe("coerceRow — date → Temporal.PlainDate", () => {
     const row = { published_at: null };
     const result = coerceRow(row, dateTableInfo());
     expect(result.published_at).toBeNull();
+  });
+});
+
+describe("coerceRow — date column that is still timestamptz", () => {
+  const legacyInfo: TableInfo = {
+    ...dateTableInfo(),
+    pgTypeOf: (c) => (c === "legacy_day" ? "date" : undefined),
+  };
+
+  test("warns once per column when the driver Date is not UTC-midnight, still returns the UTC day", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      // 2026-03-15T00:00+01:00 as a real timestamptz row would deliver it.
+      const shifted = new Date(Date.UTC(2026, 2, 14, 23));
+      const first = coerceRow({ legacy_day: shifted }, legacyInfo);
+      coerceRow({ legacy_day: shifted }, legacyInfo);
+      expect((first.legacy_day as unknown as Temporal.PlainDate).toString()).toBe("2026-03-14");
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain('column "legacy_day"');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test("stays silent for UTC-midnight values", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      coerceRow({ legacy_day: new Date(Date.UTC(2026, 2, 15)) }, legacyInfo);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

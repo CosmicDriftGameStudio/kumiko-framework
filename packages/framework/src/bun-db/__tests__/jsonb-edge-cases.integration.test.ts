@@ -5,7 +5,7 @@
 // komplex/edge das jsonb-Value ist.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { fetchOne, insertOne, updateMany } from "../query.js";
+import { fetchOne, insertOne, selectMany, updateMany } from "../query.js";
 import { closeDb, withTable } from "./_helpers.js";
 
 afterAll(async () => {
@@ -230,6 +230,22 @@ describe("jsonb — UPDATE roundtrip (separate from INSERT)", () => {
       await updateMany(db, meta, { data: {} }, { id: ins.id });
       const row = await fetchOne<{ data: unknown }>(db, meta, { id: ins.id });
       expect(row?.data).toEqual({});
+    });
+  });
+});
+
+describe("jsonb — array `ne` means 'does not contain all of these'", () => {
+  test("rows holding a superset or the exact array are excluded, others kept (parity with multiSelect filter)", async () => {
+    await withTable(jsonbCol("'[]'::jsonb"), async ({ db, meta }) => {
+      const all = (await insertOne<{ id: string }>(db, meta, { data: ["vip", "urgent", "x"] }))!;
+      const some = (await insertOne<{ id: string }>(db, meta, { data: ["vip"] }))!;
+      const none = (await insertOne<{ id: string }>(db, meta, { data: ["other"] }))!;
+      const rows = await selectMany<{ id: string }>(db, meta, {
+        data: { ne: ["vip", "urgent"] },
+      });
+      const ids = rows.map((r) => r.id).sort();
+      expect(ids).toEqual([some.id, none.id].sort());
+      expect(ids).not.toContain(all.id);
     });
   });
 });
