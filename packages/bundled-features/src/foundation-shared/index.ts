@@ -9,6 +9,7 @@ export {
   MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
   type MailConnectTarget,
   type MailHostGuardOptions,
+  mailAllowedPrivateHostsEnvSchema,
   readAllowedPrivateMailHostsFromEnv,
   resolveMailConnectTarget,
 } from "./mail-host-policy.js";

@@ -207,6 +207,7 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
   const optionalSet = new Set(options.optionalFeatures ?? []);
   const merged: Record<string, z.ZodType> = {};
   const sources: Record<string, string> = {};
+  const featureFields = new Map<string, z.ZodType>();
   const kmsFields: { readonly name: string; readonly source: string }[] = [];
   const noteKms = (name: string, field: z.ZodType, source: string): void => {
     if (readKumikoMeta(field).kms === true) kmsFields.push({ name, source });
@@ -232,6 +233,9 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
     const wrap = optionalSet.has(feature.name);
     for (const [key, field] of Object.entries(shape)) {
       if (merged[key] !== undefined) {
+        // The very same field instance is a shared fragment (several features
+        // read one variable), not a conflict; the first declaring feature owns it.
+        if (featureFields.get(key) === field) continue;
         throw new KumikoBootError([
           {
             name: key,
@@ -242,6 +246,7 @@ export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvS
           },
         ]);
       }
+      featureFields.set(key, field);
       merged[key] = wrap ? optionalKeepingKmsMeta(field) : field;
       sources[key] = feature.name;
       noteKms(key, field, feature.name);

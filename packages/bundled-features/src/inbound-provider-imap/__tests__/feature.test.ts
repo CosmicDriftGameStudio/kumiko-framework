@@ -4,11 +4,14 @@
 // (greenmail/dovecot) ist opt-in, siehe imap-live.integration.test.ts.
 
 import { describe, expect, test } from "bun:test";
+import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.js";
 import {
   isInboundAuthError,
   isInboundCursorInvalidError,
   isInboundTransientError,
 } from "../../inbound-mail-foundation/index.js";
+import { mailTransportSmtpFeature } from "../../mail-transport-smtp/index.js";
 import { parseImapCredentialDocument } from "../credential-document.js";
 import { inboundProviderImapFeature } from "../feature.js";
 import {
@@ -24,6 +27,16 @@ describe("inboundProviderImapFeature — shape", () => {
     expect(inboundProviderImapFeature.name).toBe("inbound-provider-imap");
     expect(inboundProviderImapFeature.requires).toContain("inbound-mail-foundation");
     expect(inboundProviderImapFeature.requires).toContain("secrets");
+  });
+
+  test("declares the private-host allowlist env var, also next to mail-transport-smtp", () => {
+    const alone = composeEnvSchema({ features: [inboundProviderImapFeature] });
+    expect(alone.sources[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR]).toBe("inbound-provider-imap");
+
+    const withSmtp = composeEnvSchema({
+      features: [mailTransportSmtpFeature, inboundProviderImapFeature],
+    });
+    expect(withSmtp.sources[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR]).toBe("mail-transport-smtp");
   });
 });
 

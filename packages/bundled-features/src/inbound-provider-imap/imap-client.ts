@@ -39,10 +39,9 @@ const IMAP_HOST_UNREACHABLE_MESSAGE = "IMAP host is not reachable or not allowed
 
 // Operator escape hatch for an internal relay or a dev/test IMAP server
 // (greenmail): KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS, the same operator env
-// var mail-transport-smtp declares (see its envSchema — composeEnvSchema
-// rejects two features declaring the same key, so this feature reads it
-// without redeclaring it), never a tenant-config value, so a tenant can
-// never grant themselves the private-host bypass.
+// var mail-transport-smtp registers (both share one schema instance, see
+// foundation-shared), never a tenant-config value, so a tenant can never
+// grant themselves the private-host bypass.
 //
 // mailHostLookup is a test-only DNS seam — production leaves it undefined,
 // so resolveMailConnectTarget uses the real resolver. Module-global state:

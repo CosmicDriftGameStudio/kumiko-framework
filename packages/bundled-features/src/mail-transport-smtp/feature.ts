@@ -33,8 +33,8 @@ import {
 import {
   BlockedHostError,
   HostResolutionError,
-  MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
   type MailConnectTarget,
+  mailAllowedPrivateHostsEnvSchema,
   readAllowedPrivateMailHostsFromEnv,
   requireDefined,
   requireNonEmpty,
@@ -50,7 +50,6 @@ import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secr
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import * as z from "zod";
 
 const FEATURE_NAME = "mail-transport-smtp";
 
@@ -59,19 +58,9 @@ const log = createFallbackLogger(FEATURE_NAME);
 // Operator escape hatch for an internal relay or a dev/test SMTP server
 // (mailpit, MailHog): KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS, an operator env
 // var never a tenant-config value, so a tenant can never grant themselves
-// the private-host bypass. Declared here (not duplicated in
-// inbound-provider-imap's envSchema) since both features read the same
-// var and composeEnvSchema rejects two features declaring the same key —
-// see foundation-shared/mail-host-policy.ts for the shared reader + the
-// guard this feeds.
-export const mailTransportSmtpEnvSchema = z.object({
-  [MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR]: z
-    .string()
-    .optional()
-    .describe(
-      "Comma-separated operator allowlist of private/internal hosts (e.g. a local mailpit/greenmail dev server) that bypass the public-address check for SMTP and IMAP host config. Shared with inbound-provider-imap — never a tenant-config value.",
-    ),
-});
+// the private-host bypass. The schema instance is shared with
+// inbound-provider-imap (see foundation-shared/mail-host-policy.ts).
+export const mailTransportSmtpEnvSchema = mailAllowedPrivateHostsEnvSchema;
 
 // Test-only DNS seam — production never calls this, resolveMailConnectTarget
 // defaults to the real resolver. Lets tests pin deterministic, network-free
