@@ -39,17 +39,17 @@ function checkFieldExists(
   throw new Error(buildMessage());
 }
 
-// Mirrors entity-list-screens.ts's "unlabeled unknown column" convention: a
-// column with its own `label` is a virtual/computed cell drawn by a
-// renderer, not a row field — exempt from the shape check.
+// Unlike entity-list-screens.ts, `label` does not exempt a column here: query
+// screens label nearly every column, so that exemption would leave the check
+// validating nothing. Only an explicit `virtual: true` skips the shape check.
 function checkColumnField(
   rowShape: ShapeLookup | undefined,
   column: ListColumnSpec,
   buildMessage: (field: string) => string,
 ): void {
   const normalized = normalizeListColumn(column);
-  // skip: labeled column is a virtual/computed cell drawn by a renderer, not a row field
-  if (normalized.label !== undefined) return;
+  // skip: virtual column is a computed cell drawn by a renderer, not a row field
+  if (normalized.virtual === true) return;
   checkFieldExists(rowShape, normalized.field, () => buildMessage(normalized.field));
 }
 
@@ -109,7 +109,7 @@ function checkProjectionListOutputColumns(
       rowShape,
       column,
       (field) =>
-        `[Feature ${featureName}] Screen "${screenId}" (projectionList) column "${field}" is not present in query "${screen.query}"'s outputSchema — check for a typo, or add a "label" to mark it a virtual/computed column.`,
+        `[Feature ${featureName}] Screen "${screenId}" (projectionList) column "${field}" is not present in query "${screen.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
     );
   }
 }
@@ -133,7 +133,7 @@ function checkEditLayoutOutputColumns(
         rowShape,
         column,
         (field) =>
-          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) relatedList section "${section.title}" column "${field}" is not present in query "${section.query}"'s outputSchema — check for a typo, or add a "label" to mark it a virtual/computed column.`,
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) relatedList section "${section.title}" column "${field}" is not present in query "${section.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
       );
     }
   }
@@ -342,7 +342,7 @@ function checkDashboardOutputFields(
           rowShape,
           column,
           (field) =>
-            `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" column "${field}" is not present in query "${panel.query}"'s outputSchema — check for a typo, or add a "label" to mark it a virtual/computed column.`,
+            `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" column "${field}" is not present in query "${panel.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
         );
       }
     }
@@ -376,7 +376,7 @@ function checkScreenOutputColumns(
           rowShape,
           column,
           (field) =>
-            `[Feature ${featureName}] Screen "${screenId}" (entityList) expandableRow "${screen.expandableRow?.title}" column "${field}" is not present in query "${screen.expandableRow?.query}"'s outputSchema — check for a typo, or add a "label" to mark it a virtual/computed column.`,
+            `[Feature ${featureName}] Screen "${screenId}" (entityList) expandableRow "${screen.expandableRow?.title}" column "${field}" is not present in query "${screen.expandableRow?.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
         );
       }
     }
