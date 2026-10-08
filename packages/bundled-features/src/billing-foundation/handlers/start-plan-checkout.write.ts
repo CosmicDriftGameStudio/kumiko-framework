@@ -74,7 +74,13 @@ export function createStartPlanCheckoutHandler(
       const baseUrl = options.baseUrl ?? "";
       const result = await openCheckout(
         ctx,
-        { baseUrl: options.baseUrl, catalog, now: options.now },
+        {
+          baseUrl: options.baseUrl,
+          catalog,
+          now: options.now,
+          billingEnabledChecked: true,
+          checkedSubscription: existing,
+        },
         {
           providerName,
           priceId: resolved.priceId,

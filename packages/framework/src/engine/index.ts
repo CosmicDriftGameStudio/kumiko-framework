@@ -294,6 +294,7 @@ export type { AssignableAppRoles, AssignableFromRole } from "./role-assignment.j
 export {
   assignableAppRolesFromUsages,
   assignableAppRolesOf,
+  BUILT_IN_MEMBERSHIP_ROLES,
   canActorAssignRole,
   findForbiddenRoleAssignment,
   isAssignableByRole,

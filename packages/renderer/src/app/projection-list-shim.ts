@@ -25,9 +25,10 @@ import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 const PROJECTION_PSEUDO_ENTITY = "__projection__";
 
 /** Minimal EntityDefinition from the column list: every field is a text
- *  field. `sortable` applies uniformly to all columns — buildAppSchema
- *  derives it from the query's Zod schema (`screen.sortable`, fw#2165); the
- *  query itself has no per-field server-sort guarantee.
+ *  field. `sortable` applies to all columns — buildAppSchema derives it from
+ *  the query's Zod schema (`screen.sortable`, fw#2165); the query itself has
+ *  no per-field server-sort guarantee, so a column opts out with
+ *  `sortable: false` when the handler cannot order by it.
  *  computeListViewModel only reads `fields[<col>].type` — text is enough,
  *  presentation comes from the column renderer + explicit label. */
 export function synthesizeProjectionEntity(
@@ -36,7 +37,11 @@ export function synthesizeProjectionEntity(
 ): EntityDefinition {
   const fields: Record<string, { type: "text"; sortable: boolean }> = {};
   for (const col of columns) {
-    fields[normalizeListColumn(col).field] = { type: "text", sortable };
+    const normalized = normalizeListColumn(col);
+    fields[normalized.field] = {
+      type: "text",
+      sortable: sortable && normalized.sortable !== false,
+    };
   }
   return { fields } as unknown as EntityDefinition;
 }

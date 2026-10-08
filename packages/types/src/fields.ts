@@ -252,6 +252,9 @@ export type TextFieldDef = {
    *  the i18n label is what users see. */
   readonly description?: string;
   readonly maxLength?: number;
+  /** Lower bound enforced by the generated write schema, so short input is
+   *  rejected by validation instead of reaching the handler. */
+  readonly minLength?: number;
   readonly required?: boolean;
   readonly searchable?: boolean;
   readonly sortable?: boolean;

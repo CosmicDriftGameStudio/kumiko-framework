@@ -4,6 +4,7 @@ import {
   type AssignableFromRole,
   assignableAppRolesFromUsages,
   assignableAppRolesOf,
+  BUILT_IN_MEMBERSHIP_ROLES,
   canActorAssignRole,
   findForbiddenRoleAssignment,
   isAssignableByRole,
@@ -264,5 +265,22 @@ describe("assignableAppRolesOf", () => {
     expect(assignableAppRolesOf(registry)).toBe(first);
     expect(first.get("PropertyManager")).toBe("Admin");
     expect(calls).toBe(1);
+  });
+});
+
+describe("BUILT_IN_MEMBERSHIP_ROLES", () => {
+  test("lists every ranked membership role and not the internal system actor", () => {
+    expect([...BUILT_IN_MEMBERSHIP_ROLES]).toEqual([
+      "User",
+      "Member",
+      "Editor",
+      "Admin",
+      "TenantAdmin",
+      "SystemAdmin",
+    ]);
+    for (const role of BUILT_IN_MEMBERSHIP_ROLES) {
+      expect(canActorAssignRole(["system"], role)).toBe(true);
+      expect(canActorAssignRole(["User"], role)).toBe(role === "User" || role === "Member");
+    }
   });
 });

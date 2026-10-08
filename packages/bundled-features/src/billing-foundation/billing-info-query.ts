@@ -45,10 +45,9 @@ export type BillingInfo<TTier extends string> = {
 export type BillingInfoQueryDeps<TTier extends string> = {
   readonly roles: readonly string[];
   readonly resolveTier: (db: TenantDb, tenantId: TenantId) => Promise<TTier>;
-  // ctx is the same HandlerContext the returned handler receives — app
-  // implementations read app-specific extraContext fields off it (e.g.
-  // publicstatus/show-pony's getBillingPrices(ctx) reads `billingPrices`),
-  // so they type their own ctx param as `unknown` and cast internally.
+  // ctx is the same HandlerContext the returned handler receives — apps read
+  // their extraContext fields (e.g. `billingPrices`) off it and validate them
+  // at that boundary.
   readonly getBillingPrices: (
     ctx: HandlerContext,
   ) => Readonly<Partial<Record<string, string>>> | null;

@@ -102,6 +102,7 @@ export function fieldToZod(
     case "text": {
       let schema = z.string();
       if (field.maxLength) schema = schema.max(field.maxLength);
+      if (field.minLength) schema = schema.min(field.minLength);
       if (field.writeOnly === true) {
         // Update: "" = unchanged (dropped before the executor), null = clear,
         // unless required. Create: "" would leave a required field unset.

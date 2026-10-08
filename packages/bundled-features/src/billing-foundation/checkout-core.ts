@@ -274,6 +274,13 @@ export type OpenCheckoutOptions = {
   readonly baseUrl?: string;
   readonly catalog?: BillingPlanCatalog;
   readonly now: () => Temporal.Instant;
+  /** The caller already ran `assertBillingEnabled` under its own handler name
+   *  (before a costly provider lookup), so the gate is not repeated here. */
+  readonly billingEnabledChecked?: boolean;
+  /** The caller already ran `assertNoActiveSubscription` and passes its result
+   *  (null = tenant has none); mode:"subscription" skips the second read and
+   *  the providerCustomerId check reuses it. */
+  readonly checkedSubscription?: Awaited<ReturnType<typeof getSubscriptionForTenant>>;
 };
 
 export type OpenCheckoutInput = {
@@ -358,7 +365,9 @@ export async function assertCheckoutAllowed(
   // Checked before the redirect-origin hardening for every mode — a
   // disabled provider must reject a mode:"payment" checkout just as much
   // as a mode:"subscription" one.
-  await assertBillingEnabled(ctx, plugin, "create-checkout-session");
+  if (options.billingEnabledChecked !== true) {
+    await assertBillingEnabled(ctx, plugin, "create-checkout-session");
+  }
   assertRedirectOrigins([input.successUrl, input.cancelUrl], options.baseUrl);
 
   const mode = input.mode ?? "subscription";
@@ -368,7 +377,10 @@ export async function assertCheckoutAllowed(
 
   if (mode === "subscription") {
     assertSubscriptionPriceAllowed(plugin, options.catalog, input);
-    ownSubscription = await assertNoActiveSubscription(ctx, options.now());
+    ownSubscription =
+      options.checkedSubscription !== undefined
+        ? options.checkedSubscription
+        : await assertNoActiveSubscription(ctx, options.now());
   } else {
     assertOneOffPriceAllowed(plugin, input);
   }

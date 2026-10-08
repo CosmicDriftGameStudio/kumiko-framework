@@ -4,10 +4,25 @@ import {
   type ProjectionListScreenDefinition,
   type SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "./constants.js";
+import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
+import { fieldOptionLabelKeyPrefix } from "@cosmicdrift/kumiko-headless";
+import {
+  PAT_FEATURE,
+  PAT_MINT_SCREEN_ID,
+  PAT_SCREEN_ID,
+  PatHandlers,
+  PatQueries,
+} from "./constants.js";
 import type { PatScopeConfig } from "./scopes.js";
 
 const PAT_STATUS_OPTION_KEY_PREFIX = "pat.list.status.";
+// Same keys the mint form's `scopes` multiSelect options resolve through
+// (see patScopeOptionTranslations), so list and form show identical labels.
+const PAT_SCOPE_OPTION_KEY_PREFIX = fieldOptionLabelKeyPrefix(
+  PAT_FEATURE,
+  ACTION_FORM_ENTITY,
+  "scopes",
+);
 
 // Both screens render only for tenants whose tier includes the feature; the
 // availability query is rejected by the feature gate otherwise.
@@ -29,11 +44,17 @@ export const patListScreen: ProjectionListScreenDefinition = {
   defaultSort: { field: "createdAt", dir: "desc" },
   columns: [
     { field: "name", label: i18nKey("pat.list.col.name") },
-    { field: "prefix", label: i18nKey("pat.list.col.prefix") },
-    { field: "scopes", label: i18nKey("pat.list.col.scopes") },
+    { field: "prefix", label: i18nKey("pat.list.col.prefix"), sortable: false },
+    {
+      field: "scopes",
+      label: i18nKey("pat.list.col.scopes"),
+      sortable: false,
+      renderer: { format: "enumOption", keyPrefix: PAT_SCOPE_OPTION_KEY_PREFIX },
+    },
     {
       field: "status",
       label: i18nKey("pat.list.col.status"),
+      sortable: false,
       renderer: { format: "enumOption", keyPrefix: PAT_STATUS_OPTION_KEY_PREFIX },
     },
     {
