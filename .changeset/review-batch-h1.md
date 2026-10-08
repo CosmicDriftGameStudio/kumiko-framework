@@ -17,5 +17,5 @@ Review batch H1: framework parts of consumer-app findings.
 feature: auth-mfa
 type: breaking
 title: auth-mfa declares the master-key env slots, so composeEnvSchema requires KUMIKO_SECRETS_MASTER_KEY_V1 when auth-mfa is mounted
-migration: Apps that bring their own masterKey provider instead of the env KEK add "auth-mfa" to composeEnvSchema's optionalFeatures, like they already do for "secrets".
+migration: Apps that bring their own masterKey provider instead of the env KEK add "auth-mfa" to composeEnvSchema's optionalFeatures, like they already do for "secrets". Required wins as soon as auth-mfa is not in optionalFeatures, even when `secrets` is listed there.
 -->
