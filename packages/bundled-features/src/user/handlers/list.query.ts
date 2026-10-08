@@ -120,6 +120,9 @@ export const listQuery: QueryHandlerDef = {
       return result;
     }
     const envelope = result as { rows: readonly Record<string, unknown>[] };
+    // Without the tenant feature there are no membership tables to join; with
+    // it, a failing lookup must surface instead of rendering a silent empty column.
+    if (!ctx.registry.features.has("tenant")) return result;
     const rows = await attachTenantLabels(envelope.rows, dbForList(ctx));
     return { ...envelope, rows };
   },
