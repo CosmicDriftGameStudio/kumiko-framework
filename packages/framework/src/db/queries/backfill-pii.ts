@@ -95,6 +95,7 @@ export type PiiBackfillResult = {
 
 export type PiiBackfillScanCache = {
   forgottenAggregates?: ReadonlySet<string>;
+  destroyedTenants?: ReadonlySet<string>;
 };
 
 export type PiiBackfillBatchResult = PiiBackfillResult & {
@@ -514,7 +515,22 @@ export async function backfillEventPiiEncryptionBatch(
   async function isForgottenSubject(subject: SubjectId, aggregateId: string): Promise<boolean> {
     const forgottenAggregates = await loadForgottenAggregates();
     if (forgottenAggregates.has(aggregateId)) return true;
+    if (subject.kind === "record" && subject.entity === "tenant") {
+      return (await loadDestroyedTenants()).has(subject.id);
+    }
     return subject.kind === "user" && forgottenAggregates.has(subject.userId);
+  }
+
+  // A tenant destroyed before its name was record-owned never had a record key
+  // to erase, and destroy tombstones the row instead of emitting *.forgotten —
+  // read_tenants.destroyed_at is the only durable marker.
+  async function loadDestroyedTenants(): Promise<ReadonlySet<string>> {
+    if (scanCache.destroyedTenants) return scanCache.destroyedTenants;
+    const rows = (await raw.unsafe(
+      `SELECT id::text AS id FROM read_tenants WHERE destroyed_at IS NOT NULL`,
+    )) as ReadonlyArray<{ id: string }>;
+    scanCache.destroyedTenants = new Set(rows.map((r) => r.id));
+    return scanCache.destroyedTenants;
   }
 }
 

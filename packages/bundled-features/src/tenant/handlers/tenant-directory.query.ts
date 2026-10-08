@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { decryptTenantNames } from "../decrypt-tenant-names.js";
 import { tenantTable } from "../schema/tenant.js";
 import { isSystemAdmin } from "./is-system-admin.js";
 
@@ -48,7 +49,7 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
       tenants = await selectMany(db, tenantTable, undefined, {
         limit: scanLimit,
         orderBy: [
-          { col: "name", direction: "asc" },
+          { col: "key", direction: "asc" },
           { col: "id", direction: "asc" },
         ],
       });
@@ -57,10 +58,15 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
       const row = await fetchOne(db, tenantTable, { id: query.user.tenantId });
       tenants = row ? [row] : [];
     }
-    const labeled = tenants.map((tenant) => {
-      const id = String(tenant.id);
-      return { id, label: typeof tenant.name === "string" ? tenant.name : id };
-    });
+    // name is ciphertext at rest, so the SQL page is keyed by the plaintext
+    // `key`; label order and search happen in memory after decrypting.
+    const decrypted = await decryptTenantNames(tenants, "tenant:tenant-directory");
+    const labeled = decrypted
+      .map((tenant) => {
+        const id = String(tenant.id);
+        return { id, label: typeof tenant.name === "string" ? tenant.name : id };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
     const needle = search?.toLowerCase();
     const rows =
       needle === undefined

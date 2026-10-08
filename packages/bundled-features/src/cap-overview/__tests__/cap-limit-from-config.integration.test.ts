@@ -10,6 +10,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { billingFoundationFeature } from "../../billing-foundation/index.js";
 import {
   createComplianceProfilesFeature,
@@ -101,6 +102,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+  resetPiiSubjectKmsForTests();
 });
 
 type CapsUsageResult = { readonly rows: readonly { id: string; limit: number | null }[] };

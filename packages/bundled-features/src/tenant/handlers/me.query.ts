@@ -2,6 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { decryptTenantNames } from "../decrypt-tenant-names.js";
 import { tenantTable } from "../schema/tenant.js";
 
 // Direct query — query handlers don't have a tenant-crud handle. A direct
@@ -33,6 +34,8 @@ export const meQuery = defineQueryHandler({
     }
     const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
     const row = await fetchOne(db, tenantTable, { id: query.user.tenantId });
-    return row ?? null;
+    if (row === undefined) return null;
+    const [decrypted] = await decryptTenantNames([row], "tenant:me");
+    return decrypted ?? null;
   },
 });

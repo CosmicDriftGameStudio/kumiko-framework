@@ -10,7 +10,7 @@ import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/er
 import * as z from "zod";
 import { subscriptionsProjectionTable } from "../../billing-foundation/index.js";
 import type { CapLimitContext } from "../../cap-counter/index.js";
-import { tenantTable } from "../../tenant/index.js";
+import { decryptTenantNames, tenantTable } from "../../tenant/index.js";
 import { tierAssignmentEntity } from "../../tier-engine/index.js";
 import { capFieldName } from "../constants.js";
 import type { CapSpec, CapUsage } from "../types.js";
@@ -174,7 +174,10 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         "cap-overview:tenant-caps:list — SystemAdmin platform-wide tenant overview",
       );
 
-      const tenants = await selectMany<TenantRow>(db, tenantTable, {});
+      const tenants = await decryptTenantNames(
+        await selectMany<TenantRow>(db, tenantTable, {}),
+        "cap-overview:tenant-caps:list",
+      );
       const assignments = await selectMany<TierAssignmentRow>(db, tierAssignmentTable, {});
       const subscriptions = await selectMany<SubscriptionRow>(db, subscriptionsProjectionTable, {});
 

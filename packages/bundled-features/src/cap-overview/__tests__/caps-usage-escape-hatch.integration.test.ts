@@ -16,6 +16,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { billingFoundationFeature } from "../../billing-foundation/index.js";
 import {
   createComplianceProfilesFeature,
@@ -120,6 +121,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await asRawClient(db).unsafe("DROP TABLE IF EXISTS cap_overview_raw_usage_probe");
   await stack.cleanup();
+  resetPiiSubjectKmsForTests();
 });
 
 describe("caps:usage's own escapeHatch grants a cap provider raw SQL", () => {

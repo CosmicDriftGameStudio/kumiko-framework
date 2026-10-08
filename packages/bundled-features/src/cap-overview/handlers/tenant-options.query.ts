@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tenantTable } from "../../tenant/index.js";
+import { decryptTenantNames, tenantTable } from "../../tenant/index.js";
 
 type TenantRow = { readonly id: string; readonly name: string };
 
@@ -22,14 +22,11 @@ export const tenantOptionsQuery = defineQueryHandler({
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "cap-overview:tenant-options — SystemAdmin dashboard tenant-filter options",
     );
-    const tenants = await selectMany<TenantRow>(
-      db,
-      tenantTable,
-      {},
-      {
-        orderBy: { col: "name", direction: "asc" },
-      },
+    const tenants = await decryptTenantNames(
+      await selectMany<TenantRow>(db, tenantTable, {}),
+      "cap-overview:tenant-options",
     );
-    return { rows: tenants.map((tenant) => ({ value: tenant.id, label: tenant.name })) };
+    const sorted = [...tenants].sort((a, b) => a.name.localeCompare(b.name));
+    return { rows: sorted.map((tenant) => ({ value: tenant.id, label: tenant.name })) };
   },
 });

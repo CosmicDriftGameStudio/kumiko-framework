@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer";
+import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { render, screen } from "@testing-library/react";
 import { defaultPrimitives } from "../index.js";
 
@@ -33,5 +35,19 @@ describe("DataTable renders a placeholder for empty cell values", () => {
     const cell = screen.getByTestId("cell-r1-tenants");
     expect(cell.textContent).toBe("Tenant Alpha, Tenant Beta");
     expect(cell.querySelector('[data-empty-cell="true"]')).toBeNull();
+  });
+
+  test("an erased PII value shows the translated erased label, not the sentinel", () => {
+    render(
+      <LocaleProvider resolver={createStaticLocaleResolver()}>
+        <DataTable
+          columns={columns}
+          rows={[{ id: "r1", values: { tenants: PII_ERASED_SENTINEL } }]}
+          testId="t"
+        />
+      </LocaleProvider>,
+    );
+
+    expect(screen.getByTestId("cell-r1-tenants").textContent).toBe("kumiko.pii.erased");
   });
 });

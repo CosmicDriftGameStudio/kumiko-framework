@@ -2,6 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -34,13 +35,19 @@ export async function driveDestructionToCompletion(
   stack: TestStack,
   db: DbConnection,
   tenantId: TenantId,
+  searchAdapter?: SearchAdapter,
 ): Promise<string> {
   const farFuture = getTemporal()
     .Now.instant()
     .add({ hours: 24 * 3650 });
   let status = "";
   for (let i = 0; i < 20; i++) {
-    await runTenantDestructionSweep({ db: stack.db, registry: stack.registry, now: farFuture });
+    await runTenantDestructionSweep({
+      db: stack.db,
+      registry: stack.registry,
+      now: farFuture,
+      searchAdapter,
+    });
     const rows = await selectMany(db, tenantTable, { id: tenantId });
     status = String(rows[0]?.["status"]);
     if (status === "destroyed" || status === "destroyFailed") break;

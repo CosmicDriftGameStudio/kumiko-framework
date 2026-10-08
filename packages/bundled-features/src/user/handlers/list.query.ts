@@ -8,7 +8,7 @@ import {
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 // kumiko-lint-ignore cross-feature-import SystemAdmin user-list joins memberships for tenants column
-import { tenantMembershipsTable, tenantTable } from "../../tenant/index.js";
+import { decryptTenantNames, tenantMembershipsTable, tenantTable } from "../../tenant/index.js";
 import { userEntity } from "../schema/user.js";
 
 const baseList = defineEntityListHandler("user", userEntity, {
@@ -82,7 +82,10 @@ export async function attachTenantLabels(
   ];
   const tenants =
     tenantIds.length > 0
-      ? await selectMany<TenantRow>(db, tenantTable, { id: { in: tenantIds } })
+      ? await decryptTenantNames(
+          await selectMany<TenantRow>(db, tenantTable, { id: { in: tenantIds } }),
+          "user:list",
+        )
       : [];
   const byUser = labelsByUserId(memberships, tenantLabelById(tenants));
   return rows.map((row) => {

@@ -49,6 +49,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.unsupported": "This field type can't be edited here yet.",
     "kumiko.field.writeOnly.remove": "Remove stored value",
     "kumiko.field.writeOnly.set": "Set",
+    "kumiko.pii.erased": "Deleted",
     "kumiko.field.writeOnly.setPlaceholder": "Set — leave empty to keep it",
     "kumiko.field.writeOnly.undo": "Undo",
     "kumiko.field.writeOnly.willRemove": "Removed on save",

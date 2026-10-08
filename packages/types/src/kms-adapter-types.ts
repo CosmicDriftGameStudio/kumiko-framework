@@ -20,6 +20,10 @@ export function subjectKeyForTenant(tenantId: TenantId): SubjectKey {
   return `tenant:${tenantId}`;
 }
 
+// Stands in for a PII value whose subject key was erased; clients map it to a
+// translated label instead of showing it.
+export const PII_ERASED_SENTINEL = "[[erased]]";
+
 // Registry entity names are identifier-shaped; a free-form aggregate_type
 // (events-schema.ts is a plain text column) could otherwise mint a record
 // key that subjectIdSchema (forget-subject.write.ts) later refuses to

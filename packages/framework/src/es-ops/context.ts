@@ -7,6 +7,7 @@
 // config-seed.ts:40). Events haben createdBy = SYSTEM_TENANT_ID-User
 // → audit-fähig.
 
+import { configuredPiiSubjectKms, decryptPiiFieldValues } from "../crypto/index.js";
 import type { DbRunner } from "../db/index.js";
 import {
   selectAllTenants,
@@ -93,7 +94,24 @@ export function createSeedMigrationContext(
 
     findTenants: async () => {
       const rows = await selectAllTenants(args.dbRunner);
-      return rows.map((r): SeedTenantRow => ({ id: r.id, name: r.name, tenantKey: r.tenant_key }));
+      const kms = configuredPiiSubjectKms();
+      // Sequential on purpose: each decrypt borrows from the KMS adapter's small pool.
+      const tenants: SeedTenantRow[] = [];
+      for (const r of rows) {
+        // tenant.name is ciphertext at rest under an active KMS
+        const decrypted = kms
+          ? await decryptPiiFieldValues({ name: r.name }, ["name"], kms, {
+              requestId: "es-ops:find-tenants",
+            })
+          : { name: r.name };
+        const name = decrypted["name"];
+        tenants.push({
+          id: r.id,
+          name: typeof name === "string" ? name : r.name,
+          tenantKey: r.tenant_key,
+        });
+      }
+      return tenants;
     },
 
     findTemplateResources: async (filter) => {

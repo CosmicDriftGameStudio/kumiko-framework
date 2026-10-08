@@ -330,10 +330,15 @@ describe("signup-confirm runs the login's MFA gate", () => {
     expect(typeof body.preauthSetupToken).toBe("string");
     expect(body.token).toBeUndefined();
     expect(res.headers.get("set-cookie")).toBeNull();
-    expect(await selectMany(stack.db, userTable, { email })).toHaveLength(1);
+    const users = await selectMany(stack.db, userTable, { email });
+    expect(users).toHaveLength(1);
 
     // Same landing a signup without the MFA gate would have returned.
-    const [tenant] = await selectMany(stack.db, tenantTable, { name: email });
+    const [membership] = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: users[0]?.["id"],
+    });
+    const [tenant] = await selectMany(stack.db, tenantTable, { id: membership?.["tenantId"] });
+    expect(tenant?.["key"]).toBeString();
     expect(body.landingPath).toBe(`/landing/${tenant?.["key"]}/${INITIAL_SIGNUP_ROLES.join(",")}`);
 
     const login = await stack.http.raw("POST", "/api/auth/login", { email, password });
