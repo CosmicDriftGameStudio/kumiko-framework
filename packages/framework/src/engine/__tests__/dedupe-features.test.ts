@@ -54,6 +54,12 @@ describe("dedupeFeatures", () => {
     expect(() => dedupeFeatures([a, b])).toThrow(/Duplicate feature: "x".*different options/);
   });
 
+  test("nested object in dedupeOptions is rejected at definition time", () => {
+    expect(() =>
+      defineFeature("x", () => {}, { dedupeOptions: { cookie: { secure: true } } }),
+    ).toThrow(/dedupeOptions\.cookie must be a primitive or a stable function reference/);
+  });
+
   test("{ a: undefined } and {} are treated as shallow-equal (missing key == undefined)", () => {
     const a = defineFeature("x", () => {}, { dedupeOptions: { a: undefined } });
     const b = defineFeature("x", () => {}, { dedupeOptions: {} });

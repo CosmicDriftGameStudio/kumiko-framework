@@ -33,11 +33,28 @@ export type DefineFeatureSettings = {
   readonly dedupeOptions?: Readonly<Record<string, unknown>>;
 };
 
+// dedupe-features compares options with Object.is per key, so a nested object
+// would make two structurally identical mounts look different and fail the boot
+// with an unobvious "mounted twice with different options".
+function assertDedupeOptionsComparable(
+  featureName: string,
+  options: Readonly<Record<string, unknown>> | undefined,
+): void {
+  for (const [key, value] of Object.entries(options ?? {})) {
+    if (typeof value === "object" && value !== null) {
+      throw new Error(
+        `[Feature ${featureName}] dedupeOptions.${key} must be a primitive or a stable function reference; dedupeOptions are compared shallowly, so a nested object never matches a second mount`,
+      );
+    }
+  }
+}
+
 export function defineFeature<const TName extends string, TExports = undefined>(
   name: TName,
   setup: (r: FeatureRegistrar<TName>) => TExports,
   settings?: DefineFeatureSettings,
 ): FeatureDefinition & { readonly exports: TExports } {
+  assertDedupeOptionsComparable(name, settings?.dedupeOptions);
   const state = createInitialFeatureBuilderState();
 
   const registrar: FeatureRegistrar<TName> = {
