@@ -19,6 +19,7 @@ export function createCreateTransactionHandler(
     access,
     description:
       "Books one balanced journal entry from a date, description and at least two posting lines summing to zero, after verifying every named account exists; use it to record any financial movement in the tenant's books.",
+    agent: { risk: "high" },
     handler: async (event, ctx) => {
       const payload = event.payload as CreateTransactionPayload; // @cast-boundary engine-payload
 

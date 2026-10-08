@@ -59,6 +59,7 @@ export const updateWrite = defineWriteHandler({
   },
   description:
     "Changes a user's display name, locale, timezone, email, verification flag, last active tenant or global roles against the version the caller read; callers may edit themselves, while editing someone else or granting roles needs a privileged actor.",
+  agent: { risk: "high" },
   escapeHatch: {
     reason: SYSTEM_ADMIN_DEMOTION_COUNT_REASON,
   },

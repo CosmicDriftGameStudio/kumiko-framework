@@ -6,10 +6,13 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createAuthMfaFeature } from "../../auth-mfa/index.js";
 import { createCryptoShreddingFeature } from "../../crypto-shredding/index.js";
+import { createLedgerFeature } from "../../ledger/index.js";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.js";
 import { createSecretsFeature } from "../../secrets/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
 import { createTenantFeature } from "../../tenant/index.js";
+import { createTierEngineFeature } from "../../tier-engine/index.js";
+import { createUserFeature } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../../user-data-rights/index.js";
 
 // Pins the agent-exposure decision of security-relevant bundled handlers: dropping
@@ -62,6 +65,37 @@ const CASES: readonly ExposureCase[] = [
     risk: "high",
   },
   { feature: mfa, kind: "write", handlerName: "enable-confirm", expose: true, risk: "high" },
+  { feature: tenant, kind: "write", handlerName: "disable", expose: true, risk: "high" },
+  { feature: tenant, kind: "write", handlerName: "enable", expose: true, risk: "mid" },
+  { feature: tenant, kind: "write", handlerName: "updateMemberRoles", expose: true, risk: "high" },
+  {
+    feature: createUserFeature(),
+    kind: "write",
+    handlerName: "user:update",
+    expose: true,
+    risk: "high",
+  },
+  {
+    feature: createTierEngineFeature(),
+    kind: "write",
+    handlerName: "set-tenant-tier",
+    expose: true,
+    risk: "high",
+  },
+  {
+    feature: createLedgerFeature(),
+    kind: "write",
+    handlerName: "create-transaction",
+    expose: true,
+    risk: "high",
+  },
+  {
+    feature: createLedgerFeature(),
+    kind: "write",
+    handlerName: "reverse-transaction",
+    expose: true,
+    risk: "high",
+  },
   { feature: userDataRights, kind: "write", handlerName: "run-forget-cleanup", expose: false },
   { feature: cryptoShredding, kind: "write", handlerName: "forget-subject", expose: false },
   { feature: mfa, kind: "write", handlerName: "enable-start", expose: false },
