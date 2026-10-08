@@ -335,6 +335,43 @@ export async function assertNoUnreachableLiveRows(
   );
 }
 
+// A key is configured, but not necessarily the one the live bidx values were
+// computed with (typo'd secret, key rotated in only one of migrate-db / app).
+// The replay would then rewrite every bidx column with the wrong key and the
+// swap would succeed without any error. A NULL on either side is skipped: GDPR
+// shredding legitimately nulls a bidx, and a plaintext-era row has none yet.
+async function assertBlindIndexKeyMatchesLive(
+  raw: ReturnType<typeof asRawClient>,
+  tableName: string,
+  quotedTable: string,
+  bidxCols: readonly EntityTableMeta["columns"][number][],
+  projectionName: string,
+): Promise<void> {
+  const differs = bidxCols
+    .map((c) => {
+      const col = quoteTableIdent(c.name);
+      return `(l.${col} IS NOT NULL AND s.${col} IS NOT NULL AND l.${col} IS DISTINCT FROM s.${col})`;
+    })
+    .join(" OR ");
+  const rows = await raw.unsafe<{ total: string }>(
+    `SELECT count(*)::text AS total
+       FROM public.${quotedTable} l
+       JOIN ${SCHEMA_IDENT}.${quotedTable} s ON s."id" = l."id"
+      WHERE ${differs}`,
+  );
+  const count = Number(rows[0]?.total ?? "0");
+  // skip: every comparable bidx value matches the replay — same key as the live data
+  if (count === 0) return;
+  throw new Error(
+    `projection-rebuild "${projectionName}": "${tableName}" has ${count} row(s) whose blind-index ` +
+      `value differs from the replayed one. The KUMIKO_BLIND_INDEX_KEY in this process is not the ` +
+      `key those values were computed with, so the swap would break equality lookups on that ` +
+      `field (login, password reset) without any error. Use the same KUMIKO_BLIND_INDEX_KEY as ` +
+      `the running app in the process running this apply/rebuild. Rebuild aborted; live table ` +
+      `untouched.`,
+  );
+}
+
 // The bidx column is schema-driven, not key-driven: it exists NULL in a
 // plaintext install and in the fw#1610 case (KMS configured, no index key),
 // both of which are correct as-is. Only a POPULATED column with no key
@@ -346,13 +383,15 @@ export async function assertNoBlindIndexLoss(
   meta: EntityTableMeta,
   projectionName: string,
 ): Promise<void> {
-  // skip: a key is configured — the replay recomputes every bidx column with it
-  if (configuredBlindIndexKey() !== undefined) return;
   const bidxCols = meta.columns.filter((c) => c.name.endsWith("_bidx"));
   // skip: no blind-index column on this table — nothing the rebuild could lose
   if (bidxCols.length === 0) return;
   const t = quoteTableIdent(tableName);
   const raw = asRawClient(tx);
+  if (configuredBlindIndexKey() !== undefined) {
+    await assertBlindIndexKeyMatchesLive(raw, tableName, t, bidxCols, projectionName);
+    return;
+  }
   const where = bidxCols.map((c) => `${quoteTableIdent(c.name)} IS NOT NULL`).join(" OR ");
   const rows = await raw.unsafe<{ total: string }>(
     `SELECT count(*)::text AS total FROM public.${t} WHERE ${where}`,
