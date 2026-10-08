@@ -108,6 +108,8 @@ export const transactionEntity = createEntity({
       filterable: true,
     }),
   },
+  // Subject ids are only unique within their type, so lookups filter on both
+  // columns; a subjectId-only filter would not be served by this index.
   indexes: [{ columns: ["tenantId", "subjectType", "subjectId"] }],
 });
 

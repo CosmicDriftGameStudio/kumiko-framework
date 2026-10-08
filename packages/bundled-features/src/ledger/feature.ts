@@ -31,6 +31,7 @@ import {
   createIncomeStatementHandler,
 } from "./handlers/reports.query.js";
 import { createReverseTransactionHandler } from "./handlers/reverse-transaction.write.js";
+import { requireScheduleSubjectPair } from "./schedule-subject-pair.js";
 
 // Opt-in tier-gating (mirrors folders): when set, the feature declares itself
 // r.toggleable so the dispatcher gate + tier-engine can switch the WHOLE ledger
@@ -125,6 +126,8 @@ function registerLedger(
         "Changes a recurring booking template's description, accounts, amount, interval or date window; use it when a standing order's terms change, already confirmed periods stay booked as they were.",
     }),
   );
+  r.hook("preSave", "schedule:create", requireScheduleSubjectPair);
+  r.hook("preSave", "schedule:update", requireScheduleSubjectPair);
   r.writeHandler(createConfirmSchedulePeriodHandler(access));
   r.queryHandler(
     defineEntityListHandler("schedule", scheduleEntity, {
