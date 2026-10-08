@@ -17,4 +17,12 @@ describe("channel-in-app — in_app_messages store table", () => {
     const tableNames = metas.map((m) => m.tableName);
     expect(tableNames).toContain("in_app_messages");
   });
+
+  test("in_app_messages carries the tenant + user + created_at index the inbox reads filter on", () => {
+    const meta = createChannelInAppFeature().storeTables["in_app_messages"]?.meta;
+    expect(meta?.indexes).toContainEqual({
+      name: "in_app_messages_tenant_user_created_idx",
+      columns: ["tenant_id", "user_id", "created_at"],
+    });
+  });
 });
