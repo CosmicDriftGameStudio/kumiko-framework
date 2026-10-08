@@ -67,6 +67,15 @@ describe("DefaultButton icon (fw-ui-defaults)", () => {
     expect(screen.getByRole("button", { name: "Delete" })).toBe(btn);
   });
 
+  test("a button without children needs an icon and an ariaLabel (accessible name)", () => {
+    // @ts-expect-error — icon-only without ariaLabel has no accessible name
+    const withoutLabel = <Button icon="trash" size="icon" testId="no-label" />;
+    // @ts-expect-error — neither children nor icon renders an empty button
+    const withoutContent = <Button ariaLabel="Delete" testId="no-content" />;
+    expect(withoutLabel.props.testId).toBe("no-label");
+    expect(withoutContent.props.testId).toBe("no-content");
+  });
+
   test("unknown icon key: no crash, falls back to rendering children only", () => {
     render(
       // @ts-expect-error — exercising the runtime fallback for a schema-supplied key outside the closed IconKey union
