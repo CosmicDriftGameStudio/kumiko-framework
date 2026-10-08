@@ -1757,6 +1757,46 @@ describe("RenderEdit wizard mode", () => {
     expect(screen.getByTestId("render-edit-wizard-step-label").textContent).toContain("1");
   });
 
+  test("a hideActions host steps with controls.next()/back() and controls.submit() saves on an intermediate step", async () => {
+    const writes: { type: string; payload: unknown }[] = [];
+    const dispatcher = makeDispatcher((async (type: string, payload: unknown) => {
+      writes.push({ type, payload });
+      return { isSuccess: true, data: { id: "1" } };
+    }) as Dispatcher["write"]);
+    let controls: RenderEditControls<TestValues> | undefined;
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeWizardScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0 }}
+          writeCommand="order:create"
+          hideActions
+          onControlsReady={(c) => {
+            controls = c;
+          }}
+        />
+      </DispatcherProvider>,
+    );
+    const stepLabel = () => screen.getByTestId("render-edit-wizard-step-label").textContent;
+
+    await act(async () => {
+      controls?.next();
+    });
+    expect(stepLabel()).toContain("2");
+    await act(async () => {
+      controls?.back();
+    });
+    expect(stepLabel()).toContain("1");
+
+    await act(async () => {
+      await controls?.submit();
+    });
+    expect(writes).toHaveLength(1);
+    expect(stepLabel()).toContain("1");
+  });
+
   test("Weiter is blocked by a field validation error and does not advance the step", async () => {
     const schema = z.object({
       title: z.string().min(1),
