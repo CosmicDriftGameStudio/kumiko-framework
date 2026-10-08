@@ -1,4 +1,8 @@
-import { type RedisClientOptions, redisClientOptionsFromEnv } from "../redis/client.js";
+import {
+  type RedisClientOptions,
+  redisChannelPrefixFromEnv,
+  redisClientOptionsFromEnv,
+} from "../redis/client.js";
 import { createRedisPubSubSignal } from "../redis/pubsub-signal.js";
 import {
   type AccessInvalidationScope,
@@ -15,11 +19,13 @@ import {
 // cursor stays the mechanism for "read every event exactly once".
 const CHANNEL_PREFIX = "kumiko:sse:ch:";
 const INVALIDATION_PREFIX = "kumiko:sse:inval:";
-const PSUBSCRIBE_PATTERN = "kumiko:sse:*";
+const PSUBSCRIBE_SUFFIX = "kumiko:sse:*";
 
 export type RedisSseBrokerOptions = {
   readonly redisUrl: string;
   readonly clientOptions?: RedisClientOptions;
+  // Prepended to every channel (see redisChannelPrefixFromEnv); isolates apps sharing one Redis.
+  readonly channelPrefix?: string;
 };
 
 export type RedisSseBroker = SseBroker & {
@@ -54,7 +60,11 @@ export function createDefaultSseBroker(env: Record<string, string | undefined> =
 } {
   const redisUrl = env["REDIS_URL"];
   const ownedRedisSseBroker = redisUrl
-    ? createRedisSseBroker({ redisUrl, clientOptions: redisClientOptionsFromEnv(env) })
+    ? createRedisSseBroker({
+        redisUrl,
+        clientOptions: redisClientOptionsFromEnv(env),
+        channelPrefix: redisChannelPrefixFromEnv(env),
+      })
     : undefined;
   return { sseBroker: ownedRedisSseBroker ?? createSseBroker(), ownedRedisSseBroker };
 }
@@ -123,29 +133,31 @@ function encodeInvalidationScope(scope: AccessInvalidationScope | undefined): un
 // the request.
 export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroker {
   const inner = createSseBroker();
+  const channelPrefix = `${opts.channelPrefix ?? ""}${CHANNEL_PREFIX}`;
+  const invalidationPrefix = `${opts.channelPrefix ?? ""}${INVALIDATION_PREFIX}`;
   const signal = createRedisPubSubSignal({
     redisUrl: opts.redisUrl,
-    channelPattern: PSUBSCRIBE_PATTERN,
+    channelPattern: `${opts.channelPrefix ?? ""}${PSUBSCRIBE_SUFFIX}`,
     label: "sse-broker",
     ...(opts.clientOptions ? { clientOptions: opts.clientOptions } : {}),
   });
 
   signal.onMessage((channel, payload) => {
-    if (channel.startsWith(CHANNEL_PREFIX)) {
+    if (channel.startsWith(channelPrefix)) {
       if (!isSseEvent(payload)) {
         console.error(`[kumiko:sse-broker] dropping malformed event on "${channel}"`);
         // skip: malformed payload already logged above, nothing to deliver
         return;
       }
-      inner.pushToChannel(channel.slice(CHANNEL_PREFIX.length), payload);
+      inner.pushToChannel(channel.slice(channelPrefix.length), payload);
       // skip: channel already routed to the SSE-event branch above, the
       // invalidation branch below is mutually exclusive with this one
       return;
     }
 
-    if (channel.startsWith(INVALIDATION_PREFIX)) {
+    if (channel.startsWith(invalidationPrefix)) {
       inner.publishAccessInvalidation(
-        channel.slice(INVALIDATION_PREFIX.length),
+        channel.slice(invalidationPrefix.length),
         parseInvalidationScope(payload),
       );
     }
@@ -160,7 +172,7 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
     subscribeAccessInvalidation: inner.subscribeAccessInvalidation,
 
     pushToChannel(channel, event) {
-      signal.publish(`${CHANNEL_PREFIX}${channel}`, event);
+      signal.publish(`${channelPrefix}${channel}`, event);
     },
 
     // fw#1601: this is the security-critical call — a revoked session's
@@ -168,7 +180,10 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
     // the revocation event. Publishing (rather than calling inner directly,
     // like the in-memory broker does) is what makes that true here.
     publishAccessInvalidation(userId, scope) {
-      signal.publish(`${INVALIDATION_PREFIX}${userId}`, encodeInvalidationScope(scope));
+      return signal.publishConfirmed(
+        `${invalidationPrefix}${userId}`,
+        encodeInvalidationScope(scope),
+      );
     },
 
     close: signal.close,

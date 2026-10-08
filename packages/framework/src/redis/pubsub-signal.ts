@@ -10,6 +10,9 @@ import { createRedisClient, type RedisClientOptions } from "./client.js";
 // malformed or foreign message on the pattern never crashes the listener.
 export type PubSubSignal = {
   publish(channel: string, payload: unknown): void;
+  // Rejects when Redis is unreachable, for callers whose delivery must be retried upstream
+  // instead of dropped (security-critical invalidations); `publish` only logs.
+  publishConfirmed(channel: string, payload: unknown): Promise<void>;
   onMessage(listener: (channel: string, payload: unknown) => void): void;
   // Fires after the subscriber connection was lost and is subscribed again
   // (never for the first connect). Messages published in between are gone.
@@ -125,6 +128,9 @@ export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal
         // biome-ignore lint/suspicious/noConsole: ops-visible fallback, see logConnectionError above.
         console.error(`[kumiko:${opts.label}] publish failed:`, err);
       });
+    },
+    async publishConfirmed(channel, payload) {
+      await publisher.publish(channel, JSON.stringify(payload));
     },
     onMessage(listener) {
       listeners.add(listener);

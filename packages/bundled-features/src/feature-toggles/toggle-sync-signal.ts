@@ -1,12 +1,13 @@
 import {
   createRedisPubSubSignal,
   type RedisClientOptions,
+  redisChannelPrefixFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
 import type { ToggleSyncSignal } from "./toggle-runtime.js";
 
 // Single fixed channel — unlike the SSE broker there's no per-tenant/
 // per-user variance to multiplex, every toggle flip is global.
-const TOGGLE_SYNC_CHANNEL = "kumiko:feature-toggles:cache-sync";
+const TOGGLE_SYNC_CHANNEL_NAME = "kumiko:feature-toggles:cache-sync";
 
 export type RedisToggleSyncSignal = ToggleSyncSignal & {
   // Not on ToggleSyncSignal — the in-memory/no-signal path (GlobalFeature
@@ -34,24 +35,26 @@ function isTogglePayload(value: unknown): value is { featureName: string; enable
 export function createRedisToggleSyncSignal(
   redisUrl: string,
   clientOptions?: RedisClientOptions,
+  channelPrefix: string = redisChannelPrefixFromEnv(),
 ): RedisToggleSyncSignal {
+  const toggleSyncChannel = `${channelPrefix}${TOGGLE_SYNC_CHANNEL_NAME}`;
   const signal = createRedisPubSubSignal({
     redisUrl,
-    channelPattern: TOGGLE_SYNC_CHANNEL,
+    channelPattern: toggleSyncChannel,
     label: "feature-toggles",
     ...(clientOptions ? { clientOptions } : {}),
   });
 
   return {
     publish(featureName, enabled) {
-      signal.publish(TOGGLE_SYNC_CHANNEL, { featureName, enabled });
+      signal.publish(toggleSyncChannel, { featureName, enabled });
     },
     onMessage(listener) {
       signal.onMessage((_channel, payload) => {
         if (!isTogglePayload(payload)) {
           // biome-ignore lint/suspicious/noConsole: ops-visible fallback — no ctx.log in a raw PubSubSignal handler.
           console.error(
-            `[kumiko:feature-toggles] dropping malformed cache-sync message on "${TOGGLE_SYNC_CHANNEL}"`,
+            `[kumiko:feature-toggles] dropping malformed cache-sync message on "${toggleSyncChannel}"`,
           );
           // skip: malformed message already logged above, nothing to apply
           return;

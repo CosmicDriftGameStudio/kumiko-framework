@@ -59,6 +59,38 @@ describe("createRedisSseBroker", () => {
     expect(received[0]).toEqual({ type: "unit.updated", data: { id: "1" } });
   });
 
+  test("publishAccessInvalidation rejects when Redis is unreachable, so the consumer can fail and be redelivered", async () => {
+    const broker = createRedisSseBroker({ redisUrl: testRedis.redisUrl });
+    await broker.close();
+    await expect(broker.publishAccessInvalidation(`user-${generateId()}`)).rejects.toThrow();
+  });
+
+  test("channelPrefix isolates brokers sharing one Redis; same prefix still fans out", async () => {
+    const appA = createRedisSseBroker({ redisUrl: testRedis.redisUrl, channelPrefix: "appA:" });
+    const appAOtherPod = createRedisSseBroker({
+      redisUrl: testRedis.redisUrl,
+      channelPrefix: "appA:",
+    });
+    const appB = createRedisSseBroker({ redisUrl: testRedis.redisUrl, channelPrefix: "appB:" });
+    brokers.push(appA, appAOtherPod, appB);
+    const channel = `test-channel-${generateId()}`;
+    const received: SseEvent[] = [];
+    appA.addClient(
+      channel,
+      (event) => received.push(event),
+      () => {},
+    );
+
+    // appB publishes first; the same-prefix publish after it acts as the positive control,
+    // so by the time it arrives a leaked appB event would already be in `received`.
+    await waitFor(() => {
+      appB.pushToChannel(channel, { type: "leak", data: {} });
+      appAOtherPod.pushToChannel(channel, { type: "own", data: {} });
+      return received.some((e) => e.type === "own");
+    });
+    expect(received.some((e) => e.type === "leak")).toBe(false);
+  });
+
   test("publishAccessInvalidation on one broker fires subscribeAccessInvalidation listeners on another", async () => {
     const podA = trackedBroker();
     const podB = trackedBroker();
@@ -70,7 +102,7 @@ describe("createRedisSseBroker", () => {
     });
 
     await waitFor(() => {
-      podB.publishAccessInvalidation(userId);
+      void podB.publishAccessInvalidation(userId);
       return invalidated;
     });
     expect(invalidated).toBe(true);
@@ -121,7 +153,7 @@ describe("createRedisSseBroker", () => {
     });
 
     await waitFor(() => {
-      podB.publishAccessInvalidation(userB);
+      void podB.publishAccessInvalidation(userB);
       return invalidatedBControl;
     });
     expect(invalidatedA).toBe(false);
@@ -159,7 +191,7 @@ describe("createRedisSseBroker", () => {
     );
 
     await waitFor(() => {
-      podB.publishAccessInvalidation(userId, {
+      void podB.publishAccessInvalidation(userId, {
         kind: "all-except-session",
         keptSessionId: sidKept,
       });
@@ -204,7 +236,7 @@ describe("createRedisSseBroker", () => {
     );
 
     await waitFor(() => {
-      podB.publishAccessInvalidation(userId, { kind: "sessions", sessionIds: [sidTarget] });
+      void podB.publishAccessInvalidation(userId, { kind: "sessions", sessionIds: [sidTarget] });
       return invalidatedTarget;
     });
     expect(invalidatedOther).toBe(false);

@@ -56,6 +56,16 @@ export function createRedisClient(url: string, options: RedisClientOptions = {})
   });
 }
 
+// Redis Pub/Sub ignores the DB index and ioredis keyPrefix, so apps or environments sharing one
+// Redis instance would see each other's SSE and toggle-sync traffic. An optional prefix
+// namespaces those channels; unset keeps the unprefixed channel names.
+export function redisChannelPrefixFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const raw = env["KUMIKO_REDIS_CHANNEL_PREFIX"]?.trim();
+  return raw ? `${raw}:` : "";
+}
+
 // Env-var reader — mirrors dbConnectionOptionsFromEnv's contract. Strict:
 // malformed values throw at boot rather than silently falling back to
 // defaults.

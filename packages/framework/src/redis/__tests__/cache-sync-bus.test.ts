@@ -29,6 +29,7 @@ function createFakeSignal(onPublish: (channel: string, payload: unknown) => void
   let closes = 0;
   return {
     publish: onPublish,
+    publishConfirmed: async (channel, payload) => onPublish(channel, payload),
     onMessage: (listener) => {
       messageListeners.push(listener);
     },
