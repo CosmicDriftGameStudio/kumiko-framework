@@ -1702,6 +1702,43 @@ describe("RenderEdit wizard mode", () => {
     };
   }
 
+  test("wizard pins the primary action and pads the content; a plain edit screen does not", () => {
+    const { unmount } = render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeWizardScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+    const wizardActions = screen.getByTestId("render-edit-form-actions");
+    expect(wizardActions.className).toContain("max-sm:fixed");
+    const wizardContent = (wizardActions.parentElement as HTMLElement)
+      .previousElementSibling as HTMLElement;
+    expect(wizardContent.className).toContain("max-sm:pb-[calc(6rem");
+    unmount();
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+    const plainActions = screen.getByTestId("render-edit-form-actions");
+    expect(plainActions.className).not.toContain("max-sm:fixed");
+    const plainContent = (plainActions.parentElement as HTMLElement)
+      .previousElementSibling as HTMLElement;
+    expect(plainContent.className).not.toContain("max-sm:pb-[calc(6rem");
+  });
+
   test("renders only the current step's section", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>

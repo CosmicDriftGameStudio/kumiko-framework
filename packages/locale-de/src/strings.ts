@@ -607,6 +607,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "jobs.errors.payloadErased":
     "Der Payload dieses Laufs kann nicht mehr gelesen werden — die Daten des auslösenden Benutzers wurden gelöscht.",
   "jobs.errors.unknownJob": "Unbekannter Job.",
+  "jobs.errors.invalidCursor": "Der Paginierungs-Cursor ist ungültig.",
   "jobs.runs.col.duration": "Dauer in ms",
   "jobs.runs.col.job": "Job",
   "jobs.runs.col.started": "Gestartet",

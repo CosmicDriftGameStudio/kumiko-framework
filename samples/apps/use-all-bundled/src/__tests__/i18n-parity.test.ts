@@ -26,6 +26,18 @@ beforeAll(async () => {
 });
 
 describe("i18n parity", () => {
+  // A moved feature folder or catalog would otherwise drop out of the harvest silently.
+  test("every harvest source family contributes entries", () => {
+    const origins = Object.entries(harvest.entryCountByOrigin);
+    const countFor = (prefix: string) =>
+      origins.filter(([origin]) => origin.startsWith(prefix)).reduce((sum, [, n]) => sum + n, 0);
+    expect(countFor("server:")).toBeGreaterThan(0);
+    expect(countFor("client:")).toBeGreaterThan(0);
+    expect(harvest.entryCountByOrigin["renderer"]).toBeGreaterThan(0);
+    expect(harvest.entryCountByOrigin["mail:auth"]).toBeGreaterThan(0);
+    expect(harvest.entryCountByOrigin["mail:gdpr"]).toBeGreaterThan(0);
+  });
+
   test("no key carries different English copy in different sources", () => {
     expect(harvest.conflicts).toEqual([]);
   });
