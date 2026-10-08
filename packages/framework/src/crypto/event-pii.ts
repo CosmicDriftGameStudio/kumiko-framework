@@ -81,7 +81,6 @@ export async function encryptEventPayloadPii(
   const piiFields = resolvePiiStance(eventType);
   if (!piiFields || piiFields === "none") return payload;
   const kms = configuredPiiSubjectKms();
-  if (!kms) return payload;
 
   let out: Record<string, unknown> | undefined;
   for (const [field, spec] of Object.entries(piiFields)) {
@@ -94,6 +93,9 @@ export async function encryptEventPayloadPii(
     }
     const subject = resolveEventSubject(field, spec, payload, envelope);
     if (subject === null) continue;
+    // Resolved before this skip so a missing owner fails in dev exactly as it
+    // does in prod, instead of surfacing only once a KMS is configured.
+    if (!kms) continue;
     const kmsCtx = { requestId: requestContext.get()?.requestId ?? "append-event" };
     const encrypted =
       typeof value === "string"
