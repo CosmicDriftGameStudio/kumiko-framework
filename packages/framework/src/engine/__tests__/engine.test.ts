@@ -497,6 +497,22 @@ describe("createRegistry", () => {
     expect(all["cap-counter:cap-counter:nav.cap-list"]).toBeUndefined();
   });
 
+  test("treats a full kebab-QN handler key of a camelCase feature as qualified", () => {
+    const f = defineFeature("channelTexts", (r) => {
+      r.translations({
+        keys: {
+          "channel-texts:write:generate:title": { en: "Generate" },
+          "write:generate:field:vehicleId": { en: "Vehicle" },
+        },
+      });
+    });
+
+    const all = createRegistry([f]).getAllTranslations();
+    expect(all["channel-texts:write:generate:title"]).toEqual({ en: "Generate" });
+    expect(all["channelTexts:channel-texts:write:generate:title"]).toBeUndefined();
+    expect(all["channelTexts:write:generate:field:vehicleId"]).toEqual({ en: "Vehicle" });
+  });
+
   test("throws when write handler is not entity-mapped in feature with field-access", () => {
     const feature = defineFeature("hr", (r) => {
       r.entity(

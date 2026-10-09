@@ -3,9 +3,15 @@ import {
   defineFeature,
   defineWriteHandler,
   resolveAgentExposure,
+  SYSTEM_ONLY_JSON_SCHEMA_KEY,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { AgentDocGapKinds, findAgentDocGaps, formatAgentDocGap } from "../agent-doc-lint.js";
+import {
+  AgentDocGapKinds,
+  findAgentDocGaps,
+  findHandlerTranslationGaps,
+  formatAgentDocGap,
+} from "../agent-doc-lint.js";
 
 const OPEN_ACCESS = {
   openToAll: { reason: "test handler callable by any signed-in test user" },
@@ -333,5 +339,118 @@ describe("findAgentDocGaps", () => {
     const formatted = formatAgentDocGap(gap as NonNullable<typeof gap>);
     expect(formatted).toContain((gap as NonNullable<typeof gap>).qn);
     expect(formatted).toContain((gap as NonNullable<typeof gap>).message);
+  });
+});
+
+describe("findAgentDocGaps — handler-without-translation", () => {
+  function translationGaps(features: Parameters<typeof findAgentDocGaps>[0]) {
+    return findHandlerTranslationGaps(features);
+  }
+
+  function exposedHandlerFeature(
+    translations: Record<string, { readonly en: string }>,
+    extra?: (r: Parameters<Parameters<typeof defineFeature>[1]>[0]) => void,
+  ) {
+    return defineFeature("tr-demo", (r) => {
+      r.writeHandler("do-x", z.object({ vehicleId: z.string() }), noopWriteHandler, {
+        access: OPEN_ACCESS,
+        description: "Does X.",
+      });
+      if (Object.keys(translations).length > 0) r.translations({ keys: translations });
+      extra?.(r);
+    });
+  }
+
+  test("exposed write handler without entity or keys -> one warning gap listing the missing keys", () => {
+    const gaps = translationGaps([exposedHandlerFeature({})]);
+
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]?.qn).toBe("tr-demo:write:do-x");
+    expect(gaps[0]?.message).toContain("tr-demo:write:do-x:title");
+    expect(gaps[0]?.message).toContain("tr-demo:write:do-x:field:vehicleId");
+    expect(gaps[0]?.kind).toBe(AgentDocGapKinds.handlerWithoutTranslation);
+  });
+
+  test("findAgentDocGaps never reports translation gaps (agent-manifest guard contract)", () => {
+    const gaps = findAgentDocGaps([exposedHandlerFeature({})]);
+    expect(gaps.some((g) => g.kind === AgentDocGapKinds.handlerWithoutTranslation)).toBe(false);
+  });
+
+  test("fully spelled-out keys for title and all fields -> no gap", () => {
+    const gaps = translationGaps([
+      exposedHandlerFeature({
+        "tr-demo:write:do-x:title": { en: "Do X" },
+        "tr-demo:write:do-x:field:vehicleId": { en: "Vehicle" },
+      }),
+    ]);
+    expect(gaps).toEqual([]);
+  });
+
+  test("only a missing field label is reported", () => {
+    const gaps = translationGaps([
+      exposedHandlerFeature({ "tr-demo:write:do-x:title": { en: "Do X" } }),
+    ]);
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0]?.message).not.toContain("do-x:title");
+    expect(gaps[0]?.message).toContain("do-x:field:vehicleId");
+  });
+
+  test("a local (unprefixed) key does not count because the client resolves keys verbatim", () => {
+    const gaps = translationGaps([
+      exposedHandlerFeature({
+        "write:do-x:title": { en: "Do X" },
+        "write:do-x:field:vehicleId": { en: "Vehicle" },
+      }),
+    ]);
+    expect(gaps).toHaveLength(1);
+  });
+
+  test("system-only input fields need no label", () => {
+    const feature = defineFeature("tr-demo", (r) => {
+      r.writeHandler(
+        "do-x",
+        z.object({ tenantIdOverride: z.string().meta({ [SYSTEM_ONLY_JSON_SCHEMA_KEY]: true }) }),
+        noopWriteHandler,
+        { access: OPEN_ACCESS, description: "Does X." },
+      );
+      r.translations({ keys: { "tr-demo:write:do-x:title": { en: "Do X" } } });
+    });
+    expect(translationGaps([feature])).toEqual([]);
+  });
+
+  test("handler mapped to an entity -> no gap", () => {
+    const feature = defineFeature("tr-demo", (r) => {
+      r.entity("vehicle", { fields: { name: { type: "text", required: true } } });
+      r.writeHandler("vehicle:do-x", z.object({}), noopWriteHandler, {
+        access: OPEN_ACCESS,
+        description: "Does X.",
+      });
+    });
+    expect(feature.handlerEntityMappings?.["vehicle:do-x"]).toBeDefined();
+    expect(translationGaps([feature])).toEqual([]);
+  });
+
+  test("handler used by an actionForm screen -> no gap", () => {
+    const feature = exposedHandlerFeature({}, (r) => {
+      r.screen({
+        id: "do-x-form",
+        type: "actionForm",
+        handler: "tr-demo:write:do-x",
+        fields: {} as never,
+        layout: { sections: [] } as never,
+      });
+    });
+    expect(translationGaps([feature])).toEqual([]);
+  });
+
+  test("handler not exposed to the agent -> no gap", () => {
+    const feature = defineFeature("tr-demo", (r) => {
+      r.writeHandler("do-x", z.object({ a: z.string() }), noopWriteHandler, {
+        access: OPEN_ACCESS,
+        description: "Does X.",
+        agent: { expose: false },
+      });
+    });
+    expect(translationGaps([feature])).toEqual([]);
   });
 });

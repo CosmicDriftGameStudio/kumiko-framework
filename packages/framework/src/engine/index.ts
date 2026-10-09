@@ -1,5 +1,6 @@
 // Public API
 
+export { handlerFieldLabelKey, handlerTitleKey } from "../i18n/required-surface-keys.js";
 export { hasAccess } from "./access.js";
 export {
   isPrincipalStatusPlugin,
@@ -256,6 +257,10 @@ export {
   filterReadFields,
   maskWriteOnlyFields,
 } from "./field-access.js";
+export {
+  HANDLER_FIELD_REFERENCES_META_KEY,
+  handlerFieldReference,
+} from "./handler-field-references.js";
 export { resolveName, withResponseData } from "./handler-helpers.js";
 export { i18nKey } from "./i18n-key.js";
 // findForbiddenMembershipRole/isForbiddenMembershipRole/
@@ -289,6 +294,7 @@ export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name.js";
 export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name.js";
 export { readClaim } from "./read-claim.js";
 export { createRegistry } from "./registry.js";
+export { qualifyTranslationKey } from "./registry-ingest.js";
 export type { ClampInfo, ResolveOptions } from "./resolve-config-or-param.js";
 export { resolveConfigOrParam } from "./resolve-config-or-param.js";
 export type { AssignableAppRoles, AssignableFromRole } from "./role-assignment.js";

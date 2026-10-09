@@ -1,5 +1,10 @@
 export type { AgentDocGap, AgentDocGapKind } from "./agent-doc-lint.js";
-export { AgentDocGapKinds, findAgentDocGaps, formatAgentDocGap } from "./agent-doc-lint.js";
+export {
+  AgentDocGapKinds,
+  findAgentDocGaps,
+  findHandlerTranslationGaps,
+  formatAgentDocGap,
+} from "./agent-doc-lint.js";
 export { buildAgentManifest } from "./agent-manifest.js";
 export { AGENT_TOOLS_FEATURE_NAME, createAgentToolsFeature } from "./feature.js";
 export { buildToolCatalog, OPEN_FORM_TOOL_NAME, toolNameForQn } from "./tool-catalog.js";

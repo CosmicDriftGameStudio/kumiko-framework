@@ -39,6 +39,14 @@ export function fieldLabelKey(featureName: string, entityName: string, fieldName
   return `${featureName}:entity:${entityName}:field:${fieldName}`;
 }
 
+export function handlerTitleKey(handlerQn: string): string {
+  return `${handlerQn}:title`;
+}
+
+export function handlerFieldLabelKey(handlerQn: string, fieldName: string): string {
+  return `${handlerQn}:field:${fieldName}`;
+}
+
 export function booleanFacetOptionKeys(
   featureName: string,
   entityName: string,

@@ -32,26 +32,39 @@ export const agentCommand: CliCommand = {
 
     const config = await loadAppConfig(ctx, configPath);
     if (config === null) return 1;
-    const { findAgentDocGaps, formatAgentDocGap } = await import(
+    const { findAgentDocGaps, findHandlerTranslationGaps, formatAgentDocGap } = await import(
       "@cosmicdrift/kumiko-bundled-features/agent-tools"
     );
 
     const gaps = findAgentDocGaps(config.features);
+    const translationGaps = findHandlerTranslationGaps(config.features);
 
-    if (gaps.length === 0) {
+    if (gaps.length === 0 && translationGaps.length === 0) {
       ctx.out.log("");
       ctx.out.log("  ✓ No AI-agent doc gaps found.");
       ctx.out.log("");
       return 0;
     }
 
-    ctx.out.log("");
-    ctx.out.log(`  ${gaps.length} AI-agent doc gap${gaps.length === 1 ? "" : "s"} found:`);
-    ctx.out.log("");
-    for (const gap of gaps) {
-      ctx.out.log(`    ${formatAgentDocGap(gap)}`);
+    if (gaps.length > 0) {
+      ctx.out.log("");
+      ctx.out.log(`  ${gaps.length} AI-agent doc gap${gaps.length === 1 ? "" : "s"} found:`);
+      ctx.out.log("");
+      for (const gap of gaps) {
+        ctx.out.log(`    ${formatAgentDocGap(gap)}`);
+      }
+    }
+    if (translationGaps.length > 0) {
+      ctx.out.log("");
+      ctx.out.log(
+        `  ${translationGaps.length} warning${translationGaps.length === 1 ? "" : "s"} (handler translations, do not affect the exit code):`,
+      );
+      ctx.out.log("");
+      for (const gap of translationGaps) {
+        ctx.out.log(`    ${formatAgentDocGap(gap)}`);
+      }
     }
     ctx.out.log("");
-    return 1;
+    return gaps.length === 0 ? 0 : 1;
   },
 };

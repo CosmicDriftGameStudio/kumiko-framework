@@ -50,12 +50,33 @@ describe("createAgentToolsFeature", () => {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         description: "Does A.",
       });
+      r.translations({ keys: { "doc-clean-demo:write:do-a:title": { en: "Do A" } } });
     });
 
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
       expect(() => validateBoot([createAgentToolsFeature(), describedFeature])).not.toThrow();
       expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test("missing handler translations produce one summary line, not one line per handler", () => {
+    const untranslated = defineFeature("doc-tr-demo", (r) => {
+      for (const name of ["do-a", "do-b"]) {
+        r.writeHandler(name, z.object({}), noopWriteHandler, {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          description: "Does it.",
+        });
+      }
+    });
+
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(() => validateBoot([createAgentToolsFeature(), untranslated])).not.toThrow();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls.flat().join("\n")).toContain("2 agent-exposed write handler(s)");
     } finally {
       warn.mockRestore();
     }
