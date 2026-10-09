@@ -1,3 +1,4 @@
+import type { FieldDefinition, SelectFieldDef } from "./types/fields.js";
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
@@ -173,6 +174,52 @@ export function evalFieldCondition(cond: FieldCondition, values: Record<string, 
   if ("in" in cond) return cond.in.includes(val);
   if ("notIn" in cond) return !cond.notIn.includes(val);
   return val !== cond.ne;
+}
+
+type SelectOptionRules = Pick<SelectFieldDef, "options" | "conditionalOptions">;
+
+export type UnavailableSelectOption = {
+  readonly field: string;
+  readonly value: string;
+  readonly allowed: readonly string[];
+};
+
+/** Options of a select field that are offered for the given row values, in declaration order. */
+export function availableSelectOptions(
+  field: SelectOptionRules,
+  values: Record<string, unknown>,
+): readonly string[] {
+  const rules = field.conditionalOptions;
+  if (!rules || rules.length === 0) return field.options;
+  return field.options.filter((option) =>
+    rules.every((rule) => !rule.options.includes(option) || evalFieldCondition(rule.when, values)),
+  );
+}
+
+function isSameValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** Select values that violate a `conditionalOptions` rule. With `previous`, a field is only
+ *  checked when it or one of its condition fields changed, so legacy rows stay editable. */
+export function findUnavailableSelectOptions(
+  fields: Readonly<Record<string, FieldDefinition>>,
+  values: Record<string, unknown>,
+  previous?: Record<string, unknown>,
+): readonly UnavailableSelectOption[] {
+  const unavailable: UnavailableSelectOption[] = [];
+  for (const [name, def] of Object.entries(fields)) {
+    if (def.type !== "select" || !def.conditionalOptions) continue;
+    const value = values[name];
+    if (typeof value !== "string" || value === "") continue;
+    if (previous) {
+      const watched = [name, ...def.conditionalOptions.map((rule) => rule.when.field)];
+      if (watched.every((key) => isSameValue(values[key], previous[key]))) continue;
+    }
+    const allowed = availableSelectOptions(def, values);
+    if (!allowed.includes(value)) unavailable.push({ field: name, value, allowed });
+  }
+  return unavailable;
 }
 
 export function normalizeEditField(f: EditFieldSpec): Exclude<EditFieldSpec, string> {

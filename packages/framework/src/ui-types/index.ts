@@ -25,10 +25,12 @@ export type { DerivedCellRoundingTarget } from "../engine/embedded-derived.js";
 export { computeDerivedCellValue, roundDerivedCellValue } from "../engine/embedded-derived.js";
 export type { ParsedRefTarget } from "../engine/parse-ref-target.js";
 export { parseRefTarget } from "../engine/parse-ref-target.js";
-export type { FieldsOrGroupsSection } from "../engine/screen-helpers.js";
+export type { FieldsOrGroupsSection, UnavailableSelectOption } from "../engine/screen-helpers.js";
 export {
+  availableSelectOptions,
   evalFieldCondition,
   explicitListScreenId,
+  findUnavailableSelectOptions,
   isExtensionEditSection,
   isFieldsEditSection,
   isFormatSpec,

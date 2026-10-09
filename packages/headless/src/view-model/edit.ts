@@ -8,6 +8,7 @@ import type {
   ParsedRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
+  availableSelectOptions,
   evalFieldCondition,
   isExtensionEditSection,
   isFieldsEditSection,
@@ -210,15 +211,30 @@ function deriveSelectOptionsAvailabilityQuery(
     : {};
 }
 
+// A stored value that conditionalOptions no longer allows stays listed, so the
+// form shows it (flagged on submit) instead of silently dropping it.
+function selectableOptions(
+  fieldDef: EntityFieldDef,
+  fieldName: string,
+  values: Readonly<Record<string, unknown>>,
+): readonly string[] | undefined {
+  if (fieldDef.type === "multiSelect") return fieldDef.options;
+  if (fieldDef.type !== "select") return undefined;
+  if (!fieldDef.conditionalOptions) return fieldDef.options;
+  const available = availableSelectOptions(fieldDef, values);
+  const current = values[fieldName];
+  return fieldDef.options.filter((option) => available.includes(option) || option === current);
+}
+
 function deriveSelectFieldHints(
   fieldDef: EntityFieldDef,
   translate: Translate,
   featureName: string,
   entityName: string,
   fieldName: string,
+  values: Readonly<Record<string, unknown>>,
 ): SelectFieldHints {
-  const options =
-    fieldDef.type === "select" || fieldDef.type === "multiSelect" ? fieldDef.options : undefined;
+  const options = selectableOptions(fieldDef, fieldName, values);
   const optionLabels =
     options !== undefined
       ? buildOptionLabels(
@@ -227,8 +243,12 @@ function deriveSelectFieldHints(
           options,
         )
       : undefined;
-  const display =
+  const declaredDisplay =
     fieldDef.type === "multiSelect" || fieldDef.type === "select" ? fieldDef.display : undefined;
+  // The renderer's heuristic counts options, so a filtered list would switch widgets with the discriminator.
+  const display =
+    declaredDisplay ??
+    (fieldDef.type === "select" && fieldDef.conditionalOptions ? "dropdown" : undefined);
   const columns = fieldDef.type === "multiSelect" ? fieldDef.columns : undefined;
   const maxRows = fieldDef.type === "multiSelect" ? fieldDef.maxRows : undefined;
   return {
@@ -583,6 +603,7 @@ export function computeEditViewModel<
         featureName,
         screen.entity,
         normalized.field,
+        values,
       );
       const textHints = deriveTextFieldHints(fieldDef);
       const dateHints = deriveDateFieldHints(fieldDef);

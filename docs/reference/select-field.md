@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-02
-evidence: "framework#2711 (SelectFieldDef.display / InputProps display); framework#2494 (display-Projection in build-app-schema); framework#2606; framework#3381 (Heuristik nach Optionszahl und Labellänge, radioVariant card, optionTones); optionsQuery: packages/renderer-web/src/__tests__/select-options-query.test.tsx, packages/framework/src/engine/__tests__/boot-validator-select-options-query.test.ts; description/group: packages/renderer-web/src/__tests__/select-options-description-group.test.tsx"
+verified: 2026-10-09
+evidence: "framework#2711 (SelectFieldDef.display / InputProps display); framework#2494 (display-Projection in build-app-schema); framework#2606; framework#3381 (Heuristik nach Optionszahl und Labellänge, radioVariant card, optionTones); optionsQuery: packages/renderer-web/src/__tests__/select-options-query.test.tsx, packages/framework/src/engine/__tests__/boot-validator-select-options-query.test.ts; description/group: packages/renderer-web/src/__tests__/select-options-description-group.test.tsx; conditionalOptions: packages/framework/src/__tests__/select-conditional-options.integration.test.ts, packages/framework/src/engine/__tests__/select-conditional-options.test.ts"
 ---
 
 # Select-Feld: Segmente, Radio-Liste oder Dropdown
@@ -110,6 +110,45 @@ textModel: createTenantConfig("select", {
 Die Herkunftszeile unter einem Feld einer `configEdit`-Maske („Standard ist …“)
 und die Zeilen unter „Alle Ebenen anzeigen“ zeigen bei Select-Feldern das Label
 der Option statt des Rohwerts, bei `optionsQuery` also den Namen statt einer ID.
+
+## Optionen abhängig von einem anderen Feld
+
+Ein Entity-Select kann einzelne seiner statischen Optionen nur anbieten, wenn
+ein anderes Feld derselben Zeile einen bestimmten Wert hat. Beispiel: lange
+Intervalle gibt es nur für Monitore vom Typ `heartbeat`.
+
+```ts
+intervalSeconds: createSelectField({
+  options: ["60", "300", "3600", "86400"],
+  default: "300",
+  conditionalOptions: [
+    { options: ["3600", "86400"], when: { field: "kind", eq: "heartbeat" } },
+  ],
+}),
+```
+
+- `when` ist eine `FieldCondition` (`eq`, `ne`, `in`, `notIn`), dieselbe Form wie
+  `visible`/`required` an Layout-Feldern. Optionen ohne Regel sind immer verfügbar.
+- Die Maske zeigt nur die verfügbaren Optionen und filtert neu, sobald sich das
+  Bezugsfeld ändert. Ein gewählter Wert, der dadurch ungültig wird, bleibt
+  sichtbar und wird als Feldfehler markiert („Für die aktuelle Auswahl nicht
+  verfügbar.“). Er wird nicht still geleert.
+- Der Server prüft dieselbe Regel bei jedem Create und Update gegen die Zeile
+  nach dem Write (gespeicherte Zeile plus Änderungen). Ein Verstoß ergibt 422
+  mit `reason: "select_option_not_available"` und `details.field`, `value`,
+  `allowed` sowie `details.fields` für die Inline-Anzeige im Formular.
+- Ein Update prüft nur, wenn sich das Select-Feld oder ein Bezugsfeld ändert.
+  Alte Zeilen mit einem inzwischen ungültigen Wert bleiben für andere Felder
+  editierbar.
+- Ohne `display` rendert das Feld ein Dropdown, damit die Darstellung nicht
+  umspringt, wenn sich das Bezugsfeld ändert und die Optionszahl schwankt. Ein
+  ausdrückliches `display` bleibt bestehen.
+- Nur an Entity-Feldern. An Screen-Formfeldern (`configEdit`, `actionForm`,
+  Write-Form) und Config-Keys gibt es keine Serverprüfung, dort ist
+  `conditionalOptions` ein Boot-Fehler.
+- Boot-Fehler: Option nicht in `options`, Option in zwei Regeln, leere Regel,
+  unbekanntes oder eigenes Bezugsfeld, `default` in einer Regel, Kombination
+  mit `optionsQuery`.
 
 ## Imperative Nutzung
 

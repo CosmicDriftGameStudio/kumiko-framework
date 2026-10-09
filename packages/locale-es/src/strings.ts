@@ -805,6 +805,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.validation.invalid": "Valor no válido.",
   "kumiko.validation.out-of-range": "Valor fuera del rango permitido.",
   "kumiko.validation.required": "Campo obligatorio.",
+  "kumiko.validation.optionNotAvailable": "No disponible para la selección actual.",
   "kumiko.validation.too-long": "Demasiado largo (máximo {max} caracteres).",
   "kumiko.validation.too-short": "Demasiado corto (mínimo {min} caracteres).",
   "kumiko.version.update-available": "Hay una nueva versión disponible.",

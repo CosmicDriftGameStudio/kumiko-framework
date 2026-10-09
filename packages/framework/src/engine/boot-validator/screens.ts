@@ -819,6 +819,9 @@ function rejectWriteOnlyFormField(
 // payload refs must name another field of the same form (the payload also feeds
 // optionsAvailabilityQuery). The QN existence check
 // lives in query-refs.ts with the other query refs.
+const CONDITIONAL_OPTIONS_ENTITY_ONLY =
+  "conditionalOptions is only supported on entity select fields (enforced by the entity write path)";
+
 function validateFormSelectOptions(
   featureName: string,
   screenId: string,
@@ -829,6 +832,9 @@ function validateFormSelectOptions(
 ): void {
   if (fdef.type === "select") {
     const where = `[Feature ${featureName}] Screen "${screenId}" (${context}) select field "${fieldName}"`;
+    if (fdef.conditionalOptions !== undefined) {
+      throw new Error(`${where} declares conditionalOptions — ${CONDITIONAL_OPTIONS_ENTITY_ONLY}`);
+    }
     if (fdef.optionsQuery !== undefined) {
       if (fdef.optionsQuery.length === 0) {
         throw new Error(`${where} has an empty optionsQuery`);

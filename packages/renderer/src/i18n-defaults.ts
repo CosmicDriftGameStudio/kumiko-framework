@@ -246,6 +246,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.secretMint.done": "Done.",
 
     "kumiko.validation.required": "Required.",
+    "kumiko.validation.optionNotAvailable": "Not available for the current selection.",
     "kumiko.validation.invalid": "Invalid value.",
     "kumiko.validation.too-short": "Too short (at least {min} characters).",
     "kumiko.validation.too-long": "Too long (at most {max} characters).",

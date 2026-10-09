@@ -548,6 +548,9 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   // Select: tier/tenant availability of the static options, loaded by the renderer.
   if (typeof def["optionsAvailabilityQuery"] === "string")
     out["optionsAvailabilityQuery"] = def["optionsAvailabilityQuery"];
+  // Select: options only offered while a sibling-field condition holds; the renderer filters, the write path enforces.
+  if (Array.isArray(def["conditionalOptions"]))
+    out["conditionalOptions"] = def["conditionalOptions"];
   if (typeof def["multiple"] === "boolean") out["multiple"] = def["multiple"];
   // MultiSelect: display picks checkboxes vs. combobox in the renderer,
   // columns/maxRows size the checkbox grid — without these the renderer

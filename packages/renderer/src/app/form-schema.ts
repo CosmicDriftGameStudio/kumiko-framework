@@ -3,7 +3,11 @@ import type {
   EntityEditScreenDefinition,
   FieldDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { evalFieldCondition, NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  evalFieldCondition,
+  findUnavailableSelectOptions,
+  NO_WIDGET_FIELD_TYPES,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import * as z from "zod";
 import { layoutEditFields } from "./layout-fields.js";
@@ -22,6 +26,7 @@ function isEmbeddedListField(field: FieldDefinition): boolean {
 
 // Renders raw to the user without a de+en default in i18n-defaults.ts.
 export const REQUIRED_FIELD_I18N_KEY = "kumiko.validation.required";
+export const OPTION_NOT_AVAILABLE_I18N_KEY = "kumiko.validation.optionNotAvailable";
 
 // Client-side presence validation for the auto-wired entityEdit path —
 // checks that every rendered required field HAS a value, not that the
@@ -65,12 +70,14 @@ export function buildFormSchema(
       // its keys — the runtime object always carries every form field.
       // @cast-boundary form-values
       const record = values as Record<string, unknown>;
+      const selectFieldsToCheck: Record<string, FieldDefinition> = {};
       for (const spec of fields) {
         const field = entity.fields[spec.field];
         if (!field) continue;
         // Not operable by the user — a presence error would be unresolvable,
         // same reason as the NO_WIDGET_FIELD_TYPES check below.
         if (spec.readOnly !== undefined && evalFieldCondition(spec.readOnly, record)) continue;
+        selectFieldsToCheck[spec.field] = field;
         // Screen-spec `required` overrides the entity default, mirroring
         // `view-model/edit.ts` — the rendered form is the reference, and a
         // presence check stricter than the form blocks the user for nothing.
@@ -97,6 +104,20 @@ export function buildFormSchema(
           message: `"${spec.field}" is required.`,
           // I18N_KEY_PARAM override, see packages/headless/src/form/zod-bridge.ts.
           params: { [I18N_KEY_PARAM]: REQUIRED_FIELD_I18N_KEY },
+        });
+      }
+      // Against `unchangedFrom` the helper still checks a stored value whose
+      // discriminator changed — the server validates the merged row.
+      for (const issue of findUnavailableSelectOptions(
+        selectFieldsToCheck,
+        record,
+        unchangedFrom,
+      )) {
+        ctx.addIssue({
+          code: "custom",
+          path: [issue.field],
+          message: `"${issue.field}" is not available for the current selection.`,
+          params: { [I18N_KEY_PARAM]: OPTION_NOT_AVAILABLE_I18N_KEY, allowed: issue.allowed },
         });
       }
     });

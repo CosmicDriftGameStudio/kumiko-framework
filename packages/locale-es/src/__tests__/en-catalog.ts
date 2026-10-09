@@ -779,6 +779,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Copy this now — it is shown only this once and cannot be retrieved later.",
   "kumiko.toast.learn-more": "Learn more",
   "kumiko.validation.invalid": "Invalid value.",
+  "kumiko.validation.optionNotAvailable": "Not available for the current selection.",
   "kumiko.validation.out-of-range": "Value out of allowed range.",
   "kumiko.validation.required": "Required.",
   "kumiko.validation.too-long": "Too long (at most {max} characters).",
