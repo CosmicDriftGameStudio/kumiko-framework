@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.js";
 import { Button as UiButton } from "../ui/button.js";
+import { useKeyboardInset } from "./use-keyboard-inset.js";
 
 // env(safe-area-inset-bottom) is 0 unless the page's viewport meta sets
 // viewport-fit=cover; with it, the home indicator would otherwise cover the bar.
@@ -13,11 +14,13 @@ export const STICKY_FOOTER_SAFE_AREA_CLASS = "max-sm:pb-[max(1rem,env(safe-area-
 export const STICKY_FOOTER_SPACER_CLASS = "max-sm:pb-[calc(6rem_+_env(safe-area-inset-bottom))]";
 
 export function StickyActionBar({ children, back, testId }: StickyActionBarProps): ReactNode {
+  const keyboardInset = useKeyboardInset();
   return (
     <>
       <div aria-hidden="true" className={cn("sm:hidden", STICKY_FOOTER_SPACER_CLASS)} />
       <div
         data-testid={testId}
+        style={keyboardInset > 0 ? { bottom: keyboardInset } : undefined}
         className={cn(
           "flex items-center gap-3",
           "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:border-t max-sm:border-border max-sm:bg-background max-sm:px-4 max-sm:pt-3",
