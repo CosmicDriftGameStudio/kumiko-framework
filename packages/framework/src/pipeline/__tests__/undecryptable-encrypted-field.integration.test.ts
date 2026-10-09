@@ -20,6 +20,12 @@ const noteEntity = createEntity({
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     secret: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
+    requiredSecret: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      encrypted: true,
+      required: true,
+    }),
   },
 });
 
@@ -52,13 +58,17 @@ afterEach(async () => {
 });
 
 async function createNote(title: string, secret: string): Promise<string> {
-  const { id } = await stack.http.writeOk<{ id: string }>(CREATE, { title, secret }, admin);
+  const { id } = await stack.http.writeOk<{ id: string }>(
+    CREATE,
+    { title, secret, requiredSecret: `required-${secret}` },
+    admin,
+  );
   return id;
 }
 
 async function corruptStoredSecret(id: string): Promise<void> {
   await asRawClient(stack.db).unsafe(
-    `UPDATE uef_notes SET secret = 'not-an-envelope' WHERE id = $1`,
+    `UPDATE uef_notes SET secret = 'not-an-envelope', required_secret = 'not-an-envelope' WHERE id = $1`,
     [id],
   );
 }
@@ -77,7 +87,9 @@ describe("undecryptable encrypted field", () => {
     const byId = new Map(list.rows.map((r) => [r["id"], r]));
     expect(byId.size).toBe(2);
     expect(byId.get(goodId)?.["secret"]).toBe("plain-good");
+    expect(byId.get(goodId)?.["requiredSecret"]).toBe("required-plain-good");
     expect(byId.get(brokenId)?.["secret"]).toBeNull();
+    expect(byId.get(brokenId)?.["requiredSecret"]).toBeNull();
     expect(byId.get(brokenId)?.["title"]).toBe("broken");
     expect(JSON.stringify(list)).not.toContain("not-an-envelope");
   });
@@ -89,5 +101,6 @@ describe("undecryptable encrypted field", () => {
     const row = await stack.http.queryOk<Record<string, unknown>>(DETAIL, { id: brokenId }, admin);
     expect(row["title"]).toBe("broken");
     expect(row["secret"]).toBeNull();
+    expect(row["requiredSecret"]).toBeNull();
   });
 });

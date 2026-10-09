@@ -524,12 +524,12 @@ function RecordNotFoundState({
   readonly translate: Translate;
   readonly onBack?: () => void;
 }): ReactNode {
-  const { Card, Heading, Text, Button } = usePrimitives();
+  const { Card, Text, Button } = usePrimitives();
   return (
     <Card options={{ padded: true }} testId="kumiko-screen-record-missing">
-      <Heading variant="section" testId="kumiko-screen-record-missing-title">
+      <Text testId="kumiko-screen-record-missing-title">
         {translate("kumiko.record.not-found.title")}
-      </Heading>
+      </Text>
       <Text variant="muted">{translate("kumiko.record.not-found.hint")}</Text>
       {onBack !== undefined && (
         <Button variant="secondary" onClick={onBack} testId="kumiko-screen-record-missing-back">
@@ -1374,7 +1374,10 @@ function EntityEditUpdateBody({
   const effectiveTranslate = translate ?? t;
   const detailQn = `${toKebab(schema.featureName)}:query:${toKebab(screen.entity)}:detail`;
   const detailQuery = useQuery<Readonly<Record<string, unknown>>>(detailQn, { id: entityId });
+  const nav = useNav();
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
+  const returnTargetParam = useReturnTarget(screen.id);
+  const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
 
   if (detailQuery.loading && detailQuery.data === null) {
     return (
@@ -1393,7 +1396,9 @@ function EntityEditUpdateBody({
   const record = detailQuery.data;
   if (!record) {
     const onBack =
-      findEntityListScreen(schema, screen.entity) !== undefined ? navigateToList : undefined;
+      returnTarget !== undefined || findEntityListScreen(schema, screen.entity) !== undefined
+        ? () => navigateToReturnOr(nav, returnTarget, navigateToList)
+        : undefined;
     return (
       <RecordNotFoundState
         translate={effectiveTranslate}

@@ -187,6 +187,7 @@ rowActions: [{ id: "mark-posted", label: "campaigns.action.mark-posted", handler
 
 ## Forms
 
+- An entityEdit or projectionDetail opened with an unknown or deleted record id shows an empty state (`kumiko.record.not-found.*`, localized) with a back button: to `returnTo` when present, otherwise to the entity's list screen (projectionDetail: `listScreenId` or the list of `detailFor`). Without a target there is no button.
 - `submit: false` on an edit field keeps it out of the payload. Validation and rendering stay as they are.
 - `footerActions` on an actionForm render before the submit button. A click sets `patch` on the form values, then submits through the normal validation and write path. The patched field does not have to be in the layout.
 - A `writeForm` section that is the whole tab of a `projectionDetail` tabs layout puts its submit button into the pinned form footer, right-aligned like every other save button. Outside a tab (stacked sections) it keeps its submit in its own title row. `writeForm` is a `projectionDetail`-only primitive; the boot validator rejects it on other screen types.

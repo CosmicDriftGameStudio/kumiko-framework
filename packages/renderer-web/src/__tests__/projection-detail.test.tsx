@@ -193,7 +193,7 @@ describe("KumikoScreen / projectionDetail", () => {
     });
   });
 
-  test("record not found shows an error banner", async () => {
+  test("record not found shows the not-found empty state", async () => {
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async () => ({ isSuccess: true, data: null })) as unknown as Dispatcher["query"],
     });
