@@ -43,8 +43,8 @@
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@cosmicdrift/kumiko-bundled-features": "workspace:^",
-    "@cosmicdrift/kumiko-framework": "workspace:^"
+    "@cosmicdrift/kumiko-bundled-features": ">=0.353.0 <1.0.0",
+    "@cosmicdrift/kumiko-framework": ">=0.353.0 <1.0.0"
   },
   "peerDependenciesMeta": {
     "@cosmicdrift/kumiko-bundled-features": {

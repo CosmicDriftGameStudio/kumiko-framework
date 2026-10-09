@@ -86,8 +86,8 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
       "peerDependencies": {
-        "@cosmicdrift/kumiko-bundled-features": "workspace:^",
-        "@cosmicdrift/kumiko-framework": "workspace:^",
+        "@cosmicdrift/kumiko-bundled-features": ">=0.353.0 <1.0.0",
+        "@cosmicdrift/kumiko-framework": ">=0.353.0 <1.0.0",
       },
       "optionalPeers": [
         "@cosmicdrift/kumiko-bundled-features",
