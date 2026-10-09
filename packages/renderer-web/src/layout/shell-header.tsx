@@ -323,9 +323,9 @@ function HeaderOverflow({
           // biome-ignore lint/a11y/noStaticElementInteractions: same, not an interactive target itself
           <div
             data-kumiko-layout="header-actions"
-            // Apps wrap their nodes in a horizontal flex row; stacking it (and its direct
-            // wrapper) lets menu rows like ThemeToggle take the full panel width.
-            className="flex flex-col items-stretch gap-1 [&>div]:flex-col [&>div]:items-stretch"
+            // Stacks direct children only; app wrappers opt in via HeaderActionGroup instead of
+            // being restyled through a child selector that reaches into their markup.
+            className="flex flex-col items-stretch gap-1"
             onClick={() => setOpen(false)}
           >
             <HeaderOverflowMenuContext.Provider value={true}>
