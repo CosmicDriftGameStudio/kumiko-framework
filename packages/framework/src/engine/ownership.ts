@@ -160,10 +160,9 @@ export function userCanReadFieldRow(
   for (const role of user.roles) {
     const rule = accessMap[role];
     if (!rule) continue;
-    // where-rules are SQL predicates (buildOwnershipClause); matchesRule
-    // can't evaluate them in-memory and throws. Read maps may legitimately
-    // carry one — it just belongs on the SQL path, so an in-memory read
-    // check denies rather than crashing.
+    // where-rules are SQL predicates; matchesRule can't evaluate them in-memory.
+    // The boot validator rejects them on field maps, so this only fails closed
+    // for maps that bypassed boot validation.
     // skip: where-rules are SQL-layer only — fail closed instead of throwing.
     if (rule !== "all" && rule.kind === "where") continue;
     if (matchesRule(rule, user, row)) return true;

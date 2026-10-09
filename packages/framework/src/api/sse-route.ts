@@ -6,6 +6,7 @@ import type { SessionUser } from "../engine/types/index.js";
 import { Routes } from "./api-constants.js";
 import { getAuthTokenExpiry, getUser } from "./auth-middleware.js";
 import { accessInvalidationCredentialFor, type SseBroker, type SseEvent } from "./sse-broker.js";
+import { scheduleTokenExpiry } from "./token-expiry-timer.js";
 
 /**
  * Heartbeat-Cadence für SSE-Streams.
@@ -119,10 +120,6 @@ function decideWireFrame(
   return { name: event.type, data };
 }
 
-// setTimeout overflows (fires immediately) above 2^31-1 ms; a token that
-// outlives it just gets its stream recycled early, the client reconnects.
-const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
-
 export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
   const route = new Hono();
 
@@ -161,13 +158,7 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
         accessInvalidationCredentialFor(user),
       );
 
-      const expiryTimer =
-        tokenExpiresAtSec === undefined
-          ? undefined
-          : setTimeout(
-              closeStream,
-              Math.min(MAX_TIMER_DELAY_MS, Math.max(0, tokenExpiresAtSec * 1000 - Date.now())),
-            );
+      const expiryTimer = scheduleTokenExpiry(tokenExpiresAtSec, closeStream);
 
       let released = false;
       const release = () => {

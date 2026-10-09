@@ -3,6 +3,7 @@ import type { TenantId } from "../engine/types/identifiers.js";
 export const CACHE_SYNC_TOPICS = {
   tenantConfig: "tenant-config",
   tierAssignment: "tier-assignment",
+  featureToggle: "feature-toggle",
 } as const;
 
 export type TenantConfigSyncMessage =

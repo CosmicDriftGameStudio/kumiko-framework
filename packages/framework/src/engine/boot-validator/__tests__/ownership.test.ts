@@ -1,12 +1,12 @@
-// fw#2626 — boot guard: `{ kind: "where" }` is admissible on access.read
-// (buildOwnershipClause runs it as SQL) and rejected on access.write, where
-// rules are evaluated in memory against the concrete row and a create has no
-// row at all. Without the guard such a map boots and only ever denies.
+// fw#2626 — boot guard: `{ kind: "where" }` is admissible only on entity
+// access.read (buildOwnershipClause runs it as SQL). access.write and
+// field-level access.read are evaluated in memory against the concrete row, so
+// a where-rule there boots and only ever denies; the guard fails the boot.
 
 import { describe, expect, test } from "bun:test";
 import { buildEntityTable } from "../../../db/table-builder.js";
 import { defineFeature } from "../../define-feature.js";
-import { createEntity, createTextField } from "../../factories.js";
+import { createEmbeddedField, createEntity, createTextField } from "../../factories.js";
 import { tableNameOf } from "../../ownership.js";
 import type { ClaimKeyDefinition, FeatureDefinition } from "../../types/index.js";
 import type { OwnershipMap, WhereRule } from "../../types/ownership.js";
@@ -109,12 +109,37 @@ describe("validateOwnershipRules — probe renders the rule with the runtime tab
   });
 });
 
-describe("validateOwnershipRules — where-rules on access.read stay supported", () => {
+describe("validateOwnershipRules — where-rules on access.read", () => {
   test("entity.access.read with a where-rule boots", () => {
     expect(() => validate(featureWith({ read: { Member: ownerWhere } }))).not.toThrow();
   });
 
-  test("field.access.read with a where-rule boots", () => {
-    expect(() => validate(featureWith({}, { read: { Member: ownerWhere } }))).not.toThrow();
+  test("field.access.read with a where-rule fails the boot", () => {
+    const feature = featureWith({}, { read: { Member: ownerWhere } });
+    expect(() => validate(feature)).toThrow(/memo\.title\.access\.read/);
+    expect(() => validate(feature)).toThrow(/from\(/);
+  });
+
+  test("an embedded sub-field with a where-rule on access.read fails the boot", () => {
+    const feature = defineFeature("memos", (r) => {
+      r.entity(
+        "memo",
+        createEntity({
+          fields: {
+            detail: createEmbeddedField(
+              {
+                note: createTextField({
+                  access: { read: { Member: ownerWhere } },
+                  personal: false,
+                  reason: "test_fixture",
+                }),
+              },
+              { personal: false, reason: "test_fixture" },
+            ),
+          },
+        }),
+      );
+    });
+    expect(() => validate(feature)).toThrow(/memo\.detail\.note\.access\.read/);
   });
 });

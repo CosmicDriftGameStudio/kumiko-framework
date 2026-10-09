@@ -1106,6 +1106,7 @@ export async function createKumikoServer(
         path: url.pathname,
         host,
         systemQuery: buildDevSystemQuery(req, socketAddress),
+        requestSignal: req.signal,
       });
     }
     return new Response(html, { status, headers });

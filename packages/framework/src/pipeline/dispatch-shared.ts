@@ -284,6 +284,8 @@ function allowlistedReadOnlyProxy<T extends object>(
         const method: unknown = Reflect.get(inner, prop, inner);
         return typeof method === "function" ? method.bind(inner) : method;
       }
+      // Symbol reads and "then" come from await/Promise.resolve/inspect, not from handler code.
+      if (typeof prop === "symbol" || prop === "then") return undefined;
       throw memberResolutionReadOnlyDenied();
     },
   });

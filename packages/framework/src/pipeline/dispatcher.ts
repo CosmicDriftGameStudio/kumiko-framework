@@ -34,7 +34,7 @@ import {
   resolveAuthClaimsFn,
   TENANT_TIMEZONE_CONFIG_KEY,
 } from "./dispatch-shared.js";
-import { executeStream } from "./dispatch-stream.js";
+import { executeStream, type StreamOptions } from "./dispatch-stream.js";
 import { type HandlerType, resolveType } from "./dispatcher-utils.js";
 import type { IdempotencyGuard } from "./idempotency.js";
 import type { LifecycleHooks } from "./lifecycle-pipeline.js";
@@ -98,7 +98,12 @@ export type Dispatcher = {
   // AsyncGenerator, not Promise — gates (feature/rate-limit/access/
   // validation) fire on the consumer's first `.next()` pull, not on this
   // call, since they live inside the underlying async function*.
-  stream(type: HandlerType, payload: unknown, user: SessionUser): AsyncGenerator<unknown>;
+  stream(
+    type: HandlerType,
+    payload: unknown,
+    user: SessionUser,
+    options?: StreamOptions,
+  ): AsyncGenerator<unknown>;
   command(type: HandlerType, payload: unknown, user: SessionUser): Promise<void>;
   // Atomic multi-command write: all commands run in a single DB transaction.
   // On any failure, the transaction rolls back and afterCommit hooks do NOT fire.
@@ -251,9 +256,16 @@ export function createDispatcher(
       return runWithWriteOrigin(origin, () => executeQuery(ctx, type, payload, user, origin));
     },
 
-    stream: (typeOrRef, payload, user) => {
+    stream: (typeOrRef, payload, user, options) => {
       const type = resolveType(typeOrRef);
-      return executeStream(ctx, type, payload, user, rootWriteOrigin(registry, type, user));
+      return executeStream(
+        ctx,
+        type,
+        payload,
+        user,
+        rootWriteOrigin(registry, type, user),
+        options,
+      );
     },
 
     async command(typeOrRef, payload, user) {

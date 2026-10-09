@@ -172,7 +172,7 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
     subscribeAccessInvalidation: inner.subscribeAccessInvalidation,
 
     pushToChannel(channel, event) {
-      signal.publish(`${channelPrefix}${channel}`, event);
+      return signal.publishConfirmed(`${channelPrefix}${channel}`, event);
     },
 
     // fw#1601: this is the security-critical call — a revoked session's

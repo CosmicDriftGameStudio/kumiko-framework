@@ -52,8 +52,8 @@ describe("createRedisSseBroker", () => {
     // yet (a one-time race right after broker construction, not
     // reproducible once real traffic starts seconds after boot) — a single
     // fire-and-check would be flaky rather than proving the real property.
-    await waitFor(() => {
-      podB.pushToChannel(channel, { type: "unit.updated", data: { id: "1" } });
+    await waitFor(async () => {
+      await podB.pushToChannel(channel, { type: "unit.updated", data: { id: "1" } });
       return received.length >= 1;
     });
     expect(received[0]).toEqual({ type: "unit.updated", data: { id: "1" } });
@@ -83,9 +83,9 @@ describe("createRedisSseBroker", () => {
 
     // appB publishes first; the same-prefix publish after it acts as the positive control,
     // so by the time it arrives a leaked appB event would already be in `received`.
-    await waitFor(() => {
-      appB.pushToChannel(channel, { type: "leak", data: {} });
-      appAOtherPod.pushToChannel(channel, { type: "own", data: {} });
+    await waitFor(async () => {
+      await appB.pushToChannel(channel, { type: "leak", data: {} });
+      await appAOtherPod.pushToChannel(channel, { type: "own", data: {} });
       return received.some((e) => e.type === "own");
     });
     expect(received.some((e) => e.type === "leak")).toBe(false);
@@ -130,8 +130,8 @@ describe("createRedisSseBroker", () => {
       () => {},
     );
 
-    await waitFor(() => {
-      podB.pushToChannel(channelB, { type: "unit.updated", data: { id: "leak-probe" } });
+    await waitFor(async () => {
+      await podB.pushToChannel(channelB, { type: "unit.updated", data: { id: "leak-probe" } });
       return receivedOnControl.length >= 1;
     });
     expect(receivedOnA).toHaveLength(0);
@@ -310,7 +310,7 @@ describe("createRedisSseBroker", () => {
         // shared kumiko:sse:* namespace.
         await publisherRaw.publish(`kumiko:sse:ch:${channel}`, "not-json{{{");
         // Broker must still be alive: a real event right after must arrive.
-        podA.pushToChannel(channel, { type: "unit.updated", data: { id: "after-garbage" } });
+        await podA.pushToChannel(channel, { type: "unit.updated", data: { id: "after-garbage" } });
         return received.length >= 1;
       });
       expect(received[0]).toEqual({ type: "unit.updated", data: { id: "after-garbage" } });
@@ -338,8 +338,8 @@ describe("createDefaultSseBroker", () => {
       () => {},
     );
 
-    await waitFor(() => {
-      sseBroker.pushToChannel(channel, { type: "unit.updated", data: { id: "1" } });
+    await waitFor(async () => {
+      await sseBroker.pushToChannel(channel, { type: "unit.updated", data: { id: "1" } });
       return received.length >= 1;
     });
     expect(received[0]).toEqual({ type: "unit.updated", data: { id: "1" } });

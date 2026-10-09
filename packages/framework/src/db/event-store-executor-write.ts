@@ -1,7 +1,9 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import type { ZodType } from "zod";
 import { checkWriteFieldOwnership } from "../engine/field-access.js";
 import { instructionFieldNames } from "../engine/instruction-fields.js";
 import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.js";
+import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.js";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.js";
 import type { EntityId, SessionUser } from "../engine/types/index.js";
 import {
@@ -108,6 +110,7 @@ async function runPreSave(
   isNew: boolean,
   entityName: string,
   action: "create" | "update",
+  outputSchema: () => ZodType,
 ): Promise<{ readonly data: DbRow } | { readonly failure: ReturnType<typeof writeFailure> }> {
   if (!preSave) return { data: changes as DbRow };
   try {
@@ -116,6 +119,27 @@ async function runPreSave(
     // must not leak them into the persisted row — aggregateId already comes
     // from generateId()/the loaded row, not from hook output (fw#1685).
     const { id: _hookId, version: _hookVersion, ...safe } = hookResult as Record<string, unknown>;
+    // Hook output skips the handler's input validation yet goes straight into the projection.
+    // Validated only, not replaced by the parse result: hooks may set fields in storage form.
+    const parsed = outputSchema().safeParse(safe);
+    if (!parsed.success) {
+      return {
+        failure: writeFailure(
+          new UnprocessableError("presave_hook_invalid_output", {
+            i18nKey: "errors.presaveHookInvalidOutput",
+            details: {
+              entityName,
+              action,
+              handler: `${entityName}:${action}`,
+              issues: parsed.error.issues.map((issue) => ({
+                path: issue.path.join("."),
+                message: issue.message,
+              })),
+            },
+          }),
+        ),
+      };
+    }
     return { data: safe as DbRow };
   } catch (e) {
     return {
@@ -148,6 +172,10 @@ export function createWriteVerbs(
     loadExpectSnapshot,
   } = ctx;
   const entityInstructionFieldNames = instructionFieldNames(entity);
+  let insertSchema: ZodType | undefined;
+  let updateSchema: ZodType | undefined;
+  const createOutputSchema = () => (insertSchema ??= buildInsertSchema(entity));
+  const updateOutputSchema = () => (updateSchema ??= buildUpdateSchema(entity));
 
   return {
     async create(payload, user, db, options) {
@@ -172,6 +200,7 @@ export function createWriteVerbs(
         true,
         entityName,
         "create",
+        createOutputSchema,
       );
       if ("failure" in preSaveResult) return preSaveResult.failure;
       const data = preSaveResult.data;
@@ -375,6 +404,7 @@ export function createWriteVerbs(
         false,
         entityName,
         "update",
+        updateOutputSchema,
       );
       if ("failure" in preSaveResult) return preSaveResult.failure;
       const changes = preSaveResult.data;

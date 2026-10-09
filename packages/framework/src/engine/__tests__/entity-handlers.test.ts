@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { createTestUser } from "../../stack/index.js";
 import {
   createEntityExecutor,
   defineEntityCreateHandler,
@@ -18,6 +19,7 @@ import { createEntity, createLongTextField, createTextField } from "../factories
 // actually re-exported through engine/index.ts.
 import { entityListSchema, resolveAgentExposure } from "../index.js";
 import type { QueryHandlerDef, WriteHandlerDef } from "../types/index.js";
+import { buildMinimalCtx } from "./_pipeline-test-utils.js";
 
 const VALID_UUID = "00000000-0000-4000-8000-000000000001";
 
@@ -129,28 +131,6 @@ describe("defineEntityWriteHandler", () => {
       access: { roles: ["Admin"] },
     });
     expect(def.access).toEqual({ roles: ["Admin"] });
-  });
-
-  test("unsafeAllTenants: { reason } forwards the flag and declares the reason as escapeHatch", async () => {
-    const def = defineProjectionQueryHandler(
-      "revenue:list",
-      "showcase:projection:customer-revenue",
-      {
-        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-        unsafeAllTenants: { reason: "operator-wide revenue sweep" },
-      },
-    );
-    expect(def.escapeHatch).toEqual({ reason: "operator-wide revenue sweep" });
-    const ctx = { queryProjection: mock().mockResolvedValue([]) };
-    await def.handler(
-      // biome-ignore lint/suspicious/noExplicitAny: test shim.
-      { type: "revenue:list", user: {} as any, payload: {} },
-      // biome-ignore lint/suspicious/noExplicitAny: test shim.
-      ctx as any,
-    );
-    expect(ctx.queryProjection).toHaveBeenCalledWith("showcase:projection:customer-revenue", {
-      unsafeAllTenants: true,
-    });
   });
 
   test("access is now a required option — omitting it is a type error", () => {
@@ -330,6 +310,26 @@ describe("defineProjectionQueryHandler", () => {
       undefined,
     );
     expect(result).toBe(fakeRows);
+  });
+
+  test("unsafeAllTenants: { reason } forwards the flag and declares the reason as escapeHatch", async () => {
+    const def = defineProjectionQueryHandler(
+      "revenue:list",
+      "showcase:projection:customer-revenue",
+      {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        unsafeAllTenants: { reason: "operator-wide revenue sweep" },
+      },
+    );
+    expect(def.escapeHatch).toEqual({ reason: "operator-wide revenue sweep" });
+    const queryProjection = mock().mockResolvedValue([]);
+    await def.handler(
+      { type: "revenue:list", user: createTestUser(), payload: {} },
+      Object.assign(buildMinimalCtx(), { queryProjection }),
+    );
+    expect(queryProjection).toHaveBeenCalledWith("showcase:projection:customer-revenue", {
+      unsafeAllTenants: true,
+    });
   });
 
   test("unsafeAllTenants: true forwards the option to ctx.queryProjection", async () => {

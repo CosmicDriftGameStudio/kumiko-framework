@@ -37,6 +37,13 @@ function readOnlyContext(): Record<string, unknown> {
   return applyMemberResolutionReadOnly(ctx) as unknown as Record<string, unknown>;
 }
 
+function readOnlyContextWithRedis(): Record<string, unknown> {
+  const redis = { get: () => "value", set: () => "escalated" };
+  // @cast-boundary test stub — applyMemberResolutionReadOnly only spreads and wraps redis.
+  const ctx = { redis, jobRunner: { handleEvent: () => "ran" } } as unknown as HandlerContext;
+  return applyMemberResolutionReadOnly(ctx) as unknown as Record<string, unknown>;
+}
+
 function surface(readOnly: Record<string, unknown>, key: string): unknown {
   return readOnly[key];
 }
@@ -75,5 +82,16 @@ describe("applyMemberResolutionReadOnly", () => {
 
     expect(() => scheduleAfterCommit()).toThrow(AccessDeniedError);
     expect(() => jobRunner.handleEvent).toThrow(AccessDeniedError);
+  });
+
+  test("allowlisted proxies stay awaitable and inspectable but deny other reads", async () => {
+    const readOnly = readOnlyContextWithRedis();
+    const redis = readOnly["redis"] as object;
+
+    expect(Reflect.get(redis, "then")).toBeUndefined();
+    expect(Reflect.get(redis, Symbol.toPrimitive)).toBeUndefined();
+    expect(await Promise.resolve(redis)).toBe(redis);
+    expect(() => Reflect.get(redis, "set")).toThrow(AccessDeniedError);
+    expect(typeof Reflect.get(redis, "get")).toBe("function");
   });
 });

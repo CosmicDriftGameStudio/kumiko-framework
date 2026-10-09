@@ -8,7 +8,12 @@ import {
 } from "../ownership.js";
 import { SYSTEM_USER_ID } from "../system-user.js";
 import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
-import type { ClaimKeyDefinition, FeatureDefinition, SessionUser } from "../types/index.js";
+import type {
+  ClaimKeyDefinition,
+  EmbeddedSubFieldDef,
+  FeatureDefinition,
+  SessionUser,
+} from "../types/index.js";
 import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule-lint.js";
 
 // --- Ownership rule validation (H.2) ---
@@ -21,6 +26,9 @@ import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule
 // fw#2639: also probes every `{ kind: "where" }` rule against the where-rule
 // lint (see ../where-rule-lint.ts) so a fail-open unqualified-column bug
 // fails the boot instead of waiting for a request from the right role.
+//
+// Field-level `access.read` rejects where-rules too: filterFieldsForRead
+// evaluates it in memory and userCanReadFieldRow fails closed on a where-rule.
 //
 // fw#2626: `access.write` maps reject `{ kind: "where" }` outright. A
 // where-rule is raw SQL and the write path never reaches SQL — it evaluates
@@ -48,7 +56,9 @@ export type WhereRuleProbe = {
 
 // Which half of an access map is being validated. Only "read" ever reaches
 // SQL, so it is the only path on which a where-rule is admissible.
-export type AccessPath = "read" | "write";
+// "fieldRead" is field-level read: it is evaluated in memory per row
+// (userCanReadFieldRow), so like "write" it cannot host a where-rule.
+export type AccessPath = "read" | "fieldRead" | "write";
 
 // Qualified-name → definition map of every claim key in the mounted feature
 // set. `from("claim:<feature>:<key>")` rules resolve against exactly this.
@@ -143,8 +153,11 @@ export function validateOwnershipRules(
         scope: `${entityName}.${fieldName}.access.read`,
         featureName: feature.name,
         probe,
-        path: "read",
+        path: "fieldRead",
       });
+      if (field.type === "embedded") {
+        rejectWhereInEmbeddedRead(field.schema, `${entityName}.${fieldName}`, feature.name);
+      }
       checkFieldAccess({
         access: field.access?.write,
         columnNames,
@@ -253,6 +266,9 @@ export function checkOwnershipMap(args: {
       if (args.path === "write") {
         throw new Error(buildWhereOnWritePathMessage(roleName, args.scope, args.featureName));
       }
+      if (args.path === "fieldRead") {
+        throw new Error(buildWhereOnFieldReadMessage(roleName, args.scope, args.featureName));
+      }
       probeWhereRule(rule, roleName, args.probe, args.scope, args.featureName);
       continue; // escape hatch — feature author owns the SQL
     }
@@ -321,6 +337,45 @@ export function probeWhereRule(
     fragment.sqlText,
     probe.columns,
     `${scope} (role "${roleName}", feature: "${featureName}")`,
+  );
+}
+
+// Embedded sub-fields are filtered in memory too (filterFieldsForRead), so a
+// where-rule there is just as unevaluable as on a top-level field.
+function rejectWhereInEmbeddedRead(
+  schema: Readonly<Record<string, EmbeddedSubFieldDef>>,
+  parentScope: string,
+  featureName: string,
+): void {
+  for (const [subName, sub] of Object.entries(schema)) {
+    const map = sub.access?.read;
+    if (!map || Array.isArray(map)) continue;
+    for (const [roleName, rule] of Object.entries(map as OwnershipMap)) {
+      if (rule !== "all" && rule.kind === "where") {
+        throw new Error(
+          buildWhereOnFieldReadMessage(
+            roleName,
+            `${parentScope}.${subName}.access.read`,
+            featureName,
+          ),
+        );
+      }
+    }
+  }
+}
+
+export function buildWhereOnFieldReadMessage(
+  roleName: string,
+  scope: string,
+  featureName: string,
+): string {
+  return (
+    `[Kumiko Ownership] ${scope} uses a \`{ kind: "where" }\` rule for role ` +
+    `"${roleName}" (feature: "${featureName}"). Field-level read access is decided ` +
+    `in memory against the concrete row (userCanReadFieldRow), which cannot run ` +
+    `raw SQL — the rule could only ever hide the field from this role. Use a ` +
+    `from()-rule (e.g. from("user:id", "ownerId")) on the field, or move the ` +
+    `where-rule to entity access.read.`
   );
 }
 
