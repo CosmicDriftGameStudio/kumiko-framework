@@ -146,6 +146,10 @@ export function Widgets(): ReactNode {
         </div>
       </SectionCard>
 
+      <div className="flex h-12 w-64 items-stretch" data-testid="progress-stretch-host">
+        <ProgressBar value={0.5} testId="progress-stretch-bar" />
+      </div>
+
       <SectionCard
         title={t("widgets:catalog:repayment-model")}
         action={

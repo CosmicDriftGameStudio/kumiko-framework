@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 import { isRealProviderRun } from "@cosmicdrift/kumiko-framework/testing/real-providers";
-import { expect, type Page, type Request } from "@playwright/test";
+import { expect, type Page, errors as playwrightErrors, type Request } from "@playwright/test";
 import { DESKTOP_VIEWPORT } from "./constants";
 import { pinEnglishLocale } from "./pin-english-locale";
 import { requireScreenshotDir, SCREENSHOT_DIR_ENV } from "./screenshot-dir";
@@ -92,18 +92,31 @@ function isMainFrameNavigationRequest(page: Page, request: Request): boolean {
 // Chromium drops the old document's fetches on a cross-document navigation
 // (reload, goto, location.href) without requestfinished or requestfailed, so
 // they would stay in flight forever. framenavigated alone can't tell that commit
-// apart from a pushState, which must keep them: only a framenavigated preceded by
-// a main-frame navigation request is a new document.
+// apart from a pushState in the still-live old document, which must keep them:
+// only a framenavigated after the navigation request's response is a new
+// document (a delayed navigation response leaves the old document running).
 function countInFlightDataRequests(page: Page): () => number {
   const inFlight = new Set<Request>();
   let pendingDocumentNavigation: Request | undefined;
+  let pendingNavigationResponded = false;
   page.on("request", (request) => {
     if (DATA_REQUEST_TYPES.has(request.resourceType())) inFlight.add(request);
-    else if (isMainFrameNavigationRequest(page, request)) pendingDocumentNavigation = request;
+    else if (isMainFrameNavigationRequest(page, request)) {
+      pendingDocumentNavigation = request;
+      pendingNavigationResponded = false;
+    }
+  });
+  page.on("response", (response) => {
+    if (response.request() === pendingDocumentNavigation) pendingNavigationResponded = true;
   });
   page.on("framenavigated", (frame) => {
-    if (frame === page.mainFrame() && pendingDocumentNavigation !== undefined) {
+    if (
+      frame === page.mainFrame() &&
+      pendingDocumentNavigation !== undefined &&
+      pendingNavigationResponded
+    ) {
       pendingDocumentNavigation = undefined;
+      pendingNavigationResponded = false;
       inFlight.clear();
     }
   });
@@ -113,7 +126,10 @@ function countInFlightDataRequests(page: Page): () => number {
   page.on("requestfailed", (request) => {
     inFlight.delete(request);
     // A navigation that never commits (204, download) leaves the old document alive.
-    if (request === pendingDocumentNavigation) pendingDocumentNavigation = undefined;
+    if (request === pendingDocumentNavigation) {
+      pendingDocumentNavigation = undefined;
+      pendingNavigationResponded = false;
+    }
   });
   return () => inFlight.size;
 }
@@ -619,18 +635,31 @@ export function runMatrix<T extends string>(
   }
 }
 
-// Per-page in-flight counter for captureScreenshot() — a call mid-flow attaches
-// its own page.on("request") listener the first time it sees a given page, so a
-// second captureScreenshot() on that page reuses the same tracker instead of
-// missing requests that were already in flight when the listener attached.
 const inFlightTrackersByPage = new WeakMap<Page, () => number>();
 
-function inFlightTrackerFor(page: Page): () => number {
+/**
+ * Starts counting in-flight data requests (fetch/xhr) on `page`; idempotent per
+ * page. Call it before the first navigation (a fixture or beforeEach) so that
+ * captureScreenshot() also sees requests started by the initial page load.
+ * Requests that began before registration are invisible to it.
+ */
+export function trackInFlightRequests(page: Page): () => number {
   const existing = inFlightTrackersByPage.get(page);
   if (existing !== undefined) return existing;
   const tracker = countInFlightDataRequests(page);
   inFlightTrackersByPage.set(page, tracker);
   return tracker;
+}
+
+// Bounded because a page holding an EventSource (dev hot-reload) never goes network-idle.
+const UNTRACKED_PAGE_IDLE_TIMEOUT_MS = 3_000;
+
+async function waitForNetworkIdleBestEffort(page: Page): Promise<void> {
+  try {
+    await page.waitForLoadState("networkidle", { timeout: UNTRACKED_PAGE_IDLE_TIMEOUT_MS });
+  } catch (error) {
+    if (!(error instanceof playwrightErrors.TimeoutError)) throw error;
+  }
 }
 
 // "viewport": what the window shows. "fullPage": Playwright's document-height
@@ -714,10 +743,11 @@ async function growViewportToContent(page: Page, name: string, width: number): P
 // spec (solon's `shot(page, id)`, offlot's inline docs/screenshots/e2e/* writes) —
 // reuses the runner's settle logic and reduced-motion default, and is a no-op
 // when SCREENSHOT_DIR is unset so a plain e2e run never writes into the repo.
-// Limitation: the in-flight tracker attaches on the first call per page, so data
-// requests already running at that moment are invisible to it. Right after a
-// click, `await expect(...)` the loaded state (or call this once earlier on the
-// page) before the first shot.
+// Limitation: without an earlier trackInFlightRequests(page) the tracker attaches
+// on the first call, so requests already running then are invisible to it; that
+// first call only waits for network idle (best effort, skipped on timeout for
+// pages with a never-ending stream). Register the tracker before navigating, or
+// `await expect(...)` the loaded state after a click.
 export async function captureScreenshot(
   page: Page,
   name: string,
@@ -730,7 +760,10 @@ export async function captureScreenshot(
   const identities = opts.presentIdentities ?? [];
   assertPresentableMappings(identities);
   await page.emulateMedia({ reducedMotion: opts.reducedMotion ?? DEFAULT_REDUCED_MOTION });
-  await waitForSettledPage(page, inFlightTrackerFor(page));
+  const alreadyTracked = inFlightTrackersByPage.has(page);
+  const tracker = trackInFlightRequests(page);
+  if (!alreadyTracked) await waitForNetworkIdleBestEffort(page);
+  await waitForSettledPage(page, tracker);
   const path = `${dir}/${name}.png`;
   mkdirSync(dirname(path), { recursive: true });
   // Before the content fit too: a presented value of another length can change the overflow.

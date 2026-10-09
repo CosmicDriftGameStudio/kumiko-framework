@@ -192,3 +192,18 @@ test("declarative dashboard screen renders stat, chart and list panels", async (
     await page.screenshot({ path: "/tmp/widgets-dashboard.png", fullPage: true });
   }
 });
+
+test("ProgressBar fill keeps its height and half width inside a stretched flex container", async ({
+  page,
+}) => {
+  await page.goto("/widgets");
+  const bar = page.getByTestId("progress-stretch-bar");
+  const fill = bar.locator("> div");
+  await expect(fill).toBeVisible();
+  const barBox = await bar.boundingBox();
+  const fillBox = await fill.boundingBox();
+  if (barBox === null || fillBox === null) throw new Error("expected bounding boxes");
+  expect(barBox.height).toBeGreaterThan(0);
+  expect(fillBox.height).toBeGreaterThan(0);
+  expect(fillBox.width / barBox.width).toBeCloseTo(0.5, 1);
+});

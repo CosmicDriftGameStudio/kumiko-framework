@@ -130,7 +130,7 @@ export type BuildInfo = {
 // index.html mit den richtigen Placeholder-Tags.
 // interactive-widget=resizes-content (fw#1918): keeps `position: fixed`
 // bottom bars anchored above a mobile keyboard instead of behind it.
-const DEFAULT_HTML = `<!doctype html>
+export const DEFAULT_HTML = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
