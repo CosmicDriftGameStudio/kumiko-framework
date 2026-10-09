@@ -752,6 +752,24 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     readonly retryable?: boolean;
   };
 
+  // Only err.message, never payload or the logs array: job payloads can carry PII.
+  function logFailedAttempt(entry: {
+    readonly job: string;
+    readonly jobId: string;
+    readonly attempt: number;
+    readonly finalAttempt: boolean;
+    readonly err: unknown;
+  }): void {
+    errorLogger.error("job failed", {
+      job: entry.job,
+      jobId: entry.jobId,
+      attempt: entry.attempt,
+      // BullMQ never retries an UnrecoverableError, whatever attempts remain.
+      final: entry.finalAttempt || entry.err instanceof UnrecoverableError,
+      error: entry.err instanceof Error ? entry.err.message : String(entry.err),
+    });
+  }
+
   async function reportPreRunFailure(
     jobName: string,
     bullJob: JobInvocation,
@@ -881,7 +899,15 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // A retry may still succeed, and a succeeding wrapper reports no completion
         // that could clear an earlier failure, so only the final attempt is reported.
         const retries = allJobs.get(actualName)?.retries ?? 0;
-        if (bullJob.attemptsMade + 1 >= retries + 1) {
+        const finalAttempt = bullJob.attemptsMade + 1 >= retries + 1;
+        logFailedAttempt({
+          job: rawName,
+          jobId: bullJob.id ?? "unknown",
+          attempt: bullJob.attemptsMade + 1,
+          finalAttempt,
+          err,
+        });
+        if (finalAttempt) {
           await reportPreRunFailure(rawName, bullJob, err);
         }
         throw err;
@@ -894,6 +920,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const jobDef = allJobs.get(jobName);
     if (!jobDef) {
       const err = new Error(`Unknown job: ${jobName}`);
+      // Final regardless of attempts left: a retry cannot make the job exist.
+      logFailedAttempt({
+        job: jobName,
+        jobId: bullJob.id ?? "unknown",
+        attempt: bullJob.attemptsMade + 1,
+        finalAttempt: true,
+        err,
+      });
       await reportPreRunFailure(jobName, bullJob, err);
       throw err;
     }
@@ -1229,6 +1263,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         logs.push({ level: "error", message: errorMsg, timestamp: Temporal.Now.instant() });
+        logFailedAttempt({ job: jobName, jobId, attempt, finalAttempt, err });
         await options.onJobFailed?.(
           jobName,
           jobId,
