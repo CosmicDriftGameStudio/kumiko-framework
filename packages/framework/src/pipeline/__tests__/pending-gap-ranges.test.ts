@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { PendingGapEntry } from "../event-consumer-state.js";
-import { capPendingGapsBelowCursor, subtractSortedIdsFromRanges } from "../pending-gap-ranges.js";
+import {
+  capPendingGapsBelowCursor,
+  mergeContiguousGapRanges,
+  subtractSortedIdsFromRanges,
+} from "../pending-gap-ranges.js";
 
 function gap(from: string, to: string, xmax = "100"): PendingGapEntry {
   return { from, to, xmax };
@@ -90,5 +94,41 @@ describe("capPendingGapsBelowCursor", () => {
   test("xmax is preserved on surviving ranges", () => {
     const ranges = [gap("10", "20", "777")];
     expect(capPendingGapsBelowCursor(ranges, 15n)).toEqual([gap("10", "14", "777")]);
+  });
+});
+
+describe("mergeContiguousGapRanges", () => {
+  test("merges exactly adjacent ranges and keeps the larger xmax", () => {
+    expect(
+      mergeContiguousGapRanges([
+        gap("10", "20", "100"),
+        gap("21", "30", "250"),
+        gap("31", "40", "90"),
+      ]),
+    ).toEqual([gap("10", "40", "250")]);
+  });
+
+  test("compares xmax numerically, not lexically", () => {
+    expect(mergeContiguousGapRanges([gap("1", "2", "9"), gap("3", "4", "10")])).toEqual([
+      gap("1", "4", "10"),
+    ]);
+  });
+
+  test("keeps ranges with a hole between them apart", () => {
+    const ranges = [gap("10", "20"), gap("22", "30")];
+    expect(mergeContiguousGapRanges(ranges)).toEqual(ranges);
+  });
+
+  test("merges unsorted input and handles ids beyond Number precision", () => {
+    expect(
+      mergeContiguousGapRanges([
+        gap("9007199254740994", "9007199254740999"),
+        gap("9007199254740990", "9007199254740993"),
+      ]),
+    ).toEqual([gap("9007199254740990", "9007199254740999")]);
+  });
+
+  test("empty input stays empty", () => {
+    expect(mergeContiguousGapRanges([])).toEqual([]);
   });
 });

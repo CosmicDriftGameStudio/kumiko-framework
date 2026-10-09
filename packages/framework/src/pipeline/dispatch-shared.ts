@@ -9,6 +9,7 @@ import {
   createTenantDb,
   createUncheckedSystemDb,
   hasTenantColumn,
+  runInOwnTransaction,
   type TenantDb,
 } from "../db/tenant-db.js";
 import { createDerivativesContext } from "../derivatives/derivatives-context.js";
@@ -326,6 +327,7 @@ export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): H
     // `db` stays open — executeQuery runs the whole handler in a Postgres READ ONLY
     // transaction, and its `memberReadOnly` grant denies every raw-runner handout.
     dbOutsideTransaction: undefined,
+    outsideTransaction: undefined,
     write: denyMemberResolutionWrite,
     writeAs: denyMemberResolutionWrite,
     // A resolved member cannot switch identity either — the target would get a normal, writable context.
@@ -462,6 +464,13 @@ export async function buildHandlerContext(
             "ctx.systemDb.outsideTransaction.acknowledgeCrossTenant(...)",
         )
       : rawDbOutsideTransaction;
+  // Not offered to r.systemScope() handlers: the raw outside-tx db is unfiltered in
+  // system mode, so fn would hand them the same cross-tenant door the guards above close.
+  const outsideTransaction =
+    !isSystem && rawDbOutsideTransaction
+      ? <T>(fn: (txDb: TenantDb) => Promise<T>): Promise<T> =>
+          runInOwnTransaction(rawDbOutsideTransaction, fn)
+      : undefined;
   const log = context.log?.child({
     handler: type,
     tenantId: user.tenantId,
@@ -976,6 +985,7 @@ export async function buildHandlerContext(
     registry,
     db: exposedDb,
     dbOutsideTransaction,
+    ...(outsideTransaction && { outsideTransaction }),
     ...(systemDb && { systemDb }),
     log,
     notify,

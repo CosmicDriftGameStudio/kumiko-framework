@@ -14,6 +14,7 @@ import {
   claimXactId,
   insertSubsequentEventRow,
   notifyPgChannel,
+  runAtomicEventWrite,
   selectAggregateMaxVersion,
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
@@ -95,17 +96,17 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
   const eventVersion = toStore.eventVersion ?? 1;
 
   try {
-    await claimXactId(db);
-
-    const row =
-      toStore.expectedVersion === 0
-        ? await insertFirstEvent(db, toStore, newVersion, eventVersion, seedCreatedAt)
-        : await insertSubsequentEvent(db, toStore, newVersion, eventVersion, seedCreatedAt);
-
-    // NOTIFY after the INSERT: outside a transaction each statement commits
-    // on its own, so a NOTIFY sent first would wake the dispatcher before
-    // the row exists.
-    await notifyPgChannel(db, EVENTS_PUBSUB_CHANNEL);
+    const row = await runAtomicEventWrite(db, async (runner) => {
+      await claimXactId(runner);
+      const inserted =
+        toStore.expectedVersion === 0
+          ? await insertFirstEvent(runner, toStore, newVersion, eventVersion, seedCreatedAt)
+          : await insertSubsequentEvent(runner, toStore, newVersion, eventVersion, seedCreatedAt);
+      // NOTIFY after the INSERT and inside the same transaction: PG delivers it on
+      // commit, so the dispatcher cannot wake before the row is visible.
+      await notifyPgChannel(runner, EVENTS_PUBSUB_CHANNEL);
+      return inserted;
+    });
 
     return buildStoredEvent(toStore, newVersion, eventVersion, row);
   } catch (e) {

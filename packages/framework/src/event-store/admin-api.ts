@@ -10,7 +10,7 @@
 
 import type { DbRunner } from "../db/index.js";
 import { constraintOf, isUniqueViolation } from "../db/pg-error.js";
-import { claimXactId } from "../db/queries/event-store.js";
+import { claimXactId, runAtomicEventWrite } from "../db/queries/event-store.js";
 import {
   eventPredecessorExists,
   findExistingEventVersion,
@@ -58,12 +58,14 @@ export async function appendRaw(runner: DbRunner, event: RawEventToAppend): Prom
   try {
     // See db/queries/event-store.ts's claimXactId — gap-finality needs a
     // real xact id assigned before this holder's insert.
-    await claimXactId(runner);
-    if (event.expectedVersion === 0) {
-      await insertRawFirst(runner, event, newVersion, eventVersion);
-    } else {
-      await insertRawSubsequent(runner, event, newVersion, eventVersion);
-    }
+    await runAtomicEventWrite(runner, async (tx) => {
+      await claimXactId(tx);
+      if (event.expectedVersion === 0) {
+        await insertRawFirst(tx, event, newVersion, eventVersion);
+      } else {
+        await insertRawSubsequent(tx, event, newVersion, eventVersion);
+      }
+    });
   } catch (e) {
     if (isUniqueViolation(e)) {
       throw mapEventUniqueViolation(e, event);
@@ -150,8 +152,10 @@ export async function appendRawBatch(
   });
 
   try {
-    await claimXactId(runner);
-    await insertRawEventBatch(runner, valuesClauses.join(", "), params);
+    await runAtomicEventWrite(runner, async (tx) => {
+      await claimXactId(tx);
+      await insertRawEventBatch(tx, valuesClauses.join(", "), params);
+    });
   } catch (e) {
     if (isUniqueViolation(e)) {
       // Pre-flight ran but lost a race against a concurrent writer. Rare for

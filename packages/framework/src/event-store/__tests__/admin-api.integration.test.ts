@@ -22,21 +22,31 @@ import { eventsTable } from "../events-schema.js";
 // Test-only spy: wrap a DbConnection's `.unsafe()` to capture the SQL
 // string of every query the framework runs. Used to assert batching
 // behaviour (single multi-VALUES INSERT vs N statements).
+type SpiedRunner = {
+  unsafe(sql: string, params?: readonly unknown[]): Promise<unknown>;
+  begin(callback: (tx: object) => Promise<unknown>): Promise<unknown>;
+};
+
+// appendRawBatch wraps a pool runner in begin(), so the spy must follow into the tx handle.
 function spyQueries(db: DbConnection): { db: DbConnection; queries: string[] } {
   const queries: string[] = [];
-  const wrapped = new Proxy(db, {
-    get(target, prop, receiver) {
-      if (prop === "unsafe") {
-        return (sql: string, params?: readonly unknown[]) => {
-          queries.push(sql);
-          // biome-ignore lint/suspicious/noExplicitAny: postgres-js .unsafe signature variance
-          return (target as any).unsafe(sql, params);
-        };
-      }
-      return Reflect.get(target, prop, receiver);
-    },
-  });
-  return { db: wrapped, queries };
+  const wrapRunner = <T extends object>(runner: T): T =>
+    new Proxy(runner, {
+      get(target, prop, receiver) {
+        if (prop === "unsafe") {
+          return (sql: string, params?: readonly unknown[]) => {
+            queries.push(sql);
+            return (target as unknown as SpiedRunner).unsafe(sql, params);
+          };
+        }
+        if (prop === "begin") {
+          return (callback: (tx: object) => Promise<unknown>) =>
+            (target as unknown as SpiedRunner).begin((tx: object) => callback(wrapRunner(tx)));
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
+  return { db: wrapRunner(db), queries };
 }
 
 let testDb: TestDb;

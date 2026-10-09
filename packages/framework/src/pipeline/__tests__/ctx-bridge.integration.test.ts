@@ -165,6 +165,26 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  // The throw (not a failure result) is the other rollback path: the outside
+  // transaction must have committed before it.
+  r.writeHandler(
+    "bag:outside-transaction-then-throw",
+    z.object({ label: z.string() }),
+    async (event, ctx) => {
+      const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
+      await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
+      const outsideTransaction = ctx.outsideTransaction;
+      if (!outsideTransaction) {
+        throw new Error("bag:outside-transaction-then-throw requires ctx.outsideTransaction");
+      }
+      await outsideTransaction((txDb) =>
+        crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, txDb),
+      );
+      throw new Error("handler fails after the outside transaction committed");
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
   // Handler that fetches the secret via ctx.queryAs(system) — proves the
   // privileged call returns the token field even though the caller (Admin)
   // couldn't read it themselves.
@@ -191,11 +211,13 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
       const crud = createEventStoreExecutor(bagTable, bagEntity, { entityName: "bag" });
       await ctx.db?.selectMany(bagTable, {});
       await crud.create({ label: `${event.payload.label}-inside-tx` }, event.user, ctx.db);
-      const outsideTx = ctx.dbOutsideTransaction;
-      if (!outsideTx) {
-        throw new Error("bag:create-signal-probe requires ctx.dbOutsideTransaction");
+      const outsideTransaction = ctx.outsideTransaction;
+      if (!outsideTransaction) {
+        throw new Error("bag:create-signal-probe requires ctx.outsideTransaction");
       }
-      await crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, outsideTx);
+      await outsideTransaction((txDb) =>
+        crud.create({ label: `${event.payload.label}-outside-tx` }, event.user, txDb),
+      );
       return { isSuccess: true as const, data: { signalSeen: ctx.signal !== undefined } };
     },
     { access: { roles: ["Admin"] } },
@@ -378,6 +400,21 @@ describe("ctx.writeAs shares the outer transaction", () => {
   });
 });
 
+describe("ctx.outsideTransaction", () => {
+  test("a write inside it survives a handler that throws afterwards", async () => {
+    const res = await stack.http.write(
+      "ctxbridge:write:bag:outside-transaction-then-throw",
+      { label: "outside" },
+      admin,
+    );
+    expect((await res.json()).isSuccess).toBe(false);
+
+    const bags = await selectMany(stack.db, bagTable);
+    const labels = (bags as Array<Record<string, unknown>>).map((row) => row["label"]);
+    expect(labels).toEqual(["outside-outside-tx"]);
+  });
+});
+
 describe("ctx.dbOutsideTransaction", () => {
   test("a write through it survives the handler's own transaction rolling back", async () => {
     const res = await stack.http.write(
@@ -392,7 +429,7 @@ describe("ctx.dbOutsideTransaction", () => {
     expect(labels).toEqual(["probe-outside-tx"]);
   });
 
-  test("an already-aborted request signal still commits both ctx.db and ctx.dbOutsideTransaction writes", async () => {
+  test("an already-aborted request signal still commits both ctx.db and ctx.outsideTransaction writes", async () => {
     const controller = new AbortController();
     controller.abort();
     const token = await stack.jwt.sign(admin);

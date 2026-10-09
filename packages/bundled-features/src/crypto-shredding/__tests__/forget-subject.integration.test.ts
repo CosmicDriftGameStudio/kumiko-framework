@@ -30,6 +30,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { reindexEntity } from "@cosmicdrift/kumiko-framework/search";
+import { createMeilisearchAdapter } from "@cosmicdrift/kumiko-framework/search/meilisearch";
 import {
   setupTestStack,
   type TestStack,
@@ -394,6 +395,82 @@ describe("crypto-shredding :: forget-subject purges the derived search index (#1
       filterType: "probe",
     });
     expect(after.some((h) => String(h.entityId) === id)).toBe(false);
+  });
+});
+
+// Unreachable Meilisearch: the purge fails with a genuine connection error.
+describe("crypto-shredding :: forget-subject when the search purge fails", () => {
+  const probeEntity = createEntity({
+    table: "read_forget_subject_failing_search_probe",
+    fields: {
+      ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
+      userNote: createTextField({
+        required: true,
+        maxLength: 100,
+        personal: { of: "ownerId" },
+        find: "fuzzy",
+      }),
+    },
+  });
+  const probeTable = buildEntityTable("forgetSubjectFailingSearchProbe", probeEntity);
+  const probeFeature = defineFeature("forget-subject-failing-search-probe", (r) => {
+    r.entity("probe", probeEntity);
+  });
+
+  let failingStack: TestStack;
+
+  beforeAll(async () => {
+    failingStack = await setupTestStack({
+      features: [createCryptoShreddingFeature(), probeFeature],
+      extraContext: {
+        searchAdapter: createMeilisearchAdapter({ url: "http://127.0.0.1:1", apiKey: "unused" }),
+      },
+    });
+    await unsafeCreateEntityTable(failingStack.db, probeEntity, "probe");
+  });
+
+  afterAll(async () => {
+    await failingStack.cleanup();
+  });
+
+  beforeEach(() => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("the audit event survives with cleanupError (name or code only) and the handler fails", async () => {
+    const ownerId = crypto.randomUUID();
+    const admin = TestUsers.admin;
+    const created = await createEventStoreExecutor(probeTable, probeEntity, {
+      entityName: "probe",
+    }).create(
+      { ownerId, userNote: "SweepFailureNote" },
+      admin,
+      createTenantDb(failingStack.db, admin.tenantId, "system"),
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const res = await failingStack.http.write(
+      FORGET,
+      { subject: { kind: "user", userId: ownerId }, reason: REASON },
+      dpoUser,
+    );
+    expect((await res.json()).isSuccess).toBe(false);
+
+    const events = (
+      (await selectMany(failingStack.db, eventsTable, {
+        type: SUBJECT_FORGOTTEN_EVENT_NAME,
+      })) as Array<{ payload: Record<string, unknown> }>
+    ).filter((e) => e.payload["subjectKey"] === `user:${ownerId}`);
+    expect(events).toHaveLength(1);
+    const cleanupError = events[0]?.payload["cleanupError"];
+    expect(typeof cleanupError).toBe("string");
+    expect(String(cleanupError).length).toBeGreaterThan(0);
+    expect(String(cleanupError)).not.toContain(" ");
+    expect(String(cleanupError)).not.toContain(ownerId);
   });
 });
 

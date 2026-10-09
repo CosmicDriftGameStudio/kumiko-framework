@@ -660,6 +660,13 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   // `db` above — a truthy Proxy that throws on first property read, so a
   // system handler must reach for `systemDb.outsideTransaction` below.
   readonly dbOutsideTransaction: TenantDb | undefined;
+  // Runs `fn` in its own transaction, committed on return regardless of how the
+  // handler ends: event and projection writes stay atomic (unlike writing through
+  // `dbOutsideTransaction`, where every statement commits alone). Deadlock risk:
+  // `fn` must not touch rows the handler's own tx has locked, it would wait on them
+  // forever. Undefined where `dbOutsideTransaction` is unavailable, and for
+  // r.systemScope() handlers (use `systemDb.outsideTransaction` there).
+  readonly outsideTransaction?: <T>(fn: (db: TenantDb) => Promise<T>) => Promise<T>;
   // Only present for r.systemScope() handlers. Non-system handlers never
   // receive this — reach for `db` instead, which is fail-closed for them.
   readonly systemDb?: UncheckedSystemDb;

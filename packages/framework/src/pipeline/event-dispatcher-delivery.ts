@@ -27,6 +27,7 @@ import {
 import {
   emitDispatcherError,
   emitEventConsumerLag,
+  emitEventConsumerPendingGaps,
   getFallbackMeter,
   type Meter,
 } from "../observability/index.js";
@@ -504,8 +505,10 @@ export async function emitLagFromTx(
   instanceId: string,
   cursor: bigint,
   meter: Meter,
+  pendingGapRanges: number,
 ): Promise<void> {
   const head = await selectEventsHeadId(tx);
   const lag = head > cursor ? Number(head - cursor) : 0;
   emitEventConsumerLag(meter, { consumer: consumerName, instanceId }, lag);
+  emitEventConsumerPendingGaps(meter, { consumer: consumerName, instanceId }, pendingGapRanges);
 }

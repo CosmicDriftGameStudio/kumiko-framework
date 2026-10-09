@@ -18,6 +18,7 @@ import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
 import { defineFeature } from "../../engine/index.js";
+import { append } from "../../event-store/index.js";
 import {
   createEventDispatcher,
   type EventConsumer,
@@ -340,5 +341,41 @@ describe("event-dispatcher — commit order vs. id order", () => {
 
     await dispatcher.runOnce();
     expect(seen).toEqual(["B", "A"]);
+  });
+});
+
+describe("event-dispatcher — parallel appends without a transaction", () => {
+  test("every concurrent pool append is delivered and leaves no pending gap", async () => {
+    const parallelAppends = 20;
+    const seen = new Set<string>();
+    const consumer: EventConsumer = {
+      name: "commitorder:parallel-appends",
+      handler: async (event) => {
+        seen.add(event.aggregateId);
+      },
+    };
+    const dispatcher = buildDispatcher(consumer);
+    await dispatcher.ensureRegistered();
+
+    const aggregateIds = Array.from({ length: parallelAppends }, () => generateId());
+    await Promise.all(
+      aggregateIds.map((aggregateId, index) =>
+        append(stack.db, {
+          aggregateId,
+          aggregateType: "widget",
+          tenantId: admin.tenantId,
+          expectedVersion: 0,
+          type: "widget.created",
+          payload: { name: `parallel-${index}` },
+          metadata: { userId: admin.id },
+        }),
+      ),
+    );
+
+    await dispatcher.runOnce();
+    await dispatcher.runOnce();
+
+    expect([...seen].sort()).toEqual([...aggregateIds].sort());
+    expect(await readPendingGaps(stack.db as DbConnection, consumer.name)).toEqual([]);
   });
 });

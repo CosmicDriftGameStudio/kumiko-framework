@@ -32,7 +32,12 @@ import {
   preRegisterConsumers,
   selectIdleConsumerKeys,
 } from "./event-dispatcher-delivery.js";
-import { partitionBurntGaps, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges.js";
+import {
+  mergeContiguousGapRanges,
+  partitionBurntGaps,
+  splitRangeExcludingIds,
+  toIdRanges,
+} from "./pending-gap-ranges.js";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //
@@ -695,12 +700,19 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         }));
         const persistedOutcome: PersistedConsumerOutcome = {
           ...outcome,
-          pendingGaps: [...keptGaps, ...newGaps],
+          pendingGaps: mergeContiguousGapRanges([...keptGaps, ...newGaps]),
         };
 
         warnOnceOnLargeGapSet(consumer.name, instanceId, persistedOutcome.pendingGaps.length);
         await persistConsumerOutcome(tx, consumer.name, instanceId, persistedOutcome);
-        await emitLagFromTx(tx, consumer.name, instanceId, outcome.cursor, meter);
+        await emitLagFromTx(
+          tx,
+          consumer.name,
+          instanceId,
+          outcome.cursor,
+          meter,
+          persistedOutcome.pendingGaps.length,
+        );
       });
 
       // Pass completed without throwing — clear any backoff from a prior
