@@ -1984,7 +1984,30 @@ describe("Form", () => {
     // above it is itself height-constrained.
     const card = form.firstElementChild?.firstElementChild as HTMLElement;
     expect(card.className).not.toContain("flex-1");
-    expect(card.className).toContain("min-h-0");
+    expect(card.className).toContain("min-h-64");
+  });
+
+  test("fillHeight chromeless: the sections container holds the min-height floor", () => {
+    render(
+      <Form onSubmit={() => undefined} testId="form" fillHeight chromeless>
+        <div data-testid="child">content</div>
+      </Form>,
+    );
+    const sections = screen.getByTestId("child").parentElement as HTMLElement;
+    expect(sections.className).toContain("min-h-64");
+    expect(sections.className).not.toContain("min-h-0");
+  });
+
+  test("without fillHeight: no min-height floor on card or sections", () => {
+    render(
+      <Form onSubmit={() => undefined} testId="form">
+        <div data-testid="child">content</div>
+      </Form>,
+    );
+    const form = screen.getByTestId("form");
+    const card = form.firstElementChild?.firstElementChild as HTMLElement;
+    expect(card.className).not.toContain("min-h-");
+    expect(screen.getByTestId("child").parentElement?.className).not.toContain("min-h-");
   });
 
   test("without fillHeight: form root keeps its normal, content-sized height", () => {
