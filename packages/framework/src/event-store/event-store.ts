@@ -18,6 +18,7 @@ import {
   selectAggregateMaxVersion,
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
+  selectStreamMaxVersions,
 } from "../db/queries/event-store.js";
 import { insertOne, selectMany } from "../db/query.js";
 import type { TenantId } from "../engine/types/index.js";
@@ -324,6 +325,14 @@ export async function getStreamVersion(
   tenantId: TenantId,
 ): Promise<number> {
   return selectStreamMaxVersion(db, aggregateId, tenantId);
+}
+
+export async function getStreamVersions(
+  db: DbRunner,
+  aggregateIds: readonly string[],
+  tenantId: TenantId,
+): Promise<Map<string, number>> {
+  return selectStreamMaxVersions(db, aggregateIds, tenantId);
 }
 
 /** MAX(version) for one aggregate — no tenant filter. SECURITY: existence-oracle,

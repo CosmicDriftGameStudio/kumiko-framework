@@ -29,6 +29,7 @@ export {
   type EventToAppend,
   getEventsHighWaterMark,
   getStreamVersion,
+  getStreamVersions,
   getUnscopedAggregateStreamMaxVersion,
   getUnscopedStreamMaxVersionForSeed,
   LOAD_ALL_EVENTS_ROW_LIMIT,
