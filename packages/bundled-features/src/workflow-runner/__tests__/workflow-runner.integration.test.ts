@@ -60,6 +60,40 @@ const failingWorkflow: WorkflowDefinition = defineWorkflow({
   ]),
 });
 
+const laterStepFailingWorkflow: WorkflowDefinition = defineWorkflow({
+  name: "wr-integration-failure-step1",
+  trigger: { kind: "event", eventType: "wr-test.failure-step1" },
+  idempotencyKey: ({ payload }) => (payload as { runKey: string }).runKey,
+  steps: stepsPipeline(({ r }) => [
+    r.step.compute("fine", () => 1),
+    r.step.compute("boom", () => {
+      throw new Error("second step fails");
+    }),
+    r.step.return({ isSuccess: true, data: undefined }),
+  ]),
+});
+
+// The failing step sits inside the retry's sub-list; the event must name the retry's top-level index.
+const nestedFailingWorkflow: WorkflowDefinition = defineWorkflow({
+  name: "wr-integration-failure-nested",
+  trigger: { kind: "event", eventType: "wr-test.failure-nested" },
+  idempotencyKey: ({ payload }) => (payload as { runKey: string }).runKey,
+  steps: stepsPipeline(({ r }) => [
+    r.step.compute("fine", () => 1),
+    r.step.retry({
+      times: 1,
+      backoff: "linear",
+      do: [
+        r.step.compute("inner", () => 2),
+        r.step.compute("boom", () => {
+          throw new Error("inner step fails");
+        }),
+      ],
+    }),
+    r.step.return({ isSuccess: true, data: undefined }),
+  ]),
+});
+
 const suspendingWorkflow: WorkflowDefinition = defineWorkflow({
   name: "wr-integration-suspend",
   trigger: { kind: "event", eventType: "wr-test.suspend" },
@@ -142,6 +176,8 @@ const keylessWorkflow: WorkflowDefinition = defineWorkflow({
 const testTriggersFeature = defineFeature("workflow-runner-integration-test-triggers", (r) => {
   registerEventTrigger(r, happyWorkflow);
   registerEventTrigger(r, failingWorkflow);
+  registerEventTrigger(r, laterStepFailingWorkflow);
+  registerEventTrigger(r, nestedFailingWorkflow);
   registerEventTrigger(r, suspendingWorkflow);
   registerEventTrigger(r, doubleResumeWorkflow);
   registerEventTrigger(r, doubleRetryWorkflow);
@@ -286,6 +322,36 @@ describe("workflow-runner event-trigger", () => {
     expect(secondPass?.byConsumer[consumerName]?.failed).toBe(0);
     expect(await loadRunEvents(runId)).toHaveLength(2);
     expect(await getConsumerState(stack.db, consumerName)).toMatchObject({ status: "idle" });
+  });
+
+  test("run-failed carries the index of the step that threw, not 0", async () => {
+    const runKey = crypto.randomUUID();
+    await fireTrigger("wr-test.failure-step1", { runKey });
+
+    const rows = await loadRunEvents(workflowRunAggregateId(laterStepFailingWorkflow.name, runKey));
+
+    expect(rows.map((row) => row["type"])).toEqual([
+      WORKFLOW_RUN_STARTED_TYPE,
+      WORKFLOW_RUN_FAILED_TYPE,
+    ]);
+    expect(rows[1]!["payload"]).toMatchObject({
+      workflowName: laterStepFailingWorkflow.name,
+      stepIndex: 1,
+      error: "workflow step failed (Error)",
+    });
+  });
+
+  test("run-failed for a throw inside a nested step list names the top-level step", async () => {
+    const runKey = crypto.randomUUID();
+    await fireTrigger("wr-test.failure-nested", { runKey });
+
+    const rows = await loadRunEvents(workflowRunAggregateId(nestedFailingWorkflow.name, runKey));
+
+    expect(rows[1]!["payload"]).toMatchObject({
+      workflowName: nestedFailingWorkflow.name,
+      stepIndex: 1,
+      error: "workflow step failed (Error)",
+    });
   });
 
   test("trigger.filter: a rejected event starts no run, an accepted one does", async () => {

@@ -1,23 +1,29 @@
-import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { notificationAddressOptOutsTable } from "../../tables.js";
+
+export type AddressOptOutKey = string;
+
+export function addressOptOutKey(addressHash: string, channel: string): AddressOptOutKey {
+  return `${addressHash}|${channel}`;
+}
 
 // Exact match only — unlike notification-preferences there is no wildcard
 // ("*") semantics for address opt-outs, the token that creates a row always
-// carries one concrete notificationType/channel pair.
-export async function isAddressOptedOut(
+// carries one concrete notificationType/channel pair. One query covers every
+// recipient of a notify() call.
+export async function selectOptedOutAddresses(
   db: DbConnection,
   tenantId: TenantId,
-  addressHash: string,
   notificationType: string,
-  channel: string,
-): Promise<boolean> {
-  const rows = await unsafeReadRetrying<{ readonly id: string }>(
+  addressHashes: readonly string[],
+): Promise<ReadonlySet<AddressOptOutKey>> {
+  if (addressHashes.length === 0) return new Set();
+  const rows = await selectMany<{ readonly addressHash: string; readonly channel: string }>(
     db,
-    `SELECT id FROM read_notification_address_opt_outs
-     WHERE tenant_id = $1 AND address_hash = $2 AND notification_type = $3 AND channel = $4
-     LIMIT 1`,
-    [tenantId, addressHash, notificationType, channel],
+    notificationAddressOptOutsTable,
+    { tenantId, notificationType, addressHash: { in: addressHashes } },
   );
-  return rows.length > 0;
+  return new Set(rows.map((row) => addressOptOutKey(row.addressHash, row.channel)));
 }

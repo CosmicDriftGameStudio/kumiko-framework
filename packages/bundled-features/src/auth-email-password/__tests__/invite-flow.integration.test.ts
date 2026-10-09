@@ -433,6 +433,55 @@ describe("invite-accept (Branch 1: logged-in)", () => {
     expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["User"]);
   });
 
+  test("a superseded accept leaves the token unburned", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await changeBobRolesInTenantA(["User"]);
+
+    await expectInvitationSuperseded(
+      await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession()),
+    );
+
+    const retry = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
+    await expectInvitationSuperseded(retry);
+  });
+
+  test("membership created only after the invitation was issued: accept adds the role", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+
+    await stack.http.writeOk(AuthHandlers.inviteAccept, { token }, bobSession());
+
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Admin", "User"]);
+  });
+
+  test("supersession is decided by membership version, not by timestamps", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await changeBobRolesInTenantA(["User"]);
+    // Invitation stamped after the role change: a timestamp comparison would call it current.
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${tenantInvitationsTable.tableName}" SET modified_at = now() + interval '1 hour' WHERE email IS NOT NULL`,
+    );
+
+    await expectInvitationSuperseded(
+      await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession()),
+    );
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["User"]);
+  });
+
   test("invitation re-issued after a role change is accepted again", async () => {
     await seedTenantMembership(stack.db, {
       userId: bobId,
@@ -549,6 +598,24 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
 
     await expectInvitationSuperseded(res);
     expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["User"]);
+  });
+
+  test("a superseded accept leaves the token unburned (accept with login)", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await changeBobRolesInTenantA(["User"]);
+    const body = { token, email: BOB_EMAIL, password: BOB_PASSWORD };
+
+    await expectInvitationSuperseded(
+      await stack.http.raw("POST", "/api/auth/invite-accept-with-login", body),
+    );
+
+    const retry = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", body);
+    await expectInvitationSuperseded(retry);
   });
 
   test("Bob accepts with a locale → JWT retains the locale", async () => {

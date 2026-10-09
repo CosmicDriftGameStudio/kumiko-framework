@@ -40,6 +40,8 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../../tenant/invitation-table.js";
+// kumiko-lint-ignore cross-feature-import membership rows are owned by the tenant feature
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 // kumiko-lint-ignore cross-feature-import membership-role validation owned by tenant-feature
 import {
   findForbiddenMembershipRole,
@@ -49,6 +51,8 @@ import {
 } from "../../tenant/membership-roles.js";
 // kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
 import { GLOBAL_ROLE_OPTIONS } from "../../user/constants.js";
+// kumiko-lint-ignore cross-feature-import invitee lookup by email reads the user row
+import { userTable } from "../../user/schema/user.js";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants.js";
 import type { AuthMailLocale } from "../email-templates.js";
 import { renderInviteEmail } from "../email-templates.js";
@@ -144,6 +148,21 @@ function checkAssignableInviteRole(
   return undefined;
 }
 
+// 0 = the invitee has no membership in the tenant yet (or no account at all).
+async function currentMembershipVersion(
+  ctx: HandlerContext,
+  tenantId: string,
+  email: string,
+): Promise<number> {
+  const user = await ctx.db.global(userTable).fetchOne<{ readonly id: string }>({
+    email,
+    isDeleted: false,
+  });
+  if (!user) return 0;
+  const membership = await ctx.db.fetchOne(tenantMembershipsTable, { tenantId, userId: user.id });
+  return membership ? (membership["version"] as number) : 0; // @cast-boundary db-row
+}
+
 async function issueInvitation(
   opts: InviteCreateOptions,
   ttlSeconds: number,
@@ -166,6 +185,7 @@ async function issueInvitation(
   // The unique index allows one row per (tenantId, email). Whatever its
   // status, a re-invite resets it to pending with a fresh token.
   const existing = await ctx.db.fetchOne(tenantInvitationsTable, { tenantId, email });
+  const membershipVersion = await currentMembershipVersion(ctx, tenantId, email);
 
   let invitationId: string;
   if (existing) {
@@ -193,6 +213,7 @@ async function issueInvitation(
           globalRoles: [...request.globalRoles],
           status: INVITATION_STATUS.pending,
           invitedBy: inviter.id,
+          membershipVersion,
           expiresAt,
         },
       },
@@ -208,6 +229,7 @@ async function issueInvitation(
         globalRoles: [...request.globalRoles],
         status: INVITATION_STATUS.pending,
         invitedBy: inviter.id,
+        membershipVersion,
         expiresAt,
       },
       inviter,

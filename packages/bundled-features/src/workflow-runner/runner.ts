@@ -75,6 +75,8 @@ export type WorkflowRunFailedPayload = {
   readonly reason?: string;
 };
 
+export type WorkflowRunContext = Pick<HandlerContext, "unsafeAppendEvent">;
+
 export class WorkflowSuspensionUnsupportedError extends Error {
   constructor(
     readonly workflowName: string,
@@ -102,7 +104,7 @@ export async function startAndRunWorkflow(args: {
   readonly triggerEvent: WriteEvent;
   readonly triggerEventRef: TriggerEventRef;
   readonly idempotencyKey?: string;
-  readonly handlerCtx: HandlerContext;
+  readonly handlerCtx: WorkflowRunContext;
 }): Promise<{ readonly outcome: "completed" | "suspended" }> {
   const fingerprint = computeDefinitionFingerprint(args.workflow);
 
@@ -123,10 +125,14 @@ export async function startAndRunWorkflow(args: {
 
   const steps = buildPipelineSteps(args.workflow.pipelineDef, args.triggerEvent);
 
+  // @cast-boundary msp-to-handler-ctx — event-trigger hands over the narrower
+  // MultiStreamApplyContext (no query/write/writeAs). The step vocabulary this
+  // runner drives (wait, compute, return) only ever calls unsafeAppendEvent.
+  const stepCtx = args.handlerCtx as unknown as HandlerContext;
   const outcome = await runStepList(
     steps,
     args.triggerEvent,
-    args.handlerCtx,
+    stepCtx,
     {},
     {},
     {

@@ -33,7 +33,7 @@ import {
   tenantInvitationsTable,
 } from "../../tenant/invitation-table.js";
 // kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add (like provisionSignupAccount)
-import { grantInvitedMembershipRole, invitationIssuedAt } from "../../tenant/invited-membership.js";
+import { grantInvitedMembershipRole } from "../../tenant/invited-membership.js";
 // kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
 import {
   grantInvitedGlobalRoles,
@@ -110,6 +110,7 @@ export function createInviteAcceptHandler() {
         readonly role: string;
         readonly globalRoles: unknown;
         readonly version: number;
+        readonly membershipVersion: number | null;
         readonly insertedAt: Temporal.Instant;
         readonly modifiedAt: Temporal.Instant | null;
       };
@@ -154,7 +155,7 @@ export function createInviteAcceptHandler() {
           userId: event.user.id,
           tenantId: invitationTenantId,
           role: invitationRole,
-          invitationIssuedAt: invitationIssuedAt(invitation),
+          invitation,
         });
         if (!grant.isSuccess) return grant;
         const { alreadyMember } = grant.data;

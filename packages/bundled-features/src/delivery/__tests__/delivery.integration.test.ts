@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -61,6 +61,7 @@ import {
   DeliveryJobs,
   DeliveryQueries,
 } from "../constants.js";
+import * as optOutQueries from "../db/queries/address-opt-outs.js";
 import { collectChannels, createDeliveryService } from "../delivery-service.js";
 import { createDeliveryFeature } from "../feature.js";
 import { deliveryRenderJob, deliverySendJob } from "../jobs.js";
@@ -103,6 +104,17 @@ function postResubscribe(token: string) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ token }),
   });
+}
+
+// The undo token only exists in the answer of a successful unsubscribe: the
+// confirmation page carries it as the hidden field of its "Undo" form.
+async function unsubscribeAndReadUndoToken(token: string): Promise<string> {
+  const res = await postUnsubscribe(token);
+  expect(res.status).toBe(200);
+  const html = await res.text();
+  const undoToken = /<input type="hidden" name="token" value="([^"]+)">/.exec(html)?.[1];
+  if (undoToken === undefined) throw new Error("unsubscribe page carries no undo token");
+  return undoToken;
 }
 
 // Email test infrastructure
@@ -2301,6 +2313,38 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
     }
   });
 
+  test("opt-outs are looked up once per notify call, however many recipients and channels", async () => {
+    await stack.redis.redis.del(RATE_KEY_EMAIL);
+    const notificationType = "app:notify:account-unsub-batch";
+    const token = await signAddressUnsubscribeToken(
+      {
+        tenantId: user1.tenantId,
+        address: testEmail(user1.id),
+        notificationType,
+        channel: "email",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+    expect((await postUnsubscribe(token)).status).toBe(200);
+    emailTransport.sent.length = 0;
+    const lookupSpy = spyOn(optOutQueries, "selectOptedOutAddresses");
+
+    try {
+      await deliveryService.notify(
+        notificationType,
+        { to: [user1.id, user2.id], data: { title: "Batch", body: "X" } },
+        admin,
+        user1.tenantId,
+      );
+
+      expect(lookupSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      lookupSpy.mockRestore();
+    }
+    expect(emailTransport.sent.some((e) => e.to === testEmail(user1.id))).toBe(false);
+    expect(emailTransport.sent.some((e) => e.to === testEmail(user2.id))).toBe(true);
+  });
+
   // Account sends honor address opt-outs, same rule as deliverDirect.
   test("account send is suppressed when the resolved address has an opt-out row", async () => {
     await stack.redis.redis.del(RATE_KEY_EMAIL);
@@ -2402,8 +2446,7 @@ describe("flow 20: resubscribe endpoint", () => {
       UNSUBSCRIBE_SECRET,
     );
 
-    const unsubRes = await postUnsubscribe(token);
-    expect(unsubRes.status).toBe(200);
+    const undoToken = await unsubscribeAndReadUndoToken(token);
     expect(
       await selectMany(db, notificationAddressOptOutsTable, {
         tenantId: admin.tenantId,
@@ -2412,7 +2455,7 @@ describe("flow 20: resubscribe endpoint", () => {
       }),
     ).toHaveLength(1);
 
-    const resubRes = await postResubscribe(token);
+    const resubRes = await postResubscribe(undoToken);
     expect(resubRes.status).toBe(200);
     const resubBody = (await resubRes.json()) as { isSuccess?: boolean };
     expect(resubBody.isSuccess).toBe(true);
@@ -2426,8 +2469,7 @@ describe("flow 20: resubscribe endpoint", () => {
 
     // Opting out again must land on a fresh generation — the first
     // generation's stream was hard-deleted by the resubscribe above.
-    const unsubRes2 = await postUnsubscribe(token);
-    expect(unsubRes2.status).toBe(200);
+    const undoToken2 = await unsubscribeAndReadUndoToken(token);
     expect(
       await selectMany(db, notificationAddressOptOutsTable, {
         tenantId: admin.tenantId,
@@ -2436,7 +2478,7 @@ describe("flow 20: resubscribe endpoint", () => {
       }),
     ).toHaveLength(1);
 
-    const resubRes2 = await postResubscribe(token);
+    const resubRes2 = await postResubscribe(undoToken2);
     expect(resubRes2.status).toBe(200);
     expect(
       await selectMany(db, notificationAddressOptOutsTable, {
@@ -2482,7 +2524,10 @@ describe("flow 20: resubscribe endpoint", () => {
       UNSUBSCRIBE_SECRET,
     );
 
-    const resubRes = await postResubscribe(token);
+    // The seeded last-generation row makes the unsubscribe itself a no-op write, but it still
+    // answers with an undo token.
+    const undoToken = await unsubscribeAndReadUndoToken(token);
+    const resubRes = await postResubscribe(undoToken);
     expect(resubRes.status).toBe(409);
     const resubBody = (await resubRes.json()) as { error?: { code?: string } };
     expect(resubBody.error?.code).toBe(DeliveryErrors.resubscribeLimitReached);
@@ -2515,7 +2560,11 @@ describe("flow 20: resubscribe endpoint", () => {
       UNSUBSCRIBE_SECRET,
     );
 
-    const res = await postResubscribe(token);
+    const undoToken = await unsubscribeAndReadUndoToken(token);
+    expect((await postResubscribe(undoToken)).status).toBe(200);
+
+    // The opt-out is already gone; the still-valid undo token must not fail.
+    const res = await postResubscribe(undoToken);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { isSuccess?: boolean };
     expect(body.isSuccess).toBe(true);
@@ -2532,7 +2581,7 @@ describe("flow 20: resubscribe endpoint", () => {
       UNSUBSCRIBE_SECRET,
     );
 
-    await postUnsubscribe(token);
+    const undoToken = await unsubscribeAndReadUndoToken(token);
     const disabled = await selectMany(db, notificationPreferencesTable, {
       userId: user2.id,
       notificationType: "app:notify:user-resub-20c",
@@ -2540,7 +2589,7 @@ describe("flow 20: resubscribe endpoint", () => {
     });
     expect(disabled[0]?.["enabled"]).toBe(false);
 
-    const res = await postResubscribe(token);
+    const res = await postResubscribe(undoToken);
     expect(res.status).toBe(200);
     const enabled = await selectMany(db, notificationPreferencesTable, {
       userId: user2.id,
@@ -2567,11 +2616,87 @@ describe("flow 20: resubscribe endpoint", () => {
       },
       UNSUBSCRIBE_SECRET,
     );
+    const undoToken = await unsubscribeAndReadUndoToken(token);
 
-    const res = await stack.app.request(`${DELIVERY_RESUBSCRIBE_PATH}?token=${token}`, {
+    const res = await stack.app.request(`${DELIVERY_RESUBSCRIBE_PATH}?token=${undoToken}`, {
       method: "POST",
     });
     expect(res.status).toBe(400);
+  });
+
+  test("the unsubscribe token cannot undo an opt-out: resubscribe answers 400 and keeps the row", async () => {
+    const address = "flow20-purpose-unsub-token@test.com";
+    const notificationType = "app:notify:address-resub-20-purpose";
+    const token = await signAddressUnsubscribeToken(
+      { tenantId: admin.tenantId, address, notificationType, channel: "email" },
+      UNSUBSCRIBE_SECRET,
+    );
+    await unsubscribeAndReadUndoToken(token);
+
+    const res = await postResubscribe(token);
+
+    expect(res.status).toBe(400);
+    expect(
+      await selectMany(db, notificationAddressOptOutsTable, {
+        tenantId: admin.tenantId,
+        notificationType,
+        channel: "email",
+      }),
+    ).toHaveLength(1);
+  });
+
+  test("the undo token cannot unsubscribe: both the one-click POST and the confirmation page answer 400", async () => {
+    const userToken = await signUnsubscribeToken(
+      {
+        userId: user2.id,
+        tenantId: user2.tenantId,
+        notificationType: "app:notify:user-resub-20-purpose",
+        channel: "inApp",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+    const undoToken = await unsubscribeAndReadUndoToken(userToken);
+    await postResubscribe(undoToken);
+
+    expect((await postUnsubscribe(undoToken)).status).toBe(400);
+    const confirmPage = await stack.app.request(
+      `${DELIVERY_UNSUBSCRIBE_PATH}?token=${encodeURIComponent(undoToken)}`,
+    );
+    expect(confirmPage.status).toBe(400);
+    const prefs = await selectMany(db, notificationPreferencesTable, {
+      userId: user2.id,
+      notificationType: "app:notify:user-resub-20-purpose",
+      channel: "inApp",
+    });
+    expect(prefs[0]?.["enabled"]).toBe(true);
+  });
+
+  test("an expired undo token is rejected with 400", async () => {
+    const address = "flow20-expired-undo@test.com";
+    const notificationType = "app:notify:address-resub-20-expired";
+    const unsubscribeToken = await signAddressUnsubscribeToken(
+      { tenantId: admin.tenantId, address, notificationType, channel: "email" },
+      UNSUBSCRIBE_SECRET,
+    );
+    const undoToken = await unsubscribeAndReadUndoToken(unsubscribeToken);
+    const claims = jose.decodeJwt(undoToken);
+    const issuedTwoHoursAgo = Math.floor(Date.now() / 1000) - 7200;
+    const expiredUndoToken = await new jose.SignJWT({ ...claims })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt(issuedTwoHoursAgo)
+      .setExpirationTime(issuedTwoHoursAgo + 3600)
+      .sign(new TextEncoder().encode(UNSUBSCRIBE_SECRET));
+
+    const res = await postResubscribe(expiredUndoToken);
+
+    expect(res.status).toBe(400);
+    expect(
+      await selectMany(db, notificationAddressOptOutsTable, {
+        tenantId: admin.tenantId,
+        notificationType,
+        channel: "email",
+      }),
+    ).toHaveLength(1);
   });
 
   test("normal user cannot dispatch the resubscribe write handlers directly", async () => {

@@ -26,6 +26,7 @@ import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createMultiSelectField,
+  createNumberField,
   createSelectField,
   createTextField,
   createTimestampField,
@@ -94,6 +95,11 @@ export const tenantInvitationEntity = createEntity({
       personal: { of: "invitedBy" },
       find: "exact",
     }),
+    // Version of the invitee's membership row when the invitation was issued
+    // (0 = no membership yet). Accept compares it against the current version
+    // to detect a membership decision made after the invite. NULL only on rows
+    // issued before this field existed.
+    membershipVersion: createNumberField({ integer: true, min: 0 }),
     // UI-Anzeige — Wahrheit liegt in Redis-TTL.
     expiresAt: createTimestampField({ required: true }),
   },

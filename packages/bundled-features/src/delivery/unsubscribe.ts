@@ -71,6 +71,11 @@ export type UnsubscribeRouteOptions = {
 };
 
 const UNSUBSCRIBE_EXPIRY = "7d";
+const RESUBSCRIBE_EXPIRY = "1h";
+const UNSUBSCRIBE_ISSUER = "kumiko:unsubscribe";
+const RESUBSCRIBE_AUDIENCE = "kumiko:resubscribe";
+
+type TokenPurpose = "unsubscribe" | "resubscribe";
 const MIN_UNSUBSCRIBE_SECRET_LENGTH = 32;
 
 function assertUnsubscribeSecret(secret: string, caller: string): void {
@@ -98,7 +103,7 @@ export async function signUnsubscribeToken(
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(String(payload.userId))
-    .setIssuer("kumiko:unsubscribe")
+    .setIssuer(UNSUBSCRIBE_ISSUER)
     .setIssuedAt()
     .setExpirationTime(UNSUBSCRIBE_EXPIRY)
     .sign(encodedSecret);
@@ -133,12 +138,10 @@ export async function signAddressUnsubscribeToken(
     })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(addressHash)
-      .setIssuer("kumiko:unsubscribe")
+      .setIssuer(UNSUBSCRIBE_ISSUER)
       .setIssuedAt()
-      // No expiry, unlike the user token above: this same token also signs
-      // the resubscribe (undo) direction, and an unsubscribe link mailed out
-      // today must keep working indefinitely — there's no signed-in flow for
-      // a no-account address to request a fresh link from.
+      // Only opt-out, so no expiry: a link mailed out today must keep working,
+      // there's no signed-in flow for a no-account address to request a fresh one.
       .sign(encodedSecret)
   );
 }
@@ -168,6 +171,33 @@ const CONFIRMATION_PAGE_HEADERS = {
   "Referrer-Policy": "no-referrer",
 } as const;
 
+// Undo token, handed out only in the response of a successful unsubscribe. A
+// separate audience and a short expiry keep the long-lived mailed unsubscribe
+// link from being able to undo an opt-out (and vice versa).
+async function signResubscribeToken(
+  verified: VerifiedUnsubscribe,
+  encodedSecret: Uint8Array,
+): Promise<string> {
+  const claims = {
+    tenantId: verified.tenantId,
+    notificationType: verified.notificationType,
+    channel: verified.channel,
+  };
+  const jwt =
+    verified.kind === "address"
+      ? new jose.SignJWT({ ...claims, addressHash: verified.addressHash, kind: "address" }).setSubject(
+          verified.addressHash,
+        )
+      : new jose.SignJWT(claims).setSubject(verified.userId);
+  return jwt
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuer(UNSUBSCRIBE_ISSUER)
+    .setAudience(RESUBSCRIBE_AUDIENCE)
+    .setIssuedAt()
+    .setExpirationTime(RESUBSCRIBE_EXPIRY)
+    .sign(encodedSecret);
+}
+
 // Every throw here must become the same ExtraRouteRejection(400,
 // unsubscribe_token_invalid) — anything else falls through to the
 // framework's generic 401 extra_route_signature_invalid mapping, which
@@ -175,6 +205,7 @@ const CONFIRMATION_PAGE_HEADERS = {
 async function verifyUnsubscribeToken(
   token: string | undefined,
   encodedSecret: Uint8Array,
+  purpose: TokenPurpose,
 ): Promise<VerifiedUnsubscribe> {
   try {
     if (!token) {
@@ -185,9 +216,22 @@ async function verifyUnsubscribeToken(
       );
     }
 
-    const { payload: verifiedPayload } = await jose.jwtVerify(token, encodedSecret, {
-      issuer: "kumiko:unsubscribe",
-    });
+    const { payload: verifiedPayload } =
+      purpose === "resubscribe"
+        ? await jose.jwtVerify(token, encodedSecret, {
+            issuer: UNSUBSCRIBE_ISSUER,
+            audience: RESUBSCRIBE_AUDIENCE,
+            requiredClaims: ["exp"],
+          })
+        : await jose.jwtVerify(token, encodedSecret, { issuer: UNSUBSCRIBE_ISSUER });
+    // jose only checks `aud` when asked to, so an unsubscribe route would accept an undo token.
+    if (purpose === "unsubscribe" && verifiedPayload.aud !== undefined) {
+      throw new ExtraRouteRejection(
+        400,
+        UNSUBSCRIBE_TOKEN_INVALID_BODY,
+        "resubscribe token used as unsubscribe token",
+      );
+    }
 
     const addressAttempt = addressUnsubscribeJwtPayloadSchema.safeParse(verifiedPayload);
     if (addressAttempt.success) {
@@ -329,6 +373,24 @@ function confirmationPage(token: string): string {
 </html>`;
 }
 
+function unsubscribedPage(resubscribeToken: string): string {
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>Unsubscribed</title>
+</head>
+<body>
+<p>You have been unsubscribed.</p>
+<form method="post" action="${DELIVERY_RESUBSCRIBE_PATH}">
+<input type="hidden" name="token" value="${escapeHtmlAttr(resubscribeToken)}">
+<button type="submit">Undo</button>
+</form>
+</body>
+</html>`;
+}
+
 // One-click clients put the token in the query string; only the
 // confirmation-page form submits it in the body.
 function tokenFromPostRequest(request: SignatureExtraRouteVerifyRequest): string | undefined {
@@ -377,7 +439,7 @@ export function createUnsubscribeRoutes(
           "missing unsubscribe token",
         );
       }
-      await verifyUnsubscribeToken(token, encodedSecret);
+      await verifyUnsubscribeToken(token, encodedSecret, "unsubscribe");
       return { token };
     },
     handler: async (c, { token }) =>
@@ -388,7 +450,8 @@ export function createUnsubscribeRoutes(
     method: "POST",
     path: DELIVERY_UNSUBSCRIBE_PATH,
     entry: "signature",
-    verify: async (request) => verifyUnsubscribeToken(tokenFromPostRequest(request), encodedSecret),
+    verify: async (request) =>
+      verifyUnsubscribeToken(tokenFromPostRequest(request), encodedSecret, "unsubscribe"),
     handler: async (c, verified, deps) => {
       // Token-verify passed — everything below is a legitimate write. Don't
       // swallow write-errors as "invalid token", that would mask real bugs
@@ -397,7 +460,9 @@ export function createUnsubscribeRoutes(
       if (!succeeded) {
         return c.html("Unsubscribe failed", 500, { "Cache-Control": "no-store" });
       }
-      return c.html("You have been unsubscribed.", 200, { "Cache-Control": "no-store" });
+      return c.html(unsubscribedPage(await signResubscribeToken(verified, encodedSecret)), 200, {
+        "Cache-Control": "no-store",
+      });
     },
   });
 
@@ -408,7 +473,8 @@ export function createUnsubscribeRoutes(
     method: "POST",
     path: DELIVERY_RESUBSCRIBE_PATH,
     entry: "signature",
-    verify: async (request) => verifyUnsubscribeToken(tokenFromRequestBody(request), encodedSecret),
+    verify: async (request) =>
+      verifyUnsubscribeToken(tokenFromRequestBody(request), encodedSecret, "resubscribe"),
     handler: async (c, verified, deps) => {
       const outcome = await dispatchResubscribeWrite(verified, deps);
       if (outcome === "limit_reached") {
