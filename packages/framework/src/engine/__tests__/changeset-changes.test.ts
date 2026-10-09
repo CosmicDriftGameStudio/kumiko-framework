@@ -19,6 +19,27 @@ describe("parseChangesetChanges", () => {
     ]);
   });
 
+  test("parses manualAfterCodemod and rejects it without a codemod", () => {
+    const block = (fields: string) =>
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Partly automated\nmigration: Review the rest\n${fields}\n-->`;
+
+    const [change] = parseChangesetChanges(
+      block("codemod: scripts/codemod/migrate-db-raw.ts\nmanualAfterCodemod: true"),
+      ".changeset/partly.md",
+    );
+    expect(change?.manualAfterCodemod).toBe(true);
+
+    expect(() => parseChangesetChanges(block("manualAfterCodemod: true"), ".changeset/x.md")).toThrow(
+      /manualAfterCodemod without a codemod/,
+    );
+    expect(() =>
+      parseChangesetChanges(
+        block("codemod: scripts/codemod/migrate-db-raw.ts\nmanualAfterCodemod: yes"),
+        ".changeset/x.md",
+      ),
+    ).toThrow(/must be true or false/);
+  });
+
   test("parses multiple blocks with multiline migration", () => {
     const changes = parseChangesetChanges(
       `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\nmigration: |\n  Replace the old call.\n  Then run the migration.\n-->\n\n<!-- kumiko-changes\nfeature: sessions\ntype: fix\ntitle: Fixes session cleanup\n-->`,

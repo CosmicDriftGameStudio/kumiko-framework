@@ -40,8 +40,8 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../../tenant/invitation-table.js";
-// kumiko-lint-ignore cross-feature-import membership rows are owned by the tenant feature
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+// kumiko-lint-ignore cross-feature-import membership version read is owned by the tenant feature
+import { membershipVersionOf } from "../../tenant/invited-membership.js";
 // kumiko-lint-ignore cross-feature-import membership-role validation owned by tenant-feature
 import {
   findForbiddenMembershipRole,
@@ -159,8 +159,7 @@ async function currentMembershipVersion(
     isDeleted: false,
   });
   if (!user) return 0;
-  const membership = await ctx.db.fetchOne(tenantMembershipsTable, { tenantId, userId: user.id });
-  return membership ? (membership["version"] as number) : 0; // @cast-boundary db-row
+  return membershipVersionOf(ctx.db, tenantId, user.id);
 }
 
 async function issueInvitation(

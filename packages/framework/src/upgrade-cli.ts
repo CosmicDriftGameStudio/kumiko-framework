@@ -303,6 +303,10 @@ function hasCodemod(e: ChangelogEntry): e is ChangelogEntry & { codemod: string 
   return typeof e.codemod === "string" && e.codemod.length > 0;
 }
 
+function needsManualMigration(e: ChangelogEntry): boolean {
+  return !hasCodemod(e) || e.manualAfterCodemod === true;
+}
+
 type UpgradeMarkerCodemod = {
   readonly version: string;
   readonly codemod: string;
@@ -556,10 +560,14 @@ async function applyCodemods(
   const codemodEntries = breaking
     .filter(hasCodemod)
     .sort((a, b) => compareVersions(a.version, b.version));
-  const manualEntries = breaking.filter((e) => !hasCodemod(e));
+  const manualEntries = breaking.filter(needsManualMigration);
 
   for (const e of manualEntries) {
-    out.log(`  ⚠ ${e.version} · ${e.title} — no codemod, manual migration required`);
+    out.log(
+      hasCodemod(e)
+        ? `  ⚠ ${e.version} · ${e.title} — codemod covers only part, manual migration still required`
+        : `  ⚠ ${e.version} · ${e.title} — no codemod, manual migration required`,
+    );
   }
 
   if (codemodEntries.length === 0) {

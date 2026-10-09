@@ -17,6 +17,8 @@ export type ChangelogEntry = {
   readonly migration?: string;
   /** Path (relative to packages/framework/src/, under scripts/codemod/) run by `kumiko upgrade --apply`. */
   readonly codemod?: string;
+  /** The codemod only covers part of the migration: the entry is also recorded as pending manual work after it ran. */
+  readonly manualAfterCodemod?: boolean;
 };
 
 export type FeatureChangelog = {
@@ -48,6 +50,9 @@ function isChangelogEntry(value: unknown): value is ChangelogEntry {
   if (typeof obj["version"] !== "string") return false;
   if (!["breaking", "improvement", "fix"].includes(obj["type"] as string)) return false;
   if (typeof obj["title"] !== "string") return false;
+  if (obj["manualAfterCodemod"] !== undefined && typeof obj["manualAfterCodemod"] !== "boolean") {
+    return false;
+  }
   return true;
 }
 
@@ -58,6 +63,9 @@ export function validateChangelog(entry: ChangelogEntry): string[] {
   }
   if (entry.type === "breaking" && entry.migration?.trim() === "") {
     errors.push(`breaking change "${entry.title}" has empty migration field`);
+  }
+  if (entry.manualAfterCodemod && !entry.codemod) {
+    errors.push(`change "${entry.title}" sets manualAfterCodemod without a codemod field`);
   }
   return errors;
 }

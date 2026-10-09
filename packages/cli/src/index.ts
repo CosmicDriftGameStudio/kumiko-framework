@@ -17,6 +17,7 @@ import {
 import { renderTestSetup } from "@cosmicdrift/kumiko-testing/scaffold";
 import type { CliCommand } from "./commands";
 import { APP_COMMANDS, findAppCommand } from "./commands";
+import { missingPeerMessage } from "./missing-peer";
 import type { Output } from "./output";
 
 export type { Output } from "./output";
@@ -60,11 +61,25 @@ export async function runCli(options: RunCliOptions): Promise<number> {
       printCommandHelp(appCommand, out);
       return 0;
     }
-    return await appCommand.run({ argv: rest, cwd, out });
+    return await runAppCommand(appCommand, { argv: rest, cwd, out });
   }
 
   out.err(`kumiko: unknown command "${first}". Run \`kumiko --help\` for usage.`);
   return 1;
+}
+
+async function runAppCommand(
+  command: CliCommand,
+  context: Parameters<CliCommand["run"]>[0],
+): Promise<number> {
+  try {
+    return await command.run(context);
+  } catch (error) {
+    const message = missingPeerMessage(error);
+    if (message === undefined) throw error;
+    context.out.err(`kumiko ${command.id}: ${message}`);
+    return 1;
+  }
 }
 
 async function runNew(args: readonly string[], out: Output, cwd: string): Promise<number> {

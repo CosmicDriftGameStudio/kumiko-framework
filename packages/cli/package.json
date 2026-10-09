@@ -36,13 +36,27 @@
     }
   },
   "dependencies": {
-    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-dev-server": "workspace:*",
-    "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-guards": "workspace:*",
     "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",
     "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:^",
+    "@cosmicdrift/kumiko-framework": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@cosmicdrift/kumiko-bundled-features": {
+      "optional": true
+    },
+    "@cosmicdrift/kumiko-framework": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

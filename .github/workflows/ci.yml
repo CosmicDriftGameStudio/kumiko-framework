@@ -335,6 +335,16 @@ jobs:
         working-directory: demo
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema validate (demo)" -- bun ../packages/dev-server/bin/kumiko-schema.ts validate
 
+      - name: Typecheck (demo)
+        # demo/ is no workspace member and has no root tsc reference, so its
+        # tsconfig was never checked. Resolves @cosmicdrift/* through the root install above.
+        working-directory: demo
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Typecheck (demo)" -- bun run typecheck
+
+      - name: Lint (demo)
+        working-directory: demo
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Lint (demo)" -- bun run lint
+
       - name: Boot smoke (demo)
         # kumiko-schema validate never touches bin/main.ts, so it can't catch
         # a stale/missing runtime import (kumiko-framework#2309 bug 2) —

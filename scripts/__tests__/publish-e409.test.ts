@@ -52,6 +52,27 @@ function assertParsesAsBash(snippet: string, label: string): void {
 
 const PUBLISH_AND_TAG_FN = extractPublishAndTag();
 
+function extractEmitTagFn(): string {
+  const script = readFileSync(SCRIPT_PATH, "utf-8");
+  const match = script.match(/^emit_tag_unless_on_origin\(\)[\s\S]*?^\}/m);
+  if (!match) {
+    throw new Error("Could not extract emit_tag_unless_on_origin() from publish-with-oidc.sh");
+  }
+  assertParsesAsBash(match[0], "emit_tag_unless_on_origin()");
+  return match[0];
+}
+
+const EMIT_TAG_FN = extractEmitTagFn();
+
+// `ls-remote` answers with a ref line only when the tag is already on origin.
+const GIT_STUB = [
+  "#!/usr/bin/env bash",
+  'if [ "$1" = "ls-remote" ] && [ "${STUB_REMOTE_HAS_TAG:-0}" = "1" ]; then',
+  '  echo "abc123\trefs/tags/$4"',
+  "fi",
+  "exit 0",
+].join("\n") + "\n";
+
 function extractPublishOutcomeBranch(): string {
   const script = readFileSync(SCRIPT_PATH, "utf-8");
   const match = script.match(
@@ -268,14 +289,17 @@ describe("publish-with-oidc.sh publish_and_tag()", () => {
 // literal extracted branch — rather than re-deriving its behaviour — proves
 // the E403-detected case increments `skipped`, not `published`, and never
 // emits "New tag:".
-function runPublishOutcomeBranch(unconfirmed: "none" | "e403" | "staged"): {
+function runPublishOutcomeBranch(
+  unconfirmed: "none" | "e403" | "staged",
+  remoteHasTag = false,
+): {
   exitCode: number;
   stdout: string;
 } {
   const dir = makeTempDir();
   for (const [bin, body] of [
     ["npm", "#!/usr/bin/env bash\nexit 0\n"],
-    ["git", "#!/usr/bin/env bash\nexit 0\n"],
+    ["git", GIT_STUB],
   ] as const) {
     writeFileSync(join(dir, bin), body, { mode: 0o755 });
   }
@@ -286,6 +310,7 @@ function runPublishOutcomeBranch(unconfirmed: "none" | "e403" | "staged"): {
     [
       "#!/usr/bin/env bash",
       "set -euo pipefail",
+      EMIT_TAG_FN,
       'name="@cosmicdrift/kumiko-types"',
       'version="0.233.0"',
       "published=0",
@@ -306,7 +331,11 @@ function runPublishOutcomeBranch(unconfirmed: "none" | "e403" | "staged"): {
   );
 
   const result = Bun.spawnSync(["bash", runner], {
-    env: { ...process.env, PATH: `${dir}:${process.env.PATH ?? ""}` },
+    env: {
+      ...process.env,
+      PATH: `${dir}:${process.env.PATH ?? ""}`,
+      STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0",
+    },
   });
 
   return {
@@ -330,8 +359,12 @@ function extractAlreadyOnRegistryBranch(): string {
 
 const ALREADY_ON_REGISTRY_BRANCH = extractAlreadyOnRegistryBranch();
 
-function runSkipBranch(distTagLs: string): { exitCode: number; npmCalls: string[] } {
+function runSkipBranch(
+  distTagLs: string,
+  remoteHasTag = true,
+): { exitCode: number; stdout: string; npmCalls: string[] } {
   const dir = makeTempDir();
+  writeFileSync(join(dir, "git"), GIT_STUB, { mode: 0o755 });
   const callLog = join(dir, "npm-calls.log");
   writeFileSync(
     join(dir, "npm"),
@@ -349,6 +382,7 @@ function runSkipBranch(distTagLs: string): { exitCode: number; npmCalls: string[
     [
       "#!/usr/bin/env bash",
       "set -euo pipefail",
+      EMIT_TAG_FN,
       'name="@cosmicdrift/kumiko-types"',
       'version="0.233.0"',
       'registry_version="0.233.0"',
@@ -369,10 +403,15 @@ function runSkipBranch(distTagLs: string): { exitCode: number; npmCalls: string[
       PATH: `${dir}:${process.env.PATH ?? ""}`,
       STUB_CALL_LOG: callLog,
       STUB_DIST_TAG_LS: distTagLs,
+      STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0",
     },
   });
   const calls = existsSync(callLog) ? readFileSync(callLog, "utf-8").trim().split("\n") : [];
-  return { exitCode: result.exitCode ?? -1, npmCalls: calls };
+  return {
+    exitCode: result.exitCode ?? -1,
+    stdout: result.stdout.toString("utf-8"),
+    npmCalls: calls,
+  };
 }
 
 describe("publish-with-oidc.sh already-on-registry skip branch", () => {
@@ -385,23 +424,36 @@ describe("publish-with-oidc.sh already-on-registry skip branch", () => {
     expect(withoutTag.exitCode).toBe(0);
     expect(withoutTag.npmCalls).not.toContain("dist-tag rm @cosmicdrift/kumiko-types kumiko-tmp");
   });
+
+  test("emits New tag for a registry version whose tag is missing on origin", () => {
+    expect(runSkipBranch("latest: 0.233.0\\n", false).stdout).toContain(
+      "New tag: @cosmicdrift/kumiko-types@0.233.0",
+    );
+    expect(runSkipBranch("latest: 0.233.0\\n", true).stdout).not.toContain("New tag:");
+  });
 });
 
 describe("publish-with-oidc.sh per-package outcome branch", () => {
-  test("counts the E403-detected already-published case as skipped and emits no New tag", () => {
+  test("counts the E403-detected already-published case as skipped and tags it when origin has no tag", () => {
     const { exitCode, stdout } = runPublishOutcomeBranch("e403");
     expect(exitCode).toBe(0);
     expect(stdout).toContain("published=0");
     expect(stdout).toContain("skipped=1");
+    expect(stdout).toContain("New tag: @cosmicdrift/kumiko-types@0.233.0");
+  });
+
+  test("emits no New tag for an E403-detected version whose tag already exists on origin", () => {
+    const { stdout } = runPublishOutcomeBranch("e403", true);
+    expect(stdout).toContain("skipped=1");
     expect(stdout).not.toContain("New tag:");
   });
 
-  test("counts a staged-but-unconfirmed version as skipped and emits no New tag (#2578)", () => {
+  test("counts a staged-but-unconfirmed version as skipped and tags it when origin has no tag (#2578)", () => {
     const { exitCode, stdout } = runPublishOutcomeBranch("staged");
     expect(exitCode).toBe(0);
     expect(stdout).toContain("published=0");
     expect(stdout).toContain("skipped=1");
-    expect(stdout).not.toContain("New tag:");
+    expect(stdout).toContain("New tag: @cosmicdrift/kumiko-types@0.233.0");
   });
 
   test("counts a genuine publish as published and emits New tag", () => {

@@ -75,14 +75,24 @@
         "kumiko-upgrade": "./bin/kumiko-upgrade.ts",
       },
       "dependencies": {
-        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-dev-server": "workspace:*",
-        "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-guards": "workspace:*",
         "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
         "@cosmicdrift/kumiko-testing": "workspace:*",
         "zod": "^4.4.3",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "peerDependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:^",
+        "@cosmicdrift/kumiko-framework": "workspace:^",
+      },
+      "optionalPeers": [
+        "@cosmicdrift/kumiko-bundled-features",
+        "@cosmicdrift/kumiko-framework",
+      ],
     },
     "packages/create-kumiko-app": {
       "name": "create-kumiko-app",

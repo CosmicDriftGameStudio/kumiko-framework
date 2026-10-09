@@ -52,6 +52,21 @@ published_json="[]"
 # version line (0.2.x) yet correctly pins dev-server@0.67.x.
 workspace_versions="$(jq -s 'map({(.name): .version}) | add' packages/*/package.json)"
 
+# changesets/action creates tags + GitHub Releases only from `New tag:` lines and
+# pushes the local tag. A version that reached the registry without this run
+# confirming it (E403 rescue, staged, interrupted earlier run) would otherwise
+# never get a tag or release; a tag already on origin needs no new marker.
+emit_tag_unless_on_origin() {
+  local name="$1" version="$2"
+  if [ -n "$(git ls-remote --tags origin "refs/tags/$name@$version" 2>/dev/null)" ]; then
+    return 0
+  fi
+  # Lightweight (no -a/-m) like changesets/action's own tags: no user.email/name needed.
+  git tag "$name@$version" >&2 || \
+    echo "[warn] git tag $name@$version failed (may already exist)" >&2
+  echo "New tag: $name@$version"
+}
+
 # npm answers E409 "Cannot publish over previously staged version" when an
 # interrupted earlier run already staged this exact version (#2576). The
 # registry finalizes such a version on its own, so it counts as released — but
@@ -173,6 +188,7 @@ for pkg_json in packages/*/package.json; do
     if npm dist-tag ls "$name" | grep -q '^kumiko-tmp:'; then
       npm dist-tag rm "$name" kumiko-tmp >&2
     fi
+    emit_tag_unless_on_origin "$name" "$version"
     skipped=$((skipped + 1))
     continue
   fi
@@ -224,11 +240,12 @@ for pkg_json in packages/*/package.json; do
     if [ "$already_published_via_e403" = 1 ] || [ "$staged_unconfirmed" = 1 ]; then
       # Detected late (#2586), or staged without ever resolving (#2576): this
       # run did not confirm the version, so it counts as skipped rather than
-      # published and emits no tag/release. No `latest` move
+      # published (not in published_json). No `latest` move
       # here — the version is still unresolvable in this window (that's the
       # whole reason npm rejected the publish), the next run's early-skip
       # branch above repairs `latest` once the registry catches up.
       echo "[skip] $name@$version (not confirmed on registry: E403 or staged)" >&2
+      emit_tag_unless_on_origin "$name" "$version"
       skipped=$((skipped + 1))
     else
       published=$((published + 1))
@@ -243,16 +260,12 @@ for pkg_json in packages/*/package.json; do
       # tags/releases were created. Pattern matches 1:1 what `yarn changeset
       # publish` itself emits (action source: packages/action-utils/src/run.ts).
       #
-      # Create the local git tag ourselves, otherwise the action's subsequent
+      # The local git tag must exist too, otherwise the action's subsequent
       # `git push origin <tag>` fails with "src refspec does not match any":
       # under `yarn changeset publish`'s default flow yarn creates the tags,
       # with our custom script we have to do it ourselves. Otherwise the
       # release job goes red despite a successful npm publish.
-      # Lightweight (no -a/-m) — no user.email/name config needed.
-      # changesets/action itself also uses lightweight tags.
-      git tag "$name@$version" >&2 || \
-        echo "[warn] git tag $name@$version failed (may already exist)" >&2
-      echo "New tag: $name@$version"
+      emit_tag_unless_on_origin "$name" "$version"
     fi
   else
     failed+=("$name@$version")

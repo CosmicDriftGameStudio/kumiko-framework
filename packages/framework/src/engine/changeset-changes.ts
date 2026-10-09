@@ -7,12 +7,13 @@ export type PendingChange = {
   readonly detail?: string;
   readonly migration?: string;
   readonly codemod?: string;
+  readonly manualAfterCodemod?: boolean;
   readonly source: string;
 };
 
 const BLOCK_RE = /<!--\s*kumiko-changes\s*\n([\s\S]*?)\n\s*-->/g;
 const TYPE_VALUES = new Set<ChangelogType>(["breaking", "improvement", "fix"]);
-const KEY_RE = /^(feature|type|title|detail|migration|codemod):(?:\s(.*))?$/;
+const KEY_RE = /^(feature|type|title|detail|migration|codemod|manualAfterCodemod):(?:\s(.*))?$/;
 
 function requiredField(fields: ReadonlyMap<string, string>, field: string, source: string): string {
   const value = fields.get(field)?.trim();
@@ -122,6 +123,14 @@ export function parseChangesetChanges(markdown: string, source: string): readonl
         .trim();
     const migration = fields.get("migration")?.trim();
     const codemod = fields.get("codemod")?.trim();
+    const rawManualAfterCodemod = fields.get("manualAfterCodemod")?.trim();
+    if (
+      rawManualAfterCodemod !== undefined &&
+      rawManualAfterCodemod !== "true" &&
+      rawManualAfterCodemod !== "false"
+    ) {
+      throw new Error(`${source}: kumiko-changes manualAfterCodemod must be true or false`);
+    }
     const change: PendingChange = {
       feature,
       type: rawType as ChangelogType,
@@ -129,6 +138,7 @@ export function parseChangesetChanges(markdown: string, source: string): readonl
       ...(detail ? { detail } : {}),
       ...(migration ? { migration } : {}),
       ...(codemod ? { codemod } : {}),
+      ...(rawManualAfterCodemod === "true" ? { manualAfterCodemod: true } : {}),
       source,
     };
     const validation = validateChangelog({ version: "0.0.0", ...change });

@@ -8,6 +8,7 @@ import {
   FormalityProvider,
   LocaleProvider,
   type TranslationsByLocale,
+  translationsByKeyFromLocales,
   translationsByLocaleFromKeys,
   useLocale,
   useOptionalTranslation,
@@ -235,6 +236,15 @@ describe("translationsByLocaleFromKeys", () => {
       "app:nav.home": "Home",
       "app:nav.settings": "Settings",
     });
+  });
+});
+describe("translationsByKeyFromLocales", () => {
+  test("is the lossless inverse of translationsByLocaleFromKeys", () => {
+    const keyFirst = {
+      "app:nav.home": { de: "Start", en: "Home" },
+      "app:nav.settings": { de: "Einstellungen" },
+    };
+    expect(translationsByKeyFromLocales(translationsByLocaleFromKeys(keyFirst))).toEqual(keyFirst);
   });
 });
 describe("useLocale", () => {

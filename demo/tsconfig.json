@@ -23,6 +23,7 @@
   "include": [
     "bin",
     "src",
-    "kumiko"
+    "kumiko",
+    "../packages/renderer-web/src/qrcode-browser.d.ts"
   ]
 }

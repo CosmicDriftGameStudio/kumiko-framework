@@ -3,6 +3,7 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   type DbRunner,
+  type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
@@ -39,6 +40,19 @@ type MembershipRow = {
   readonly insertedAt: Temporal.Instant;
   readonly modifiedAt: Temporal.Instant | null;
 };
+
+// 0 = the user has no membership in the tenant yet.
+export async function membershipVersionOf(
+  db: Pick<TenantDb, "fetchOne">,
+  tenantId: string,
+  userId: string,
+): Promise<number> {
+  const membership = await db.fetchOne<{ readonly version: number }>(tenantMembershipsTable, {
+    tenantId,
+    userId,
+  });
+  return membership?.version ?? 0;
+}
 
 // Add-only, so unlike updateMemberRoles no session revoke or last-TenantAdmin check.
 // Read unfiltered: tenant:query:memberships hides disabled tenants.
@@ -82,7 +96,10 @@ export async function grantInvitedMembershipRole(db: DbRunner, options: InvitedM
 // the invite; a membership that only appeared after a 0-pin is an additive grant.
 // Rows issued before the pin existed (null) fall back to wall-clock timestamps,
 // which can misjudge changes within the same millisecond but is all they carry.
-function isSupersededByMembership(membership: MembershipRow, invitation: InvitationIssuance): boolean {
+function isSupersededByMembership(
+  membership: MembershipRow,
+  invitation: InvitationIssuance,
+): boolean {
   if (invitation.membershipVersion !== null) {
     return invitation.membershipVersion > 0 && membership.version !== invitation.membershipVersion;
   }

@@ -1,18 +1,25 @@
 // Reads English copy from the real registrations, so parity cannot drift from a hand-kept key list.
 
-import { readdirSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { AUTH_MAIL_EN } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/email-templates";
+import { GDPR_MAIL_EN } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/email-templates";
 import { buildAppSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
 import { kumikoDefaultTranslations } from "@cosmicdrift/kumiko-renderer";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { AUTH_MAIL_EN } from "../../../../../packages/bundled-features/src/auth-email-password/email-templates";
-import { GDPR_MAIL_EN } from "../../../../../packages/bundled-features/src/user-data-rights/email-templates";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const BUNDLED_FEATURES_SRC = join(HERE, "../../../../../packages/bundled-features/src");
+const BUNDLED_PACKAGE = "@cosmicdrift/kumiko-bundled-features";
+
+// package.json is not an export; the package has no root export, so resolve a known subpath two levels below it (src/ and dist/).
+function bundledFeaturesPackageJson(): { readonly exports: Readonly<Record<string, unknown>> } {
+  const entry = fileURLToPath(
+    import.meta.resolve(`${BUNDLED_PACKAGE}/auth-email-password/email-templates`),
+  );
+  return JSON.parse(readFileSync(join(dirname(entry), "..", "..", "package.json"), "utf-8"));
+}
 
 // Features of this sample, not of the framework: their copy is app-owned.
 const SAMPLE_OWNED_FEATURES: ReadonlySet<string> = new Set([
@@ -59,10 +66,12 @@ type HarvestSource = {
 
 async function harvestClientPlugins(): Promise<readonly HarvestSource[]> {
   const out: HarvestSource[] = [];
-  for (const dirName of readdirSync(BUNDLED_FEATURES_SRC)) {
-    const webIndex = join(BUNDLED_FEATURES_SRC, dirName, "web", "index.ts");
-    if (!statSync(webIndex, { throwIfNoEntry: false })?.isFile()) continue;
-    const mod: Record<string, unknown> = await import(webIndex);
+  const webSubpaths = Object.keys(bundledFeaturesPackageJson().exports).filter((subpath) =>
+    subpath.endsWith("/web"),
+  );
+  for (const subpath of webSubpaths) {
+    const dirName = subpath.slice(2, -"/web".length);
+    const mod: Record<string, unknown> = await import(`${BUNDLED_PACKAGE}/${subpath.slice(2)}`);
     for (const [exportName, factory] of Object.entries(mod)) {
       if (!exportName.endsWith("Client") || !isZeroArgFactory(factory)) continue;
       out.push({
