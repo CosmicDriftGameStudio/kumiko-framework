@@ -104,6 +104,7 @@ import {
   type AfterCommitHook,
   dispatcherSpanAttributes,
   isFailedWriteResult,
+  NestedWriteRollback,
 } from "./dispatcher-utils.js";
 import type { IdempotencyGuard } from "./idempotency.js";
 import type { LifecycleHooks } from "./lifecycle-pipeline.js";
@@ -561,6 +562,38 @@ export async function buildHandlerContext(
   // Cross-feature bridge: ctx.query/write share the current tx + afterCommitHooks sink.
   // queryAs/writeAs to anyone but the caller itself needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
   const bridgeSink = afterCommitHooks ?? [];
+  // A failed inner write has already appended its event and projections when a later
+  // step (e.g. an inTransaction hook) fails, and the outer handler may swallow the
+  // failure result. The savepoint makes the failure undo exactly the inner write; the
+  // inner afterCommit hooks only reach the outer sink if it succeeded.
+  const executeNestedWriteInSavepoint = async (
+    asUser: SessionUser,
+    targetType: string,
+    payload: unknown,
+  ): Promise<WriteResult> => {
+    if (!tx) return executeWrite(ctx, targetType, payload, asUser, origin, tx, bridgeSink);
+    const innerAfterCommitHooks: AfterCommitHook[] = [];
+    try {
+      const result = await runInSavepoint(tx, async (savepointTx) => {
+        const innerResult = await executeWrite(
+          ctx,
+          targetType,
+          payload,
+          asUser,
+          origin,
+          savepointTx as DbTx, // @cast-boundary driver savepoint handle is a transaction handle
+          innerAfterCommitHooks,
+        );
+        if (isFailedWriteResult(innerResult)) throw new NestedWriteRollback(innerResult);
+        return innerResult;
+      });
+      bridgeSink.push(...innerAfterCommitHooks);
+      return result;
+    } catch (e) {
+      if (e instanceof NestedWriteRollback) return e.failure;
+      throw e;
+    }
+  };
   // Post-commit hooks have no transaction left, so a bare executeWrite would
   // auto-commit event append, projections and inTransaction hooks separately
   // and its afterCommit hooks would land in an already-flushed sink. A
@@ -570,7 +603,7 @@ export async function buildHandlerContext(
       ? unwrapSingle(
           await runBatch(ctx, [{ type: targetType, payload }], asUser, undefined, origin),
         )
-      : executeWrite(ctx, targetType, payload, asUser, origin, tx, bridgeSink);
+      : executeNestedWriteInSavepoint(asUser, targetType, payload);
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     bridgeSink.push(hook);
   };
