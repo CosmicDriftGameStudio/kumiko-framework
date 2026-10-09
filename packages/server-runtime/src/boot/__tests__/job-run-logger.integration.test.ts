@@ -194,7 +194,7 @@ describe("startDevJobRunners attaches the dispatcher (kumiko-framework#2553)", (
     } finally {
       await stack.cleanup();
     }
-  }, 15000);
+  });
 });
 
 // Regression guard for the shared-Redis job-queue-collision bug: two boots

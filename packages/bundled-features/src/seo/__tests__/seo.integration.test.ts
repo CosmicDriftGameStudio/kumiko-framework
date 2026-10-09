@@ -174,7 +174,7 @@ describe("seo :: rate-limited managed-pages read", () => {
     const llms = await stack.app.request("http://a.example.com/llms.txt");
     expect(llms.status).toBe(429);
     await stack.redis.flushNamespace();
-  }, 20000);
+  });
 });
 
 describe("seo :: GET /llms.txt", () => {

@@ -29,13 +29,11 @@ describe("create-kumiko-app CLI", () => {
     const scaffoldMs = performance.now() - startedAt;
     expect(code).toBe(0);
     // Onboarding regression gate: the scaffold step is the first thing a new
-    // user waits on. Generous ceiling so slow CI runners pass — what we catch
-    // is an order-of-magnitude blowup, not seconds. Needs an explicit test
-    // timeout above the 30s ceiling: bun's default (5s) would fail a slow-
-    // but-fine CI run on its own timeout before this assertion ever gets to
-    // fire, making the "ceiling" the opposite of what the comment claims.
-    expect(scaffoldMs, `scaffold took ${Math.round(scaffoldMs)}ms (ceiling 30s)`).toBeLessThan(
-      30_000,
+    // user waits on. The ceiling sits below bun's 5s test budget so a blowup
+    // fails here with the measured time (a scaffold takes ~0.1s) instead of as
+    // an anonymous harness timeout.
+    expect(scaffoldMs, `scaffold took ${Math.round(scaffoldMs)}ms (ceiling 3s)`).toBeLessThan(
+      3_000,
     );
 
     const dest = join(tmp, "demo-app");
@@ -76,7 +74,7 @@ describe("create-kumiko-app CLI", () => {
 
     // Setup-impact preview lands before the scaffold actually runs.
     expect(out).toMatch(/→ Scaffolding \d+ features? into \.\/demo-app\//);
-  }, 35_000);
+  });
 
   test("--print-manifest emits JSON, no name needed", async () => {
     const code = await runCreate({

@@ -355,7 +355,7 @@ describe("buildStaticFallback resolvePageHead", () => {
     const res = await handler(new Request("http://t/"));
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(HTML);
-  }, 2000);
+  });
 
   test("two paths with different resolved titles get different ETags", async () => {
     const handler = buildStaticFallback(

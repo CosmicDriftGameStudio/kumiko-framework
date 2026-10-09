@@ -240,7 +240,7 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     expect(stdout).toContain("boot validation OK");
     // The scaffold no longer warns itself; the plaintext path must still be loud via the boot gate.
     expect(`${stdout}${stderr}`).toContain("stored in PLAINTEXT");
-  }, 30_000);
+  });
 
   test("NODE_ENV=production with an empty KMS trio aborts the generated bin/main.ts", async () => {
     mkdirSync(FIXTURE_ROOT, { recursive: true });
@@ -277,5 +277,5 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).not.toBe(0);
     expect(`${stdout}${stderr}`).toContain("PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL");
     expect(`${stdout}${stderr}`).toContain("are required here");
-  }, 30_000);
+  });
 });

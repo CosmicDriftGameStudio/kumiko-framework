@@ -166,7 +166,7 @@ describe("createZipStream :: format limits (ZIP64-Pre-Check)", () => {
     await expect(collect(createZipStream(manyEntries()))).rejects.toThrow(
       /exceeds 65535-entry limit/,
     );
-  }, 30_000); // 30s timeout — 65536 entries iterieren
+  });
 });
 
 // **Plattform-Abhaengigkeit:** dieser describe braucht das `unzip`-

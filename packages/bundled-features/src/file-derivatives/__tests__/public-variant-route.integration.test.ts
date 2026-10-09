@@ -395,5 +395,5 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
       headers: { "x-forwarded-for": xff },
     });
     expect(blocked.status).toBe(429);
-  }, 20000);
+  });
 });
