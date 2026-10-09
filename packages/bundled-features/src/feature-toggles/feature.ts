@@ -108,9 +108,8 @@ export function createFeatureTogglesFeature(
     // process's handler calls runtime.broadcastToggle, which publishes on
     // GlobalFeatureToggleRuntime's syncSignal so every process (including
     // the one that won the cursor) applies the flip to its own snapshot —
-    // see toggle-runtime.ts and toggle-sync-signal.ts. Without a syncSignal
-    // configured (no REDIS_URL — single-process dev/test), broadcastToggle
-    // applies directly; there is nobody else to reach. Named "cache-sync"
+    // see toggle-runtime.ts and toggle-sync-signal.ts. The signal defaults to
+    // the cache-sync bus (Redis with REDIS_URL, process-local without). Named "cache-sync"
     // (not "projection" or "audit") because it's side-effect-only
     // infrastructure.
     //

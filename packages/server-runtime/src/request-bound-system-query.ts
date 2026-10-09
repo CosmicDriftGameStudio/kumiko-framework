@@ -20,9 +20,13 @@ export function buildRequestBoundSystemQuery(params: {
   readonly socketAddress?: string;
 }): PageHeadSystemQuery {
   const { req, dispatcher, resolver, socketAddress } = params;
-  return (type, payload, tenantId) =>
-    requestContext.run(
-      requestContext.get() ?? buildRequestContextDataFromRequest(req, { resolver, socketAddress }),
-      () => dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+  return (type, payload, tenantId, options) => {
+    const base =
+      requestContext.get() ?? buildRequestContextDataFromRequest(req, { resolver, socketAddress });
+    // The caller's signal replaces the request's: it already folds the request signal in.
+    const data = options?.signal ? { ...base, signal: options.signal } : base;
+    return requestContext.run(data, () =>
+      dispatcher.query(type, payload, createAnonymousUser(tenantId)),
     );
+  };
 }

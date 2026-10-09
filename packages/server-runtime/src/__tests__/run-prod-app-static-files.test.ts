@@ -445,6 +445,27 @@ describe("buildStaticFallback resolvePageHead", () => {
       ]);
     });
 
+    test("the resolver's query runs under a request-context signal that aborts when the resolver times out", async () => {
+      const signals: (AbortSignal | undefined)[] = [];
+      const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, undefined, {
+        resolvePageHead: async ({ systemQuery }) => {
+          await systemQuery("probe:query:meta", {}, TENANT);
+          return new Promise(() => {});
+        },
+        dispatcher: {
+          query: async () => {
+            signals.push(requestContext.get()?.signal);
+            return {};
+          },
+        },
+      });
+      const res = await handler(new Request("http://t/"));
+
+      expect(res.status).toBe(200);
+      expect(signals).toHaveLength(1);
+      expect(signals[0]?.aborted).toBe(true);
+    });
+
     test("without trusted proxy hops a spoofed X-Forwarded-For is ignored: the socket address wins", async () => {
       const seen: Seen[] = [];
       const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, undefined, {

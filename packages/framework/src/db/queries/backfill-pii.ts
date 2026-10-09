@@ -122,6 +122,8 @@ export type PiiBackfillOptions = {
 
 export type PiiBackfillBatchOptions = PiiBackfillOptions & {
   readonly afterEventId?: bigint | string;
+  // Re-scan exactly these events instead of the range after `afterEventId`.
+  readonly eventIds?: readonly string[];
   // Caller-held so the forgotten-set full scan is shared across batches.
   readonly scanCache?: PiiBackfillScanCache;
 };
@@ -247,14 +249,22 @@ export async function backfillEventPiiEncryptionBatch(
   });
   if (aggregateTypes.length === 0 && catalogTypes.length === 0) return emptyBatch();
 
-  const rows = (await raw.unsafe(
-    `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
-       FROM "kumiko_events"
-      WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" > $3::bigint
-      ORDER BY "id" ASC
-      LIMIT $4`,
-    [aggregateTypes, catalogTypes, String(options.afterEventId ?? 0), batchSize],
-  )) as ReadonlyArray<EventRow>;
+  const rows = (await (options.eventIds
+    ? raw.unsafe(
+        `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
+           FROM "kumiko_events"
+          WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" = ANY($3::bigint[])
+          ORDER BY "id" ASC`,
+        [aggregateTypes, catalogTypes, [...options.eventIds]],
+      )
+    : raw.unsafe(
+        `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
+           FROM "kumiko_events"
+          WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" > $3::bigint
+          ORDER BY "id" ASC
+          LIMIT $4`,
+        [aggregateTypes, catalogTypes, String(options.afterEventId ?? 0), batchSize],
+      ))) as ReadonlyArray<EventRow>;
   const last = rows[rows.length - 1];
   if (last === undefined) return emptyBatch();
 
@@ -310,7 +320,7 @@ export async function backfillEventPiiEncryptionBatch(
   return {
     ...result,
     lastEventId: String(last.id),
-    scannedAll: rows.length < batchSize,
+    scannedAll: options.eventIds !== undefined || rows.length < batchSize,
     firstFailedEventId,
     touchedAggregateTypes: [...touchedAggregateTypes],
     touchedEventTypes: [...touchedEventTypes],

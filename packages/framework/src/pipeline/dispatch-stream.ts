@@ -1,4 +1,5 @@
 import { accessInvalidationCredentialFor } from "../api/sse-broker.js";
+import { scheduleTokenExpiry } from "../api/token-expiry-timer.js";
 import { hasAccess } from "../engine/access.js";
 import type { SessionUser } from "../engine/types/index.js";
 import {
@@ -19,6 +20,11 @@ import {
 } from "./dispatch-shared.js";
 import { handlerAccessError } from "./handler-access-error.js";
 
+export type StreamOptions = {
+  /** JWT exp (epoch seconds) the stream was opened with; the stream ends when it passes. */
+  readonly tokenExpiresAtSec?: number | undefined;
+};
+
 // Standalone stream execution — used by the public dispatcher.stream().
 // Chunk-by-chunk analog of executeQuery: same gate order (feature → rate-
 // limit → access → validation → handler), but yields incrementally instead
@@ -31,9 +37,10 @@ export async function* executeStream(
   payload: unknown,
   user: SessionUser,
   origin: WriteOrigin,
+  options?: StreamOptions,
 ): AsyncGenerator<unknown> {
   yield* runStreamInstrumented(ctx, type, user, () =>
-    executeStreamInner(ctx, type, payload, user, origin),
+    executeStreamInner(ctx, type, payload, user, origin, options),
   );
 }
 
@@ -43,6 +50,7 @@ async function* executeStreamInner(
   payload: unknown,
   user: SessionUser,
   origin: WriteOrigin,
+  options: StreamOptions | undefined,
 ): AsyncGenerator<unknown> {
   const { registry } = ctx;
   const handler = registry.getStreamHandler(type);
@@ -67,19 +75,22 @@ async function* executeStreamInner(
     throw validationErrorFromZod(parsed.error);
   }
 
-  // Idle (heartbeat-only) streams must also cut on access revoke — race each
-  // pull against an invalidated Deferred instead of a post-chunk boolean.
-  let resolveInvalidated: (() => void) | undefined;
-  const invalidated = new Promise<void>((resolve) => {
-    resolveInvalidated = resolve;
+  // Idle (heartbeat-only) streams must also cut on access revoke or token expiry — race each
+  // pull against an ended Deferred instead of a post-chunk boolean.
+  let resolveEnded: ((reason: "revoked" | "expired") => void) | undefined;
+  const ended = new Promise<"revoked" | "expired">((resolve) => {
+    resolveEnded = resolve;
   });
   const unsubscribeAccessInvalidation = ctx.sseBroker?.subscribeAccessInvalidation(
     user.id,
     () => {
-      resolveInvalidated?.();
+      resolveEnded?.("revoked");
     },
     accessInvalidationCredentialFor(user),
   );
+  const expiryTimer = scheduleTokenExpiry(options?.tokenExpiresAtSec, () => {
+    resolveEnded?.("expired");
+  });
 
   let iterator: AsyncIterator<unknown> | undefined;
   // When access is revoked mid-pull, `iterator.next()` is still in flight.
@@ -96,14 +107,17 @@ async function* executeStreamInner(
       const nextPull = iterator.next();
       const outcome = await Promise.race([
         nextPull.then((result) => ({ kind: "chunk" as const, result })),
-        invalidated.then(() => ({ kind: "invalidated" as const })),
+        ended.then((reason) => ({ kind: "ended" as const, reason })),
       ]);
-      if (outcome.kind === "invalidated") {
+      if (outcome.kind === "ended") {
         abandonedForInvalidation = true;
         void nextPull.catch(() => {});
         void iterator.return?.(undefined)?.then(undefined, () => {});
         throw new AccessDeniedError({
-          message: `access revoked mid-stream for ${type}`,
+          message:
+            outcome.reason === "expired"
+              ? `token expired mid-stream for ${type}`
+              : `access revoked mid-stream for ${type}`,
           details: { handler: type },
         });
       }
@@ -114,6 +128,7 @@ async function* executeStreamInner(
     }
   } finally {
     unsubscribeAccessInvalidation?.();
+    clearTimeout(expiryTimer);
     // Close the generator so cleanup runs; skip awaiting return() after
     // access-revoke abandonment — overlapping next()+return() can deadlock.
     if (iterator !== undefined && !abandonedForInvalidation) {

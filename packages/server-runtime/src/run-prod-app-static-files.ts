@@ -232,6 +232,7 @@ export function buildStaticFallback(
       path: url.pathname,
       host,
       systemQuery,
+      requestSignal: req.signal,
     });
     if (injected === text) return html;
     const encoded = new TextEncoder().encode(injected);

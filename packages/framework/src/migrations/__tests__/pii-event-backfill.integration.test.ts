@@ -185,11 +185,14 @@ async function readPayloadsAsText(): Promise<string> {
   return rows.map((r) => r.payload).join("\n");
 }
 
-async function readState(): Promise<{ cursor: string; completed: boolean }[]> {
+async function readState(): Promise<
+  { cursor: string; completed: boolean; failedEventIds: string[] }[]
+> {
   return (await asRawClient(stack.db).unsafe(
-    `SELECT "cursor_event_id"::text AS "cursor", "completed_at" IS NOT NULL AS "completed"
+    `SELECT "cursor_event_id"::text AS "cursor", "completed_at" IS NOT NULL AS "completed",
+            "failed_event_ids"::text[] AS "failedEventIds"
        FROM "kumiko_pii_backfill_state"`,
-  )) as { cursor: string; completed: boolean }[];
+  )) as { cursor: string; completed: boolean; failedEventIds: string[] }[];
 }
 
 async function snapshotCount(aggregateId: string): Promise<number> {
@@ -406,7 +409,7 @@ describe("runPiiEventBackfill", () => {
     }
   });
 
-  test("KMS outage mid-run: failures reported, processed events stay encrypted, state not advanced; a healthy rerun completes", async () => {
+  test("KMS outage mid-run: failures reported and recorded, cursor moves past them, run completes; a healthy rerun retries only the failed ids", async () => {
     const contacts = [];
     for (let i = 1; i <= 4; i++) contacts.push(await createContact(i));
     for (const contact of [contacts[0], contacts[2]]) {
@@ -437,15 +440,22 @@ describe("runPiiEventBackfill", () => {
     expect(await snapshotCount(contacts[2]?.id ?? "")).toBe(1);
     const state = await readState();
     expect(state).toHaveLength(1);
-    expect(state[0]?.completed).toBe(false);
-    const firstFailedId = BigInt(failed.failures[0]?.eventId ?? "0");
-    expect(BigInt(state[0]?.cursor ?? "0")).toBeLessThan(firstFailedId);
+    const failedIds = failed.failures.map((f) => f.eventId);
+    expect(state[0]?.completed).toBe(true);
+    expect(state[0]?.failedEventIds).toEqual(failedIds);
+    expect(BigInt(state[0]?.cursor ?? "0")).toBe(BigInt(events[events.length - 1]?.id ?? "0"));
+
+    const stillFailing = expectRan(await runPiiEventBackfill(stack.db, registryV2));
+    expect(stillFailing.mode).toBe("catch-up");
+    expect(stillFailing.failures.map((f) => f.eventId)).toEqual(failedIds);
+    expect((await readState())[0]?.failedEventIds).toEqual(failedIds);
 
     kms.failAfterKeys = Number.POSITIVE_INFINITY;
     const healed = expectRan(await runPiiEventBackfill(stack.db, registryV2));
 
-    expect(healed.mode).toBe("full");
     expect(healed.failures).toEqual([]);
+    expect(healed.updatedEvents).toBe(failedIds.length);
+    expect((await readState())[0]?.failedEventIds).toEqual([]);
     for (const event of await readEvents()) {
       const original = requireContact(contacts, event.aggregate_id);
       expect(await decryptField(event.payload["email"], "email")).toBe(original.email);

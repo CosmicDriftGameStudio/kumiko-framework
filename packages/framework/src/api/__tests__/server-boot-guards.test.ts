@@ -14,6 +14,7 @@ import {
 } from "../../engine/index.js";
 import { createInMemorySearchAdapter } from "../../search/index.js";
 import { buildServer } from "../server.js";
+import { createSseBroker } from "../sse-broker.js";
 
 const JWT_SECRET = "server-boot-guards-test-secret-min-32-chars";
 
@@ -27,6 +28,52 @@ function searchAdapterWarning(calls: unknown[][]): string | undefined {
   );
   return hit ? String(hit[0]) : undefined;
 }
+
+describe("buildServer — cross-replica fanout warning", () => {
+  function fanoutWarning(calls: unknown[][]): string | undefined {
+    const hit = calls.find(
+      (args) => typeof args[0] === "string" && args[0].includes("cross-replica fanout disabled"),
+    );
+    return hit ? String(hit[0]) : undefined;
+  }
+
+  test("warns loudly when no REDIS_URL selects the process-local SSE broker", () => {
+    const calls: unknown[][] = [];
+    const spy = spyOn(console, "warn").mockImplementation((...args) => {
+      calls.push(args);
+    });
+    const previousRedisUrl = process.env["REDIS_URL"];
+    delete process.env["REDIS_URL"];
+    try {
+      buildServer({ registry: createRegistry([]), context: {}, jwtSecret: JWT_SECRET });
+      expect(fanoutWarning(calls)).toContain("REDIS_URL is not set");
+    } finally {
+      if (previousRedisUrl !== undefined) process.env["REDIS_URL"] = previousRedisUrl;
+      spy.mockRestore();
+    }
+  });
+
+  test("stays silent when the caller injects its own SSE broker", () => {
+    const calls: unknown[][] = [];
+    const spy = spyOn(console, "warn").mockImplementation((...args) => {
+      calls.push(args);
+    });
+    const previousRedisUrl = process.env["REDIS_URL"];
+    delete process.env["REDIS_URL"];
+    try {
+      buildServer({
+        registry: createRegistry([]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+        sseBroker: createSseBroker(),
+      });
+      expect(fanoutWarning(calls)).toBeUndefined();
+    } finally {
+      if (previousRedisUrl !== undefined) process.env["REDIS_URL"] = previousRedisUrl;
+      spy.mockRestore();
+    }
+  });
+});
 
 describe("buildServer — file-storage provider guard", () => {
   const fileFieldFeature = defineFeature("needs-files", (r) => {

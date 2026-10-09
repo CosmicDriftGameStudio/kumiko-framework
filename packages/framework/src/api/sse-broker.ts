@@ -50,7 +50,9 @@ export function accessInvalidationCredentialFor(
 export type SseBroker = {
   addClient(channel: string, send: (event: SseEvent) => void, close: () => void): string;
   removeClient(channel: string, clientId: string): void;
-  pushToChannel(channel: string, event: SseEvent): void;
+  // A returned promise rejects when the event could not be handed to the transport, so the
+  // shared event consumer fails and the dispatcher redelivers instead of dropping the push.
+  pushToChannel(channel: string, event: SseEvent): void | Promise<void>;
   getClientCount(channel: string): number;
   getTotalClientCount(): number;
   // Separate from addClient so it doesn't count towards getClientCount.
@@ -98,7 +100,8 @@ export function shouldInvalidateListener(
 }
 
 // The local broker delivers synchronously and cannot fail, so its callers need no promise handling.
-export type LocalSseBroker = Omit<SseBroker, "publishAccessInvalidation"> & {
+export type LocalSseBroker = Omit<SseBroker, "publishAccessInvalidation" | "pushToChannel"> & {
+  pushToChannel(channel: string, event: SseEvent): void;
   publishAccessInvalidation(userId: string, scope?: AccessInvalidationScope): void;
 };
 

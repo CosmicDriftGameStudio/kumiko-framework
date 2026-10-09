@@ -1,4 +1,6 @@
 import {
+  CACHE_SYNC_TOPICS,
+  type CacheSyncBus,
   createRedisPubSubSignal,
   type RedisClientOptions,
   redisChannelPrefixFromEnv,
@@ -28,10 +30,8 @@ function isTogglePayload(value: unknown): value is { featureName: string; enable
 // fw#2625: gives toggle-cache-sync the cross-replica transport its shared
 // dispatcher cursor needs — without this, only the one process that won
 // the shared cursor's toggle-set event would ever learn about a flip.
-// Same REDIS_URL-gated assumption as the SSE broker: a deployment with
-// replicas > 1 is expected to set REDIS_URL, so app-boot code should build
-// this only when REDIS_URL is present and pass it into
-// createFeatureToggleRuntime.
+// Standalone Redis transport for callers that want their own connections;
+// createFeatureToggleRuntime builds a cache-sync-bus signal by default.
 export function createRedisToggleSyncSignal(
   redisUrl: string,
   clientOptions?: RedisClientOptions,
@@ -63,5 +63,25 @@ export function createRedisToggleSyncSignal(
       });
     },
     close: signal.close,
+  };
+}
+
+// Reuses the framework cache-sync bus (local without REDIS_URL, Redis-backed with it) so
+// toggles need no Pub/Sub wiring of their own. The bus applies a publish locally first.
+export function createCacheSyncToggleSignal(bus: CacheSyncBus): ToggleSyncSignal {
+  return {
+    publish(featureName, enabled) {
+      bus.publish(CACHE_SYNC_TOPICS.featureToggle, { featureName, enabled });
+    },
+    onMessage(listener) {
+      bus.subscribe(CACHE_SYNC_TOPICS.featureToggle, (payload) => {
+        // skip: foreign or malformed payload on the topic
+        if (!isTogglePayload(payload)) return;
+        listener(payload.featureName, payload.enabled);
+      });
+    },
+    onResync(listener) {
+      bus.onResync(listener);
+    },
   };
 }

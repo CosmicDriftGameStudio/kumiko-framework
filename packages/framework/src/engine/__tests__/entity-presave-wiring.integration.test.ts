@@ -56,6 +56,32 @@ const throwOnPreSave: import("../types/index.js").PreSaveHookFn = async () => {
   throw new Error(THROWING_HOOK_MESSAGE);
 };
 
+const codeEntity = createEntity({
+  table: "presave_wiring_codes",
+  fields: {
+    code: createTextField({
+      required: true,
+      maxLength: 5,
+      personal: false,
+      reason: "test_fixture",
+    }),
+  },
+});
+
+const OVERLONG_CODE = "far-too-long";
+let hookWritesInvalidCode = false;
+const overwriteCodeWhenArmed: import("../types/index.js").PreSaveHookFn = async (changes) =>
+  hookWritesInvalidCode ? { ...changes, code: OVERLONG_CODE } : changes;
+
+const codeFeature = defineFeature("presave-wiring-code", (r) => {
+  r.crud("code", codeEntity, {
+    write: { access: { roles: ["User"] } },
+    read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+  });
+  r.hook("preSave", "code:create", overwriteCodeWhenArmed);
+  r.hook("preSave", "code:update", overwriteCodeWhenArmed);
+});
+
 const contactFeature = defineFeature("presave-wiring", (r) => {
   r.crud("contact", contactEntity, {
     write: { access: { roles: ["User"] } },
@@ -86,15 +112,18 @@ const throwingFeature = defineFeature("presave-wiring-throw", (r) => {
 
 const CREATE = "presave-wiring:write:contact:create";
 const UPDATE = "presave-wiring:write:contact:update";
+const CODE_CREATE = "presave-wiring-code:write:code:create";
+const CODE_UPDATE = "presave-wiring-code:write:code:update";
 const THROWING_CREATE = "presave-wiring-throw:write:thing:create";
 
 describe("preSave hooks — real dispatcher path (#1672)", () => {
   let stack: TestStack;
 
   beforeAll(async () => {
-    stack = await setupTestStack({ features: [contactFeature, throwingFeature] });
+    stack = await setupTestStack({ features: [contactFeature, throwingFeature, codeFeature] });
     await unsafeCreateEntityTable(stack.db, contactEntity);
     await unsafeCreateEntityTable(stack.db, throwingEntity);
+    await unsafeCreateEntityTable(stack.db, codeEntity);
   });
 
   afterAll(async () => {
@@ -103,6 +132,8 @@ describe("preSave hooks — real dispatcher path (#1672)", () => {
 
   beforeEach(async () => {
     seenIsNew.length = 0;
+    hookWritesInvalidCode = false;
+    await asRawClient(stack.db).unsafe('DELETE FROM "presave_wiring_codes"');
     await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
     await asRawClient(stack.db).unsafe('DELETE FROM "presave_wiring_contacts"');
   });
@@ -154,5 +185,35 @@ describe("preSave hooks — real dispatcher path (#1672)", () => {
     expect(res.status).toBe(422);
     const body = (await res.json()) as { error?: { details?: { message?: string } } };
     expect(body.error?.details?.message).toBe(THROWING_HOOK_MESSAGE);
+  });
+
+  test("create: a preSave hook returning a value the entity schema rejects is a 422, not a persisted row", async () => {
+    hookWritesInvalidCode = true;
+    const res = await stack.http.write(CODE_CREATE, { code: "ok" }, TestUsers.user);
+
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as {
+      error?: { details?: { reason?: string; handler?: string } };
+    };
+    expect(JSON.stringify(body.error)).toContain("presave_hook_invalid_output");
+    expect(body.error?.details?.handler).toBe("code:create");
+    const rows = await asRawClient(stack.db).unsafe('SELECT 1 FROM "presave_wiring_codes"');
+    expect(rows).toHaveLength(0);
+  });
+
+  test("update: a preSave hook returning a value the entity schema rejects is a 422", async () => {
+    const created = await stack.http.write(CODE_CREATE, { code: "ok" }, TestUsers.user);
+    expect(created.status).toBe(200);
+    const { data } = (await created.json()) as { data: { data: { id: string } } };
+
+    hookWritesInvalidCode = true;
+    const res = await stack.http.write(
+      CODE_UPDATE,
+      { id: data.data.id, version: 1, changes: { code: "new" } },
+      TestUsers.user,
+    );
+
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(await res.json())).toContain("presave_hook_invalid_output");
   });
 });

@@ -21,6 +21,7 @@ import {
   type PiiBackfillFailure,
   type PiiBackfillScanCache,
 } from "../db/queries/backfill-pii.js";
+import { alterTableAddColumn } from "../db/queries/ddl.js";
 import {
   type PiiBackfillStateRow,
   persistPiiBackfillState,
@@ -60,9 +61,19 @@ export const piiBackfillStateTable = pgTable("kumiko_pii_backfill_state", {
 });
 
 export async function createPiiBackfillStateTable(db: DbConnection): Promise<void> {
-  // skip: table already exists — boot runs on every replica
-  if (await tableExists(db, "public.kumiko_pii_backfill_state")) return;
-  await unsafePushTables(db, { kumikoPiiBackfillState: piiBackfillStateTable });
+  if (!(await tableExists(db, "public.kumiko_pii_backfill_state"))) {
+    await unsafePushTables(db, { kumikoPiiBackfillState: piiBackfillStateTable });
+  }
+  // Added after the table's first deploy; IF NOT EXISTS keeps concurrent replica boots safe.
+  await alterTableAddColumn(
+    db,
+    "kumiko_pii_backfill_state",
+    "failed_event_ids",
+    "bigint[]",
+    " DEFAULT '{}'::bigint[]",
+    " NOT NULL",
+    /* ifNotExists */ true,
+  );
 }
 
 // Replicas boot concurrently: two of them can both pass the tableExists gate and
@@ -171,7 +182,6 @@ type BatchStep = {
 
 type RunProgress = {
   scanCursor: bigint;
-  failureSeen: boolean;
   readonly scanCache: PiiBackfillScanCache;
   readonly totals: {
     scannedEvents: number;
@@ -181,6 +191,7 @@ type RunProgress = {
   };
   readonly failures: PiiBackfillFailure[];
   readonly queuedTables: Set<string>;
+  readonly failedIdsSeen: Set<string>;
 };
 
 type RunContext = {
@@ -207,7 +218,11 @@ function initialScanCursor(state: PiiBackfillStateRow | null): {
 // One transaction per batch: the advisory lock serializes pods, and the payload
 // is re-read inside it so a value is never encrypted twice and two backfills
 // never mint the same DEK. Returns null when another pod already finished a full run.
-async function runOneBatch(ctx: RunContext, progress: RunProgress): Promise<BatchStep | null> {
+async function runOneBatch(
+  ctx: RunContext,
+  progress: RunProgress,
+  retryEventIds?: readonly string[],
+): Promise<BatchStep | null> {
   return ctx.db.begin(async (tx: DbRunner) => {
     await acquireNamespacedAdvisoryLock(
       tx,
@@ -215,7 +230,9 @@ async function runOneBatch(ctx: RunContext, progress: RunProgress): Promise<Batc
       PII_EVENT_BACKFILL_LOCK_KEY,
     );
     const state = await readPiiBackfillState(tx, ctx.fingerprint);
-    if (ctx.mode === "full" && state?.completed === true) return null;
+    if (retryEventIds === undefined && ctx.mode === "full" && state?.completed === true) {
+      return null;
+    }
     const startCursor =
       ctx.mode === "full" && state
         ? maxBigInt(progress.scanCursor, BigInt(state.cursor))
@@ -223,6 +240,7 @@ async function runOneBatch(ctx: RunContext, progress: RunProgress): Promise<Batc
 
     const batch = await backfillEventPiiEncryptionBatch(tx, ctx.registry, {
       afterEventId: startCursor,
+      ...(retryEventIds && { eventIds: retryEventIds }),
       batchSize: ctx.batchSize,
       resolveOwnerFromProjection: true,
       scanCache: progress.scanCache,
@@ -239,15 +257,15 @@ async function runOneBatch(ctx: RunContext, progress: RunProgress): Promise<Batc
         : [];
     if (tables.length > 0) await queueRebuildTables(tx, tables, ctx.migrationId);
 
-    if (!progress.failureSeen) {
-      const completesRun = batch.scannedAll && batch.failures.length === 0;
-      await persistPiiBackfillState(
-        tx,
-        ctx.fingerprint,
-        persistableCursor(batch, startCursor),
-        completesRun,
-      );
-    }
+    // The cursor moves past failed events: they are recorded here and retried on their own,
+    // so one permanently failing event no longer forces a rescan from it on every boot.
+    const failedIds = batch.failures.map((failure) => failure.eventId);
+    await persistPiiBackfillState(tx, ctx.fingerprint, {
+      cursor: retryEventIds ? 0n : advancedCursor(batch, startCursor),
+      markCompleted: retryEventIds === undefined && batch.scannedAll,
+      addFailedEventIds: failedIds,
+      removeFailedEventIds: retryEventIds?.filter((id) => !failedIds.includes(id)) ?? [],
+    });
     return { batch, tables };
   });
 }
@@ -258,9 +276,13 @@ function recordBatch(progress: RunProgress, step: BatchStep): void {
   progress.totals.updatedEvents += batch.updatedEvents;
   progress.totals.encryptedFields += batch.encryptedFields;
   progress.totals.erasedFields += batch.erasedFields;
-  progress.failures.push(...batch.failures);
+  for (const failure of batch.failures) {
+    // The catch-up overlap and the per-event retry can hit the same failed event twice in one run.
+    if (progress.failedIdsSeen.has(failure.eventId)) continue;
+    progress.failedIdsSeen.add(failure.eventId);
+    progress.failures.push(failure);
+  }
   for (const table of step.tables) progress.queuedTables.add(table);
-  if (batch.failures.length > 0) progress.failureSeen = true;
 }
 
 // Returns true when the run was aborted between batches.
@@ -268,7 +290,13 @@ async function scanAllBatches(
   ctx: RunContext,
   progress: RunProgress,
   signal: AbortSignal | undefined,
+  retryEventIds: readonly string[],
 ): Promise<boolean> {
+  for (let from = 0; from < retryEventIds.length; from += ctx.batchSize) {
+    if (signal?.aborted) return true;
+    const step = await runOneBatch(ctx, progress, retryEventIds.slice(from, from + ctx.batchSize));
+    if (step !== null) recordBatch(progress, step);
+  }
   for (;;) {
     if (signal?.aborted) return true;
     const step = await runOneBatch(ctx, progress);
@@ -285,9 +313,9 @@ function reportRunOutcome(
 ): void {
   if (progress.failures.length > 0) {
     log.error(
-      `${progress.failures.length} event(s) could not be PII-encrypted and will be retried on the next boot; ` +
-        "every boot rescans from the first failed event until it is fixed, or erased via " +
-        "backfillEventPiiEncryption(..., { eraseUnresolvableSubjects: true }) for unresolvable subjects",
+      `${progress.failures.length} event(s) could not be PII-encrypted; the scan moved past them and ` +
+        "only these events are retried on each boot. Fix the cause, or erase subjects that stay unresolvable via " +
+        "backfillEventPiiEncryption(..., { eraseUnresolvableSubjects: true })",
       {
         failureCount: progress.failures.length,
         eventIds: progress.failures.slice(0, MAX_LOGGED_FAILURE_IDS).map((f) => f.eventId),
@@ -312,7 +340,8 @@ export async function runPiiEventBackfill(
   await ensureInfraTable(db, "kumiko_pii_backfill_state", createPiiBackfillStateTable);
   await ensureInfraTable(db, "kumiko_pending_rebuilds", createPendingRebuildsTable);
 
-  const { mode, scanCursor } = initialScanCursor(await readPiiBackfillState(db, fingerprint));
+  const initialState = await readPiiBackfillState(db, fingerprint);
+  const { mode, scanCursor } = initialScanCursor(initialState);
   const ctx: RunContext = {
     db,
     registry,
@@ -325,14 +354,19 @@ export async function runPiiEventBackfill(
   };
   const progress: RunProgress = {
     scanCursor,
-    failureSeen: false,
     scanCache: {},
     totals: { scannedEvents: 0, updatedEvents: 0, encryptedFields: 0, erasedFields: 0 },
     failures: [],
     queuedTables: new Set(),
+    failedIdsSeen: new Set(),
   };
 
-  const aborted = await scanAllBatches(ctx, progress, options.signal);
+  const aborted = await scanAllBatches(
+    ctx,
+    progress,
+    options.signal,
+    initialState?.failedEventIds ?? [],
+  );
   reportRunOutcome(log, progress);
 
   const rebuild = aborted ? null : await rebuildQueuedTables(db, registry, options.signal, log);
@@ -355,12 +389,7 @@ export async function runPiiEventBackfill(
   };
 }
 
-// Never advance past a failed event so the next boot retries it.
-function persistableCursor(batch: PiiBackfillBatchResult, startCursor: bigint): bigint {
-  if (batch.firstFailedEventId !== null) {
-    const beforeFailure = BigInt(batch.firstFailedEventId) - 1n;
-    return beforeFailure > startCursor ? beforeFailure : startCursor;
-  }
+function advancedCursor(batch: PiiBackfillBatchResult, startCursor: bigint): bigint {
   return batch.lastEventId === null ? startCursor : BigInt(batch.lastEventId);
 }
 

@@ -10,7 +10,7 @@ import {
 import type { TenantId } from "../../engine/types/identifiers.js";
 import { createSecret } from "../../secrets/types.js";
 import { createTestUser } from "../../stack/index.js";
-import { createRecordingProvider } from "../../testing/index.js";
+import { createRecordingProvider, waitFor } from "../../testing/index.js";
 import { createDispatcher } from "../dispatcher.js";
 
 const streamCleanupState = { closed: false };
@@ -379,6 +379,67 @@ describe("dispatcher.stream", () => {
       code: "access_denied",
       message: expect.stringContaining("access revoked mid-stream"),
     });
+    expect(unsubscribeCalls).toBe(1);
+  });
+
+  test("an idle stream ends with AccessDeniedError when its token expires and cleans up once", async () => {
+    let unsubscribeCalls = 0;
+    let handlerCleanups = 0;
+    const broker: SseBroker = {
+      addClient() {
+        return "c";
+      },
+      removeClient() {},
+      pushToChannel() {},
+      getClientCount() {
+        return 0;
+      },
+      getTotalClientCount() {
+        return 0;
+      },
+      subscribeAccessInvalidation() {
+        return () => {
+          unsubscribeCalls++;
+        };
+      },
+      publishAccessInvalidation() {},
+    };
+
+    let releaseHang: (() => void) | undefined;
+    const hang = new Promise<void>((resolve) => {
+      releaseHang = resolve;
+    });
+
+    const expiryFeature = defineFeature("expiry", (r) => {
+      r.streamHandler(
+        "tail",
+        z.object({}),
+        async function* () {
+          try {
+            yield { i: 0 };
+            await hang;
+            yield { i: 1 };
+          } finally {
+            handlerCleanups++;
+          }
+        },
+        { access: { roles: ["Admin"] } },
+      );
+    });
+
+    const dispatcher = createDispatcher(createRegistry([expiryFeature]), {}, { sseBroker: broker });
+    const gen = dispatcher.stream("expiry:stream:tail", {}, createTestUser({ roles: ["Admin"] }), {
+      tokenExpiresAtSec: Date.now() / 1000 + 0.05,
+    });
+    expect((await gen.next()).value).toEqual({ i: 0 });
+
+    await expect(gen.next()).rejects.toMatchObject({
+      code: "access_denied",
+      message: expect.stringContaining("token expired mid-stream"),
+    });
+    releaseHang?.();
+    await waitFor(() => handlerCleanups === 1);
+    expect(handlerCleanups).toBe(1);
     expect(unsubscribeCalls).toBe(1);
   });
 

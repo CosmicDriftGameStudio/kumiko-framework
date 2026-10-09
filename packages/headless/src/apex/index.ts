@@ -572,13 +572,25 @@ export type PageHeadSystemQuery = (
   type: string,
   payload: unknown,
   tenantId: TenantId,
+  options?: { readonly signal?: AbortSignal },
 ) => Promise<unknown>;
 
 export type PageHeadResolver = (input: {
   readonly path: string;
   readonly host: string;
+  // Already bound to `signal`: queries issued through it stop once the request is gone or the
+  // resolver timed out. Aborts at query boundaries; an in-flight statement is not cancelled.
   readonly systemQuery: PageHeadSystemQuery;
+  readonly signal: AbortSignal;
 }) => Promise<PageHeadMeta | null>;
+
+export type PageHeadResolveInput = {
+  readonly path: string;
+  readonly host: string;
+  readonly systemQuery: PageHeadSystemQuery;
+  // The HTTP request's own signal (client disconnect), folded into the resolver's signal.
+  readonly requestSignal?: AbortSignal | undefined;
+};
 
 const HEAD_TAGS_MARKER = "<!-- kumiko-page-head -->";
 const TITLE_TAG_RE = /<title\b[^>]*>[\s\S]*?<\/title>/i;
@@ -603,21 +615,31 @@ const PAGE_HEAD_TIMEOUT_MS = 300;
 
 async function resolvePageHeadWithTimeout(
   resolvePageHead: PageHeadResolver,
-  input: {
-    readonly path: string;
-    readonly host: string;
-    readonly systemQuery: PageHeadSystemQuery;
-  },
+  input: PageHeadResolveInput,
 ): Promise<PageHeadMeta | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  // Winning the race alone would leave the resolver's queries running; the abort stops them.
+  const timeout = new AbortController();
+  const signal = input.requestSignal
+    ? AbortSignal.any([input.requestSignal, timeout.signal])
+    : timeout.signal;
+  const { systemQuery } = input;
   try {
     const timedOut = new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), PAGE_HEAD_TIMEOUT_MS);
+      timer = setTimeout(() => {
+        timeout.abort();
+        resolve(null);
+      }, PAGE_HEAD_TIMEOUT_MS);
     });
     // .catch on the resolver's own promise (not just the outer try/catch)
     // so a rejection arriving AFTER the timeout already won the race
     // doesn't surface as an unhandled rejection.
-    const resolved = resolvePageHead(input).catch(() => null);
+    const resolved = resolvePageHead({
+      path: input.path,
+      host: input.host,
+      signal,
+      systemQuery: (type, payload, tenantId) => systemQuery(type, payload, tenantId, { signal }),
+    }).catch(() => null);
     return await Promise.race([resolved, timedOut]);
   } catch {
     return null;
@@ -655,11 +677,7 @@ function toApexHead(meta: PageHeadMeta): ApexHead {
 export async function resolveAndInjectPageHead(
   html: string,
   resolvePageHead: PageHeadResolver,
-  input: {
-    readonly path: string;
-    readonly host: string;
-    readonly systemQuery: PageHeadSystemQuery;
-  },
+  input: PageHeadResolveInput,
 ): Promise<string> {
   const meta = await resolvePageHeadWithTimeout(resolvePageHead, input);
   if (!meta) return html;

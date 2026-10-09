@@ -24,7 +24,7 @@ export const inAppChannel: DeliveryChannel = {
     });
 
     if (ctx.sseBroker) {
-      ctx.sseBroker.pushToChannel(tenantChannel(ctx.tenantId), {
+      await ctx.sseBroker.pushToChannel(tenantChannel(ctx.tenantId), {
         type: "channel-in-app:event:delivered",
         data: {
           id: row?.id,

@@ -15,7 +15,7 @@ import { createFallbackLogger } from "../logging/index.js";
 import type { Dispatcher } from "../pipeline/dispatcher.js";
 import { stringifyJson } from "../utils/safe-json.js";
 import { Routes } from "./api-constants.js";
-import { getUser } from "./auth-middleware.js";
+import { getAuthTokenExpiry, getUser } from "./auth-middleware.js";
 import { patAllows } from "./pat-scope.js";
 import { requestContext } from "./request-context.js";
 import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route.js";
@@ -169,7 +169,9 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
     try {
       assertPayloadDepthAllowed(body.payload);
       assertPatAllowed(user, body.type);
-      generator = dispatcher.stream(body.type, body.payload, user);
+      generator = dispatcher.stream(body.type, body.payload, user, {
+        tokenExpiresAtSec: getAuthTokenExpiry(c),
+      });
     } catch (e) {
       return queryErrorResponse(c, toKumiko(e), body.type);
     }

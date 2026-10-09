@@ -32,7 +32,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { createFeatureTogglesFeature } from "../feature.js";
 import { globalFeatureStateTable } from "../global-feature-state-table.js";
-import { GlobalFeatureToggleRuntime } from "../toggle-runtime.js";
+import { createFeatureToggleRuntime, GlobalFeatureToggleRuntime } from "../toggle-runtime.js";
 import { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "../toggle-sync-signal.js";
 
 // Widget — the "tenant" under test. toggleable(default=true), owns a
@@ -661,6 +661,21 @@ describe("multi-instance cache-sync via toggle-cache-sync MSP", () => {
       return runtimeB.effectiveFeatures().has("widget");
     });
     expect(runtimeB.effectiveFeatures().has("widget")).toBe(true);
+  });
+
+  test("createFeatureToggleRuntime without a signal converges two runtimes over the default cache-sync bus", async () => {
+    expect(process.env["REDIS_URL"]).toBeDefined();
+    const runtimeA = await createFeatureToggleRuntime(stack.db, stack.registry);
+    const runtimeB = await createFeatureToggleRuntime(stack.db, stack.registry);
+    try {
+      await waitFor(() => {
+        runtimeA.broadcastToggle("widget", false);
+        return !runtimeB.effectiveFeatures().has("widget");
+      });
+      expect(runtimeA.effectiveFeatures().has("widget")).toBe(false);
+    } finally {
+      await Promise.all([runtimeA.close(), runtimeB.close()]);
+    }
   });
 
   test("HTTP set on instance A reaches instance B through the dispatcher tick + toggle-cache-sync MSP", async () => {

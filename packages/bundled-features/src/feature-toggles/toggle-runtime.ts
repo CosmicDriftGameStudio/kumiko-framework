@@ -5,7 +5,15 @@ import {
   type Registry,
   type ToggleReader,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import {
+  type ClosableCacheSyncBus,
+  createDefaultCacheSyncBus,
+} from "@cosmicdrift/kumiko-framework/redis";
 import { globalFeatureStateTable } from "./global-feature-state-table.js";
+import { createCacheSyncToggleSignal } from "./toggle-sync-signal.js";
+
+const log = createFallbackLogger("kumiko:feature-toggles");
 
 // Cross-replica transport for a toggle flip (fw#2625). Deliberately narrow
 // (featureName + enabled, not a generic channel/payload pair) so a caller
@@ -15,6 +23,8 @@ import { globalFeatureStateTable } from "./global-feature-state-table.js";
 export type ToggleSyncSignal = {
   publish(featureName: string, enabled: boolean): void;
   onMessage(listener: (featureName: string, enabled: boolean) => void): void;
+  // Fires after the transport lost and restored its subscription: flips sent meanwhile are gone.
+  onResync?(listener: () => void): void;
 };
 
 // Holds the current global-override snapshot in memory and exposes a
@@ -38,6 +48,7 @@ export class GlobalFeatureToggleRuntime {
     private readonly db: DbConnection,
     private readonly registry: Registry,
     private readonly syncSignal?: ToggleSyncSignal,
+    private readonly ownedBus?: ClosableCacheSyncBus,
   ) {
     // Every process, including the one that calls broadcastToggle, learns
     // of a flip through this same subscription — mirrors the SSE broker's
@@ -46,6 +57,16 @@ export class GlobalFeatureToggleRuntime {
     this.syncSignal?.onMessage((featureName, enabled) => {
       this.apply(featureName, enabled);
     });
+    this.syncSignal?.onResync?.(() => {
+      this.refresh().catch((err: unknown) => {
+        log.error("snapshot reload after sync reconnect failed", { err });
+      });
+    });
+  }
+
+  // Only the runtime built by createFeatureToggleRuntime without an explicit signal owns one.
+  async close(): Promise<void> {
+    await this.ownedBus?.close();
   }
 
   async initialize(): Promise<void> {
@@ -121,15 +142,23 @@ export class GlobalFeatureToggleRuntime {
   };
 }
 
-// Factory for app-boot wiring: instantiate, initialize, return both the
-// runtime (for the set-handler to refresh) and the callback (for
-// createDispatcher's effectiveFeatures option).
+// Factory for app-boot wiring: instantiate, initialize, return the runtime (for the
+// set-handler to refresh; its effectiveFeatures feeds createDispatcher). Without an explicit
+// syncSignal the runtime builds one on the framework cache-sync bus: Redis-backed when
+// REDIS_URL is set, process-local otherwise. close() releases a bus it created.
 export async function createFeatureToggleRuntime(
   db: DbConnection,
   registry: Registry,
   syncSignal?: ToggleSyncSignal,
 ): Promise<GlobalFeatureToggleRuntime> {
-  const runtime = new GlobalFeatureToggleRuntime(db, registry, syncSignal);
-  await runtime.initialize();
+  const ownedBus = syncSignal ? undefined : createDefaultCacheSyncBus();
+  const signal = syncSignal ?? (ownedBus ? createCacheSyncToggleSignal(ownedBus) : undefined);
+  const runtime = new GlobalFeatureToggleRuntime(db, registry, signal, ownedBus);
+  try {
+    await runtime.initialize();
+  } catch (err) {
+    await runtime.close();
+    throw err;
+  }
   return runtime;
 }

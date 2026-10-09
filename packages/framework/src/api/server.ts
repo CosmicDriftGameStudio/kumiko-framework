@@ -434,6 +434,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
     const defaults = createDefaultSseBroker();
     sseBroker = defaults.sseBroker;
     ownedRedisSseBroker = defaults.ownedRedisSseBroker;
+    if (!ownedRedisSseBroker) {
+      console.warn(
+        "[kumiko:boot] REDIS_URL is not set: cross-replica fanout disabled. SSE, access-invalidation and toggle-sync reach only the cursor-owning process, so with more than one replica clients on the other replicas miss events and revoked sessions stay open there.",
+      );
+    }
   }
 
   // Same decision as the SSE broker: an explicit dispatcherOptions value

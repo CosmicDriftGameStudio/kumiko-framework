@@ -1,5 +1,8 @@
 import { describe, expect, jest, test } from "bun:test";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { injectPageHead, resolveAndInjectPageHead } from "../index.js";
+
+const TENANT = "00000000-0000-4000-8000-0000000000aa" as TenantId;
 
 describe("injectPageHead", () => {
   const TAGS = '<title>New Title</title>\n<meta name="description" content="d">';
@@ -54,6 +57,52 @@ describe("resolveAndInjectPageHead", () => {
   test("resolver returns null → unchanged html", async () => {
     const out = await resolveAndInjectPageHead(HTML, async () => null, input);
     expect(out).toBe(HTML);
+  });
+
+  test("the resolver's signal and its systemQuery signal abort once the timeout wins", async () => {
+    jest.useFakeTimers();
+    try {
+      const seenQuerySignals: (AbortSignal | undefined)[] = [];
+      let resolverSignal: AbortSignal | undefined;
+      const pending = resolveAndInjectPageHead(
+        HTML,
+        async (resolverInput) => {
+          resolverSignal = resolverInput.signal;
+          await resolverInput.systemQuery("probe:query:meta", {}, TENANT);
+          return new Promise(() => {});
+        },
+        {
+          ...input,
+          systemQuery: async (_type, _payload, _tenantId, options) => {
+            seenQuerySignals.push(options?.signal);
+            return {};
+          },
+        },
+      );
+      await Promise.resolve();
+      expect(resolverSignal?.aborted).toBe(false);
+      jest.advanceTimersByTime(300);
+      expect(await pending).toBe(HTML);
+      expect(resolverSignal?.aborted).toBe(true);
+      expect(seenQuerySignals).toEqual([resolverSignal]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test("a client disconnect aborts the resolver's signal before the timeout", async () => {
+    const request = new AbortController();
+    let resolverSignal: AbortSignal | undefined;
+    await resolveAndInjectPageHead(
+      HTML,
+      async (resolverInput) => {
+        resolverSignal = resolverInput.signal;
+        request.abort();
+        return null;
+      },
+      { ...input, requestSignal: request.signal },
+    );
+    expect(resolverSignal?.aborted).toBe(true);
   });
 
   test("resolver never resolves → unchanged html after the shared timeout", async () => {

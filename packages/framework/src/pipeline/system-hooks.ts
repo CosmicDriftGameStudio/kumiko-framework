@@ -499,7 +499,7 @@ export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventCons
     // exist yet has no audience to replay it to.
     startFrom: "now",
     handler: async (event) => {
-      sseBroker.pushToChannel(tenantChannel(event.tenantId), {
+      await sseBroker.pushToChannel(tenantChannel(event.tenantId), {
         type: event.type,
         data: {
           id: event.aggregateId,

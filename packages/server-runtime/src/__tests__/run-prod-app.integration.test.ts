@@ -1514,8 +1514,8 @@ describe("runProdApp — /metrics endpoint (fw#1352)", () => {
           (event) => received.push(event),
           () => {},
         );
-        await waitFor(() => {
-          handle.entrypoint.sseBroker.pushToChannel(channel, {
+        await waitFor(async () => {
+          await handle.entrypoint.sseBroker.pushToChannel(channel, {
             type: "unit.updated",
             data: { id: "1" },
           });
