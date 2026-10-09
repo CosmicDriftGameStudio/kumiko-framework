@@ -441,6 +441,9 @@
         "react-dom": "^19.2.6",
         "zod": "^4.4.3",
       },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
     },
     "samples/apps/use-all-bundled": {
       "name": "@cosmicdrift/kumiko-sample-use-all-bundled",

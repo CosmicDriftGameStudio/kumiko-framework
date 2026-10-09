@@ -19,5 +19,8 @@
     "react-dom": "^19.2.6",
     "zod": "^4.4.3",
     "@cosmicdrift/kumiko-locale-de": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
   }
 }

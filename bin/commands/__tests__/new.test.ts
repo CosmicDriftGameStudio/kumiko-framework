@@ -45,7 +45,7 @@ describe("new command", () => {
     }
   });
 
-  test("scaffolds the test template: e2e spec, playwright config, test scripts, testing devDependency", async () => {
+  test("scaffolds the test template: e2e spec, tasks integration test, playwright config, test scripts, testing devDependency", async () => {
     const cwd = tmp();
     const dest = join(cwd, "my-app");
     const exit = await newCommand.run(
@@ -55,6 +55,7 @@ describe("new command", () => {
 
     expect(existsSync(join(dest, "playwright.config.ts"))).toBe(true);
     expect(existsSync(join(dest, "e2e/smoke.spec.ts"))).toBe(true);
+    expect(existsSync(join(dest, "src/__tests__/tasks.integration.test.ts"))).toBe(true);
     expect(existsSync(join(dest, "bunfig.integration.toml"))).toBe(true);
     expect(existsSync(join(dest, "bunfig.ci.toml"))).toBe(false);
     const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8")) as {
