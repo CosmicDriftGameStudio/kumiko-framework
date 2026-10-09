@@ -181,6 +181,15 @@ export class BatchRollback extends Error {
   }
 }
 
+// Thrown inside a nested write's savepoint so the driver rolls the savepoint back;
+// the caller unwraps it into the original failure result.
+export class NestedWriteRollback extends Error {
+  constructor(readonly failure: WriteResult) {
+    super("nested write rollback");
+    this.name = "NestedWriteRollback";
+  }
+}
+
 export type HandlerType = string | HandlerRef;
 
 export function resolveType(type: HandlerType): string {
