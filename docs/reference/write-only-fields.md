@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-02
-evidence: "packages/types/src/fields.ts (TextFieldDef.writeOnly); packages/framework/src/engine/field-access.ts (maskWriteOnlyFields); packages/framework/src/engine/boot-validator/pii-retention.ts; packages/framework/src/pipeline/__tests__/write-only-field.integration.test.ts; packages/bundled-features/src/user-data-rights/__tests__/export-encrypted-fields.integration.test.ts; packages/renderer/src/components/render-field.tsx"
+verified: 2026-10-09
+evidence: "packages/types/src/fields.ts (TextFieldDef.writeOnly); packages/framework/src/engine/field-access.ts (maskWriteOnlyFields); packages/framework/src/engine/boot-validator/pii-retention.ts; packages/framework/src/pipeline/__tests__/write-only-field.integration.test.ts; packages/framework/src/pipeline/__tests__/undecryptable-encrypted-field.integration.test.ts; packages/bundled-features/src/user-data-rights/__tests__/export-encrypted-fields.integration.test.ts; packages/renderer/src/components/render-field.tsx"
 ---
 
 # writeOnly fields: secrets that are never returned
@@ -28,6 +28,8 @@ apiKey: createTextField({ personal: "tenant", find: "secret", writeOnly: true })
 - `ctx.query`, `dispatcher.query`, agent tools and `_refs` see `true` / `null`.
 - `ctx.db` sees the stored ciphertext.
 - The DSGVO user export decrypts encrypted fields but then masks writeOnly fields, so the bundle carries `true` / `null`, never the secret.
+
+An `encrypted` field whose stored value cannot be decrypted (corrupt ciphertext, wrong key) does not fail `list` or `detail`: that field reads `null`, the other fields and rows are served, and the executor logs one error per field with the entity, row id, field and error class (never the ciphertext). Write paths (update, delete, restore) still fail loud on such a row, so a broken value is never overwritten from a read that came back `null`. PII-subject fields keep failing loud.
 
 Known limit: masking runs for entity-bound query handlers whose result is an array, a `{ rows }` object or a flat row. An unbound custom query handler that returns executor rows must call `maskWriteOnlyFields(entity, row)` from `@cosmicdrift/kumiko-framework/engine` itself, the same scope limit as `access.read`.
 

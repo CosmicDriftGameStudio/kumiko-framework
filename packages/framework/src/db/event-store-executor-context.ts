@@ -39,6 +39,7 @@ import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
   encryptEntityFieldValues,
+  logUndecryptableField,
   resolveEntityFieldEncryption,
 } from "./entity-field-encryption.js";
 import type { EventStoreExecutorOptions } from "./event-store-executor.js";
@@ -163,6 +164,12 @@ export function entityEventName(entityName: string, verb: EntityLifecycleVerb): 
   return `${entityName}.${verb}`;
 }
 
+export type DecryptForReadOptions = {
+  // Read paths (list/detail) degrade an undecryptable encrypted field to null
+  // and report its name here; write paths omit it and keep failing loud.
+  readonly degradeUndecryptable?: (field: string) => void;
+};
+
 export type ExecutorContext = {
   readonly table: Table;
   readonly entity: EntityDefinition;
@@ -203,7 +210,10 @@ export type ExecutorContext = {
     user: SessionUser,
     opts?: { onlyKeys?: Iterable<string>; subjectSource?: Record<string, unknown> },
   ) => Promise<Record<string, unknown>>;
-  readonly decryptForRead: (row: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  readonly decryptForRead: (
+    row: Record<string, unknown>,
+    opts?: DecryptForReadOptions,
+  ) => Promise<Record<string, unknown>>;
   readonly applyDefaults: (payload: Record<string, unknown>) => Record<string, unknown>;
   readonly stripSensitive: (
     payload: Record<string, unknown> | undefined,
@@ -332,14 +342,29 @@ export function buildExecutorContext(
   // unwrap before envelope decrypt, or the envelope cipher chokes on a
   // still-PII-wrapped string (auth-mfa.totpSecret/recoveryCodes combine both
   // markers; see pii-subject-encryption.integration.test.ts).
-  async function decryptForRead(row: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async function decryptForRead(
+    row: Record<string, unknown>,
+    opts?: DecryptForReadOptions,
+  ): Promise<Record<string, unknown>> {
     let out = row;
     const kms = piiKms();
     if (hasPiiFields && kms) {
       out = await decryptPiiFieldValues(out, piiSubjectFields, kms, kmsContextFor());
     }
     if (hasEncryptedFields) {
-      out = await decryptEntityFieldValues(out, encryptedFields, fieldCipher());
+      out = await decryptEntityFieldValues(
+        out,
+        encryptedFields,
+        fieldCipher(),
+        opts?.degradeUndecryptable
+          ? {
+              onFieldError: (field, error) => {
+                logUndecryptableField({ entityName, rowId: row["id"], field, error });
+                opts.degradeUndecryptable?.(field);
+              },
+            }
+          : undefined,
+      );
     }
     return out;
   }

@@ -514,6 +514,32 @@ function findEntityListScreen(
   );
 }
 
+// Unknown or deleted record id: a localized empty state with a way back
+// instead of a bare error banner. Composed from shared primitives so web and
+// native render it alike.
+function RecordNotFoundState({
+  translate,
+  onBack,
+}: {
+  readonly translate: Translate;
+  readonly onBack?: () => void;
+}): ReactNode {
+  const { Card, Heading, Text, Button } = usePrimitives();
+  return (
+    <Card options={{ padded: true }} testId="kumiko-screen-record-missing">
+      <Heading variant="section" testId="kumiko-screen-record-missing-title">
+        {translate("kumiko.record.not-found.title")}
+      </Heading>
+      <Text variant="muted">{translate("kumiko.record.not-found.hint")}</Text>
+      {onBack !== undefined && (
+        <Button variant="secondary" onClick={onBack} testId="kumiko-screen-record-missing-back">
+          {translate("kumiko.record.not-found.back")}
+        </Button>
+      )}
+    </Card>
+  );
+}
+
 function useNavigateToListAfter(schema: FeatureSchema, entityName: string): () => void {
   const nav = useNav();
   return useCallback(() => {
@@ -1343,11 +1369,12 @@ function EntityEditUpdateBody({
   // instead of the update form continuing to display the deleted record.
   readonly onDeleted?: () => void;
 }): ReactNode {
-  const { Banner, Text } = usePrimitives();
+  const { Banner } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const detailQn = `${toKebab(schema.featureName)}:query:${toKebab(screen.entity)}:detail`;
   const detailQuery = useQuery<Readonly<Record<string, unknown>>>(detailQn, { id: entityId });
+  const navigateToList = useNavigateToListAfter(schema, screen.entity);
 
   if (detailQuery.loading && detailQuery.data === null) {
     return (
@@ -1365,10 +1392,13 @@ function EntityEditUpdateBody({
   }
   const record = detailQuery.data;
   if (!record) {
+    const onBack =
+      findEntityListScreen(schema, screen.entity) !== undefined ? navigateToList : undefined;
     return (
-      <Banner padded variant="error" testId="kumiko-screen-record-missing">
-        Record <Text variant="code">{entityId}</Text> not found.
-      </Banner>
+      <RecordNotFoundState
+        translate={effectiveTranslate}
+        {...(onBack !== undefined && { onBack })}
+      />
     );
   }
   // Record-version als React-key: bei "Neu laden" refetched detail,
@@ -3638,16 +3668,18 @@ function ProjectionDetailBody({
   }
   const record = detailQuery.data;
   if (!record) {
+    const backListScreen =
+      screen.listScreenId ??
+      (screen.detailFor !== undefined
+        ? findEntityListScreen(schema, screen.detailFor)?.id
+        : undefined);
     return (
-      <Banner padded variant="error" testId="kumiko-screen-record-missing">
-        {screen.singleton === true ? (
-          "Record not found."
-        ) : (
-          <>
-            Record <Text variant="code">{entityId}</Text> not found.
-          </>
-        )}
-      </Banner>
+      <RecordNotFoundState
+        translate={effectiveTranslate}
+        {...(backListScreen !== undefined && {
+          onBack: () => nav.navigate({ screenId: lastSegment(backListScreen) }),
+        })}
+      />
     );
   }
   // Grouped into the head Card alongside title/status/metrics (fw#2713):

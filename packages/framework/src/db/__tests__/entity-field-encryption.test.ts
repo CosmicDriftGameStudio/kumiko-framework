@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField } from "../../engine/index.js";
+import type { Logger } from "../../logging/index.js";
 import { createTestEnvelopeCipher } from "../../testing/index.js";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
   encryptEntityFieldValues,
+  logUndecryptableField,
   validateEntityFieldEncryptionAvailable,
 } from "../entity-field-encryption.js";
 
@@ -70,5 +72,63 @@ describe("validateEntityFieldEncryptionAvailable", () => {
         KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "2",
       }),
     ).toThrow(/no usable master key/);
+  });
+});
+
+describe("undecryptable encrypted field", () => {
+  const entity = createEntity({
+    table: "read_enc_degrade",
+    fields: {
+      secretNote: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
+    },
+  });
+  const encryptedFields = collectEncryptedFieldNames(entity);
+  const encryption = createTestEnvelopeCipher(TEST_KEY);
+
+  test("without onFieldError a broken envelope still throws", async () => {
+    await expect(
+      decryptEntityFieldValues({ secretNote: "broken" }, encryptedFields, encryption),
+    ).rejects.toThrow();
+  });
+
+  test("with onFieldError the field reads null and is reported", async () => {
+    const failed: string[] = [];
+    const read = await decryptEntityFieldValues(
+      { secretNote: "broken" },
+      encryptedFields,
+      encryption,
+      {
+        onFieldError: (field) => failed.push(field),
+      },
+    );
+    expect(read["secretNote"]).toBeNull();
+    expect(failed).toEqual(["secretNote"]);
+  });
+
+  test("the error log carries entity, row id, field and error class but no ciphertext", () => {
+    const calls: { msg: string; data: Record<string, unknown> | undefined }[] = [];
+    const logger: Logger = {
+      info: () => {},
+      warn: () => {},
+      debug: () => {},
+      child: () => logger,
+      error: (msg, data) => calls.push({ msg, data }),
+    };
+    logUndecryptableField(
+      {
+        entityName: "note",
+        rowId: "row-1",
+        field: "secretNote",
+        error: new SyntaxError("leaky ciphertext echo"),
+      },
+      logger,
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.data).toEqual({
+      entity: "note",
+      rowId: "row-1",
+      field: "secretNote",
+      errorName: "SyntaxError",
+    });
   });
 });
