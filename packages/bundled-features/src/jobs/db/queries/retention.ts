@@ -14,6 +14,7 @@ import { deleteManyBatched } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { jobRunLogsTable, jobRunsTable } from "../../job-run-table.js";
 import { tenantJobFailuresTable } from "../../tenant-job-failure-table.js";
+import { tenantJobRunsTable } from "../../tenant-job-run-table.js";
 
 const RETENTION_DELETE_BATCH_SIZE = 500;
 
@@ -21,6 +22,7 @@ export type JobRunRetentionResult = {
   readonly runsDeleted: number;
   readonly logsDeleted: number;
   readonly tenantFailuresDeleted: number;
+  readonly tenantRunsDeleted: number;
 };
 
 export async function deleteStaleJobRuns(
@@ -52,9 +54,19 @@ export async function deleteStaleJobRuns(
     { limit: RETENTION_DELETE_BATCH_SIZE },
   );
 
+  // Only finished rows: active ones are the stale sweep's business, and a
+  // still-running job older than the window must not vanish from the tenant.
+  const tenantRunsResult = await deleteManyBatched(
+    db,
+    tenantJobRunsTable,
+    { status: { in: ["completed", "failed"] }, updatedAt: { lt: cutoff } },
+    { limit: RETENTION_DELETE_BATCH_SIZE },
+  );
+
   return {
     runsDeleted: runsResult.deleted,
     logsDeleted: logsResult.deleted,
     tenantFailuresDeleted: tenantFailuresResult.deleted,
+    tenantRunsDeleted: tenantRunsResult.deleted,
   };
 }

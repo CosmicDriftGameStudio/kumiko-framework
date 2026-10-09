@@ -179,6 +179,15 @@ export type JobMeta = {
   // job definition can be enqueued at different urgencies (e.g. delivery maps
   // critical/normal/low onto it).
   priority?: number | undefined;
+  // Set by the runner on onJobStart for jobs with `tenantVisibleRun`.
+  tenantVisibleRun?: { readonly tenantId: string; readonly subject: string | null } | undefined;
+};
+
+// What the run-logger learns when a tenant-visible job (`tenantVisibleRun`)
+// has been enqueued. Subject is resolved exactly as for the run itself.
+export type JobQueuedMeta = {
+  readonly tenantId: string;
+  readonly subject: string | null;
 };
 
 // What a finished run tells the run-logger about the tenant-visible failure
@@ -191,6 +200,7 @@ export type JobOutcomeMeta = {
   readonly tenantVisible?:
     | { readonly subject: string | null; readonly messageKey: string | null }
     | undefined;
+  readonly tenantVisibleRun?: { readonly subject: string | null } | undefined;
 };
 
 export type JobSubjectValue = string | number | boolean | null;
@@ -214,6 +224,7 @@ function jobSubjectKey(
   jobName: string,
   payload: Record<string, unknown>,
   fields: readonly string[] | undefined,
+  declaration: "tenantVisibleFailure" | "tenantVisibleRun",
 ): string | null {
   if (fields === undefined || fields.length === 0) return null;
   const subject: Record<string, JobSubjectValue> = {};
@@ -221,7 +232,7 @@ function jobSubjectKey(
     const value = payload[field] ?? null;
     if (value !== null && typeof value === "object") {
       throw new Error(
-        `Job "${jobName}": tenantVisibleFailure.subjectFields["${field}"] must be a primitive, got ${typeof value}`,
+        `Job "${jobName}": ${declaration}.subjectFields["${field}"] must be a primitive, got ${typeof value}`,
       );
     }
     subject[field] = value as JobSubjectValue;
@@ -346,6 +357,11 @@ export type JobRunnerOptions = {
     logs: JobLogEntry[],
     outcome?: JobOutcomeMeta,
   ) => void;
+  // After a job with `tenantVisibleRun` was enqueued for a real tenant.
+  onJobQueued?: (jobName: string, jobId: string, meta: JobQueuedMeta) => void;
+  // A queued job that will never run under that id (concurrency "replace"
+  // removal, sequential re-enqueue under a new id).
+  onJobDropped?: (jobName: string, jobId: string) => void;
 };
 
 // Serialized trace context lives under this key in the BullMQ job data.
@@ -747,6 +763,69 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     ]);
   }
 
+  function handlerPayloadOf(data: Record<string, unknown>): Record<string, unknown> {
+    const payload: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (!k.startsWith("_")) payload[k] = v;
+    }
+    return payload;
+  }
+
+  function tenantIdOfJobData(data: Record<string, unknown>): string {
+    return (
+      (data["_tenantId"] as string | undefined) ?? // @cast-boundary dynamic-key
+      (data["tenantId"] as string | undefined) ?? // @cast-boundary dynamic-key
+      SYSTEM_TENANT_ID
+    );
+  }
+
+  // Tenant-visible queued state. A callback or subject problem must never fail
+  // the enqueue; a bad subject config surfaces as a failed run instead.
+  async function announceQueued(
+    jobName: string,
+    jobDef: JobDefinition,
+    bullJobId: string | undefined,
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    const declaration = jobDef.tenantVisibleRun;
+    // skip: job did not opt in, no logger wired, or BullMQ returned no id
+    if (!declaration || !options.onJobQueued || bullJobId === undefined) return;
+    const tenantId = tenantIdOfJobData(data);
+    // skip: tenant-less run — no tenant-scoped query could ever read it
+    if (tenantId === SYSTEM_TENANT_ID) return;
+    try {
+      const subject = jobSubjectKey(
+        jobName,
+        handlerPayloadOf(data),
+        declaration.subjectFields,
+        "tenantVisibleRun",
+      );
+      await options.onJobQueued(jobName, bullJobId, { tenantId, subject });
+    } catch (err) {
+      errorLogger.warn("tenant-visible queued state not recorded", {
+        job: jobName,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  async function announceDropped(
+    jobName: string,
+    jobDef: JobDefinition,
+    bullJobId: string,
+  ): Promise<void> {
+    // skip: job did not opt in or no logger wired
+    if (!jobDef.tenantVisibleRun || !options.onJobDropped) return;
+    try {
+      await options.onJobDropped(jobName, bullJobId);
+    } catch (err) {
+      errorLogger.warn("tenant-visible queued state not cleared", {
+        job: jobName,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   async function handleJob(bullJob: JobInvocation): Promise<void> {
     const rawName = bullJob.name;
 
@@ -786,19 +865,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // for that edge case instead: enqueue plainly, same as before.
         const wrapperJobId = bullJob.id;
         for (const tenantId of tenantIds) {
-          await targetQueue.add(
-            actualName,
-            { ...bullJob.data, _tenantId: tenantId },
-            {
-              ...buildRetryBullOpts(actualDef),
-              // Dedup over wrapper retries only holds as long as the children
-              // stay in Redis for the wrapper's whole retry window — see the
-              // COMPLETED_JOB_RETENTION_AGE_SEC invariant check above.
-              ...(wrapperJobId !== undefined
-                ? { jobId: perTenantChildJobId(wrapperJobId, tenantId) }
-                : {}),
-            },
-          );
+          const childData = { ...bullJob.data, _tenantId: tenantId };
+          const child = await targetQueue.add(actualName, childData, {
+            ...buildRetryBullOpts(actualDef),
+            // Dedup over wrapper retries only holds as long as the children
+            // stay in Redis for the wrapper's whole retry window — see the
+            // COMPLETED_JOB_RETENTION_AGE_SEC invariant check above.
+            ...(wrapperJobId !== undefined
+              ? { jobId: perTenantChildJobId(wrapperJobId, tenantId) }
+              : {}),
+          });
+          await announceQueued(actualName, actualDef, child.id, childData);
         }
       } catch (err) {
         // A retry may still succeed, and a succeeding wrapper reports no completion
@@ -840,14 +917,15 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // Attempts already spent travel in _priorAttempts so a lock conflict
         // on a retry cannot hand out a fresh budget and exceed `retries`.
         const priorAttempts = priorAttemptsOf(bullJob.data) + bullJob.attemptsMade;
-        await queues[laneForJob(jobDef)].add(
-          jobName,
-          { ...bullJob.data, _priorAttempts: priorAttempts },
-          {
-            delay: SEQUENTIAL_RETRY_DELAY_MS,
-            ...buildRetryBullOpts(jobDef, priorAttempts),
-          },
-        );
+        const requeuedData = { ...bullJob.data, _priorAttempts: priorAttempts };
+        const requeued = await queues[laneForJob(jobDef)].add(jobName, requeuedData, {
+          delay: SEQUENTIAL_RETRY_DELAY_MS,
+          ...buildRetryBullOpts(jobDef, priorAttempts),
+        });
+        if (bullJob.id !== undefined && bullJob.id !== requeued.id) {
+          await announceDropped(jobName, jobDef, bullJob.id);
+        }
+        await announceQueued(jobName, jobDef, requeued.id, requeuedData);
         // skip: lock taken, work re-enqueued with delay, current invocation done
         return;
       }
@@ -871,29 +949,42 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     };
 
     // Build handler payload (without internal meta fields)
-    const payload: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(rawData)) {
-      if (!k.startsWith("_")) payload[k] = v;
-    }
+    const payload = handlerPayloadOf(rawData);
 
     // Determine tenantId and triggeredBy from meta
-    const tenantId =
-      (rawData["_tenantId"] as string | undefined) ?? // @cast-boundary dynamic-key
-      (payload["tenantId"] as string | undefined) ?? // @cast-boundary dynamic-key
-      SYSTEM_TENANT_ID;
+    const tenantId = tenantIdOfJobData(rawData);
     const triggeredById = (rawData["_triggeredById"] as string | undefined) ?? null; // @cast-boundary dynamic-key
 
     // Tenant-visible failure record (JobDefinition.tenantVisibleFailure). The
     // subject is read from the handler payload, so it is resolved here where
     // the payload is built, not in the callbacks.
     const tenantVisibleDecl = jobDef.tenantVisibleFailure;
+    const tenantVisibleRunDecl = jobDef.tenantVisibleRun;
     // A bad subject config must surface as a failed run, so it is thrown from
     // inside runInSpan below instead of here, before any run record exists.
     let tenantVisibleSubject: string | null = null;
+    let tenantVisibleRunSubject: string | null = null;
     let subjectConfigError: Error | undefined;
-    if (tenantVisibleDecl) {
+    if (tenantVisibleRunDecl) {
       try {
-        tenantVisibleSubject = jobSubjectKey(jobName, payload, tenantVisibleDecl.subjectFields);
+        tenantVisibleRunSubject = jobSubjectKey(
+          jobName,
+          payload,
+          tenantVisibleRunDecl.subjectFields,
+          "tenantVisibleRun",
+        );
+      } catch (err) {
+        subjectConfigError = err instanceof Error ? err : new Error(String(err));
+      }
+    }
+    if (tenantVisibleDecl && !subjectConfigError) {
+      try {
+        tenantVisibleSubject = jobSubjectKey(
+          jobName,
+          payload,
+          tenantVisibleDecl.subjectFields,
+          "tenantVisibleFailure",
+        );
       } catch (err) {
         subjectConfigError = err instanceof Error ? err : new Error(String(err));
       }
@@ -901,13 +992,16 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // BullMQ stops retrying once attemptsMade reaches the configured attempts
     // (`retries + 1`), so this is the attempt whose failure is final.
     const finalAttempt = bullJob.retryable === false || attempt >= (jobDef.retries ?? 0) + 1;
-    const outcomeMeta = (messageKey: string | null): JobOutcomeMeta => ({
+    const outcomeMeta = (messageKey: string | null, unrecoverable = false): JobOutcomeMeta => ({
       tenantId,
-      finalAttempt,
+      // BullMQ never retries an UnrecoverableError, whatever attempts are left.
+      finalAttempt: finalAttempt || unrecoverable,
       ...(tenantVisibleDecl &&
         !subjectConfigError && {
           tenantVisible: { subject: tenantVisibleSubject, messageKey },
         }),
+      ...(tenantVisibleRunDecl &&
+        !subjectConfigError && { tenantVisibleRun: { subject: tenantVisibleRunSubject } }),
     });
 
     // Carry `_triggerName` from rawData when set — handleEvent injects it on
@@ -1075,6 +1169,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       },
     };
 
+    if (tenantVisibleRunDecl && !subjectConfigError) {
+      meta.tenantVisibleRun = { tenantId, subject: tenantVisibleRunSubject };
+    }
     await options.onJobStart?.(jobName, jobId, meta);
 
     // Cross-process trace continuation: if the enqueuing code captured a
@@ -1137,7 +1234,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           jobId,
           errorMsg,
           logs,
-          outcomeMeta(tenantFailureMessageKey(err, tenantVisibleDecl)),
+          outcomeMeta(
+            tenantFailureMessageKey(err, tenantVisibleDecl),
+            err instanceof UnrecoverableError,
+          ),
         );
         throw err;
       }
@@ -1457,6 +1557,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           for (const j of waiting) {
             if (j.name === jobName && j.id) {
               await j.remove();
+              await announceDropped(jobName, jobDef, j.id);
             }
           }
           break;
@@ -1494,6 +1595,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       stampGatedWriteOrigin(data);
 
       const job = await targetQueue.add(jobName, data, bullOpts);
+      await announceQueued(jobName, jobDef, job.id, data);
       return job.id ?? "unknown";
     },
 
@@ -1542,7 +1644,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         stampGatedWriteOrigin(data);
         // Route to the job's declared lane, not a fixed queue — that's
         // the whole reason both queues are held.
-        await queues[laneForJob(jobDef)].add(name, data, buildRetryBullOpts(jobDef));
+        const job = await queues[laneForJob(jobDef)].add(name, data, buildRetryBullOpts(jobDef));
+        await announceQueued(name, jobDef, job.id, data);
       }
     },
     attachDispatcher(ref: DispatchWriteRef): void {

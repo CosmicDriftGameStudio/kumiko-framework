@@ -212,7 +212,12 @@ export type TestStackOptions = {
     runLogger?: (deps: {
       registry: Registry;
       db: import("../db/index.js").DbConnection;
-    }) => Pick<JobRunnerOptions, "onJobStart" | "onJobComplete" | "onJobFailed"> | undefined;
+    }) =>
+      | Pick<
+          JobRunnerOptions,
+          "onJobStart" | "onJobComplete" | "onJobFailed" | "onJobQueued" | "onJobDropped"
+        >
+      | undefined;
   };
   /** Override the event dispatcher's polling-timer interval. Default 50ms.
    *  Tests that assert LISTEN/NOTIFY wake-up latency need this pushed far
@@ -448,6 +453,8 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
         getActiveTenantIds: options.jobs.getActiveTenantIds,
       }),
       ...(runLogger?.onJobStart !== undefined && { onJobStart: runLogger.onJobStart }),
+      ...(runLogger?.onJobQueued !== undefined && { onJobQueued: runLogger.onJobQueued }),
+      ...(runLogger?.onJobDropped !== undefined && { onJobDropped: runLogger.onJobDropped }),
       // Tracker fires in finally: drainJobs wakes on it, so the log row must
       // be written first, and a throwing logger must not swallow the signal.
       onJobComplete: async (jobName, jobId, ...rest) => {

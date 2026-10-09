@@ -18,6 +18,7 @@ import { STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.js";
 import { createJobsFeature } from "../feature.js";
 import { DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS } from "../handlers/stale-run-sweep.job.js";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
+import { tenantJobRunsTable } from "../tenant-job-run-table.js";
 
 const SWEEP_JOB = "jobs:job:stale-run-sweep";
 
@@ -30,7 +31,7 @@ async function bootStack(staleRunTimeoutHours?: number): Promise<TestStack> {
     ],
     jobs: { consumerLane: "worker" },
   });
-  await unsafePushTables(s.db, { jobRunsTable, jobRunLogsTable });
+  await unsafePushTables(s.db, { jobRunsTable, jobRunLogsTable, tenantJobRunsTable });
   return s;
 }
 

@@ -14,6 +14,7 @@ export const JobQueries = {
   details: "jobs:query:details",
   catalog: "jobs:query:catalog",
   failures: "jobs:query:failures",
+  tenantRuns: "jobs:query:tenant-runs",
 } as const;
 
 // Error codes

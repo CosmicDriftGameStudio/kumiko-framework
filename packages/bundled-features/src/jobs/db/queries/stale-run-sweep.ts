@@ -12,19 +12,23 @@
 // the run becomes retriable via the existing jobs:write:retry gate
 // (retry.write.ts only allows retry from "failed").
 
-import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { deleteManyBatched, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { mapWithConcurrency } from "../../../shared/index.js";
 import { encryptFailureError } from "../../job-run-logger.js";
 import { jobRunsTable } from "../../job-run-table.js";
+import { tenantJobRunsTable } from "../../tenant-job-run-table.js";
 
 const KMS_POOL_CONCURRENCY = 4;
+const STALE_DELETE_BATCH_SIZE = 500;
 
 export const STALE_JOB_RUN_ERROR =
   "job run exceeded the stale-run timeout without a completion signal (likely a crashed worker process)";
 
 export type StaleRunSweepResult = {
   readonly runsMarkedFailed: number;
+  readonly tenantRunsMarkedFailed: number;
+  readonly tenantQueuedDropped: number;
 };
 
 export async function markStaleJobRunsFailed(
@@ -80,5 +84,25 @@ export async function markStaleJobRunsFailed(
   );
   const runsMarkedFailed = updatedPerSubject.reduce((sum, count) => sum + count, 0);
 
-  return { runsMarkedFailed };
+  // Tenant-visible run state follows the same clock: a running row whose
+  // worker died is a failure, a queued row that never started (job lost from
+  // Redis, enqueue hook without a run) would otherwise show "waiting" forever.
+  const tenantRunsFailed = await updateMany(
+    db,
+    tenantJobRunsTable,
+    { status: "failed", finishedAt: now, updatedAt: now },
+    { status: "running", startedAt: { lt: cutoff } },
+  );
+  const tenantQueuedStale = await deleteManyBatched(
+    db,
+    tenantJobRunsTable,
+    { status: "queued", updatedAt: { lt: cutoff } },
+    { limit: STALE_DELETE_BATCH_SIZE },
+  );
+
+  return {
+    runsMarkedFailed,
+    tenantRunsMarkedFailed: tenantRunsFailed.length,
+    tenantQueuedDropped: tenantQueuedStale.deleted,
+  };
 }

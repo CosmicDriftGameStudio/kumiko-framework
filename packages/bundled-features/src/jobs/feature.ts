@@ -27,10 +27,12 @@ import {
   DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS,
 } from "./handlers/stale-run-sweep.job.js";
 import { tenantFailuresQuery } from "./handlers/tenant-failures.query.js";
+import { tenantRunsQuery } from "./handlers/tenant-runs.query.js";
 import { triggerWrite } from "./handlers/trigger.write.js";
 import { JOBS_I18N } from "./i18n.js";
 import { jobRunLogsTableMeta, jobRunsTableMeta } from "./job-run-table.js";
 import { tenantJobFailuresTableMeta } from "./tenant-job-failure-table.js";
+import { tenantJobRunsTableMeta } from "./tenant-job-run-table.js";
 
 export type JobsFeatureOptions = {
   // How long a job run (and its logs) stays in store_job_runs/
@@ -49,7 +51,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
   const staleRunTimeoutHours = options.staleRunTimeoutHours ?? DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS;
   return defineFeature("jobs", (r) => {
     r.describe(
-      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`; an hourly `stale-run-sweep` job marks runs stuck at status `running` past `staleRunTimeoutHours` as `failed` (#2246 — a crashed worker never fires the completion callback, so nothing else ever revisits the row). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI. A job that declares `tenantVisibleFailure` also records its last failed attempt per tenant and subject in `store_tenant_job_failures`, which the tenant itself reads through `jobs:query:failures` — a translation key only, never the provider's message (fw#3079).",
+      "Persistence and operator tooling for background jobs registered via `r.job(...)`. Every job execution writes directly into `store_job_runs` (current status + duration) and `store_job_run_logs` (per-line log rows) from the BullMQ callbacks — no event stream in between (#2243). A daily `retention-cleanup` job deletes runs (and their logs) older than `retentionDays`; an hourly `stale-run-sweep` job marks runs stuck at status `running` past `staleRunTimeoutHours` as `failed` (#2246 — a crashed worker never fires the completion callback, so nothing else ever revisits the row). Exposes `jobs:write:trigger` (manual run) and `jobs:write:retry` (operator retry of a failed run), plus `jobs:query:list`, `jobs:query:details`, and `jobs:query:catalog` (manual jobs) for the operator UI. A job that declares `tenantVisibleFailure` also records its last failed attempt per tenant and subject in `store_tenant_job_failures`, which the tenant itself reads through `jobs:query:failures` — a translation key only, never the provider's message (fw#3079). A job that declares `tenantVisibleRun` also keeps its run state per tenant and subject in `store_tenant_job_runs` (queued, running, plus the latest completed or failed run, no payload, error text or logs), which the tenant reads through `jobs:query:tenant-runs` (fw#3616); the stale-run sweep fails its stuck `running` rows and drops its stuck `queued` rows.",
     );
     r.uiHints({
       displayLabel: "Jobs · Audit & Operator UI",
@@ -70,6 +72,9 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
     });
     r.storeTable(tenantJobFailuresTableMeta, {
       reason: "direct_write.tenant_job_failures",
+    });
+    r.storeTable(tenantJobRunsTableMeta, {
+      reason: "direct_write.tenant_job_runs",
     });
 
     // Framework-provided rebuild job — available whenever `jobs` is composed; enqueueProjectionRebuild dispatches it.
@@ -123,6 +128,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       detail: r.queryHandler(detailQuery),
       catalog: r.queryHandler(catalogQuery),
       failures: r.queryHandler(tenantFailuresQuery),
+      tenantRuns: r.queryHandler(tenantRunsQuery),
     };
 
     const systemAdminAccess = { roles: ["SystemAdmin"] as const };

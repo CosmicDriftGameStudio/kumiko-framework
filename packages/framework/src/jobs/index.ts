@@ -2,6 +2,7 @@ export type {
   JobLogEntry,
   JobMeta,
   JobOutcomeMeta,
+  JobQueuedMeta,
   JobRunner,
   JobRunnerOptions,
   JobSubjectValue,

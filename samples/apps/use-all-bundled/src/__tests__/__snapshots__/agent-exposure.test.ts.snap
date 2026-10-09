@@ -105,6 +105,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "jobs:query:details expose=true risk=low",
   "jobs:query:failures expose=true risk=low",
   "jobs:query:list expose=true risk=low",
+  "jobs:query:tenant-runs expose=true risk=low",
   "jobs:write:retry expose=true risk=mid",
   "jobs:write:trigger expose=true risk=mid",
   "ledger:query:account:detail expose=true risk=low",

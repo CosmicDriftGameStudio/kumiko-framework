@@ -465,6 +465,17 @@ export type JobDefinition = {
         readonly subjectFields?: readonly string[] | undefined;
       }
     | undefined;
+  // Opt in to a tenant-visible run state (`jobs:query:tenant-runs`): whether a
+  // run for a subject is queued or running, with its times, plus the last
+  // completed or failed outcome. No payload, error text or logs ever reach the
+  // tenant. `subjectFields` works as for `tenantVisibleFailure`: payload
+  // fields that scope the state, primitives only, stored in clear — never name
+  // a PII field here; the query's subject filter matches exactly.
+  readonly tenantVisibleRun?:
+    | {
+        readonly subjectFields?: readonly string[] | undefined;
+      }
+    | undefined;
 };
 
 // --- Notifications ---

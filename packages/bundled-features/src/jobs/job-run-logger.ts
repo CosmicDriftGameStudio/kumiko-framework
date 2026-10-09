@@ -2,9 +2,11 @@ import {
   deleteMany,
   fetchOne,
   insertMany,
+  insertOnConflictDoNothing,
   insertOne,
   transaction,
   updateMany,
+  upsertOnConflict,
 } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
@@ -19,6 +21,7 @@ import type {
   JobLogEntry,
   JobMeta,
   JobOutcomeMeta,
+  JobQueuedMeta,
   JobRunnerOptions,
 } from "@cosmicdrift/kumiko-framework/jobs";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
@@ -28,6 +31,7 @@ import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events.
 import { parseJobInstant } from "./job-instant.js";
 import { jobRunLogsTable, jobRunsTable } from "./job-run-table.js";
 import { tenantJobFailuresTable } from "./tenant-job-failure-table.js";
+import { tenantJobRunsTable } from "./tenant-job-run-table.js";
 
 // Matches PgKmsAdapter's default pool size (see tenant/handlers/*.query.ts) —
 // bounds concurrent getOrCreateDek calls so a large log batch doesn't claim
@@ -52,7 +56,7 @@ export type JobRunLoggerOptions = {
 
 export type JobRunLoggerCallbacks = Pick<
   JobRunnerOptions,
-  "onJobStart" | "onJobComplete" | "onJobFailed"
+  "onJobStart" | "onJobComplete" | "onJobFailed" | "onJobQueued" | "onJobDropped"
 >;
 
 // Default cap on the bullJobId → runId cache. A worker that starts jobs
@@ -212,7 +216,130 @@ async function clearTenantJobFailure(
   await deleteMany(db, tenantJobFailuresTable, where);
 }
 
+// fw#3616 — tenant-visible run state. One row per BullMQ job in
+// store_tenant_job_runs; the writes below only ever touch rows of the same
+// bullJobId, except pruning older finished rows of the same key.
+type TenantRunKey = {
+  readonly tenantId: string;
+  readonly jobName: string;
+  readonly subject: string | null;
+};
+
+function tenantRunKey(
+  jobName: string,
+  tenantId: string,
+  subject: string | null,
+): TenantRunKey | null {
+  // skip: tenant-less run (cron resolves to SYSTEM_TENANT_ID) — no tenant-scoped query could read it
+  if (tenantId === SYSTEM_TENANT_ID) return null;
+  return { tenantId, jobName, subject };
+}
+
+async function recordTenantRunQueued(
+  db: DbConnection,
+  jobName: string,
+  bullJobId: string,
+  meta: JobQueuedMeta,
+): Promise<void> {
+  const key = tenantRunKey(jobName, meta.tenantId, meta.subject);
+  // skip: system-tenant run, no tenant-scoped query reads it
+  if (!key) return;
+  const now = Temporal.Now.instant();
+  // DO NOTHING: a fast worker can report the start before this enqueue hook
+  // returns, and a repeated jobId (debounce, fan-out dedup) is the same job.
+  await insertOnConflictDoNothing(
+    db,
+    tenantJobRunsTable,
+    { ...key, bullJobId, status: "queued", queuedAt: now, updatedAt: now },
+    { conflictKeys: ["bullJobId"] },
+  );
+}
+
+async function recordTenantRunStarted(
+  db: DbConnection,
+  jobName: string,
+  bullJobId: string,
+  meta: JobMeta,
+): Promise<void> {
+  // skip: job did not opt in to tenantVisibleRun
+  if (!meta.tenantVisibleRun) return;
+  const key = tenantRunKey(jobName, meta.tenantVisibleRun.tenantId, meta.tenantVisibleRun.subject);
+  // skip: system-tenant run, no tenant-scoped query reads it
+  if (!key) return;
+  const now = Temporal.Now.instant();
+  await upsertOnConflict(
+    db,
+    tenantJobRunsTable,
+    { ...key, bullJobId, status: "running", startedAt: now, updatedAt: now },
+    {
+      conflictKeys: ["bullJobId"],
+      update: { status: "running", startedAt: now, finishedAt: null, updatedAt: now },
+    },
+  );
+}
+
+async function recordTenantRunOutcome(
+  db: DbConnection,
+  jobName: string,
+  bullJobId: string,
+  outcome: JobOutcomeMeta | undefined,
+  result: "completed" | "failed",
+): Promise<void> {
+  // skip: job did not opt in to tenantVisibleRun
+  if (!outcome?.tenantVisibleRun) return;
+  const key = tenantRunKey(jobName, outcome.tenantId, outcome.tenantVisibleRun.subject);
+  // skip: system-tenant run, no tenant-scoped query reads it
+  if (!key) return;
+  const now = Temporal.Now.instant();
+  // A failed attempt BullMQ will retry goes back to waiting: the tenant keeps
+  // seeing pending work, not a failure the next attempt may still resolve.
+  if (result === "failed" && !outcome.finalAttempt) {
+    await updateMany(
+      db,
+      tenantJobRunsTable,
+      { status: "queued", startedAt: null, finishedAt: null, updatedAt: now },
+      { bullJobId },
+    );
+    // skip: retry pending, the row stays active until the final attempt
+    return;
+  }
+  await upsertOnConflict(
+    db,
+    tenantJobRunsTable,
+    { ...key, bullJobId, status: result, finishedAt: now, updatedAt: now },
+    { conflictKeys: ["bullJobId"], update: { status: result, finishedAt: now, updatedAt: now } },
+  );
+  await deleteMany(db, tenantJobRunsTable, {
+    ...key,
+    status: { in: ["completed", "failed"] },
+    bullJobId: { ne: bullJobId },
+  });
+}
+
+async function dropTenantRunQueued(db: DbConnection, bullJobId: string): Promise<void> {
+  await deleteMany(db, tenantJobRunsTable, { bullJobId, status: "queued" });
+}
+
 const log = createFallbackLogger("job-run-logger");
+
+// The tenant run state is an optional side write: a throw here must not
+// fail the enqueue, skip the run-row write or turn a completed run into a
+// BullMQ retry.
+async function isolateTenantRunWrite(
+  write: () => Promise<void>,
+  jobName: string,
+  bullJobId: string,
+): Promise<void> {
+  try {
+    await write();
+  } catch (e) {
+    log.error("tenant job run state write failed", {
+      jobName,
+      bullJobId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
 
 // The tenant failure record is an optional side write: a throw here must not
 // skip the run-row update or turn a completed run into a BullMQ retry.
@@ -302,7 +429,24 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
   }
 
   return {
+    onJobQueued: async (jobName: string, bullJobId: string, meta: JobQueuedMeta) => {
+      await isolateTenantRunWrite(
+        () => recordTenantRunQueued(db, jobName, bullJobId, meta),
+        jobName,
+        bullJobId,
+      );
+    },
+
+    onJobDropped: async (jobName: string, bullJobId: string) => {
+      await isolateTenantRunWrite(() => dropTenantRunQueued(db, bullJobId), jobName, bullJobId);
+    },
+
     onJobStart: async (jobName: string, bullJobId: string, meta: JobMeta) => {
+      await isolateTenantRunWrite(
+        () => recordTenantRunStarted(db, jobName, bullJobId, meta),
+        jobName,
+        bullJobId,
+      );
       const runId = generateId();
       const triggeredById = meta.triggeredById ?? null;
       cachePut(bullJobId, runId, triggeredById);
@@ -346,6 +490,11 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       // unreachable (the state-loss return below).
       await isolateTenantFailureWrite(
         () => clearTenantJobFailure(db, jobName, outcome),
+        jobName,
+        bullJobId,
+      );
+      await isolateTenantRunWrite(
+        () => recordTenantRunOutcome(db, jobName, bullJobId, outcome, "completed"),
         jobName,
         bullJobId,
       );
@@ -410,6 +559,11 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       // tenant still learns their job failed if the row is unreachable.
       await isolateTenantFailureWrite(
         () => recordTenantJobFailure(db, jobName, outcome),
+        jobName,
+        bullJobId,
+      );
+      await isolateTenantRunWrite(
+        () => recordTenantRunOutcome(db, jobName, bullJobId, outcome, "failed"),
         jobName,
         bullJobId,
       );

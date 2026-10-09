@@ -43,6 +43,7 @@ import { markStaleJobRunsFailed, STALE_JOB_RUN_ERROR } from "../db/queries/stale
 import { createJobsFeature } from "../feature.js";
 import { createJobRunLogger } from "../job-run-logger.js";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
+import { tenantJobRunsTable } from "../tenant-job-run-table.js";
 
 let testDb: TestDb;
 let testRedis: TestRedis;
@@ -56,7 +57,7 @@ beforeAll(async () => {
   testDb = await createTestDb();
   testRedis = await createTestRedis();
   const registry = createRegistry([createJobsFeature()]);
-  await unsafePushTables(testDb.db, { jobRunsTable, jobRunLogsTable });
+  await unsafePushTables(testDb.db, { jobRunsTable, jobRunLogsTable, tenantJobRunsTable });
   logger = createJobRunLogger({ db: testDb.db, registry });
 });
 
@@ -459,7 +460,7 @@ describe("jobs:query:details decrypts log messages and error end-to-end (#2247, 
         queueNamePrefix: `kumiko-jobs-detail-pii-test-${Date.now()}`,
       },
     });
-    await unsafePushTables(detailStack.db, { jobRunsTable, jobRunLogsTable });
+    await unsafePushTables(detailStack.db, { jobRunsTable, jobRunLogsTable, tenantJobRunsTable });
     detailLogger = createJobRunLogger({ db: detailStack.db, registry: detailStack.registry });
   });
 
@@ -575,7 +576,7 @@ describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
         queueNamePrefix: `kumiko-jobs-retry-pii-test-${Date.now()}`,
       },
     });
-    await unsafePushTables(retryStack.db, { jobRunsTable, jobRunLogsTable });
+    await unsafePushTables(retryStack.db, { jobRunsTable, jobRunLogsTable, tenantJobRunsTable });
     retryLogger = createJobRunLogger({ db: retryStack.db, registry: retryStack.registry });
   });
 
