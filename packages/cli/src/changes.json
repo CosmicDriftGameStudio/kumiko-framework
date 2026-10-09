@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "kumiko-cli declares framework and bundled-features as optional peer dependencies",
+    "detail": "kumiko-cli declares @cosmicdrift/kumiko-framework and @cosmicdrift/kumiko-bundled-features as optional peer dependencies instead of hard dependencies, so `kumiko new app` no longer pulls them in; commands that need them report a missing install instead of a resolver stacktrace"
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "kumiko-cli optional peers no longer force a 1.0.0 release",
+    "detail": "kumiko-cli declares its optional peers framework and bundled-features with an explicit 0.x range, and changesets only bumps peer dependents when that range is left, so a minor framework release no longer pushes the fixed package group to 1.0.0"
+  },
+  {
     "version": "0.351.0",
     "type": "fix",
     "title": "kumiko-upgrade ships with kumiko-cli and takes the installed version from the repo's own install or bun.lock",

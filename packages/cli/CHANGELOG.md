@@ -1,5 +1,53 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.354.0
+
+### Minor Changes
+
+- a2bafb2: Handler titles and field labels as an i18n convention, plus the `references` Zod meta
+
+  - `handlerTitleKey(qn)` gives `<qn>:title`, `handlerFieldLabelKey(qn, field)` gives `<qn>:field:<field>`. Exported from `@cosmicdrift/kumiko-framework/engine` and `@cosmicdrift/kumiko-framework/ui-types`. The client resolves keys verbatim, so a feature writes the full keys in `r.translations`, e.g. `channel-texts:write:generate:title` and `channel-texts:write:generate:field:vehicleId`, best built with `handlerTitleKey(qn)`.
+  - A translation key that already starts with the kebab form of the feature name (`channel-texts:write:x:title` for `channelTexts`) is no longer prefixed a second time.
+  - `handlerFieldReference(schema, field)` and `HANDLER_FIELD_REFERENCES_META_KEY` (`@cosmicdrift/kumiko-framework/engine`) read `.meta({ references: "<entity>" })` on a handler input field, through optional, nullable and default wrappers. Boot fails when the value names no registered entity (`"<entity>"` or `"<feature>:<entity>"`). The value also appears in the agent tool JSON Schema.
+  - `findHandlerTranslationGaps(features)` (`@cosmicdrift/kumiko-bundled-features/agent-tools`) reports `handler-without-translation` for agent-exposed write handlers without an entity mapping or actionForm screen that lack title or field-label keys (system-only fields are skipped). `kumiko agent lint` prints these in a separate warning section that never changes the exit code; the boot prints a single summary line. `findAgentDocGaps` is deliberately unchanged, because the agent-manifest guard fails hard on every gap it returns.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Handler titles and field labels as i18n keys, plus the references Zod meta
+  detail: `handlerTitleKey(qn)` (`<qn>:title`) and `handlerFieldLabelKey(qn, field)` (`<qn>:field:<field>`) define where a handler's title and input labels live; a feature declares the full keys (e.g. `channel-texts:write:generate:title`, built with `handlerTitleKey(qn)`) in `r.translations`, because the client resolves keys without a feature prefix. Mark a handler input field that points at an entity with `vehicleId: z.string().meta({ references: "vehicle" })` (or `"feature:entity"`); boot throws when the entity is unknown and `handlerFieldReference(schema, field)` reads it. `findHandlerTranslationGaps` reports agent-exposed write handlers without an entity or actionForm screen and without these keys as `handler-without-translation`. `kumiko agent lint` lists them as warnings without affecting the exit code, and the boot prints one summary line. `findAgentDocGaps` stays unchanged on purpose, since the agent-manifest guard fails on every gap it returns.
+  -->
+
+### Patch Changes
+
+- 8307320: kumiko-cli declares @cosmicdrift/kumiko-framework and @cosmicdrift/kumiko-bundled-features as optional peer dependencies instead of hard dependencies, so `kumiko new app` no longer pulls them in; commands that need them report a missing install instead of a resolver stacktrace
+
+  <!-- kumiko-changes
+  feature: cli
+  type: improvement
+  title: kumiko-cli declares framework and bundled-features as optional peer dependencies
+  -->
+
+- e222fa3: kumiko-cli declares its optional peers framework and bundled-features with an explicit 0.x range, and changesets only bumps peer dependents when that range is left, so a minor framework release no longer pushes the fixed package group to 1.0.0
+
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: kumiko-cli optional peers no longer force a 1.0.0 release
+  -->
+
+- Updated dependencies [f060e44]
+- Updated dependencies [b0fbbd4]
+- Updated dependencies [4d058fb]
+- Updated dependencies [beab610]
+- Updated dependencies [67d8d41]
+- Updated dependencies [a7bbfc3]
+- Updated dependencies [15e6930]
+  - @cosmicdrift/kumiko-dev-server@0.354.0
+  - @cosmicdrift/kumiko-guards@0.354.0
+  - @cosmicdrift/kumiko-testing@0.354.0
+  - @cosmicdrift/kumiko-repo-manifest@0.354.0
+
 ## 0.353.0
 
 ### Patch Changes

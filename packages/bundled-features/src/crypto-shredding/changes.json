@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "forget-subject: the SUBJECT_FORGOTTEN audit now commits before the handler tx does and records cleanupError when a derived-data sweep fails",
+    "detail": "The SUBJECT_FORGOTTEN audit event is appended through the outside-transaction db, so it commits before the handler transaction does and survives a later rollback. If the blind-index sweep or search purge fails, the event carries cleanupError (error code or name, never the message) and the handler then fails; retry to finish the cleanup. The user-lifecycle step runs in a savepoint and no longer aborts the handler transaction."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "Writing a personal field of an erased data subject answers 409 subject_erased instead of 500",
+    "detail": "Writing PII to an erased data subject answers 409 `subject_erased`, rebinding a hook's unsafeRaw grant no longer inherits db.global() writes, jobs wait for boot gates before consuming\nA write that has to encrypt a personal field for a subject whose key was erased (crypto-shredding) now fails with a `ConflictError` (409, reason `subject_erased`, i18n in en and de) instead of a 500, on the executor write path and in `encryptForDirectWrite`. A hook's own `unsafeRaw` grant (`withUnsafeRawGrant`) no longer carries the handler's `globalWrites` grant. The job runner starts its BullMQ worker only after the boot gates passed, so a job queued by a previous run cannot execute against an unmet boot precondition. `buildServer` warns at boot when `r.systemScope()` features exist but no RateLimitResolver is configured. The auth, MFA, PAT, change-email and request-deletion handlers declare only the escape-hatch grants they use."
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "forget-denied audit digest is keyed and omitted without a blind-index key",

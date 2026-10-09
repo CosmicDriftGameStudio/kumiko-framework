@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "FileHandle.derive throws for suffixes outside <name>-<16 hex>",
+    "detail": "Final review batch D.\n- `FileHandle.derive(suffix)` now throws unless the suffix is `<name>-<16 hex>` (build it with `variantSuffix(name, spec)`). Free-form suffixes such as `derive(\"thumb\")` wrote keys the forget/tenant-destroy sweep could not recognize, so those binaries survived erasure. Callers passing a bare name must switch to `variantSuffix`.\n- `resolveKmsWiring` / `requireKmsWiring` throw when a `*_CIPHERTEXT` slot is set without its plaintext, pointing at the async entry points, instead of a misleading \"trio required\" error or a silent plaintext-PII fallback.\n- Event-PII owner/`whenAbsent` resolution now also runs without a configured KMS, so a missing owner fails in dev like in prod.\n- PII event backfill queues rebuilds under a per-run migration id, so a peer replica's re-queue is no longer cleared by another run.\n- `seedAdminGuarded` re-writes the canonical admin's email so the blind index is repaired, and skips undecryptable foreign user rows instead of aborting the boot seed.\n- A tenant-bound `FileContext.list` refuses prefixes outside the tenant's key space.\n- An entityList whose create screen was dropped for the caller's roles now carries `createUnavailable`, so the renderer no longer falls back to a generic create form.\n- Boot validation rejects an object-form `redirect` with `idFrom` whose same-feature target screen carries no id.\n- `defineFeature` throws when `dedupeOptions` holds a nested object (it can never compare equal across two mounts).\n- `FileContext.ref` and `list` (tenant-bound) refuse keys outside `${tenantId}/`; list columns accept `virtual: true`; `httpRoute` session-only routes now pass the global IP rate limit; tenant timezone cache TTL is 30 s; text fields without a personal stance warn at boot; the orphan-derivative sweep keeps derivatives whose original still exists; `piiFields` owner fields that can never yield a string throw unless `whenAbsent` is set.",
+    "migration": "Build the suffix with variantSuffix(name, spec) instead of passing a free-form string."
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "A tenant-bound FileContext.list throws for prefixes outside the tenant's key space",
+    "migration": "Pass a prefix that starts with `${tenantId}/`."
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "A tenant-bound FileContext.ref throws for keys outside the tenant's key space",
+    "migration": "Use keys that start with `${tenantId}/`."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "The signed download URL carries a neutral file name instead of the personal fileName"
+  },
+  {
     "version": "0.341.0",
     "type": "improvement",
     "title": "Uploads resolve a generic content type from the file content",

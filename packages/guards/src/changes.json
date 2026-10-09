@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "Real-Provider-Isolation guard allows real runs in schedule- or workflow_dispatch-only workflows",
+    "detail": "The Real-Provider-Isolation guard allows `test:real`, `e2e:real` and `KUMIKO_REAL_PROVIDERS` in CI workflows whose `on:` triggers are exclusively `schedule` and/or `workflow_dispatch`, so an app can run its real-provider suite weekly or by hand. Any other trigger next to them (`push`, `pull_request`, `pull_request_target`, `workflow_call`, ...) or a workflow without a parseable `on:` is still a violation."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "Security guards scan the tooling root, direct-fetch guard-allow needs a concrete reason, types postgres peer accepts the prerelease alias",
+    "detail": "Final review batch G: guards and tooling\nThe security guards (`direct-fetch`, `direct-entity-writes`, `tenant-escalation`, `unsafe-json-parse`, `html-escape`, `no-direct-fs`, `restricted-symbols`, `admin-api`, `access-denied-test`, `open-to-all-reason`, `escape-hatch-declared`) now scan a `tooling` root too. `direct-fetch` rejects a `guard-allow` marker without a specific reason. The `direct-entity-writes` canary also blocks when table declarations exist but write resolution finds nothing. `@cosmicdrift/kumiko-types` accepts the `postgres` prerelease alias in its peer range."
+  },
+  {
     "version": "0.352.0",
     "type": "improvement",
     "title": "New No-Temporal-Polyfill-Import guard reports direct temporal-polyfill value imports outside kumiko-types",

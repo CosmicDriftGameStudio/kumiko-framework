@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "tenant-lifecycle/testing exports runTenantDestructionSweep, seedDestroyingTenant and driveDestructionToCompletion"
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "Tenant destroy stages resume partial progress next tick; hooks may return { done: false } and get deadlineAt; file hooks work in chunks",
+    "detail": "Tenant destroy stages resume partial progress in the next sweep tick instead of burning failed attempts\nA tenant with tens of thousands of files used to exhaust the stage's three attempts and leave the DSGVO destroy stuck. Destroy hooks (`destroyTenant`, EXT_TENANT_DATA `destroy`) may now return `{ done: false, processed }` and receive `deadlineAt` in their ctx; the runner records a `tenant-destruction-stage-progressed` event in the tenant stream and continues the stage next tick without counting a failed attempt. Hooks returning nothing stay valid. The `fileRef` row purge and the storage prefix wipe work in chunks against that deadline."
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "Boot warns when files is mounted without files-tenant-data",
+    "detail": "files-tenant-data is opt-in, so an app with tenant-lifecycle and files that forgot it silently left fileRef rows and stored binaries behind on tenant destroy. tenant-lifecycle now logs a boot warning in that case. Action: mount createFilesTenantDataFeature(), or ignore the warning if the app erases files itself."
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "Tenant destroy: a stage tick without progress counts as a failed attempt; done:false requires processed"
+  },
+  {
     "version": "0.337.0",
     "type": "fix",
     "title": "tenant destroy deletes handed-over binaries via the uploader's provider, trigger reports invalid payloads distinctly, mail failure logs redact addresses",

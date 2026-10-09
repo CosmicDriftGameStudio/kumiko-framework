@@ -1,5 +1,84 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.354.0
+
+### Minor Changes
+
+- 4d058fb: Review batch H1: framework parts of consumer-app findings.
+
+  - `auth-email-password` exports `issueSignupActivation` (invalidate, mint, store and mail an activation link; the signup-request handler now runs on it), `SIGNUP_ACTIVATION_NOTIFICATION_TYPE`, `storeSignupToken`, `invalidateExistingSignupToken`, `normalizeEmail` and `SIGNUP_TOKEN_KEY_PREFIXES`.
+  - `auth-mfa` declares the master-key env slots (`KUMIKO_SECRETS_MASTER_KEY_V1`, `_CURRENT_VERSION`, the `_CIPHERTEXT` twin) as a shared fragment with `secrets`, so a rotated `V<n>` slot is unpacked even without `secrets` mounted.
+  - `user-data-rights` exports `TENANT_MODEL_CONFIG_KEY`; `createTemplateResolverApi` takes a `DbRunner`.
+  - The user menu's logout item carries `data-testid="user-menu-logout"`.
+  - renderer-web: a `Field` description is linked to its text input via `aria-describedby`; the facet filter dropdown is capped to the available viewport height and scrolls; `createBrowserLocaleResolver` takes `normalizeLocale` and the default storage key is exported as `BROWSER_LOCALE_STORAGE_KEY`.
+  - testing: `loginViaApi(request, credentials, { bucketKey })`, `CLIENT_IP_HEADER` from `@cosmicdrift/kumiko-testing/e2e`, and a Playwright-free `@cosmicdrift/kumiko-testing/e2e/constants` subpath (`KUMIKO_SECRETS_MASTER_KEY_V1`).
+
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: breaking
+  title: auth-mfa declares the master-key env slots, so composeEnvSchema requires KUMIKO_SECRETS_MASTER_KEY_V1 when auth-mfa is mounted
+  migration: Apps that bring their own masterKey provider instead of the env KEK add "auth-mfa" to composeEnvSchema's optionalFeatures, like they already do for "secrets". Required wins as soon as auth-mfa is not in optionalFeatures, even when `secrets` is listed there.
+  -->
+
+### Patch Changes
+
+- 15e6930: Export trackInFlightRequests(page) so captureScreenshot counts requests from the initial load; the first untracked call waits for network idle, and a pushState during a delayed navigation no longer drops in-flight requests
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: trackInFlightRequests(page) export for captureScreenshot
+  -->
+
+- Updated dependencies [8f1ab07]
+- Updated dependencies [a734025]
+- Updated dependencies [8f1ab07]
+- Updated dependencies [36a08aa]
+- Updated dependencies [81153cb]
+- Updated dependencies [fde53b0]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [a734025]
+- Updated dependencies [94eb2fc]
+- Updated dependencies [f060e44]
+- Updated dependencies [fde53b0]
+- Updated dependencies [8307320]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [f060e44]
+- Updated dependencies [f1a576b]
+- Updated dependencies [a2bafb2]
+- Updated dependencies [6265371]
+- Updated dependencies [c10805f]
+- Updated dependencies [fc80bb4]
+- Updated dependencies [fde53b0]
+- Updated dependencies [edcb2d0]
+- Updated dependencies [2873c76]
+- Updated dependencies [357f33d]
+- Updated dependencies [8307320]
+- Updated dependencies [a62e62c]
+- Updated dependencies [4d058fb]
+- Updated dependencies [beab610]
+- Updated dependencies [6bd7df1]
+- Updated dependencies [a6d5c20]
+- Updated dependencies [b15e90d]
+- Updated dependencies [67d8d41]
+- Updated dependencies [cc7e2ce]
+- Updated dependencies [8d5fa1a]
+- Updated dependencies [4803d4c]
+- Updated dependencies [a62e62c]
+- Updated dependencies [2b0566a]
+- Updated dependencies [fde53b0]
+- Updated dependencies [fde53b0]
+- Updated dependencies [f1a576b]
+- Updated dependencies [13f6b6f]
+  - @cosmicdrift/kumiko-bundled-features@0.354.0
+  - @cosmicdrift/kumiko-framework@0.354.0
+  - @cosmicdrift/kumiko-dev-server@0.354.0
+
 ## 0.353.0
 
 ### Patch Changes

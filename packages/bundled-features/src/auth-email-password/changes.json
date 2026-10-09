@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "Invitations pin the invitee's membership version; superseded accept no longer relies on timestamps",
+    "migration": "New nullable column read_tenant_invitations.membership_version: run `kumiko schema generate` and apply the migration before deploying. Invitations issued before the migration keep the timestamp comparison."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "Login, MFA verify and MFA preauth setup follow the server landingPath when no valid next parameter is present",
+    "detail": "AuthGate onSuccess receives the landing path. A validated next parameter still wins; a landing path equal to the current path is not followed, so the screen does not reload itself."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "Signup-confirm and invite-signup-complete store the request locale on the new user and in the session"
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "INITIAL_SIGNUP_ROLES stays [\"TenantAdmin\", \"Admin\"] as a transition",
+    "detail": "New self-signup owners hold TenantAdmin plus the legacy Admin literal, because handlers that gate on the Admin literal would otherwise lock them out. Both roles show in Team, Members until those handlers gate on access.admin. This supersedes the earlier note that the owner role is only TenantAdmin.",
+    "migration": "Move your own handlers that gate on the Admin literal to access.admin; after that the Admin entry can be dropped from the constant."
+  },
+  {
     "version": "0.348.0",
     "type": "fix",
     "title": "AuthGate accepts a loginUrl function, renders LoginScreen on the login route, and LoginScreen follows a validated next",

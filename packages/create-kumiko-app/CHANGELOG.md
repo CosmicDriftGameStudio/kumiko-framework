@@ -1,5 +1,50 @@
 # create-kumiko-app
 
+## 0.354.0
+
+### Patch Changes
+
+- Updated dependencies [36a08aa]
+- Updated dependencies [81153cb]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [a734025]
+- Updated dependencies [94eb2fc]
+- Updated dependencies [f060e44]
+- Updated dependencies [fde53b0]
+- Updated dependencies [8307320]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [f060e44]
+- Updated dependencies [f1a576b]
+- Updated dependencies [a2bafb2]
+- Updated dependencies [c10805f]
+- Updated dependencies [edcb2d0]
+- Updated dependencies [2873c76]
+- Updated dependencies [357f33d]
+- Updated dependencies [a62e62c]
+- Updated dependencies [4d058fb]
+- Updated dependencies [beab610]
+- Updated dependencies [6bd7df1]
+- Updated dependencies [a6d5c20]
+- Updated dependencies [b15e90d]
+- Updated dependencies [67d8d41]
+- Updated dependencies [cc7e2ce]
+- Updated dependencies [8d5fa1a]
+- Updated dependencies [4803d4c]
+- Updated dependencies [a62e62c]
+- Updated dependencies [2b0566a]
+- Updated dependencies [fde53b0]
+- Updated dependencies [13f6b6f]
+- Updated dependencies [15e6930]
+  - @cosmicdrift/kumiko-framework@0.354.0
+  - @cosmicdrift/kumiko-dev-server@0.354.0
+  - @cosmicdrift/kumiko-server-runtime@0.354.0
+  - @cosmicdrift/kumiko-testing@0.354.0
+
 ## 0.353.0
 
 ### Patch Changes

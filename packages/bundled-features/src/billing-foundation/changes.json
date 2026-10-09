@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "BillingInfo.prices and getBillingPrices are keyed by the tier union",
+    "migration": "A getBillingPrices that returns keys outside your tier union no longer compiles; remove or rename those keys."
+  },
+  {
     "version": "0.346.0",
     "type": "fix",
     "title": "Subscription webhooks no longer overwrite manual tier grants",

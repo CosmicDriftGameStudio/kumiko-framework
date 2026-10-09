@@ -1,1 +1,8 @@
-[]
+[
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "in_app_messages gets a tenant, user, created_at index",
+    "migration": "Run `kumiko schema generate`; it emits an in-place CREATE INDEX with no DROP and no rebuild."
+  }
+]

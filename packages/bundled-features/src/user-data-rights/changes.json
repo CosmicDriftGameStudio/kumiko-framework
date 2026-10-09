@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "Row-bound grants (deletion token, tenant handover) refuse a colon in anchor or subject",
+    "migration": "signRowBoundGrant now throws when the anchor or subject contains \":\", and redeem returns FAILED for such a token. Use colon-free ids (uuids) for anchor and subject; a purpose may still contain a colon."
+  },
+  {
     "version": "0.338.0",
     "type": "fix",
     "title": "Forget cleanup covers tenants the user already left",
