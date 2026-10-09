@@ -732,6 +732,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.form.saveChanges": "Save changes",
   "kumiko.form.unsaved.one": "1 unsaved change",
   "kumiko.form.unsaved.other": "{count} unsaved changes",
+  "kumiko.form.unsavedChangesActionConfirm":
+    "You have unsaved changes in this form. They will be lost if you continue.",
   "kumiko.lightbox.next": "Next image",
   "kumiko.lightbox.position": "{current} / {total}",
   "kumiko.lightbox.previous": "Previous image",

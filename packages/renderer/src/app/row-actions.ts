@@ -522,6 +522,18 @@ function buildNavigateRecordAction(
   return undefined;
 }
 
+// The action's own confirm text stays first; the discard hint follows after a
+// blank line so both show in the single confirm dialog.
+function withDiscardHint(
+  ownConfirm: string | undefined,
+  discardChangesConfirm: string | undefined,
+): string | undefined {
+  if (discardChangesConfirm === undefined) return ownConfirm;
+  return ownConfirm === undefined
+    ? discardChangesConfirm
+    : `${ownConfirm}\n\n${discardChangesConfirm}`;
+}
+
 function buildDrawerRecordAction(
   action: RowActionDrawer,
   options: {
@@ -532,15 +544,17 @@ function buildDrawerRecordAction(
       action: RowActionDrawer,
       initialValues: Readonly<Record<string, unknown>> | undefined,
     ) => void;
+    readonly discardChangesConfirm: string | undefined;
   },
 ): RenderEditAction {
-  const { record, translate, actionIcon, openDrawer } = options;
+  const { record, translate, actionIcon, openDrawer, discardChangesConfirm } = options;
   return {
     id: action.id,
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
     ...(action.display !== undefined && { display: action.display }),
     confirmRequired: false,
+    ...(discardChangesConfirm !== undefined && { confirm: discardChangesConfirm }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onPress: () => {
       const initialValues =
@@ -576,6 +590,7 @@ function buildWriteHandlerRecordAction(
     readonly onWriteSuccess: () => void | Promise<void>;
     readonly defaultWritePayloadId: string | undefined;
     readonly onRecordLeft: RecordLeftHandler | undefined;
+    readonly discardChangesConfirm: string | undefined;
   },
 ): RenderEditAction {
   const {
@@ -586,15 +601,20 @@ function buildWriteHandlerRecordAction(
     onWriteSuccess,
     defaultWritePayloadId,
     onRecordLeft,
+    discardChangesConfirm,
   } = options;
   const shownRecordId = defaultWritePayloadId ?? record["id"];
+  const confirm = withDiscardHint(
+    action.confirm !== undefined ? translate(action.confirm) : undefined,
+    discardChangesConfirm,
+  );
   return {
     id: action.id,
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
     ...(action.display !== undefined && { display: action.display }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
-    ...(action.confirm !== undefined && { confirm: translate(action.confirm) }),
+    ...(confirm !== undefined && { confirm }),
     ...(action.confirmLabel !== undefined && {
       confirmLabel: translate(action.confirmLabel),
     }),
@@ -662,6 +682,10 @@ export function buildRecordActions(options: {
    *  caller editing a fixed entity passes its route id so the payload does
    *  not depend on the loaded record carrying an `id` field. */
   readonly defaultWritePayloadId?: string;
+  /** Translated hint added to the confirm of every writeHandler and drawer
+   *  action (they reload or remount the surrounding form). Set while that
+   *  form holds unsaved input so it is not lost silently. */
+  readonly discardChangesConfirm?: string;
 }): readonly RenderEditAction[] | undefined {
   const {
     actions,
@@ -676,6 +700,7 @@ export function buildRecordActions(options: {
     defaultScreenTargetEntityId,
     sameEntityScreenId,
     defaultWritePayloadId,
+    discardChangesConfirm,
   } = options;
   const out: RenderEditAction[] = [];
   for (const action of actions) {
@@ -695,7 +720,15 @@ export function buildRecordActions(options: {
       continue;
     }
     if (action.kind === "drawer") {
-      out.push(buildDrawerRecordAction(action, { record, translate, actionIcon, openDrawer }));
+      out.push(
+        buildDrawerRecordAction(action, {
+          record,
+          translate,
+          actionIcon,
+          openDrawer,
+          discardChangesConfirm,
+        }),
+      );
       continue;
     }
     // writeHandler — skip without a dispatcher instead of crashing.
@@ -709,6 +742,7 @@ export function buildRecordActions(options: {
         onWriteSuccess,
         defaultWritePayloadId,
         onRecordLeft,
+        discardChangesConfirm,
       }),
     );
   }

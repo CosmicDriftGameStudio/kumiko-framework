@@ -761,6 +761,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.form.saveChanges": "Änderungen speichern",
   "kumiko.form.unsaved.one": "1 ungespeicherte Änderung",
   "kumiko.form.unsaved.other": "{count} ungespeicherte Änderungen",
+  "kumiko.form.unsavedChangesActionConfirm":
+    "Ungespeicherte Änderungen in diesem Formular gehen verloren, wenn du fortfährst.",
   "kumiko.lightbox.next": "Nächstes Bild",
   "kumiko.lightbox.position": "{current} / {total}",
   "kumiko.lightbox.previous": "Vorheriges Bild",
