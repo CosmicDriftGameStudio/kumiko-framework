@@ -663,6 +663,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             appExportDownloadUrl: opts.appExportDownloadUrl,
           }),
           escapeHatchAuditSink: ctx._escapeHatchAuditSink,
+          escapeHatchAuditLog: ctx.log,
           actor: ctx.systemUser.id,
           metrics: exportMetrics,
         });
@@ -732,6 +733,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           }),
           ...(sendDeletionExecutedEmail && { sendDeletionExecutedEmail }),
           escapeHatchAuditSink: ctx._escapeHatchAuditSink,
+          escapeHatchAuditLog: ctx.log,
           actor: ctx.systemUser.id,
         });
 

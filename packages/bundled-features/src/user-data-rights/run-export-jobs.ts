@@ -1,3 +1,4 @@
+import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 // Async Export-Job Worker (S2.U3 Atom 3b) — pure Pipeline-Function.
 //
 // Spec: docs/plans/architecture/user-data-rights.md "Async Export-Pipeline".
@@ -176,6 +177,7 @@ export interface RunExportJobsArgs {
   // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
   // systemUser.id); threaded into runUserExport's per-hook TenantDb.
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly escapeHatchAuditLog?: Logger;
   readonly actor?: string;
 
   /**
@@ -248,6 +250,7 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
       now,
       job,
       escapeHatchAuditSink: args.escapeHatchAuditSink,
+      escapeHatchAuditLog: args.escapeHatchAuditLog,
       actor: args.actor,
     });
     if (outcome.kind === "done") {
@@ -369,6 +372,7 @@ async function processJob(args: {
   now: Instant;
   job: JobRow;
   escapeHatchAuditSink?: EscapeHatchAuditSink;
+  escapeHatchAuditLog?: Logger;
   actor?: string;
 }): Promise<ProcessOutcome> {
   const { db, registry, buildStorageProvider, now, job } = args;
@@ -415,6 +419,7 @@ async function processJob(args: {
       userId: job.userId,
       now,
       escapeHatchAuditSink: args.escapeHatchAuditSink,
+      escapeHatchAuditLog: args.escapeHatchAuditLog,
       actor: args.actor,
     });
 

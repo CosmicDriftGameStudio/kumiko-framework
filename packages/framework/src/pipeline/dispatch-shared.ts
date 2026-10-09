@@ -74,6 +74,7 @@ import {
 import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster.js";
 import { createFileContext } from "../files/file-handle.js";
 import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale.js";
+import { createFallbackLogger } from "../logging/utils.js";
 import {
   createEscapeHatchReporter,
   createMetricsHandle,
@@ -401,7 +402,7 @@ export async function buildHandlerContext(
     tenantId: user.tenantId,
     actor: user.id,
     sink: context._escapeHatchAuditSink,
-    log: context.log,
+    log: context.log ?? createFallbackLogger("dispatcher"),
     window: ctx.escapeHatchReportWindow,
   });
   const identitySwitchGrantReason =
@@ -1429,7 +1430,7 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
         tenantId: user.tenantId,
         actor: user.id,
         sink: context._escapeHatchAuditSink,
-        log: context.log,
+        log: context.log ?? createFallbackLogger("dispatcher"),
         window: ctx.escapeHatchReportWindow,
       }),
       projectionRegistry: ctx.registry,

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Guard: tenant / privilege-escalation safety. Four complementary checks.
+ * Guard: tenant / privilege-escalation safety. Three complementary checks.
  *
  *   A) **Role-input write handlers need an escalation test.** Any
  *      `defineWriteHandler` whose Zod schema takes a `role`/`roles` field lets
@@ -12,13 +12,8 @@
  *      because a feature's escalation test legitimately lives in another
  *      feature's __tests__ (e.g. user:update is covered by auth's multi-roles).
  *
- *   B) **tenantIdOverride handlers must use crossTenantOverrideDenied.** A
- *      payload `tenantIdOverride` on a TenantAdmin-reachable handler is the
- *      cross-tenant escape hatch; the SystemAdmin gate must go through the
- *      shared framework helper, not an inline `roles.includes("SystemAdmin")`
- *      check that the next handler forgets.
  *
- *   C) **Membership-derived JWT mints must strip reserved roles.** Command-time
+ *   B) **Membership-derived JWT mints must strip reserved roles.** Command-time
  *      validation rejects reserved roles from a membership, but a projection
  *      rebuild replays stored membership events through the apply path, not the
  *      handler — so a forbidden role can be resurrected into the projection. Any
@@ -27,7 +22,7 @@
  *      `invitationRole`) MUST call `stripForbiddenMembershipRoles`, the
  *      read-time backstop.
  *
- *   D) **TenantAdmin-reachable writes on a global user row need a membership
+ *   C) **TenantAdmin-reachable writes on a global user row need a membership
  *      check.** A `ctx.db.raw` read deliberately bypasses the auto-tenant-
  *      filter because User status is global. Combined with `access.admin`
  *      (which includes the tenant-scoped TenantAdmin) and a `userId` payload,
@@ -36,7 +31,7 @@
  *      isSystemAdminActor + tenantMembershipsTable shape lift-restriction.
  *      write.ts uses. restrict-account.write.ts shipped without it.
  *
- * All four are tripwires: false-negatives (a weak name match) are tolerated, a
+ * All three are tripwires: false-negatives (a weak name match) are tolerated, a
  * false-positive on the clean repo is not. Detection stays conservative.
  *
  * Usage:
@@ -128,32 +123,6 @@ export function findUntestedRoleHandlers(files: readonly SourceFile[]): RoleHand
   });
 }
 
-type OverrideHandler = { file: string; line: number };
-
-export function findOverrideHandlersMissingHelper(files: readonly SourceFile[]): OverrideHandler[] {
-  const out: OverrideHandler[] = [];
-  for (const sf of files) {
-    if (TEST_FILE_RE.test(sf.getFilePath())) continue;
-    for (const pa of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
-      if (pa.getName() !== "tenantIdOverride") continue;
-      if (pa.getInitializer()?.getText().startsWith("z.") !== true) continue;
-      // Scope the check to the enclosing defineWriteHandler(...) call, not
-      // the whole file — a file with two override handlers where only one
-      // calls crossTenantOverrideDenied must still flag the other.
-      const handlerCall = pa.getFirstAncestor(
-        (a) =>
-          a.getKind() === SyntaxKind.CallExpression &&
-          a.asKindOrThrow(SyntaxKind.CallExpression).getExpression().getText() ===
-            "defineWriteHandler",
-      );
-      const scopeText = handlerCall?.getText() ?? sf.getFullText();
-      if (scopeText.includes("crossTenantOverrideDenied")) continue;
-      out.push({ file: sf.getFilePath(), line: pa.getStartLineNumber() });
-    }
-  }
-  return out;
-}
-
 // A session built for a JWT — either the auth-session result shape or a typed
 // SessionUser literal.
 const SESSION_MINT = /kind:\s*"auth-session"|:\s*SessionUser\s*=\s*\{/;
@@ -232,7 +201,7 @@ export function findGlobalUserWritesMissingMembershipCheck(
       // `name` is only used for the violation message, not the security
       // check itself — a factory-built handler with a non-literal name
       // expression (`name: enable ? "enable" : "disable"`) must not skip
-      // Check D just because literalStringOf() can't resolve it.
+      // Check C just because literalStringOf() can't resolve it.
       const name = literalStringOf(obj.getProperty("name"));
       const schema = obj.getProperty("schema");
       const accessProp = obj.getProperty("access");
@@ -267,7 +236,7 @@ export const guard: AstGuard = {
   name: "Tenant-Escalation Guard",
   scan: SCAN,
   security: true,
-  hint: "Role-input handlers need an escalation test (assert a reserved role is rejected); tenantIdOverride handlers must call crossTenantOverrideDenied; membership-derived JWT mints must call stripForbiddenMembershipRoles; TenantAdmin-reachable ctx.db.raw user writes must check the target's membership.",
+  hint: "Role-input handlers need an escalation test (assert a reserved role is rejected); membership-derived JWT mints must call stripForbiddenMembershipRoles; TenantAdmin-reachable ctx.db.raw user writes must check the target's membership.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 
@@ -276,15 +245,6 @@ export const guard: AstGuard = {
         file: path.relative(ROOT, h.file),
         line: h.line,
         message: `role-input write handler "${h.name}" has no escalation test — add a test asserting a reserved/global role (SystemAdmin/system/all/anonymous) is rejected.`,
-      });
-    }
-
-    for (const o of findOverrideHandlersMissingHelper(files)) {
-      violations.push({
-        file: path.relative(ROOT, o.file),
-        line: o.line,
-        message:
-          "handler exposes tenantIdOverride but never calls crossTenantOverrideDenied — route the SystemAdmin gate through the shared helper.",
       });
     }
 

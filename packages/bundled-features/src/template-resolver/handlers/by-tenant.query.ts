@@ -1,9 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { castTenantRows } from "@cosmicdrift/kumiko-framework/db";
-import {
-  crossTenantOverrideDenied,
-  defineQueryHandler,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { TEXT_BLOCK_KIND } from "../constants.js";
@@ -39,12 +36,6 @@ export const byTenantQuery = defineQueryHandler({
     "Lists every text-block of a tenant with slug, locale, title and body so a public content tree can be rendered in one call; use it for the whole sidebar, and by-slug when only one block is needed.",
   handler: async (query, ctx) => {
     const override = query.payload.tenantIdOverride;
-    const overrideDenied = crossTenantOverrideDenied(
-      query.user,
-      override,
-      "templateResolver.errors.tenantOverrideRequiresSystemAdmin",
-    );
-    if (overrideDenied) throw overrideDenied;
     const tenantId = override ?? query.user.tenantId;
     const rows = castTenantRows<TemplateResourceRow>(
       await selectMany(ctx.db, templateResourcesTable, { tenantId, kind: TEXT_BLOCK_KIND }),

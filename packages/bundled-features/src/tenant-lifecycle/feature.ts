@@ -155,6 +155,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
           fileProviderResolver: ctx._fileProviderResolver,
           searchAdapter: ctx.searchAdapter,
           escapeHatchAuditSink: ctx._escapeHatchAuditSink,
+          escapeHatchAuditLog: ctx.log,
           actor: ctx.systemUser.id,
         });
       },

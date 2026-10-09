@@ -1,11 +1,9 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   type ContentCollectionDefinition,
-  crossTenantOverrideDenied,
   defineWriteHandler,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import {
   type CollectionEntryRow,
@@ -43,12 +41,6 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
     handler: async (event, ctx) => {
       const db = ctx.db;
       const override = event.payload.tenantIdOverride;
-      const overrideDenied = crossTenantOverrideDenied(
-        event.user,
-        override,
-        "templateResolver.errors.tenantOverrideRequiresSystemAdmin",
-      );
-      if (overrideDenied) return writeFailure(overrideDenied);
       // @cast-boundary engine-payload — override is a zod-validated string, the
       // user's own tenantId is already TenantId-branded.
       const tenantId = (override ?? event.user.tenantId) as TenantId;

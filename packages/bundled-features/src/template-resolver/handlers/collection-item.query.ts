@@ -1,7 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   type ContentCollectionDefinition,
-  crossTenantOverrideDenied,
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
@@ -31,12 +30,6 @@ export function makeCollectionItemQuery(collection: ContentCollectionDefinition)
         : `Reads one tenant-wide "${collection.id}" entry by slug and locale, returning null when it does not exist; use it to open a single entry in the editor rather than to list the collection.`,
     handler: async (query, ctx) => {
       const override = query.payload.tenantIdOverride;
-      const overrideDenied = crossTenantOverrideDenied(
-        query.user,
-        override,
-        "templateResolver.errors.tenantOverrideRequiresSystemAdmin",
-      );
-      if (overrideDenied) throw overrideDenied;
       const tenantId = override ?? query.user.tenantId;
       const row = await fetchOne<CollectionEntryRow>(ctx.db, store.table, {
         tenantId,

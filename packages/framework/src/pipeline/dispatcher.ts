@@ -23,6 +23,7 @@ import {
   getFallbackMeter,
   getFallbackTracer,
   registerStandardMetrics,
+  withEscapeHatchAuditScope,
 } from "../observability/index.js";
 import { CACHE_SYNC_TOPICS, isTenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.js";
@@ -244,16 +245,21 @@ export function createDispatcher(
     async write(typeOrRef, payload, user, requestId?) {
       const type = resolveType(typeOrRef);
       // Idempotency handled inside runBatch (caches BatchResult under requestId).
-      const batchResult = await runBatch(ctx, [{ type, payload }], user, requestId);
+      const batchResult = await withEscapeHatchAuditScope(() =>
+        runBatch(ctx, [{ type, payload }], user, requestId),
+      );
       return unwrapSingle(batchResult);
     },
 
-    batch: (commands, user, requestId?) => runBatch(ctx, commands, user, requestId),
+    batch: (commands, user, requestId?) =>
+      withEscapeHatchAuditScope(() => runBatch(ctx, commands, user, requestId)),
 
     query: (typeOrRef, payload, user) => {
       const type = resolveType(typeOrRef);
       const origin = rootWriteOrigin(registry, type, user);
-      return runWithWriteOrigin(origin, () => executeQuery(ctx, type, payload, user, origin));
+      return withEscapeHatchAuditScope(() =>
+        runWithWriteOrigin(origin, () => executeQuery(ctx, type, payload, user, origin)),
+      );
     },
 
     stream: (typeOrRef, payload, user, options) => {
@@ -270,7 +276,9 @@ export function createDispatcher(
 
     async command(typeOrRef, payload, user) {
       const type = resolveType(typeOrRef);
-      const batchResult = await runBatch(ctx, [{ type, payload }], user);
+      const batchResult = await withEscapeHatchAuditScope(() =>
+        runBatch(ctx, [{ type, payload }], user),
+      );
       const result = unwrapSingle(batchResult);
 
       if (!result.isSuccess) {
@@ -288,18 +296,16 @@ export function createDispatcher(
 
   dispatcherInternals.set(dispatcher, {
     writeWithOrigin: async (type, payload, user, inheritedOrigin) => {
-      const batchResult = await runBatch(
-        ctx,
-        [{ type, payload }],
-        user,
-        undefined,
-        inheritedOrigin,
+      const batchResult = await withEscapeHatchAuditScope(() =>
+        runBatch(ctx, [{ type, payload }], user, undefined, inheritedOrigin),
       );
       return unwrapSingle(batchResult);
     },
     queryWithOrigin: (type, payload, user, inheritedOrigin) => {
       const origin = effectiveWriteOrigin(rootWriteOrigin(registry, type, user), inheritedOrigin);
-      return runWithWriteOrigin(origin, () => executeQuery(ctx, type, payload, user, origin));
+      return withEscapeHatchAuditScope(() =>
+        runWithWriteOrigin(origin, () => executeQuery(ctx, type, payload, user, origin)),
+      );
     },
   });
 

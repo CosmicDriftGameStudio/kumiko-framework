@@ -1,3 +1,4 @@
+import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 // User-Data-Export-Pipeline (S2.U3) — DSGVO Art. 15 (Auskunft) +
 // Art. 20 (Datenportabilität).
 //
@@ -62,6 +63,7 @@ export interface RunUserExportArgs {
   // systemUser.id); attributes+audits any EXT_USER_DATA usage's declared
   // escapeHatch when its export hook calls ctx.db.unsafeRaw().
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly escapeHatchAuditLog?: Logger;
   readonly actor?: string;
 }
 
@@ -110,13 +112,14 @@ function buildHookDb(
   db: DbRunner,
   tenantId: TenantId,
   entry: HookEntry,
-  args: Pick<RunUserExportArgs, "escapeHatchAuditSink" | "actor">,
+  args: Pick<RunUserExportArgs, "escapeHatchAuditSink" | "escapeHatchAuditLog" | "actor">,
 ) {
   const report = createEscapeHatchReporter({
     handler: `${EXT_USER_DATA}:${entry.entityName}`,
     tenantId,
     actor: args.actor ?? UNATTRIBUTED_ACTOR,
     sink: args.escapeHatchAuditSink,
+    log: args.escapeHatchAuditLog ?? createFallbackLogger("user-data-rights"),
   });
   return createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, {
     unsafeRaw:

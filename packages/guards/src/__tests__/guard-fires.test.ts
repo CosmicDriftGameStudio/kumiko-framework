@@ -199,8 +199,8 @@ const ENFORCING: Record<string, Violating> = {
   },
   "Tenant-Escalation Guard": {
     path: `${PKG}/features/x/write-handler.ts`,
-    code: 'import { defineWriteHandler } from "k";\nimport { z } from "zod";\nexport const h = defineWriteHandler({ access: { tenantAdmin: true }, payload: { tenantIdOverride: z.string() }, async run(ctx: any, p: { tenantIdOverride: string }) { await ctx.db.raw("SELECT 1", [p.tenantIdOverride]); } });',
-    expectedMessage: /exposes tenantIdOverride but never calls crossTenantOverrideDenied/,
+    code: 'declare function defineWriteHandler(cfg: unknown): unknown;\ndeclare const z: any;\nexport const h = defineWriteHandler({ name: "grantRole", schema: z.object({ role: z.string() }), access: { roles: ["TenantAdmin"] }, handler: async () => ({ isSuccess: true, data: {} }) });',
+    expectedMessage: /has no escalation test/,
   },
   "Escape-Hatch-Declared Guard": {
     path: `${FEAT}/x/handlers/ack.write.ts`,

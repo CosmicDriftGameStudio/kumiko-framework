@@ -14,6 +14,7 @@ import {
   VersionConflictError,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
+import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tenantEntity, tenantTable } from "../tenant/index.js";
@@ -283,6 +284,7 @@ export async function runNextDestructionStage(args: {
   readonly fileProviderResolver?: FileProviderResolver;
   readonly searchAdapter?: SearchAdapter;
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly escapeHatchAuditLog?: Logger;
   readonly actor?: string;
 }): Promise<StageTickResult> {
   const events = await loadAggregate(args.db, args.tenantId, args.tenantId);
@@ -308,6 +310,7 @@ export async function runNextDestructionStage(args: {
     fileProviderResolver: args.fileProviderResolver,
     searchAdapter: args.searchAdapter,
     escapeHatchAuditSink: args.escapeHatchAuditSink,
+    escapeHatchAuditLog: args.escapeHatchAuditLog,
     actor: args.actor,
     deadlineAt: Date.now() + DESTRUCTION_STAGE_TICK_BUDGET_MS,
   };
@@ -410,6 +413,7 @@ export async function runTenantDestructionSweep(args: {
   readonly fileProviderResolver?: FileProviderResolver;
   readonly searchAdapter?: SearchAdapter;
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly escapeHatchAuditLog?: Logger;
   readonly actor?: string;
 }): Promise<{ readonly triggered: number; readonly advanced: number }> {
   const T = getTemporal();
@@ -457,6 +461,7 @@ export async function runTenantDestructionSweep(args: {
         fileProviderResolver: args.fileProviderResolver,
         searchAdapter: args.searchAdapter,
         escapeHatchAuditSink: args.escapeHatchAuditSink,
+        escapeHatchAuditLog: args.escapeHatchAuditLog,
         actor: args.actor,
       });
       if (!result.error && !result.halted) advanced++;

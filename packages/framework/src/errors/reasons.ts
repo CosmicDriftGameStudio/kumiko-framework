@@ -48,6 +48,9 @@ export const FrameworkReasons = {
   // claims, origin or extra roles) without r.systemScope() or escapeHatch.
   identitySwitchDenied: "identity_switch_denied",
 
+  // AccessDeniedError: a payload carried tenantIdOverride but the caller is no SystemAdmin.
+  tenantOverrideRequiresSystemAdmin: "tenant_override_requires_system_admin",
+
   // AccessDeniedError: a handler/hook called ctx.queryProjection(..., { unsafeAllTenants: true })
   // without an r.systemScope() feature or a declared escapeHatch.
   unsafeAllTenantsDenied: "unsafe_all_tenants_denied",

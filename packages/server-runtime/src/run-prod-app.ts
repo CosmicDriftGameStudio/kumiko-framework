@@ -142,6 +142,7 @@ import {
   createEntityCache,
   createEventDedup,
   createIdempotencyGuard,
+  flushEscapeHatchAudits,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createRedisCacheSyncBus,
@@ -1481,6 +1482,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     stop: async () => {
       await entrypoint.stop();
       handle.server?.stop();
+      await flushEscapeHatchAudits();
       await closeDb();
       redis.disconnect();
     },

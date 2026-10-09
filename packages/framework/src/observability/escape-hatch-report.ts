@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import type {
   EscapeHatchAuditSink,
   EscapeHatchKind,
@@ -7,6 +8,7 @@ import type {
   TenantId,
 } from "../engine/types/index.js";
 import type { Logger } from "../logging/types.js";
+import { createFallbackLogger } from "../logging/utils.js";
 import { emitEscapeHatchUse } from "./standard-metrics.js";
 import type { Meter } from "./types/index.js";
 
@@ -62,21 +64,38 @@ export function createEscapeHatchProcessDedup(
 // Default window for createEscapeHatchReporter callers that don't pass their own.
 const fallbackReportWindow = createEscapeHatchReportWindow();
 
-const consoleLogger: Logger = {
-  info() {},
-  warn(msg, data) {
-    // biome-ignore lint/suspicious/noConsole: fallback for callers without a logger — dropping the call would lose the report silently.
-    console.warn(msg, data);
-  },
-  error(msg, data) {
-    // biome-ignore lint/suspicious/noConsole: same fallback, see warn above.
-    console.error(msg, data);
-  },
-  debug() {},
-  child() {
-    return consoleLogger;
-  },
-};
+type AuditPromises = Set<Promise<void>>;
+
+// Sink writes that have started and not settled yet, process-wide: shutdown flushes them.
+const processPendingAudits: AuditPromises = new Set();
+// The sink writes of the dispatch or job run currently executing.
+const scopePendingAudits = new AsyncLocalStorage<AuditPromises>();
+
+function trackPendingAudit(write: Promise<void>): void {
+  processPendingAudits.add(write);
+  scopePendingAudits.getStore()?.add(write);
+  void write.finally(() => processPendingAudits.delete(write));
+}
+
+// Awaits the audit writes started inside `run` once it has returned, so callers place it around
+// the transaction and the write is durable when the dispatch or run ends. Nested scopes belong
+// to the outermost one (a nested dispatch runs inside its caller's transaction, which must not
+// wait on the sink). Sink failures are already logged by reportEscapeHatchUse and never throw here.
+export async function withEscapeHatchAuditScope<T>(run: () => Promise<T>): Promise<T> {
+  if (scopePendingAudits.getStore() !== undefined) return run();
+  const pending: AuditPromises = new Set();
+  try {
+    return await scopePendingAudits.run(pending, run);
+  } finally {
+    await Promise.allSettled([...pending]);
+  }
+}
+
+export async function flushEscapeHatchAudits(): Promise<void> {
+  while (processPendingAudits.size > 0) {
+    await Promise.allSettled([...processPendingAudits]);
+  }
+}
 
 function eventFields(event: EscapeHatchUseEvent): Record<string, unknown> {
   return {
@@ -85,34 +104,40 @@ function eventFields(event: EscapeHatchUseEvent): Record<string, unknown> {
     reason: event.reason,
     tenantId: event.tenantId,
     actor: event.actor,
+    ...(event.caller !== undefined && { caller: event.caller }),
     ...(event.target && { targetId: event.target.id, targetTenantId: event.target.tenantId }),
   };
 }
 
 export function reportEscapeHatchUse(
   event: EscapeHatchUseEvent,
-  deps: { readonly sink?: EscapeHatchAuditSink; readonly log?: Logger },
+  deps: {
+    readonly sink?: EscapeHatchAuditSink;
+    readonly log: Pick<Logger, "warn" | "error">;
+  },
 ): void {
-  const logger = deps.log ?? consoleLogger;
   const fields = eventFields(event);
   if (deps.sink) {
-    void deps.sink(event).catch((err: unknown) => {
-      logger.error(`${ESCAPE_HATCH_USED_SIGNAL}: audit sink failed`, {
+    const write = deps.sink(event).catch((err: unknown) => {
+      deps.log.error(`${ESCAPE_HATCH_USED_SIGNAL}: audit sink failed`, {
         ...fields,
         error: err instanceof Error ? err.message : String(err),
       });
     });
-    return;
+    trackPendingAudit(write);
+  } else {
+    deps.log.warn(ESCAPE_HATCH_USED_SIGNAL, fields);
   }
-  logger.warn(ESCAPE_HATCH_USED_SIGNAL, fields);
 }
 
 export function createEscapeHatchReporter(opts: {
   readonly handler: string;
   readonly tenantId: TenantId;
   readonly actor: string;
+  // Initiating identity when it differs from `actor` (a job run triggered by a user).
+  readonly caller?: string | undefined;
   readonly sink?: EscapeHatchAuditSink;
-  readonly log?: Logger;
+  readonly log: Pick<Logger, "warn" | "error">;
   readonly window?: EscapeHatchReportWindow;
   readonly processDedup?: EscapeHatchProcessDedup;
   readonly meter?: Meter;
@@ -120,6 +145,20 @@ export function createEscapeHatchReporter(opts: {
 }): EscapeHatchReporter {
   const window = opts.window ?? fallbackReportWindow;
   const now = opts.now ?? Date.now;
+  const deps = { sink: opts.sink, log: opts.log };
+  const eventFor = (
+    kind: EscapeHatchKind,
+    reason: string,
+    target: EscapeHatchTarget | undefined,
+  ): EscapeHatchUseEvent => ({
+    handler: opts.handler,
+    kind,
+    reason,
+    tenantId: opts.tenantId,
+    actor: opts.actor,
+    ...(opts.caller !== undefined && { caller: opts.caller }),
+    target,
+  });
 
   return (kind: EscapeHatchKind, reason: string, target?: EscapeHatchTarget) => {
     if (opts.meter) emitEscapeHatchUse(opts.meter, opts.handler, kind);
@@ -129,10 +168,7 @@ export function createEscapeHatchReporter(opts: {
       // skip: this (handler, kind, tenant) was already audited by this process
       if (processDedup.seen.has(processKey)) return;
       processDedup.seen.add(processKey);
-      reportEscapeHatchUse(
-        { handler: opts.handler, kind, reason, tenantId: opts.tenantId, actor: opts.actor, target },
-        { sink: opts.sink, log: opts.log },
-      );
+      reportEscapeHatchUse(eventFor(kind, reason, target), deps);
       // skip: audited above, the window dedup below only serves the other kinds
       return;
     }
@@ -142,15 +178,13 @@ export function createEscapeHatchReporter(opts: {
       reason,
       opts.tenantId,
       opts.actor,
+      opts.caller ?? null,
       target?.id ?? null,
       target?.tenantId ?? null,
     ]);
     // skip: same (handler, kind, reason, target) already reported within the window — dedup
     if (!window.shouldReport(key, now())) return;
-    reportEscapeHatchUse(
-      { handler: opts.handler, kind, reason, tenantId: opts.tenantId, actor: opts.actor, target },
-      { sink: opts.sink, log: opts.log },
-    );
+    reportEscapeHatchUse(eventFor(kind, reason, target), deps);
   };
 }
 
@@ -163,5 +197,6 @@ export function fallbackEscapeHatchReporter(tenantId: TenantId): EscapeHatchRepo
     handler: "<unattributed>",
     tenantId,
     actor: "<unattributed>",
+    log: createFallbackLogger("escape-hatch"),
   });
 }

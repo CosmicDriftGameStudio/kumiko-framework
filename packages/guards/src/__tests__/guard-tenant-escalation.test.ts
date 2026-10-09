@@ -3,7 +3,6 @@ import { Project, type SourceFile } from "ts-morph";
 import {
   findGlobalUserWritesMissingMembershipCheck,
   findMembershipMintsMissingStrip,
-  findOverrideHandlersMissingHelper,
   findRoleInputHandlers,
   findUntestedRoleHandlers,
 } from "../guard-tenant-escalation";
@@ -125,80 +124,7 @@ export const h = defineWriteHandler({
   });
 });
 
-describe("Check B: tenantIdOverride needs crossTenantOverrideDenied", () => {
-  const overrideHandler = (usesHelper: boolean): string => `
-declare function defineWriteHandler(cfg: unknown): unknown;
-declare const z: any;
-declare function writeFailure(e: unknown): unknown;
-${usesHelper ? "declare function crossTenantOverrideDenied(...a: unknown[]): unknown;" : ""}
-export const h = defineWriteHandler({
-	name: "set",
-	schema: z.object({ slug: z.string(), tenantIdOverride: z.string().min(1).optional() }),
-	access: { roles: ["TenantAdmin", "SystemAdmin"] },
-	handler: async (event: any) => {
-		${usesHelper ? 'const d = crossTenantOverrideDenied(event.user, event.payload.tenantIdOverride, "k"); if (d) return writeFailure(d);' : ""}
-		return { isSuccess: true, data: {} };
-	},
-});
-`;
-
-  test("flags a tenantIdOverride handler that skips the helper", () => {
-    const sfs = files({
-      "/r/packages/bundled-features/src/foo/handlers/set.write.ts": overrideHandler(false),
-    });
-    expect(findOverrideHandlersMissingHelper(sfs)).toHaveLength(1);
-  });
-
-  test("passes when the handler calls crossTenantOverrideDenied", () => {
-    const sfs = files({
-      "/r/packages/bundled-features/src/foo/handlers/set.write.ts": overrideHandler(true),
-    });
-    expect(findOverrideHandlersMissingHelper(sfs)).toHaveLength(0);
-  });
-
-  test("ignores handlers without a tenantIdOverride field", () => {
-    const sfs = files({
-      "/r/packages/bundled-features/src/foo/handlers/plain.write.ts": roleHandler(
-        "plain",
-        "slug: z.string()",
-      ),
-    });
-    expect(findOverrideHandlersMissingHelper(sfs)).toHaveLength(0);
-  });
-
-  test("flags the unsafe handler when a file has two tenantIdOverride handlers, only one calling the helper (regression: first-match break used to pass the whole file)", () => {
-    const sfs = files({
-      "/r/packages/bundled-features/src/foo/handlers/two.write.ts": `
-declare function defineWriteHandler(cfg: unknown): unknown;
-declare const z: any;
-declare function writeFailure(e: unknown): unknown;
-declare function crossTenantOverrideDenied(...a: unknown[]): unknown;
-export const safe = defineWriteHandler({
-	name: "safeSet",
-	schema: z.object({ slug: z.string(), tenantIdOverride: z.string().min(1).optional() }),
-	access: { roles: ["TenantAdmin", "SystemAdmin"] },
-	handler: async (event: any) => {
-		const d = crossTenantOverrideDenied(event.user, event.payload.tenantIdOverride, "k");
-		if (d) return writeFailure(d);
-		return { isSuccess: true, data: {} };
-	},
-});
-export const unsafe = defineWriteHandler({
-	name: "unsafeSet",
-	schema: z.object({ slug: z.string(), tenantIdOverride: z.string().min(1).optional() }),
-	access: { roles: ["TenantAdmin", "SystemAdmin"] },
-	handler: async () => {
-		return { isSuccess: true, data: {} };
-	},
-});
-`,
-    });
-    const findings = findOverrideHandlersMissingHelper(sfs);
-    expect(findings).toHaveLength(1);
-  });
-});
-
-describe("Check C: membership-derived JWT mints must strip reserved roles", () => {
+describe("Check B: membership-derived JWT mints must strip reserved roles", () => {
   const mergeMint = (strip: boolean): string => `
 ${strip ? "declare const stripForbiddenMembershipRoles: (r: readonly string[]) => readonly string[];" : ""}
 declare const globalRoles: string[];
@@ -268,7 +194,7 @@ const baseSession: SessionUser = { id: found.id, tenantId: chosen.tenantId, role
   });
 });
 
-describe("Check D: TenantAdmin ctx.db.raw user writes need a membership check", () => {
+describe("Check C: TenantAdmin ctx.db.raw user writes need a membership check", () => {
   const userWrite = (opts: {
     gated: boolean;
     roles?: string;

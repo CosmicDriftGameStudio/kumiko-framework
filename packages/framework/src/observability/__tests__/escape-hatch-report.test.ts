@@ -7,7 +7,9 @@ import {
   createEscapeHatchReporter,
   createEscapeHatchReportWindow,
   ESCAPE_HATCH_USED_SIGNAL,
+  flushEscapeHatchAudits,
   reportEscapeHatchUse,
+  withEscapeHatchAuditScope,
 } from "../escape-hatch-report.js";
 import { type MetricEvent, RecordingMeter } from "../recording-meter.js";
 import { registerStandardMetrics } from "../standard-metrics.js";
@@ -152,6 +154,88 @@ describe("reportEscapeHatchUse", () => {
   });
 });
 
+describe("escape-hatch audit durability", () => {
+  function slowSink() {
+    const persisted: EscapeHatchUseEvent[] = [];
+    const sink = async (event: EscapeHatchUseEvent) => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      persisted.push(event);
+    };
+    return { persisted, sink };
+  }
+
+  test("withEscapeHatchAuditScope resolves only after the sink write started inside it settled", async () => {
+    const { persisted, sink } = slowSink();
+    await withEscapeHatchAuditScope(async () => {
+      reportEscapeHatchUse(baseEvent, { sink, log: recordingLogger() });
+    });
+    expect(persisted).toEqual([baseEvent]);
+  });
+
+  test("a failing sink does not reject the scope and is logged", async () => {
+    const log = recordingLogger();
+    const sink = async () => {
+      throw new Error("sink boom");
+    };
+    await withEscapeHatchAuditScope(async () => {
+      reportEscapeHatchUse(baseEvent, { sink, log });
+    });
+    expect(log.errorCalls.length).toBe(1);
+  });
+
+  test("the scope still awaits the audit when the body throws, and rethrows the body's error", async () => {
+    const { persisted, sink } = slowSink();
+    const scope = withEscapeHatchAuditScope(async () => {
+      reportEscapeHatchUse(baseEvent, { sink, log: recordingLogger() });
+      throw new Error("handler failed");
+    });
+    await expect(scope).rejects.toThrow("handler failed");
+    expect(persisted).toEqual([baseEvent]);
+  });
+
+  test("a nested scope leaves the wait to the outermost one", async () => {
+    const { persisted, sink } = slowSink();
+    let persistedWhenInnerReturned = -1;
+    await withEscapeHatchAuditScope(async () => {
+      await withEscapeHatchAuditScope(async () => {
+        reportEscapeHatchUse(baseEvent, { sink, log: recordingLogger() });
+      });
+      persistedWhenInnerReturned = persisted.length;
+    });
+    expect(persistedWhenInnerReturned).toBe(0);
+    expect(persisted.length).toBe(1);
+  });
+
+  test("flushEscapeHatchAudits awaits writes started outside any scope", async () => {
+    const { persisted, sink } = slowSink();
+    reportEscapeHatchUse(baseEvent, { sink, log: recordingLogger() });
+    expect(persisted.length).toBe(0);
+    await flushEscapeHatchAudits();
+    expect(persisted).toEqual([baseEvent]);
+  });
+
+  test("the reporter puts the caller on the event and keeps callers apart in the dedup window", () => {
+    const events: EscapeHatchUseEvent[] = [];
+    const sink = async (event: EscapeHatchUseEvent) => {
+      events.push(event);
+    };
+    const window = createEscapeHatchReportWindow();
+    const reporterFor = (caller: string | undefined) =>
+      createEscapeHatchReporter({
+        handler: "job",
+        tenantId,
+        actor: "system",
+        caller,
+        sink,
+        log: recordingLogger(),
+        window,
+      });
+    reporterFor("user-1")("identity-switch", "reason");
+    reporterFor("user-2")("identity-switch", "reason");
+    expect(events.map((event) => event.caller)).toEqual(["user-1", "user-2"]);
+  });
+});
+
 describe("createEscapeHatchReporter with a process dedup (system cron hatches)", () => {
   const MINUTE_MS = 60_000;
 
@@ -168,6 +252,7 @@ describe("createEscapeHatchReporter with a process dedup (system cron hatches)",
       sink: async (event) => {
         events.push(event);
       },
+      log: recordingLogger(),
       window: createEscapeHatchReportWindow(),
       meter,
       now: () => nowMs,

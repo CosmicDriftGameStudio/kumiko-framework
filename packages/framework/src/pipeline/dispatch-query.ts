@@ -1,5 +1,6 @@
 import type { DbRow, DbTx } from "../db/connection.js";
 import { hasAccess } from "../engine/access.js";
+import { tenantOverrideDenied } from "../engine/cross-tenant.js";
 import { filterReadFields } from "../engine/field-access.js";
 import type { QueryHandlerDef, SessionUser } from "../engine/types/index.js";
 import { NotFoundError, validationErrorFromZod } from "../errors/index.js";
@@ -72,6 +73,9 @@ async function executeQueryInner(
   if (!parsed.success) {
     throw validationErrorFromZod(parsed.error);
   }
+
+  const overrideDenied = tenantOverrideDenied(user, parsed.data);
+  if (overrideDenied) throw overrideDenied;
 
   // Trash opt-in rides the validated query payload: only the entity-list
   // schema (and custom query schemas that opt in) carries `includeDeleted`,

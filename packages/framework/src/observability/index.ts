@@ -11,8 +11,10 @@ export {
   type EscapeHatchProcessDedup,
   type EscapeHatchReportWindow,
   fallbackEscapeHatchReporter,
+  flushEscapeHatchAudits,
   reportEscapeHatchUse,
   UNATTRIBUTED_ACTOR,
+  withEscapeHatchAuditScope,
 } from "./escape-hatch-report.js";
 export { getFallbackMeter, getFallbackProvider, getFallbackTracer } from "./fallback.js";
 export { generateSpanId, generateTraceId } from "./ids.js";

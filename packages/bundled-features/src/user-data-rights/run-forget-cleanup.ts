@@ -1,3 +1,4 @@
+import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 // Forget-Cleanup-Runner (S2.U5b) — pure-Function Pipeline.
 //
 // After the grace period (S2.U5a sets gracePeriodEnd) this runner iterates
@@ -157,6 +158,7 @@ export interface RunForgetCleanupArgs {
   // systemUser.id); attributes+audits any EXT_USER_DATA usage's declared
   // escapeHatch when its delete hook calls ctx.db.unsafeRaw().
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly escapeHatchAuditLog?: Logger;
   readonly actor?: string;
 }
 
@@ -209,13 +211,18 @@ function buildHookDb(
   db: DbRunner,
   tenantId: TenantId,
   entry: HookEntry,
-  args: { readonly escapeHatchAuditSink?: EscapeHatchAuditSink; readonly actor?: string },
+  args: {
+    readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+    readonly escapeHatchAuditLog?: Logger;
+    readonly actor?: string;
+  },
 ) {
   const report = createEscapeHatchReporter({
     handler: `${EXT_USER_DATA}:${entry.entityName}`,
     tenantId,
     actor: args.actor ?? UNATTRIBUTED_ACTOR,
     sink: args.escapeHatchAuditSink,
+    log: args.escapeHatchAuditLog ?? createFallbackLogger("user-data-rights"),
   });
   return createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, {
     unsafeRaw:
@@ -296,6 +303,7 @@ export async function runForgetCleanup(
       kms,
       searchAdapter: args.searchAdapter,
       escapeHatchAuditSink: args.escapeHatchAuditSink,
+      escapeHatchAuditLog: args.escapeHatchAuditLog,
       actor: args.actor,
     });
     hookCallsAttempted += userResult.hookCallsAttempted;
@@ -362,6 +370,7 @@ async function processUser(args: {
   kms?: KmsAdapter;
   searchAdapter?: SearchAdapter;
   escapeHatchAuditSink?: EscapeHatchAuditSink;
+  escapeHatchAuditLog?: Logger;
   actor?: string;
 }): Promise<ProcessUserResult> {
   const { db, registry, userId, hookEntries, buildStorageProvider, appTenantModel, kms } = args;
@@ -460,6 +469,7 @@ async function processUser(args: {
             {
               db: buildHookDb(tx, tenantId, entry, {
                 escapeHatchAuditSink: args.escapeHatchAuditSink,
+                escapeHatchAuditLog: args.escapeHatchAuditLog,
                 actor: args.actor,
               }),
               registry,

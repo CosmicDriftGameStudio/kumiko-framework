@@ -113,6 +113,20 @@ identity_switch_denied:
     (oder am `r.hook(...)`-Aufruf, wenn der Wechsel in einem Hook passiert),
     oder verlagere die Logik in ein `r.systemScope()`-Feature oder einen Job.
 
+tenant_override_requires_system_admin:
+  endUser: |
+    Diese Aktion ist für eine andere Organisation nicht erlaubt.
+    Wende dich an einen Administrator wenn du glaubst, dass das ein Fehler ist.
+  developer: |
+    `AccessDeniedError`: der Payload enthielt `tenantIdOverride`, der Caller
+    ist aber kein SystemAdmin. Der Dispatcher prüft den per Schema geparsten
+    Payload jedes Write-, Query- und Stream-Handlers, bevor der Handler läuft;
+    betroffen sind also nur Handler, die das Feld deklarieren.
+
+    Sende die Anfrage als SystemAdmin oder lass `tenantIdOverride` weg und
+    arbeite im eigenen Tenant des Callers. Für andere Cross-Tenant-Felder
+    `mayOverrideTenant(user)` im Handler verwenden.
+
 unsafe_all_tenants_denied:
   endUser: |
     Diese Aktion ist nicht erlaubt.

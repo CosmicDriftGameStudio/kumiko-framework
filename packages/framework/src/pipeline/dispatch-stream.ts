@@ -1,6 +1,7 @@
 import { accessInvalidationCredentialFor } from "../api/sse-broker.js";
 import { scheduleTokenExpiry } from "../api/token-expiry-timer.js";
 import { hasAccess } from "../engine/access.js";
+import { tenantOverrideDenied } from "../engine/cross-tenant.js";
 import type { SessionUser } from "../engine/types/index.js";
 import {
   AccessDeniedError,
@@ -74,6 +75,9 @@ async function* executeStreamInner(
   if (!parsed.success) {
     throw validationErrorFromZod(parsed.error);
   }
+
+  const overrideDenied = tenantOverrideDenied(user, parsed.data);
+  if (overrideDenied) throw overrideDenied;
 
   // Idle (heartbeat-only) streams must also cut on access revoke or token expiry — race each
   // pull against an ended Deferred instead of a post-chunk boolean.

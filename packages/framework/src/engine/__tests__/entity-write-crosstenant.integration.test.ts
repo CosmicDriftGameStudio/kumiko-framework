@@ -2,10 +2,9 @@
 // SystemAdmin operator reads/writes a row that lives in a different tenant
 // than their own session. That needs two things: (1) an unfiltered db
 // instead of the caller's tenant-scoped one (so the row is even visible),
-// and (2) the event-store stream AND the entity's tenant-based
-// write-ownership rule — both keyed off the ACTING user, not the db — so the
-// acting user's tenantId must be rewritten to the target row's tenant before
-// the write, not just handed an unfiltered db.
+// and (2) the event-store stream (addressed via the executor's streamTenantId,
+// the acting user stays the operator) and the entity's tenant-based
+// write-ownership rule, which is evaluated for the row's tenant.
 //
 // Two stacks on the SAME Postgres database: "none" (no cross-tenant
 // option) and "escapeHatch" (`escapeHatch: { reason }`) — a clean A/B on the
@@ -37,10 +36,8 @@ import {
 import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
 
 // "Admin" passes unconditionally (any tenant may create its own rows).
-// "SystemAdmin" is tenant-scoped — this is the entity-level rule the
-// escapeHatch acting-user rewrite must satisfy for the operator
-// write to go through; without the rewrite the acting user's own tenant
-// would never match a foreign row's tenantId here.
+// "SystemAdmin" is tenant-scoped — the explicit cross-tenant grant must satisfy
+// this entity-level rule for a foreign row.
 const thingEntity = createEntity({
   table: "ctwrite_things",
   fields: {
@@ -164,6 +161,13 @@ async function eventTenantId(aggregateId: string, verb: string): Promise<string 
   return rows.find((r) => r.type.includes(verb))?.tenantId;
 }
 
+async function eventCreatedBy(aggregateId: string, verb: string): Promise<string | undefined> {
+  const rows = await selectMany<{ type: string; createdBy: string }>(noneStack.db, eventsTable, {
+    aggregateId,
+  });
+  return rows.find((r) => r.type.includes(verb))?.createdBy;
+}
+
 const updatedEventTenantId = (aggregateId: string) => eventTenantId(aggregateId, "updated");
 
 describe("entity write/list handlers: none vs. escapeHatch (fw#2650/fw#2915)", () => {
@@ -185,6 +189,7 @@ describe("entity write/list handlers: none vs. escapeHatch (fw#2650/fw#2915)", (
     const rows = await selectMany(noneStack.db, thingTable, { id: created.id });
     expect(rows[0]?.["tenantId"]).toBe(testTenantId(2));
     expect(await updatedEventTenantId(created.id)).toBe(testTenantId(2));
+    expect(await eventCreatedBy(created.id, "updated")).toBe(TestUsers.systemAdmin.id);
 
     const matches = escapeHatchAuditEvents.filter((e) => e.kind === "acknowledge-cross-tenant");
     expect(matches).toEqual([

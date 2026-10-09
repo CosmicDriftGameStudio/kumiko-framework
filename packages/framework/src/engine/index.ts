@@ -59,7 +59,7 @@ export {
 } from "./constants.js";
 export type { App, AppConfig } from "./create-app.js";
 export { createApp } from "./create-app.js";
-export { crossTenantOverrideDenied } from "./cross-tenant.js";
+export { mayOverrideTenant, tenantOverrideDenied } from "./cross-tenant.js";
 export { dedupeFeatures } from "./dedupe-features.js";
 export { defineFeature } from "./define-feature.js";
 export type {
