@@ -6,7 +6,7 @@ import { FIRST_STYLEGUIDE_ITEM_ID } from "../src/app/seed";
 // Toolbar/Pagination), beide zeigen Shell + Sidebar-Nav mit. Foundations-
 // Swatches + apex_shell kommen als eigene Blöcke dazu, sobald die Pipeline steht.
 
-const DASHBOARD_FROZEN_NOW = new Date("2026-06-15T12:00:00Z");
+const DASHBOARD_FROZEN_NOW = "2026-06-15T12:00:00Z";
 
 export const SCENARIOS: readonly Scenario[] = [
   {
