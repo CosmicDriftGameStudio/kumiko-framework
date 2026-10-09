@@ -129,7 +129,8 @@ export type BuildInfo = {
 // (nur public/) gedacht ist — wer JS/CSS will, schreibt ein eigenes
 // index.html mit den richtigen Placeholder-Tags.
 // interactive-widget=resizes-content (fw#1918): keeps `position: fixed`
-// bottom bars anchored above a mobile keyboard instead of behind it.
+// bottom bars anchored above a mobile keyboard instead of behind it. iOS Safari
+// ignores the key; renderer-web's useKeyboardInset covers it via window.visualViewport.
 export const DEFAULT_HTML = `<!doctype html>
 <html lang="en">
   <head>

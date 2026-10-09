@@ -531,6 +531,8 @@ export function renderApexPage(page: ApexPage): string {
   // Brand-CSS ist app-authored (Trust-Boundary siehe Datei-Header), kein Tenant-Input.
   const cssHtml = (brand.fontFaceCss ?? "") + brand.tokensCss + APEX_STRUCTURAL_CSS;
   const sectionsHtml = page.sections.map(renderSection).join("\n\n    ");
+  // interactive-widget is ignored by iOS Safari; apex pages have no fixed bottom bars, so
+  // the key only matters for Chromium/Android and needs no visualViewport fallback here.
   return `<!doctype html>
 <html lang="${escapeHtml(head.lang)}">
   <head>

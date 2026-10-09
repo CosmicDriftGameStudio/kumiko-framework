@@ -338,7 +338,8 @@ const RELOAD_SNIPPET = `
 // `interactive-widget=resizes-content` (fw#1918): without it, a mobile
 // keyboard shrinks only the visual viewport, not the layout viewport that
 // `position: fixed` anchors to — a fixed bottom action bar would stay
-// pinned behind the keyboard instead of above it.
+// pinned behind the keyboard instead of above it. iOS Safari ignores the
+// key; renderer-web's useKeyboardInset covers it via window.visualViewport.
 export const DEFAULT_HTML = `<!doctype html>
 <html lang="en">
   <head>

@@ -170,6 +170,7 @@ import { DefaultTabs } from "./tabs.js";
 import { TimestampInput } from "./timestamp-input.js";
 import { useToast } from "./toast.js";
 import { TzInput } from "./tz-input.js";
+import { useKeyboardInset } from "./use-keyboard-inset.js";
 import { useIsBelowSmViewport, useIsNarrowViewport } from "./use-narrow-viewport.js";
 
 // ---- Card-Chrome (eine Definition für Form/Section/Card) ----
@@ -3775,6 +3776,7 @@ function FormFooter({
 }): ReactNode {
   const t = useTranslation();
   const isBelowSm = useIsBelowSmViewport();
+  const keyboardInset = useKeyboardInset();
   if (actions === undefined && secondaryActions === undefined) return null;
   // Only split when sticky: the non-sticky (regular, non-wizard) footer must
   // reproduce the previous DOM exactly (form-action-bar.test.tsx pins
@@ -3804,6 +3806,10 @@ function FormFooter({
       secondaryActions
     );
   const pinned = isPinnedFooter(stickyActions, fillHeight);
+  const fixedFooterStyle =
+    stickyActions === true && !pinned && isBelowSm && keyboardInset > 0
+      ? { bottom: keyboardInset }
+      : undefined;
   if (pinned && isBelowSm) {
     return (
       <NarrowPinnedFooter
@@ -3865,6 +3871,7 @@ function FormFooter({
       {renderedActions !== undefined && (
         <div
           data-testid={testId !== undefined ? `${testId}-actions` : undefined}
+          style={fixedFooterStyle}
           className={cn(
             "flex items-center gap-2",
             pinned
