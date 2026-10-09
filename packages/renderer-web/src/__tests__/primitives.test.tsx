@@ -1941,7 +1941,9 @@ describe("Form", () => {
     const footer = actionsFooter.parentElement as HTMLElement;
     expect(footer.className).not.toContain("max-sm:fixed");
     const contentContainer = footer.previousElementSibling as HTMLElement;
-    expect(contentContainer.className).toContain("env(safe-area-inset-bottom)");
+    expect(contentContainer.className).toContain(
+      "max-sm:pb-[calc(6rem_+_env(safe-area-inset-bottom))]",
+    );
     expect(actionsFooter.className).toContain("max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]");
   });
 
@@ -1955,7 +1957,9 @@ describe("Form", () => {
     const footer = actionsFooter.parentElement as HTMLElement;
     expect(footer.className).not.toContain("max-sm:fixed");
     const contentContainer = footer.previousElementSibling as HTMLElement;
-    expect(contentContainer.className).not.toContain("max-sm:pb-32");
+    expect(contentContainer.className).not.toContain(
+      "max-sm:pb-[calc(6rem_+_env(safe-area-inset-bottom))]",
+    );
   });
 
   // fillHeight (fw#2722, height fw#2778): the flex chain RenderEdit opts a

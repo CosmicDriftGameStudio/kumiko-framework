@@ -1544,6 +1544,13 @@ function EntityEditUpdateForm({
       screen.entity,
     ],
   );
+  const sameEntityScreenId = useCallback(
+    (targetScreen: string): string | undefined =>
+      isEntityEditScreenOfOtherEntity(screen.entity, targetScreen, schema, appFeatures)
+        ? undefined
+        : entityId,
+    [screen.entity, schema, appFeatures, entityId],
+  );
   const buildSectionActions = useCallback(
     (actions: readonly RowAction[]): readonly RenderEditAction[] | undefined =>
       buildRecordActions({
@@ -1556,7 +1563,7 @@ function EntityEditUpdateForm({
         openDrawer,
         onWriteSuccess: onReload,
         onRecordLeft: handleRecordLeft,
-        defaultScreenTargetEntityId: entityId,
+        sameEntityScreenId,
         defaultWritePayloadId: entityId,
       }),
     [
@@ -1568,6 +1575,7 @@ function EntityEditUpdateForm({
       openDrawer,
       onReload,
       handleRecordLeft,
+      sameEntityScreenId,
       entityId,
     ],
   );
@@ -2383,11 +2391,11 @@ function EntityListBody({
         // Default entityId für entityEdit-Targets: row["id"] wenn kein expliziter
         // entityId-Feldname gesetzt ist. Nur für Targets DERSELBEN Entity — sonst
         // bekäme ein Cross-Entity-Edit-Screen die falsche row.id injiziert.
-        const targetIsEntityEdit = schema.screens.some(
-          (s) =>
-            s.type === "entityEdit" &&
-            s.entity === screen.entity &&
-            lastSegment(s.id) === action.screen,
+        const targetIsEntityEdit = isEntityEditScreenOfEntity(
+          screen.entity,
+          action.screen,
+          schema,
+          appFeatures,
         );
         const explicit =
           action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
@@ -2405,7 +2413,7 @@ function EntityListBody({
         navigateWithReturnTo(nav, target, host, params);
       }
     },
-    [nav, schema.screens, screen.entity, host],
+    [nav, schema, appFeatures, screen.entity, host],
   );
 
   const rowActions = useMemo(() => {
@@ -3918,6 +3926,39 @@ function redirectScreenTarget(
   redirect: NonNullable<ActionFormScreenDefinition["redirect"]>,
 ): string {
   return typeof redirect === "string" ? redirect : redirect.screen;
+}
+
+// Same-entity detection for navigate defaults: only an entityEdit screen of the
+// SAME entity may receive the current record's id (it opens in UPDATE mode, which
+// is what the boot validator assumes). Searched across all features.
+function isEntityEditScreenOfEntity(
+  entity: string | undefined,
+  targetScreen: string,
+  schema: FeatureSchema,
+  appFeatures: readonly FeatureSchema[],
+): boolean {
+  if (entity === undefined) return false;
+  return [schema, ...appFeatures].some((feature) =>
+    feature.screens.some(
+      (s) => s.type === "entityEdit" && s.entity === entity && lastSegment(s.id) === targetScreen,
+    ),
+  );
+}
+
+// Record-scoped targets (actionForm, secretMint) take the shown record's id; an
+// entityEdit of ANOTHER entity must not, or it would open that entity's UPDATE
+// mode on the wrong id instead of create.
+function isEntityEditScreenOfOtherEntity(
+  entity: string,
+  targetScreen: string,
+  schema: FeatureSchema,
+  appFeatures: readonly FeatureSchema[],
+): boolean {
+  return [schema, ...appFeatures].some((feature) =>
+    feature.screens.some(
+      (s) => s.type === "entityEdit" && s.entity !== entity && lastSegment(s.id) === targetScreen,
+    ),
+  );
 }
 
 // A qualified redirect names its feature, so the search space is THAT feature

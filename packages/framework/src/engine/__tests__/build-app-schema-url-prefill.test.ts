@@ -59,6 +59,13 @@ const leasesFeature = defineFeature("leases", (r) => {
     actions: [
       {
         kind: "navigate",
+        id: "item-from-lease",
+        label: "item",
+        screen: "item-from-lease",
+        params: { pick: ["name"] },
+      },
+      {
+        kind: "navigate",
         id: "pay-party",
         label: "pay",
         screen: "record-payment",
@@ -141,6 +148,12 @@ const leasesFeature = defineFeature("leases", (r) => {
     layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
   });
   r.screen({
+    id: "item-from-lease",
+    type: "entityEdit",
+    entity: "item",
+    layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
+  });
+  r.screen({
     id: "item-toolbar-note",
     type: "entityEdit",
     entity: "item",
@@ -200,8 +213,26 @@ const billingFeature = defineFeature("billing", (r) => {
   });
 });
 
+const leaseReportFeature = defineFeature("lease-reports", (r) => {
+  r.screen({
+    id: "lease-report",
+    type: "entityList",
+    entity: "lease",
+    columns: ["name"],
+    rowActions: [
+      {
+        kind: "navigate",
+        id: "open-lease",
+        label: "open",
+        screen: "lease-edit",
+        params: { pick: ["iban"] },
+      },
+    ],
+  });
+});
+
 function urlPrefillFieldsOf(featureName: string, screenId: string): unknown {
-  const app = buildAppSchema(createRegistry([leasesFeature, billingFeature]));
+  const app = buildAppSchema(createRegistry([leasesFeature, billingFeature, leaseReportFeature]));
   const screen = app.features
     .find((f) => f.featureName === featureName)
     ?.screens.find((s) => s.id.endsWith(`:${screenId}`) || s.id === screenId);
@@ -244,5 +275,13 @@ describe("buildAppSchema — urlPrefillFields derived from navigate params", () 
 
   test("a relatedList toolbarAction without params prefers parentFilter.field over parentParam", () => {
     expect(urlPrefillFieldsOf("leases", "item-toolbar-filter-field")).toEqual(["leaseRef"]);
+  });
+
+  test("an entityList rowAction in another feature targeting the same entity's entityEdit opens in update mode", () => {
+    expect(urlPrefillFieldsOf("leases", "lease-edit")).toEqual([]);
+  });
+
+  test("an entityEdit action targeting another entity's entityEdit opens create and reads the params", () => {
+    expect(urlPrefillFieldsOf("leases", "item-from-lease")).toEqual(["name"]);
   });
 });

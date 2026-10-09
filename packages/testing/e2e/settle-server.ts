@@ -22,6 +22,11 @@ const PAGE = `<!doctype html>
       fetch("/api/data?key=" + key)
         .then((response) => response.text())
         .then((text) => { document.getElementById("status").textContent = text; });
+      if (new URLSearchParams(location.search).get("slowLoad") === "1") {
+        fetch("/api/slow").then(() => {
+          document.getElementById("status").textContent = "slow load done";
+        });
+      }
       window.fetchSlowThenPushState = () => {
         document.getElementById("status").textContent = "slow pending";
         fetch("/api/slow").then(() => {
@@ -79,6 +84,7 @@ const CONTENT_FIT_PAGE = `<!doctype html>
 // the next reload loads again.
 const HANGING_REQUEST_NUMBER = 2;
 const SLOW_RESPONSE_MS = 1500;
+const DELAYED_NAVIGATION_MS = 6000;
 const requestCountByKey = new Map<string, number>();
 
 function waitForClientAbort(request: Request): Promise<Response> {
@@ -101,6 +107,10 @@ Bun.serve({
     if (url.pathname === "/api/slow") {
       await Bun.sleep(SLOW_RESPONSE_MS);
       return new Response("slow");
+    }
+    if (url.pathname === "/delayed-navigation") {
+      await Bun.sleep(DELAYED_NAVIGATION_MS);
+      return new Response(PAGE, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
     if (url.pathname === "/api/echo-headers") {
       return Response.json({

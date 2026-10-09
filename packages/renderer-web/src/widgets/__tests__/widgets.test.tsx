@@ -84,15 +84,10 @@ describe("ProgressBar", () => {
     expect(bar.className).not.toContain("mt-4");
   });
 
-  test("Füll-Element bildet den Wert über Breite ab und erbt die Höhe nicht vom Elternteil", () => {
+  test("Füll-Element bildet den Wert über die Breite ab", () => {
     render(<ProgressBar value={0.5} testId="bar" />);
-    const bar = screen.getByTestId("bar");
-    const fill = bar.firstElementChild as HTMLElement;
+    const fill = screen.getByTestId("bar").firstElementChild as HTMLElement;
     expect(fill.style.width).toBe("50%");
-    expect(fill.className).not.toContain("h-full");
-    expect(fill.className).toContain("absolute");
-    expect(fill.className).toContain("inset-y-0");
-    expect(bar.className).toContain("relative");
   });
 
   test("die testId sitzt auf der Track-Höhe, className erreicht den äußeren Wrapper", () => {

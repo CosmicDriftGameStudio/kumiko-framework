@@ -339,7 +339,7 @@ const RELOAD_SNIPPET = `
 // keyboard shrinks only the visual viewport, not the layout viewport that
 // `position: fixed` anchors to — a fixed bottom action bar would stay
 // pinned behind the keyboard instead of above it.
-const DEFAULT_HTML = `<!doctype html>
+export const DEFAULT_HTML = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />

@@ -60,6 +60,7 @@ export {
   type Scenario,
   type ScenarioFixtures,
   type ThemeScreenshotDigest,
+  trackInFlightRequests,
   validateScenarios,
 } from "./screenshots";
 export type { CapturedMail } from "./seed-contract";

@@ -5,6 +5,7 @@ import {
   captureScreenshot,
   runScreenshots,
   SCREENSHOT_DIR_ENV,
+  trackInFlightRequests,
 } from "@cosmicdrift/kumiko-testing/e2e";
 import { expect, type Page, test } from "@playwright/test";
 
@@ -48,6 +49,49 @@ test("captureScreenshot still waits for a data request across a same-document na
   await captureScreenshot(page, "after-push-state");
 
   expect(await page.locator("#status").textContent()).toBe("slow done");
+});
+
+test("a pushState in the old document during a delayed navigation keeps its data request in flight", async ({
+  page,
+}) => {
+  const inFlight = trackInFlightRequests(page);
+  await page.goto("/?key=capture-delayed-nav");
+  await expect(page.locator("#status")).toHaveText("loaded #1");
+
+  // The old document stays alive until the delayed navigation response arrives;
+  // plain page.evaluate calls stall meanwhile, so the pushState runs from a timer.
+  const pushedState = page.waitForEvent("framenavigated", (frame) =>
+    frame.url().endsWith("/same-document"),
+  );
+  await page.evaluate(
+    "location.href = '/delayed-navigation'; setTimeout(() => window.fetchSlowThenPushState(), 500)",
+  );
+  await pushedState;
+
+  expect(inFlight()).toBe(1);
+});
+
+test("captureScreenshot counts a request started by the initial load when tracking began early", async ({
+  page,
+}) => {
+  trackInFlightRequests(page);
+  const slowRequest = page.waitForRequest((request) => request.url().endsWith("/api/slow"));
+  await page.goto("/?key=capture-early-tracking&slowLoad=1", { waitUntil: "commit" });
+  await slowRequest;
+  await captureScreenshot(page, "early-tracking");
+
+  expect(await page.locator("#status").textContent()).toBe("slow load done");
+});
+
+test("captureScreenshot waits for network idle on its first call without early tracking", async ({
+  page,
+}) => {
+  const slowRequest = page.waitForRequest((request) => request.url().endsWith("/api/slow"));
+  await page.goto("/?key=capture-untracked&slowLoad=1", { waitUntil: "commit" });
+  await slowRequest;
+  await captureScreenshot(page, "untracked-first-call");
+
+  expect(await page.locator("#status").textContent()).toBe("slow load done");
 });
 
 runScreenshots([
