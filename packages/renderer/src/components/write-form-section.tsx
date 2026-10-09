@@ -38,9 +38,9 @@ export type WriteFormSectionProps = {
   readonly featureName: string;
   readonly translate?: Translate;
   readonly hideTitle?: boolean;
-  /** Fired after a successful submit — projectionDetail reloads its own
-   *  record (a new one now exists) via a full RenderEdit remount, see
-   *  ProjectionDetailBody's reloadNonce/key in kumiko-screen.tsx. */
+  /** Fired after a successful submit, once this section reset itself to its
+   *  initial values — projectionDetail refetches its record (a new one now
+   *  exists), see ProjectionDetailBody's reloadNonce in kumiko-screen.tsx. */
   readonly onSubmitted: () => void;
   /** section.actions, already resolved into buttons by the caller —
    *  rendered alongside (before) the section's own submit button in the
@@ -90,6 +90,11 @@ export function WriteFormSection({
       const result = await controller.submit();
       if (result.isSuccess) {
         setError(null);
+        // Edits typed while the write was in flight stay; only a clean form is reset.
+        if (!controller.getSnapshot().isDirty) {
+          controller.setValues(initial);
+          controller.rebase();
+        }
         onSubmitted();
         return;
       }
@@ -115,7 +120,7 @@ export function WriteFormSection({
         {section.fields.map((field: EditFieldViewModel) => (
           <GridCellForField
             key={field.field}
-            field={field}
+            field={{ ...field, value: snapshot.values[field.field] }}
             columns={section.columns}
             issues={snapshot.errors[field.field]}
             onChange={(v) => controller.setField(field.field, v)}

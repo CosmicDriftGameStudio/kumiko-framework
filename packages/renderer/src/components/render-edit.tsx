@@ -456,6 +456,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onDelete,
     onCancel,
     onReload,
+    refreshToken,
     onDirtyChange,
     onCopyLink,
     actions,
@@ -653,6 +654,16 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     ...(ctx !== undefined && { ctx }),
     ...(submitConfig !== undefined && { submit: submitConfig }),
   });
+
+  const lastRefreshTokenRef = useRef(refreshToken);
+  useEffect(() => {
+    if (lastRefreshTokenRef.current === refreshToken) return;
+    lastRefreshTokenRef.current = refreshToken;
+    // Never overwrite user input: a dirty form keeps its values.
+    if (controller.getSnapshot().isDirty) return;
+    controller.setValues(initial);
+    controller.rebase();
+  }, [refreshToken, controller, initial]);
 
   // Derived from the screen id + the host entity id only — never from
   // `vm.id`, which lives in the form values a restore mutates (load under one
@@ -2065,6 +2076,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   featureName={featureName}
                   translate={translate}
                   hideTitle={hideSectionTitles}
+                  {...(refreshToken !== undefined && { refreshToken })}
                   {...(fillScreenHeight === true && { grow: true })}
                   // Tabs mode: actions move to the outer Card below — the
                   // hideTitle branch of RelatedListSection has no title row to
