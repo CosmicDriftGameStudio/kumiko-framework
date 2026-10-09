@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-27
+verified: 2026-10-09
 ---
 
 # The test standard
@@ -126,6 +126,19 @@ them: on a small (1.5-CPU) CI runner, 1/2/4 workers measured 2.6/2.6/2.7 min,
 so the run is already saturated at one worker and more only adds Chromium
 processes. A project that sets its own
 `workers` throws.
+
+## Apps with MFA
+
+Against an app that enforces MFA, the e2e `seedTenant` fixture enrolls the
+seeded admin itself: when the first login answers with a required MFA setup,
+it enrolls a confirmed TOTP factor through the real auth-mfa endpoints.
+`seedTenant({ mfa: "totp" })` forces the enrollment when no policy demands it.
+The base32 secret comes back as `admin.mfaTotpSecret`, and `loginAs`,
+`loginViaApi` and `loginViaUi` answer the MFA challenge with it.
+`tenant.addUser(roles, { mfa: "totp" })` enrolls another user the same way and
+returns the secret on that user. When an account needs MFA and the credentials
+carry no secret, `loginViaApi` throws. This needs `@cosmicdrift/kumiko-testing`
+0.345 or later.
 
 ## Parallel runs
 
