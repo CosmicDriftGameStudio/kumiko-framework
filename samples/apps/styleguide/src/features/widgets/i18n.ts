@@ -19,7 +19,7 @@ export const WIDGETS_I18N = {
   "widgets:dashboard:net-worth-assets": { de: "Vermögen", en: "Assets" },
   "widgets:dashboard:net-worth-debts": { de: "Schulden", en: "Debts" },
   "widgets:dashboard:response-times": { de: "Antwortzeit", en: "Response time" },
-  "widgets:dashboard:traffic": { de: "Anfragen pro Woche", en: "Requests per week" },
+  "widgets:dashboard:traffic": { de: "Anfragen", en: "Requests" },
   "widgets:dashboard:traffic-api": { de: "API", en: "API" },
   "widgets:dashboard:traffic-web": { de: "Web", en: "Web" },
   "widgets:dashboard:traffic-batch": { de: "Batch", en: "Batch" },

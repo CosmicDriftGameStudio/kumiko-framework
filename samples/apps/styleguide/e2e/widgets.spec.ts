@@ -181,7 +181,7 @@ test("declarative dashboard screen renders stat, chart and list panels", async (
   // Chart panel: SVG with translated aria label.
   await expect(page.getByRole("img", { name: "Antwortzeit" })).toBeVisible();
   // Stacked-area panel: range switch and brush from the panel config.
-  await expect(page.getByRole("img", { name: "Anfragen pro Woche" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Anfragen" })).toBeVisible();
   await expect(page.getByTestId("dashboard-chart-range-traffic")).toBeVisible();
   await expect(page.getByText("3 Monate")).toBeVisible();
   // List panel: row from the paged envelope.
