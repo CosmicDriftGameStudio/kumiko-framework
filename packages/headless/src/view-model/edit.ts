@@ -276,15 +276,20 @@ function deriveSelectFieldHints(
   };
 }
 
-type TextFieldHints = Pick<EditFieldViewModel, "multiline" | "format" | "writeOnly" | "sensitive">;
+type TextFieldHints = Pick<
+  EditFieldViewModel,
+  "multiline" | "format" | "writeOnly" | "sensitive" | "autoComplete"
+>;
 
 function deriveTextFieldHints(fieldDef: EntityFieldDef): TextFieldHints {
   const multiline =
     fieldDef.type === "text" || fieldDef.type === "longText" ? fieldDef.multiline : undefined;
   const format = fieldDef.type === "text" ? fieldDef.format : undefined;
   const writeOnly = fieldDef.type === "text" && fieldDef.writeOnly === true;
+  const autoComplete = fieldDef.type === "text" ? fieldDef.autoComplete : undefined;
   return {
     ...(multiline !== undefined && { multiline }),
+    ...(autoComplete !== undefined && { autoComplete }),
     ...(format !== undefined && { format }),
     ...(writeOnly && { writeOnly: true as const }),
     ...("sensitive" in fieldDef && fieldDef.sensitive === true && { sensitive: true as const }),

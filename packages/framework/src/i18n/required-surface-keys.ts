@@ -321,6 +321,7 @@ export function requiredKeysFromScreen(
       pushKey(out, mint.reveal.title);
       pushKey(out, mint.reveal.warning);
       pushKey(out, mint.reveal.confirmLabel);
+      pushKey(out, mint.reveal.acknowledge);
       for (const revealField of mint.reveal.fields) {
         pushKey(out, revealField.label);
       }

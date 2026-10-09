@@ -213,6 +213,10 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  rhythm — for content that belongs to the form but is no field (e.g. the
    *  secret a confirm step refers to). */
   readonly leadContent?: ReactNode;
+  /** Blocks submit (button and Enter) while fields stay editable — unlike
+   *  `disabled`, which locks the whole form. For a gate the host owns, e.g.
+   *  an acknowledgement checkbox in `leadContent`. */
+  readonly submitBlocked?: boolean;
   /** Show the unsaved-changes footer (count, Discard, "Save changes") even
    *  without an entity id or a screen-height form — for hosts that edit an
    *  existing server-side record through `customSubmit` (configEdit, also when

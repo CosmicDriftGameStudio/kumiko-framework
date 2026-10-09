@@ -257,6 +257,9 @@ export type TextFieldDef = {
   /** Lower bound enforced by the generated write schema, so short input is
    *  rejected by validation instead of reaching the handler. */
   readonly minLength?: number;
+  /** HTML `autocomplete` token for the rendered input (e.g. "one-time-code"),
+   *  so browsers and password managers offer or suppress autofill correctly. */
+  readonly autoComplete?: string;
   readonly required?: boolean;
   readonly searchable?: boolean;
   readonly sortable?: boolean;

@@ -488,6 +488,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     headerRegion,
     buildSectionActions,
     leadContent,
+    submitBlocked = false,
   } = props;
   const i18nScreenId = props.i18nScreenId ?? screen.id;
   const { customSubmit } = props;
@@ -1259,7 +1260,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // Locked state (#1896): the submit button is visibly disabled, but a
     // native form submit (Enter key) reaches this handler regardless of the
     // button's disabled attribute — block it here too, not just in the UI.
-    if (disabled) return;
+    if (disabled || submitBlocked) return;
     // Sync guard — React state `isSubmitting` is too late for double-clicks
     // in the same tick (customSubmit has no submitInFlight of its own).
     if (isSubmittingRef.current) return;
@@ -1689,7 +1690,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               !insideDrawer &&
               submitWithoutChanges !== true) ||
             isSubmitting ||
-            disabled
+            disabled ||
+            submitBlocked
           }
           loading={isSubmitting}
           variant={submitVariant ?? "primary"}

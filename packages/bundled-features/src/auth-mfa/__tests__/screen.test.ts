@@ -39,11 +39,19 @@ describe("auth-mfa enable screen — declarative secretMint (fw#2838)", () => {
     expect(Object.keys(confirm?.fields ?? {})).toEqual(["code"]);
   });
 
+  test("the code field asks for one-time-code autofill and the reveal gates on saved recovery codes", () => {
+    expect(mfaEnableScreen.confirm?.fields["code"]).toMatchObject({
+      autoComplete: "one-time-code",
+    });
+    expect(mfaEnableScreen.reveal.acknowledge).toBe("mfa.enable.reveal.savedCodes");
+  });
+
   test("every i18n key the screen references is declared in AUTH_MFA_FEATURE_I18N", () => {
     const referenced = [
       mfaEnableScreen.submitLabel,
       mfaEnableScreen.reveal.title,
       mfaEnableScreen.reveal.warning,
+      mfaEnableScreen.reveal.acknowledge,
       ...mfaEnableScreen.reveal.fields.map((f) => f.label),
       mfaEnableScreen.confirm?.submitLabel,
       mfaEnableScreen.confirm?.doneMessage,

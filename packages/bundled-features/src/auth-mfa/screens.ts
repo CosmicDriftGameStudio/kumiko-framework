@@ -34,6 +34,7 @@ export const mfaEnableScreen: SecretMintScreenDefinition = {
   reveal: {
     title: i18nKey("mfa.enable.reveal.title"),
     warning: i18nKey("mfa.enable.reveal.warning"),
+    acknowledge: i18nKey("mfa.enable.reveal.savedCodes"),
     fields: [
       {
         field: "otpauthUri",
@@ -58,7 +59,13 @@ export const mfaEnableScreen: SecretMintScreenDefinition = {
   confirm: {
     handler: AuthMfaHandlers.enableConfirm,
     fields: {
-      code: { type: "text", required: true, minLength: 6, maxLength: 6 },
+      code: {
+        type: "text",
+        required: true,
+        minLength: 6,
+        maxLength: 6,
+        autoComplete: "one-time-code",
+      },
     },
     layout: { sections: [{ fields: ["code"] }] },
     carry: ["setupToken"],
