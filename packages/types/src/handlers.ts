@@ -482,6 +482,8 @@ export type EscapeHatchUseEvent = {
   readonly reason: string;
   readonly tenantId: TenantId;
   readonly actor: string;
+  // Initiating identity when `actor` differs from it (identity switches).
+  readonly caller?: string;
   readonly target?: EscapeHatchTarget;
 };
 export type EscapeHatchAuditSink = (event: EscapeHatchUseEvent) => Promise<void>;

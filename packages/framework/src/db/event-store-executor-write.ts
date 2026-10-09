@@ -9,7 +9,7 @@ import {
   type UnavailableSelectOption,
 } from "../engine/screen-helpers.js";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.js";
-import type { EntityId, SessionUser } from "../engine/types/index.js";
+import type { EntityId, SessionUser, TenantId } from "../engine/types/index.js";
 import {
   AccessDeniedError,
   VersionConflictError as FrameworkVersionConflict,
@@ -18,6 +18,7 @@ import {
   NotFoundError,
   PreconditionFailedError,
   UnprocessableError,
+  type WriteFailure,
   writeFailure,
 } from "../errors/index.js";
 import {
@@ -46,6 +47,7 @@ import {
   type ExecutorContext,
   entityEventName,
   isForeignTenantOnGlobalEntity,
+  ownershipSubject,
   tryMapUniqueViolation,
 } from "./event-store-executor-context.js";
 import { projectionRegistryOf } from "./projection-registry-binding.js";
@@ -189,6 +191,7 @@ export function createWriteVerbs(
     entityCache,
     softDelete,
     streamTenantFor,
+    streamTenantOverrideFailure,
     encryptForStorage,
     decryptForRead,
     applyDefaults,
@@ -198,10 +201,51 @@ export function createWriteVerbs(
     loadExpectSnapshot,
   } = ctx;
   const entityInstructionFieldNames = instructionFieldNames(entity);
+  const eventVersion = entity.eventVersion ?? 1;
   let insertSchema: ZodType | undefined;
   let updateSchema: ZodType | undefined;
   const createOutputSchema = () => (insertSchema ??= buildInsertSchema(entity));
   const updateOutputSchema = () => (updateSchema ??= buildUpdateSchema(entity));
+
+  // Tenant boundary: db.fetchOne applies TenantDb's tenant predicate,
+  // selectMany(runner, ...) did not — any caller could un-delete a foreign
+  // tenant's row by id. "system"-mode dbs (r.systemScope() / escapeHatch
+  // handlers) still read unfiltered. No isDeleted filter in the read: restore
+  // targets exactly the soft-deleted row.
+  async function loadSoftDeletedRow(
+    db: TenantDb,
+    id: EntityId,
+    streamTenantId: TenantId | undefined,
+  ): Promise<{ readonly row: DbRow } | { readonly failure: WriteFailure }> {
+    const row = await db.fetchOne(table, { id });
+    if (!row) return { failure: writeFailure(new NotFoundError(entityName, id)) };
+    const streamTenantMismatch = streamTenantOverrideFailure(db, row, streamTenantId);
+    if (streamTenantMismatch) return { failure: streamTenantMismatch };
+    if (!row["isDeleted"]) {
+      return {
+        failure: writeFailure(
+          new UnprocessableError("not_deleted", { i18nKey: "errors.notDeleted" }),
+        ),
+      };
+    }
+    return { row: row as DbRow };
+  }
+
+  async function expectedStreamVersion(
+    db: TenantDb,
+    id: EntityId,
+    streamTenant: TenantId,
+    expect: Readonly<Record<string, unknown>>,
+  ): Promise<number | WriteFailure> {
+    const snapshot = await loadExpectSnapshot(db, id, streamTenant, Object.keys(expect));
+    const row = snapshot.row;
+    if (!row) return writeFailure(new PreconditionFailedError({ entityId: id, field: "id" }));
+    const mismatch = Object.entries(expect).find(([key, expected]) => row[key] !== expected);
+    if (mismatch) {
+      return writeFailure(new PreconditionFailedError({ entityId: id, field: mismatch[0] }));
+    }
+    return snapshot.streamVersion;
+  }
 
   return {
     async create(payload, user, db, options) {
@@ -328,7 +372,7 @@ export function createWriteVerbs(
             tenantId: streamTenantFor(user),
             expectedVersion: 0,
             type: entityEventName(entityName, "created"),
-            eventVersion: entity.eventVersion ?? 1,
+            eventVersion,
             payload: flatData,
             metadata: buildEventMetadata(user),
           }),
@@ -428,6 +472,9 @@ export function createWriteVerbs(
       }
       const previous = await loadById(payload.id, db);
       if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
+      const streamTenantId = updateOptions?.streamTenantId;
+      const streamTenantMismatch = streamTenantOverrideFailure(db, previous, streamTenantId);
+      if (streamTenantMismatch) return streamTenantMismatch;
 
       const preSaveResult = await runPreSave(
         updateOptions?.preSave,
@@ -456,7 +503,14 @@ export function createWriteVerbs(
       // prevents the attack where role A passes old, role B passes new and
       // aggregation would wrongly allow a row-grab.
       const mergedNew: Record<string, unknown> = { ...previous, ...changes };
-      if (!userCanWriteFieldRow(user, entity.access?.write, previous, mergedNew)) {
+      if (
+        !userCanWriteFieldRow(
+          ownershipSubject(user, streamTenantId),
+          entity.access?.write,
+          previous,
+          mergedNew,
+        )
+      ) {
         return writeFailure(
           new UnprocessableError("ownership_denied", {
             i18nKey: "errors.ownershipDenied",
@@ -490,7 +544,7 @@ export function createWriteVerbs(
       const fieldDeniedUpdate = checkWriteFieldOwnership(
         entity,
         payload.changes,
-        user,
+        ownershipSubject(user, streamTenantId),
         previous,
         changes,
       );
@@ -515,7 +569,8 @@ export function createWriteVerbs(
       );
       if (unavailableOnUpdate) return unavailableOnUpdate;
 
-      await assertStreamWritable(db, payload.id, streamTenantFor(user));
+      const streamTenant = streamTenantFor(user, streamTenantId);
+      await assertStreamWritable(db, payload.id, streamTenant);
 
       // Stream-version is authoritative, not row.version. `ctx.appendEvent`
       // can bump the stream between CRUD writes (domain event on the same
@@ -525,30 +580,11 @@ export function createWriteVerbs(
       //
       // With `expect:` the version comes from loadExpectSnapshot's combined
       // query instead; see its comment for why.
-      let currentVersion: number;
-      if (updateOptions?.expect) {
-        const expectKeys = Object.keys(updateOptions.expect);
-        const snapshot = await loadExpectSnapshot(
-          db,
-          payload.id,
-          streamTenantFor(user),
-          expectKeys,
-        );
-        if (!snapshot.row) {
-          return writeFailure(new PreconditionFailedError({ entityId: payload.id, field: "id" }));
-        }
-        const mismatch = Object.entries(updateOptions.expect).find(
-          ([key, expected]) => snapshot.row?.[key] !== expected,
-        );
-        if (mismatch) {
-          return writeFailure(
-            new PreconditionFailedError({ entityId: payload.id, field: mismatch[0] }),
-          );
-        }
-        currentVersion = snapshot.streamVersion;
-      } else {
-        currentVersion = await getStreamVersion(runner, String(payload.id), streamTenantFor(user));
-      }
+      const expect = updateOptions?.expect;
+      const currentVersion = expect
+        ? await expectedStreamVersion(db, payload.id, streamTenant, expect)
+        : await getStreamVersion(runner, String(payload.id), streamTenant);
+      if (typeof currentVersion !== "number") return currentVersion;
 
       if (!updateOptions?.skipOptimisticLock) {
         if (payload.version === undefined) {
@@ -586,6 +622,7 @@ export function createWriteVerbs(
         const flatChanges = await encryptForStorage(flatChangesPlain, user, {
           onlyKeys: Object.keys(submittedChanges),
           subjectSource: mergedNew,
+          keyTenantId: streamTenantId,
         });
 
         // The event payload carries BOTH `changes` (what the user asked for) AND
@@ -597,7 +634,9 @@ export function createWriteVerbs(
         // re-encrypt it before it's persisted so plaintext of pii/encrypted
         // fields doesn't land in the immutable log (flatChanges is already
         // ciphertext from encryptForStorage above).
-        const encryptedPrevious = await encryptForStorage(previous, user);
+        const encryptedPrevious = await encryptForStorage(previous, user, {
+          keyTenantId: streamTenantId,
+        });
         // Savepoint-scoped — see the create() append() above for why:
         // confines a losing writer's unique-violation to a nested scope
         // instead of poisoning the whole outer transaction.
@@ -605,10 +644,10 @@ export function createWriteVerbs(
           append(sp, {
             aggregateId: String(payload.id),
             aggregateType: entityName,
-            tenantId: streamTenantFor(user),
+            tenantId: streamTenant,
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "updated"),
-            eventVersion: entity.eventVersion ?? 1,
+            eventVersion,
             payload: {
               changes: flatChanges,
               previous: encryptedPrevious,
@@ -645,7 +684,7 @@ export function createWriteVerbs(
         const data = await decryptForRead(rehydrateCompoundTypes(row as DbRow, entity) as DbRow);
 
         if (entityCache && entityName) {
-          await entityCache.del(user.tenantId, entityName, payload.id);
+          await entityCache.del(streamTenantId ?? user.tenantId, entityName, payload.id);
         }
 
         const echoEvent = {
@@ -691,19 +730,29 @@ export function createWriteVerbs(
       }
     },
 
-    async delete(payload, user, db) {
+    async delete(payload, user, db, options) {
       if (isIrreversibleEntityVerb("delete", entity)) {
         assertIrreversibleOperationAllowed(`${entityName}.delete (entity has no softDelete)`);
       }
       const runner = tenantDbRunner(db);
       const existing = await loadById(payload.id, db);
       if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
+      const streamTenantId = options?.streamTenantId;
+      const streamTenantMismatch = streamTenantOverrideFailure(db, existing, streamTenantId);
+      if (streamTenantMismatch) return streamTenantMismatch;
 
       // H.2 — entity-level write-ownership on delete. Only the pre-delete
       // row matters (there's no "new" row for a delete); passing existing
       // twice to userCanWriteFieldRow makes the Straddle check trivial
       // (same row on both sides) while keeping the multi-role-atomic shape.
-      if (!userCanWriteFieldRow(user, entity.access?.write, existing, existing)) {
+      if (
+        !userCanWriteFieldRow(
+          ownershipSubject(user, streamTenantId),
+          entity.access?.write,
+          existing,
+          existing,
+        )
+      ) {
         return writeFailure(
           new UnprocessableError("ownership_denied", {
             i18nKey: "errors.ownershipDenied",
@@ -718,13 +767,13 @@ export function createWriteVerbs(
         );
       }
 
-      await assertStreamWritable(db, payload.id, streamTenantFor(user));
+      await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
 
       // Stream-version authoritative (see update() for rationale).
       const currentVersion = await getStreamVersion(
         runner,
         String(payload.id),
-        streamTenantFor(user),
+        streamTenantFor(user, streamTenantId),
       );
 
       // Deletes carry the full pre-delete row as `previous`. That's what
@@ -739,11 +788,13 @@ export function createWriteVerbs(
           append(sp, {
             aggregateId: String(payload.id),
             aggregateType: entityName,
-            tenantId: streamTenantFor(user),
+            tenantId: streamTenantFor(user, streamTenantId),
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "deleted"),
-            eventVersion: entity.eventVersion ?? 1,
-            payload: { previous: await encryptForStorage(existing, user) },
+            eventVersion,
+            payload: {
+              previous: await encryptForStorage(existing, user, { keyTenantId: streamTenantId }),
+            },
             metadata: buildEventMetadata(user),
           }),
         );
@@ -774,7 +825,7 @@ export function createWriteVerbs(
       }
 
       if (entityCache && entityName) {
-        await entityCache.del(user.tenantId, entityName, payload.id);
+        await entityCache.del(streamTenantId ?? user.tenantId, entityName, payload.id);
       }
 
       const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
@@ -796,16 +847,24 @@ export function createWriteVerbs(
     // hard-deletes the row regardless of softDelete — and, being an auto-verb,
     // the erasure replays on rebuild (created → forgotten → row gone). Loads
     // without the isDeleted filter so trashed (soft-deleted) rows are erased too.
-    async forget(payload, user, db) {
+    async forget(payload, user, db, options) {
       assertIrreversibleOperationAllowed(`${entityName}.forget`);
       const runner = tenantDbRunner(db);
       const raw = await db.fetchOne<Record<string, unknown>>(table, { id: payload.id });
       if (!raw) return writeFailure(new NotFoundError(entityName, payload.id));
+      const streamTenantId = options?.streamTenantId;
+      const streamTenantMismatch = streamTenantOverrideFailure(db, raw, streamTenantId);
+      if (streamTenantMismatch) return streamTenantMismatch;
       const existing = await decryptForRead(rehydrateCompoundTypes(raw as DbRow, entity) as DbRow);
 
       if (
         !isFrameworkSystemUser(user) &&
-        !userCanWriteFieldRow(user, entity.access?.write, existing, existing)
+        !userCanWriteFieldRow(
+          ownershipSubject(user, streamTenantId),
+          entity.access?.write,
+          existing,
+          existing,
+        )
       ) {
         return writeFailure(
           new UnprocessableError("ownership_denied", {
@@ -821,11 +880,11 @@ export function createWriteVerbs(
         );
       }
 
-      await assertStreamWritable(db, payload.id, streamTenantFor(user));
+      await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
       const currentVersion = await getStreamVersion(
         runner,
         String(payload.id),
-        streamTenantFor(user),
+        streamTenantFor(user, streamTenantId),
       );
 
       let event: Awaited<ReturnType<typeof append>>;
@@ -834,13 +893,15 @@ export function createWriteVerbs(
           append(sp, {
             aggregateId: String(payload.id),
             aggregateType: entityName,
-            tenantId: streamTenantFor(user),
+            tenantId: streamTenantFor(user, streamTenantId),
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "forgotten"),
-            eventVersion: entity.eventVersion ?? 1,
+            eventVersion,
             // Re-encrypt like delete(): `existing` came decrypted from loadById —
             // plaintext must not land in the immutable log, least of all on forget.
-            payload: { previous: await encryptForStorage(existing, user) },
+            payload: {
+              previous: await encryptForStorage(existing, user, { keyTenantId: streamTenantId }),
+            },
             metadata: buildEventMetadata(user),
           }),
         );
@@ -870,7 +931,7 @@ export function createWriteVerbs(
       }
 
       if (entityCache && entityName) {
-        await entityCache.del(user.tenantId, entityName, payload.id);
+        await entityCache.del(streamTenantId ?? user.tenantId, entityName, payload.id);
       }
 
       const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
@@ -888,7 +949,7 @@ export function createWriteVerbs(
       };
     },
 
-    async restore(payload, user, db) {
+    async restore(payload, user, db, options) {
       if (!softDelete) {
         return writeFailure(
           new UnprocessableError("soft_delete_not_enabled", {
@@ -897,25 +958,22 @@ export function createWriteVerbs(
         );
       }
       const runner = tenantDbRunner(db);
-
-      // Tenant boundary: db.fetchOne applies TenantDb's tenant predicate,
-      // selectMany(runner, ...) did not — any caller could un-delete a foreign
-      // tenant's row by id. "system"-mode dbs (r.systemScope() / escapeHatch
-      // handlers) still read unfiltered. No isDeleted filter here: restore
-      // targets exactly the soft-deleted row.
-      const row = await db.fetchOne(table, { id: payload.id });
-      if (!row) return writeFailure(new NotFoundError(entityName, payload.id));
-      const data = row as DbRow;
-      if (!data["isDeleted"]) {
-        return writeFailure(
-          new UnprocessableError("not_deleted", { i18nKey: "errors.notDeleted" }),
-        );
-      }
+      const streamTenantId = options?.streamTenantId;
+      const target = await loadSoftDeletedRow(db, payload.id, streamTenantId);
+      if ("failure" in target) return target.failure;
+      const data = target.row;
 
       // H.2 — entity-level write-ownership on restore. Same shape as delete:
       // only the stored row matters. Stored row carries pre-soft-delete
       // teamId/... fields, so the ownership predicate still applies cleanly.
-      if (!userCanWriteFieldRow(user, entity.access?.write, data, data)) {
+      if (
+        !userCanWriteFieldRow(
+          ownershipSubject(user, streamTenantId),
+          entity.access?.write,
+          data,
+          data,
+        )
+      ) {
         return writeFailure(
           new UnprocessableError("ownership_denied", {
             i18nKey: "errors.ownershipDenied",
@@ -930,13 +988,13 @@ export function createWriteVerbs(
         );
       }
 
-      await assertStreamWritable(db, payload.id, streamTenantFor(user));
+      await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
 
       // Stream-version authoritative (see update() for rationale).
       const currentVersion = await getStreamVersion(
         runner,
         String(payload.id),
-        streamTenantFor(user),
+        streamTenantFor(user, streamTenantId),
       );
       // Restore carries the soft-deleted snapshot as `previous` — mirror of
       // delete for symmetry. Projections that decremented on delete use
@@ -949,10 +1007,10 @@ export function createWriteVerbs(
           append(sp, {
             aggregateId: String(payload.id),
             aggregateType: entityName,
-            tenantId: streamTenantFor(user),
+            tenantId: streamTenantFor(user, streamTenantId),
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "restored"),
-            eventVersion: entity.eventVersion ?? 1,
+            eventVersion,
             payload: { previous: data },
             metadata: buildEventMetadata(user),
           }),
@@ -993,7 +1051,7 @@ export function createWriteVerbs(
       const restored = restoreResult.row;
 
       if (entityCache && entityName) {
-        await entityCache.del(user.tenantId, entityName, payload.id);
+        await entityCache.del(streamTenantId ?? user.tenantId, entityName, payload.id);
       }
 
       // Read-side auto-convert for compound types, same as update/list.

@@ -2,7 +2,7 @@ import type { CursorResult } from "./cursor-types.js";
 import type { EntityDefinition } from "./fields.js";
 import type { SessionUser, WriteResult } from "./handlers.js";
 import type { DeleteContext, SaveContext } from "./hooks.js";
-import type { EntityId } from "./identifiers.js";
+import type { EntityId, TenantId } from "./identifiers.js";
 import type { SearchAdapter } from "./search-adapter.js";
 import type { TenantDb } from "./tenant-db-types.js";
 
@@ -25,6 +25,11 @@ export type PreSaveRunner = (
   isNew: boolean,
 ) => Promise<Record<string, unknown>>;
 
+// Cross-tenant verbs on a foreign row: stream, event tenant and PII key follow the row's tenant
+// while the acting user stays the operator. Honored only on a system-mode db and only when equal
+// to the loaded row's tenant; anything else fails the write.
+export type StreamTenantOption = { readonly streamTenantId?: TenantId | undefined };
+
 export type EventStoreExecutor = {
   create: (
     payload: Record<string, unknown>,
@@ -37,7 +42,7 @@ export type EventStoreExecutor = {
     payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
     db: TenantDb,
-    options?: {
+    options?: StreamTenantOption & {
       skipOptimisticLock?: boolean;
       skipUnchanged?: boolean;
       preSave?: PreSaveRunner;
@@ -63,6 +68,7 @@ export type EventStoreExecutor = {
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
+    options?: StreamTenantOption,
   ) => Promise<WriteResult<DeleteContext>>;
 
   // Hard-purge (Art. 17 erasure). Like delete, but emits `<entity>.forgotten`
@@ -73,12 +79,14 @@ export type EventStoreExecutor = {
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
+    options?: StreamTenantOption,
   ) => Promise<WriteResult<DeleteContext>>;
 
   restore: (
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
+    options?: StreamTenantOption,
   ) => Promise<WriteResult<SaveContext>>;
 
   list: (

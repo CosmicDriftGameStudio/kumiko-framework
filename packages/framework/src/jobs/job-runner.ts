@@ -31,16 +31,20 @@ import type { Logger } from "../logging/types.js";
 import {
   createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
+  createEscapeHatchReportWindow,
   emitJobLastSuccess,
   emitJobQueueDepth,
+  flushEscapeHatchAudits,
   getFallbackTracer,
   type Meter,
   registerStandardMetrics,
   type SerializedTraceContext,
   type Tracer,
+  withEscapeHatchAuditScope,
 } from "../observability/index.js";
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock.js";
 import { RedisKeys } from "../pipeline/redis-keys.js";
+import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.js";
 import {
   buildPersonalDataGate,
   isPersonalDataGated,
@@ -526,6 +530,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // must not depend on buildServer having done it first. Idempotent.
   if (context.meter) registerStandardMetrics(context.meter);
   // Instance-scoped, not module-level: each runner (and each test) audits a system cron's declared hatch once.
+  const escapeHatchReportWindow = createEscapeHatchReportWindow();
   const systemCronEscapeHatchDedup = createEscapeHatchProcessDedup([
     "unsafe-raw",
     "global-write",
@@ -558,7 +563,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         tenantId: SYSTEM_TENANT_ID,
         actor: systemUser.id,
         sink: context._escapeHatchAuditSink,
-        log: context.log,
+        log: errorLogger,
+        window: escapeHatchReportWindow,
       });
       const result = await handler.handler(
         { type: ACTIVE_TENANT_IDS_QUERY_NAME, payload: {}, user: systemUser },
@@ -1100,7 +1106,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       tenantId,
       actor: jobSystemUser.id,
       sink: context._escapeHatchAuditSink,
-      log: context.log,
+      log: errorLogger,
+      window: escapeHatchReportWindow,
+      ...(triggeredById !== null && { caller: triggeredById }),
       ...(isSystemCronRun && { processDedup: systemCronEscapeHatchDedup }),
       ...(context.meter && { meter: context.meter }),
     });
@@ -1144,6 +1152,36 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // Per-job-run reader, created lazily on queryAsMember's first call and
     // cached for the rest of this run.
     let memberReader: MemberReader | undefined;
+    const identitySwitchHatch = escapeHatchFor(jobDef.escapeHatch, "systemIdentity");
+    const identitySwitchGrantReason =
+      identitySwitchHatch?.reason ??
+      (isSystemJob ? `r.systemScope() feature of job "${jobName}"` : undefined);
+    const ungatedQueryAs = (user: SessionUser, qn: string, payload: unknown) => {
+      if (!dispatchWriteRef) {
+        throw new Error(
+          "JobContext.queryAs called before dispatcher attached — call attachDispatcher() first",
+        );
+      }
+      return dispatchWriteRef.queryAs(user, qn, payload, jobOrigin);
+    };
+    // Only writeAs is gated for jobs; queryAs stays ungated (fw#2859).
+    const gatedIdentitySwitch = createGatedIdentitySwitch(
+      `job "${jobName}"`,
+      jobSystemUser,
+      isSystemJob || identitySwitchHatch !== undefined,
+      {
+        queryAs: ungatedQueryAs,
+        writeAs: async (user: SessionUser, qn: string, payload: unknown) => {
+          if (!dispatchWriteRef) {
+            throw new Error(
+              "JobContext.writeAs called before dispatcher attached — call attachDispatcher() first",
+            );
+          }
+          return dispatchWriteRef.write(user, qn, payload, jobOrigin);
+        },
+      },
+      { reason: identitySwitchGrantReason, report: reportEscapeHatch },
+    );
     const jobContext: JobContext = {
       ...context,
       db: jobDb ?? missingDbProxy(jobName),
@@ -1175,22 +1213,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         }
         return dispatchWriteRef.write(jobSystemUser, qn, payload, jobOrigin);
       },
-      writeAs: (user: SessionUser, qn: string, payload: unknown) => {
-        if (!dispatchWriteRef) {
-          throw new Error(
-            "JobContext.writeAs called before dispatcher attached — call attachDispatcher() first",
-          );
-        }
-        return dispatchWriteRef.write(user, qn, payload, jobOrigin);
-      },
-      queryAs: (user: SessionUser, qn: string, payload: unknown) => {
-        if (!dispatchWriteRef) {
-          throw new Error(
-            "JobContext.queryAs called before dispatcher attached — call attachDispatcher() first",
-          );
-        }
-        return dispatchWriteRef.queryAs(user, qn, payload, jobOrigin);
-      },
+      writeAs: gatedIdentitySwitch.writeAs,
+      queryAs: ungatedQueryAs,
       queryAsMember: (userId: string, qn: string, payload: unknown) => {
         if (!dispatchWriteRef) {
           throw new Error(
@@ -1283,28 +1307,30 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // When parentContext is set, the new parent-aware StartSpanOptions
     // plumbs it through to startSpan — no manual try/finally needed.
     try {
-      await tracer.withSpan(
-        "job.execute",
-        {
-          attributes: {
-            "job.name": jobName,
-            "job.id": jobId,
-            "job.attempt": attempt,
-            "kumiko.tenant_id": tenantId,
-            // Lane-routing attributes (Welle 2.6). `run_in` is the job's
-            // declared lane (explicit or default-"worker"); `consumer_lane`
-            // is which runner actually executed it. They diverge in
-            // all-in-one (both lanes live in one process) but must match
-            // in split deploys — a mismatch in prod logs signals a
-            // misrouted job that slipped past the boot-validator.
-            "kumiko.job.run_in": laneForJob(jobDef),
-            // Omit attribute entirely when no consumer (enqueuer-only runner) —
-            // SpanAttributeValue doesn't accept undefined.
-            ...(consumerLane !== undefined ? { "kumiko.job.consumer_lane": consumerLane } : {}),
+      await withEscapeHatchAuditScope(() =>
+        tracer.withSpan(
+          "job.execute",
+          {
+            attributes: {
+              "job.name": jobName,
+              "job.id": jobId,
+              "job.attempt": attempt,
+              "kumiko.tenant_id": tenantId,
+              // Lane-routing attributes (Welle 2.6). `run_in` is the job's
+              // declared lane (explicit or default-"worker"); `consumer_lane`
+              // is which runner actually executed it. They diverge in
+              // all-in-one (both lanes live in one process) but must match
+              // in split deploys — a mismatch in prod logs signals a
+              // misrouted job that slipped past the boot-validator.
+              "kumiko.job.run_in": laneForJob(jobDef),
+              // Omit attribute entirely when no consumer (enqueuer-only runner) —
+              // SpanAttributeValue doesn't accept undefined.
+              ...(consumerLane !== undefined ? { "kumiko.job.consumer_lane": consumerLane } : {}),
+            },
+            ...(parentContext ? { parent: parentContext } : {}),
           },
-          ...(parentContext ? { parent: parentContext } : {}),
-        },
-        runInSpan,
+          runInSpan,
+        ),
       );
     } finally {
       // Release the sequential lock value-matched (Lua compare-and-delete
@@ -1522,6 +1548,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         readinessTimeout.cancel();
       }
       await Promise.all([queues.api.close(), queues.worker.close()]);
+      await flushEscapeHatchAudits();
       if (lockRedis) {
         // quit() drains in-flight commands; disconnect() would cancel them
         // and risk a half-released lock.

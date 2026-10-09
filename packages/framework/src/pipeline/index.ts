@@ -4,8 +4,10 @@ export {
   createEscapeHatchReportWindow,
   ESCAPE_HATCH_USED_SIGNAL,
   fallbackEscapeHatchReporter,
+  flushEscapeHatchAudits,
   reportEscapeHatchUse,
   UNATTRIBUTED_ACTOR,
+  withEscapeHatchAuditScope,
 } from "../observability/escape-hatch-report.js";
 export type { AppendDomainEventCoreDeps } from "./append-event-core.js";
 export { appendDomainEventCore } from "./append-event-core.js";

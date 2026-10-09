@@ -21,6 +21,7 @@ import type {
   TenantId,
 } from "../engine/types/index.js";
 import {
+  AccessDeniedError,
   InternalError,
   subjectErasedConflict,
   UniqueViolationError,
@@ -87,6 +88,17 @@ export function buildFilterWhere(
     default:
       return assertUnreachable(op, "filter op");
   }
+}
+
+// Tenant-based write-ownership rules (from("user:tenantId", "tenantId")) compare the caller's
+// tenant with the row's. An explicit cross-tenant grant (streamTenantId, checked against the
+// loaded row) is evaluated as the operator acting inside the target tenant. Only this
+// evaluation sees the target tenant: stream actor, metadata and PII keys keep the real identity.
+export function ownershipSubject(
+  user: SessionUser,
+  streamTenantId: TenantId | undefined,
+): SessionUser {
+  return streamTenantId === undefined ? user : { ...user, tenantId: streamTenantId };
 }
 
 // Returns the scalar default of a field, or undefined if the field's type
@@ -177,7 +189,12 @@ export type ExecutorContext = {
   readonly entityCache?: EntityCache;
   readonly searchAdapter?: SearchAdapter;
   readonly softDelete: boolean;
-  readonly streamTenantFor: (user: SessionUser) => TenantId;
+  readonly streamTenantFor: (user: SessionUser, requestedStreamTenantId?: TenantId) => TenantId;
+  readonly streamTenantOverrideFailure: (
+    db: TenantDb,
+    row: Record<string, unknown>,
+    requestedStreamTenantId: TenantId | undefined,
+  ) => WriteFailure | undefined;
   readonly idFilter: (id: EntityId) => WhereObject;
   readonly loadById: (id: EntityId, db: TenantDb) => Promise<Record<string, unknown> | null>;
   readonly assertStreamWritable: (db: TenantDb, id: EntityId, tenantId: TenantId) => Promise<void>;
@@ -208,7 +225,11 @@ export type ExecutorContext = {
   readonly encryptForStorage: (
     row: Record<string, unknown>,
     user: SessionUser,
-    opts?: { onlyKeys?: Iterable<string>; subjectSource?: Record<string, unknown> },
+    opts?: {
+      onlyKeys?: Iterable<string>;
+      subjectSource?: Record<string, unknown>;
+      keyTenantId?: TenantId | undefined;
+    },
   ) => Promise<Record<string, unknown>>;
   readonly decryptForRead: (
     row: Record<string, unknown>,
@@ -241,8 +262,33 @@ export function buildExecutorContext(
   // user) lives on SYSTEM_TENANT_ID deterministically — every op addresses it
   // there. Everything else stays on the caller's tenant (byte-identical to the
   // old hardcoded user.tenantId). Single source of truth for the stream key.
-  const streamTenantFor = (user: SessionUser): TenantId =>
-    entity.systemStream ? SYSTEM_TENANT_ID : user.tenantId;
+  const streamTenantFor = (user: SessionUser, requestedStreamTenantId?: TenantId): TenantId =>
+    entity.systemStream ? SYSTEM_TENANT_ID : (requestedStreamTenantId ?? user.tenantId);
+
+  // Only a system-mode db (r.systemScope() / acknowledged cross-tenant) may address another
+  // tenant's stream, and only the tenant of the row it just loaded.
+  const streamTenantOverrideFailure = (
+    db: TenantDb,
+    row: Record<string, unknown>,
+    requestedStreamTenantId: TenantId | undefined,
+  ): WriteFailure | undefined => {
+    if (requestedStreamTenantId === undefined) return undefined;
+    if (db.mode !== "system") {
+      return writeFailure(
+        new AccessDeniedError({
+          message: `${entityName}: streamTenantId requires a system-mode db`,
+        }),
+      );
+    }
+    if (row["tenantId"] !== requestedStreamTenantId) {
+      return writeFailure(
+        new AccessDeniedError({
+          message: `${entityName}: streamTenantId does not match the tenant of the addressed row`,
+        }),
+      );
+    }
+    return undefined;
+  };
 
   // idType default (undefined) is now "uuid" — the ES-pivot made UUID the
   // only valid aggregate-id type. Explicit `idType: "serial"` is the only
@@ -296,10 +342,10 @@ export function buildExecutorContext(
     return options.kms ?? configuredPiiSubjectKms();
   }
 
-  function kmsContextFor(user?: SessionUser): KmsContext {
+  function kmsContextFor(user?: SessionUser, keyTenantId?: TenantId): KmsContext {
     return {
       requestId: requestContext.get()?.requestId ?? "event-store-executor",
-      ...(user && { tenantId: user.tenantId, userId: String(user.id) }),
+      ...(user && { tenantId: keyTenantId ?? user.tenantId, userId: String(user.id) }),
     };
   }
 
@@ -310,7 +356,11 @@ export function buildExecutorContext(
   async function encryptForStorage(
     row: Record<string, unknown>,
     user: SessionUser,
-    opts?: { onlyKeys?: Iterable<string>; subjectSource?: Record<string, unknown> },
+    opts?: {
+      onlyKeys?: Iterable<string>;
+      subjectSource?: Record<string, unknown>;
+      keyTenantId?: TenantId | undefined;
+    },
   ): Promise<Record<string, unknown>> {
     let out = row;
     if (hasEncryptedFields) {
@@ -321,12 +371,19 @@ export function buildExecutorContext(
     const kms = piiKms();
     if (hasPiiFields && kms) {
       try {
-        out = await encryptPiiFieldValues(out, entity, piiSubjectFields, kms, kmsContextFor(user), {
-          tenantId: user.tenantId,
-          entityName,
-          ...(opts?.onlyKeys !== undefined && { onlyKeys: opts.onlyKeys }),
-          ...(opts?.subjectSource !== undefined && { subjectSource: opts.subjectSource }),
-        });
+        out = await encryptPiiFieldValues(
+          out,
+          entity,
+          piiSubjectFields,
+          kms,
+          kmsContextFor(user, opts?.keyTenantId),
+          {
+            tenantId: opts?.keyTenantId ?? user.tenantId,
+            entityName,
+            ...(opts?.onlyKeys !== undefined && { onlyKeys: opts.onlyKeys }),
+            ...(opts?.subjectSource !== undefined && { subjectSource: opts.subjectSource }),
+          },
+        );
       } catch (e) {
         if (e instanceof KeyErasedError) throw subjectErasedConflict(e);
         throw e;
@@ -587,6 +644,7 @@ export function buildExecutorContext(
     searchAdapter,
     softDelete,
     streamTenantFor,
+    streamTenantOverrideFailure,
     idFilter,
     loadById,
     assertStreamWritable,

@@ -1,22 +1,30 @@
-import { AccessDeniedError } from "../errors/index.js";
+import { ROLES } from "../auth/roles.js";
+import { AccessDeniedError, FrameworkReasons } from "../errors/index.js";
 import type { SessionUser } from "./types/index.js";
 
-// A payload-supplied target tenant (tenantIdOverride) on a TenantAdmin-reachable
-// handler is the cross-tenant escape hatch: hasAccess passes the handler for any
-// TenantAdmin, so without a SystemAdmin gate a TenantAdmin could act on another
-// tenant. Centralizes the check the override handlers used to inline. Returns
-// the denial to `throw` (queries) or wrap in `writeFailure` (writes), or
-// undefined when allowed. The i18nKey stays per-feature so existing
-// translations keep resolving.
-export function crossTenantOverrideDenied(
+export function mayOverrideTenant(user: SessionUser): boolean {
+  return user.roles.includes(ROLES.SystemAdmin);
+}
+
+function carriesTenantOverride(payload: unknown): boolean {
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    "tenantIdOverride" in payload &&
+    payload.tenantIdOverride !== undefined
+  );
+}
+
+// A payload-supplied target tenant (tenantIdOverride) is the cross-tenant escape hatch:
+// hasAccess passes a handler for any TenantAdmin, so the dispatcher refuses the field
+// for everyone but a SystemAdmin before any handler sees it. Runs on the schema-parsed
+// payload, so only handlers that declare the field are affected.
+export function tenantOverrideDenied(
   user: SessionUser,
-  tenantIdOverride: string | undefined,
-  i18nKey: string,
+  parsedPayload: unknown,
 ): AccessDeniedError | undefined {
-  if (tenantIdOverride === undefined) return undefined;
-  if (user.roles.includes("SystemAdmin")) return undefined;
+  if (!carriesTenantOverride(parsedPayload) || mayOverrideTenant(user)) return undefined;
   return new AccessDeniedError({
-    i18nKey,
-    details: { reason: "tenant_override_requires_system_admin" },
+    details: { reason: FrameworkReasons.tenantOverrideRequiresSystemAdmin },
   });
 }

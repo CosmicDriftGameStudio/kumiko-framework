@@ -1,5 +1,6 @@
 import type { DbRow } from "../db/connection.js";
 import { hasAccess } from "../engine/access.js";
+import { tenantOverrideDenied } from "../engine/cross-tenant.js";
 import { checkWriteFieldRoles } from "../engine/field-access.js";
 import type { SessionUser, WriteHandlerDef } from "../engine/types/index.js";
 import { runValidation } from "../engine/validation.js";
@@ -148,6 +149,8 @@ async function rejectAfterParse(
   payload: unknown,
   mode: PreHandlerGateMode,
 ): Promise<WriteFailure | undefined> {
+  const overrideDenied = tenantOverrideDenied(user, payload);
+  if (overrideDenied) return writeFailure(overrideDenied);
   if (mode === "charge") {
     const rateLimited = await rejectPayloadRateLimited(ctx, handler, type, user, payload);
     if (rateLimited) return rateLimited;

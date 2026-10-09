@@ -1,9 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { castTenantRows } from "@cosmicdrift/kumiko-framework/db";
-import {
-  crossTenantOverrideDenied,
-  defineQueryHandler,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { type PageRow, pagesTable } from "../table.js";
 
@@ -33,12 +30,6 @@ export const byTenantPublishedQuery = defineQueryHandler({
     "Lists every published page of a tenant with slug, language, title and last-change time but no body; use it to enumerate the public pages for sitemap.xml or llms.txt, rather than by-slug which fetches one page's content.",
   handler: async (query, ctx) => {
     const override = query.payload.tenantIdOverride;
-    const overrideDenied = crossTenantOverrideDenied(
-      query.user,
-      override,
-      "managedPages.errors.tenantOverrideRequiresSystemAdmin",
-    );
-    if (overrideDenied) throw overrideDenied;
     const tenantId = override ?? query.user.tenantId;
     const rows = castTenantRows<PageRow>(
       await selectMany(ctx.db, pagesTable, { tenantId: tenantId, published: true }),

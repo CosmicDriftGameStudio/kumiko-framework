@@ -105,10 +105,12 @@ a resurrected role on the way into the session, without any projection surgery.
 
 ## Decision 4 — cross-tenant overrides go through one chokepoint
 
-Handlers that accept a `tenantIdOverride` (the deliberate cross-tenant escape
-hatch for SystemAdmin tooling) must gate it through `crossTenantOverrideDenied`
-(`engine/cross-tenant.ts`), never an inline `roles.includes("SystemAdmin")`.
-One helper means the next override handler cannot quietly ship a weaker check.
+A payload `tenantIdOverride` (the deliberate cross-tenant escape hatch for
+SystemAdmin tooling) is refused by the dispatcher for every caller without the
+`SystemAdmin` role, on writes, queries and streams alike, before the handler
+runs (`tenantOverrideDenied` in `engine/cross-tenant.ts`, reason
+`tenant_override_requires_system_admin`). A handler therefore never checks the
+role itself and cannot forget to.
 
 Write-isolation itself is already strong: the executor derives `tenantId` from
 the session, not the payload — so even with a forged role, writes stay scoped
@@ -173,8 +175,7 @@ Decision: no row-level security policy today — the TypeScript boundary (`Tenan
 
 - **A** — every role-input write handler must have a test asserting a reserved
   role is rejected.
-- **B** — every `tenantIdOverride` handler must call `crossTenantOverrideDenied`.
-- **C** — every membership-derived JWT mint must call
+- **B** — every membership-derived JWT mint must call
   `stripForbiddenMembershipRoles`.
 
 ## Consequences

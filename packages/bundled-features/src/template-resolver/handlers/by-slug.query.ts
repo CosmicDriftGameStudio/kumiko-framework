@@ -1,8 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  crossTenantOverrideDenied,
-  defineQueryHandler,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { TEXT_BLOCK_KIND } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
@@ -33,12 +30,6 @@ export const bySlugQuery = defineQueryHandler({
     "Reads one text-block of a tenant by slug and locale together with its body and format; it is pinned to the text-block kind so mail templates and AI prompts in the same table stay unreachable through this anonymous-capable path.",
   handler: async (query, ctx) => {
     const override = query.payload.tenantIdOverride;
-    const overrideDenied = crossTenantOverrideDenied(
-      query.user,
-      override,
-      "templateResolver.errors.tenantOverrideRequiresSystemAdmin",
-    );
-    if (overrideDenied) throw overrideDenied;
     const tenantId = override ?? query.user.tenantId;
     const row = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
       tenantId,

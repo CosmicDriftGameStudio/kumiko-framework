@@ -23,6 +23,7 @@ export const escapeHatchUsedSchema = z.object({
   kind: z.enum(escapeHatchKinds),
   reason: z.string(),
   actor: z.string(),
+  caller: z.string().optional(),
   targetUserId: z.string().optional(),
   targetTenantId: z.string().optional(),
 });
@@ -36,6 +37,7 @@ export function createEscapeHatchAuditSink(opts: {
       kind: event.kind,
       reason: event.reason,
       actor: event.actor,
+      ...(event.caller !== undefined && { caller: event.caller }),
       ...(event.target && { targetUserId: event.target.id, targetTenantId: event.target.tenantId }),
     });
     // Appends on the unbound pool, never the handler tx — an audit entry must

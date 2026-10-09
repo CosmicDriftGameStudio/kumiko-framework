@@ -1,12 +1,16 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
-  crossTenantOverrideDenied,
   defineQueryHandler,
+  mayOverrideTenant,
   type QueryHandlerDefinition,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  AccessDeniedError,
+  FrameworkReasons,
+  InternalError,
+} from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { tierAssignmentEntity } from "../../tier-engine/index.js";
 import type { CapSpec, CapUsageWithMeta } from "../types.js";
@@ -39,12 +43,12 @@ export function createCapsUsageQuery(
         });
       }
       const override = query.payload.tenantId;
-      const overrideDenied = crossTenantOverrideDenied(
-        query.user,
-        override,
-        "cap-overview.errors.tenantOverrideRequiresSystemAdmin",
-      );
-      if (overrideDenied) throw overrideDenied;
+      if (override !== undefined && !mayOverrideTenant(query.user)) {
+        throw new AccessDeniedError({
+          i18nKey: "cap-overview.errors.tenantOverrideRequiresSystemAdmin",
+          details: { reason: FrameworkReasons.tenantOverrideRequiresSystemAdmin },
+        });
+      }
 
       const targetTenantId = override ?? query.user.tenantId;
       // Both branches return the SAME unfiltered system-mode db —

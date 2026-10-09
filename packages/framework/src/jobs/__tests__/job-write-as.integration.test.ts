@@ -17,11 +17,14 @@ import {
   createRegistry,
   createSystemUser,
   defineFeature,
+  type EscapeHatchUseEvent,
+  type JobHandlerFn,
   type SessionUser,
   type WriteResult,
 } from "../../engine/index.js";
 import { createWorkerEntrypoint } from "../../entrypoint/index.js";
 import { createArchivedStreamsTable } from "../../event-store/index.js";
+import { flushEscapeHatchAudits } from "../../observability/index.js";
 import { createEventConsumerStateTable } from "../../pipeline/index.js";
 import { createTestRedis, type TestRedis } from "../../stack/index.js";
 import { waitFor } from "../../testing/index.js";
@@ -85,7 +88,7 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     jobQueryAsSystemResults.push(result);
   });
 
-  r.job("writeAsActor", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+  const writeAsActorJob: JobHandlerFn = async (payload, ctx) => {
     const actor: SessionUser = {
       id: payload["actorId"] as string, // @cast-boundary dynamic-key
       tenantId: ctx.systemUser.tenantId,
@@ -100,7 +103,18 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
       writeAsFailures.push(error instanceof Error ? error.message : String(error));
       throw error;
     }
-  });
+  };
+
+  r.job(
+    "writeAsActor",
+    {
+      trigger: { manual: true },
+      retries: 0,
+      escapeHatch: { reason: "test job acts as a tenant admin to reach a role-gated handler" },
+    },
+    writeAsActorJob,
+  );
+  r.job("writeAsActorNoGrant", { trigger: { manual: true }, retries: 0 }, writeAsActorJob);
 });
 
 const JWT = "job-write-as-test-secret-must-be-32-chars!";
@@ -188,6 +202,74 @@ describe("JobContext.writeAs reaches a role-gated write handler (framework#2585)
       const rows = await notesFor("actor attempt");
       expect(rows).toHaveLength(1);
       expect(rows[0]?.created_by).toBe(ADMIN_USER_ID);
+    } finally {
+      await worker.stop();
+    }
+  });
+});
+
+describe("JobContext.writeAs is gated by the job's identity-switch grant (#3607)", () => {
+  test("without a grant the switch is refused and nothing is written", async () => {
+    writeAsFailures.length = 0;
+    const worker = createWorkerEntrypoint({
+      registry: createRegistry([writeAsProbeFeature]),
+      context: { db: testDb.db, redis: testRedis.redis },
+      jwtSecret: JWT,
+      redisUrl: redisUrl(),
+      queueNamePrefix: uniquePrefix("job-write-as-no-grant"),
+    });
+
+    await worker.start();
+    try {
+      await worker.jobRunner.dispatch("write-as-probe:job:write-as-actor-no-grant", {
+        note: "ungranted attempt",
+        actorId: ADMIN_USER_ID,
+      });
+
+      await waitFor(() => {
+        expect(writeAsFailures.length).toBe(1);
+      });
+      expect(await notesFor("ungranted attempt")).toHaveLength(0);
+    } finally {
+      await worker.stop();
+    }
+  });
+
+  test("with a grant the switch is audited and the event carries the initiating caller", async () => {
+    writeAsOutcomes.length = 0;
+    const auditEvents: EscapeHatchUseEvent[] = [];
+    const initiator = "22222222-2222-4222-8222-222222222222";
+    const worker = createWorkerEntrypoint({
+      registry: createRegistry([writeAsProbeFeature]),
+      context: {
+        db: testDb.db,
+        redis: testRedis.redis,
+        _escapeHatchAuditSink: async (event) => {
+          auditEvents.push(event);
+        },
+      },
+      jwtSecret: JWT,
+      redisUrl: redisUrl(),
+      queueNamePrefix: uniquePrefix("job-write-as-audit"),
+    });
+
+    await worker.start();
+    try {
+      await worker.jobRunner.dispatch(
+        "write-as-probe:job:write-as-actor",
+        { note: "audited attempt", actorId: ADMIN_USER_ID },
+        { triggeredById: initiator },
+      );
+
+      await waitFor(() => {
+        expect(writeAsOutcomes.length).toBe(1);
+      });
+      expect(writeAsOutcomes[0]?.isSuccess).toBe(true);
+      await flushEscapeHatchAudits();
+      const switchEvents = auditEvents.filter((event) => event.kind === "identity-switch");
+      expect(switchEvents).toHaveLength(1);
+      expect(switchEvents[0]?.caller).toBe(initiator);
+      expect(switchEvents[0]?.target?.id).toBe(ADMIN_USER_ID);
     } finally {
       await worker.stop();
     }

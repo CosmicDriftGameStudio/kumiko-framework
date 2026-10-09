@@ -1,5 +1,4 @@
 import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
-import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
 import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../constants.js";
 import {
@@ -75,17 +74,13 @@ export function registerConsumerProtection(
         // user), never from payload data.
         const tenantId = ctx.systemUser.tenantId;
         const currentPeriodEndIso = payload["currentPeriodEndIso"];
-        const result = await ctx.writeAs(
-          createSystemUser(tenantId),
-          SubscriptionFoundationHandlers.issueContractConfirmation,
-          {
-            consentId,
-            sourceAggregateId: isSubscriptionEvent
-              ? subscriptionAggregateId(tenantId)
-              : paymentAggregateId(tenantId),
-            ...(typeof currentPeriodEndIso === "string" && { currentPeriodEndIso }),
-          },
-        );
+        const result = await ctx.write(SubscriptionFoundationHandlers.issueContractConfirmation, {
+          consentId,
+          sourceAggregateId: isSubscriptionEvent
+            ? subscriptionAggregateId(tenantId)
+            : paymentAggregateId(tenantId),
+          ...(typeof currentPeriodEndIso === "string" && { currentPeriodEndIso }),
+        });
         if (!result.isSuccess) {
           throw new Error(
             `billing-foundation:${trigger.jobName}: issue-contract-confirmation failed: ${JSON.stringify(result.error)}`,

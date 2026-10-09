@@ -27,6 +27,7 @@ import {
   type TenantResourceExtensionName,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
+import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   createEscapeHatchReporter,
   UNATTRIBUTED_ACTOR,
@@ -61,6 +62,7 @@ export type DestructionStageCtx = {
   // systemUser.id); runTenantDataHooks uses them to attribute+audit any
   // EXT_TENANT_DATA usage's declared escapeHatch.
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly escapeHatchAuditLog?: Logger;
   readonly actor?: string;
   // Epoch ms the stage must hand back by returning { done: false }.
   readonly deadlineAt: number;
@@ -136,6 +138,7 @@ async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<StageRunOut
       tenantId: ctx.tenantId,
       actor: ctx.actor ?? UNATTRIBUTED_ACTOR,
       sink: ctx.escapeHatchAuditSink,
+      log: ctx.escapeHatchAuditLog ?? createFallbackLogger("tenant-lifecycle"),
     });
     const hookCtx: TenantDataHookCtx = {
       db: createTenantDb(ctx.db, ctx.tenantId, "tenant", undefined, undefined, undefined, {

@@ -2,7 +2,6 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { castTenantRows } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ContentCollectionDefinition,
-  crossTenantOverrideDenied,
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
@@ -36,12 +35,6 @@ export function makeCollectionListQuery(collection: ContentCollectionDefinition)
         : `Lists the tenant-wide entries of the "${collection.id}" content collection (${collection.kind} content) with slug, locale, title and body; every caller who may reach this collection sees the same shared set.`,
     handler: async (query, ctx) => {
       const override = query.payload.tenantIdOverride;
-      const overrideDenied = crossTenantOverrideDenied(
-        query.user,
-        override,
-        "templateResolver.errors.tenantOverrideRequiresSystemAdmin",
-      );
-      if (overrideDenied) throw overrideDenied;
       const tenantId = override ?? query.user.tenantId;
       const rows = castTenantRows<CollectionEntryRow>(
         await selectMany(ctx.db, store.table, {

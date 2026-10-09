@@ -29,7 +29,7 @@ import type {
   EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
 } from "./types/entity-handlers.js";
-import { parseTenantId } from "./types/identifiers.js";
+import { parseTenantId, type TenantId } from "./types/identifiers.js";
 import type {
   AccessRule,
   AgentHandlerHints,
@@ -355,19 +355,18 @@ export function defineEntityWriteHandler(
   const reportsPerTouchedRow = (ctx: HandlerContext): boolean =>
     ctx.systemDb === undefined && crossTenantReason !== undefined && !entity.systemStream;
 
-  // The event stream is keyed by the acting user's tenantId (streamTenantFor in
-  // event-store-executor-context.ts), not by the db handed to the executor — an
-  // unfiltered "system"-mode db alone reads the foreign row but appends to an
-  // empty stream in the operator's own tenant, surfacing as a bogus
-  // version_conflict. Rewriting the acting tenant also keeps PII envelope keys
-  // derived from the row's tenant rather than the operator's.
-  const actingUserFor = async (
+  // The event stream defaults to the acting user's tenant (streamTenantFor in
+  // event-store-executor-context.ts), not the db's — an unfiltered "system"-mode db alone
+  // reads the foreign row but appends to an empty stream in the operator's own tenant,
+  // surfacing as a bogus version_conflict. The row's tenant goes to the executor as
+  // streamTenantId so stream and PII keys follow the row while the actor stays the operator.
+  const foreignRowTenantFor = async (
     user: SessionUser,
     id: unknown,
     db: TenantDb,
     ctx: HandlerContext,
-  ): Promise<SessionUser> => {
-    if (crossTenantReason === undefined || entity.systemStream) return user;
+  ): Promise<TenantId | undefined> => {
+    if (crossTenantReason === undefined || entity.systemStream) return undefined;
     const row = await db.fetchOne<Record<string, unknown>>(table, { id });
     const rowTenantId = row?.["tenantId"];
     if (reportsPerTouchedRow(ctx)) {
@@ -379,8 +378,8 @@ export function defineEntityWriteHandler(
           : undefined,
       );
     }
-    if (typeof rowTenantId !== "string" || rowTenantId === user.tenantId) return user;
-    return { ...user, tenantId: rowTenantId };
+    if (typeof rowTenantId !== "string" || rowTenantId === user.tenantId) return undefined;
+    return parseTenantId(rowTenantId) ?? undefined;
   };
 
   let schema: ZodType;
@@ -422,14 +421,15 @@ export function defineEntityWriteHandler(
           ...submitted,
           changes: dropEmptyWriteOnlyValues(entity, submitted.changes),
         };
-        const user = await actingUserFor(event.user, payload.id, db, ctx);
+        const streamTenantId = await foreignRowTenantFor(event.user, payload.id, db, ctx);
         // skipUnchanged (#464): API-driven updates diff against the stored
         // row so a resubmitted-but-identical field doesn't force a fresh
         // pii/encrypted ciphertext. Direct executor.update() callers (e.g.
         // KEK-rotation, the user-data-rights #494 backfill) don't go through
         // this handler and keep today's always-re-encrypt behavior, which
         // they rely on to intentionally force a fresh event/ciphertext.
-        return executor.update(payload, user, db, {
+        return executor.update(payload, event.user, db, {
+          streamTenantId,
           skipUnchanged: true,
           preSave:
             runPreSave &&
@@ -442,8 +442,8 @@ export function defineEntityWriteHandler(
       handler = async (event, ctx) => {
         const db = dbFor(ctx);
         const payload = event.payload as IdPayload; // @cast-boundary engine-payload
-        const user = await actingUserFor(event.user, payload.id, db, ctx);
-        return executor.delete(payload, user, db);
+        const streamTenantId = await foreignRowTenantFor(event.user, payload.id, db, ctx);
+        return executor.delete(payload, event.user, db, { streamTenantId });
       };
       break;
     case "restore":
@@ -451,8 +451,8 @@ export function defineEntityWriteHandler(
       handler = async (event, ctx) => {
         const db = dbFor(ctx);
         const payload = event.payload as IdPayload; // @cast-boundary engine-payload
-        const user = await actingUserFor(event.user, payload.id, db, ctx);
-        return executor.restore(payload, user, db);
+        const streamTenantId = await foreignRowTenantFor(event.user, payload.id, db, ctx);
+        return executor.restore(payload, event.user, db, { streamTenantId });
       };
       break;
     default:

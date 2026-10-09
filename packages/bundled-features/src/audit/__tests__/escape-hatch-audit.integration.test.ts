@@ -5,6 +5,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { defineFeature, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createTestUser,
   resetEventStore,
@@ -35,6 +36,18 @@ const probeFeature = defineFeature("escape-hatch-audit-sink-probe", (r) => {
   );
 });
 
+const failingProbeFeature = defineFeature("escape-hatch-audit-failing-probe", (r) => {
+  r.writeHandler(
+    "unsafe-raw-then-fail",
+    z.object({}),
+    async (_event, ctx) => {
+      ctx.db.unsafeRaw();
+      return writeFailure(new UnprocessableError("handler_rejected"));
+    },
+    { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },
+  );
+});
+
 let stack: TestStack;
 
 const tenantId = testTenantId(1);
@@ -45,6 +58,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       probeFeature,
+      failingProbeFeature,
       createConfigFeature(),
       createTenantFeature(),
       createUserFeature(),
@@ -103,5 +117,27 @@ describe("createEscapeHatchAuditSink — persists audit:event:escape-hatch-used"
       reason: UNSAFE_RAW_REASON,
       actor: user.id,
     });
+  });
+});
+
+describe("the escape-hatch audit is durable (#3607)", () => {
+  test("the audit entry survives a handler rollback and is persisted when the dispatch returns", async () => {
+    const error = await stack.http.writeErr(
+      "escape-hatch-audit-failing-probe:write:unsafe-raw-then-fail",
+      {},
+      user,
+    );
+    expect(error.code).toBe("unprocessable");
+
+    // No polling: the dispatch has already awaited the audit write.
+    const res = await stack.http.queryOk<AuditResponse>(
+      AuditQueries.list,
+      { eventType: ESCAPE_HATCH_USED_EVENT },
+      adminOfSameTenant,
+    );
+    expect(res.rows).toHaveLength(1);
+    expect(res.rows[0]?.payload["handler"]).toBe(
+      "escape-hatch-audit-failing-probe:write:unsafe-raw-then-fail",
+    );
   });
 });

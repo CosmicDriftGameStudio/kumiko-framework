@@ -190,7 +190,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       tenantId,
       actor: systemUser.id,
       sink: escapeHatchAuditSink,
-      log,
+      log: logError,
     });
     // ctx.db/dbOutsideTransaction are tenant-filtered even for a systemScope handler:
     // the dispatcher closes them off entirely there, so "system" mode would hand this

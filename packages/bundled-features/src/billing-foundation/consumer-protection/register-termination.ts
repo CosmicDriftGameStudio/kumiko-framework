@@ -1,4 +1,4 @@
-import { createSystemUser, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
+import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { SubscriptionCancelTimings, SubscriptionFoundationHandlers } from "../constants.js";
 import {
   CONTRACT_TERMINATION_DECLARED_EVENT_QN,
@@ -59,22 +59,18 @@ export function registerContractTermination(
       const declared = contractTerminationDeclaredPayloadSchema.safeParse(payload);
       // skip: trigger event carries no usable declaration
       if (!declared.success) return;
-      const result = await ctx.writeAs(
-        createSystemUser(ctx.systemUser.tenantId),
-        SubscriptionFoundationHandlers.recordContractTermination,
-        {
-          requestId: declared.data.requestId,
-          declarationType: declared.data.declarationType,
-          terminationKind: declared.data.terminationKind,
-          channel: "public",
-          when:
-            declared.data.declarationType === "withdrawal"
-              ? "none"
-              : SubscriptionCancelTimings.periodEnd,
-          receivedAtIso: declared.data.receivedAtIso,
-          locale: declared.data.locale,
-        },
-      );
+      const result = await ctx.write(SubscriptionFoundationHandlers.recordContractTermination, {
+        requestId: declared.data.requestId,
+        declarationType: declared.data.declarationType,
+        terminationKind: declared.data.terminationKind,
+        channel: "public",
+        when:
+          declared.data.declarationType === "withdrawal"
+            ? "none"
+            : SubscriptionCancelTimings.periodEnd,
+        receivedAtIso: declared.data.receivedAtIso,
+        locale: declared.data.locale,
+      });
       if (!result.isSuccess) {
         throw new Error(
           `billing-foundation:cancel-on-public-termination-declared: record-contract-termination failed: ${JSON.stringify(result.error)}`,

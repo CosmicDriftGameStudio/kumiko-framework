@@ -4,12 +4,7 @@ import {
   SELECTABLE_PROFILE_KEYS,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import {
-  access,
-  crossTenantOverrideDenied,
-  defineWriteHandler,
-  type TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   UnprocessableError,
   validationErrorFromZod,
@@ -63,12 +58,6 @@ export const setProfileWrite = defineWriteHandler({
     "Sets or replaces a tenant's compliance profile key plus an optional JSON override, for onboarding or a later region change; a system admin may target a different tenant through tenantIdOverride.",
   handler: async (event, ctx) => {
     const tenantOverride = event.payload.tenantIdOverride;
-    const overrideDenied = crossTenantOverrideDenied(
-      event.user,
-      tenantOverride,
-      "complianceProfiles.errors.tenantOverrideRequiresSystemAdmin",
-    );
-    if (overrideDenied) return writeFailure(overrideDenied);
     const tenantId = (tenantOverride ?? event.user.tenantId) as TenantId; // @cast-boundary engine-payload
     const executorUser = tenantOverride !== undefined ? { ...event.user, tenantId } : event.user;
 
