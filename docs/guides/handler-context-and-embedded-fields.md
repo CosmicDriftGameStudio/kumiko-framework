@@ -83,8 +83,10 @@ another tenant's rows.
 explicit instead of optional convention. It is populated whenever
 `r.systemScope()` is set on the calling feature; check for `undefined` before
 use, since a handler on a tenant-scoped feature never receives it. It offers
-three methods, all returning the same `TenantDb` that `ctx.db` would give you
-so the query calls after them are unchanged:
+four methods. `assertTenantMatch` and `acknowledgeCrossTenant` return the same
+`TenantDb` that `ctx.db` would give you, so the query calls after them are
+unchanged; `assertRowsTenant` returns the rows it checked, and `unsafeRaw`
+returns a raw runner:
 
 - **`assertTenantMatch(tenantId)`** — throws `AccessDeniedError` unless
   `tenantId` is exactly the caller's own tenant, then returns the checked
@@ -101,6 +103,11 @@ so the query calls after them are unchanged:
   handlers that are cross-tenant by design (a `SystemAdmin` action, a
   platform-wide job). `reason` must be non-empty; it throws otherwise. Treat
   the reason as documentation for the next reader, not decoration.
+- **`unsafeRaw(reason)`**: a raw query runner past the tenant filter, for SQL
+  the `TenantDb` API cannot express. `reason` must be non-empty, and the
+  calling handler or job must declare `escapeHatch: { reason: "..." }`;
+  without it the call throws `AccessDeniedError`. The declared reason is what
+  lands in the audit trail.
 
 `ctx.systemDb.outsideTransaction` mirrors `assertTenantMatch`/
 `acknowledgeCrossTenant` above with the same self-checks, but hands back
@@ -146,10 +153,8 @@ Both `ctx.db` and `ctx.dbOutsideTransaction` are fail-closed on a
 guarded `ctx.systemDb` accessor to use instead. System-scoped **jobs** are
 narrower — `JobContext` has no `dbOutsideTransaction` at all, so
 `ctx.systemDb.outsideTransaction` there throws its own "not configured"
-error; jobs only get the top-level `ctx.systemDb` self-checks. Framework
-issue #2056 tracks migrating the bundled features onto `ctx.systemDb`
-throughout; treat it as the required entry point for any new or touched
-`r.systemScope()` handler.
+error; jobs only get the top-level `ctx.systemDb` self-checks. Treat `ctx.systemDb`
+as the required entry point for any new or touched `r.systemScope()` handler.
 
 ## Model repeated structure as an embedded list
 
