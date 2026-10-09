@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { defineFeature } from "../../define-feature.js";
+import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../../escape-hatch-reason.js";
 import { createEntity, createTextField } from "../../factories.js";
 import { from } from "../../ownership.js";
 import { buildInsertSchema, buildUpdateSchema } from "../../schema-builder.js";
@@ -171,6 +172,19 @@ describe("validateAccessDeclarations", () => {
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:list"/);
+  });
+
+  test("query handler escapeHatch with the unedited codemod placeholder throws", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.queryHandler("note:list", z.object({}), async () => [], {
+        access: { roles: ["Admin"] },
+        escapeHatch: {
+          reason: `note:list reads note rows across every tenant (${CODEMOD_PLACEHOLDER_REASON_MARKER})`,
+        },
+      });
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/replace the codemod placeholder/);
   });
 
   test("query handler escapeHatch with a non-empty reason boots fine", () => {

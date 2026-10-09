@@ -153,15 +153,15 @@ declared one. A hook without its own `escapeHatch` gets an `access_denied`
 from `unsafeRaw`, even though `ctx.systemDb` is present and
 `acknowledgeCrossTenant`'s typed CRUD surface still works unconditionally.
 
-`crossTenant: true` on the entity-convention handlers is deprecated: it still
-works, but boot now logs a `deprecation:entity-handler-cross-tenant` warning
-per handler, and its use is audited the same way as `escapeHatch` (also
-`acknowledge-cross-tenant`). It is scheduled for removal in a later breaking
-release. Migrate with
+`escapeHatch: { reason }` on an entity-convention write handler (`defineEntityWriteHandler`
+and the create/update/delete/restore factories) requires SystemAdmin-only `access`
+(`{ roles: ["SystemAdmin"] }`); a looser rule throws at definition time. List and detail
+handlers keep `access` as the only gate. The former `crossTenant: true` option is removed;
+consumers migrate with
 `bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/migrate-cross-tenant.ts`
-(from a consumer repo), which
-rewrites the call shapes it can derive a handler name and verb from and lists
-the rest for manual review.
+(from a consumer repo), which rewrites the call shapes it can derive a handler name and verb
+from and lists the rest for manual review. The codemod's reason contains a placeholder that
+must be replaced with the real operator use case; a reason that still carries it is rejected.
 
 ## Postgres RLS
 

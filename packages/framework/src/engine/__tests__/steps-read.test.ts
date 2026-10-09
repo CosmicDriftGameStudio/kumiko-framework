@@ -50,6 +50,56 @@ const grantedCtx = {
   scope: {},
 } as unknown as PipelineCtx;
 
+describe("foreign where.tenantId narrowing warning", () => {
+  const warnMock = mock((_msg: string, _data?: Record<string, unknown>) => {});
+  const log = {
+    info() {},
+    debug() {},
+    warn: warnMock,
+    error() {},
+    child() {
+      return log;
+    },
+  };
+  const loggingCtx = { ...mockCtx, log } as unknown as PipelineCtx;
+
+  beforeEach(() => {
+    mock.clearAllMocks();
+    unsafeMock.mockResolvedValue([]);
+  });
+
+  it.each(["read.findOne", "read.findMany"])(
+    "%s warns once, pointing at unsafeAllTenants, and still narrows",
+    async (kind) => {
+      await getStep(kind)!.run(
+        { name: "lookup", table: testTable, where: { tenantId: "someone-else" } },
+        loggingCtx,
+      );
+
+      expect(warnMock).toHaveBeenCalledTimes(1);
+      const [message, data] = warnMock.mock.calls[0]!;
+      expect(message).toContain("narrowed");
+      expect(data?.["hint"]).toContain("unsafeAllTenants");
+      const [, params] = unsafeMock.mock.calls[0]!;
+      expect(params).toEqual([ownTenantId, SYSTEM_TENANT_ID]);
+    },
+  );
+
+  it.each(["read.findOne", "read.findMany"])(
+    "%s stays silent for own tenant, SYSTEM_TENANT_ID and no tenant filter",
+    async (kind) => {
+      for (const where of [
+        { tenantId: ownTenantId },
+        { tenantId: [ownTenantId, SYSTEM_TENANT_ID] },
+        { id: "x" },
+      ]) {
+        await getStep(kind)!.run({ name: "lookup", table: testTable, where }, loggingCtx);
+      }
+      expect(warnMock).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe("buildReadFindOneStep", () => {
   it("returns a StepInstance with kind read.findOne", () => {
     const step = buildReadFindOneStep("myLookup", {

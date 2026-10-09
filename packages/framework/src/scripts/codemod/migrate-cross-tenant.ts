@@ -15,6 +15,7 @@ import {
   type PropertyAssignment,
   SyntaxKind,
 } from "ts-morph";
+import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../../engine/escape-hatch-reason.js";
 import { collectSourceFiles } from "./collect-source-files.js";
 
 export interface Rewrite {
@@ -151,7 +152,7 @@ function deriveBestEffortHandlerName(assignment: PropertyAssignment): string | u
 
 function buildEscapeHatchReason(target: AutoRewriteTarget): string {
   const verbKind = READ_VERBS.has(target.verb) ? "reads" : "writes";
-  return `${target.handlerName} ${verbKind} ${target.entityName} rows across every tenant (migrated from crossTenant: true; state the operator use case here)`;
+  return `${target.handlerName} ${verbKind} ${target.entityName} rows across every tenant (migrated from crossTenant: true; ${CODEMOD_PLACEHOLDER_REASON_MARKER})`;
 }
 
 export function migrateCrossTenantSource(

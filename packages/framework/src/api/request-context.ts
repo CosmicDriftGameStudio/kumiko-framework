@@ -84,6 +84,12 @@ export const requestContext = {
   },
 };
 
+// Public view: `run` would let a caller replace the request scope (entryHandler,
+// writeOrigin), so only the read side is exposed through the /api barrel.
+export const readonlyRequestContext: Pick<typeof requestContext, "get"> = {
+  get: requestContext.get,
+};
+
 // Enter a scope that attributes every event written inside it. Keeps the
 // surrounding request's ids so correlation survives, and mints fresh ones
 // when there is no surrounding request (job-runner, event-dispatcher) —

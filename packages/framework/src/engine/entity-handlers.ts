@@ -17,6 +17,7 @@ import {
 import { isSystemIdentity } from "../pipeline/system-identity-switch.js";
 import { assertUnreachable } from "../utils/index.js";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.js";
+import { codemodPlaceholderReasonProblem } from "./escape-hatch-reason.js";
 import { dropEmptyWriteOnlyValues } from "./field-access.js";
 import { instructionFieldNames } from "./instruction-fields.js";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder.js";
@@ -120,31 +121,35 @@ type ListPayload = {
 
 const idSchema = z.object({ id: z.uuid() });
 
-// Keyed by handler function: the registrar rebuilds the def object but keeps the function reference.
-const deprecatedCrossTenantHandlers = new WeakSet<object>();
+const SYSTEM_ADMIN_ROLE = "SystemAdmin";
 
-export function isDeprecatedCrossTenantHandler(handler: object): boolean {
-  return deprecatedCrossTenantHandlers.has(handler);
+// A write handler with escapeHatch reads/writes rows of every tenant, so only an operator
+// role may reach it — otherwise any tenant-level role holder could mutate foreign tenants.
+function isSystemAdminOnly(access: AccessRule): boolean {
+  return (
+    "roles" in access &&
+    access.roles.length > 0 &&
+    access.roles.every((role) => role === SYSTEM_ADMIN_ROLE)
+  );
 }
 
-export const DEPRECATED_CROSS_TENANT_SIGNAL = "deprecation:entity-handler-cross-tenant";
-
-function resolveCrossTenantReason(name: string, options: EntityHandlerOptions): string | undefined {
-  if (options.escapeHatch !== undefined && options.crossTenant === true) {
+function resolveCrossTenantReason(
+  name: string,
+  options: EntityHandlerOptions,
+  kind: "write" | "query",
+): string | undefined {
+  if (options.escapeHatch === undefined) return undefined;
+  if (options.escapeHatch.reason.trim().length === 0) {
+    throw new Error(`"${name}": escapeHatch requires a non-empty reason.`);
+  }
+  const placeholderProblem = codemodPlaceholderReasonProblem(options.escapeHatch.reason);
+  if (placeholderProblem !== undefined) throw new Error(`"${name}": ${placeholderProblem}`);
+  if (kind === "write" && !isSystemAdminOnly(options.access)) {
     throw new Error(
-      `"${name}": declare either escapeHatch or the deprecated crossTenant, not both.`,
+      `"${name}": a write handler with escapeHatch reaches across every tenant, so its access must be SystemAdmin-only ({ roles: ["${SYSTEM_ADMIN_ROLE}"] }); got ${JSON.stringify(options.access)}.`,
     );
   }
-  if (options.escapeHatch !== undefined) {
-    if (options.escapeHatch.reason.trim().length === 0) {
-      throw new Error(`"${name}": escapeHatch requires a non-empty reason.`);
-    }
-    return options.escapeHatch.reason;
-  }
-  if (options.crossTenant === true) {
-    return `deprecated crossTenant: true on entity convention handler ${name}`;
-  }
-  return undefined;
+  return options.escapeHatch.reason;
 }
 
 // Upper bound on entity-list `limit`: unbounded/fractional values ran
@@ -324,10 +329,10 @@ export function defineEntityWriteHandler(
   // behavior-preserving: ctx.db was already an unfiltered "system"-mode
   // TenantDb for these handlers before the ctx.db cutover.
   //
-  // crossTenantReason (escapeHatch or the deprecated crossTenant) mirrors the
+  // crossTenantReason (escapeHatch) mirrors the
   // query-handler branch below: this ONE write handler reads/writes across
   // every tenant without making the whole feature r.systemScope().
-  const crossTenantReason = resolveCrossTenantReason(name, options);
+  const crossTenantReason = resolveCrossTenantReason(name, options, "write");
 
   // create always writes into the acting user's own tenant, so its FK,
   // unique and preSave lookups must stay tenant-filtered even when the
@@ -454,8 +459,6 @@ export function defineEntityWriteHandler(
       assertUnreachable(verb, "write verb");
   }
 
-  if (options.crossTenant === true) deprecatedCrossTenantHandlers.add(handler);
-
   // escapeHatch stays off the def: WriteHandlerDef.escapeHatch also grants unsafeRaw, global writes, identity switches.
   return {
     name,
@@ -509,14 +512,14 @@ export function defineEntityQueryHandler(
   // useReferenceLookup stays as a fallback (for apps that write custom
   // handlers by hand without this wrapper).
   const hasRefFields = collectReferenceFields(entity).length > 0;
-  const crossTenantReason = resolveCrossTenantReason(name, options);
+  const crossTenantReason = resolveCrossTenantReason(name, options, "query");
 
   // Preference order:
   //  1. ctx.systemDb — the feature declared r.systemScope() (whole-feature
   //     cutover, dispatch-shared.ts), so ctx.db is fail-closed. This is
   //     behavior-preserving: ctx.db was already an unfiltered "system"-mode
   //     TenantDb for these handlers before that cutover.
-  //  2. crossTenantReason (escapeHatch or the deprecated crossTenant) — this
+  //  2. crossTenantReason (escapeHatch) — this
   //     ONE handler reads across every tenant (e.g. a SystemAdmin-only
   //     operator inspector) without making the whole feature r.systemScope()
   //     — that would drop tenant isolation from every OTHER handler the
@@ -597,8 +600,6 @@ export function defineEntityQueryHandler(
     default:
       assertUnreachable(verb, "query verb");
   }
-
-  if (options.crossTenant === true) deprecatedCrossTenantHandlers.add(handler);
 
   // escapeHatch stays off the def: QueryHandlerDef.escapeHatch also grants unsafeRaw and identity switches.
   return {
@@ -728,10 +729,17 @@ export function defineProjectionQueryHandler(
   projectionQualifiedName: string,
   options: {
     access: AccessRule;
-    unsafeAllTenants?: boolean;
+    // The object form doubles as the handler's escapeHatch declaration (grant + audit reason);
+    // an explicit `escapeHatch` option wins when both are given.
+    unsafeAllTenants?: boolean | { readonly reason: string };
     escapeHatch?: EscapeHatchDeclaration;
   },
 ): QueryHandlerDef {
+  const escapeHatch: EscapeHatchDeclaration | undefined =
+    options.escapeHatch ??
+    (typeof options.unsafeAllTenants === "object"
+      ? { reason: options.unsafeAllTenants.reason }
+      : undefined);
   return {
     name,
     schema: z.object({}),
@@ -745,7 +753,7 @@ export function defineProjectionQueryHandler(
         options.unsafeAllTenants ? { unsafeAllTenants: true } : undefined,
       ), // @wrapper-known semantic-alias
     access: options.access,
-    ...(options.escapeHatch && { escapeHatch: options.escapeHatch }),
+    ...(escapeHatch && { escapeHatch }),
   };
 }
 

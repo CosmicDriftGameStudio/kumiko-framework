@@ -184,19 +184,21 @@ type GatedProjectionReaderSource = {
 // Same idea, for ctx.queryProjection — a single function rather than a pair.
 const ungatedProjectionReaderByGated = new WeakMap<ProjectionReader, GatedProjectionReaderSource>();
 
-// ctx.queryProjection's gate: only { unsafeAllTenants: true } is grant-checked —
-// a plain call always passes through, tenant-scoped by the projection's own table.
+// ctx.queryProjection's gate: only { unsafeAllTenants: true } on a projection with a
+// tenant column is grant-checked — a plain call always passes through, tenant-scoped
+// by the projection's own table, and the flag is a no-op on a tenant-less one.
 export function createGatedProjectionReader(
   callerLabel: string,
   hasGrant: boolean,
   ungated: ProjectionReader,
   audit?: IdentitySwitchAudit,
+  projectionHasTenantColumn: (qualifiedName: string) => boolean = () => true,
 ): ProjectionReader {
   const gated = async <T = Record<string, unknown>>(
     qualifiedName: string,
     options?: { readonly unsafeAllTenants?: boolean },
   ): Promise<readonly T[]> => {
-    if (options?.unsafeAllTenants === true) {
+    if (options?.unsafeAllTenants === true && projectionHasTenantColumn(qualifiedName)) {
       if (!hasGrant) throw unsafeAllTenantsDenied(callerLabel);
       if (audit?.reason !== undefined) {
         audit.report("unsafe-all-tenants", audit.reason);

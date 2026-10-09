@@ -16,7 +16,12 @@ import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { insertOne } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  defineProjectionQueryHandler,
+} from "../../engine/index.js";
 import type { EscapeHatchUseEvent, ProjectionTable } from "../../engine/types/index.js";
 import {
   resetEventStore,
@@ -58,6 +63,7 @@ const entityMetaWidgetTable = defineUnmanagedTable({
 });
 
 const UNSAFE_ALL_TENANTS_REASON = "fw#2913 test — cross-tenant widget sweep";
+const OBJECT_FORM_REASON = "object-form unsafeAllTenants test — cross-tenant widget sweep";
 
 const qpFeature = defineFeature("qp", (r) => {
   r.entity("qp-widget", widgetEntity);
@@ -155,6 +161,13 @@ const qpFeature = defineFeature("qp", (r) => {
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       escapeHatch: { reason: UNSAFE_ALL_TENANTS_REASON },
     },
+  );
+
+  r.queryHandler(
+    defineProjectionQueryHandler("widget:list-object-form", "qp:projection:widget-count-tenant", {
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      unsafeAllTenants: { reason: OBJECT_FORM_REASON },
+    }),
   );
 
   r.queryHandler(
@@ -273,13 +286,25 @@ describe("ctx.queryProjection", () => {
     await stack.http.writeOk("qp:write:widget:create", { name: "BB" }, otherTenantAdmin);
 
     const err = await stack.http.queryErr(
-      "qp:query:widget:list-system",
+      "qp:query:widget:list-tenant-untyped-payload",
       { unsafeAllTenants: true },
       admin,
     );
     expect(err.httpStatus).toBe(403);
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("unsafe_all_tenants_denied");
+  });
+
+  test("unsafeAllTenants=true on a tenant-less projection needs no grant (flag is a no-op)", async () => {
+    await stack.http.writeOk("qp:write:widget:create", { name: "AA" }, admin);
+    await stack.http.writeOk("qp:write:widget:create", { name: "BB" }, otherTenantAdmin);
+
+    const rows = await stack.http.queryOk<Array<{ label: string }>>(
+      "qp:query:widget:list-system",
+      { unsafeAllTenants: true },
+      admin,
+    );
+    expect(rows.map((r) => r.label).sort()).toEqual(["AA", "BB"]);
   });
 
   test("unknown projection name throws with a helpful error", async () => {
@@ -310,6 +335,21 @@ describe("ctx.queryProjection", () => {
         actor: admin.id,
       },
     ]);
+  });
+
+  test("defineProjectionQueryHandler unsafeAllTenants: { reason } grants the read and audits that reason", async () => {
+    await stack.http.writeOk("qp:write:widget:create", { name: "AA" }, admin);
+    await stack.http.writeOk("qp:write:widget:create", { name: "BB" }, otherTenantAdmin);
+
+    const rows = await stack.http.queryOk<Array<{ label: string }>>(
+      "qp:query:widget:list-object-form",
+      {},
+      admin,
+    );
+    expect(rows.map((r) => r.label).sort()).toEqual(["AA", "BB"]);
+    expect(
+      escapeHatchEvents.filter((e) => e.kind === "unsafe-all-tenants").map((e) => e.reason),
+    ).toEqual([OBJECT_FORM_REASON]);
   });
 
   test("r.systemScope() grants unsafeAllTenants=true without a declared escapeHatch", async () => {

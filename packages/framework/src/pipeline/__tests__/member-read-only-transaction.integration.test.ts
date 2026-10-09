@@ -4,7 +4,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DbTx } from "../../db/connection.js";
 import { asRawClient } from "../../db/query.js";
-import { AccessDeniedError } from "../../errors/index.js";
+import { AccessDeniedError, MemberReadTimeoutError } from "../../errors/index.js";
 import { createTestDb, type TestDb } from "../../stack/index.js";
 import type { DispatchContext } from "../dispatch-shared.js";
 import { runInMemberReadOnlyTransaction } from "../member-read-only-transaction.js";
@@ -22,9 +22,9 @@ afterAll(async () => {
   await testDb.cleanup();
 });
 
-const dispatchContext = (): DispatchContext =>
-  // @cast-boundary test-fixture — the read-only runner only reads appContext.db from the dispatch context
-  ({ appContext: { db: testDb.db } }) as unknown as DispatchContext;
+const dispatchContext = (memberReadTimeoutMs = 10_000): DispatchContext =>
+  // @cast-boundary test-fixture — the read-only runner only reads appContext.db and memberReadTimeoutMs from the dispatch context
+  ({ appContext: { db: testDb.db }, memberReadTimeoutMs }) as unknown as DispatchContext;
 
 describe("runInMemberReadOnlyTransaction", () => {
   test("pool path returns the callback value, undefined included", async () => {
@@ -55,5 +55,32 @@ describe("runInMemberReadOnlyTransaction", () => {
     });
     const rows = await asRawClient(testDb.db).unsafe("SELECT id FROM member_ro_probe");
     expect(rows.length).toBe(1);
+  });
+
+  test("pool path: a read past the statement timeout fails with member_read_timeout", async () => {
+    const attempt = runInMemberReadOnlyTransaction(dispatchContext(50), undefined, async (tx) => {
+      await asRawClient(tx).unsafe("SELECT pg_sleep(2)");
+    });
+    await expect(attempt).rejects.toBeInstanceOf(MemberReadTimeoutError);
+    await expect(attempt).rejects.toMatchObject({ code: "member_read_timeout" });
+  });
+
+  test("outer-tx path: a read past the statement timeout fails with member_read_timeout", async () => {
+    const attempt = testDb.db.begin(async (outer: DbTx) =>
+      runInMemberReadOnlyTransaction(dispatchContext(50), outer, async (tx) => {
+        await asRawClient(tx).unsafe("SELECT pg_sleep(2)");
+      }),
+    );
+    await expect(attempt).rejects.toBeInstanceOf(MemberReadTimeoutError);
+  });
+
+  test("the timeout settings do not leak: a later statement in the outer tx is not time-limited", async () => {
+    await testDb.db.begin(async (outer: DbTx) => {
+      await runInMemberReadOnlyTransaction(dispatchContext(50), outer, async () => 1);
+      const rows = await asRawClient(outer).unsafe<{ setting: string }>(
+        "SELECT current_setting('statement_timeout') AS setting",
+      );
+      expect(rows[0]?.setting).not.toBe("50ms");
+    });
   });
 });

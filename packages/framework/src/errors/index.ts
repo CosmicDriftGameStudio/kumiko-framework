@@ -16,6 +16,7 @@ export {
   FeatureDisabledError,
   IdempotentReplayError,
   InternalError,
+  MemberReadTimeoutError,
   NotFoundError,
   PreconditionFailedError,
   RateLimitError,

@@ -16,13 +16,11 @@ export type EntityHandlerOptions = {
    *  otherwise tenant-scoped entity. Every use reports an
    *  `acknowledge-cross-tenant` escape-hatch audit event. On write handlers
    *  update/delete/restore address the target row's own tenant stream.
-   *  `access` stays the only caller gate. Unlike `escapeHatch` on a
+   *  `access` stays the only caller gate, except that a write handler's
+   *  `access` must be SystemAdmin-only. Unlike `escapeHatch` on a
    *  hand-written handler this does NOT grant `ctx.db.unsafeRaw`,
    *  `db.global()` writes or identity switches. */
   readonly escapeHatch?: EscapeHatchDeclaration;
-  /** @deprecated Use `escapeHatch: { reason }` — removed in a future release;
-   *  run `scripts/codemod/migrate-cross-tenant.ts`. */
-  readonly crossTenant?: boolean;
 };
 
 /** Options for the generic create/update handlers. */

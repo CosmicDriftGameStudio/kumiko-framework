@@ -1,4 +1,5 @@
 import { escapeHatchGrantsProblem, isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
+import { codemodPlaceholderReasonProblem } from "../escape-hatch-reason.js";
 import {
   accessAllowsAnonymous,
   declaredPersonalData,
@@ -98,6 +99,12 @@ function validateEscapeHatchReason(
           `{ escapeHatch: { reason: "" } } — the reason must be a non-empty string ` +
           "explaining why this handler needs db.global() write access, a SYSTEM identity switch " +
           "or a cross-tenant ctx.queryProjection({ unsafeAllTenants: true }) read.",
+      );
+    }
+    const placeholderProblem = codemodPlaceholderReasonProblem(escapeHatch.reason);
+    if (placeholderProblem !== undefined) {
+      throw new Error(
+        `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${placeholderProblem}`,
       );
     }
   }

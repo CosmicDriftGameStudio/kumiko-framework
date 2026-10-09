@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
   defineEntityListHandler,
   defineEntityUpdateHandler,
-  isDeprecatedCrossTenantHandler,
 } from "../entity-handlers.js";
+import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../escape-hatch-reason.js";
 import { createEntity, createTextField } from "../factories.js";
 
 const thingEntity = createEntity({
@@ -16,16 +18,6 @@ const thingEntity = createEntity({
 const sysadminAccess = { access: { roles: ["SystemAdmin"] } } as const;
 
 describe("entity convention handlers: escapeHatch option", () => {
-  test("throws when both escapeHatch and the deprecated crossTenant are set", () => {
-    expect(() =>
-      defineEntityUpdateHandler("thing", thingEntity, {
-        ...sysadminAccess,
-        escapeHatch: { reason: "operator write" },
-        crossTenant: true,
-      }),
-    ).toThrow(/declare either escapeHatch or the deprecated crossTenant, not both/);
-  });
-
   test("throws when escapeHatch.reason is empty", () => {
     expect(() =>
       defineEntityUpdateHandler("thing", thingEntity, {
@@ -60,32 +52,75 @@ describe("entity convention handlers: escapeHatch option", () => {
     expect("escapeHatch" in def).toBe(false);
   });
 
-  test("WriteHandlerDef from a legacy crossTenant handler also carries no escapeHatch field", () => {
-    const def = defineEntityUpdateHandler("thing", thingEntity, {
-      ...sysadminAccess,
-      crossTenant: true,
-    });
-    expect("escapeHatch" in def).toBe(false);
+  test("a write handler with escapeHatch and non-SystemAdmin roles throws at definition", () => {
+    expect(() =>
+      defineEntityUpdateHandler("thing", thingEntity, {
+        access: { roles: ["Admin"] },
+        escapeHatch: { reason: "operator cross-tenant write" },
+      }),
+    ).toThrow(/SystemAdmin-only/);
+    expect(() =>
+      defineEntityUpdateHandler("thing", thingEntity, {
+        access: { roles: ["SystemAdmin", "Admin"] },
+        escapeHatch: { reason: "operator cross-tenant write" },
+      }),
+    ).toThrow(/SystemAdmin-only/);
   });
 
-  test("isDeprecatedCrossTenantHandler is true only for handlers built with crossTenant: true", () => {
-    const legacyWrite = defineEntityUpdateHandler("thing", thingEntity, {
-      ...sysadminAccess,
-      crossTenant: true,
-    });
-    const escapeHatchWrite = defineEntityUpdateHandler("thing", thingEntity, {
-      ...sysadminAccess,
-      escapeHatch: { reason: "operator cross-tenant write" },
-    });
-    const plainWrite = defineEntityUpdateHandler("thing", thingEntity, sysadminAccess);
-    const legacyList = defineEntityListHandler("thing", thingEntity, {
-      ...sysadminAccess,
-      crossTenant: true,
-    });
+  test("a write handler with escapeHatch and openToAll access throws at definition", () => {
+    expect(() =>
+      defineEntityUpdateHandler("thing", thingEntity, {
+        access: { openToAll: { reason: "any signed-in user" } },
+        escapeHatch: { reason: "operator cross-tenant write" },
+      }),
+    ).toThrow(/SystemAdmin-only/);
+  });
 
-    expect(isDeprecatedCrossTenantHandler(legacyWrite.handler)).toBe(true);
-    expect(isDeprecatedCrossTenantHandler(legacyList.handler)).toBe(true);
-    expect(isDeprecatedCrossTenantHandler(escapeHatchWrite.handler)).toBe(false);
-    expect(isDeprecatedCrossTenantHandler(plainWrite.handler)).toBe(false);
+  test("the SystemAdmin-only rule covers every write verb factory", () => {
+    const options = {
+      access: { roles: ["Admin"] },
+      escapeHatch: { reason: "operator cross-tenant write" },
+    } as const;
+    for (const define of [
+      defineEntityCreateHandler,
+      defineEntityUpdateHandler,
+      defineEntityDeleteHandler,
+    ]) {
+      expect(() => define("thing", thingEntity, options)).toThrow(/SystemAdmin-only/);
+    }
+  });
+
+  test("a write handler with escapeHatch and SystemAdmin-only roles is accepted", () => {
+    expect(() =>
+      defineEntityUpdateHandler("thing", thingEntity, {
+        access: { roles: ["SystemAdmin"] },
+        escapeHatch: { reason: "operator cross-tenant write" },
+      }),
+    ).not.toThrow();
+  });
+
+  test("a list handler with escapeHatch keeps non-SystemAdmin access", () => {
+    expect(() =>
+      defineEntityListHandler("thing", thingEntity, {
+        access: { roles: ["Admin"] },
+        escapeHatch: { reason: "tenant admin cross-tenant list" },
+      }),
+    ).not.toThrow();
+  });
+
+  test("an escapeHatch reason still carrying the codemod placeholder is rejected", () => {
+    const unedited = `thing:update writes thing rows across every tenant (migrated from crossTenant: true; ${CODEMOD_PLACEHOLDER_REASON_MARKER})`;
+    expect(() =>
+      defineEntityUpdateHandler("thing", thingEntity, {
+        ...sysadminAccess,
+        escapeHatch: { reason: unedited },
+      }),
+    ).toThrow(/replace the codemod placeholder/);
+    expect(() =>
+      defineEntityListHandler("thing", thingEntity, {
+        ...sysadminAccess,
+        escapeHatch: { reason: unedited },
+      }),
+    ).toThrow(/replace the codemod placeholder/);
   });
 });

@@ -5,7 +5,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import type { SchemaTable } from "@cosmicdrift/kumiko-framework/db";
 import { asRawClient, entityTableFromRegistry, selectMany } from "@cosmicdrift/kumiko-framework/db";
-import type { HandlerContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  EntityId,
+  HandlerContext,
+  SessionUser,
+  TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntity,
   createTextField,
@@ -105,6 +110,11 @@ const TRIES_WRITE_QN = "queryasmemberprobe:query:tries-write";
 const TRIES_APPEND_EVENT_QN = "queryasmemberprobe:query:tries-append-event";
 const TRIES_FETCH_FOR_WRITING_QN = "queryasmemberprobe:query:tries-fetch-for-writing";
 const TRIES_JOB_RUNNER_QN = "queryasmemberprobe:query:tries-job-runner";
+const PROBE_ENTITY_ID = crypto.randomUUID() as EntityId;
+const TRIES_SEARCH_REMOVE_QN = "queryasmemberprobe:query:tries-search-remove";
+const TRIES_REDIS_WRITE_QN = "queryasmemberprobe:query:tries-redis-write";
+const TRIES_CACHE_WRITE_QN = "queryasmemberprobe:query:tries-cache-write";
+const READS_SEARCH_REDIS_CACHE_QN = "queryasmemberprobe:query:reads-search-redis-cache";
 const TRIES_DB_WRITE_QN = "queryasmemberprobe:query:tries-db-write";
 const TRIES_UNSAFE_RAW_WRITE_QN = "queryasmemberprobe:query:tries-unsafe-raw-write";
 const TRIES_READ_WRITE_RESET_QN = "queryasmemberprobe:query:tries-read-write-reset";
@@ -187,6 +197,45 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
       if (!jobRunner) return { ran: false };
       await jobRunner.dispatch("queryasmemberprobe:job:noop", {});
       return { ran: true };
+    },
+    { access: { roles: ["Admin", "User"] } },
+  );
+
+  r.queryHandler(
+    "tries-search-remove",
+    z.object({}),
+    async (query, ctx) => {
+      await ctx.searchAdapter?.remove(query.user.tenantId, "note", PROBE_ENTITY_ID);
+      return { ok: true };
+    },
+    { access: { roles: ["Admin", "User"] } },
+  );
+  r.queryHandler(
+    "tries-redis-write",
+    z.object({}),
+    async (_query, ctx) => {
+      await ctx.redis?.set("queryasmemberprobe:tampered", "1");
+      return { ok: true };
+    },
+    { access: { roles: ["Admin", "User"] } },
+  );
+  r.queryHandler(
+    "tries-cache-write",
+    z.object({}),
+    async (query, ctx) => {
+      await ctx.entityCache?.del(query.user.tenantId, "note", PROBE_ENTITY_ID);
+      return { ok: true };
+    },
+    { access: { roles: ["Admin", "User"] } },
+  );
+  r.queryHandler(
+    "reads-search-redis-cache",
+    z.object({}),
+    async (query, ctx) => {
+      const hits = await ctx.searchAdapter?.search(query.user.tenantId, "anything");
+      const redisValue = await ctx.redis?.get("queryasmemberprobe:absent");
+      const cached = await ctx.entityCache?.get(query.user.tenantId, "note", PROBE_ENTITY_ID);
+      return { hits: hits?.length ?? -1, redisValue: redisValue ?? null, cached: cached ?? null };
     },
     { access: { roles: ["Admin", "User"] } },
   );
@@ -894,6 +943,32 @@ describe("ctx.queryAsMember — the resolved principal is read-only (no writeAsM
     const err = await readAsMemberErr(userId, TRIES_JOB_RUNNER_QN);
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("member_resolution_read_only");
+  });
+
+  test.each([
+    ["searchAdapter.remove", TRIES_SEARCH_REMOVE_QN],
+    ["redis.set", TRIES_REDIS_WRITE_QN],
+    ["entityCache.del", TRIES_CACHE_WRITE_QN],
+  ])(
+    "target query handler calling write surface %s → denied with member_resolution_read_only",
+    async (_label, qn) => {
+      await createTenant(TENANT_A);
+      const userId = await createUser(`triesSurface-${_label}@example.com`, "pw-long-enough-15");
+      await addMembership(userId, TENANT_A);
+
+      const err = await readAsMemberErr(userId, qn);
+      expect(err.code).toBe("access_denied");
+      expect(errorReason(err.details)).toBe("member_resolution_read_only");
+    },
+  );
+
+  test("target query handler can still use searchAdapter.search, redis.get and entityCache.get", async () => {
+    await createTenant(TENANT_A);
+    const userId = await createUser("readsSurfaces@example.com", "pw-long-enough-15");
+    await addMembership(userId, TENANT_A);
+
+    const result = await readAsMember(userId, READS_SEARCH_REDIS_CACHE_QN);
+    expect(result).toMatchObject({ hits: 0, redisValue: null, cached: null });
   });
 
   test("target query handler calling ctx.fetchForWriting(...).appendOne → denied with member_resolution_read_only", async () => {

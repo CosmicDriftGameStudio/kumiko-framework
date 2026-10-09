@@ -3,12 +3,11 @@
 // a soft-deleted row belonging to another tenant and got the decrypted row back
 // in the response. delete() never had that hole (it goes through the
 // tenant-scoped loadById). These tests pin both halves: the tenant-scoped
-// handler must not reach across, and the crossTenant/escapeHatch handlers
-// must still be able to.
+// handler must not reach across, and the escapeHatch handler must still be
+// able to.
 //
-// Three stacks on the SAME Postgres database: one registers the restore
-// handler without `crossTenant`/`escapeHatch`, one with the deprecated
-// `crossTenant: true`, one with `escapeHatch: { reason }`.
+// Two stacks on the SAME Postgres database: one registers the restore
+// handler without `escapeHatch`, one with `escapeHatch: { reason }`.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "../../db/query.js";
@@ -42,7 +41,7 @@ const thingTable = buildEntityTable("thing", thingEntity);
 
 const ESCAPE_HATCH_REASON = "fw#2915 integration test — operator restores a foreign tenant's row";
 
-function buildFeature(crossTenant: boolean, escapeHatch?: boolean) {
+function buildFeature(escapeHatch: boolean) {
   return defineFeature("ctrestore", (r) => {
     r.entity("thing", thingEntity);
     r.writeHandler(
@@ -57,8 +56,8 @@ function buildFeature(crossTenant: boolean, escapeHatch?: boolean) {
     );
     r.writeHandler(
       defineEntityRestoreHandler("thing", thingEntity, {
-        access: { roles: ["Admin", "SystemAdmin"] },
-        ...(crossTenant && { crossTenant: true }),
+        // a write handler with escapeHatch must be SystemAdmin-only
+        access: { roles: escapeHatch ? ["SystemAdmin"] : ["Admin", "SystemAdmin"] },
         ...(escapeHatch && { escapeHatch: { reason: ESCAPE_HATCH_REASON } }),
       }),
     );
@@ -68,19 +67,13 @@ function buildFeature(crossTenant: boolean, escapeHatch?: boolean) {
 const dbName = `kumiko_test_ctrestore_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
 
 let tenantScopedStack: TestStack;
-let crossTenantStack: TestStack;
 let escapeHatchStack: TestStack;
 
 beforeAll(async () => {
   tenantScopedStack = await setupTestStack({ features: [buildFeature(false)], dbName });
   await unsafeCreateEntityTable(tenantScopedStack.db, thingEntity, "thing");
-  crossTenantStack = await setupTestStack({
-    features: [buildFeature(true)],
-    dbName,
-    persistentDb: true,
-  });
   escapeHatchStack = await setupTestStack({
-    features: [buildFeature(false, true)],
+    features: [buildFeature(true)],
     dbName,
     persistentDb: true,
   });
@@ -88,7 +81,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await escapeHatchStack.cleanup();
-  await crossTenantStack.cleanup();
   await tenantScopedStack.cleanup();
 });
 
@@ -136,20 +128,6 @@ describe("entity restore: tenant isolation", () => {
 
     const rows = await selectMany(tenantScopedStack.db, thingTable, { id });
     expect(rows[0]?.["isDeleted"]).toBe(false);
-  });
-
-  test("crossTenant restore still reaches a foreign tenant's row", async () => {
-    const id = await createDeletedThing("crosstenant-restore");
-
-    await crossTenantStack.http.writeOk(
-      "ctrestore:write:thing:restore",
-      { id },
-      TestUsers.systemAdmin,
-    );
-
-    const rows = await selectMany(tenantScopedStack.db, thingTable, { id });
-    expect(rows[0]?.["isDeleted"]).toBe(false);
-    expect(rows[0]?.["tenantId"]).toBe(testTenantId(2));
   });
 
   test("escapeHatch restore still reaches a foreign tenant's row", async () => {

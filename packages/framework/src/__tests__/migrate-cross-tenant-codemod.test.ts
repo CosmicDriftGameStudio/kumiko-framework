@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { CODEMOD_PLACEHOLDER_REASON_MARKER } from "../engine/escape-hatch-reason.js";
 import { migrateCrossTenantSource } from "../scripts/codemod/migrate-cross-tenant.js";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "migrate-cross-tenant");
@@ -106,6 +107,8 @@ describe("migrateCrossTenantSource", () => {
       expect(reason).toContain(parts?.handler ?? "");
       expect(reason).toContain(parts?.entity ?? "");
       expect(reason).toContain(parts?.verb ?? "");
+      // the marker is what the escapeHatch validation rejects until a human replaces it
+      expect(reason).toContain(CODEMOD_PLACEHOLDER_REASON_MARKER);
     }
   });
 });

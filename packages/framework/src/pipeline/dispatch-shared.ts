@@ -168,7 +168,11 @@ export type DispatchContext = {
   // Qualified name of the membership-list query handler consulted by
   // resolveActiveMembershipFn — defaults to TENANT_MEMBERSHIPS_QUERY, overridable via DispatcherOptions.
   membershipQuery: string;
+  // ctx.queryAsMember statement timeout in whole milliseconds.
+  memberReadTimeoutMs: number;
 };
+
+export const DEFAULT_MEMBER_READ_TIMEOUT_MS = 10_000;
 
 // Narrowing-helper: AppContext.db ist DbConnection|TenantDb|undefined. Die
 // dispatch-Pfade brauchen DbConnection (oder DbTx aus Caller-Scope) für
@@ -268,8 +272,52 @@ function denyingJobRunnerProxy(): JobRunnerRef {
   });
 }
 
+// Allowlist (not denylist): a method added to the target later stays denied
+// until someone decides it is read-only.
+function allowlistedReadOnlyProxy<T extends object>(
+  target: T,
+  allowedMethods: ReadonlySet<string>,
+): T {
+  return new Proxy(target, {
+    get(inner, prop) {
+      if (typeof prop === "string" && allowedMethods.has(prop)) {
+        const method: unknown = Reflect.get(inner, prop, inner);
+        return typeof method === "function" ? method.bind(inner) : method;
+      }
+      throw memberResolutionReadOnlyDenied();
+    },
+  });
+}
+
+const MEMBER_READ_SEARCH_METHODS: ReadonlySet<string> = new Set(["search"]);
+const MEMBER_READ_ENTITY_CACHE_METHODS: ReadonlySet<string> = new Set(["get", "mget"]);
+const MEMBER_READ_REDIS_METHODS: ReadonlySet<string> = new Set([
+  "get",
+  "mget",
+  "exists",
+  "ttl",
+  "pttl",
+  "strlen",
+  "type",
+  "hget",
+  "hmget",
+  "hgetall",
+  "hexists",
+  "hlen",
+  "sismember",
+  "smembers",
+  "scard",
+  "llen",
+  "lrange",
+  "zscore",
+  "zcard",
+  "zrange",
+]);
+
 // Every write/side-effect surface throws, so "no writeAsMember" holds even
 // if a handler tries ctx.write directly on a resolved member principal.
+// Deliberately open: `db` (guarded by the READ ONLY transaction + memberReadOnly grant),
+// and read-only methods of searchAdapter / redis / entityCache (allowlisted).
 export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
   return {
     ...handlerContext,
@@ -299,6 +347,21 @@ export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): H
     derivatives: undefined,
     ...(handlerContext.jobRunner && { jobRunner: denyingJobRunnerProxy() }),
     ...(handlerContext.notify && { notify: denyMemberResolutionWrite }),
+    ...(handlerContext.searchAdapter && {
+      searchAdapter: allowlistedReadOnlyProxy(
+        handlerContext.searchAdapter,
+        MEMBER_READ_SEARCH_METHODS,
+      ),
+    }),
+    ...(handlerContext.redis && {
+      redis: allowlistedReadOnlyProxy(handlerContext.redis, MEMBER_READ_REDIS_METHODS),
+    }),
+    ...(handlerContext.entityCache && {
+      entityCache: allowlistedReadOnlyProxy(
+        handlerContext.entityCache,
+        MEMBER_READ_ENTITY_CACHE_METHODS,
+      ),
+    }),
   };
 }
 
@@ -523,16 +586,17 @@ export async function buildHandlerContext(
     },
     { ...identitySwitchAudit, tenantId: user.tenantId },
   );
+  // queryProjection works against both single-stream and multi-stream
+  // projections. MSPs without a table cannot be queried — those are
+  // side-effect-only consumers (no state to read back).
+  const findProjectionTable = (qualifiedName: string) =>
+    registry.getAllProjections().get(qualifiedName)?.table ??
+    registry.getAllMultiStreamProjections().get(qualifiedName)?.table;
   const ungatedQueryProjection: ProjectionReader = async <T = Record<string, unknown>>(
     qualifiedName: string,
     queryOptions?: { readonly unsafeAllTenants?: boolean },
   ): Promise<readonly T[]> => {
-    // queryProjection works against both single-stream and multi-stream
-    // projections. MSPs without a table cannot be queried — those are
-    // side-effect-only consumers (no state to read back).
-    const singleProj = registry.getAllProjections().get(qualifiedName);
-    const mspProj = registry.getAllMultiStreamProjections().get(qualifiedName);
-    const projTable = singleProj?.table ?? mspProj?.table;
+    const projTable = findProjectionTable(qualifiedName);
     if (!projTable) {
       const singleNames = [...registry.getAllProjections().keys()];
       const mspNames = [...registry.getAllMultiStreamProjections().keys()].filter(
@@ -563,6 +627,11 @@ export async function buildHandlerContext(
     hasIdentitySwitchGrant,
     ungatedQueryProjection,
     identitySwitchAudit,
+    (qualifiedName) => {
+      const projTable = findProjectionTable(qualifiedName);
+      // Unknown projection: keep the grant check first, the ungated reader reports the real error.
+      return projTable === undefined || hasTenantColumn(projTable);
+    },
   );
   const bridge = {
     query: (targetType: string, payload: unknown) =>
