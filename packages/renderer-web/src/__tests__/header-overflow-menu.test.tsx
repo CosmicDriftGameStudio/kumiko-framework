@@ -10,6 +10,7 @@ import type {
 import type { ActionMenuItemSpec } from "@cosmicdrift/kumiko-renderer";
 import { RenderList, TokensProvider, usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
+import { HeaderActionGroup } from "../layout/header-action-group.js";
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
 import { ShellHeader } from "../layout/shell-header.js";
 import { ThemeToggle } from "../layout/theme-toggle.js";
@@ -62,9 +63,9 @@ function renderHeader(toggleMode: () => void, mode: "light" | "dark" = "light") 
         <ShellHeader
           schema={emptySchema}
           headerActions={
-            <div className="flex items-center gap-2">
+            <HeaderActionGroup>
               <ThemeToggle testId="theme" />
-            </div>
+            </HeaderActionGroup>
           }
         />
         <HeaderItems items={items} />
@@ -164,6 +165,57 @@ describe("header overflow menu", () => {
     fireEvent.keyDown(within(panel).getAllByRole("menuitem")[0] as HTMLElement, { key: "Tab" });
     expect(panel.hidden).toBe(true);
     expect(document.activeElement).toBe(trigger);
+  });
+
+  test("HeaderActionGroup stacks in the overflow menu and stays a horizontal row in the header", () => {
+    const actions = (
+      <HeaderActionGroup>
+        <button type="button" data-testid="group-button">
+          Go
+        </button>
+      </HeaderActionGroup>
+    );
+    setViewportWidth(PHONE);
+    const phone = renderWithSidebar(
+      <PageHeaderSlotProvider>
+        <ShellHeader schema={emptySchema} headerActions={actions} />
+      </PageHeaderSlotProvider>,
+    );
+    const stacked = within(screen.getByTestId("shell-header-overflow")).getByTestId(
+      "group-button",
+    ).parentElement;
+    expect(stacked?.className).toContain("flex-col");
+    expect(stacked?.className).not.toContain("items-center");
+    phone.unmount();
+
+    setViewportWidth(DESKTOP);
+    renderWithSidebar(
+      <PageHeaderSlotProvider>
+        <ShellHeader schema={emptySchema} headerActions={actions} />
+      </PageHeaderSlotProvider>,
+    );
+    const row = screen.getByTestId("group-button").parentElement;
+    expect(row?.className).toContain("items-center");
+    expect(row?.className).not.toContain("flex-col");
+  });
+
+  test("a raw app wrapper in the overflow menu is no longer restyled", () => {
+    setViewportWidth(PHONE);
+    renderWithSidebar(
+      <PageHeaderSlotProvider>
+        <ShellHeader
+          schema={emptySchema}
+          headerActions={
+            <div data-testid="raw-wrapper" className="flex items-center gap-2">
+              <button type="button">Go</button>
+            </div>
+          }
+        />
+      </PageHeaderSlotProvider>,
+    );
+    const wrapper = screen.getByTestId("raw-wrapper");
+    expect(wrapper.className).toBe("flex items-center gap-2");
+    expect(wrapper.parentElement?.className).not.toContain("[&>div]");
   });
 
   test("keys on opaque header actions are not hijacked by the menu", () => {
