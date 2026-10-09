@@ -560,8 +560,9 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
     expect(res.rows[0]?.["id"]).toBe(matchedId);
   });
 
-  // Mirrors Meilisearch: a search without an explicit limit returns only 50 hits.
-  function limitHonoringAdapter(hits: readonly string[]) {
+  // Mirrors Meilisearch: a search without an explicit limit returns only 50 hits, and no limit
+  // exceeds maxTotalHits.
+  function limitHonoringAdapter(hits: readonly string[], maxTotalHits = Number.POSITIVE_INFINITY) {
     return {
       configure: async () => {},
       index: async () => {},
@@ -569,7 +570,7 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
       remove: async () => {},
       search: async (_tenantId: string, _query: string, options?: { limit?: number }) =>
         hits
-          .slice(0, options?.limit ?? 50)
+          .slice(0, Math.min(options?.limit ?? 50, maxTotalHits))
           .map((entityId) => ({ entityType: "pagerItem", entityId })),
       reset: async () => {},
     } as never;
@@ -589,15 +590,22 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
     expect(res.rows).toHaveLength(60);
   });
 
-  test("search past the candidate cap fails loud instead of silently truncating", async () => {
-    const hits = Array.from({ length: 1001 }, () => crypto.randomUUID());
-    const call = exec.list({ limit: 50, search: "everything" }, admin, tdb, {
-      searchAdapter: limitHonoringAdapter(hits),
+  test("search that reaches the candidate cap is flagged searchTruncated, below it is not", async () => {
+    const created = await exec.create({ title: "capped", rank: 1 }, admin, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+    const realId = String(created.data["id"]);
+    // Meilisearch caps a response at maxTotalHits (1000) however high the limit is asked.
+    const capped = Array.from({ length: 999 }, () => crypto.randomUUID());
+    const atCap = await exec.list({ limit: 50, search: "everything" }, admin, tdb, {
+      searchAdapter: limitHonoringAdapter([...capped, realId], 1000),
     });
-    await expect(call.catch((e: unknown) => e)).resolves.toMatchObject({
-      httpStatus: 422,
-      details: { reason: "search_too_many_results", entity: "pagerItem" },
+    expect(atCap.searchTruncated).toBe(true);
+    expect(atCap.rows.map((r) => r["id"])).toEqual([realId]);
+
+    const belowCap = await exec.list({ limit: 50, search: "everything" }, admin, tdb, {
+      searchAdapter: limitHonoringAdapter([...capped.slice(0, 998), realId], 1000),
     });
+    expect(belowCap.searchTruncated).toBeUndefined();
   });
 
   test("mit search ohne match (Adapter returnt []): leere rows + no DB-Query", async () => {

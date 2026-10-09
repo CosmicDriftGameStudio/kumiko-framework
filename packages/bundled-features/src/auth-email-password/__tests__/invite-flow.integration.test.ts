@@ -463,6 +463,21 @@ describe("invite-accept (Branch 1: logged-in)", () => {
     expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Admin", "User"]);
   });
 
+  test("no membership at invite time: roles changed after it was added → accept rejected", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    await changeBobRolesInTenantA(["User"]);
+
+    await expectInvitationSuperseded(
+      await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession()),
+    );
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["User"]);
+  });
+
   test("supersession is decided by membership version, not by timestamps", async () => {
     await seedTenantMembership(stack.db, {
       userId: bobId,
@@ -1040,6 +1055,24 @@ describe("remove-member cancels the removed member's open invitations", () => {
     const body = (await res.json()) as { error?: { details?: { reason?: string } } };
     expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
     expect(await invitationStatusOf(BOB_EMAIL)).toBe(INVITATION_STATUS.cancelled);
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(memberships).toHaveLength(0);
+  });
+
+  test("no membership at invite time: add, remove, accept does not re-grant", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    await removeBobFromTenantA();
+
+    const res = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
+    expect(res.status).toBe(422);
     const memberships = await selectMany(stack.db, tenantMembershipsTable, {
       userId: bobId,
       tenantId: TENANT_A_ID,

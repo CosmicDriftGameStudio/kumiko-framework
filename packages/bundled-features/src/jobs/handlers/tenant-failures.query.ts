@@ -60,17 +60,8 @@ export const tenantFailuresQuery = defineQueryHandler({
       orderBy: { col: "failedAt", direction: "desc" },
       limit: query.payload.limit ?? DEFAULT_LIMIT,
     });
-    // Rows are newest first, so the first row per key is the current one; a
-    // second row for the same key is a leftover of two concurrent final failures.
-    const seenKeys = new Set<string>();
-    const newestPerKey = rows.filter((row) => {
-      const key = JSON.stringify([row.jobName, row.subject]);
-      if (seenKeys.has(key)) return false;
-      seenKeys.add(key);
-      return true;
-    });
     return {
-      rows: ctx.systemDb.assertRowsTenant(newestPerKey, "tenantId").map((row) => ({
+      rows: ctx.systemDb.assertRowsTenant(rows, "tenantId").map((row) => ({
         jobName: row.jobName,
         subject: parseSubject(row.subject),
         messageKey: row.messageKey,

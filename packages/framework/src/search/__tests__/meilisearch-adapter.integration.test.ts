@@ -254,6 +254,27 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter (live)", () => {
       expect(after.isIndexing).toBe(false);
     });
   });
+
+  test("a search never returns more than maxTotalHits (1000), however high the limit is asked", async () => {
+    const capTenant = uuid();
+    await adapter.configure(capTenant, { searchableFields: ["firstName"] });
+    await adapter.indexBatch?.(
+      capTenant,
+      Array.from({ length: 1001 }, (_, i) => ({
+        entityType: "cap",
+        entityId: i,
+        weight: 1,
+        fields: { firstName: "widget" },
+      })),
+    );
+
+    try {
+      const results = await adapter.search(capTenant, "widget", { filterType: "cap", limit: 1001 });
+      expect(results).toHaveLength(1000);
+    } finally {
+      await client.index(meilisearchTenantIndex(indexPrefix, capTenant)).delete().waitTask();
+    }
+  });
 });
 
 // Lazy tenant-index configuration off setDefaultConfig, with no
@@ -381,6 +402,7 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
     const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
     expect(await index.getSearchableAttributes()).toEqual(["a"]);
   });
+
 });
 
 describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {

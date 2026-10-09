@@ -15,4 +15,7 @@ export type CursorResult<T> = {
   /** Optional total row count — only present when the caller sets
    *  `totalCount: true` on the query. */
   total?: number;
+  /** Set when the search backend returned as many candidates as it can in one
+   *  response, so matches beyond that may be missing from `rows`. */
+  searchTruncated?: true;
 };
