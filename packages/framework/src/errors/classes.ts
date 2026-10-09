@@ -298,6 +298,21 @@ export class InternalError extends KumikoError {
   }
 }
 
+// A ctx.queryAsMember read ran into its statement timeout (SQLSTATE 57014). Reuses the generic
+// errors.internal i18n key: the client can do nothing but retry, and the code is for log/alert routing.
+export class MemberReadTimeoutError extends KumikoError {
+  readonly code = "member_read_timeout";
+  readonly httpStatus = 504;
+
+  constructor(opts: { readonly timeoutMs: number; readonly cause?: Error }) {
+    super({
+      message: `ctx.queryAsMember read exceeded its ${opts.timeoutMs}ms statement timeout`,
+      i18nKey: "errors.internal",
+      ...(opts.cause && { cause: opts.cause }),
+    });
+  }
+}
+
 // Rate-limit hit. The bucket details (limit, window, current state) live
 // in `details` so a client can show "try again in N seconds" without a
 // second request. Headers `Retry-After`, `X-RateLimit-*` are filled in

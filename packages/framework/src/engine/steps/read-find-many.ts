@@ -13,7 +13,7 @@
 import { selectMany, type WhereObject } from "../../db/query.js";
 import { defineStep } from "../define-step.js";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
-import { readSourceFor } from "./_read-source.js";
+import { readSourceFor, warnOnNarrowedForeignTenantFilter } from "./_read-source.js";
 import { resolveOptional } from "./_resolver-utils.js";
 
 type ReadFindManyArgs = {
@@ -30,6 +30,13 @@ defineStep<ReadFindManyArgs, readonly Record<string, unknown>[]>({
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveOptional(args.where, ctx);
+    warnOnNarrowedForeignTenantFilter(
+      ctx,
+      "read.findMany",
+      args.name,
+      where,
+      args.unsafeAllTenants,
+    );
     const source = readSourceFor(ctx, args.unsafeAllTenants);
     const rows = await selectMany(
       source,

@@ -187,6 +187,10 @@
       "types": "./src/testing/real-providers.ts",
       "default": "./src/testing/real-providers.ts"
     },
+    "./internal/request-context": {
+      "types": "./src/api/request-context.ts",
+      "default": "./src/api/request-context.ts"
+    },
     "./testing/e2e-generator": {
       "types": "./src/testing/e2e-generator.ts",
       "default": "./src/testing/e2e-generator.ts"
@@ -386,6 +390,10 @@
       "./testing/real-providers": {
         "types": "./dist/testing/real-providers.d.ts",
         "default": "./dist/testing/real-providers.js"
+      },
+      "./internal/request-context": {
+        "types": "./dist/api/request-context.d.ts",
+        "default": "./dist/api/request-context.js"
       },
       "./testing/e2e-generator": {
         "types": "./dist/testing/e2e-generator.d.ts",

@@ -3,10 +3,6 @@ import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { runWithWriteOrigin } from "../api/request-context.js";
 import type { SseBroker } from "../api/sse-broker.js";
 import type { buildEntityTable } from "../db/table-builder.js";
-import {
-  DEPRECATED_CROSS_TENANT_SIGNAL,
-  isDeprecatedCrossTenantHandler,
-} from "../engine/entity-handlers.js";
 import { TENANT_MEMBERSHIPS_QUERY } from "../engine/extension-names.js";
 import type { defineTransitions } from "../engine/state-machine.js";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.js";
@@ -33,7 +29,11 @@ import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-
 import { runBatch, unwrapSingle } from "./dispatch-batch.js";
 import { executeQuery } from "./dispatch-query.js";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.js";
-import { resolveAuthClaimsFn, TENANT_TIMEZONE_CONFIG_KEY } from "./dispatch-shared.js";
+import {
+  DEFAULT_MEMBER_READ_TIMEOUT_MS,
+  resolveAuthClaimsFn,
+  TENANT_TIMEZONE_CONFIG_KEY,
+} from "./dispatch-shared.js";
 import { executeStream } from "./dispatch-stream.js";
 import { type HandlerType, resolveType } from "./dispatcher-utils.js";
 import type { IdempotencyGuard } from "./idempotency.js";
@@ -55,6 +55,9 @@ export type DispatcherOptions = {
   // Qualified name of the membership-list query handler consulted by
   // dispatcher.resolveActiveMembership. Defaults to TENANT_MEMBERSHIPS_QUERY.
   membershipQuery?: string;
+  // Statement timeout (and, on the pool path, idle-in-transaction timeout) for ctx.queryAsMember
+  // reads, in whole milliseconds. Defaults to 10000.
+  memberReadTimeoutMs?: number;
   // Resolves the effective-feature set per tenant — the dispatcher uses
   // it to gate calls to handlers of disabled features (403 feature_disabled)
   // and to populate ctx.hasFeature. Absent = all features treated as
@@ -182,6 +185,12 @@ export function createDispatcher(
 ): Dispatcher {
   const { idempotency, lifecycle, jobRunner, effectiveFeatures, sseBroker } = options;
   const membershipQuery = options.membershipQuery ?? TENANT_MEMBERSHIPS_QUERY;
+  const memberReadTimeoutMs = options.memberReadTimeoutMs ?? DEFAULT_MEMBER_READ_TIMEOUT_MS;
+  if (!Number.isSafeInteger(memberReadTimeoutMs) || memberReadTimeoutMs <= 0) {
+    throw new InternalError({
+      message: `DispatcherOptions.memberReadTimeoutMs must be a positive integer, got ${memberReadTimeoutMs}`,
+    });
+  }
 
   // Pre-build tables and transition maps for auto-guard (avoid per-request allocation)
   const tableCache = new Map<string, ReturnType<typeof buildEntityTable>>();
@@ -207,19 +216,6 @@ export function createDispatcher(
   // Idempotent: buildServer may have registered them already.
   registerStandardMetrics(dispatcherMeter);
 
-  for (const def of [
-    ...registry.getAllWriteHandlers().values(),
-    ...registry.getAllQueryHandlers().values(),
-  ]) {
-    if (isDeprecatedCrossTenantHandler(def.handler)) {
-      context.log?.warn(DEPRECATED_CROSS_TENANT_SIGNAL, {
-        handler: def.name,
-        migration:
-          'replace crossTenant: true with escapeHatch: { reason: "<why this operator handler reads/writes every tenant>" } (bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/migrate-cross-tenant.ts)',
-      });
-    }
-  }
-
   const ctx: DispatchContext = {
     registry,
     appContext: context,
@@ -236,6 +232,7 @@ export function createDispatcher(
     tracer: dispatcherTracer,
     meter: dispatcherMeter,
     membershipQuery,
+    memberReadTimeoutMs,
   };
 
   const dispatcher: Dispatcher = {

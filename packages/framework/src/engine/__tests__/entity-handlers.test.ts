@@ -131,6 +131,28 @@ describe("defineEntityWriteHandler", () => {
     expect(def.access).toEqual({ roles: ["Admin"] });
   });
 
+  test("unsafeAllTenants: { reason } forwards the flag and declares the reason as escapeHatch", async () => {
+    const def = defineProjectionQueryHandler(
+      "revenue:list",
+      "showcase:projection:customer-revenue",
+      {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        unsafeAllTenants: { reason: "operator-wide revenue sweep" },
+      },
+    );
+    expect(def.escapeHatch).toEqual({ reason: "operator-wide revenue sweep" });
+    const ctx = { queryProjection: mock().mockResolvedValue([]) };
+    await def.handler(
+      // biome-ignore lint/suspicious/noExplicitAny: test shim.
+      { type: "revenue:list", user: {} as any, payload: {} },
+      // biome-ignore lint/suspicious/noExplicitAny: test shim.
+      ctx as any,
+    );
+    expect(ctx.queryProjection).toHaveBeenCalledWith("showcase:projection:customer-revenue", {
+      unsafeAllTenants: true,
+    });
+  });
+
   test("access is now a required option — omitting it is a type error", () => {
     // @ts-expect-error access is required since fw#2855 — no implicit openToAll.
     expect(() => defineEntityCreateHandler("note", noteEntity)).toThrow();

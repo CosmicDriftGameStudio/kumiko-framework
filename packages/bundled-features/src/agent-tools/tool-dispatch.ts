@@ -1,5 +1,5 @@
-import { runAsDirectCallEntry } from "@cosmicdrift/kumiko-framework/api";
 import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import { runAsDirectCallEntry } from "@cosmicdrift/kumiko-framework/internal/request-context";
 import { FILTER_OPS, isRecord } from "./filter-ops.js";
 import type { ToolDispatchDescriptor } from "./types.js";
 

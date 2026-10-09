@@ -1,9 +1,9 @@
 import {
   buildRequestContextDataFromRequest,
   type ClientIpResolver,
-  requestContext,
 } from "@cosmicdrift/kumiko-framework/api";
 import { createAnonymousUser, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { requestContext } from "@cosmicdrift/kumiko-framework/internal/request-context";
 import type { PageHeadSystemQuery } from "@cosmicdrift/kumiko-headless/apex";
 
 export type QueryDispatcher = {

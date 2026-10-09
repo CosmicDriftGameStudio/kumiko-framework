@@ -88,8 +88,7 @@ export {
 } from "./redis-sse-broker.js";
 export {
   type RequestContextData,
-  requestContext,
-  runAsDirectCallEntry,
+  readonlyRequestContext as requestContext,
 } from "./request-context.js";
 export {
   buildRequestContextDataFromRequest,
