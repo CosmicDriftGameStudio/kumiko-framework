@@ -174,28 +174,28 @@ describe("published @cosmicdrift/kumiko-cli tarball", () => {
     expect(res.out).not.toContain("not found");
     expect(res.out).toContain("kumiko.json");
     expect(res.out).toContain("--explain");
-  }, 20_000);
+  });
 
   test("kumiko agent --help works from the packed install", () => {
     const res = runKumiko(["agent", "--help"], installRoot);
     expect(res.code).toBe(0);
     expect(res.out).not.toContain("not found");
     expect(res.out).toContain("lint");
-  }, 20_000);
+  });
 
   test("kumiko project --help works from the packed install", () => {
     const res = runKumiko(["project", "--help"], installRoot);
     expect(res.code).toBe(0);
     expect(res.out).not.toContain("not found");
     expect(res.out).toContain("rebuild");
-  }, 20_000);
+  });
 
   test("kumiko consumer --help works from the packed install", () => {
     const res = runKumiko(["consumer", "--help"], installRoot);
     expect(res.code).toBe(0);
     expect(res.out).not.toContain("not found");
     expect(res.out).toContain("restart");
-  }, 20_000);
+  });
 
   test("kumiko agent lint reports a doc gap from the packed install", () => {
     const appDir = join(installRoot, "app-with-gap");
@@ -219,7 +219,7 @@ export default { features: [feature] };
     const res = runKumiko(["agent", "lint"], appDir);
     expect(res.code).toBe(1);
     expect(res.out).toContain("published-cli-gap-handler");
-  }, 20_000);
+  });
 
   test("kumiko agent lint passes for a documented handler", () => {
     const appDir = join(installRoot, "app-with-clean-handler");
@@ -243,7 +243,7 @@ export default { features: [feature] };
     const res = runKumiko(["agent", "lint"], appDir);
     expect(res.code).toBe(0);
     expect(res.out).toContain("No AI-agent doc gaps found");
-  }, 20_000);
+  });
 
   test("the tarball ships no test files", () => {
     const list = Bun.spawnSync(["tar", "-tzf", tgzPath]);

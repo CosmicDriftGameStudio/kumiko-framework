@@ -1853,7 +1853,7 @@ describe("flow 17: async render→send pipeline", () => {
           });
           expect(rows.some((r) => r["status"] === "sent")).toBe(true);
         },
-        { delays: Array(40).fill(250) },
+        { delays: Array(24).fill(250) },
       );
       const email = emailTransport.sent.find((m) => m.to === testEmail(asyncRecipient));
       expect(email).toBeDefined();
@@ -1870,7 +1870,7 @@ describe("flow 17: async render→send pipeline", () => {
           });
           expect(rows.some((r) => r["status"] === "sent")).toBe(true);
         },
-        { delays: Array(40).fill(250) },
+        { delays: Array(24).fill(250) },
       );
       expect(
         pushTransport.sent.find((m) => m.token === testPushToken(asyncRecipient)),
@@ -1878,7 +1878,7 @@ describe("flow 17: async render→send pipeline", () => {
     } finally {
       await jobRunner.stop();
     }
-  }, 20000);
+  });
 
   test("queued channels dispatch jobs instead of sending inline; inApp stays inline", async () => {
     const { runner, dispatched } = makeStubRunner();

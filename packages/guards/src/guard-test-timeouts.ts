@@ -3,8 +3,11 @@
  * Guard: tests wait for a condition, not for time. Flags, in test files and
  * Playwright specs/helpers:
  *   (a) `test.setTimeout(...)`, `test.slow(...)`, `setDefaultTimeout(...)`,
- *       `*.describe.configure({ timeout })` — raising a timeout hides the
- *       cause of a slow or flaky test
+ *       `*.describe.configure({ timeout })`, and a timeout argument on
+ *       `test`/`it`/`describe` calls (`test(name, fn, 30_000)`,
+ *       `test(name, fn, { timeout })`, also via `.skip/.only/.if()/.each()()`
+ *       and renamed/namespace `bun:test` imports) — raising a timeout hides
+ *       the cause of a slow or flaky test
  *   (b) `<page>.waitForTimeout(...)` — a fixed sleep instead of a condition
  *   (c) sleep loops — a `while`/`do`/`for`/`for…of`/`for…in` whose body calls
  *       `sleep(...)`/`Bun.sleep(...)` or awaits a `new Promise` that only
@@ -70,6 +73,9 @@ const TIMEOUT_RAISING_CALLEES: ReadonlySet<string> = new Set(["test.setTimeout",
 const SET_TIMEOUT_CALLEE = /(^|\.)setTimeout$/;
 const SET_DEFAULT_TIMEOUT_CALLEE = /(^|\.)setDefaultTimeout$/;
 const DESCRIBE_CONFIGURE_CALLEE = /(^|\.)describe\.configure$/;
+const TEST_FRAMEWORK_MODULES: ReadonlySet<string> = new Set(["bun:test", "@playwright/test"]);
+const TEST_DECLARATION_CALLEE =
+  /^(test|it|describe)(\.(skip|only|todo|if|each|failing|concurrent|serial|skipIf|runIf|todoIf))*$/;
 
 export interface Finding {
   file: string;
@@ -143,9 +149,58 @@ function hasTimeoutProperty(node: Node | undefined): boolean {
   );
 }
 
-function raisedTimeoutReason(call: CallExpression): string | undefined {
+// Maps local names imported from the test framework to their exported name;
+// "" marks a namespace import (`import * as bt`), whose member access is stripped.
+function testFrameworkAliases(sf: SourceFile): ReadonlyMap<string, string> {
+  const aliases = new Map<string, string>();
+  for (const decl of sf.getImportDeclarations()) {
+    if (!TEST_FRAMEWORK_MODULES.has(decl.getModuleSpecifierValue())) continue;
+    const namespaceImport = decl.getNamespaceImport();
+    if (namespaceImport !== undefined) aliases.set(namespaceImport.getText(), "");
+    for (const named of decl.getNamedImports()) {
+      const alias = named.getAliasNode();
+      if (alias !== undefined) aliases.set(alias.getText(), named.getName());
+    }
+  }
+  return aliases;
+}
+
+function canonicalCalleeText(text: string, aliases: ReadonlyMap<string, string>): string {
+  const [head = "", ...rest] = text.split(".");
+  const imported = aliases.get(head);
+  if (imported === undefined) return text;
+  return (imported === "" ? rest : [imported, ...rest]).join(".");
+}
+
+// `test.each(rows)(…)` and `test.if(cond)(…)` call the result of a call.
+function declarationBaseCallee(callee: Node): Node {
+  return Node.isCallExpression(callee) ? declarationBaseCallee(callee.getExpression()) : callee;
+}
+
+function isTimeoutArgument(arg: Node): boolean {
+  if (Node.isObjectLiteralExpression(arg)) return hasTimeoutProperty(arg);
+  return !Node.isArrowFunction(arg) && !Node.isFunctionExpression(arg);
+}
+
+function declarationTimeoutReason(
+  call: CallExpression,
+  aliases: ReadonlyMap<string, string>,
+): string | undefined {
+  const base = canonicalCalleeText(declarationBaseCallee(call.getExpression()).getText(), aliases);
+  if (!TEST_DECLARATION_CALLEE.test(base)) return undefined;
+  const [, , ...extra] = call.getArguments();
+  if (!extra.some(isTimeoutArgument)) return undefined;
+  return `${base}(…, timeout) raises the timeout instead of fixing the cause`;
+}
+
+function raisedTimeoutReason(
+  call: CallExpression,
+  aliases: ReadonlyMap<string, string>,
+): string | undefined {
   const callee = call.getExpression();
-  const calleeText = callee.getText();
+  const calleeText = canonicalCalleeText(callee.getText(), aliases);
+  const declarationReason = declarationTimeoutReason(call, aliases);
+  if (declarationReason !== undefined) return declarationReason;
   if (TIMEOUT_RAISING_CALLEES.has(calleeText) || SET_DEFAULT_TIMEOUT_CALLEE.test(calleeText)) {
     return `${calleeText}(…) raises the timeout instead of fixing the cause`;
   }
@@ -178,8 +233,9 @@ export function scanTimeouts(
     if (reported === undefined) return;
     findings.push({ file, line: node.getStartLineNumber(), message: reported });
   };
+  const aliases = testFrameworkAliases(sf);
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    const reason = raisedTimeoutReason(call);
+    const reason = raisedTimeoutReason(call, aliases);
     if (reason !== undefined) add(call, reason);
   }
   for (const [kind, label] of LOOP_LABELS) {

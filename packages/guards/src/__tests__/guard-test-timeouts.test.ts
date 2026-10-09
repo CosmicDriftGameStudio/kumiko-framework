@@ -97,6 +97,62 @@ describe("test-timeouts guard — violations", () => {
   });
 });
 
+describe("test-timeouts guard — timeout argument on declarations", () => {
+  const D =
+    "declare const test: any;\ndeclare const it: any;\ndeclare const describe: any;\ndeclare const TIMEOUT: number;\n";
+  const found = (code: string): string[] => messages(D + code);
+
+  test.each([
+    ['test("a", () => {}, 30_000);'],
+    ['it("a", async () => {}, 5000);'],
+    ['test("a", () => {}, TIMEOUT);'],
+    ['test("a", () => {}, 30 * 1000);'],
+    ['test("a", () => {}, { timeout: 5000 });'],
+    ['test.skip("a", () => {}, 5000);'],
+    ['test.only("a", () => {}, 5000);'],
+    ['test.todo("a", () => {}, 5000);'],
+    ['test.if(true)("a", () => {}, 5000);'],
+    ['test.skipIf(true)("a", () => {}, { timeout: 5 });'],
+    ['test.each([1])("a %s", () => {}, 5000);'],
+    ['describe("a", () => {}, 5000);'],
+    ['describe("a", () => {}, { timeout: 5000 });'],
+    ['describe.each([1])("a", () => {}, 5000);'],
+    ['test("a", handler, 5000);'],
+  ])("flags %s", (code) => {
+    expect(found(code)).toEqual([expect.stringContaining("raises the timeout")]);
+  });
+
+  test("reports the base callee, not a multi-line each() expression", () => {
+    expect(found('test.each<readonly [string]>(\n  [["a"]],\n)("a", () => {}, 5000);')).toEqual([
+      "test.each(…, timeout) raises the timeout instead of fixing the cause",
+    ]);
+  });
+
+  test("flags renamed and namespace imports from bun:test", () => {
+    const code =
+      'import * as bt from "bun:test";\nimport { setDefaultTimeout as sdt, test as t } from "bun:test";\n' +
+      'bt.setDefaultTimeout(5);\nsdt(5);\nt("a", () => {}, 5);\nbt.test("a", () => {}, 5);\nbt.describe.configure({ timeout: 5 });';
+    const result = scanTimeouts(sourceFile(code)).map((f) => f.line);
+    expect(result).toEqual([3, 4, 5, 6, 7]);
+  });
+
+  test("allows tests without a timeout argument and non-test calls with three arguments", () => {
+    expect(
+      found(
+        'test("a", () => {});\ndescribe("a", () => {});\ntest("a", () => {}, { retry: 2 });\n' +
+          'declare function other(a: string, b: () => void, c: number): void;\nother("a", () => {}, 5000);\n' +
+          'obj.test("a", () => {}, 5000);',
+      ),
+    ).toEqual([]);
+  });
+
+  test("a complete @timeout-exception marker suppresses a timeout argument", () => {
+    expect(
+      found('// @timeout-exception: #1 sidecar cold start\ntest("a", () => {}, 60_000);'),
+    ).toEqual([]);
+  });
+});
+
 describe("test-timeouts guard — no violation", () => {
   test("a bare sleep or setTimeout outside a loop is work simulation", () => {
     expect(

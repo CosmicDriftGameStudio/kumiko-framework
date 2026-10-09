@@ -179,7 +179,7 @@ describe("projection-rebuild job (jobs feature composed)", () => {
     }
 
     // Poll until the worker drained the queue and the rebuild refilled.
-    await waitFor(async () => (await getCount()) === 2, { delays: Array(40).fill(200) });
+    await waitFor(async () => (await getCount()) === 2, { delays: Array(30).fill(200) });
     expect(await getCount()).toBe(2);
 
     // getCount()==2 only proves rebuildProjection's own writes landed — the
@@ -194,11 +194,11 @@ describe("projection-rebuild job (jobs feature composed)", () => {
         });
         return runs.some((r) => r.status === "completed");
       },
-      { delays: Array(40).fill(200) },
+      { delays: Array(30).fill(200) },
     );
     expect(runs.length).toBeGreaterThanOrEqual(1);
     expect(runs.some((r) => r.status === "completed")).toBe(true);
-  }, 30000);
+  });
 
   test("enqueueProjectionRebuild refills a multi-stream projection through the job", async () => {
     await executor.create({ groupId: GROUP, name: "msp-a" }, admin, tdb);
@@ -209,7 +209,7 @@ describe("projection-rebuild job (jobs feature composed)", () => {
     if (outcome.mode !== "dispatched") throw new Error(`expected dispatch, got ${outcome.mode}`);
 
     await waitFor(async () => (await selectMany(db, itemNamesTable)).length > 0, {
-      delays: Array(40).fill(200),
+      delays: Array(30).fill(200),
     });
     const names = (await selectMany<{ name: string }>(db, itemNamesTable)).map((r) => r.name);
     expect(names).toContain("msp-a");
@@ -223,10 +223,10 @@ describe("projection-rebuild job (jobs feature composed)", () => {
         status = run?.status;
         return status === "completed" || status === "failed";
       },
-      { delays: Array(40).fill(200) },
+      { delays: Array(30).fill(200) },
     );
     expect(status).toBe("completed");
-  }, 30000);
+  });
 
   test("enqueueProjectionRebuild without a jobRunner rebuilds a multi-stream projection inline", async () => {
     await executor.create({ groupId: GROUP, name: "msp-inline" }, admin, tdb);
