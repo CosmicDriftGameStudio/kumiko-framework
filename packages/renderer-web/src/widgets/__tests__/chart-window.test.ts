@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  addUtcMonths,
   initialWindowSelection,
   resolveStackedAreaWindow,
   type StackedAreaRanges,
   snapBrushWindow,
+  stackedAreaDateFormatFor,
 } from "../chart-window.js";
 
 const monthAt = (index: number): number => Date.UTC(2026, index, 1);
@@ -91,6 +93,33 @@ describe("initialWindowSelection", () => {
   test("selects the default range, or nothing without ranges", () => {
     expect(initialWindowSelection(ranges)).toEqual({ kind: "range", value: "1y" });
     expect(initialWindowSelection(undefined)).toBeUndefined();
+  });
+
+  test("from-today wins over the default range", () => {
+    expect(initialWindowSelection(ranges, "from-today")).toEqual({ kind: "from-today" });
+    expect(initialWindowSelection(undefined, "from-today")).toEqual({ kind: "from-today" });
+    expect(initialWindowSelection(ranges, "default-range")).toEqual({ kind: "range", value: "1y" });
+  });
+});
+
+describe("resolveStackedAreaWindow from-today", () => {
+  const selection = { kind: "from-today" } as const;
+  test("starts at today when it lies inside the data", () => {
+    const todayMs = monthAt(20);
+    expect(resolve({ selection, todayMs })).toEqual({ startMs: todayMs, endMs: lastMs });
+  });
+  test("shows everything when today is after the data or unknown", () => {
+    expect(resolve({ selection, todayMs: monthAt(80) })).toEqual(fullWindow);
+    expect(resolve({ selection, todayMs: undefined })).toEqual(fullWindow);
+  });
+});
+
+describe("stackedAreaDateFormatFor", () => {
+  test("switches to month and year at exactly 18 months", () => {
+    const startMs = monthAt(0);
+    expect(stackedAreaDateFormatFor({ startMs, endMs: addUtcMonths(startMs, 18) - 1 })).toBe("day");
+    expect(stackedAreaDateFormatFor({ startMs, endMs: addUtcMonths(startMs, 18) })).toBe("month");
+    expect(stackedAreaDateFormatFor({ startMs, endMs: addUtcMonths(startMs, 300) })).toBe("month");
   });
 });
 

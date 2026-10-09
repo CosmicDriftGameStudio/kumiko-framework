@@ -985,6 +985,8 @@ export type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
 export type DashboardChartMarkerKind = {
   readonly tone?: DashboardChartTone;
   readonly color?: string;
+  /** i18n key; with `markerLegend: "legend"` the chart legend lists the markers of this kind under it. */
+  readonly label?: string;
 };
 
 /** One option of a stacked-area range switch. Without `months` the option
@@ -1050,6 +1052,15 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     readonly ranges?: DashboardChartRanges;
     /** Only for chart "stacked-area": scrubber under the plot to drag the visible window; starts at today. */
     readonly brush?: boolean;
+    /** Only for chart "stacked-area": date format of axis and marker labels.
+     *  Default automatic: day and month below 18 visible months, month and year above. */
+    readonly dateFormat?: "day" | "month";
+    /** Only for chart "stacked-area": window the uncontrolled chart starts in.
+     *  "from-today" starts at today even when `ranges.default` is set. Default "default-range". */
+    readonly initialWindow?: "default-range" | "from-today";
+    /** Only for chart "stacked-area": "legend" drops the numbered marker list; pins become
+     *  plain dots with a tooltip and the legend lists marker kinds (see `markerKinds[].label`). Default "list". */
+    readonly markerLegend?: "list" | "legend";
   };
 
 // Kurzliste im Dashboard — Query-Contract wie projectionList

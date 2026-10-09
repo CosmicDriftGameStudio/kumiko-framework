@@ -20,7 +20,20 @@ export type StackedAreaRanges = {
 
 export type StackedAreaWindowSelection =
   | { readonly kind: "range"; readonly value: string }
-  | { readonly kind: "brush"; readonly startMs: number; readonly endMs: number };
+  | { readonly kind: "brush"; readonly startMs: number; readonly endMs: number }
+  | { readonly kind: "from-today" };
+
+export type StackedAreaInitialWindow = "default-range" | "from-today";
+
+export type StackedAreaDateFormat = "day" | "month";
+
+const MONTH_FORMAT_MIN_SPAN_MONTHS = 18;
+
+export function stackedAreaDateFormatFor(window: ChartWindow): StackedAreaDateFormat {
+  return window.endMs >= addUtcMonths(window.startMs, MONTH_FORMAT_MIN_SPAN_MONTHS)
+    ? "month"
+    : "day";
+}
 
 export function addUtcMonths(atMs: number, months: number): number {
   return Temporal.Instant.fromEpochMilliseconds(atMs).toZonedDateTimeISO("UTC").add({ months })
@@ -48,12 +61,24 @@ export function pointsWithin<T extends { readonly atMs: number }>(
 
 export function initialWindowSelection(
   ranges: StackedAreaRanges | undefined,
+  initialWindow: StackedAreaInitialWindow = "default-range",
 ): StackedAreaWindowSelection | undefined {
+  if (initialWindow === "from-today") return { kind: "from-today" };
   return ranges === undefined ? undefined : { kind: "range", value: ranges.default };
 }
 
 function clampMs(value: number, minMs: number, maxMs: number): number {
   return Math.max(minMs, Math.min(maxMs, value));
+}
+
+function windowFromToday(
+  todayMs: number | undefined,
+  firstMs: number,
+  lastMs: number,
+  fullWindow: ChartWindow,
+): ChartWindow {
+  if (todayMs === undefined || todayMs >= lastMs) return fullWindow;
+  return { startMs: clampMs(todayMs, firstMs, lastMs), endMs: lastMs };
 }
 
 export function resolveStackedAreaWindow({
@@ -86,9 +111,8 @@ export function resolveStackedAreaWindow({
     if (months === undefined) return fullWindow;
     return rangeWindow(months, todayMs ?? lastMs, firstMs, lastMs);
   }
-  if (brush && ranges === undefined) {
-    if (todayMs === undefined || todayMs >= lastMs) return fullWindow;
-    return { startMs: clampMs(todayMs, firstMs, lastMs), endMs: lastMs };
+  if (selection?.kind === "from-today" || (brush && ranges === undefined)) {
+    return windowFromToday(todayMs, firstMs, lastMs, fullWindow);
   }
   return fullWindow;
 }

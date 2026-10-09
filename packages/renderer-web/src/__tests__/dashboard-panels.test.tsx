@@ -1331,4 +1331,73 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
     expect(screen.queryByTestId("dashboard-chart-range-main")).toBeNull();
     expect(screen.getAllByRole("slider")[0]?.getAttribute("aria-valuenow")).toBe("12");
   });
+
+  const yearRanges = {
+    options: [
+      { value: "1y", label: "demo:range-1y", months: 12 },
+      { value: "max", label: "demo:range-max" },
+    ],
+    default: "1y",
+  };
+
+  test("initialWindow from-today overrides the default range; a range click switches", async () => {
+    renderDashboard(
+      chartScreen("stacked-area", { ranges: yearRanges, initialWindow: "from-today" }),
+      { "demo:query:metric:chart": () => ok({ ...planPayload, todayMs: monthAt(12) }) },
+    );
+    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    const rangeSwitch = screen.getByTestId("dashboard-chart-range-main");
+    for (const button of within(rangeSwitch).getAllByRole("button")) {
+      expect(button.getAttribute("aria-pressed")).toBe("false");
+    }
+    expect(screen.getByTestId("chart-line-rent").getAttribute("d")?.match(/L /g)).toHaveLength(
+      MONTH_COUNT - 1 - 12,
+    );
+    await userEvent.click(within(rangeSwitch).getByRole("button", { name: "demo:range-1y" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("chart-line-rent").getAttribute("d")?.match(/L /g)).toHaveLength(
+        12,
+      ),
+    );
+  });
+
+  test("markerLegend legend lists translated marker kinds instead of the numbered list", async () => {
+    renderDashboard(
+      chartScreen("stacked-area", {
+        markerLegend: "legend",
+        markerKinds: {
+          extra: { color: "var(--color-extra)", label: "demo:kind-extra" },
+          payoff: { tone: "positive", label: "demo:kind-payoff" },
+        },
+      }),
+      { "demo:query:metric:chart": () => ok(planPayload) },
+    );
+    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    expect(screen.queryAllByTestId("chart-marker-item")).toHaveLength(0);
+    const entries = screen.getAllByTestId(/^chart-legend-marker-/);
+    expect(entries.map((entry) => entry.textContent)).toEqual([
+      "demo:kind-extra",
+      "demo:kind-payoff",
+      "Unknown kind",
+    ]);
+    expect(screen.getAllByTestId("chart-marker-pin")[0]?.getAttribute("title")).toContain(
+      "Extra · ",
+    );
+  });
+
+  test("a 12 month window labels the axis with day and month only", async () => {
+    renderDashboard(chartScreen("stacked-area", { ranges: yearRanges }), {
+      "demo:query:metric:chart": () => ok(planPayload),
+    });
+    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    expect(screen.getByTestId("dashboard-chart-main").textContent).not.toContain("2027");
+  });
+
+  test("dateFormat month adds the year to the axis labels", async () => {
+    renderDashboard(chartScreen("stacked-area", { ranges: yearRanges, dateFormat: "month" }), {
+      "demo:query:metric:chart": () => ok(planPayload),
+    });
+    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    expect(screen.getByTestId("dashboard-chart-main").textContent).toContain("2027");
+  });
 });

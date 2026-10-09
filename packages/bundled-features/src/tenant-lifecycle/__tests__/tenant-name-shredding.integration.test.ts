@@ -29,7 +29,7 @@ import { TenantHandlers } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantTable } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../feature.js";
-import { driveDestructionToCompletion, seedDestroyingTenant } from "./destroy-test-helpers.js";
+import { driveDestructionToCompletion, seedDestroyingTenant } from "../testing.js";
 
 const NAME = "Shred Me Holding";
 

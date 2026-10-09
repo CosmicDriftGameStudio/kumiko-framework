@@ -95,7 +95,11 @@ import { EmbeddedFormProvider } from "../primitives/index.js";
 import { PageSection } from "../primitives/layout.js";
 import { formatMoney } from "../primitives/money-input.js";
 import { Skeleton } from "../ui/skeleton.js";
-import { initialWindowSelection, type StackedAreaRanges } from "../widgets/chart-window.js";
+import {
+  initialWindowSelection,
+  type StackedAreaDateFormat,
+  type StackedAreaRanges,
+} from "../widgets/chart-window.js";
 import {
   type ChartLine,
   type ChartMarker,
@@ -145,6 +149,7 @@ type DashboardFormats = {
   readonly formatNumber: (value: number) => string;
   readonly formatPercent: (fraction: number) => string;
   readonly formatDay: (atMs: number) => string;
+  readonly formatMonth: (atMs: number) => string;
   readonly formatHour: (atMs: number) => string;
   readonly formatDateTime: (atMs: number) => string;
   readonly formatMedium: (atMs: number) => string;
@@ -162,6 +167,7 @@ function useDashboardFormats(): DashboardFormats {
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
   const percent = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 });
   const day = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", timeZone });
+  const month = new Intl.DateTimeFormat(locale, { month: "2-digit", year: "numeric", timeZone });
   const hour = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone });
   const dateTime = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
@@ -181,6 +187,7 @@ function useDashboardFormats(): DashboardFormats {
     formatNumber: (value) => number.format(value),
     formatPercent: (fraction) => percent.format(fraction),
     formatDay: (atMs) => day.format(atMs),
+    formatMonth: (atMs) => month.format(atMs),
     formatHour: (atMs) => hour.format(atMs),
     formatDateTime: (atMs) => dateTime.format(atMs),
   };
@@ -632,10 +639,14 @@ function resolveMarkers(
   return markers?.map((marker) => {
     const color =
       typeof marker.kind === "string" ? markerKindColor(markerKinds?.[marker.kind]) : undefined;
+    const legendKey =
+      typeof marker.kind === "string" ? markerKinds?.[marker.kind]?.label : undefined;
+    const legendLabel = legendKey !== undefined ? translate(legendKey) : undefined;
     return {
       atMs: marker.atMs,
       label: resolveDashboardText(marker.label, translate, formats) ?? "",
       ...(color !== undefined && { color }),
+      ...(legendLabel !== undefined && { legendLabel }),
     };
   });
 }
@@ -729,7 +740,12 @@ function ChartPanelBody({
           })),
         }
       : undefined;
-  const [windowSelection, setWindowSelection] = useState(() => initialWindowSelection(ranges));
+  const [windowSelection, setWindowSelection] = useState(() =>
+    initialWindowSelection(
+      ranges,
+      panel.chart === "stacked-area" ? panel.initialWindow : undefined,
+    ),
+  );
   const rangeSwitch =
     ranges !== undefined ? (
       <ModeSwitch
@@ -809,6 +825,8 @@ function ChartPanelBody({
             label: translate(line.label),
           }));
           const todayMs = data.todayMs ?? undefined;
+          const formatDateByFormat = (atMs: number, format: StackedAreaDateFormat): string =>
+            format === "month" ? formats.formatMonth(atMs) : formats.formatDay(atMs);
           return (
             <StackedAreaChart
               series={series}
@@ -829,9 +847,11 @@ function ChartPanelBody({
               }}
               ariaLabel={label}
               todayLabel={todayLabel}
-              formatBucketLabel={formats.formatDay}
+              formatBucketLabel={formatDateByFormat}
               formatValue={formatValue}
-              formatMarkerTime={formats.formatDay}
+              formatMarkerTime={formatDateByFormat}
+              {...(panel.dateFormat !== undefined && { dateFormat: panel.dateFormat })}
+              {...(panel.markerLegend !== undefined && { markerLegend: panel.markerLegend })}
               scrollable={panel.scrollable === true}
               showLegendTotals={panel.legendTotals !== false}
               emptyContent={

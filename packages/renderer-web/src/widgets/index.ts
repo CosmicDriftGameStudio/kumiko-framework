@@ -10,6 +10,8 @@ export {
   type AiTextFieldProps,
 } from "./ai-text-field.js";
 export type {
+  StackedAreaDateFormat,
+  StackedAreaInitialWindow,
   StackedAreaRangeOption,
   StackedAreaRanges,
   StackedAreaWindowSelection,

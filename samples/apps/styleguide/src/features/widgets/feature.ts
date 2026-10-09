@@ -15,25 +15,43 @@ const RESPONSE_POINTS = Array.from({ length: 48 }, (_, i) => ({
   value: i === 20 ? null : 120 + Math.round(80 * Math.abs(Math.sin(i / 5))),
 }));
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const TRAFFIC_START_MS = Date.UTC(2026, 0, 5);
-const TRAFFIC_TODAY_MS = Date.UTC(2026, 5, 15);
-const TRAFFIC_WEEKS = 52;
+const LOAN_START_MS = Date.UTC(2020, 0, 1);
+const LOAN_TODAY_MS = Date.UTC(2026, 5, 15);
+const LOAN_MONTHS = 240;
+const LOAN_PRINCIPAL_MINOR = 25_000_000;
+const LOAN_MONTHLY_RATE = 0.035 / 12;
 
-// Deterministic weekly traffic by channel. The "today" line is a fixed date, not
-// the clock, so the brush window and the screenshots stay stable.
-const TRAFFIC_SERIES = [
-  { key: "api", label: "widgets:dashboard:traffic-api", base: 300, swing: 90 },
-  { key: "web", label: "widgets:dashboard:traffic-web", base: 220, swing: 60 },
-  { key: "batch", label: "widgets:dashboard:traffic-batch", base: 120, swing: 40 },
-].map(({ key, label, base, swing }, seriesIndex) => ({
-  key,
-  label,
-  points: Array.from({ length: TRAFFIC_WEEKS }, (_, i) => ({
-    atMs: TRAFFIC_START_MS + i * WEEK_MS,
-    value: base + Math.round(swing * Math.sin(i / 4 + seriesIndex) + i * 2),
-  })),
-}));
+const loanMonthMs = (monthIndex: number): number => Date.UTC(2020, monthIndex, 1);
+
+// Annuity loan over 20 years: remaining principal falls, cumulative interest
+// grows. "Today" is a fixed date, not the clock, so the window and the
+// screenshots stay stable.
+const growth = (1 + LOAN_MONTHLY_RATE) ** LOAN_MONTHS;
+const annuityMinor = (LOAN_PRINCIPAL_MINOR * LOAN_MONTHLY_RATE * growth) / (growth - 1);
+let balanceMinor: number = LOAN_PRINCIPAL_MINOR;
+let interestPaidMinor = 0;
+const LOAN_REMAINING_POINTS = [{ atMs: loanMonthMs(0), value: LOAN_PRINCIPAL_MINOR }];
+const LOAN_INTEREST_POINTS = [{ atMs: loanMonthMs(0), value: 0 }];
+for (let i = 1; i <= LOAN_MONTHS; i++) {
+  const interest = balanceMinor * LOAN_MONTHLY_RATE;
+  balanceMinor = Math.max(0, balanceMinor - (annuityMinor - interest));
+  interestPaidMinor += interest;
+  LOAN_REMAINING_POINTS.push({ atMs: loanMonthMs(i), value: Math.round(balanceMinor) });
+  LOAN_INTEREST_POINTS.push({ atMs: loanMonthMs(i), value: Math.round(interestPaidMinor) });
+}
+const LOAN_SERIES = [
+  { key: "remaining", label: "widgets:dashboard:loan-remaining", points: LOAN_REMAINING_POINTS },
+  { key: "interest", label: "widgets:dashboard:loan-interest", points: LOAN_INTEREST_POINTS },
+];
+const LOAN_MARKERS = [
+  { atMs: loanMonthMs(84), label: { i18nKey: "widgets:dashboard:marker-extra-1" }, kind: "extra" },
+  { atMs: loanMonthMs(150), label: { i18nKey: "widgets:dashboard:marker-extra-2" }, kind: "extra" },
+  {
+    atMs: loanMonthMs(LOAN_MONTHS),
+    label: { i18nKey: "widgets:dashboard:marker-payoff" },
+    kind: "payoff",
+  },
+];
 
 const SENDERS = ["William Smith", "Alice Smith", "Bob Johnson", "Emily Davis"] as const;
 const SUBJECTS = ["Meeting Tomorrow", "Re: Project Update", "Weekend Plans", "Re: Budget"] as const;
@@ -126,17 +144,26 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       },
       {
         kind: "chart",
-        id: "traffic",
-        label: "widgets:dashboard:traffic",
+        id: "loan",
+        label: "widgets:dashboard:loan",
         chart: "stacked-area",
-        query: "widgets:query:metrics:traffic",
+        query: "widgets:query:metrics:loan",
+        valueFormat: { kind: "currency", currency: "EUR", fractionDigits: 0 },
         brush: true,
+        legendTotals: false,
+        initialWindow: "from-today",
+        markerLegend: "legend",
+        markerKinds: {
+          extra: { tone: "active", label: "widgets:dashboard:kind-extra" },
+          payoff: { tone: "positive", label: "widgets:dashboard:kind-payoff" },
+        },
         ranges: {
-          default: "3m",
+          default: "max",
           options: [
-            { value: "3m", label: "widgets:dashboard:range-3m", months: 3 },
-            { value: "6m", label: "widgets:dashboard:range-6m", months: 6 },
-            { value: "all", label: "widgets:dashboard:range-all" },
+            { value: "y1", label: "widgets:dashboard:range-y1", months: 12 },
+            { value: "y3", label: "widgets:dashboard:range-y3", months: 36 },
+            { value: "y5", label: "widgets:dashboard:range-y5", months: 60 },
+            { value: "max", label: "widgets:dashboard:range-all" },
           ],
         },
       },
@@ -241,13 +268,14 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
     },
   );
   r.queryHandler(
-    "metrics:traffic",
+    "metrics:loan",
     z.object({}),
     async () => ({
-      series: TRAFFIC_SERIES,
-      windowStartMs: TRAFFIC_START_MS,
-      windowEndMs: TRAFFIC_START_MS + (TRAFFIC_WEEKS - 1) * WEEK_MS,
-      todayMs: TRAFFIC_TODAY_MS,
+      series: LOAN_SERIES,
+      markers: LOAN_MARKERS,
+      windowStartMs: LOAN_START_MS,
+      windowEndMs: loanMonthMs(LOAN_MONTHS),
+      todayMs: LOAN_TODAY_MS,
     }),
     {
       access: {

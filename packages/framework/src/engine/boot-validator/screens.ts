@@ -2990,6 +2990,12 @@ function validateDashboardChartDisplay(
     );
   }
   validateStackedAreaOnlyProps(where, panel);
+  validateStackedAreaEnumProp(where, "dateFormat", panel.dateFormat, ["day", "month"]);
+  validateStackedAreaEnumProp(where, "initialWindow", panel.initialWindow, [
+    "default-range",
+    "from-today",
+  ]);
+  validateStackedAreaEnumProp(where, "markerLegend", panel.markerLegend, ["list", "legend"]);
   const nonBooleanProp = (["brush", "legendTotals"] as const).find(
     (prop) => panel[prop] !== undefined && typeof panel[prop] !== "boolean",
   );
@@ -3007,12 +3013,33 @@ function validateDashboardChartDisplay(
   if (panel.ranges !== undefined) validateDashboardChartRanges(`${where} ranges`, panel.ranges);
 }
 
+function validateStackedAreaEnumProp(
+  where: string,
+  prop: string,
+  value: string | undefined,
+  allowed: readonly string[],
+): void {
+  // skip: optional prop, nothing to validate when unset
+  if (value === undefined) return;
+  if (!allowed.includes(value)) {
+    throw new Error(`${where}.${prop} "${String(value)}" must be one of ${allowed.join(", ")}.`);
+  }
+}
+
 function validateStackedAreaOnlyProps(where: string, panel: DashboardChartPanel): void {
   // skip: stacked-area is the one chart kind that supports these props
   if (panel.chart === "stacked-area") return;
-  const stackedAreaOnly = (["markerKinds", "legendTotals", "ranges", "brush"] as const).filter(
-    (prop) => panel[prop] !== undefined,
-  );
+  const stackedAreaOnly = (
+    [
+      "markerKinds",
+      "legendTotals",
+      "ranges",
+      "brush",
+      "dateFormat",
+      "initialWindow",
+      "markerLegend",
+    ] as const
+  ).filter((prop) => panel[prop] !== undefined);
   if (stackedAreaOnly.length > 0) {
     throw new Error(
       `${where} sets ${stackedAreaOnly.join(", ")} on chart "${panel.chart}" — only "stacked-area" supports it.`,
@@ -3038,6 +3065,9 @@ function validateDashboardChartMarkerKind(where: string, look: DashboardChartMar
   }
   if (look.color !== undefined && (typeof look.color !== "string" || look.color.trim() === "")) {
     throw new Error(`${where}.color must be a non-empty CSS color.`);
+  }
+  if (look.label !== undefined && (typeof look.label !== "string" || look.label.trim() === "")) {
+    throw new Error(`${where}.label must be a non-empty i18n key.`);
   }
 }
 
