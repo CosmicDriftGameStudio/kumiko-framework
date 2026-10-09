@@ -3653,7 +3653,8 @@ function FormSections({
         // Same "no flex-1" reasoning as the card above: this is the
         // one section allowed to shrink (min-h-0) inside the card, not
         // one forced to grow past its content.
-        fillHeight === true && "min-h-0",
+        // Chromeless has no card above to hold a floor, so the sections do.
+        fillHeight === true && (chromeless ? "min-h-64" : "min-h-0"),
         // The flex chain pins the footer, so the sections are the scroll surface.
         isPinnedFooter(stickyActions, fillHeight) && "flex-1 overflow-y-auto",
       )}
@@ -4266,7 +4267,10 @@ function DefaultForm({
             // shrinks it back down via min-h-0 — flex-1 would instead force
             // it to always fill the remaining height, stretching a short
             // relatedList tab to the bottom of the panel (fw#2778).
-            fillHeight === true && "min-h-0 flex flex-col",
+            // The min-height floor keeps the card from collapsing to ~0 on short
+            // viewports; the shell then overflows and <main> scrolls instead of
+            // the overflow-hidden card clipping the table.
+            fillHeight === true && "min-h-64 flex flex-col",
             pinnedFooter && "flex-1",
           )}
         >
