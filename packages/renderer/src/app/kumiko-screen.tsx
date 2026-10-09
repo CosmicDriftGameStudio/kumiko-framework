@@ -1698,7 +1698,7 @@ function EntityEditUpdateForm({
         buildPayload={buildPayload}
         serverFieldPathPrefix={`${UPDATE_CHANGES_KEY}.`}
         onSubmit={handleSubmitted}
-        onChange={(state) => setFormDirty(state.dirty)}
+        onDirtyChange={setFormDirty}
         // allowDelete:false marks an entity without a CRUD delete (history is
         // kept) — without this gate the button dispatched against an
         // unregistered `<entity>:delete` handler.
