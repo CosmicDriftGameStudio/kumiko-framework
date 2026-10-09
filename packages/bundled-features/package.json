@@ -81,6 +81,7 @@
     "./files-tenant-data": "./src/files-tenant-data/index.ts",
     "./user-data-rights": "./src/user-data-rights/index.ts",
     "./user-data-rights/web": "./src/user-data-rights/web/index.ts",
+    "./user-data-rights/email-templates": "./src/user-data-rights/email-templates.ts",
     "./user-data-rights-defaults": "./src/user-data-rights-defaults/index.ts",
     "./tenant": "./src/tenant/index.ts",
     "./tenant/constants": "./src/tenant/constants.ts",
@@ -96,6 +97,7 @@
     "./user-profile/web": "./src/user-profile/web/index.ts",
     "./auth-email-password": "./src/auth-email-password/index.ts",
     "./auth-email-password/constants": "./src/auth-email-password/constants.ts",
+    "./auth-email-password/email-templates": "./src/auth-email-password/email-templates.ts",
     "./auth-email-password/seeding": "./src/auth-email-password/seeding.ts",
     "./auth-email-password/testing": "./src/auth-email-password/testing.ts",
     "./auth-email-password/web": "./src/auth-email-password/web/index.ts",
@@ -411,6 +413,10 @@
         "types": "./dist/user-data-rights/index.d.ts",
         "default": "./dist/user-data-rights/index.js"
       },
+      "./user-data-rights/email-templates": {
+        "types": "./dist/user-data-rights/email-templates.d.ts",
+        "default": "./dist/user-data-rights/email-templates.js"
+      },
       "./user-data-rights/web": {
         "types": "./dist/user-data-rights/web/index.d.ts",
         "default": "./dist/user-data-rights/web/index.js"
@@ -470,6 +476,10 @@
       "./auth-email-password": {
         "types": "./dist/auth-email-password/index.d.ts",
         "default": "./dist/auth-email-password/index.js"
+      },
+      "./auth-email-password/email-templates": {
+        "types": "./dist/auth-email-password/email-templates.d.ts",
+        "default": "./dist/auth-email-password/email-templates.js"
       },
       "./auth-email-password/constants": {
         "types": "./dist/auth-email-password/constants.d.ts",

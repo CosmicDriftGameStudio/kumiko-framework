@@ -19,6 +19,15 @@ const CATALOGS: readonly { readonly locale: string; readonly catalog: Bundle }[]
   { locale: "es", catalog: spanishEnCatalog },
 ];
 
+// Client plugins that ship no English copy of their own (their screens use server or renderer keys).
+const CLIENTS_WITHOUT_OWN_COPY: ReadonlySet<string> = new Set([
+  "client:cap-overview",
+  "client:billing-foundation",
+  "client:tenant",
+  "client:delivery",
+  "client:legal-pages",
+]);
+
 let harvest: EnHarvest;
 
 beforeAll(async () => {
@@ -36,6 +45,17 @@ describe("i18n parity", () => {
     expect(harvest.entryCountByOrigin["renderer"]).toBeGreaterThan(0);
     expect(harvest.entryCountByOrigin["mail:auth"]).toBeGreaterThan(0);
     expect(harvest.entryCountByOrigin["mail:gdpr"]).toBeGreaterThan(0);
+  });
+
+  test("every client and mail source yields entries", () => {
+    const empty = Object.entries(harvest.entryCountByOrigin)
+      .filter(
+        ([origin, count]) =>
+          /^(client|mail):/.test(origin) && count === 0 && !CLIENTS_WITHOUT_OWN_COPY.has(origin),
+      )
+      .map(([origin]) => origin);
+    expect(empty).toEqual([]);
+    expect(Object.keys(harvest.entryCountByOrigin).some((o) => o.startsWith("client:"))).toBe(true);
   });
 
   test("no key carries different English copy in different sources", () => {

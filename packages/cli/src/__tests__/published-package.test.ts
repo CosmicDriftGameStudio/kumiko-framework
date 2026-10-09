@@ -69,18 +69,21 @@ function installedPackageDir(name: string): string {
   }
 }
 
-const PEER_PACKAGES = [
-  "kumiko-framework",
-  "kumiko-bundled-features",
-  "kumiko-dev-server",
-  "kumiko-repo-manifest",
-  "kumiko-guards",
-  "kumiko-testing",
-] as const;
-
 type PackedManifest = {
   readonly bin: Record<string, string>;
+  readonly dependencies?: Record<string, string>;
+  readonly peerDependencies?: Record<string, string>;
+  readonly peerDependenciesMeta?: Record<string, { readonly optional?: boolean }>;
 };
+
+// Mirrors what a consumer install provides: declared dependencies plus the
+// peers an app is expected to install itself.
+function declaredCosmicdriftPackages(declared: PackedManifest): string[] {
+  return [
+    ...Object.keys(declared.dependencies ?? {}),
+    ...Object.keys(declared.peerDependencies ?? {}),
+  ].filter((name) => name.startsWith("@cosmicdrift/"));
+}
 
 let installRoot: string;
 let tgzPath: string;
@@ -116,17 +119,14 @@ beforeAll(() => {
   installedPkgRoot = join(installRoot, "node_modules", "@cosmicdrift", "kumiko-cli");
   renameSync(join(installRoot, "package"), installedPkgRoot);
 
-  for (const name of PEER_PACKAGES) {
-    symlinkSync(
-      installedPackageDir(`@cosmicdrift/${name}`),
-      join(installRoot, "node_modules", "@cosmicdrift", name),
-    );
-  }
-  symlinkSync(installedPackageDir("zod"), join(installRoot, "node_modules", "zod"));
-
   manifest = JSON.parse(
     readFileSync(join(installedPkgRoot, "package.json"), "utf-8"),
   ) as PackedManifest;
+
+  for (const name of declaredCosmicdriftPackages(manifest)) {
+    symlinkSync(installedPackageDir(name), join(installRoot, "node_modules", name));
+  }
+  symlinkSync(installedPackageDir("zod"), join(installRoot, "node_modules", "zod"));
   const binTarget = resolve(installedPkgRoot, manifest.bin["kumiko"] ?? "");
   chmodSync(binTarget, 0o755);
 
@@ -149,6 +149,14 @@ describe("published @cosmicdrift/kumiko-cli tarball", () => {
     expect(manifest.bin["kumiko"]).toBeTruthy();
     const binTarget = resolve(installedPkgRoot, manifest.bin["kumiko"] ?? "");
     expect(() => readFileSync(binTarget, "utf-8")).not.toThrow();
+  });
+
+  test("framework and bundled-features ship as optional peers, not hard dependencies", () => {
+    for (const name of ["@cosmicdrift/kumiko-framework", "@cosmicdrift/kumiko-bundled-features"]) {
+      expect(manifest.peerDependencies).toHaveProperty([name]);
+      expect(manifest.peerDependenciesMeta?.[name]?.optional).toBe(true);
+      expect(manifest.dependencies ?? {}).not.toHaveProperty([name]);
+    }
   });
 
   test("the packed bin lists the app commands in --help", () => {

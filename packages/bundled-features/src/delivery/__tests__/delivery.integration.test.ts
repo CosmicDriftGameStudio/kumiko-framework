@@ -373,6 +373,7 @@ const systemBroadcastFeature = defineFeature("test-system-broadcast", (r) => {
   });
 });
 
+const pushTokenResolveCalls: string[] = [];
 const configFeature = createConfigFeature();
 const tenantFeature = createTenantFeature();
 const templateResolverFeature = createTemplateResolverFeature();
@@ -387,7 +388,10 @@ const channelEmailFeature = createChannelEmailFeature({
 });
 const channelPushFeature = createChannelPushFeature({
   transport: pushTransport,
-  resolveToken: async (userId) => testPushToken(userId),
+  resolveToken: async (userId) => {
+    pushTokenResolveCalls.push(userId);
+    return testPushToken(userId);
+  },
 });
 const features = [
   configFeature,
@@ -1471,6 +1475,22 @@ describe("flow 12d: channel error paths", () => {
 // --- Flow 13: Kill switch ---
 
 describe("flow 13: tenant kill switch", () => {
+  test("killed channel is never resolved for a batch notify", async () => {
+    await stack.redis.redis.set(`test:delivery:kill:${admin.tenantId}:push`, "1");
+    pushTokenResolveCalls.length = 0;
+    try {
+      await deliveryService.notify(
+        "app:notify:order-assigned",
+        { to: [user1.id, user2.id], data: { title: "Batch", body: "X" } },
+        admin,
+        admin.tenantId,
+      );
+      expect(pushTokenResolveCalls).toEqual([]);
+    } finally {
+      await stack.redis.redis.del(`test:delivery:kill:${admin.tenantId}:push`);
+    }
+  });
+
   test("killed channel is skipped with channel_disabled", async () => {
     // Kill the push channel for tenant 1 (UUID key matches what the service builds)
     await stack.redis.redis.set(`test:delivery:kill:${admin.tenantId}:push`, "1");

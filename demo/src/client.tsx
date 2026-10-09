@@ -13,9 +13,22 @@
 
 import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
-import { createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
+import { type AppSchema, createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";
+import type { ReactNode } from "react";
+
+// createKumikoApp's shell option only injects schema + children, so brand is supplied here.
+function AppShell({ children, schema }: { children: ReactNode; schema: AppSchema }): ReactNode {
+  return (
+    <DefaultAppShell
+      brand={<span className="font-semibold tracking-tight">demo</span>}
+      schema={schema}
+    >
+      {children}
+    </DefaultAppShell>
+  );
+}
 
 createKumikoApp({
-  shell: DefaultAppShell,
+  shell: AppShell,
   clientFeatures: [localeDeClient(), emailPasswordClient()],
 });

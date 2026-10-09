@@ -188,6 +188,7 @@ export {
   FormalityProvider,
   LocaleProvider,
   mergeTranslations,
+  translationsByKeyFromLocales,
   translationsByLocaleFromKeys,
   useFormality,
   useLocale,

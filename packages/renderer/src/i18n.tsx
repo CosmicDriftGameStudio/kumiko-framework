@@ -55,6 +55,19 @@ export function translationsByLocaleFromKeys(source: TranslationsByKey): Transla
   return out;
 }
 
+/** Inverse of `translationsByLocaleFromKeys`: pivot locale-first bundles to the key-first
+ *  shape `r.translations({ keys })` expects, so one source feeds server and client. */
+export function translationsByKeyFromLocales(source: TranslationsByLocale): TranslationsByKey {
+  const out: Record<string, Record<string, TranslationValue>> = {};
+  for (const [locale, bundle] of Object.entries(source)) {
+    for (const [key, value] of Object.entries(bundle)) {
+      out[key] ??= {};
+      out[key][locale] = value;
+    }
+  }
+  return out;
+}
+
 /** Merged zwei TranslationsByLocale-Maps — der override gewinnt pro Key,
  *  die Locales werden zusammengeführt. Standard-Baustein für Client-
  *  Plugins, die App-Overrides über ihre Default-Bundles legen. */

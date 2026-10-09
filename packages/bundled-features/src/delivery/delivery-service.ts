@@ -444,12 +444,25 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
   const recipientChannelKey = (userId: string, channelName: string) => `${userId}|${channelName}`;
 
+  async function isChannelDeliverable(
+    userId: string,
+    tenantId: TenantId,
+    notificationType: string,
+    channelName: string,
+  ): Promise<boolean> {
+    if (isChannelKilled && (await isChannelKilled(tenantId, channelName))) return false;
+    return isChannelEnabled(userId, tenantId, notificationType, channelName);
+  }
+
   // Resolves every user's channel addresses up front so the opt-out lookup can
   // cover them all at once. A resolve that throws stays out of the map: the
   // delivery loop resolves it again and reports channel_error as before.
+  // Channels the kill switch or the user's preferences disable are never resolved
+  // here: resolve may have side effects and deliverToUser skips those channels.
   async function prefetchUserAddresses(
     userIds: readonly string[],
     tenantId: TenantId,
+    notificationType: string,
   ): Promise<Map<string, string | null>> {
     const addresses = new Map<string, string | null>();
     const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId, secrets);
@@ -457,6 +470,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       for (const channel of channels) {
         if (!channel.resolve) continue;
         try {
+          if (!(await isChannelDeliverable(userId, tenantId, notificationType, channel.name))) {
+            continue;
+          }
           addresses.set(
             recipientChannelKey(userId, channel.name),
             await channel.resolve(userId, channelCtx),
@@ -781,7 +797,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         }
 
         const prefetchedAddresses =
-          priority === "critical" ? new Map<string, string | null>() : await prefetchUserAddresses(userIds, tenantId);
+          priority === "critical"
+            ? new Map<string, string | null>()
+            : await prefetchUserAddresses(userIds, tenantId, notificationType);
         const suppressed = await loadSuppressedAddresses(
           tenantId,
           notificationType,

@@ -13,8 +13,6 @@ export const E2E_PORTS = {
   "framework/admin-console": 4183,
   "framework/hero-demos": 4290,
   "framework/testing": 4195,
-  "kumiko-studio/e2e": 4191,
-  "kumiko-studio/screenshots": 4192,
   "publicstatus/e2e": 4178,
   "publicstatus/screenshots": 4184,
   "money-horse/screenshots": 4318,

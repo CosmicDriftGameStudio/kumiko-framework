@@ -732,6 +732,40 @@ describe("upgrade command — --apply", () => {
     expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(true);
   });
 
+  test("a codemod entry with manualAfterCodemod runs the codemod and stays pending manual", async () => {
+    const entry = {
+      version: "0.167.0",
+      type: "breaking",
+      title: "partly automated",
+      migration: "review the remaining sites",
+      codemod: "scripts/codemod/ok.ts",
+    };
+    const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+      "packages/framework/src/changes.json": JSON.stringify([
+        { ...entry, manualAfterCodemod: true },
+        { ...entry, version: "0.168.0", title: "fully automated" },
+      ]),
+    });
+    const repoRootWithScripts = tmp({
+      "packages/framework/src/scripts/codemod/ok.ts": "process.exit(0);\n",
+    });
+
+    const exit = await runUpgradeCli(["--from", "0.165.0", "--apply"], cwd, makeSpyOutput().out, {
+      repoRoot: repoRootWithScripts,
+    });
+
+    expect(exit).toBe(0);
+    const marker = readMarkerFile(cwd);
+    expect(marker.codemods.map((ran) => (ran as { title: string }).title)).toEqual([
+      "partly automated",
+      "fully automated",
+    ]);
+    expect((marker.pendingManual ?? []).map((manual) => manual.title)).toEqual([
+      "partly automated",
+    ]);
+  });
+
   test("nothing pending: reports up to date, still bootstraps the marker", async () => {
     const cwd = tmp({
       "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),

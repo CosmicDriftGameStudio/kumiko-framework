@@ -24,6 +24,7 @@ type ChangelogEntry = {
   readonly detail?: string;
   readonly migration?: string;
   readonly codemod?: string;
+  readonly manualAfterCodemod?: boolean;
 };
 
 function findRepoRoot(cwd: string): string {
@@ -172,6 +173,7 @@ function renderChangeset(packageName: string, change: PendingChange, bump: "mino
   lines.push("<!-- kumiko-changes", `feature: ${change.feature}`, `type: ${change.type}`, `title: ${change.title}`);
   if (change.migration) lines.push("migration: |", ...change.migration.split("\n").map((line) => `  ${line}`));
   if (change.codemod) lines.push(`codemod: ${change.codemod}`);
+  if (change.manualAfterCodemod) lines.push("manualAfterCodemod: true");
   lines.push("-->", "");
   return lines.join("\n");
 }
@@ -208,7 +210,7 @@ function readStatus(raw: string): ChangesetStatus {
 }
 
 function entryKey(entry: ChangelogEntry): string {
-  return [entry.version, entry.type, entry.title, entry.detail ?? "", entry.migration ?? "", entry.codemod ?? ""].join("\0");
+  return [entry.version, entry.type, entry.title, entry.detail ?? "", entry.migration ?? "", entry.codemod ?? "", entry.manualAfterCodemod ? "manual" : ""].join("\0");
 }
 
 function readEntries(path: string): ChangelogEntry[] {
@@ -250,6 +252,10 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
     ctx.out.err(`  --codemod "${codemod}" must be an existing .ts file under packages/framework/src/scripts/codemod/.`);
     return 1;
   }
+  const manualAfterCodemod = getFlag(args, "manual-after-codemod");
+  if (manualAfterCodemod && !codemod) {
+    return ctx.out.err("  --manual-after-codemod requires --codemod."), 1;
+  }
   const feature = explicitFeature ?? deriveFeatureFromCwd(repoRoot, ctx.cwd);
   if (!feature) return ctx.out.err(`  Pass --feature explicitly. Available: ${listAvailableFeatures(repoRoot).join(", ")}`), 1;
   const target = resolveFeatureTarget(repoRoot, feature);
@@ -261,6 +267,7 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
     ...(detail ? { detail } : {}),
     ...(migration ? { migration } : {}),
     ...(codemod ? { codemod } : {}),
+    ...(manualAfterCodemod ? { manualAfterCodemod: true } : {}),
     source: "kumiko changes add",
   };
   const changesetDir = join(repoRoot, ".changeset");
@@ -315,6 +322,7 @@ function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType
           ...(change.detail ? { detail: change.detail } : {}),
           ...(change.migration ? { migration: change.migration } : {}),
           ...(change.codemod ? { codemod: change.codemod } : {}),
+          ...(change.manualAfterCodemod ? { manualAfterCodemod: true } : {}),
         };
         const entries = pending.get(target.changelogPath) ?? [];
         if (!entries.some((existing) => entryKey(existing) === entryKey(entry))) entries.push(entry);
@@ -350,7 +358,7 @@ export const changesCommand = defineCommand({
   description: "Create and fold structured Changeset changelog entries",
   help: [
     "Usage:",
-    '  kumiko changes add --breaking --title "..." --migration "..." [--feature <name>] [--codemod <path>]',
+    '  kumiko changes add --breaking --title "..." --migration "..." [--feature <name>] [--codemod <path> [--manual-after-codemod]]',
     '  kumiko changes add --improvement|--fix --title "..." [--feature <name>] [--detail "..."]',
     "  kumiko changes fold --status <changeset-status.json> [--dry-run]",
   ].join("\n"),

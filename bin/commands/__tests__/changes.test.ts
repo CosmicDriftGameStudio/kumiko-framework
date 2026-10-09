@@ -291,6 +291,48 @@ describe("changes add validation and round-trips", () => {
       },
     ]);
   });
+
+  test("--manual-after-codemod survives parse and fold, and needs --codemod", async () => {
+    const cwd = tmp({
+      ...frameworkFixture(),
+      "packages/framework/src/scripts/codemod/my-codemod.ts": "export {};\n",
+    });
+    const baseArgs = ["add", "--breaking", "--title", "Rename the thing", "--migration", "Review", "--feature", "framework"];
+
+    const withoutCodemod = await run(cwd, [...baseArgs, "--manual-after-codemod"]);
+    expect(withoutCodemod.exit).toBe(1);
+    expect(withoutCodemod.errs.join("\n")).toContain("--manual-after-codemod requires --codemod");
+
+    const added = await run(cwd, [
+      ...baseArgs,
+      "--codemod",
+      "scripts/codemod/my-codemod.ts",
+      "--manual-after-codemod",
+    ]);
+    expect(added.exit).toBe(0);
+    const path = added.logs[0]!;
+    expect(readFileSync(path, "utf-8")).toContain("manualAfterCodemod: true");
+    const id = path.slice(path.lastIndexOf(sep) + 1, -3);
+    writeFileSync(
+      join(cwd, ".changeset-status.json"),
+      JSON.stringify({
+        changesets: [{ id }],
+        releases: [{ name: "@cosmicdrift/kumiko-framework", newVersion: "0.277.0", changesets: [id] }],
+      }),
+    );
+
+    expect((await run(cwd, ["fold", "--status", join(cwd, ".changeset-status.json")])).exit).toBe(0);
+    expect(JSON.parse(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8"))).toEqual([
+      {
+        version: "0.277.0",
+        type: "breaking",
+        title: "Rename the thing",
+        migration: "Review",
+        codemod: "scripts/codemod/my-codemod.ts",
+        manualAfterCodemod: true,
+      },
+    ]);
+  });
 });
 
 describe("changes fold", () => {
