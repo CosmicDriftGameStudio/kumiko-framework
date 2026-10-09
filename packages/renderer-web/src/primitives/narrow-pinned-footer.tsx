@@ -181,11 +181,13 @@ export function NarrowPinnedFooter({
   overflowLabel,
   unsavedCount,
   testId,
+  keyboardInset,
 }: {
   readonly nodes: readonly ReactNode[];
   readonly overflowLabel: string;
   readonly unsavedCount: number | undefined;
   readonly testId: string | undefined;
+  readonly keyboardInset: number;
 }): ReactNode {
   const { back, primary, overflow } = splitNarrowFooterNodes(nodes);
   const backElement = asFooterElement(back);
@@ -193,6 +195,12 @@ export function NarrowPinnedFooter({
     <div
       data-testid={testId !== undefined ? `${testId}-actions` : undefined}
       className="flex h-14 shrink-0 items-center gap-2 border-t border-border bg-card px-4"
+      // iOS ignores interactive-widget=resizes-content, so the in-flow footer would stay behind the keyboard.
+      style={
+        keyboardInset > 0
+          ? { transform: `translateY(-${keyboardInset}px)`, position: "relative", zIndex: 10 }
+          : undefined
+      }
     >
       {backElement !== undefined && <BackIconButton node={backElement} />}
       {overflow.length > 0 && (

@@ -3821,6 +3821,7 @@ function FormFooter({
         }
         unsavedCount={unsavedCount}
         testId={testId}
+        keyboardInset={keyboardInset}
       />
     );
   }
