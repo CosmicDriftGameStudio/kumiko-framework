@@ -22,7 +22,11 @@ import { hashUnsubscribeAddress } from "./address-opt-out.js";
 import { appendAttemptEvent, logAttempt } from "./attempt-log.js";
 import { buildChannelContext } from "./channel-context.js";
 import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs, deliveryPriorityRank } from "./constants.js";
-import { isAddressOptedOut } from "./db/queries/address-opt-outs.js";
+import {
+  type AddressOptOutKey,
+  addressOptOutKey,
+  selectOptedOutAddresses,
+} from "./db/queries/address-opt-outs.js";
 import { selectNotificationPreferences } from "./db/queries/preferences.js";
 import {
   type ChannelContext,
@@ -411,16 +415,58 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
   // Shared by deliverToUser (resolved account address) and deliverDirect (a
   // route address with no user account) — same suppression rule either way:
-  // no blind-index key configured means no hash, so nothing to look up.
-  async function isAddressSuppressed(
-    address: string,
+  // no blind-index key configured means no hash, so nothing to look up. One
+  // query per notify() call, not per recipient and channel.
+  async function loadSuppressedAddresses(
     tenantId: TenantId,
     notificationType: string,
+    priority: NotifyPriority,
+    addresses: Iterable<string>,
+  ): Promise<ReadonlySet<AddressOptOutKey>> {
+    // Critical priority skips address opt-outs, same rule as user preferences.
+    if (priority === "critical") return new Set();
+    const addressHashes = new Set<string>();
+    for (const address of addresses) {
+      const addressHash = hashUnsubscribeAddress(address);
+      if (addressHash !== undefined) addressHashes.add(addressHash);
+    }
+    return selectOptedOutAddresses(db, tenantId, notificationType, [...addressHashes]);
+  }
+
+  function isAddressSuppressed(
+    suppressed: ReadonlySet<AddressOptOutKey>,
+    address: string,
     channelName: string,
-  ): Promise<boolean> {
+  ): boolean {
     const addressHash = hashUnsubscribeAddress(address);
-    if (addressHash === undefined) return false;
-    return isAddressOptedOut(db, tenantId, addressHash, notificationType, channelName);
+    return addressHash !== undefined && suppressed.has(addressOptOutKey(addressHash, channelName));
+  }
+
+  const recipientChannelKey = (userId: string, channelName: string) => `${userId}|${channelName}`;
+
+  // Resolves every user's channel addresses up front so the opt-out lookup can
+  // cover them all at once. A resolve that throws stays out of the map: the
+  // delivery loop resolves it again and reports channel_error as before.
+  async function prefetchUserAddresses(
+    userIds: readonly string[],
+    tenantId: TenantId,
+  ): Promise<Map<string, string | null>> {
+    const addresses = new Map<string, string | null>();
+    const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId, secrets);
+    for (const userId of userIds) {
+      for (const channel of channels) {
+        if (!channel.resolve) continue;
+        try {
+          addresses.set(
+            recipientChannelKey(userId, channel.name),
+            await channel.resolve(userId, channelCtx),
+          );
+        } catch {
+          // skip: re-resolved (and logged) by deliverToUser
+        }
+      }
+    }
+    return addresses;
   }
 
   // Check if user has disabled this notification+channel combo.
@@ -466,6 +512,8 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     tenantId: TenantId,
     priority: NotifyPriority,
     run: NotifyRun,
+    prefetchedAddresses: ReadonlyMap<string, string | null>,
+    suppressed: ReadonlySet<AddressOptOutKey>,
   ): Promise<void> {
     const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId, secrets);
 
@@ -530,7 +578,10 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       }
 
       try {
-        const address = await channel.resolve(userId, channelCtx);
+        const prefetchKey = recipientChannelKey(userId, channel.name);
+        const address = prefetchedAddresses.has(prefetchKey)
+          ? prefetchedAddresses.get(prefetchKey)
+          : await channel.resolve(userId, channelCtx);
         if (!address) {
           await logDelivery(run, {
             tenantId,
@@ -545,10 +596,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           continue;
         }
 
-        if (
-          priority !== "critical" &&
-          (await isAddressSuppressed(address, tenantId, notificationType, channel.name))
-        ) {
+        if (priority !== "critical" && isAddressSuppressed(suppressed, address, channel.name)) {
           await logDelivery(run, {
             tenantId,
             notificationType,
@@ -602,6 +650,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     run: NotifyRun,
   ): Promise<void> {
     const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId, secrets);
+    const suppressed = await loadSuppressedAddresses(
+      tenantId,
+      notificationType,
+      priority,
+      Object.values(route),
+    );
 
     // Direct routing skips preferences (no user account) but NOT rate limit
     // — direct sends can still be abused (webhook replays, test harnesses).
@@ -612,10 +666,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
       // Address opt-out (critical priority skips it, same rule as user
       // preferences).
-      if (
-        priority !== "critical" &&
-        (await isAddressSuppressed(address, tenantId, notificationType, channel.name))
-      ) {
+      if (priority !== "critical" && isAddressSuppressed(suppressed, address, channel.name)) {
         await logDelivery(run, {
           tenantId,
           notificationType,
@@ -729,8 +780,26 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           userIds = to;
         }
 
+        const prefetchedAddresses =
+          priority === "critical" ? new Map<string, string | null>() : await prefetchUserAddresses(userIds, tenantId);
+        const suppressed = await loadSuppressedAddresses(
+          tenantId,
+          notificationType,
+          priority,
+          [...prefetchedAddresses.values()].filter((address): address is string => !!address),
+        );
+
         for (const userId of userIds) {
-          await deliverToUser(userId, notificationType, data, tenantId, priority, run);
+          await deliverToUser(
+            userId,
+            notificationType,
+            data,
+            tenantId,
+            priority,
+            run,
+            prefetchedAddresses,
+            suppressed,
+          );
         }
       }
       return { deliveries: run.deliveries };

@@ -26,6 +26,7 @@ import { getStep } from "./define-step.js";
 import { buildPipelineSteps } from "./pipeline.js";
 import { SUSPEND_SENTINEL } from "./steps/_step-dispatch-constants.js";
 import { RETURN_RESULT_KEY } from "./steps/return.js";
+import { unwrapWorkflowStepError, WorkflowStepError } from "./steps/workflow-step-error.js";
 import type { KumikoEventTypeMap } from "./types/event-type-map.js";
 import type { HandlerContext, WriteEvent, WriteResult } from "./types/handlers.js";
 import type { PipelineCtx, PipelineDef, StepInstance } from "./types/step.js";
@@ -141,7 +142,15 @@ export async function runStepList<TPayload, TMap extends object = KumikoEventTyp
       }),
     } as PipelineCtx<TPayload, TMap>;
 
-    const value = await stepDef.run(instance.args, pipelineCtx as unknown as PipelineCtx);
+    let value: unknown;
+    try {
+      value = await stepDef.run(instance.args, pipelineCtx as unknown as PipelineCtx);
+    } catch (error) {
+      // Workflow runs only: plain handler pipelines must keep surfacing the raw error to the
+      // dispatcher's error mapping. Nested lists re-wrap, so the outermost index wins.
+      if (!workflow) throw error;
+      throw new WorkflowStepError(i, unwrapWorkflowStepError(error));
+    }
 
     // Tier-3 suspension: the step wrote a waiting event and returned
     // SUSPEND_SENTINEL to signal the pipeline should stop. The caller

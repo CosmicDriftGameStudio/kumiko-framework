@@ -23,7 +23,13 @@ export type InvitedMembershipOptions = {
   readonly userId: string;
   readonly tenantId: TenantId;
   readonly role: string;
-  readonly invitationIssuedAt: Temporal.Instant;
+  readonly invitation: InvitationIssuance;
+};
+
+export type InvitationIssuance = {
+  readonly membershipVersion: number | null;
+  readonly insertedAt: Temporal.Instant;
+  readonly modifiedAt: Temporal.Instant | null;
 };
 
 type MembershipRow = {
@@ -54,7 +60,7 @@ export async function grantInvitedMembershipRole(db: DbRunner, options: InvitedM
   }
 
   // A membership decision made after the invitation was issued wins over it.
-  if (isMembershipChangedAfter(existing, options.invitationIssuedAt)) {
+  if (isSupersededByMembership(existing, options.invitation)) {
     return writeFailure(invitationSupersededError());
   }
 
@@ -71,17 +77,19 @@ export async function grantInvitedMembershipRole(db: DbRunner, options: InvitedM
   return grantedMembership(true, roles);
 }
 
-// Resend reuses the invitation row, so its last modification is the latest issuance.
-export function invitationIssuedAt(invitation: {
-  readonly insertedAt: Temporal.Instant;
-  readonly modifiedAt: Temporal.Instant | null;
-}): Temporal.Instant {
-  return invitation.modifiedAt ?? invitation.insertedAt;
-}
-
-function isMembershipChangedAfter(membership: MembershipRow, instant: Temporal.Instant): boolean {
+// The pinned version is the membership's version when the invitation was issued
+// (0 = none yet). A different version now means the membership was decided after
+// the invite; a membership that only appeared after a 0-pin is an additive grant.
+// Rows issued before the pin existed (null) fall back to wall-clock timestamps,
+// which can misjudge changes within the same millisecond but is all they carry.
+function isSupersededByMembership(membership: MembershipRow, invitation: InvitationIssuance): boolean {
+  if (invitation.membershipVersion !== null) {
+    return invitation.membershipVersion > 0 && membership.version !== invitation.membershipVersion;
+  }
+  // Resend reuses the invitation row, so its last modification is the latest issuance.
+  const issuedAt = invitation.modifiedAt ?? invitation.insertedAt;
   const lastChangedAt = membership.modifiedAt ?? membership.insertedAt;
-  return Temporal.Instant.compare(lastChangedAt, instant) > 0;
+  return Temporal.Instant.compare(lastChangedAt, issuedAt) > 0;
 }
 
 function invitationSupersededError(): ConflictError {

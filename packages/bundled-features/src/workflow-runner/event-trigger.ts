@@ -12,13 +12,20 @@
 import type {
   FeatureRegistrar,
   MultiStreamProjectionDefinition,
+  StepInstance,
   WorkflowDefinition,
   WriteEvent,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  buildPipelineSteps,
+  createSystemUser,
   describeWorkflowStepError,
+  getStep,
+  SYSTEM_TENANT_ID,
+  type TenantId,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RUN_FAILED_TYPE,
+  WorkflowStepError,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { workflowRunAggregateId } from "./aggregate-id.js";
@@ -31,6 +38,60 @@ import {
 import { registerWorkflow } from "./workflow-registry.js";
 
 const log = createFallbackLogger("workflow-runner");
+
+// The MSP apply context only offers unsafeAppendEvent/loadAggregate; these steps reach for
+// ctx.db/write/writeAs and would crash on the first run instead of at registration.
+const STEP_KINDS_NEEDING_HANDLER_CONTEXT: ReadonlySet<string> = new Set([
+  "aggregate.create",
+  "aggregate.update",
+  "callFeature",
+  "read.findOne",
+  "read.findMany",
+  "unsafeProjectionUpsert",
+  "unsafeProjectionDelete",
+]);
+
+function* walkStepInstances(steps: readonly StepInstance[]): Generator<StepInstance, void, void> {
+  for (const step of steps) {
+    yield step;
+    const { args } = step;
+    if (typeof args !== "object" || args === null) continue;
+    for (const path of getStep(step.kind)?.subPaths ?? []) {
+      const nested: unknown = path in args ? Reflect.get(args, path) : undefined;
+      if (Array.isArray(nested)) yield* walkStepInstances(nested);
+    }
+  }
+}
+
+export function assertEventTriggerStepsSupported(workflow: WorkflowDefinition): void {
+  let steps: readonly StepInstance[];
+  try {
+    // Same contract as the boot validator for handler pipelines: the closure must build its
+    // step list from the step builder alone, so an empty event is enough to enumerate kinds.
+    steps = buildPipelineSteps(workflow.pipelineDef, {
+      type: "workflow-registration-probe",
+      payload: {},
+      user: createSystemUser(SYSTEM_TENANT_ID as TenantId),
+    });
+  } catch (error) {
+    throw new Error(
+      `Workflow "${workflow.name}" pipeline closure threw at registration: ${String(error)}. ` +
+        "Build the step list without reading event payload fields; read them inside step resolvers.",
+      { cause: error },
+    );
+  }
+  for (const step of walkStepInstances(steps)) {
+    if (getStep(step.kind) === undefined) {
+      throw new Error(`Workflow "${workflow.name}" uses unknown step kind "${step.kind}"`);
+    }
+    if (STEP_KINDS_NEEDING_HANDLER_CONTEXT.has(step.kind)) {
+      throw new Error(
+        `Workflow "${workflow.name}" is event-triggered but uses step "${step.kind}", which needs a ` +
+          "handler context (db/write) the event-trigger projection does not provide.",
+      );
+    }
+  }
+}
 
 export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefinition): void {
   // Populate the workflow-registry unconditionally, before the event-trigger
@@ -47,6 +108,8 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
   // need a scheduler, not an MSP, so there is nothing to register here.
   if (workflow.trigger.kind !== "event") return;
 
+  assertEventTriggerStepsSupported(workflow);
+
   const eventType = workflow.trigger.eventType;
 
   r.multiStreamProjection({
@@ -60,12 +123,6 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
         // closure does not carry that narrowing, and re-narrowing here keeps
         // `trigger.filter` below typed without a cast.
         if (workflow.trigger.kind !== "event") return;
-        if (workflow.trigger.filter) {
-          const matches = workflow.trigger.filter(event as never);
-          // skip: the workflow's own trigger filter rejected this event — not
-          // this run's concern, so no run is started and nothing is recorded.
-          if (!matches) return;
-        }
 
         // @cast-boundary msp-to-write-event — the MSP delivers a StoredEvent
         // (event-store shape); the workflow runner expects a WriteEvent
@@ -73,6 +130,9 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
         // overlap exactly — the missing `.user` field is acceptable because
         // workflow triggers run system-level, not user-scoped.
         const triggerEvent = event as unknown as WriteEvent;
+        // skip: the workflow's own trigger filter rejected this event — not this run's
+        // concern, so no run is started and nothing is recorded.
+        if (workflow.trigger.filter && !workflow.trigger.filter(triggerEvent)) return;
         let idempotencyKey: string | undefined;
         if (typeof workflow.idempotencyKey === "function") {
           idempotencyKey = workflow.idempotencyKey(triggerEvent);
@@ -95,17 +155,14 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
               version: event.version,
             },
             ...(idempotencyKey && { idempotencyKey }),
-            // @cast-boundary msp-to-handler-ctx — MultiStreamApplyContext only
-            // exposes unsafeAppendEvent/loadAggregate, a subset of
-            // HandlerContext. The step vocabulary this runner drives (wait,
-            // compute, return) only ever calls unsafeAppendEvent on it.
-            handlerCtx: ctx as never,
+            handlerCtx: ctx,
           });
         } catch (error) {
-          // Only the suspension error knows its step; a throw inside a step
-          // carries no index, so it still reports 0.
+          // Failures outside the step loop (run-started append) have no step yet, so 0.
           const stepIndex =
-            error instanceof WorkflowSuspensionUnsupportedError ? error.stepIndex : 0;
+            error instanceof WorkflowStepError || error instanceof WorkflowSuspensionUnsupportedError
+              ? error.stepIndex
+              : 0;
           log.warn("workflow run failed", {
             runId,
             workflowName: workflow.name,

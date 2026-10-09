@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-04T06:14:37.762Z",
+  "generatedAt": "2026-10-09T14:23:30.730Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -868,6 +868,11 @@
           "notNull": false
         },
         {
+          "name": "membership_version",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
           "name": "expires_at",
           "pgType": "timestamptz",
           "notNull": true
@@ -1250,7 +1255,10 @@
           "unique": true
         }
       ],
-      "source": "managed"
+      "source": "managed",
+      "piiSubjectFields": [
+        "name"
+      ]
     },
     {
       "tableName": "read_users",

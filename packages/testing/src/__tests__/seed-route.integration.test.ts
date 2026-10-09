@@ -10,6 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
 import {
   TenantQueries,
+  tenantEntity,
   tenantMembershipsTable,
   tenantTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
@@ -19,8 +20,16 @@ import {
   type KumikoServerHandle,
   runDevApp,
 } from "@cosmicdrift/kumiko-dev-server";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createSystemUser,
+  defineFeature,
+  defineWriteHandler,
+  type FeatureDefinition,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { type APIRequestContext, request as playwrightRequest } from "@playwright/test";
 import * as z from "zod";
@@ -124,6 +133,29 @@ async function seedTenantVia(h: KumikoServerHandle, body: unknown = {}) {
   expect(res.status).toBe(200);
   return seedTenantResponseSchema.parse(await res.json());
 }
+
+// The tenant feature has no delete verb; this hard-purges the row through the event-store executor.
+const TENANT_PURGE = "tenant-purge:write:purge";
+const tenantPurgeExecutor = createEventStoreExecutor(tenantTable, tenantEntity, {
+  entityName: "tenant",
+});
+const tenantPurgeFeature = defineFeature("tenant-purge", (r) => {
+  r.systemScope();
+  r.writeHandler(
+    defineWriteHandler({
+      name: "purge",
+      schema: z.object({ id: z.uuid() }),
+      access: { roles: [ROLES.SystemAdmin] },
+      agent: { risk: "high" },
+      description: "Test fixture: hard-purges a tenant row so existence checks can be exercised.",
+      handler: async (event, ctx) => {
+        if (!ctx.systemDb) throw new Error("tenant-purge requires ctx.systemDb");
+        const db = ctx.systemDb.acknowledgeCrossTenant("test fixture purges a seeded tenant");
+        return tenantPurgeExecutor.forget({ id: event.payload.id }, event.user, db);
+      },
+    }),
+  );
+});
 
 const noteSeedBodySchema = z.strictObject({ titles: z.array(z.string()).min(1) });
 
@@ -585,6 +617,21 @@ describe("POST /__test/seed-user tenant this route did not seed", () => {
     expect(
       await selectMany(h.stack.db, tenantMembershipsTable, { tenantId: inProcess.id }),
     ).toHaveLength(1);
+  });
+
+  test("a tenant removed after seed-tenant is 404 and gets no user", async () => {
+    const h = await boot([noteFeature, tenantPurgeFeature]);
+    const seeded = await seedTenantVia(h);
+    const purged = await h.stack.dispatcher.write(
+      TENANT_PURGE,
+      { id: seeded.id },
+      createSystemUser(seeded.id as TenantId, [ROLES.SystemAdmin]),
+    );
+    expect(purged.isSuccess).toBe(true);
+
+    const res = await post(h, SEED_ROUTES.seedUser, { tenantId: seeded.id, roles: ["Member"] });
+
+    expect(res.status).toBe(404);
   });
 
   test("after seed-tenant on this route, seed-user for that tenant succeeds", async () => {

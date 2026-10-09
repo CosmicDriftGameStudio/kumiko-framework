@@ -4,6 +4,7 @@ import {
   getInbox,
   mailTransportInMemoryFeature,
 } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
+import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
   type ExtraRouteDefinition,
   ExtraRouteRejection,
@@ -206,6 +207,15 @@ export function createE2eSeedRoutes(
       return parsed;
     },
     handler: async (c, verified, deps) => {
+      // seededTenantIds is never pruned, so a tenant removed after seeding must still 404.
+      const tenantRow = await deps.dispatchSystemQuery({
+        handlerQn: TenantQueries.me,
+        payload: {},
+        tenantId: verified.tenantId,
+      });
+      if (tenantRow === null) {
+        return c.json({ error: `unknown tenant ${verified.tenantId}` }, 404);
+      }
       const write: SeedWriter = async (handlerQn, payload, tenantId) =>
         unwrapSavedRow(handlerQn, await deps.dispatchSystemWrite({ handlerQn, payload, tenantId }));
       try {
