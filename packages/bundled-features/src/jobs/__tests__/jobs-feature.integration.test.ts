@@ -249,6 +249,14 @@ describe("scenario 3: jobs.list filters", () => {
     expect(seen).toEqual(allIds);
   });
 
+  test("a fractional limit is rejected", async () => {
+    const res = await req("POST", "/api/query", systemAdmin, {
+      type: JobQueries.list,
+      payload: { limit: 2.5 },
+    });
+    expect(res.status).toBe(400);
+  });
+
   test("a malformed cursor is rejected", async () => {
     const res = await req("POST", "/api/query", systemAdmin, {
       type: JobQueries.list,

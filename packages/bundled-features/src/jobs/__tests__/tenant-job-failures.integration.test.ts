@@ -243,6 +243,14 @@ describe("jobs:query:failures (fw#3079)", () => {
     });
   });
 
+  test("a fractional limit is rejected", async () => {
+    const res = await post("/api/query", userA, {
+      type: JobQueries.failures,
+      payload: { limit: 2.5 },
+    });
+    expect(res.status).toBe(400);
+  });
+
   test("the subject filter selects one record", async () => {
     const rows = await failures(userA, { subject: { campaignId: "campaign-2" } });
     expect(rows).toHaveLength(1);

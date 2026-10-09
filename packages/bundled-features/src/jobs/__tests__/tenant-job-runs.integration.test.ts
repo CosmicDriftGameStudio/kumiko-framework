@@ -356,6 +356,14 @@ describe("jobs:query:tenant-runs (fw#3616)", () => {
     }
   });
 
+  test("a fractional limit is rejected", async () => {
+    const res = await post("/api/query", userA, {
+      type: JobQueries.tenantRuns,
+      payload: { limit: 2.5 },
+    });
+    expect(res.status).toBe(400);
+  });
+
   test("another tenant sees nothing, and a tenantId in the payload is ignored", async () => {
     expect(await runs(userB)).toHaveLength(0);
     expect(await runs(userB, { tenantId: tenantA })).toHaveLength(0);

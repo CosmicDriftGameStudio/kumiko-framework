@@ -81,8 +81,8 @@ the recipe lists `createConfigFeature()` explicitly (see `src/feature.ts`).
 ### 2. Create the table
 
 ```bash
-bun kumiko migrate generate    # detects the `page` entity → SQL migration
-bun kumiko migrate apply
+bun kumiko-schema generate <name>    # detects the `page` entity → SQL migration
+bun kumiko-schema apply
 ```
 
 ### 3. Authoring + branding
