@@ -934,7 +934,8 @@ describe("ledger integration — subject dimension (filterable business-object r
         { id: withSubject.id, version: detail.version, changes: { subjectType: null } },
         admin,
       );
-      expect(err.httpStatus).toBe(400);
+      expect(err.httpStatus).toBe(422);
+      expect(JSON.stringify(err)).toContain("presave_hook_failed");
 
       await stack.http.writeOk(
         LedgerHandlers.updateSchedule,

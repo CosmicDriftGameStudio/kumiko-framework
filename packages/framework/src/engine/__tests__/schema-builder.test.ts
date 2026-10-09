@@ -1261,6 +1261,39 @@ describe("buildUpdateSchema", () => {
       expect(result.data["locale"]).toBe("de");
     }
   });
+
+  describe("null clears an optional stored field", () => {
+    const entity = createEntity({
+      table: "NullClear",
+      fields: {
+        endpoint: createTextField({ personal: false, reason: "test_fixture" }),
+        title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+        locale: createSelectField({ options: ["de", "en"], default: "de" }),
+        tags: createMultiSelectField({ options: ["a", "b"] }),
+      },
+    });
+    const schema = buildUpdateSchema(entity);
+
+    test("optional text accepts null and keeps it", () => {
+      const result = schema.safeParse({ endpoint: null });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data["endpoint"]).toBeNull();
+    });
+
+    test("required field still rejects null", () => {
+      expect(schema.safeParse({ title: null }).success).toBe(false);
+    });
+
+    test("select with default maps null to the default", () => {
+      const result = schema.safeParse({ locale: null });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data["locale"]).toBe("de");
+    });
+
+    test("NOT NULL jsonb-backed field still rejects null", () => {
+      expect(schema.safeParse({ tags: null }).success).toBe(false);
+    });
+  });
 });
 
 describe("buildInsertSchema caller id (#2922)", () => {
