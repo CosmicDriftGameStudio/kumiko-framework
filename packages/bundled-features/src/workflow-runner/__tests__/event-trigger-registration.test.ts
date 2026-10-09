@@ -38,9 +38,7 @@ describe("registerEventTrigger step validation", () => {
   });
 
   test("rejects an unknown step kind at registration", () => {
-    const workflow = eventWorkflow("reg-unknown", () => [
-      { kind: "does.not.exist", args: {} },
-    ]);
+    const workflow = eventWorkflow("reg-unknown", () => [{ kind: "does.not.exist", args: {} }]);
 
     expect(() => register(workflow)).toThrow(/unknown step kind "does\.not\.exist"/);
   });
@@ -50,7 +48,9 @@ describe("registerEventTrigger step validation", () => {
       r.step.retry({
         times: 2,
         backoff: "linear",
-        do: [r.step.callFeature("other:write:thing", { handler: "other:write:thing", payload: {} })],
+        do: [
+          r.step.callFeature("other:write:thing", { handler: "other:write:thing", payload: {} }),
+        ],
       }),
     ]);
 

@@ -3,3 +3,9 @@
 ---
 
 ledger: `confirm-schedule-period` serializes concurrent confirms of the same (tenant, schedule period) with an advisory lock, so direct calls can no longer double-book.
+
+<!-- kumiko-changes
+feature: ledger
+type: fix
+title: confirm-schedule-period serializes concurrent confirms of the same schedule period
+-->

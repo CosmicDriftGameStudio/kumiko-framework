@@ -9,7 +9,10 @@ import {
   isTenantResourceExtensionHooks,
   type ResolvedPiiFlags,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { entitiesOf } from "../shared/index.js";
+
+const log = createFallbackLogger("kumiko:boot");
 
 // V4: tenantOwned-entity-without-hook gate. Mirrors user-data-rights' V3
 // (validateGdprPiiHookCoverage) but for EXT_TENANT_DATA. Registered as this
@@ -86,7 +89,7 @@ export function warnIfFilesMountedWithoutTenantData(features: readonly FeatureDe
   const mounted = new Set(features.map((f) => f.name));
   // skip: nothing to cover (no files) or already covered.
   if (!mounted.has("files") || mounted.has("files-tenant-data")) return;
-  console.warn(
-    '[kumiko:boot] feature "files" is mounted with "tenant-lifecycle" but "files-tenant-data" is not — tenant destroy will leave fileRef rows and stored file binaries behind. Mount createFilesTenantDataFeature() to cover them.',
+  log.warn(
+    'feature "files" is mounted with "tenant-lifecycle" but "files-tenant-data" is not — tenant destroy will leave fileRef rows and stored file binaries behind. Mount createFilesTenantDataFeature() to cover them.',
   );
 }

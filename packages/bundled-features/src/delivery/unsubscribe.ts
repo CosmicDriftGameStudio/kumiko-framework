@@ -185,9 +185,11 @@ async function signResubscribeToken(
   };
   const jwt =
     verified.kind === "address"
-      ? new jose.SignJWT({ ...claims, addressHash: verified.addressHash, kind: "address" }).setSubject(
-          verified.addressHash,
-        )
+      ? new jose.SignJWT({
+          ...claims,
+          addressHash: verified.addressHash,
+          kind: "address",
+        }).setSubject(verified.addressHash)
       : new jose.SignJWT(claims).setSubject(verified.userId);
   return jwt
     .setProtectedHeader({ alg: "HS256" })

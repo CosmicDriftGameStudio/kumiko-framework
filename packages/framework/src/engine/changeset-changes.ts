@@ -88,6 +88,64 @@ function assertBlockNotClosedEarly(markdown: string, match: RegExpExecArray, sou
   }
 }
 
+function resolveTitleAndDetail(
+  fields: ReadonlyMap<string, string>,
+  prose: readonly string[],
+  source: string,
+): { readonly title: string; readonly detail: string } {
+  const explicitTitle = fields.get("title")?.trim();
+  const title = explicitTitle || prose[0];
+  if (!title) throw new Error(`${source}: kumiko-changes title is required`);
+
+  // The first prose line is the title's source only when no title was given or
+  // the explicit one restates it; otherwise it is genuine detail.
+  const firstLineIsTitle = !explicitTitle || sameTitle(explicitTitle, prose[0]);
+  const detail =
+    fields.get("detail")?.trim() ||
+    prose
+      .slice(firstLineIsTitle ? 1 : 0)
+      .join("\n")
+      .trim();
+  return { title, detail };
+}
+
+function parseManualAfterCodemod(fields: ReadonlyMap<string, string>, source: string): boolean {
+  const raw = fields.get("manualAfterCodemod")?.trim();
+  if (raw !== undefined && raw !== "true" && raw !== "false") {
+    throw new Error(`${source}: kumiko-changes manualAfterCodemod must be true or false`);
+  }
+  return raw === "true";
+}
+
+function buildChange(
+  fields: ReadonlyMap<string, string>,
+  prose: readonly string[],
+  source: string,
+): PendingChange {
+  const feature = requiredField(fields, "feature", source);
+  const rawType = requiredField(fields, "type", source);
+  if (!TYPE_VALUES.has(rawType as ChangelogType)) {
+    throw new Error(`${source}: kumiko-changes type must be breaking, improvement, or fix`);
+  }
+  const { title, detail } = resolveTitleAndDetail(fields, prose, source);
+  const migration = fields.get("migration")?.trim();
+  const codemod = fields.get("codemod")?.trim();
+  const manualAfterCodemod = parseManualAfterCodemod(fields, source);
+  const change: PendingChange = {
+    feature,
+    type: rawType as ChangelogType,
+    title,
+    ...(detail ? { detail } : {}),
+    ...(migration ? { migration } : {}),
+    ...(codemod ? { codemod } : {}),
+    ...(manualAfterCodemod ? { manualAfterCodemod: true } : {}),
+    source,
+  };
+  const validation = validateChangelog({ version: "0.0.0", ...change });
+  if (validation.length > 0) throw new Error(`${source}: ${validation.join("; ")}`);
+  return change;
+}
+
 /** Parse structured upgrade metadata embedded in a Changeset body. */
 export function parseChangesetChanges(markdown: string, source: string): readonly PendingChange[] {
   const changes: PendingChange[] = [];
@@ -102,47 +160,7 @@ export function parseChangesetChanges(markdown: string, source: string): readonl
     segmentStart = match.index + match[0].length;
     assertBlockNotClosedEarly(markdown, match, source);
     if (!block) throw new Error(`${source}: empty kumiko-changes block`);
-    const fields = parseBlock(block, source);
-    const feature = requiredField(fields, "feature", source);
-    const rawType = requiredField(fields, "type", source);
-    if (!TYPE_VALUES.has(rawType as ChangelogType)) {
-      throw new Error(`${source}: kumiko-changes type must be breaking, improvement, or fix`);
-    }
-    const explicitTitle = fields.get("title")?.trim();
-    const title = explicitTitle || prose[0];
-    if (!title) throw new Error(`${source}: kumiko-changes title is required`);
-
-    // The first prose line is the title's source only when no title was given or
-    // the explicit one restates it; otherwise it is genuine detail.
-    const firstLineIsTitle = !explicitTitle || sameTitle(explicitTitle, prose[0]);
-    const detail =
-      fields.get("detail")?.trim() ||
-      prose
-        .slice(firstLineIsTitle ? 1 : 0)
-        .join("\n")
-        .trim();
-    const migration = fields.get("migration")?.trim();
-    const codemod = fields.get("codemod")?.trim();
-    const rawManualAfterCodemod = fields.get("manualAfterCodemod")?.trim();
-    if (
-      rawManualAfterCodemod !== undefined &&
-      rawManualAfterCodemod !== "true" &&
-      rawManualAfterCodemod !== "false"
-    ) {
-      throw new Error(`${source}: kumiko-changes manualAfterCodemod must be true or false`);
-    }
-    const change: PendingChange = {
-      feature,
-      type: rawType as ChangelogType,
-      title,
-      ...(detail ? { detail } : {}),
-      ...(migration ? { migration } : {}),
-      ...(codemod ? { codemod } : {}),
-      ...(rawManualAfterCodemod === "true" ? { manualAfterCodemod: true } : {}),
-      source,
-    };
-    const validation = validateChangelog({ version: "0.0.0", ...change });
-    if (validation.length > 0) throw new Error(`${source}: ${validation.join("; ")}`);
+    const change = buildChange(parseBlock(block, source), prose, source);
     changes.push(change);
     match = BLOCK_RE.exec(markdown);
   }
