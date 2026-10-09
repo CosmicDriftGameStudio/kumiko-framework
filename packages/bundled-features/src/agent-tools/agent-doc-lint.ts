@@ -4,6 +4,8 @@ import type {
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  handlerFieldLabelKey,
+  handlerTitleKey,
   isAgentVisibleScreen,
   QnTypes,
   qn,
@@ -11,12 +13,14 @@ import {
   toKebab,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { systemOnlyPropertyNames } from "./agent-manifest.js";
 
 export const AgentDocGapKinds = {
   handlerSchemaNotExpressible: "handler-schema-not-expressible",
   handlerWithoutDescription: "handler-without-description",
   customScreenWithoutDescription: "custom-screen-without-description",
   exposedEntityWithoutDescription: "exposed-entity-without-description",
+  handlerWithoutTranslation: "handler-without-translation",
 } as const;
 
 export type AgentDocGapKind = (typeof AgentDocGapKinds)[keyof typeof AgentDocGapKinds];
@@ -144,6 +148,58 @@ function exposedEntityDocGaps(feature: FeatureDefinition): readonly AgentDocGap[
   return gaps;
 }
 
+function actionFormHandlerQns(features: readonly FeatureDefinition[]): ReadonlySet<string> {
+  const handlerQns = new Set<string>();
+  for (const feature of features) {
+    for (const screen of Object.values(feature.screens ?? {})) {
+      if (screen.type === "actionForm") handlerQns.add(screen.handler);
+    }
+  }
+  return handlerQns;
+}
+
+function agentVisibleInputFieldNames(schema: z.ZodType): readonly string[] {
+  if (!(schema instanceof z.ZodObject)) return [];
+  const fieldNames = Object.keys(schema.shape);
+  try {
+    const systemOnly = new Set(systemOnlyPropertyNames(z.toJSONSchema(schema, { io: "input" })));
+    return fieldNames.filter((field) => !systemOnly.has(field));
+  } catch {
+    // skip: a schema without JSON Schema form is reported as its own gap kind
+    return fieldNames;
+  }
+}
+
+function translationGapsOfFeature(
+  feature: FeatureDefinition,
+  coveredHandlerQns: ReadonlySet<string>,
+): readonly AgentDocGap[] {
+  const gaps: AgentDocGap[] = [];
+  // The client resolves translation keys verbatim (no feature prefix), so only
+  // fully spelled-out keys count.
+  const translated = new Set(Object.keys(feature.translations ?? {}));
+  for (const [name, def] of Object.entries(feature.writeHandlers ?? {})) {
+    if (!resolveAgentExposure(def, "write").expose) continue;
+    if (feature.handlerEntityMappings?.[name] !== undefined) continue;
+    const handlerQn = qn(toKebab(feature.name), QnTypes.write, toKebab(name));
+    if (coveredHandlerQns.has(handlerQn)) continue;
+    const missing = [
+      handlerTitleKey(handlerQn),
+      ...agentVisibleInputFieldNames(def.schema).map((field) =>
+        handlerFieldLabelKey(handlerQn, field),
+      ),
+    ].filter((key) => !translated.has(key));
+    if (missing.length === 0) continue;
+    gaps.push({
+      qn: handlerQn,
+      feature: feature.name,
+      kind: AgentDocGapKinds.handlerWithoutTranslation,
+      message: `This write handler has no entity and no actionForm screen, so its title and field labels can only come from translations — missing keys: ${missing.join(", ")}.`,
+    });
+  }
+  return gaps;
+}
+
 export function findAgentDocGaps(features: readonly FeatureDefinition[]): readonly AgentDocGap[] {
   const gaps: AgentDocGap[] = [];
   for (const feature of features) {
@@ -158,6 +214,16 @@ export function findAgentDocGaps(features: readonly FeatureDefinition[]): readon
   }
   // Map/Record iteration follows feature-mount order; the result must not
   // depend on it (mirrors agent-manifest.ts's sortedByKey rationale).
+  return [...gaps].sort((a, b) => compareByCodePoint(a.qn, b.qn));
+}
+
+// Kept out of findAgentDocGaps on purpose: the published agent-manifest guard
+// fails on every gap that function returns, and these are advisory.
+export function findHandlerTranslationGaps(
+  features: readonly FeatureDefinition[],
+): readonly AgentDocGap[] {
+  const coveredHandlerQns = actionFormHandlerQns(features);
+  const gaps = features.flatMap((feature) => translationGapsOfFeature(feature, coveredHandlerQns));
   return [...gaps].sort((a, b) => compareByCodePoint(a.qn, b.qn));
 }
 

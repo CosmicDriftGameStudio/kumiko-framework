@@ -1,5 +1,9 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { findAgentDocGaps, formatAgentDocGap } from "./agent-doc-lint.js";
+import {
+  findAgentDocGaps,
+  findHandlerTranslationGaps,
+  formatAgentDocGap,
+} from "./agent-doc-lint.js";
 
 export const AGENT_TOOLS_FEATURE_NAME = "agent-tools";
 
@@ -19,8 +23,15 @@ export function createAgentToolsFeature(): FeatureDefinition {
     // would turn every incrementally-documented app into an outage.
     r.bootCheck(({ features }) => {
       const gaps = findAgentDocGaps(features);
+      const warningCount = findHandlerTranslationGaps(features).length;
+      if (warningCount > 0) {
+        // biome-ignore lint/suspicious/noConsole: operator-visibility at boot for agent-doc gaps
+        console.warn(
+          `[agent-tools] ${warningCount} agent-exposed write handler(s) lack title/field-label translations — run \`kumiko agent lint\` for details.`,
+        );
+      }
       if (gaps.length === 0) {
-        // skip: no documentation gaps, nothing to warn about
+        // skip: no blocking documentation gaps, nothing more to warn about
         return;
       }
       // biome-ignore lint/suspicious/noConsole: operator-visibility at boot for agent-doc gaps

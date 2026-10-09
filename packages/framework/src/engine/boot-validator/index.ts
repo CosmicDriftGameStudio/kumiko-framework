@@ -44,6 +44,7 @@ import {
 import { validateEntityListScreens } from "./entity-list-screens.js";
 import { validateGdprStoragePersistence } from "./gdpr-storage.js";
 import { validateGlobalTenancyEntities } from "./global-tenancy.js";
+import { validateHandlerFieldReferences } from "./handler-field-references.js";
 import { validateI18nSurfaceKeys } from "./i18n-keys.js";
 import {
   collectKnownRoles,
@@ -276,6 +277,7 @@ export function validateBoot(
     validateMultiSelectFields(feature);
     validateImageVariants(feature);
     validateReferenceFields(feature, featureMap, queryHandlerQns);
+    validateHandlerFieldReferences(feature, featureMap);
     validateTransitions(feature);
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);

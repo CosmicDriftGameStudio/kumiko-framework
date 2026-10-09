@@ -1,5 +1,6 @@
 import { resolveTableName } from "../db/entity-table-meta.js";
 import { buildMetricName, validateMetricName } from "../observability/index.js";
+import { toKebab } from "./qualified-name.js";
 import type { RegistryState } from "./registry-state.js";
 import { mergeHookList, mergeHookListQualified, qualify } from "./registry-state.js";
 import { WORKFLOW_SYSTEM_EVENT_DEFS } from "./steps/workflow-system-events.js";
@@ -174,11 +175,17 @@ export function populateTranslations(state: RegistryState, feature: FeatureDefin
   // bare and qualified spellings for the same key are accepted; if a
   // feature defines both, whichever is declared last wins (Object.entries
   // = insertion order, not "qualified always wins").
-  const prefix = `${feature.name}:`;
   for (const [key, value] of Object.entries(feature.translations ?? {})) {
-    const qualifiedKey = key.startsWith(prefix) ? key : `${prefix}${key}`;
-    state.mergedTranslations[qualifiedKey] = value;
+    state.mergedTranslations[qualifyTranslationKey(feature.name, key)] = value;
   }
+}
+
+// Handler QNs use the kebab scope, so a camelCase feature's full QN key
+// (`my-feature:write:x:title`) must count as qualified too.
+export function qualifyTranslationKey(featureName: string, key: string): string {
+  const isQualified =
+    key.startsWith(`${featureName}:`) || key.startsWith(`${toKebab(featureName)}:`);
+  return isQualified ? key : `${featureName}:${key}`;
 }
 
 // Lifecycle hooks (handler-targeted, qualified) + entity hooks (entity-targeted,

@@ -164,6 +164,8 @@ export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-n
 export type { WorkspaceDefinition } from "../engine/types/workspace.js";
 export {
   ACTION_FORM_ENTITY,
+  handlerFieldLabelKey,
+  handlerTitleKey,
   PROJECTION_DETAIL_ENTITY,
   WRITE_FORM_SECTION_ENTITY,
 } from "../i18n/required-surface-keys.js";
