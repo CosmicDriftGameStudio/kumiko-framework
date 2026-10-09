@@ -68,8 +68,19 @@ function isBlank(value: unknown): boolean {
 export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProps): ReactNode {
   const nav = useNav();
   const returnTarget = useReturnTarget(screen.id);
-  const { Card, Heading, Banner, Button, Text, Grid, GridCell, Section, SecretReveal } =
-    usePrimitives();
+  const {
+    Card,
+    Heading,
+    Banner,
+    Button,
+    Text,
+    Grid,
+    GridCell,
+    Section,
+    SecretReveal,
+    Field,
+    Input,
+  } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
@@ -109,6 +120,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   );
   const [revealed, setRevealed] = useState<Readonly<Record<string, unknown>> | null>(null);
   const [done, setDone] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
   // The secret was minted server-side but none of the declared reveal fields
   // came back; the mint form must not return (a re-mint would invalidate it).
   const [revealMissing, setRevealMissing] = useState(false);
@@ -163,6 +175,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         setRevealMissing(true);
         return;
       }
+      setAcknowledged(false);
       setRevealed(values);
       carriedRef.current =
         confirm?.carry !== undefined ? extractCarriedValues(result.data, confirm.carry) : {};
@@ -253,6 +266,8 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         },
       ];
     });
+    const acknowledgeKey = screen.reveal.acknowledge;
+    const acknowledgeBlocked = acknowledgeKey !== undefined && !acknowledged;
     const revealContent = (
       <>
         <Heading variant="page">
@@ -277,6 +292,22 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
               </GridCell>
             ))}
           </Grid>
+        )}
+        {acknowledgeKey !== undefined && (
+          <Field
+            id="secret-mint-acknowledge"
+            label={effectiveTranslate(acknowledgeKey)}
+            layout="inline"
+            testId="secret-mint-acknowledge"
+          >
+            <Input
+              kind="boolean"
+              id="secret-mint-acknowledge"
+              name="secret-mint-acknowledge"
+              value={acknowledged}
+              onChange={setAcknowledged}
+            />
+          </Field>
         )}
       </>
     );
@@ -308,6 +339,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
           onSubmit={handleConfirmSubmitted}
           onCancel={handleCancel ?? restartMint}
           fillScreenHeight
+          submitBlocked={acknowledgeBlocked}
           leadContent={<Section testId="kumiko-screen-secret-mint-card">{revealContent}</Section>}
           {...(translate !== undefined && { translate })}
           {...(confirm.submitLabel !== undefined && { submitLabel: confirm.submitLabel })}
@@ -321,6 +353,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
           type="button"
           variant="primary"
           onClick={finishMint}
+          disabled={acknowledgeBlocked}
           testId="kumiko-screen-secret-mint-confirm"
         >
           {effectiveTranslate(screen.reveal.confirmLabel ?? "kumiko.secretMint.confirm")}

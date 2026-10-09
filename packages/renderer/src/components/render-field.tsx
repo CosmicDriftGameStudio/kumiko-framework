@@ -909,6 +909,7 @@ function renderInput({
           value={stringValue(field.value)}
           onChange={(v) => onChange(v)}
           {...(icon !== undefined && { icon })}
+          {...(field.autoComplete !== undefined && { autoComplete: field.autoComplete })}
         />
       );
     }

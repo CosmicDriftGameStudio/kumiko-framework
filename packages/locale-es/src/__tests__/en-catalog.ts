@@ -853,6 +853,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "mfa.enable.confirm.submit": "Enable",
   "mfa.enable.reveal.qr": "Scan this QR code",
   "mfa.enable.reveal.recoveryCodes": "Recovery codes",
+  "mfa.enable.reveal.savedCodes": "I have saved my recovery codes.",
   "mfa.enable.reveal.secret": "Or enter this code manually",
   "mfa.enable.reveal.title": "Set up your authenticator app",
   "mfa.enable.reveal.warning":

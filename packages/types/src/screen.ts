@@ -1866,6 +1866,10 @@ export type SecretReveal = {
   readonly warning?: string;
   /** i18n key for the acknowledge button. Default "kumiko.secretMint.confirm". */
   readonly confirmLabel?: string;
+  /** i18n key for a checkbox on the reveal card ("I have saved my recovery
+   *  codes"). While unchecked, the confirm step's submit or the acknowledge
+   *  button stays disabled. The tick is UI-only and never part of a payload. */
+  readonly acknowledge?: string;
 };
 
 /** Mint form → one-time reveal → explicit confirm. The secret (API token,

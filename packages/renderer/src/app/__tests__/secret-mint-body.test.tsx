@@ -72,17 +72,29 @@ const testForm: ComponentType<{
 );
 
 const testInput: ComponentType<{
+  kind?: string;
   name?: string;
   value?: unknown;
+  autoComplete?: string;
   onChange?: (v: unknown) => void;
-}> = ({ name = "field", value, onChange }) => (
-  <input
-    aria-label={name}
-    data-testid={`input-${name}`}
-    value={typeof value === "string" ? value : ""}
-    onChange={(e) => onChange?.(e.target.value)}
-  />
-);
+}> = ({ kind, name = "field", value, autoComplete, onChange }) =>
+  kind === "boolean" ? (
+    <input
+      type="checkbox"
+      aria-label={name}
+      data-testid={`input-${name}`}
+      checked={value === true}
+      onChange={(e) => onChange?.(e.target.checked)}
+    />
+  ) : (
+    <input
+      aria-label={name}
+      data-testid={`input-${name}`}
+      value={typeof value === "string" ? value : ""}
+      autoComplete={autoComplete}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  );
 
 const testSection: ComponentType<SectionProps> = ({ testId, children }) => (
   <div data-testid={testId}>{children}</div>
@@ -625,5 +637,71 @@ describe("SecretMintBody confirm step (fw#2838)", () => {
 
     expect(navigateCalls).toEqual([{ screenId: "token-list" }]);
     await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).toBeNull());
+  });
+});
+
+describe("SecretMintBody reveal.acknowledge gate", () => {
+  const gatedMintScreen: SecretMintScreenDefinition = {
+    ...mintScreen,
+    reveal: { ...mintScreen.reveal, acknowledge: "I saved it" },
+  };
+  const gatedConfirmScreen: SecretMintScreenDefinition = {
+    ...gatedMintScreen,
+    confirm: {
+      handler: "shop:write:token:confirm",
+      fields: { code: { type: "text", autoComplete: "one-time-code" } as TextFieldDef },
+      layout: { sections: [{ title: "Confirm", fields: ["code"] }] },
+      carry: ["setupToken"],
+    },
+  };
+
+  async function mintUntilReveal(screen: SecretMintScreenDefinition, writes: unknown) {
+    const { dispatcher, writeCalls } = stubMultiWriteDispatcher({
+      "shop:write:token:mint": writes,
+      "shop:write:token:confirm": {},
+    });
+    renderMintScreen(dispatcher, screen);
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+    return writeCalls;
+  }
+
+  test("the acknowledge button stays disabled until the checkbox is ticked", async () => {
+    await mintUntilReveal(gatedMintScreen, { token: "kpat_secret" });
+
+    const button = rtlScreen.getByTestId<HTMLButtonElement>("kumiko-screen-secret-mint-confirm");
+    expect(button.disabled).toBe(true);
+    fireEvent.click(rtlScreen.getByTestId("input-secret-mint-acknowledge"));
+    expect(button.disabled).toBe(false);
+  });
+
+  test("the confirm submit is blocked until ticked, and the tick never reaches the payload", async () => {
+    const writeCalls = await mintUntilReveal(gatedConfirmScreen, {
+      token: "kpat_secret",
+      setupToken: "stok_123",
+    });
+
+    fireEvent.change(rtlScreen.getByLabelText(/code/i), { target: { value: "123456" } });
+    const submit = rtlScreen.getByTestId<HTMLButtonElement>("render-edit-submit");
+    expect(submit.disabled).toBe(true);
+    fireEvent.click(submit);
+    expect(writeCalls.map((c) => c.command)).toEqual(["shop:write:token:mint"]);
+
+    fireEvent.click(rtlScreen.getByTestId("input-secret-mint-acknowledge"));
+    await waitFor(() => expect(submit.disabled).toBe(false));
+    fireEvent.click(submit);
+
+    await waitFor(() =>
+      expect(writeCalls.some((c) => c.command === "shop:write:token:confirm")).toBe(true),
+    );
+    const confirmCall = writeCalls.find((c) => c.command === "shop:write:token:confirm");
+    expect(confirmCall?.payload).toEqual({ code: "123456", setupToken: "stok_123" });
+  });
+
+  test("a text field's autoComplete reaches the input", async () => {
+    await mintUntilReveal(gatedConfirmScreen, { token: "kpat_secret", setupToken: "stok_123" });
+
+    expect(rtlScreen.getByLabelText(/code/i).getAttribute("autocomplete")).toBe("one-time-code");
   });
 });

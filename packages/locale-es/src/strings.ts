@@ -877,6 +877,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mfa.enable.confirm.submit": "Activar",
   "mfa.enable.reveal.qr": "Escanea este código QR",
   "mfa.enable.reveal.recoveryCodes": "Códigos de recuperación",
+  "mfa.enable.reveal.savedCodes": "He guardado mis códigos de recuperación.",
   "mfa.enable.reveal.secret": "O introduce este código manualmente",
   "mfa.enable.reveal.title": "Configura tu app de autenticación",
   "mfa.enable.reveal.warning":

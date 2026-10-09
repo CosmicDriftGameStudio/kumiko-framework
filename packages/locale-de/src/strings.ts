@@ -882,6 +882,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mfa.enable.confirm.submit": "Aktivieren",
   "mfa.enable.reveal.qr": "Diesen QR-Code scannen",
   "mfa.enable.reveal.recoveryCodes": "Recovery-Codes",
+  "mfa.enable.reveal.savedCodes": "Ich habe meine Recovery-Codes gespeichert.",
   "mfa.enable.reveal.secret": "Oder diesen Code manuell eingeben",
   "mfa.enable.reveal.title": "Authenticator-App einrichten",
   "mfa.enable.reveal.warning":

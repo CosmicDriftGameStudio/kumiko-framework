@@ -28,6 +28,7 @@ export const AUTH_MFA_FEATURE_I18N: Readonly<Record<string, LocalizedString>> = 
   "mfa.enable.reveal.qr": { en: "Scan this QR code" },
   "mfa.enable.reveal.secret": { en: "Or enter this code manually" },
   "mfa.enable.reveal.recoveryCodes": { en: "Recovery codes" },
+  "mfa.enable.reveal.savedCodes": { en: "I have saved my recovery codes." },
 
   "mfa.enable.confirm.submit": { en: "Enable" },
   "mfa.enable.confirm.done": { en: "Two-factor authentication is now enabled." },

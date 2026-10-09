@@ -198,6 +198,8 @@ export type EditFieldViewModel = {
   readonly multiline?: boolean | { readonly rows?: number };
   /** From TextFieldDef.format — `password` makes the renderer mask the input. */
   readonly format?: "email" | "url" | "phone" | "password";
+  /** From TextFieldDef.autoComplete — HTML autocomplete token for the text input. */
+  readonly autoComplete?: string;
   /** From TextFieldDef.writeOnly — value is `true` (set) / `null` (empty), never plaintext. */
   readonly writeOnly?: true;
   /** From the field's `sensitive: true` — the value must not leave the form (drafts, URL prefill). */
