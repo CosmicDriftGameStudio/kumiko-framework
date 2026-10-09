@@ -7,6 +7,7 @@ import {
   serial,
   sql,
   text,
+  uniqueIndex,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 
@@ -35,8 +36,15 @@ export const tenantJobFailuresTable = pgTable(
     failedAt: instant("failed_at").default(sql`now()`).notNull(),
   },
   (t) => [
-    // Every finished run of an opted-in job deletes by this key before it writes.
-    index("store_tenant_job_failures_tenant_job_subject_idx").on(t.tenantId, t.jobName, t.subject),
+    // One row per key, also the lookup for the delete before every write;
+    // subject NULL needs its own partial index because NULLs
+    // are distinct in a plain unique index.
+    uniqueIndex("store_tenant_job_failures_tenant_job_subject_uidx")
+      .on(t.tenantId, t.jobName, t.subject)
+      .where(sql`subject IS NOT NULL`),
+    uniqueIndex("store_tenant_job_failures_tenant_job_null_subject_uidx")
+      .on(t.tenantId, t.jobName)
+      .where(sql`subject IS NULL`),
     // The tenant list sorts by failed_at; retention filters on it alone.
     index("store_tenant_job_failures_tenant_failed_at_idx").on(t.tenantId, t.failedAt),
     index("store_tenant_job_failures_failed_at_idx").on(t.failedAt),

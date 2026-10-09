@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-09T14:23:39.252Z",
+  "generatedAt": "2026-10-09T14:55:40.297Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -4167,12 +4167,23 @@
       ],
       "indexes": [
         {
-          "name": "store_tenant_job_failures_tenant_job_subject_idx",
+          "name": "store_tenant_job_failures_tenant_job_subject_uidx",
           "columns": [
             "tenant_id",
             "job_name",
             "subject"
-          ]
+          ],
+          "unique": true,
+          "whereSql": "subject IS NOT NULL"
+        },
+        {
+          "name": "store_tenant_job_failures_tenant_job_null_subject_uidx",
+          "columns": [
+            "tenant_id",
+            "job_name"
+          ],
+          "unique": true,
+          "whereSql": "subject IS NULL"
         },
         {
           "name": "store_tenant_job_failures_tenant_failed_at_idx",

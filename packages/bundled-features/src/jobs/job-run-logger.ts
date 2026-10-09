@@ -3,6 +3,7 @@ import {
   fetchOne,
   insertMany,
   insertOne,
+  transaction,
   updateMany,
 } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
@@ -12,7 +13,7 @@ import {
   type LocalKeyKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { acquireNamespacedAdvisoryLock, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   JobLogEntry,
@@ -151,6 +152,10 @@ async function encryptStartedPayload(
   return encryptOrSentinel(kms, triggeredById, payload, "payload");
 }
 
+// pg_advisory_xact_lock namespace (int4): 'tjfl' as ASCII, disjoint from the
+// framework's other fixed advisory-lock keys.
+const TENANT_JOB_FAILURE_LOCK_NAMESPACE = 0x746a666c;
+
 // fw#3079 — which row the tenant-visible failure record lives in: one per
 // (tenant, job, subject), so the next outcome of the same work replaces or
 // clears it. `subject` is null for a job that declares no subjectFields.
@@ -177,15 +182,22 @@ async function recordTenantJobFailure(
   // non-final failure must not show the tenant a failure the next attempt
   // may still resolve.
   if (!where || !messageKey || outcome?.finalAttempt !== true) return;
-  // Delete-then-insert instead of an upsert: the (tenant, job, subject) key
-  // has no unique index because subject is NULL for jobs without
-  // subjectFields. Two runs of one key finishing at once can leave two rows;
-  // tenantFailuresQuery collapses them to the newest per key.
-  await deleteMany(db, tenantJobFailuresTable, where);
-  await insertOne(db, tenantJobFailuresTable, {
-    ...where,
-    messageKey,
-    failedAt: Temporal.Now.instant(),
+  // Delete-then-insert under a per-key lock instead of an upsert: the two
+  // partial unique indexes (subject NULL vs. set) are no ON CONFLICT target.
+  // The lock makes the later of two racing final failures replace the earlier
+  // one; the indexes are the backstop against any writer that skips the lock.
+  await transaction(db, async (tx) => {
+    await acquireNamespacedAdvisoryLock(
+      tx,
+      TENANT_JOB_FAILURE_LOCK_NAMESPACE,
+      JSON.stringify([where["tenantId"], where["jobName"], where["subject"]]),
+    );
+    await deleteMany(tx, tenantJobFailuresTable, where);
+    await insertOne(tx, tenantJobFailuresTable, {
+      ...where,
+      messageKey,
+      failedAt: Temporal.Now.instant(),
+    });
   });
 }
 
