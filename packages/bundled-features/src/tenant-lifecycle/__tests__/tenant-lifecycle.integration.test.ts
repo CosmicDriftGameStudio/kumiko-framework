@@ -782,3 +782,103 @@ describe("tenant-lifecycle :: resumable stages (done:false continuation)", () =>
     for (const deadline of seenDeadlines) expect(Number.isFinite(deadline)).toBe(true);
   });
 });
+
+describe("tenant-lifecycle :: stage tick without progress", () => {
+  const STAGE_MAX_ATTEMPTS = 3;
+  let stuckStack: TestStack;
+  let hookCalls = 0;
+
+  const stuckFeature = defineFeature("test-stuck-tenant-data", (r) => {
+    r.requires("tenant-lifecycle");
+    r.useExtension(EXT_TENANT_DATA, "stuck", {
+      destroy: async () => {
+        hookCalls++;
+        return { done: false, processed: 0 };
+      },
+    });
+  });
+
+  beforeAll(async () => {
+    const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
+    const resolver = createConfigResolver({ cipher: encryption });
+    stuckStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        authFoundationFeature,
+        createSessionsFeature(),
+        createTenantLifecycleFeature(),
+        stuckFeature,
+      ],
+      extraContext: { configResolver: resolver, configEncryption: encryption },
+      authConfig: {
+        resolveTenantLifecycleStatus: async (tenantId: TenantId) => {
+          const gate = await resolveTenantLifecycleGate(stuckStack.db, tenantId);
+          return gate ? { status: gate.status } : null;
+        },
+      } as import("@cosmicdrift/kumiko-framework/api").AuthRoutesConfig,
+    });
+  });
+
+  afterAll(async () => {
+    await stuckStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    hookCalls = 0;
+    stuckStack.events.reset();
+    resetTenantLifecycleGateCacheForTests();
+    await resetTestTables(stuckStack.db, [
+      tenantTable,
+      tenantComplianceProfileTable,
+      userSessionTable,
+      tenantMembershipsTable,
+      eventsTable,
+    ]);
+  });
+
+  test("a hook reporting done:false with processed 0 is abandoned after maxAttempts", async () => {
+    await stuckStack.http.writeOk(
+      TenantHandlers.create,
+      { id: tenantAdmin.tenantId, key: "acme", name: "ACME Corp" },
+      TestUsers.systemAdmin,
+    );
+    await stuckStack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantAdmin);
+    await stuckStack.http.writeOk(REQUEST, {}, tenantAdmin);
+
+    const farFuture = getTemporal()
+      .Now.instant()
+      .add({ hours: 24 * 3650 });
+
+    let status = "";
+    for (let i = 0; i < 30; i++) {
+      await runTenantDestructionSweep({
+        db: stuckStack.db,
+        registry: stuckStack.registry,
+        now: farFuture,
+      });
+      const rows = await selectMany(stuckStack.db, tenantTable, { id: tenantAdmin.tenantId });
+      status = String(rows[0]?.["status"]);
+      if (status === "destroyed" || status === "destroyFailed") break;
+    }
+    expect(status).toBe("destroyFailed");
+
+    const events = await selectMany(stuckStack.db, eventsTable, {
+      aggregateId: tenantAdmin.tenantId,
+    });
+    const appDataEvents = (type: string) =>
+      events.filter(
+        (e) =>
+          e["type"] === type && (e["payload"] as Record<string, unknown>)["stage"] === "app-data",
+      );
+    expect(hookCalls).toBe(STAGE_MAX_ATTEMPTS);
+    expect(appDataEvents(TENANT_DESTRUCTION_STAGE_FAILED_EVENT_QN)).toHaveLength(
+      STAGE_MAX_ATTEMPTS - 1,
+    );
+    expect(appDataEvents(TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_QN)).toHaveLength(1);
+    expect(appDataEvents(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_QN)).toHaveLength(0);
+    expect(appDataEvents(TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_QN)).toHaveLength(0);
+  });
+});
