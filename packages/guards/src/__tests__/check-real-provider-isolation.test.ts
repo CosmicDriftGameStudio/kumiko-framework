@@ -249,3 +249,59 @@ describe("Real-Provider-Isolation Guard (check.run)", () => {
     expect(outcome.violations).toEqual([]);
   });
 });
+
+describe("Real-Provider-Isolation Guard: workflow triggers", () => {
+  const realRunSteps = "jobs:\n  real:\n    steps:\n      - run: bun run e2e:real\n";
+
+  async function violationsFor(workflowYaml: string): Promise<number> {
+    const root = makeRepo({ ".github/workflows/real.yml": workflowYaml });
+    try {
+      const repoRoot = fixtureRoot("fixture-app", root, {
+        kind: "app",
+        sourceRoots: ["src"],
+        testGlobs: ["src/**/*.test.ts"],
+      });
+      return (await check.run([repoRoot])).violations.length;
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  test("allows e2e:real in a schedule-only workflow", async () => {
+    expect(await violationsFor(`on:\n  schedule:\n    - cron: "0 3 * * 1"\n${realRunSteps}`)).toBe(
+      0,
+    );
+  });
+
+  test("allows e2e:real in a workflow_dispatch-only workflow (string form)", async () => {
+    expect(await violationsFor(`on: workflow_dispatch\n${realRunSteps}`)).toBe(0);
+  });
+
+  test("allows e2e:real with schedule plus workflow_dispatch (list form)", async () => {
+    expect(await violationsFor(`on: [schedule, workflow_dispatch]\n${realRunSteps}`)).toBe(0);
+  });
+
+  test("flags e2e:real when schedule is mixed with push", async () => {
+    expect(
+      await violationsFor(
+        `on:\n  schedule:\n    - cron: "0 3 * * 1"\n  push:\n    branches: [main]\n${realRunSteps}`,
+      ),
+    ).toBe(1);
+  });
+
+  test("flags e2e:real in pull_request and pull_request_target workflows", async () => {
+    expect(await violationsFor(`on: pull_request\n${realRunSteps}`)).toBe(1);
+    expect(
+      await violationsFor(`on: [workflow_dispatch, pull_request_target]\n${realRunSteps}`),
+    ).toBe(1);
+  });
+
+  test("flags e2e:real in a reusable workflow_call workflow", async () => {
+    expect(await violationsFor(`on:\n  workflow_call: {}\n${realRunSteps}`)).toBe(1);
+  });
+
+  test("flags e2e:real when the workflow has no parseable trigger", async () => {
+    expect(await violationsFor(realRunSteps)).toBe(1);
+    expect(await violationsFor(`on: [schedule\n${realRunSteps}`)).toBeGreaterThan(0);
+  });
+});

@@ -3,15 +3,18 @@
  * Real-Provider-Isolation-Guard (stack-agnostisch, #3118).
  *
  * Real-provider specs (`*.real.test.ts`, `*.real.spec.ts`) hit live third-party
- * services and must only ever run manually, opt-in, via `bun run test:real` /
+ * services and must only ever run opt-in (manually or scheduled) via `bun run test:real` /
  * `bun run e2e:real` — never inside a default `bun test`/`playwright test`
- * glob and never inside CI (an accidental `KUMIKO_REAL_PROVIDERS=1` in a
+ * glob and never inside push/PR-triggered CI (an accidental `KUMIKO_REAL_PROVIDERS=1` in a
  * workflow spends real quota/credentials on every push).
  *
  * Flags:
  *   (a) any CI workflow (`.github/workflows/*.{yml,yaml}`) that references
- *       KUMIKO_REAL_PROVIDERS, `test:real`, or `e2e:real` — CI must never run
- *       real-provider tests, full stop, so any mention is a violation.
+ *       KUMIKO_REAL_PROVIDERS, `test:real`, or `e2e:real`, unless its `on:`
+ *       triggers are exclusively `schedule` and/or `workflow_dispatch`. A
+ *       scheduled or manually started real run spends quota at a known rate;
+ *       a push/pull_request (or reusable `workflow_call`) trigger would spend
+ *       it on every push, so those stay violations.
  *   (b) one of the template's own non-`real` bunfig files (`bunfig.toml`,
  *       `bunfig.integration.toml`, `bunfig.dom.toml` — see BUNFIG_FILES in
  *       packages/testing/src/bunfig.ts) whose pathIgnorePatterns doesn't
@@ -56,11 +59,35 @@ function ciWorkflowViolation(line: string): boolean {
   );
 }
 
+const COST_BOUNDED_TRIGGERS: ReadonlySet<string> = new Set(["schedule", "workflow_dispatch"]);
+
+function workflowTriggerNames(on: unknown): readonly string[] {
+  if (typeof on === "string") return [on];
+  if (Array.isArray(on)) return on.filter((entry): entry is string => typeof entry === "string");
+  if (on !== null && typeof on === "object") return Object.keys(on);
+  return [];
+}
+
+// Unparseable YAML or a missing `on:` falls through to the line scan (fail closed).
+function runsOnlyOnCostBoundedTriggers(workflowYaml: string): boolean {
+  let parsed: unknown;
+  try {
+    parsed = Bun.YAML.parse(workflowYaml);
+  } catch {
+    return false;
+  }
+  if (parsed === null || typeof parsed !== "object" || !("on" in parsed)) return false;
+  const triggers = workflowTriggerNames(parsed.on);
+  return triggers.length > 0 && triggers.every((name) => COST_BOUNDED_TRIGGERS.has(name));
+}
+
 function scanCiWorkflows(root: RepoRoot, findings: TextLineFinding[]): number {
   let scanned = 0;
   for (const rel of new Glob(CI_WORKFLOW_GLOB).scanSync({ cwd: root.absPath })) {
     scanned++;
-    scanLinesForPredicate(join(root.absPath, rel), rel, ciWorkflowViolation, findings);
+    const abs = join(root.absPath, rel);
+    if (runsOnlyOnCostBoundedTriggers(readFileSync(abs, "utf8"))) continue;
+    scanLinesForPredicate(abs, rel, ciWorkflowViolation, findings);
   }
   return scanned;
 }
@@ -173,7 +200,8 @@ export const check: RepoCheck = {
   name: "Real-Provider-Isolation Guard",
   hint:
     `Real-provider tests run only via \`bun run test:real\`/\`bun run e2e:real\`, ` +
-    `never in CI and never in a default test glob. Regenerate bunfig via ` +
+    `never in a push/pull_request-triggered CI workflow (schedule/workflow_dispatch only) ` +
+    `and never in a default test glob. Regenerate bunfig via ` +
     `\`kumiko-testing bunfig\` instead of hand-editing pathIgnorePatterns.`,
   async run(roots) {
     if (roots.length === 0) {
