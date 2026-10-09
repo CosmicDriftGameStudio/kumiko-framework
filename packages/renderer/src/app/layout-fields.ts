@@ -1,6 +1,7 @@
 import type {
   EditFieldSpec,
   EntityEditScreenDefinition,
+  SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   isFieldsEditSection,
@@ -28,4 +29,28 @@ export function layoutEditFields(
 
 export function layoutFieldNames(screen: EntityEditScreenDefinition): ReadonlySet<string> {
   return new Set(layoutEditFields(screen).map((spec) => spec.field));
+}
+
+function isRequiredField(field: SecretMintScreenDefinition["fields"][string] | undefined): boolean {
+  return field !== undefined && "required" in field && field.required === true;
+}
+
+function hasValue(value: unknown): boolean {
+  if (value === undefined || value === null || value === "") return false;
+  return !(Array.isArray(value) && value.length === 0);
+}
+
+// A layout-hidden field can never be edited, so a required one without a seeded
+// value would leave the form permanently unsubmittable.
+export function hiddenRequiredFieldsFilled(
+  screen: EntityEditScreenDefinition,
+  fields: SecretMintScreenDefinition["fields"],
+  initial: Readonly<Record<string, unknown>>,
+): boolean {
+  return layoutEditFields(screen).every(
+    (spec) =>
+      spec.visible !== false ||
+      !isRequiredField(fields[spec.field]) ||
+      hasValue(initial[spec.field]),
+  );
 }

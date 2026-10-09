@@ -5652,6 +5652,170 @@ describe("boot-validator", () => {
     });
   });
 
+  describe("submitPrefilled on navigate targets", () => {
+    type TargetType = "secretMint" | "actionForm";
+    function makeFeature(opts: {
+      readonly submitPrefilled?: boolean;
+      readonly targetType?: TargetType;
+      readonly params?: RowFieldExtractor | null;
+      readonly targetFields?: Record<string, unknown>;
+      readonly layoutFields?: readonly unknown[];
+    }) {
+      const targetType = opts.targetType ?? "secretMint";
+      const params = opts.params === undefined ? { pick: ["id"] } : opts.params;
+      return defineFeature("shop", (r) => {
+        r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.writeHandler(
+          "rotate",
+          z.object({ id: z.string() }),
+          async () => ({ isSuccess: true as const, data: null }),
+          { access: { roles: ["Admin"] } },
+        );
+        r.screen({
+          id: "product-projection",
+          type: "projectionList",
+          query: "shop:query:products",
+          columns: ["name"],
+          rowActions: [
+            {
+              kind: "navigate",
+              id: "rotate",
+              label: "actions.rotate",
+              screen: "rotate-form",
+              ...(params !== null && { params }),
+            },
+          ],
+        });
+        const common = {
+          id: "rotate-form",
+          handler: "shop:write:rotate",
+          fields: (opts.targetFields ?? { id: { type: "text", required: true } }) as never,
+          layout: {
+            sections: [{ fields: [...(opts.layoutFields ?? [{ field: "id", visible: false }])] }],
+          } as never,
+          ...(opts.submitPrefilled !== undefined && { submitPrefilled: opts.submitPrefilled }),
+        };
+        if (targetType === "secretMint") {
+          r.screen({
+            ...common,
+            type: "secretMint",
+            reveal: { fields: [{ field: "token", label: "shop:screen:rotate-form.field:token" }] },
+          });
+        } else {
+          r.screen({ ...common, type: "actionForm" });
+        }
+      });
+    }
+
+    for (const targetType of ["secretMint", "actionForm"] as const) {
+      test(`${targetType}: params + hidden required field covered → no throw`, () => {
+        expect(() =>
+          validateBoot([makeFeature({ submitPrefilled: true, targetType })]),
+        ).not.toThrow();
+      });
+    }
+
+    test("params key the target does not declare → throw", () => {
+      expect(() =>
+        validateBoot([makeFeature({ submitPrefilled: true, params: { pick: ["nope", "id"] } })]),
+      ).toThrow(
+        /rowAction "rotate" params prefills "nope", which navigate-target "rotate-form" does not declare as a field/,
+      );
+    });
+
+    test("params key the target layout does not render → throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            submitPrefilled: true,
+            params: { pick: ["id", "extra"] },
+            targetFields: { id: { type: "text", required: true }, extra: { type: "text" } },
+            layoutFields: [{ field: "id", visible: false }],
+          }),
+        ]),
+      ).toThrow(
+        /params prefills "extra", which navigate-target "rotate-form" does not render in its layout/,
+      );
+    });
+
+    test("params key the target marks sensitive → throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            submitPrefilled: true,
+            params: { pick: ["id", "secret"] },
+            targetFields: {
+              id: { type: "text", required: true },
+              secret: { type: "text", sensitive: true },
+            },
+            layoutFields: [{ field: "id", visible: false }, "secret"],
+          }),
+        ]),
+      ).toThrow(/params prefills "secret", which navigate-target "rotate-form" marks as sensitive/);
+    });
+
+    test("hidden required field no navigate action passes → throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            submitPrefilled: true,
+            params: { pick: ["other"] },
+            targetFields: { id: { type: "text", required: true }, other: { type: "text" } },
+            layoutFields: [{ field: "id", visible: false }, "other"],
+          }),
+        ]),
+      ).toThrow(
+        /Screen "rotate-form" \(secretMint\) sets submitPrefilled but hides required field "id"/,
+      );
+    });
+
+    test("hidden required field with no navigate source at all → throw", () => {
+      expect(() => validateBoot([makeFeature({ submitPrefilled: true, params: null })])).toThrow(
+        /hides required field "id"/,
+      );
+    });
+
+    test("hidden optional field needs no navigate source", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            submitPrefilled: true,
+            params: null,
+            targetFields: { id: { type: "text" } },
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("submitPrefilled absent → none of the new checks fire", () => {
+      expect(() => validateBoot([makeFeature({ params: { pick: ["nope"] } })])).not.toThrow();
+      expect(() => validateBoot([makeFeature({ params: null })])).not.toThrow();
+    });
+
+    test("submitPrefilled on an entityEdit screen (untyped schema) → throw", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
+        r.screen({
+          id: "product-edit",
+          type: "entityEdit",
+          entity: "product",
+          layout: { sections: [{ fields: ["name"] }] },
+          submitPrefilled: true,
+        } as never);
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /Screen "product-edit" \(entityEdit\) sets submitPrefilled/,
+      );
+    });
+  });
+
   // --- defaultSort funktioniert für ALLE Field-Types die sortable
   //     unterstützen (Tier 2.6b Field-Erweiterung) ---
   // Vor Tier 2.6b war `sortable` nur auf TextFieldDef. Erweitert auf

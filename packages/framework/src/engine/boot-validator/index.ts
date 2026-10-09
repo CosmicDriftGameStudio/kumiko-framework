@@ -76,6 +76,7 @@ import {
 import { warnOnMissingSecurityBaseline } from "./security-baseline.js";
 import { validateExtensionSelectorPanels } from "./selector-owner-panels.js";
 import { validateTransferGraph } from "./transfer-graph.js";
+import { validateSubmitPrefilledHiddenFields } from "./url-prefill-fields.js";
 import {
   collectWorkspaceQns,
   resolveNavAllowlist,
@@ -336,6 +337,7 @@ export function validateBoot(
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
   validateI18nSurfaceKeys(features);
   validateEntityListScreens(features);
+  validateSubmitPrefilledHiddenFields(features);
   // Must run before validateProjectionListScreens: an unresolvable query
   // there is silently treated as "capability absent" and surfaces as a
   // misleading "no search parameter in its Zod schema" error instead of

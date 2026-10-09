@@ -79,6 +79,7 @@ The slot holds one `overflowItems` list per page; the last `PageHeader` that set
 | `title`, `subtitle` | drawer action | i18n keys; `{param}` comes from the row prefill; `title` replaces `label` as the drawer title |
 | `submit: false` | edit field | shown and validated, but not in the written payload |
 | `footerActions` | actionForm | extra footer buttons: `{ id, label, icon?, variant?, patch }` |
+| `submitPrefilled` | actionForm, secretMint | `true` enables submit without edits, so values seeded from navigate `params` count as intent |
 | `groupBy`, `rowTone` | relatedList | collapsible row groups and a row tint rule |
 | `subtitle` | wizard section | line under the step title in the rail |
 | `wizard.aside` | entityEdit layout | `{ upNext: true }` adds an "up next" box |
@@ -196,6 +197,24 @@ rowActions: [{ id: "mark-posted", label: "campaigns.action.mark-posted", handler
 - A `writeHandler` record action (projectionDetail and entityEdit header and section actions) takes an optional `redirect`, the same forms as entityEdit `redirect` (screen id or `{ screen, idFrom }`). A valid `returnTo` wins over it. The boot validator rejects a target that is not a registered screen. List row actions ignore it.
 - A `writeHandler` record action that deletes the shown record (handler ends in `:delete` and the payload `id` is the record id, which the default payload satisfies) leaves the screen after success without any config: `returnTo`, else `redirect` if set, else `listScreenId` or the entity's list screen. With none of them the screen refetches.
 - `successMessage` on an actionForm is an i18n key for a confirmation above the form after a successful submit. It only shows when the screen stays put: with a `redirect` set, or when the form is hosted in a drawer, it is ignored. `{field}` placeholders resolve from the submitted values, formatted for display. A `reference` field resolves to the chosen record's `labelField` instead of its id, so a cross-tenant admin form can name the record it just changed. If that lookup fails or the row is not in the capped lookup list, the placeholder falls back to the raw id.
+- `submitPrefilled: true` on a full-page actionForm or secretMint lets a row action submit the form straight away, without the user editing anything. Every required field the layout hides with `visible: false` must be named by a navigate `params` source into the screen, otherwise boot fails. With `readOnly: true` instead of `visible: false` the user still sees which record the action applies to. The `params` keys of such a navigation must be declared, non-sensitive fields in the target layout. Without the flag a form holding only URL-prefilled values keeps its submit disabled.
+
+```ts illustration
+// projectionList row action
+{ kind: "navigate", id: "rotate", label: "actions.rotate", screen: "webhook-subscriber-rotate", params: { pick: ["id"] } }
+
+// target screen (SecretMintScreenDefinition)
+{
+  id: "webhook-subscriber-rotate",
+  type: "secretMint",
+  handler: "webhooks:write:subscriber:rotate",
+  fields: { id: { type: "text", required: true } },
+  layout: { sections: [{ fields: [{ field: "id", visible: false }] }] }, // or readOnly: true
+  reveal: { fields: [{ field: "secret", label: "webhooks:field:secret" }] },
+  submitPrefilled: true,
+}
+```
+
 - An actionForm in a drawer shows `title` and `subtitle` of the opening drawer action instead of the action label.
 
 Related: `docs/reference/theming.md` for tokens and fonts, `docs/reference/select-field.md` for the select presentation.

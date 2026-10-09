@@ -16,7 +16,7 @@ import {
   tenantCurrencyMoneyFieldNames,
   useMoneyCurrencyOverrides,
 } from "./kumiko-screen.js";
-import { layoutFieldNames } from "./layout-fields.js";
+import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.js";
 import { useInitialValuesHandoff, useNav } from "./nav.js";
 import { lastSegment } from "./qn.js";
 import { navigateToReturnOr, useReturnTarget } from "./return-to.js";
@@ -345,6 +345,9 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
       featureName={schema.featureName}
       initial={initial}
       extensionInitialValues={initial}
+      {...(screen.submitPrefilled === true && {
+        submitWithoutChanges: hiddenRequiredFieldsFilled(synthScreen, screen.fields, initial),
+      })}
       writeCommand={screen.handler}
       payloadMode="values"
       onSubmit={handleSubmitted}

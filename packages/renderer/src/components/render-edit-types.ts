@@ -94,6 +94,9 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  "Save" can be replaced by domain-specific strings ("Approve" /
    *  "Dispatch" / etc.). */
   readonly submitLabel?: string;
+  /** Set by submitPrefilled screens: defined shows the submit button even when no field is
+   *  editable (all hidden or read-only); `true` also enables it while the form is unchanged. */
+  readonly submitWithoutChanges?: boolean;
   /** Visual style of the submit button (actionForm `submitStyle`). Default "primary". */
   readonly submitVariant?: "primary" | "danger";
   /** Extra footer buttons (actionForm `footerActions`): each sets its `patch`

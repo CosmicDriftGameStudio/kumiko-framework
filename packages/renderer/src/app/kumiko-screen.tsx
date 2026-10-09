@@ -107,7 +107,7 @@ import { EntityListExpandedRow } from "./entity-list-expanded-row.js";
 import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.js";
 import type { FeatureSchema } from "./feature-schema.js";
 import { buildFormSchema } from "./form-schema.js";
-import { layoutFieldNames } from "./layout-fields.js";
+import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.js";
 import {
   buildDateRangePayload,
   buildEntityFilterFacets,
@@ -4276,6 +4276,9 @@ function ActionFormBody({
       // — anders als im entityEdit gibt es hier keinen record, aus dem
       // sie Kontext ziehen könnten.
       extensionInitialValues={initial}
+      {...(screen.submitPrefilled === true && {
+        submitWithoutChanges: hiddenRequiredFieldsFilled(synthScreen, screen.fields, initial),
+      })}
       {...(successText !== undefined && {
         leadContent: (
           <Banner variant="info" testId="action-form-success">
