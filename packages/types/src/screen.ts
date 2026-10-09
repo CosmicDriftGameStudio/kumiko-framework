@@ -1,5 +1,10 @@
 import type { FieldIconKey } from "./field-icon.js";
-import type { FieldDefinition, FormFieldDefinition, SelectOptionTone } from "./fields.js";
+import type {
+  FieldCondition,
+  FieldDefinition,
+  FormFieldDefinition,
+  SelectOptionTone,
+} from "./fields.js";
 import type { AccessRule, AgentScreenHints } from "./handlers.js";
 import type { IconKey, NavIconKey } from "./nav-icon.js";
 
@@ -90,20 +95,7 @@ export type FormatSpec = {
 //   - FormatSpec        → declarative value formatter, JSON-safe ({ format: "timestamp" } etc.)
 export type FieldRenderer = PlatformComponent | string | FormatSpec;
 
-// Declarative field-state condition. Evaluated by the renderer against the
-// current row/form values. Five forms:
-//   boolean          — static on/off (e.g. readOnly: true)
-//   { field, eq }    — true when row[field] === eq
-//   { field, ne }    — true when row[field] !== ne
-//   { field, in }    — true when row[field] is one of the given values
-//   { field, notIn } — true when row[field] is none of the given values
-// JSON-safe: survives buildAppSchema → GET /api/schema stringify.
-export type FieldCondition =
-  | boolean
-  | { readonly field: string; readonly eq: unknown }
-  | { readonly field: string; readonly ne: unknown }
-  | { readonly field: string; readonly in: readonly unknown[] }
-  | { readonly field: string; readonly notIn: readonly unknown[] };
+export type { FieldCondition } from "./fields.js";
 
 // --- entityList ---
 

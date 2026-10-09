@@ -368,6 +368,27 @@ export function optionsQueryFieldRefs(payload: OptionsQueryPayload | undefined):
     .map((ref) => ref.field);
 }
 
+// Declarative field-state condition. Evaluated by the renderer against the
+// current row/form values. Five forms:
+//   boolean          — static on/off (e.g. readOnly: true)
+//   { field, eq }    — true when row[field] === eq
+//   { field, ne }    — true when row[field] !== ne
+//   { field, in }    — true when row[field] is one of the given values
+//   { field, notIn } — true when row[field] is none of the given values
+// JSON-safe: survives buildAppSchema → GET /api/schema stringify.
+export type FieldCondition =
+  | boolean
+  | { readonly field: string; readonly eq: unknown }
+  | { readonly field: string; readonly ne: unknown }
+  | { readonly field: string; readonly in: readonly unknown[] }
+  | { readonly field: string; readonly notIn: readonly unknown[] };
+
+/** Options of a select field that are only available while `when` holds for the row values. */
+export type SelectConditionalOptions<TOption extends string = string> = {
+  readonly options: readonly TOption[];
+  readonly when: Exclude<FieldCondition, boolean>;
+};
+
 export type SelectFieldDef<TOptions extends readonly string[] = readonly string[]> = {
   readonly type: "select";
   readonly description?: string;
@@ -405,6 +426,10 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
    *  are ignored. Static `options` stay authoritative, and the write path must enforce
    *  the same rule (see `withTierOptionGate`), the renderer only mirrors it. */
   readonly optionsAvailabilityQuery?: string;
+  /** Options that are only available while `when` holds for the row values; options
+   *  in no rule are always available. The write path enforces it, the renderer only
+   *  filters. Only valid on entity fields. */
+  readonly conditionalOptions?: readonly SelectConditionalOptions<TOptions[number]>[];
 } & ResolvedPiiFlags;
 
 // Mehrere Werte aus einer festen Options-Liste — UI rendert als

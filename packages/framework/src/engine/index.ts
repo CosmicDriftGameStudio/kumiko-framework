@@ -316,7 +316,10 @@ export {
   fieldToZod,
   SYSTEM_ONLY_JSON_SCHEMA_KEY,
 } from "./schema-builder.js";
+export type { UnavailableSelectOption } from "./screen-helpers.js";
 export {
+  availableSelectOptions,
+  findUnavailableSelectOptions,
   isExtensionEditSection,
   isFieldsEditSection,
   isWriteFormEditSection,

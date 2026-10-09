@@ -5,7 +5,11 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { createFormController } from "@cosmicdrift/kumiko-headless";
-import { buildFormSchema, REQUIRED_FIELD_I18N_KEY } from "../form-schema.js";
+import {
+  buildFormSchema,
+  OPTION_NOT_AVAILABLE_I18N_KEY,
+  REQUIRED_FIELD_I18N_KEY,
+} from "../form-schema.js";
 
 function screenWith(fields: readonly EditFieldSpec[]): EntityEditScreenDefinition {
   return {
@@ -270,6 +274,42 @@ describe("buildFormSchema", () => {
 
     test("without unchangedFrom (create) the empty required field is flagged", () => {
       expect(buildFormSchema(entity, screen).safeParse(loaded).success).toBe(false);
+    });
+  });
+
+  describe("select conditionalOptions", () => {
+    const entity = entityWith({
+      kind: { type: "select", options: ["http", "heartbeat"] },
+      interval: {
+        type: "select",
+        options: ["60", "3600"],
+        conditionalOptions: [{ options: ["3600"], when: { field: "kind", eq: "heartbeat" } }],
+      },
+    });
+    const screen = screenWith(["kind", "interval"]);
+    const loaded = { kind: "heartbeat", interval: "3600" };
+
+    test("changing the condition field flags the stored option although the option itself is unchanged", () => {
+      const result = buildFormSchema(entity, screen, loaded).safeParse({
+        kind: "http",
+        interval: "3600",
+      });
+      expect(result.success).toBe(false);
+      if (result.success) return;
+      expect(result.error.issues[0]?.path).toEqual(["interval"]);
+      expect(result.error.issues[0]).toMatchObject({
+        params: { i18nKey: OPTION_NOT_AVAILABLE_I18N_KEY },
+      });
+    });
+
+    test("an untouched row stays saveable", () => {
+      expect(buildFormSchema(entity, screen, loaded).safeParse(loaded).success).toBe(true);
+    });
+
+    test("an unavailable option is flagged on create", () => {
+      expect(
+        buildFormSchema(entity, screen).safeParse({ kind: "http", interval: "3600" }).success,
+      ).toBe(false);
     });
   });
 });

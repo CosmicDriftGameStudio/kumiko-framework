@@ -811,6 +811,50 @@ describe("computeEditViewModel — multiSelect display/columns/maxRows passthrou
   });
 });
 
+describe("computeEditViewModel — select conditionalOptions", () => {
+  const entity = {
+    fields: {
+      kind: { type: "select", options: ["http", "heartbeat"] },
+      interval: {
+        type: "select",
+        options: ["60", "300", "3600"],
+        conditionalOptions: [{ options: ["3600"], when: { field: "kind", eq: "heartbeat" } }],
+      },
+    },
+  } as unknown as EntityDefinition;
+
+  function intervalOptions(values: Record<string, unknown>): readonly string[] | undefined {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["kind", "interval"] }] }),
+      entity,
+      values,
+      translate,
+      featureName: "monitoring",
+    });
+    return asFields(vm.sections[0]).fields.find((f) => f.field === "interval")?.options;
+  }
+
+  test("options are filtered by the live row values", () => {
+    expect(intervalOptions({ kind: "http", interval: "60" })).toEqual(["60", "300"]);
+    expect(intervalOptions({ kind: "heartbeat", interval: "60" })).toEqual(["60", "300", "3600"]);
+  });
+
+  test("renders as dropdown so the widget does not switch with the filtered option count", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["interval"] }] }),
+      entity,
+      values: { kind: "http" },
+      translate,
+      featureName: "monitoring",
+    });
+    expect(asFields(vm.sections[0]).fields[0]?.display).toBe("dropdown");
+  });
+
+  test("a stored value that is no longer available stays listed", () => {
+    expect(intervalOptions({ kind: "http", interval: "3600" })).toEqual(["60", "300", "3600"]);
+  });
+});
+
 describe("computeEditViewModel — declared reference metadata (fw#2662)", () => {
   // projectionDetail fields have no real EntityDefinition — the shim that
   // adapts them synthesizes a pseudo-entity where every field is hardcoded

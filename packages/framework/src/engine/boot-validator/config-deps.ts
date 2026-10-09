@@ -143,6 +143,11 @@ export function validateConfigKeyAllowPerRequest(feature: FeatureDefinition): vo
 export function validateConfigKeyOptionsQuery(feature: FeatureDefinition): void {
   for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
     const prefix = `[Feature ${feature.name}] Config key "${keyName}"`;
+    if ("conditionalOptions" in keyDef) {
+      throw new Error(
+        `${prefix} declares conditionalOptions — conditionalOptions is only supported on entity select fields (enforced by the entity write path)`,
+      );
+    }
     if (keyDef.optionsQuery === undefined) {
       if (keyDef.optionsQueryPayload !== undefined) {
         throw new Error(`${prefix} has optionsQueryPayload without optionsQuery`);

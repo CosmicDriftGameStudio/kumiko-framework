@@ -4,6 +4,10 @@ import { checkWriteFieldOwnership } from "../engine/field-access.js";
 import { instructionFieldNames } from "../engine/instruction-fields.js";
 import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.js";
 import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.js";
+import {
+  findUnavailableSelectOptions,
+  type UnavailableSelectOption,
+} from "../engine/screen-helpers.js";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.js";
 import type { EntityId, SessionUser } from "../engine/types/index.js";
 import {
@@ -90,6 +94,28 @@ function isFrameworkSystemUser(user: SessionUser): boolean {
 // executor directly and never see it.
 function isUnchangedValue(a: unknown, b: unknown): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function selectOptionNotAvailableFailure(entries: readonly UnavailableSelectOption[]) {
+  const [first] = entries;
+  if (!first) return undefined;
+  const i18nKey = "kumiko.validation.optionNotAvailable";
+  return writeFailure(
+    new UnprocessableError("select_option_not_available", {
+      i18nKey,
+      details: {
+        field: first.field,
+        value: first.value,
+        allowed: first.allowed,
+        fields: entries.map((entry) => ({
+          path: entry.field,
+          code: "select_option_not_available",
+          i18nKey,
+          params: { allowed: entry.allowed },
+        })),
+      },
+    }),
+  );
 }
 
 type PreSaveFn = (
@@ -256,6 +282,11 @@ export function createWriteVerbs(
           }),
         );
       }
+
+      const unavailableOnCreate = selectOptionNotAvailableFailure(
+        findUnavailableSelectOptions(entity.fields, data),
+      );
+      if (unavailableOnCreate) return unavailableOnCreate;
 
       // Alle Compound-Types (locatedTimestamp, money, ...) gehen durch
       // dieselbe Pipeline. Caller schickt combined API-Form, Framework
@@ -477,6 +508,11 @@ export function createWriteVerbs(
           }),
         );
       }
+
+      const unavailableOnUpdate = selectOptionNotAvailableFailure(
+        findUnavailableSelectOptions(entity.fields, mergedNew, previous),
+      );
+      if (unavailableOnUpdate) return unavailableOnUpdate;
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user));
 

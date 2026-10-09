@@ -983,6 +983,56 @@ export function validateEntitySelectAvailabilityQuery(
   }
 }
 
+export function validateEntitySelectConditionalOptions(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      if (field.type !== "select" || field.conditionalOptions === undefined) continue;
+      const where = `[Feature ${feature.name}] Select field "${fieldName}" on entity "${entityName}"`;
+      if (field.optionsQuery !== undefined) {
+        throw new Error(
+          `${where} combines conditionalOptions with optionsQuery — conditionalOptions filters the static options only.`,
+        );
+      }
+      const knownOptions = new Set<string>(field.options);
+      const ruleOfOption = new Map<string, number>();
+      field.conditionalOptions.forEach((rule, ruleIndex) => {
+        const ruleLabel = `conditionalOptions[${ruleIndex}]`;
+        if (rule.options.length === 0) {
+          throw new Error(`${where} has an empty ${ruleLabel}.options — drop the rule.`);
+        }
+        for (const option of rule.options) {
+          if (!knownOptions.has(option)) {
+            throw new Error(
+              `${where} lists "${option}" in ${ruleLabel} which is not in options (${field.options.join(", ")}).`,
+            );
+          }
+          const otherRule = ruleOfOption.get(option);
+          if (otherRule !== undefined) {
+            throw new Error(
+              `${where} lists "${option}" in conditionalOptions[${otherRule}] and ${ruleLabel} — an option may belong to one rule only.`,
+            );
+          }
+          ruleOfOption.set(option, ruleIndex);
+          if (option === field.default) {
+            throw new Error(
+              `${where} has default "${option}" inside ${ruleLabel} — the default must be available unconditionally.`,
+            );
+          }
+        }
+        const conditionField = rule.when.field;
+        if (conditionField === fieldName) {
+          throw new Error(`${where} has ${ruleLabel}.when on its own field.`);
+        }
+        if (!(conditionField in entity.fields)) {
+          throw new Error(
+            `${where} has ${ruleLabel}.when.field "${conditionField}" which is not a field of the entity.`,
+          );
+        }
+      });
+    }
+  }
+}
+
 export function validateMultiSelectFields(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {

@@ -442,8 +442,15 @@ function fieldToFixture(name: string, field: FieldDefinition): unknown {
       return `e2e ${name} (long-form content)`;
     case "boolean":
       return true;
-    case "select":
-      return field.options[0] ?? "";
+    case "select": {
+      const conditional = new Set(field.conditionalOptions?.flatMap((rule) => rule.options));
+      return (
+        field.default ??
+        field.options.find((option) => !conditional.has(option)) ??
+        field.options[0] ??
+        ""
+      );
+    }
     case "multiSelect": {
       const first = field.options[0];
       return first ? [first] : [];

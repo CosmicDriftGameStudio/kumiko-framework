@@ -230,7 +230,10 @@ export function createSelectField<
   R extends true | false = false,
 >(
   opts: { options: TOptions } & Partial<
-    Omit<SelectFieldDef<TOptions>, "type" | "options" | "required" | keyof ResolvedPiiFlags>
+    Omit<
+      SelectFieldDef<NoInfer<TOptions>>,
+      "type" | "options" | "required" | keyof ResolvedPiiFlags
+    >
   > &
     PersonalAnnotationsNoFind & { required?: R },
 ): SelectFieldDef<TOptions> & { required: R } {
