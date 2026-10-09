@@ -12,7 +12,7 @@ import {
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
 import type { EntityDefinition, EntityId, SessionUser } from "../engine/types/index.js";
 import { UnprocessableError } from "../errors/index.js";
-import { getStreamVersion } from "../event-store/index.js";
+import { getStreamVersion, getStreamVersions } from "../event-store/index.js";
 import type { SearchAdapter } from "../search/types.js";
 import { LIST_ROW_META_REFERENCES } from "../ui-types/list-row-meta.js";
 import { rehydrateCompoundTypes } from "./compound-types.js";
@@ -78,6 +78,13 @@ function toCursorSortText(value: unknown): string | null | undefined {
     return JSON.stringify(value);
   }
   return undefined;
+}
+
+function withStreamVersion(
+  row: Record<string, unknown>,
+  streamVersion: number,
+): Record<string, unknown> {
+  return streamVersion > 0 ? { ...row, version: streamVersion } : row;
 }
 
 // Keyset boundary for `ORDER BY <sort> <dir>, id ASC` under Postgres' DEFAULT
@@ -872,12 +879,26 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const encryptedRows = rawRows.map((r) =>
         rehydrateCompoundTypes(coerceRow(r, tableInfo), entity),
       );
-      const rows = await Promise.all(encryptedRows.map((r) => decryptForRead(r)));
+      const decryptedRows = await Promise.all(encryptedRows.map((r) => decryptForRead(r)));
 
-      // list rows carry the READ-ROW version (display-only), never an optimistic-lock
-      // base — edit flows reload via detail(), which reconciles the stream version.
-      // Cache the still-encrypted form: same at-rest guarantee as detail()'s
-      // encryptForStorage round-trip, without paying a re-encrypt.
+      // Stream version is authoritative (see detail()): ctx.appendEvent bumps the
+      // stream without touching row.version, so the raw row version would hand
+      // clients a stale optimistic-lock base. Rows without events keep theirs.
+      const streamVersions =
+        decryptedRows.length > 0
+          ? await getStreamVersions(
+              runner,
+              decryptedRows.map((r) => String(r["id"])),
+              streamTenantFor(user),
+            )
+          : new Map<string, number>();
+      const rows = decryptedRows.map((r) =>
+        withStreamVersion(r, streamVersions.get(String(r["id"])) ?? 0),
+      );
+
+      // Cache the still-encrypted raw rows (read-row version): same at-rest guarantee as
+      // detail()'s encryptForStorage round-trip, without a re-encrypt; detail() rejects
+      // a cached version that differs from the stream.
       if (entityCache && entityName && rows.length > 0) {
         await entityCache.mset(
           user.tenantId,
@@ -957,11 +978,6 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // guaranteed version_conflict.
       // A cache hit only counts when its version equals the live stream version:
       // a late entityCache.set() can resurrect an old row after the writer's del().
-      const withVersion = (
-        row: Record<string, unknown>,
-        streamVersion: number,
-      ): Record<string, unknown> => (streamVersion > 0 ? { ...row, version: streamVersion } : row);
-
       if (entityCache && entityName) {
         const cached = await entityCache.get(user.tenantId, entityName, payload.id);
         if (cached) {
@@ -982,7 +998,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
             // Cached rows are stored re-encrypted (see the `set` below) so an
             // `encrypted` field's plaintext never sits in a second at-rest
             // store (Redis) the field-encryption feature doesn't cover.
-            return withVersion(await decryptForRead(cached), streamVersion);
+            return withStreamVersion(await decryptForRead(cached), streamVersion);
           }
         }
       }
@@ -1000,7 +1016,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // is snake_case (raw SQL); coerceRow maps it to camelCase.
       const rowInfo = extractTableInfo(table);
       const coerced = await decryptForRead(rehydrateCompoundTypes(coerceRow(raw, rowInfo), entity));
-      const result = withVersion(coerced, snapshot.streamVersion);
+      const result = withStreamVersion(coerced, snapshot.streamVersion);
 
       if (entityCache && entityName) {
         await entityCache.set(

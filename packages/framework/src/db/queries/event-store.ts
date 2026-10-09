@@ -244,6 +244,24 @@ export async function selectStreamMaxVersion(
   return rows[0]?.v ?? 0;
 }
 
+export async function selectStreamMaxVersions(
+  db: AnyDb,
+  aggregateIds: readonly string[],
+  tenantId: string,
+): Promise<Map<string, number>> {
+  const versions = new Map<string, number>();
+  if (aggregateIds.length === 0) return versions;
+  const rows = await unsafeReadRetrying<{ id: string; v: number | null }>(
+    db,
+    `SELECT "aggregate_id" AS id, MAX("version") AS v FROM "kumiko_events" WHERE "tenant_id" = $1 AND "aggregate_id" = ANY($2::uuid[]) GROUP BY "aggregate_id"`,
+    [tenantId, [...aggregateIds]],
+  );
+  for (const row of rows) {
+    if (row.v !== null) versions.set(row.id, row.v);
+  }
+  return versions;
+}
+
 /** MAX(version) for one aggregate stream — no tenant filter (seed idempotency). */
 export async function selectAggregateMaxVersion(db: AnyDb, aggregateId: string): Promise<number> {
   const rows = await unsafeReadRetrying<{ v: number | null }>(

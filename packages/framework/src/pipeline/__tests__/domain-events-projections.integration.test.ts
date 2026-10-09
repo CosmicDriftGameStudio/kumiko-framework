@@ -119,6 +119,20 @@ const shippingFeature = defineFeature("shipping", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  r.queryHandler(
+    "shipment:list",
+    z.object({ limit: z.number().optional() }),
+    async (query, ctx) => shipmentExecutor.list(query.payload, query.user, ctx.db),
+    { access: { roles: ["Admin"] } },
+  );
+
+  r.queryHandler(
+    "shipment:detail",
+    z.object({ id: z.uuid() }),
+    async (query, ctx) => shipmentExecutor.detail(query.payload, query.user, ctx.db),
+    { access: { roles: ["Admin"] } },
+  );
+
   // CRUD update — used by the regression test to prove that a CRUD write
   // *after* a ctx.appendEvent (which bumped the aggregate stream version)
   // still finds the right expectedVersion.
@@ -261,6 +275,37 @@ describe("Marten gold-standard: domain events → inline projections", () => {
     // Nothing for the ghost type is on disk.
     const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events.some((e) => e.type === "shipping:event:ghost")).toBe(false);
+  });
+
+  test("list and detail return the stream version after ctx.appendEvent, usable as update base", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "shipping:write:shipment:create",
+      { cargo: "Container L", status: "loaded" },
+      admin,
+    );
+    await stack.http.writeOk("shipping:write:shipment:bill", { id: created.id, cost: 10 }, admin);
+
+    const list = await stack.http.queryOk<{ rows: { id: string; version: number }[] }>(
+      "shipping:query:shipment:list",
+      { limit: 10 },
+      admin,
+    );
+    const listed = list.rows.find((row) => row.id === created.id);
+    expect(listed?.version).toBe(2);
+
+    const detail = await stack.http.queryOk<Record<string, unknown>>(
+      "shipping:query:shipment:detail",
+      { id: created.id },
+      admin,
+    );
+    expect(detail["version"]).toBe(2);
+
+    const updated = await stack.http.writeOk<{ data: { version: number } }>(
+      "shipping:write:shipment:update",
+      { id: created.id, version: listed?.version, changes: { status: "delivered" } },
+      admin,
+    );
+    expect(updated.data.version).toBe(3);
   });
 
   test("Block 0 regression: CRUD update after ctx.appendEvent on same stream succeeds", async () => {
