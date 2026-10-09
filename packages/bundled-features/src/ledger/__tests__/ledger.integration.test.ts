@@ -958,3 +958,53 @@ describe("ledger integration — subject dimension (filterable business-object r
     expect(theirRows.map((r) => r["id"])).toEqual([theirs.id]);
   });
 });
+
+describe("ledger integration — schedule sourceRef uniqueness", () => {
+  async function createScheduleWithSourceRef(
+    user: typeof admin,
+    sourceRef: string | undefined,
+  ): Promise<{ id: string }> {
+    const bank = await createAccount("Bank", "asset", user);
+    const rent = await createAccount("Mieterträge", "income", user);
+    return stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.createSchedule,
+      {
+        description: "Miete",
+        startDate: "2026-01-01",
+        interval: "monthly",
+        amount: 50000,
+        debitAccountId: bank,
+        creditAccountId: rent,
+        ...(sourceRef !== undefined && { sourceRef }),
+      },
+      user,
+    );
+  }
+
+  test("a second schedule with the same sourceRef in the same tenant is rejected", async () => {
+    await createScheduleWithSourceRef(admin, "position-1");
+    const bank = await createAccount("Bank 2", "asset");
+    const rent = await createAccount("Rent 2", "income");
+    const err = await stack.http.writeErr(
+      LedgerHandlers.createSchedule,
+      {
+        description: "Miete 2",
+        startDate: "2026-01-01",
+        interval: "monthly",
+        amount: 1,
+        debitAccountId: bank,
+        creditAccountId: rent,
+        sourceRef: "position-1",
+      },
+      admin,
+    );
+    expect(err.code).toBe("unique_violation");
+  });
+
+  test("the same sourceRef in another tenant and schedules without sourceRef are allowed", async () => {
+    await createScheduleWithSourceRef(admin, "position-1");
+    await createScheduleWithSourceRef(otherTenant, "position-1");
+    await createScheduleWithSourceRef(admin, undefined);
+    await createScheduleWithSourceRef(admin, undefined);
+  });
+});

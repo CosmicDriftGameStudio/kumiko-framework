@@ -616,6 +616,12 @@ export type ReferenceFieldDef = {
    *  the read-only display resolves a stored value against these rows and
    *  falls back to the raw id for one it does not find. */
   readonly optionsQuery?: string;
+  /** tenant-handover opt-out: rows of THIS entity that point at a handed-over
+   *  row through this field stay in the source tenant instead of travelling
+   *  with it (or failing the claim with `entity_not_transferable`). The
+   *  reference then deliberately crosses the tenant boundary after the
+   *  handover. Use it for an entity that must not move with its host. */
+  readonly handover?: "stay";
 } & ResolvedPiiFlags;
 
 // --- Currency ---

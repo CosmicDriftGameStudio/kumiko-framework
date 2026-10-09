@@ -149,6 +149,16 @@ const memoEntity: EntityDefinition = createEntity({
   },
 });
 
+// Not transferable, and its reference says so: rows stay behind on purpose.
+const stayMemoEntity: EntityDefinition = createEntity({
+  table: "handover_stay_memo",
+  idType: "uuid",
+  fields: {
+    runId: { type: "reference", entity: "run", required: true, handover: "stay" },
+    body: createTextField({ personal: false, reason: "technical_reference" }),
+  },
+});
+
 const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
   r.entity("run", runEntity);
   r.entity("photo", photoEntity);
@@ -159,6 +169,7 @@ const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
   r.entity("linkA", linkAEntity);
   r.entity("linkB", linkBEntity);
   r.entity("memo", memoEntity);
+  r.entity("stayMemo", stayMemoEntity);
 });
 
 // kumiko-framework#3088 fix: a `reference` field's `entity` may carry a
@@ -212,6 +223,7 @@ const channelTextTable = buildEntityTable("channelText", channelTextEntity);
 const linkATable = buildEntityTable("linkA", linkAEntity);
 const linkBTable = buildEntityTable("linkB", linkBEntity);
 const memoTable = buildEntityTable("memo", memoEntity);
+const stayMemoTable = buildEntityTable("stayMemo", stayMemoEntity);
 const prefixedChildTable = buildEntityTable("prefixedChild", prefixedChildEntity);
 const prefixedGrandchildTable = buildEntityTable("prefixedGrandchild", prefixedGrandchildEntity);
 
@@ -228,6 +240,9 @@ const channelTextCrud = createEventStoreExecutor(channelTextTable, channelTextEn
 const linkACrud = createEventStoreExecutor(linkATable, linkAEntity, { entityName: "linkA" });
 const linkBCrud = createEventStoreExecutor(linkBTable, linkBEntity, { entityName: "linkB" });
 const memoCrud = createEventStoreExecutor(memoTable, memoEntity, { entityName: "memo" });
+const stayMemoCrud = createEventStoreExecutor(stayMemoTable, stayMemoEntity, {
+  entityName: "stayMemo",
+});
 const prefixedChildCrud = createEventStoreExecutor(prefixedChildTable, prefixedChildEntity, {
   entityName: "prefixedChild",
 });
@@ -271,6 +286,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, linkAEntity, "linkA");
   await unsafeCreateEntityTable(stack.db, linkBEntity, "linkB");
   await unsafeCreateEntityTable(stack.db, memoEntity, "memo");
+  await unsafeCreateEntityTable(stack.db, stayMemoEntity, "stayMemo");
   await unsafeCreateEntityTable(stack.db, prefixedChildEntity, "prefixedChild");
   await unsafeCreateEntityTable(stack.db, prefixedGrandchildEntity, "prefixedGrandchild");
   await unsafeCreateEntityTable(stack.db, fileRefEntity);
@@ -283,7 +299,7 @@ afterAll(async () => {
 beforeEach(async () => {
   stack.events.reset();
   await stack.db.unsafe?.(
-    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, handover_bundle, handover_campaign, handover_channel_text, handover_link_a, handover_link_b, handover_memo, handover_prefixed_child, handover_prefixed_grandchild, file_refs RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, handover_bundle, handover_campaign, handover_channel_text, handover_link_a, handover_link_b, handover_memo, handover_stay_memo, handover_prefixed_child, handover_prefixed_grandchild, file_refs RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -324,6 +340,14 @@ async function seedMemo(tenantId: TenantId, runId: string, body: string): Promis
   const db = createTenantDb(stack.db, tenantId, "system");
   const result = await memoCrud.create({ runId, body }, user, db);
   if (!result.isSuccess) throw new Error(`seedMemo failed: ${result.error.message}`);
+  return String(result.data.id);
+}
+
+async function seedStayMemo(tenantId: TenantId, runId: string, body: string): Promise<string> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await stayMemoCrud.create({ runId, body }, user, db);
+  if (!result.isSuccess) throw new Error(`seedStayMemo failed: ${result.error.message}`);
   return String(result.data.id);
 }
 
@@ -856,5 +880,16 @@ describe("tenant-handover :: claim", () => {
 
     // The whole transaction rolled back — the root never moved either.
     expect(await readTenantId("handover_run", runId)).toBe(SOURCE_TENANT);
+  });
+
+  test("a non-transferable child behind a handover: stay reference does not block the claim and its rows stay in the source tenant", async () => {
+    const runId = await seedRun(SOURCE_TENANT, "my run");
+    const memoId = await seedStayMemo(SOURCE_TENANT, runId, "stays behind");
+    const dest = destinationUser(1);
+
+    await stack.http.writeOk(CLAIM, { token: grantFor(runId), entityType: "run" }, dest);
+
+    expect(await readTenantId("handover_run", runId)).toBe(dest.tenantId);
+    expect(await readTenantId("handover_stay_memo", memoId)).toBe(SOURCE_TENANT);
   });
 });
