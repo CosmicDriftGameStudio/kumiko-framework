@@ -560,6 +560,46 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
     expect(res.rows[0]?.["id"]).toBe(matchedId);
   });
 
+  // Mirrors Meilisearch: a search without an explicit limit returns only 50 hits.
+  function limitHonoringAdapter(hits: readonly string[]) {
+    return {
+      configure: async () => {},
+      index: async () => {},
+      indexBatch: async () => {},
+      remove: async () => {},
+      search: async (_tenantId: string, _query: string, options?: { limit?: number }) =>
+        hits
+          .slice(0, options?.limit ?? 50)
+          .map((entityId) => ({ entityType: "pagerItem", entityId })),
+      reset: async () => {},
+    } as never;
+  }
+
+  test("search with more than 50 hits keeps every hit, not just the adapter's default page", async () => {
+    const ids: string[] = [];
+    for (let i = 0; i < 60; i++) {
+      const created = await exec.create({ title: `many-${i}`, rank: i }, admin, tdb);
+      if (!created.isSuccess) throw new Error("create failed");
+      ids.push(String(created.data["id"]));
+    }
+
+    const res = await exec.list({ limit: 200, search: "many" }, admin, tdb, {
+      searchAdapter: limitHonoringAdapter(ids),
+    });
+    expect(res.rows).toHaveLength(60);
+  });
+
+  test("search past the candidate cap fails loud instead of silently truncating", async () => {
+    const hits = Array.from({ length: 1001 }, () => crypto.randomUUID());
+    const call = exec.list({ limit: 50, search: "everything" }, admin, tdb, {
+      searchAdapter: limitHonoringAdapter(hits),
+    });
+    await expect(call.catch((e: unknown) => e)).resolves.toMatchObject({
+      httpStatus: 422,
+      details: { reason: "search_too_many_results", entity: "pagerItem" },
+    });
+  });
+
   test("mit search ohne match (Adapter returnt []): leere rows + no DB-Query", async () => {
     for (let i = 0; i < 3; i++) {
       await exec.create({ title: `item-${i}`, rank: i }, admin, tdb);
