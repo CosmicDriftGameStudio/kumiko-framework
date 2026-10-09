@@ -6,6 +6,7 @@
 
 import { collectPiiSubjectFields } from "../crypto/index.js";
 import type { EntityDefinition, TenantId } from "../engine/types/index.js";
+import { createLogger, type Logger } from "../logging/index.js";
 import { createEnvMasterKeyProvider } from "../secrets/env-master-key-provider.js";
 import type { EnvelopeCipher } from "../secrets/envelope-cipher.js";
 import type { KeyScope } from "../secrets/types.js";
@@ -79,10 +80,35 @@ export async function encryptEntityFieldValues(
   return out;
 }
 
+let undecryptableFieldLogger: Logger | undefined;
+
+function defaultUndecryptableFieldLogger(): Logger {
+  undecryptableFieldLogger ??= createLogger();
+  return undecryptableFieldLogger;
+}
+
+// Logs identifiers and the error class only: ciphertext, key material and the
+// cipher's error message (which may echo envelope content) never reach the log.
+export function logUndecryptableField(
+  info: { entityName: string | undefined; rowId: unknown; field: string; error: unknown },
+  logger: Logger = defaultUndecryptableFieldLogger(),
+): void {
+  logger.error("encrypted field could not be decrypted; returned as null", {
+    entity: info.entityName,
+    rowId: info.rowId,
+    field: info.field,
+    errorName: info.error instanceof Error ? info.error.name : typeof info.error,
+  });
+}
+
+// With `onFieldError` a field that fails to decrypt (wrong key, corrupt
+// envelope) reads as null and is reported instead of throwing, so one bad row
+// cannot fail a whole list. Without it decrypt stays fail-loud (write paths).
 export async function decryptEntityFieldValues(
   row: Record<string, unknown>,
   encryptedFields: ReadonlySet<string>,
   cipher: EnvelopeCipher,
+  opts?: { onFieldError?: (field: string, error: unknown) => void },
 ): Promise<Record<string, unknown>> {
   if (encryptedFields.size === 0) return row;
   const out = { ...row };
@@ -91,7 +117,16 @@ export async function decryptEntityFieldValues(
     const value = out[name];
     if (value === null || value === undefined) continue;
     if (typeof value !== "string") continue;
-    out[name] = await cipher.decrypt(value, scope);
+    if (!opts?.onFieldError) {
+      out[name] = await cipher.decrypt(value, scope);
+      continue;
+    }
+    try {
+      out[name] = await cipher.decrypt(value, scope);
+    } catch (error) {
+      out[name] = null;
+      opts.onFieldError(name, error);
+    }
   }
   return out;
 }

@@ -22,6 +22,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
 import {
   type BannerProps,
+  type CardProps,
   type CorePrimitives,
   type FormProps,
   PrimitivesProvider,
@@ -43,6 +44,10 @@ const TestBanner: ComponentType<BannerProps> = ({ children, testId }) => (
   <div data-testid={testId}>{children}</div>
 );
 
+const TestCard: ComponentType<CardProps> = ({ children, testId }) => (
+  <div data-testid={testId}>{children}</div>
+);
+
 const testPrimitives: CorePrimitives = {
   Button: noop,
   Banner: TestBanner,
@@ -51,7 +56,7 @@ const testPrimitives: CorePrimitives = {
   DataTable: noop,
   Form: FormWithActions,
   Section: passChildren,
-  Card: passChildren,
+  Card: TestCard,
   Grid: passChildren,
   GridCell: passChildren,
   Text: passChildren,
@@ -185,7 +190,7 @@ describe("projectionDetail singleton (fw#2312)", () => {
     });
 
     const banner = await waitFor(() => getByTestId("kumiko-screen-record-missing"));
-    expect(banner.textContent).toBe("Record not found.");
+    expect(banner.textContent).toContain("This record was not found.");
     expect(banner.textContent).not.toContain("99");
   });
 });

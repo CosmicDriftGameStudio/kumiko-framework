@@ -737,6 +737,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.field.writeOnly.remove": "Gespeicherten Wert entfernen",
   "kumiko.field.writeOnly.set": "Gesetzt",
   "kumiko.pii.erased": "Gelöscht",
+  "kumiko.record.not-found.back": "Zurück zur Liste",
+  "kumiko.record.not-found.hint":
+    "Er wurde möglicherweise gelöscht, oder der Link ist nicht mehr gültig.",
+  "kumiko.record.not-found.title": "Datensatz nicht gefunden.",
   "kumiko.field.writeOnly.setPlaceholder": "Gesetzt – leer lassen, um ihn zu behalten",
   "kumiko.field.writeOnly.undo": "Rückgängig",
   "kumiko.field.writeOnly.willRemove": "Wird beim Speichern entfernt",

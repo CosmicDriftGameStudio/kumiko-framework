@@ -879,7 +879,9 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const encryptedRows = rawRows.map((r) =>
         rehydrateCompoundTypes(coerceRow(r, tableInfo), entity),
       );
-      const decryptedRows = await Promise.all(encryptedRows.map((r) => decryptForRead(r)));
+      const decryptedRows = await Promise.all(
+        encryptedRows.map((r) => decryptForRead(r, { degradeUndecryptable: () => {} })),
+      );
 
       // Stream version is authoritative (see detail()): ctx.appendEvent bumps the
       // stream without touching row.version, so the raw row version would hand
@@ -998,7 +1000,10 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
             // Cached rows are stored re-encrypted (see the `set` below) so an
             // `encrypted` field's plaintext never sits in a second at-rest
             // store (Redis) the field-encryption feature doesn't cover.
-            return withStreamVersion(await decryptForRead(cached), streamVersion);
+            return withStreamVersion(
+              await decryptForRead(cached, { degradeUndecryptable: () => {} }),
+              streamVersion,
+            );
           }
         }
       }
@@ -1015,10 +1020,16 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // Same coerce-before-rehydrate/decrypt ordering as list() above — raw
       // is snake_case (raw SQL); coerceRow maps it to camelCase.
       const rowInfo = extractTableInfo(table);
-      const coerced = await decryptForRead(rehydrateCompoundTypes(coerceRow(raw, rowInfo), entity));
+      const undecryptableFields: string[] = [];
+      const coerced = await decryptForRead(
+        rehydrateCompoundTypes(coerceRow(raw, rowInfo), entity),
+        { degradeUndecryptable: (field) => undecryptableFields.push(field) },
+      );
       const result = withStreamVersion(coerced, snapshot.streamVersion);
 
-      if (entityCache && entityName) {
+      // A degraded row must not be cached: re-encrypting its null would
+      // replay the missing value on later cache hits without any error log.
+      if (entityCache && entityName && undecryptableFields.length === 0) {
         await entityCache.set(
           user.tenantId,
           entityName,
