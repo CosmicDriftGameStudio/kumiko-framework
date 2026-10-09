@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.354.1
+
+### Patch Changes
+
+- a5f13a7: Executor list returns the stream version, so updates built on list rows no longer fail with version_conflict after ctx.appendEvent
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Executor list returns the stream version, so updates built on list rows no longer fail with version_conflict after ctx.appendEvent
+  -->
+
+- a7b381b: Update schema accepts null on optional fields, so a preSave hook or client can clear a stored optional value without presave_hook_invalid_output or a validation error
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Update schema accepts null on optional fields, so a preSave hook or client can clear a stored optional value
+  -->
+
+  - @cosmicdrift/kumiko-http@0.354.1
+  - @cosmicdrift/kumiko-types@0.354.1
+
 ## 0.354.0
 
 ### Minor Changes

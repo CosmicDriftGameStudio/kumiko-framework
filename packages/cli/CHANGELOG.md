@@ -1,5 +1,14 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.354.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-dev-server@0.354.1
+- @cosmicdrift/kumiko-testing@0.354.1
+- @cosmicdrift/kumiko-guards@0.354.1
+- @cosmicdrift/kumiko-repo-manifest@0.354.1
+
 ## 0.354.0
 
 ### Minor Changes

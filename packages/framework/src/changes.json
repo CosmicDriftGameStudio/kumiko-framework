@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.354.1",
+    "type": "fix",
+    "title": "Executor list returns the stream version, so updates built on list rows no longer fail with version_conflict after ctx.appendEvent"
+  },
+  {
+    "version": "0.354.1",
+    "type": "fix",
+    "title": "Update schema accepts null on optional fields, so a preSave hook or client can clear a stored optional value",
+    "detail": "Update schema accepts null on optional fields, so a preSave hook or client can clear a stored optional value without presave_hook_invalid_output or a validation error"
+  },
+  {
     "version": "0.354.0",
     "type": "fix",
     "title": "detail() no longer pairs an old row with a newer stream version, so update({ version: detail.version }) cannot overwrite a concurrent write",
