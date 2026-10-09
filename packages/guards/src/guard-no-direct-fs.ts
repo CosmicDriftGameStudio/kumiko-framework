@@ -64,8 +64,12 @@ const EXCLUDE =
 
 const FS_MODULES = new Set(["fs", "node:fs", "fs/promises", "node:fs/promises"]);
 
-type AllowEntry = {
-  readonly repo: string | "*";
+// Closed union (not `string | "*"`, which collapses to `string`): a typo in an
+// allowlist repo name must fail to compile instead of silently never matching.
+export type AllowlistRepoName = "kumiko-framework" | "kumiko-enterprise";
+
+export type AllowEntry = {
+  readonly repo: AllowlistRepoName | "*";
   readonly pattern: RegExp;
 };
 
@@ -76,6 +80,10 @@ const ALLOWLIST: readonly AllowEntry[] = [
   // Dev-server: CLI/scaffolding/codegen, runs locally on the developer's
   // machine, no request input as a path.
   { repo: "kumiko-framework", pattern: /^packages\/dev-server\/src\// },
+
+  // Guard runner + repo-manifest loader: read the scanned repo tree at dev/CI time, no request input as path.
+  { repo: "kumiko-framework", pattern: /^packages\/guards\/src\// },
+  { repo: "kumiko-framework", pattern: /^packages\/repo-manifest\/src\// },
 
   // CLI (@cosmicdrift/kumiko-cli): local dev/CI tooling reading the repo tree, no request input as path.
   { repo: "kumiko-framework", pattern: /^packages\/cli\/src\// },

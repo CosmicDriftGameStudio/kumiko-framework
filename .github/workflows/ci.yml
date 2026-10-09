@@ -109,8 +109,8 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
-          # Diff-based guards need a merge-base with main; a shallow clone
-          # has none, so the Feature-Changelog Guard cannot see its range.
+          # The changeset checks run a three-dot diff against origin/main,
+          # which needs the merge-base a shallow clone does not have.
           fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2

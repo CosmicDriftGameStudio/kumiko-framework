@@ -44,13 +44,7 @@
  */
 
 import * as path from "node:path";
-import {
-  type CallExpression,
-  type Identifier,
-  type Node,
-  type SourceFile,
-  SyntaxKind,
-} from "ts-morph";
+import { type CallExpression, type Identifier, Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
 const ROOT = process.cwd();
@@ -94,6 +88,61 @@ const FN_WRITE_HELPERS = new Map<string, "insert" | "update" | "delete">([
   ["deleteManyBatched", "delete"],
 ]);
 
+// Writes that are deliberately outside the event-store executor. Match on file + enclosing function + table so the exception cannot widen silently.
+type DirectWriteException = {
+  readonly file: RegExp;
+  readonly functionName: string;
+  readonly table: string;
+  readonly reason: string;
+};
+
+const DIRECT_WRITE_EXCEPTIONS: readonly DirectWriteException[] = [
+  {
+    file: /(^|\/)packages\/bundled-features\/src\/template-resolver\/seeding\.ts$/,
+    functionName: "resolveExistingForEventStoreSeed",
+    table: "templateResourcesTable",
+    reason: "Orphan projection row without events, no event-store verb possible",
+  },
+];
+
+// First named container: `function f`, `const f = () =>`, or `run: () =>` in an object literal.
+function enclosingFunctionName(node: Node): string | undefined {
+  for (const ancestor of node.getAncestors()) {
+    if (Node.isFunctionDeclaration(ancestor)) return ancestor.getName();
+    if (Node.isVariableDeclaration(ancestor) || Node.isPropertyAssignment(ancestor)) {
+      return ancestor.getName();
+    }
+  }
+  return undefined;
+}
+
+function isDirectWriteException(call: CallExpression, table: string): boolean {
+  const functionName = enclosingFunctionName(call);
+  if (functionName === undefined) return false;
+  const file = call.getSourceFile().getFilePath();
+  return DIRECT_WRITE_EXCEPTIONS.some(
+    (exception) =>
+      exception.file.test(file) &&
+      exception.functionName === functionName &&
+      exception.table === table,
+  );
+}
+
+// `table as EntityTableMeta`, `(table)`, `table!`, `<T>table`, `table satisfies T` all name the same table.
+export function unwrapTableExpression(node: Node): Node {
+  let current = node;
+  while (
+    Node.isAsExpression(current) ||
+    Node.isSatisfiesExpression(current) ||
+    Node.isParenthesizedExpression(current) ||
+    Node.isNonNullExpression(current) ||
+    Node.isTypeAssertion(current)
+  ) {
+    current = current.getExpression();
+  }
+  return current;
+}
+
 // Identity of a table declaration: absolute file path + identifier name.
 // Text-only names collide across samples (currencies-global.invoiceTable vs.
 // beammycar.invoiceTable would look the same); resolving to the underlying
@@ -118,9 +167,9 @@ export function collectEsTables(files: readonly SourceFile[]): Set<TableId> {
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       const expr = call.getExpression();
       if (expr.getText() !== "createEventStoreExecutor") continue;
-      const tableArg = call.getArguments()[0];
-      if (!tableArg || tableArg.getKind() !== SyntaxKind.Identifier) continue;
-      const id = tableArg.asKindOrThrow(SyntaxKind.Identifier);
+      const firstArg = call.getArguments()[0];
+      const id = firstArg && unwrapTableExpression(firstArg).asKind(SyntaxKind.Identifier);
+      if (!id) continue;
 
       // Repo convention: projection-tables follow `<name>Table`. Secondary
       // filter that catches factory-of-factory pass-throughs even if
@@ -149,9 +198,10 @@ export function collectEntityProjectionTables(files: readonly SourceFile[]): Set
       const args = call.getArguments();
       if (!args[0] || args[0].getKind() !== SyntaxKind.StringLiteral) continue;
 
-      const entityArg = args[1];
-      if (entityArg?.getKind() === SyntaxKind.Identifier) {
-        const did = declIdOf(entityArg.asKindOrThrow(SyntaxKind.Identifier));
+      const entityIdentifier =
+        args[1] && unwrapTableExpression(args[1]).asKind(SyntaxKind.Identifier);
+      if (entityIdentifier) {
+        const did = declIdOf(entityIdentifier);
         if (did) rebuildableEntities.add(did);
       }
 
@@ -162,8 +212,9 @@ export function collectEntityProjectionTables(files: readonly SourceFile[]): Set
           .getProperty("table");
         if (tableProp?.getKind() === SyntaxKind.PropertyAssignment) {
           const init = tableProp.asKindOrThrow(SyntaxKind.PropertyAssignment).getInitializer();
-          if (init?.getKind() === SyntaxKind.Identifier) {
-            const did = declIdOf(init.asKindOrThrow(SyntaxKind.Identifier));
+          const tableIdentifier = init && unwrapTableExpression(init).asKind(SyntaxKind.Identifier);
+          if (tableIdentifier) {
+            const did = declIdOf(tableIdentifier);
             if (did) tables.add(did);
           }
         }
@@ -177,8 +228,10 @@ export function collectEntityProjectionTables(files: readonly SourceFile[]): Set
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       if (call.getExpression().getText() !== "buildEntityTable") continue;
       const entityArg = call.getArguments()[1];
-      if (entityArg?.getKind() !== SyntaxKind.Identifier) continue;
-      const entityDid = declIdOf(entityArg.asKindOrThrow(SyntaxKind.Identifier));
+      const entityIdentifier =
+        entityArg && unwrapTableExpression(entityArg).asKind(SyntaxKind.Identifier);
+      if (!entityIdentifier) continue;
+      const entityDid = declIdOf(entityIdentifier);
       if (!entityDid || !rebuildableEntities.has(entityDid)) continue;
 
       const varDecl = call.getFirstAncestorByKind(SyntaxKind.VariableDeclaration);
@@ -253,9 +306,9 @@ function isInsideProjectionApply(callNode: Node): boolean {
 
 // Extracts (table identifier, db/receiver expression, op) from a write
 // call — both forms: the Drizzle method `<recv>.insert(table)` and the
-// bun-db function `updateMany(db, table, ...)`. undefined for non-writes or
-// when the table arg isn't a plain identifier (not resolvable → skip, never
-// a false block).
+// bun-db function `updateMany(db, table, ...)`. Casts around the table arg are
+// unwrapped; undefined for non-writes or when the table arg is still no plain
+// identifier (computed tables are not resolvable → skip, never a false block).
 function resolveWrite(
   call: CallExpression,
 ): { tableArg: Identifier; receiver: Node; op: "insert" | "update" | "delete" } | undefined {
@@ -266,23 +319,17 @@ function resolveWrite(
     const pa = expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression);
     const m = pa.getName();
     if (m !== "insert" && m !== "update" && m !== "delete") return undefined;
-    if (args[0]?.getKind() !== SyntaxKind.Identifier) return undefined;
-    return {
-      tableArg: args[0].asKindOrThrow(SyntaxKind.Identifier),
-      receiver: pa.getExpression(),
-      op: m,
-    };
+    const tableArg = args[0] && unwrapTableExpression(args[0]).asKind(SyntaxKind.Identifier);
+    if (!tableArg) return undefined;
+    return { tableArg, receiver: pa.getExpression(), op: m };
   }
 
   if (expr.getKind() === SyntaxKind.Identifier) {
     const op = FN_WRITE_HELPERS.get(expr.getText());
     if (!op) return undefined;
-    if (!args[0] || args[1]?.getKind() !== SyntaxKind.Identifier) return undefined;
-    return {
-      tableArg: args[1].asKindOrThrow(SyntaxKind.Identifier),
-      receiver: args[0],
-      op,
-    };
+    const tableArg = args[1] && unwrapTableExpression(args[1]).asKind(SyntaxKind.Identifier);
+    if (!args[0] || !tableArg) return undefined;
+    return { tableArg, receiver: args[0], op };
   }
 
   return undefined;
@@ -355,9 +402,6 @@ export function scanDirectWrites(
     const w = resolveWrite(call);
     if (!w) continue;
 
-    const did = declIdOf(w.tableArg);
-    if (!did || !esTables.has(did)) continue;
-
     // Walk the receiver chain down to its leftmost identifier. For `db.insert`
     // that's `db`; for `ctx.db.raw` (function-form arg0) that's `ctx`; for
     // `tx` that's `tx`. Checked against the TX-receiver-Set.
@@ -366,6 +410,10 @@ export function scanDirectWrites(
       receiver = receiver.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getExpression();
     }
     const receiverName = receiver.getText();
+
+    const did = declIdOf(w.tableArg);
+    if (!did || !esTables.has(did)) continue;
+    if (isDirectWriteException(call, w.tableArg.getText())) continue;
 
     if (TX_RECEIVER_NAMES.has(receiverName)) {
       // A tx receiver is only legitimate when the write actually sits

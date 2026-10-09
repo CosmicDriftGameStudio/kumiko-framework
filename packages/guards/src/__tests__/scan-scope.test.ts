@@ -199,6 +199,29 @@ describe("symlink escapes are never scanned (f)", () => {
   });
 });
 
+describe("security guards ignore manifest excludes beyond node_modules/dist", () => {
+  test("a security scan still sees an excluded path; a normal scan does not", () => {
+    const dir = tmpDir("scan-scope-sec-");
+    writeManifest(dir, {
+      kind: "app",
+      sourceRoots: ["src"],
+      testGlobs: ["src/**/*.test.ts"],
+      excludes: ["**/node_modules/**", "**/dist/**", "src/vendored/**"],
+    });
+    writeFile(join(dir, "src/index.ts"));
+    writeFile(join(dir, "src/vendored/lib.ts"));
+    writeFile(join(dir, "src/node_modules/dep/index.ts"));
+    writeFile(join(dir, "src/dist/out.ts"));
+    const root = rootAt("some-app", dir);
+    const spec: ScanSpec = { scope: "source", extensions: ["ts"] };
+
+    expect(scanFiles(spec, [root])).toEqual([join(dir, "src/index.ts")]);
+    expect(scanFiles(spec, [root], { security: true })).toEqual(
+      [join(dir, "src/index.ts"), join(dir, "src/vendored/lib.ts")].sort(),
+    );
+  });
+});
+
 describe("kinds filter excludes roots (g)", () => {
   test("a root whose kind is not in spec.kinds is dropped entirely, not just narrowed", () => {
     const appDir = tmpDir("scan-scope-kindsapp-");

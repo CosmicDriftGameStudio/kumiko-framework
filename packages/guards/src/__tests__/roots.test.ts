@@ -169,3 +169,19 @@ describe("resolveRepoRoots — real git worktree integration", () => {
     rmSync(ws, { recursive: true, force: true });
   });
 });
+
+describe("findLocalRepo — kind 'framework' is reserved for kumiko-framework", () => {
+  test("a foreign repo declaring kind framework fails root resolution", () => {
+    const ws = workspace();
+    const repo = join(ws, "some-app");
+    writeRepo(repo, {
+      name: "some-app",
+      layout: {
+        manifest: { kind: "framework", sourceRoots: ["src"], testGlobs: ["src/**/*.test.ts"] },
+      },
+    });
+
+    expect(() => findLocalRepo(repo)).toThrow(/reserved for the kumiko-framework repo/);
+    rmSync(ws, { recursive: true, force: true });
+  });
+});
