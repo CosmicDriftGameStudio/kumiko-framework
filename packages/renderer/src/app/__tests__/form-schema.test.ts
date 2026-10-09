@@ -36,7 +36,7 @@ describe("buildFormSchema", () => {
       ["[]", [] as unknown[]],
     ] as const) {
       test(label, () => {
-        const result = buildFormSchema(entity, screen).safeParse({ name: value });
+        const result = buildFormSchema(entity, screen, "create").safeParse({ name: value });
         expect(result.success).toBe(false);
         if (result.success) return;
         expect(result.error.issues).toHaveLength(1);
@@ -54,7 +54,7 @@ describe("buildFormSchema", () => {
       layout: { sections: [{ fields: [], groups: [{ title: "g", fields: ["name"] }] }] },
     };
 
-    const result = buildFormSchema(entity, screen).safeParse({ name: "" });
+    const result = buildFormSchema(entity, screen, "create").safeParse({ name: "" });
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error.issues[0]?.path).toEqual(["name"]);
@@ -64,7 +64,7 @@ describe("buildFormSchema", () => {
     const entity = entityWith({ name: { type: "text", required: true } });
     const screen = screenWith(["name"]);
 
-    const result = buildFormSchema(entity, screen).safeParse({ name: "" });
+    const result = buildFormSchema(entity, screen, "create").safeParse({ name: "" });
     expect(result.success).toBe(false);
     if (result.success) return;
     const issue = result.error.issues[0];
@@ -83,7 +83,7 @@ describe("buildFormSchema", () => {
 
     const form = createFormController({
       initial: { name: "" },
-      schema: buildFormSchema(entity, screen),
+      schema: buildFormSchema(entity, screen, "create"),
     });
 
     expect(form.validate()).toBe(false);
@@ -101,7 +101,7 @@ describe("buildFormSchema", () => {
       ['"Ada"', "Ada"],
     ] as const) {
       test(label, () => {
-        const result = buildFormSchema(entity, screen).safeParse({ name: value });
+        const result = buildFormSchema(entity, screen, "create").safeParse({ name: value });
         expect(result.success).toBe(true);
       });
     }
@@ -110,7 +110,7 @@ describe("buildFormSchema", () => {
   test("optional field left empty → no issue", () => {
     const entity = entityWith({ name: { type: "text", required: false } });
     const screen = screenWith(["name"]);
-    expect(buildFormSchema(entity, screen).safeParse({ name: "" }).success).toBe(true);
+    expect(buildFormSchema(entity, screen, "create").safeParse({ name: "" }).success).toBe(true);
   });
 
   test("required field not rendered by the layout → no issue", () => {
@@ -119,7 +119,7 @@ describe("buildFormSchema", () => {
       hidden: { type: "text", required: true },
     });
     const screen = screenWith(["name"]);
-    const result = buildFormSchema(entity, screen).safeParse({ name: "Ada", hidden: "" });
+    const result = buildFormSchema(entity, screen, "create").safeParse({ name: "Ada", hidden: "" });
     expect(result.success).toBe(true);
   });
 
@@ -128,7 +128,7 @@ describe("buildFormSchema", () => {
       tags: { type: "multiSelect", required: true, options: ["a", "b"] },
     });
     const screen = screenWith(["tags"]);
-    const result = buildFormSchema(entity, screen).safeParse({ tags: [] });
+    const result = buildFormSchema(entity, screen, "create").safeParse({ tags: [] });
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error.issues).toHaveLength(1);
@@ -140,13 +140,15 @@ describe("buildFormSchema", () => {
       tags: { type: "multiSelect", required: true, options: ["a", "b"] },
     });
     const screen = screenWith(["tags"]);
-    expect(buildFormSchema(entity, screen).safeParse({ tags: ["a"] }).success).toBe(true);
+    expect(buildFormSchema(entity, screen, "create").safeParse({ tags: ["a"] }).success).toBe(true);
   });
 
   test("jsonb field → no issue (no editable widget on the auto-wired path)", () => {
     const entity = entityWith({ data: { type: "jsonb" } });
     const screen = screenWith(["data"]);
-    expect(buildFormSchema(entity, screen).safeParse({ data: undefined }).success).toBe(true);
+    expect(buildFormSchema(entity, screen, "create").safeParse({ data: undefined }).success).toBe(
+      true,
+    );
   });
 
   test("required embedded field → no issue (no editable widget on the auto-wired path)", () => {
@@ -154,7 +156,9 @@ describe("buildFormSchema", () => {
       lines: { type: "embedded", required: true, schema: {} },
     });
     const screen = screenWith(["lines"]);
-    expect(buildFormSchema(entity, screen).safeParse({ lines: undefined }).success).toBe(true);
+    expect(buildFormSchema(entity, screen, "create").safeParse({ lines: undefined }).success).toBe(
+      true,
+    );
   });
 
   test("required embedded list field → issue when missing (has EmbeddedListField widget)", () => {
@@ -162,34 +166,36 @@ describe("buildFormSchema", () => {
       lines: { type: "embedded", multiple: true, required: true, schema: {} },
     });
     const screen = screenWith(["lines"]);
-    const result = buildFormSchema(entity, screen).safeParse({ lines: undefined });
+    const result = buildFormSchema(entity, screen, "create").safeParse({ lines: undefined });
     expect(result.success).toBe(false);
   });
 
   test("required files field → no issue (#1925: no multi-upload widget yet, deliberately deferred)", () => {
     const entity = entityWith({ attachments: { type: "files" } });
     const screen = screenWith([{ field: "attachments", required: true }]);
-    expect(buildFormSchema(entity, screen).safeParse({ attachments: undefined }).success).toBe(
-      true,
-    );
+    expect(
+      buildFormSchema(entity, screen, "create").safeParse({ attachments: undefined }).success,
+    ).toBe(true);
   });
 
   test("required images field → no issue (#1925: no multi-upload widget yet, deliberately deferred)", () => {
     const entity = entityWith({ gallery: { type: "images" } });
     const screen = screenWith([{ field: "gallery", required: true }]);
-    expect(buildFormSchema(entity, screen).safeParse({ gallery: undefined }).success).toBe(true);
+    expect(
+      buildFormSchema(entity, screen, "create").safeParse({ gallery: undefined }).success,
+    ).toBe(true);
   });
 
   test("required money — bare number (create-form representation) → no issue", () => {
     const entity = entityWith({ price: { type: "money", required: true } });
     const screen = screenWith(["price"]);
-    expect(buildFormSchema(entity, screen).safeParse({ price: 1000 }).success).toBe(true);
+    expect(buildFormSchema(entity, screen, "create").safeParse({ price: 1000 }).success).toBe(true);
   });
 
   test("required money — {amount,currency} (update-form representation) → no issue", () => {
     const entity = entityWith({ price: { type: "money", required: true } });
     const screen = screenWith(["price"]);
-    const result = buildFormSchema(entity, screen).safeParse({
+    const result = buildFormSchema(entity, screen, "create").safeParse({
       price: { amount: 10, currency: "EUR" },
     });
     expect(result.success).toBe(true);
@@ -198,7 +204,7 @@ describe("buildFormSchema", () => {
   test("required money — undefined → issue on that field (has a widget)", () => {
     const entity = entityWith({ price: { type: "money", required: true } });
     const screen = screenWith(["price"]);
-    const result = buildFormSchema(entity, screen).safeParse({ price: undefined });
+    const result = buildFormSchema(entity, screen, "create").safeParse({ price: undefined });
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error.issues).toHaveLength(1);
@@ -209,13 +215,13 @@ describe("buildFormSchema", () => {
     test("spec required:false on an entity-required field, left empty → no issue", () => {
       const entity = entityWith({ x: { type: "text", required: true } });
       const screen = screenWith([{ field: "x", required: false }]);
-      expect(buildFormSchema(entity, screen).safeParse({ x: "" }).success).toBe(true);
+      expect(buildFormSchema(entity, screen, "create").safeParse({ x: "" }).success).toBe(true);
     });
 
     test("spec required:true on an entity-optional field, left empty → issue on that field", () => {
       const entity = entityWith({ x: { type: "text", required: false } });
       const screen = screenWith([{ field: "x", required: true }]);
-      const result = buildFormSchema(entity, screen).safeParse({ x: "" });
+      const result = buildFormSchema(entity, screen, "create").safeParse({ x: "" });
       expect(result.success).toBe(false);
       if (result.success) return;
       expect(result.error.issues).toHaveLength(1);
@@ -225,7 +231,7 @@ describe("buildFormSchema", () => {
     test("readOnly field, entity-required and left empty → no issue (unresolvable by the user)", () => {
       const entity = entityWith({ x: { type: "text", required: true } });
       const screen = screenWith([{ field: "x", readOnly: true }]);
-      expect(buildFormSchema(entity, screen).safeParse({ x: "" }).success).toBe(true);
+      expect(buildFormSchema(entity, screen, "create").safeParse({ x: "" }).success).toBe(true);
     });
 
     test("conditional required, entity-optional field", () => {
@@ -238,10 +244,16 @@ describe("buildFormSchema", () => {
         { field: "x", required: { field: "kind", eq: "business" } },
       ]);
 
-      const notTriggered = buildFormSchema(entity, screen).safeParse({ kind: "private", x: "" });
+      const notTriggered = buildFormSchema(entity, screen, "create").safeParse({
+        kind: "private",
+        x: "",
+      });
       expect(notTriggered.success).toBe(true);
 
-      const triggered = buildFormSchema(entity, screen).safeParse({ kind: "business", x: "" });
+      const triggered = buildFormSchema(entity, screen, "create").safeParse({
+        kind: "business",
+        x: "",
+      });
       expect(triggered.success).toBe(false);
       if (triggered.success) return;
       expect(triggered.error.issues).toHaveLength(1);
@@ -258,12 +270,18 @@ describe("buildFormSchema", () => {
     const loaded = { legacy: "", other: "a" };
 
     test("legacy row: required field empty and untouched does not block saving another field", () => {
-      const result = buildFormSchema(entity, screen, loaded).safeParse({ legacy: "", other: "b" });
+      const result = buildFormSchema(entity, screen, "update", loaded).safeParse({
+        legacy: "",
+        other: "b",
+      });
       expect(result.success).toBe(true);
     });
 
     test("required field that held a value and was cleared is still flagged", () => {
-      const result = buildFormSchema(entity, screen, { legacy: "x", other: "a" }).safeParse({
+      const result = buildFormSchema(entity, screen, "update", {
+        legacy: "x",
+        other: "a",
+      }).safeParse({
         legacy: "",
         other: "a",
       });
@@ -273,7 +291,7 @@ describe("buildFormSchema", () => {
     });
 
     test("without unchangedFrom (create) the empty required field is flagged", () => {
-      expect(buildFormSchema(entity, screen).safeParse(loaded).success).toBe(false);
+      expect(buildFormSchema(entity, screen, "create").safeParse(loaded).success).toBe(false);
     });
   });
 
@@ -290,7 +308,7 @@ describe("buildFormSchema", () => {
     const loaded = { kind: "heartbeat", interval: "3600" };
 
     test("changing the condition field flags the stored option although the option itself is unchanged", () => {
-      const result = buildFormSchema(entity, screen, loaded).safeParse({
+      const result = buildFormSchema(entity, screen, "update", loaded).safeParse({
         kind: "http",
         interval: "3600",
       });
@@ -303,13 +321,40 @@ describe("buildFormSchema", () => {
     });
 
     test("an untouched row stays saveable", () => {
-      expect(buildFormSchema(entity, screen, loaded).safeParse(loaded).success).toBe(true);
+      expect(buildFormSchema(entity, screen, "update", loaded).safeParse(loaded).success).toBe(
+        true,
+      );
     });
 
     test("an unavailable option is flagged on create", () => {
       expect(
-        buildFormSchema(entity, screen).safeParse({ kind: "http", interval: "3600" }).success,
+        buildFormSchema(entity, screen, "create").safeParse({ kind: "http", interval: "3600" })
+          .success,
       ).toBe(false);
+    });
+  });
+
+  describe("writeExcludedFields skips the field for that verb only", () => {
+    const entity = entityWith({
+      name: { type: "text", required: true },
+      slug: { type: "text", required: true },
+    });
+    const screen: EntityEditScreenDefinition = {
+      ...screenWith(["name", "slug"]),
+      writeExcludedFields: { create: ["slug"], update: ["name"] },
+    };
+
+    test("create ignores the create-excluded required field but still checks the rest", () => {
+      expect(buildFormSchema(entity, screen, "create").safeParse({ name: "a" }).success).toBe(true);
+      const result = buildFormSchema(entity, screen, "create").safeParse({ slug: "s" });
+      expect(result.success).toBe(false);
+    });
+
+    test("update ignores the update-excluded required field but still checks the rest", () => {
+      expect(buildFormSchema(entity, screen, "update").safeParse({ slug: "s" }).success).toBe(true);
+      expect(buildFormSchema(entity, screen, "update").safeParse({ name: "a" }).success).toBe(
+        false,
+      );
     });
   });
 });

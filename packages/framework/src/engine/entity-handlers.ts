@@ -467,6 +467,7 @@ export function defineEntityWriteHandler(
     access: options.access,
     ...(options.description !== undefined && { description: options.description }),
     ...(agentHints !== undefined && { agent: agentHints }),
+    ...(excludedFields.length > 0 && { excludedFields }),
   };
 }
 

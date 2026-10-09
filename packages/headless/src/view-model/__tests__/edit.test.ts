@@ -1286,3 +1286,77 @@ describe("computeEditViewModel — extension section entityName override", () =>
     expect(extensionEntityName(undefined)).toBeUndefined();
   });
 });
+
+describe("computeEditViewModel: writeExcludedFields", () => {
+  const screen = editScreen(
+    {
+      sections: [
+        {
+          fields: [],
+          groups: [
+            { title: "Main", fields: ["customerName", "notes"] },
+            { title: "Status", fields: ["kind"] },
+          ],
+        },
+      ],
+    },
+    { writeExcludedFields: { create: ["kind"], update: ["notes"] } },
+  );
+  const compute = (mode?: "create" | "update") =>
+    computeEditViewModel({
+      screen,
+      entity: orderEntity,
+      values: { customerName: "Acme", notes: "VIP", kind: "b2b" },
+      translate,
+      featureName: "orders",
+      ...(mode !== undefined && { mode }),
+    });
+  const fieldsOf = (mode?: "create" | "update") => asFields(compute(mode).sections[0]).fields;
+
+  test("create drops the fields excluded from the create handler, and an emptied group with them", () => {
+    const section = asFields(compute("create").sections[0]);
+    expect(section.fields.map((f) => f.field)).toEqual(["customerName", "notes"]);
+    expect(section.fields.every((f) => !f.readOnly)).toBe(true);
+    expect(section.groups?.map((g) => g.title)).toEqual(["Main"]);
+  });
+
+  test("update shows the fields excluded from the update handler read-only, others stay editable", () => {
+    const byName = Object.fromEntries(fieldsOf("update").map((f) => [f.field, f.readOnly]));
+    expect(byName).toEqual({ customerName: false, notes: true, kind: false });
+  });
+
+  test("create hides a section and a group whose only fields are create-excluded", () => {
+    const emptiedScreen = editScreen(
+      {
+        sections: [
+          { title: "Main", fields: ["customerName"] },
+          { title: "Only kind", fields: ["kind"] },
+          {
+            title: "Grouped",
+            fields: [],
+            groups: [{ title: "Kind group", fields: ["kind"] }],
+          },
+        ],
+      },
+      { writeExcludedFields: { create: ["kind"] } },
+    );
+    const sections = computeEditViewModel({
+      screen: emptiedScreen,
+      entity: orderEntity,
+      values: { customerName: "Acme", kind: "b2b" },
+      translate,
+      featureName: "orders",
+      mode: "create",
+    }).sections.map(asFields);
+    expect(sections.map((s) => s.visible)).toEqual([true, false, false]);
+    expect(sections[2]?.groups).toEqual([]);
+  });
+
+  test("without a mode no exclusion applies", () => {
+    expect(fieldsOf().map((f) => [f.field, f.readOnly])).toEqual([
+      ["customerName", false],
+      ["notes", false],
+      ["kind", false],
+    ]);
+  });
+});

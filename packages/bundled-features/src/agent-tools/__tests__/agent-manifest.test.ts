@@ -387,3 +387,40 @@ describe("screen titles with a shared short id", () => {
     }
   });
 });
+
+describe("buildAgentManifest: excludeFields of generic create/update handlers", () => {
+  const ticketEntity = createEntity({
+    fields: {
+      title: createTextField({ personal: false, reason: "technical_reference" }),
+      status: createTextField({ personal: false, reason: "technical_reference" }),
+    },
+  });
+  const feature = defineFeature("agent-exclude-fields", (r) => {
+    r.crud("ticket", ticketEntity, {
+      write: { access: { roles: ["admin"] } },
+      excludeFields: { update: ["status"] },
+      descriptions: {
+        create: "Create a ticket.",
+        update: "Update a ticket.",
+        delete: "Delete a ticket.",
+      },
+      verbs: { list: false, detail: false, restore: false },
+    });
+  });
+  const handlers = buildAgentManifest(createRegistry([feature]), {
+    locale: "en",
+    roles: ["admin"],
+  }).handlers;
+  const entryFor = (verb: string) =>
+    handlers.find((h) => h.qn === `agent-exclude-fields:write:ticket:${verb}`);
+
+  test("the update entry names the fields the agent must not send", () => {
+    expect(entryFor("update")?.excludedFields).toEqual(["status"]);
+  });
+
+  test("entries without exclusions stay unchanged", () => {
+    expect(entryFor("create")).toBeDefined();
+    expect(entryFor("create")).not.toHaveProperty("excludedFields");
+    expect(entryFor("delete")).not.toHaveProperty("excludedFields");
+  });
+});

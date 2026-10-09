@@ -311,6 +311,10 @@ export type EditFieldsSectionViewModel = {
    *  The renderer then draws nothing, but the section stays in the array
    *  (key stability). */
   readonly visible: boolean;
+  /** Set when every declared field was hidden by the create handler's
+   *  `excludeFields`. Unlike a declared-empty section (review step), the
+   *  renderer must not give it a tab or wizard step. */
+  readonly emptiedByWriteExclusion?: boolean;
   /** Optional — eine titellose Section rendert nur ihre Felder (flache Form). */
   readonly title?: string;
   /** Translated help text under the block heading, from

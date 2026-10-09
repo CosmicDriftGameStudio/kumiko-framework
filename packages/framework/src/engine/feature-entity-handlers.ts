@@ -176,6 +176,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           handler: def.handler as WriteHandlerFn,
           access: def.access,
           ...agentSlots(def),
+          ...(def.excludedFields && { excludedFields: def.excludedFields }),
           ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),

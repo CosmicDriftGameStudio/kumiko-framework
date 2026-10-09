@@ -18,6 +18,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useState } from "react";
 import * as z from "zod";
+import { buildFormSchema } from "../../../renderer/src/app/form-schema.js";
 import { PATCH_DRAFT_SAVE_DEBOUNCE_MS } from "../../../renderer/src/components/render-edit.js";
 import { defaultPrimitives, ScreenWidthProvider } from "../primitives/index.js";
 import {
@@ -81,6 +82,7 @@ type TestValues = {
   count?: number;
   isUrgent?: boolean;
   notes?: string;
+  slug?: string;
 };
 
 describe("RenderEdit", () => {
@@ -533,6 +535,111 @@ describe("RenderEdit", () => {
       .mock.calls[0]?.[1];
     expect(payload?.["title"]).toBe("Hello");
     expect(payload).not.toHaveProperty("notes");
+  });
+
+  describe("writeExcludedFields", () => {
+    const excludedScreen: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: { sections: [{ fields: ["title", "notes"] }] },
+      writeExcludedFields: { create: ["notes"], update: ["notes"] },
+    };
+
+    async function submitWith(entityId: string | undefined, initial: TestValues) {
+      const write = mock(async () => ({
+        isSuccess: true,
+        data: { id: "1" },
+      })) as Dispatcher["write"];
+      render(
+        <DispatcherProvider dispatcher={makeDispatcher(write)}>
+          <RenderEdit<TestValues>
+            screen={excludedScreen}
+            entity={orderEntity}
+            featureName="orders"
+            initial={initial}
+            writeCommand="order:write"
+            {...(entityId !== undefined && { entityId })}
+          />
+        </DispatcherProvider>,
+      );
+      const titleInput = screen
+        .getByTestId("field-title")
+        .querySelector("input") as HTMLInputElement;
+      fireEvent.change(titleInput, { target: { value: "Changed" } });
+      await act(async () => {
+        fireEvent.submit(screen.getByTestId("render-edit-form"));
+        await Promise.resolve();
+      });
+      expect(write).toHaveBeenCalledTimes(1);
+      return (write as unknown as { mock: { calls: [string, Record<string, unknown>][] } }).mock
+        .calls[0]?.[1];
+    }
+
+    test("create hides the excluded field and never submits its seeded value", async () => {
+      const payload = await submitWith(undefined, { title: "", notes: "seeded default" });
+      expect(screen.queryByTestId("field-notes")).toBeNull();
+      expect(payload?.["title"]).toBe("Changed");
+      expect(payload).not.toHaveProperty("notes");
+    });
+
+    test("update shows the excluded field read-only and omits its unchanged value from the payload", async () => {
+      const payload = await submitWith("42", { title: "Old", notes: "stored value" });
+      const notesInput = screen
+        .getByTestId("field-notes")
+        .querySelector("input") as HTMLInputElement;
+      expect(notesInput.value).toBe("stored value");
+      expect(notesInput.disabled || notesInput.readOnly).toBe(true);
+      expect(payload?.["title"]).toBe("Changed");
+      expect(payload).not.toHaveProperty("notes");
+    });
+
+    test("create does not block on a required field it hides, and never submits it", async () => {
+      const requiredEntity = {
+        fields: {
+          title: { type: "text", required: true },
+          slug: { type: "text", required: true },
+        },
+      } as unknown as EntityDefinition;
+      const requiredScreen: EntityEditScreenDefinition = {
+        id: "orders:screen:order-edit",
+        type: "entityEdit",
+        entity: "order",
+        layout: { sections: [{ fields: ["title", "slug"] }] },
+        writeExcludedFields: { create: ["slug"] },
+      };
+      const write = mock(async () => ({
+        isSuccess: true,
+        data: { id: "1" },
+      })) as Dispatcher["write"];
+      render(
+        <DispatcherProvider dispatcher={makeDispatcher(write)}>
+          <RenderEdit<TestValues>
+            screen={requiredScreen}
+            entity={requiredEntity}
+            featureName="orders"
+            initial={{ title: "", slug: "" }}
+            schema={buildFormSchema(requiredEntity, requiredScreen, "create")}
+            writeCommand="order:write"
+          />
+        </DispatcherProvider>,
+      );
+      expect(screen.queryByTestId("field-slug")).toBeNull();
+      const titleInput = screen
+        .getByTestId("field-title")
+        .querySelector("input") as HTMLInputElement;
+      fireEvent.change(titleInput, { target: { value: "Hello" } });
+      expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(false);
+      await act(async () => {
+        fireEvent.click(screen.getByTestId("render-edit-submit"));
+        await Promise.resolve();
+      });
+      expect(write).toHaveBeenCalledTimes(1);
+      const payload = (write as unknown as { mock: { calls: [string, Record<string, unknown>][] } })
+        .mock.calls[0]?.[1];
+      expect(payload?.["title"]).toBe("Hello");
+      expect(payload).not.toHaveProperty("slug");
+    });
   });
 
   test("a footer action applies its patch to the values, then submits them", async () => {
@@ -4683,6 +4790,54 @@ describe("RenderEdit tabs mode (fw#3134)", () => {
       },
     };
   }
+
+  describe("a section emptied by a create exclusion", () => {
+    const excludedTabsScreen: EntityEditScreenDefinition = {
+      id: "orders:screen:order-tabs",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "basics", title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          { id: "extra", title: "Extra", columns: 1, fields: [{ field: "notes" }] },
+          { id: "review", title: "Review", columns: 1, fields: [] },
+        ],
+      },
+      writeExcludedFields: { create: ["notes"], update: ["notes"] },
+    };
+
+    function renderTabs(entityId: string | undefined) {
+      render(
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <RenderEdit<TestValues>
+            screen={excludedTabsScreen}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "T", notes: "stored" }}
+            writeCommand="order:write"
+            {...(entityId !== undefined && { entityId })}
+          />
+        </DispatcherProvider>,
+      );
+    }
+
+    test("create renders no tab for it, but keeps a declared-empty review tab", () => {
+      renderTabs(undefined);
+      expect(screen.getByTestId("render-edit-tabs-basics")).toBeTruthy();
+      expect(screen.queryByTestId("render-edit-tabs-extra")).toBeNull();
+      expect(screen.getByTestId("render-edit-tabs-review")).toBeTruthy();
+    });
+
+    test("update keeps the tab with the excluded field read-only", () => {
+      renderTabs("42");
+      expect(screen.getByTestId("render-edit-tabs-extra")).toBeTruthy();
+      const notesInput = screen
+        .getByTestId("field-notes")
+        .querySelector("input") as HTMLInputElement;
+      expect(notesInput.disabled || notesInput.readOnly).toBe(true);
+    });
+  });
 
   test("renders a tab strip and keeps the inactive tab's fields mounted but hidden", () => {
     render(

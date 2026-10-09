@@ -32,6 +32,7 @@ export const thingEditScreen: EntityEditScreenDefinition = {
   id: "thing-edit",
   type: "entityEdit",
   entity: "thing",
+  writeExcludedFields: { create: ["notes"], update: ["notes"] },
   layout: {
     sections: [
       {

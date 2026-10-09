@@ -1392,6 +1392,9 @@ export type WriteHandlerDef = {
   readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Fields a generic create/update handler never writes (`excludeFields`).
+   *  Set only when non-empty; the renderer and the agent manifest read it from here. */
+  readonly excludedFields?: readonly string[];
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   /** Per-payload-field limits, e.g. per recipient address. Complements

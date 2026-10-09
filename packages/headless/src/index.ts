@@ -91,6 +91,7 @@ export type {
   EditFieldSpec,
   EditFieldsSectionViewModel,
   EditFieldViewModel,
+  EditFormMode,
   EditRelatedListSectionViewModel,
   EditSectionSpec,
   EditSectionViewModel,

@@ -1,5 +1,6 @@
 import type {
   EditExtensionSection,
+  EditFieldSpec,
   EditRelatedListSection,
   EditWriteFormSection,
   EntityDefinition,
@@ -67,7 +68,13 @@ export type ComputeEditViewModelInput<
   readonly values: TValues;
   readonly translate: Translate;
   readonly featureName: string;
+  /** Which write the form drives. Applies the screen's `writeExcludedFields`
+   *  for that verb (create hides them, update shows them read-only); omitted
+   *  means no exclusion applies. */
+  readonly mode?: EditFormMode;
 };
+
+export type EditFormMode = "create" | "update";
 
 // Resolves a writeForm section's own fieldDefs/fields through the same
 // per-field pipeline as a plain fields section, by reusing the pipeline
@@ -116,6 +123,13 @@ function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string
     }),
     ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
   };
+}
+
+function wasEmptiedByWriteExclusion(
+  declaredFieldSpecs: readonly EditFieldSpec[],
+  remainingFields: readonly EditFieldViewModel[],
+): boolean {
+  return declaredFieldSpecs.length > 0 && remainingFields.length === 0;
 }
 
 // relatedList runs its own query — nothing here to resolve against
@@ -534,7 +548,10 @@ function buildExtensionSectionViewModel(
 export function computeEditViewModel<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 >(input: ComputeEditViewModelInput<TValues>): EditViewModel {
-  const { screen, entity, values, translate, featureName } = input;
+  const { screen, entity, values, translate, featureName, mode } = input;
+  const excludedFields = new Set(mode === undefined ? [] : screen.writeExcludedFields?.[mode]);
+  const isHiddenByExclusion = (fieldSpec: EditFieldSpec): boolean =>
+    mode === "create" && excludedFields.has(normalizeEditField(fieldSpec).field);
 
   const sections: EditSectionViewModel[] = screen.layout.sections.map((sectionSpec) => {
     if (isExtensionEditSection(sectionSpec)) {
@@ -554,122 +571,131 @@ export function computeEditViewModel<
     }
     // `groups` flattens into the same per-field pipeline as plain `fields`;
     // the group structure below just re-groups the computed views by name.
-    const fields: EditFieldViewModel[] = sectionFieldSpecs(sectionSpec).map((fieldSpec) => {
-      const normalized = normalizeEditField(fieldSpec);
-      const fieldDef = entity.fields[normalized.field];
-      if (!fieldDef) {
-        throw new Error(
-          `computeEditViewModel: screen "${screen.id}" references unknown field "${normalized.field}" on entity "${screen.entity}"`,
+    const declaredFieldSpecs = sectionFieldSpecs(sectionSpec);
+    const fields: EditFieldViewModel[] = declaredFieldSpecs
+      .filter((fieldSpec) => !isHiddenByExclusion(fieldSpec))
+      .map((fieldSpec) => {
+        const normalized = normalizeEditField(fieldSpec);
+        const fieldDef = entity.fields[normalized.field];
+        if (!fieldDef) {
+          throw new Error(
+            `computeEditViewModel: screen "${screen.id}" references unknown field "${normalized.field}" on entity "${screen.entity}"`,
+          );
+        }
+        // Declared reference metadata (EditFieldSpec.refEntity) — for
+        // projectionDetail fields, which have no EntityDefinition field to
+        // carry a real "reference" type. Takes priority over fieldDef.type
+        // below so it also fires against the pseudo-entity that hardcodes
+        // every field as "text" (projection-detail-shim) — real entityEdit
+        // screens never set this, so their fieldDef.type === "reference"
+        // branch is unaffected.
+        // A real non-text field (e.g. a `reference` with `multiple`) keeps its own
+        // type and hints, as documented on EditFieldSpec.refEntity; the shim's
+        // pseudo-entity only ever declares "text".
+        const declaredRefTarget =
+          normalized.refEntity !== undefined && fieldDef.type === "text"
+            ? parseRefTarget(normalized.refEntity, featureName)
+            : undefined;
+        const effectiveType = declaredRefTarget !== undefined ? "reference" : fieldDef.type;
+        const label = translate(
+          screen.fieldLabels?.[normalized.field] ??
+            fieldLabelKey(featureName, screen.entity, normalized.field),
         );
-      }
-      // Declared reference metadata (EditFieldSpec.refEntity) — for
-      // projectionDetail fields, which have no EntityDefinition field to
-      // carry a real "reference" type. Takes priority over fieldDef.type
-      // below so it also fires against the pseudo-entity that hardcodes
-      // every field as "text" (projection-detail-shim) — real entityEdit
-      // screens never set this, so their fieldDef.type === "reference"
-      // branch is unaffected.
-      // A real non-text field (e.g. a `reference` with `multiple`) keeps its own
-      // type and hints, as documented on EditFieldSpec.refEntity; the shim's
-      // pseudo-entity only ever declares "text".
-      const declaredRefTarget =
-        normalized.refEntity !== undefined && fieldDef.type === "text"
-          ? parseRefTarget(normalized.refEntity, featureName)
-          : undefined;
-      const effectiveType = declaredRefTarget !== undefined ? "reference" : fieldDef.type;
-      const label = translate(
-        screen.fieldLabels?.[normalized.field] ??
-          fieldLabelKey(featureName, screen.entity, normalized.field),
-      );
-      const visible = evalCondition(normalized.visible, true, values);
-      // `readOnly` (camelCase) is the name on both sides: EditFieldSpec
-      // in the engine, and the view-model emitted here. One convention
-      // through the stack beats translating at the boundary.
-      const readOnly = evalCondition(normalized.readOnly, false, values);
-      // `required` on the field-spec overrides the entity-default. A
-      // field that's required at the entity-level but marked required:
-      // false on the screen (e.g. a soft-onboarding wizard that
-      // collects less up-front) respects the screen override.
-      const entityRequired = (fieldDef as unknown as { required?: boolean }).required === true;
-      const required = evalCondition(normalized.required, entityRequired, values);
-      // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from
-      // framework/src/engine/field-helpers.ts — headless has no dependency
-      // on that module, so the literal is duplicated here instead of
-      // importing it just for one fallback string.
-      const resolvedCurrency = entity.defaultCurrency ?? "EUR";
-      const selectHints = deriveSelectFieldHints(
-        fieldDef,
-        translate,
-        featureName,
-        screen.entity,
-        normalized.field,
-        values,
-      );
-      const textHints = deriveTextFieldHints(fieldDef);
-      const dateHints = deriveDateFieldHints(fieldDef);
-      const numericHints = deriveNumericFieldHints(fieldDef, resolvedCurrency);
-      const referenceHints = deriveReferenceFieldHints(
-        fieldDef,
-        normalized,
-        declaredRefTarget,
-        featureName,
-      );
-      const fileHints = deriveFileFieldHints(fieldDef, screen.entity, normalized.field);
-      const embeddedListHints = deriveEmbeddedListHints(
-        fieldDef,
-        translate,
-        featureName,
-        screen.entity,
-        normalized.field,
-        resolvedCurrency,
-      );
-      const view: EditFieldViewModel = {
-        field: normalized.field,
-        label,
-        type: effectiveType,
-        value: values[normalized.field],
-        visible,
-        readOnly,
-        required,
-        ...(normalized.span !== undefined && { span: normalized.span }),
-        ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
-        ...selectHints,
-        ...textHints,
-        ...dateHints,
-        ...numericHints,
-        ...referenceHints,
-        ...fileHints,
-        ...(normalized.icon !== undefined && { icon: normalized.icon }),
-        ...embeddedListHints,
-      };
-      return view;
-    });
-    // Boot-validator rejects fields.length === 0 with no groups (screens.ts),
-    // so an empty section never reaches this code.
+        const visible = evalCondition(normalized.visible, true, values);
+        // `readOnly` (camelCase) is the name on both sides: EditFieldSpec
+        // in the engine, and the view-model emitted here. One convention
+        // through the stack beats translating at the boundary.
+        const readOnly =
+          (mode === "update" && excludedFields.has(normalized.field)) ||
+          evalCondition(normalized.readOnly, false, values);
+        // `required` on the field-spec overrides the entity-default. A
+        // field that's required at the entity-level but marked required:
+        // false on the screen (e.g. a soft-onboarding wizard that
+        // collects less up-front) respects the screen override.
+        const entityRequired = (fieldDef as unknown as { required?: boolean }).required === true;
+        const required = evalCondition(normalized.required, entityRequired, values);
+        // ponytail: "EUR" mirrors DEFAULT_CURRENCIES[0] from
+        // framework/src/engine/field-helpers.ts — headless has no dependency
+        // on that module, so the literal is duplicated here instead of
+        // importing it just for one fallback string.
+        const resolvedCurrency = entity.defaultCurrency ?? "EUR";
+        const selectHints = deriveSelectFieldHints(
+          fieldDef,
+          translate,
+          featureName,
+          screen.entity,
+          normalized.field,
+          values,
+        );
+        const textHints = deriveTextFieldHints(fieldDef);
+        const dateHints = deriveDateFieldHints(fieldDef);
+        const numericHints = deriveNumericFieldHints(fieldDef, resolvedCurrency);
+        const referenceHints = deriveReferenceFieldHints(
+          fieldDef,
+          normalized,
+          declaredRefTarget,
+          featureName,
+        );
+        const fileHints = deriveFileFieldHints(fieldDef, screen.entity, normalized.field);
+        const embeddedListHints = deriveEmbeddedListHints(
+          fieldDef,
+          translate,
+          featureName,
+          screen.entity,
+          normalized.field,
+          resolvedCurrency,
+        );
+        const view: EditFieldViewModel = {
+          field: normalized.field,
+          label,
+          type: effectiveType,
+          value: values[normalized.field],
+          visible,
+          readOnly,
+          required,
+          ...(normalized.span !== undefined && { span: normalized.span }),
+          ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+          ...selectHints,
+          ...textHints,
+          ...dateHints,
+          ...numericHints,
+          ...referenceHints,
+          ...fileHints,
+          ...(normalized.icon !== undefined && { icon: normalized.icon }),
+          ...embeddedListHints,
+        };
+        return view;
+      });
+    // The boot-validator rejects declared-empty sections (screens.ts), but a
+    // create-excluded field list can still empty one here: then `visible` is false.
     const visible = fields.some((field) => field.visible);
     // Tabs mode renders this section as its own panel, where two columns reads
     // better than the single-column default a stacked form keeps. Applies to
     // entityEdit tabs as well since fw#3134, not just projectionDetail.
     const defaultColumns = screen.layout.mode === "tabs" ? 2 : 1;
-    const groups = sectionSpec.groups?.map((group) => ({
-      title: translate(group.title),
-      columns: group.columns ?? 2,
-      fields: group.fields.map((fieldSpec) => {
-        const fieldName = normalizeEditField(fieldSpec).field;
-        const fieldView = fields.find((f) => f.field === fieldName);
-        if (fieldView === undefined) {
-          throw new Error(
-            `computeEditViewModel: screen "${screen.id}" group "${group.title}" references field ` +
-              `"${fieldName}" that failed to resolve.`,
-          );
-        }
-        return fieldView;
-      }),
-    }));
+    const groups = sectionSpec.groups
+      ?.map((group) => ({ ...group, fields: group.fields.filter((f) => !isHiddenByExclusion(f)) }))
+      .filter((group) => group.fields.length > 0)
+      .map((group) => ({
+        title: translate(group.title),
+        columns: group.columns ?? 2,
+        fields: group.fields.map((fieldSpec) => {
+          const fieldName = normalizeEditField(fieldSpec).field;
+          const fieldView = fields.find((f) => f.field === fieldName);
+          if (fieldView === undefined) {
+            throw new Error(
+              `computeEditViewModel: screen "${screen.id}" group "${group.title}" references field ` +
+                `"${fieldName}" that failed to resolve.`,
+            );
+          }
+          return fieldView;
+        }),
+      }));
     return {
       kind: "fields" as const,
       ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
       visible,
+      emptiedByWriteExclusion: wasEmptiedByWriteExclusion(declaredFieldSpecs, fields),
       // Titellose Section (flache Form) → kein h3; nur übersetzen wenn gesetzt.
       ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
       ...(sectionSpec.description !== undefined && {

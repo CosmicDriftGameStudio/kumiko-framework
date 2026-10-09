@@ -1257,7 +1257,7 @@ function EntityEditCreateBody({
       handoffValues,
     ],
   );
-  const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
+  const formSchema = useMemo(() => buildFormSchema(entity, screen, "create"), [entity, screen]);
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
   const handleCancel = useCallback(
@@ -1500,7 +1500,7 @@ function EntityEditUpdateForm({
   }, [entity.fields, entityDefaultCurrency, moneyCurrencyOverrides, record]);
 
   const formSchema = useMemo(
-    () => buildFormSchema(entity, screen, initial),
+    () => buildFormSchema(entity, screen, "update", initial),
     [entity, screen, initial],
   );
 
