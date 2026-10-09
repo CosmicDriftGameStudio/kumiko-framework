@@ -64,6 +64,7 @@ import {
   type StoredEvent,
 } from "../event-store/event-store.js";
 import {
+  effectiveSnapshotGeneration,
   type LoadAggregateWithSnapshotOptions,
   type LoadAggregateWithSnapshotResult,
   loadAggregateWithSnapshot,
@@ -838,14 +839,17 @@ export async function buildHandlerContext(
         aggregateType: snapshotArgs.aggregateType,
         version: snapshotArgs.version,
         state: snapshotArgs.state,
-        snapshotVersion: snapshotArgs.snapshotVersion,
+        snapshotVersion: effectiveSnapshotGeneration(
+          snapshotArgs.snapshotVersion ?? 1,
+          registry.getEntity(snapshotArgs.aggregateType)?.eventVersion,
+        ),
       });
     },
     loadAggregateWithSnapshot: async <TState extends Record<string, unknown>>(
       aggregateId: string,
       reducer: SnapshotReducer<TState>,
       initial: TState,
-      loadOptions?: Omit<LoadAggregateWithSnapshotOptions, "upcastEvent">,
+      loadOptions?: Omit<LoadAggregateWithSnapshotOptions, "upcastEvent" | "entityEventVersionOf">,
     ): Promise<LoadAggregateWithSnapshotResult<TState>> => {
       const dbSource = resolveDbSource(ctx, tx);
       if (!dbSource) {
@@ -868,6 +872,7 @@ export async function buildHandlerContext(
         initial,
         {
           ...loadOptions,
+          entityEventVersionOf: (aggregateType) => registry.getEntity(aggregateType)?.eventVersion,
           upcastEvent: (event) => upcastStoredEvent(event, upcasters, upcastCtx), // @wrapper-known semantic-alias
         },
       );

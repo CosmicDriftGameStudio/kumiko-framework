@@ -54,7 +54,10 @@ terms, not in table terms.
    - **Upcaster**: register a migration on the event's schema version that
      derives/defaults the field for older stored payloads. Replay then
      produces the value for every row, old and new, without touching
-     application data.
+     application data. For `<entity>.created/updated/...` events, set
+     `eventVersion: 2` plus `eventMigrations: [{ fromVersion: 1, toVersion: 2,
+     transform }]` on `r.entity`; the transform receives a row-shaped field
+     record (possibly partial) and is applied to `changes` and `previous` too.
    - **Backfill via real writes**: if the value can't be derived from what's
      already on the event, issue actual `update()` calls for existing rows
      so the field lands via a real `<entity>.updated` event — never write

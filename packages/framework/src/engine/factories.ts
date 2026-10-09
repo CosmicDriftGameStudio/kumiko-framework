@@ -537,6 +537,8 @@ export function createEntity<F, const T extends EntityTenancy = "tenant">(def: {
   /** Event stream lives on SYSTEM_TENANT_ID (tenant-independent aggregate, e.g.
    *  user) instead of the creator's tenant. See EntityDefinition.systemStream. */
   readonly systemStream?: boolean;
+  readonly eventVersion?: number;
+  readonly eventMigrations?: EntityDefinition["eventMigrations"];
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
   readonly transitions?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
