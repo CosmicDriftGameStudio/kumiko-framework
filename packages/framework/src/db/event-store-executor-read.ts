@@ -275,7 +275,9 @@ const MAX_REFERENCE_SEARCH_IDS = 200;
 
 // The hit ids become an `id IN (...)` filter beneath the SQL cursor/filters/sort, so the
 // adapter must return the whole candidate set, not a page; matches Meilisearch's default
-// maxTotalHits. Past it the list fails loud instead of silently dropping hits.
+// maxTotalHits, which caps a response at exactly this many hits however high a larger limit is
+// asked. A response that reaches the cap is therefore flagged `searchTruncated` rather than
+// treated as complete (a cap of N+1 could never be observed).
 const MAX_SEARCH_CANDIDATE_IDS = 1000;
 
 type ReferenceSearchDescriptor = {
@@ -647,6 +649,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // ctx.searchAdapter erst zur Laufzeit weil createEventStoreExecutor
       // beim Definition-Time noch keinen Server-Context hat).
       const effectiveSearchAdapter = searchAdapter ?? runtimeOptions?.searchAdapter;
+      let searchTruncated = false;
       if (payload.search) {
         const searchTerm = payload.search;
         // #2032 — a search term with no adapter wired must fail loud, not
@@ -665,16 +668,9 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         const searchTenantId = streamTenantFor(user);
         const results = await effectiveSearchAdapter.search(searchTenantId, searchTerm, {
           filterType: entityName,
-          limit: MAX_SEARCH_CANDIDATE_IDS + 1,
+          limit: MAX_SEARCH_CANDIDATE_IDS,
         });
-        if (results.length > MAX_SEARCH_CANDIDATE_IDS) {
-          throw new UnprocessableError("search_too_many_results", {
-            details: {
-              entity: entityName,
-              hint: `Search matches more than ${MAX_SEARCH_CANDIDATE_IDS} documents; use a more specific term.`,
-            },
-          });
-        }
+        searchTruncated = results.length >= MAX_SEARCH_CANDIDATE_IDS;
         filterIds = results.map((r) => r.entityId);
 
         // fw#2660 — union in reference-column label matches: a searchable
@@ -922,7 +918,12 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         total = countRows[0]?.count ?? 0;
       }
 
-      return { rows, nextCursor, ...(total !== undefined && { total }) };
+      return {
+        rows,
+        nextCursor,
+        ...(total !== undefined && { total }),
+        ...(searchTruncated && { searchTruncated: true as const }),
+      };
     },
 
     async detail(payload, user, db, options) {

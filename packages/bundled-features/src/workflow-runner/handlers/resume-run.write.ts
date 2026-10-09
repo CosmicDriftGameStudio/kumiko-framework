@@ -48,6 +48,7 @@ import {
   WORKFLOW_RUN_STARTED_TYPE,
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   type WorkflowDefinition,
+  WorkflowStepError,
   type WriteEvent,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -392,9 +393,13 @@ async function runResumedPipeline(ctx: HandlerContext, input: ResumedPipelineInp
     return { isSuccess: true as const, data: { outcome: "completed" as const } };
   } catch (error) {
     log.warn("workflow run failed", { runId, workflowName, stepIndex, error: String(error) });
+    // The input stepIndex is the suspended step; the failure happened at the step the resumed pass reached.
     const failedPayload: WorkflowRunFailedPayload = {
       workflowName,
-      stepIndex,
+      stepIndex:
+        error instanceof WorkflowStepError || error instanceof WorkflowSuspensionUnsupportedError
+          ? error.stepIndex
+          : stepIndex,
       error: describeWorkflowStepError(error),
     };
     await appendRunFailed(ctx, runId, failedPayload);

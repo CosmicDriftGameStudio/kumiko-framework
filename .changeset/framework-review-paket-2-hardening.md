@@ -2,10 +2,11 @@
 "@cosmicdrift/kumiko-framework": patch
 "@cosmicdrift/kumiko-bundled-features": patch
 "@cosmicdrift/kumiko-headless": patch
+"@cosmicdrift/kumiko-dev-server": patch
 "@cosmicdrift/kumiko-server-runtime": patch
 ---
 
-Review hardening: confirmed SSE publish awaited by consumers, feature-toggle cache invalidation over the cache-sync bus, stream expiry timer, page-head resolver abort signal, PII backfill `failed_event_ids`, preSave output validation, read-only proxy `then`/symbol guard, no orphan-row delete in event-consumer state
+Review hardening: confirmed SSE publish awaited by consumers, feature-toggle cache invalidation over the cache-sync bus, stream expiry timer, page-head resolver abort signal, PII backfill `failed_event_ids`, preSave output validation, read-only proxy `then`/symbol guard, no orphan-row delete in event-consumer state, exported `DEFAULT_HTML` of dev-server and server-runtime
 
 <!-- kumiko-changes
 feature: framework

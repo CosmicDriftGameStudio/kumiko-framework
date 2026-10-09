@@ -41,6 +41,8 @@ type MembershipRow = {
   readonly modifiedAt: Temporal.Instant | null;
 };
 
+const MEMBERSHIP_CREATED_VERSION = 1;
+
 // 0 = the user has no membership in the tenant yet.
 export async function membershipVersionOf(
   db: Pick<TenantDb, "fetchOne">,
@@ -93,7 +95,10 @@ export async function grantInvitedMembershipRole(db: DbRunner, options: InvitedM
 
 // The pinned version is the membership's version when the invitation was issued
 // (0 = none yet). A different version now means the membership was decided after
-// the invite; a membership that only appeared after a 0-pin is an additive grant.
+// the invite. Pin 0: a membership that appeared afterwards is an additive grant
+// only while it is untouched since its creation (version 1). A role change bumps
+// the version above 1 and counts as a decision. A removal in between hard-deletes
+// the row and cancels the invitation (remove-member), so it never reaches this check.
 // Rows issued before the pin existed (null) fall back to wall-clock timestamps,
 // which can misjudge changes within the same millisecond but is all they carry.
 function isSupersededByMembership(
@@ -101,7 +106,10 @@ function isSupersededByMembership(
   invitation: InvitationIssuance,
 ): boolean {
   if (invitation.membershipVersion !== null) {
-    return invitation.membershipVersion > 0 && membership.version !== invitation.membershipVersion;
+    if (invitation.membershipVersion === 0) {
+      return membership.version > MEMBERSHIP_CREATED_VERSION;
+    }
+    return membership.version !== invitation.membershipVersion;
   }
   // Resend reuses the invitation row, so its last modification is the latest issuance.
   const issuedAt = invitation.modifiedAt ?? invitation.insertedAt;

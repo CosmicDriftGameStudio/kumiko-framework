@@ -1,5 +1,6 @@
 ---
 "@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-types": minor
 ---
 
 crossTenant removed from entity convention handlers; write handlers with escapeHatch need SystemAdmin-only access

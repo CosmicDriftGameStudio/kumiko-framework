@@ -94,6 +94,20 @@ const nestedFailingWorkflow: WorkflowDefinition = defineWorkflow({
   ]),
 });
 
+const resumedThenFailingWorkflow: WorkflowDefinition = defineWorkflow({
+  name: "wr-integration-resumed-failure",
+  trigger: { kind: "event", eventType: "wr-test.resumed-failure" },
+  idempotencyKey: ({ payload }) => (payload as { runKey: string }).runKey,
+  steps: stepsPipeline(({ r }) => [
+    r.step.wait({ for: "PT1H" }),
+    r.step.compute("fine", () => 1),
+    r.step.compute("boom", () => {
+      throw new Error("step after the resume fails");
+    }),
+    r.step.return({ isSuccess: true, data: undefined }),
+  ]),
+});
+
 const suspendingWorkflow: WorkflowDefinition = defineWorkflow({
   name: "wr-integration-suspend",
   trigger: { kind: "event", eventType: "wr-test.suspend" },
@@ -178,6 +192,7 @@ const testTriggersFeature = defineFeature("workflow-runner-integration-test-trig
   registerEventTrigger(r, failingWorkflow);
   registerEventTrigger(r, laterStepFailingWorkflow);
   registerEventTrigger(r, nestedFailingWorkflow);
+  registerEventTrigger(r, resumedThenFailingWorkflow);
   registerEventTrigger(r, suspendingWorkflow);
   registerEventTrigger(r, doubleResumeWorkflow);
   registerEventTrigger(r, doubleRetryWorkflow);
@@ -438,6 +453,26 @@ describe("workflow-runner event-trigger", () => {
       WORKFLOW_RESUMED_TYPE,
       WORKFLOW_RUN_COMPLETED_TYPE,
     ]);
+  });
+
+  test("run-failed after a resume names the step that threw, not the suspended one", async () => {
+    const runKey = crypto.randomUUID();
+    const runId = workflowRunAggregateId(resumedThenFailingWorkflow.name, runKey);
+
+    await fireTrigger("wr-test.resumed-failure", { runKey });
+    await stack.eventDispatcher?.runOnce();
+
+    const resumed = await resumeRun(runId, 0);
+    expect(resumed).toMatchObject({ isSuccess: true, data: { outcome: "failed" } });
+
+    const failed = (await loadRunEvents(runId)).find(
+      (row) => row["type"] === WORKFLOW_RUN_FAILED_TYPE,
+    );
+    expect(failed?.["payload"]).toMatchObject({
+      workflowName: resumedThenFailingWorkflow.name,
+      stepIndex: 2,
+      error: "workflow step failed (Error)",
+    });
   });
 
   test("fw#2552/1 regression: a step retried twice gets both retry attempts, the second resume is not swallowed as already-resumed", async () => {
