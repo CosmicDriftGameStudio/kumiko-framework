@@ -1,5 +1,6 @@
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
+import { runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   computeBlindIndex,
   configuredBlindIndexKey,
@@ -68,6 +69,9 @@ export const subjectForgottenSchema = z.object({
   subjectKey: z.string().min(1),
   reason: z.string().min(10),
   forgottenBy: z.string().min(1),
+  // Error code or name of a failed derived-data sweep, never its message (which
+  // can name the subject). Present only when the handler failed after the erase.
+  cleanupError: z.string().min(1).optional(),
 });
 
 export const subjectForgetDeniedSchema = z.object({
@@ -278,6 +282,109 @@ async function appendDenialAuditEvent(
   return null;
 }
 
+// Name or driver code of the error, never its message: a message can carry the
+// subject key or row values and would land in a permanent audit event.
+function sweepErrorLabel(err: unknown): string {
+  if (typeof err === "object" && err !== null && "code" in err) {
+    const code = err.code;
+    if (typeof code === "string" && code.length > 0) return code;
+  }
+  return err instanceof Error && err.name.length > 0 ? err.name : "UnknownError";
+}
+
+// The key is already erased when this runs, so a failing sweep must not skip the
+// audit event: the failure is returned as a label for the event instead of thrown.
+// The savepoint keeps a database error from aborting the handler transaction.
+async function sweepDerivedSubjectData(
+  ctx: HandlerContext,
+  subject: SubjectId,
+  subjectKey: string,
+  crossTenantRunner: DbRunner,
+): Promise<string | undefined> {
+  try {
+    await runInSavepointIfSupported(crossTenantRunner, async (crossTenantSubjectRunner) => {
+      // Blind-index sweep (#818): nulls bidx columns now so the deterministic
+      // HMAC doesn't stay equality-matchable; raw because the ciphertext prefix addresses the subject across tenants.
+      await nullBlindIndexesForSubject(crossTenantSubjectRunner, ctx.registry.features, subjectKey);
+
+      // Derived search index still holds plaintext (#1610) — purge next to the
+      // blind-index sweep. No adapter → no-op (apps without search).
+      if (ctx.searchAdapter) {
+        await purgeSearchDocumentsForSubject(
+          crossTenantSubjectRunner,
+          ctx.registry.features,
+          ctx.searchAdapter,
+          subjectKey,
+          subject,
+        );
+      }
+    });
+    return undefined;
+  } catch (err) {
+    return sweepErrorLabel(err);
+  }
+}
+
+// Graceful fail: email-subscribers and other non-user entities may use
+// user-style subject keys without having an actual user row — the key erase is
+// the important part for GDPR compliance; the lifecycle update is best-effort for
+// real users. The savepoint confines the failure so the handler transaction
+// stays usable for the audit event.
+async function closeUserLoginDoorBestEffort(
+  ctx: HandlerContext,
+  userId: string,
+  lifecycleRunner: DbRunner,
+): Promise<void> {
+  try {
+    await runInSavepointIfSupported(lifecycleRunner, async (userLifecycleRunner) => {
+      await updateUserLifecycle(userLifecycleRunner, userId, { status: USER_STATUS.Deleted });
+      if (ctx.registry.features.has("personal-access-tokens")) {
+        await revokeAllPatTokensForUser(userLifecycleRunner, userId);
+      }
+    });
+  } catch {
+    // skip: no user row for this subject key (e.g. email subscribers); key erase and sweeps already ran.
+  }
+}
+
+// Through the outside-transaction db when available, so the audit event commits
+// even though the handler may fail afterwards (sweep error) and roll back its own
+// transaction. Without that source the event stays in the handler transaction.
+async function appendSubjectForgotten(
+  ctx: HandlerContext,
+  event: WriteEvent<z.infer<typeof forgetSubjectSchema>>,
+  aggregateId: string,
+  payload: z.infer<typeof subjectForgottenSchema>,
+  outsideRunner: DbRunner | undefined,
+): Promise<void> {
+  if (!outsideRunner) {
+    await ctx.unsafeAppendEvent({
+      aggregateId,
+      aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+      type: SUBJECT_FORGOTTEN_EVENT_NAME,
+      payload,
+    });
+  } else {
+    await appendDomainEventCore(
+      {
+        registry: ctx.registry,
+        db: outsideRunner,
+        // MUST be event.user.tenantId, never SYSTEM_TENANT_ID — unsafeRaw bypasses TenantDb's scoping (fw#2452).
+        tenantId: event.user.tenantId,
+        userId: String(event.user.id),
+        callSiteLabel: "forget-subject audit",
+        callerFeature: CRYPTO_SHREDDING_FEATURE_NAME,
+      },
+      {
+        aggregateId,
+        aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
+        type: SUBJECT_FORGOTTEN_EVENT_NAME,
+        payload,
+      },
+    );
+  }
+}
+
 // Manual crypto-shred for a DPO / platform operator: erases the subject's
 // DEK immediately (all its PII ciphertext becomes unreadable, reads render
 // "[[erased]]") and appends the audit event. Forget is final — the adapter
@@ -299,7 +406,7 @@ export const forgetSubjectWrite = defineWriteHandler({
   escapeHatch: {
     grants: ["unsafeRaw"],
     reason:
-      "denial audit append names the prober's own tenant stream on the outside-transaction db; " +
+      "the denial and SUBJECT_FORGOTTEN audit appends name the caller's own tenant stream on the outside-transaction db; " +
       "the tenant-scope and retention checks run against the subject's tenant, not necessarily the caller's; " +
       "the blind-index sweep and search purge address the subject across tenants; the user " +
       "lifecycle update and PAT revoke run on the SYSTEM user stream.",
@@ -370,22 +477,12 @@ export const forgetSubjectWrite = defineWriteHandler({
       eraseReason: event.payload.reason,
     });
 
-    // Blind-index sweep (#818): nulls bidx columns now so the deterministic
-    // HMAC doesn't stay equality-matchable; raw because the ciphertext prefix addresses the subject across tenants.
-    const crossTenantSubjectRunner = ctx.db.unsafeRaw();
-    await nullBlindIndexesForSubject(crossTenantSubjectRunner, ctx.registry.features, subjectKey);
-
-    // Derived search index still holds plaintext (#1610) — purge next to the
-    // blind-index sweep. No adapter → no-op (apps without search).
-    if (ctx.searchAdapter) {
-      await purgeSearchDocumentsForSubject(
-        crossTenantSubjectRunner,
-        ctx.registry.features,
-        ctx.searchAdapter,
-        subjectKey,
-        subject,
-      );
-    }
+    const cleanupError = await sweepDerivedSubjectData(
+      ctx,
+      subject,
+      subjectKey,
+      ctx.db.unsafeRaw(),
+    );
 
     // User subject: close the login door. DEK-erase makes the passwordHash
     // ciphertext unreadable, but status + PATs are standalone credentials —
@@ -402,33 +499,28 @@ export const forgetSubjectWrite = defineWriteHandler({
     // crash recovery is safe. User-feature guard: without the user feature
     // read_users doesn't exist (crypto-only stack). Tenant subjects have no
     // credentials.
-    // Graceful fail: email-subscribers and other non-user entities may use
-    // user-style subject keys without having an actual user row — the key
-    // erase above is the important part for GDPR compliance; the lifecycle
-    // update is best-effort for real users.
     if (raw.kind === "user" && ctx.registry.features.has("user")) {
-      try {
-        const userLifecycleRunner = ctx.db.unsafeRaw();
-        await updateUserLifecycle(userLifecycleRunner, raw.userId, { status: USER_STATUS.Deleted });
-        if (ctx.registry.features.has("personal-access-tokens")) {
-          await revokeAllPatTokensForUser(userLifecycleRunner, raw.userId);
-        }
-      } catch {
-        // User row may not exist (e.g. email subscribers with user-style
-        // subject keys). Key erase + blind-index sweep above already ran.
-      }
+      await closeUserLoginDoorBestEffort(ctx, raw.userId, ctx.db.unsafeRaw());
     }
 
-    await ctx.unsafeAppendEvent({
-      aggregateId: subjectAggregateId(raw),
-      aggregateType: CRYPTO_SHREDDING_AGGREGATE_TYPE,
-      type: SUBJECT_FORGOTTEN_EVENT_NAME,
-      payload: {
+    await appendSubjectForgotten(
+      ctx,
+      event,
+      subjectAggregateId(raw),
+      {
         subjectKey,
         reason: event.payload.reason,
         forgottenBy: event.user.id,
+        ...(cleanupError !== undefined && { cleanupError }),
       },
-    });
+      ctx.dbOutsideTransaction?.unsafeRaw(),
+    );
+
+    if (cleanupError !== undefined) {
+      throw new InternalError({
+        message: `[crypto-shredding] forget-subject erased the key but a derived-data sweep failed (${cleanupError}); retry to finish the cleanup.`,
+      });
+    }
 
     return { isSuccess: true as const, data: { subjectKey } };
   },

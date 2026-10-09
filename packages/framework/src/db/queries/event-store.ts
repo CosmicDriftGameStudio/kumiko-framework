@@ -1,3 +1,4 @@
+import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
 import {
   constraintOf,
   isLockNotAvailable,
@@ -5,7 +6,7 @@ import {
   isUniqueViolation,
 } from "../pg-error.js";
 import type { AnyDb } from "../query.js";
-import { asRawClient, unsafeReadRetrying } from "../query.js";
+import { asRawClient, runInNewTransaction, unsafeReadRetrying } from "../query.js";
 
 // Gap-finality (event-dispatcher pending_gaps) needs every holder of an
 // event id to already have a *real* xact id by the time it inserts — Postgres
@@ -14,6 +15,22 @@ import { asRawClient, unsafeReadRetrying } from "../query.js";
 // xmin/xmax. pg_current_xact_id() forces the allocation.
 export async function claimXactId(db: AnyDb): Promise<void> {
   await asRawClient(db).unsafe(`SELECT pg_current_xact_id()`);
+}
+
+// Outside a transaction every statement commits on its own, so claim, insert and
+// notify would be three commits and the claimed xact id would be released before
+// the insert's. A pool runner (has begin()) therefore gets one transaction around
+// the whole write; inside a caller's tx or savepoint the caller's tx already is
+// that unit. Bun.SQL's TransactionSQL extends SQL and still exposes begin(), so
+// only a runner without savepoint() counts as a pool.
+export async function runAtomicEventWrite<T>(
+  db: DbRunner,
+  write: (runner: DbRunner) => Promise<T>,
+): Promise<T> {
+  const raw = asRawClient(db) as { begin?: unknown; savepoint?: unknown };
+  const isPool = typeof raw.begin === "function" && typeof raw.savepoint !== "function";
+  if (!isPool) return write(db);
+  return runInNewTransaction(db, (tx) => write(tx));
 }
 
 /** NOTIFY on commit — wakes LISTEN subscribers (event-dispatcher). */

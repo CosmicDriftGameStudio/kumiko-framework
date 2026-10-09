@@ -69,6 +69,7 @@ export {
   emitEventConsumerLag,
   emitEventConsumerPassOutcome,
   emitEventConsumerPassSkipped,
+  emitEventConsumerPendingGaps,
   emitEventConsumerRearmExhausted,
   emitEventDispatcherListenConnected,
   emitHttpRequest,

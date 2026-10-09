@@ -118,3 +118,25 @@ export function capPendingGapsBelowCursor(
   }
   return capped;
 }
+
+// Merges ranges that touch exactly (end + 1 === next start). Keeps the row small
+// when many adjacent id holes appear one pass after another. The merged xmax is
+// the larger one: finality may only be claimed once the later-recorded bound has
+// passed, so merging can delay it but never make it premature.
+export function mergeContiguousGapRanges(gaps: readonly PendingGapEntry[]): PendingGapEntry[] {
+  const sorted = [...gaps].sort((a, b) => {
+    const diff = BigInt(a.from) - BigInt(b.from);
+    return diff < 0n ? -1 : diff > 0n ? 1 : 0;
+  });
+  const merged: PendingGapEntry[] = [];
+  for (const gap of sorted) {
+    const last = merged.at(-1);
+    if (last && BigInt(last.to) + 1n === BigInt(gap.from)) {
+      const xmax = BigInt(gap.xmax) > BigInt(last.xmax) ? gap.xmax : last.xmax;
+      merged[merged.length - 1] = { from: last.from, to: gap.to, xmax };
+    } else {
+      merged.push(gap);
+    }
+  }
+  return merged;
+}

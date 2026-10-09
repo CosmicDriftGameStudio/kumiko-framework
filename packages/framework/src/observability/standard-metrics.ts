@@ -65,6 +65,13 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
   // Prometheus collapses per-instance shards into last-writer-wins and
   // per-instance lag is invisible to alerting.
   {
+    name: "kumiko_event_consumer_pending_gaps",
+    type: "gauge",
+    description:
+      "Number of unresolved id ranges below the consumer's cursor (ids not yet visible or proven rolled back).",
+    labels: ["consumer", "instance_id"],
+  },
+  {
     name: "kumiko_event_consumer_lag_events",
     type: "gauge",
     description: "Number of events between the consumer's cursor and the events head.",
@@ -251,6 +258,17 @@ export function emitEventConsumerLag(
   lagEvents: number,
 ): void {
   meter.gauge("kumiko_event_consumer_lag_events").set(lagEvents, {
+    consumer: labels.consumer,
+    instance_id: labels.instanceId,
+  });
+}
+
+export function emitEventConsumerPendingGaps(
+  meter: Meter,
+  labels: { readonly consumer: string; readonly instanceId: string },
+  gapRanges: number,
+): void {
+  meter.gauge("kumiko_event_consumer_pending_gaps").set(gapRanges, {
     consumer: labels.consumer,
     instance_id: labels.instanceId,
   });

@@ -31,46 +31,64 @@ export async function lockEventConsumersShareMode(db: AnyDb): Promise<void> {
 }
 
 // The MAX(id) horizon plus every currently-open id gap below it, read from a
-// single snapshot (READ COMMITTED gives each statement its own). A gap can
-// only later fill in if some transaction holding a lower id was still
-// in-flight in that same snapshot — pg_snapshot_xip is empty otherwise, so
-// the gap CTEs short-circuit and the window scan over kumiko_events never
-// runs. Used both to seed startFrom "now" (#3231) and to seed an MSP
-// rebuild's handoff to the live dispatcher (msp-rebuild.ts).
+// single statement snapshot. Used both to seed startFrom "now" (#3231) and to
+// seed an MSP rebuild's handoff to the live dispatcher (msp-rebuild.ts).
+//
+// Scan lower bound: the consumer with the highest cursor already tracks every
+// open gap at or below that cursor in its own pending_gaps, so those are taken
+// over verbatim (keeping their xmax) and only ids above the cursor are scanned,
+// with the cursor itself as virtual predecessor. Without any consumer the
+// cursor is 0 and the scan covers the whole table. No bound derived from xmin or
+// id margins: ids and xids interleave, so such a bound cannot be proven safe.
+// Above the cursor a gap can only fill in if some transaction holding a lower id
+// is still in flight, which pg_snapshot_xip being empty rules out, so the window
+// scan is skipped then.
 export async function selectEventIdHorizonWithMissingRanges(
   db: AnyDb,
 ): Promise<{ readonly horizon: bigint; readonly gaps: PendingGapEntry[] }> {
   const rows = (await asRawClient(db).unsafe(
-    `WITH b AS (
-       SELECT COALESCE(MAX("id"), 0) AS horizon, MIN("id") AS min_id FROM "kumiko_events"
+    `WITH a AS (
+       SELECT "last_processed_event_id" AS cursor, "pending_gaps" AS gaps
+         FROM "kumiko_event_consumers"
+        ORDER BY "last_processed_event_id" DESC
+        LIMIT 1
      ),
+     c AS (SELECT COALESCE((SELECT cursor FROM a), 0) AS v),
+     b AS (SELECT COALESCE(MAX("id"), 0) AS horizon FROM "kumiko_events"),
      r AS (
-       SELECT 1::bigint AS f, b.min_id - 1 AS t FROM b
-        WHERE b.min_id > 1 AND EXISTS (SELECT 1 FROM pg_snapshot_xip(pg_current_snapshot()))
+       SELECT (g ->> 'from')::bigint AS f, (g ->> 'to')::bigint AS t, g ->> 'xmax' AS x
+         FROM a,
+              jsonb_array_elements(CASE WHEN jsonb_typeof(a.gaps) = 'array' THEN a.gaps ELSE '[]'::jsonb END) AS g
        UNION ALL
-       SELECT w."id" + 1, w.next_id - 1
-         FROM (SELECT "id", lead("id") OVER (ORDER BY "id") AS next_id FROM "kumiko_events") w
+       SELECT c.v + 1, m.min_id - 1, pg_snapshot_xmax(pg_current_snapshot())::text
+         FROM c,
+              (SELECT MIN(e."id") AS min_id FROM "kumiko_events" e WHERE e."id" > (SELECT v FROM c)) m
+        WHERE m.min_id > c.v + 1 AND EXISTS (SELECT 1 FROM pg_snapshot_xip(pg_current_snapshot()))
+       UNION ALL
+       SELECT w."id" + 1, w.next_id - 1, pg_snapshot_xmax(pg_current_snapshot())::text
+         FROM (SELECT e."id", lead(e."id") OVER (ORDER BY e."id") AS next_id
+                 FROM "kumiko_events" e WHERE e."id" > (SELECT v FROM c)) w
         WHERE w.next_id > w."id" + 1 AND EXISTS (SELECT 1 FROM pg_snapshot_xip(pg_current_snapshot()))
      )
      SELECT b.horizon::text AS horizon,
-            pg_snapshot_xmax(pg_current_snapshot())::text AS xmax,
             r.f::text AS gap_from,
-            r.t::text AS gap_to
+            r.t::text AS gap_to,
+            r.x AS gap_xmax
        FROM b LEFT JOIN r ON true
       ORDER BY r.f`,
   )) as ReadonlyArray<{
     horizon: string;
-    xmax: string;
     gap_from: string | null;
     gap_to: string | null;
+    gap_xmax: string | null;
   }>;
   const first = rows[0];
   if (first === undefined)
     throw new Error("selectEventIdHorizonWithMissingRanges: no row returned");
   const gaps: PendingGapEntry[] = [];
   for (const row of rows) {
-    if (row.gap_from === null || row.gap_to === null) continue;
-    gaps.push({ from: row.gap_from, to: row.gap_to, xmax: row.xmax });
+    if (row.gap_from === null || row.gap_to === null || row.gap_xmax === null) continue;
+    gaps.push({ from: row.gap_from, to: row.gap_to, xmax: row.gap_xmax });
   }
   return { horizon: BigInt(first.horizon), gaps };
 }
@@ -279,8 +297,8 @@ export async function advanceConsumerPastEventReturning(
   name: string,
   instanceId: string,
   eventId: bigint,
-  // Ids skipped over between the old cursor and eventId that were not visible yet.
-  gapToAdd: PendingGapEntry | null = null,
+  // Full list, including ids skipped over between the old cursor and eventId that were not visible yet.
+  pendingGaps: readonly PendingGapEntry[],
 ): Promise<Record<string, unknown> | undefined> {
   const rows = (await asRawClient(db).unsafe(
     `UPDATE "kumiko_event_consumers" SET
@@ -291,11 +309,11 @@ export async function advanceConsumerPastEventReturning(
        "rearm_count" = 0,
        "last_failed_event_id" = NULL,
        -- text param + cast: a JS string bound straight to ::jsonb double-encodes under Bun.SQL
-       "pending_gaps" = CASE WHEN $4::text IS NULL THEN "pending_gaps" ELSE "pending_gaps" || $4::text::jsonb END,
+       "pending_gaps" = $4::text::jsonb,
        "updated_at" = now()
      WHERE "name" = $2 AND "instance_id" = $3
      RETURNING *`,
-    [eventId, name, instanceId, gapToAdd === null ? null : JSON.stringify([gapToAdd])],
+    [eventId, name, instanceId, JSON.stringify(pendingGaps)],
   )) as ReadonlyArray<Record<string, unknown>>;
   return rows[0];
 }

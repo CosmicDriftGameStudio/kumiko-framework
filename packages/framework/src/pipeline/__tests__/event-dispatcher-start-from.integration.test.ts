@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DbConnection, DbTx } from "../../db/connection.js";
 import { asRawClient, insertOne } from "../../db/query.js";
 import type { AppContext } from "../../engine/types/index.js";
-import { eventsTable } from "../../event-store/index.js";
+import { append, eventsTable } from "../../event-store/index.js";
 import { createTestDb, type TestDb, TestUsers } from "../../stack/index.js";
 import {
   createEventConsumerStateTable,
@@ -65,6 +65,18 @@ async function appendEventRawHoldingTx(tx: DbTx, type: string): Promise<void> {
      VALUES ($1::uuid, 'start-from-test-source', $2::uuid, 1, $3, '{}'::jsonb, '{}'::jsonb, 'test')`,
     [crypto.randomUUID(), admin.tenantId, type],
   );
+}
+
+async function appendEvent(runner: DbConnection | DbTx, type: string): Promise<void> {
+  await append(runner, {
+    aggregateId: crypto.randomUUID(),
+    aggregateType: "start-from-test-source",
+    tenantId: admin.tenantId,
+    expectedVersion: 0,
+    type,
+    payload: {},
+    metadata: { userId: admin.id },
+  });
 }
 
 async function selectVisibleMaxEventId(): Promise<bigint> {
@@ -279,5 +291,77 @@ describe("EventConsumer.startFrom", () => {
     expect(pass.byConsumer[consumer.name]).toEqual({ processed: 1, failed: 0 });
     expect(captured).toEqual(["start-from-test.low-id"]);
     expect(await readPendingGaps(testDb.db, consumer.name)).toEqual([]);
+  });
+
+  test("'now' takes over an open gap of an existing consumer and still scans the ids above that consumer's cursor", async () => {
+    const captured: string[] = [];
+    const existing: EventConsumer = {
+      name: "test:consumer:takeover-existing",
+      startFrom: "now",
+      handler: async () => {},
+    };
+    const newcomer: EventConsumer = {
+      name: "test:consumer:takeover-newcomer",
+      startFrom: "now",
+      handler: async (event) => {
+        captured.push(event.type);
+      },
+    };
+
+    // Held transactions via the append API: the id is allocated at append time,
+    // the row stays invisible until the surrounding transaction commits.
+    const holdOpen = async (type: string) => {
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let markInserted!: () => void;
+      const inserted = new Promise<void>((resolve) => {
+        markInserted = resolve;
+      });
+      const done = testDb.db.begin(async (tx: DbTx) => {
+        await appendEvent(tx, type);
+        markInserted();
+        await gate;
+      });
+      await inserted;
+      return { release, done };
+    };
+
+    const lowOpen = await holdOpen("start-from-test.takeover-low");
+    await appendHistoricalEvent("start-from-test.takeover-anchor");
+
+    const existingDispatcher = createEventDispatcher({
+      db: testDb.db,
+      consumers: [existing],
+      context: stubContext(),
+    });
+    await existingDispatcher.ensureRegistered();
+    expect(await readPendingGaps(testDb.db, existing.name)).toHaveLength(1);
+
+    // Above the existing consumer's cursor: an open id below a committed one.
+    const aboveOpen = await holdOpen("start-from-test.takeover-above");
+    await appendHistoricalEvent("start-from-test.takeover-head");
+
+    const newcomerDispatcher = createEventDispatcher({
+      db: testDb.db,
+      consumers: [newcomer],
+      context: stubContext(),
+    });
+    try {
+      await newcomerDispatcher.ensureRegistered();
+      expect(await readPendingGaps(testDb.db, newcomer.name)).toHaveLength(2);
+    } finally {
+      lowOpen.release();
+      aboveOpen.release();
+      await Promise.all([lowOpen.done, aboveOpen.done]);
+    }
+
+    await newcomerDispatcher.runOnce();
+    expect([...captured].sort()).toEqual([
+      "start-from-test.takeover-above",
+      "start-from-test.takeover-low",
+    ]);
+    expect(await readPendingGaps(testDb.db, newcomer.name)).toEqual([]);
   });
 });

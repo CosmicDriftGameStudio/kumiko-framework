@@ -19,7 +19,12 @@ import {
   SHARED_INSTANCE_SENTINEL,
 } from "./event-consumer-state.js";
 import type { ConsumerStateRow, ConsumerStateRowShape } from "./event-dispatcher-delivery.js";
-import { rangeContainsId, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges.js";
+import {
+  mergeContiguousGapRanges,
+  rangeContainsId,
+  splitRangeExcludingIds,
+  toIdRanges,
+} from "./pending-gap-ranges.js";
 
 // --- Ops recovery surface ---
 //
@@ -156,6 +161,23 @@ export async function enableConsumer(
   return applyConsumerStatusTransition(db, name, instanceId, "idle");
 }
 
+// Delivery stops at the poison event, so ids between the cursor and it were
+// invisible during that pass (in-flight commits); keeping them as a pending gap
+// avoids losing them when the cursor jumps over.
+async function invisibleWindowGap(
+  tx: DbTx,
+  cursor: bigint,
+  poisonId: bigint,
+): Promise<PendingGapEntry | null> {
+  const windowStart = cursor + 1n;
+  if (poisonId <= windowStart) return null;
+  return {
+    from: windowStart.toString(),
+    to: (poisonId - 1n).toString(),
+    xmax: await selectSnapshotXmax(tx),
+  };
+}
+
 // skipPoisonEvent skips the event whose handler failed last
 // (last_failed_event_id, set by the delivery's halt-on-poison branch): inside
 // pending_gaps it is split out of its range, otherwise the cursor moves onto
@@ -191,7 +213,12 @@ export async function skipPoisonEvent(
           ? splitRangeExcludingIds(gap, [pendingPoisonId])
           : [gap],
       );
-      const raw = await removePendingGapReturning(tx, name, instanceId, newPendingGaps);
+      const raw = await removePendingGapReturning(
+        tx,
+        name,
+        instanceId,
+        mergeContiguousGapRanges(newPendingGaps),
+      );
       const updated =
         raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
       if (!updated)
@@ -216,16 +243,14 @@ export async function skipPoisonEvent(
     // Delivery stops at the poison event, so ids between the cursor and it were
     // invisible during that pass (in-flight commits). Jumping the cursor over them
     // would lose them; keep them as a pending gap like the dispatcher's own gaps.
-    const skippedWindowStart = before.lastProcessedEventId + 1n;
-    const gapToAdd: PendingGapEntry | null =
-      poisonId > skippedWindowStart
-        ? {
-            from: skippedWindowStart.toString(),
-            to: (poisonId - 1n).toString(),
-            xmax: await selectSnapshotXmax(tx),
-          }
-        : null;
-    const raw = await advanceConsumerPastEventReturning(tx, name, instanceId, poisonId, gapToAdd);
+    const gapToAdd = await invisibleWindowGap(tx, before.lastProcessedEventId, poisonId);
+    const raw = await advanceConsumerPastEventReturning(
+      tx,
+      name,
+      instanceId,
+      poisonId,
+      mergeContiguousGapRanges(gapToAdd ? [...pendingGaps, gapToAdd] : pendingGaps),
+    );
     const updated =
       raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
     if (!updated)

@@ -278,6 +278,12 @@ describe("E.1 — consumer-lag metric", () => {
       for (const ev of lastPerConsumer.values()) {
         expect(ev.value).toBe(0);
       }
+
+      const gapGauges = metricEvents.filter(
+        (e) => e.type === "gauge.set" && e.name === "kumiko_event_consumer_pending_gaps",
+      );
+      expect(gapGauges.length).toBe(lagGauges.length);
+      for (const ev of gapGauges) expect(ev.value).toBe(0);
     } finally {
       await recStack.cleanup();
     }

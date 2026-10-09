@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
-import { asRawClient } from "../../db/query.js";
+import { asRawClient, transaction } from "../../db/query.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { generateId as uuid } from "../../utils/index.js";
 import {
@@ -1018,5 +1018,47 @@ describe("event-store: jsonb encoding of payload/metadata", () => {
     // SQL-seitiger Feldzugriff funktioniert nur auf echten Objekten —
     // genau der Pfad, der mit String-Skalaren null lieferte.
     expect(rows[1]?.title).toBe("T2");
+  });
+});
+
+describe("event-store: append atomicity", () => {
+  class RollbackSentinel extends Error {}
+
+  test("an append inside an outer transaction rolls back with it", async () => {
+    const aggregateId = uuid();
+
+    await transaction(testDb.db, async (tx) => {
+      await append(tx, {
+        aggregateId,
+        aggregateType: "task",
+        tenantId: tenantA,
+        expectedVersion: 0,
+        type: "task.created",
+        payload: { title: "never committed" },
+        metadata: { userId: userA },
+      });
+      throw new RollbackSentinel();
+    }).catch((e: unknown) => {
+      if (!(e instanceof RollbackSentinel)) throw e;
+    });
+
+    expect(await loadAggregate(testDb.db, aggregateId, tenantA)).toHaveLength(0);
+  });
+
+  test("a unique violation on a pool append surfaces as VersionConflictError", async () => {
+    const aggregateId = uuid();
+    const create = () =>
+      append(testDb.db, {
+        aggregateId,
+        aggregateType: "task",
+        tenantId: tenantA,
+        expectedVersion: 0,
+        type: "task.created",
+        payload: { title: "dup" },
+        metadata: { userId: userA },
+      });
+    await create();
+    await expect(create()).rejects.toBeInstanceOf(VersionConflictError);
+    expect(await loadAggregate(testDb.db, aggregateId, tenantA)).toHaveLength(1);
   });
 });

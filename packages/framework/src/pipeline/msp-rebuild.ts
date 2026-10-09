@@ -30,7 +30,11 @@ import { emitProjectionRebuild } from "../observability/standard-metrics.js";
 import type { Meter } from "../observability/types/metric.js";
 import { SHARED_INSTANCE_SENTINEL } from "./event-consumer-state.js";
 import type { MultiStreamApplyContext } from "./multi-stream-apply-context.js";
-import { capPendingGapsBelowCursor, subtractSortedIdsFromRanges } from "./pending-gap-ranges.js";
+import {
+  capPendingGapsBelowCursor,
+  mergeContiguousGapRanges,
+  subtractSortedIdsFromRanges,
+} from "./pending-gap-ranges.js";
 import type { RebuildResult } from "./projection-rebuild.js";
 
 // Rebuild a multi-stream projection (MSP) from the event log. Symmetric to
@@ -264,10 +268,11 @@ export async function rebuildMultiStreamProjection(
       const survivingGaps = subtractSortedIdsFromRanges(seededGaps, replayedIds);
       const cappedGaps = capPendingGapsBelowCursor(survivingGaps, lastProcessedEventId);
       const postReplayXmax = cappedGaps.length > 0 ? await selectSnapshotXmax(tx) : null;
-      const pendingGaps =
+      const pendingGaps = mergeContiguousGapRanges(
         postReplayXmax === null
           ? cappedGaps
-          : cappedGaps.map((gap) => ({ ...gap, xmax: postReplayXmax }));
+          : cappedGaps.map((gap) => ({ ...gap, xmax: postReplayXmax })),
+      );
       await updateConsumerRebuildCursor(
         tx,
         mspName,
