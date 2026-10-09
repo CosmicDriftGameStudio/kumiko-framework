@@ -12,6 +12,7 @@ import {
 import { createEntity, createTextField, from } from "../../engine/index.js";
 import type { EntityDefinition } from "../../engine/types/index.js";
 import {
+  createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
@@ -24,6 +25,7 @@ import {
 } from "../../testing/index.js";
 import {
   collectReferenceFields,
+  type EagerLoadViewer,
   type EagerloadedRow,
   enrichRowWithReferences,
   enrichWithReferences,
@@ -84,6 +86,7 @@ const contactTable = buildEntityTable("contact", contactEntity);
 const ownedContactEntity = createEntity({
   table: "el_owned_contacts",
   fields: {
+    ownerId: createTextField({ personal: false, reason: "technical_reference" }),
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     email: createTextField({ required: true, personal: "tenant", find: "none" }),
     iban: createTextField({
@@ -140,6 +143,14 @@ const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base6
 const cipher = createTestEnvelopeCipher(TEST_KEY);
 const kms = new InMemoryKmsAdapter();
 
+const ownerUser = createTestUser({ id: 71, roles: ["admin"], tenantId: tenantA });
+const otherUser = createTestUser({ id: 72, roles: ["admin"], tenantId: tenantA });
+const viewerFor = (user: typeof ownerUser): EagerLoadViewer => ({
+  user,
+  parentVisibility: { entities: new Map() },
+});
+const viewer = viewerFor(ownerUser);
+
 let stack: TestStack;
 let dbA: ReturnType<typeof createTenantDb>;
 
@@ -184,6 +195,7 @@ beforeAll(async () => {
   const plainOwned = {
     id: OWNED,
     tenantId: tenantA,
+    ownerId: ownerUser.id,
     name: "Owned Grace",
     email: "owned-grace@acme.test",
     iban: "DE99999",
@@ -228,7 +240,13 @@ afterAll(async () => {
 });
 
 async function enrichA(row: Record<string, unknown>): Promise<EagerloadedRow | undefined> {
-  const [out] = (await enrichWithReferences([row], postEntity, resolve, dbA)) as EagerloadedRow[];
+  const [out] = (await enrichWithReferences(
+    [row],
+    postEntity,
+    resolve,
+    dbA,
+    viewer,
+  )) as EagerloadedRow[];
   return out;
 }
 
@@ -304,12 +322,19 @@ describe("enrichWithReferences", () => {
       postEntity,
       () => undefined,
       dbA,
+      viewer,
     )) as EagerloadedRow[];
     expect(single(row, "author")).toBeUndefined();
   });
 
   test("keine reference-Felder → flache Kopie ohne Lookup", async () => {
-    const out = await enrichWithReferences([{ id: "x1", name: "n" }], authorEntity, resolve, dbA);
+    const out = await enrichWithReferences(
+      [{ id: "x1", name: "n" }],
+      authorEntity,
+      resolve,
+      dbA,
+      viewer,
+    );
     expect(out).toEqual([{ id: "x1", name: "n" }]);
   });
 
@@ -319,6 +344,7 @@ describe("enrichWithReferences", () => {
       postEntity,
       resolve,
       dbA,
+      viewer,
     )) as EagerloadedRow;
     expect(single(row, "author")?.["name"]).toBe("Ada");
   });
@@ -329,6 +355,7 @@ describe("enrichWithReferences", () => {
       leadEntity,
       resolve,
       dbA,
+      viewer,
     )) as EagerloadedRow[];
     const contact = single(row, "contact");
 
@@ -343,6 +370,7 @@ describe("enrichWithReferences", () => {
       leadEntity,
       resolve,
       dbA,
+      viewer,
     )) as EagerloadedRow[];
     const unrestricted = single(row, "unrestrictedContact");
 
@@ -351,19 +379,36 @@ describe("enrichWithReferences", () => {
     expect(unrestricted?.["email"]).toBe("unrestricted@acme.test");
   });
 
-  test("fw#1671: ownership-scoped ref entity — PII/encrypted fields are stripped, not decrypted or leaked as ciphertext", async () => {
+  test("ownership-scoped ref entity: the owner sees PII/encrypted fields decrypted", async () => {
     const [row] = (await enrichWithReferences(
       [{ id: "l1", ownedContact: OWNED }],
       leadEntity,
       resolve,
       dbA,
+      viewerFor(ownerUser),
     )) as EagerloadedRow[];
     const owned = single(row, "ownedContact");
 
-    expect(owned).toBeDefined();
     expect(owned?.["name"]).toBe("Owned Grace");
-    expect(owned?.["email"]).toBeUndefined();
-    expect(owned?.["iban"]).toBeUndefined();
+    expect(owned?.["email"]).toBe("owned-grace@acme.test");
+    expect(owned?.["iban"]).toBe("DE99999");
+  });
+
+  test("ownership-scoped ref entity: a non-owner gets no ref at all", async () => {
+    const [row] = (await enrichWithReferences(
+      [{ id: "l1", ownedContact: OWNED }],
+      leadEntity,
+      resolve,
+      dbA,
+      viewerFor(otherUser),
+    )) as EagerloadedRow[];
+
+    expect(single(row, "ownedContact")).toBeUndefined();
+  });
+
+  test("malformed ref value is ignored instead of failing the whole lookup", async () => {
+    const row = await enrichA({ id: "p1", tags: [A1, "not-a-uuid"] });
+    expect(many(row, "tags")?.map((t) => t["name"])).toEqual(["Ada"]);
   });
 
   test("fw#1671: a row with a broken envelope is dropped, a sibling row's good ref still resolves in the same batch", async () => {
@@ -375,6 +420,7 @@ describe("enrichWithReferences", () => {
       leadEntity,
       resolve,
       dbA,
+      viewer,
     )) as EagerloadedRow[];
 
     expect(single(goodRow, "contact")?.["email"]).toBe("grace@acme.test");
