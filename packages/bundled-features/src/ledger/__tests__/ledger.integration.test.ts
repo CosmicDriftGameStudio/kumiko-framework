@@ -524,6 +524,20 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
     expect(await listTransactions()).toHaveLength(1);
   });
 
+  test("parallel confirms of the same period book exactly once", async () => {
+    const bank = await createAccount("Bank Race", "asset");
+    const rent = await createAccount("Race Income", "income");
+    const scheduleId = await createSchedule(bank, rent);
+
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => confirm(scheduleId, "2026-01")),
+    );
+
+    expect(results.filter((r) => !r.alreadyBooked)).toHaveLength(1);
+    expect(new Set(results.map((r) => r.id)).size).toBe(1);
+    expect(await listTransactions()).toHaveLength(1);
+  });
+
   test("amount override books the actual received amount", async () => {
     const bank = await createAccount("Bank", "asset");
     const rent = await createAccount("Mieterträge", "income");
