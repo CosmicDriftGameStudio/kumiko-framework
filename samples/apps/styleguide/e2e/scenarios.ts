@@ -6,6 +6,8 @@ import { FIRST_STYLEGUIDE_ITEM_ID } from "../src/app/seed";
 // Toolbar/Pagination), beide zeigen Shell + Sidebar-Nav mit. Foundations-
 // Swatches + apex_shell kommen als eigene Blöcke dazu, sobald die Pipeline steht.
 
+const DASHBOARD_FROZEN_NOW = "2026-06-15T12:00:00Z";
+
 export const SCENARIOS: readonly Scenario[] = [
   {
     name: "gallery",
@@ -74,7 +76,13 @@ export const SCENARIOS: readonly Scenario[] = [
   {
     name: "widgets-dashboard",
     description: "Declarative dashboard: stat, chart and list panels from schema",
-    url: "/widgets-dashboard",
+    // Frozen clock and UTC: the "As of" stamp would otherwise change per run and per host zone.
+    flow: async (page) => {
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("Emulation.setTimezoneOverride", { timezoneId: "UTC" });
+      await page.clock.setFixedTime(DASHBOARD_FROZEN_NOW);
+      await page.goto("/widgets-dashboard");
+    },
     waitFor: "[data-testid='dashboard-widgets-dashboard']",
     fullPage: true,
   },

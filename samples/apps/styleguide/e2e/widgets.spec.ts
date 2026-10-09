@@ -180,6 +180,10 @@ test("declarative dashboard screen renders stat, chart and list panels", async (
   await expect(page.getByText("über 4 Konten")).toBeVisible();
   // Chart panel: SVG with translated aria label.
   await expect(page.getByRole("img", { name: "Antwortzeit" })).toBeVisible();
+  // Stacked-area panel: range switch and brush from the panel config.
+  await expect(page.getByRole("img", { name: "Anfragen" })).toBeVisible();
+  await expect(page.getByTestId("dashboard-chart-range-traffic")).toBeVisible();
+  await expect(page.getByText("3 Monate")).toBeVisible();
   // List panel: row from the paged envelope.
   await expect(page.getByText("API-Timeout eu-central")).toBeVisible();
 

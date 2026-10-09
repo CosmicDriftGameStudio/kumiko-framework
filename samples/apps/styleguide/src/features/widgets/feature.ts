@@ -15,6 +15,26 @@ const RESPONSE_POINTS = Array.from({ length: 48 }, (_, i) => ({
   value: i === 20 ? null : 120 + Math.round(80 * Math.abs(Math.sin(i / 5))),
 }));
 
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const TRAFFIC_START_MS = Date.UTC(2026, 0, 5);
+const TRAFFIC_TODAY_MS = Date.UTC(2026, 5, 15);
+const TRAFFIC_WEEKS = 52;
+
+// Deterministic weekly traffic by channel. The "today" line is a fixed date, not
+// the clock, so the brush window and the screenshots stay stable.
+const TRAFFIC_SERIES = [
+  { key: "api", label: "widgets:dashboard:traffic-api", base: 300, swing: 90 },
+  { key: "web", label: "widgets:dashboard:traffic-web", base: 220, swing: 60 },
+  { key: "batch", label: "widgets:dashboard:traffic-batch", base: 120, swing: 40 },
+].map(({ key, label, base, swing }, seriesIndex) => ({
+  key,
+  label,
+  points: Array.from({ length: TRAFFIC_WEEKS }, (_, i) => ({
+    atMs: TRAFFIC_START_MS + i * WEEK_MS,
+    value: base + Math.round(swing * Math.sin(i / 4 + seriesIndex) + i * 2),
+  })),
+}));
+
 const SENDERS = ["William Smith", "Alice Smith", "Bob Johnson", "Emily Davis"] as const;
 const SUBJECTS = ["Meeting Tomorrow", "Re: Project Update", "Weekend Plans", "Re: Budget"] as const;
 
@@ -105,6 +125,22 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
         query: "widgets:query:metrics:response-times",
       },
       {
+        kind: "chart",
+        id: "traffic",
+        label: "widgets:dashboard:traffic",
+        chart: "stacked-area",
+        query: "widgets:query:metrics:traffic",
+        brush: true,
+        ranges: {
+          default: "3m",
+          options: [
+            { value: "3m", label: "widgets:dashboard:range-3m", months: 3 },
+            { value: "6m", label: "widgets:dashboard:range-6m", months: 6 },
+            { value: "all", label: "widgets:dashboard:range-all" },
+          ],
+        },
+      },
+      {
         kind: "list",
         id: "latest",
         label: "widgets:dashboard:latest",
@@ -193,6 +229,25 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       points: RESPONSE_POINTS,
       windowStartMs: 0,
       windowEndMs: 24 * 60 * 60 * 1000,
+    }),
+    {
+      access: {
+        openToAll: {
+          reason:
+            "demo dashboard widget: returns static canned data with no per-user or " +
+            "tenant scoping; any signed-in user may query it",
+        },
+      },
+    },
+  );
+  r.queryHandler(
+    "metrics:traffic",
+    z.object({}),
+    async () => ({
+      series: TRAFFIC_SERIES,
+      windowStartMs: TRAFFIC_START_MS,
+      windowEndMs: TRAFFIC_START_MS + (TRAFFIC_WEEKS - 1) * WEEK_MS,
+      todayMs: TRAFFIC_TODAY_MS,
     }),
     {
       access: {
