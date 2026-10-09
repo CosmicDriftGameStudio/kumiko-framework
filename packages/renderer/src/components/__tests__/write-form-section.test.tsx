@@ -51,7 +51,7 @@ const testBanner: ComponentType<BannerProps> = ({ children, testId }) => (
 );
 
 // Mirrors DefaultSection's real actions slot closely enough to let tests
-// assert the submit button lands in the footer, not the body.
+// assert caller actions land in the title row, apart from the body.
 // Also renders subtitle into the DOM (like DefaultSection's own subtitle
 // slot) so description-passthrough tests prove real render output, not just
 // a captured prop.
@@ -173,16 +173,35 @@ function renderWriteForm(
 }
 
 describe("WriteFormSection", () => {
-  test("submit button renders in the section's title-row actions slot, not the body", () => {
+  test("submit button renders in the body after the fields; caller actions stay in the title row", () => {
     const { dispatcher } = stubDispatcher();
-    renderWriteForm(noteSection, dispatcher, noop);
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={testPrimitives()}>
+            <WriteFormSection
+              section={noteSection}
+              featureName="orders"
+              onSubmitted={noop}
+              actions={<button type="button" data-testid="caller-action" />}
+            />
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
 
     const actions = rtlScreen.getByTestId("write-form-Add note-actions");
     const body = rtlScreen.getByTestId("write-form-Add note-body");
     const button = rtlScreen.getByTestId("write-form-section-submit");
+    const field = rtlScreen.getByTestId("input-note");
 
-    expect(actions.contains(button)).toBe(true);
-    expect(body.contains(button)).toBe(false);
+    expect(body.contains(button)).toBe(true);
+    expect(actions.contains(button)).toBe(false);
+    expect(actions.contains(rtlScreen.getByTestId("caller-action"))).toBe(true);
+    expect(field.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(button.dataset["icon"]).toBeUndefined();
   });
 
@@ -321,7 +340,7 @@ describe("WriteFormSection", () => {
 // flattens to a borderless divider inside the host RenderEdit's own Form,
 // which would otherwise leave the submit button with no card chrome.
 describe("WriteFormSection — tabs mode (hideTitle)", () => {
-  test("renders via Card, no title text, submit button lands in headerActions", () => {
+  test("renders via Card, no title text, submit button lands in the body after the fields", () => {
     const { dispatcher } = stubDispatcher();
     render(
       <LocaleProvider
@@ -342,9 +361,10 @@ describe("WriteFormSection — tabs mode (hideTitle)", () => {
     );
 
     expect(rtlScreen.queryByTestId("write-form-Add note-title")).toBeNull();
-    const actions = rtlScreen.getByTestId("write-form-Add note-actions");
+    const body = rtlScreen.getByTestId("write-form-Add note-body");
     const button = rtlScreen.getByTestId("write-form-section-submit");
-    expect(actions.contains(button)).toBe(true);
+    expect(body.contains(button)).toBe(true);
+    expect(rtlScreen.queryByTestId("write-form-Add note-actions")).toBeNull();
   });
 });
 

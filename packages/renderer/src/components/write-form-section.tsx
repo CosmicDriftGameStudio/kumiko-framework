@@ -43,12 +43,11 @@ export type WriteFormSectionProps = {
    *  exists), see ProjectionDetailBody's reloadNonce in kumiko-screen.tsx. */
   readonly onSubmitted: () => void;
   /** section.actions, already resolved into buttons by the caller —
-   *  rendered alongside (before) the section's own submit button in the
-   *  title-row actions slot. */
+   *  rendered in the title row, apart from the section's own submit button. */
   readonly actions?: ReactNode;
   /** Set when this section is a whole tab: the submit button is handed to
    *  the host form's footer (pinned like every other screen's save) instead
-   *  of the section's title row. Called with undefined on unmount. */
+   *  of the end of the section body. Called with undefined on unmount. */
   readonly onFooterAction?: (action: ReactNode | undefined) => void;
 };
 
@@ -114,32 +113,6 @@ export function WriteFormSection({
     }
   }
 
-  const content = (
-    <>
-      <Grid columns={section.columns}>
-        {section.fields.map((field: EditFieldViewModel) => (
-          <GridCellForField
-            key={field.field}
-            field={{ ...field, value: snapshot.values[field.field] }}
-            columns={section.columns}
-            issues={snapshot.errors[field.field]}
-            onChange={(v) => controller.setField(field.field, v)}
-            GridCell={GridCell}
-            featureName={featureName}
-            allIssues={snapshot.errors}
-            valueDisplay="form"
-            row={snapshot.values}
-          />
-        ))}
-      </Grid>
-      {error !== null && (
-        <Banner variant="error" testId="write-form-section-error">
-          {error}
-        </Banner>
-      )}
-    </>
-  );
-
   // type="button" (not "submit") is load-bearing: this section is deliberately
   // NOT a nested <form> (see the component doc above), so a "submit" type
   // would instead trigger the host RenderEdit's own form submit.
@@ -169,17 +142,36 @@ export function WriteFormSection({
     return () => onFooterAction(undefined);
   }, [onFooterAction, isSubmitting, submitLabel]);
 
-  const titleRowActions =
-    onFooterAction !== undefined ? (
-      actions
-    ) : actions !== undefined ? (
-      <>
-        {actions}
-        {submitButton}
-      </>
-    ) : (
-      submitButton
-    );
+  const content = (
+    <>
+      <Grid columns={section.columns}>
+        {section.fields.map((field: EditFieldViewModel) => (
+          <GridCellForField
+            key={field.field}
+            field={{ ...field, value: snapshot.values[field.field] }}
+            columns={section.columns}
+            issues={snapshot.errors[field.field]}
+            onChange={(v) => controller.setField(field.field, v)}
+            GridCell={GridCell}
+            featureName={featureName}
+            allIssues={snapshot.errors}
+            valueDisplay="form"
+            row={snapshot.values}
+          />
+        ))}
+      </Grid>
+      {error !== null && (
+        <Banner variant="error" testId="write-form-section-error">
+          {error}
+        </Banner>
+      )}
+      {onFooterAction === undefined && (
+        <div className="flex justify-end" data-testid="write-form-section-submit-row">
+          {submitButton}
+        </div>
+      )}
+    </>
+  );
 
   // Section always flattens to a borderless divider when rendered inside
   // RenderEdit's own <Form> in tabs mode (hideTitle) — an unframed Card panel
@@ -190,7 +182,7 @@ export function WriteFormSection({
         options={{ framed: false }}
         slots={{
           ...(section.description !== undefined && { subtitle: section.description }),
-          headerActions: titleRowActions,
+          ...(actions !== undefined && { headerActions: actions }),
         }}
         testId={`write-form-${section.title ?? section.handler}`}
       >
@@ -199,14 +191,12 @@ export function WriteFormSection({
     );
   }
 
-  // Submit plus caller actions share the title row's actions slot (submit is
-  // lifted into the footer instead when onFooterAction is set).
   return (
     <Section
       {...(section.title !== undefined && { title: section.title })}
       {...(section.description !== undefined && { subtitle: section.description })}
       {...(section.icon !== undefined && { icon: section.icon })}
-      actions={titleRowActions}
+      {...(actions !== undefined && { actions })}
       testId={`write-form-${section.title ?? section.handler}`}
     >
       {content}

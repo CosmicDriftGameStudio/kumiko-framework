@@ -331,7 +331,7 @@ export function Gallery(): ReactNode {
         {/* Standalone <Section> (outside Form) = the calculator-result-card
             standard. title-only = existing consumer (publicstatus/tier-admin),
             must NOT regress from the border-b removal; subtitle +
-            actions footer = new. No divider under the title (shadcn pattern). */}
+            actions (title row, top right) = new. No divider under the title (shadcn pattern). */}
         <div className="flex max-w-md flex-col gap-6">
           <Section title="Affordable rate / month">
             <div className="text-2xl font-semibold tabular-nums">€2,500.00</div>
