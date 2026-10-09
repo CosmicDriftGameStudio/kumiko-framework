@@ -23,6 +23,12 @@ export const tenantDestructionStageSucceededSchema = z.object({
   attempts: z.number().int().positive(),
 });
 
+export const tenantDestructionStageProgressedSchema = z.object({
+  stage: z.string().min(1),
+  attempts: z.number().int().positive(),
+  processed: z.number().int().nonnegative(),
+});
+
 export const tenantDestructionStageFailedSchema = z.object({
   stage: z.string().min(1),
   attempts: z.number().int().positive(),

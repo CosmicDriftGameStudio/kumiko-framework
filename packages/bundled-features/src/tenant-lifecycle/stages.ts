@@ -22,6 +22,7 @@ import {
   isTenantResourceExtensionHooks,
   type Registry,
   type TenantDataHookCtx,
+  type TenantDestroyHookResult,
   type TenantId,
   type TenantResourceExtensionName,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -61,12 +62,18 @@ export type DestructionStageCtx = {
   // EXT_TENANT_DATA usage's declared escapeHatch.
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly actor?: string;
+  // Epoch ms the stage must hand back by returning { done: false }.
+  readonly deadlineAt: number;
 };
+
+export type StageRunOutcome = { readonly done: boolean; readonly processed: number };
+
+const STAGE_DONE: StageRunOutcome = { done: true, processed: 0 };
 
 export type DestructionStage = {
   readonly name: TenantDestructionStageName;
   readonly maxAttempts: number;
-  readonly run: (ctx: DestructionStageCtx) => Promise<void>;
+  readonly run: (ctx: DestructionStageCtx) => Promise<StageRunOutcome>;
 };
 
 const tenantCrud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
@@ -78,24 +85,44 @@ const tenantMembershipCrud = createEventStoreExecutor(
   },
 );
 
+// Every hook still runs each tick (they are idempotent), so a later hook is not
+// starved by an earlier one that keeps reporting done:false.
+function newOutcomeAccumulator(): {
+  add: (result: TenantDestroyHookResult | void) => void;
+  outcome: () => StageRunOutcome;
+} {
+  let allDone = true;
+  let processed = 0;
+  return {
+    add: (result) => {
+      if (result?.done === false) allDone = false;
+      processed += result?.processed ?? 0;
+    },
+    outcome: () => ({ done: allDone, processed }),
+  };
+}
+
 async function runExtensionDestroyHooks(
   registry: Registry,
   extensionName: TenantResourceExtensionName,
   ctx: DestructionStageCtx,
-): Promise<void> {
+): Promise<StageRunOutcome> {
   const usages = registry.getExtensionUsages(extensionName);
+  const total = newOutcomeAccumulator();
   for (const usage of usages) {
     if (!isTenantResourceExtensionHooks(usage.options)) {
       throw new Error(
         `${extensionName} registration for "${usage.entityName}" has no destroy function`,
       );
     }
-    await usage.options.destroyTenant(ctx.tenantId, ctx);
+    total.add(await usage.options.destroyTenant(ctx.tenantId, ctx));
   }
+  return total.outcome();
 }
 
-async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<void> {
+async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<StageRunOutcome> {
   const usages = ctx.registry.getExtensionUsages(EXT_TENANT_DATA);
+  const total = newOutcomeAccumulator();
   for (const usage of usages) {
     if (!isTenantDataExtensionHooks(usage.options)) {
       throw new Error(
@@ -117,19 +144,21 @@ async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<void> {
       }),
       registry: ctx.registry,
       tenantId: ctx.tenantId,
+      deadlineAt: ctx.deadlineAt,
       fileProviderResolver: ctx.fileProviderResolver,
       log: ctx.log,
     };
-    await destroy(hookCtx);
+    total.add(await destroy(hookCtx));
   }
+  return total.outcome();
 }
 
-async function eraseSubjectKeys(ctx: DestructionStageCtx): Promise<void> {
+async function eraseSubjectKeys(ctx: DestructionStageCtx): Promise<StageRunOutcome> {
   const kms = configuredPiiSubjectKms();
   if (!kms) {
     ctx.log?.("[tenant-lifecycle] subject-keys stage skipped: no KMS adapter configured");
     // skip: KMS optional — apps without crypto-shredding still run other destroy stages
-    return;
+    return STAGE_DONE;
   }
   const memberships = await selectMany<{ userId: string }>(ctx.db, tenantMembershipsTable, {
     tenantId: ctx.tenantId,
@@ -155,15 +184,17 @@ async function eraseSubjectKeys(ctx: DestructionStageCtx): Promise<void> {
       tenantRecordSubject,
     );
   }
+  return STAGE_DONE;
 }
 
-async function purgeTenantCache(ctx: DestructionStageCtx): Promise<void> {
+async function purgeTenantCache(ctx: DestructionStageCtx): Promise<StageRunOutcome> {
   // ponytail: Redis SCAN+DEL is wired when ctx carries a redis client; until
   // then this stage is a documented no-op (no cache layer in test stack).
   ctx.log?.("[tenant-lifecycle] cache stage: no redis client in ctx — skipped");
+  return STAGE_DONE;
 }
 
-async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<void> {
+async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<StageRunOutcome> {
   const now = getTemporal().Now.instant();
   const user = createSystemUser(ctx.tenantId);
   const db = createTenantDb(ctx.db, ctx.tenantId, "system");
@@ -202,6 +233,7 @@ async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<void> {
     { skipOptimisticLock: true },
   );
   invalidateTenantLifecycleGate(ctx.tenantId);
+  return STAGE_DONE;
 }
 
 export const DESTRUCTION_STAGES: readonly DestructionStage[] = [

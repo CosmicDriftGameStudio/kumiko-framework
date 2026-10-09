@@ -55,6 +55,7 @@ import {
   type StorageProviderHookCtx,
   type TenantDataDestroyHook,
   type TenantDataHookCtx,
+  type TenantDestroyHookResult,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -64,6 +65,7 @@ import {
   storageKeyStemPrefix,
   tenantStoragePrefixes,
 } from "@cosmicdrift/kumiko-framework/files";
+import { type ChunkedMigrationResult, runChunkedMigration } from "../shared/index.js";
 
 const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName: "fileRef" });
 
@@ -71,6 +73,8 @@ const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName
 // — bounds each query instead of one `storage_key = ANY(...)` per listed key,
 // or a single unbounded array for a tenant with a huge prefix.
 const SURVIVOR_CHECK_BATCH_SIZE = 500;
+
+const DESTROY_CHUNK_SIZE = 500;
 
 function chunk<T>(items: readonly T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -82,27 +86,54 @@ function isUnderOwnPrefix(storageKey: string, prefixes: readonly string[]): bool
   return prefixes.some((prefix) => storageKey.startsWith(prefix));
 }
 
+function toDestroyHookResult(
+  result: ChunkedMigrationResult,
+  failureMessage: () => string | undefined,
+): TenantDestroyHookResult {
+  // A failure on the last item ends the run as "done" (nothing left to batch),
+  // so the failed count, not the stop reason, decides fail-closed.
+  if (result.failed > 0) {
+    throw new Error(failureMessage() ?? "files-tenant-data: destroy chunk failed");
+  }
+  return { done: result.stoppedReason === "done", processed: result.migrated };
+}
+
 export const fileRefTenantDestroyHook: TenantDataDestroyHook = async (ctx) => {
-  const rows = await ctx.db.selectMany<{ id: string; storageKey: string }>(fileRefsTable, {
-    tenantId: ctx.tenantId,
-  });
   const ownPrefixes = tenantStoragePrefixes(ctx.tenantId);
   const user = createSystemUser(ctx.tenantId);
-  for (const row of rows) {
-    if (!isUnderOwnPrefix(row.storageKey, ownPrefixes)) {
-      await deleteHandedOverBinary(ctx, row.storageKey);
-    }
-    const result = await crud.forget({ id: row.id }, user, ctx.db);
-    // Executor writes return {isSuccess:false} instead of throwing — a
-    // discarded result would report this destroy stage "succeeded" while the
-    // row (and its PII fileName) survives. Throw so the pipeline's
-    // retry/abandon handling sees it.
-    if (!result.isSuccess) {
-      throw new Error(
-        `files-tenant-data: failed to forget fileRef ${row.id} for tenant ${ctx.tenantId}: ${result.error.message}`,
-      );
-    }
-  }
+  let firstFailure: string | undefined;
+  // Converges without a cursor: forget() hard-deletes, so each batch query
+  // returns the next rows.
+  const result = await runChunkedMigration<{ id: string; storageKey: string }>({
+    nextBatch: () =>
+      ctx.db.selectMany<{ id: string; storageKey: string }>(
+        fileRefsTable,
+        { tenantId: ctx.tenantId },
+        { limit: DESTROY_CHUNK_SIZE },
+      ),
+    migrateRow: async (row) => {
+      if (!isUnderOwnPrefix(row.storageKey, ownPrefixes)) {
+        await deleteHandedOverBinary(ctx, row.storageKey);
+      }
+      const forgotten = await crud.forget({ id: row.id }, user, ctx.db);
+      // Executor writes return {isSuccess:false} instead of throwing — a
+      // discarded result would report this destroy stage "succeeded" while the
+      // row (and its PII fileName) survives. Throw so the pipeline's
+      // retry/abandon handling sees it.
+      if (!forgotten.isSuccess) {
+        throw new Error(
+          `files-tenant-data: failed to forget fileRef ${row.id} for tenant ${ctx.tenantId}: ${forgotten.error.message}`,
+        );
+      }
+      return "migrated";
+    },
+    maxFailures: 1,
+    deadlineAt: ctx.deadlineAt ?? Number.POSITIVE_INFINITY,
+    onRowError: (_row, err) => {
+      firstFailure = err instanceof Error ? err.message : String(err);
+    },
+  });
+  return toDestroyHookResult(result, () => firstFailure);
 };
 
 // The bytes live under the tenant that uploaded them (`<tenantId>/…` or
@@ -173,15 +204,33 @@ export const fileRefStorageDestroyHook: StorageProviderDestroyTenantHook = async
   // it and retries up to the stage's attempt cap before abandoning the destroy
   // (list+delete are idempotent, so a retry converges rather than
   // double-deleting or erroring on a missing key).
+  let processed = 0;
   for (const prefix of tenantStoragePrefixes(tenantId)) {
     const keys = await provider.list(prefix);
     const keptStemPrefixes = await survivorStemPrefixes(ctx.db, keys);
-    for (const key of keys) {
-      if (keptStemPrefixes.some((stemPrefix) => key.startsWith(stemPrefix))) continue;
-      assertSafeStorageKey(key);
-      await provider.delete(key);
-    }
+    const deletableKeys = keys.filter(
+      (key) => !keptStemPrefixes.some((stemPrefix) => key.startsWith(stemPrefix)),
+    );
+    const pending = [...deletableKeys];
+    let firstFailure: string | undefined;
+    const result = await runChunkedMigration<string>({
+      nextBatch: async () => pending.splice(0, DESTROY_CHUNK_SIZE),
+      migrateRow: async (key) => {
+        assertSafeStorageKey(key);
+        await provider.delete(key);
+        return "migrated";
+      },
+      maxFailures: 1,
+      deadlineAt: ctx.deadlineAt ?? Number.POSITIVE_INFINITY,
+      onRowError: (_key, err) => {
+        firstFailure = err instanceof Error ? err.message : String(err);
+      },
+    });
+    const hookResult = toDestroyHookResult(result, () => firstFailure);
+    processed += result.migrated;
+    if (!hookResult.done) return { done: false, processed };
   }
+  return { done: true, processed };
 };
 
 // Any listed key that is itself a surviving row's exact storageKey means a

@@ -17,6 +17,7 @@ import {
   TENANT_DESTRUCTION_FAILED_EVENT_SHORT,
   TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_SHORT,
   TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT,
+  TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT,
   TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT,
   TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT,
   TENANT_DESTRUCTION_STARTED_EVENT_SHORT,
@@ -28,6 +29,7 @@ import {
   tenantDestructionFailedSchema,
   tenantDestructionStageAbandonedSchema,
   tenantDestructionStageFailedSchema,
+  tenantDestructionStageProgressedSchema,
   tenantDestructionStageStartedSchema,
   tenantDestructionStageSucceededSchema,
   tenantDestructionStartedSchema,
@@ -98,6 +100,11 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
     r.defineEvent(
       TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT,
       tenantDestructionStageSucceededSchema,
+      { piiFields: "none" },
+    );
+    r.defineEvent(
+      TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT,
+      tenantDestructionStageProgressedSchema,
       { piiFields: "none" },
     );
     r.defineEvent(TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT, tenantDestructionStageFailedSchema, {

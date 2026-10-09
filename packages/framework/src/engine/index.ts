@@ -145,6 +145,7 @@ export {
 } from "./extensions/tenant-data.js";
 export {
   isTenantResourceExtensionHooks,
+  type TenantDestroyHookResult,
   type TenantResourceDestroyHook,
   type TenantResourceExtensionHooks,
   type TenantResourceHookCtx,

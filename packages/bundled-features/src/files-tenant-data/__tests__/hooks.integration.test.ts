@@ -60,6 +60,7 @@ import {
 } from "../../tenant-lifecycle/constants.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
+import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "../hooks.js";
 import { createFilesTenantDataFeature } from "../index.js";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
@@ -425,5 +426,74 @@ describe("files-tenant-data :: tenant destroy", () => {
       // exception above is narrow, not a general retreat from the sweep.
       expect(await provider.exists(orphanKey)).toBe(false);
     });
+  });
+});
+
+describe("files-tenant-data :: destroy hooks respect deadlineAt", () => {
+  const farFutureDeadline = Date.now() + 24 * 60 * 60 * 1000;
+
+  test("fileRefTenantDestroyHook yields done:false at an expired deadline and purges rows with time left", async () => {
+    await seedTenant(tenantA);
+    const key = buildStorageKey(tenantA.tenantId, "fileRef", 1, "attachment", "photo.jpg", "u1");
+    await seedFileRef(tenantA.tenantId, key);
+    await seedFileRef(tenantA.tenantId, `${tenantA.tenantId}/second.bin`);
+
+    const hookCtx = (deadlineAt: number) => ({
+      db: createTenantDb(db, tenantA.tenantId, "system"),
+      registry: stack.registry,
+      tenantId: tenantA.tenantId,
+      deadlineAt,
+      fileProviderResolver: async () => provider,
+    });
+
+    const expired = await fileRefTenantDestroyHook(hookCtx(0));
+    expect(expired).toMatchObject({ done: false });
+    expect(await selectMany(db, fileRefsTable, { tenantId: tenantA.tenantId })).toHaveLength(2);
+
+    const finished = await fileRefTenantDestroyHook(hookCtx(farFutureDeadline));
+    expect(finished).toEqual({ done: true, processed: 2 });
+    expect(await selectMany(db, fileRefsTable, { tenantId: tenantA.tenantId })).toHaveLength(0);
+  });
+
+  test("fileRefStorageDestroyHook keeps every key at an expired deadline and wipes them with time left", async () => {
+    await seedTenant(tenantA);
+    const keys = [`${tenantA.tenantId}/a.bin`, `${tenantA.tenantId}/b.bin`];
+    for (const key of keys) await provider.write(key, new Uint8Array([1]));
+
+    const hookCtx = (deadlineAt: number) => ({
+      tenantId: tenantA.tenantId,
+      db: stack.db,
+      deadlineAt,
+      fileProviderResolver: async () => provider,
+    });
+
+    const expired = await fileRefStorageDestroyHook(tenantA.tenantId, hookCtx(0));
+    expect(expired).toMatchObject({ done: false });
+    expect(await provider.list(`${tenantA.tenantId}/`)).toHaveLength(2);
+
+    const finished = await fileRefStorageDestroyHook(tenantA.tenantId, hookCtx(farFutureDeadline));
+    expect(finished).toEqual({ done: true, processed: 2 });
+    expect(await provider.list(`${tenantA.tenantId}/`)).toHaveLength(0);
+  });
+
+  test("fileRefStorageDestroyHook fails closed when deleting the last pending key throws", async () => {
+    await seedTenant(tenantA);
+    await provider.write(`${tenantA.tenantId}/only.bin`, new Uint8Array([1]));
+    const failingProvider = {
+      ...provider,
+      delete: async () => {
+        throw new Error("storage delete failed");
+      },
+    };
+
+    await expect(
+      fileRefStorageDestroyHook(tenantA.tenantId, {
+        tenantId: tenantA.tenantId,
+        db: stack.db,
+        deadlineAt: farFutureDeadline,
+        fileProviderResolver: async () => failingProvider,
+      }),
+    ).rejects.toThrow("storage delete failed");
+    expect(await provider.list(`${tenantA.tenantId}/`)).toHaveLength(1);
   });
 });
