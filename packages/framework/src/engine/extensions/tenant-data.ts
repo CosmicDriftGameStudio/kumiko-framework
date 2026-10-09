@@ -14,7 +14,7 @@ export interface TenantDataHookCtx {
   readonly db: TenantDb;
   readonly registry: Registry;
   readonly tenantId: TenantId;
-  // Epoch ms; undefined = no time bound. A hook nearing it returns { done: false }
+  // Epoch ms; undefined = no time bound. A hook nearing it returns { done: false, processed }
   // and the runner resumes next tick, so hooks must be idempotent on re-call.
   readonly deadlineAt?: number;
   // Threaded through from DestructionStageCtx (tenant-lifecycle/stages.ts),

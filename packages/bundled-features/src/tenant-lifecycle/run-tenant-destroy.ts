@@ -31,6 +31,7 @@ import {
 } from "./constants.js";
 import { invalidateTenantLifecycleGate, TEARDOWN_GATE_SETTLE_MS } from "./lifecycle-gate.js";
 import {
+  type DestructionStage,
   type DestructionStageCtx,
   isDestructionPipelineComplete,
   pickNextStage,
@@ -237,6 +238,43 @@ async function maybeAppendDestructionCompleted(
   );
 }
 
+type StageTickResult = {
+  readonly done: boolean;
+  readonly error?: string;
+  readonly halted?: boolean;
+  readonly progressed?: boolean;
+};
+
+// `version` differs per caller: the catch path appends against the pre-run
+// version, the no-progress path against the version reloaded after run().
+async function recordFailedStageAttempt(args: {
+  readonly db: DbRunner;
+  readonly tenantId: TenantId;
+  readonly stage: DestructionStage;
+  readonly attempt: number;
+  readonly error: string;
+  readonly version: number;
+}): Promise<StageTickResult> {
+  if (args.attempt >= args.stage.maxAttempts) {
+    await haltPipelineOnAbandon({
+      db: args.db,
+      tenantId: args.tenantId,
+      stage: args.stage.name,
+      attempts: args.attempt,
+      error: args.error,
+    });
+    return { done: false, error: args.error, halted: true };
+  }
+  await appendTenantStageEvent(
+    args.db,
+    args.tenantId,
+    qualified(TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT),
+    { stage: args.stage.name, attempts: args.attempt, error: args.error },
+    args.version,
+  );
+  return { done: false, error: args.error };
+}
+
 export async function runNextDestructionStage(args: {
   readonly db: DbRunner;
   readonly registry: Registry;
@@ -246,12 +284,7 @@ export async function runNextDestructionStage(args: {
   readonly searchAdapter?: SearchAdapter;
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly actor?: string;
-}): Promise<{
-  readonly done: boolean;
-  readonly error?: string;
-  readonly halted?: boolean;
-  readonly progressed?: boolean;
-}> {
+}): Promise<StageTickResult> {
   const events = await loadAggregate(args.db, args.tenantId, args.tenantId);
   const { completed, abandoned, attemptsByStage } = replayStageState(events);
 
@@ -298,6 +331,18 @@ export async function runNextDestructionStage(args: {
     // the version fresh instead of trusting the pre-run `version`, or this
     // append throws VersionConflictError on every stage whose run() writes.
     const eventsAfterRun = await loadAggregate(args.db, args.tenantId, args.tenantId);
+    // A tick that neither finishes nor processes anything would otherwise loop
+    // forever, because progressed events do not count as attempts.
+    if (!outcome.done && outcome.processed === 0) {
+      return await recordFailedStageAttempt({
+        db: args.db,
+        tenantId: args.tenantId,
+        stage: next,
+        attempt,
+        error: `stage "${next.name}" made no progress`,
+        version: lastEventVersion(eventsAfterRun),
+      });
+    }
     if (!outcome.done) {
       await appendTenantStageEvent(
         args.db,
@@ -325,26 +370,14 @@ export async function runNextDestructionStage(args: {
     await maybeAppendDestructionCompleted(args.db, args.tenantId, completedAfter);
     return { done: isDestructionPipelineComplete(completedAfter) };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    const isFinal = attempt >= next.maxAttempts;
-    if (isFinal) {
-      await haltPipelineOnAbandon({
-        db: args.db,
-        tenantId: args.tenantId,
-        stage: next.name,
-        attempts: attempt,
-        error: message,
-      });
-      return { done: false, error: message, halted: true };
-    }
-    await appendTenantStageEvent(
-      args.db,
-      args.tenantId,
-      qualified(TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT),
-      { stage: next.name, attempts: attempt, error: message },
+    return await recordFailedStageAttempt({
+      db: args.db,
+      tenantId: args.tenantId,
+      stage: next,
+      attempt,
+      error: err instanceof Error ? err.message : String(err),
       version,
-    );
-    return { done: false, error: message };
+    });
   }
 }
 
