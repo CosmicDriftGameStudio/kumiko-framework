@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-08T18:22:41.907Z",
+  "generatedAt": "2026-10-09T13:53:36.644Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1295,8 +1295,10 @@
           "columns": ["tenant_id", "subject_type", "subject_id"]
         },
         {
-          "name": "read_ledger_schedules_tenant_id_source_ref_idx",
-          "columns": ["tenant_id", "source_ref"]
+          "name": "read_ledger_schedules_tenant_id_source_ref_uidx",
+          "columns": ["tenant_id", "source_ref"],
+          "unique": true,
+          "whereSql": "\"source_ref\" IS NOT NULL"
         }
       ],
       "source": "managed"

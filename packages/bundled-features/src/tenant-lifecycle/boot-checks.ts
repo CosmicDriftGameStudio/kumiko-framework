@@ -77,3 +77,16 @@ export function validateTenantDestroyHookShapes(features: readonly FeatureDefini
     }
   }
 }
+
+// `files-tenant-data` is opt-in (files stays usable without tenant-lifecycle),
+// so a tenant-lifecycle app that mounts `files` but forgets it destroys the
+// tenant's fileRef rows and storage binaries never — only a warning, since
+// some apps legitimately handle file erasure themselves.
+export function warnIfFilesMountedWithoutTenantData(features: readonly FeatureDefinition[]): void {
+  const mounted = new Set(features.map((f) => f.name));
+  // skip: nothing to cover (no files) or already covered.
+  if (!mounted.has("files") || mounted.has("files-tenant-data")) return;
+  console.warn(
+    '[kumiko:boot] feature "files" is mounted with "tenant-lifecycle" but "files-tenant-data" is not — tenant destroy will leave fileRef rows and stored file binaries behind. Mount createFilesTenantDataFeature() to cover them.',
+  );
+}

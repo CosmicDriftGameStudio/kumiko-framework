@@ -13,19 +13,38 @@ import { MAX_TRANSFER_DEPTH, validateTransferGraph } from "../transfer-graph.js"
 const textField = () => createTextField({ personal: false, reason: "technical_reference" });
 
 function entity(opts: {
-  readonly references?: Readonly<Record<string, { entity: string; multiple?: true }>>;
+  readonly references?: Readonly<
+    Record<string, { entity: string; multiple?: true; handover?: "stay" }>
+  >;
+  readonly parentRefTo?: readonly string[];
   readonly transferable?: boolean;
 }): EntityDefinition {
   const references = Object.fromEntries(
     Object.entries(opts.references ?? {}).map(([field, ref]) => [
       field,
-      { type: "reference" as const, entity: ref.entity, ...(ref.multiple && { multiple: true }) },
+      {
+        type: "reference" as const,
+        entity: ref.entity,
+        ...(ref.multiple && { multiple: true }),
+        ...(ref.handover && { handover: ref.handover }),
+      },
     ]),
   );
   return createEntity({
     table: "graph_rows",
     ...(opts.transferable !== false && { transferable: true }),
-    fields: { ...references, label: textField() },
+    ...(opts.parentRefTo && {
+      parentRef: {
+        entityTypeField: "hostType",
+        entityIdField: "hostId",
+        allowedTypes: opts.parentRefTo,
+      },
+    }),
+    fields: {
+      ...references,
+      ...(opts.parentRefTo && { hostType: textField(), hostId: textField() }),
+      label: textField(),
+    },
   });
 }
 
@@ -111,17 +130,46 @@ describe("validateTransferGraph", () => {
     expect(() => validate(chain)).toThrow(/deeper than the 5-level limit.*e0 -> e1/s);
   });
 
-  test("does not count a non-transferable link as part of the chain", () => {
+  // The mover hops through a non-transferable entity before it fails the claim,
+  // so the boot limit has to count it too: both measure the same graph.
+  test("counts a non-transferable intermediate node and a parentRef leaf into the chain", () => {
+    const chain: Record<string, EntityDefinition> = { e0: entity({}) };
+    for (let i = 1; i <= MAX_TRANSFER_DEPTH - 1; i++) {
+      chain[`e${i}`] = entity({
+        references: { parentId: { entity: `e${i - 1}` } },
+        ...(i === 3 && { transferable: false }),
+      });
+    }
+    chain["photo"] = entity({ parentRefTo: [`e${MAX_TRANSFER_DEPTH - 1}`] });
+    expect(() => validate(chain)).not.toThrow();
+
+    chain["extra"] = entity({ references: { parentId: { entity: `e${MAX_TRANSFER_DEPTH - 1}` } } });
+    chain["photo"] = entity({ parentRefTo: ["extra"] });
+    expect(() => validate(chain)).toThrow(/deeper than the 5-level limit.*e0 -> e1 -> e2 -> e3/s);
+  });
+
+  test("does not walk a reference marked handover: stay", () => {
     const chain: Record<string, EntityDefinition> = { e0: entity({}) };
     for (let i = 1; i <= 7; i++) {
       chain[`e${i}`] = entity({
-        references: { parentId: { entity: `e${i - 1}` } },
-        // Breaks the chain in the middle: the walk stops here.
-        ...(i === 3 && { transferable: false }),
+        references: {
+          parentId: { entity: `e${i - 1}`, ...(i === 3 && { handover: "stay" as const }) },
+        },
       });
     }
 
     expect(() => validate(chain)).not.toThrow();
+  });
+
+  test("leaves a multiple reference marked handover: stay alone", () => {
+    expect(() =>
+      validate({
+        run: entity({}),
+        bulk: entity({
+          references: { runIds: { entity: "run", multiple: true, handover: "stay" } },
+        }),
+      }),
+    ).not.toThrow();
   });
 
   // A feature-prefixed reference target ("<feature>:<entity>") must resolve

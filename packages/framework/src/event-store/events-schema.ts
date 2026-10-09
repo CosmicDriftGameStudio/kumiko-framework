@@ -13,7 +13,10 @@ import {
   uuid,
 } from "../db/dialect.js";
 import { type DbConnection, tableExists } from "../db/index.js";
-import { ensureIdempotencyKeyIndex } from "../db/queries/event-store.js";
+import {
+  ensureIdempotencyKeyIndex,
+  ensureMembershipPayloadTenantIndex,
+} from "../db/queries/event-store.js";
 import { unsafePushTables } from "../stack/index.js";
 import { createArchivedStreamsTable } from "./archive.js";
 import { createSnapshotsTable } from "./snapshot.js";
@@ -85,6 +88,7 @@ export async function createEventsTable(db: DbConnection): Promise<void> {
   // that predate the idempotency-key index get healed the same way
   // ensureSnapshotVersionColumn heals kumiko_snapshots.
   await ensureIdempotencyKeyIndex(db);
+  await ensureMembershipPayloadTenantIndex(db);
   await createArchivedStreamsTable(db);
   await createSnapshotsTable(db);
 }

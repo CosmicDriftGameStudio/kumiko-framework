@@ -21,6 +21,9 @@ export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void>
   await asRawClient(db).unsafe(`SELECT pg_notify($1, '')`, [channel]);
 }
 
+const IDEMPOTENCY_INDEX_NAME = "events_idempotency_uq";
+export const MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME = "events_membership_payload_tenant_idx";
+
 // Tenant-scoped partial unique index over metadata.idempotencyKey.
 // Expression index straight on the jsonb column — no dedicated key column,
 // so it needs no INSERT-path change and covers admin-api's raw appends too
@@ -39,10 +42,14 @@ export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void>
 // undefined = index doesn't exist at all (nothing to drop, CREATE below
 // handles it); false = exists but INVALID (crashed mid-build, needs DROP +
 // rebuild); true = exists and valid.
-async function indexValidity(client: ReturnType<typeof asRawClient>): Promise<boolean | undefined> {
+async function indexValidity(
+  client: ReturnType<typeof asRawClient>,
+  indexName: string = IDEMPOTENCY_INDEX_NAME,
+): Promise<boolean | undefined> {
   const rows = await client.unsafe(
     `SELECT i.indisvalid FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid ` +
-      `WHERE c.relname = 'events_idempotency_uq' AND i.indrelid = '"kumiko_events"'::regclass`,
+      `WHERE c.relname = $1 AND i.indrelid = '"kumiko_events"'::regclass`,
+    [indexName],
   );
   return (rows[0] as { indisvalid?: boolean } | undefined)?.indisvalid;
 }
@@ -86,6 +93,31 @@ export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
       throw e;
     }
     throw duplicateIdempotencyKeyErrorOr(e);
+  }
+}
+
+// forget-cleanup reads the membership history by payload->>'tenantId' (not the
+// tenant_id column — cross-tenant SystemAdmin adds land under the actor's
+// tenant), which no other index covers: without this it scans every event.
+// Same CONCURRENTLY + INVALID-rebuild handling as the idempotency index.
+export async function ensureMembershipPayloadTenantIndex(db: AnyDb): Promise<void> {
+  const client = asRawClient(db);
+  try {
+    if ((await indexValidity(client, MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME)) === false) {
+      await client.unsafe(
+        `DROP INDEX CONCURRENTLY IF EXISTS "${MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME}"`,
+      );
+    }
+    await client.unsafe(
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME}" ON "kumiko_events" ` +
+        `((("payload"->>'tenantId'))) WHERE "aggregate_type" = 'tenant-membership'`,
+    );
+  } catch (e) {
+    if (isBenignConcurrentIndexBuildRace(e)) {
+      // skip: sibling pod already built a valid index — this race loser is done.
+      if ((await indexValidity(client, MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME)) === true) return;
+    }
+    throw e;
   }
 }
 

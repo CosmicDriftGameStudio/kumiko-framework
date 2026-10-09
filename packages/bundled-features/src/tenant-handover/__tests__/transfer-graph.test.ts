@@ -9,19 +9,26 @@ import {
   createEntity,
   createTextField,
   type EntityDefinition,
+  findOverDeepTransferChain,
   type Registry,
+  resolveEntityTransferAdjacency,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveTransferAdjacency, type TransferAdjacency } from "../transfer-graph.js";
 
 function entity(opts: {
   readonly references?: Readonly<Record<string, string>>;
+  readonly stayReferences?: readonly string[];
   readonly parentRefTo?: readonly string[];
   readonly transferable?: boolean;
 }): EntityDefinition {
   const references = Object.fromEntries(
     Object.entries(opts.references ?? {}).map(([field, target]) => [
       field,
-      { type: "reference" as const, entity: target },
+      {
+        type: "reference" as const,
+        entity: target,
+        ...(opts.stayReferences?.includes(field) && { handover: "stay" as const }),
+      },
     ]),
   );
   return createEntity({
@@ -189,5 +196,34 @@ describe("resolveTransferAdjacency", () => {
     const adjacency = resolveTransferAdjacency(registryOf({ run: entity({}), bulk }), "run");
 
     expect(childrenOf(adjacency, "run")).toEqual([]);
+  });
+
+  test("does not report an edge for a reference marked handover: stay", () => {
+    const adjacency = resolveTransferAdjacency(
+      registryOf({
+        run: entity({}),
+        note: entity({ references: { runId: "run" }, stayReferences: ["runId"] }),
+      }),
+      "run",
+    );
+
+    expect(childrenOf(adjacency, "run")).toEqual([]);
+  });
+
+  // The boot validator's depth limit and the mover walk one graph definition:
+  // a parentRef edge and a non-transferable middle node count for both.
+  test("measures the same chain length as the boot validator over parentRef and non-transferable nodes", () => {
+    const entities: Record<string, EntityDefinition> = {
+      run: entity({}),
+      campaign: entity({ references: { runId: "run" }, transferable: false }),
+      photo: entity({ parentRefTo: ["campaign"] }),
+    };
+    const adjacency = resolveTransferAdjacency(registryOf(entities), "run");
+    const frameworkAdjacency = resolveEntityTransferAdjacency(new Map(Object.entries(entities)));
+
+    expect(childrenOf(adjacency, "run")).toEqual(["campaign"]);
+    expect(childrenOf(adjacency, "campaign")).toEqual(["photo"]);
+    expect(childrenOf(frameworkAdjacency, "campaign")).toEqual(["photo"]);
+    expect(findOverDeepTransferChain(adjacency, ["run"])).toBeUndefined();
   });
 });

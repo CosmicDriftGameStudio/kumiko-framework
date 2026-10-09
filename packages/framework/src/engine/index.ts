@@ -354,6 +354,13 @@ export {
   type TierResolverPlugin,
   type TrialGate,
 } from "./tier-resolver-extension.js";
+export {
+  findOverDeepTransferChain,
+  resolveTransferAdjacency as resolveEntityTransferAdjacency,
+  type TransferAdjacency,
+  type TransferEdge,
+  type TransferEdgeLink,
+} from "./transfer-adjacency.js";
 export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers.js";
 // Types
 export type {

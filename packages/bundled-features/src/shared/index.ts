@@ -21,6 +21,7 @@ export { createLockoutCounter, type LockoutCounterState } from "./lockout-counte
 export { mapWithConcurrency } from "./map-with-concurrency.js";
 export {
   denyUnlessJoinRowParentVisible,
+  hostRowIsGone,
   joinRowParentIsVisible,
   parentRowIsVisible,
 } from "./parent-visibility.js";

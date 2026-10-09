@@ -9,7 +9,11 @@ import {
   type FeatureDefinition,
   type TenantLifecycleStatusPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { validateTenantDataHookCoverage, validateTenantDestroyHookShapes } from "./boot-checks.js";
+import {
+  validateTenantDataHookCoverage,
+  validateTenantDestroyHookShapes,
+  warnIfFilesMountedWithoutTenantData,
+} from "./boot-checks.js";
 import {
   DESTRUCTION_CANCELLED_EVENT_SHORT,
   DESTRUCTION_REQUESTED_EVENT_SHORT,
@@ -80,6 +84,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
     // guard's "tenant-lifecycle mounted" gate exactly.
     r.bootCheck(({ features }) => validateTenantDataHookCoverage(features));
     r.bootCheck(({ features }) => validateTenantDestroyHookShapes(features));
+    r.bootCheck(({ features }) => warnIfFilesMountedWithoutTenantData(features));
 
     r.defineEvent(DESTRUCTION_REQUESTED_EVENT_SHORT, destructionRequestedSchema, {
       piiFields: "none",

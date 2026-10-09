@@ -165,8 +165,8 @@ export const scheduleEntity = createEntity({
       filterable: true,
     }),
     // Caller-assigned stable key (e.g. one id per lease position) to find the
-    // schedule again. Not unique: callers keep their own find-then-create;
-    // `description` stays pure display text instead of a lookup key.
+    // schedule again; unique per tenant when set. `description` stays pure
+    // display text instead of a lookup key.
     sourceRef: createTextField({
       maxLength: 128,
       personal: false,
@@ -174,10 +174,16 @@ export const scheduleEntity = createEntity({
       filterable: true,
     }),
   },
-  // A separate non-unique index: changing the subject index would drop and
-  // recreate it, an additional one is a plain CREATE INDEX.
+  // Find-then-create by sourceRef races across tabs/devices; only the DB closes
+  // that gap. Partial because sourceRef is optional. A new name (not the old
+  // non-unique default) keeps the migration an in-place CREATE UNIQUE INDEX.
   indexes: [
     { columns: ["tenantId", "subjectType", "subjectId"] },
-    { columns: ["tenantId", "sourceRef"] },
+    {
+      columns: ["tenantId", "sourceRef"],
+      unique: true,
+      where: sql`"source_ref" IS NOT NULL`,
+      name: "read_ledger_schedules_tenant_id_source_ref_uidx",
+    },
   ],
 });
