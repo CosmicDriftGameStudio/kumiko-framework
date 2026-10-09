@@ -24,7 +24,7 @@ import {
   type RootResolution,
   resolveRepoRoots,
 } from "./roots";
-import { type RootScan, type ScanSpec, scanFiles, scanRoots } from "./scan-scope";
+import { type RootScan, type ScanOptions, type ScanSpec, scanFiles, scanRoots } from "./scan-scope";
 import {
   applySecurityBaseline,
   loadSecurityBaseline,
@@ -61,6 +61,10 @@ export type AstGuard = {
 
 export function isSecurityGuard(guard: Pick<AstGuard, "security">): boolean {
   return guard.security === true;
+}
+
+function scanOptionsFor(guard: Pick<AstGuard, "security">): ScanOptions {
+  return { security: isSecurityGuard(guard) };
 }
 
 // Followers call the predicate per import hop; findLocalRepo re-reads
@@ -126,7 +130,7 @@ export function buildSharedProject(
     ...new Set(
       guards.flatMap((guard) => {
         try {
-          return scanFiles(guard.scan, roots);
+          return scanFiles(guard.scan, roots, scanOptionsFor(guard));
         } catch {
           return [];
         }
@@ -143,7 +147,7 @@ export function filesForGuard(
   guard: AstGuard,
   roots: readonly RepoRoot[] = resolveRepoRoots(),
 ): SourceFile[] {
-  return scanFiles(guard.scan, roots).map(
+  return scanFiles(guard.scan, roots, scanOptionsFor(guard)).map(
     (path) => project.getSourceFile(path) ?? project.addSourceFileAtPath(path),
   );
 }
@@ -366,7 +370,9 @@ export function runGuards(
 ): RunResult[] {
   const results: RunResult[] = [];
   const scan =
-    deps.scan ?? ((guard: AstGuard, roots: readonly RepoRoot[]) => scanRoots(guard.scan, roots));
+    deps.scan ??
+    ((guard: AstGuard, roots: readonly RepoRoot[]) =>
+      scanRoots(guard.scan, roots, scanOptionsFor(guard)));
   const roots = deps.roots ?? resolveRepoRoots();
 
   for (const guard of guards) {
@@ -505,7 +511,9 @@ export function explainGuards(
   deps: ExplainGuardsDeps = {},
 ): string[] {
   const scan =
-    deps.scan ?? ((guard: AstGuard, roots: readonly RepoRoot[]) => scanRoots(guard.scan, roots));
+    deps.scan ??
+    ((guard: AstGuard, roots: readonly RepoRoot[]) =>
+      scanRoots(guard.scan, roots, scanOptionsFor(guard)));
   const { roots } = deps.resolution ?? explainRepoRoots();
   const lines = [
     `Repo: ${roots[0]?.root.absPath ?? "— none found (no package.json with kumiko.json/src layout above cwd)"}`,

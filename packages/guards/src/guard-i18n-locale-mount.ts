@@ -99,7 +99,14 @@ function localeDeClientRef(node: Node): boolean {
 // through the specifier's own name to get there.
 function resolveDeclaration(identifier: Identifier, depth = 0): Node | undefined {
   if (depth > 3) return undefined;
-  const def = identifier.getDefinitionNodes()[0];
+  // With a contextual type (e.g. a declared options type) the first definition
+  // can be the property signature, not the binding — pick the binding.
+  const def = identifier
+    .getDefinitionNodes()
+    .find(
+      (node) =>
+        node.isKind(SyntaxKind.VariableDeclaration) || node.isKind(SyntaxKind.ImportSpecifier),
+    );
   if (def === undefined) return undefined;
   if (def.isKind(SyntaxKind.VariableDeclaration)) return def;
   if (def.isKind(SyntaxKind.ImportSpecifier)) {
@@ -113,9 +120,14 @@ function resolveDeclaration(identifier: Identifier, depth = 0): Node | undefined
 
 // `as const` and `as const satisfies T[]` (both in active use, e.g.
 // kumiko-studio's run-config.ts) wrap the array literal in an AsExpression
-// and/or SatisfiesExpression — unwrap either so callers see the literal underneath.
+// and/or SatisfiesExpression, and `(X as T)` adds a ParenthesizedExpression —
+// unwrap all of them so callers see the literal underneath.
 function unwrapAsExpression(node: Node): Node {
-  if (node.isKind(SyntaxKind.AsExpression) || node.isKind(SyntaxKind.SatisfiesExpression)) {
+  if (
+    node.isKind(SyntaxKind.AsExpression) ||
+    node.isKind(SyntaxKind.SatisfiesExpression) ||
+    node.isKind(SyntaxKind.ParenthesizedExpression)
+  ) {
     return unwrapAsExpression(node.getExpression());
   }
   return node;
@@ -137,37 +149,44 @@ function resolveSameRepoInitializer(identifier: Identifier): Node | undefined {
   return init === undefined ? undefined : unwrapAsExpression(init);
 }
 
+// Bounds every alias/spread chain the guard follows; circular constants
+// (`const a = [...b]; const b = [...a]`) parse fine and must end in a verdict,
+// not a stack overflow.
+const MAX_ALIAS_DEPTH = 5;
+
 // Resolves an array-shaped value node down to its elements, whether it's a
 // literal right there or an identifier pointing at a same-repo constant
 // (`const CONST = [...]`, `... as const` included).
-function arrayElementsOf(value: Node | undefined): Node[] | undefined {
-  if (value === undefined) return undefined;
+function arrayElementsOf(value: Node | undefined, depth = 0): Node[] | undefined {
+  if (value === undefined || depth > MAX_ALIAS_DEPTH) return undefined;
   if (value.isKind(SyntaxKind.ArrayLiteralExpression)) return value.getElements();
   if (value.isKind(SyntaxKind.Identifier)) {
-    return arrayElementsOf(resolveSameRepoInitializer(value));
+    return arrayElementsOf(resolveSameRepoInitializer(value), depth + 1);
   }
   return undefined;
 }
 
-function elementRegistersGerman(el: Node): boolean {
+// Past the depth bound the answer is "no German found" (fail-closed).
+function elementRegistersGerman(el: Node, depth = 0): boolean {
+  if (depth > MAX_ALIAS_DEPTH) return false;
   if (el.isKind(SyntaxKind.SpreadElement)) {
     const expr = el.getExpression();
     if (expr.isKind(SyntaxKind.Identifier)) {
       const init = resolveSameRepoInitializer(expr);
-      if (init !== undefined) return elementRegistersGerman(init);
+      if (init !== undefined) return elementRegistersGerman(init, depth + 1);
       // Unresolvable or cross-repo identifier spread — fail-open rather than risk a false alarm.
       // Safe here: clientFeatures is already known to exist as an array, this only concerns
       // one of its elements — other elements are still checked.
       return true;
     }
-    return elementRegistersGerman(expr);
+    return elementRegistersGerman(expr, depth + 1);
   }
   if (el.isKind(SyntaxKind.ArrayLiteralExpression)) {
-    return el.getElements().some(elementRegistersGerman);
+    return el.getElements().some((element) => elementRegistersGerman(element, depth + 1));
   }
   // localeDeClient().translations (kumiko-studio auth-mount shape)
   if (el.isKind(SyntaxKind.PropertyAccessExpression)) {
-    return localeDeClientRef(el) || elementRegistersGerman(el.getExpression());
+    return localeDeClientRef(el) || elementRegistersGerman(el.getExpression(), depth + 1);
   }
   if (el.isKind(SyntaxKind.CallExpression)) {
     return localeDeClientRef(el.getExpression());
@@ -198,42 +217,90 @@ function clientFeaturesElements(prop: Node | undefined): Node[] | undefined {
   return arrayElementsOf(value);
 }
 
-const MAX_OPTIONS_SPREAD_DEPTH = 5;
+type ClientFeaturesLookup =
+  | { readonly found: false }
+  | { readonly found: true; readonly registersGerman: boolean };
 
-// Determines whether the mount call's options object — a literal right there,
-// or an identifier pointing at a same-repo constant (offlot's `APP_OPTIONS`
-// shape) — carries a `clientFeatures` property that registers German. Follows
-// `{ ...OTHER_OPTIONS, clientFeatures: [...] }` object spreads the same way
-// arrayElementsOf follows array spreads, so `clientFeatures` no longer has to
-// stay a literal at the call site to satisfy this guard (infra#734).
-//
-// Fail-closed (not fail-open) on an unresolvable/cross-repo spread source:
-// unlike a single array element, a whole unresolved options object could be
-// the only place `clientFeatures` lives — silently passing it would make the
-// guard blind again, exactly the risk infra#734 called out.
-function objectRegistersGermanClientFeatures(value: Node | undefined, depth = 0): boolean {
-  if (value === undefined || depth > MAX_OPTIONS_SPREAD_DEPTH) return false;
-  if (value.isKind(SyntaxKind.Identifier)) {
-    return objectRegistersGermanClientFeatures(resolveSameRepoInitializer(value), depth + 1);
+const CLIENT_FEATURES_ABSENT: ClientFeaturesLookup = { found: false };
+// An options source the guard cannot see into could hold (or override) clientFeatures —
+// unlike a single array element, treating it as "German registered" would blind the guard.
+const CLIENT_FEATURES_UNRESOLVABLE: ClientFeaturesLookup = { found: true, registersGerman: false };
+
+// `cond && {…}` and `cond ? {…} : {…}` spread one of their object branches (or nothing).
+function conditionalBranches(node: Node): Node[] | undefined {
+  if (node.isKind(SyntaxKind.ConditionalExpression))
+    return [node.getWhenTrue(), node.getWhenFalse()];
+  if (
+    node.isKind(SyntaxKind.BinaryExpression) &&
+    node.getOperatorToken().getKind() === SyntaxKind.AmpersandAmpersandToken
+  ) {
+    return [node.getRight()];
   }
-  if (!value.isKind(SyntaxKind.ObjectLiteralExpression)) return false;
-  const direct = value
-    .getProperties()
-    .find(
-      (p) =>
-        (p.isKind(SyntaxKind.PropertyAssignment) ||
-          p.isKind(SyntaxKind.ShorthandPropertyAssignment)) &&
-        p.getNameNode().getText() === "clientFeatures",
-    );
-  if (direct !== undefined)
-    return clientFeaturesElements(direct)?.some(elementRegistersGerman) ?? false;
-  return value
-    .getProperties()
-    .some(
-      (p) =>
-        p.isKind(SyntaxKind.SpreadAssignment) &&
-        objectRegistersGermanClientFeatures(p.getExpression(), depth + 1),
-    );
+  return undefined;
+}
+
+// Spreading these contributes no properties.
+function isNothingLiteral(node: Node): boolean {
+  return (
+    node.isKind(SyntaxKind.NullKeyword) ||
+    node.isKind(SyntaxKind.FalseKeyword) ||
+    (node.isKind(SyntaxKind.Identifier) && node.getText() === "undefined")
+  );
+}
+
+// Finds the clientFeatures property that wins at runtime in the mount call's
+// options — a literal right there, or an identifier pointing at a same-repo
+// constant (offlot's `APP_OPTIONS` shape). Properties are walked last to
+// first, mirroring object-spread override semantics: the last property or
+// spread that sets `clientFeatures` decides. Resolvable spreads without
+// `clientFeatures` are skipped; unresolvable/cross-repo ones are fail-closed.
+function lookupClientFeatures(value: Node | undefined, depth = 0): ClientFeaturesLookup {
+  if (value === undefined) return CLIENT_FEATURES_ABSENT;
+  if (depth > MAX_ALIAS_DEPTH) return CLIENT_FEATURES_UNRESOLVABLE;
+  const unwrapped = unwrapAsExpression(value);
+  if (unwrapped.isKind(SyntaxKind.Identifier)) {
+    const init = resolveSameRepoInitializer(unwrapped);
+    return init === undefined
+      ? CLIENT_FEATURES_UNRESOLVABLE
+      : lookupClientFeatures(init, depth + 1);
+  }
+  const branches = conditionalBranches(unwrapped);
+  if (branches !== undefined) {
+    const found = branches
+      .map((branch) => lookupClientFeatures(branch, depth + 1))
+      .filter((lookup) => lookup.found);
+    if (found.length === 0) return CLIENT_FEATURES_ABSENT;
+    // Which branch runs is unknown statically: German must be registered in every branch that sets clientFeatures.
+    return {
+      found: true,
+      registersGerman: found.every((lookup) => lookup.found && lookup.registersGerman),
+    };
+  }
+  if (isNothingLiteral(unwrapped)) return CLIENT_FEATURES_ABSENT;
+  if (!unwrapped.isKind(SyntaxKind.ObjectLiteralExpression)) return CLIENT_FEATURES_UNRESOLVABLE;
+  for (const prop of [...unwrapped.getProperties()].reverse()) {
+    if (
+      (prop.isKind(SyntaxKind.PropertyAssignment) ||
+        prop.isKind(SyntaxKind.ShorthandPropertyAssignment)) &&
+      prop.getNameNode().getText() === "clientFeatures"
+    ) {
+      return {
+        found: true,
+        registersGerman:
+          clientFeaturesElements(prop)?.some((el) => elementRegistersGerman(el)) ?? false,
+      };
+    }
+    if (prop.isKind(SyntaxKind.SpreadAssignment)) {
+      const spread = lookupClientFeatures(prop.getExpression(), depth + 1);
+      if (spread.found) return spread;
+    }
+  }
+  return CLIENT_FEATURES_ABSENT;
+}
+
+function objectRegistersGermanClientFeatures(value: Node | undefined): boolean {
+  const lookup = lookupClientFeatures(value);
+  return lookup.found && lookup.registersGerman;
 }
 
 function clientMountViolations(sf: SourceFile): GuardViolation[] {
@@ -258,7 +325,7 @@ function clientMountViolations(sf: SourceFile): GuardViolation[] {
     const init = attr.getInitializer();
     const expr = init?.isKind(SyntaxKind.JsxExpression) ? init.getExpression() : undefined;
     const elements = arrayElementsOf(expr);
-    const registered = elements?.some(elementRegistersGerman) ?? false;
+    const registered = elements?.some((el) => elementRegistersGerman(el)) ?? false;
     if (!registered) {
       violations.push({
         file: sf.getFilePath(),

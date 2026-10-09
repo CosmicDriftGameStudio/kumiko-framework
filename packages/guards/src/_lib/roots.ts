@@ -24,6 +24,9 @@ export type { RepoKind } from "@cosmicdrift/kumiko-repo-manifest";
 
 import type { RepoKind } from "@cosmicdrift/kumiko-repo-manifest";
 
+// Worktrees (`.wt/kumiko-framework-*`) keep this package name, so it is stable across checkouts.
+const FRAMEWORK_PACKAGE_NAME = "kumiko-framework";
+
 export type RepoRoot = {
   /** Repo identifier — the package.json `name`. */
   readonly name: string;
@@ -150,6 +153,11 @@ function repoAt(dir: string): RepoRoot | undefined {
   const name = pkg.name;
   if (typeof name !== "string") return undefined;
   const loaded = manifestRootAt(dir);
+  if (loaded?.manifest.kind === "framework" && name !== FRAMEWORK_PACKAGE_NAME) {
+    throw new Error(
+      `${join(dir, "kumiko.json")}: kind "framework" is reserved for the ${FRAMEWORK_PACKAGE_NAME} repo (package name is "${name}"); it narrows scans via frameworkWithin and must not be self-declared`,
+    );
+  }
   return loaded ? rootFrom(name, dir, loaded) : undefined;
 }
 

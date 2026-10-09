@@ -124,6 +124,27 @@ function extraHits(root: RepoRoot, globs: readonly string[] | undefined): Hit[] 
   return [...byRepoRel.values()];
 }
 
+// Security guards honour only these: a repo manifest must not be able to switch a security scan off for its own files.
+export const SECURITY_GUARD_HONORED_EXCLUDES: readonly string[] = [
+  "**/node_modules/**",
+  "**/dist/**",
+];
+
+export type ScanOptions = {
+  /** Security guards ignore manifest excludes beyond SECURITY_GUARD_HONORED_EXCLUDES. */
+  readonly security?: boolean;
+};
+
+function effectiveExcludes(
+  root: RepoRoot,
+  options: ScanOptions | undefined,
+): readonly string[] | undefined {
+  if (options?.security !== true) return root.manifest.excludes;
+  return (root.manifest.excludes ?? []).filter((pattern) =>
+    SECURITY_GUARD_HONORED_EXCLUDES.includes(pattern),
+  );
+}
+
 function afterExcludes(hits: readonly Hit[], excludes: readonly string[] | undefined): Hit[] {
   if (!excludes || excludes.length === 0) return [...hits];
   return hits.filter((hit) => !matchesAny(hit.repoRel, excludes));
@@ -144,9 +165,10 @@ function keepForSpec(hit: Hit, root: RepoRoot, spec: ScanSpec): boolean {
   return true;
 }
 
-function scanRoot(spec: ScanSpec, root: RepoRoot): RootScan {
-  const sourceSurfaceHits = afterExcludes(sourceHits(root), root.manifest.excludes);
-  const testSurfaceHits = () => afterExcludes(testHits(root), root.manifest.excludes);
+function scanRoot(spec: ScanSpec, root: RepoRoot, options?: ScanOptions): RootScan {
+  const excludes = effectiveExcludes(root, options);
+  const sourceSurfaceHits = afterExcludes(sourceHits(root), excludes);
+  const testSurfaceHits = () => afterExcludes(testHits(root), excludes);
   const scopeHits =
     spec.scope === "source"
       ? sourceSurfaceHits
@@ -159,7 +181,7 @@ function scanRoot(spec: ScanSpec, root: RepoRoot): RootScan {
     seen.add(hit.repoRel);
     return true;
   });
-  const additionalHits = afterExcludes(extraHits(root, spec.extraGlobs), root.manifest.excludes);
+  const additionalHits = afterExcludes(extraHits(root, spec.extraGlobs), excludes);
   const files = [...uniqueScopeHits, ...additionalHits.filter((hit) => !seen.has(hit.repoRel))]
     .filter((hit) => keepForSpec(hit, root, spec))
     .map((hit) => join(root.absPath, hit.repoRel))
@@ -172,10 +194,20 @@ export function keepsRootKind(spec: ScanSpec, root: RepoRoot): boolean {
   return root.kind !== "tooling";
 }
 
-export function scanRoots(spec: ScanSpec, roots: readonly RepoRoot[]): RootScan[] {
-  return roots.filter((root) => keepsRootKind(spec, root)).map((root) => scanRoot(spec, root));
+export function scanRoots(
+  spec: ScanSpec,
+  roots: readonly RepoRoot[],
+  options?: ScanOptions,
+): RootScan[] {
+  return roots
+    .filter((root) => keepsRootKind(spec, root))
+    .map((root) => scanRoot(spec, root, options));
 }
 
-export function scanFiles(spec: ScanSpec, roots: readonly RepoRoot[]): string[] {
-  return [...new Set(scanRoots(spec, roots).flatMap((rootScan) => rootScan.files))].sort();
+export function scanFiles(
+  spec: ScanSpec,
+  roots: readonly RepoRoot[],
+  options?: ScanOptions,
+): string[] {
+  return [...new Set(scanRoots(spec, roots, options).flatMap((rootScan) => rootScan.files))].sort();
 }

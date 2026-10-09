@@ -302,6 +302,57 @@ describe("scanDirectWrites :: tx-Receiver context-aware", () => {
   });
 });
 
+describe("scanDirectWrites :: table argument wrapped in casts", () => {
+  const SETUP = `
+    function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
+      r.entity("foo", fooEntity);
+    }
+    declare function deleteMany(db: unknown, table: unknown, where: unknown): Promise<void>;
+    declare const tables: { foo: unknown };
+    declare const db: { delete: (t: unknown) => void };
+  `;
+
+  function hitsFor(body: string, path = "/repo/foo.ts") {
+    const project = makeProject({
+      [path]: `${ENTITY_PROJECTION_PRELUDE}${SETUP}${body}`,
+    });
+    const esTables = collectEntityProjectionTables(project.getSourceFiles());
+    return scanDirectWrites(project.getSourceFileOrThrow(path), esTables);
+  }
+
+  test("BLOCK: cast-wrapped table arg is unwrapped and checked like a plain identifier", () => {
+    for (const wrapped of [
+      "fooTable as unknown",
+      "(fooTable)",
+      "fooTable!",
+      "fooTable satisfies unknown",
+      "<unknown>fooTable",
+    ]) {
+      const hits = hitsFor(`async function bad() { await deleteMany(db, ${wrapped}, {}); }`);
+      expect(hits).toHaveLength(1);
+      expect(hits[0]?.reason).toBe("non-tx-receiver");
+    }
+  });
+
+  test("ALLOW: a computed table arg stays unresolved and is skipped", () => {
+    expect(hitsFor(`async function ok() { await deleteMany(db, tables.foo, {}); }`)).toHaveLength(
+      0,
+    );
+    expect(hitsFor(`function ok() { db.delete(tables.foo as unknown); }`)).toHaveLength(0);
+  });
+
+  test("ALLOW: only the named orphan-cleanup function in seeding.ts is excepted", () => {
+    const seeding = "/repo/packages/bundled-features/src/template-resolver/seeding.ts";
+    const deleteIn = (fn: string) =>
+      `async function ${fn}() { await deleteMany(db, templateResourcesTable, {}); }`;
+    const prelude = (fn: string) =>
+      `export const templateResourcesTable = buildEntityTable("tr", fooEntity);\n${deleteIn(fn)}`;
+    expect(hitsFor(prelude("resolveExistingForEventStoreSeed"), seeding)).toHaveLength(0);
+    expect(hitsFor(prelude("someOtherFunction"), seeding)).toHaveLength(1);
+    expect(hitsFor(prelude("resolveExistingForEventStoreSeed"), "/repo/other.ts")).toHaveLength(1);
+  });
+});
+
 describe("guard.run() :: entity-only repo (kein createEventStoreExecutor mehr)", () => {
   test("BLOCK auf einer r.entity-Projection-Table wird erkannt, keine Canary-Fehlmeldung (Merge-vor-Null-Check-Fix)", () => {
     const project = makeProject({

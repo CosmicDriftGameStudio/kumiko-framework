@@ -51,8 +51,7 @@ async function resolveExistingForEventStoreSeed(
         `seed orphan check: projection ${id} has no events for tenant ${tenantId} but unscoped stream version is ${unscoped} — refusing delete/recreate to avoid wiping a live stream`,
       );
     }
-    // @cast-boundary orphan projection cleanup: empty stream, no executor verb;
-    // plain table ident trips guard-direct-entity-writes (infra EXCLUDE follow-up).
+    // The cast strips the executor-only brand that WritableTable rejects; the orphan row has no events, so no executor verb applies.
     await deleteMany(tdb, templateResourcesTable as EntityTableMeta, { id, tenantId });
     return null;
   }
