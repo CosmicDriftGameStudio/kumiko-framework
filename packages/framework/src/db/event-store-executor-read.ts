@@ -273,6 +273,11 @@ function deriveParentNarrowTypes(
 // have found. Native text search on the entity's own fields still applies.
 const MAX_REFERENCE_SEARCH_IDS = 200;
 
+// The hit ids become an `id IN (...)` filter beneath the SQL cursor/filters/sort, so the
+// adapter must return the whole candidate set, not a page; matches Meilisearch's default
+// maxTotalHits. Past it the list fails loud instead of silently dropping hits.
+const MAX_SEARCH_CANDIDATE_IDS = 1000;
+
 type ReferenceSearchDescriptor = {
   readonly ownColumn: string;
   readonly targetEntityName: string;
@@ -660,7 +665,16 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
         const searchTenantId = streamTenantFor(user);
         const results = await effectiveSearchAdapter.search(searchTenantId, searchTerm, {
           filterType: entityName,
+          limit: MAX_SEARCH_CANDIDATE_IDS + 1,
         });
+        if (results.length > MAX_SEARCH_CANDIDATE_IDS) {
+          throw new UnprocessableError("search_too_many_results", {
+            details: {
+              entity: entityName,
+              hint: `Search matches more than ${MAX_SEARCH_CANDIDATE_IDS} documents; use a more specific term.`,
+            },
+          });
+        }
         filterIds = results.map((r) => r.entityId);
 
         // fw#2660 — union in reference-column label matches: a searchable
