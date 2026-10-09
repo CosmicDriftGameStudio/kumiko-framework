@@ -423,6 +423,37 @@ export function buildInsertSchema(
   return applyTotalsMatchRefinements(entity, z.object(shape));
 }
 
+// Field types whose column is nullable and whose projection write accepts a
+// plain `null`. Excluded: select/writeOnly text (fieldToZod is already
+// nullable there), and types where null would not clear cleanly — NOT NULL
+// jsonb columns (multiSelect, embedded, jsonb, multi reference), files/images
+// (no column; stripped from updates), locatedTimestamp (split into _utc/_tz
+// columns, a bare null targets a column that does not exist) and money (the
+// currency column would keep its stale value).
+const NULL_CLEARABLE_FIELD_TYPES: ReadonlySet<FieldDefinition["type"]> = new Set([
+  "text",
+  "longText",
+  "boolean",
+  "number",
+  "bigInt",
+  "decimal",
+  "reference",
+  "date",
+  "timestamp",
+  "tz",
+  "file",
+  "image",
+]);
+
+function isClearableByNull(field: FieldDefinition): boolean {
+  if (!NULL_CLEARABLE_FIELD_TYPES.has(field.type)) return false;
+  if (field.type === "reference" && field.multiple === true) return false;
+  if (field.type === "text" && field.writeOnly === true) return false;
+  const isRequired = "required" in field && field.required === true;
+  const hasDefault = "default" in field && field.default !== undefined;
+  return !isRequired && !hasDefault;
+}
+
 export function buildUpdateSchema(
   entity: EntityDefinition,
   currencies: readonly string[] = [...DEFAULT_CURRENCIES],
@@ -443,10 +474,11 @@ export function buildUpdateSchema(
     // fieldToZod still knows the default for its "" → default mapping
     // (e.g. select) — applyDefaults: false only suppresses the schema-level
     // `.default(...)` fallback for a genuinely omitted key.
-    shape[name] = fieldToZod(field, currencies, {
+    const zodField = fieldToZod(field, currencies, {
       applyDefaults: false,
       isUpdate: true,
-    }).optional();
+    });
+    shape[name] = (isClearableByNull(field) ? zodField.nullable() : zodField).optional();
   }
 
   return applyTotalsMatchRefinements(entity, z.object(shape));
