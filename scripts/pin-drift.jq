@@ -11,7 +11,10 @@
 # that to `^<version>` (#1529). Strip a leading `^`/`~` before comparing so a
 # range-pinned peer at the release version isn't flagged as drift; dependencies/
 # optionalDependencies stay exact-compared (those pin `workspace:*` → exact).
+# A peer that is not a plain version (e.g. ">=0.353.0 <1.0.0") is an explicit
+# range chosen on purpose and never counts as drift.
 def stripCaret: sub("^[\\^~]"; "");
+def isPlainVersion: test("^[\\^~]?[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.+-]*)?$");
 
 (
   ((.dependencies // {}) | to_entries | map(. + { exact: true }))
@@ -22,6 +25,7 @@ def stripCaret: sub("^[\\^~]"; "");
     select(.key | startswith("@cosmicdrift/"))
     | select($expected[.key] != null)
     | . as $e
+    | select($e.exact or ($e.value | isPlainVersion))
     | (if $e.exact then $e.value else ($e.value | stripCaret) end) as $cmp
     | select($cmp != $expected[$e.key])
     | "\($e.key)@\($e.value) (expected \($expected[$e.key]))"

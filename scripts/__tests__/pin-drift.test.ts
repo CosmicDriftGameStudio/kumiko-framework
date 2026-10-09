@@ -31,10 +31,17 @@ const EXPECTED = {
   "@cosmicdrift/kumiko-framework": "0.67.0",
 } as const;
 
-function runGuard(manifest: Record<string, unknown>): string {
+const EXPECTED_RANGE_ERA = {
+  "@cosmicdrift/kumiko-framework": "0.354.0",
+} as const;
+
+function runGuard(
+  manifest: Record<string, unknown>,
+  expected: Record<string, string> = EXPECTED,
+): string {
   return execFileSync(
     "jq",
-    ["-r", "--argjson", "expected", JSON.stringify(EXPECTED), "-f", PROGRAM],
+    ["-r", "--argjson", "expected", JSON.stringify(expected), "-f", PROGRAM],
     { input: JSON.stringify(manifest), encoding: "utf8" },
   ).trim();
 }
@@ -93,5 +100,26 @@ describe("pin-drift.jq guard", () => {
     expect(runGuard({ optionalDependencies: { "@cosmicdrift/kumiko-framework": "0.60.0" } })).toBe(
       "@cosmicdrift/kumiko-framework@0.60.0 (expected 0.67.0)",
     );
+  });
+
+  test("peer caret at the release version passes clean (0.354.0)", () => {
+    expect(
+      runGuard({ peerDependencies: { "@cosmicdrift/kumiko-framework": "^0.354.0" } }, EXPECTED_RANGE_ERA),
+    ).toBe("");
+  });
+
+  test("stale peer caret is reported as drift (0.354.0)", () => {
+    expect(
+      runGuard({ peerDependencies: { "@cosmicdrift/kumiko-framework": "^0.353.0" } }, EXPECTED_RANGE_ERA),
+    ).toBe("@cosmicdrift/kumiko-framework@^0.353.0 (expected 0.354.0)");
+  });
+
+  test("explicit peer range is not drift", () => {
+    expect(
+      runGuard(
+        { peerDependencies: { "@cosmicdrift/kumiko-framework": ">=0.353.0 <1.0.0" } },
+        EXPECTED_RANGE_ERA,
+      ),
+    ).toBe("");
   });
 });
