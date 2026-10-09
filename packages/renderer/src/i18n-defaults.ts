@@ -108,6 +108,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.form.saveChanges": "Save changes",
     "kumiko.form.unsaved.one": "1 unsaved change",
     "kumiko.form.unsaved.other": "{count} unsaved changes",
+    "kumiko.form.unsavedChangesActionConfirm":
+      "You have unsaved changes in this form. They will be lost if you continue.",
     "kumiko.wizard.next-with-title": "Next: {title}",
     "kumiko.wizard.save-and-close": "Save and close",
     "kumiko.pager.previousPage": "Previous page",

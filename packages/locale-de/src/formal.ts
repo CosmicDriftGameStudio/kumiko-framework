@@ -150,6 +150,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Mehrere offene Entwürfe für dieses Formular gefunden. Welchen möchten Sie fortsetzen?",
   "kumiko.form.draft.resume-single":
     "Ein offener Entwurf für dieses Formular gefunden. Möchten Sie ihn fortsetzen?",
+  "kumiko.form.unsavedChangesActionConfirm":
+    "Ungespeicherte Änderungen in diesem Formular gehen verloren, wenn Sie fortfahren.",
   "notesHistory.section.createMode": "Speichern Sie zuerst den Eintrag, um Notizen anzulegen.",
   "rateLimiting.errors.bucketOutsideTenant":
     "Sie können nur Rate-Limit-Buckets Ihres eigenen Mandanten oder Benutzers einsehen.",

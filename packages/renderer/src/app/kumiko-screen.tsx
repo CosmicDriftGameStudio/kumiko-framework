@@ -1524,6 +1524,7 @@ function EntityEditUpdateForm({
     [entityId, recordVersion],
   );
 
+  const [formDirty, setFormDirty] = useState(false);
   const nav = useNav();
   const appFeatures = useAppFeatures();
   const dispatcher = useDispatcher();
@@ -1599,8 +1600,12 @@ function EntityEditUpdateForm({
         onRecordLeft: handleRecordLeft,
         sameEntityScreenId,
         defaultWritePayloadId: entityId,
+        ...(formDirty && {
+          discardChangesConfirm: effectiveTranslate("kumiko.form.unsavedChangesActionConfirm"),
+        }),
       }),
     [
+      formDirty,
       record,
       effectiveTranslate,
       nav,
@@ -1693,6 +1698,7 @@ function EntityEditUpdateForm({
         buildPayload={buildPayload}
         serverFieldPathPrefix={`${UPDATE_CHANGES_KEY}.`}
         onSubmit={handleSubmitted}
+        onChange={(state) => setFormDirty(state.dirty)}
         // allowDelete:false marks an entity without a CRUD delete (history is
         // kept) — without this gate the button dispatched against an
         // unregistered `<entity>:delete` handler.
