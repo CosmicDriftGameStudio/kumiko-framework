@@ -68,7 +68,7 @@ export const listQuery = defineQueryHandler({
       .optional(),
     sort: z.enum(["jobName", "status", "startedAt", "duration"]).optional(),
     sortDirection: z.enum(["asc", "desc"]).optional(),
-    limit: z.number().optional(),
+    limit: z.number().int().min(1).optional(),
     cursor: z.string().optional(),
     totalCount: z.boolean().optional(),
   }),

@@ -1,11 +1,11 @@
 // Pure renderer: EntityTableMeta → SQL DDL statements.
-// Wird vom Migrate-Generator (Phase 2 — CLI-Tool `kumiko migrate generate`)
-// genutzt um initial-SQL-Files zu schreiben. Output ist Start-Form für
-// User-Review — App-Author darf das SQL danach hand-editieren (extra-Index,
-// partial-Index, BRIN, custom-clauses) bevor committed wird.
+// The migrate generator (`kumiko-schema generate`) uses it to write the
+// initial SQL files. The output is a starting point for review: the app
+// author may hand-edit the SQL (extra index, partial index, BRIN, custom
+// clauses) before committing it.
 //
-// NO-MAGIC-ON-DATA: dieser Renderer wird NIE zur App-Runtime aufgerufen.
-// Nur Build-Step. Runner liest checked-in SQL, nicht Renderer-Output.
+// NO-MAGIC-ON-DATA: this renderer never runs at app runtime, only as a build
+// step. The runner reads the checked-in SQL, not renderer output.
 
 import { pgTypeToSqlType } from "./dialect.js";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.js";

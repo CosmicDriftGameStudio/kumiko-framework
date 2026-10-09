@@ -37,7 +37,7 @@ export const tenantFailuresQuery = defineQueryHandler({
   schema: z.object({
     jobName: z.string().optional(),
     subject: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-    limit: z.number().min(1).max(200).optional(),
+    limit: z.number().int().min(1).max(200).optional(),
   }),
   // Every membership rank: a failure record carries a job name and a
   // translation key, nothing a team member of the tenant may not see.
