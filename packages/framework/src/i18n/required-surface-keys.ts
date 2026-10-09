@@ -162,6 +162,7 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
 
 function pushDashboardChartRangeKeys(out: Set<string>, panel: DashboardChartPanel): void {
   for (const option of panel.ranges?.options ?? []) pushKey(out, option.label);
+  for (const kind of Object.values(panel.markerKinds ?? {})) pushKey(out, kind.label);
 }
 
 function pushDashboardFilterKeys(out: Set<string>, filter: DashboardFilterDefinition): void {

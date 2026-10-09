@@ -737,6 +737,7 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
           "demo:dashboard:group:net-worth-sub": { de: "Ohne Ordnerfilter", en: "All folders" },
           "demo:dashboard:range:1y": { de: "1 Jahr", en: "1 year" },
           "demo:dashboard:range:max": { de: "Max", en: "Max" },
+          "demo:dashboard:marker:payoff": { de: "Ablösung", en: "Payoff" },
         },
       });
     });
@@ -853,6 +854,9 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
     ["legendTotals", { legendTotals: false }],
     ["ranges", { ranges: RANGES }],
     ["brush", { brush: true }],
+    ["dateFormat", { dateFormat: "month" }],
+    ["initialWindow", { initialWindow: "from-today" }],
+    ["markerLegend", { markerLegend: "legend" }],
   ] as const)("rejects %s on a chart kind other than stacked-area", (prop, extra) => {
     const feature = gatedFeature([{ ...AREA, chart: "stacked-bars", ...extra }]);
     expect(() => validateBoot([feature])).toThrow(
@@ -891,6 +895,41 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
     expect(() => validateBoot([gatedFeature([{ ...AREA, brush: true }])])).not.toThrow();
     const feature = gatedFeature([{ ...AREA, brush: "yes" as unknown as boolean }]);
     expect(() => validateBoot([feature])).toThrow(/non-boolean brush/);
+  });
+
+  test("accepts dateFormat, initialWindow, markerLegend and a marker kind label on stacked-area", () => {
+    const feature = gatedFeature([
+      {
+        ...AREA,
+        dateFormat: "day",
+        initialWindow: "from-today",
+        markerLegend: "legend",
+        markerKinds: { payoff: { tone: "positive", label: "demo:dashboard:marker:payoff" } },
+      },
+    ]);
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test.each([
+    ["dateFormat", { dateFormat: "year" }, /dateFormat "year" must be one of day, month/],
+    [
+      "initialWindow",
+      { initialWindow: "today" },
+      /initialWindow "today" must be one of default-range, from-today/,
+    ],
+    ["markerLegend", { markerLegend: "table" }, /markerLegend "table" must be one of list, legend/],
+  ] as const)("rejects an invalid %s value", (_prop, extra, message) => {
+    const feature = gatedFeature([{ ...AREA, ...(extra as object) }]);
+    expect(() => validateBoot([feature])).toThrow(message);
+  });
+
+  test("rejects an empty marker kind label", () => {
+    const feature = gatedFeature([
+      { ...AREA, markerKinds: { payoff: { tone: "positive", label: " " } } },
+    ]);
+    expect(() => validateBoot([feature])).toThrow(
+      /markerKinds\["payoff"\]\.label must be a non-empty i18n key/,
+    );
   });
 
   test("rejects a marker kind without tone and color", () => {

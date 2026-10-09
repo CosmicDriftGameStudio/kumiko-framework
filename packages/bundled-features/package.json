@@ -17,7 +17,8 @@
   "kumiko": {
     "runtime": "runtime",
     "bunOnlyExports": [
-      "./template-resolver/testing"
+      "./template-resolver/testing",
+      "./tenant-lifecycle/testing"
     ]
   },
   "exports": {
@@ -88,6 +89,7 @@
     "./tenant/web": "./src/tenant/web/index.ts",
     "./tenant/seeding": "./src/tenant/seeding.ts",
     "./tenant-lifecycle": "./src/tenant-lifecycle/index.ts",
+    "./tenant-lifecycle/testing": "./src/tenant-lifecycle/testing.ts",
     "./tenant-handover": "./src/tenant-handover/index.ts",
     "./tenant/testing": "./src/tenant/testing.ts",
     "./user": "./src/user/index.ts",
@@ -444,6 +446,10 @@
       "./tenant-lifecycle": {
         "types": "./dist/tenant-lifecycle/index.d.ts",
         "default": "./dist/tenant-lifecycle/index.js"
+      },
+      "./tenant-lifecycle/testing": {
+        "types": "./dist/tenant-lifecycle/testing.d.ts",
+        "default": "./dist/tenant-lifecycle/testing.js"
       },
       "./tenant-handover": {
         "types": "./dist/tenant-handover/index.d.ts",

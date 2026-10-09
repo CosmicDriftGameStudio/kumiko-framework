@@ -14,9 +14,12 @@ import {
   nearestIndex,
   pointsWithin,
   resolveStackedAreaWindow,
+  type StackedAreaDateFormat,
+  type StackedAreaInitialWindow,
   type StackedAreaRanges,
   type StackedAreaWindowSelection,
   snapBrushWindow,
+  stackedAreaDateFormatFor,
 } from "./chart-window.js";
 import { ModeSwitch } from "./mode-switch.js";
 import { STATUS_TONE_TEXT, type StatusTone } from "./status-badge.js";
@@ -510,6 +513,8 @@ export type ChartMarker = {
   readonly label: string;
   /** Colors the pin and, on StackedAreaChart, draws a dashed guide line in the plot. */
   readonly color?: string;
+  /** Translated by the caller. Groups markers into one legend entry when `markerLegend` is "legend". */
+  readonly legendLabel?: string;
 };
 
 /** Unstacked line drawn over a StackedAreaChart on the same y scale. */
@@ -550,6 +555,17 @@ function niceCeil(max: number): number {
   const magnitude = 10 ** Math.floor(Math.log10(max));
   const normalized = max / magnitude;
   const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return step * magnitude;
+}
+
+const FINE_NICE_STEPS = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10] as const;
+
+// Finer than niceCeil so a 1.1 M peak tops out at 1.2 M instead of 2 M.
+function fineNiceCeil(max: number): number {
+  if (max <= 0) return 1;
+  const magnitude = 10 ** Math.floor(Math.log10(max));
+  const normalized = max / magnitude;
+  const step = FINE_NICE_STEPS.find((candidate) => normalized <= candidate) ?? 10;
   return step * magnitude;
 }
 
@@ -864,10 +880,15 @@ function MarkerPins({
   markers,
   windowStartMs,
   windowEndMs,
+  numbered = true,
+  formatMarkerTime,
 }: {
   readonly markers: readonly ChartMarker[];
   readonly windowStartMs: number;
   readonly windowEndMs: number;
+  /** false: plain colored dots whose tooltip carries label and time. */
+  readonly numbered?: boolean;
+  readonly formatMarkerTime?: (atMs: number) => string;
 }): ReactNode {
   const span = Math.max(1, windowEndMs - windowStartMs);
   return (
@@ -876,8 +897,16 @@ function MarkerPins({
         <span
           key={marker.key}
           data-testid="chart-marker-pin"
+          title={
+            numbered
+              ? undefined
+              : formatMarkerTime === undefined
+                ? marker.label
+                : `${marker.label} · ${formatMarkerTime(marker.atMs)}`
+          }
           className={cn(
-            "absolute flex size-4 -translate-x-1/2 items-center justify-center rounded-full text-[10px] font-medium text-background",
+            "absolute flex -translate-x-1/2 items-center justify-center rounded-full text-[10px] font-medium text-background",
+            numbered ? "size-4" : "top-1 size-2",
             marker.color === undefined && "bg-foreground",
           )}
           style={{
@@ -885,11 +914,24 @@ function MarkerPins({
             ...(marker.color !== undefined && { backgroundColor: marker.color }),
           }}
         >
-          {i + 1}
+          {numbered ? i + 1 : null}
         </span>
       ))}
     </div>
   );
+}
+
+function markerLegendItems(
+  markers: readonly ChartMarker[],
+): readonly { readonly key: string; readonly label: string; readonly color: string }[] {
+  const items = new Map<string, { key: string; label: string; color: string }>();
+  for (const marker of markers) {
+    const label = marker.legendLabel ?? marker.label;
+    const color = marker.color ?? "var(--color-foreground)";
+    const key = `marker-${label}-${color}`;
+    if (!items.has(key)) items.set(key, { key, label, color });
+  }
+  return [...items.values()];
 }
 
 function MarkerLegend({
@@ -1100,6 +1142,7 @@ export function StackedAreaChart({
   markers: allMarkers,
   lines: allLines = [],
   ranges,
+  initialWindow,
   brush = false,
   windowSelection,
   onWindowSelectionChange,
@@ -1109,6 +1152,8 @@ export function StackedAreaChart({
   formatBucketLabel,
   formatValue = String,
   formatMarkerTime,
+  dateFormat,
+  markerLegend = "list",
   scrollable = false,
   showLegendTotals = true,
   emptyContent,
@@ -1125,6 +1170,8 @@ export function StackedAreaChart({
   readonly lines?: readonly ChartLine[];
   /** Range presets anchored at today; uncontrolled, the widget renders the switch itself. */
   readonly ranges?: StackedAreaRanges;
+  /** Uncontrolled start window; "from-today" ignores the default range and starts at today. */
+  readonly initialWindow?: StackedAreaInitialWindow;
   /** Scrubber under the plot to drag the visible window; starts at today without `ranges`. */
   readonly brush?: boolean;
   readonly windowSelection?: StackedAreaWindowSelection;
@@ -1134,9 +1181,13 @@ export function StackedAreaChart({
   readonly brushLabels?: { readonly start: string; readonly end: string };
   readonly ariaLabel: string;
   readonly todayLabel: string;
-  readonly formatBucketLabel: (atMs: number) => string;
+  readonly formatBucketLabel: (atMs: number, format: StackedAreaDateFormat) => string;
   readonly formatValue?: (value: number) => string;
-  readonly formatMarkerTime?: (atMs: number) => string;
+  readonly formatMarkerTime?: (atMs: number, format: StackedAreaDateFormat) => string;
+  /** Overrides the automatic format (month and year once the visible window spans 18 months). */
+  readonly dateFormat?: StackedAreaDateFormat;
+  /** "legend": unnumbered pins with tooltip, one dashed legend entry per marker label and color. */
+  readonly markerLegend?: "list" | "legend";
   /** Fixed width per bucket; the plot scrolls horizontally, y ticks stay put. */
   readonly scrollable?: boolean;
   readonly showLegendTotals?: boolean;
@@ -1145,7 +1196,9 @@ export function StackedAreaChart({
 }): ReactNode {
   const clipId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [internalSelection, setInternalSelection] = useState(initialWindowSelection(ranges));
+  const [internalSelection, setInternalSelection] = useState(
+    initialWindowSelection(ranges, initialWindow),
+  );
   const isControlled = onWindowSelectionChange !== undefined;
   const selection = isControlled ? windowSelection : internalSelection;
   const changeSelection = (next: StackedAreaWindowSelection): void => {
@@ -1167,6 +1220,12 @@ export function StackedAreaChart({
     : fullWindow;
   const windowStartMs = visibleWindow.startMs;
   const windowEndMs = visibleWindow.endMs;
+  const effectiveDateFormat = dateFormat ?? stackedAreaDateFormatFor(visibleWindow);
+  const formatBucket = (atMs: number): string => formatBucketLabel(atMs, effectiveDateFormat);
+  const formatMarkerTimeInWindow =
+    formatMarkerTime === undefined
+      ? undefined
+      : (atMs: number): string => formatMarkerTime(atMs, effectiveDateFormat);
   const isNarrowed = windowStartMs !== fullWindowStartMs || windowEndMs !== fullWindowEndMs;
   const series = isNarrowed
     ? allSeries.map((s) => ({ ...s, points: pointsWithin(s.points, visibleWindow) }))
@@ -1202,7 +1261,7 @@ export function StackedAreaChart({
   );
   const isSingleBucket = times.length === 1;
   // Doubling keeps a lone bucket away from the top edge of the y-scale.
-  const max = niceCeil(Math.max(...totals, ...lineValues) * (isSingleBucket ? 2 : 1));
+  const max = fineNiceCeil(Math.max(...totals, ...lineValues) * (isSingleBucket ? 2 : 1));
   const yOf = (value: number): number => height - (value / max) * height;
 
   const lower = times.map(() => 0);
@@ -1344,18 +1403,24 @@ export function StackedAreaChart({
               className={cn("absolute whitespace-nowrap", bucketLabelTransform(i, times.length))}
               style={{ left: percent(fractionOf(atMs)) }}
             >
-              {formatBucketLabel(atMs)}
+              {formatBucket(atMs)}
             </span>
           ))}
         </div>
       ) : (
         <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-          <span>{formatBucketLabel(windowStartMs)}</span>
-          <span>{formatBucketLabel(windowEndMs)}</span>
+          <span>{formatBucket(windowStartMs)}</span>
+          <span>{formatBucket(windowEndMs)}</span>
         </div>
       )}
       {markers !== undefined && markers.length > 0 && (
-        <MarkerPins markers={markers} windowStartMs={windowStartMs} windowEndMs={windowEndMs} />
+        <MarkerPins
+          markers={markers}
+          windowStartMs={windowStartMs}
+          windowEndMs={windowEndMs}
+          numbered={markerLegend === "list"}
+          formatMarkerTime={formatMarkerTimeInWindow}
+        />
       )}
     </>
   );
@@ -1436,10 +1501,16 @@ export function StackedAreaChart({
             color: line.color,
             swatch: line.dashed ? ("dashed-line" as const) : ("line" as const),
           })),
+          ...(markerLegend === "legend"
+            ? markerLegendItems(markers ?? []).map((item) => ({
+                ...item,
+                swatch: "dashed-line" as const,
+              }))
+            : []),
         ]}
       />
-      {markers !== undefined && markers.length > 0 && (
-        <MarkerLegend markers={markers} formatMarkerTime={formatMarkerTime} />
+      {markerLegend === "list" && markers !== undefined && markers.length > 0 && (
+        <MarkerLegend markers={markers} formatMarkerTime={formatMarkerTimeInWindow} />
       )}
     </div>
   );

@@ -34,11 +34,11 @@ import { TenantHandlers } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantMembershipEntity } from "../../tenant/index.js";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
   driveDestructionToCompletion,
   seedDestroyingTenant,
-} from "../../tenant-lifecycle/__tests__/destroy-test-helpers.js";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+} from "../../tenant-lifecycle/testing.js";
 import { InboundMailFoundationHandlers } from "../constants.js";
 import {
   seenMessageEntity,
