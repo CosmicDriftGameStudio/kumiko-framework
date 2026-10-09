@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "inbound-provider-imap declares the MAIL_ALLOWED_PRIVATE_HOSTS env schema",
+    "migration": "No action needed. An app that mounts both mail-transport-smtp and inbound-provider-imap now composes one shared field."
+  },
+  {
     "version": "0.320.0",
     "type": "breaking",
     "title": "The tenant-configured IMAP host must resolve to a public address",

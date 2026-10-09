@@ -1,5 +1,42 @@
 [
   {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "Navigate no longer injects the current id into entityEdit targets of another entity",
+    "detail": "Navigate actions no longer inject the current record's id into entityEdit targets of another entity; entityList rowActions now recognise same-entity entityEdit targets across features and open them in UPDATE mode"
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "translationsByKeyFromLocales export and email-template subpath exports",
+    "detail": "Renderer exports translationsByKeyFromLocales (inverse of translationsByLocaleFromKeys); bundled-features exposes the auth-email-password and user-data-rights email-templates as subpath exports"
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "Grid columns is number | \"auto\"",
+    "detail": "Final review batch F: renderer, renderer-web, types\nThe boot validator rejects a `listScreenId` that matches no mounted screen, a `sortable` column that the list cannot sort (entityList: any value; projectionList: `true`) and an authored `urlPrefillFields`. `TreeAction` is a union: exactly one of `screen` or `target`. `Button` without children needs `icon` and `ariaLabel`. `RenderEditControls` gains `next` and `back`, and `controls.submit()` saves on an intermediate wizard step. An actionForm money field with a tenant currency that cannot be loaded shows an error instead of submitting with a guessed EUR. The MFA setup and recovery-code buttons sit below the content. The boot context passes Redis to the delivery service, so `notify` with an `idempotencyKey` dedupes. `user:query:user:detail` skips the tenants label when the tenant feature is not mounted.",
+    "migration": "Pass a number or \"auto\" to Grid columns; other values no longer type-check."
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "Button without children requires icon and ariaLabel",
+    "migration": "A custom wrapper that forwards ButtonProps must pass either children or both icon and ariaLabel."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "RenderEditControls has next and back; submit saves on an intermediate wizard step",
+    "migration": "No action needed. A host that renders its own wizard buttons with hideActions can call controls.next(), controls.back() and controls.submit()."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "actionForm money fields with a tenant currency block the form when the currency cannot be loaded",
+    "migration": "No action needed. secretMint and the reference create dialog keep their fallback currency."
+  },
+  {
     "version": "0.353.0",
     "type": "fix",
     "title": "secretMint with tenant currency waits for the tenant currency in mint and confirm step",

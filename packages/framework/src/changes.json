@@ -1,5 +1,203 @@
 [
   {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "detail() no longer pairs an old row with a newer stream version, so update({ version: detail.version }) cannot overwrite a concurrent write",
+    "detail": "`detail()` reads the row and the stream version in one statement and validates entity-cache hits against the stream version\nBefore, a concurrent update between the row read and the version read handed out the old row with the new version, so `update({ version: detail.version })` passed the optimistic lock and overwrote the newer write. A cached row whose version differs from the stream version now counts as a cache miss."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "_refs respect access.read, the parentRef gate and field-level read of the referenced entity; unreadable refs are omitted and the renderer falls back to the UUID",
+    "detail": "`_refs` only carry what the caller may read on the referenced entity\nEagerload used to resolve every referenced row of the tenant, so a reference field pointing at a team- or row-scoped entity leaked rows the caller could not read themselves. It now applies the target entity's `access.read` (row/team scope), its parentRef gate and its field-level read access, still with one batched lookup per reference field. A reference the caller may not read is omitted exactly like a missing one (no existence oracle); the renderer falls back to the UUID. The handler-level `access` of the target's detail handler is not evaluated, the declarative `access.read` of the target entity is authoritative (same model as reference search and sort).\n`enrichWithReferences` and `enrichRowWithReferences` take a required fifth argument `viewer: { user, parentVisibility }`. The old strip of PII/encrypted fields on ownership-scoped targets is gone: readable rows are decrypted, unreadable rows are not returned at all."
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "enrichWithReferences and enrichRowWithReferences require a viewer { user, parentVisibility }",
+    "migration": "Custom handlers pass `{ user: query.user, parentVisibility: { entities: ctx.registry.getAllEntities() } }` as the fifth argument. No direct callers are known in the workspace apps. Apps can now point reference fields at team- or row-scoped entities (for example solon unitId/propertyId)."
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "crossTenant removed from entity convention handlers; write handlers with escapeHatch need SystemAdmin-only access",
+    "migration": "Replace crossTenant: true with escapeHatch: { reason } (run bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/migrate-cross-tenant.ts, then replace its placeholder reason, which is rejected otherwise). A create/update/delete/restore handler with escapeHatch must declare access: { roles: [\"SystemAdmin\"] }; list and detail handlers keep their access."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "ctx.queryAsMember read-only context now allowlists searchAdapter (search), redis (read commands) and entityCache (get, mget); other methods are denied"
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "ctx.queryAsMember reads run under a statement timeout (DispatcherOptions.memberReadTimeoutMs, default 10000) and fail with member_read_timeout"
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "ctx.queryProjection with unsafeAllTenants no longer demands a grant on projections without a tenant column"
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "defineProjectionQueryHandler accepts unsafeAllTenants: { reason } as grant and audit reason"
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "Event append without a transaction is atomic; ctx.outsideTransaction; pending-gap ranges merge and are exported as a gauge; seed scan starts at the highest consumer cursor"
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "Failed job attempts are logged via the runner logger (job, jobId, attempt, final, error)"
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "Field-level access.read with a where-rule now fails the boot (also on embedded sub-fields)",
+    "migration": "Replace the where-rule on the field with a from()-rule (e.g. from(\"user:id\", \"ownerId\")) or move the where-rule to entity access.read. Field read access is evaluated in memory and could never grant a where-rule, so it only hid the field."
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "kumiko_events gets a partial index over payload tenantId for tenant-membership streams",
+    "detail": "The forget-cleanup membership-history queries filter on payload->>'tenantId' and scanned all of kumiko_events. createEventsTable now also ensures events_membership_payload_tenant_idx ON kumiko_events ((payload->>'tenantId')) WHERE aggregate_type = 'tenant-membership', built CONCURRENTLY with the same INVALID-rebuild and race handling as the idempotency index. No migration: the index is created on the next boot or schema apply. On a large event history the first build takes a while but does not block appends."
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "changes.json entries can set manualAfterCodemod to stay pending manual after the codemod ran",
+    "detail": "A codemod entry with `manualAfterCodemod: true` is recorded in `pendingManual` of `.kumiko/upgrade-state.json` in addition to the codemod run. Set it with `kumiko changes add --codemod <path> --manual-after-codemod`."
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "read.findOne and read.findMany log a warning when a foreign where.tenantId is narrowed to the caller's tenant scope"
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "requestContext.run and runAsDirectCallEntry removed from the public /api barrel; requestContext there is read-only",
+    "migration": "Import run and runAsDirectCallEntry from @cosmicdrift/kumiko-framework/internal/request-context; reserved for agent-tools and server runtime wiring, do not use to lift a handler past the risk floor. requestContext.get() from /api is unchanged."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "SSE broadcasts, toggle sync, stream expiry, page-head abort, PII backfill failures and preSave output are now handled strictly instead of failing silently",
+    "detail": "Review hardening: confirmed SSE publish awaited by consumers, feature-toggle cache invalidation over the cache-sync bus, stream expiry timer, page-head resolver abort signal, PII backfill `failed_event_ids`, preSave output validation, read-only proxy `then`/symbol guard, no orphan-row delete in event-consumer state, exported `DEFAULT_HTML` of dev-server and server-runtime"
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "TenantDestroyHookResult: done:false now requires processed",
+    "migration": "Tenant destroy hooks that return { done: false } must also return processed (number of items handled this tick). A tick with processed 0 now counts as a failed stage attempt."
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "Handler titles and field labels as i18n keys, plus the references Zod meta",
+    "detail": "`handlerTitleKey(qn)` (`<qn>:title`) and `handlerFieldLabelKey(qn, field)` (`<qn>:field:<field>`) define where a handler's title and input labels live; a feature declares the full keys (e.g. `channel-texts:write:generate:title`, built with `handlerTitleKey(qn)`) in `r.translations`, because the client resolves keys without a feature prefix. Mark a handler input field that points at an entity with `vehicleId: z.string().meta({ references: \"vehicle\" })` (or `\"feature:entity\"`); boot throws when the entity is unknown and `handlerFieldReference(schema, field)` reads it. `findHandlerTranslationGaps` reports agent-exposed write handlers without an entity or actionForm screen and without these keys as `handler-without-translation`. `kumiko agent lint` lists them as warnings without affecting the exit code, and the boot prints one summary line. `findAgentDocGaps` stays unchanged on purpose, since the agent-manifest guard fails on every gap it returns."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "list search no longer drops hits beyond the 50th candidate",
+    "detail": "event-store-executor list: the search path now asks the SearchAdapter for up to 1000 candidate ids instead of the adapter's default 50, so hits beyond the 50th are no longer silently dropped. When the adapter returns the full 1000 (Meilisearch's maxTotalHits cap), the list result carries `searchTruncated: true` (new optional field on `CursorResult`) so clients can tell the match set may be incomplete."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "The blockDelete-without-anonymize boot warning names the retention-cron risk instead of a Forget error",
+    "detail": "The boot warning for `retention.strategy: \"blockDelete\"` without a field `anonymize` now names the real risk: once keepFor expires, the data-retention cron anonymizes nothing and the row keeps its PII"
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "db.global(table) writes on executor-managed entity tables are rejected",
+    "detail": "Database, event-store consumer, search and Redis review fixes\n`db.global(table)` writes are rejected on executor-managed entity tables, and `unsafeRaw` handles derived through `begin`, `transaction` or `reserve` keep the personal-data gate. Reference sorting and search re-check label and read access plus ownership, and a stale search index can no longer surface another tenant's row. A cross-tenant convention handler reports one audit event per touched row with that row as target.\nA failing dispatcher pass no longer records its error on a consumer whose cursor moved in the meantime and skips a row another pass holds locked. A projection rebuild aborts when the configured blind-index key differs from the one used to build the live table. An array `ne` filter on a jsonb column means \"does not contain all of these\", matching the entity list filter. `date` columns that still hold a timestamptz log a warning once per column.\n`kumiko_event_dispatcher_listen_connected` only drops to 0 on a real connection-loss error and is restored when the pre-check recovers. A consumer logs once when it tracks more than 1000 pending gap ranges. The lazy Meilisearch default config no longer overwrites settings stored by an earlier `configure()` after a restart.\nAccess invalidation publishes through `PubSubSignal.publishConfirmed`, so a Redis failure fails the consumer and the event is redelivered instead of being dropped (`SseBroker.publishAccessInvalidation` may return a promise). `KUMIKO_REDIS_CHANNEL_PREFIX` namespaces the SSE and feature-toggle Pub/Sub channels for apps sharing one Redis; `createRedisToggleSyncSignal` takes the prefix as an optional third argument. Types that mention `Temporal` now carry the `temporal-polyfill/global` reference into their `.d.ts` files.",
+    "migration": "Write entities through the entity executor and keep db.global for hand-written unmanaged tables."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "unsafeRaw handles derived through begin, transaction or reserve keep the personal-data gate"
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "A stale search index can no longer surface another tenant's row"
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "A projection rebuild aborts when the blind-index key differs from the one used to build the live table"
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "An array ne filter on a jsonb column means \"does not contain all of these\""
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "Access invalidation publishes with confirmation so a Redis failure redelivers the event"
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "defineFeature throws when dedupeOptions holds a nested object",
+    "migration": "Flatten dedupeOptions to primitive values."
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "Boot validation rejects an object-form redirect with idFrom on a screen that has no id",
+    "migration": "Point the redirect at a screen with an id or drop idFrom."
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "A list column absent from the query output schema must set virtual: true",
+    "migration": "Add virtual: true to computed columns that are not part of the query output."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "Session-only httpRoutes now pass the global IP rate limit"
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "Boot validator rejects inert sortable, authored urlPrefillFields and an unknown listScreenId",
+    "migration": "Remove sortable from entityList columns and sortable true from projectionList columns (declare sorting on the entity field), remove urlPrefillFields from form screens (buildAppSchema derives it from navigate params), and point listScreenId at a mounted screen short id."
+  },
+  {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "TreeAction is screen XOR target at the type level",
+    "migration": "Give every createAction and actions[] entry either screen or target, not both and not neither; the boot validator already rejected the other forms."
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "Row actions can open a secretMint or actionForm that submits without edits",
+    "detail": "actionForm and secretMint screens gain `submitPrefilled`: a row action that navigates in with `params` can submit the form right away, with the record id carried in a hidden or read-only field."
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "Select field options can depend on another field",
+    "detail": "Select fields gain `conditionalOptions`: options that are only available while a condition on a sibling field holds, filtered in the form and enforced on write."
+  },
+  {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "setupTestStack accepts rateLimitNowMs to freeze the rate-limit clock in tests",
+    "detail": "setupTestStack accepts `rateLimitNowMs`, the time source of the stack's rate-limit resolver, so tests can freeze the token-bucket clock instead of racing the refill window"
+  },
+  {
     "version": "0.353.0",
     "type": "improvement",
     "title": "Boot validation rejects public-intake handlers without rate limit and serial-id unmanaged entities with recordOwned fields",

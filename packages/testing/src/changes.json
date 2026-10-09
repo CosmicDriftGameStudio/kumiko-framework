@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.354.0",
+    "type": "improvement",
+    "title": "trackInFlightRequests(page) export for captureScreenshot",
+    "detail": "Export trackInFlightRequests(page) so captureScreenshot counts requests from the initial load; the first untracked call waits for network idle, and a pushState during a delayed navigation no longer drops in-flight requests"
+  },
+  {
     "version": "0.353.0",
     "type": "fix",
     "title": "E2E webServer infra defaults no longer override keys defined in the app's .env",

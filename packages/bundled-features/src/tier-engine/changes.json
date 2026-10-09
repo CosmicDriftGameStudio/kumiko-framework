@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "tier-engine:write:set-tenant-tier resolves agent risk high"
+  },
+  {
     "version": "0.352.0",
     "type": "improvement",
     "title": "createTierOptionGate builds the availability rows and gates select options by tier on write",

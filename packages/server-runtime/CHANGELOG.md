@@ -1,5 +1,143 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.354.0
+
+### Patch Changes
+
+- f060e44: Review hardening: confirmed SSE publish awaited by consumers, feature-toggle cache invalidation over the cache-sync bus, stream expiry timer, page-head resolver abort signal, PII backfill `failed_event_ids`, preSave output validation, read-only proxy `then`/symbol guard, no orphan-row delete in event-consumer state, exported `DEFAULT_HTML` of dev-server and server-runtime
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: SSE broadcasts, toggle sync, stream expiry, page-head abort, PII backfill failures and preSave output are now handled strictly instead of failing silently
+  -->
+
+- 67d8d41: Final review batch F: renderer, renderer-web, types
+
+  The boot validator rejects a `listScreenId` that matches no mounted screen, a `sortable` column that the list cannot sort (entityList: any value; projectionList: `true`) and an authored `urlPrefillFields`. `TreeAction` is a union: exactly one of `screen` or `target`. `Button` without children needs `icon` and `ariaLabel`. `RenderEditControls` gains `next` and `back`, and `controls.submit()` saves on an intermediate wizard step. An actionForm money field with a tenant currency that cannot be loaded shows an error instead of submitting with a guessed EUR. The MFA setup and recovery-code buttons sit below the content. The boot context passes Redis to the delivery service, so `notify` with an `idempotencyKey` dedupes. `user:query:user:detail` skips the tenants label when the tenant feature is not mounted.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Grid columns is number | "auto"
+  migration: Pass a number or "auto" to Grid columns; other values no longer type-check.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Button without children requires icon and ariaLabel
+  migration: A custom wrapper that forwards ButtonProps must pass either children or both icon and ariaLabel.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: RenderEditControls has next and back; submit saves on an intermediate wizard step
+  migration: No action needed. A host that renders its own wizard buttons with hideActions can call controls.next(), controls.back() and controls.submit().
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: actionForm money fields with a tenant currency block the form when the currency cannot be loaded
+  migration: No action needed. secretMint and the reference create dialog keep their fallback currency.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: breaking
+  title: MFA setup and recovery-code buttons moved from Section actions to the section body
+  migration: Section actions always render in the title row. Put a footer button into the section children instead of Section actions.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot validator rejects inert sortable, authored urlPrefillFields and an unknown listScreenId
+  migration: Remove sortable from entityList columns and sortable true from projectionList columns (declare sorting on the entity field), remove urlPrefillFields from form screens (buildAppSchema derives it from navigate params), and point listScreenId at a mounted screen short id.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: TreeAction is screen XOR target at the type level
+  migration: Give every createAction and actions[] entry either screen or target, not both and not neither; the boot validator already rejected the other forms.
+  -->
+
+  <!-- kumiko-changes
+  feature: user
+  type: fix
+  title: user:query:user:detail skips the tenants label when the tenant feature is not mounted
+  -->
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Boot context passes Redis to the delivery service
+  detail: notify with an idempotencyKey used to throw because the delivery service had no idempotencyRedis. Production boot, dev boot and the worker boot now hand over the existing Redis.
+  migration: No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Dev boot passes Redis to the delivery service so notify idempotencyKey dedupes
+  migration: No action needed.
+  -->
+
+- Updated dependencies [8f1ab07]
+- Updated dependencies [a734025]
+- Updated dependencies [8f1ab07]
+- Updated dependencies [36a08aa]
+- Updated dependencies [81153cb]
+- Updated dependencies [fde53b0]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [a734025]
+- Updated dependencies [94eb2fc]
+- Updated dependencies [f060e44]
+- Updated dependencies [fde53b0]
+- Updated dependencies [8307320]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [f060e44]
+- Updated dependencies [f1a576b]
+- Updated dependencies [a2bafb2]
+- Updated dependencies [6265371]
+- Updated dependencies [c10805f]
+- Updated dependencies [fc80bb4]
+- Updated dependencies [fde53b0]
+- Updated dependencies [edcb2d0]
+- Updated dependencies [2873c76]
+- Updated dependencies [357f33d]
+- Updated dependencies [8307320]
+- Updated dependencies [a62e62c]
+- Updated dependencies [4d058fb]
+- Updated dependencies [beab610]
+- Updated dependencies [6bd7df1]
+- Updated dependencies [a6d5c20]
+- Updated dependencies [b15e90d]
+- Updated dependencies [67d8d41]
+- Updated dependencies [a7bbfc3]
+- Updated dependencies [cc7e2ce]
+- Updated dependencies [8d5fa1a]
+- Updated dependencies [4803d4c]
+- Updated dependencies [a62e62c]
+- Updated dependencies [2b0566a]
+- Updated dependencies [fde53b0]
+- Updated dependencies [fde53b0]
+- Updated dependencies [f1a576b]
+- Updated dependencies [13f6b6f]
+  - @cosmicdrift/kumiko-bundled-features@0.354.0
+  - @cosmicdrift/kumiko-framework@0.354.0
+  - @cosmicdrift/kumiko-types@0.354.0
+  - @cosmicdrift/kumiko-headless@0.354.0
+  - @cosmicdrift/kumiko-renderer-web@0.354.0
+
 ## 0.353.0
 
 ### Patch Changes

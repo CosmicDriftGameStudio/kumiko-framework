@@ -1,5 +1,64 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.354.0
+
+### Minor Changes
+
+- 8d5fa1a: Select fields gain `conditionalOptions`: options that are only available while a condition on a sibling field holds, filtered in the form and enforced on write.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Select field options can depend on another field
+  -->
+
+### Patch Changes
+
+- f060e44: Review hardening: confirmed SSE publish awaited by consumers, feature-toggle cache invalidation over the cache-sync bus, stream expiry timer, page-head resolver abort signal, PII backfill `failed_event_ids`, preSave output validation, read-only proxy `then`/symbol guard, no orphan-row delete in event-consumer state, exported `DEFAULT_HTML` of dev-server and server-runtime
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: SSE broadcasts, toggle sync, stream expiry, page-head abort, PII backfill failures and preSave output are now handled strictly instead of failing silently
+  -->
+
+- Updated dependencies [36a08aa]
+- Updated dependencies [81153cb]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [a734025]
+- Updated dependencies [94eb2fc]
+- Updated dependencies [f060e44]
+- Updated dependencies [fde53b0]
+- Updated dependencies [8307320]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [f060e44]
+- Updated dependencies [f1a576b]
+- Updated dependencies [a2bafb2]
+- Updated dependencies [c10805f]
+- Updated dependencies [edcb2d0]
+- Updated dependencies [2873c76]
+- Updated dependencies [357f33d]
+- Updated dependencies [a62e62c]
+- Updated dependencies [6bd7df1]
+- Updated dependencies [a6d5c20]
+- Updated dependencies [b15e90d]
+- Updated dependencies [67d8d41]
+- Updated dependencies [a7bbfc3]
+- Updated dependencies [cc7e2ce]
+- Updated dependencies [8d5fa1a]
+- Updated dependencies [4803d4c]
+- Updated dependencies [a62e62c]
+- Updated dependencies [2b0566a]
+- Updated dependencies [fde53b0]
+- Updated dependencies [13f6b6f]
+  - @cosmicdrift/kumiko-framework@0.354.0
+  - @cosmicdrift/kumiko-types@0.354.0
+
 ## 0.353.0
 
 ### Patch Changes

@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "notes-history adds a composite index on (tenantId, entityType, entityId) for note entries, so the schema-drift check fails until the app regenerates",
+    "detail": "Review batch H2: framework parts of consumer-app findings.\n- `file-derivatives`: the `isPublic` predicate args carry `fileRefId`, so a predicate can reject a client-spoofed FileRef that claims another entity's `entityId`/`fieldName`.\n- `sessions`: `createSessionsFeature({ adminAccess: \"systemAdmin\" })` narrows the admin list/detail queries and both admin screens together (default `\"admin\"`, unchanged).\n- `user-profile`: `change-email` is open to every signed-in user (`openToAll`), so a tenant member whose only role is `TenantAdmin` can change their own email; the handler still re-checks the password.\n- `notes-history`: composite index on `(tenantId, entityType, entityId)` for note entries. Apps run `kumiko-schema generate` after the bump.\n- guards: `// kumiko-lint-ignore a,b reason` suppresses several guards on one line (`lineHasIgnoreTag`); `primitives-discipline` and `no-custom-primitives` honour it.\n- dev-server: `kumiko-build --check` verifies `.kumiko/` is current without writing (exit 1 on drift); `runCodegen` takes `checkOnly`.",
+    "migration": "Run `kumiko-schema generate` in apps that mount notes-history and commit the generated migration."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "read_note_mentions gets a tenant, subject index",
+    "migration": "Run `kumiko schema generate`; it emits an in-place CREATE INDEX with no DROP and no rebuild."
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "add-note rejects mentions of non-members; mention export lists mentioning notes",

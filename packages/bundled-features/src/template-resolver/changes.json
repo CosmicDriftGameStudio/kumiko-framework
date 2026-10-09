@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "template-resolver list filters by every template kind including text-block and ai-prompt"
+  },
+  {
     "version": "0.335.0",
     "type": "breaking",
     "title": "TemplateResource and text-block/collection query outputs expose modifiedAt instead of updatedAt",

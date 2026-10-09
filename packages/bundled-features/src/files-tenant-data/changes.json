@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "The orphan-derivative sweep keeps derivatives whose original still exists in storage"
+  },
+  {
     "version": "0.275.0",
     "type": "breaking",
     "title": "sweepOrphanedDerivativesJob takes the raw DbConnection as a third argument; the job declares escapeHatch (fw#2914).",

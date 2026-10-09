@@ -1,5 +1,173 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.354.0
+
+### Minor Changes
+
+- 4d058fb: Review batch H1: framework parts of consumer-app findings.
+
+  - `auth-email-password` exports `issueSignupActivation` (invalidate, mint, store and mail an activation link; the signup-request handler now runs on it), `SIGNUP_ACTIVATION_NOTIFICATION_TYPE`, `storeSignupToken`, `invalidateExistingSignupToken`, `normalizeEmail` and `SIGNUP_TOKEN_KEY_PREFIXES`.
+  - `auth-mfa` declares the master-key env slots (`KUMIKO_SECRETS_MASTER_KEY_V1`, `_CURRENT_VERSION`, the `_CIPHERTEXT` twin) as a shared fragment with `secrets`, so a rotated `V<n>` slot is unpacked even without `secrets` mounted.
+  - `user-data-rights` exports `TENANT_MODEL_CONFIG_KEY`; `createTemplateResolverApi` takes a `DbRunner`.
+  - The user menu's logout item carries `data-testid="user-menu-logout"`.
+  - renderer-web: a `Field` description is linked to its text input via `aria-describedby`; the facet filter dropdown is capped to the available viewport height and scrolls; `createBrowserLocaleResolver` takes `normalizeLocale` and the default storage key is exported as `BROWSER_LOCALE_STORAGE_KEY`.
+  - testing: `loginViaApi(request, credentials, { bucketKey })`, `CLIENT_IP_HEADER` from `@cosmicdrift/kumiko-testing/e2e`, and a Playwright-free `@cosmicdrift/kumiko-testing/e2e/constants` subpath (`KUMIKO_SECRETS_MASTER_KEY_V1`).
+
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: breaking
+  title: auth-mfa declares the master-key env slots, so composeEnvSchema requires KUMIKO_SECRETS_MASTER_KEY_V1 when auth-mfa is mounted
+  migration: Apps that bring their own masterKey provider instead of the env KEK add "auth-mfa" to composeEnvSchema's optionalFeatures, like they already do for "secrets". Required wins as soon as auth-mfa is not in optionalFeatures, even when `secrets` is listed there.
+  -->
+
+- 4803d4c: Stacked-area charts and panels pick the date format by span, can start at today regardless of the default range, scale the y axis finer and list markers in the legend
+
+  - `dateFormat` ("day" | "month"): automatic by visible window, month and year from 18 months, day and month below; `formatBucketLabel` and `formatMarkerTime` receive the format as second argument.
+  - `initialWindow` ("default-range" | "from-today"): "from-today" starts at today even with `ranges.default` set; the range switch then shows no active pill.
+  - The y scale rounds up in finer steps (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8), so 1.1 million tops out at 1.2 million instead of 2 million.
+  - `markerLegend` ("list" | "legend") with `DashboardChartMarkerKind.label` and `ChartMarker.legendLabel`: unnumbered pins with tooltip and one dashed legend entry per marker kind. Boot validation checks the new props, the marker kind labels are required i18n keys.
+  - `@cosmicdrift/kumiko-bundled-features/tenant-lifecycle/testing` exports `runTenantDestructionSweep`, `seedDestroyingTenant` and `driveDestructionToCompletion` for destroy tests.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: StackedAreaChart and the stacked-area dashboard panel take dateFormat, initialWindow and markerLegend and round the y scale in finer steps
+  -->
+
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: improvement
+  title: tenant-lifecycle/testing exports runTenantDestructionSweep, seedDestroyingTenant and driveDestructionToCompletion
+  -->
+
+### Patch Changes
+
+- 67d8d41: Final review batch F: renderer, renderer-web, types
+
+  The boot validator rejects a `listScreenId` that matches no mounted screen, a `sortable` column that the list cannot sort (entityList: any value; projectionList: `true`) and an authored `urlPrefillFields`. `TreeAction` is a union: exactly one of `screen` or `target`. `Button` without children needs `icon` and `ariaLabel`. `RenderEditControls` gains `next` and `back`, and `controls.submit()` saves on an intermediate wizard step. An actionForm money field with a tenant currency that cannot be loaded shows an error instead of submitting with a guessed EUR. The MFA setup and recovery-code buttons sit below the content. The boot context passes Redis to the delivery service, so `notify` with an `idempotencyKey` dedupes. `user:query:user:detail` skips the tenants label when the tenant feature is not mounted.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Grid columns is number | "auto"
+  migration: Pass a number or "auto" to Grid columns; other values no longer type-check.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Button without children requires icon and ariaLabel
+  migration: A custom wrapper that forwards ButtonProps must pass either children or both icon and ariaLabel.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: RenderEditControls has next and back; submit saves on an intermediate wizard step
+  migration: No action needed. A host that renders its own wizard buttons with hideActions can call controls.next(), controls.back() and controls.submit().
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: actionForm money fields with a tenant currency block the form when the currency cannot be loaded
+  migration: No action needed. secretMint and the reference create dialog keep their fallback currency.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: breaking
+  title: MFA setup and recovery-code buttons moved from Section actions to the section body
+  migration: Section actions always render in the title row. Put a footer button into the section children instead of Section actions.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot validator rejects inert sortable, authored urlPrefillFields and an unknown listScreenId
+  migration: Remove sortable from entityList columns and sortable true from projectionList columns (declare sorting on the entity field), remove urlPrefillFields from form screens (buildAppSchema derives it from navigate params), and point listScreenId at a mounted screen short id.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: TreeAction is screen XOR target at the type level
+  migration: Give every createAction and actions[] entry either screen or target, not both and not neither; the boot validator already rejected the other forms.
+  -->
+
+  <!-- kumiko-changes
+  feature: user
+  type: fix
+  title: user:query:user:detail skips the tenants label when the tenant feature is not mounted
+  -->
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Boot context passes Redis to the delivery service
+  detail: notify with an idempotencyKey used to throw because the delivery service had no idempotencyRedis. Production boot, dev boot and the worker boot now hand over the existing Redis.
+  migration: No action needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Dev boot passes Redis to the delivery service so notify idempotencyKey dedupes
+  migration: No action needed.
+  -->
+
+- a7bbfc3: Final review batch G: guards and tooling
+
+  The security guards (`direct-fetch`, `direct-entity-writes`, `tenant-escalation`, `unsafe-json-parse`, `html-escape`, `no-direct-fs`, `restricted-symbols`, `admin-api`, `access-denied-test`, `open-to-all-reason`, `escape-hatch-declared`) now scan a `tooling` root too. `direct-fetch` rejects a `guard-allow` marker without a specific reason. The `direct-entity-writes` canary also blocks when table declarations exist but write resolution finds nothing. `@cosmicdrift/kumiko-types` accepts the `postgres` prerelease alias in its peer range.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Security guards scan the tooling root, direct-fetch guard-allow needs a concrete reason, types postgres peer accepts the prerelease alias
+  -->
+
+- Updated dependencies [36a08aa]
+- Updated dependencies [81153cb]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [a734025]
+- Updated dependencies [94eb2fc]
+- Updated dependencies [f060e44]
+- Updated dependencies [fde53b0]
+- Updated dependencies [8307320]
+- Updated dependencies [03c000a]
+- Updated dependencies [03c000a]
+- Updated dependencies [f060e44]
+- Updated dependencies [f1a576b]
+- Updated dependencies [a2bafb2]
+- Updated dependencies [c10805f]
+- Updated dependencies [edcb2d0]
+- Updated dependencies [2873c76]
+- Updated dependencies [15e6930]
+- Updated dependencies [357f33d]
+- Updated dependencies [8307320]
+- Updated dependencies [a62e62c]
+- Updated dependencies [6bd7df1]
+- Updated dependencies [a6d5c20]
+- Updated dependencies [b15e90d]
+- Updated dependencies [67d8d41]
+- Updated dependencies [a7bbfc3]
+- Updated dependencies [cc7e2ce]
+- Updated dependencies [8d5fa1a]
+- Updated dependencies [4803d4c]
+- Updated dependencies [a62e62c]
+- Updated dependencies [2b0566a]
+- Updated dependencies [fde53b0]
+- Updated dependencies [13f6b6f]
+  - @cosmicdrift/kumiko-framework@0.354.0
+  - @cosmicdrift/kumiko-types@0.354.0
+  - @cosmicdrift/kumiko-headless@0.354.0
+  - @cosmicdrift/kumiko-renderer@0.354.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.354.0
+
 ## 0.353.0
 
 ### Minor Changes

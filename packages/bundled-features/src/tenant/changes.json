@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "createTenantFeature fails the boot when a declared assignable app role is missing from its assignableAppRoles option",
+    "detail": "Final review batch E1: bundled features\n`createTenantFeature` now fails the boot when an `assignableRole` declaration is missing from its `assignableAppRoles` option, because the members and invite screens would otherwise omit the role and a save of the member-roles form would silently strip it. `composeFeatures(includeBundled)` already passes the option. Agent-callable handlers that change access or books now resolve risk `high`: `tenant:write:disable`, `tenant:write:updateMemberRoles`, `user:write:user:update`, `tier-engine:write:set-tenant-tier`, `ledger:write:create-transaction` and `ledger:write:reverse-transaction`. `in_app_messages` gets a `(tenant_id, user_id, created_at)` index. `GET /files/:id/download-url` no longer puts a personal `fileName` into the signed URL; the hint carries a neutral name derived from the MIME type, while `GET /files/:id` still sends the real name in its response header. The forget-subject denial audit event goes through the shared `appendDomainEventCore`, which the pipeline barrel now exports.",
+    "migration": "Pass assignableAppRoles: collectAssignableAppRoles(appFeatures) to createTenantFeature when you mount it by hand; composeFeatures(includeBundled) already does."
+  },
+  {
+    "version": "0.354.0",
+    "type": "fix",
+    "title": "tenant:write:disable and tenant:write:updateMemberRoles resolve agent risk high"
+  },
+  {
     "version": "0.353.0",
     "type": "breaking",
     "title": "Tenant names are encrypted under the tenant record and crypto-shredded when the tenant is destroyed",

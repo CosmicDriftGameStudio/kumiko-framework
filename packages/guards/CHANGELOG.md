@@ -1,5 +1,47 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.354.0
+
+### Minor Changes
+
+- beab610: Review batch H2: framework parts of consumer-app findings.
+
+  - `file-derivatives`: the `isPublic` predicate args carry `fileRefId`, so a predicate can reject a client-spoofed FileRef that claims another entity's `entityId`/`fieldName`.
+  - `sessions`: `createSessionsFeature({ adminAccess: "systemAdmin" })` narrows the admin list/detail queries and both admin screens together (default `"admin"`, unchanged).
+  - `user-profile`: `change-email` is open to every signed-in user (`openToAll`), so a tenant member whose only role is `TenantAdmin` can change their own email; the handler still re-checks the password.
+  - `notes-history`: composite index on `(tenantId, entityType, entityId)` for note entries. Apps run `kumiko-schema generate` after the bump.
+  - guards: `// kumiko-lint-ignore a,b reason` suppresses several guards on one line (`lineHasIgnoreTag`); `primitives-discipline` and `no-custom-primitives` honour it.
+  - dev-server: `kumiko-build --check` verifies `.kumiko/` is current without writing (exit 1 on drift); `runCodegen` takes `checkOnly`.
+
+  <!-- kumiko-changes
+  feature: notes-history
+  type: breaking
+  title: notes-history adds a composite index on (tenantId, entityType, entityId) for note entries, so the schema-drift check fails until the app regenerates
+  migration: Run `kumiko-schema generate` in apps that mount notes-history and commit the generated migration.
+  -->
+
+### Patch Changes
+
+- b0fbbd4: The Real-Provider-Isolation guard allows `test:real`, `e2e:real` and `KUMIKO_REAL_PROVIDERS` in CI workflows whose `on:` triggers are exclusively `schedule` and/or `workflow_dispatch`, so an app can run its real-provider suite weekly or by hand. Any other trigger next to them (`push`, `pull_request`, `pull_request_target`, `workflow_call`, ...) or a workflow without a parseable `on:` is still a violation.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Real-Provider-Isolation guard allows real runs in schedule- or workflow_dispatch-only workflows
+  -->
+
+- a7bbfc3: Final review batch G: guards and tooling
+
+  The security guards (`direct-fetch`, `direct-entity-writes`, `tenant-escalation`, `unsafe-json-parse`, `html-escape`, `no-direct-fs`, `restricted-symbols`, `admin-api`, `access-denied-test`, `open-to-all-reason`, `escape-hatch-declared`) now scan a `tooling` root too. `direct-fetch` rejects a `guard-allow` marker without a specific reason. The `direct-entity-writes` canary also blocks when table declarations exist but write resolution finds nothing. `@cosmicdrift/kumiko-types` accepts the `postgres` prerelease alias in its peer range.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Security guards scan the tooling root, direct-fetch guard-allow needs a concrete reason, types postgres peer accepts the prerelease alias
+  -->
+
+  - @cosmicdrift/kumiko-repo-manifest@0.354.0
+
 ## 0.353.0
 
 ### Patch Changes

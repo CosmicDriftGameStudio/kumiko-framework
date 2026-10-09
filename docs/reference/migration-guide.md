@@ -2,13 +2,189 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-08
+verified: 2026-10-09
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.354.0
+
+### auth-email-password
+
+**Invitations pin the invitee's membership version; superseded accept no longer relies on timestamps**
+
+**Migration:** New nullable column read_tenant_invitations.membership_version: run `kumiko schema generate` and apply the migration before deploying. Invitations issued before the migration keep the timestamp comparison.
+
+### auth-mfa
+
+**auth-mfa declares the master-key env slots, so composeEnvSchema requires KUMIKO_SECRETS_MASTER_KEY_V1 when auth-mfa is mounted**
+
+Review batch H1: framework parts of consumer-app findings.
+- `auth-email-password` exports `issueSignupActivation` (invalidate, mint, store and mail an activation link; the signup-request handler now runs on it), `SIGNUP_ACTIVATION_NOTIFICATION_TYPE`, `storeSignupToken`, `invalidateExistingSignupToken`, `normalizeEmail` and `SIGNUP_TOKEN_KEY_PREFIXES`.
+- `auth-mfa` declares the master-key env slots (`KUMIKO_SECRETS_MASTER_KEY_V1`, `_CURRENT_VERSION`, the `_CIPHERTEXT` twin) as a shared fragment with `secrets`, so a rotated `V<n>` slot is unpacked even without `secrets` mounted.
+- `user-data-rights` exports `TENANT_MODEL_CONFIG_KEY`; `createTemplateResolverApi` takes a `DbRunner`.
+- The user menu's logout item carries `data-testid="user-menu-logout"`.
+- renderer-web: a `Field` description is linked to its text input via `aria-describedby`; the facet filter dropdown is capped to the available viewport height and scrolls; `createBrowserLocaleResolver` takes `normalizeLocale` and the default storage key is exported as `BROWSER_LOCALE_STORAGE_KEY`.
+- testing: `loginViaApi(request, credentials, { bucketKey })`, `CLIENT_IP_HEADER` from `@cosmicdrift/kumiko-testing/e2e`, and a Playwright-free `@cosmicdrift/kumiko-testing/e2e/constants` subpath (`KUMIKO_SECRETS_MASTER_KEY_V1`).
+
+**Migration:** Apps that bring their own masterKey provider instead of the env KEK add "auth-mfa" to composeEnvSchema's optionalFeatures, like they already do for "secrets". Required wins as soon as auth-mfa is not in optionalFeatures, even when `secrets` is listed there.
+
+### billing-foundation
+
+**BillingInfo.prices and getBillingPrices are keyed by the tier union**
+
+**Migration:** A getBillingPrices that returns keys outside your tier union no longer compiles; remove or rename those keys.
+
+### delivery
+
+**POST /resubscribe requires the undo token from the POST /unsubscribe response**
+
+**Migration:** Clients that called the resubscribe route with the unsubscribe token must send the undo token instead: read it from the hidden token field of the page POST /unsubscribe returns (aud kumiko:resubscribe, valid for 1 hour). The unsubscribe token is rejected on /resubscribe with 400, and the undo token is rejected on /unsubscribe.
+
+### enterprise:renderer
+
+**Grid columns is number | "auto"**
+
+Final review batch F: renderer, renderer-web, types
+The boot validator rejects a `listScreenId` that matches no mounted screen, a `sortable` column that the list cannot sort (entityList: any value; projectionList: `true`) and an authored `urlPrefillFields`. `TreeAction` is a union: exactly one of `screen` or `target`. `Button` without children needs `icon` and `ariaLabel`. `RenderEditControls` gains `next` and `back`, and `controls.submit()` saves on an intermediate wizard step. An actionForm money field with a tenant currency that cannot be loaded shows an error instead of submitting with a guessed EUR. The MFA setup and recovery-code buttons sit below the content. The boot context passes Redis to the delivery service, so `notify` with an `idempotencyKey` dedupes. `user:query:user:detail` skips the tenants label when the tenant feature is not mounted.
+
+**Migration:** Pass a number or "auto" to Grid columns; other values no longer type-check.
+
+**Button without children requires icon and ariaLabel**
+
+**Migration:** A custom wrapper that forwards ButtonProps must pass either children or both icon and ariaLabel.
+
+### enterprise:renderer-web
+
+**MFA setup and recovery-code buttons moved from Section actions to the section body**
+
+**Migration:** Section actions always render in the title row. Put a footer button into the section children instead of Section actions.
+
+### files
+
+**FileHandle.derive throws for suffixes outside <name>-<16 hex>**
+
+Final review batch D.
+- `FileHandle.derive(suffix)` now throws unless the suffix is `<name>-<16 hex>` (build it with `variantSuffix(name, spec)`). Free-form suffixes such as `derive("thumb")` wrote keys the forget/tenant-destroy sweep could not recognize, so those binaries survived erasure. Callers passing a bare name must switch to `variantSuffix`.
+- `resolveKmsWiring` / `requireKmsWiring` throw when a `*_CIPHERTEXT` slot is set without its plaintext, pointing at the async entry points, instead of a misleading "trio required" error or a silent plaintext-PII fallback.
+- Event-PII owner/`whenAbsent` resolution now also runs without a configured KMS, so a missing owner fails in dev like in prod.
+- PII event backfill queues rebuilds under a per-run migration id, so a peer replica's re-queue is no longer cleared by another run.
+- `seedAdminGuarded` re-writes the canonical admin's email so the blind index is repaired, and skips undecryptable foreign user rows instead of aborting the boot seed.
+- A tenant-bound `FileContext.list` refuses prefixes outside the tenant's key space.
+- An entityList whose create screen was dropped for the caller's roles now carries `createUnavailable`, so the renderer no longer falls back to a generic create form.
+- Boot validation rejects an object-form `redirect` with `idFrom` whose same-feature target screen carries no id.
+- `defineFeature` throws when `dedupeOptions` holds a nested object (it can never compare equal across two mounts).
+- `FileContext.ref` and `list` (tenant-bound) refuse keys outside `${tenantId}/`; list columns accept `virtual: true`; `httpRoute` session-only routes now pass the global IP rate limit; tenant timezone cache TTL is 30 s; text fields without a personal stance warn at boot; the orphan-derivative sweep keeps derivatives whose original still exists; `piiFields` owner fields that can never yield a string throw unless `whenAbsent` is set.
+
+**Migration:** Build the suffix with variantSuffix(name, spec) instead of passing a free-form string.
+
+**A tenant-bound FileContext.list throws for prefixes outside the tenant's key space**
+
+**Migration:** Pass a prefix that starts with `${tenantId}/`.
+
+**A tenant-bound FileContext.ref throws for keys outside the tenant's key space**
+
+**Migration:** Use keys that start with `${tenantId}/`.
+
+### framework-core
+
+**enrichWithReferences and enrichRowWithReferences require a viewer { user, parentVisibility }**
+
+**Migration:** Custom handlers pass `{ user: query.user, parentVisibility: { entities: ctx.registry.getAllEntities() } }` as the fifth argument. No direct callers are known in the workspace apps. Apps can now point reference fields at team- or row-scoped entities (for example solon unitId/propertyId).
+
+**crossTenant removed from entity convention handlers; write handlers with escapeHatch need SystemAdmin-only access**
+
+**Migration:** Replace crossTenant: true with escapeHatch: { reason } (run bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/migrate-cross-tenant.ts, then replace its placeholder reason, which is rejected otherwise). A create/update/delete/restore handler with escapeHatch must declare access: { roles: ["SystemAdmin"] }; list and detail handlers keep their access.
+
+**Field-level access.read with a where-rule now fails the boot (also on embedded sub-fields)**
+
+**Migration:** Replace the where-rule on the field with a from()-rule (e.g. from("user:id", "ownerId")) or move the where-rule to entity access.read. Field read access is evaluated in memory and could never grant a where-rule, so it only hid the field.
+
+**requestContext.run and runAsDirectCallEntry removed from the public /api barrel; requestContext there is read-only**
+
+**Migration:** Import run and runAsDirectCallEntry from @cosmicdrift/kumiko-framework/internal/request-context; reserved for agent-tools and server runtime wiring, do not use to lift a handler past the risk floor. requestContext.get() from /api is unchanged.
+
+**TenantDestroyHookResult: done:false now requires processed**
+
+**Migration:** Tenant destroy hooks that return { done: false } must also return processed (number of items handled this tick). A tick with processed 0 now counts as a failed stage attempt.
+
+**db.global(table) writes on executor-managed entity tables are rejected**
+
+Database, event-store consumer, search and Redis review fixes
+`db.global(table)` writes are rejected on executor-managed entity tables, and `unsafeRaw` handles derived through `begin`, `transaction` or `reserve` keep the personal-data gate. Reference sorting and search re-check label and read access plus ownership, and a stale search index can no longer surface another tenant's row. A cross-tenant convention handler reports one audit event per touched row with that row as target.
+A failing dispatcher pass no longer records its error on a consumer whose cursor moved in the meantime and skips a row another pass holds locked. A projection rebuild aborts when the configured blind-index key differs from the one used to build the live table. An array `ne` filter on a jsonb column means "does not contain all of these", matching the entity list filter. `date` columns that still hold a timestamptz log a warning once per column.
+`kumiko_event_dispatcher_listen_connected` only drops to 0 on a real connection-loss error and is restored when the pre-check recovers. A consumer logs once when it tracks more than 1000 pending gap ranges. The lazy Meilisearch default config no longer overwrites settings stored by an earlier `configure()` after a restart.
+Access invalidation publishes through `PubSubSignal.publishConfirmed`, so a Redis failure fails the consumer and the event is redelivered instead of being dropped (`SseBroker.publishAccessInvalidation` may return a promise). `KUMIKO_REDIS_CHANNEL_PREFIX` namespaces the SSE and feature-toggle Pub/Sub channels for apps sharing one Redis; `createRedisToggleSyncSignal` takes the prefix as an optional third argument. Types that mention `Temporal` now carry the `temporal-polyfill/global` reference into their `.d.ts` files.
+
+**Migration:** Write entities through the entity executor and keep db.global for hand-written unmanaged tables.
+
+**defineFeature throws when dedupeOptions holds a nested object**
+
+**Migration:** Flatten dedupeOptions to primitive values.
+
+**Boot validation rejects an object-form redirect with idFrom on a screen that has no id**
+
+**Migration:** Point the redirect at a screen with an id or drop idFrom.
+
+**A list column absent from the query output schema must set virtual: true**
+
+**Migration:** Add virtual: true to computed columns that are not part of the query output.
+
+**Boot validator rejects inert sortable, authored urlPrefillFields and an unknown listScreenId**
+
+**Migration:** Remove sortable from entityList columns and sortable true from projectionList columns (declare sorting on the entity field), remove urlPrefillFields from form screens (buildAppSchema derives it from navigate params), and point listScreenId at a mounted screen short id.
+
+**TreeAction is screen XOR target at the type level**
+
+**Migration:** Give every createAction and actions[] entry either screen or target, not both and not neither; the boot validator already rejected the other forms.
+
+### jobs
+
+**jobs: store_tenant_job_failures holds at most one row per (tenant, job, subject)**
+
+**Migration:** store_tenant_job_failures now enforces one row per (tenant_id, job_name, subject) through two partial unique indexes; parallel final failures serialize on an advisory lock. kumiko schema generate does NOT produce the dedup, and the unique index would fail on existing duplicates, so hand-edit the generated migration to contain exactly: DELETE FROM "store_tenant_job_failures" a USING "store_tenant_job_failures" b WHERE a."tenant_id" = b."tenant_id" AND a."job_name" = b."job_name" AND a."subject" IS NOT DISTINCT FROM b."subject" AND (a."failed_at", a."id") < (b."failed_at", b."id"); CREATE UNIQUE INDEX IF NOT EXISTS "store_tenant_job_failures_tenant_job_subject_uidx" ON "store_tenant_job_failures" ("tenant_id", "job_name", "subject") WHERE subject IS NOT NULL; CREATE UNIQUE INDEX IF NOT EXISTS "store_tenant_job_failures_tenant_job_null_subject_uidx" ON "store_tenant_job_failures" ("tenant_id", "job_name") WHERE subject IS NULL; DROP INDEX IF EXISTS "store_tenant_job_failures_tenant_job_subject_idx"; The DELETE keeps the newest row per key (by failed_at, then id).
+
+### ledger
+
+**Schedule sourceRef is unique per tenant (partial unique index read_ledger_schedules_tenant_id_source_ref_uidx)**
+
+**Migration:** sourceRef is now unique per tenant: a second createSchedule (or updateSchedule) with a sourceRef already used in the same tenant fails with unique_violation (HTTP 409). Schedules without a sourceRef and the same sourceRef in different tenants stay allowed. Before applying, check for duplicates: SELECT tenant_id, source_ref, count(*) FROM read_ledger_schedules WHERE source_ref IS NOT NULL GROUP BY tenant_id, source_ref HAVING count(*) > 1; and resolve them through real writes (updateSchedule with another sourceRef). kumiko schema generate treats the new unique index on a managed projection as destructive (DROP TABLE + CREATE TABLE + .rebuild.json); a rebuild would also hit the unique index on historical duplicates. Hand-edit the generated migration: replace the generated DROP/CREATE with exactly DROP INDEX IF EXISTS "read_ledger_schedules_tenant_id_source_ref_idx"; CREATE UNIQUE INDEX IF NOT EXISTS "read_ledger_schedules_tenant_id_source_ref_uidx" ON "read_ledger_schedules" ("tenant_id", "source_ref") WHERE "source_ref" IS NOT NULL; and discard the generated .rebuild.json (delete the file, do not commit it). Code that does find-then-create by sourceRef should expect unique_violation on create and re-read the schedule that won the race.
+
+**A ledger schedule needs subjectType and subjectId together or neither**
+
+**Migration:** Create and update schedule calls that set only one of the two fields now fail validation. Send both fields or neither.
+
+### notes-history
+
+**notes-history adds a composite index on (tenantId, entityType, entityId) for note entries, so the schema-drift check fails until the app regenerates**
+
+Review batch H2: framework parts of consumer-app findings.
+- `file-derivatives`: the `isPublic` predicate args carry `fileRefId`, so a predicate can reject a client-spoofed FileRef that claims another entity's `entityId`/`fieldName`.
+- `sessions`: `createSessionsFeature({ adminAccess: "systemAdmin" })` narrows the admin list/detail queries and both admin screens together (default `"admin"`, unchanged).
+- `user-profile`: `change-email` is open to every signed-in user (`openToAll`), so a tenant member whose only role is `TenantAdmin` can change their own email; the handler still re-checks the password.
+- `notes-history`: composite index on `(tenantId, entityType, entityId)` for note entries. Apps run `kumiko-schema generate` after the bump.
+- guards: `// kumiko-lint-ignore a,b reason` suppresses several guards on one line (`lineHasIgnoreTag`); `primitives-discipline` and `no-custom-primitives` honour it.
+- dev-server: `kumiko-build --check` verifies `.kumiko/` is current without writing (exit 1 on drift); `runCodegen` takes `checkOnly`.
+
+**Migration:** Run `kumiko-schema generate` in apps that mount notes-history and commit the generated migration.
+
+### tenant
+
+**createTenantFeature fails the boot when a declared assignable app role is missing from its assignableAppRoles option**
+
+Final review batch E1: bundled features
+`createTenantFeature` now fails the boot when an `assignableRole` declaration is missing from its `assignableAppRoles` option, because the members and invite screens would otherwise omit the role and a save of the member-roles form would silently strip it. `composeFeatures(includeBundled)` already passes the option. Agent-callable handlers that change access or books now resolve risk `high`: `tenant:write:disable`, `tenant:write:updateMemberRoles`, `user:write:user:update`, `tier-engine:write:set-tenant-tier`, `ledger:write:create-transaction` and `ledger:write:reverse-transaction`. `in_app_messages` gets a `(tenant_id, user_id, created_at)` index. `GET /files/:id/download-url` no longer puts a personal `fileName` into the signed URL; the hint carries a neutral name derived from the MIME type, while `GET /files/:id` still sends the real name in its response header. The forget-subject denial audit event goes through the shared `appendDomainEventCore`, which the pipeline barrel now exports.
+
+**Migration:** Pass assignableAppRoles: collectAssignableAppRoles(appFeatures) to createTenantFeature when you mount it by hand; composeFeatures(includeBundled) already does.
+
+### user-data-rights
+
+**Row-bound grants (deletion token, tenant handover) refuse a colon in anchor or subject**
+
+**Migration:** signRowBoundGrant now throws when the anchor or subject contains ":", and redeem returns FAILED for such a token. Use colon-free ids (uuids) for anchor and subject; a purpose may still contain a colon.
 
 ## 0.353.0
 

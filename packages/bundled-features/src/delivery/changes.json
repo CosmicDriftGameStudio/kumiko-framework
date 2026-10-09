@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.354.0",
+    "type": "breaking",
+    "title": "POST /resubscribe requires the undo token from the POST /unsubscribe response",
+    "migration": "Clients that called the resubscribe route with the unsubscribe token must send the undo token instead: read it from the hidden token field of the page POST /unsubscribe returns (aud kumiko:resubscribe, valid for 1 hour). The unsubscribe token is rejected on /resubscribe with 400, and the undo token is rejected on /unsubscribe."
+  },
+  {
     "version": "0.352.0",
     "type": "breaking",
     "title": "Delivery attempt log stores masked recipient addresses; attempts older than 90 days are pruned",
