@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-09T14:55:40.297Z",
+  "generatedAt": "2026-10-09T15:50:24.419Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -3972,6 +3972,79 @@
         {
           "name": "store_tenant_job_failures_failed_at_idx",
           "columns": ["failed_at"]
+        }
+      ],
+      "source": "unmanaged"
+    },
+    {
+      "tableName": "store_tenant_job_runs",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "serial",
+          "notNull": true,
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "job_name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "subject",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "bull_job_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "queued_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "started_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "finished_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "updated_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "store_tenant_job_runs_bull_job_id_unique",
+          "columns": ["bull_job_id"],
+          "unique": true
+        },
+        {
+          "name": "store_tenant_job_runs_tenant_job_subject_idx",
+          "columns": ["tenant_id", "job_name", "subject"]
+        },
+        {
+          "name": "store_tenant_job_runs_updated_at_idx",
+          "columns": ["updated_at"]
         }
       ],
       "source": "unmanaged"

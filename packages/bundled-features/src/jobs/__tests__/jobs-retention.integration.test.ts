@@ -20,6 +20,7 @@ import { seedRow, waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { createJobsFeature } from "../feature.js";
 import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../handlers/retention-cleanup.job.js";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
+import { tenantJobRunsTable } from "../tenant-job-run-table.js";
 
 const RETENTION_JOB = "jobs:job:retention-cleanup";
 
@@ -30,7 +31,7 @@ async function bootStack(retentionDays?: number): Promise<TestStack> {
     features: [createJobsFeature(retentionDays !== undefined ? { retentionDays } : {})],
     jobs: { consumerLane: "worker" },
   });
-  await unsafePushTables(s.db, { jobRunsTable, jobRunLogsTable });
+  await unsafePushTables(s.db, { jobRunsTable, jobRunLogsTable, tenantJobRunsTable });
   return s;
 }
 

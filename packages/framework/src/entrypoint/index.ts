@@ -89,6 +89,8 @@ type JobsBlock = {
   readonly onJobStart?: JobRunnerOptions["onJobStart"];
   readonly onJobComplete?: JobRunnerOptions["onJobComplete"];
   readonly onJobFailed?: JobRunnerOptions["onJobFailed"];
+  readonly onJobQueued?: JobRunnerOptions["onJobQueued"];
+  readonly onJobDropped?: JobRunnerOptions["onJobDropped"];
 };
 
 export type ApiEntrypointOptions = BaseEntrypointOptions & {
@@ -337,6 +339,8 @@ function buildJobRunnerWithHook(
     onJobStart: jobs.onJobStart,
     onJobComplete: jobs.onJobComplete,
     onJobFailed: jobs.onJobFailed,
+    onJobQueued: jobs.onJobQueued,
+    onJobDropped: jobs.onJobDropped,
   });
   lifecycle.registerShutdownHook(hookName, async () => {
     await jobRunner.stop();
