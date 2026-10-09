@@ -75,6 +75,7 @@ describe("captureScreenshot", () => {
       },
       on: () => {},
       off: () => {},
+      waitForLoadState: async () => {},
       evaluate: async (fn: () => unknown) => {
         if (fn.name !== "scrollDeficit") return "fixed-fingerprint";
         const next = deficits.shift() ?? 0;

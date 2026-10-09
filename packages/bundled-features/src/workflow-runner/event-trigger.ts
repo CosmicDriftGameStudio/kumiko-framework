@@ -160,7 +160,8 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
         } catch (error) {
           // Failures outside the step loop (run-started append) have no step yet, so 0.
           const stepIndex =
-            error instanceof WorkflowStepError || error instanceof WorkflowSuspensionUnsupportedError
+            error instanceof WorkflowStepError ||
+            error instanceof WorkflowSuspensionUnsupportedError
               ? error.stepIndex
               : 0;
           log.warn("workflow run failed", {

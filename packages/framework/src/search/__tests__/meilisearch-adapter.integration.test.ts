@@ -402,7 +402,6 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
     const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
     expect(await index.getSearchableAttributes()).toEqual(["a"]);
   });
-
 });
 
 describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {

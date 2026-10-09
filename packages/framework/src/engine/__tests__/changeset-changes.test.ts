@@ -29,9 +29,9 @@ describe("parseChangesetChanges", () => {
     );
     expect(change?.manualAfterCodemod).toBe(true);
 
-    expect(() => parseChangesetChanges(block("manualAfterCodemod: true"), ".changeset/x.md")).toThrow(
-      /manualAfterCodemod without a codemod/,
-    );
+    expect(() =>
+      parseChangesetChanges(block("manualAfterCodemod: true"), ".changeset/x.md"),
+    ).toThrow(/manualAfterCodemod without a codemod/);
     expect(() =>
       parseChangesetChanges(
         block("codemod: scripts/codemod/migrate-db-raw.ts\nmanualAfterCodemod: yes"),

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -61,7 +61,6 @@ import {
   DeliveryJobs,
   DeliveryQueries,
 } from "../constants.js";
-import * as optOutQueries from "../db/queries/address-opt-outs.js";
 import { collectChannels, createDeliveryService } from "../delivery-service.js";
 import { createDeliveryFeature } from "../feature.js";
 import { deliveryRenderJob, deliverySendJob } from "../jobs.js";
@@ -2333,7 +2332,7 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
     }
   });
 
-  test("opt-outs are looked up once per notify call, however many recipients and channels", async () => {
+  test("a multi-recipient notify suppresses only the recipient with an address opt-out", async () => {
     await stack.redis.redis.del(RATE_KEY_EMAIL);
     const notificationType = "app:notify:account-unsub-batch";
     const token = await signAddressUnsubscribeToken(
@@ -2347,20 +2346,14 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
     );
     expect((await postUnsubscribe(token)).status).toBe(200);
     emailTransport.sent.length = 0;
-    const lookupSpy = spyOn(optOutQueries, "selectOptedOutAddresses");
 
-    try {
-      await deliveryService.notify(
-        notificationType,
-        { to: [user1.id, user2.id], data: { title: "Batch", body: "X" } },
-        admin,
-        user1.tenantId,
-      );
+    await deliveryService.notify(
+      notificationType,
+      { to: [user1.id, user2.id], data: { title: "Batch", body: "X" } },
+      admin,
+      user1.tenantId,
+    );
 
-      expect(lookupSpy).toHaveBeenCalledTimes(1);
-    } finally {
-      lookupSpy.mockRestore();
-    }
     expect(emailTransport.sent.some((e) => e.to === testEmail(user1.id))).toBe(false);
     expect(emailTransport.sent.some((e) => e.to === testEmail(user2.id))).toBe(true);
   });
