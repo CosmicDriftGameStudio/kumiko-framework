@@ -32,6 +32,7 @@ import type {
   AppSchema,
   ConfigEditScreenDefinition,
   EntityDefinition,
+  EntityWriteExcludedFields,
   FeatureSchema,
   ProjectionListScreenDefinition,
   ScreenDefinition,
@@ -339,18 +340,51 @@ function projectScreens(
     assertValidScreenMultilineRows(featureName, shortId, screen);
     if (screen.type === "configEdit") return projectConfigEditScreen(screen, encryptedConfigKeyQns);
     if (screen.type === "projectionList") return projectProjectionListScreen(screen, registry);
-    if (
-      screen.type === "actionForm" ||
-      screen.type === "secretMint" ||
-      screen.type === "entityEdit"
-    ) {
-      const declared = urlPrefillFieldsByScreenQn.get(
-        qualifyEntityName(featureName, "screen", shortId),
-      );
-      return { ...screen, urlPrefillFields: declared === undefined ? [] : [...declared].sort() };
+    if (screen.type === "entityEdit") {
+      const { writeExcludedFields: _authoredExclusions, ...authoredScreen } = screen;
+      return {
+        ...authoredScreen,
+        urlPrefillFields: sortedUrlPrefillFields(
+          urlPrefillFieldsByScreenQn.get(qualifyEntityName(featureName, "screen", shortId)),
+        ),
+        ...entityEditWriteExcludedFields(featureName, screen.entity, registry),
+      };
+    }
+    if (screen.type === "actionForm" || screen.type === "secretMint") {
+      return {
+        ...screen,
+        urlPrefillFields: sortedUrlPrefillFields(
+          urlPrefillFieldsByScreenQn.get(qualifyEntityName(featureName, "screen", shortId)),
+        ),
+      };
     }
     return screen;
   });
+}
+
+function sortedUrlPrefillFields(declared: ReadonlySet<string> | undefined): string[] {
+  return declared === undefined ? [] : [...declared].sort();
+}
+
+// The screen is the one thing the renderer reads, so the per-verb excludeFields
+// of the entity's generic create/update handlers are projected onto it here.
+function entityEditWriteExcludedFields(
+  featureName: string,
+  entityName: string,
+  registry: Registry,
+): { writeExcludedFields?: EntityWriteExcludedFields } {
+  const excludedFor = (verb: "create" | "update"): readonly string[] | undefined =>
+    registry.getWriteHandler(`${qualifyEntityName(featureName, QnTypes.write, entityName)}:${verb}`)
+      ?.excludedFields;
+  const create = excludedFor("create");
+  const update = excludedFor("update");
+  if (create === undefined && update === undefined) return {};
+  return {
+    writeExcludedFields: {
+      ...(create !== undefined && { create }),
+      ...(update !== undefined && { update }),
+    },
+  };
 }
 
 function collectEncryptedConfigKeyQns(registry: Registry): ReadonlySet<string> {

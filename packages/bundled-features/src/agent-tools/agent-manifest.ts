@@ -251,6 +251,7 @@ function buildHandlerEntry(
   }
 
   const entity = getHandlerEntity(qn);
+  const excludedFields = "excludedFields" in def ? def.excludedFields : undefined;
   return {
     qn,
     kind,
@@ -258,6 +259,7 @@ function buildHandlerEntry(
     risk: exposure.risk,
     inputSchema,
     ...(entity !== undefined && { entity }),
+    ...(excludedFields !== undefined && { excludedFields }),
   };
 }
 

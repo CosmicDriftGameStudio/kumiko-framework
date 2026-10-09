@@ -1558,6 +1558,11 @@ export type EditLayout = {
   readonly wizard?: { readonly aside?: { readonly upNext: true } };
 };
 
+export type EntityWriteExcludedFields = {
+  readonly create?: readonly string[];
+  readonly update?: readonly string[];
+};
+
 export type EntityEditScreenDefinition = {
   readonly id: string;
   readonly type: "entityEdit";
@@ -1581,6 +1586,10 @@ export type EntityEditScreenDefinition = {
    *  screen — the only URL query keys the create form prefills. An authored
    *  value is overwritten. */
   readonly urlPrefillFields?: readonly string[];
+  /** Derived by buildAppSchema from the entity's create/update write handlers
+   *  (`excludeFields`): create hides these fields, update shows them read-only.
+   *  An authored value is overwritten. */
+  readonly writeExcludedFields?: EntityWriteExcludedFields;
   readonly entity: string;
   /** Entity field whose value names the loaded record in the header breadcrumb (edit mode only). */
   readonly recordTitleField?: string;

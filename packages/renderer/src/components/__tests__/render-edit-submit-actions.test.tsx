@@ -240,7 +240,7 @@ describe("RenderEdit — submit path", () => {
             entity={entity}
             featureName="contacts"
             initial={{ name: "seed" }}
-            schema={buildFormSchema(entity, oneFieldScreen)}
+            schema={buildFormSchema(entity, oneFieldScreen, "update")}
             customSubmit={async () => {
               customCalls += 1;
               return { validationBlocked: false, isSuccess: true, data: {} };

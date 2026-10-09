@@ -618,12 +618,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Submit-Config nur wenn der Caller einen writeCommand mitgibt; bei
   // customSubmit-Pfad kommt der Form-Controller ohne Submit-Wiring,
   // weil wir controller.submit() eh nicht rufen.
+  const writeVerb = isCreateMode ? "create" : "update";
+  // A write-excluded field must never reach the payload: the handler schema is
+  // z.never() for it, so even an unchanged read-only value would be rejected.
   const omitFields = useMemo(
-    () =>
-      layoutEditFields(screen)
+    () => [
+      ...layoutEditFields(screen)
         .filter((spec) => spec.submit === false)
         .map((spec) => spec.field),
-    [screen],
+      ...(screen.writeExcludedFields?.[writeVerb] ?? []),
+    ],
+    [screen, writeVerb],
   );
   const submitConfig =
     writeCommand !== undefined
@@ -922,8 +927,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         values: snapshot.values,
         translate,
         featureName,
+        mode: writeVerb,
       }),
-    [screen, entity, snapshot.values, translate, featureName],
+    [screen, entity, snapshot.values, translate, featureName, writeVerb],
   );
 
   const filteredSections = useMemo(
@@ -934,14 +940,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // run their own query / own submit), so they always pass through. A
     // section with no fields at all (e.g. a review-only step) has
     // `visible: fields.some(...)` = false vacuously; that's "no fields to
-    // hide", not "hidden", so it stays too (fw#1901).
+    // hide", not "hidden", so it stays too (fw#1901). Unless the create
+    // exclusion emptied it: that would leave an empty wizard step / tab.
     () =>
       filterEditSections(vm.sections, fieldsFilter).filter(
         (section) =>
           section.kind === "extension" ||
           section.kind === "relatedList" ||
           section.kind === "writeForm" ||
-          section.fields.length === 0 ||
+          (section.fields.length === 0 && section.emptiedByWriteExclusion !== true) ||
           section.visible,
       ),
     [vm.sections, fieldsFilter],

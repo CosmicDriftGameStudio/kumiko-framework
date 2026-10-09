@@ -41,6 +41,8 @@ export type WriteHandlerDefinition<
   readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
+  /** Set by the entity convention create/update handlers; see WriteHandlerDef.excludedFields. */
+  readonly excludedFields?: readonly string[];
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];

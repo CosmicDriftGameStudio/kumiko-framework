@@ -152,6 +152,8 @@ export type AgentManifestHandler = {
   readonly risk: AgentRisk;
   readonly inputSchema: Readonly<Record<string, unknown>>;
   readonly entity?: string;
+  /** Fields this generic create/update handler never writes; sending one fails validation. */
+  readonly excludedFields?: readonly string[];
 };
 
 export type AgentManifestScreen = {

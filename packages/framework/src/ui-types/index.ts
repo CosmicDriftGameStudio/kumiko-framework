@@ -119,6 +119,7 @@ export type {
   EntityListFacetConfig,
   EntityListFacetExtraOption,
   EntityListScreenDefinition,
+  EntityWriteExcludedFields,
   FieldCondition,
   FieldIconKey,
   FieldRenderer,
