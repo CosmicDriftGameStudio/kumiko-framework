@@ -221,6 +221,20 @@ function validateRowActionNavigateParams(
         `entityEdit-create screen.`,
     );
   }
+
+  const formTarget = target.screen;
+  if (
+    (formTarget.type === "actionForm" || formTarget.type === "secretMint") &&
+    formTarget.submitPrefilled === true
+  ) {
+    validateDrawerPrefillKeys(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenType}) rowAction "${action.id}"`,
+      "navigate-target",
+      action.screen ?? `entity "${action.entity}"`,
+      formTarget,
+      action.params,
+    );
+  }
 }
 
 // Shared by projectionDetail and entityEdit: a tab strip needs something to
@@ -544,6 +558,7 @@ function validateDrawerTargetAction(
   if (action.params === undefined) return;
   validateDrawerPrefillKeys(
     `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${actionLabel} "${action.id}"`,
+    "drawer-target",
     action.screen,
     target,
     action.params,
@@ -552,8 +567,9 @@ function validateDrawerTargetAction(
 
 function validateDrawerPrefillKeys(
   where: string,
+  targetLabel: "drawer-target" | "navigate-target",
   targetScreenId: string,
-  target: ActionFormScreenDefinition,
+  target: ActionFormScreenDefinition | SecretMintScreenDefinition,
   params: RowFieldExtractor,
 ): void {
   const renderedFieldNames = new Set<string>();
@@ -565,7 +581,7 @@ function validateDrawerPrefillKeys(
   for (const fieldName of rowFieldExtractorKeys(params)) {
     if (!Object.hasOwn(target.fields, fieldName)) {
       throw new Error(
-        `${where} params prefills "${fieldName}", which drawer-target "${targetScreenId}" does not declare as a ` +
+        `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" does not declare as a ` +
           `field — the renderer would drop it and leave the form empty. Target fields: ` +
           `${Object.keys(target.fields).sort().join(", ") || "(none)"}.`,
       );
@@ -577,13 +593,13 @@ function validateDrawerPrefillKeys(
         ("format" in targetField && targetField.format === "password"));
     if (isSensitiveOrPassword) {
       throw new Error(
-        `${where} params prefills "${fieldName}", which drawer-target "${targetScreenId}" marks as ` +
+        `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" marks as ` +
           `sensitive or password — the renderer never prefills those fields and would leave the form empty.`,
       );
     }
     if (!renderedFieldNames.has(fieldName)) {
       throw new Error(
-        `${where} params prefills "${fieldName}", which drawer-target "${targetScreenId}" does not render in ` +
+        `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" does not render in ` +
           `its layout — the renderer only prefills fields the layout shows and would drop it.`,
       );
     }
@@ -1608,6 +1624,17 @@ export function validateScreens(
       throw new Error(
         `[Feature ${feature.name}] Screen "${screenId}" (${screen.type}) sets urlPrefillFields — ` +
           `it is derived from navigate params by buildAppSchema; declare params on the navigating action instead.`,
+      );
+    }
+    if (
+      screen.type !== "actionForm" &&
+      screen.type !== "secretMint" &&
+      "submitPrefilled" in screen &&
+      screen.submitPrefilled !== undefined
+    ) {
+      throw new Error(
+        `[Feature ${feature.name}] Screen "${screenId}" (${screen.type}) sets submitPrefilled — ` +
+          `only actionForm and secretMint screens support it. Remove it.`,
       );
     }
     validateScreenHasNavArea(feature, screenId, screen, featureMap);

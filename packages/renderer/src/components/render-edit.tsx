@@ -461,6 +461,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onRelatedListDrawerAction,
     submitLabel,
     submitVariant,
+    submitWithoutChanges,
     footerActions,
     summary,
     labelAppendix,
@@ -1517,7 +1518,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // draw a no-op Save. Extension registrations still get their Save, since
   // persistExtensions() runs on the customSubmit path too.
   const isFieldlessSubmitForm = isFieldless && screen.entity !== PROJECTION_DETAIL_ENTITY;
-  const showsSubmit = isFormEditable || hasExtensionRegistrations || isFieldlessSubmitForm;
+  const showsSubmit =
+    isFormEditable ||
+    hasExtensionRegistrations ||
+    isFieldlessSubmitForm ||
+    submitWithoutChanges !== undefined;
   const footerSlot = screen.slots?.footer;
   // An unregistered footer component renders null, so only a resolvable one may
   // count as an action (else read-only screens get an empty footer strip).
@@ -1644,7 +1649,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         <Button
           type="submit"
           disabled={
-            (snapshot.isUnchanged && !extensionDirty && !isFieldlessSubmitForm && !insideDrawer) ||
+            (snapshot.isUnchanged &&
+              !extensionDirty &&
+              !isFieldlessSubmitForm &&
+              !insideDrawer &&
+              submitWithoutChanges !== true) ||
             isSubmitting ||
             disabled
           }

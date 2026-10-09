@@ -1695,6 +1695,10 @@ export type ActionFormScreenDefinition = {
   readonly fallback?: string;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
+  /** Submit is enabled without edits: values seeded from navigate `params` count as the
+   *  user's intent. Every required field the layout hides with `visible: false` must hold a
+   *  value, otherwise submit stays disabled (boot-checked against navigate `params`). */
+  readonly submitPrefilled?: boolean;
   /** Write-Handler-QN der bei Submit gerufen wird. Form-Object landet
    *  1:1 als payload — Handler-Schema (Zod) validiert weiter. */
   readonly handler: string;
@@ -1866,6 +1870,10 @@ export type SecretMintScreenDefinition = {
   readonly fallback?: string;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
+  /** Submit is enabled without edits: values seeded from navigate `params` count as the
+   *  user's intent. Every required field the layout hides with `visible: false` must hold a
+   *  value, otherwise submit stays disabled (boot-checked against navigate `params`). */
+  readonly submitPrefilled?: boolean;
   /** Write-handler QN dispatched on submit. */
   readonly handler: string;
   readonly fields: Readonly<Record<string, FormFieldDefinition>>;

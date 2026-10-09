@@ -1,4 +1,5 @@
 import { qualifyEntityName } from "../qualified-name.js";
+import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.js";
 import type { FeatureDefinition } from "../types/index.js";
 import type {
   EditRelatedListSection,
@@ -197,4 +198,36 @@ function resolveTarget(
   if (source.screen === undefined) return undefined;
   const match = screensByShortId.get(source.screen)?.[0];
   return match === undefined ? undefined : { ...match, shortId: source.screen };
+}
+
+// submitPrefilled lets an unchanged form submit, so a required field the layout
+// hides must be seeded by a navigate param — nothing else can ever fill it.
+export function validateSubmitPrefilledHiddenFields(features: readonly FeatureDefinition[]): void {
+  const prefillByScreenQn = collectUrlPrefillFieldsByScreenQn(features);
+  for (const feature of features) {
+    for (const [screenId, screen] of Object.entries(feature.screens)) {
+      if (screen.type !== "actionForm" && screen.type !== "secretMint") continue;
+      if (screen.submitPrefilled !== true) continue;
+      const seeded = prefillByScreenQn.get(qualifyEntityName(feature.name, "screen", screenId));
+      for (const section of screen.layout.sections) {
+        if (!isFieldsEditSection(section)) continue;
+        for (const rawSpec of sectionFieldSpecs(section)) {
+          const spec = normalizeEditField(rawSpec);
+          if (spec.visible !== false) continue;
+          const fieldDef = screen.fields[spec.field];
+          if (fieldDef === undefined || !("required" in fieldDef) || fieldDef.required !== true) {
+            continue;
+          }
+          if (seeded?.has(spec.field) === true) continue;
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (${screen.type}) sets submitPrefilled but ` +
+              `hides required field "${spec.field}" (visible: false) and no navigate action passes it in ` +
+              `params — the field could never get a value and the form could never submit. Add ` +
+              `"${spec.field}" to the params of a navigate action targeting this screen, make the field ` +
+              `visible, or drop required.`,
+          );
+        }
+      }
+    }
+  }
 }
