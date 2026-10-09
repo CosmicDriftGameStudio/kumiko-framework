@@ -94,6 +94,18 @@ export async function createSnapshotsTable(db: DbConnection): Promise<void> {
   await unsafePushTables(db, { kumikoSnapshots: snapshotsTable });
 }
 
+const ENTITY_EVENT_VERSION_RADIX = 1000;
+
+// Entity eventVersion 1 keeps the caller generation (existing snapshots stay valid);
+// higher versions map to negative values, disjoint from caller generations (>= 1).
+export function effectiveSnapshotGeneration(
+  callerVersion: number,
+  entityEventVersion: number | undefined,
+): number {
+  if (entityEventVersion === undefined || entityEventVersion === 1) return callerVersion;
+  return -(callerVersion * ENTITY_EVENT_VERSION_RADIX + entityEventVersion);
+}
+
 export type Snapshot<TState extends Record<string, unknown> = Record<string, unknown>> = {
   readonly aggregateId: string;
   readonly tenantId: TenantId;
@@ -200,9 +212,12 @@ export async function loadAggregateWithSnapshot<TState extends Record<string, un
       return { state: initial, version: 0, snapshotHit: false };
     }
   }
-  const shapeVersion = options?.snapshotVersion ?? 1;
+  const callerVersion = options?.snapshotVersion ?? 1;
+  const generationFor = (aggregateType: string): number =>
+    effectiveSnapshotGeneration(callerVersion, options?.entityEventVersionOf?.(aggregateType));
   const stored = await loadLatestSnapshot<TState>(db, aggregateId, tenantId);
-  const snapshot = stored && stored.snapshotVersion === shapeVersion ? stored : null;
+  const snapshot =
+    stored && stored.snapshotVersion === generationFor(stored.aggregateType) ? stored : null;
   const baseState = snapshot ? snapshot.state : initial;
   const afterVersion = snapshot ? snapshot.version : 0;
   const delta = await loadEventsAfterVersion(db, aggregateId, tenantId, afterVersion);
@@ -222,7 +237,7 @@ export async function loadAggregateWithSnapshot<TState extends Record<string, un
         aggregateType: lastDelta.aggregateType,
         version: latestVersion,
         state,
-        snapshotVersion: shapeVersion,
+        snapshotVersion: generationFor(lastDelta.aggregateType),
       });
     } catch {
       // Best-effort cache write — losing it only costs the next load a replay.

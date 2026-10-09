@@ -1,5 +1,6 @@
 import { configureEventPiiCatalog } from "../crypto/event-pii.js";
 import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption.js";
+import { type EntityLifecycleVerb, entityEventName } from "../db/event-store-executor-context.js";
 import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.js";
 import { resolveName } from "./handler-helpers.js";
 import { parseRefTargetEntityName } from "./parse-ref-target.js";
@@ -19,6 +20,7 @@ import {
 } from "./soft-delete-cleanup.js";
 import type {
   EntityDefinition,
+  EntityEventMigration,
   EventPiiFields,
   EventUpcastFn,
   FeatureDefinition,
@@ -435,6 +437,108 @@ export function validateEventMigrationVersions(
   }
 }
 
+export const ENTITY_LIFECYCLE_VERBS = [
+  "created",
+  "updated",
+  "deleted",
+  "restored",
+  "forgotten",
+] as const satisfies readonly EntityLifecycleVerb[];
+
+const MAX_ENTITY_EVENT_VERSION = 999;
+
+type RowTransform = EntityEventMigration["transform"];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// created is the flat row, updated carries changes + previous, the rest only previous.
+function rowPartKeys(verb: EntityLifecycleVerb): readonly string[] | "whole" {
+  if (verb === "created") return "whole";
+  if (verb === "updated") return ["changes", "previous"];
+  return ["previous"];
+}
+
+export function adaptRowTransformToPayload(
+  verb: EntityLifecycleVerb,
+  transform: RowTransform,
+): EventUpcastFn {
+  const parts = rowPartKeys(verb);
+  return async (payload, ctx) => {
+    if (!isRecord(payload)) return payload;
+    if (parts === "whole") return transform(payload, ctx);
+    const result: Record<string, unknown> = { ...payload };
+    for (const key of parts) {
+      const part = payload[key];
+      if (isRecord(part)) result[key] = await transform(part, ctx);
+    }
+    return result;
+  };
+}
+
+// Boot-time check of an entity's eventVersion/eventMigrations; returns the steps keyed by fromVersion, empty for v1.
+function entityEventMigrationSteps(
+  entityName: string,
+  eventVersion: number,
+  migrations: readonly EntityEventMigration[],
+): Map<number, RowTransform> {
+  if (
+    !Number.isInteger(eventVersion) ||
+    eventVersion < 1 ||
+    eventVersion > MAX_ENTITY_EVENT_VERSION
+  ) {
+    throw new Error(
+      `Entity "${entityName}" declares eventVersion ${String(eventVersion)}; it must be an integer between 1 and ${MAX_ENTITY_EVENT_VERSION}.`,
+    );
+  }
+  if (eventVersion === 1 && migrations.length > 0) {
+    throw new Error(
+      `Entity "${entityName}" declares eventMigrations but no eventVersion > 1. Set eventVersion to the target version.`,
+    );
+  }
+  const steps = new Map<number, RowTransform>();
+  for (const m of migrations) {
+    if (m.toVersion !== m.fromVersion + 1 || m.toVersion > eventVersion) {
+      throw new Error(
+        `Entity "${entityName}" declares an eventMigration v${m.fromVersion} → v${m.toVersion}; ` +
+          `steps must advance by exactly one and not exceed eventVersion ${eventVersion}.`,
+      );
+    }
+    steps.set(m.fromVersion, m.transform);
+  }
+  for (let v = 1; v < eventVersion; v++) {
+    if (!steps.has(v)) {
+      throw new Error(
+        `Entity "${entityName}" declares eventVersion ${eventVersion} but no eventMigration ` +
+          `covers the step v${v} → v${v + 1}.`,
+      );
+    }
+  }
+  return steps;
+}
+
+export function buildEntityEventUpcasterChains(state: RegistryState): void {
+  for (const [entityName, entity] of state.entityMap) {
+    const eventVersion = entity.eventVersion ?? 1;
+    const steps = entityEventMigrationSteps(entityName, eventVersion, entity.eventMigrations ?? []);
+    if (eventVersion === 1) continue;
+    for (const verb of ENTITY_LIFECYCLE_VERBS) {
+      const key = entityEventName(entityName, verb);
+      if (state.eventUpcasterMap.has(key) || state.eventMap.has(key)) {
+        throw new Error(
+          `Entity event type "${key}" collides with an already registered event; event types must be unique.`,
+        );
+      }
+      const chain = new Map<number, EventUpcastFn>();
+      for (const [from, transform] of steps) {
+        chain.set(from, adaptRowTransformToPayload(verb, transform));
+      }
+      state.eventUpcasterMap.set(key, { currentVersion: eventVersion, chain });
+    }
+  }
+}
+
 export function buildEventUpcasterChains(
   state: RegistryState,
   features: readonly FeatureDefinition[],
@@ -483,7 +587,6 @@ export function validateProjectionApplyKeys(state: RegistryState): void {
   // CRUD types per source entity PLUS every domain event registered via
   // r.defineEvent — an apply-handler for a domain event is how a projection
   // reacts to ctx.appendEvent writes on the same aggregate stream.
-  const AUTO_EVENT_VERBS = ["created", "updated", "deleted", "restored", "forgotten"] as const;
   const allDomainEventNames = new Set(state.eventMap.keys());
   for (const [projName, projDef] of state.projectionMap) {
     const sources = Array.isArray(projDef.source) ? projDef.source : [projDef.source];
@@ -509,7 +612,7 @@ export function validateProjectionApplyKeys(state: RegistryState): void {
     const isEventsOnlySource = !sources.every((src) => state.entityMap.has(src));
     for (const src of rebuildSources) {
       if (state.entityMap.has(src)) {
-        for (const verb of AUTO_EVENT_VERBS) validEventTypes.add(`${src}.${verb}`);
+        for (const verb of ENTITY_LIFECYCLE_VERBS) validEventTypes.add(`${src}.${verb}`);
       }
     }
     // Domain events are valid apply-keys for any projection. They arrive via

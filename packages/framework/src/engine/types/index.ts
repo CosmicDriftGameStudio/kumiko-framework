@@ -123,6 +123,7 @@ export type {
   EmbeddedFieldDef,
   EmbeddedSubFieldDef,
   EntityDefinition,
+  EntityEventMigration,
   EntityIndexDef,
   FieldAccess,
   FieldDefinition,

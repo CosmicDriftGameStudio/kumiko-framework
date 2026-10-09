@@ -20,6 +20,7 @@ import { createInitialState } from "./registry-state.js";
 import {
   applyExtensionUsages,
   autoWireSoftDeleteJobs,
+  buildEntityEventUpcasterChains,
   buildEventUpcasterChains,
   buildImplicitProjections,
   buildIncomingRelations,
@@ -80,6 +81,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   validateRelationTargetsExist(state);
   validateEventMigrationVersions(state, features);
   buildEventUpcasterChains(state, features);
+  buildEntityEventUpcasterChains(state);
   validateProjectionApplyKeys(state);
   validateRequiredFeatures(state, features);
   resolveNotificationTriggersAndRegisterHooks(state);

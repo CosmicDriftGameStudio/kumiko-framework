@@ -33,4 +33,7 @@ export type LoadAggregateWithSnapshotOptions = {
   // through the upcaster chain — and restamped on the next auto-save. Bump
   // whenever the reducer's state shape changes.
   readonly snapshotVersion?: number;
+  // Entity eventVersion per aggregateType (undefined for non-entity streams);
+  // folded into the snapshot generation so an eventVersion bump invalidates snapshots.
+  readonly entityEventVersionOf?: (aggregateType: string) => number | undefined;
 };

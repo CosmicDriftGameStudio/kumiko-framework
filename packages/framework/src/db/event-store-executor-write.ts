@@ -328,6 +328,7 @@ export function createWriteVerbs(
             tenantId: streamTenantFor(user),
             expectedVersion: 0,
             type: entityEventName(entityName, "created"),
+            eventVersion: entity.eventVersion ?? 1,
             payload: flatData,
             metadata: buildEventMetadata(user),
           }),
@@ -607,6 +608,7 @@ export function createWriteVerbs(
             tenantId: streamTenantFor(user),
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "updated"),
+            eventVersion: entity.eventVersion ?? 1,
             payload: {
               changes: flatChanges,
               previous: encryptedPrevious,
@@ -740,6 +742,7 @@ export function createWriteVerbs(
             tenantId: streamTenantFor(user),
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "deleted"),
+            eventVersion: entity.eventVersion ?? 1,
             payload: { previous: await encryptForStorage(existing, user) },
             metadata: buildEventMetadata(user),
           }),
@@ -834,6 +837,7 @@ export function createWriteVerbs(
             tenantId: streamTenantFor(user),
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "forgotten"),
+            eventVersion: entity.eventVersion ?? 1,
             // Re-encrypt like delete(): `existing` came decrypted from loadById —
             // plaintext must not land in the immutable log, least of all on forget.
             payload: { previous: await encryptForStorage(existing, user) },
@@ -948,6 +952,7 @@ export function createWriteVerbs(
             tenantId: streamTenantFor(user),
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "restored"),
+            eventVersion: entity.eventVersion ?? 1,
             payload: { previous: data },
             metadata: buildEventMetadata(user),
           }),

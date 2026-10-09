@@ -2,6 +2,7 @@
 // --- Field Types ---
 
 import type { VariantSpec } from "./derivatives-types.js";
+import type { EventUpcastCtx } from "./handlers.js";
 
 // OwnershipMap is declared in ./ownership.ts — field-access maps to
 // per-role ownership rules. A legacy `readonly string[]` form is still
@@ -1116,6 +1117,15 @@ export type ParentRefDef = {
   readonly allowedTypes?: readonly string[];
 };
 
+export type EntityEventMigration = {
+  readonly fromVersion: number;
+  readonly toVersion: number;
+  readonly transform: (
+    fields: Readonly<Record<string, unknown>>,
+    ctx: EventUpcastCtx,
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>;
+};
+
 export type EntityDefinition<
   F extends FieldsMap = FieldsMap,
   T extends EntityTenancy = EntityTenancy,
@@ -1131,6 +1141,10 @@ export type EntityDefinition<
    *  only for genuinely tenant-independent aggregates like `user`. The first
    *  event (create) is what's routed; updates resolve the stream tenant upstream. */
   readonly systemStream?: boolean;
+  /** Schema version stamped on every lifecycle event (default 1, integer 1..999). Bump it together with a step in `eventMigrations`. */
+  readonly eventVersion?: number;
+  /** One step per version, fromVersion → fromVersion+1. Transforms run on row-shaped field records; the record may be partial, touch only keys that are present. */
+  readonly eventMigrations?: readonly EntityEventMigration[];
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
   /** Allowed state transitions per field. Boot validates against select options. */
