@@ -6,6 +6,7 @@
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
 import type { TenantDb } from "../../db/tenant-db.js";
 import type { Registry, TenantId } from "../types/index.js";
+import type { TenantDestroyHookResult } from "./tenant-resource.js";
 
 // fw#2914 — db is tenant-filtered; unfiltered access needs
 // `escapeHatch: { reason }` on the owning `r.useExtension(...)` registration.
@@ -13,6 +14,9 @@ export interface TenantDataHookCtx {
   readonly db: TenantDb;
   readonly registry: Registry;
   readonly tenantId: TenantId;
+  // Epoch ms; undefined = no time bound. A hook nearing it returns { done: false }
+  // and the runner resumes next tick, so hooks must be idempotent on re-call.
+  readonly deadlineAt?: number;
   // Threaded through from DestructionStageCtx (tenant-lifecycle/stages.ts),
   // which resolves it unconditionally for every stage. "app-data" is the
   // only stage where a fileRef row still exists to read a storageKey off —
@@ -23,7 +27,9 @@ export interface TenantDataHookCtx {
   readonly log?: (message: string) => void;
 }
 
-export type TenantDataDestroyHook = (ctx: TenantDataHookCtx) => Promise<void>;
+export type TenantDataDestroyHook = (
+  ctx: TenantDataHookCtx,
+) => Promise<TenantDestroyHookResult | void>;
 
 export interface TenantDataExtensionHooks {
   readonly destroy: TenantDataDestroyHook;

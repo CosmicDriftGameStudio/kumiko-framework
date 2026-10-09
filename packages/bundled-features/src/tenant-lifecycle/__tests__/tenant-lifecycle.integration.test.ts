@@ -7,6 +7,7 @@ import {
   defineFeature,
   EXT_EXTERNAL_RESOURCE,
   EXT_TENANT_DATA,
+  type TenantDataHookCtx,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { append, eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
@@ -40,6 +41,11 @@ import { createUserFeature } from "../../user/feature.js";
 import {
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_FAILED_EVENT_QN,
+  TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_QN,
+  TENANT_DESTRUCTION_STAGE_FAILED_EVENT_QN,
+  TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_QN,
+  TENANT_DESTRUCTION_STAGE_STARTED_EVENT_QN,
+  TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_QN,
   TENANT_DESTRUCTION_STARTED_EVENT_QN,
 } from "../constants.js";
 import {
@@ -663,5 +669,116 @@ describe("tenant-lifecycle :: explicit auth override beats the mounted provider"
 
     const res = await overrideStack.http.query(TenantQueries.me, {}, tenantAdmin);
     expect(res.status).toBe(200);
+  });
+});
+
+describe("tenant-lifecycle :: resumable stages (done:false continuation)", () => {
+  const PARTIAL_CALLS_BEFORE_DONE = 5;
+  let resumableStack: TestStack;
+  let hookCalls = 0;
+  const seenDeadlines: Array<number | undefined> = [];
+
+  const resumableFeature = defineFeature("test-resumable-tenant-data", (r) => {
+    r.requires("tenant-lifecycle");
+    r.useExtension(EXT_TENANT_DATA, "resumable", {
+      destroy: async (hookCtx: TenantDataHookCtx) => {
+        hookCalls++;
+        seenDeadlines.push(hookCtx.deadlineAt);
+        return hookCalls <= PARTIAL_CALLS_BEFORE_DONE
+          ? { done: false, processed: 1 }
+          : { done: true };
+      },
+    });
+  });
+
+  beforeAll(async () => {
+    const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
+    const resolver = createConfigResolver({ cipher: encryption });
+    resumableStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        authFoundationFeature,
+        createSessionsFeature(),
+        createTenantLifecycleFeature(),
+        resumableFeature,
+      ],
+      extraContext: { configResolver: resolver, configEncryption: encryption },
+      authConfig: {
+        resolveTenantLifecycleStatus: async (tenantId: TenantId) => {
+          const gate = await resolveTenantLifecycleGate(resumableStack.db, tenantId);
+          return gate ? { status: gate.status } : null;
+        },
+      } as import("@cosmicdrift/kumiko-framework/api").AuthRoutesConfig,
+    });
+  });
+
+  afterAll(async () => {
+    await resumableStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    hookCalls = 0;
+    seenDeadlines.length = 0;
+    resumableStack.events.reset();
+    resetTenantLifecycleGateCacheForTests();
+    await resetTestTables(resumableStack.db, [
+      tenantTable,
+      tenantComplianceProfileTable,
+      userSessionTable,
+      tenantMembershipsTable,
+      eventsTable,
+    ]);
+  });
+
+  test("a stage reporting done:false is resumed next tick without failed attempts", async () => {
+    await resumableStack.http.writeOk(
+      TenantHandlers.create,
+      { id: tenantAdmin.tenantId, key: "acme", name: "ACME Corp" },
+      TestUsers.systemAdmin,
+    );
+    await resumableStack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantAdmin);
+    await resumableStack.http.writeOk(REQUEST, {}, tenantAdmin);
+
+    const farFuture = getTemporal()
+      .Now.instant()
+      .add({ hours: 24 * 3650 });
+
+    let status = "";
+    for (let i = 0; i < 30; i++) {
+      await runTenantDestructionSweep({
+        db: resumableStack.db,
+        registry: resumableStack.registry,
+        now: farFuture,
+      });
+      const rows = await selectMany(resumableStack.db, tenantTable, { id: tenantAdmin.tenantId });
+      status = String(rows[0]?.["status"]);
+      if (status === "destroyed" || status === "destroyFailed") break;
+    }
+    expect(status).toBe("destroyed");
+
+    const events = await selectMany(resumableStack.db, eventsTable, {
+      aggregateId: tenantAdmin.tenantId,
+    });
+    const appDataEvents = (type: string) =>
+      events.filter(
+        (e) =>
+          e["type"] === type && (e["payload"] as Record<string, unknown>)["stage"] === "app-data",
+      );
+    expect(
+      events.filter((e) => e["type"] === TENANT_DESTRUCTION_STAGE_FAILED_EVENT_QN),
+    ).toHaveLength(0);
+    expect(events.some((e) => e["type"] === TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_QN)).toBe(
+      false,
+    );
+    expect(
+      appDataEvents(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_QN).length,
+    ).toBeGreaterThanOrEqual(PARTIAL_CALLS_BEFORE_DONE);
+    expect(appDataEvents(TENANT_DESTRUCTION_STAGE_STARTED_EVENT_QN)).toHaveLength(1);
+    expect(appDataEvents(TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_QN)).toHaveLength(1);
+    expect(seenDeadlines.length).toBeGreaterThan(PARTIAL_CALLS_BEFORE_DONE);
+    for (const deadline of seenDeadlines) expect(Number.isFinite(deadline)).toBe(true);
   });
 });

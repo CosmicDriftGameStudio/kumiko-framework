@@ -11,6 +11,8 @@ export const TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT =
   "tenant-destruction-stage-started" as const;
 export const TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT =
   "tenant-destruction-stage-succeeded" as const;
+export const TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT =
+  "tenant-destruction-stage-progressed" as const;
 export const TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT =
   "tenant-destruction-stage-failed" as const;
 export const TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_SHORT =
@@ -26,6 +28,8 @@ export const TENANT_DESTRUCTION_STARTED_EVENT_QN =
   `${EVENT_PREFIX}${TENANT_DESTRUCTION_STARTED_EVENT_SHORT}` as const;
 export const TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_QN =
   `${EVENT_PREFIX}${TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT}` as const;
+export const TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_QN =
+  `${EVENT_PREFIX}${TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT}` as const;
 export const TENANT_DESTRUCTION_STAGE_FAILED_EVENT_QN =
   `${EVENT_PREFIX}${TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT}` as const;
 export const TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_QN =
@@ -54,3 +58,7 @@ export const TENANT_DESTRUCTION_STAGES = [
 ] as const;
 
 export type TenantDestructionStageName = (typeof TENANT_DESTRUCTION_STAGES)[number];
+
+// The sweep cron fires every minute with concurrency "skip", so a tick must
+// finish well inside that window or the next one is skipped.
+export const DESTRUCTION_STAGE_TICK_BUDGET_MS = 30_000;

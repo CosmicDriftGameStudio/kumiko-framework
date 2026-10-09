@@ -18,11 +18,13 @@ import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tenantEntity, tenantTable } from "../tenant/index.js";
 import {
+  DESTRUCTION_STAGE_TICK_BUDGET_MS,
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_COMPLETED_EVENT_QN,
   TENANT_DESTRUCTION_FAILED_EVENT_QN,
   TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_SHORT,
   TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT,
+  TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT,
   TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT,
   TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT,
   TENANT_DESTRUCTION_STARTED_EVENT_SHORT,
@@ -43,6 +45,7 @@ type StageEventName =
   | typeof TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT
   | typeof TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT
   | typeof TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT
+  | typeof TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT
   | typeof TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_SHORT;
 
 function qualified(short: StageEventName): string {
@@ -76,6 +79,23 @@ function replayStageState(
     }
   }
   return { completed, abandoned, attemptsByStage };
+}
+
+// A progressed event as the stage's latest lifecycle event means the previous
+// tick handed over mid-stage; its stage-started is still the open one.
+function isStageContinuation(
+  events: ReadonlyArray<{ type: string; payload: Record<string, unknown> }>,
+  stageName: string,
+): boolean {
+  const stageEventTypes = new Set([
+    qualified(TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT),
+    qualified(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT),
+    qualified(TENANT_DESTRUCTION_STAGE_FAILED_EVENT_SHORT),
+  ]);
+  const lastStageEvent = events.findLast(
+    (event) => stageEventTypes.has(event.type) && event.payload["stage"] === stageName,
+  );
+  return lastStageEvent?.type === qualified(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT);
 }
 
 function lastEventVersion(events: ReadonlyArray<{ version: number }>): number {
@@ -226,7 +246,12 @@ export async function runNextDestructionStage(args: {
   readonly searchAdapter?: SearchAdapter;
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly actor?: string;
-}): Promise<{ readonly done: boolean; readonly error?: string; readonly halted?: boolean }> {
+}): Promise<{
+  readonly done: boolean;
+  readonly error?: string;
+  readonly halted?: boolean;
+  readonly progressed?: boolean;
+}> {
   const events = await loadAggregate(args.db, args.tenantId, args.tenantId);
   const { completed, abandoned, attemptsByStage } = replayStageState(events);
 
@@ -251,25 +276,38 @@ export async function runNextDestructionStage(args: {
     searchAdapter: args.searchAdapter,
     escapeHatchAuditSink: args.escapeHatchAuditSink,
     actor: args.actor,
+    deadlineAt: Date.now() + DESTRUCTION_STAGE_TICK_BUDGET_MS,
   };
 
   let version = lastEventVersion(events);
-  version = await appendTenantStageEventIdempotent(
-    args.db,
-    args.tenantId,
-    qualified(TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT),
-    { stage: next.name, attempts: attempt },
-    version,
-    stageOutcomeRecorded(events, next.name, TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT),
-  );
+  if (!isStageContinuation(events, next.name)) {
+    version = await appendTenantStageEventIdempotent(
+      args.db,
+      args.tenantId,
+      qualified(TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT),
+      { stage: next.name, attempts: attempt },
+      version,
+      stageOutcomeRecorded(events, next.name, TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT),
+    );
+  }
 
   try {
-    await next.run(ctx);
+    const outcome = await next.run(ctx);
     // next.run() may itself have appended events to this aggregate (e.g.
     // tombstoneTenantRow updates the tenant row on the same stream) — reload
     // the version fresh instead of trusting the pre-run `version`, or this
     // append throws VersionConflictError on every stage whose run() writes.
     const eventsAfterRun = await loadAggregate(args.db, args.tenantId, args.tenantId);
+    if (!outcome.done) {
+      await appendTenantStageEvent(
+        args.db,
+        args.tenantId,
+        qualified(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT),
+        { stage: next.name, attempts: attempt, processed: outcome.processed },
+        lastEventVersion(eventsAfterRun),
+      );
+      return { done: false, progressed: true };
+    }
     version = await appendTenantStageEventIdempotent(
       args.db,
       args.tenantId,

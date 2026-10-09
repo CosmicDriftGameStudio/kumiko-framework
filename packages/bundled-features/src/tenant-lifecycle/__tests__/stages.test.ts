@@ -37,7 +37,12 @@ describe("tenant-lifecycle stages", () => {
     });
     const registry = createRegistry([declares(EXT_TENANT_DATA), broken]);
     await expect(
-      stageNamed("app-data").run({ db: fakeDb, registry, tenantId: fakeTenantId }),
+      stageNamed("app-data").run({
+        db: fakeDb,
+        registry,
+        tenantId: fakeTenantId,
+        deadlineAt: Number.POSITIVE_INFINITY,
+      }),
     ).rejects.toThrow(`${EXT_TENANT_DATA} registration for "bad-entity" has no destroy function`);
   });
 
@@ -48,7 +53,12 @@ describe("tenant-lifecycle stages", () => {
     });
     const registry = createRegistry([declares(EXT_STORAGE_PROVIDER), broken]);
     await expect(
-      stageNamed("files").run({ db: fakeDb, registry, tenantId: fakeTenantId }),
+      stageNamed("files").run({
+        db: fakeDb,
+        registry,
+        tenantId: fakeTenantId,
+        deadlineAt: Number.POSITIVE_INFINITY,
+      }),
     ).rejects.toThrow(
       `${EXT_STORAGE_PROVIDER} registration for "bad-entity" has no destroy function`,
     );
@@ -64,7 +74,12 @@ describe("tenant-lifecycle stages", () => {
     });
     const registry = createRegistry([declares(EXT_TENANT_DATA), undeclared]);
     await expect(
-      stageNamed("app-data").run({ db: fakeDb, registry, tenantId: fakeTenantId }),
+      stageNamed("app-data").run({
+        db: fakeDb,
+        registry,
+        tenantId: fakeTenantId,
+        deadlineAt: Number.POSITIVE_INFINITY,
+      }),
     ).rejects.toBeInstanceOf(AccessDeniedError);
   });
 
@@ -84,6 +99,7 @@ describe("tenant-lifecycle stages", () => {
       db: fakeDb,
       registry,
       tenantId: fakeTenantId,
+      deadlineAt: Number.POSITIVE_INFINITY,
       actor: "operator-user-id",
       escapeHatchAuditSink: async (event) => {
         events.push({ handler: event.handler, actor: event.actor, reason: event.reason });

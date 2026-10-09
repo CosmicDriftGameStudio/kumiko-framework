@@ -14,8 +14,15 @@ import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provid
 import type { DbRunner } from "../../db/connection.js";
 import type { TenantId } from "../types/index.js";
 
+// done:false asks the runner to call the hook again next tick without counting
+// a failed attempt; processed feeds the destroy progress event.
+export type TenantDestroyHookResult = { readonly done: boolean; readonly processed?: number };
+
 export interface TenantResourceHookCtx {
   readonly tenantId: TenantId;
+  // Epoch ms; undefined = no time bound. A hook nearing it returns { done: false }
+  // and the runner resumes next tick, so hooks must be idempotent on re-call.
+  readonly deadlineAt?: number;
   readonly db: DbRunner;
   readonly fileProviderResolver?: FileProviderResolver;
   readonly log?: (message: string) => void;
@@ -24,7 +31,7 @@ export interface TenantResourceHookCtx {
 export type TenantResourceDestroyHook = (
   tenantId: TenantId,
   ctx: TenantResourceHookCtx,
-) => Promise<void>;
+) => Promise<TenantDestroyHookResult | void>;
 
 export interface TenantResourceExtensionHooks {
   readonly destroyTenant: TenantResourceDestroyHook;

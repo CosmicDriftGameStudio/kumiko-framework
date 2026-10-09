@@ -54,20 +54,19 @@ export const EXT_USER_DATA_ORDER = {
 } as const;
 
 /**
- * `tenantData` — Tenant-Destroy-Hooks pro Entity (DSGVO + AVV-Beendigung).
+ * `tenantData` — per-entity tenant-destroy hooks (GDPR + end of data processing agreement).
  *
- * Erwartete Hook-Methoden:
- *   - `destroy(tenantId, ctx) => Promise<void>`
+ * Expected hook method: `destroy(ctx) => Promise<TenantDestroyHookResult | void>`.
  *
- * Registriert von: `tenant-lifecycle` (Sprint 5).
- * Genutzt von: jedes Feature mit tenantId-Field.
+ * Registered by: `tenant-lifecycle`.
+ * Consumed by: every feature with a tenantId field.
  */
 export const EXT_TENANT_DATA = "tenantData" as const;
 
 /**
  * `storageProvider` — file-storage-plugin tenant-destroy hook.
  *
- * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<void>`.
+ * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<TenantDestroyHookResult | void>`.
  *
  * Registered by: `files-tenant-data`.
  * Consumed by: pluggable providers (Local, MinIO, S3, R2).
@@ -163,7 +162,7 @@ export const EXT_DERIVATIVE_OVERLAY_RESOLVER = "derivativeOverlayResolver" as co
  * `searchAdapter` — search-index tenant-destroy hook (Meilisearch index
  * cleanup on tenant-destroy).
  *
- * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<void>`.
+ * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<TenantDestroyHookResult | void>`.
  *
  * Consumed by: Meilisearch and other search-adapter implementations.
  */
@@ -173,7 +172,7 @@ export const EXT_SEARCH_ADAPTER = "searchAdapter" as const;
  * `externalResource` — external-service tenant-destroy hook (webhook
  * subscriptions, Brevo recipient lists, provider customer accounts).
  *
- * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<void>`.
+ * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<TenantDestroyHookResult | void>`.
  */
 export const EXT_EXTERNAL_RESOURCE = "externalResource" as const;
 
@@ -181,7 +180,7 @@ export const EXT_EXTERNAL_RESOURCE = "externalResource" as const;
  * `infraResource` — Pulumi-managed per-tenant resource tenant-destroy hook
  * (custom domain, cert-manager issuer, dedicated pod/volume).
  *
- * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<void>`.
+ * Expected hook method: `destroyTenant(tenantId, ctx) => Promise<TenantDestroyHookResult | void>`.
  */
 export const EXT_INFRA_RESOURCE = "infraResource" as const;
 
