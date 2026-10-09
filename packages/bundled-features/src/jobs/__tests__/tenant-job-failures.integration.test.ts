@@ -264,22 +264,36 @@ describe("jobs:query:failures (fw#3079)", () => {
     expect(JSON.parse(raw).data.rows).toHaveLength(3);
     expect(raw).toContain(PROVIDER_MESSAGE);
   });
-  test("two rows left by concurrent failures of one key list as the newest one only", async () => {
-    const base = { tenantId: tenantB, jobName: "app:job:twice", subject: null };
-    await insertOne(db, tenantJobFailuresTable, {
-      ...base,
-      messageKey: DECLARED_KEY,
-      failedAt: Temporal.Instant.from("2026-01-01T10:00:00Z"),
-    });
-    await insertOne(db, tenantJobFailuresTable, {
-      ...base,
-      messageKey: BUDGET_KEY,
-      failedAt: Temporal.Instant.from("2026-01-01T11:00:00Z"),
-    });
+  test("parallel final failures of one key leave exactly one row", async () => {
+    const logger = createJobRunLogger({ db, registry: createRegistry([appFeature]) });
+    const fail = (subject: string | null, messageKey: string, bullJobId: string) =>
+      logger.onJobFailed?.("app:job:raced", bullJobId, "boom", [], {
+        tenantId: tenantB,
+        finalAttempt: true,
+        tenantVisible: { subject, messageKey },
+      });
 
-    const rows = await failures(userB, { jobName: "app:job:twice" });
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.messageKey).toBe(BUDGET_KEY);
+    await Promise.all([
+      ...Array.from({ length: 6 }, (_, n) => fail(null, `${DECLARED_KEY}.${n}`, `race-null-${n}`)),
+      ...Array.from({ length: 6 }, (_, n) =>
+        fail('{"campaignId":"c1"}', `${BUDGET_KEY}.${n}`, `race-subject-${n}`),
+      ),
+    ]);
+
+    const stored = await selectMany(db, tenantJobFailuresTable, {
+      tenantId: tenantB,
+      jobName: "app:job:raced",
+    });
+    expect(stored.filter((r) => r["subject"] === null)).toHaveLength(1);
+    expect(stored.filter((r) => r["subject"] !== null)).toHaveLength(1);
+  });
+
+  test("the table rejects a second row for one key, with and without subject", async () => {
+    const base = { tenantId: tenantB, jobName: "app:job:unique", messageKey: DECLARED_KEY };
+    for (const subject of [null, '{"campaignId":"c1"}']) {
+      await insertOne(db, tenantJobFailuresTable, { ...base, subject });
+      await expect(insertOne(db, tenantJobFailuresTable, { ...base, subject })).rejects.toThrow();
+    }
   });
 
   test("a corrupt stored subject degrades to null instead of failing the list", async () => {
