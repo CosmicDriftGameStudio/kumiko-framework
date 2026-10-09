@@ -42,7 +42,7 @@ export {
   uniqueIndex,
   uuid,
 } from "./dialect.js";
-export type { EagerLoadEntityResolver, EagerloadedRow } from "./eagerload.js";
+export type { EagerLoadEntityResolver, EagerLoadViewer, EagerloadedRow } from "./eagerload.js";
 export {
   collectReferenceFields,
   enrichRowWithReferences,

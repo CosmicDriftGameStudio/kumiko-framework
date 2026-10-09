@@ -1,28 +1,22 @@
-// Tier 2.7e Server-Side Eagerload für Reference-Felder.
+// Server-side eagerload for reference fields.
 //
-// Nach `executor.list`/`detail` scannen wir die zurückgelieferten
-// rows nach reference-Field-Values, sammeln pro Reference die UUIDs
-// (deduped), führen einen einzigen WHERE id IN (...)-Lookup pro
-// Referenced-Entity aus, und hängen die resolved Rows als
-// `_refs.<fieldName>` (single) bzw. `_refs.<fieldName>: Row[]`
-// (multiple) an die Original-Rows.
+// After `executor.list`/`detail` we scan the returned rows for reference
+// values, collect the UUIDs per reference (deduped), run one
+// WHERE id IN (...) lookup per referenced entity, and attach the resolved rows
+// as `_refs.<fieldName>` (single) or `_refs.<fieldName>: Row[]` (multiple).
 //
-// Tenant-Scope: TenantDb hat den Tenant-Filter eingebaut (mode:
-// "tenant"); der Lookup erbt das transparent. Cross-Feature-Refs
-// landen automatisch im selben Tenant — falls ein referenced Item
-// dem User nicht gehört, kommt es aus dem Lookup nicht zurück
-// (TenantDb filtert), und der Renderer fällt auf UUID zurück.
+// Access scope: `_refs` only returns what the viewer could read on the target
+// entity itself (tenant, access.read, parentRef gate, field-level read). An
+// unreadable ref is absent exactly like a missing one, so there is no
+// existence oracle; the renderer falls back to the UUID. The target detail
+// handler's handler-level `access` is not evaluated (same as reference
+// search/sort).
 //
-// Limit: kein expliziter limit auf den Lookup-SELECT — wir
-// fragen genau die UUIDs ab die in den main-Rows vorkommen, also
-// O(n) pro Page (bei pageSize:50 mit 2 ref-Spalten = max 100 IDs).
-// Render-Side limit:200-Workaround entfällt damit komplett.
+// No explicit limit on the lookup SELECT: it asks for exactly the UUIDs present
+// in the main rows, so it is O(n) per page.
 //
-// Diese Datei lebt im framework/db damit sie an einer Stelle
-// zwischen executor und entity-handlers gemounted ist; sie nutzt
-// keine framework-engine-Internals und kann auch von custom
-// query-handlern manuell aufgerufen werden.
-
+// Custom handlers must pass the viewer explicitly so the parentRef gate is
+// never skipped silently.
 import { requestContext } from "../api/request-context.js";
 import {
   collectPiiSubjectFields,
@@ -30,20 +24,31 @@ import {
   decryptPiiFieldValues,
 } from "../crypto/index.js";
 import { selectMany } from "../db/query.js";
-import { maskWriteOnlyFields } from "../engine/field-access.js";
+import { filterReadFields } from "../engine/field-access.js";
+import {
+  buildOwnershipClause,
+  combineClauses,
+  shiftParams,
+  tableNameOf,
+} from "../engine/ownership.js";
 import { parseRefTargetEntityName } from "../engine/parse-ref-target.js";
+import { isUuid, SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
 import type {
   EntityDefinition,
   FieldDefinition,
   ReferenceFieldDef,
+  SessionUser,
 } from "../engine/types/index.js";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
   resolveEntityFieldEncryption,
 } from "./entity-field-encryption.js";
-import { buildEntityTable } from "./table-builder.js";
+import { buildParentRefClause, type ParentVisibilityOption } from "./parent-ref-clause.js";
+import { executeRawQueryRead } from "./queries/raw-sql.js";
+import { buildEntityTable, physicalColumnName } from "./table-builder.js";
 import type { TenantDb } from "./tenant-db.js";
+import { tenantDbRunner } from "./tenant-db-runner.js";
 
 // Minimaler Registry-Lookup-Contract: pro entity-name → EntityDefinition.
 // Wir importieren NICHT den ganzen Registry-Type weil das einen
@@ -90,48 +95,23 @@ export function collectReferenceFields(entity: EntityDefinition): readonly Refer
   return out;
 }
 
+export type EagerLoadViewer = {
+  readonly user: SessionUser;
+  readonly parentVisibility: ParentVisibilityOption;
+};
+
 // Referenced rows are read via a raw selectMany, not the referenced entity's
-// own executor context (enrichWithReferences only gets an
-// EagerLoadEntityResolver — routing through buildExecutorContext per ref
-// would need table/searchAdapter/entityCache wiring for no reason). Mirrors
+// own executor context (that would need table/searchAdapter/entityCache wiring
+// per ref). Access is enforced separately by readableRefIds. Mirrors
 // event-store-executor-context's decryptForRead ordering: PII is the outer
 // layer, peel it before the envelope-encrypted fields, or the envelope
 // cipher chokes on a still-PII-wrapped string.
-//
-// Ownership guard (fw#1671): the ref lookup below is tenant-scoped only, not
-// ownership-scoped — this function has no SessionUser to evaluate
-// refEntity.access.read against. If the ref entity declares row-level
-// ownership at all, decrypting here would hand a same-tenant User A the
-// plaintext PII of a User B row they merely reference (e.g. a freely-settable
-// reference UUID), even though refEntity.access.read says "own" — the caller
-// never gets to run that ownership check. Fail closed: strip PII/encrypted
-// fields entirely instead of decrypting (or leaking ciphertext) when that
-// guarantee can't be evaluated here.
-function hasOwnershipScopedRead(refEntity: EntityDefinition): boolean {
-  const readMap = refEntity.access?.read;
-  if (readMap === undefined) return false;
-  // "all" means that role sees every row unrestricted — a map where every
-  // rule is "all" carries no ownership restriction at all, so stripping
-  // here would just silently drop PII/encrypted fields #1667 wants
-  // decrypted, for no security benefit.
-  return Object.values(readMap).some((rule) => rule !== "all");
-}
-
 async function decryptReferencedRow(
   row: Record<string, unknown>,
-  refEntity: EntityDefinition,
   piiFields: readonly string[],
   encryptedFields: ReadonlySet<string>,
   kms: ReturnType<typeof configuredPiiSubjectKms>,
 ): Promise<Record<string, unknown>> {
-  if (hasOwnershipScopedRead(refEntity)) {
-    if (piiFields.length === 0 && encryptedFields.size === 0) return row;
-    const out = { ...row };
-    for (const field of piiFields) delete out[field];
-    for (const field of encryptedFields) delete out[field];
-    return out;
-  }
-
   let out = row;
   if (piiFields.length > 0 && kms) {
     out = await decryptPiiFieldValues(out, piiFields, kms, {
@@ -144,18 +124,70 @@ async function decryptReferencedRow(
   return out;
 }
 
+type RefAccessScope =
+  | { readonly kind: "none" }
+  | { readonly kind: "unrestricted" }
+  | { readonly kind: "restricted"; readonly readableIds: ReadonlySet<string> };
+
+// One probe query per ref field: the ids the viewer may read on the target
+// entity. Raw SQL because ownership/parentRef clauses are SQL fragments; the
+// table is unaliased since where-rules qualify columns with the table name.
+async function resolveRefAccessScope(
+  refEntity: EntityDefinition,
+  refTable: ReturnType<typeof buildEntityTable>,
+  refTableName: string,
+  ids: readonly string[],
+  db: TenantDb,
+  viewer: EagerLoadViewer,
+): Promise<RefAccessScope> {
+  const access = combineClauses(
+    buildOwnershipClause(viewer.user, refEntity.access?.read, refTable),
+    buildParentRefClause(
+      refEntity,
+      refTable,
+      refTableName,
+      viewer.user,
+      db,
+      viewer.parentVisibility,
+      {
+        includeDeleted: false,
+      },
+    ),
+  );
+  if (access.kind === "empty") return { kind: "none" };
+  if (access.kind === "pass") return { kind: "unrestricted" };
+  // No read path exists for non-uuid ids, so nothing can be access-checked.
+  if (refEntity.idType !== undefined && refEntity.idType !== "uuid") return { kind: "none" };
+
+  const params: unknown[] = [ids];
+  let tenantClause = "";
+  if (refTable["tenantId"] !== undefined && db.mode === "tenant") {
+    params.push(db.tenantId, SYSTEM_TENANT_ID);
+    tenantClause = ` AND "${physicalColumnName(refTable, "tenantId")}" IN ($2, $3)`;
+  }
+  const shifted = shiftParams({ sqlText: access.sqlText, params: access.params }, params.length);
+  params.push(...shifted.params);
+  const rows = await executeRawQueryRead<{ id: string }>(
+    tenantDbRunner(db),
+    `SELECT "id" FROM "${refTableName}" WHERE "id" = ANY($1::uuid[])${tenantClause} AND ${shifted.sqlText}`,
+    params,
+  );
+  return { kind: "restricted", readableIds: new Set(rows.map((r) => r.id)) };
+}
+
 // Per-row, not Promise.all: a single legacy/backfilled row without a valid
 // envelope (decryptEntityFieldValues throws hard on malformed ciphertext)
 // must not 500 the whole list request — the main rows the caller asked for
 // are unrelated to this one broken reference. Drop just that row from the
 // map; the renderer falls back to the raw UUID.
 //
-// piiFields/encryptedFields/kms are constant per refEntity (fw#1671) — the
+// piiFields/encryptedFields/kms are constant per refEntity — the
 // caller computes them once and passes them in instead of recomputing per row.
 async function buildRefLookupMap(
   rawRefRows: ReadonlyArray<Record<string, unknown>>,
   refEntity: EntityDefinition,
   refEntityName: string,
+  viewer: EagerLoadViewer,
   piiFields: readonly string[],
   encryptedFields: ReadonlySet<string>,
   kms: ReturnType<typeof configuredPiiSubjectKms>,
@@ -164,7 +196,7 @@ async function buildRefLookupMap(
   for (const r of rawRefRows) {
     let decrypted: Record<string, unknown>;
     try {
-      decrypted = await decryptReferencedRow(r, refEntity, piiFields, encryptedFields, kms);
+      decrypted = await decryptReferencedRow(r, piiFields, encryptedFields, kms);
     } catch (e) {
       console.warn(
         `[eagerload] failed to decrypt referenced row entity=${refEntityName} id=${String(r["id"])}: ${e instanceof Error ? e.message : String(e)}`,
@@ -172,9 +204,24 @@ async function buildRefLookupMap(
       continue;
     }
     const id = decrypted["id"];
-    if (typeof id === "string") map.set(id, maskWriteOnlyFields(refEntity, decrypted));
+    if (typeof id === "string") map.set(id, filterReadFields(refEntity, decrypted, viewer.user));
   }
   return map;
+}
+
+function collectRefIds(
+  rows: ReadonlyArray<Record<string, unknown>>,
+  rf: ReferenceFieldEntry,
+): Set<string> {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    const v = row[rf.fieldName];
+    const values = rf.multiple ? (Array.isArray(v) ? v : []) : [v];
+    for (const item of values) {
+      if (typeof item === "string" && item.length > 0) ids.add(item);
+    }
+  }
+  return ids;
 }
 
 /** Eagerload für eine Liste von Rows. Mutiert nicht — gibt eine
@@ -184,6 +231,7 @@ export async function enrichWithReferences(
   entity: EntityDefinition,
   resolveEntity: EagerLoadEntityResolver,
   db: TenantDb,
+  viewer: EagerLoadViewer,
 ): Promise<Array<Record<string, unknown>>> {
   const refFields = collectReferenceFields(entity);
   if (refFields.length === 0 || rows.length === 0) {
@@ -195,19 +243,7 @@ export async function enrichWithReferences(
   // damit die Lookups nicht serialisieren (Promise.all).
   const lookupMaps = await Promise.all(
     refFields.map(async (rf) => {
-      const ids = new Set<string>();
-      for (const row of rows) {
-        const v = row[rf.fieldName];
-        if (rf.multiple) {
-          if (Array.isArray(v)) {
-            for (const item of v) {
-              if (typeof item === "string" && item.length > 0) ids.add(item);
-            }
-          }
-        } else if (typeof v === "string" && v.length > 0) {
-          ids.add(v);
-        }
-      }
+      const ids = collectRefIds(rows, rf);
       if (ids.size === 0) return { fieldName: rf.fieldName, multiple: rf.multiple, map: new Map() };
       const refEntity = resolveEntity(rf.refEntityName);
       if (refEntity === undefined) {
@@ -218,10 +254,28 @@ export async function enrichWithReferences(
         return { fieldName: rf.fieldName, multiple: rf.multiple, map: new Map() };
       }
       const refTable = buildEntityTable(rf.refEntityName, refEntity);
-      const idArray = [...ids];
-      const rawRefRows = (await selectMany(db, refTable, { id: idArray })) as Array<
+      const refTableName = tableNameOf(refTable);
+      const usesUuidIds = refEntity.idType === undefined || refEntity.idType === "uuid";
+      // A malformed ref value must not 500 the whole list via the uuid cast.
+      const idArray = usesUuidIds ? [...ids].filter(isUuid) : [...ids];
+      const emptyLookup = { fieldName: rf.fieldName, multiple: rf.multiple, map: new Map() };
+      if (idArray.length === 0) return emptyLookup;
+      const scope = await resolveRefAccessScope(
+        refEntity,
+        refTable,
+        refTableName,
+        idArray,
+        db,
+        viewer,
+      );
+      if (scope.kind === "none") return emptyLookup;
+      const lookedUpRows = (await selectMany(db, refTable, { id: idArray })) as Array<
         Record<string, unknown>
       >;
+      const rawRefRows =
+        scope.kind === "restricted"
+          ? lookedUpRows.filter((r) => scope.readableIds.has(String(r["id"])))
+          : lookedUpRows;
       const piiFields = collectPiiSubjectFields(refEntity);
       const encryptedFields = collectEncryptedFieldNames(refEntity);
       const kms = configuredPiiSubjectKms();
@@ -229,6 +283,7 @@ export async function enrichWithReferences(
         rawRefRows,
         refEntity,
         rf.refEntityName,
+        viewer,
         piiFields,
         encryptedFields,
         kms,
@@ -263,7 +318,8 @@ export async function enrichRowWithReferences(
   entity: EntityDefinition,
   resolveEntity: EagerLoadEntityResolver,
   db: TenantDb,
+  viewer: EagerLoadViewer,
 ): Promise<Record<string, unknown>> {
-  const enriched = await enrichWithReferences([row], entity, resolveEntity, db);
+  const enriched = await enrichWithReferences([row], entity, resolveEntity, db, viewer);
   return enriched[0] ?? { ...row, _refs: {} };
 }

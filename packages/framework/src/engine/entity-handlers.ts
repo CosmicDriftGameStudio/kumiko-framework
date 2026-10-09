@@ -564,12 +564,17 @@ export function defineEntityQueryHandler(
           },
           parentVisibility: { entities: ctx.registry.getAllEntities() },
         });
+        const eagerLoadViewer = {
+          user: query.user,
+          parentVisibility: { entities: ctx.registry.getAllEntities() },
+        };
         const enrichedRows = hasRefFields
           ? await enrichWithReferences(
               result.rows,
               entity,
               (name) => ctx.registry.getEntity(name),
               db,
+              eagerLoadViewer,
             )
           : result.rows;
         return { ...result, rows: augmentDerivedFields(enrichedRows, entity) };
@@ -583,7 +588,10 @@ export function defineEntityQueryHandler(
           parentVisibility: { entities: ctx.registry.getAllEntities() },
         }); // @cast-boundary engine-payload
         if (row === null || !hasRefFields) return row;
-        return enrichRowWithReferences(row, entity, (name) => ctx.registry.getEntity(name), db);
+        return enrichRowWithReferences(row, entity, (name) => ctx.registry.getEntity(name), db, {
+          user: query.user,
+          parentVisibility: { entities: ctx.registry.getAllEntities() },
+        });
       };
       break;
     default:
