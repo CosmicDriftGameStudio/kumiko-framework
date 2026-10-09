@@ -18,7 +18,7 @@ import type {
   ListRowViewModel,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.js";
 import {
   buildFilterFacets,
@@ -154,6 +154,7 @@ export function RelatedListSection({
   actions,
   embedded,
   onAfterWrite,
+  refreshToken,
 }: {
   readonly section: EditRelatedListSectionViewModel;
   readonly parentId: string;
@@ -186,6 +187,9 @@ export function RelatedListSection({
    *  toolbar action, emptyState action) succeeded — lets a host reload data
    *  the write also changed. */
   readonly onAfterWrite?: () => void | Promise<void>;
+  /** A change (not the mount) refetches the rows in place, keeping local
+   *  sort/search/filter state — the host's record changed without a remount. */
+  readonly refreshToken?: number;
 }): ReactNode {
   const { Banner, Section, Card, FillContainer, Text, Button, Dialog } = usePrimitives();
   const [emptyStateActionError, setEmptyStateActionError] = useState<string | null>(null);
@@ -315,6 +319,12 @@ export function RelatedListSection({
 
   const rowsQuery = useQuery<PagedRows>(section.query, payload);
   const ownRefetch = rowsQuery.refetch;
+  const lastRefreshTokenRef = useRef(refreshToken);
+  useEffect(() => {
+    if (lastRefreshTokenRef.current === refreshToken) return;
+    lastRefreshTokenRef.current = refreshToken;
+    void ownRefetch();
+  }, [refreshToken, ownRefetch]);
   const refetchSelfAndHost = useCallback(async (): Promise<void> => {
     await ownRefetch();
     await onAfterWrite?.();

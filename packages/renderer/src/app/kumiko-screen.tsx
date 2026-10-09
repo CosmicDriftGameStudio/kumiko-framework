@@ -3424,9 +3424,11 @@ function ProjectionDetailBody({
   // A writeForm section's handler creates a new record (see EditWriteFormSection's
   // doc) — both the outer record (header/metrics/other sections) and a sibling
   // relatedList section's own independently-fetched rows must reflect it. A
-  // query refetch alone only refreshes `record` below; bumping this into
-  // <RenderEdit>'s `key` forces a full remount so RelatedListSection's own
-  // useQuery call re-runs too (it has no `live` subscription of its own).
+  // query refetch alone only refreshes `record` below; bumping this as
+  // <RenderEdit>'s refreshToken makes RelatedListSection's own useQuery
+  // re-run too (it has no `live` subscription of its own). Refetch instead of
+  // remount (a `key`) so unsaved input in the other writeForm sections and
+  // the related lists' local state survive.
   const [reloadNonce, setReloadNonce] = useState(0);
   const reloadDetail = useCallback(async () => {
     await refetchAfterWrite(detailQuery.refetch);
@@ -3891,7 +3893,8 @@ function ProjectionDetailBody({
   return (
     <>
       <RenderEdit
-        key={`${entityId}:${reloadNonce}`}
+        key={entityId}
+        refreshToken={reloadNonce}
         screen={renderedDetailScreen}
         entity={entity}
         featureName={schema.featureName}

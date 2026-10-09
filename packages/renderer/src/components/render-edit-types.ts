@@ -63,6 +63,11 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly onDelete?: () => Promise<DispatcherError | void> | DispatcherError | void;
   readonly onCancel?: () => void;
   readonly onReload?: () => void;
+  /** Bumped by the host after it refetched `initial`. A change (not the mount)
+   *  re-seeds a clean form with the new `initial` and makes embedded relatedList
+   *  sections refetch, instead of the host remounting the whole form via `key`
+   *  (which would drop unsaved input in sibling writeForm sections). */
+  readonly refreshToken?: number;
   /** Fires when the form gains or loses unsaved input (field changes or a
    *  dirty extension section). Lets a host such as a drawer guard closing. */
   readonly onDirtyChange?: (dirty: boolean) => void;
