@@ -1,5 +1,45 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.356.0
+
+### Minor Changes
+
+- 4e110c4: Executor create accepts streamTenantId; ctx.forTenant(tenantId) for gated cross-tenant writes
+
+  createEventStoreExecutor().create takes { streamTenantId } (stream, event tenant, row tenant, PII key and cache invalidation follow it, the acting user stays the operator). The override is accepted on a system-mode db and also on a tenant-mode db bound to exactly that stream tenant. New handler-context method ctx.forTenant(tenantId) returns { db, streamTenantId }: a tenant-mode db bound to the target tenant plus the stream override to pass to the executor, so a handler needs no unsafeRaw escape hatch for cross-tenant writes. A foreign tenant is gated to SystemAdmin and system identities (AccessDeniedError with reason tenant_override_requires_system_admin otherwise); the caller's own tenant returns streamTenantId undefined. It is not offered to r.systemScope() handlers. The bundled cross-tenant handlers (tenant removeMember/updateMemberRoles, tier setTenantTier, custom-fields system fields, template-resolver upserts/set, managed-pages set, compliance-profiles setProfile) no longer rewrite event.user.tenantId; the event actor is the operator. tenant cancelPendingInvitation takes an optional streamTenantId.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Executor create accepts streamTenantId; ctx.forTenant(tenantId) for gated cross-tenant writes
+  -->
+
+- 4c06248: Job ctx.queryAs is gated like ctx.writeAs
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Job ctx.queryAs is gated like ctx.writeAs
+  migration: |
+    Jobs calling ctx.queryAs with createSystemUser(...) or any identity other than the job's own caller now fail with AccessDeniedError (system_identity_switch_denied / identity_switch_denied). Declare r.systemScope() on the job's feature or escapeHatch: { reason } on the job, the same grant ctx.writeAs already needs. The escape-hatch guard exempts jobs by name, so this surfaces only at runtime; grep your jobs for ctx.queryAs. Known consumer sites: offlot-app channel-text generate-texts.job, campaign-calendar sync, campaign-channel-foundation seed-starter-channels.
+  -->
+
+- 77c6851: entityEdit actions can go into the header "..." menu via placement: "menu"
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityEdit actions can go into the header "..." menu via placement: "menu"
+  -->
+
+  `EntityEditScreenDefinition.actions` entries accept `placement: "inline" | "menu"` (new types `EntityEditAction` and `EntityEditActionPlacement`). The default stays inline: the action renders with the secondary form actions in the footer. `"menu"` puts it into the header "..." menu ahead of copy-link and delete, with the same confirm dialog and busy lock as other menu items. Without a header menu (drawer, card form, shell without a header slot) a `"menu"` action falls back to a footer button. The role projection keeps `placement`.
+
+### Patch Changes
+
+- Updated dependencies [77c6851]
+  - @cosmicdrift/kumiko-types@0.356.0
+  - @cosmicdrift/kumiko-http@0.356.0
+
 ## 0.355.0
 
 ### Minor Changes

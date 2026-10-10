@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.356.0",
+    "type": "improvement",
+    "title": "entityEdit actions can go into the header \"...\" menu via placement: \"menu\""
+  },
+  {
     "version": "0.354.0",
     "type": "fix",
     "title": "Navigate no longer injects the current id into entityEdit targets of another entity",
