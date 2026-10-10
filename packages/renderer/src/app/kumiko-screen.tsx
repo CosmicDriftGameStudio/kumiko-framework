@@ -66,9 +66,9 @@ import {
 import {
   needsActionConfirm,
   RenderEditActionButton,
-  RenderEditActionConfirmDialog,
 } from "../components/render-edit-action-button.js";
 import { RenderList } from "../components/render-list.js";
+import { useActionMenuItems } from "../components/use-action-menu-items.js";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context.js";
 import { useIsEmbeddedScreen } from "../context/embedded-screen-context.js";
 import { useUserRoles } from "../context/user-roles-context.js";
@@ -84,7 +84,6 @@ import {
   usePageHeaderSlotAvailable,
 } from "../page-header-slot.js";
 import {
-  type ActionMenuItemSpec,
   type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableRowAction,
@@ -1615,7 +1614,13 @@ function EntityEditUpdateForm({
     ],
   );
   const headerActions = useMemo(
-    (): readonly RenderEditAction[] | undefined => buildSectionActions(screen.actions ?? []),
+    (): readonly RenderEditAction[] | undefined =>
+      buildSectionActions((screen.actions ?? []).filter((a) => a.placement !== "menu")),
+    [buildSectionActions, screen.actions],
+  );
+  const headerMenuActions = useMemo(
+    (): readonly RenderEditAction[] | undefined =>
+      buildSectionActions((screen.actions ?? []).filter((a) => a.placement === "menu")),
     [buildSectionActions, screen.actions],
   );
   const handleSubmitted = useCallback(
@@ -1699,6 +1704,7 @@ function EntityEditUpdateForm({
         {...(translate !== undefined && { translate })}
         {...(onCopyLink !== undefined && { onCopyLink })}
         {...(headerActions !== undefined && { actions: headerActions })}
+        {...(headerMenuActions !== undefined && { menuActions: headerMenuActions })}
         buildSectionActions={buildSectionActions}
       />
       <DrawerHost
@@ -3262,51 +3268,10 @@ function HeaderActionsBar({
   readonly onError: (text: string | null) => void;
 }): ReactNode {
   const t = useTranslation();
-  const [pendingAction, setPendingAction] = useState<RenderEditAction | null>(null);
-  // Menu items have no button of their own to carry RenderEditActionButton's
-  // busy state; without it the menu can be reopened mid-write and fire the
-  // same writeHandler twice.
-  const [busyActionId, setBusyActionId] = useState<string | null>(null);
-  const trigger = async (action: RenderEditAction): Promise<void> => {
-    onError(null);
-    setBusyActionId(action.id);
-    try {
-      await action.onPress();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusyActionId(null);
-    }
-  };
-  const toMenuItem = (action: RenderEditAction): ActionMenuItemSpec => ({
-    id: action.id,
-    label: action.label,
-    ...(action.icon !== undefined && { icon: action.icon }),
-    variant: action.style === "danger" ? ("danger" as const) : ("default" as const),
-    ...(busyActionId !== null && { disabled: true }),
-    onSelect: () => {
-      if (needsActionConfirm(action)) {
-        setPendingAction(action);
-      } else {
-        void trigger(action);
-      }
-    },
+  const { toMenuItem, confirmDialog: pendingActionDialog } = useActionMenuItems({
+    Dialog,
+    onError,
   });
-  const pendingActionDialog = pendingAction !== null && (
-    <RenderEditActionConfirmDialog
-      action={pendingAction}
-      open={true}
-      onOpenChange={(open) => {
-        if (!open) setPendingAction(null);
-      }}
-      onConfirm={async () => {
-        const action = pendingAction;
-        setPendingAction(null);
-        await trigger(action);
-      }}
-      Dialog={Dialog}
-    />
-  );
   if (compact && PageHeader !== undefined) {
     const primary = primaryHeaderAction(actions);
     // A bare icon for a destructive or confirm-gated action (e.g. "x" for terminate)
