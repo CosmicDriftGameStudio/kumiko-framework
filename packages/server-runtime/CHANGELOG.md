@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.356.0
+
+### Minor Changes
+
+- 93aca05: composeFeatures mounts files-tenant-data when files and tenant-lifecycle are present
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: composeFeatures mounts files-tenant-data when files and tenant-lifecycle are present
+  -->
+
+  In `includeBundled` apps that mount both `files` and `tenant-lifecycle`, `composeFeatures` now appends `files-tenant-data` automatically. Tenant destroy therefore deletes the tenant's `fileRef` rows and stored file binaries, which it previously left behind with only a boot warning. Apps that already mount `files-tenant-data` themselves are unchanged, and `includeBundled: false` keeps the warning.
+
+### Patch Changes
+
+- Updated dependencies [4e110c4]
+- Updated dependencies [4c06248]
+- Updated dependencies [77c6851]
+  - @cosmicdrift/kumiko-framework@0.356.0
+  - @cosmicdrift/kumiko-types@0.356.0
+  - @cosmicdrift/kumiko-bundled-features@0.356.0
+  - @cosmicdrift/kumiko-headless@0.356.0
+  - @cosmicdrift/kumiko-renderer-web@0.356.0
+
 ## 0.355.0
 
 ### Patch Changes

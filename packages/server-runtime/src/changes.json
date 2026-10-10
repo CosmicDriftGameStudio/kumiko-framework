@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.356.0",
+    "type": "improvement",
+    "title": "composeFeatures mounts files-tenant-data when files and tenant-lifecycle are present"
+  },
+  {
     "version": "0.354.0",
     "type": "fix",
     "title": "Boot context passes Redis to the delivery service",
