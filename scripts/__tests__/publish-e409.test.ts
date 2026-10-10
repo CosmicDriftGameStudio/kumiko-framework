@@ -52,17 +52,18 @@ function assertParsesAsBash(snippet: string, label: string): void {
 
 const PUBLISH_AND_TAG_FN = extractPublishAndTag();
 
-function extractEmitTagFn(): string {
+function extractTopLevelFn(fnName: string): string {
   const script = readFileSync(SCRIPT_PATH, "utf-8");
-  const match = script.match(/^emit_tag_unless_on_origin\(\)[\s\S]*?^\}/m);
+  const match = script.match(new RegExp(`^${fnName}\\(\\)[\\s\\S]*?^\\}`, "m"));
   if (!match) {
-    throw new Error("Could not extract emit_tag_unless_on_origin() from publish-with-oidc.sh");
+    throw new Error(`Could not extract ${fnName}() from publish-with-oidc.sh`);
   }
-  assertParsesAsBash(match[0], "emit_tag_unless_on_origin()");
+  assertParsesAsBash(match[0], `${fnName}()`);
   return match[0];
 }
 
-const EMIT_TAG_FN = extractEmitTagFn();
+const EMIT_TAG_FN = extractTopLevelFn("emit_tag_unless_on_origin");
+const REMOVE_TMP_TAG_FN = extractTopLevelFn("remove_tmp_tag");
 
 function extractPublishOutcomeBranch(): string {
   const script = readFileSync(SCRIPT_PATH, "utf-8");
@@ -300,6 +301,7 @@ function runPublishOutcomeBranch(
     [
       "set -euo pipefail",
       EMIT_TAG_FN,
+      REMOVE_TMP_TAG_FN,
       'name="@cosmicdrift/kumiko-types"',
       'version="0.233.0"',
       "published=0",
@@ -338,6 +340,7 @@ const ALREADY_ON_REGISTRY_BRANCH = extractAlreadyOnRegistryBranch();
 function runSkipBranch(
   distTagLs: string,
   remoteHasTag = true,
+  distTagExitCode = 0,
 ): { exitCode: number; stdout: string; npmCalls: string[] } {
   const callLog = join(stubDir, "npm-calls.log");
   rmSync(callLog, { force: true });
@@ -345,6 +348,7 @@ function runSkipBranch(
     [
       "set -euo pipefail",
       EMIT_TAG_FN,
+      REMOVE_TMP_TAG_FN,
       'name="@cosmicdrift/kumiko-types"',
       'version="0.233.0"',
       'registry_version="0.233.0"',
@@ -355,12 +359,14 @@ function runSkipBranch(
       ALREADY_ON_REGISTRY_BRANCH,
       "fi",
       "done",
+      'echo "skipped=$skipped"',
     ].join("\n") + "\n";
   // The extracted branch ends at `continue`; the closing `fi` is re-added above.
   const { exitCode, stdout } = runBash(script, {
     STUB_CALL_LOG: callLog,
     STUB_DIST_TAG_LS: distTagLs,
     STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0",
+    STUB_DIST_TAG_EXIT: String(distTagExitCode),
   });
   const calls = existsSync(callLog) ? readFileSync(callLog, "utf-8").trim().split("\n") : [];
   return { exitCode, stdout, npmCalls: calls };
@@ -375,6 +381,13 @@ describe("publish-with-oidc.sh already-on-registry skip branch", () => {
     const withoutTag = runSkipBranch("latest: 0.233.0\\n");
     expect(withoutTag.exitCode).toBe(0);
     expect(withoutTag.npmCalls).not.toContain("dist-tag rm @cosmicdrift/kumiko-types kumiko-tmp");
+  });
+
+  test("a rejected kumiko-tmp removal does not fail the run", () => {
+    const { exitCode, stdout } = runSkipBranch("latest: 0.233.0\\nkumiko-tmp: 0.233.0\\n", false, 1);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("skipped=1");
+    expect(stdout).toContain("New tag: @cosmicdrift/kumiko-types@0.233.0");
   });
 
   test("emits New tag for a registry version whose tag is missing on origin", () => {

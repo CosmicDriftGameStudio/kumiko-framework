@@ -67,6 +67,21 @@ emit_tag_unless_on_origin() {
   echo "New tag: $name@$version"
 }
 
+# The throwaway tag is cosmetic (consumers resolve `latest`), so a failed
+# removal must not fail a release that otherwise landed. The registry
+# answered E403 to this DELETE in the 0.355.0 run while `dist-tag add` worked,
+# which aborted the job under `set -e` and left the tag on every package.
+remove_tmp_tag() {
+  local name="$1"
+  if ! npm dist-tag rm "$name" kumiko-tmp >&2; then
+    local message="$name: removing the kumiko-tmp dist-tag failed; drop it manually with npm dist-tag rm $name kumiko-tmp"
+    echo "::warning::$message" >&2
+    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+      printf '%s\n' "- :warning: $message" >>"$GITHUB_STEP_SUMMARY"
+    fi
+  fi
+}
+
 # npm answers E409 "Cannot publish over previously staged version" when an
 # interrupted earlier run already staged this exact version (#2576). The
 # registry finalizes such a version on its own, so it counts as released — but
@@ -183,10 +198,9 @@ for pkg_json in packages/*/package.json; do
     fi
     # An interrupted run can leave the throwaway tag behind (#2576); dropping it
     # here is idempotent and keeps the registry clean without an extra release.
-    # Only when the tag exists: the common case needs no write, and a failing
-    # `dist-tag rm` (auth) is no longer swallowed for packages that have none.
+    # Only when the tag exists: the common case needs no write.
     if npm dist-tag ls "$name" | grep -q '^kumiko-tmp:'; then
-      npm dist-tag rm "$name" kumiko-tmp >&2
+      remove_tmp_tag "$name"
     fi
     emit_tag_unless_on_origin "$name" "$version"
     skipped=$((skipped + 1))
@@ -236,7 +250,7 @@ for pkg_json in packages/*/package.json; do
   # latest = the just-published version, throwaway tag removed. dist-tag auths via
   # NODE_AUTH_TOKEN (set in the release job).
   elif publish_and_tag "$pkg_dir/$TARBALL" "$name" "$version"; then
-    npm dist-tag rm "$name" kumiko-tmp >&2 2>/dev/null || true
+    remove_tmp_tag "$name"
     if [ "$already_published_via_e403" = 1 ] || [ "$staged_unconfirmed" = 1 ]; then
       # Detected late (#2586), or staged without ever resolving (#2576): this
       # run did not confirm the version, so it counts as skipped rather than
