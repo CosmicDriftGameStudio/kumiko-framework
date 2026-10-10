@@ -1,30 +1,30 @@
 #!/usr/bin/env bun
 /**
- * Guard R8: verbietet `broker.subscribe(...)` ausserhalb des Frameworks.
+ * Guard R8: forbids `broker.subscribe(...)` outside the framework.
  *
- * Feature- und App-Code soll NIE direkt an den Event-Broker subscriben — die
- * Registrar-API ist der einzige erlaubte Weg, Events zu konsumieren:
+ * Feature and app code must NEVER subscribe to the event broker directly — the
+ * registrar API is the only allowed way to consume events:
  *   - `r.onEvent("event-name", handler)`
  *   - `r.job({ trigger: { on: "event-name" }, handler })`
  *
- * Ein direktes `broker.subscribe(...)` umgeht Lifecycle, Idempotency, Dedup
- * und Replay des Dispatchers — genau die Garantien, die die Registrar-API
- * gibt. Heute gibt es im Kumiko-Code KEINEN solchen Call (der Broker ist
- * framework-intern, nicht exportiert) — der Guard ist ein Tripwire, der
- * zuschlägt, sobald jemand eine Broker-Abstraktion einführt und Feature-Code
- * direkt daran hängt.
+ * A direct `broker.subscribe(...)` bypasses lifecycle, idempotency, dedup
+ * and replay of the dispatcher — exactly the guarantees the registrar API
+ * gives. Today there is NO such call in the Kumiko code (the broker is
+ * framework-internal, not exported) — the guard is a tripwire that fires as
+ * soon as someone introduces a broker abstraction and hooks feature code
+ * directly onto it.
  *
- * Erkennung (Name-Heuristik, keine Typ-Resolution): `X.subscribe(...)` wo der
- * terminale Bezeichner von `X` `broker` oder `eventBroker` heisst (case-
- * insensitive — fängt `broker`, `eventBroker`, `ctx.broker`, `this.eventBroker`).
- * Store-/Observable-`.subscribe` (RxJS, React `controller.subscribe`) heisst
- * nicht `broker` → kein Treffer.
+ * Detection (name heuristic, no type resolution): `X.subscribe(...)` where the
+ * terminal identifier of `X` is `broker` or `eventBroker` (case-
+ * insensitive — catches `broker`, `eventBroker`, `ctx.broker`, `this.eventBroker`).
+ * Store/observable `.subscribe` (RxJS, React `controller.subscribe`) is not
+ * named `broker` → no hit.
  *
- * Ausnahme: `packages/framework/src/pipeline/**` — dort lebt das Broker-
- * Plumbing selbst (framework-intern, erlaubt).
+ * Exception: `packages/framework/src/pipeline/**` — the broker plumbing
+ * itself lives there (framework-internal, allowed).
  *
  * Usage: bun guards/guard-broker-subscribe.ts
- * Exit 1 bei Fund, 0 wenn sauber.
+ * Exit 1 on a finding, 0 when clean.
  */
 
 import * as path from "node:path";

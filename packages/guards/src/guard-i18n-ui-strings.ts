@@ -1,17 +1,17 @@
 #!/usr/bin/env bun
-// Kein hardcodeter UI-Text in App-Web-Code: JSX-Textknoten und Label-artige
-// String-Props müssen über t("…")-Keys laufen (guard-i18n-keys prüft dann,
-// dass die Keys definiert sind — dieser Guard schließt die Lücke davor:
-// Strings, die nie zu Keys wurden, z.B. "Lade Tenants…").
+// No hardcoded UI text in app web code: JSX text nodes and label-like
+// string props must go through t("…") keys (guard-i18n-keys then checks
+// that the keys are defined — this guard closes the gap before that:
+// strings that never became keys, e.g. "Loading tenants…").
 //
-// Teil von App-Mounting 2.0 (infra#208).
+// Part of App-Mounting 2.0 (infra#208).
 
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
 
-// Nur Web-/Public-Code — Server-Code (Handler-Fehlertexte) läuft über die
-// Error-i18n-Pipeline und hat eigene Guards.
+// Web/public code only — server code (handler error texts) goes through the
+// error i18n pipeline and has its own guards.
 //
 // samples/ deliberately NOT scanned (tried in infra#478, rolled back): the
 // showcase/gallery pages are dev docs about the framework API itself
@@ -38,8 +38,8 @@ const SCAN: ScanSpec = {
 const EXCLUDE = /(__tests__|\.test\.tsx?$|\.integration\.tsx?$|\.d\.ts$)/;
 const IGNORE_TAG = "kumiko-lint-ignore i18n-ui-strings";
 
-// Mindestens zwei Buchstaben in Folge = menschenlesbarer Text (lässt "—",
-// Zahlen, Interpunktion und Einzel-Zeichen durch).
+// At least two consecutive letters = human-readable text (lets "—",
+// numbers, punctuation and single characters through).
 const HUMAN_TEXT = /\p{L}{2,}/u;
 
 // i18n-Key-Shape (e.g. "tenant.nav.members", "money-horse:nav.scenarioCompare"):

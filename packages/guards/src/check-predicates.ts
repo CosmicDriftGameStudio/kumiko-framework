@@ -1,19 +1,19 @@
 #!/usr/bin/env bun
 /**
- * Predicate-Extraction Check (WARNUNG, kein Fail).
+ * Predicate-extraction check (WARNING, no fail).
  *
- * Findet zwei Arten von Kandidaten fuer Predicate-Extraction:
- *  1. Fat Predicates — `if`/`while`/ternary Conditions mit >=3 logischen
- *     Operatoren (&&/||) ODER Condition-Text >80 Zeichen.
- *  2. Duplikate — dieselbe Condition (normalisiert) >=2x im Scan-Scope,
- *     mit >=2 Operatoren (um triviale `!x`-Checks auszuschliessen).
+ * Finds two kinds of candidates for predicate extraction:
+ *  1. Fat predicates — `if`/`while`/ternary conditions with >=3 logical
+ *     operators (&&/||) OR condition text >80 characters.
+ *  2. Duplicates — the same (normalized) condition >=2x in the scan scope,
+ *     with >=2 operators (to exclude trivial `!x` checks).
  *
- * Output: Warnung mit Datei:Zeile + Hinweis auf Regel. Exit-Code immer 0.
+ * Output: warning with file:line + a pointer to the rule. Exit code is always 0.
  *
  * Usage:
  *   bun guards/check-predicates.ts
  *
- * Regel: ~/.claude/rules/coding-standards.md → "Predicate Extraction"
+ * Rule: ~/.claude/rules/coding-standards.md → "Predicate Extraction"
  */
 
 import * as path from "node:path";
@@ -91,11 +91,13 @@ function collectConditions(sf: SourceFile): Site[] {
   const file = path.relative(ROOT, sf.getFilePath());
 
   const push = (node: Node, conditionNode: Node | undefined): void => {
+    // skip: a missing condition (e.g. `for (;;)`) has nothing to extract
     if (!conditionNode) return;
     const raw = conditionNode.getText();
     const text = normalize(raw);
     const { ands, ors } = countOperators(text);
     const operators = ands + ors;
+    // skip: a short condition without logical operators needs no named predicate
     if (operators === 0 && text.length < LENGTH_THRESHOLD) return;
     sites.push({
       file,

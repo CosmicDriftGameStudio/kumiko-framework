@@ -153,6 +153,7 @@ function isWebFile(absPath: string, scopeRoot: string): boolean {
 }
 
 function walk(dir: string, out: string[]): void {
+  // skip: not every scope has every candidate directory
   if (!fs.existsSync(dir)) return;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
@@ -306,8 +307,8 @@ export const check: RepoCheck = {
   run(roots) {
     const scopes = resolveScopes(roots);
     if (scopes.length === 0) {
-      // infra exits 1 here ("weder FRAMEWORK_ROOT, APP_ROOT noch ein anderer
-      // Repo-Root aufgelöst") — the vacuity floor below reproduces that.
+      // infra exits 1 here ("neither FRAMEWORK_ROOT, APP_ROOT nor any other
+      // repo root resolved") — the vacuity floor below reproduces that.
       return { violations: [], matchedFiles: 0, notApplicable: false };
     }
     // Pre-filter count (every file walk() found, before the web/-segment

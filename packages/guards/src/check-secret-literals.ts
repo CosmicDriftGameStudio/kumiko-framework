@@ -1,26 +1,26 @@
 #!/usr/bin/env bun
 /**
- * Secret-Literal-Guard (stack-agnostisch).
+ * Secret-literal guard (stack-agnostic).
  *
- * Flaggt hartkodierte Secret-Fallbacks in Server-Code:
+ * Flags hardcoded secret fallbacks in server code:
  *   const s = env.JWT_SECRET ?? "hardcoded-prod-secret";   // ✗
  *   hmacSecret: config.X ?? "cashcolt-mailer-hmac-secret", // ✗
  *
- * Ein `?? "<literal>"`-Fallback auf etwas Secret-artiges heißt: fehlt die
- * Env-Variable, läuft der Server mit einem im Repo sichtbaren Secret weiter —
- * genau die Klasse, die bei einem Deploy-Fehler zum geleakten Prod-Secret wird.
- * Secure-by-default: fehlendes Secret → hart fehlschlagen, nie auf ein Literal
- * zurückfallen.
+ * A `?? "<literal>"` fallback on something secret-like means: if the env
+ * variable is missing, the server keeps running with a secret visible in the
+ * repo — exactly the class that becomes a leaked prod secret after a deploy
+ * mistake. Secure by default: a missing secret → fail hard, never fall back to
+ * a literal.
  *
- * AKZEPTIERTE AUSNAHME: `bin/server.ts` ist der designierte DEV-Entrypoint
- * (runDevApp). Dort sind Dev-Secret-Fallbacks gewollt — der PROD-Entrypoint
- * `bin/main.ts` (runProdApp) liest dieselben Secrets aus dem validierten Env
- * und failt hart. Der Guard akzeptiert Literale daher nur in `bin/server.ts`
- * und flaggt sie überall sonst (Prod-Entrypoint, Config-Module, Handler, Lib).
+ * ACCEPTED EXCEPTION: `bin/server.ts` is the designated DEV entrypoint
+ * (runDevApp). Dev secret fallbacks are intended there — the PROD entrypoint
+ * `bin/main.ts` (runProdApp) reads the same secrets from the validated env
+ * and fails hard. The guard therefore accepts literals only in `bin/server.ts`
+ * and flags them everywhere else (prod entrypoint, config modules, handlers, lib).
  *
- * Scannt den eigenen Checkout (die `roots`, die der Runner auflöst) —
- * jedes Repo läuft diesen Check in seiner eigenen CI gegen sich selbst,
- * statt dass ein zentraler Scan in fremde Sibling-Checkouts greift.
+ * Scans its own checkout (the `roots` the runner resolves) —
+ * every repo runs this check against itself in its own CI, instead of a
+ * central scan reaching into foreign sibling checkouts.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -81,11 +81,11 @@ function maskComments(source: string): string {
     const children = node.getChildren(sourceFile).filter((child) => !isJsDocKind(child.kind));
     if (children.length > 0) {
       for (const child of children) visit(child);
-      return;
-    }
-    const trivia = source.slice(node.pos, node.getStart(sourceFile));
-    for (const m of trivia.matchAll(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g)) {
-      blank(node.pos + m.index, node.pos + m.index + m[0].length);
+    } else {
+      const trivia = source.slice(node.pos, node.getStart(sourceFile));
+      for (const m of trivia.matchAll(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g)) {
+        blank(node.pos + m.index, node.pos + m.index + m[0].length);
+      }
     }
   };
   visit(sourceFile);

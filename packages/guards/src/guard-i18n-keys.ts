@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
- * Guard: i18n-Keys muessen definiert sein, bevor sie verwendet werden.
+ * Guard: i18n keys must be defined before they are used.
  *
- * Scan: t()-Calls in App-tsx, Definitionen aus r.translations und i18n-Bundles.
- * Deklarative Screen-/Nav-Keys: validateBoot (Runtime).
+ * Scan: t() calls in app tsx, definitions from r.translations and i18n bundles.
+ * Declarative screen/nav keys: validateBoot (runtime).
  *
  * Usage:
  *   bun guards/guard-i18n-keys.ts
@@ -52,8 +52,8 @@ function isI18nBundleFile(filePath: string): boolean {
     // Flat single-file bundle (src/i18n.ts), same status as src/i18n/index.ts.
     /\/i18n\.ts$/.test(filePath) ||
     /\/features\/[^/]+\/i18n\./.test(filePath) ||
-    // Deckt beliebige Tiefe unter bundled-features/src/<feature>/ ab
-    // (z.B. auch .../schema/i18n.ts), statt nur genau eine Ebene.
+    // Covers any depth below bundled-features/src/<feature>/
+    // (e.g. also .../schema/i18n.ts), not just exactly one level.
     /bundled-features\/src\/.*\/i18n\.ts$/.test(filePath)
   );
 }

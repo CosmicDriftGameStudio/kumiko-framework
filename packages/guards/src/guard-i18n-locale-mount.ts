@@ -1,18 +1,18 @@
 #!/usr/bin/env bun
 /**
- * Guard: App-Mount-Punkte muessen das deutsche Locale-Feature registrieren,
- * wenn das Repo von @cosmicdrift/kumiko-locale-de abhaengt.
+ * Guard: app mount points must register the German locale feature
+ * when the repo depends on @cosmicdrift/kumiko-locale-de.
  *
- * guard-i18n-keys.ts prueft nur, ob ein verwendeter t()-Key definiert ist —
- * und kennt kein Konzept von "Mount-Punkt". Ein Mount, der localeDeClient()
- * (Client) bzw. localeDe() (Server) nie aufruft, faellt dort komplett durch
- * (kumiko-studio#191, publicstatus#365, infra#533).
+ * guard-i18n-keys.ts only checks whether a used t() key is defined —
+ * and has no concept of a "mount point". A mount that never calls
+ * localeDeClient() (client) or localeDe() (server) slips through there
+ * completely (kumiko-studio#191, publicstatus#365, infra#533).
  *
- * Scope-Gate: das package.json am naechsten zur Datei muss auf
- * kumiko-locale-de zeigen (aktuell kumiko-studio, publicstatus, solon,
- * offlot-app) — ein Node-Resolution-Walk ueber ts-morphs FileSystemHost statt guards/_lib/
- * roots.ts' Sibling-Repo-Liste, damit der Gate auch im In-Memory-Test der
- * Guard-Suite (kein echter Sibling-Checkout) feuert.
+ * Scope gate: the package.json closest to the file must point at
+ * kumiko-locale-de (currently kumiko-studio, publicstatus, solon,
+ * offlot-app) — a node-resolution walk over ts-morph's FileSystemHost instead
+ * of guards/_lib/roots.ts' sibling-repo list, so the gate also fires in the
+ * in-memory test of the guard suite (no real sibling checkout).
  *
  * Usage:
  *   bun guards/guard-i18n-locale-mount.ts

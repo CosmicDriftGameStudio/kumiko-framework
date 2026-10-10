@@ -259,7 +259,7 @@ export async function scanRepo(
   }
 
   return {
-    scannedAt: new Date().toISOString(),
+    scannedAt: Temporal.Now.instant().toString(),
     root: repoRoot,
     hits,
     scannedFiles: relFiles.length,

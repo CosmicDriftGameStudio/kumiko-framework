@@ -65,11 +65,11 @@ describe("Check A: role-input handlers need an escalation test", () => {
   });
 
   test("a raw substring in an unrelated test does NOT count as coverage (word-boundary regression)", () => {
-    // Regression fuer die weak-name-match-Klasse des Original-Incidents:
-    // vorher matchte t.includes(f) jede Test-Datei die zufaellig
-    // "createTestStack()" (enthaelt Substring "create") UND irgendwo
-    // "SystemAdmin" erwaehnt — ohne dass ein einziger Test die Kombination
-    // tatsaechlich prueft. \bcreate\b darf das nicht mehr als Coverage zaehlen.
+    // Regression for the weak-name-match class of the original incident:
+    // t.includes(f) used to match every test file that happened to contain
+    // "createTestStack()" (substring "create") AND mention "SystemAdmin"
+    // somewhere — without any single test actually exercising the combination.
+    // \bcreate\b must no longer count as coverage.
     const sfs = files({
       "/r/packages/bundled-features/src/user/handlers/create.write.ts": roleHandler(
         "user:create",

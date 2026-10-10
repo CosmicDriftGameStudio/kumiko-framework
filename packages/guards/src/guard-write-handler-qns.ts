@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
 /**
- * Guard: prüft dass `dispatcher.write("qn:literal:...")`-Aufrufe in
- * Custom-Screens gültige Write-Handler-QNs referenzieren. Tippfehler
- * im QN fallen sonst erst zur Runtime als 404 auf.
+ * Guard: checks that `dispatcher.write("qn:literal:...")` calls in
+ * custom screens reference valid write-handler QNs. Typos
+ * in the QN would otherwise only surface at runtime as a 404.
  *
- * Validierung in zwei Stufen:
- *   1. **Strukturell**: jeder QN muss `:write:` enthalten — fängt
- *      offensichtliche Tippfehler ("feautre:write:create").
- *   2. **Gegen Manifest**: wenn `feature-manifest.json` im Repo-Root
- *      liegt und `writeHandlers` enthält, matched der Guard dagegen.
+ * Validation in two stages:
+ *   1. **Structural**: every QN must contain `:write:` — catches
+ *      obvious typos ("feautre:write:create").
+ *   2. **Against manifest**: if `feature-manifest.json` is in the repo root
+ *      and contains `writeHandlers`, the guard matches against it.
  *
  * Usage:
  *   bun infra/guards/guard-write-handler-qns.ts
@@ -94,11 +94,11 @@ function findKnownQns(filePath: string, entries: ReadonlyArray<ManifestEntry>): 
 }
 
 /**
- * Extrahiert den Literal-Wert aus einem String-Literal, einem
- * Backtick-Literal ohne Interpolation (`NoSubstitutionTemplateLiteral`) oder
- * einem `<literal> as T`-Cast. Backtick-Konstanten (`const QN = \`x:write:y\``)
- * wurden vorher nur als direktes Argument, nicht als aufgelöste Deklaration
- * erkannt.
+ * Extracts the literal value from a string literal, a backtick literal
+ * without interpolation (`NoSubstitutionTemplateLiteral`) or a
+ * `<literal> as T` cast. Backtick constants (`const QN = \`x:write:y\``)
+ * used to be recognized only as a direct argument, not as a resolved
+ * declaration.
  */
 function literalValueOf(node: Node): string | undefined {
   if (
@@ -137,8 +137,8 @@ export function resolveWriteQnFromArg(node: Node): string | undefined {
 }
 
 /**
- * Scannt eine SourceFile nach `dispatcher.write(<stringLiteral>, ...)`-
- * oder `<expr>.write(<stringLiteral>, ...)`-Aufrufen.
+ * Scans a SourceFile for `dispatcher.write(<stringLiteral>, ...)`
+ * or `<expr>.write(<stringLiteral>, ...)` calls.
  */
 export function scanDispatcherWriteCalls(
   sf: SourceFile,
@@ -148,14 +148,14 @@ export function scanDispatcherWriteCalls(
     const expr = call.getExpression();
     const exprText = expr.getText();
 
-    // `dispatcher.write(...)` oder irgendein `<obj>.write(...)` (ein
-    // aliaster Dispatcher heißt nicht zwingend "dispatcher").
+    // `dispatcher.write(...)` or any `<obj>.write(...)` (an aliased
+    // dispatcher is not necessarily named "dispatcher").
     const isDispatcherCall = exprText === "dispatcher.write";
     if (!isDispatcherCall && !exprText.endsWith(".write")) continue;
 
-    // Erster Parameter muss ein String-Literal sein — dynamische
-    // QNs (Handler-Konstanten, Template-Literale) werden nicht
-    // validiert (sind entweder typ-safe oder nicht prüfbar).
+    // The first parameter must be a string literal — dynamic QNs (handler
+    // constants, template literals) are not validated (they are either
+    // type-safe or not checkable).
     const args = call.getArguments();
     const first = args[0];
     if (!first) continue;
@@ -163,11 +163,11 @@ export function scanDispatcherWriteCalls(
     const qn = resolveWriteQnFromArg(first);
     if (qn === undefined) continue;
 
-    // `.endsWith(".write")` matcht auch Nicht-Dispatcher-Writes:
+    // `.endsWith(".write")` also matches non-dispatcher writes:
     // `res.write(...)`, `stream.write(...)`, SSE `res.write("data: …")`.
-    // Deren Argument ist kein QN → würde sonst als "ungültiges QN-Format"
-    // false-positiv gemeldet. Außerhalb eines expliziten `dispatcher.write`
-    // nur prüfen, wenn das Literal ein Write-QN ist (enthält ":write:").
+    // Their argument is not a QN → it would otherwise be reported as an
+    // "invalid QN format" false positive. Outside an explicit `dispatcher.write`
+    // only check when the literal is a write QN (contains ":write:").
     if (!isDispatcherCall && !qn.includes(":write:")) continue;
 
     hits.push({
@@ -212,9 +212,9 @@ export const guard: AstGuard = {
           continue;
         }
 
-        // Stufe 2: gegen Manifest matchen (wenn vorhanden).
-        // QN wird vor dem Match auf kebab-case normalisiert, sodass
-        // camelCase- und kebab-case-Eingaben gleich behandelt werden.
+        // Stage 2: match against the manifest (if present).
+        // The QN is normalized to kebab-case before the match, so that
+        // camelCase and kebab-case inputs are treated the same.
         const normalizedQn = toKebab(hit.qn);
         if (knownQns.size > 0 && !knownQns.has(normalizedQn)) {
           violations.push({
@@ -226,8 +226,8 @@ export const guard: AstGuard = {
       }
     }
 
-    // Info-Log wenn kein Manifest geladen wurde — kein Fehler, aber
-    // der Guard läuft dann nur mit struktureller Prüfung.
+    // Info log when no manifest was loaded — not an error, but
+    // the guard then runs with the structural check only.
     if (knownQnsByRepo.size === 0 && violations.length === 0) {
       console.warn(
         "  [INFO] No feature-manifest.json with writeHandlers found — structural check only.",

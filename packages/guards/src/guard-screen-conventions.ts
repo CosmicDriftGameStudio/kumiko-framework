@@ -64,8 +64,10 @@ function checkMetrics(
   violations: GuardViolation[],
 ): void {
   const metricsProp = root.getProperty("metrics");
+  // skip: screens without a literal metrics array have no entries to check
   if (!metricsProp?.isKind(SyntaxKind.PropertyAssignment)) return;
   const init = metricsProp.getInitializer();
+  // skip: a computed metrics value cannot be checked statically
   if (!init?.isKind(SyntaxKind.ArrayLiteralExpression)) return;
   for (const el of init.getElements()) {
     if (hasIgnoreTag(el, IGNORE_TAG)) continue;

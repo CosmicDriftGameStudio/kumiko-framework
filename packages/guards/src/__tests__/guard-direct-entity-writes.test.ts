@@ -1,14 +1,12 @@
-// Unit-Tests fuer den verbesserten direct-entity-writes Guard.
+// Unit tests for the context-aware direct-entity-writes guard.
 //
-// Vor dem fix-1: TX-Receiver-Namen (`tx`/`trx`/`handle`) wurden
-// pauschal allowlisted. Folge: `db.transaction(async (tx) => {
-//   tx.update(esTable)... })` wurde silent erlaubt obwohl es ein
-// klarer ES-Bruch ist (Sub-Tx im Production-Code, kein
-// projection-apply).
+// Before fix-1, tx receiver names (`tx`/`trx`/`handle`) were allowlisted
+// wholesale, so `db.transaction(async (tx) => { tx.update(esTable)... })`
+// was silently allowed although it is a clear event-sourcing bypass (a
+// sub-tx in production code, not a projection apply).
 //
-// Jetzt context-aware: enclosing function muss als arg in
-// `defineApply(...)` ODER als value von `apply:`-Property in einem
-// `r.projection({apply: ...})` liegen — sonst BLOCK.
+// Now the enclosing function must be an argument of `defineApply(...)` or the
+// value of an `apply:` property in an `r.projection({apply: ...})` — else BLOCK.
 
 import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";
@@ -30,9 +28,9 @@ function makeProject(files: Record<string, string>): Project {
   return project;
 }
 
-// Single-File-Setup damit ts-morph's Symbol-Resolution ohne tsconfig
-// + ohne cross-file-imports klappt. createEventStoreExecutor wird
-// inline declared damit collectEsTables die fooTable findet.
+// Single-file setup so ts-morph's symbol resolution works without a tsconfig
+// and without cross-file imports. createEventStoreExecutor is declared inline
+// so collectEsTables finds fooTable.
 const SINGLE_FILE_PRELUDE = `
 declare const t: unknown;
 declare function createEventStoreExecutor(t: unknown, e: unknown, opts: unknown): unknown;
@@ -64,10 +62,10 @@ describe("collectEsTables", () => {
   });
 });
 
-// r.entity(name, ent) + buildEntityTable(name2, ent) verlinken über das
-// geteilte `fooEntity`-Symbol, NICHT über den Namen-String (hier "foo" vs
-// "foo_tbl" — bewusst verschieden, wie sessions' "user-session" vs
-// "user_session"). Pinst die symbol-basierte Verlinkung.
+// r.entity(name, ent) and buildEntityTable(name2, ent) are linked through the
+// shared `fooEntity` symbol, NOT through the name string (here "foo" vs
+// "foo_tbl" — deliberately different, like sessions' "user-session" vs
+// "user_session"). Pins the symbol-based linking.
 const ENTITY_PROJECTION_PRELUDE = `
 declare const t: unknown;
 declare function buildEntityTable(name: string, e: unknown): unknown;
@@ -131,7 +129,7 @@ describe("scanDirectWrites :: function-form (bun-db helpers)", () => {
     const sf = project.getSourceFileOrThrow("/repo/foo.ts");
     const hits = scanDirectWrites(sf, esTables);
     expect(hits).toHaveLength(1);
-    expect(hits[0]?.reason).toBe("non-tx-receiver");
+    expect(hits[0]?.kind).toBe("non-tx-receiver");
     expect(hits[0]?.receiver).toBe("ctx");
     expect(hits[0]?.op).toBe("update");
     expect(hits[0]?.table).toBe("fooTable");
@@ -170,7 +168,7 @@ describe("scanDirectWrites :: non-tx-receiver", () => {
     const sf = project.getSourceFileOrThrow("/repo/foo.ts");
     const hits = scanDirectWrites(sf, esTables);
     expect(hits).toHaveLength(1);
-    expect(hits[0]?.reason).toBe("non-tx-receiver");
+    expect(hits[0]?.kind).toBe("non-tx-receiver");
     expect(hits[0]?.receiver).toBe("db");
     expect(hits[0]?.op).toBe("update");
   });
@@ -187,7 +185,7 @@ describe("scanDirectWrites :: non-tx-receiver", () => {
     const hits = scanDirectWrites(sf, collectEsTables(project.getSourceFiles()));
     expect(hits).toHaveLength(1);
     expect(hits[0]?.receiver).toBe("ctx");
-    expect(hits[0]?.reason).toBe("non-tx-receiver");
+    expect(hits[0]?.kind).toBe("non-tx-receiver");
   });
 });
 
@@ -257,7 +255,7 @@ describe("scanDirectWrites :: tx-Receiver context-aware", () => {
     const sf = project.getSourceFileOrThrow("/repo/foo.ts");
     const hits = scanDirectWrites(sf, collectEsTables(project.getSourceFiles()));
     expect(hits).toHaveLength(1);
-    expect(hits[0]?.reason).toBe("tx-outside-apply");
+    expect(hits[0]?.kind).toBe("tx-outside-apply");
     expect(hits[0]?.receiver).toBe("tx");
   });
 
@@ -272,14 +270,14 @@ describe("scanDirectWrites :: tx-Receiver context-aware", () => {
     const sf = project.getSourceFileOrThrow("/repo/foo.ts");
     const hits = scanDirectWrites(sf, collectEsTables(project.getSourceFiles()));
     expect(hits).toHaveLength(1);
-    expect(hits[0]?.reason).toBe("tx-outside-apply");
+    expect(hits[0]?.kind).toBe("tx-outside-apply");
   });
 
   test("BLOCK: nested arrow innerhalb apply-projection — innerer Sub-Tx-Receiver ist nicht in TX_RECEIVER_NAMES", () => {
-    // Edge-Case: arrow innerhalb apply, aber innerer Receiver heisst
-    // `innerTx` (nicht in TX_RECEIVER_NAMES) → faellt unter non-tx-
-    // receiver-Block. Pinst dass nur exakte tx/trx/handle-Namen
-    // den apply-Pfad triggern, abweichende Namen sofort blockieren.
+    // Edge case: arrow inside apply, but the inner receiver is named
+    // `innerTx` (not in TX_RECEIVER_NAMES) → falls under the non-tx-receiver
+    // block. Pins that only the exact tx/trx/handle names trigger the apply
+    // path; any other name is blocked immediately.
     const project = makeProject({
       "/repo/foo.ts": `${SINGLE_FILE_PRELUDE}
         function setup(r: { projection: (def: unknown) => void }) {
@@ -298,7 +296,7 @@ describe("scanDirectWrites :: tx-Receiver context-aware", () => {
     const hits = scanDirectWrites(sf, collectEsTables(project.getSourceFiles()));
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]?.receiver).toBe("innerTx");
-    expect(hits[0]?.reason).toBe("non-tx-receiver");
+    expect(hits[0]?.kind).toBe("non-tx-receiver");
   });
 });
 
@@ -330,7 +328,7 @@ describe("scanDirectWrites :: table argument wrapped in casts", () => {
     ]) {
       const hits = hitsFor(`async function bad() { await deleteMany(db, ${wrapped}, {}); }`);
       expect(hits).toHaveLength(1);
-      expect(hits[0]?.reason).toBe("non-tx-receiver");
+      expect(hits[0]?.kind).toBe("non-tx-receiver");
     }
   });
 

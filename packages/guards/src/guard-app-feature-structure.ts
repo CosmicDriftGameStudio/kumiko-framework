@@ -1,17 +1,17 @@
 #!/usr/bin/env bun
-// App-Features folgen der bundled-features-Konvention (Referenz: tenant/):
-// feature.ts = nur Registrierung, Screens unter web/, Handler unter handlers/.
-// Dieser Guard flaggt die drei teuersten Abweichungen:
-//   1. web.tsx/web.ts-Monolith bzw. JSX-Screens direkt am Feature-Root
-//   2. feature.ts als Logik-Dump (> MAX_FEATURE_TS_LINES Zeilen)
-//   3. r.screen({ type: "custom" }) ohne Allowlist-Tag — deklarative
-//      Screen-Typen (entityList/dashboard/data-table) sind der Default.
+// App features follow the bundled-features convention (reference: tenant/):
+// feature.ts = registration only, screens under web/, handlers under handlers/.
+// This guard flags the three most expensive deviations:
+//   1. web.tsx/web.ts monolith or JSX screens directly at the feature root
+//   2. feature.ts as a logic dump (> MAX_FEATURE_TS_LINES lines)
+//   3. r.screen({ type: "custom" }) without an allowlist tag — declarative
+//      screen types (entityList/dashboard/data-table) are the default.
 //
-// ponytail: Handler-Datei-Konvention (*.query.ts/*.write.ts unter handlers/)
-// wird noch nicht erzwungen — nachziehen, wenn die Registrierungs-API-Formen
-// stabil inventarisiert sind.
+// ponytail: the handler file convention (*.query.ts/*.write.ts under handlers/)
+// is not enforced yet — add it once the registration API shapes are
+// inventoried and stable.
 //
-// Teil von App-Mounting 2.0 (infra#208).
+// Part of App-Mounting 2.0 (infra#208).
 
 import * as path from "node:path";
 import { type SourceFile, SyntaxKind } from "ts-morph";
@@ -29,8 +29,8 @@ const IGNORE_TAG = "kumiko-lint-ignore app-feature-structure";
 
 const MAX_FEATURE_TS_LINES = 300;
 
-// src/features/<name>/<file> bzw. packages/bundled-features/src/<name>/<file>
-// — genau eine Ebene unter dem Feature-Ordner.
+// src/features/<name>/<file> or packages/bundled-features/src/<name>/<file>
+// — exactly one level below the feature folder.
 function isFeatureRootFile(filePath: string): boolean {
   const m = filePath.match(/(src\/features|packages\/bundled-features\/src)\/[^/]+\/[^/]+$/);
   return m !== null;
@@ -61,7 +61,7 @@ export const guard: AstGuard = {
         }
       }
 
-      // 1b. JSX direkt am Feature-Root (Screens gehören unter web/)
+      // 1b. JSX directly at the feature root (screens belong under web/)
       if (
         isFeatureRootFile(filePath) &&
         filePath.endsWith(".tsx") &&
@@ -90,7 +90,7 @@ export const guard: AstGuard = {
         }
       }
 
-      // 3. type: "custom" ohne Allowlist-Tag
+      // 3. type: "custom" without an allowlist tag
       for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
         if (prop.getName() !== "type") continue;
         const init = prop.getInitializer();

@@ -243,9 +243,10 @@ function getSingleDirectCallee(node: FnNode): string | null {
     // Method chains (A.from(x).toMethod(y)) have 2 call expressions — not a thin wrapper
     const conciseCallees = new Set<string>();
     node.forEachDescendant((n) => {
-      if (!n.isKind(SyntaxKind.CallExpression)) return;
-      const cName = extractCalleeName(n);
-      if (cName) conciseCallees.add(cName);
+      if (n.isKind(SyntaxKind.CallExpression)) {
+        const cName = extractCalleeName(n);
+        if (cName) conciseCallees.add(cName);
+      }
     });
     if (conciseCallees.size !== 1) return null;
     const name = extractCalleeName(body);
@@ -283,9 +284,10 @@ function getSingleDirectCallee(node: FnNode): string | null {
   // has exactly 1 unique callee name across the whole body.
   const allCallees = new Set<string>();
   node.forEachDescendant((n) => {
-    if (!n.isKind(SyntaxKind.CallExpression)) return;
-    const name = extractCalleeName(n);
-    if (name) allCallees.add(name);
+    if (n.isKind(SyntaxKind.CallExpression)) {
+      const name = extractCalleeName(n);
+      if (name) allCallees.add(name);
+    }
   });
   if (allCallees.size !== 1) return null;
 
@@ -349,11 +351,13 @@ export function collectFindings(sf: SourceFile): Finding[] {
 
   const check = (node: FnNode) => {
     const fnName = getFnName(node);
+    // skip: anonymous functions cannot be reported by name
     if (!fnName) return;
 
     const callee = getSingleDirectCallee(node);
+    // skip: not a single-callee wrapper
     if (!callee) return;
-    // Self-recursion / delegation false-positive (same name)
+    // skip: self-recursion / same-name delegation is a false positive
     if (callee === fnName) return;
 
     const markerReason = extractMarkerReason(node);

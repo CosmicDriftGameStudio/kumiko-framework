@@ -1,34 +1,34 @@
 #!/usr/bin/env bun
 /**
- * Complexity-Check fuer Handler-Hotspots mit Baseline-Regression-Guard.
+ * Complexity check for handler hotspots with a baseline regression guard.
  *
- * Berechnet zyklomatische Komplexitaet pro Funktion/Methode (Basis 1, +1 je
- * Entscheidungspunkt: if, for, while, case, catch, &&, ||, ??, Ternary).
- * Ueber dem Schwellwert -> Hotspot.
+ * Computes cyclomatic complexity per function/method (base 1, +1 per decision
+ * point: if, for, while, case, catch, &&, ||, ??, ternary). Above the
+ * threshold -> hotspot.
  *
- * Baseline-Regression-Guard wie guard-comment-lang.ts: `.kumiko-complexity-
- * baseline.json` im Repo-Root pinnt pro File die eingefrorene Hotspot-Anzahl.
- *   - aktuell <= baseline pro File: PASS
- *   - aktuell >  baseline pro File: FAIL
- * Reduktionen updaten die Baseline NICHT automatisch — nach Refactor-Commits
- * `--write-baseline` aufrufen. Ohne Baseline-Datei bleibt der Check
- * warning-only (Bootstrap: einmalig `--write-baseline`).
- * Die Baseline umfasst nur Files des eigenen Repos; Sibling-Hotspots gehoeren
- * in deren eigene Baseline (siehe localHotspots).
+ * Baseline regression guard like guard-comment-lang.ts: `.kumiko-complexity-
+ * baseline.json` in the repo root pins the frozen hotspot count per file.
+ *   - current <= baseline per file: PASS
+ *   - current >  baseline per file: FAIL
+ * Reductions do NOT update the baseline automatically — run `--write-baseline`
+ * after refactor commits. Without a baseline file the check stays
+ * warning-only (bootstrap: run `--write-baseline` once).
+ * The baseline covers only files of the repo itself; sibling hotspots belong
+ * in their own baseline (see localHotspots).
  *
- * Bewusste Luecke: gezaehlt werden Hotspots pro File, nicht deren Hoehe — eine
- * bereits gelistete Funktion darf komplexer werden, ohne dass der Guard faellt.
+ * Deliberate gap: hotspots are counted per file, not their height — an
+ * already listed function may get more complex without the guard failing.
  *
- * Opt-out: `// kumiko-lint-ignore complexity-budget <Grund>` auf der
- * Funktionszeile, der Zeile darueber, oder (bei JSDoc-dokumentierten
- * Funktionen) der Zeile ueber dem JSDoc-Block.
+ * Opt-out: `// kumiko-lint-ignore complexity-budget <reason>` on the function
+ * line, the line above, or (for JSDoc-documented functions) the line above
+ * the JSDoc block.
  *
  * Usage:
- *   bun guards/check-complexity.ts                  # Vergleich gegen Baseline
- *   bun guards/check-complexity.ts --write-baseline # Baseline neu schreiben
- *   bun guards/check-complexity.ts --no-baseline    # Vergleich ueberspringen
+ *   bun guards/check-complexity.ts                  # compare against baseline
+ *   bun guards/check-complexity.ts --write-baseline # rewrite baseline
+ *   bun guards/check-complexity.ts --no-baseline    # skip comparison
  *
- * Regel: Issue kumiko-framework#1282
+ * Rule: issue kumiko-framework#1282
  */
 
 import * as path from "node:path";
@@ -117,8 +117,8 @@ function hasBudgetTag(fn: Node): boolean {
 export function computeComplexity(fn: Node): number {
   let complexity = 1;
   fn.forEachDescendant((node, traversal) => {
-    // Don't count decision points inside a nested function-like node —
-    // those get their own Hotspot entry.
+    // skip: decision points inside a nested function-like node belong to its
+    // own Hotspot entry
     if (node !== fn && (FUNCTION_KINDS as readonly SyntaxKind[]).includes(node.getKind())) {
       traversal.skip();
       return;
@@ -220,18 +220,18 @@ function report(hotspots: readonly Hotspot[], scanned: number): void {
   console.log(`  Hotspots (complexity >= ${COMPLEXITY_THRESHOLD}): ${hotspots.length}`);
   if (hotspots.length === 0) {
     console.log("  Nothing to report.");
-    return;
+  } else {
+    const shown = hotspots.slice(0, MAX_REPORTED);
+    for (const h of shown) {
+      console.log(`    ${h.file}:${h.line}  ${h.name}()  complexity=${h.complexity}`);
+    }
+    if (hotspots.length > shown.length) {
+      console.log(`    ... ${hotspots.length - shown.length} more`);
+    }
+    console.log(
+      `\n  Rule: split the function, or deliberately allow it with "// ${BUDGET_TAG} <reason>".`,
+    );
   }
-  const shown = hotspots.slice(0, MAX_REPORTED);
-  for (const h of shown) {
-    console.log(`    ${h.file}:${h.line}  ${h.name}()  complexity=${h.complexity}`);
-  }
-  if (hotspots.length > shown.length) {
-    console.log(`    ... ${hotspots.length - shown.length} more`);
-  }
-  console.log(
-    `\n  Rule: split the function, or deliberately allow it with "// ${BUDGET_TAG} <reason>".`,
-  );
 }
 
 const complexityBaseline = baselineRatchet({
@@ -276,9 +276,9 @@ function analyse(
 export const guard: AstGuard = {
   name: "Complexity Check",
   scan: SCAN,
-  // Kein Remediation-Text hier: reportResults haengt hint an JEDEN Fail, auch
-  // an Format-Drift, wo "Funktion aufteilen" in die Irre fuehrt. Der konkrete
-  // Rat steht deshalb in der jeweiligen Violation-Message.
+  // No remediation text here: reportResults appends the hint to EVERY failure,
+  // including format drift, where "split the function" would mislead. The
+  // concrete advice lives in the respective violation message.
   hint: 'after a deliberate change: `kumiko-guards guards --write-baseline --guard="Complexity Check"`',
   run: (files, roots = resolveRepoRoots()) => analyse(files, roots, true),
   writeBaseline: (files) => {
@@ -288,9 +288,9 @@ export const guard: AstGuard = {
   },
 };
 
-// Flags werden NUR hier gelesen, nicht in run() — der Shared-Runner
-// (run-guards.ts) faehrt 18 Guards mit derselben argv, ein --write-baseline
-// dort duerfte die Baseline nicht stillschweigend neu schreiben.
+// Flags are read ONLY here, not in run() — the shared runner (run-guards.ts)
+// drives 18 guards with the same argv, and a --write-baseline there must not
+// silently rewrite the baseline.
 if (import.meta.main) {
   const args = process.argv.slice(2);
   if (args.includes("--write-baseline")) {

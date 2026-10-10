@@ -115,7 +115,7 @@ describe("cli.ts — real process runs, no mocks", () => {
     expect(stdout).toContain("guards registered");
     const bannerCount = stdout.split("guards registered").length - 1;
     expect(bannerCount).toBe(1);
-  }, 30_000);
+  });
 
   test("ui and guards with no args run their whole suite and exit 0 on the fixture repo", async () => {
     for (const suite of ["ui", "guards"]) {
@@ -125,7 +125,7 @@ describe("cli.ts — real process runs, no mocks", () => {
       expect(stdout).toContain("guards registered");
       expect(stdout).not.toContain("✗");
     }
-  }, 30_000);
+  });
 
   test("guards --explain reaches run-guards' --explain branch through the bin instead of running the checks", async () => {
     const { exitCode, stdout } = await runCliInFixtureRepo(["guards", "--explain"]);
@@ -133,7 +133,7 @@ describe("cli.ts — real process runs, no mocks", () => {
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Repo:");
     expect(stdout).not.toContain("guards registered");
-  }, 30_000);
+  });
 
   test("guards --strict-security-baseline reaches run-guards' security-only filter through the bin", async () => {
     const expectedCount = GUARDS.filter(isSecurityGuard).length;
@@ -143,7 +143,7 @@ describe("cli.ts — real process runs, no mocks", () => {
     const { stdout } = await runCliInFixtureRepo(["guards", "--strict-security-baseline"]);
 
     expect(stdout).toContain(`${expectedCount} guards registered`);
-  }, 30_000);
+  });
 
   test("guards --write-security-baseline reaches run-guards' baseline writer through the bin — the bug this fixes", async () => {
     const fixture = mkdtempSync(join(tmpdir(), "cli-write-baseline-"));
@@ -163,7 +163,7 @@ describe("cli.ts — real process runs, no mocks", () => {
     } finally {
       rmSync(fixture, { recursive: true, force: true });
     }
-  }, 30_000);
+  });
 
   test("an unknown flag for guards exits 1 and lists guards' known flags on stderr, instead of being silently ignored", async () => {
     const { exitCode, stderr } = await runCli(["guards", "--bogus-flag"]);

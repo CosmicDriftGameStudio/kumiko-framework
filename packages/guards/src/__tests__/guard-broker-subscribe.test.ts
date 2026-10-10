@@ -70,8 +70,8 @@ describe("collectBrokerSubscribeViolations", () => {
   });
 
   // Boundary: nur die kanonischen Namen broker/eventBroker werden erkannt.
-  // Ein anders benannter Broker (messageBroker, sseBroker) slippt durch —
-  // akzeptiert, weil es heute keinen Broker gibt; Regex erweitern wenn einer auftaucht.
+  // slips through — accepted because no such broker exists today; extend the
+  // regex when one appears.
   test("does NOT flag a differently-named broker (documented boundary)", () => {
     const sf = sourceAt(
       FEATURE,

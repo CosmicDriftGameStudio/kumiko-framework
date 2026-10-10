@@ -1,27 +1,27 @@
 #!/usr/bin/env bun
 /**
- * Guard: `createTextField`/`createLongTextField`-Aufrufe ohne `personal`-
- * Haltung, mit Baseline-Regression-Guard wie guard-pii-annotations.ts.
+ * Guard: `createTextField`/`createLongTextField` calls without a `personal`
+ * stance, with a baseline regression guard like guard-pii-annotations.ts.
  *
- * kumiko-framework#2810: `createTextField`/`createLongTextField` sollen
- * fail-closed werfen, wenn kein `personal` (Muster #2558) deklariert ist.
- * Workspace-weit fehlt `personal` an hunderten Call-Sites — ein Throw würde
- * den Build sofort brechen. Dieser Guard deckt die Vollmenge (jeder Aufruf)
- * ab, `guard-pii-annotations.ts` nur die Namens-Heuristik (PII-verdächtige
- * Feldnamen) — die beiden Baselines sind bewusst getrennt.
+ * kumiko-framework#2810: `createTextField`/`createLongTextField` should
+ * throw fail-closed when no `personal` (pattern #2558) is declared.
+ * Workspace-wide `personal` is missing at hundreds of call sites — a throw would
+ * break the build immediately. This guard covers the full set (every call),
+ * `guard-pii-annotations.ts` only the name heuristic (PII-suspicious
+ * field names) — the two baselines are deliberately separate.
  *
- * `.kumiko-text-field-stance-baseline.json` im Repo-Root pinnt pro File die
- * eingefrorene Fund-Anzahl:
- *   - aktuell <= baseline pro File: PASS
- *   - aktuell >  baseline pro File: FAIL (neuer Aufruf ohne personal-Haltung)
- * Reduktionen updaten die Baseline NICHT automatisch — nach Annotations-
- * Commits `--write-baseline` aufrufen. Ohne Baseline-Datei bleibt der Guard
- * warning-only (Bootstrap: einmalig `--write-baseline`).
+ * `.kumiko-text-field-stance-baseline.json` in the repo root pins the frozen
+ * finding count per file:
+ *   - current <= baseline per file: PASS
+ *   - current >  baseline per file: FAIL (new call without a personal stance)
+ * Reductions do NOT update the baseline automatically — run `--write-baseline`
+ * after annotation commits. Without a baseline file the guard stays
+ * warning-only (bootstrap: run `--write-baseline` once).
  *
  * Usage:
- *   bun guards/guard-text-field-stance.ts                  # Vergleich gegen Baseline
- *   bun guards/guard-text-field-stance.ts --write-baseline # Baseline neu schreiben
- *   bun guards/guard-text-field-stance.ts --no-baseline    # Vergleich überspringen
+ *   bun guards/guard-text-field-stance.ts                  # compare against baseline
+ *   bun guards/guard-text-field-stance.ts --write-baseline # rewrite baseline
+ *   bun guards/guard-text-field-stance.ts --no-baseline    # skip comparison
  */
 import * as path from "node:path";
 import {
@@ -227,10 +227,10 @@ export const guard: AstGuard = {
   writeBaseline: (files) => textFieldStanceBaseline.write(baselineCounts(scan(files).findings)),
 };
 
-// Flags werden NUR hier gelesen, nicht in run() — der Shared-Runner
-// (run-guards.ts) faehrt alle Guards mit derselben argv, ein
-// --write-baseline dort duerfte die Baseline nicht stillschweigend
-// neu schreiben.
+// Flags are read ONLY here, not in run() — the shared runner
+// (run-guards.ts) drives all guards with the same argv, and a
+// --write-baseline there must not silently rewrite the
+// baseline.
 if (import.meta.main) {
   const args = process.argv.slice(2);
   if (args.includes("--write-baseline")) {

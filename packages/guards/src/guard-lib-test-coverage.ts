@@ -1,30 +1,29 @@
 #!/usr/bin/env bun
-// lib/ ist die Heimat der extrahierten Logik (Berechnung, Parsing, Mapping) —
-// der no-logic-in-views-Guard schiebt sie dorthin, dieser Guard sorgt dafür,
-// dass sie an der neuen Stelle auch GETESTET ist. Für jede lib-Datei mit
-// mindestens einer exportierten Funktion muss ein Test existieren, der aus dem
-// Modul importiert, und jede exportierte Funktion muss dort namentlich
-// vorkommen.
+// lib/ is the home of extracted logic (computation, parsing, mapping) —
+// the no-logic-in-views guard pushes it there, this guard ensures it is also
+// TESTED at the new location. For every lib file with at least one exported
+// function, a test must exist that imports from the module, and every
+// exported function must appear there by name.
 //
-// Warum statisch (ts-morph) statt Coverage-Threshold: Coverage lügt zweifach —
-// sie sieht nie-importierte Module gar nicht, und "ausgeführt" heißt nicht
-// "sinnvoll geprüft" (ein Integrationstest, der die Funktion transitiv über
-// HTTP streift, färbt sie grün ohne eine einzige Assertion auf ihr Verhalten).
-// Der Guard ist der strukturelle Gegenpart: er koppelt Test↔Modul über den
-// echten Import und zählt namentliche Referenzen, nicht Zeilen. Der
-// Coverage-Threshold in bunfig.toml bleibt daneben bestehen — beide zusammen,
-// nie der Threshold allein.
+// Why static (ts-morph) instead of a coverage threshold: coverage lies twice —
+// it does not see never-imported modules at all, and "executed" does not mean
+// "meaningfully tested" (an integration test that touches the function
+// transitively over HTTP turns it green without a single assertion on its
+// behavior). This guard is the structural counterpart: it couples test↔module
+// through the real import and counts references by name, not lines. The
+// coverage threshold in bunfig.toml stays in place alongside — both together,
+// never the threshold alone.
 //
-// Ausgenommen: Dateien ohne exportierte Funktion (reine Typen/Konstanten wie
-// eine Farb-Map — ein Test dafür wäre ein Fake-Test). IO-Loader, die bereits
-// durch einen Integrationstest über HTTP gedeckt sind, tragen den ignore-Tag
-// mit wahrheitsgemäßer Begründung.
+// Excluded: files without an exported function (pure types/constants like
+// a color map — a test for those would be a fake test). IO loaders already
+// covered by an integration test over HTTP carry the ignore tag with a
+// truthful justification.
 //
-// Bewusst out-of-scope: Re-Exports (`export { foo } from "./bar"`) zählen
-// nicht als eigene Callable — die Quelldatei "./bar" trägt ihre eigene
-// Coverage-Pflicht. Kommt lib/ je re-exportierte Funktionen ohne eigene
-// Quelldatei im Scope vor, ist das ein stiller Blindspot; bisher (Stand
-// dieser Fix-Runde) kommt das Pattern in keinem App-Repo vor.
+// Deliberately out of scope: re-exports (`export { foo } from "./bar"`) do not
+// count as their own callable — the source file "./bar" carries its own
+// coverage duty. If lib/ ever contains re-exported functions without their own
+// source file in scope, that is a silent blind spot; so far (as of this fix
+// round) the pattern occurs in no app repo.
 
 import { dirname, resolve } from "node:path";
 import { Node, type SourceFile, SyntaxKind } from "ts-morph";
@@ -53,9 +52,9 @@ function isTestSupportFile(path: string): boolean {
   return /\/__tests__\//.test(path);
 }
 
-// Exportierte Callables: `export function f` und `export const f = () => …` /
-// `= function () {}`. Reine Werte (`export const X = 5`), Typen und Interfaces
-// zählen nicht — sie tragen keine Logik, die ein Verhaltenstest prüfen könnte.
+// Exported callables: `export function f` and `export const f = () => …` /
+// `= function () {}`. Pure values (`export const X = 5`), types and interfaces
+// do not count — they carry no logic a behavior test could check.
 function exportedCallables(sf: SourceFile): Export[] {
   const out: Export[] = [];
   for (const fd of sf.getFunctions()) {
@@ -76,17 +75,18 @@ function exportedCallables(sf: SourceFile): Export[] {
 }
 
 // NodeNext-Importe schreiben ".js"/".jsx", obwohl die Quelle ".ts"/".tsx" ist
-// (und analog .mjs/.cjs zu .mts/.cts) — die Extension muss beim Vergleich der
-// Modulpfade also für alle vier Paar-Varianten fallen, sonst reißt der Link.
+// (and likewise .mjs/.cjs for .mts/.cts) — the extension must therefore be
+// stripped for all four pair variants when comparing module paths, otherwise
+// the link breaks.
 function stripExt(path: string): string {
   return path.replace(/\.(?:[cm]?tsx?|[cm]?jsx?)$/, "");
 }
 
-// Ein Test ist mit einer lib-Datei verknüpft, wenn er relativ aus genau dieser
-// Datei importiert — nicht per Pfad-Konvention. Das erlaubt Tests eine Ebene
-// über lib/ (features/<x>/__tests__/foo.test.ts → "../lib/foo") und verhindert,
-// dass generische Namen (fieldText, targetForRow) in fremden Tests fälschlich
-// als Referenz zählen.
+// A test is linked to a lib file when it imports from exactly that file by
+// relative path — not by path convention. This allows tests one level above
+// lib/ (features/<x>/__tests__/foo.test.ts → "../lib/foo") and prevents
+// generic names (fieldText, targetForRow) in unrelated tests from wrongly
+// counting as a reference.
 function testImportsLib(testSf: SourceFile, libPathNoExt: string): boolean {
   const testDir = dirname(testSf.getFilePath());
   for (const imp of testSf.getImportDeclarations()) {
@@ -97,10 +97,10 @@ function testImportsLib(testSf: SourceFile, libPathNoExt: string): boolean {
   return false;
 }
 
-// Import-Deklarationen ausklammern: ein benannter Import ohne jede Nutzung
-// (`import { addFees, subFees } from "../calc"`, nur addFees aufgerufen)
-// erfuellte den Guard fuer subFees schon durch den Import-Text allein —
-// der per-Funktions-Check war fuer named imports quasi tautologisch.
+// Exclude import declarations: a named import without any usage
+// (`import { addFees, subFees } from "../calc"`, only addFees called)
+// used to satisfy the guard for subFees through the import text alone —
+// the per-function check was nearly tautological for named imports.
 function bodyTextWithoutImports(testSf: SourceFile): string {
   const importRanges = testSf
     .getDescendantsOfKind(SyntaxKind.ImportDeclaration)

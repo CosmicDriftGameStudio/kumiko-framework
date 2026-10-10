@@ -421,9 +421,10 @@ export function findRuntimeIsolationViolations(
   const outsideRoot: string[] = [];
   const seenOutside = new Set<string>();
   const noteOutside = (fp: string) => {
-    if (seenOutside.has(fp)) return;
-    seenOutside.add(fp);
-    outsideRoot.push(fp);
+    if (!seenOutside.has(fp)) {
+      seenOutside.add(fp);
+      outsideRoot.push(fp);
+    }
   };
   const stats: Record<Runtime, number> = {
     runtime: 0,

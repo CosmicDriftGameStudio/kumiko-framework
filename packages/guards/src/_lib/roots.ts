@@ -41,9 +41,10 @@ export type RepoRoot = {
 const warnedDerivedFallbacks = new Set<string>();
 
 function warnDerivedFallbackOnce(message: string): void {
-  if (warnedDerivedFallbacks.has(message)) return;
-  warnedDerivedFallbacks.add(message);
-  console.error(message);
+  if (!warnedDerivedFallbacks.has(message)) {
+    warnedDerivedFallbacks.add(message);
+    console.error(message);
+  }
 }
 
 const manifestCache = new Map<string, LoadedRepoManifest | undefined>();
