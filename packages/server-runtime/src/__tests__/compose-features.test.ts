@@ -139,6 +139,19 @@ describe("composeFeatures", () => {
     expect(names).toEqual(["auth-self-registration"]);
   });
 
+  test("auth-self-registration in APP_FEATURES + signup → deduped without a boot warning", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      composeFeatures([noopFeature, defineFeature("auth-self-registration", () => {})], {
+        includeBundled: true,
+        authOptions: { signup: { appUrl: "https://app/signup/complete" } },
+      });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   test("OHNE authOptions → KEINE reset/verify-handlers (anti-default-deploy-bug)", () => {
     // Genau der Bug der vom Review-Agent gefangen wurde: composeFeatures
     // ohne authOptions registriert die handler nicht. Wenn jemand das
