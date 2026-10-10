@@ -79,6 +79,11 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  same split as `onCopyLink`) — RenderEdit only wires the button, its
    *  busy state and its confirm dialog. */
   readonly actions?: readonly RenderEditAction[];
+  /** Record actions declared with `placement: "menu"`, resolved like `actions`.
+   *  Rendered in the header "…" menu ahead of copy-link/delete; without a
+   *  header menu (drawer, card form, shell without a header slot) they fall
+   *  back to buttons next to `actions`. */
+  readonly menuActions?: readonly RenderEditAction[];
   /** Opens a relatedList section row's drawer-kind action (fw#2710).
    *  RenderEdit has no `schema` to resolve the target actionForm itself —
    *  the caller (ProjectionDetailBody, which does have schema) supplies the

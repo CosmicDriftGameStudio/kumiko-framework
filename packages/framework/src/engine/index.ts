@@ -462,6 +462,8 @@ export type {
   EditRelatedListSection,
   EditSectionSpec,
   EntityDefinition,
+  EntityEditAction,
+  EntityEditActionPlacement,
   EntityEditScreenDefinition,
   EntityId,
   EntityListExpandableRow,

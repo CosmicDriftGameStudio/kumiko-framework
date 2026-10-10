@@ -354,6 +354,8 @@ export type {
   EditRelatedListSection,
   EditSectionSpec,
   EditWriteFormSection,
+  EntityEditAction,
+  EntityEditActionPlacement,
   EntityEditScreenDefinition,
   EntityListExpandableRow,
   EntityListScreenDefinition,

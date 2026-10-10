@@ -30,6 +30,7 @@ import {
 import { RenderEditActionButton } from "./render-edit-action-button.js";
 import type { RenderEditProps } from "./render-edit-types.js";
 import { AllFieldsRequiredProvider } from "./render-field.js";
+import { useActionMenuItems } from "./use-action-menu-items.js";
 
 export type {
   RenderEditAction,
@@ -458,6 +459,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onDirtyChange,
     onCopyLink,
     actions,
+    menuActions,
     onRelatedListDrawerAction,
     submitLabel,
     submitVariant,
@@ -587,6 +589,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     PageHeader,
     ActionOverflowMenu,
   } = usePrimitives();
+  const { toMenuItem: menuActionToItem, confirmDialog: menuActionConfirmDialog } =
+    useActionMenuItems({ Dialog, onError: setActionError });
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const pageHeaderCompact = usePageHeaderCompact();
   const insideDrawer = useInsideDrawer();
@@ -1380,6 +1384,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const hasSecondaryFormActions =
     (!menuPageHeaderActions && (onDelete !== undefined || onCopyLink !== undefined)) ||
     (actions !== undefined && actions.length > 0) ||
+    (!menuPageHeaderActions && menuActions !== undefined && menuActions.length > 0) ||
     (onCancel !== undefined && !cancelInHeaderMenu);
   // Teil-C collapse rule: driven by the custom `actions` group only — a
   // resolved true also folds the Copy-Link button (same visual group in the
@@ -1387,6 +1392,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const iconOnlyMidActions = actions !== undefined && shouldRenderActionsIconOnly(actions);
   const headerMenuItems: readonly ActionMenuItemSpec[] = menuPageHeaderActions
     ? [
+        ...(menuActions ?? []).map(menuActionToItem),
         ...(onCopyLink !== undefined
           ? [
               {
@@ -1470,6 +1476,16 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           onError={setActionError}
         />
       ))}
+      {!menuPageHeaderActions &&
+        menuActions?.map((action) => (
+          <RenderEditActionButton
+            key={action.id}
+            action={action}
+            Button={Button}
+            Dialog={Dialog}
+            onError={setActionError}
+          />
+        ))}
       {onCancel !== undefined && !cancelInHeaderMenu && (
         <Button
           type="button"
@@ -1766,6 +1782,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   return (
     <ExtensionFormRegistryProvider value={extensionFormRegistry}>
+      {menuActionConfirmDialog}
       {titleInShell && (
         <PageHeader
           title={formTitle}

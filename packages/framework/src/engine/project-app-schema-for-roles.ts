@@ -385,12 +385,12 @@ function keepRowAction(
   return true; // writeHandler — no screen target
 }
 
-function projectRowActionArray(
-  actions: readonly RowAction[] | undefined,
+function projectRowActionArray<TAction extends RowAction>(
+  actions: readonly TAction[] | undefined,
   feature: FeatureSchema,
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
-): readonly RowAction[] | undefined {
+): readonly TAction[] | undefined {
   if (actions === undefined) return undefined;
   const kept = actions.filter((a) => keepRowAction(a, feature, indices, keptScreenQns));
   if (kept.length === actions.length) return actions;

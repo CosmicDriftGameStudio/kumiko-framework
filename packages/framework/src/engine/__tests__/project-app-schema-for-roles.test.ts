@@ -569,3 +569,42 @@ describe("projectAppSchemaForRoles — workspace pruning", () => {
     expect(forUser.workspaces?.map((w) => w.definition.id).sort()).toEqual(["empty", "work"]);
   });
 });
+
+describe("projectAppSchemaForRoles — entityEdit action placement", () => {
+  test("a projected entityEdit keeps placement on the actions that survive", () => {
+    const feature = defineFeature("shell", (r) => {
+      r.entity("widget", { fields: { name: { type: "text" } } });
+      r.screen({ id: "open", type: "entityList", entity: "widget", columns: ["name"] });
+      r.screen({
+        id: "admin-only",
+        type: "entityList",
+        entity: "widget",
+        columns: ["name"],
+        access: ADMIN_ONLY,
+      });
+      r.screen({
+        id: "edit",
+        type: "entityEdit",
+        entity: "widget",
+        layout: { sections: [{ fields: ["name"] }] },
+        actions: [
+          { kind: "navigate", id: "to-open", label: "Open", screen: "open", placement: "menu" },
+          {
+            kind: "navigate",
+            id: "to-admin",
+            label: "Admin",
+            screen: "admin-only",
+            placement: "menu",
+          },
+        ],
+      });
+    });
+    const app = buildAppSchema(createRegistry([feature]));
+
+    const forUser = findFeature(projectAppSchemaForRoles(app, ["User"]), "shell");
+    const edit = forUser.screens.find((s) => s.id === "edit");
+    if (edit?.type !== "entityEdit") throw new Error("unreachable");
+
+    expect(edit.actions?.map((a) => [a.id, a.placement])).toEqual([["to-open", "menu"]]);
+  });
+});

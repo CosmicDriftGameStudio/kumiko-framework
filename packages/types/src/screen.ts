@@ -1653,15 +1653,25 @@ export type EntityEditScreenDefinition = {
    *  das `mask.title`-Label des Config-Keys. Fehlt ein Eintrag, gilt die
    *  Konvention. */
   readonly fieldLabels?: Readonly<Record<string, string>>;
-  /** Header action buttons. Reuses `RowAction` — analogous to
+  /** Record actions. Reuses `RowAction` — analogous to
    *  `ProjectionDetailScreenDefinition.actions` (the loaded record stands
    *  in for the "row"). `rowClick` has no target here and is rejected by
    *  the boot-validator, same as on projectionDetail. Not rendered in
    *  create mode — every action targets an existing record, which the
-   *  create branch doesn't have yet. */
-  readonly actions?: readonly RowAction[];
+   *  create branch doesn't have yet. By default an action renders with the
+   *  secondary form actions (footer, next to copy-link/delete/cancel);
+   *  `placement: "menu"` moves it into the header "…" menu, ahead of
+   *  copy-link/delete. Without a header menu (drawer, card form, shell
+   *  without a header slot) a "menu" action falls back to inline. */
+  readonly actions?: readonly EntityEditAction[];
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
+};
+
+export type EntityEditActionPlacement = "inline" | "menu";
+
+export type EntityEditAction = RowAction & {
+  readonly placement?: EntityEditActionPlacement;
 };
 
 // --- actionForm ---
