@@ -149,13 +149,25 @@ interface NpmStubSpec {
   distTagOutput: string;
 }
 
-function runWithNpmStub(spec: NpmStubSpec): { exitCode: number; stdout: string; stderr: string } {
+function readNpmCalls(callLog: string): string[] {
+  return existsSync(callLog) ? readFileSync(callLog, "utf-8").trim().split("\n") : [];
+}
+
+function runWithNpmStub(spec: NpmStubSpec): {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+  npmCalls: string[];
+} {
+  const callLog = join(stubDir, "npm-calls.log");
+  rmSync(callLog, { force: true });
   const script =
     `set -euo pipefail\n\n${PUBLISH_AND_TAG_FN}\n\n` +
     `publish_and_tag /tmp/fake.tgz @cosmicdrift/kumiko-types 0.233.0\n` +
     `echo "already_published_via_e403=$already_published_via_e403"\n` +
     `echo "staged_unconfirmed=$staged_unconfirmed"\n`;
-  return runBash(script, {
+  const result = runBash(script, {
+    STUB_CALL_LOG: callLog,
     STUB_PUBLISH_OUTPUT: spec.publishOutput,
     STUB_PUBLISH_EXIT: String(spec.publishExitCode),
     STUB_DIST_TAG_OUTPUT: spec.distTagOutput,
@@ -163,18 +175,22 @@ function runWithNpmStub(spec: NpmStubSpec): { exitCode: number; stdout: string; 
     STAGED_POLL_ATTEMPTS: "2",
     STAGED_POLL_INTERVAL_SECONDS: "0",
   });
+  return { ...result, npmCalls: readNpmCalls(callLog) };
 }
 
 describe("publish-with-oidc.sh publish_and_tag()", () => {
-  test("succeeds when npm publish and the latest dist-tag move both succeed", () => {
-    const { exitCode, stderr } = runWithNpmStub({
+  test("publishes straight to latest and needs no dist-tag move", () => {
+    const { exitCode, stderr, npmCalls } = runWithNpmStub({
       publishExitCode: 0,
       publishOutput: "+ @cosmicdrift/kumiko-types@0.233.0",
-      distTagExitCode: 0,
-      distTagOutput: "+@cosmicdrift/kumiko-types@0.233.0",
+      distTagExitCode: 1,
+      distTagOutput: "npm error code E403",
     });
     expect(exitCode).toBe(0);
     expect(stderr).toContain("+ @cosmicdrift/kumiko-types@0.233.0");
+    expect(npmCalls).toEqual([
+      "publish /tmp/fake.tgz --provenance --access public --tag latest",
+    ]);
   });
 
   test("treats E409 'previously staged version' as unconfirmed success when latest never resolves (#2576)", () => {
@@ -193,7 +209,7 @@ describe("publish-with-oidc.sh publish_and_tag()", () => {
   });
 
   test("E409 staged version resolving during the poll window moves latest and counts as confirmed", () => {
-    const { exitCode, stdout } = runWithNpmStub({
+    const { exitCode, stdout, npmCalls } = runWithNpmStub({
       publishExitCode: 1,
       publishOutput:
         "npm error code E409\n" +
@@ -203,16 +219,7 @@ describe("publish-with-oidc.sh publish_and_tag()", () => {
     });
     expect(exitCode).toBe(0);
     expect(stdout).toContain("staged_unconfirmed=0");
-  });
-
-  test("fails hard when a genuine publish succeeds but the latest dist-tag move fails", () => {
-    const { exitCode } = runWithNpmStub({
-      publishExitCode: 0,
-      publishOutput: "+ @cosmicdrift/kumiko-types@0.233.0",
-      distTagExitCode: 1,
-      distTagOutput: "npm error code E404\nnpm error 404 Not Found - version not found",
-    });
-    expect(exitCode).not.toBe(0);
+    expect(npmCalls).toContain("dist-tag add @cosmicdrift/kumiko-types@0.233.0 latest");
   });
 
   test("still fails on a genuine E403 republish-guard error", () => {
@@ -296,7 +303,10 @@ function runPublishOutcomeBranch(
 ): {
   exitCode: number;
   stdout: string;
+  npmCalls: string[];
 } {
+  const callLog = join(stubDir, "npm-calls.log");
+  rmSync(callLog, { force: true });
   const script =
     [
       "set -euo pipefail",
@@ -318,8 +328,11 @@ function runPublishOutcomeBranch(
       'echo "published=$published"',
       'echo "skipped=$skipped"',
     ].join("\n") + "\n";
-  const { exitCode, stdout } = runBash(script, { STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0" });
-  return { exitCode, stdout };
+  const { exitCode, stdout } = runBash(script, {
+    STUB_CALL_LOG: callLog,
+    STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0",
+  });
+  return { exitCode, stdout, npmCalls: readNpmCalls(callLog) };
 }
 
 function extractAlreadyOnRegistryBranch(): string {
@@ -368,8 +381,7 @@ function runSkipBranch(
     STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0",
     STUB_DIST_TAG_EXIT: String(distTagExitCode),
   });
-  const calls = existsSync(callLog) ? readFileSync(callLog, "utf-8").trim().split("\n") : [];
-  return { exitCode, stdout, npmCalls: calls };
+  return { exitCode, stdout, npmCalls: readNpmCalls(callLog) };
 }
 
 describe("publish-with-oidc.sh already-on-registry skip branch", () => {
@@ -422,8 +434,9 @@ describe("publish-with-oidc.sh per-package outcome branch", () => {
   });
 
   test("counts a genuine publish as published and emits New tag", () => {
-    const { exitCode, stdout } = runPublishOutcomeBranch("none");
+    const { exitCode, stdout, npmCalls } = runPublishOutcomeBranch("none");
     expect(exitCode).toBe(0);
+    expect(npmCalls.filter((call) => call.startsWith("dist-tag rm"))).toEqual([]);
     expect(stdout).toContain("published=1");
     expect(stdout).toContain("skipped=0");
     expect(stdout).toContain("New tag: @cosmicdrift/kumiko-types@0.233.0");

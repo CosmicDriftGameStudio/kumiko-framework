@@ -800,7 +800,7 @@ jobs:
         # skip this step always did. What still runs below on a
         # no-pending-changesets SHA is the registry-diff repair this step was
         # also doing all along (moving a `latest` a prior run stranded,
-        # dropping a leftover `kumiko-tmp` tag, the E403/E409-staged paths) —
+        # warning about a leftover `kumiko-tmp` tag from older releases, the E403/E409-staged paths) —
         # not just the #1781 rescue-publish.
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}

@@ -67,10 +67,9 @@ emit_tag_unless_on_origin() {
   echo "New tag: $name@$version"
 }
 
-# The throwaway tag is cosmetic (consumers resolve `latest`), so a failed
-# removal must not fail a release that otherwise landed. The registry
-# answered E403 to this DELETE in the 0.355.0 run while `dist-tag add` worked,
-# which aborted the job under `set -e` and left the tag on every package.
+# Clears kumiko-tmp left behind by releases that still published under it. The
+# CI token gets E403 on this DELETE (0.355.0 run) while `dist-tag add` works, so
+# a failure only warns instead of failing a release that otherwise landed.
 remove_tmp_tag() {
   local name="$1"
   if ! npm dist-tag rm "$name" kumiko-tmp >&2; then
@@ -89,7 +88,7 @@ remove_tmp_tag() {
 # staged path the move is retried for a bounded window; if the version still does
 # not resolve, the package counts as skipped (no tag/release) and the repair is
 # left to the registry-repair in the skip branch of a later release run. A
-# genuine publish whose `latest` move fails still fails hard.
+# genuine publish already carries `latest` and needs no move.
 publish_and_tag() {
   local tarball="$1" name="$2" version="$3" log staged=0 attempt
   already_published_via_e403=0
@@ -99,12 +98,12 @@ publish_and_tag() {
   # for the E403/E409 matching; pipefail keeps npm's exit status. The echo loop
   # writes to the inherited fd 2 instead of `tee /dev/stderr`, which re-opens
   # the device path and fails (ENXIO) when stderr is a socket (CI runners).
-  if log="$(npm publish "$tarball" --provenance --access public --tag kumiko-tmp 2>&1 \
+  if log="$(npm publish "$tarball" --provenance --access public --tag latest 2>&1 \
     | while IFS= read -r line || [ -n "$line" ]; do
       printf '%s\n' "$line"
       printf '%s\n' "$line" >&2
     done)"; then
-    :
+    return 0
   else
     # Registry replication lag (#2586): the exact-version check above (`npm
     # view "$name@$version"`) can still answer with the prior version for a
@@ -196,9 +195,8 @@ for pkg_json in packages/*/package.json; do
     if [ "$registry_version" != "$version" ]; then
       npm dist-tag add "$name@$version" latest >&2
     fi
-    # An interrupted run can leave the throwaway tag behind (#2576); dropping it
-    # here is idempotent and keeps the registry clean without an extra release.
-    # Only when the tag exists: the common case needs no write.
+    # Leftover from releases that published under the old throwaway tag; only
+    # when the tag exists, so the common case needs no write.
     if npm dist-tag ls "$name" | grep -q '^kumiko-tmp:'; then
       remove_tmp_tag "$name"
     fi
@@ -243,14 +241,10 @@ for pkg_json in packages/*/package.json; do
   # npm refuses to IMPLICITLY move the `latest` dist-tag backward when a higher
   # version already sits on the registry (the accidental 1.0.0 misfire is stranded
   # above the 0.10x line until the real 1.0.1 milestone ships — publishing 0.10x
-  # then errors "Cannot implicitly apply the latest tag ..."). Publishing under a
-  # throwaway tag never trips that guard; we then force `latest` to this release
-  # via dist-tag (a manual dist-tag moves latest to ANY published version, unlike
-  # the implicit path). For a normal monotonic release the end state is identical:
-  # latest = the just-published version, throwaway tag removed. dist-tag auths via
-  # NODE_AUTH_TOKEN (set in the release job).
+  # then errors "Cannot implicitly apply the latest tag ..."). That guard is
+  # client-side and only runs for the default tag, so the explicit `--tag latest`
+  # in publish_and_tag bypasses it. dist-tag moves auth via NODE_AUTH_TOKEN.
   elif publish_and_tag "$pkg_dir/$TARBALL" "$name" "$version"; then
-    remove_tmp_tag "$name"
     if [ "$already_published_via_e403" = 1 ] || [ "$staged_unconfirmed" = 1 ]; then
       # Detected late (#2586), or staged without ever resolving (#2576): this
       # run did not confirm the version, so it counts as skipped rather than
