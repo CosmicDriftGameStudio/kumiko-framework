@@ -67,7 +67,7 @@ const testSection: ComponentType<SectionProps> = ({ testId, subtitle, children, 
   </div>
 );
 
-// Mirrors DefaultCard's slots (title/subtitle/headerActions) closely enough
+// Mirrors DefaultCard's slots (title/subtitle/headerActions/footer) closely enough
 // to distinguish "framed via Card" from "framed via Section" in tests —
 // tabs mode (hideTitle) uses Card because Section flattens inside this
 // component's host Form.
@@ -85,6 +85,7 @@ const testCard: ComponentType<CardProps> = ({ testId, slots, children }) => (
         {slots.headerActions}
       </div>
     )}
+    {slots?.footer !== undefined && <div>{slots.footer}</div>}
   </div>
 );
 
