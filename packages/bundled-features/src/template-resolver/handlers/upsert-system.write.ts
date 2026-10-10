@@ -4,6 +4,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { requireForTenant } from "../../shared/index.js";
 import type { TemplateResourceRow } from "../table.js";
 import { templateResourcesTable } from "../table.js";
 import { executor, upsertPayloadSchema } from "./shared.js";
@@ -19,13 +20,10 @@ export const upsertSystemWrite = defineWriteHandler({
   description:
     "Creates or overwrites a system-default template under the system tenant with its full variable schema and linked resources, active straight away with no draft stage; SystemAdmin only, since tenants shadow these defaults through upsert-tenant instead.",
   handler: async (event, ctx) => {
-    const db = ctx.db;
     // @cast-boundary engine-payload — SYSTEM_TENANT_ID is a UUID literal,
     // asserted to the branded TenantId (parseTenantId equivalent).
     const tenantId = SYSTEM_TENANT_ID as TenantId;
-    // The executor user must carry SYSTEM_TENANT as tenantId, otherwise the
-    // event store looks up the stream under user.tenantId → conflict.
-    const executorUser = { ...event.user, tenantId };
+    const { db, streamTenantId } = requireForTenant(ctx, tenantId);
 
     const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
       tenantId,
@@ -53,8 +51,9 @@ export const upsertSystemWrite = defineWriteHandler({
     if (existing) {
       const result = await executor.update(
         { id: existing.id, version: existing.version, changes: fields },
-        executorUser,
+        event.user,
         db,
+        { streamTenantId },
       );
       if (!result.isSuccess) return result;
       return {
@@ -63,7 +62,9 @@ export const upsertSystemWrite = defineWriteHandler({
       };
     }
 
-    const result = await executor.create({ ...fields, tenantId }, executorUser, db);
+    const result = await executor.create({ ...fields, tenantId }, event.user, db, {
+      streamTenantId,
+    });
     if (!result.isSuccess) return result;
     // @cast-boundary db-row — executor.create returnt Record-row aus
     // INSERT RETURNING; shape { id } ist garantiert weil PK in der

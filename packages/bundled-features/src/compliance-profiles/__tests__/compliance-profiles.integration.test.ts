@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   getActiveSubProcessors,
   getPlannedSubProcessors,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { access } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -232,6 +234,14 @@ describe("compliance-profiles :: set-profile", () => {
     );
     expect(result.profile.key).toBe("swiss-dsg");
     expect(result.profile.region).toBe("CH");
+
+    const events = await selectMany<{ tenantId: string; createdBy: string }>(
+      stack.db,
+      eventsTable,
+      { tenantId: targetTenantAdmin.tenantId },
+    );
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.every((event) => event.createdBy === sysAdmin.id)).toBe(true);
   });
 
   // S1.7 F3: tenantIdOverride als TenantAdmin → 403

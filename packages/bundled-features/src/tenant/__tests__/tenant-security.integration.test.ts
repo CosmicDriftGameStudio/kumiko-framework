@@ -983,6 +983,11 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
       roles: ["TenantAdmin"],
     });
 
+    const [membership] = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: secondAdminId,
+      tenantId: TENANT_A_ID,
+    });
+
     await stack.http.writeOk(
       TenantHandlers.removeMember,
       { userId: secondAdminId, tenantId: TENANT_A_ID },
@@ -994,6 +999,16 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
       tenantId: TENANT_A_ID,
     });
     expect(rows).toHaveLength(0);
+
+    // The delete lands in the membership's own stream while the operator stays the actor.
+    const events = await selectMany<{ type: string; tenantId: string; createdBy: string }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: membership?.["id"] },
+    );
+    const deleted = events.find((event) => event.type.endsWith(".deleted"));
+    expect(deleted?.tenantId).toBe(TENANT_A_ID);
+    expect(deleted?.createdBy).toBe(TestUsers.systemAdmin.id);
   });
 
   test("SystemAdmin can update member roles across tenants", async () => {
@@ -1021,6 +1036,15 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
       tenantId: TENANT_B_ID,
     });
     expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
+
+    const events = await selectMany<{ type: string; tenantId: string; createdBy: string }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: rows[0]?.["id"] },
+    );
+    const updated = events.find((event) => event.type.endsWith(".updated"));
+    expect(updated?.tenantId).toBe(TENANT_B_ID);
+    expect(updated?.createdBy).toBe(TestUsers.systemAdmin.id);
   });
 
   test("SystemAdmin omits payload.tenantId — uses session tenant (actionForm UI shape)", async () => {

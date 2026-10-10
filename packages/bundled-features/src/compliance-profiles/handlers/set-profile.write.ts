@@ -11,6 +11,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { requireForTenant } from "../../shared/index.js";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
@@ -26,24 +27,16 @@ const crud = createEventStoreExecutor(tenantComplianceProfileTable, tenantCompli
 // SELECTABLE_PROFILE_KEYS aus der framework/compliance-Liste.
 const profileKeySchema = z.enum(SELECTABLE_PROFILE_KEYS);
 
-// Tenant-Admin setzt Profile-Key + optional Override-JSON.
+// Upsert: the first call inserts, later calls update, so repeating the same values
+// is idempotent apart from the extra audit events.
 //
-// Upsert-Verhalten: erste Wahl insert, weitere update. Idempotent —
-// wer mit gleichen Werten zweimal aufruft, kriegt das gleiche Ergebnis
-// (modulo aktualisierte Audit-Events im Event-Store).
+// A SystemAdmin may target another tenant via `tenantIdOverride` (operator setup,
+// onboarding migrations); the dispatcher rejects the override for anyone else. The
+// executor then writes into the target tenant's stream via streamTenantId while
+// the operator stays the recorded actor.
 //
-// Cross-Tenant-Pfad: SystemAdmin kann via `tenantIdOverride` fuer einen
-// anderen Tenant schreiben (Plattform-Operator-Setup, Customer-
-// Onboarding-Migrationen). TenantAdmin's Override-Versuch → 403.
-// executorUser.tenantId muss = ziel-tenant sein damit der event-store-
-// Stream-Lookup nicht miss → version_conflict gibt (Memory:
-// feedback_event_store_tenant_consistency).
-//
-// Validation:
-//   - profileKey muss in SELECTABLE_PROFILE_KEYS sein (Zod-checked)
-//   - override (optional) muss valides JSON-Object sein
-//   - override Top-Level-Keys muessen in ALLOWED_OVERRIDE_KEYS sein
-//     — verhindert Tippfehler die deepMerge stillschweigend ignoriert
+// Override top-level keys are restricted to ALLOWED_OVERRIDE_KEYS because deepMerge
+// would silently ignore a typo.
 export const setProfileWrite = defineWriteHandler({
   name: "set-profile",
   schema: z.object({
@@ -57,9 +50,8 @@ export const setProfileWrite = defineWriteHandler({
   description:
     "Sets or replaces a tenant's compliance profile key plus an optional JSON override, for onboarding or a later region change; a system admin may target a different tenant through tenantIdOverride.",
   handler: async (event, ctx) => {
-    const tenantOverride = event.payload.tenantIdOverride;
-    const tenantId = (tenantOverride ?? event.user.tenantId) as TenantId; // @cast-boundary engine-payload
-    const executorUser = tenantOverride !== undefined ? { ...event.user, tenantId } : event.user;
+    const tenantId = (event.payload.tenantIdOverride ?? event.user.tenantId) as TenantId; // @cast-boundary engine-payload
+    const { db, streamTenantId } = requireForTenant(ctx, tenantId);
 
     // Override-Validation: muss parseables JSON-Object sein UND dem
     // ComplianceProfileOverride-Schema entsprechen (S1.9 Z3 — strict-Zod
@@ -89,7 +81,7 @@ export const setProfileWrite = defineWriteHandler({
     }
 
     // Upsert: existierenden Eintrag suchen
-    const existing = (await fetchOne(ctx.db, tenantComplianceProfileTable, {
+    const existing = (await fetchOne(db, tenantComplianceProfileTable, {
       tenantId: tenantId,
     })) as { id: string; version: number } | null; // @cast-boundary db-runner
 
@@ -103,8 +95,9 @@ export const setProfileWrite = defineWriteHandler({
             override: event.payload.override ?? null,
           },
         },
-        executorUser,
-        ctx.db,
+        event.user,
+        db,
+        { streamTenantId },
       );
       if (!result.isSuccess) return result;
       return {
@@ -119,8 +112,9 @@ export const setProfileWrite = defineWriteHandler({
         override: event.payload.override ?? null,
         tenantId,
       },
-      executorUser,
-      ctx.db,
+      event.user,
+      db,
+      { streamTenantId },
     );
     if (!result.isSuccess) return result;
     return {

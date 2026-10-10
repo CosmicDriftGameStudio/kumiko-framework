@@ -192,6 +192,7 @@ export function createWriteVerbs(
     softDelete,
     streamTenantFor,
     streamTenantOverrideFailure,
+    streamTenantCreateFailure,
     encryptForStorage,
     decryptForRead,
     applyDefaults,
@@ -256,6 +257,9 @@ export function createWriteVerbs(
             "SYSTEM_TENANT_ID or omitted.",
         });
       }
+      const streamTenantId = options?.streamTenantId;
+      const streamTenantMismatch = streamTenantCreateFailure(db, payload, streamTenantId);
+      if (streamTenantMismatch) return streamTenantMismatch;
       const runner = tenantDbRunner(db);
       // Respect an explicit id in the payload (seed pattern, SCIM import). Without
       // one the framework mints a fresh UUIDv7 via generateId. Strip it out of the
@@ -286,7 +290,9 @@ export function createWriteVerbs(
 
       // H.2 — entity-level write-ownership on create. No oldRow exists, so
       // only the new row is checked. No Straddle concern for creates.
-      if (!userCanCreateFieldRow(user, entity.access?.write, data)) {
+      if (
+        !userCanCreateFieldRow(ownershipSubject(user, streamTenantId), entity.access?.write, data)
+      ) {
         return writeFailure(
           new UnprocessableError("ownership_denied", {
             i18nKey: "errors.ownershipDenied",
@@ -308,7 +314,7 @@ export function createWriteVerbs(
       const fieldDeniedCreate = checkWriteFieldOwnership(
         entity,
         applyDefaults(payloadWithoutId),
-        user,
+        ownershipSubject(user, streamTenantId),
         undefined,
         data,
       );
@@ -340,6 +346,7 @@ export function createWriteVerbs(
       const flatCreateData = flattenCompoundTypes(data, entity);
       const flatData = await encryptForStorage(flatCreateData, user, {
         subjectSource: { ...flatCreateData, id: aggregateId },
+        keyTenantId: streamTenantId,
       });
 
       // 1. Append event (same TX as the projection write — both must succeed
@@ -369,7 +376,7 @@ export function createWriteVerbs(
           append(sp, {
             aggregateId,
             aggregateType: entityName,
-            tenantId: streamTenantFor(user),
+            tenantId: streamTenantFor(user, streamTenantId),
             expectedVersion: 0,
             type: entityEventName(entityName, "created"),
             eventVersion,
@@ -381,7 +388,11 @@ export function createWriteVerbs(
         if (e instanceof EventStoreVersionConflict) {
           let currentVersion = -1;
           try {
-            currentVersion = await getStreamVersion(runner, aggregateId, streamTenantFor(user));
+            currentVersion = await getStreamVersion(
+              runner,
+              aggregateId,
+              streamTenantFor(user, streamTenantId),
+            );
           } catch {
             // Lookup failure — keep the sentinel.
           }
@@ -436,7 +447,7 @@ export function createWriteVerbs(
       );
 
       if (entityCache && entityName) {
-        await entityCache.del(user.tenantId, entityName, aggregateId);
+        await entityCache.del(streamTenantId ?? user.tenantId, entityName, aggregateId);
       }
 
       // The echoed event is the one projections see (and the dispatcher later

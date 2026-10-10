@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { requireForTenant } from "../../shared/index.js";
 import type { TemplateResourceRow } from "../table.js";
 import { templateResourcesTable } from "../table.js";
 import { executor, upsertPayloadSchema } from "./shared.js";
@@ -25,7 +26,6 @@ export const upsertTenantWrite = defineWriteHandler({
   description:
     "Creates or overwrites a tenant-scoped template override with its variable schema, landing as a draft that only publish makes live; it refuses a system-tenant target, which is what upsert-system is for.",
   handler: async (event, ctx) => {
-    const db = ctx.db;
     const override = event.payload.tenantIdOverride;
     // upsertTenant erzeugt scope='tenant'. SYSTEM_TENANT_ID-Override würde
     // scope='tenant' unter SYSTEM_TENANT_ID schreiben → inkonsistenter Zustand
@@ -43,7 +43,7 @@ export const upsertTenantWrite = defineWriteHandler({
     // event.user.tenantId schon TenantId-branded; union als TenantId casten
     // ist legit (override ist UUID-Format-validiert in schema).
     const tenantId = (override ?? event.user.tenantId) as TenantId;
-    const executorUser = override !== undefined ? { ...event.user, tenantId } : event.user;
+    const { db, streamTenantId } = requireForTenant(ctx, tenantId);
 
     const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
       tenantId,
@@ -70,8 +70,9 @@ export const upsertTenantWrite = defineWriteHandler({
     if (existing) {
       const result = await executor.update(
         { id: existing.id, version: existing.version, changes: fields },
-        executorUser,
+        event.user,
         db,
+        { streamTenantId },
       );
       if (!result.isSuccess) return result;
       return {
@@ -80,7 +81,9 @@ export const upsertTenantWrite = defineWriteHandler({
       };
     }
 
-    const result = await executor.create({ ...fields, tenantId }, executorUser, db);
+    const result = await executor.create({ ...fields, tenantId }, event.user, db, {
+      streamTenantId,
+    });
     if (!result.isSuccess) return result;
     // @cast-boundary db-row — executor.create returnt Record-row aus
     // INSERT RETURNING; shape { id } ist garantiert weil PK in der

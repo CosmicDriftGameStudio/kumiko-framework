@@ -25,7 +25,7 @@ export type PreSaveRunner = (
   isNew: boolean,
 ) => Promise<Record<string, unknown>>;
 
-// Cross-tenant verbs on a foreign row: stream, event tenant and PII key follow the row's tenant
+// Cross-tenant verbs on a foreign row (create: into the target tenant's stream): stream, event tenant and PII key follow the row's tenant
 // while the acting user stays the operator. Honored only on a system-mode db and only when equal
 // to the loaded row's tenant; anything else fails the write.
 export type StreamTenantOption = { readonly streamTenantId?: TenantId | undefined };
@@ -35,7 +35,7 @@ export type EventStoreExecutor = {
     payload: Record<string, unknown>,
     user: SessionUser,
     db: TenantDb,
-    options?: { preSave?: PreSaveRunner },
+    options?: StreamTenantOption & { preSave?: PreSaveRunner },
   ) => Promise<WriteResult<SaveContext>>;
 
   update: (

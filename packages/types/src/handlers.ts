@@ -494,6 +494,11 @@ export type EscapeHatchReporter = (
   target?: EscapeHatchTarget,
 ) => void;
 
+export type TenantWriteTarget = {
+  readonly db: TenantDb;
+  readonly streamTenantId: TenantId | undefined;
+};
+
 // Shared optional fields across all execution contexts
 type SharedContextFields = {
   readonly redis?: Redis;
@@ -510,6 +515,15 @@ type SharedContextFields = {
    * the config feature wired its accessor factory.
    */
   readonly configFor?: (tenantId: TenantId) => ConfigAccessor;
+  /**
+   * Write target for ANOTHER tenant: a tenant-mode db bound to it plus the
+   * `streamTenantId` to hand the executor, so the event actor stays the
+   * operator. Cross-tenant calls throw AccessDeniedError unless the caller is
+   * SystemAdmin (the tenantIdOverride gate); the caller's own tenant needs no
+   * privilege and yields `streamTenantId: undefined`. Write handlers only;
+   * absent for r.systemScope() handlers and without a db.
+   */
+  readonly forTenant?: (tenantId: TenantId) => TenantWriteTarget;
   readonly _configAccessorFactory?: ConfigAccessorFactory;
   // Encryption round-trip partner for the config feature. Separate from
   // configResolver so the read-only resolver contract stays clean — the

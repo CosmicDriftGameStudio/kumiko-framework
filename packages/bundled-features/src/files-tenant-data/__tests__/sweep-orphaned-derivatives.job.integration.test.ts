@@ -96,8 +96,9 @@ async function seedFileRef(tenantId: TenantId, storageKey: string): Promise<void
   const tdb = createTenantDb(stack.db, tenantId, "system");
   const result = await fileRefCrud.create(
     { storageKey, fileName: "photo.jpg", mimeType: "image/jpeg", size: 10 },
-    { ...user, tenantId },
+    user,
     tdb,
+    { streamTenantId: tenantId },
   );
   if (!result.isSuccess) throw new Error(`seed failed: ${result.error.message}`);
 }
