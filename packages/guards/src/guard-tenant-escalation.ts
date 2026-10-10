@@ -39,7 +39,7 @@
  */
 
 import * as path from "node:path";
-import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { literalStringOf, mentionsAsWord, nameForms } from "./_lib/handler-name-forms";
 import { TEST_FILE_RE } from "./_lib/test-file";
@@ -187,6 +187,45 @@ const PLATFORM_WIDE_ACCESS = /\baccess\.(?:systemAdmin|system|privileged)\b/;
 
 type GlobalUserWrite = { name: string; file: string; line: number };
 
+function globalUserWriteMissingCheck(
+  call: CallExpression,
+  filePath: string,
+): GlobalUserWrite | undefined {
+  if (call.getExpression().getText() !== "defineWriteHandler") return undefined;
+  const arg = call.getArguments()[0];
+  if (!arg || arg.getKind() !== SyntaxKind.ObjectLiteralExpression) return undefined;
+  const obj = arg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
+  // `name` is only used for the violation message, not the security
+  // check itself — a factory-built handler with a non-literal name
+  // expression (`name: enable ? "enable" : "disable"`) must not skip
+  // Check C just because literalStringOf() can't resolve it.
+  const name = literalStringOf(obj.getProperty("name"));
+  const schema = obj.getProperty("schema");
+  const accessProp = obj.getProperty("access");
+  // No `access` key at all = deny-all (engine/access.ts: undefined
+  // returns false), so there is nothing to reach across a tenant.
+  if (!schema || !accessProp) return undefined;
+  // Presets that resolve to platform-wide actors only (engine/
+  // config-helpers `access`): no tenant boundary exists to cross.
+  // Everything else — access.admin, and the openToAll handlers that
+  // gate on isAdminActor at runtime (#1556's shape) — is reachable by
+  // a tenant-scoped TenantAdmin.
+  if (PLATFORM_WIDE_ACCESS.test(accessProp.getText())) return undefined;
+  if (!TARGETS_OTHER_USER.test(resolvedSchemaText(schema))) return undefined;
+  const body = call.getText();
+  // Must actually touch a *user* table — otherwise a handler reading
+  // ctx.db.raw against an unrelated global table (plans, audit log,
+  // invitations) gets flagged with a "reads a global user row" message
+  // that doesn't apply to it (false-positive on clean code).
+  if (!body.includes("ctx.db.raw") || !/\buserTable\b/.test(body)) return undefined;
+  if (MEMBERSHIP_GATE.test(body) || CROSS_TENANT_HELPER_GATE.test(body)) return undefined;
+  return {
+    name: name ?? path.basename(filePath),
+    file: filePath,
+    line: call.getStartLineNumber(),
+  };
+}
+
 export function findGlobalUserWritesMissingMembershipCheck(
   files: readonly SourceFile[],
 ): GlobalUserWrite[] {
@@ -194,39 +233,8 @@ export function findGlobalUserWritesMissingMembershipCheck(
   for (const sf of files) {
     if (TEST_FILE_RE.test(sf.getFilePath())) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-      if (call.getExpression().getText() !== "defineWriteHandler") continue;
-      const arg = call.getArguments()[0];
-      if (!arg || arg.getKind() !== SyntaxKind.ObjectLiteralExpression) continue;
-      const obj = arg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
-      // `name` is only used for the violation message, not the security
-      // check itself — a factory-built handler with a non-literal name
-      // expression (`name: enable ? "enable" : "disable"`) must not skip
-      // Check C just because literalStringOf() can't resolve it.
-      const name = literalStringOf(obj.getProperty("name"));
-      const schema = obj.getProperty("schema");
-      const accessProp = obj.getProperty("access");
-      // No `access` key at all = deny-all (engine/access.ts: undefined
-      // returns false), so there is nothing to reach across a tenant.
-      if (!schema || !accessProp) continue;
-      // Presets that resolve to platform-wide actors only (engine/
-      // config-helpers `access`): no tenant boundary exists to cross.
-      // Everything else — access.admin, and the openToAll handlers that
-      // gate on isAdminActor at runtime (#1556's shape) — is reachable by
-      // a tenant-scoped TenantAdmin.
-      if (PLATFORM_WIDE_ACCESS.test(accessProp.getText())) continue;
-      if (!TARGETS_OTHER_USER.test(resolvedSchemaText(schema))) continue;
-      const body = call.getText();
-      // Must actually touch a *user* table — otherwise a handler reading
-      // ctx.db.raw against an unrelated global table (plans, audit log,
-      // invitations) gets flagged with a "reads a global user row" message
-      // that doesn't apply to it (false-positive on clean code).
-      if (!body.includes("ctx.db.raw") || !/\buserTable\b/.test(body)) continue;
-      if (MEMBERSHIP_GATE.test(body) || CROSS_TENANT_HELPER_GATE.test(body)) continue;
-      out.push({
-        name: name ?? path.basename(sf.getFilePath()),
-        file: sf.getFilePath(),
-        line: call.getStartLineNumber(),
-      });
+      const write = globalUserWriteMissingCheck(call, sf.getFilePath());
+      if (write) out.push(write);
     }
   }
   return out;

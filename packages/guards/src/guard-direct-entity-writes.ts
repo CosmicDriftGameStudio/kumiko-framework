@@ -183,6 +183,53 @@ export function collectEsTables(files: readonly SourceFile[]): Set<TableId> {
   return tables;
 }
 
+function unwrappedIdentifierDeclId(node: Node | undefined): TableId | undefined {
+  const identifier = node && unwrapTableExpression(node).asKind(SyntaxKind.Identifier);
+  return identifier ? declIdOf(identifier) : undefined;
+}
+
+// The `{ table }` override of `r.entity(name, def, { table })`.
+function entityTableOverrideId(opts: Node | undefined): TableId | undefined {
+  if (opts?.getKind() !== SyntaxKind.ObjectLiteralExpression) return undefined;
+  const tableProp = opts.asKindOrThrow(SyntaxKind.ObjectLiteralExpression).getProperty("table");
+  if (tableProp?.getKind() !== SyntaxKind.PropertyAssignment) return undefined;
+  return unwrappedIdentifierDeclId(
+    tableProp.asKindOrThrow(SyntaxKind.PropertyAssignment).getInitializer(),
+  );
+}
+
+type EntityRegistration = {
+  readonly entityDid: TableId | undefined;
+  readonly overrideTableDid: TableId | undefined;
+};
+
+function entityRegistrationOf(call: CallExpression): EntityRegistration | undefined {
+  const expr = call.getExpression();
+  if (expr.getKind() !== SyntaxKind.PropertyAccessExpression) return undefined;
+  if (expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName() !== "entity") {
+    return undefined;
+  }
+  const args = call.getArguments();
+  if (!args[0] || args[0].getKind() !== SyntaxKind.StringLiteral) return undefined;
+  return {
+    entityDid: unwrappedIdentifierDeclId(args[1]),
+    overrideTableDid: entityTableOverrideId(args[2]),
+  };
+}
+
+// `const xTable = buildEntityTable(<name>, <entityDef>)` with a rebuildable entityDef.
+function rebuildableEntityTableDeclId(
+  call: CallExpression,
+  rebuildableEntities: ReadonlySet<TableId>,
+): TableId | undefined {
+  if (call.getExpression().getText() !== "buildEntityTable") return undefined;
+  const entityDid = unwrappedIdentifierDeclId(call.getArguments()[1]);
+  if (!entityDid || !rebuildableEntities.has(entityDid)) return undefined;
+  const nameNode = call.getFirstAncestorByKind(SyntaxKind.VariableDeclaration)?.getNameNode();
+  if (nameNode?.getKind() !== SyntaxKind.Identifier) return undefined;
+  return declIdOf(nameNode.asKindOrThrow(SyntaxKind.Identifier));
+}
+
 // Tables registered via `r.entity(name, entityDef)` as a rebuildable implicit
 // projection, linked entity→table via the shared entity-def symbol (see header), not by name string.
 export function collectEntityProjectionTables(files: readonly SourceFile[]): Set<TableId> {
@@ -192,33 +239,10 @@ export function collectEntityProjectionTables(files: readonly SourceFile[]): Set
   // Pass 1: entity-def decls that r.entity makes rebuildable (+ {table} override).
   for (const sf of files) {
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-      const expr = call.getExpression();
-      if (expr.getKind() !== SyntaxKind.PropertyAccessExpression) continue;
-      if (expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName() !== "entity") continue;
-      const args = call.getArguments();
-      if (!args[0] || args[0].getKind() !== SyntaxKind.StringLiteral) continue;
-
-      const entityIdentifier =
-        args[1] && unwrapTableExpression(args[1]).asKind(SyntaxKind.Identifier);
-      if (entityIdentifier) {
-        const did = declIdOf(entityIdentifier);
-        if (did) rebuildableEntities.add(did);
-      }
-
-      const opts = args[2];
-      if (opts?.getKind() === SyntaxKind.ObjectLiteralExpression) {
-        const tableProp = opts
-          .asKindOrThrow(SyntaxKind.ObjectLiteralExpression)
-          .getProperty("table");
-        if (tableProp?.getKind() === SyntaxKind.PropertyAssignment) {
-          const init = tableProp.asKindOrThrow(SyntaxKind.PropertyAssignment).getInitializer();
-          const tableIdentifier = init && unwrapTableExpression(init).asKind(SyntaxKind.Identifier);
-          if (tableIdentifier) {
-            const did = declIdOf(tableIdentifier);
-            if (did) tables.add(did);
-          }
-        }
-      }
+      const registration = entityRegistrationOf(call);
+      if (!registration) continue;
+      if (registration.entityDid) rebuildableEntities.add(registration.entityDid);
+      if (registration.overrideTableDid) tables.add(registration.overrideTableDid);
     }
   }
 
@@ -226,18 +250,7 @@ export function collectEntityProjectionTables(files: readonly SourceFile[]): Set
   // is in the rebuildable set → xTable is a rebuildable entity table.
   for (const sf of files) {
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-      if (call.getExpression().getText() !== "buildEntityTable") continue;
-      const entityArg = call.getArguments()[1];
-      const entityIdentifier =
-        entityArg && unwrapTableExpression(entityArg).asKind(SyntaxKind.Identifier);
-      if (!entityIdentifier) continue;
-      const entityDid = declIdOf(entityIdentifier);
-      if (!entityDid || !rebuildableEntities.has(entityDid)) continue;
-
-      const varDecl = call.getFirstAncestorByKind(SyntaxKind.VariableDeclaration);
-      const nameNode = varDecl?.getNameNode();
-      if (nameNode?.getKind() !== SyntaxKind.Identifier) continue;
-      const did = declIdOf(nameNode.asKindOrThrow(SyntaxKind.Identifier));
+      const did = rebuildableEntityTableDeclId(call, rebuildableEntities);
       if (did) tables.add(did);
     }
   }

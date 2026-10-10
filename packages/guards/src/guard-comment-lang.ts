@@ -50,6 +50,32 @@ export type Site = {
   readonly snippet: string;
 };
 
+function germanCommentSite(
+  fullText: string,
+  file: string,
+  start: number,
+  text: string,
+): Site | undefined {
+  if (lineHasIgnoreTag(text, IGNORE_TAG) || !isGermanComment(text)) return undefined;
+  const line = fullText.slice(0, start).split("\n").length;
+  return {
+    file,
+    line,
+    endLine: line + (text.match(/\n/g)?.length ?? 0),
+    snippet: text.length > 80 ? `${text.slice(0, 77)}...` : text,
+  };
+}
+
+function closesTemplateSubstitution(
+  templateBraceDepths: readonly number[],
+  braceDepth: number,
+): boolean {
+  return (
+    templateBraceDepths.length > 0 &&
+    braceDepth === templateBraceDepths[templateBraceDepths.length - 1]
+  );
+}
+
 // Template substitutions can nest braces (object literals, arrow bodies, other
 // templates). The raw scanner tokenizes a `}` as a plain CloseBraceToken and
 // never resumes template mode, so reScanTemplateToken() must run once brace
@@ -71,16 +97,13 @@ export function scanGermanComments(fullText: string, file: string): Site[] {
     switch (kind) {
       case ts.SyntaxKind.SingleLineCommentTrivia:
       case ts.SyntaxKind.MultiLineCommentTrivia: {
-        const text = scanner.getTokenText();
-        if (!lineHasIgnoreTag(text, IGNORE_TAG) && isGermanComment(text)) {
-          const line = fullText.slice(0, scanner.getTokenStart()).split("\n").length;
-          sites.push({
-            file,
-            line,
-            endLine: line + (text.match(/\n/g)?.length ?? 0),
-            snippet: text.length > 80 ? `${text.slice(0, 77)}...` : text,
-          });
-        }
+        const site = germanCommentSite(
+          fullText,
+          file,
+          scanner.getTokenStart(),
+          scanner.getTokenText(),
+        );
+        if (site) sites.push(site);
         break;
       }
       case ts.SyntaxKind.SlashToken:
@@ -99,10 +122,7 @@ export function scanGermanComments(fullText: string, file: string): Site[] {
         braceDepth++;
         break;
       case ts.SyntaxKind.CloseBraceToken:
-        if (
-          templateBraceDepths.length > 0 &&
-          braceDepth === templateBraceDepths[templateBraceDepths.length - 1]
-        ) {
+        if (closesTemplateSubstitution(templateBraceDepths, braceDepth)) {
           templateBraceDepths.pop();
           kind = scanner.reScanTemplateToken(false);
           continue;
@@ -262,25 +282,103 @@ function sumCounts(counts: Readonly<Record<string, number>>): number {
   return Object.values(counts).reduce((total, count) => total + count, 0);
 }
 
-function runBaselineMode(all: readonly Site[], argv: readonly string[], root: string): number {
-  const baselinePath = path.join(root, BASELINE_FILE);
+function isBaselineCandidate(value: unknown): value is Partial<Baseline> {
+  return typeof value === "object" && value !== null;
+}
+
+function hasPerFileObject(baseline: Partial<Baseline>): baseline is Partial<Baseline> & {
+  readonly perFile: Record<string, number>;
+} {
+  return typeof baseline.perFile === "object" && baseline.perFile !== null;
+}
+
+function countFindingsByFile(all: readonly Site[]): Record<string, number> {
   const countByFile: Record<string, number> = {};
   for (const site of all.filter(isLocalFinding)) {
     countByFile[site.file] = (countByFile[site.file] ?? 0) + 1;
   }
+  return countByFile;
+}
+
+function writeBaselineFile(
+  baselinePath: string,
+  countByFile: Readonly<Record<string, number>>,
+  currentTotal: number,
+): void {
+  const payload: Baseline = {
+    format: BASELINE_FORMAT_VERSION,
+    generated: Temporal.Now.instant().toString().slice(0, 10),
+    total: currentTotal,
+    perFile: Object.fromEntries(Object.entries(countByFile).sort(([a], [b]) => a.localeCompare(b))),
+  };
+  writeFileSync(baselinePath, `${JSON.stringify(payload, null, 2)}\n`);
+  console.log(`  Baseline written: ${baselinePath} (total ${currentTotal})`);
+}
+
+type LoadedBaseline = Partial<Baseline> & { readonly perFile: Record<string, number> };
+
+// Prints the diagnosis itself and returns undefined when the baseline cannot be used.
+function readBaselineOrReport(baselinePath: string): LoadedBaseline | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(baselinePath, "utf-8"));
+  } catch (error) {
+    console.log(
+      `  Baseline unreadable: ${error instanceof Error ? error.message : String(error)}. Rewrite it once with: kumiko-guards comment-lang --write-baseline`,
+    );
+    return undefined;
+  }
+  // JSON `null`, numbers and strings parse fine but carry no baseline: report them as format drift.
+  const rawBaseline: Partial<Baseline> = isBaselineCandidate(parsed) ? parsed : {};
+  if (rawBaseline.format !== BASELINE_FORMAT_VERSION || !hasPerFileObject(rawBaseline)) {
+    console.log(
+      `  Baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, got format=${rawBaseline.format ?? "<missing>"}.`,
+    );
+    console.log("  Rewrite it once with: kumiko-guards comment-lang --write-baseline");
+    return undefined;
+  }
+  return rawBaseline;
+}
+
+type BaselineRegression = { file: string; baseline: number; current: number };
+
+function compareCountsToBaseline(
+  countByFile: Readonly<Record<string, number>>,
+  baselinePerFile: Readonly<Record<string, number>>,
+): { regressions: BaselineRegression[]; reduced: number } {
+  const regressions: BaselineRegression[] = [];
+  let reduced = 0;
+  for (const file of new Set([...Object.keys(countByFile), ...Object.keys(baselinePerFile)])) {
+    const expected = baselinePerFile[file] ?? 0;
+    const current = countByFile[file] ?? 0;
+    if (current > expected) regressions.push({ file, baseline: expected, current });
+    else if (current < expected) reduced += expected - current;
+  }
+  return { regressions, reduced };
+}
+
+function printRegressions(all: readonly Site[], regressions: readonly BaselineRegression[]): void {
+  console.log(
+    `\n  REGRESSION: ${regressions.length} file(s) have more German comments than the baseline:`,
+  );
+  for (const regression of regressions) {
+    console.log(
+      `    ${regression.file}  baseline=${regression.baseline} current=${regression.current} (+${regression.current - regression.baseline})`,
+    );
+    for (const site of all.filter((candidate) => candidate.file === regression.file)) {
+      console.log(`      :${site.line}  ${site.snippet}`);
+    }
+  }
+  console.log(`\n  ${REWRITE_HINT}`);
+}
+
+function runBaselineMode(all: readonly Site[], argv: readonly string[], root: string): number {
+  const baselinePath = path.join(root, BASELINE_FILE);
+  const countByFile = countFindingsByFile(all);
   const currentTotal = sumCounts(countByFile);
 
   if (argv.includes("--write-baseline")) {
-    const payload: Baseline = {
-      format: BASELINE_FORMAT_VERSION,
-      generated: Temporal.Now.instant().toString().slice(0, 10),
-      total: currentTotal,
-      perFile: Object.fromEntries(
-        Object.entries(countByFile).sort(([a], [b]) => a.localeCompare(b)),
-      ),
-    };
-    writeFileSync(baselinePath, `${JSON.stringify(payload, null, 2)}\n`);
-    console.log(`  Baseline written: ${baselinePath} (total ${currentTotal})`);
+    writeBaselineFile(baselinePath, countByFile, currentTotal);
     return 0;
   }
   if (argv.includes("--no-baseline")) {
@@ -292,50 +390,16 @@ function runBaselineMode(all: readonly Site[], argv: readonly string[], root: st
     return 1;
   }
 
-  let rawBaseline: Partial<Baseline>;
-  try {
-    rawBaseline = JSON.parse(readFileSync(baselinePath, "utf-8"));
-  } catch (error) {
-    console.log(
-      `  Baseline unreadable: ${error instanceof Error ? error.message : String(error)}. Rewrite it once with: kumiko-guards comment-lang --write-baseline`,
-    );
-    return 1;
-  }
-  if (rawBaseline.format !== BASELINE_FORMAT_VERSION || rawBaseline.perFile === undefined) {
-    console.log(
-      `  Baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, got format=${rawBaseline.format ?? "<missing>"}.`,
-    );
-    console.log("  Rewrite it once with: kumiko-guards comment-lang --write-baseline");
-    return 1;
-  }
-  const baselinePerFile = rawBaseline.perFile;
+  const baseline = readBaselineOrReport(baselinePath);
+  if (baseline === undefined) return 1;
 
-  const regressions: Array<{ file: string; baseline: number; current: number }> = [];
-  let reduced = 0;
-  for (const file of new Set([...Object.keys(countByFile), ...Object.keys(baselinePerFile)])) {
-    const expected = baselinePerFile[file] ?? 0;
-    const current = countByFile[file] ?? 0;
-    if (current > expected) regressions.push({ file, baseline: expected, current });
-    else if (current < expected) reduced += expected - current;
-  }
-
+  const { regressions, reduced } = compareCountsToBaseline(countByFile, baseline.perFile);
   if (regressions.length > 0) {
-    console.log(
-      `\n  REGRESSION: ${regressions.length} file(s) have more German comments than the baseline:`,
-    );
-    for (const regression of regressions) {
-      console.log(
-        `    ${regression.file}  baseline=${regression.baseline} current=${regression.current} (+${regression.current - regression.baseline})`,
-      );
-      for (const site of all.filter((candidate) => candidate.file === regression.file)) {
-        console.log(`      :${site.line}  ${site.snippet}`);
-      }
-    }
-    console.log(`\n  ${REWRITE_HINT}`);
+    printRegressions(all, regressions);
     return 1;
   }
 
-  console.log(`  ✓ Baseline (${rawBaseline.total}) — current ${currentTotal}`);
+  console.log(`  ✓ Baseline (${baseline.total}) — current ${currentTotal}`);
   if (reduced > 0) {
     console.log(
       `  ✓ ${reduced} German comment(s) removed since the baseline. Consider \`--write-baseline\`.`,

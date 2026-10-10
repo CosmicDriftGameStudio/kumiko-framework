@@ -36,6 +36,81 @@ function isFeatureRootFile(filePath: string): boolean {
   return m !== null;
 }
 
+function isIgnoredFile(sf: SourceFile): boolean {
+  return hasIgnoreTag(sf.getChildren()[0] ?? sf, IGNORE_TAG);
+}
+
+// 1a. web.ts(x) monolith at the feature root
+function checkWebMonolith(sf: SourceFile, base: string, violations: GuardViolation[]): void {
+  const filePath = sf.getFilePath();
+  if (isFeatureRootFile(filePath) && (base === "web.tsx" || base === "web.ts")) {
+    if (!isIgnoredFile(sf)) {
+      violations.push({
+        file: filePath,
+        line: 1,
+        message:
+          "web monolith at feature root — screens/client def belong under web/ (index.ts + one file per screen)",
+      });
+    }
+  }
+}
+
+// 1b. JSX directly at the feature root (screens belong under web/)
+function checkRootJsx(sf: SourceFile, base: string, violations: GuardViolation[]): void {
+  const filePath = sf.getFilePath();
+  if (
+    isFeatureRootFile(filePath) &&
+    filePath.endsWith(".tsx") &&
+    base !== "web.tsx" &&
+    sf.getDescendantsOfKind(SyntaxKind.JsxElement).length +
+      sf.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement).length >
+      0 &&
+    !isIgnoredFile(sf)
+  ) {
+    violations.push({
+      file: filePath,
+      line: 1,
+      message: "JSX component at feature root — move it under web/",
+    });
+  }
+}
+
+// 2. feature.ts as a logic dump
+function checkFeatureTsSize(sf: SourceFile, base: string, violations: GuardViolation[]): void {
+  const filePath = sf.getFilePath();
+  if (base === "feature.ts" && isFeatureRootFile(filePath)) {
+    const lines = sf.getEndLineNumber();
+    if (lines > MAX_FEATURE_TS_LINES && !isIgnoredFile(sf)) {
+      violations.push({
+        file: filePath,
+        line: 1,
+        message: `feature.ts has ${lines} lines (max ${MAX_FEATURE_TS_LINES}) — move handlers to handlers/, schemas to schema/, logic to lib/`,
+      });
+    }
+  }
+}
+
+// 3. type: "custom" without an allowlist tag
+function checkCustomScreens(sf: SourceFile, violations: GuardViolation[]): void {
+  for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+    if (prop.getName() !== "type") continue;
+    const init = prop.getInitializer();
+    if (init === undefined || init.getKind() !== SyntaxKind.StringLiteral) continue;
+    if (init.asKindOrThrow(SyntaxKind.StringLiteral).getLiteralText() !== "custom") continue;
+    // r.screen context only: the surrounding call target must end in .screen.
+    const call = prop.getFirstAncestorByKind(SyntaxKind.CallExpression);
+    if (call === undefined || !call.getExpression().getText().endsWith(".screen")) continue;
+    // Only the screen's own config declares its type; nested `{ type: "custom" }` objects are widget config.
+    if (prop.getParent() !== call.getArguments()[0]) continue;
+    if (hasIgnoreTag(call, IGNORE_TAG) || hasIgnoreTag(prop, IGNORE_TAG)) continue;
+    violations.push({
+      file: sf.getFilePath(),
+      line: prop.getStartLineNumber(),
+      message: `r.screen type:"custom" without allowlist tag — use a declarative screen type or // ${IGNORE_TAG} <reason>`,
+    });
+  }
+}
+
 export const guard: AstGuard = {
   name: "App-Feature-Structure Guard (App-Repos)",
   scan: SCAN,
@@ -48,66 +123,10 @@ export const guard: AstGuard = {
       const filePath = sf.getFilePath();
       if (EXCLUDE.test(filePath)) continue;
       const base = path.basename(filePath);
-
-      // 1a. web.ts(x)-Monolith am Feature-Root
-      if (isFeatureRootFile(filePath) && (base === "web.tsx" || base === "web.ts")) {
-        if (!hasIgnoreTag(sf.getChildren()[0] ?? sf, IGNORE_TAG)) {
-          violations.push({
-            file: filePath,
-            line: 1,
-            message:
-              "web monolith at feature root — screens/client def belong under web/ (index.ts + one file per screen)",
-          });
-        }
-      }
-
-      // 1b. JSX directly at the feature root (screens belong under web/)
-      if (
-        isFeatureRootFile(filePath) &&
-        filePath.endsWith(".tsx") &&
-        base !== "web.tsx" &&
-        sf.getDescendantsOfKind(SyntaxKind.JsxElement).length +
-          sf.getDescendantsOfKind(SyntaxKind.JsxSelfClosingElement).length >
-          0 &&
-        !hasIgnoreTag(sf.getChildren()[0] ?? sf, IGNORE_TAG)
-      ) {
-        violations.push({
-          file: filePath,
-          line: 1,
-          message: "JSX component at feature root — move it under web/",
-        });
-      }
-
-      // 2. feature.ts als Logik-Dump
-      if (base === "feature.ts" && isFeatureRootFile(filePath)) {
-        const lines = sf.getEndLineNumber();
-        if (lines > MAX_FEATURE_TS_LINES && !hasIgnoreTag(sf.getChildren()[0] ?? sf, IGNORE_TAG)) {
-          violations.push({
-            file: filePath,
-            line: 1,
-            message: `feature.ts has ${lines} lines (max ${MAX_FEATURE_TS_LINES}) — move handlers to handlers/, schemas to schema/, logic to lib/`,
-          });
-        }
-      }
-
-      // 3. type: "custom" without an allowlist tag
-      for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
-        if (prop.getName() !== "type") continue;
-        const init = prop.getInitializer();
-        if (init === undefined || init.getKind() !== SyntaxKind.StringLiteral) continue;
-        if (init.asKindOrThrow(SyntaxKind.StringLiteral).getLiteralText() !== "custom") continue;
-        // Nur r.screen-Kontext: das umgebende Call-Target muss auf .screen enden.
-        const call = prop.getFirstAncestorByKind(SyntaxKind.CallExpression);
-        if (call === undefined || !call.getExpression().getText().endsWith(".screen")) continue;
-        // Only the screen's own config declares its type; nested `{ type: "custom" }` objects are widget config.
-        if (prop.getParent() !== call.getArguments()[0]) continue;
-        if (hasIgnoreTag(call, IGNORE_TAG) || hasIgnoreTag(prop, IGNORE_TAG)) continue;
-        violations.push({
-          file: filePath,
-          line: prop.getStartLineNumber(),
-          message: `r.screen type:"custom" without allowlist tag — use a declarative screen type or // ${IGNORE_TAG} <reason>`,
-        });
-      }
+      checkWebMonolith(sf, base, violations);
+      checkRootJsx(sf, base, violations);
+      checkFeatureTsSize(sf, base, violations);
+      checkCustomScreens(sf, violations);
     }
     return { violations };
   },

@@ -206,6 +206,52 @@ function hasIgnore(currentLine: string, prevLine: string): boolean {
   return lineHasIgnoreTag(currentLine, IGNORE_TAG) || lineHasIgnoreTag(prevLine, IGNORE_TAG);
 }
 
+// Block-comment tracking (heuristic): `/* ... */` across multiple lines.
+// Single-line `//` and `*` (inside /* */) are skipped.
+function isCommentOnlyLine(trimmed: string, state: { inBlockComment: boolean }): boolean {
+  if (state.inBlockComment) {
+    if (trimmed.includes("*/")) state.inBlockComment = false;
+    return true;
+  }
+  if (trimmed.startsWith("/*") && !trimmed.includes("*/")) {
+    state.inBlockComment = true;
+    return true;
+  }
+  return trimmed.startsWith("//") || trimmed.startsWith("*");
+}
+
+type LineContext = Pick<Violation, "file" | "line" | "excerpt" | "scope">;
+
+function violationsOnLine(
+  codeOnly: string,
+  context: LineContext,
+  publicPage: boolean,
+): Violation[] {
+  const violations: Violation[] = [];
+  for (const { tag, counterpart, pattern } of TAG_PATTERNS) {
+    if (pattern.test(codeOnly)) violations.push({ ...context, kind: "tag", tag, counterpart });
+  }
+  for (const { call, counterpart, pattern } of CALL_PATTERNS) {
+    if (pattern.test(codeOnly)) {
+      violations.push({ ...context, kind: "call", tag: call, counterpart });
+    }
+  }
+  for (const { token, counterpart, pattern } of CLASS_PATTERNS) {
+    if (pattern.test(codeOnly)) {
+      violations.push({ ...context, kind: "class", tag: token, counterpart });
+    }
+  }
+  if (!publicPage && MX_AUTO_PATTERN.test(codeOnly) && MAX_W_PATTERN.test(codeOnly)) {
+    violations.push({
+      ...context,
+      kind: "class",
+      tag: SCREEN_CONTAINER_LABEL,
+      counterpart: SCREEN_CONTAINER_COUNTERPART,
+    });
+  }
+  return violations;
+}
+
 export function checkFile(
   file: string,
   scope: ScopeKind,
@@ -214,22 +260,13 @@ export function checkFile(
   const text = fs.readFileSync(file, "utf-8");
   const lines = text.split("\n");
   const violations: Violation[] = [];
-  const publicPage = isPublicPage(path.relative(root, file));
-  let inBlockComment = false;
+  const relativeFile = path.relative(root, file);
+  const publicPage = isPublicPage(relativeFile);
+  const commentState = { inBlockComment: false };
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? "";
     const trimmed = line.trim();
-    // Block-comment tracking (heuristic): `/* ... */` across multiple lines.
-    // Single-line `//` and `*` (inside /* */) are skipped.
-    if (inBlockComment) {
-      if (trimmed.includes("*/")) inBlockComment = false;
-      continue;
-    }
-    if (trimmed.startsWith("/*") && !trimmed.includes("*/")) {
-      inBlockComment = true;
-      continue;
-    }
-    if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue;
+    if (isCommentOnlyLine(trimmed, commentState)) continue;
     // Strip trailing inline comments — `foo(); // alert() would be wrong`
     // must not match. (?<!:) leaves URLs (https://…) in strings alone;
     // string contents themselves stay an accepted heuristic gap.
@@ -238,56 +275,14 @@ export function checkFile(
     const prev = i > 0 ? (lines[i - 1] ?? "") : "";
     if (hasIgnore(line, prev)) continue;
 
-    for (const { tag, counterpart, pattern } of TAG_PATTERNS) {
-      if (pattern.test(codeOnly)) {
-        violations.push({
-          file: path.relative(root, file),
-          line: i + 1,
-          kind: "tag",
-          tag,
-          counterpart,
-          excerpt: trimmed.length > 120 ? `${trimmed.slice(0, 117)}...` : trimmed,
-          scope,
-        });
-      }
-    }
-    for (const { call, counterpart, pattern } of CALL_PATTERNS) {
-      if (pattern.test(codeOnly)) {
-        violations.push({
-          file: path.relative(root, file),
-          line: i + 1,
-          kind: "call",
-          tag: call,
-          counterpart,
-          excerpt: trimmed.length > 120 ? `${trimmed.slice(0, 117)}...` : trimmed,
-          scope,
-        });
-      }
-    }
-    for (const { token, counterpart, pattern } of CLASS_PATTERNS) {
-      if (pattern.test(codeOnly)) {
-        violations.push({
-          file: path.relative(root, file),
-          line: i + 1,
-          kind: "class",
-          tag: token,
-          counterpart,
-          excerpt: trimmed.length > 120 ? `${trimmed.slice(0, 117)}...` : trimmed,
-          scope,
-        });
-      }
-    }
-    if (!publicPage && MX_AUTO_PATTERN.test(codeOnly) && MAX_W_PATTERN.test(codeOnly)) {
-      violations.push({
-        file: path.relative(root, file),
-        line: i + 1,
-        kind: "class",
-        tag: SCREEN_CONTAINER_LABEL,
-        counterpart: SCREEN_CONTAINER_COUNTERPART,
-        excerpt: trimmed.length > 120 ? `${trimmed.slice(0, 117)}...` : trimmed,
-        scope,
-      });
-    }
+    const excerpt = trimmed.length > 120 ? `${trimmed.slice(0, 117)}...` : trimmed;
+    violations.push(
+      ...violationsOnLine(
+        codeOnly,
+        { file: relativeFile, line: i + 1, excerpt, scope },
+        publicPage,
+      ),
+    );
   }
   return violations;
 }

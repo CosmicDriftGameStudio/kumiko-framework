@@ -33,6 +33,8 @@
 import * as path from "node:path";
 import {
   type ArrowFunction,
+  type BinaryExpression,
+  type CallExpression,
   type FunctionDeclaration,
   type FunctionExpression,
   type Identifier,
@@ -215,29 +217,120 @@ function isSafeLocalCall(callee: Node, sf: SourceFile, depth: number): boolean {
   });
 }
 
+function isLiteralSafeKind(expr: Node): boolean {
+  return (
+    expr.isKind(SyntaxKind.StringLiteral) ||
+    expr.isKind(SyntaxKind.NumericLiteral) ||
+    expr.isKind(SyntaxKind.TrueKeyword) ||
+    expr.isKind(SyntaxKind.FalseKeyword) ||
+    expr.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)
+  );
+}
+
+// A template with an HTML tag is scanned as its own candidate (incl. its
+// html-ok comments). One without is never scanned, so its interpolations
+// must be safe here.
+function isSafeTemplateExpression(
+  expr: TemplateExpression,
+  sf: SourceFile,
+  depth: number,
+): boolean {
+  if (HTML_TAG.test(templateStaticText(expr))) return true;
+  return expr
+    .getTemplateSpans()
+    .every((span) => isSafeExpression(span.getExpression(), sf, depth + 1));
+}
+
+function isSafeBinaryExpression(expr: BinaryExpression, sf: SourceFile, depth: number): boolean {
+  const op = expr.getOperatorToken().getKind();
+  if (
+    op === SyntaxKind.QuestionQuestionToken ||
+    op === SyntaxKind.BarBarToken ||
+    op === SyntaxKind.AmpersandAmpersandToken
+  ) {
+    return (
+      isSafeExpression(expr.getLeft(), sf, depth + 1) &&
+      isSafeExpression(expr.getRight(), sf, depth + 1)
+    );
+  }
+  // String concatenation is safe when both operands are.
+  if (
+    op === SyntaxKind.PlusToken &&
+    isSafeExpression(expr.getLeft(), sf, depth + 1) &&
+    isSafeExpression(expr.getRight(), sf, depth + 1)
+  ) {
+    return true;
+  }
+  // Arithmetic (`${width / 2}`) is safe as long as the result type is number.
+  return isCompileTimeKnownType(expr.getType());
+}
+
+function calleeName(callee: Node): string {
+  return callee.isKind(SyntaxKind.PropertyAccessExpression)
+    ? callee.getNameNode().getText()
+    : callee.getText();
+}
+
+function isSafeMapCallbackResult(
+  mapCallback: ArrowFunction | FunctionExpression,
+  sf: SourceFile,
+  depth: number,
+): boolean {
+  const body = mapCallback.getBody();
+  if (Node.isBlock(body)) {
+    const stmts = body.getStatements();
+    const only = stmts.length === 1 ? stmts[0] : undefined;
+    const ret = only && Node.isReturnStatement(only) ? only.getExpression() : undefined;
+    return ret !== undefined && isSafeExpression(ret, sf, depth + 1);
+  }
+  return isSafeExpression(body, sf, depth + 1);
+}
+
+// `.join(...)` is only safe when the joined array itself consists of
+// safe fragments (e.g. arr.map(x => escapeHtml(x)).join("")) — a raw
+// `stringArray.join("")` from foreign data (parameter/import) was
+// previously treated as unconditionally safe, a real bypass.
+function isSafeJoinOfMappedFragments(callee: Node, sf: SourceFile, depth: number): boolean {
+  if (!callee.isKind(SyntaxKind.PropertyAccessExpression)) return false;
+  const receiver = callee.getExpression();
+  if (!receiver.isKind(SyntaxKind.CallExpression)) return false;
+  if (calleeName(receiver.getExpression()) !== "map") return false;
+  const mapCallback = receiver.getArguments()[0];
+  if (
+    !mapCallback ||
+    !(
+      mapCallback.isKind(SyntaxKind.ArrowFunction) ||
+      mapCallback.isKind(SyntaxKind.FunctionExpression)
+    )
+  ) {
+    return false;
+  }
+  return isSafeMapCallbackResult(mapCallback, sf, depth);
+}
+
+function isSafeCallExpression(expr: CallExpression, sf: SourceFile, depth: number): boolean {
+  const callee = expr.getExpression();
+  const name = calleeName(callee);
+  if (SAFE_CALL_NAMES.has(name)) return true;
+  if (name === "join" && isSafeJoinOfMappedFragments(callee, sf, depth)) return true;
+  if (endsWithHtmlConvention(callee)) return true;
+  if (isSafeLocalCall(callee, sf, depth)) return true;
+  return isCompileTimeKnownType(expr.getType());
+}
+
+function isSafeIdentifierExpression(ident: Identifier, sf: SourceFile, depth: number): boolean {
+  if (UPPER_SNAKE.test(ident.getText())) return true;
+  if (isSafeLocalIdentifier(ident, sf, depth)) return true;
+  return isCompileTimeKnownType(ident.getType());
+}
+
 function isSafeExpression(expr: Node, sf: SourceFile, depth: number): boolean {
   if (depth > MAX_RESOLVE_DEPTH) return false;
   if (expr.isKind(SyntaxKind.ParenthesizedExpression)) {
     return isSafeExpression(expr.getExpression(), sf, depth + 1);
   }
-  if (
-    expr.isKind(SyntaxKind.StringLiteral) ||
-    expr.isKind(SyntaxKind.NumericLiteral) ||
-    expr.isKind(SyntaxKind.TrueKeyword) ||
-    expr.isKind(SyntaxKind.FalseKeyword)
-  ) {
-    return true;
-  }
-  if (expr.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)) return true;
-  // A template with an HTML tag is scanned as its own candidate (incl. its
-  // html-ok comments). One without is never scanned, so its interpolations
-  // must be safe here.
-  if (expr.isKind(SyntaxKind.TemplateExpression)) {
-    if (HTML_TAG.test(templateStaticText(expr))) return true;
-    return expr
-      .getTemplateSpans()
-      .every((span) => isSafeExpression(span.getExpression(), sf, depth + 1));
-  }
+  if (isLiteralSafeKind(expr)) return true;
+  if (expr.isKind(SyntaxKind.TemplateExpression)) return isSafeTemplateExpression(expr, sf, depth);
   if (expr.isKind(SyntaxKind.TaggedTemplateExpression)) return isSafeTemplateTag(expr.getTag());
   if (expr.isKind(SyntaxKind.ConditionalExpression)) {
     return (
@@ -245,77 +338,10 @@ function isSafeExpression(expr: Node, sf: SourceFile, depth: number): boolean {
       isSafeExpression(expr.getWhenFalse(), sf, depth + 1)
     );
   }
-  if (expr.isKind(SyntaxKind.BinaryExpression)) {
-    const op = expr.getOperatorToken().getKind();
-    if (
-      op === SyntaxKind.QuestionQuestionToken ||
-      op === SyntaxKind.BarBarToken ||
-      op === SyntaxKind.AmpersandAmpersandToken
-    ) {
-      return (
-        isSafeExpression(expr.getLeft(), sf, depth + 1) &&
-        isSafeExpression(expr.getRight(), sf, depth + 1)
-      );
-    }
-    // String concatenation is safe when both operands are.
-    if (
-      op === SyntaxKind.PlusToken &&
-      isSafeExpression(expr.getLeft(), sf, depth + 1) &&
-      isSafeExpression(expr.getRight(), sf, depth + 1)
-    ) {
-      return true;
-    }
-    // Arithmetic (`${width / 2}`) is safe as long as the result type is number.
-    return isCompileTimeKnownType(expr.getType());
-  }
+  if (expr.isKind(SyntaxKind.BinaryExpression)) return isSafeBinaryExpression(expr, sf, depth);
   if (endsWithHtmlConvention(expr)) return true;
-  if (expr.isKind(SyntaxKind.CallExpression)) {
-    const callee = expr.getExpression();
-    const name = callee.isKind(SyntaxKind.PropertyAccessExpression)
-      ? callee.getNameNode().getText()
-      : callee.getText();
-    if (SAFE_CALL_NAMES.has(name)) return true;
-    // `.join(...)` is only safe when the joined array itself consists of
-    // safe fragments (e.g. arr.map(x => escapeHtml(x)).join("")) — a raw
-    // `stringArray.join("")` from foreign data (parameter/import) was
-    // previously treated as unconditionally safe, a real bypass.
-    if (name === "join" && callee.isKind(SyntaxKind.PropertyAccessExpression)) {
-      const receiver = callee.getExpression();
-      if (receiver.isKind(SyntaxKind.CallExpression)) {
-        const receiverCallee = receiver.getExpression();
-        const receiverName = receiverCallee.isKind(SyntaxKind.PropertyAccessExpression)
-          ? receiverCallee.getNameNode().getText()
-          : receiverCallee.getText();
-        if (receiverName === "map") {
-          const mapCallback = receiver.getArguments()[0];
-          if (
-            mapCallback &&
-            (mapCallback.isKind(SyntaxKind.ArrowFunction) ||
-              mapCallback.isKind(SyntaxKind.FunctionExpression))
-          ) {
-            const body = mapCallback.getBody();
-            if (Node.isBlock(body)) {
-              const stmts = body.getStatements();
-              const only = stmts.length === 1 ? stmts[0] : undefined;
-              const ret = only && Node.isReturnStatement(only) ? only.getExpression() : undefined;
-              if (ret && isSafeExpression(ret, sf, depth + 1)) return true;
-            } else if (isSafeExpression(body, sf, depth + 1)) {
-              return true;
-            }
-          }
-        }
-      }
-    }
-    if (endsWithHtmlConvention(callee)) return true;
-    if (isSafeLocalCall(callee, sf, depth)) return true;
-    return isCompileTimeKnownType(expr.getType());
-  }
-  if (expr.isKind(SyntaxKind.Identifier)) {
-    const ident = expr as Identifier;
-    if (UPPER_SNAKE.test(ident.getText())) return true;
-    if (isSafeLocalIdentifier(ident, sf, depth)) return true;
-    return isCompileTimeKnownType(expr.getType());
-  }
+  if (expr.isKind(SyntaxKind.CallExpression)) return isSafeCallExpression(expr, sf, depth);
+  if (expr.isKind(SyntaxKind.Identifier)) return isSafeIdentifierExpression(expr, sf, depth);
   if (
     expr.isKind(SyntaxKind.PropertyAccessExpression) ||
     expr.isKind(SyntaxKind.ElementAccessExpression)

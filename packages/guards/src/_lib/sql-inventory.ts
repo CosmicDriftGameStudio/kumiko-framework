@@ -174,6 +174,35 @@ function stripMarker(trimmed: string): string {
   return trimmed.slice(0, idx).trimEnd();
 }
 
+type LineMarker = { readonly reason: string; readonly line: number };
+
+// Documented hatch: marker on the call line or the line directly above.
+// Each marker line suppresses at most one subsequent hit (consumed), so a
+// second `.unsafe()` under the same comment is not silently covered.
+function markerForLine(
+  lines: readonly string[],
+  i: number,
+  consumedMarkers: Set<number>,
+): LineMarker | undefined {
+  const sameLineReason = MARKER_WITH_REASON_RE.exec(lines[i] ?? "")?.[2];
+  if (sameLineReason !== undefined) return { reason: sameLineReason.trim(), line: i + 1 };
+  if (i === 0) return undefined;
+  const aboveReason = MARKER_WITH_REASON_RE.exec(lines[i - 1] ?? "")?.[2];
+  const markerIdx = i - 1;
+  if (aboveReason === undefined || consumedMarkers.has(markerIdx)) return undefined;
+  consumedMarkers.add(markerIdx);
+  return { reason: aboveReason.trim(), line: i };
+}
+
+function isCommentOnlyLine(trimmed: string): boolean {
+  return (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("*") ||
+    trimmed.startsWith("/**") ||
+    trimmed.startsWith("/*")
+  );
+}
+
 function scanFileText(relPath: string, text: string, hits: SqlInventoryHit[]): void {
   const lines = text.split("\n");
   const consumedMarkers = new Set<number>();
@@ -185,34 +214,9 @@ function scanFileText(relPath: string, text: string, hits: SqlInventoryHit[]): v
     // a marker placed on its own comment line (the common case: the line
     // ABOVE the offending call) must still be seen even though that line
     // itself never reaches the pattern loop.
-    //
-    // Documented hatch: marker on the call line or the line directly above.
-    // Each marker line suppresses at most one subsequent hit (consumed), so a
-    // second `.unsafe()` under the same comment is not silently covered.
-    let markerReason: string | undefined;
-    let markerLine: number | undefined;
-    const sameLineReason = MARKER_WITH_REASON_RE.exec(line)?.[2];
-    if (sameLineReason !== undefined) {
-      markerReason = sameLineReason.trim();
-      markerLine = i + 1;
-    } else if (i > 0) {
-      const aboveReason = MARKER_WITH_REASON_RE.exec(lines[i - 1] ?? "")?.[2];
-      const markerIdx = i - 1;
-      if (aboveReason !== undefined && !consumedMarkers.has(markerIdx)) {
-        markerReason = aboveReason.trim();
-        markerLine = i;
-        consumedMarkers.add(markerIdx);
-      }
-    }
+    const marker = markerForLine(lines, i, consumedMarkers);
 
-    if (
-      trimmed.startsWith("//") ||
-      trimmed.startsWith("*") ||
-      trimmed.startsWith("/**") ||
-      trimmed.startsWith("/*")
-    ) {
-      continue;
-    }
+    if (isCommentOnlyLine(trimmed)) continue;
     for (const { kind, re } of PATTERNS) {
       if (!re.test(line)) continue;
       hits.push({
@@ -220,10 +224,8 @@ function scanFileText(relPath: string, text: string, hits: SqlInventoryHit[]): v
         line: i + 1,
         kind,
         allowed: isRawSqlAllowed(relPath),
-        markerSuppressed: markerReason !== undefined,
-        ...(markerReason !== undefined && markerLine !== undefined
-          ? { markerReason, markerLine }
-          : {}),
+        markerSuppressed: marker !== undefined,
+        ...(marker !== undefined ? { markerReason: marker.reason, markerLine: marker.line } : {}),
         snippet: stripMarker(trimmed).slice(0, 120),
       });
     }

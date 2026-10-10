@@ -61,7 +61,7 @@ function isTypeOnlyImport(decl: ImportDeclaration): boolean {
 
 type PolyfillImport = { readonly line: number; readonly specifier: string };
 
-function findPolyfillValueImports(sf: SourceFile): PolyfillImport[] {
+function findPolyfillImportDeclarations(sf: SourceFile): PolyfillImport[] {
   const found: PolyfillImport[] = [];
   for (const decl of sf.getImportDeclarations()) {
     const specifier = decl.getModuleSpecifierValue();
@@ -69,12 +69,22 @@ function findPolyfillValueImports(sf: SourceFile): PolyfillImport[] {
       found.push({ line: decl.getStartLineNumber(), specifier });
     }
   }
+  return found;
+}
+
+function findPolyfillExportDeclarations(sf: SourceFile): PolyfillImport[] {
+  const found: PolyfillImport[] = [];
   for (const decl of sf.getExportDeclarations()) {
     const specifier = decl.getModuleSpecifierValue();
     if (specifier !== undefined && isPolyfillSpecifier(specifier) && !decl.isTypeOnly()) {
       found.push({ line: decl.getStartLineNumber(), specifier });
     }
   }
+  return found;
+}
+
+function findPolyfillRequireOrDynamicImports(sf: SourceFile): PolyfillImport[] {
+  const found: PolyfillImport[] = [];
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const callee = call.getExpression();
     const isRequireCall = Node.isIdentifier(callee) && callee.getText() === "require";
@@ -86,6 +96,14 @@ function findPolyfillValueImports(sf: SourceFile): PolyfillImport[] {
     }
   }
   return found;
+}
+
+function findPolyfillValueImports(sf: SourceFile): PolyfillImport[] {
+  return [
+    ...findPolyfillImportDeclarations(sf),
+    ...findPolyfillExportDeclarations(sf),
+    ...findPolyfillRequireOrDynamicImports(sf),
+  ];
 }
 
 export const guard: AstGuard = {

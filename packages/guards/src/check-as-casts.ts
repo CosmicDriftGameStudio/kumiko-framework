@@ -248,9 +248,18 @@ export function hasBoundaryMarker(cast: AsExpression): boolean {
 //   2. The cast range itself (multi-line casts with an inline comment)
 //   3. Same-line trailing comment at the cast end (no further — would
 //      wrongly claim the next statement's comment)
+function boundaryReasonIn(text: string): string | null {
+  const match = BOUNDARY_MARKER_RE.exec(text);
+  return match ? (match[1] ?? "") : null;
+}
+
+function restOfLine(fullText: string, from: number): string {
+  const eolPos = fullText.indexOf("\n", from);
+  return fullText.slice(from, eolPos === -1 ? fullText.length : eolPos);
+}
+
 export function extractBoundaryReason(cast: AsExpression): string | null {
-  const sf = cast.getSourceFile();
-  const fullText = sf.getFullText();
+  const fullText = cast.getSourceFile().getFullText();
 
   // (1) Leading comments des enclosing statement
   const stmt =
@@ -258,38 +267,25 @@ export function extractBoundaryReason(cast: AsExpression): string | null {
     cast.getFirstAncestorByKind(SyntaxKind.ExpressionStatement) ??
     cast.getFirstAncestorByKind(SyntaxKind.ReturnStatement) ??
     cast.getFirstAncestorByKind(SyntaxKind.PropertyAssignment);
-  const leadingRanges = stmt?.getLeadingCommentRanges() ?? [];
-  for (const r of leadingRanges) {
-    const m = BOUNDARY_MARKER_RE.exec(r.getText());
-    if (m) return m[1] ?? "";
+  for (const r of stmt?.getLeadingCommentRanges() ?? []) {
+    const reason = boundaryReasonIn(r.getText());
+    if (reason !== null) return reason;
   }
 
   // (2) Cast-Range selbst (multi-line casts, inline comments innerhalb)
-  const castRange = fullText.slice(cast.getStart(), cast.getEnd());
-  const inlineMatch = BOUNDARY_MARKER_RE.exec(castRange);
-  if (inlineMatch) return inlineMatch[1] ?? "";
+  const inlineReason = boundaryReasonIn(fullText.slice(cast.getStart(), cast.getEnd()));
+  if (inlineReason !== null) return inlineReason;
 
   // (3) Same-line trailing comment at the cast end. We go from the cast end
   // to the next EOL — this covers only comments on the cast line, not
   // comments of following statements.
-  const castEnd = cast.getEnd();
-  const eolPos = fullText.indexOf("\n", castEnd);
-  const trailingRange = fullText.slice(castEnd, eolPos === -1 ? fullText.length : eolPos);
-  const trailingMatch = BOUNDARY_MARKER_RE.exec(trailingRange);
-  if (trailingMatch) return trailingMatch[1] ?? "";
+  const trailingReason = boundaryReasonIn(restOfLine(fullText, cast.getEnd()));
+  if (trailingReason !== null) return trailingReason;
 
   // (4) Same-line trailing comment at the statement end (for casts that are
   // not at the statement end themselves — e.g. inside a function-call
   // argument list). Search from statement end to EOL.
-  if (stmt) {
-    const stmtEnd = stmt.getEnd();
-    const stmtEol = fullText.indexOf("\n", stmtEnd);
-    const stmtTrailingRange = fullText.slice(stmtEnd, stmtEol === -1 ? fullText.length : stmtEol);
-    const stmtTrailingMatch = BOUNDARY_MARKER_RE.exec(stmtTrailingRange);
-    if (stmtTrailingMatch) return stmtTrailingMatch[1] ?? "";
-  }
-
-  return null;
+  return stmt ? boundaryReasonIn(restOfLine(fullText, stmt.getEnd())) : null;
 }
 
 // Type names that are typing-loss markers by definition — see
@@ -409,18 +405,11 @@ function groupByCategory(all: readonly Site[]): Map<Category, Site[]> {
 // run of this file prints them.
 const PRINT_SITE_LISTINGS = import.meta.main;
 
-function reportCasts(all: readonly Site[], scanned: number): void {
-  const byCat = groupByCategory(all);
-  console.log(`as-Cast Audit: ${scanned} files checked, ${all.length} casts total.\n`);
-  for (const c of CATS) {
-    const count = byCat.get(c)?.length ?? 0;
-    console.log(`  ${c.padEnd(18)} ${count}`);
-  }
-  // skip: site listings are printed only on a standalone run of this guard
-  if (!PRINT_SITE_LISTINGS) return;
+function castSnippet(site: Site): string {
+  return site.full.length > 90 ? `${site.full.slice(0, 87)}...` : site.full;
+}
 
-  const suspects = CATS.filter((c) => c.startsWith("suspect-"));
-
+function printSuspectTopTargets(all: readonly Site[]): void {
   // Aggregate suspect casts by target type — reveals bulk-refactor patterns
   // (e.g. "20x `as Record<string, unknown>`" → one DB-row helper fixes all).
   console.log("\n  Suspect-cast top targets (>=3):");
@@ -437,25 +426,40 @@ function reportCasts(all: readonly Site[], scanned: number): void {
   for (const [target, sites] of topTargets) {
     console.log(`    ${sites.length}x  as ${target}`);
   }
+}
 
-  for (const c of suspects) {
+function printSuspectCategory(category: Category, sites: readonly Site[]): void {
+  if (category === "suspect-general" && sites.length > 30) {
+    console.log(`\n  ${category} (${sites.length}, showing top 30 by file):`);
+    const sorted = [...sites].sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+    for (const s of sorted.slice(0, 30)) {
+      console.log(`    ${s.file}:${s.line}  ${castSnippet(s)}`);
+    }
+    console.log(`    ... (${sites.length - 30} more)`);
+  } else {
+    console.log(`\n  ${category} (${sites.length}):`);
+    for (const s of sites) {
+      console.log(`    ${s.file}:${s.line}  ${castSnippet(s)}`);
+    }
+  }
+}
+
+function reportCasts(all: readonly Site[], scanned: number): void {
+  const byCat = groupByCategory(all);
+  console.log(`as-Cast Audit: ${scanned} files checked, ${all.length} casts total.\n`);
+  for (const c of CATS) {
+    const count = byCat.get(c)?.length ?? 0;
+    console.log(`  ${c.padEnd(18)} ${count}`);
+  }
+  // skip: site listings are printed only on a standalone run of this guard
+  if (!PRINT_SITE_LISTINGS) return;
+
+  printSuspectTopTargets(all);
+
+  for (const c of CATS.filter((cat) => cat.startsWith("suspect-"))) {
     const sites = byCat.get(c);
     if (!sites || sites.length === 0) continue;
-    if (c === "suspect-general" && sites.length > 30) {
-      console.log(`\n  ${c} (${sites.length}, showing top 30 by file):`);
-      const sorted = [...sites].sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
-      for (const s of sorted.slice(0, 30)) {
-        const snippet = s.full.length > 90 ? `${s.full.slice(0, 87)}...` : s.full;
-        console.log(`    ${s.file}:${s.line}  ${snippet}`);
-      }
-      console.log(`    ... (${sites.length - 30} more)`);
-      continue;
-    }
-    console.log(`\n  ${c} (${sites.length}):`);
-    for (const s of sites) {
-      const snippet = s.full.length > 90 ? `${s.full.slice(0, 87)}...` : s.full;
-      console.log(`    ${s.file}:${s.line}  ${snippet}`);
-    }
+    printSuspectCategory(c, sites);
   }
 
   console.log(
@@ -605,6 +609,50 @@ export function loadBaseline(file: string): BaselineLoad {
   };
 }
 
+type CastRegression = { file: string; target: string; baseline: number; current: number };
+
+function compareCastsToBaseline(
+  current: Record<string, Record<string, number>>,
+  baselinePerFile: Record<string, Record<string, number>>,
+): { regressions: CastRegression[]; reduced: number } {
+  const regressions: CastRegression[] = [];
+  let reduced = 0;
+  const allFiles = new Set([...Object.keys(current), ...Object.keys(baselinePerFile)]);
+  for (const file of allFiles) {
+    const baselineTargets = baselinePerFile[file] ?? {};
+    const currentTargets = current[file] ?? {};
+    const allTargets = new Set([...Object.keys(baselineTargets), ...Object.keys(currentTargets)]);
+    for (const target of allTargets) {
+      const expected = baselineTargets[target] ?? 0;
+      const count = currentTargets[target] ?? 0;
+      if (count > expected) {
+        regressions.push({ file, target, baseline: expected, current: count });
+      } else if (count < expected) {
+        reduced += expected - count;
+      }
+    }
+  }
+  return { regressions, reduced };
+}
+
+function printCastRegressions(regressions: readonly CastRegression[]): void {
+  console.log(
+    `\n  REGRESSION: ${regressions.length} (file, target) pair(s) have more suspect casts than the baseline:`,
+  );
+  for (const r of regressions) {
+    console.log(
+      `    ${r.file}: as ${r.target}  baseline=${r.baseline} current=${r.current} (+${r.current - r.baseline})`,
+    );
+  }
+  console.log(
+    "\n  New casts need a justification. Options:\n" +
+      "    1. Avoid the cast (TypeGuard, Discriminated Union, better typing at the source)\n" +
+      "    2. If a legit system boundary: add a `// @cast-boundary <reason>` marker\n" +
+      "    3. If a cleanup reduction in one file offsets an increase in another: " +
+      "run `bun packages/guards/src/check-as-casts.ts --write-baseline` after committing",
+  );
+}
+
 export function reportBaseline(
   all: readonly Site[],
   baselineFile: string = baselinePath,
@@ -638,41 +686,9 @@ export function reportBaseline(
   }
   const { baseline } = loaded;
 
-  type Regression = { file: string; target: string; baseline: number; current: number };
-  const regressions: Regression[] = [];
-  let reduced = 0;
-  const allFiles = new Set([...Object.keys(repoLocalSuspects), ...Object.keys(baseline.perFile)]);
-  for (const file of allFiles) {
-    const baselineTargets = baseline.perFile[file] ?? {};
-    const currentTargets = repoLocalSuspects[file] ?? {};
-    const allTargets = new Set([...Object.keys(baselineTargets), ...Object.keys(currentTargets)]);
-    for (const target of allTargets) {
-      const expected = baselineTargets[target] ?? 0;
-      const current = currentTargets[target] ?? 0;
-      if (current > expected) {
-        regressions.push({ file, target, baseline: expected, current });
-      } else if (current < expected) {
-        reduced += expected - current;
-      }
-    }
-  }
-
+  const { regressions, reduced } = compareCastsToBaseline(repoLocalSuspects, baseline.perFile);
   if (regressions.length > 0) {
-    console.log(
-      `\n  REGRESSION: ${regressions.length} (file, target) pair(s) have more suspect casts than the baseline:`,
-    );
-    for (const r of regressions) {
-      console.log(
-        `    ${r.file}: as ${r.target}  baseline=${r.baseline} current=${r.current} (+${r.current - r.baseline})`,
-      );
-    }
-    console.log(
-      "\n  New casts need a justification. Options:\n" +
-        "    1. Avoid the cast (TypeGuard, Discriminated Union, better typing at the source)\n" +
-        "    2. If a legit system boundary: add a `// @cast-boundary <reason>` marker\n" +
-        "    3. If a cleanup reduction in one file offsets an increase in another: " +
-        "run `bun packages/guards/src/check-as-casts.ts --write-baseline` after committing",
-    );
+    printCastRegressions(regressions);
     return [];
   }
 

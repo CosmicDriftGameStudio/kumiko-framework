@@ -17,7 +17,12 @@
  */
 
 import * as path from "node:path";
-import { type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  type CallExpression,
+  type ObjectLiteralExpression,
+  type SourceFile,
+  SyntaxKind,
+} from "ts-morph";
 import { findRepoRootFor } from "./_lib/baseline-compare";
 import {
   ALL_REPO_KINDS,
@@ -49,6 +54,47 @@ const OPEN_ROLE_RE = /["'`](?:anonymous|all)["'`]|\baccess\.(?:all|anonymous)\b/
 
 type RoleRestrictedHandler = { name: string; file: string; line: number };
 
+function writeHandlerOptions(call: CallExpression): ObjectLiteralExpression | undefined {
+  const callee = call.getExpression().getText();
+  if (callee !== "defineWriteHandler" && !/\.writeHandler$/.test(callee)) return undefined;
+  const arg = call.getArguments()[0];
+  if (!arg || arg.getKind() !== SyntaxKind.ObjectLiteralExpression) return undefined;
+  return arg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
+}
+
+function accessObjectOf(obj: ObjectLiteralExpression): ObjectLiteralExpression | undefined {
+  const accessProp = obj.getProperty("access");
+  if (!accessProp || accessProp.getKind() !== SyntaxKind.PropertyAssignment) return undefined;
+  const accessInit = accessProp.asKindOrThrow(SyntaxKind.PropertyAssignment).getInitializer();
+  if (!accessInit || accessInit.getKind() !== SyntaxKind.ObjectLiteralExpression) return undefined;
+  return accessInit.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
+}
+
+function restrictsToRoles(accessObj: ObjectLiteralExpression): boolean {
+  if (accessObj.getProperty("openToAll")) return false;
+  const rolesProp = accessObj.getProperty("roles");
+  if (!rolesProp) return false;
+  if (
+    rolesProp.getKind() !== SyntaxKind.PropertyAssignment &&
+    rolesProp.getKind() !== SyntaxKind.ShorthandPropertyAssignment
+  )
+    return false;
+  return !OPEN_ROLE_RE.test(rolesProp.getText());
+}
+
+function roleRestrictedHandlerOf(
+  call: CallExpression,
+  filePath: string,
+): RoleRestrictedHandler | undefined {
+  const obj = writeHandlerOptions(call);
+  if (!obj) return undefined;
+  const name = literalStringOf(obj.getProperty("name"));
+  if (!name) return undefined;
+  const accessObj = accessObjectOf(obj);
+  if (!accessObj || !restrictsToRoles(accessObj)) return undefined;
+  return { name, file: filePath, line: call.getStartLineNumber() };
+}
+
 export function findRoleRestrictedWriteHandlers(
   files: readonly SourceFile[],
 ): RoleRestrictedHandler[] {
@@ -56,28 +102,8 @@ export function findRoleRestrictedWriteHandlers(
   for (const sf of files) {
     if (TEST_FILE_RE.test(sf.getFilePath())) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-      const callee = call.getExpression().getText();
-      if (callee !== "defineWriteHandler" && !/\.writeHandler$/.test(callee)) continue;
-      const arg = call.getArguments()[0];
-      if (!arg || arg.getKind() !== SyntaxKind.ObjectLiteralExpression) continue;
-      const obj = arg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
-      const name = literalStringOf(obj.getProperty("name"));
-      if (!name) continue;
-      const accessProp = obj.getProperty("access");
-      if (!accessProp || accessProp.getKind() !== SyntaxKind.PropertyAssignment) continue;
-      const accessInit = accessProp.asKindOrThrow(SyntaxKind.PropertyAssignment).getInitializer();
-      if (!accessInit || accessInit.getKind() !== SyntaxKind.ObjectLiteralExpression) continue;
-      const accessObj = accessInit.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
-      if (accessObj.getProperty("openToAll")) continue;
-      const rolesProp = accessObj.getProperty("roles");
-      if (!rolesProp) continue;
-      if (
-        rolesProp.getKind() !== SyntaxKind.PropertyAssignment &&
-        rolesProp.getKind() !== SyntaxKind.ShorthandPropertyAssignment
-      )
-        continue;
-      if (OPEN_ROLE_RE.test(rolesProp.getText())) continue;
-      out.push({ name, file: sf.getFilePath(), line: call.getStartLineNumber() });
+      const handler = roleRestrictedHandlerOf(call, sf.getFilePath());
+      if (handler) out.push(handler);
     }
   }
   return out;

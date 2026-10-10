@@ -32,6 +32,7 @@ import {
   type ArrowFunction,
   type FunctionDeclaration,
   type FunctionExpression,
+  type Node,
   Project,
   type SourceFile,
   SyntaxKind,
@@ -230,6 +231,38 @@ function getFnName(node: FnNode): string | undefined {
   return undefined;
 }
 
+function collectCalleeNames(node: FnNode): Set<string> {
+  const callees = new Set<string>();
+  node.forEachDescendant((n) => {
+    if (n.isKind(SyntaxKind.CallExpression)) {
+      const name = extractCalleeName(n);
+      if (name) callees.add(name);
+    }
+  });
+  return callees;
+}
+
+function wrapperCalleeName(callExpr: Node): string | null {
+  const name = extractCalleeName(callExpr);
+  if (!name) return null;
+  if (BUILTIN_NAMES.has(name)) return null;
+  return name;
+}
+
+// The single call expression a one-statement body consists of, if it has that shape.
+function singleStatementCall(single: Node): Node | null {
+  if (single.isKind(SyntaxKind.ReturnStatement)) {
+    const expr = single.getExpression();
+    // `return () => ...` is a factory, not a delegation
+    return expr?.isKind(SyntaxKind.CallExpression) ? expr : null;
+  }
+  if (single.isKind(SyntaxKind.ExpressionStatement)) {
+    const expr = single.getExpression();
+    return expr.isKind(SyntaxKind.CallExpression) ? expr : null;
+  }
+  return null;
+}
+
 function getSingleDirectCallee(node: FnNode): string | null {
   const rawBody =
     node.isKind(SyntaxKind.ArrowFunction) && !node.getBody().isKind(SyntaxKind.Block)
@@ -241,61 +274,21 @@ function getSingleDirectCallee(node: FnNode): string | null {
     const body = node.getBody();
     if (!body?.isKind(SyntaxKind.CallExpression)) return null;
     // Method chains (A.from(x).toMethod(y)) have 2 call expressions — not a thin wrapper
-    const conciseCallees = new Set<string>();
-    node.forEachDescendant((n) => {
-      if (n.isKind(SyntaxKind.CallExpression)) {
-        const cName = extractCalleeName(n);
-        if (cName) conciseCallees.add(cName);
-      }
-    });
-    if (conciseCallees.size !== 1) return null;
-    const name = extractCalleeName(body);
-    if (!name || BUILTIN_NAMES.has(name)) return null;
-    return name;
+    if (collectCalleeNames(node).size !== 1) return null;
+    return wrapperCalleeName(body);
   }
 
   const stmts = rawBody.getStatements();
   if (stmts.length !== 1) return null;
 
-  const single = stmts.reduce((only) => only);
-  // switch → not a wrapper
-  if (single.isKind(SyntaxKind.SwitchStatement)) return null;
-
-  let callExpr = null;
-
-  if (single.isKind(SyntaxKind.ReturnStatement)) {
-    const expr = single.getExpression();
-    if (!expr) return null;
-    // factory: return () => ... → not a wrapper
-    if (expr.isKind(SyntaxKind.ArrowFunction) || expr.isKind(SyntaxKind.FunctionExpression))
-      return null;
-    // direct delegation: return someCall(...)
-    if (!expr.isKind(SyntaxKind.CallExpression)) return null;
-    callExpr = expr;
-  } else if (single.isKind(SyntaxKind.ExpressionStatement)) {
-    const expr = single.getExpression();
-    if (!expr.isKind(SyntaxKind.CallExpression)) return null;
-    callExpr = expr;
-  } else {
-    return null;
-  }
+  const callExpr = singleStatementCall(stmts.reduce((only) => only));
+  if (!callExpr) return null;
 
   // Ensure the call isn't part of a larger nested-call tree: a direct call
   // has exactly 1 unique callee name across the whole body.
-  const allCallees = new Set<string>();
-  node.forEachDescendant((n) => {
-    if (n.isKind(SyntaxKind.CallExpression)) {
-      const name = extractCalleeName(n);
-      if (name) allCallees.add(name);
-    }
-  });
-  if (allCallees.size !== 1) return null;
+  if (collectCalleeNames(node).size !== 1) return null;
 
-  const name = extractCalleeName(callExpr);
-  if (!name) return null;
-  if (BUILTIN_NAMES.has(name)) return null;
-
-  return name;
+  return wrapperCalleeName(callExpr);
 }
 
 function extractCalleeName(callNode: ReturnType<FnNode["getBody"]> | undefined): string | null {
