@@ -4592,7 +4592,15 @@ function DefaultGridCell({ span, width, children }: GridCellProps): ReactNode {
     );
   }
   const s = span !== undefined ? Math.min(span, 12) : 1;
-  return <div style={{ gridColumn: `span ${s}` }}>{children}</div>;
+  // Below `sm` the grid has one explicit column (see DefaultGrid); an unconditional
+  // `span N` there would add implicit auto columns that squeeze the fr column.
+  // workaround: duplicate @types/react instances break direct CSSProperties cast (as in DefaultGrid)
+  const style = { "--grid-span": s } as unknown as CSSProperties;
+  return (
+    <div className="min-w-0 sm:[grid-column:span_var(--grid-span)]" style={style}>
+      {children}
+    </div>
+  );
 }
 
 function DefaultText({ variant = "body", decorative, children, testId }: TextProps): ReactNode {
