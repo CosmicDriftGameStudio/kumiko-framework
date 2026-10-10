@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   accessSync,
-  chmodSync,
   constants,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -10,10 +10,10 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { createExecutablePool } from "./executable-pool";
 
 // These tests exercise the checked-in hook file directly (not a copy) — a
 // missing executable bit on it fails here the same way it would as a hook.
@@ -54,9 +54,18 @@ function runGit(args: string[], cwd: string, ceilingDir: string): void {
   }
 }
 
-function initGitRepo(dir: string, ceilingDir: string): void {
-  mkdirSync(dir, { recursive: true });
-  runGit(["init", "-q", "."], dir, ceilingDir);
+let fixtureRoot = "";
+let templateRepoDir = "";
+let writeExecutable: (path: string, content: string) => void = () => {
+  throw new Error("fixtures not initialised");
+};
+
+beforeAll(() => {
+  fixtureRoot = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-pre-push-shim-fixtures-")));
+  writeExecutable = createExecutablePool(join(fixtureRoot, "executables"));
+  templateRepoDir = join(fixtureRoot, "template-repo");
+  mkdirSync(templateRepoDir);
+  runGit(["init", "-q", "."], templateRepoDir, fixtureRoot);
   runGit(
     [
       "-c",
@@ -69,14 +78,18 @@ function initGitRepo(dir: string, ceilingDir: string): void {
       "-m",
       "init",
     ],
-    dir,
-    ceilingDir,
+    templateRepoDir,
+    fixtureRoot,
   );
-}
+});
 
-function writeExecutable(path: string, content: string): void {
-  writeFileSync(path, content);
-  chmodSync(path, 0o755);
+afterAll(() => {
+  rmSync(fixtureRoot, { recursive: true, force: true });
+});
+
+// Copying a committed template avoids two git spawns per test.
+function initGitRepo(dir: string): void {
+  cpSync(templateRepoDir, dir, { recursive: true });
 }
 
 function stubBinScript(): string {
@@ -139,7 +152,7 @@ describe("hooks/pre-push shim", () => {
     }
 
     const repoDir = join(tmp, "repo");
-    initGitRepo(repoDir, tmp);
+    initGitRepo(repoDir);
 
     const { output, exitCode } = runHook(repoDir, tmp);
 
@@ -163,7 +176,7 @@ describe("hooks/pre-push shim", () => {
 
   test("PRE_PUSH_SKIP=1 with no bin anywhere exits 0", () => {
     const repoDir = join(tmp, "repo");
-    initGitRepo(repoDir, tmp);
+    initGitRepo(repoDir);
 
     const { output, exitCode } = runHook(repoDir, tmp, [], "", { PRE_PUSH_SKIP: "1" });
 
@@ -173,7 +186,7 @@ describe("hooks/pre-push shim", () => {
 
   test("repo-local bin is invoked from REPO_ROOT with args and stdin forwarded", () => {
     const repoDir = join(tmp, "repo");
-    initGitRepo(repoDir, tmp);
+    initGitRepo(repoDir);
     writeStubBin(join(repoDir, "node_modules", ".bin"), stubBinScript());
     mkdirSync(join(repoDir, "sub"), { recursive: true });
 
@@ -193,7 +206,7 @@ describe("hooks/pre-push shim", () => {
 
   test("non-zero exit from the bin propagates", () => {
     const repoDir = join(tmp, "repo");
-    initGitRepo(repoDir, tmp);
+    initGitRepo(repoDir);
     writeStubBin(
       join(repoDir, "node_modules", ".bin"),
       ["#!/usr/bin/env sh", "exit 7", ""].join("\n"),
@@ -207,7 +220,7 @@ describe("hooks/pre-push shim", () => {
   test("bin in an ancestor's node_modules is used when the repo has none", () => {
     const parentDir = join(tmp, "parent");
     const repoDir = join(parentDir, "repo");
-    initGitRepo(repoDir, tmp);
+    initGitRepo(repoDir);
     writeStubBin(join(parentDir, "node_modules", ".bin"), stubBinScript());
 
     const { output, exitCode } = runHook(repoDir, tmp);
@@ -220,7 +233,7 @@ describe("hooks/pre-push shim", () => {
   test("a broken repo-local symlink is skipped in favor of an ancestor's bin", () => {
     const parentDir = join(tmp, "parent");
     const repoDir = join(parentDir, "repo");
-    initGitRepo(repoDir, tmp);
+    initGitRepo(repoDir);
     writeStubBin(join(parentDir, "node_modules", ".bin"), stubBinScript());
 
     const repoLocalBinDir = join(repoDir, "node_modules", ".bin");
@@ -255,7 +268,7 @@ describe("repo .husky/pre-push", () => {
 
   test("prefers the checked-out in-repo hook over a node_modules bin", () => {
     const repoDir = join(tmp, "repo");
-    initGitRepo(repoDir, tmp);
+    initGitRepo(repoDir);
     writeStubBin(
       join(repoDir, "node_modules", ".bin"),
       ["#!/usr/bin/env sh", "echo NM_BIN", ""].join("\n"),
@@ -275,7 +288,7 @@ describe("repo .husky/pre-push", () => {
 
   test("falls back to the node_modules bin when the repo has no in-repo hook", () => {
     const repoDir = join(tmp, "repo");
-    initGitRepo(repoDir, tmp);
+    initGitRepo(repoDir);
     writeStubBin(join(repoDir, "node_modules", ".bin"), stubBinScript());
 
     const { output, exitCode } = runHook(repoDir, tmp, [], "", {}, REPO_HUSKY_HOOK_PATH);
