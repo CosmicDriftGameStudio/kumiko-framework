@@ -12,6 +12,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
 import {
   type ButtonProps,
+  type CardProps,
   type CorePrimitives,
   type FormProps,
   PrimitivesProvider,
@@ -25,6 +26,13 @@ import { NavProvider } from "../nav.js";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
+
+const TestCard: ComponentType<CardProps> = ({ children, slots }) => (
+  <div>
+    {children}
+    {slots?.footer !== undefined && <div>{slots.footer}</div>}
+  </div>
+);
 
 const TestForm: ComponentType<FormProps> = ({ children }) => (
   <div data-testid="form-body">{children}</div>
@@ -65,7 +73,7 @@ const testPrimitives = {
   DataTable: noop,
   Form: TestForm,
   Section: TestSection,
-  Card: passChildren,
+  Card: TestCard,
   Grid: passChildren,
   GridCell: passChildren,
   Text: passChildren,
