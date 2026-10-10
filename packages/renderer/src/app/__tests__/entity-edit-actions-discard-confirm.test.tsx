@@ -31,6 +31,7 @@ import { NavProvider } from "../nav.js";
 
 afterEach(cleanup);
 
+const DISCARD_LABEL = "Discard changes and continue";
 const DISCARD_TEXT = "You have unsaved changes in this form. They will be lost if you continue.";
 
 const noop = (): ReactNode => null;
@@ -201,6 +202,8 @@ describe("entityEdit header actions with unsaved input", () => {
     });
     await waitFor(() => expect(dialogSpy.current?.open).toBe(true));
     expect(dialogSpy.current?.description).toBe(DISCARD_TEXT);
+    expect(dialogSpy.current?.title).toBe("actions.archive");
+    expect(dialogSpy.current?.confirmLabel).toBe(DISCARD_LABEL);
     await act(async () => {
       dialogSpy.current?.onOpenChange(false);
     });
@@ -238,5 +241,6 @@ describe("entityEdit header actions with unsaved input", () => {
     });
     await waitFor(() => expect(dialogSpy.current?.open).toBe(true));
     expect(dialogSpy.current?.description).toBe(DISCARD_TEXT);
+    expect(dialogSpy.current?.confirmLabel).toBe(DISCARD_LABEL);
   });
 });

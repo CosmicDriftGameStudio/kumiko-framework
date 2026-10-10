@@ -758,6 +758,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.form.unsaved.other": "{count} cambios sin guardar",
   "kumiko.form.unsavedChangesActionConfirm":
     "Los cambios sin guardar de este formulario se perderán si continúas.",
+  "kumiko.form.unsavedChangesActionConfirmLabel": "Descartar cambios y continuar",
   "kumiko.lightbox.next": "Imagen siguiente",
   "kumiko.lightbox.position": "{current} / {total}",
   "kumiko.lightbox.previous": "Imagen anterior",

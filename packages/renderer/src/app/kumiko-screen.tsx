@@ -1601,7 +1601,10 @@ function EntityEditUpdateForm({
         sameEntityScreenId,
         defaultWritePayloadId: entityId,
         ...(formDirty && {
-          discardChangesConfirm: effectiveTranslate("kumiko.form.unsavedChangesActionConfirm"),
+          discardChanges: {
+            confirm: effectiveTranslate("kumiko.form.unsavedChangesActionConfirm"),
+            confirmLabel: effectiveTranslate("kumiko.form.unsavedChangesActionConfirmLabel"),
+          },
         }),
       }),
     [
