@@ -27,7 +27,7 @@ const OPEN_FILL_COLUMNS = [
   "einheit",
   "liegenschaft",
   "beginn",
-  "ende",
+  { field: "ende", hideOnNarrow: true },
   "status",
 ] as const;
 
@@ -145,7 +145,11 @@ const POSITION_COLUMNS = [
     label: "rental:entity:leasePosition:field:gueltigVon",
     sortable: true,
   },
-  { field: "gueltigBis", label: "rental:entity:leasePosition:field:gueltigBis" },
+  {
+    field: "gueltigBis",
+    label: "rental:entity:leasePosition:field:gueltigBis",
+    hideOnNarrow: true,
+  },
 ] as const;
 
 export const leaseDetailScreen: ProjectionDetailScreenDefinition = {

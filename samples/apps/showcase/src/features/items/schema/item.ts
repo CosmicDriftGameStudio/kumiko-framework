@@ -102,7 +102,7 @@ export const itemListScreen: EntityListScreenDefinition = {
     "dueDate",
     // Tier 2.7e-4 Demo — Reference-Spalte. Renderer macht Bulk-Lookup
     // auf item:list (limit:200), zeigt parentId als parent.title.
-    "parentId",
+    { field: "parentId", hideOnNarrow: true },
   ],
   // Server-side Pagination Demo — Showcase seedet ~200 items, der
   // Pager hat 4 Seiten zum Durchklicken bei pageSize: 50.

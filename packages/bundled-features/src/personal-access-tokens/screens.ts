@@ -60,11 +60,13 @@ export const patListScreen: ProjectionListScreenDefinition = {
     {
       field: "createdAt",
       label: i18nKey("pat.list.col.created"),
+      hideOnNarrow: true,
       renderer: { format: "timestamp" },
     },
     {
       field: "expiresAt",
       label: i18nKey("pat.list.col.expires"),
+      hideOnNarrow: true,
       renderer: { format: "timestamp" },
     },
   ],

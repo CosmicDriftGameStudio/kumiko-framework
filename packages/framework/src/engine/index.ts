@@ -18,6 +18,8 @@ export {
 } from "./boot-validator/entity-handler.js";
 export { entityHasAnonymizableSubjectField } from "./boot-validator/pii-retention.js";
 export {
+  type CardMetaOverflow,
+  collectCardMetaOverflow,
   collectWriteHandlerQns,
   MAX_TRANSFER_DEPTH,
   SECURITY_BASELINE_FEATURE_NAMES,

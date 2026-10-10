@@ -107,6 +107,7 @@ export function createMembersScreen(options?: {
         field: "lastSeenAt",
         label: i18nKey("tenant.members.col.lastActivity"),
         renderer: { format: "timestamp" },
+        hideOnNarrow: true,
       },
     ],
     defaultSort: { field: "createdAt", dir: "desc" },

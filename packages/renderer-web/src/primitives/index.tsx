@@ -14,6 +14,7 @@ import type {
   RowActionDisplay,
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import { applyFormatSpec, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import type {
@@ -108,6 +109,7 @@ import {
   isValidElement,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent,
   type ReactNode,
   type TableHTMLAttributes,
   useContext,
@@ -1556,7 +1558,11 @@ function DataTableFooter({
   );
 }
 
-const CARD_META_MAX = 3;
+// Cell content is a ReactNode, so the tooltip text is read from the rendered DOM.
+function showFullTextOnHover(event: PointerEvent<HTMLElement>): void {
+  const element = event.currentTarget;
+  if (element.title === "") element.title = element.textContent ?? "";
+}
 
 function DefaultDataTable({
   columns,
@@ -1917,13 +1923,11 @@ function DefaultDataTable({
     { value: `${col.field}:desc`, field: col.field, dir: "desc", label: `${col.label} ↓` },
   ]);
 
-  const cardTitleColumn = columns.find((col) => col.highlighted === true) ?? columns[0];
-  const cardStatusColumn = columns.find(
-    (col) => col !== cardTitleColumn && col.type === "select" && col.renderer === undefined,
-  );
-  const cardMetaColumns = columns.filter(
-    (col) => col !== cardTitleColumn && col !== cardStatusColumn && col.hideOnNarrow !== true,
-  );
+  const {
+    title: cardTitleColumn,
+    status: cardStatusColumn,
+    meta: cardMetaColumns,
+  } = cardColumnRoles(columns);
 
   function cardCell(row: ListRowViewModel, col: (typeof columns)[number]): ReactNode {
     // A bare check mark in the subtitle line says nothing without its column.
@@ -1948,13 +1952,11 @@ function DefaultDataTable({
   }
 
   function renderCard(row: ListRowViewModel): ReactNode {
-    const metaColumns = cardMetaColumns
-      .filter(
-        (col) =>
-          !isEmptyCellValue(row.values[col.field]) &&
-          !isUnlabeledFalse(col.type, row.values[col.field], col.renderer),
-      )
-      .slice(0, CARD_META_MAX);
+    const metaColumns = cardMetaColumns.filter(
+      (col) =>
+        !isEmptyCellValue(row.values[col.field]) &&
+        !isUnlabeledFalse(col.type, row.values[col.field], col.renderer),
+    );
     const showStatus =
       cardStatusColumn !== undefined && !isEmptyCellValue(row.values[cardStatusColumn.field]);
     const hasMenu = menuActions !== undefined && menuActions.length > 0;
@@ -1986,34 +1988,24 @@ function DefaultDataTable({
             )}
           </div>
           {metaColumns.length > 0 && (
-            // The "·" is a real element, not ::before content: consumers Tailwind-scan the published
-            // dist, where the arbitrary content class is never generated. The row is shifted 12px
-            // left (inline-start) inside an overflow-hidden box, so the separator of whichever item starts a line
-            // (first item or a wrapped one) is clipped. Items are pinned to h-5 so every wrapped line is
-            // exactly one leading-5 tall and max-h-10 clamps at a line boundary, never mid-glyph.
-            <div className="min-w-0 max-h-10 overflow-hidden text-[13px] leading-5 tabular-nums text-foreground-secondary">
-              <div
-                data-testid={`card-meta-${row.id}`}
-                className="-ms-3 flex flex-wrap items-center"
-              >
-                {metaColumns.map((col) => (
-                  <span key={col.field} className="flex h-5 min-w-0 max-w-full items-center">
-                    <span aria-hidden="true" className="w-3 shrink-0 text-center">
-                      ·
-                    </span>
-                    <span
-                      data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
-                      className="min-w-0 truncate"
-                    >
-                      {isBadgeColumn(col) ? (
-                        <span className="inline-flex align-middle">{cardCell(row, col)}</span>
-                      ) : (
-                        cardCell(row, col)
-                      )}
-                    </span>
-                  </span>
-                ))}
-              </div>
+            <div
+              data-testid={`card-meta-${row.id}`}
+              className="flex min-w-0 flex-col text-[13px] leading-5 tabular-nums text-foreground-secondary"
+            >
+              {metaColumns.map((col) => (
+                <div
+                  key={col.field}
+                  data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
+                  className="min-w-0 truncate"
+                  onPointerEnter={showFullTextOnHover}
+                >
+                  {isBadgeColumn(col) ? (
+                    <span className="inline-flex align-middle">{cardCell(row, col)}</span>
+                  ) : (
+                    cardCell(row, col)
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

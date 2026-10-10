@@ -133,7 +133,7 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
-  test("a select column renders as badge next to the title, at most three values in the meta line", () => {
+  test("a select column renders as badge next to the title, the meta values stay out of the title row", () => {
     withViewportWidth(500, () => {
       const columns = [
         { field: "name", label: "Name", type: "string", sortable: false },
@@ -141,7 +141,7 @@ describe("DataTable — cards below 768px", () => {
         { field: "a", label: "A", type: "string", sortable: false },
         { field: "b", label: "B", type: "string", sortable: false },
         { field: "c", label: "C", type: "string", sortable: false },
-        { field: "d", label: "D", type: "string", sortable: false },
+        { field: "d", label: "D", type: "string", hideOnNarrow: true, sortable: false },
       ] as const;
       const rows = [
         { id: "u1", values: { name: "Anna", status: "active", a: "1", b: "2", c: "3", d: "4" } },
@@ -159,34 +159,60 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
-  test("the meta line wraps between values (two lines at most) and clips the separator at a line start", () => {
+  test("every meta value gets its own row, all values stay in the DOM", () => {
     withViewportWidth(500, () => {
       const columns = [
         { field: "name", label: "Name", type: "string", sortable: false },
         { field: "from", label: "From", type: "string", sortable: false },
         { field: "to", label: "To", type: "string", sortable: false },
+        { field: "city", label: "City", type: "string", sortable: false },
       ] as const;
-      const rows = [{ id: "u1", values: { name: "Anna", from: "4. Okt. 2026", to: "5. Okt." } }];
-      render(<DataTable columns={columns} rows={rows} testId="t" />);
-      const to = screen.getByTestId("cell-u1-to");
+      const rows = [
+        { id: "u1", values: { name: "Anna", from: "4. Okt. 2026", to: "5. Okt.", city: "Köln" } },
+      ];
+      const { container } = render(<DataTable columns={columns} rows={rows} testId="t" />);
       const metaRow = screen.getByTestId("card-meta-u1");
-      const clipBox = metaRow.parentElement;
-      // happy-dom has no layout; the clipping contract is the class set: the row is
-      // shifted left by exactly the separator width inside an overflow-hidden box.
-      expect(metaRow.className).toContain("flex-wrap");
-      expect(metaRow.className).toContain("-ms-3");
-      expect(clipBox?.className).toContain("overflow-hidden");
-      expect(clipBox?.className).toContain("max-h-10");
-      const wrapper = to.parentElement;
-      expect(wrapper?.parentElement).toBe(metaRow);
-      expect(to.className).toContain("truncate");
-      expect(to.textContent).toBe("5. Okt.");
-      for (const value of ["cell-u1-from", "cell-u1-to"]) {
-        const separator = screen.getByTestId(value).previousElementSibling;
-        expect(separator?.getAttribute("aria-hidden")).toBe("true");
-        expect(separator?.textContent).toBe("·");
-      }
-      expect(metaRow.className).not.toContain("before:");
+      const lines = ["cell-u1-from", "cell-u1-to", "cell-u1-city"].map((id) =>
+        screen.getByTestId(id),
+      );
+      expect(Array.from(metaRow.children)).toEqual(lines);
+      expect(lines.map((line) => line.textContent)).toEqual(["4. Okt. 2026", "5. Okt.", "Köln"]);
+      expect(metaRow.textContent).not.toContain("·");
+      expect(container.querySelector(".max-h-10")).toBeNull();
+    });
+  });
+
+  test("a long value truncates only its own row", () => {
+    withViewportWidth(500, () => {
+      const longValue = "A very long description ".repeat(10).trim();
+      const columns = [
+        { field: "name", label: "Name", type: "string", sortable: false },
+        { field: "note", label: "Note", type: "string", sortable: false },
+        { field: "city", label: "City", type: "string", sortable: false },
+      ] as const;
+      const rows = [{ id: "u1", values: { name: "Anna", note: longValue, city: "Köln" } }];
+      render(<DataTable columns={columns} rows={rows} testId="t" />);
+      const note = screen.getByTestId("cell-u1-note");
+      const city = screen.getByTestId("cell-u1-city");
+      expect(note.className).toContain("truncate");
+      expect(note.textContent).toBe(longValue);
+      expect(city.textContent).toBe("Köln");
+      expect(screen.getByTestId("card-meta-u1").className).not.toContain("truncate");
+    });
+  });
+
+  test("hovering a meta row exposes its full text as tooltip", () => {
+    withViewportWidth(500, () => {
+      const columns = [
+        { field: "name", label: "Name", type: "string", sortable: false },
+        { field: "note", label: "Note", type: "string", sortable: false },
+      ] as const;
+      const rows = [{ id: "u1", values: { name: "Anna", note: "Full note text" } }];
+      render(<DataTable columns={columns} rows={rows} testId="t" />);
+      const note = screen.getByTestId("cell-u1-note");
+      expect(note.getAttribute("title")).toBeNull();
+      fireEvent.pointerEnter(note);
+      expect(note.getAttribute("title")).toBe("Full note text");
     });
   });
 

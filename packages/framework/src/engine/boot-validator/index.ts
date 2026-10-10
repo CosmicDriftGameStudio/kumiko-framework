@@ -9,6 +9,7 @@ import { warnOnUniqueAccessRoles } from "./access-roles.js";
 import { validateActionWiring, validateFieldWiring } from "./action-wiring.js";
 import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext.js";
 import { validateFeatureBootChecks } from "./boot-check.js";
+import { validateCardMetaOverflow } from "./card-meta-overflow.js";
 import {
   validateCircularDeps,
   validateConfigKeyAllowPerRequest,
@@ -84,10 +85,11 @@ import {
   validateWorkspaces,
 } from "./workspaces.js";
 
-export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns.js";
 // Re-export: wird von run-dev-app.ts benötigt um Write-Handler-QNs
 // an den Codegen zu übergeben. Nicht Teil von validateBoot, aber
 // dieselbe Extraktionslogik.
+export { type CardMetaOverflow, collectCardMetaOverflow } from "./card-meta-overflow.js";
+export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns.js";
 export { collectWriteHandlerQns } from "./nav.js";
 export { SECURITY_BASELINE_FEATURE_NAMES } from "./security-baseline.js";
 export { MAX_TRANSFER_DEPTH } from "./transfer-graph.js";
@@ -338,6 +340,7 @@ export function validateBoot(
   validateI18nSurfaceKeys(features);
   validateEntityListScreens(features);
   validateSubmitPrefilledHiddenFields(features);
+  validateCardMetaOverflow(features);
   // Must run before validateProjectionListScreens: an unresolvable query
   // there is silently treated as "capability absent" and surfaces as a
   // misleading "no search parameter in its Zod schema" error instead of
