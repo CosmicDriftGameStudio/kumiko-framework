@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 // publish-with-oidc.sh's publish_and_tag() must treat npm's E409 "Cannot
 // publish over previously staged version" as success: an interrupted earlier
@@ -64,15 +64,6 @@ function extractEmitTagFn(): string {
 
 const EMIT_TAG_FN = extractEmitTagFn();
 
-// `ls-remote` answers with a ref line only when the tag is already on origin.
-const GIT_STUB = [
-  "#!/usr/bin/env bash",
-  'if [ "$1" = "ls-remote" ] && [ "${STUB_REMOTE_HAS_TAG:-0}" = "1" ]; then',
-  '  echo "abc123\trefs/tags/$4"',
-  "fi",
-  "exit 0",
-].join("\n") + "\n";
-
 function extractPublishOutcomeBranch(): string {
   const script = readFileSync(SCRIPT_PATH, "utf-8");
   const match = script.match(
@@ -88,12 +79,66 @@ function extractPublishOutcomeBranch(): string {
 
 const PUBLISH_OUTCOME_BRANCH = extractPublishOutcomeBranch();
 
-const tempDirs: string[] = [];
+// macOS scans every freshly written executable on its first exec (~300 ms, far
+// more under load). Writing new stubs per test blew the 5 s unit budget, so the
+// stubs are written once and steered per test through env vars.
+const NPM_STUB = [
+  "#!/usr/bin/env bash",
+  '[ -n "${STUB_CALL_LOG:-}" ] && echo "$*" >> "$STUB_CALL_LOG"',
+  'case "$1 $2" in',
+  '  "dist-tag ls") printf \'%b\' "${STUB_DIST_TAG_LS:-}"; exit 0 ;;',
+  "esac",
+  'case "$1" in',
+  "  publish)",
+  "    printf '%b\\n' \"${STUB_PUBLISH_OUTPUT:-}\" >&2",
+  '    exit "${STUB_PUBLISH_EXIT:-0}"',
+  "    ;;",
+  "  dist-tag)",
+  "    printf '%b\\n' \"${STUB_DIST_TAG_OUTPUT:-}\" >&2",
+  '    exit "${STUB_DIST_TAG_EXIT:-0}"',
+  "    ;;",
+  "  *)",
+  '    echo "unexpected npm subcommand: $1" >&2',
+  "    exit 1",
+  "    ;;",
+  "esac",
+].join("\n") + "\n";
 
-function makeTempDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), "publish-e409-"));
-  tempDirs.push(dir);
-  return dir;
+// `ls-remote` answers with a ref line only when the tag is already on origin.
+const GIT_STUB = [
+  "#!/usr/bin/env bash",
+  'if [ "$1" = "ls-remote" ] && [ "${STUB_REMOTE_HAS_TAG:-0}" = "1" ]; then',
+  '  echo "abc123\trefs/tags/$4"',
+  "fi",
+  "exit 0",
+].join("\n") + "\n";
+
+let stubDir = "";
+
+beforeAll(() => {
+  stubDir = mkdtempSync(join(tmpdir(), "publish-e409-"));
+  writeFileSync(join(stubDir, "npm"), NPM_STUB, { mode: 0o755 });
+  writeFileSync(join(stubDir, "git"), GIT_STUB, { mode: 0o755 });
+});
+
+afterAll(() => {
+  rmSync(stubDir, { recursive: true, force: true });
+});
+
+function runBash(
+  script: string,
+  stubEnv: Record<string, string>,
+): { exitCode: number; stdout: string; stderr: string } {
+  // Passed via env, not interpolated into the stub: npm output containing `$`
+  // or backticks must reach the script verbatim.
+  const result = Bun.spawnSync(["bash", "-c", script], {
+    env: { ...process.env, PATH: `${stubDir}:${process.env.PATH ?? ""}`, ...stubEnv },
+  });
+  return {
+    exitCode: result.exitCode ?? -1,
+    stdout: result.stdout.toString("utf-8"),
+    stderr: result.stderr.toString("utf-8"),
+  };
 }
 
 interface NpmStubSpec {
@@ -104,65 +149,20 @@ interface NpmStubSpec {
 }
 
 function runWithNpmStub(spec: NpmStubSpec): { exitCode: number; stdout: string; stderr: string } {
-  const dir = makeTempDir();
-  const npmStub = join(dir, "npm");
-  writeFileSync(
-    npmStub,
-    [
-      "#!/usr/bin/env bash",
-      "case \"$1\" in",
-      "  publish)",
-      "    printf '%b\\n' \"$STUB_PUBLISH_OUTPUT\" >&2",
-      `    exit ${spec.publishExitCode}`,
-      "    ;;",
-      "  dist-tag)",
-      "    printf '%b\\n' \"$STUB_DIST_TAG_OUTPUT\" >&2",
-      `    exit ${spec.distTagExitCode}`,
-      "    ;;",
-      "  *)",
-      "    echo \"unexpected npm subcommand: $1\" >&2",
-      "    exit 1",
-      "    ;;",
-      "esac",
-    ].join("\n") + "\n",
-    { mode: 0o755 },
-  );
-
-  const runner = join(dir, "runner.sh");
-  writeFileSync(
-    runner,
-    `#!/usr/bin/env bash\nset -euo pipefail\n\n${PUBLISH_AND_TAG_FN}\n\n` +
-      `publish_and_tag /tmp/fake.tgz @cosmicdrift/kumiko-types 0.233.0\n` +
-      `echo "already_published_via_e403=$already_published_via_e403"\n` +
-      `echo "staged_unconfirmed=$staged_unconfirmed"\n`,
-    { mode: 0o755 },
-  );
-
-  // Passed via env, not interpolated into the stub: npm output containing `$`
-  // or backticks must reach the script verbatim.
-  const result = Bun.spawnSync(["bash", runner], {
-    env: {
-      ...process.env,
-      PATH: `${dir}:${process.env.PATH ?? ""}`,
-      STUB_PUBLISH_OUTPUT: spec.publishOutput,
-      STUB_DIST_TAG_OUTPUT: spec.distTagOutput,
-      STAGED_POLL_ATTEMPTS: "2",
-      STAGED_POLL_INTERVAL_SECONDS: "0",
-    },
+  const script =
+    `set -euo pipefail\n\n${PUBLISH_AND_TAG_FN}\n\n` +
+    `publish_and_tag /tmp/fake.tgz @cosmicdrift/kumiko-types 0.233.0\n` +
+    `echo "already_published_via_e403=$already_published_via_e403"\n` +
+    `echo "staged_unconfirmed=$staged_unconfirmed"\n`;
+  return runBash(script, {
+    STUB_PUBLISH_OUTPUT: spec.publishOutput,
+    STUB_PUBLISH_EXIT: String(spec.publishExitCode),
+    STUB_DIST_TAG_OUTPUT: spec.distTagOutput,
+    STUB_DIST_TAG_EXIT: String(spec.distTagExitCode),
+    STAGED_POLL_ATTEMPTS: "2",
+    STAGED_POLL_INTERVAL_SECONDS: "0",
   });
-
-  return {
-    exitCode: result.exitCode ?? -1,
-    stdout: result.stdout.toString("utf-8"),
-    stderr: result.stderr.toString("utf-8"),
-  };
 }
-
-afterEach(() => {
-  for (const dir of tempDirs.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
 
 describe("publish-with-oidc.sh publish_and_tag()", () => {
   test("succeeds when npm publish and the latest dist-tag move both succeed", () => {
@@ -296,19 +296,8 @@ function runPublishOutcomeBranch(
   exitCode: number;
   stdout: string;
 } {
-  const dir = makeTempDir();
-  for (const [bin, body] of [
-    ["npm", "#!/usr/bin/env bash\nexit 0\n"],
-    ["git", GIT_STUB],
-  ] as const) {
-    writeFileSync(join(dir, bin), body, { mode: 0o755 });
-  }
-
-  const runner = join(dir, "runner.sh");
-  writeFileSync(
-    runner,
+  const script =
     [
-      "#!/usr/bin/env bash",
       "set -euo pipefail",
       EMIT_TAG_FN,
       'name="@cosmicdrift/kumiko-types"',
@@ -326,22 +315,9 @@ function runPublishOutcomeBranch(
       "fi",
       'echo "published=$published"',
       'echo "skipped=$skipped"',
-    ].join("\n") + "\n",
-    { mode: 0o755 },
-  );
-
-  const result = Bun.spawnSync(["bash", runner], {
-    env: {
-      ...process.env,
-      PATH: `${dir}:${process.env.PATH ?? ""}`,
-      STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0",
-    },
-  });
-
-  return {
-    exitCode: result.exitCode ?? -1,
-    stdout: result.stdout.toString("utf-8"),
-  };
+    ].join("\n") + "\n";
+  const { exitCode, stdout } = runBash(script, { STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0" });
+  return { exitCode, stdout };
 }
 
 function extractAlreadyOnRegistryBranch(): string {
@@ -363,24 +339,10 @@ function runSkipBranch(
   distTagLs: string,
   remoteHasTag = true,
 ): { exitCode: number; stdout: string; npmCalls: string[] } {
-  const dir = makeTempDir();
-  writeFileSync(join(dir, "git"), GIT_STUB, { mode: 0o755 });
-  const callLog = join(dir, "npm-calls.log");
-  writeFileSync(
-    join(dir, "npm"),
+  const callLog = join(stubDir, "npm-calls.log");
+  rmSync(callLog, { force: true });
+  const script =
     [
-      "#!/usr/bin/env bash",
-      'echo "$*" >> "$STUB_CALL_LOG"',
-      'if [ "$1 $2" = "dist-tag ls" ]; then printf \'%b\' "$STUB_DIST_TAG_LS"; fi',
-      "exit 0",
-    ].join("\n") + "\n",
-    { mode: 0o755 },
-  );
-  const runner = join(dir, "runner.sh");
-  writeFileSync(
-    runner,
-    [
-      "#!/usr/bin/env bash",
       "set -euo pipefail",
       EMIT_TAG_FN,
       'name="@cosmicdrift/kumiko-types"',
@@ -393,25 +355,15 @@ function runSkipBranch(
       ALREADY_ON_REGISTRY_BRANCH,
       "fi",
       "done",
-    ].join("\n") + "\n",
-    { mode: 0o755 },
-  );
+    ].join("\n") + "\n";
   // The extracted branch ends at `continue`; the closing `fi` is re-added above.
-  const result = Bun.spawnSync(["bash", runner], {
-    env: {
-      ...process.env,
-      PATH: `${dir}:${process.env.PATH ?? ""}`,
-      STUB_CALL_LOG: callLog,
-      STUB_DIST_TAG_LS: distTagLs,
-      STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0",
-    },
+  const { exitCode, stdout } = runBash(script, {
+    STUB_CALL_LOG: callLog,
+    STUB_DIST_TAG_LS: distTagLs,
+    STUB_REMOTE_HAS_TAG: remoteHasTag ? "1" : "0",
   });
   const calls = existsSync(callLog) ? readFileSync(callLog, "utf-8").trim().split("\n") : [];
-  return {
-    exitCode: result.exitCode ?? -1,
-    stdout: result.stdout.toString("utf-8"),
-    npmCalls: calls,
-  };
+  return { exitCode, stdout, npmCalls: calls };
 }
 
 describe("publish-with-oidc.sh already-on-registry skip branch", () => {

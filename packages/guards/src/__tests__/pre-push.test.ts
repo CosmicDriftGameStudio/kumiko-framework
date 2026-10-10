@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
-  chmodSync,
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createExecutablePool } from "./executable-pool";
 
 // #3152: pre-push.sh is the POSIX-sh port of the former .husky/pre-push hook,
 // shipped as a bin (kumiko-pre-push) so every repo can wire it via a thin
@@ -65,9 +66,18 @@ function runGit(args: string[], cwd: string, ceilingDir: string): void {
   }
 }
 
-function initGitRepo(dir: string, ceilingDir: string): void {
-  mkdirSync(dir, { recursive: true });
-  runGit(["init", "-q", "."], dir, ceilingDir);
+let fixtureRoot = "";
+let templateRepoDir = "";
+let writeExecutable: (path: string, content: string) => void = () => {
+  throw new Error("fixtures not initialised");
+};
+
+beforeAll(() => {
+  fixtureRoot = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-pre-push-fixtures-")));
+  writeExecutable = createExecutablePool(join(fixtureRoot, "executables"));
+  templateRepoDir = join(fixtureRoot, "template-repo");
+  mkdirSync(templateRepoDir);
+  runGit(["init", "-q", "."], templateRepoDir, fixtureRoot);
   runGit(
     [
       "-c",
@@ -80,14 +90,18 @@ function initGitRepo(dir: string, ceilingDir: string): void {
       "-m",
       "init",
     ],
-    dir,
-    ceilingDir,
+    templateRepoDir,
+    fixtureRoot,
   );
-}
+});
 
-function writeExecutable(path: string, content: string): void {
-  writeFileSync(path, content);
-  chmodSync(path, 0o755);
+afterAll(() => {
+  rmSync(fixtureRoot, { recursive: true, force: true });
+});
+
+// Copying a committed template avoids two git spawns per test.
+function initGitRepo(dir: string): void {
+  cpSync(templateRepoDir, dir, { recursive: true });
 }
 
 // Tracked means "in the index" — no commit needed for `git ls-files --error-unmatch` to see it.
@@ -129,10 +143,14 @@ const KUMIKO_STUB = [
   "",
 ].join("\n");
 
-function extraScript(logFile: string): string {
+// Hooks run with the repo root as cwd; logging there keeps the script content
+// identical across tests so the executable can be shared.
+const HOOK_LOG_NAME = "hook-order.log";
+
+function extraScript(): string {
   return [
     "#!/usr/bin/env sh",
-    `echo "EXTRA_RAN" >> "${logFile}"`,
+    `echo "EXTRA_RAN" >> "$PWD/${HOOK_LOG_NAME}"`,
     'echo "EXTRA_ARGS=$*"',
     // biome-ignore lint/suspicious/noTemplateCurlyInString: POSIX sh var expansion, not a JS template literal
     'echo "EXTRA_KUMIKO_PUSH_REPO_ROOT=${KUMIKO_PUSH_REPO_ROOT-<unset>}"',
@@ -148,8 +166,10 @@ function extraFailingScript(): string {
   return ["#!/usr/bin/env sh", 'echo "EXTRA_FAIL_RAN"', "exit 1", ""].join("\n");
 }
 
-function checkWtScript(logFile: string): string {
-  return ["#!/usr/bin/env sh", `echo "CHECKWT_RAN" >> "${logFile}"`, "exit 0", ""].join("\n");
+function checkWtScript(): string {
+  return ["#!/usr/bin/env sh", `echo "CHECKWT_RAN" >> "$PWD/${HOOK_LOG_NAME}"`, "exit 0", ""].join(
+    "\n",
+  );
 }
 
 function fixtureTestScript(): string {
@@ -166,8 +186,8 @@ function fixtureTestScript(): string {
   ].join("\n");
 }
 
-function writeStandaloneRepo(dir: string, ceilingDir: string): void {
-  initGitRepo(dir, ceilingDir);
+function writeStandaloneRepo(dir: string): void {
+  initGitRepo(dir);
   writeFileSync(
     join(dir, "package.json"),
     JSON.stringify({ name: "standalone", scripts: { test: "sh fixture-test.sh" } }),
@@ -223,7 +243,7 @@ describe("kumiko-pre-push", () => {
   describe("parent-workspace detection", () => {
     test("worktree under .wt/<name> without check-wt.sh runs its own package.json scripts, not the parent branch", () => {
       const { parentDir, repoDir } = writeParentWorkspace(tmp);
-      initGitRepo(repoDir, tmp);
+      initGitRepo(repoDir);
 
       const worktreeDir = join(parentDir, ".wt", "fw-3152");
       runGit(["worktree", "add", "-q", "-b", "test-branch", worktreeDir], repoDir, tmp);
@@ -258,7 +278,7 @@ describe("kumiko-pre-push", () => {
 
     test("regular checkout one level under the parent still takes the parent branch", () => {
       const { repoDir } = writeParentWorkspace(tmp);
-      initGitRepo(repoDir, tmp);
+      initGitRepo(repoDir);
 
       const { output, exitCode } = runHook(repoDir, tmp);
 
@@ -269,7 +289,7 @@ describe("kumiko-pre-push", () => {
 
     test("PRE_PUSH_SKIP=1 skips the hook before any check runs and exits 0", () => {
       const { repoDir } = writeParentWorkspace(tmp);
-      initGitRepo(repoDir, tmp);
+      initGitRepo(repoDir);
 
       const { output, exitCode } = runHook(repoDir, tmp, { PRE_PUSH_SKIP: "1" });
 
@@ -280,7 +300,7 @@ describe("kumiko-pre-push", () => {
 
     test("standalone clone with no cosmicdriftgamestudio ancestor falls back to the package.json test script", () => {
       const standaloneDir = join(tmp, "standalone-clone");
-      writeStandaloneRepo(standaloneDir, tmp);
+      writeStandaloneRepo(standaloneDir);
 
       const { output, exitCode } = runHook(standaloneDir, tmp);
 
@@ -293,7 +313,7 @@ describe("kumiko-pre-push", () => {
   describe("standalone runs the package.json test script, not a bare bun test", () => {
     test("marker A from the script is written, marker B from a stray *.test.ts is not", async () => {
       const standaloneDir = join(tmp, "standalone-script");
-      writeStandaloneRepo(standaloneDir, tmp);
+      writeStandaloneRepo(standaloneDir);
 
       const { exitCode } = runHook(standaloneDir, tmp);
 
@@ -306,7 +326,7 @@ describe("kumiko-pre-push", () => {
   describe("standalone clone without a usable test script refuses the push", () => {
     test("package.json without scripts.test", () => {
       const standaloneDir = join(tmp, "standalone-no-test-script");
-      initGitRepo(standaloneDir, tmp);
+      initGitRepo(standaloneDir);
       writeFileSync(
         join(standaloneDir, "package.json"),
         JSON.stringify({ name: "x", scripts: { lint: "true" } }),
@@ -322,7 +342,7 @@ describe("kumiko-pre-push", () => {
 
     test("no package.json at all", () => {
       const standaloneDir = join(tmp, "standalone-no-package-json");
-      initGitRepo(standaloneDir, tmp);
+      initGitRepo(standaloneDir);
 
       const { output, exitCode } = runHook(standaloneDir, tmp);
 
@@ -334,7 +354,7 @@ describe("kumiko-pre-push", () => {
 
     test("a throwing top-level bunfig preload does not fake a missing test script", () => {
       const standaloneDir = join(tmp, "standalone-throwing-preload");
-      writeStandaloneRepo(standaloneDir, tmp);
+      writeStandaloneRepo(standaloneDir);
       writeFileSync(join(standaloneDir, "bunfig.toml"), 'preload = ["./boom.ts"]\n');
       writeFileSync(join(standaloneDir, "boom.ts"), 'throw new Error("boom");\n');
 
@@ -348,7 +368,7 @@ describe("kumiko-pre-push", () => {
   describe("scripts/check-wt.sh", () => {
     test("untracked but executable check-wt.sh is not run", () => {
       const { parentDir, repoDir } = writeParentWorkspace(tmp);
-      initGitRepo(repoDir, tmp);
+      initGitRepo(repoDir);
       const worktreeDir = join(parentDir, ".wt", "fw-3152");
       runGit(["worktree", "add", "-q", "-b", "test-branch", worktreeDir], repoDir, tmp);
 
@@ -370,7 +390,7 @@ describe("kumiko-pre-push", () => {
   describe("worktree without scripts/check-wt.sh runs package.json scripts", () => {
     function setupWorktree(scripts: Record<string, string>): string {
       const { parentDir, repoDir } = writeParentWorkspace(tmp);
-      initGitRepo(repoDir, tmp);
+      initGitRepo(repoDir);
       const worktreeDir = join(parentDir, ".wt", "fw-3152");
       runGit(["worktree", "add", "-q", "-b", "test-branch", worktreeDir], repoDir, tmp);
       writeWorktreePackageJson(worktreeDir, scripts);
@@ -413,13 +433,13 @@ describe("kumiko-pre-push", () => {
     });
 
     function writeFakeGuardBin(worktreeDir: string, name: string, exitCode: number): string {
-      const logFile = join(worktreeDir, `${name}.log`);
+      const logName = `${name}.log`;
       writeUntrackedExecutable(
         worktreeDir,
         `node_modules/.bin/${name}`,
-        ["#!/usr/bin/env sh", `echo "$*" >> "${logFile}"`, `exit ${exitCode}`, ""].join("\n"),
+        ["#!/usr/bin/env sh", `echo "$*" >> "$PWD/${logName}"`, `exit ${exitCode}`, ""].join("\n"),
       );
-      return logFile;
+      return join(worktreeDir, logName);
     }
 
     test("guard bins run with CI arguments when resolvable", () => {
@@ -461,20 +481,19 @@ describe("kumiko-pre-push", () => {
   describe("scripts/pre-push-extra.sh", () => {
     test("untracked but executable extra is not run", async () => {
       const standaloneDir = join(tmp, "standalone-extra-untracked");
-      writeStandaloneRepo(standaloneDir, tmp);
-      const logFile = join(tmp, "extra.log");
-      writeUntrackedExecutable(standaloneDir, "scripts/pre-push-extra.sh", extraScript(logFile));
+      writeStandaloneRepo(standaloneDir);
+      writeUntrackedExecutable(standaloneDir, "scripts/pre-push-extra.sh", extraScript());
 
       const { output, exitCode } = runHook(standaloneDir, tmp);
 
       expect(output).not.toContain("EXTRA_RAN");
       expect(exitCode).toBe(0);
-      expect(await Bun.file(logFile).exists()).toBe(false);
+      expect(await Bun.file(join(standaloneDir, HOOK_LOG_NAME)).exists()).toBe(false);
     });
 
     test("tracked extra exiting non-zero aborts before the main check", () => {
       const standaloneDir = join(tmp, "standalone-extra-fail");
-      writeStandaloneRepo(standaloneDir, tmp);
+      writeStandaloneRepo(standaloneDir);
       writeTracked(standaloneDir, "scripts/pre-push-extra.sh", extraFailingScript(), tmp);
 
       const { output, exitCode } = runHook(standaloneDir, tmp);
@@ -486,26 +505,25 @@ describe("kumiko-pre-push", () => {
 
     test("tracked extra runs before scripts/check-wt.sh in the worktree branch", () => {
       const { parentDir, repoDir } = writeParentWorkspace(tmp);
-      initGitRepo(repoDir, tmp);
+      initGitRepo(repoDir);
       const worktreeDir = join(parentDir, ".wt", "fw-3152");
       runGit(["worktree", "add", "-q", "-b", "test-branch", worktreeDir], repoDir, tmp);
 
-      const logFile = join(tmp, "order.log");
-      writeTracked(worktreeDir, "scripts/pre-push-extra.sh", extraScript(logFile), tmp);
-      writeTracked(worktreeDir, "scripts/check-wt.sh", checkWtScript(logFile), tmp);
+      writeTracked(worktreeDir, "scripts/pre-push-extra.sh", extraScript(), tmp);
+      writeTracked(worktreeDir, "scripts/check-wt.sh", checkWtScript(), tmp);
 
       const { exitCode } = runHook(worktreeDir, tmp);
 
       expect(exitCode).toBe(0);
-      const logContent = readFileSync(logFile, "utf-8");
+      const logContent = readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8");
       expect(logContent.indexOf("EXTRA_RAN")).toBeGreaterThanOrEqual(0);
       expect(logContent.indexOf("CHECKWT_RAN")).toBeGreaterThan(logContent.indexOf("EXTRA_RAN"));
     });
 
     test("extra sees KUMIKO_PUSH_REPO_ROOT/PARENT_DIR, main check sees only REPO_ROOT", () => {
       const { parentDir, repoDir } = writeParentWorkspace(tmp);
-      initGitRepo(repoDir, tmp);
-      writeTracked(repoDir, "scripts/pre-push-extra.sh", extraScript(join(tmp, "seen.log")), tmp);
+      initGitRepo(repoDir);
+      writeTracked(repoDir, "scripts/pre-push-extra.sh", extraScript(), tmp);
 
       const { output } = runHook(repoDir, tmp);
 
@@ -517,13 +535,8 @@ describe("kumiko-pre-push", () => {
 
     test("standalone: extra sees an empty KUMIKO_PUSH_PARENT_DIR, test script sees none", () => {
       const standaloneDir = join(tmp, "standalone-env");
-      writeStandaloneRepo(standaloneDir, tmp);
-      writeTracked(
-        standaloneDir,
-        "scripts/pre-push-extra.sh",
-        extraScript(join(tmp, "seen2.log")),
-        tmp,
-      );
+      writeStandaloneRepo(standaloneDir);
+      writeTracked(standaloneDir, "scripts/pre-push-extra.sh", extraScript(), tmp);
 
       const { output } = runHook(standaloneDir, tmp);
 
@@ -535,13 +548,8 @@ describe("kumiko-pre-push", () => {
 
     test("a GIT_DIR set in the hook's own environment does not leak into extra or the test script", () => {
       const standaloneDir = join(tmp, "standalone-gitdir-leak");
-      writeStandaloneRepo(standaloneDir, tmp);
-      writeTracked(
-        standaloneDir,
-        "scripts/pre-push-extra.sh",
-        extraScript(join(tmp, "seen3.log")),
-        tmp,
-      );
+      writeStandaloneRepo(standaloneDir);
+      writeTracked(standaloneDir, "scripts/pre-push-extra.sh", extraScript(), tmp);
 
       const { output } = runHook(standaloneDir, tmp, { GIT_DIR: join(standaloneDir, ".git") });
 
@@ -551,13 +559,8 @@ describe("kumiko-pre-push", () => {
 
     test("extra receives the hook's positional arguments", () => {
       const standaloneDir = join(tmp, "standalone-argv");
-      writeStandaloneRepo(standaloneDir, tmp);
-      writeTracked(
-        standaloneDir,
-        "scripts/pre-push-extra.sh",
-        extraScript(join(tmp, "seen4.log")),
-        tmp,
-      );
+      writeStandaloneRepo(standaloneDir);
+      writeTracked(standaloneDir, "scripts/pre-push-extra.sh", extraScript(), tmp);
 
       const result = Bun.spawnSync([HOOK_PATH, "origin", "refs/heads/main"], {
         cwd: standaloneDir,
@@ -577,7 +580,7 @@ describe("kumiko-pre-push", () => {
 
     test("no marker — guard is not run, main check still runs", () => {
       const standaloneDir = join(tmp, "standalone-no-marker");
-      writeStandaloneRepo(standaloneDir, tmp);
+      writeStandaloneRepo(standaloneDir);
 
       const { output, exitCode } = runHook(standaloneDir, tmp);
 
@@ -588,7 +591,7 @@ describe("kumiko-pre-push", () => {
 
     test("marker present, guard fails (no kumiko-upgrade bin installed) — push refused before the main check", () => {
       const standaloneDir = join(tmp, "standalone-marker-guard-fails");
-      writeStandaloneRepo(standaloneDir, tmp);
+      writeStandaloneRepo(standaloneDir);
       // The guard's own resolveRepoRoots() needs a derivable src/ layout, or
       // it treats the fixture as "not a checkout" and skips without checking.
       mkdirSync(join(standaloneDir, "src"), { recursive: true });
@@ -605,7 +608,7 @@ describe("kumiko-pre-push", () => {
 
     test("guard-upgrade-state.ts not found next to the resolved script location fails closed", () => {
       const standaloneDir = join(tmp, "standalone-guard-missing");
-      writeStandaloneRepo(standaloneDir, tmp);
+      writeStandaloneRepo(standaloneDir);
       writeMarker(standaloneDir, "1.0.0");
 
       const copyDir = join(tmp, "hook-copy-without-guard");
@@ -624,7 +627,7 @@ describe("kumiko-pre-push", () => {
 
     test("hook invoked via a symlink still resolves guard-upgrade-state.ts next to the real script", () => {
       const standaloneDir = join(tmp, "standalone-guard-symlink");
-      writeStandaloneRepo(standaloneDir, tmp);
+      writeStandaloneRepo(standaloneDir);
       mkdirSync(join(standaloneDir, "src"), { recursive: true });
       writeMarker(standaloneDir, "1.0.0");
 
