@@ -16,6 +16,7 @@
 import {
   type AccountLockoutOptions,
   type AccountUnlockOptions,
+  AUTH_SELF_REGISTRATION_FEATURE,
   type AuthEmailPasswordOptions,
   type AuthMailLocale,
   createAuthEmailPasswordFeature,
@@ -111,6 +112,10 @@ export function composeFeatures(
   const filteredApp: FeatureDefinition[] = [];
   for (const f of dedupedAppFeatures) {
     if (bundledNames.has(f.name)) {
+      // The toggle takes no options, so the app copy is identical. Apps still
+      // need it in APP_FEATURES: the schema CLI and tests compose without
+      // authOptions.signup and only get it from there.
+      if (f.name === AUTH_SELF_REGISTRATION_FEATURE) continue;
       // biome-ignore lint/suspicious/noConsole: boot-time UX warning
       console.warn(
         `[composeFeatures] "${f.name}" already auto-mounted via includeBundled — dropping the explicit copy from APP_FEATURES. Remove it from run-config.ts to silence this warning.`,
