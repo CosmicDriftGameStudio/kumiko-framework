@@ -11,7 +11,7 @@
 // wired via wireCustomFieldsFor.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -21,6 +21,7 @@ import {
   defineFeature,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createProjectionStateTable,
   rebuildProjection,
@@ -32,6 +33,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
+import { fieldDefinitionAggregateId } from "../aggregate-id.js";
 import { fieldDefinitionEntity } from "../entity.js";
 import { createCustomFieldsFeature } from "../feature.js";
 import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
@@ -377,6 +379,16 @@ describe("custom-fields integration — define/delete handler coverage (B1)", ()
       systemAdmin,
     );
     expect(await countDefinitions(SYSTEM_TENANT_ID, "vendorTag")).toBe(0);
+
+    const events = await selectMany<{ type: string; tenantId: string; createdBy: string }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: fieldDefinitionAggregateId(SYSTEM_TENANT_ID, "property", "vendorTag") },
+    );
+    const definitionEvents = events.filter((event) => event.type.startsWith("field-definition."));
+    expect(definitionEvents).toHaveLength(2);
+    expect(definitionEvents.every((event) => event.tenantId === SYSTEM_TENANT_ID)).toBe(true);
+    expect(definitionEvents.every((event) => event.createdBy === systemAdmin.id)).toBe(true);
   });
 });
 

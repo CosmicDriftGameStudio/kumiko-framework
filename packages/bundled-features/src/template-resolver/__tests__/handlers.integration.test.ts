@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -163,6 +165,15 @@ describe("template-resolver :: upsertTenant", () => {
       systemAdmin,
     );
     expect(result).toMatchObject({ slug: "system-override", isNew: true });
+
+    const events = await selectMany<{ tenantId: string; createdBy: string }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: String(result["id"]) },
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]?.tenantId).toBe(tenantA_Admin.tenantId);
+    expect(events[0]?.createdBy).toBe(systemAdmin.id);
   });
 
   test("SystemAdmin-Override auf SYSTEM_TENANT_ID → access_denied (use upsertSystem)", async () => {

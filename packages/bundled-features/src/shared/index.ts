@@ -33,6 +33,7 @@ export {
   redactErrorText,
   redactUrls,
 } from "./redact.js";
+export { requireForTenant } from "./require-for-tenant.js";
 export {
   type RowBoundGrantResult,
   redeemRowBoundGrant,

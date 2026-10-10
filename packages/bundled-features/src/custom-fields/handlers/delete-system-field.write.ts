@@ -1,4 +1,5 @@
 import { SYSTEM_TENANT_ID, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { requireForTenant } from "../../shared/index.js";
 import { fieldDefinitionAggregateId } from "../aggregate-id.js";
 import { FIELD_DEFINITION_AGGREGATE_TYPE } from "../constants.js";
 import { fieldDefinitionExecutor } from "../executor.js";
@@ -26,8 +27,10 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
       payload.fieldKey,
     );
 
-    const systemUser = { ...event.user, tenantId: SYSTEM_TENANT_ID };
-    const result = await fieldDefinitionExecutor.delete({ id: aggregateId }, systemUser, ctx.db);
+    const { db, streamTenantId } = requireForTenant(ctx, SYSTEM_TENANT_ID);
+    const result = await fieldDefinitionExecutor.delete({ id: aggregateId }, event.user, db, {
+      streamTenantId,
+    });
 
     // Cascade-cleanup-Event — host-entity-MSPs entfernen orphan values aus
     // ihrer customFields jsonb. Im selben TX = atomic.

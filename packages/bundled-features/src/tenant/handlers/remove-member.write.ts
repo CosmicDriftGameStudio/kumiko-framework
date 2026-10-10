@@ -7,7 +7,9 @@ import {
 import {
   createSystemUser,
   defineWriteHandler,
+  parseTenantId,
   type SessionUser,
+  type TenantId,
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -34,6 +36,7 @@ type PendingInvitationCancel = {
   readonly userId: string;
   readonly tenantId: string;
   readonly actor: SessionUser;
+  readonly streamTenantId: TenantId;
   readonly redis: Redis | undefined;
 };
 
@@ -51,7 +54,13 @@ async function cancelPendingInvitationsOfUser(
     { tenantId: options.tenantId, email, status: INVITATION_STATUS.pending },
   );
   for (const invitation of pendingInvitations) {
-    const failure = await cancelPendingInvitation(db, invitation, options.actor, options.redis);
+    const failure = await cancelPendingInvitation(
+      db,
+      invitation,
+      options.actor,
+      options.redis,
+      options.streamTenantId,
+    );
     if (failure) return failure;
   }
   return undefined;
@@ -79,11 +88,15 @@ export const removeMemberWrite = defineWriteHandler({
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "SystemAdmin manages memberships across tenants",
     );
-    const existing = await fetchOne(db, tenantMembershipsTable, {
-      userId: event.payload.userId,
-      tenantId: event.payload.tenantId,
-    });
-    if (!existing) {
+    const streamTenantId = parseTenantId(event.payload.tenantId);
+    const existing =
+      streamTenantId === null
+        ? undefined
+        : await fetchOne(db, tenantMembershipsTable, {
+            userId: event.payload.userId,
+            tenantId: streamTenantId,
+          });
+    if (!existing || streamTenantId === null) {
       return writeFailure(
         new NotFoundError("membership", undefined, {
           i18nKey: "tenant.errors.membershipNotFound",
@@ -125,14 +138,15 @@ export const removeMemberWrite = defineWriteHandler({
       { id: (existing as DbRow)["id"] as string }, // @cast-boundary db-row
       event.user,
       db,
+      { streamTenantId },
     );
     if (!result.isSuccess) return result;
 
-    // Actor tenant = invitation tenant so the update hits the invitation's stream.
     const cancelFailure = await cancelPendingInvitationsOfUser(db, {
       userId: event.payload.userId,
       tenantId: event.payload.tenantId,
-      actor: { ...event.user, tenantId: event.payload.tenantId },
+      actor: event.user,
+      streamTenantId,
       redis: ctx.redis,
     });
     if (cancelFailure !== undefined) return cancelFailure;

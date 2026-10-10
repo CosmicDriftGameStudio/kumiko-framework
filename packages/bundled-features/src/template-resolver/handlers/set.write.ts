@@ -5,6 +5,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { requireForTenant } from "../../shared/index.js";
 import { TEMPLATE_KINDS, TEXT_BLOCK_KIND } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared.js";
@@ -48,15 +49,11 @@ export const setWrite = defineWriteHandler({
   description:
     "Creates or overwrites one content-tree resource addressed by slug, kind and locale, carrying a title and folder and going live on save with no draft stage; a SystemAdmin may target the system tenant, where shared legal and marketing copy lives.",
   handler: async (event, ctx) => {
-    const db = ctx.db;
     const override = event.payload.tenantIdOverride;
     // @cast-boundary engine-payload — override is a zod-validated string, the
     // user's own tenantId is already TenantId-branded.
     const tenantId = (override ?? event.user.tenantId) as TenantId;
-    // With an override the executor user has to move to the target tenant too,
-    // otherwise the event-store stream lookup runs against event.user.tenantId
-    // and reports a version conflict although the projection row exists.
-    const executorUser = override !== undefined ? { ...event.user, tenantId } : event.user;
+    const { db, streamTenantId } = requireForTenant(ctx, tenantId);
 
     const kind = event.payload.kind ?? TEXT_BLOCK_KIND;
     const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
@@ -98,8 +95,9 @@ export const setWrite = defineWriteHandler({
             folder: fields.folder,
           },
         },
-        executorUser,
+        event.user,
         db,
+        { streamTenantId },
       );
       if (!result.isSuccess) return result;
       return {
@@ -108,7 +106,9 @@ export const setWrite = defineWriteHandler({
       };
     }
 
-    const result = await executor.create({ ...fields, tenantId }, executorUser, db);
+    const result = await executor.create({ ...fields, tenantId }, event.user, db, {
+      streamTenantId,
+    });
     if (!result.isSuccess) return result;
     return {
       isSuccess: true as const,

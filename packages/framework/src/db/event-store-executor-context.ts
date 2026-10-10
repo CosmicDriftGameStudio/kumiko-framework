@@ -189,6 +189,11 @@ export type ExecutorContext = {
   readonly entityCache?: EntityCache;
   readonly searchAdapter?: SearchAdapter;
   readonly softDelete: boolean;
+  readonly streamTenantCreateFailure: (
+    db: TenantDb,
+    payload: Record<string, unknown>,
+    requestedStreamTenantId: TenantId | undefined,
+  ) => WriteFailure | undefined;
   readonly streamTenantFor: (user: SessionUser, requestedStreamTenantId?: TenantId) => TenantId;
   readonly streamTenantOverrideFailure: (
     db: TenantDb,
@@ -265,18 +270,19 @@ export function buildExecutorContext(
   const streamTenantFor = (user: SessionUser, requestedStreamTenantId?: TenantId): TenantId =>
     entity.systemStream ? SYSTEM_TENANT_ID : (requestedStreamTenantId ?? user.tenantId);
 
-  // Only a system-mode db (r.systemScope() / acknowledged cross-tenant) may address another
-  // tenant's stream, and only the tenant of the row it just loaded.
+  // Only a system-mode db (r.systemScope() / acknowledged cross-tenant) or a tenant-mode db bound
+  // to exactly that stream tenant (ctx.forTenant) may address another tenant's stream, and only
+  // the tenant of the row it just loaded.
   const streamTenantOverrideFailure = (
     db: TenantDb,
     row: Record<string, unknown>,
     requestedStreamTenantId: TenantId | undefined,
   ): WriteFailure | undefined => {
     if (requestedStreamTenantId === undefined) return undefined;
-    if (db.mode !== "system") {
+    if (db.mode !== "system" && db.tenantId !== requestedStreamTenantId) {
       return writeFailure(
         new AccessDeniedError({
-          message: `${entityName}: streamTenantId requires a system-mode db`,
+          message: `${entityName}: streamTenantId requires a system-mode db or a db bound to that tenant`,
         }),
       );
     }
@@ -289,6 +295,18 @@ export function buildExecutorContext(
     }
     return undefined;
   };
+
+  // Create has no loaded row: the payload's own tenantId (if any) must agree with the target stream.
+  const streamTenantCreateFailure = (
+    db: TenantDb,
+    payload: Record<string, unknown>,
+    requestedStreamTenantId: TenantId | undefined,
+  ): WriteFailure | undefined =>
+    streamTenantOverrideFailure(
+      db,
+      { tenantId: payload["tenantId"] ?? requestedStreamTenantId },
+      requestedStreamTenantId,
+    );
 
   // idType default (undefined) is now "uuid" — the ES-pivot made UUID the
   // only valid aggregate-id type. Explicit `idType: "serial"` is the only
@@ -645,6 +663,7 @@ export function buildExecutorContext(
     softDelete,
     streamTenantFor,
     streamTenantOverrideFailure,
+    streamTenantCreateFailure,
     idFilter,
     loadById,
     assertStreamWritable,

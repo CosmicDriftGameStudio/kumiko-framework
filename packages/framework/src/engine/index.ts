@@ -604,6 +604,7 @@ export type {
   Subscribe,
   TargetRef,
   TenantId,
+  TenantWriteTarget,
   TextFieldDef,
   ToolbarAction,
   TranslationEntry,

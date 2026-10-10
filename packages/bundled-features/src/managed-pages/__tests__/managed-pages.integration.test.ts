@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -367,6 +368,16 @@ describe("managed-pages :: set with tenantIdOverride (cross-tenant, SystemAdmin)
     });
     expect(row?.tenantId).toBe(TENANT_A);
     expect(row?.title).toBe("Cross-tenant by system");
+
+    // The stream lives in the target tenant while the operator stays the actor.
+    const events = await selectMany<{ tenantId: string; createdBy: string }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: row?.id },
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]?.tenantId).toBe(TENANT_A);
+    expect(events[0]?.createdBy).toBe(sysAdmin.id);
 
     // End-to-end: it renders under a.* (TENANT_A) and is absent under b.*.
     const aHtml = await (await stack.app.request("http://a.example.com/p/sys-cross")).text();

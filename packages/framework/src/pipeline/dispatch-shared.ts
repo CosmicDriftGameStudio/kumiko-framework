@@ -13,6 +13,7 @@ import {
   type TenantDb,
 } from "../db/tenant-db.js";
 import { createDerivativesContext } from "../derivatives/derivatives-context.js";
+import { mayOverrideTenant } from "../engine/cross-tenant.js";
 import type { defineTransitions } from "../engine/state-machine.js";
 import { createSystemUser } from "../engine/system-user.js";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.js";
@@ -35,12 +36,14 @@ import type {
   RateLimitOption,
   Registry,
   SessionUser,
+  TenantWriteTarget,
   WriteResult,
 } from "../engine/types/index.js";
 import { isRateLimitDisabled, resolveAgentExposure } from "../engine/types/index.js";
 import {
   AccessDeniedError,
   FeatureDisabledError,
+  FrameworkReasons,
   InternalError,
   memberResolutionReadOnlyDenied,
   RateLimitError,
@@ -343,6 +346,7 @@ export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): H
     restoreStream: denyMemberResolutionWrite,
     snapshotAggregate: denyMemberResolutionWrite,
     queryAsMember: denyMemberResolutionWrite,
+    forTenant: undefined,
     resolveActiveMembership: denyMemberResolutionWrite,
     scheduleAfterCommit: () => {
       throw memberResolutionReadOnlyDenied();
@@ -409,17 +413,23 @@ export async function buildHandlerContext(
   const identitySwitchGrantReason =
     identitySwitchEscapeHatch?.reason ??
     (isSystem ? `r.systemScope() feature "${featureName ?? "unknown"}"` : undefined);
-  const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
+  const buildTenantScopedDb = (
+    source: DbConnection | DbTx,
+    signal: AbortSignal | undefined,
+    foreignTenantId?: TenantId,
+  ) =>
     createTenantDb(
       source,
-      user.tenantId,
-      isSystem ? "system" : "tenant",
+      foreignTenantId ?? user.tenantId,
+      isSystem && foreignTenantId === undefined ? "system" : "tenant",
       context.tracer,
       context.meter,
       signal,
       {
-        globalWrites: escapeHatchFor(writeEscapeHatch, "globalWrites"),
-        unsafeRaw: escapeHatchFor(handlerEscapeHatch, "unsafeRaw"),
+        ...(foreignTenantId === undefined && {
+          globalWrites: escapeHatchFor(writeEscapeHatch, "globalWrites"),
+          unsafeRaw: escapeHatchFor(handlerEscapeHatch, "unsafeRaw"),
+        }),
         report: reportEscapeHatch,
         memberReadOnly: isMemberResolutionPrincipal(user),
         personalDataGate: buildPersonalDataGate(registry, origin),
@@ -525,6 +535,27 @@ export async function buildHandlerContext(
             ),
             secrets: context.secrets,
           });
+        }
+      : undefined;
+  // Write handlers only, and not r.systemScope() ones (they have ctx.systemDb). The gate is the
+  // dispatcher's tenantIdOverride predicate, so no caller reaches more than it could via
+  // tenantIdOverride. The foreign db carries no unsafeRaw/globalWrites grant and is tenant mode
+  // bound to the target; the executor accepts streamTenantId only on a db bound to that tenant.
+  const forTenant =
+    !isSystem && dbSource && registry.getWriteHandler(type) !== undefined
+      ? (targetTenantId: TenantId): TenantWriteTarget => {
+          if (targetTenantId === user.tenantId && exposedDb) {
+            return { db: exposedDb, streamTenantId: undefined };
+          }
+          if (!mayOverrideTenant(user)) {
+            throw new AccessDeniedError({
+              details: { reason: FrameworkReasons.tenantOverrideRequiresSystemAdmin },
+            });
+          }
+          return {
+            db: buildTenantScopedDb(dbSource, reqCtx?.signal, targetTenantId),
+            streamTenantId: targetTenantId,
+          };
         }
       : undefined;
   // ctx.files resolved per-tenant through file-foundation (lazy — the
@@ -1030,6 +1061,7 @@ export async function buildHandlerContext(
     notify,
     ...(config && { config }),
     ...(configFor && { configFor }),
+    ...(forTenant && { forTenant }),
     ...(files && { files }),
     ...(derivatives && { derivatives }),
     // preSave hooks need `changes`/`previous`/`isNew`, which only exist once

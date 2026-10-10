@@ -143,6 +143,20 @@ describe("text-blocks :: write", () => {
       systemAdmin,
     );
     expect(read).toMatchObject({ slug: "override-target", title: "Override-Test" });
+
+    const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      tenantId: targetTenant,
+      slug: "override-target",
+      locale: "de",
+    });
+    const events = await selectMany<{ tenantId: string; createdBy: string }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: row?.id },
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]?.tenantId).toBe(targetTenant);
+    expect(events[0]?.createdBy).toBe(systemAdmin.id);
   });
 
   test("SystemAdmin can UPDATE with tenantIdOverride (regression: stream-lookup must use override-tenantId, not user.tenantId)", async () => {

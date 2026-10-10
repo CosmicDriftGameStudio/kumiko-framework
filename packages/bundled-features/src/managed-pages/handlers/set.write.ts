@@ -1,7 +1,8 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { requireForTenant } from "../../shared/index.js";
 import { type PageRow, pageEntity, pagesTable } from "../table.js";
 
 const slugSchema = z
@@ -17,9 +18,6 @@ const langSchema = z
   .regex(/^[a-z]{2}(-[a-z]{2})?$/i, "lang must be ISO 639-1 (e.g. de, en, en-us)");
 
 const executor = createEventStoreExecutor(pagesTable, pageEntity, { entityName: "page" });
-
-const SET_PAGE_TENANT_OVERRIDE_REASON =
-  "SystemAdmin tenantIdOverride re-scopes the page write to the target tenant";
 
 // Upsert einer Page — eine Operation pro (tenantId, slug, lang). Tenant-
 // Scope default aus event.user; SystemAdmin kann via `tenantIdOverride`
@@ -43,29 +41,12 @@ export const setWrite = defineWriteHandler({
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
     "Creates or overwrites one managed page addressed by slug and language, keeping the existing published flag, description and OG image when the payload omits them; use it for content edits and publish toggles, and as SystemAdmin to write another tenant's pages.",
-  escapeHatch: {
-    grants: ["unsafeRaw"],
-    reason: SET_PAGE_TENANT_OVERRIDE_REASON,
-  },
   handler: async (event, ctx) => {
-    const db = ctx.db;
     const override = event.payload.tenantIdOverride;
-    const tenantId = override ?? event.user.tenantId;
-    // override: point the executor context at the target tenant, else getStreamVersion runs against user.tenantId → version_conflict.
-    const executorUser =
-      override !== undefined ? { ...event.user, tenantId: override as TenantId } : event.user; // @cast-boundary engine-bridge
-
+    const tenantId = (override ?? event.user.tenantId) as TenantId; // @cast-boundary engine-bridge
     // ctx.db is scoped to the executing user's tenant, wrong for a cross-tenant override
     // on both the existing-check and the executor's stream reads; re-scope to the target.
-    // Safe: the override branch is SystemAdmin-gated above.
-    const scopedDb =
-      override !== undefined
-        ? createTenantDb(
-            db.unsafeRaw(),
-            override as TenantId, // @cast-boundary engine-bridge
-            "tenant",
-          )
-        : db;
+    const { db: scopedDb, streamTenantId } = requireForTenant(ctx, tenantId);
     const existing = await fetchOne<PageRow>(scopedDb, pagesTable, {
       tenantId,
       slug: event.payload.slug,
@@ -89,8 +70,9 @@ export const setWrite = defineWriteHandler({
               event.payload.published !== undefined ? event.payload.published : existing.published,
           },
         },
-        executorUser,
+        event.user,
         scopedDb,
+        { streamTenantId },
       );
       if (!result.isSuccess) return result;
       return {
@@ -110,8 +92,9 @@ export const setWrite = defineWriteHandler({
         published: event.payload.published ?? false,
         tenantId,
       },
-      executorUser,
+      event.user,
       scopedDb,
+      { streamTenantId },
     );
     if (!result.isSuccess) return result;
     return {

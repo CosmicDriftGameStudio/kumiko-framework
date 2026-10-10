@@ -6,8 +6,12 @@ import {
   createSystemUser,
   defineWriteHandler,
   findForbiddenRoleAssignment,
+  mayOverrideTenant,
   mergeAssignedRoles,
+  parseTenantId,
+  type SessionUser,
   SYSTEM_ROLE,
+  type TenantId,
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -40,9 +44,14 @@ const REVOKE_ALL_SESSIONS_QN = "sessions:write:user-session:revoke-all-for-user"
 function resolveTargetTenantId(
   isSystem: boolean,
   payloadTenantId: string | undefined,
-  sessionTenantId: string | undefined,
-): string | undefined {
-  return isSystem ? (payloadTenantId ?? sessionTenantId) : sessionTenantId;
+  sessionTenantId: TenantId,
+): TenantId | undefined {
+  if (!isSystem || payloadTenantId === undefined) return sessionTenantId;
+  return parseTenantId(payloadTenantId) ?? undefined;
+}
+
+function foreignStreamTenant(user: SessionUser, targetTenantId: TenantId): TenantId | undefined {
+  return targetTenantId === user.tenantId ? undefined : targetTenantId;
 }
 
 // Editing your OWN roles keeps the current session: roles are re-derived per
@@ -50,7 +59,7 @@ function resolveTargetTenantId(
 // of that user and any foreign edit still revoke all.
 function revokeSessionsPayload(
   targetUserId: string,
-  targetTenantId: string,
+  targetTenantId: TenantId,
   actor: { readonly id: string; readonly sid?: string | undefined },
 ): { userId: string; tenantId: string; exceptSessionId?: string } {
   const payload = { userId: targetUserId, tenantId: targetTenantId };
@@ -82,7 +91,7 @@ export const updateMemberRolesWrite = defineWriteHandler({
     }
 
     const isSystemActor = event.user.roles.includes(SYSTEM_ROLE);
-    const isSystem = event.user.roles.includes("SystemAdmin") || isSystemActor;
+    const isSystem = mayOverrideTenant(event.user) || isSystemActor;
     const assignableAppRoles = assignableAppRolesOf(ctx.registry);
     const targetTenantId = resolveTargetTenantId(
       isSystem,
@@ -185,19 +194,18 @@ export const updateMemberRolesWrite = defineWriteHandler({
       );
     }
 
-    // Stream tenant follows the actor via streamTenantFor — use the
-    // membership tenant so SystemAdmin/cross-tenant and TenantAdmin paths
-    // hit the same stream seedTenantMembership/invite-accept wrote.
-    // Keep the real actor for audit metadata; only override tenantId so
-    // streamTenantFor writes into the membership tenant (#2401).
+    // The membership stream lives on the membership's tenant (where seedTenantMembership/
+    // invite-accept wrote it); a cross-tenant operator addresses it without becoming a member.
+    // Same-tenant writes run on a tenant-mode db, which refuses a stream override.
     const result = await executor.update(
       {
         id: row["id"] as string, // @cast-boundary db-row
         version: row["version"] as number, // @cast-boundary db-row
         changes: { roles: JSON.stringify(nextRoles) },
       },
-      { ...event.user, tenantId: targetTenantId },
+      event.user,
       db,
+      { streamTenantId: foreignStreamTenant(event.user, targetTenantId) },
     );
 
     return withResponseData(result, {

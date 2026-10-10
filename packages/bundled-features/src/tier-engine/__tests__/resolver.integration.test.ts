@@ -20,7 +20,7 @@ import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenant } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
@@ -29,6 +29,7 @@ import {
   type TenantId,
   type TierResolverPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -180,6 +181,27 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
 
     // Cache should reflect the new tier.
     expect(resolver(tenantA).has("feat-pro")).toBe(true);
+  });
+
+  test("set-tenant-tier for a foreign tenant writes its stream with the operator as actor", async () => {
+    const operator = createTestUser({
+      id: "sys-5",
+      tenantId: tenantA,
+      roles: ["SystemAdmin", "TenantAdmin"],
+    });
+    await stack.http.writeOk(
+      "tier-engine:write:set-tenant-tier",
+      { tenantId: tenantB, tier: "pro" },
+      operator,
+    );
+
+    const events = await selectMany<{ tenantId: string; createdBy: string }>(
+      stack.db,
+      eventsTable,
+      { tenantId: tenantB },
+    );
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.every((event) => event.createdBy === operator.id)).toBe(true);
   });
 
   test("(4) set-tenant-tier reflects in resolver — effective gating, not just projection", async () => {

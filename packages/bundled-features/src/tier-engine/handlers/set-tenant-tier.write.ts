@@ -1,11 +1,8 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  buildEntityTable,
-  createEventStoreExecutor,
-  createTenantDb,
-} from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { requireForTenant } from "../../shared/index.js";
 import { tierAssignmentAggregateId } from "../aggregate-id.js";
 import { TierAssignmentSources } from "../constants.js";
 import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
@@ -14,13 +11,8 @@ import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
 // Billing. Cross-tenant, daher SystemAdmin-only (kein TenantAdmin: sonst
 // Gratis-Self-Upgrade).
 //
-// **Cross-tenant-Mechanik:** ein "system"-mode TenantDb auf den Ziel-Tenant legt
-// KEINEN Tenant-Filter an (tenant-db.ts:141 — mode==="system" überspringt ihn);
-// der executor-user wird ebenfalls auf den Ziel-Tenant gestellt, sonst landet das
-// Event im Stream des Admins (Memory feedback_event_store_tenant_consistency).
-// Das set.write-"override-user"-Muster trägt NICHT für beliebige Tenants — es
-// funktioniert nur für SYSTEM_TENANT_ID (immer im IN-Filter). Dies ist das
-// auto-default-Hook-Muster (feature.ts), generalisiert auf einen Request-Handler.
+// Cross-tenant mechanics: ctx.forTenant(tenantId) yields a tenant-mode db bound to the target plus
+// the streamTenantId, so the event lands in the target's stream with the operator as actor.
 //
 // `source: TierAssignmentSources.manual` marks the grant so the billing sync skips it.
 // Upsert: one aggregate per tenant (deterministic aggregate id).
@@ -37,8 +29,6 @@ const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEn
 const executor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEntity, {
   entityName: "tier-assignment",
 });
-
-const SET_TENANT_TIER_REASON = "SystemAdmin assigns the tier of the tenant named in the payload";
 
 export type SetTenantTierOptions = {
   /** Runs after the write commits so feature.ts can update the resolver cache
@@ -68,10 +58,6 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
     }),
     access: { roles: ["SystemAdmin"] },
     agent: { risk: "high" },
-    escapeHatch: {
-      grants: ["unsafeRaw"],
-      reason: SET_TENANT_TIER_REASON,
-    },
     handler: async (event, ctx) => {
       // Without a commit sink (unit harness) there is no transaction to wait for.
       const afterCommit = (tenantId: TenantId, tier: string): void => {
@@ -80,9 +66,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
         else opts.onAssigned?.(tenantId, tier);
       };
       const tenantId = event.payload.tenantId as TenantId; // @cast-boundary engine-bridge
-      const rawDb = ctx.db.unsafeRaw();
-      const tdb = createTenantDb(rawDb, tenantId, "system");
-      const systemUser = { ...event.user, tenantId };
+      const { db: tdb, streamTenantId } = requireForTenant(ctx, tenantId);
       const tier = event.payload.tier;
 
       const existing = await fetchOne<TierAssignmentRow>(tdb, tierAssignmentTable, { tenantId });
@@ -94,8 +78,9 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
             version: existing.version,
             changes: { tier, source: TierAssignmentSources.manual },
           },
-          systemUser,
+          event.user,
           tdb,
+          { streamTenantId },
         );
         if (!result.isSuccess) return result;
         afterCommit(tenantId, tier);
@@ -109,8 +94,9 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
           source: TierAssignmentSources.manual,
           tenantId,
         },
-        systemUser,
+        event.user,
         tdb,
+        { streamTenantId },
       );
       if (!result.isSuccess) return result;
       afterCommit(tenantId, tier);

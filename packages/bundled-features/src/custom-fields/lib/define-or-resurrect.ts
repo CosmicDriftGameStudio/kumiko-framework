@@ -1,3 +1,4 @@
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { fieldDefinitionExecutor } from "../executor.js";
 import type { FieldDefinitionColumns } from "./field-definition-row.js";
 
@@ -27,13 +28,18 @@ export async function defineOrResurrectFieldDefinition(
   columns: FieldDefinitionColumns,
   user: DefineUser,
   db: DefineDb,
+  streamTenantId?: TenantId,
 ): Promise<WriteResult> {
   const active = await fieldDefinitionExecutor.detail({ id: aggregateId }, user, db);
   if (active) {
-    return fieldDefinitionExecutor.create({ id: aggregateId, ...columns }, user, db);
+    return fieldDefinitionExecutor.create({ id: aggregateId, ...columns }, user, db, {
+      streamTenantId,
+    });
   }
 
-  const restored = await fieldDefinitionExecutor.restore({ id: aggregateId }, user, db);
+  const restored = await fieldDefinitionExecutor.restore({ id: aggregateId }, user, db, {
+    streamTenantId,
+  });
   if (restored.isSuccess) {
     // restore() just un-deleted the row in this same tx; no concurrent writer
     // exists, so skip the optimistic-lock version match (we'd otherwise have to
@@ -43,10 +49,13 @@ export async function defineOrResurrectFieldDefinition(
     // readonly FieldDefinitionColumns isn't assignable to it.
     return fieldDefinitionExecutor.update({ id: aggregateId, changes: { ...columns } }, user, db, {
       skipOptimisticLock: true,
+      streamTenantId,
     });
   }
   if (restored.error.code === "not_found") {
-    return fieldDefinitionExecutor.create({ id: aggregateId, ...columns }, user, db);
+    return fieldDefinitionExecutor.create({ id: aggregateId, ...columns }, user, db, {
+      streamTenantId,
+    });
   }
   return restored;
 }

@@ -231,6 +231,7 @@ export type {
   SessionUserOrigin,
   StreamHandlerDef,
   StreamHandlerFn,
+  TenantWriteTarget,
   TryAppendEventFn,
   TryAppendEventResult,
   UnsafeAppendEventFn,
