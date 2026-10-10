@@ -1314,6 +1314,8 @@ export type CardOptions = {
   readonly radius?: "lg" | "xl";
   /** Footer abgehoben mit border-t + bg-muted/30. Default true. */
   readonly footerBordered?: boolean;
+  /** Footer horizontal padding. false = none, so footer content aligns with the card edge. Default true. */
+  readonly footerInset?: boolean;
   /** Joins the ancestor fillHeight flex chain (fw#2722/#2778 — a tabs-mode
    *  relatedList table sizing to the panel instead of the page) instead of
    *  normal document-flow height. Default false. */

@@ -167,7 +167,7 @@ export function WriteFormSection({
       )}
       {onFooterAction === undefined && (
         <Card
-          options={{ framed: false, footerBordered: false }}
+          options={{ framed: false, footerBordered: false, footerInset: false }}
           slots={{ footer: submitButton }}
           testId="write-form-section-submit-row"
         />

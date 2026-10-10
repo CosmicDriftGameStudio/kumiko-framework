@@ -2288,6 +2288,20 @@ describe("Card", () => {
     expect(footer?.className.includes("border-t")).toBe(false);
   });
 
+  test("footer is inset by default and footerInset=false drops the horizontal padding", () => {
+    const { unmount } = render(<Card testId="c" slots={{ footer: <span>Footer</span> }} />);
+    expect(screen.getByText("Footer").parentElement?.className).toContain(
+      "px-[var(--card-padding)]",
+    );
+    unmount();
+    render(
+      <Card testId="c" slots={{ footer: <span>Footer</span> }} options={{ footerInset: false }} />,
+    );
+    const footer = screen.getByText("Footer").parentElement;
+    expect(footer?.className).not.toContain("px-");
+    expect(footer?.className).toContain("py-4");
+  });
+
   test('radius="lg" uses rounded-lg instead of rounded-xl', () => {
     render(
       <Card testId="c" options={{ radius: "lg" }}>
