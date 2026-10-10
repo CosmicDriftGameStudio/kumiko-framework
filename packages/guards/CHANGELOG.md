@@ -1,5 +1,33 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.355.0
+
+### Minor Changes
+
+- 52c16c5: Security guards ignore kumiko.json excludes beyond node_modules and dist; kind framework is reserved for kumiko-framework
+
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Security guards ignore kumiko.json excludes beyond node_modules and dist; kind framework is reserved for kumiko-framework
+  migration: |
+    Security guards (No-Direct-Fs, Direct-Entity-Writes, Direct-Fetch, Tenant-Escalation, Admin-API, Access-Denied-Test, Open-To-All-Reason, Escape-Hatch-Declared) now scan files matched by your kumiko.json excludes; fix the findings or add a precise guard allowlist entry. A kumiko.json with kind framework outside the kumiko-framework package now fails root resolution; use library or app. Direct-Entity-Writes now sees table arguments behind casts (`table as T`, parentheses, non-null), so a cast no longer hides a direct write. i18n-Locale-Mount handles conditional spreads, alias depth and circular constants.
+  -->
+
+- 8d253d6: test-timeouts guard flags timeout arguments on test(), it() and describe()
+
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: test-timeouts guard flags timeout arguments on test(), it() and describe()
+  migration: |
+    Remove the timeout argument from test/it/describe calls (test(name, fn, 30_000), test(name, fn, { timeout }), also via .skip/.only/.if()/.each()) and fix the cause: poll with waitFor/expect.poll, shrink the data set, share expensive setup in beforeAll. setDefaultTimeout and describe.configure through renamed or namespace bun:test imports are flagged too. A justified remainder gets '// @timeout-exception: #<issue> <reason>' on the line above the call.
+  -->
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-repo-manifest@0.355.0
+
 ## 0.354.1
 
 ### Patch Changes
