@@ -1989,11 +1989,10 @@ function DefaultDataTable({
             )}
           </div>
           {metaColumns.length > 0 && (
-            // Every item carries a leading "·" separator element (real element: consumers
-            // scan the published dist with Tailwind, so arbitrary `content-` classes are
-            // missing). The row is shifted by one separator width and the wrapper clips
-            // horizontally only, hiding the separator at each line start without
-            // hiding anything vertically.
+            // The separator is a real element, not CSS `content`. The row is shifted by one
+            // separator width via logical `-ms-3` (RTL-safe); the wrapper clips only
+            // horizontally (`overflow-x-clip`), so the separator vanishes at each line
+            // start while nothing is hidden vertically.
             <div className="min-w-0 overflow-x-clip">
               <div
                 data-testid={`card-meta-${row.id}`}
