@@ -189,7 +189,8 @@ const cardSurface = cva(
   },
 );
 // Wraps instead of running off-screen when the row outgrows its container (fw#2528).
-const cardFooter = "flex flex-wrap items-center justify-end gap-2 px-[var(--card-padding)] py-4";
+const cardFooter = "flex flex-wrap items-center justify-end gap-2 py-4";
+const cardFooterInset = "px-[var(--card-padding)]";
 // /30 read as nearly invisible against the light-theme card (white card,
 // muted at 94% lightness) — /50 keeps the same token, just a stronger step.
 const cardFooterBorder = "border-t bg-muted/50";
@@ -4767,6 +4768,7 @@ export function DefaultCard({
   const padded = screenBody ? false : (options?.padded ?? true);
   const radius = options?.radius ?? "xl";
   const footerBordered = options?.footerBordered ?? true;
+  const footerInset = options?.footerInset ?? true;
   const fillHeight = options?.fillHeight ?? false;
   const framed = screenBody ? false : (options?.framed ?? true);
   const s = slots ?? {};
@@ -4841,7 +4843,12 @@ export function DefaultCard({
       )}
       {s.footer !== undefined && (
         <div
-          className={cn(cardFooter, footerBordered && cardFooterBorder, fillHeight && "shrink-0")}
+          className={cn(
+            cardFooter,
+            footerInset && cardFooterInset,
+            footerBordered && cardFooterBorder,
+            fillHeight && "shrink-0",
+          )}
         >
           {s.footer}
         </div>
