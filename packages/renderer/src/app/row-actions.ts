@@ -522,16 +522,21 @@ function buildNavigateRecordAction(
   return undefined;
 }
 
+export type DiscardChanges = {
+  readonly confirm: string;
+  readonly confirmLabel: string;
+};
+
 // The action's own confirm text stays first; the discard hint follows after a
 // blank line so both show in the single confirm dialog.
 function withDiscardHint(
   ownConfirm: string | undefined,
-  discardChangesConfirm: string | undefined,
+  discardChanges: DiscardChanges | undefined,
 ): string | undefined {
-  if (discardChangesConfirm === undefined) return ownConfirm;
+  if (discardChanges === undefined) return ownConfirm;
   return ownConfirm === undefined
-    ? discardChangesConfirm
-    : `${ownConfirm}\n\n${discardChangesConfirm}`;
+    ? discardChanges.confirm
+    : `${ownConfirm}\n\n${discardChanges.confirm}`;
 }
 
 function buildDrawerRecordAction(
@@ -544,17 +549,20 @@ function buildDrawerRecordAction(
       action: RowActionDrawer,
       initialValues: Readonly<Record<string, unknown>> | undefined,
     ) => void;
-    readonly discardChangesConfirm: string | undefined;
+    readonly discardChanges: DiscardChanges | undefined;
   },
 ): RenderEditAction {
-  const { record, translate, actionIcon, openDrawer, discardChangesConfirm } = options;
+  const { record, translate, actionIcon, openDrawer, discardChanges } = options;
   return {
     id: action.id,
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
     ...(action.display !== undefined && { display: action.display }),
     confirmRequired: false,
-    ...(discardChangesConfirm !== undefined && { confirm: discardChangesConfirm }),
+    ...(discardChanges !== undefined && {
+      confirm: discardChanges.confirm,
+      confirmLabel: discardChanges.confirmLabel,
+    }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onPress: () => {
       const initialValues =
@@ -590,7 +598,7 @@ function buildWriteHandlerRecordAction(
     readonly onWriteSuccess: () => void | Promise<void>;
     readonly defaultWritePayloadId: string | undefined;
     readonly onRecordLeft: RecordLeftHandler | undefined;
-    readonly discardChangesConfirm: string | undefined;
+    readonly discardChanges: DiscardChanges | undefined;
   },
 ): RenderEditAction {
   const {
@@ -601,13 +609,17 @@ function buildWriteHandlerRecordAction(
     onWriteSuccess,
     defaultWritePayloadId,
     onRecordLeft,
-    discardChangesConfirm,
+    discardChanges,
   } = options;
   const shownRecordId = defaultWritePayloadId ?? record["id"];
   const confirm = withDiscardHint(
     action.confirm !== undefined ? translate(action.confirm) : undefined,
-    discardChangesConfirm,
+    discardChanges,
   );
+  // The discard label wins: the action then also throws away the unsaved input.
+  const confirmLabel =
+    discardChanges?.confirmLabel ??
+    (action.confirmLabel !== undefined ? translate(action.confirmLabel) : undefined);
   return {
     id: action.id,
     label: translate(action.label),
@@ -615,9 +627,7 @@ function buildWriteHandlerRecordAction(
     ...(action.display !== undefined && { display: action.display }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
     ...(confirm !== undefined && { confirm }),
-    ...(action.confirmLabel !== undefined && {
-      confirmLabel: translate(action.confirmLabel),
-    }),
+    ...(confirmLabel !== undefined && { confirmLabel }),
     onPress: async () => {
       const payload =
         action.payload !== undefined
@@ -685,7 +695,7 @@ export function buildRecordActions(options: {
   /** Translated hint added to the confirm of every writeHandler and drawer
    *  action (they reload or remount the surrounding form). Set while that
    *  form holds unsaved input so it is not lost silently. */
-  readonly discardChangesConfirm?: string;
+  readonly discardChanges?: DiscardChanges;
 }): readonly RenderEditAction[] | undefined {
   const {
     actions,
@@ -700,7 +710,7 @@ export function buildRecordActions(options: {
     defaultScreenTargetEntityId,
     sameEntityScreenId,
     defaultWritePayloadId,
-    discardChangesConfirm,
+    discardChanges,
   } = options;
   const out: RenderEditAction[] = [];
   for (const action of actions) {
@@ -726,7 +736,7 @@ export function buildRecordActions(options: {
           translate,
           actionIcon,
           openDrawer,
-          discardChangesConfirm,
+          discardChanges,
         }),
       );
       continue;
@@ -742,7 +752,7 @@ export function buildRecordActions(options: {
         onWriteSuccess,
         defaultWritePayloadId,
         onRecordLeft,
-        discardChangesConfirm,
+        discardChanges,
       }),
     );
   }
