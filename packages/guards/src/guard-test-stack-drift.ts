@@ -29,9 +29,9 @@ import { type ScanSpec, scanFiles } from "./_lib/scan-scope";
 
 const ROOT = process.cwd();
 
-// Beide Suffixe: `.integration.ts` (legacy) + `.integration.test.ts` (canonical
-// nach bun-test-cutover). Transition-safe — matcht main (legacy) und migrierte
-// Branches gleichermaßen.
+// Both suffixes: `.integration.ts` (legacy) + `.integration.test.ts` (canonical
+// after the bun-test cutover). Transition-safe — matches main (legacy) and
+// migrated branches alike.
 const SCAN: ScanSpec = {
   scope: "tests",
   extensions: ["ts"],
@@ -66,7 +66,7 @@ export function isIntegrationTestFile(filePath: string): boolean {
 
 export interface Violation {
   file: string;
-  reason: string;
+  detail: string;
   forbiddenCalls: Array<{ name: string; line: number }>;
 }
 
@@ -127,7 +127,7 @@ export function scanFile(sf: SourceFile): Violation | null {
 
   return {
     file: path.relative(ROOT, sf.getFilePath()),
-    reason: "calls pipeline internals without buildServer/setupTestStack",
+    detail: "calls pipeline internals without buildServer/setupTestStack",
     forbiddenCalls: forbiddenHits,
   };
 }
@@ -156,7 +156,7 @@ export const check: RepoCheck = {
       const v = scanFile(sf);
       if (v === null) continue;
       for (const c of v.forbiddenCalls) {
-        violations.push({ file: v.file, line: c.line, message: `${v.reason}: ${c.name}(...)` });
+        violations.push({ file: v.file, line: c.line, message: `${v.detail}: ${c.name}(...)` });
       }
     }
 

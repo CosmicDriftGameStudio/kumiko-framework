@@ -1,30 +1,30 @@
 #!/usr/bin/env bun
 /**
- * Table-DDL Guard (WARNUNG, kein Fail).
+ * Table-DDL Guard (WARNING, no fail).
  *
- * Findet Aufrufe von `unsafePushTables` / `unsafeCreateEntityTable` /
- * `unsafeEnsureEntityTable` außerhalb der erlaubten Pfade. Apps
- * deklarieren Tabellen via `r.entity()` (event-sourced) oder
- * `r.rawTable()` (deklarativer Bypass mit Audit-Marker) — direkte
- * `unsafe*`-Aufrufe umgehen das Event-Sourcing-System komplett.
+ * Finds calls of `unsafePushTables` / `unsafeCreateEntityTable` /
+ * `unsafeEnsureEntityTable` outside the allowed paths. Apps
+ * declare tables via `r.entity()` (event-sourced) or
+ * `r.rawTable()` (declarative bypass with audit marker) — direct
+ * `unsafe*` calls bypass the event-sourcing system entirely.
  *
  * Plan: kumiko-platform/docs/plans/architecture/table-ddl-guard.md
- * (Stufe 2). Stufe 1 hat die Symbole umbenannt damit jeder Aufruf
- * grep-bar ist; Stufe 3 hat `r.rawTable()` als saubere Alternative
- * eingeführt; Stufe 2 (dieser Check) erzwingt Konsistenz.
+ * (stage 2). Stage 1 renamed the symbols so every call is
+ * greppable; stage 3 introduced `r.rawTable()` as the clean alternative;
+ * stage 2 (this check) enforces consistency.
  *
- * Allowlist (Pfad-Regex, OR-verknüpft):
- *   - packages/framework/src/event-store/**          ES-Meta-Tabellen
+ * Allowlist (path regexes, OR-combined):
+ *   - packages/framework/src/event-store/**          ES meta tables
  *   - packages/framework/src/pipeline/event-consumer-state.ts
  *   - packages/framework/src/pipeline/projection-state.ts
- *   - packages/framework/src/stack/**                Test-Stack-Helper, pushEntityProjectionTables, Helper-Definitionen
- *   - **\/__tests__/**                               Test-Setup
- *   - **\/drizzle/**                                 drizzle-kit-Konfiguration
- *   - **\/bin/migrate.ts                             App-eigener Migrate-CLI
- *   - packages/guards/src/guard-table-ddl.ts          der Guard selbst
- *   - kumiko-framework/scripts/migrate-rename-table-ddl.ts  ts-morph-Rename
+ *   - packages/framework/src/stack/**                test-stack helpers, pushEntityProjectionTables, helper definitions
+ *   - **\/__tests__/**                               test setup
+ *   - **\/drizzle/**                                 drizzle-kit configuration
+ *   - **\/bin/migrate.ts                             app-owned migrate CLI
+ *   - packages/guards/src/guard-table-ddl.ts          the guard itself
+ *   - kumiko-framework/scripts/migrate-rename-table-ddl.ts  ts-morph rename
  *
- * Output: Warnung + Datei:Zeile + Code-Snippet. Blockt nie.
+ * Output: warning + file:line + code snippet. Never blocks.
  */
 
 import path from "node:path";
@@ -49,8 +49,8 @@ export const ALLOWLIST_PATTERNS: ReadonlyArray<RegExp> = [
   /\/__tests__\//,
   /\/drizzle\//,
   /\/bin\/migrate\.ts$/,
-  // Guards + Rename-Script dürfen die Symbole im Code nennen — beide
-  // sind Tooling, kein Runtime-Pfad.
+  // Guards + the rename script may name the symbols in code — both are
+  // tooling, not a runtime path.
   /\/packages\/guards\/src\/guard-table-ddl\.ts$/,
   /\/scripts\/migrate-rename-table-ddl\.ts$/,
 ];
@@ -124,19 +124,19 @@ function report(findings: readonly Finding[], scanned: number): void {
   console.log(`Table-DDL Guard: ${scanned} files checked.`);
   if (findings.length === 0) {
     console.log("  No bypass calls outside the allowlist.");
-    return;
+  } else {
+    console.log(`  ${findings.length} bypass call(s) outside the allowlist:`);
+    for (const f of findings) {
+      console.log(`    ${f.file}:${f.line}  ${f.symbol}`);
+      console.log(`      ${f.snippet}`);
+    }
+    console.log("");
+    console.log("  Rule: unsafe* calls are reserved for framework-internal code (event-store,");
+    console.log("  pipeline-state, stack), test setup (__tests__, drizzle/), app migrate CLIs");
+    console.log("  (bin/migrate.ts). Apps declare tables via r.entity() or r.rawTable().");
+    console.log("  Plan: kumiko-platform/docs/plans/architecture/table-ddl-guard.md");
+    console.log("  Warning, no fail.");
   }
-  console.log(`  ${findings.length} bypass call(s) outside the allowlist:`);
-  for (const f of findings) {
-    console.log(`    ${f.file}:${f.line}  ${f.symbol}`);
-    console.log(`      ${f.snippet}`);
-  }
-  console.log("");
-  console.log("  Rule: unsafe* calls are reserved for framework-internal code (event-store,");
-  console.log("  pipeline-state, stack), test setup (__tests__, drizzle/), app migrate CLIs");
-  console.log("  (bin/migrate.ts). Apps declare tables via r.entity() or r.rawTable().");
-  console.log("  Plan: kumiko-platform/docs/plans/architecture/table-ddl-guard.md");
-  console.log("  Warning, no fail.");
 }
 
 export const guard: AstGuard = {
@@ -150,8 +150,8 @@ export const guard: AstGuard = {
       findings.push(...collectFindings(sf, ROOT));
     }
     report(findings, scanned);
-    // Warnung, kein Fail (siehe Modul-Header): Bypass-Aufrufe werden
-    // gemeldet, blocken den Guard-Run aber nie.
+    // Warning, no fail (see module header): bypass calls are reported but
+    // never block the guard run.
     return { violations: [] };
   },
 };

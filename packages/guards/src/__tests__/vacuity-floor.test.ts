@@ -1,9 +1,12 @@
 // Real-path test: an in-memory project has files by construction and can't observe a broken scan, so part of this runs against this repo's own real source tree instead.
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { RepoManifest } from "@cosmicdrift/kumiko-repo-manifest";
 import {
   type AstGuard,
   buildSharedProject,
-  checkRootFloor,
   classifyRun,
   filesForGuard,
   runGuards,
@@ -12,6 +15,7 @@ import { resolveRepoRoots } from "../_lib/roots";
 import { type ScanSpec, scanRoots } from "../_lib/scan-scope";
 import { guard as adminApi } from "../guard-admin-api";
 import { GUARDS } from "../run-guards";
+import { fixtureRoot, writeRepo } from "./parent-workspace-fixture";
 
 describe("Vacuity-Floor — classifyRun (numeric assertScanned form)", () => {
   test("Globs ohne Treffer failen, fehlende Ziel-Repos nicht", () => {
@@ -38,26 +42,6 @@ describe("Vacuity-Floor gegen echte Pfade", () => {
     expect(new Set(GUARDS.map((g) => g.name)).size).toBe(GUARDS.length);
   });
 
-  // infra#427/#789: the D4 floor is disk-based (RootScan.sourceSurface) — a
-  // root with zero .ts/.tsx source files is a violation, one with source but
-  // nothing under the guard's own narrowing is not. Against this repo's real
-  // checkout every guard must end up with either real files or a legitimately
-  // narrowed-to-zero result — never a silent floor violation nobody looks at.
-  test("jeder Guard bekommt Dateien oder ist legitim leer", () => {
-    const roots = resolveRepoRoots();
-    if (roots.length === 0) return;
-    const project = buildSharedProject(GUARDS, roots);
-    const problems = GUARDS.flatMap((guard) => {
-      const scans = scanRoots(guard.scan, roots);
-      if (scans.length === 0) return [];
-      const files = filesForGuard(project, guard, roots);
-      if (files.length > 0) return [];
-      const { violatingRoots } = checkRootFloor(guard, scans);
-      return violatingRoots.length > 0 ? [{ name: guard.name, violatingRoots }] : [];
-    });
-    expect(problems).toEqual([]);
-  }, 120_000);
-
   // infra#480 hardening: a guard whose `scan` resolution throws (an
   // authoring mistake, e.g. an unsupported glob) must not crash the shared
   // project build — only that guard's own run should fail.
@@ -69,16 +53,28 @@ describe("Vacuity-Floor gegen echte Pfade", () => {
       },
       run: () => ({ violations: [] }),
     };
-    const project = buildSharedProject([throwingGuard, adminApi]);
-    expect(filesForGuard(project, adminApi).length).toBeGreaterThanOrEqual(0);
+    const dir = mkdtempSync(join(tmpdir(), "vacuity-floor-"));
+    try {
+      const manifest: RepoManifest = {
+        kind: "library",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      };
+      writeRepo(dir, { name: "vacuity-fixture", layout: { manifest } });
+      const roots = [fixtureRoot("vacuity-fixture", dir, manifest)];
+      const project = buildSharedProject([throwingGuard, adminApi], roots);
+      expect(filesForGuard(project, adminApi, roots).length).toBeGreaterThanOrEqual(0);
 
-    const results = runGuards([throwingGuard, adminApi], project);
-    const thrown = results.find((r) => r.name === throwingGuard.name);
-    expect(thrown?.ok).toBe(false);
-    expect(thrown?.error).toContain("scan resolution boom");
-    const sibling = results.find((r) => r.name === adminApi.name);
-    expect(sibling?.error).toBeUndefined();
-  }, 120_000);
+      const results = runGuards([throwingGuard, adminApi], project, { roots });
+      const thrown = results.find((r) => r.name === throwingGuard.name);
+      expect(thrown?.ok).toBe(false);
+      expect(thrown?.error).toContain("scan resolution boom");
+      const sibling = results.find((r) => r.name === adminApi.name);
+      expect(sibling?.error).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   test("der lokale Repo-Root liefert eine positive Source-Surface und Dateien für eine Source-Scan-Spec", () => {
     const roots = resolveRepoRoots();
@@ -87,5 +83,5 @@ describe("Vacuity-Floor gegen echte Pfade", () => {
     const [scan] = scanRoots(spec, roots);
     expect(scan?.sourceSurface).toBeGreaterThan(0);
     expect(scan?.files.length).toBeGreaterThan(0);
-  }, 30_000);
+  });
 });

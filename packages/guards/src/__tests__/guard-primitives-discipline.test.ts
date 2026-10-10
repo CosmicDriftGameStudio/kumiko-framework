@@ -1,5 +1,5 @@
-// Review 92/3+93/3 (infra): der Guard war ungetestet — Pins für die Regex-Fixes
-// 92/1 (toast.alert ist KEIN Treffer) und 93/4 (Inline-Kommentare).
+// Review 92/3+93/3 (infra): the guard was untested — pins for the regex fixes
+// 92/1 (toast.alert is NOT a hit) and 93/4 (inline comments).
 
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";

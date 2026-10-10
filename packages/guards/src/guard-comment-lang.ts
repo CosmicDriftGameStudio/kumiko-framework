@@ -273,7 +273,7 @@ function runBaselineMode(all: readonly Site[], argv: readonly string[], root: st
   if (argv.includes("--write-baseline")) {
     const payload: Baseline = {
       format: BASELINE_FORMAT_VERSION,
-      generated: new Date().toISOString().slice(0, 10),
+      generated: Temporal.Now.instant().toString().slice(0, 10),
       total: currentTotal,
       perFile: Object.fromEntries(
         Object.entries(countByFile).sort(([a], [b]) => a.localeCompare(b)),
@@ -292,7 +292,15 @@ function runBaselineMode(all: readonly Site[], argv: readonly string[], root: st
     return 1;
   }
 
-  const rawBaseline: Partial<Baseline> = JSON.parse(readFileSync(baselinePath, "utf-8"));
+  let rawBaseline: Partial<Baseline>;
+  try {
+    rawBaseline = JSON.parse(readFileSync(baselinePath, "utf-8"));
+  } catch (error) {
+    console.log(
+      `  Baseline unreadable: ${error instanceof Error ? error.message : String(error)}. Rewrite it once with: kumiko-guards comment-lang --write-baseline`,
+    );
+    return 1;
+  }
   if (rawBaseline.format !== BASELINE_FORMAT_VERSION || rawBaseline.perFile === undefined) {
     console.log(
       `  Baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, got format=${rawBaseline.format ?? "<missing>"}.`,

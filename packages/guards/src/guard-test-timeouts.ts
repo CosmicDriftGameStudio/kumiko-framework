@@ -106,11 +106,11 @@ function isSleepStatement(node: Node): boolean {
   return false;
 }
 
-// Nested loops are their own finding — skipping them keeps one sleep from
-// being counted once per enclosing loop.
 function bodySleeps(loop: Node): boolean {
   let found = false;
   loop.forEachDescendant((node, traversal) => {
+    // skip: nested loops are their own finding, so one sleep is not counted
+    // once per enclosing loop
     if (isLoop(node)) {
       traversal.skip();
       return;
@@ -230,8 +230,9 @@ export function scanTimeouts(
   const findings: Finding[] = [];
   const add = (node: Node, message: string): void => {
     const reported = withExceptionNote(node, message);
-    if (reported === undefined) return;
-    findings.push({ file, line: node.getStartLineNumber(), message: reported });
+    if (reported !== undefined) {
+      findings.push({ file, line: node.getStartLineNumber(), message: reported });
+    }
   };
   const aliases = testFrameworkAliases(sf);
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {

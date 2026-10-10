@@ -1,25 +1,25 @@
 #!/usr/bin/env bun
 /**
- * Guard: PII-typische Entity-Feldnamen ohne Annotation, mit Baseline-
- * Regression-Guard wie check-complexity.ts.
+ * Guard: PII-typical entity field names without annotation, with a baseline
+ * regression guard like check-complexity.ts.
  *
  * Mirrors the boot heuristic from validatePiiAndRetention. Authors mark
  * fields with { pii: true }, { userOwned }, { tenantOwned: true },
  * { allowPlaintext: "reason" } (legacy) or { personal: ... } (0.210.0
  * successor to the four legacy subject annotations).
  *
- * `.kumiko-pii-annotations-baseline.json` im Repo-Root pinnt pro File die
- * eingefrorene Fund-Anzahl:
- *   - aktuell <= baseline pro File: PASS
- *   - aktuell >  baseline pro File: FAIL (neues unannotiertes PII-Feld)
- * Reduktionen updaten die Baseline NICHT automatisch — nach Annotations-
- * Commits `--write-baseline` aufrufen. Ohne Baseline-Datei bleibt der Guard
- * warning-only (Bootstrap: einmalig `--write-baseline`).
+ * `.kumiko-pii-annotations-baseline.json` in the repo root pins the frozen
+ * finding count per file:
+ *   - current <= baseline per file: PASS
+ *   - current >  baseline per file: FAIL (new unannotated PII field)
+ * Reductions do NOT update the baseline automatically — run `--write-baseline`
+ * after annotation commits. Without a baseline file the guard stays
+ * warning-only (bootstrap: run `--write-baseline` once).
  *
  * Usage:
- *   bun guards/guard-pii-annotations.ts                  # Vergleich gegen Baseline
- *   bun guards/guard-pii-annotations.ts --write-baseline # Baseline neu schreiben
- *   bun guards/guard-pii-annotations.ts --no-baseline    # Vergleich überspringen
+ *   bun guards/guard-pii-annotations.ts                  # compare against baseline
+ *   bun guards/guard-pii-annotations.ts --write-baseline # rewrite baseline
+ *   bun guards/guard-pii-annotations.ts --no-baseline    # skip comparison
  */
 import * as path from "node:path";
 import {
@@ -258,10 +258,10 @@ export const guard: AstGuard = {
   writeBaseline: (files) => piiBaseline.write(baselineCounts(scan(files).findings)),
 };
 
-// Flags werden NUR hier gelesen, nicht in run() — der Shared-Runner
-// (run-guards.ts) faehrt alle Guards mit derselben argv, ein
-// --write-baseline dort duerfte die Baseline nicht stillschweigend
-// neu schreiben.
+// Flags are read ONLY here, not in run() — the shared runner
+// (run-guards.ts) drives all guards with the same argv, and a
+// --write-baseline there must not silently rewrite the
+// baseline.
 if (import.meta.main) {
   const args = process.argv.slice(2);
   if (args.includes("--write-baseline")) {

@@ -93,7 +93,7 @@ type DirectWriteException = {
   readonly file: RegExp;
   readonly functionName: string;
   readonly table: string;
-  readonly reason: string;
+  readonly justification: string;
 };
 
 const DIRECT_WRITE_EXCEPTIONS: readonly DirectWriteException[] = [
@@ -101,7 +101,7 @@ const DIRECT_WRITE_EXCEPTIONS: readonly DirectWriteException[] = [
     file: /(^|\/)packages\/bundled-features\/src\/template-resolver\/seeding\.ts$/,
     functionName: "resolveExistingForEventStoreSeed",
     table: "templateResourcesTable",
-    reason: "Orphan projection row without events, no event-store verb possible",
+    justification: "Orphan projection row without events, no event-store verb possible",
   },
 ];
 
@@ -259,7 +259,7 @@ type Violation = {
    *                          projection apply (e.g. a db.transaction sub-tx
    *                          in production code).
    */
-  reason: "non-tx-receiver" | "tx-outside-apply";
+  kind: "non-tx-receiver" | "tx-outside-apply";
 };
 
 /**
@@ -427,7 +427,7 @@ export function scanDirectWrites(
         op: w.op,
         table: w.tableArg.getText(),
         snippet: call.getText().slice(0, 120),
-        reason: "tx-outside-apply",
+        kind: "tx-outside-apply",
       });
       continue;
     }
@@ -438,7 +438,7 @@ export function scanDirectWrites(
       op: w.op,
       table: w.tableArg.getText(),
       snippet: call.getText().slice(0, 120),
-      reason: "non-tx-receiver",
+      kind: "non-tx-receiver",
     });
   }
   return out;
@@ -483,7 +483,7 @@ export const guard: AstGuard = {
         violations.push({
           file: path.relative(ROOT, file),
           line: hit.line,
-          message: `[${hit.reason}] ${hit.receiver}.${hit.op}(${hit.table}) — ${hit.snippet}`,
+          message: `[${hit.kind}] ${hit.receiver}.${hit.op}(${hit.table}) — ${hit.snippet}`,
         });
       }
     }

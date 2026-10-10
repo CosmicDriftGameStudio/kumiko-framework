@@ -220,7 +220,7 @@ export function baselineRatchet(args: {
     const total = Object.values(perFile).reduce((sum, count) => sum + count, 0);
     const payload: BaselinePayload = {
       format: args.formatVersion,
-      generated: new Date().toISOString().slice(0, 10),
+      generated: Temporal.Now.instant().toString().slice(0, 10),
       total,
       perFile,
     };
@@ -600,6 +600,7 @@ export function printGuardKitBanner(
   if (error !== undefined) {
     console.error(error);
     process.exit(1);
+    // skip: process.exit is stubbed in tests, so control can fall through
     return;
   }
   console.log(`kumiko-guards ${guardKitVersion()} - ${guardCount} guards registered`);

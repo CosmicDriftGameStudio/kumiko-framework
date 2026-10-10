@@ -12,7 +12,7 @@ export type LockPackage = {
 
 export type LockfileRead =
   | { readonly ok: true; readonly packages: readonly LockPackage[] }
-  | { readonly ok: false; readonly reason: string };
+  | { readonly ok: false; readonly detail: string };
 
 type ParsedBunLock = { readonly packages?: Record<string, unknown> };
 
@@ -76,19 +76,19 @@ export function readLockfilePackages(root: string): LockfileRead | undefined {
   try {
     parsed = JSON.parse(stripTrailingCommas(raw));
   } catch {
-    return { ok: false, reason: "not valid JSON" };
+    return { ok: false, detail: "not valid JSON" };
   }
-  if (!isParsedBunLock(parsed)) return { ok: false, reason: "unexpected top-level shape" };
+  if (!isParsedBunLock(parsed)) return { ok: false, detail: "unexpected top-level shape" };
 
   const lineOf = createLineLocator(raw);
   const packages: LockPackage[] = [];
   for (const [lockKey, entry] of Object.entries(parsed.packages ?? {})) {
     if (!Array.isArray(entry) || typeof entry[0] !== "string") {
-      return { ok: false, reason: `entry "${lockKey}" is not a resolved-package tuple` };
+      return { ok: false, detail: `entry "${lockKey}" is not a resolved-package tuple` };
     }
     const nameAndVersion = parseNameAndVersion(entry[0]);
     if (!nameAndVersion) {
-      return { ok: false, reason: `entry "${lockKey}" is not readable as name@version` };
+      return { ok: false, detail: `entry "${lockKey}" is not readable as name@version` };
     }
     packages.push({ lockKey, ...nameAndVersion, line: lineOf(lockKey) });
   }

@@ -101,9 +101,11 @@ function assertSegmentsWithinRoot(
   segments: readonly string[],
 ): void {
   for (const [index, segment] of segments.entries()) {
+    // skip: segments below "**" are the glob consumer's responsibility (see above)
     if (segment === GLOBSTAR_SEGMENT) return;
     if (!GLOB_METACHARACTER_RE.test(segment)) {
       dirAbs = join(dirAbs, segment);
+      // skip: a path that does not exist yet cannot be a symlink out of the root
       if (!existsSync(dirAbs)) return;
       if (!isWithinRoot(realpathSync(dirAbs), rootReal)) {
         throw new RepoManifestError(manifestPath, `"${pattern}" resolves outside the repo root`);
@@ -111,6 +113,7 @@ function assertSegmentsWithinRoot(
       continue;
     }
     const matcher = segmentMatcher(segment);
+    // skip: a wildcard below a non-directory matches nothing
     if (!isDirectory(dirAbs)) return;
     const rest = segments.slice(index + 1);
     for (const entry of readdirSync(dirAbs)) {
@@ -124,7 +127,8 @@ function assertSegmentsWithinRoot(
         assertSegmentsWithinRoot(manifestPath, rootReal, pattern, entryAbs, rest);
       }
     }
-    return;
+    // The wildcard branch recursed into the remaining segments itself.
+    break;
   }
 }
 

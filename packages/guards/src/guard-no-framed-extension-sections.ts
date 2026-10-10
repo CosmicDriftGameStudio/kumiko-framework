@@ -106,6 +106,7 @@ function addRegistryMembers(
   entries: Map<string, string>,
   visited: Set<Node>,
 ): void {
+  // skip: a registry spread into itself would otherwise recurse forever
   if (visited.has(literal)) return;
   visited.add(literal);
   for (const member of literal.getProperties()) {
@@ -140,11 +141,10 @@ function addRegistryFromExpression(
 ): void {
   if (Node.isObjectLiteralExpression(expression)) {
     addRegistryMembers(sf, expression, entries, visited);
-    return;
+  } else if (Node.isIdentifier(expression)) {
+    const init = sf.getVariableDeclaration(expression.getText())?.getInitializer();
+    if (init !== undefined) addRegistryFromExpression(sf, init, entries, visited);
   }
-  if (!Node.isIdentifier(expression)) return;
-  const init = sf.getVariableDeclaration(expression.getText())?.getInitializer();
-  if (init !== undefined) addRegistryFromExpression(sf, init, entries, visited);
 }
 
 /** Maps each registered component's identifier to the registry key usage sites reference via `__component: SOME_CONST`. */

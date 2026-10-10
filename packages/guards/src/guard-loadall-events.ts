@@ -1,18 +1,18 @@
 #!/usr/bin/env bun
 /**
- * Guard: blockt Aufrufe von `loadAllEventsByType()` ausserhalb von Tests,
- * Ops-Scripts und der Definition selbst.
+ * Guard: blocks calls of `loadAllEventsByType()` outside tests,
+ * ops scripts and the definition itself.
  *
- * `loadAllEventsByType` buffert ALLE Events eines aggregate_type in den
- * Speicher (ein `SELECT … ORDER BY` ohne Limit). Jenseits ~100k Events pro
- * Typ ist das ein OOM-Cliff, der erst unter Prod-Last auffällt — genau die
- * Art still-und-spät-Fehler, die ein Guard fängt bevor sie ausgeliefert wird.
+ * `loadAllEventsByType` buffers ALL events of an aggregate_type in
+ * memory (a `SELECT … ORDER BY` without a limit). Beyond ~100k events per
+ * type that is an OOM cliff that only shows under prod load — exactly the
+ * kind of silent-and-late failure a guard catches before it ships.
  *
- * Der memory-bounded Ersatz ist `streamAllEventsByType` (yield't batchweise,
- * nie mehr als batchSize Rows resident). Production-Projection-Rebuild geht
- * bereits über diesen Streaming-Pfad. `loadAllEventsByType` bleibt legitim
- * für Tests (kleine, kontrollierte Stores) und Ops-Scripts auf bekannt
- * kleinen aggregate_types — daher die Allowlist statt einer Entfernung.
+ * The memory-bounded replacement is `streamAllEventsByType` (yields in
+ * batches, never more than batchSize rows resident). Production projection
+ * rebuild already goes through this streaming path. `loadAllEventsByType` stays legitimate
+ * for tests (small, controlled stores) and ops scripts on known
+ * small aggregate_types — hence the allowlist instead of a removal.
  *
  * Usage:
  *   bun packages/guards/src/guard-loadall-events.ts
@@ -36,14 +36,14 @@ const SCAN: ScanSpec = {
   kinds: ["framework", "library"],
 };
 
-// Test-Dateien dürfen die API frei benutzen — sie sind die primären
-// Verifizierer und laufen gegen kleine, kontrollierte Stores.
+// Test files may use the API freely — they are the primary verifiers and
+// run against small, controlled stores.
 const EXCLUDE = /(__tests__|\.test\.ts$|\.integration\.ts$|\.d\.ts$)/;
 
-// Erlaubte Aufrufer: die Definition selbst + Ops-/Migration-Scripts (laufen
-// auf bekannt kleinen aggregate_types, nicht im Prod-Hot-Path).
-// ROOT ist gegen process.cwd() (Repo-Root) verankert, `^`-Anker matcht nur
-// echte Top-Level-scripts/, nicht packages/.../scripts/*.
+// Allowed callers: the definition itself + ops/migration scripts (run
+// on known small aggregate_types, not in the prod hot path).
+// ROOT is anchored to process.cwd() (repo root), the `^` anchor only matches
+// real top-level scripts/, not packages/.../scripts/*.
 const ALLOWLIST: readonly RegExp[] = [
   /^packages\/framework\/src\/event-store\/event-store\.ts$/,
   /^scripts\//,

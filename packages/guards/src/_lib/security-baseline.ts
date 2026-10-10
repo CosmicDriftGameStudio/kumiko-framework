@@ -107,7 +107,7 @@ export function loadSecurityBaseline(repo: string, repoDir: string): SecurityBas
   }
   const parsed = parseSecurityBaseline(raw);
   if (!parsed) {
-    return { kind: "invalid", file, reason: "unexpected baseline format (format/repo/findings)" };
+    return { kind: "invalid", file, reason: "unexpected_baseline_shape" };
   }
   if (parsed.repo !== repo) {
     return {
@@ -154,15 +154,15 @@ export function applySecurityBaseline(args: {
   // violation order even after synthetic baseline-file entries are spliced in.
   const blockingEntries: Array<[number, GuardViolation]> = [];
 
-  violations.forEach((violation, index) => {
+  for (const [index, violation] of violations.entries()) {
     if (violation.neverFrozen) {
       blockingEntries.push([index, violation]);
-      return;
+      continue;
     }
     const located = locateFinding(violation.file, roots, cwd);
     if (!located) {
       blockingEntries.push([index, violation]);
-      return;
+      continue;
     }
     let perRepo = byRepo.get(located.repo);
     if (!perRepo) {
@@ -172,7 +172,7 @@ export function applySecurityBaseline(args: {
     const bucket = perRepo.get(located.relPath) ?? [];
     bucket.push({ relPath: located.relPath, index, violation });
     perRepo.set(located.relPath, bucket);
-  });
+  }
 
   const loadCache = new Map<string, SecurityBaselineLoad>();
   const loadOnce = (repo: string): SecurityBaselineLoad => {
@@ -314,7 +314,7 @@ export function buildSecurityBaseline(
   return {
     format: SECURITY_BASELINE_FORMAT,
     repo,
-    generated: new Date().toISOString().slice(0, 10),
+    generated: Temporal.Now.instant().toString().slice(0, 10),
     total,
     ...(sortedHardFail.length > 0 ? { hardFail: sortedHardFail } : {}),
     findings: Object.fromEntries(Object.entries(findings).sort(([a], [b]) => a.localeCompare(b))),

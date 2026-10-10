@@ -103,7 +103,7 @@ export const check: RepoCheck = {
         violations.push({
           file: "bun.lock",
           line: 1,
-          message: `bun.lock could not be parsed (${root.name}): ${lock.reason}`,
+          message: `bun.lock could not be parsed (${root.name}): ${lock.detail}`,
         });
         continue;
       }

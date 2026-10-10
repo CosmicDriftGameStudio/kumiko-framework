@@ -1,43 +1,43 @@
 #!/usr/bin/env bun
 
 /**
- * `as X` Cast Audit mit Baseline-Regression-Report (WARNUNG, kein Fail).
+ * `as X` cast audit with a baseline regression report (WARNING, no fail).
  *
- * Jeder `as X`-Cast ist ein Compiler-Knebel. Dieser Check zeigt alle Casts
- * im Production Code, kategorisiert in:
+ * Every `as X` cast is a compiler gag. This check shows all casts
+ * in production code, categorized as:
  *
- *   • legit-const      — `x as const`            (Literal-widening verhindern)
- *   • legit-brand      — `"..." as BrandedType`  (Branded-Type-Konstruktion)
- *   • legit-bridge     — `x as unknown as Y`     (bewusster Double-Cast)
- *   • legit-boundary   — Cast an System-Grenze, markiert mit `// @cast-boundary <reason>`
- *                        (Pipeline-payload, JSON-from-DB, Zod-Issue, Hook-Context)
- *   • suspect-parse    — cast direkt nach JSON.parse / .parseJsonSafe (externer Input)
- *   • suspect-narrow   — cast einer Variable zur Union-Verengung
- *   • suspect-general  — alles andere (TypeGuard- oder Typing-Kandidat)
+ *   • legit-const      — `x as const`            (prevents literal widening)
+ *   • legit-brand      — `"..." as BrandedType`  (branded-type construction)
+ *   • legit-bridge     — `x as unknown as Y`     (deliberate double cast)
+ *   • legit-boundary   — cast at a system boundary, marked with `// @cast-boundary <reason>`
+ *                        (pipeline payload, JSON-from-DB, Zod issue, hook context)
+ *   • suspect-parse    — cast directly after JSON.parse / .parseJsonSafe (external input)
+ *   • suspect-narrow   — cast of a variable for union narrowing
+ *   • suspect-general  — everything else (type guard or typing candidate)
  *
- * Die ersten vier sind legitim. Die letzten drei sind Refactor-Kandidaten.
+ * The first four are legitimate. The last three are refactoring candidates.
  *
- * Boundary-Marker setzen wenn ein Cast inhärent an einer System-Grenze
- * sitzt (z.B. dispatch-payload ist generic über alle Entity-Types und
- * kann nicht weiter typisiert werden). Reason im Kommentar erklärt warum:
+ * Set a boundary marker when a cast inherently sits at a system boundary
+ * (e.g. the dispatch payload is generic over all entity types and
+ * cannot be typed further). The reason in the comment explains why:
  *
- *   // @cast-boundary engine-payload — generic dispatch-Result über alle Entities
+ *   // @cast-boundary engine-payload — generic dispatch result over all entities
  *   const data = result.data as Record<string, unknown>;
  *
- * Baseline-Regression-Report:
+ * Baseline regression report:
  *
- * `.kumiko-cast-baseline.json` im Repo-Root pinnt pro File die expected
- * suspect-Cast-Anzahl. Der Audit vergleicht gegen die Baseline und meldet
- * Zuwaechse als Report — laut Projekt-Coding-Standards ("Type Assertions")
- * ist dieser Check "Warnung, kein Fail": er blockt nie, auch nicht bei
- * unbekannten @cast-boundary-Reasons oder Baseline-Regression.
- * Reduktionen (aktuell < baseline) sind erlaubt aber updaten die Baseline
- * NICHT automatisch — nach Cleanup-Commits `--write-baseline` aufrufen.
+ * `.kumiko-cast-baseline.json` in the repo root pins the expected
+ * suspect-cast count per file. The audit compares against the baseline and
+ * reports increases — per the project coding standards ("Type Assertions")
+ * this check is "warning, no fail": it never blocks, not even on
+ * unknown @cast-boundary reasons or a baseline regression.
+ * Reductions (current < baseline) are allowed but do NOT update the baseline
+ * automatically — run `--write-baseline` after cleanup commits.
  *
  * Usage:
- *   bun guards/check-as-casts.ts                  # Vergleich gegen Baseline
- *   bun guards/check-as-casts.ts --write-baseline # Baseline neu schreiben
- *   bun guards/check-as-casts.ts --no-baseline    # Vergleich überspringen
+ *   bun guards/check-as-casts.ts                  # compare against baseline
+ *   bun guards/check-as-casts.ts --write-baseline # rewrite baseline
+ *   bun guards/check-as-casts.ts --no-baseline    # skip comparison
  */
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
@@ -79,8 +79,8 @@ interface Site {
   source: string; // source expression (left of `as`)
   target: string; // target type (right of `as`)
   full: string;
-  /** boundary-reason wenn der Cast einen `@cast-boundary <reason>`-Marker
-   *  hat. Nur relevant wenn category === "legit-boundary". */
+  /** boundary reason when the cast carries a `@cast-boundary <reason>` marker.
+   *  Only relevant when category === "legit-boundary". */
   boundaryReason?: string;
 }
 
@@ -167,10 +167,10 @@ export function looksLikeBrandConstruction(cast: AsExpression): boolean {
   return false;
 }
 
-// Is the cast directly applied to a parse-Call result? Whitelist konkreter
-// Parse-Functions plus Zod's typische `*Schema.parse()` / `*Schema.safeParse()`
-// — `*.parse()` blanket-match wäre zu liberal (jeder eigene helper der
-// `.parse` heißt würde matchen, z.B. `myArray.parse()`).
+// Is the cast directly applied to a parse-call result? Whitelist of concrete
+// parse functions plus Zod's typical `*Schema.parse()` / `*Schema.safeParse()`
+// — a blanket `*.parse()` match would be too liberal (any custom helper
+// named `.parse` would match, e.g. `myArray.parse()`).
 const PARSE_CALL_RE =
   /^(?:JSON\.parse|parseJsonSafe|parseJsonOrThrow|\w*[Ss]chema\.(?:parse|safeParse))$/;
 
@@ -188,17 +188,16 @@ export function isNarrowingCast(cast: AsExpression): boolean {
   return cast.getExpression().getKind() === SyntaxKind.Identifier;
 }
 
-// Marker-Kommentar `// @cast-boundary <reason>` der den Cast als
-// bewusste System-Grenze markiert. Statt String-Line-Matching nutzen
-// wir den enclosing-Statement-Range mit Leading- und Trailing-Trivia
-// — deckt leading-Block-Comments, trailing-Line-Comments, inline-
-// Comments in multi-line Casts und mehrere Casts im selben Statement.
+// Marker comment `// @cast-boundary <reason>` that marks the cast as a
+// deliberate system boundary. Instead of string line matching we use
+// the enclosing statement range with leading and trailing trivia
+// — covers leading block comments, trailing line comments, inline
+// comments in multi-line casts and multiple casts in the same statement.
 const BOUNDARY_MARKER_RE = /\/[/*]\s*@cast-boundary(?:\s+([\w-]+))?/;
-
-// Whitelist anerkannter Reasons. Neue Reason erfordert Eintrag hier —
-// verhindert Drift wie "engine-payload" / "engine_payload" /
-// "engine payload" parallel im Repo. Audit zeigt Warning bei unbekannten
-// Reasons; bei Bedarf erweitern + ggf. Konsumenten umbenennen.
+// Whitelist of recognized reasons. A new reason requires an entry here —
+// prevents drift like "engine-payload" / "engine_payload" /
+// "engine payload" side by side in the repo. The audit warns on unknown
+// reasons; extend if needed and rename consumers if applicable.
 export const KNOWN_BOUNDARY_REASONS = [
   // Pipeline / Engine
   "engine-payload", // dispatch-Result, event.payload, Hook-Context drilling
@@ -243,12 +242,12 @@ export function hasBoundaryMarker(cast: AsExpression): boolean {
 // whitespace-separated token after `@cast-boundary` (z.B. "engine-
 // payload"). Empty string when marker has no reason.
 //
-// Scope der Marker-Suche (Reihenfolge: most-specific zuerst):
-//   1. Leading-Comments die laut TS-Compiler dem Statement gehören
-//      (`getLeadingCommentRanges` — kein Drift in vorhergehende Zeilen)
-//   2. Cast-Range selbst (multi-line casts mit inline-comment)
-//   3. Same-line trailing-comment am Cast-Ende (nicht weiter — würde
-//      den nächsten Statement-Comment fälschlich claimen)
+// Scope of the marker search (order: most specific first):
+//   1. Leading comments that the TS compiler assigns to the statement
+//      (`getLeadingCommentRanges` — no drift into preceding lines)
+//   2. The cast range itself (multi-line casts with an inline comment)
+//   3. Same-line trailing comment at the cast end (no further — would
+//      wrongly claim the next statement's comment)
 export function extractBoundaryReason(cast: AsExpression): string | null {
   const sf = cast.getSourceFile();
   const fullText = sf.getFullText();
@@ -270,18 +269,18 @@ export function extractBoundaryReason(cast: AsExpression): string | null {
   const inlineMatch = BOUNDARY_MARKER_RE.exec(castRange);
   if (inlineMatch) return inlineMatch[1] ?? "";
 
-  // (3) Same-line trailing comment am Cast-Ende. Wir gehen vom Cast-End
-  // zum nächsten EOL — das umfasst nur comments auf der Cast-Zeile, nicht
-  // Folge-Statement-Comments.
+  // (3) Same-line trailing comment at the cast end. We go from the cast end
+  // to the next EOL — this covers only comments on the cast line, not
+  // comments of following statements.
   const castEnd = cast.getEnd();
   const eolPos = fullText.indexOf("\n", castEnd);
   const trailingRange = fullText.slice(castEnd, eolPos === -1 ? fullText.length : eolPos);
   const trailingMatch = BOUNDARY_MARKER_RE.exec(trailingRange);
   if (trailingMatch) return trailingMatch[1] ?? "";
 
-  // (4) Same-line trailing comment am Statement-Ende (für Casts die nicht
-  // selbst am Statement-Ende stehen — z.B. innerhalb einer Function-Call
-  // Argument-Liste). Suche von Statement-End bis EOL.
+  // (4) Same-line trailing comment at the statement end (for casts that are
+  // not at the statement end themselves — e.g. inside a function-call
+  // argument list). Search from statement end to EOL.
   if (stmt) {
     const stmtEnd = stmt.getEnd();
     const stmtEol = fullText.indexOf("\n", stmtEnd);
@@ -293,40 +292,40 @@ export function extractBoundaryReason(cast: AsExpression): string | null {
   return null;
 }
 
-// Type-Names die per Definition typing-loss-marker sind — siehe
+// Type names that are typing-loss markers by definition — see
 // `packages/framework/src/db/connection.ts` (DbRow = Record<string, unknown>
-// als bewusster Marker an der Drizzle-Boundary). Cast zu solchen Types
-// IST der Marker — separater `@cast-boundary db-row`-Kommentar wäre
-// redundant. Liste klein halten: nur Types die im Comment ausdrücklich
-// als typing-loss-marker dokumentiert sind.
+// as a deliberate marker at the Drizzle boundary). A cast to such types
+// IS the marker — a separate `@cast-boundary db-row` comment would be
+// redundant. Keep the list small: only types explicitly documented in a
+// comment as a typing-loss marker.
 const TYPING_LOSS_MARKER_TYPES = new Set(["DbRow", "DbRow | undefined"]);
 
 export function isTypingLossMarkerCast(cast: AsExpression): boolean {
   return TYPING_LOSS_MARKER_TYPES.has(cast.getTypeNode()?.getText() ?? "");
 }
 
-// File-Default-Reasons: Verzeichnisse die per Konvention nur eine
-// Sorte boundary-cast enthalten. Statt jeden Cast einzeln mit
-// `@cast-boundary <reason>` zu markieren, gibt der Pfad-Match den
-// Reason vor. Per-Cast-Marker übersteuert diesen Default trotzdem.
-// Konvention beibehalten: nur Pfade die WIRKLICH einheitlich sind
-// (nicht "fast einheitlich" — Drift-Gefahr).
+// File-default reasons: directories that by convention contain only one
+// kind of boundary cast. Instead of marking every cast individually with
+// `@cast-boundary <reason>`, the path match supplies the reason. A
+// per-cast marker still overrides this default.
+// Keep the convention: only paths that are REALLY uniform
+// (not "almost uniform" — drift risk).
 const FILE_DEFAULT_REASONS: ReadonlyArray<{
   pattern: RegExp;
-  reason: BoundaryReason;
+  boundaryReason: BoundaryReason;
 }> = [
   {
     // feature-AST extractors: alle Casts gehen vom erased ts-morph-Parse-
     // Result zu typed feature-Definitionen (EntityDefinition, RelationDef,
     // NavDef, ConfigKeys, …). Per Konstruktion ein schema-walk.
     pattern: /\/engine\/feature-ast\//,
-    reason: "schema-walk",
+    boundaryReason: "schema-walk",
   },
 ];
 
 export function getFileDefaultReason(filePath: string): BoundaryReason | null {
   for (const entry of FILE_DEFAULT_REASONS) {
-    if (entry.pattern.test(filePath)) return entry.reason;
+    if (entry.pattern.test(filePath)) return entry.boundaryReason;
   }
   return null;
 }
@@ -351,10 +350,10 @@ function collect(sf: SourceFile): Site[] {
     // report only the inner (the `as unknown`) so each bridge shows once.
     if (isBridgeOuter(cast)) continue;
     const category = categorize(cast);
-    // TypingLossMarker-Casts (z.B. `as DbRow`) und FileDefault-Casts
-    // (z.B. feature-ast/extractors.ts → "schema-walk") sind per Type-
-    // Definition / Konvention boundary — synthetic reason damit der
-    // unknown-reason-Check nicht fault wirft.
+    // TypingLossMarker casts (e.g. `as DbRow`) and FileDefault casts
+    // (e.g. feature-ast/extractors.ts → "schema-walk") are boundaries by type
+    // definition / convention — synthetic reason so the unknown-reason check
+    // does not fail on them.
     const reason =
       category === "legit-boundary"
         ? (extractBoundaryReason(cast) ??
@@ -464,11 +463,11 @@ function reportCasts(all: readonly Site[], scanned: number): void {
   );
 }
 
-// Reason-Validation: jeder legit-boundary-Cast sollte einen bekannten Reason
-// haben. Unbekannte Reasons werden gemeldet (Reason-Drift wie „engine-
-// payload" vs „enginePayload" zerstört sonst langfristig die Audit-
-// Aussagekraft) — Whitelist-Erweiterung: in KNOWN_BOUNDARY_REASONS oben
-// eintragen. Warnung, kein Fail (siehe Modul-Header).
+// Reason validation: every legit-boundary cast should have a known reason.
+// Unknown reasons are reported (reason drift like "engine-payload" vs
+// "enginePayload" would otherwise destroy the audit's value in the long
+// run) — extending the whitelist: add an entry to KNOWN_BOUNDARY_REASONS
+// above. Warning, no fail (see module header).
 function reportUnknownReasons(all: readonly Site[]): void {
   const unknownReasons: Array<{ file: string; line: number; reason: string }> = [];
   for (const s of all) {
@@ -478,13 +477,14 @@ function reportUnknownReasons(all: readonly Site[]): void {
       unknownReasons.push({ file: s.file, line: s.line, reason: r || "<missing>" });
     }
   }
-  if (unknownReasons.length === 0) return;
-  console.log(`\n  UNKNOWN @cast-boundary REASONS (${unknownReasons.length}):`);
-  for (const u of unknownReasons) {
-    console.log(`    ${u.file}:${u.line}  reason=${u.reason}`);
+  if (unknownReasons.length > 0) {
+    console.log(`\n  UNKNOWN @cast-boundary REASONS (${unknownReasons.length}):`);
+    for (const u of unknownReasons) {
+      console.log(`    ${u.file}:${u.line}  reason=${u.reason}`);
+    }
+    console.log(`\n  Known reasons: ${KNOWN_BOUNDARY_REASONS.join(", ")}`);
+    console.log("  New reason? Add an entry in check-as-casts.ts → KNOWN_BOUNDARY_REASONS.");
   }
-  console.log(`\n  Known reasons: ${KNOWN_BOUNDARY_REASONS.join(", ")}`);
-  console.log("  New reason? Add an entry in check-as-casts.ts → KNOWN_BOUNDARY_REASONS.");
 }
 
 const BASELINE_FORMAT_VERSION = 2;
@@ -535,7 +535,7 @@ function writeBaseline(all: readonly Site[]): void {
   const repoLocalSuspects = repoLocal(suspectByFileAndTarget(all));
   const payload: Baseline = {
     format: BASELINE_FORMAT_VERSION,
-    generated: new Date().toISOString().slice(0, 10),
+    generated: Temporal.Now.instant().toString().slice(0, 10),
     totalSuspect: totalOf(repoLocalSuspects),
     perFile: Object.fromEntries(
       Object.entries(repoLocalSuspects)
@@ -552,8 +552,8 @@ function writeBaseline(all: readonly Site[]): void {
 }
 
 // Per File:target: aktueller Count gegen baseline. Mehr → Regression.
-// Cast-Tausch (Cast A weg, Cast B mit anderem target hinzu) wird so erkannt
-// obwohl Total stabil bleibt. Nur Report — Warnung, kein Fail.
+// A cast swap (cast A removed, cast B with a different target added) is detected
+// this way although the total stays stable. Report only — warning, no fail.
 // Merge-conflict markers, truncated writes and hand edits all land here; the
 // file is read once at the boundary so the comparison below can trust its shape.
 function isCountsByFile(value: unknown): value is Record<string, Record<string, number>> {
@@ -570,7 +570,7 @@ function isCountsByFile(value: unknown): value is Record<string, Record<string, 
 type BaselineLoad =
   | { kind: "missing" }
   | { kind: "format-drift"; format: unknown }
-  | { kind: "invalid"; reason: string }
+  | { kind: "invalid"; detail: string }
   | { kind: "ok"; baseline: Baseline };
 
 export function loadBaseline(file: string): BaselineLoad {
@@ -579,10 +579,10 @@ export function loadBaseline(file: string): BaselineLoad {
   try {
     parsed = JSON.parse(readFileSync(file, "utf-8"));
   } catch (error) {
-    return { kind: "invalid", reason: error instanceof Error ? error.message : String(error) };
+    return { kind: "invalid", detail: error instanceof Error ? error.message : String(error) };
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    return { kind: "invalid", reason: "expected a JSON object" };
+    return { kind: "invalid", detail: "expected a JSON object" };
   }
   const record: Record<string, unknown> = { ...parsed };
   if (record["format"] !== BASELINE_FORMAT_VERSION) {
@@ -596,7 +596,7 @@ export function loadBaseline(file: string): BaselineLoad {
   ) {
     return {
       kind: "invalid",
-      reason: "expected { format, generated: string, totalSuspect: number, perFile: object }",
+      detail: "expected { format, generated: string, totalSuspect: number, perFile: object }",
     };
   }
   return {
@@ -625,7 +625,7 @@ export function reportBaseline(
       {
         file: baselineFile,
         line: 1,
-        message: `Cannot read cast baseline ${baselineFile}: ${loaded.reason}. Fix the file (e.g. resolve merge-conflict markers) or regenerate it with \`bun packages/guards/src/check-as-casts.ts --write-baseline\`.`,
+        message: `Cannot read cast baseline ${baselineFile}: ${loaded.detail}. Fix the file (e.g. resolve merge-conflict markers) or regenerate it with \`bun packages/guards/src/check-as-casts.ts --write-baseline\`.`,
       },
     ];
   }
@@ -693,9 +693,9 @@ function analyseCasts(files: readonly SourceFile[], compareBaseline: boolean): G
     console.log("\n  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }
-  // WARNUNG, kein Fail (coding-standards.md → "Type Assertions"): weder
-  // unbekannte @cast-boundary-Reasons noch Baseline-Regression blocken. Nur
-  // eine unlesbare Baseline schlägt fehl.
+  // WARNING, no fail (coding-standards.md → "Type Assertions"): neither
+  // unknown @cast-boundary reasons nor a baseline regression block. Only
+  // an unreadable baseline fails.
   return { violations: reportBaseline(all) };
 }
 

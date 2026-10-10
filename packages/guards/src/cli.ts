@@ -70,6 +70,7 @@ async function main(): Promise<void> {
       checks: REPO_CHECKS,
     });
     console.log(JSON.stringify(inventory));
+    // skip: the inventory subcommand only prints and must not run any guard
     return;
   }
 
