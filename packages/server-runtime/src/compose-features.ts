@@ -30,12 +30,17 @@ import {
   mfaStatusCheckerFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
 import {
   collectAssignableAppRoles,
   createTenantFeature,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { TENANT_LIFECYCLE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { dedupeFeatures, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+
+const FILES_FEATURE = "files";
+const FILES_TENANT_DATA_FEATURE = "files-tenant-data";
 
 export type ComposeFeaturesOptions = {
   /** When true, prepends config + user + tenant + auth-email-password
@@ -114,7 +119,17 @@ export function composeFeatures(
     }
     filteredApp.push(f);
   }
-  return [...bundled, ...filteredApp];
+  const names = new Set(filteredApp.map((f) => f.name));
+  // Without it, tenant destroy leaves fileRef rows and stored binaries behind.
+  const needsFilesTenantData =
+    names.has(FILES_FEATURE) &&
+    names.has(TENANT_LIFECYCLE_FEATURE) &&
+    !names.has(FILES_TENANT_DATA_FEATURE);
+  return [
+    ...bundled,
+    ...filteredApp,
+    ...(needsFilesTenantData ? [createFilesTenantDataFeature()] : []),
+  ];
 }
 
 /** Shape of any run{Prod,Dev}App auth block that can carry a
