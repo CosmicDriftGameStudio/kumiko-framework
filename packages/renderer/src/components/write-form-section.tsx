@@ -166,9 +166,11 @@ export function WriteFormSection({
         </Banner>
       )}
       {onFooterAction === undefined && (
-        <div className="flex justify-end" data-testid="write-form-section-submit-row">
-          {submitButton}
-        </div>
+        <Card
+          options={{ framed: false, footerBordered: false }}
+          slots={{ footer: submitButton }}
+          testId="write-form-section-submit-row"
+        />
       )}
     </>
   );
