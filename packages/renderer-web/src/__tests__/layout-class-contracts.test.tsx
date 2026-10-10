@@ -109,6 +109,23 @@ describe("GridCell width", () => {
   });
 });
 
+describe("GridCell span", () => {
+  test("a span applies only from sm, so the single mobile column gets no implicit extra column", () => {
+    render(
+      <Grid columns={2}>
+        <GridCell span={2}>
+          <span data-testid="wide" />
+        </GridCell>
+      </Grid>,
+    );
+    const cell = screen.getByTestId("wide").parentElement;
+    expect(cell?.className).toContain("sm:[grid-column:span_var(--grid-span)]");
+    expect(cell?.className).toContain("min-w-0");
+    expect(cell?.style.getPropertyValue("--grid-span")).toBe("2");
+    expect(cell?.style.gridColumn).toBe("");
+  });
+});
+
 describe("GridCell toggle width", () => {
   test("toggle cells align to the top line and centre the switch on the input line", () => {
     render(
