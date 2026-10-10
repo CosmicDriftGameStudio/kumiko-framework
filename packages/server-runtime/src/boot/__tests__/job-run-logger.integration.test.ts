@@ -133,20 +133,28 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.job("record", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
-    try {
-      const { text } = attachJobPayload.parse(payload);
-      const writeResult = await ctx.write("jobattach:write:create", { text });
-      const rows = await ctx.queryAs(TestUsers.admin, "jobattach:query:list", {});
-      attachResults.push({
-        writeOk: writeResult.isSuccess,
-        rowCount: attachListRows.parse(rows).length,
-      });
-    } catch (error) {
-      attachFailures.push(error instanceof Error ? error.message : String(error));
-      throw error;
-    }
-  });
+  r.job(
+    "record",
+    {
+      trigger: { manual: true },
+      retries: 0,
+      escapeHatch: { reason: "test job reads the note list as a signed-in user" },
+    },
+    async (payload, ctx) => {
+      try {
+        const { text } = attachJobPayload.parse(payload);
+        const writeResult = await ctx.write("jobattach:write:create", { text });
+        const rows = await ctx.queryAs(TestUsers.admin, "jobattach:query:list", {});
+        attachResults.push({
+          writeOk: writeResult.isSuccess,
+          rowCount: attachListRows.parse(rows).length,
+        });
+      } catch (error) {
+        attachFailures.push(error instanceof Error ? error.message : String(error));
+        throw error;
+      }
+    },
+  );
 });
 
 describe("startDevJobRunners attaches the dispatcher (kumiko-framework#2553)", () => {
