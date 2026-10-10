@@ -144,6 +144,7 @@ export function collectCardMetaOverflow(
 
 export function validateCardMetaOverflow(features: readonly FeatureDefinition[]): void {
   const overflows = collectCardMetaOverflow(features);
+  // skip: nothing overflows, so there is nothing to report
   if (overflows.length === 0) return;
   const lines = overflows.map(
     (o) =>
