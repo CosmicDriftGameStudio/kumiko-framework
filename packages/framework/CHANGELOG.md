@@ -1,5 +1,60 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.355.0
+
+### Minor Changes
+
+- 17496fd: Entity events are versionable: eventVersion + eventMigrations on r.entity
+
+  Entities can declare eventVersion and row-shaped eventMigrations; lifecycle events are stamped with the version and upcast on rebuild and aggregate load. A version bump invalidates entity snapshots.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Entity events are versionable: eventVersion + eventMigrations on r.entity
+  -->
+
+- 326bfb5: excludeFields per verb reaches the renderer and the agent manifest
+
+  WriteHandlerDef carries excludedFields; entityEdit screens get writeExcludedFields per verb. The edit form shows them read-only and keeps them out of the payload, create hides them, and the agent manifest lists them per handler.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: excludeFields per verb reaches the renderer and the agent manifest
+  -->
+
+- c40ac62: Identity and tenant switches are explicitly gated; escape-hatch audit is durable
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Identity and tenant switches are explicitly gated; escape-hatch audit is durable
+  migration: |
+    Job ctx.writeAs now needs r.systemScope() on the feature or escapeHatch: { reason } on the job; use ctx.write when the job acts as its own system user. A payload tenantIdOverride is refused by the dispatcher for non-SystemAdmin callers (handlers no longer call crossTenantOverrideDenied, which is removed; use mayOverrideTenant for other cross-tenant fields). Entity convention handlers with a cross-tenant escapeHatch now keep the operator as actor in the row stream (executor option streamTenantId, system-mode db only). createEscapeHatchReporter requires log; pass the runtime logger and share one report window per runtime. EscapeHatchUseEvent and the audit sink payload gain an optional caller. Call flushEscapeHatchAudits() before closing the database on shutdown.
+  -->
+
+### Patch Changes
+
+- 32d725c: A nested `ctx.write` / `ctx.writeAs` (and workflow `call-feature`) now runs in a savepoint of the outer transaction: when the inner write fails after its event and projection were written, for example because an in-transaction hook throws, the inner change is rolled back even if the outer handler swallows the failure result and commits, and a SQL error in the inner write no longer poisons the outer transaction. The inner write's afterCommit hooks only run when it succeeded.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A failed nested ctx.write is rolled back to a savepoint instead of leaking its event and projection into the outer commit
+  -->
+
+- 44650be: Edit and detail screens show a localized empty state with a way back to the list for an unknown or deleted record id instead of a hard-coded English banner, and an entity list or detail no longer fails with a 500 when one row's encrypted field cannot be decrypted: that field reads null, the rest of the row and list are served, and the failure is logged at error level with entity, row id and field
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Unknown record ids show a localized empty state; an undecryptable encrypted field reads null instead of failing the whole list
+  -->
+
+  - @cosmicdrift/kumiko-http@0.355.0
+  - @cosmicdrift/kumiko-types@0.355.0
+
 ## 0.354.1
 
 ### Patch Changes

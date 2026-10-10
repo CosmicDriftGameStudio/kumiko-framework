@@ -1,5 +1,24 @@
 # @cosmicdrift/kumiko-locale-es
 
+## 0.355.0
+
+### Patch Changes
+
+- 44650be: Edit and detail screens show a localized empty state with a way back to the list for an unknown or deleted record id instead of a hard-coded English banner, and an entity list or detail no longer fails with a 500 when one row's encrypted field cannot be decrypted: that field reads null, the rest of the row and list are served, and the failure is logged at error level with entity, row id and field
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Unknown record ids show a localized empty state; an undecryptable encrypted field reads null instead of failing the whole list
+  -->
+
+- Updated dependencies [17496fd]
+- Updated dependencies [326bfb5]
+- Updated dependencies [c40ac62]
+- Updated dependencies [32d725c]
+- Updated dependencies [44650be]
+  - @cosmicdrift/kumiko-framework@0.355.0
+
 ## 0.354.1
 
 ### Patch Changes

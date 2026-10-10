@@ -2,13 +2,31 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-09
+verified: 2026-10-10
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.355.0
+
+### enterprise:guards
+
+**Security guards ignore kumiko.json excludes beyond node_modules and dist; kind framework is reserved for kumiko-framework**
+
+**Migration:** Security guards (No-Direct-Fs, Direct-Entity-Writes, Direct-Fetch, Tenant-Escalation, Admin-API, Access-Denied-Test, Open-To-All-Reason, Escape-Hatch-Declared) now scan files matched by your kumiko.json excludes; fix the findings or add a precise guard allowlist entry. A kumiko.json with kind framework outside the kumiko-framework package now fails root resolution; use library or app. Direct-Entity-Writes now sees table arguments behind casts (`table as T`, parentheses, non-null), so a cast no longer hides a direct write. i18n-Locale-Mount handles conditional spreads, alias depth and circular constants.
+
+**test-timeouts guard flags timeout arguments on test(), it() and describe()**
+
+**Migration:** Remove the timeout argument from test/it/describe calls (test(name, fn, 30_000), test(name, fn, { timeout }), also via .skip/.only/.if()/.each()) and fix the cause: poll with waitFor/expect.poll, shrink the data set, share expensive setup in beforeAll. setDefaultTimeout and describe.configure through renamed or namespace bun:test imports are flagged too. A justified remainder gets '// @timeout-exception: #<issue> <reason>' on the line above the call.
+
+### framework-core
+
+**Identity and tenant switches are explicitly gated; escape-hatch audit is durable**
+
+**Migration:** Job ctx.writeAs now needs r.systemScope() on the feature or escapeHatch: { reason } on the job; use ctx.write when the job acts as its own system user. A payload tenantIdOverride is refused by the dispatcher for non-SystemAdmin callers (handlers no longer call crossTenantOverrideDenied, which is removed; use mayOverrideTenant for other cross-tenant fields). Entity convention handlers with a cross-tenant escapeHatch now keep the operator as actor in the row stream (executor option streamTenantId, system-mode db only). createEscapeHatchReporter requires log; pass the runtime logger and share one report window per runtime. EscapeHatchUseEvent and the audit sink payload gain an optional caller. Call flushEscapeHatchAudits() before closing the database on shutdown.
 
 ## 0.354.0
 
