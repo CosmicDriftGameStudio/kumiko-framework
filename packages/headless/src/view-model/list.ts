@@ -71,6 +71,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
         refFeature: refTarget.featureName,
         refLabelField: normalized.refLabelField ?? "id",
         ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+        ...(normalized.hideOnNarrow === true && { hideOnNarrow: true }),
       });
       continue;
     }
@@ -100,6 +101,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
             // ORDER BY would sort by GUID while the cell shows the name.
             sortable: rowMetaRef === undefined,
             ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+            ...(normalized.hideOnNarrow === true && { hideOnNarrow: true }),
             ...(rowMetaRef !== undefined && {
               refEntity: rowMetaRef.refEntity,
               refFeature: rowMetaRef.refFeature,
@@ -122,6 +124,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
             type: "text",
             sortable: false,
             renderer: normalized.renderer,
+            ...(normalized.hideOnNarrow === true && { hideOnNarrow: true }),
           });
           continue;
         }
@@ -139,6 +142,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
         // no column to sort by (see DerivedFieldDef). Never offer the affordance.
         sortable: false,
         ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
+        ...(normalized.hideOnNarrow === true && { hideOnNarrow: true }),
       });
       continue;
     }

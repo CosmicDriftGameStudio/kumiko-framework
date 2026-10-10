@@ -17,7 +17,14 @@ export const userListScreen: EntityListScreenDefinition = {
   id: "user-list",
   type: "entityList",
   entity: "user",
-  columns: ["email", "displayName", "roles", "tenants", "status", "emailVerified"],
+  columns: [
+    "email",
+    "displayName",
+    "roles",
+    "tenants",
+    "status",
+    { field: "emailVerified", hideOnNarrow: true },
+  ],
   rowActions: [
     {
       kind: "navigate",

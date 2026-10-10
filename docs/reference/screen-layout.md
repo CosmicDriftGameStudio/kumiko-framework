@@ -68,7 +68,7 @@ The slot holds one `overflowItems` list per page; the last `PageHeader` that set
 | `statusTones` | projectionDetail | same for the `status` field of the header badge |
 | `subtitle` | projectionDetail | `header.subtitle`: a query output field, or a list of parts (field name or `{ field, navigate? }`) shown as one line under the title |
 | `valueType` | relatedList column | `number`, `decimal`, `bigInt` or `money`: right-aligned tabular column and header |
-| `hideOnNarrow` | list column | leaves the column out of the card layout below `md` |
+| `hideOnNarrow` | list column | leaves the column out of the card layout below `md`; a card draws at most 3 other meta columns (one row each), more is a boot error |
 | `description` | relatedList section | i18n key for the hint in the tab toolbar |
 | `itemNoun` | relatedList section | i18n key with plural forms for the footer count |
 | `summary` | actionForm | `{ title, subtitle? }` context box; `{name}` placeholders come from the drawer prefill |

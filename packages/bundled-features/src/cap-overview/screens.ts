@@ -31,10 +31,12 @@ export function createTenantCapListScreen(
       { field: "name", label: "cap-overview.list.col.name" },
       { field: "tier", label: "cap-overview.list.col.tier" },
       { field: "billing", label: "cap-overview.list.col.billing" },
-      ...listedCaps.map((cap) => ({
+      // Name is the title; tier, billing and the first cap fill the card's three meta rows.
+      ...listedCaps.map((cap, index) => ({
         field: capFieldName(cap.id),
         label: cap.label,
         renderer: { react: { __component: CAP_USAGE_CELL_COMPONENT } },
+        ...(index > 0 && { hideOnNarrow: true }),
       })),
     ],
     searchable: true,

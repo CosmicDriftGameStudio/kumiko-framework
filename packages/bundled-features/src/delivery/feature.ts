@@ -247,15 +247,21 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
           label: i18nKey("delivery.log.col.channel"),
           renderer: { react: { __component: DELIVERY_CHANNEL_CELL_COMPONENT } },
         },
-        { field: "recipientLabel", label: i18nKey("delivery.log.col.recipient") },
+        {
+          field: "recipientLabel",
+          label: i18nKey("delivery.log.col.recipient"),
+          hideOnNarrow: true,
+        },
         {
           field: "status",
           label: i18nKey("delivery.log.col.status"),
+          hideOnNarrow: true,
           renderer: { react: { __component: DELIVERY_STATUS_CELL_COMPONENT } },
         },
         {
           field: "error",
           label: i18nKey("delivery.log.col.error"),
+          hideOnNarrow: true,
           renderer: { react: { __component: DELIVERY_ERROR_CELL_COMPONENT } },
         },
       ],

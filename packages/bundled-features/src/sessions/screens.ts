@@ -48,6 +48,7 @@ export const createSessionListScreen = (
     {
       field: "revokedAt",
       label: i18nKey("sessions.list.col.revokedAt"),
+      hideOnNarrow: true,
       renderer: { format: "timestamp" },
     },
   ],
@@ -123,6 +124,7 @@ export const sessionMineScreen: ProjectionListScreenDefinition = {
     {
       field: "current",
       label: i18nKey("sessions.mine.col.current"),
+      hideOnNarrow: true,
       renderer: { format: "boolean" },
     },
   ],

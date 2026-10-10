@@ -180,6 +180,8 @@ export type {
   QualifiedContentCollection,
   WorkspaceSchema,
 } from "./app-schema.js";
+export type { CardColumnRoles, CardRoleColumn } from "./card-column-roles.js";
+export { CARD_META_MAX, cardColumnRoles } from "./card-column-roles.js";
 export { type Formality, formalLocaleTag } from "./formality.js";
 export type {
   ListRowMetaColumnType,

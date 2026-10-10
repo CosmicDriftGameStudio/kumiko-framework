@@ -68,7 +68,14 @@ export const downloadAttemptListScreen: EntityListScreenDefinition = {
   id: "download-attempt-list",
   type: "entityList",
   entity: "download-attempt",
-  columns: ["attemptedAt", "result", "via", "ip", "attemptedByUserId", "jobId"],
+  columns: [
+    "attemptedAt",
+    "result",
+    "via",
+    "ip",
+    { field: "attemptedByUserId", hideOnNarrow: true },
+    { field: "jobId", hideOnNarrow: true },
+  ],
   searchable: false,
   access: { roles: access.systemAdmin },
   // Inert until an app navs it (see file header) — no nav area to resolve
