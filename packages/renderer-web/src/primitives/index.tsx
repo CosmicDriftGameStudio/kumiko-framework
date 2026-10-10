@@ -1989,24 +1989,35 @@ function DefaultDataTable({
             )}
           </div>
           {metaColumns.length > 0 && (
-            <div
-              data-testid={`card-meta-${row.id}`}
-              className="flex min-w-0 flex-col text-[13px] leading-5 tabular-nums text-foreground-secondary"
-            >
-              {metaColumns.map((col) => (
-                <div
-                  key={col.field}
-                  data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
-                  className="min-w-0 truncate"
-                  onPointerEnter={showFullTextOnHover}
-                >
-                  {isBadgeColumn(col) ? (
-                    <span className="inline-flex align-middle">{cardCell(row, col)}</span>
-                  ) : (
-                    cardCell(row, col)
-                  )}
-                </div>
-              ))}
+            // Every item carries a leading "·" separator element (real element: consumers
+            // scan the published dist with Tailwind, so arbitrary `content-` classes are
+            // missing). The row is shifted by one separator width and the wrapper clips
+            // horizontally only, hiding the separator at each line start without
+            // hiding anything vertically.
+            <div className="min-w-0 overflow-x-clip">
+              <div
+                data-testid={`card-meta-${row.id}`}
+                className="-ms-3 flex min-w-0 flex-wrap items-center text-[13px] leading-5 tabular-nums text-foreground-secondary"
+              >
+                {metaColumns.map((col) => (
+                  <div key={col.field} className="flex h-5 min-w-0 max-w-full items-center">
+                    <span aria-hidden="true" className="w-3 shrink-0 text-center">
+                      ·
+                    </span>
+                    <div
+                      data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
+                      className="min-w-0 truncate leading-5"
+                      onPointerEnter={showFullTextOnHover}
+                    >
+                      {isBadgeColumn(col) ? (
+                        <span className="inline-flex align-middle">{cardCell(row, col)}</span>
+                      ) : (
+                        cardCell(row, col)
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

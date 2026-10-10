@@ -159,7 +159,7 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
-  test("every meta value gets its own row, all values stay in the DOM", () => {
+  test("meta values sit in one wrapping row with a separator per item, all values stay in the DOM", () => {
     withViewportWidth(500, () => {
       const columns = [
         { field: "name", label: "Name", type: "string", sortable: false },
@@ -172,17 +172,27 @@ describe("DataTable — cards below 768px", () => {
       ];
       const { container } = render(<DataTable columns={columns} rows={rows} testId="t" />);
       const metaRow = screen.getByTestId("card-meta-u1");
-      const lines = ["cell-u1-from", "cell-u1-to", "cell-u1-city"].map((id) =>
+      const values = ["cell-u1-from", "cell-u1-to", "cell-u1-city"].map((id) =>
         screen.getByTestId(id),
       );
-      expect(Array.from(metaRow.children)).toEqual(lines);
-      expect(lines.map((line) => line.textContent)).toEqual(["4. Okt. 2026", "5. Okt.", "Köln"]);
-      expect(metaRow.textContent).not.toContain("·");
-      expect(container.querySelector(".max-h-10")).toBeNull();
+      expect(metaRow.className).toContain("flex-wrap");
+      expect(metaRow.children).toHaveLength(3);
+      expect(Array.from(metaRow.children).map((item) => item.lastElementChild)).toEqual(values);
+      expect(values.map((value) => value.textContent)).toEqual(["4. Okt. 2026", "5. Okt.", "Köln"]);
+      for (const item of Array.from(metaRow.children)) {
+        expect(item.firstElementChild?.textContent).toBe("·");
+        expect(item.firstElementChild?.getAttribute("aria-hidden")).toBe("true");
+      }
+      expect(metaRow.className).not.toContain("max-h-");
+      expect(metaRow.className).not.toContain("overflow-hidden");
+      expect(metaRow.className).toContain("-ms-3");
+      expect(metaRow.parentElement?.className).toContain("overflow-x-clip");
+      expect(metaRow.parentElement?.className).not.toContain("overflow-hidden");
+      expect(container.querySelector("[class*='max-h-']")).toBeNull();
     });
   });
 
-  test("a long value truncates only its own row", () => {
+  test("a long value truncates only its own value element", () => {
     withViewportWidth(500, () => {
       const longValue = "A very long description ".repeat(10).trim();
       const columns = [
@@ -196,12 +206,14 @@ describe("DataTable — cards below 768px", () => {
       const city = screen.getByTestId("cell-u1-city");
       expect(note.className).toContain("truncate");
       expect(note.textContent).toBe(longValue);
+      expect(note.parentElement?.className).toContain("max-w-full");
       expect(city.textContent).toBe("Köln");
+      expect(city.parentElement?.className).not.toContain("truncate");
       expect(screen.getByTestId("card-meta-u1").className).not.toContain("truncate");
     });
   });
 
-  test("hovering a meta row exposes its full text as tooltip", () => {
+  test("hovering a meta value exposes its full text as tooltip", () => {
     withViewportWidth(500, () => {
       const columns = [
         { field: "name", label: "Name", type: "string", sortable: false },
