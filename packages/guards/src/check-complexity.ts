@@ -114,6 +114,32 @@ function hasBudgetTag(fn: Node): boolean {
   return lineHasIgnoreTag(lines[jsDocStartLine - 2] ?? "", BUDGET_TAG);
 }
 
+const BRANCH_KINDS: ReadonlySet<SyntaxKind> = new Set([
+  SyntaxKind.IfStatement,
+  SyntaxKind.ForStatement,
+  SyntaxKind.ForInStatement,
+  SyntaxKind.ForOfStatement,
+  SyntaxKind.WhileStatement,
+  SyntaxKind.DoStatement,
+  SyntaxKind.CatchClause,
+  SyntaxKind.ConditionalExpression,
+  SyntaxKind.CaseClause,
+]);
+
+const SHORT_CIRCUIT_OPERATORS: ReadonlySet<SyntaxKind> = new Set([
+  SyntaxKind.AmpersandAmpersandToken,
+  SyntaxKind.BarBarToken,
+  SyntaxKind.QuestionQuestionToken,
+]);
+
+function isDecisionPoint(node: Node): boolean {
+  const kind = node.getKind();
+  if (BRANCH_KINDS.has(kind)) return true;
+  if (kind !== SyntaxKind.BinaryExpression) return false;
+  const operator = node.asKindOrThrow(SyntaxKind.BinaryExpression).getOperatorToken().getKind();
+  return SHORT_CIRCUIT_OPERATORS.has(operator);
+}
+
 export function computeComplexity(fn: Node): number {
   let complexity = 1;
   fn.forEachDescendant((node, traversal) => {
@@ -123,34 +149,7 @@ export function computeComplexity(fn: Node): number {
       traversal.skip();
       return;
     }
-    switch (node.getKind()) {
-      case SyntaxKind.IfStatement:
-      case SyntaxKind.ForStatement:
-      case SyntaxKind.ForInStatement:
-      case SyntaxKind.ForOfStatement:
-      case SyntaxKind.WhileStatement:
-      case SyntaxKind.DoStatement:
-      case SyntaxKind.CatchClause:
-      case SyntaxKind.ConditionalExpression:
-        complexity++;
-        break;
-      case SyntaxKind.CaseClause:
-        complexity++;
-        break;
-      case SyntaxKind.BinaryExpression: {
-        const op = node.asKindOrThrow(SyntaxKind.BinaryExpression).getOperatorToken().getKind();
-        if (
-          op === SyntaxKind.AmpersandAmpersandToken ||
-          op === SyntaxKind.BarBarToken ||
-          op === SyntaxKind.QuestionQuestionToken
-        ) {
-          complexity++;
-        }
-        break;
-      }
-      default:
-        break;
-    }
+    if (isDecisionPoint(node)) complexity++;
   });
   return complexity;
 }

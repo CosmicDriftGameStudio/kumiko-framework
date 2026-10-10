@@ -121,8 +121,83 @@ function collectConditions(sf: SourceFile): Site[] {
   return sites;
 }
 
-// Warning-only Check: blockt nie (returnt immer 0 violations). Die Findings
-// werden via console ausgegeben; der Runner zeigt `✓` solange nichts wirft.
+type TextDuplicateGroup = [Site, Site, ...Site[]];
+type ShapeDuplicateGroup = { shape: string; sites: Site[] };
+
+function bucketDuplicateCandidates(allSites: readonly Site[]): {
+  byText: Map<string, Site[]>;
+  byShape: Map<string, Site[]>;
+} {
+  const byText = new Map<string, Site[]>();
+  const byShape = new Map<string, Site[]>();
+  for (const s of allSites) {
+    // Count as duplicate candidate if either >=2 operators OR text long enough
+    // that repetition is still worth extracting (covers 1-operator but lengthy
+    // domain checks like kebab-case validation).
+    if (s.operators < DUP_MIN_OPERATORS && s.text.length < LENGTH_THRESHOLD) continue;
+    const textBucket = byText.get(s.text) ?? [];
+    textBucket.push(s);
+    byText.set(s.text, textBucket);
+    const shape = structuralShape(s.text);
+    const shapeBucket = byShape.get(shape) ?? [];
+    shapeBucket.push(s);
+    byShape.set(shape, shapeBucket);
+  }
+  return { byText, byShape };
+}
+
+function findTextDuplicates(byText: ReadonlyMap<string, Site[]>): TextDuplicateGroup[] {
+  const textDups: TextDuplicateGroup[] = [];
+  for (const bucket of byText.values()) {
+    if (bucket.length < 2) continue;
+    const [first, second, ...rest] = bucket;
+    if (first !== undefined && second !== undefined) textDups.push([first, second, ...rest]);
+  }
+  return textDups;
+}
+
+function findShapeDuplicates(byShape: ReadonlyMap<string, Site[]>): ShapeDuplicateGroup[] {
+  const shapeDups: ShapeDuplicateGroup[] = [];
+  for (const [shape, bucket] of byShape.entries()) {
+    if (bucket.length < 2) continue;
+    // Skip when sites are already covered by exact-text duplicate group.
+    const firstText = bucket[0]?.text;
+    const allSame = bucket.every((s) => s.text === firstText);
+    if (allSame) continue;
+    shapeDups.push({ shape, sites: bucket });
+  }
+  return shapeDups;
+}
+
+const snip = (text: string): string => (text.length > 90 ? `${text.slice(0, 87)}...` : text);
+
+function printFatPredicates(fatSites: readonly Site[]): void {
+  console.log(`\n  Fat-predicate candidates:`);
+  for (const s of fatSites) {
+    const hint = s.ands === 0 && s.ors >= 3 ? "  (Array.includes/Set?)" : "";
+    console.log(`    ${s.file}:${s.line}  [${s.ands}&& ${s.ors}||]  ${snip(s.text)}${hint}`);
+  }
+}
+
+function printTextDuplicates(textDups: readonly TextDuplicateGroup[]): void {
+  console.log(`\n  Exact duplicates:`);
+  for (const group of textDups) {
+    const [first] = group;
+    console.log(`    ${group.length}x  ${snip(first.text)}`);
+    for (const s of group) console.log(`      - ${s.file}:${s.line}`);
+  }
+}
+
+function printShapeDuplicates(shapeDups: readonly ShapeDuplicateGroup[]): void {
+  console.log(`\n  Structural duplicates:`);
+  for (const { shape, sites } of shapeDups) {
+    console.log(`    ${sites.length}x  shape: ${snip(shape)}`);
+    for (const s of sites) console.log(`      - ${s.file}:${s.line}  ${snip(s.text)}`);
+  }
+}
+
+// Warning-only check: never blocks (always returns 0 violations). The
+// findings are printed via console; the runner shows `✓` as long as nothing throws.
 export const guard: AstGuard = {
   name: "Predicate Extraction Check",
   scan: SCAN,
@@ -138,37 +213,9 @@ export const guard: AstGuard = {
     const fatSites = allSites.filter(
       (s) => s.operators >= OPERATOR_THRESHOLD || s.text.length >= LENGTH_THRESHOLD,
     );
-
-    const byText = new Map<string, Site[]>();
-    const byShape = new Map<string, Site[]>();
-    for (const s of allSites) {
-      // Count as duplicate candidate if either >=2 operators OR text long enough
-      // that repetition is still worth extracting (covers 1-operator but lengthy
-      // domain checks like kebab-case validation).
-      if (s.operators < DUP_MIN_OPERATORS && s.text.length < LENGTH_THRESHOLD) continue;
-      const textBucket = byText.get(s.text) ?? [];
-      textBucket.push(s);
-      byText.set(s.text, textBucket);
-      const shape = structuralShape(s.text);
-      const shapeBucket = byShape.get(shape) ?? [];
-      shapeBucket.push(s);
-      byShape.set(shape, shapeBucket);
-    }
-    const textDups: Array<[Site, Site, ...Site[]]> = [];
-    for (const bucket of byText.values()) {
-      if (bucket.length < 2) continue;
-      const [first, second, ...rest] = bucket;
-      if (first !== undefined && second !== undefined) textDups.push([first, second, ...rest]);
-    }
-    const shapeDups: Array<{ shape: string; sites: Site[] }> = [];
-    for (const [shape, bucket] of byShape.entries()) {
-      if (bucket.length < 2) continue;
-      // Skip when sites are already covered by exact-text duplicate group.
-      const firstText = bucket[0]?.text;
-      const allSame = bucket.every((s) => s.text === firstText);
-      if (allSame) continue;
-      shapeDups.push({ shape, sites: bucket });
-    }
+    const { byText, byShape } = bucketDuplicateCandidates(allSites);
+    const textDups = findTextDuplicates(byText);
+    const shapeDups = findShapeDuplicates(byShape);
 
     console.log(`Predicate-Extraction Check: ${scanned} files checked.`);
     console.log(
@@ -182,32 +229,9 @@ export const guard: AstGuard = {
       return { violations: [] };
     }
 
-    const snip = (text: string): string => (text.length > 90 ? `${text.slice(0, 87)}...` : text);
-
-    if (fatSites.length > 0) {
-      console.log(`\n  Fat-predicate candidates:`);
-      for (const s of fatSites) {
-        const hint = s.ands === 0 && s.ors >= 3 ? "  (Array.includes/Set?)" : "";
-        console.log(`    ${s.file}:${s.line}  [${s.ands}&& ${s.ors}||]  ${snip(s.text)}${hint}`);
-      }
-    }
-
-    if (textDups.length > 0) {
-      console.log(`\n  Exact duplicates:`);
-      for (const group of textDups) {
-        const [first] = group;
-        console.log(`    ${group.length}x  ${snip(first.text)}`);
-        for (const s of group) console.log(`      - ${s.file}:${s.line}`);
-      }
-    }
-
-    if (shapeDups.length > 0) {
-      console.log(`\n  Structural duplicates:`);
-      for (const { shape, sites } of shapeDups) {
-        console.log(`    ${sites.length}x  shape: ${snip(shape)}`);
-        for (const s of sites) console.log(`      - ${s.file}:${s.line}  ${snip(s.text)}`);
-      }
-    }
+    if (fatSites.length > 0) printFatPredicates(fatSites);
+    if (textDups.length > 0) printTextDuplicates(textDups);
+    if (shapeDups.length > 0) printShapeDuplicates(shapeDups);
 
     console.log(
       "\n  Rule: extract as a named function (isX/hasY/canZ) when the condition has a stable name.",

@@ -37,8 +37,11 @@ function printHelp(): void {
   }
 }
 
-async function main(): Promise<void> {
-  const subcommand = process.argv[2];
+function parseInvocation(argv: readonly string[]): {
+  subcommand: Subcommand | undefined;
+  flags: string[];
+} {
+  const subcommand = argv[2];
   if (subcommand === "--help" || subcommand === "-h") {
     printHelp();
     process.exit(0);
@@ -49,27 +52,36 @@ async function main(): Promise<void> {
     );
     process.exit(1);
   }
-  const flags = process.argv.slice(3);
+  const flags = argv.slice(3);
   if (subcommand !== undefined && (flags.includes("--help") || flags.includes("-h"))) {
     printHelp();
     process.exit(0);
   }
+  return { subcommand, flags };
+}
+
+function printInventory(flags: readonly string[]): void {
+  const flagsError = cliFlagsError("list", flags, SUBCOMMAND_FLAGS.list);
+  if (flagsError !== undefined) {
+    console.error(flagsError);
+    process.exit(1);
+  }
+  // Registration inventory only — no scan, no project, no guard.run(). What
+  // CI checks against instead of running the guards: a guard dropped from a
+  // suite's array goes missing here too, not just silently from a run.
+  const inventory = buildGuardKitInventory({
+    guards: GUARDS,
+    uiGuards: UI_GUARDS,
+    checks: REPO_CHECKS,
+  });
+  console.log(JSON.stringify(inventory));
+}
+
+async function main(): Promise<void> {
+  const { subcommand, flags } = parseInvocation(process.argv);
 
   if (subcommand === "list") {
-    const flagsError = cliFlagsError("list", flags, SUBCOMMAND_FLAGS.list);
-    if (flagsError !== undefined) {
-      console.error(flagsError);
-      process.exit(1);
-    }
-    // Registration inventory only — no scan, no project, no guard.run(). What
-    // CI checks against instead of running the guards: a guard dropped from a
-    // suite's array goes missing here too, not just silently from a run.
-    const inventory = buildGuardKitInventory({
-      guards: GUARDS,
-      uiGuards: UI_GUARDS,
-      checks: REPO_CHECKS,
-    });
-    console.log(JSON.stringify(inventory));
+    printInventory(flags);
     // skip: the inventory subcommand only prints and must not run any guard
     return;
   }

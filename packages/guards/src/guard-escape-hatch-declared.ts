@@ -73,11 +73,13 @@
  */
 import * as path from "node:path";
 import {
+  type BindingElement,
   type Node,
   type ObjectLiteralExpression,
   type PropertyAssignment,
   type SourceFile,
   SyntaxKind,
+  type VariableDeclaration,
   VariableDeclarationKind,
 } from "ts-morph";
 import { isFrameworkImportOf } from "./_lib/framework-import";
@@ -158,32 +160,33 @@ function isDirectTenantDbAccess(node: Node): boolean {
   return false;
 }
 
+function isTenantDbVariable(decl: VariableDeclaration): boolean {
+  if (decl.getTypeNode()?.getText() === "TenantDb") return true;
+  const init = decl.getInitializer();
+  return init !== undefined && isDirectTenantDbAccess(init);
+}
+
+function isCtxDbBindingElement(decl: BindingElement): boolean {
+  const propName = decl.getPropertyNameNode()?.getText() ?? decl.getName();
+  if (!DB_RECEIVER_NAMES.has(propName)) return false;
+  // Only `const { db } = ctx` — parameter destructuring (`({ db }) =>`)
+  // stays a deliberate false-negative, not worth the ambiguity.
+  const owner = decl.getParent()?.getParent();
+  const init = owner?.isKind(SyntaxKind.VariableDeclaration) ? owner.getInitializer() : undefined;
+  return init?.isKind(SyntaxKind.Identifier) === true && CTX_IDENTIFIER_NAMES.has(init.getText());
+}
+
+function isTenantDbDeclaration(decl: Node): boolean {
+  if (decl.isKind(SyntaxKind.VariableDeclaration)) return isTenantDbVariable(decl);
+  if (decl.isKind(SyntaxKind.BindingElement)) return isCtxDbBindingElement(decl);
+  if (decl.isKind(SyntaxKind.Parameter)) return decl.getTypeNode()?.getText() === "TenantDb";
+  return false;
+}
+
 function isTenantDbExpression(node: Node): boolean {
   if (isDirectTenantDbAccess(node)) return true;
   if (!node.isKind(SyntaxKind.Identifier)) return false;
-  const decls = node.getSymbol()?.getDeclarations() ?? [];
-  for (const decl of decls) {
-    if (decl.isKind(SyntaxKind.VariableDeclaration)) {
-      if (decl.getTypeNode()?.getText() === "TenantDb") return true;
-      const init = decl.getInitializer();
-      if (init && isDirectTenantDbAccess(init)) return true;
-    } else if (decl.isKind(SyntaxKind.BindingElement)) {
-      const propName = decl.getPropertyNameNode()?.getText() ?? decl.getName();
-      if (!DB_RECEIVER_NAMES.has(propName)) continue;
-      // Only `const { db } = ctx` — parameter destructuring (`({ db }) =>`)
-      // stays a deliberate false-negative, not worth the ambiguity.
-      const owner = decl.getParent()?.getParent();
-      const init = owner?.isKind(SyntaxKind.VariableDeclaration)
-        ? owner.getInitializer()
-        : undefined;
-      if (init?.isKind(SyntaxKind.Identifier) && CTX_IDENTIFIER_NAMES.has(init.getText())) {
-        return true;
-      }
-    } else if (decl.isKind(SyntaxKind.Parameter)) {
-      if (decl.getTypeNode()?.getText() === "TenantDb") return true;
-    }
-  }
-  return false;
+  return (node.getSymbol()?.getDeclarations() ?? []).some(isTenantDbDeclaration);
 }
 
 function findRawFindings(

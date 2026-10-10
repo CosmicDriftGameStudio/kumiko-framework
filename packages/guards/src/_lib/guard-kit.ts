@@ -15,7 +15,7 @@
 import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { relative as pathRelative, resolve, sep } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
-import { compareToBaseline, findRepoRootFor } from "./baseline-compare";
+import { type BaselineRegression, compareToBaseline, findRepoRootFor } from "./baseline-compare";
 import {
   explainRepoRoots,
   findLocalRepo,
@@ -227,6 +227,48 @@ export function baselineRatchet(args: {
     writeFileSync(args.file, `${JSON.stringify(payload, null, 2)}\n`);
     console.log(`  Baseline written: ${args.file} (total ${total})`);
   };
+  const regressionViolations = (
+    regressions: readonly BaselineRegression[],
+    message: (regression: BaselineRegression) => string,
+    resolveLine: ((file: string) => number) | undefined,
+  ): GuardViolation[] =>
+    regressions.map((regression) => ({
+      file: regression.file,
+      line: resolveLine?.(regression.file) ?? 1,
+      message: message(regression),
+    }));
+  const baselineProblem = (message: string): GuardViolation[] => [
+    { file: args.file, line: 1, message },
+  ];
+  const driftMessage = (raw: Partial<BaselinePayload>, driftHint: string): string | undefined => {
+    if (raw.format !== args.formatVersion) {
+      return `Baseline format drift: expected format=${args.formatVersion}, read format=${raw.format ?? "<missing>"}. ${driftHint}`;
+    }
+    if (typeof raw.perFile !== "object" || raw.perFile === null) {
+      return `Baseline file has no valid "perFile" object. ${driftHint}`;
+    }
+    return undefined;
+  };
+  const checkMissingBaseline = (
+    current: Readonly<Record<string, number>>,
+    remediation: string,
+    resolveLine: ((file: string) => number) | undefined,
+  ): GuardViolation[] => {
+    if (args.failClosed === true) {
+      return regressionViolations(
+        compareToBaseline(current, {}).regressions,
+        (regression) =>
+          `${args.unit} without a baseline file (${args.file}): ${regression.current} not frozen. ${remediation}`,
+        resolveLine,
+      );
+    }
+    // Nothing to freeze: a missing baseline is equivalent to an empty one.
+    if (Object.values(current).every((count) => count === 0)) return [];
+    console.log(
+      `  No baseline found (${args.file}). Freeze it first with \`--write-baseline\` — warning until then, no fail.`,
+    );
+    return [];
+  };
   const check = (
     current: Readonly<Record<string, number>>,
     remediation: string,
@@ -235,49 +277,20 @@ export function baselineRatchet(args: {
       readonly resolveLine?: (file: string) => number;
     },
   ): GuardViolation[] => {
-    if (!existsSync(args.file) && args.failClosed === true) {
-      return compareToBaseline(current, {}).regressions.map((regression) => ({
-        file: regression.file,
-        line: opts?.resolveLine?.(regression.file) ?? 1,
-        message: `${args.unit} without a baseline file (${args.file}): ${regression.current} not frozen. ${remediation}`,
-      }));
-    }
     if (!existsSync(args.file)) {
-      // Nothing to freeze: a missing baseline is equivalent to an empty one.
-      if (Object.values(current).every((count) => count === 0)) return [];
-      console.log(
-        `  No baseline found (${args.file}). Freeze it first with \`--write-baseline\` — warning until then, no fail.`,
-      );
-      return [];
+      return checkMissingBaseline(current, remediation, opts?.resolveLine);
     }
+    const driftHint = opts?.formatDriftRemediation ?? remediation;
     let raw: Partial<BaselinePayload>;
     try {
       raw = JSON.parse(readFileSync(args.file, "utf-8"));
     } catch (e) {
-      return [
-        {
-          file: args.file,
-          line: 1,
-          message: `Baseline file unreadable (broken JSON, merge marker, aborted write): ${e instanceof Error ? e.message : String(e)}. ${opts?.formatDriftRemediation ?? remediation}`,
-        },
-      ];
+      return baselineProblem(
+        `Baseline file unreadable (broken JSON, merge marker, aborted write): ${e instanceof Error ? e.message : String(e)}. ${driftHint}`,
+      );
     }
-    if (
-      raw.format !== args.formatVersion ||
-      typeof raw.perFile !== "object" ||
-      raw.perFile === null
-    ) {
-      return [
-        {
-          file: args.file,
-          line: 1,
-          message:
-            raw.format !== args.formatVersion
-              ? `Baseline format drift: expected format=${args.formatVersion}, read format=${raw.format ?? "<missing>"}. ${opts?.formatDriftRemediation ?? remediation}`
-              : `Baseline file has no valid "perFile" object. ${opts?.formatDriftRemediation ?? remediation}`,
-        },
-      ];
-    }
+    const drift = driftMessage(raw, driftHint);
+    if (drift !== undefined) return baselineProblem(drift);
     const baseline = raw as BaselinePayload;
     const { regressions, reduced } = compareToBaseline(current, baseline.perFile);
     if (regressions.length === 0) {
@@ -286,12 +299,14 @@ export function baselineRatchet(args: {
       if (reduced > 0) console.log(`  ✓ ${reduced} ${args.unit} reduced since baseline.`);
       return [];
     }
-    return regressions.map((regression) => ({
-      file: regression.file,
-      line: opts?.resolveLine?.(regression.file) ?? 1,
-      message: `${args.unit} over baseline: baseline=${regression.baseline} current=${regression.current} (+${regression.current - regression.baseline}). ${remediation}`,
-    }));
+    return regressionViolations(
+      regressions,
+      (regression) =>
+        `${args.unit} over baseline: baseline=${regression.baseline} current=${regression.current} (+${regression.current - regression.baseline}). ${remediation}`,
+      opts?.resolveLine,
+    );
   };
+
   const handleCli = (current: Readonly<Record<string, number>>): boolean => {
     const cliArgs = process.argv.slice(2);
     if (cliArgs.includes("--write-baseline")) {
@@ -360,6 +375,71 @@ export type RunGuardsDeps = {
   readonly strictSecurityBaseline?: boolean;
 };
 
+function errorText(e: unknown): string {
+  return e instanceof Error ? (e.stack ?? e.message) : String(e);
+}
+
+function applySecurityBaselineFor(
+  guard: AstGuard,
+  outcome: GuardOutcome,
+  roots: readonly RepoRoot[],
+  deps: RunGuardsDeps,
+): ReturnType<typeof applySecurityBaseline> | undefined {
+  // Security guards get no skip flag: every finding must clear the baseline.
+  if (!isSecurityGuard(guard)) return undefined;
+  return applySecurityBaseline({
+    guardName: guard.name,
+    violations: outcome.violations,
+    roots,
+    cwd: process.cwd(),
+    load:
+      deps.securityBaseline ??
+      ((repo) => {
+        const root = roots.find((r) => r.name === repo);
+        return loadSecurityBaseline(repo, root?.absPath ?? process.cwd());
+      }),
+    strict: deps.strictSecurityBaseline === true,
+  });
+}
+
+function runOneGuard(
+  guard: AstGuard,
+  project: Project,
+  roots: readonly RepoRoot[],
+  scan: (guard: AstGuard, roots: readonly RepoRoot[]) => readonly RootScan[],
+  deps: RunGuardsDeps,
+  start: number,
+): RunResult {
+  const scans = scan(guard, roots);
+  const paths = [...new Set(scans.flatMap((s) => s.files))].sort();
+  const files = paths.map((p) => project.getSourceFile(p) ?? project.addSourceFileAtPath(p));
+  const outcome = guard.run(files, roots);
+  const securityResult = applySecurityBaselineFor(guard, outcome, roots, deps);
+  const effectiveOutcome: GuardOutcome = securityResult
+    ? { violations: securityResult.blocking }
+    : outcome;
+  const { violatingRoots } = checkRootFloor(guard, scans);
+  const notApplicable = scans.length === 0;
+  return {
+    name: guard.name,
+    ok: effectiveOutcome.violations.length === 0 && violatingRoots.length === 0,
+    ms: Math.round(performance.now() - start),
+    outcome: effectiveOutcome,
+    hint: guard.hint,
+    notApplicable,
+    skipReason: notApplicable
+      ? roots.length === 0
+        ? "repos-missing"
+        : "outside-kinds"
+      : undefined,
+    scanKinds: notApplicable ? guard.scan.kinds : undefined,
+    matchedFiles: files.length,
+    violatingRoots: violatingRoots.length > 0 ? violatingRoots : undefined,
+    frozenFindings: securityResult?.frozen,
+    security: securityResult !== undefined ? true : undefined,
+  };
+}
+
 // `project` is injectable so the run/catch wiring can be unit-tested with an
 // in-memory project — buildSharedProject() needs the framework tsconfig, absent
 // in a standalone repo checkout.
@@ -378,55 +458,13 @@ export function runGuards(
   for (const guard of guards) {
     const start = performance.now();
     try {
-      const scans = scan(guard, roots);
-      const paths = [...new Set(scans.flatMap((s) => s.files))].sort();
-      const files = paths.map((p) => project.getSourceFile(p) ?? project.addSourceFileAtPath(p));
-      const outcome = guard.run(files, roots);
-      // Security guards get no skip flag: every finding must clear the baseline.
-      const securityResult = isSecurityGuard(guard)
-        ? applySecurityBaseline({
-            guardName: guard.name,
-            violations: outcome.violations,
-            roots,
-            cwd: process.cwd(),
-            load:
-              deps.securityBaseline ??
-              ((repo) => {
-                const root = roots.find((r) => r.name === repo);
-                return loadSecurityBaseline(repo, root?.absPath ?? process.cwd());
-              }),
-            strict: deps.strictSecurityBaseline === true,
-          })
-        : undefined;
-      const effectiveOutcome: GuardOutcome = securityResult
-        ? { violations: securityResult.blocking }
-        : outcome;
-      const { violatingRoots } = checkRootFloor(guard, scans);
-      const notApplicable = scans.length === 0;
-      results.push({
-        name: guard.name,
-        ok: effectiveOutcome.violations.length === 0 && violatingRoots.length === 0,
-        ms: Math.round(performance.now() - start),
-        outcome: effectiveOutcome,
-        hint: guard.hint,
-        notApplicable,
-        skipReason: notApplicable
-          ? roots.length === 0
-            ? "repos-missing"
-            : "outside-kinds"
-          : undefined,
-        scanKinds: notApplicable ? guard.scan.kinds : undefined,
-        matchedFiles: files.length,
-        violatingRoots: violatingRoots.length > 0 ? violatingRoots : undefined,
-        frozenFindings: securityResult?.frozen,
-        security: securityResult !== undefined ? true : undefined,
-      });
+      results.push(runOneGuard(guard, project, roots, scan, deps, start));
     } catch (e) {
       results.push({
         name: guard.name,
         ok: false,
         ms: Math.round(performance.now() - start),
-        error: e instanceof Error ? (e.stack ?? e.message) : String(e),
+        error: errorText(e),
       });
     }
   }
@@ -675,55 +713,65 @@ export function classifyRun(args: {
   return { notApplicable, vacuous };
 }
 
+function printPassedResult(r: RunResult): void {
+  // Not applicable does not mean checked — that must stay visible,
+  // otherwise a standalone run reads like a complete one.
+  const scope = r.notApplicable
+    ? r.skipReason === "outside-kinds"
+      ? ` — skipped, repo kind outside guard kinds (${(r.scanKinds ?? []).join(", ")})`
+      : " — skipped, target repos not in checkout"
+    : ` (${r.matchedFiles ?? 0} files)`;
+  const frozen =
+    r.frozenFindings && r.frozenFindings > 0
+      ? ` — ${r.frozenFindings} frozen security findings (baseline)`
+      : "";
+  console.log(`  ✓ ${r.name} (${r.ms}ms)${scope}${frozen}`);
+  for (const w of r.warnings ?? []) {
+    console.log(`    ! ${w.file}:${w.line}  ${w.message}`);
+  }
+}
+
+function printViolationDetails(r: RunResult): void {
+  if (r.violatingRoots && r.violatingRoots.length > 0) {
+    console.error(
+      `    0 source files in: ${r.violatingRoots.join(", ")} — kumiko.json declares sourceRoots, scope "source" yields nothing there.`,
+    );
+    console.error(
+      "    Check the manifest (kumiko.json) or the checkout; without a manifest the derived fallback packages/*/src or src/ applies.",
+    );
+  }
+  if (r.security) {
+    console.error(`    [security] Findings without baseline coverage always FAIL.`);
+  }
+  for (const v of r.outcome?.violations ?? []) {
+    console.error(`    ${v.file}:${v.line}  ${v.message}`);
+  }
+  for (const w of r.warnings ?? []) {
+    console.error(`    ! ${w.file}:${w.line}  ${w.message}`);
+  }
+  if (r.hint) console.error(`    → ${r.hint}`);
+}
+
+function printFailedResult(r: RunResult): void {
+  console.log(`  ✗ ${r.name} (${r.ms}ms)`);
+  if (r.error) {
+    console.error(`    THREW: ${r.error}`);
+  } else if (r.message) {
+    console.error(`    ${r.message}`);
+  } else {
+    printViolationDetails(r);
+  }
+}
+
 export function reportResults(results: readonly RunResult[]): number {
   let failed = 0;
   for (const r of results) {
     if (r.ok) {
-      // Not applicable does not mean checked — that must stay visible,
-      // otherwise a standalone run reads like a complete one.
-      const scope = r.notApplicable
-        ? r.skipReason === "outside-kinds"
-          ? ` — skipped, repo kind outside guard kinds (${(r.scanKinds ?? []).join(", ")})`
-          : " — skipped, target repos not in checkout"
-        : ` (${r.matchedFiles ?? 0} files)`;
-      const frozen =
-        r.frozenFindings && r.frozenFindings > 0
-          ? ` — ${r.frozenFindings} frozen security findings (baseline)`
-          : "";
-      console.log(`  ✓ ${r.name} (${r.ms}ms)${scope}${frozen}`);
-      for (const w of r.warnings ?? []) {
-        console.log(`    ! ${w.file}:${w.line}  ${w.message}`);
-      }
-      continue;
+      printPassedResult(r);
+    } else {
+      failed++;
+      printFailedResult(r);
     }
-    failed++;
-    console.log(`  ✗ ${r.name} (${r.ms}ms)`);
-    if (r.error) {
-      console.error(`    THREW: ${r.error}`);
-      continue;
-    }
-    if (r.message) {
-      console.error(`    ${r.message}`);
-      continue;
-    }
-    if (r.violatingRoots && r.violatingRoots.length > 0) {
-      console.error(
-        `    0 source files in: ${r.violatingRoots.join(", ")} — kumiko.json declares sourceRoots, scope "source" yields nothing there.`,
-      );
-      console.error(
-        "    Check the manifest (kumiko.json) or the checkout; without a manifest the derived fallback packages/*/src or src/ applies.",
-      );
-    }
-    if (r.security) {
-      console.error(`    [security] Findings without baseline coverage always FAIL.`);
-    }
-    for (const v of r.outcome?.violations ?? []) {
-      console.error(`    ${v.file}:${v.line}  ${v.message}`);
-    }
-    for (const w of r.warnings ?? []) {
-      console.error(`    ! ${w.file}:${w.line}  ${w.message}`);
-    }
-    if (r.hint) console.error(`    → ${r.hint}`);
   }
   return failed;
 }

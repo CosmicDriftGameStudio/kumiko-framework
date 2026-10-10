@@ -56,22 +56,42 @@ function isFindingsShape(value: unknown): value is SecurityBaseline["findings"] 
   });
 }
 
+type BaselineCore = Pick<SecurityBaseline, "format" | "repo" | "generated" | "total" | "findings">;
+
+function hasBaselineCore(raw: object): raw is BaselineCore {
+  return (
+    "format" in raw &&
+    raw.format === SECURITY_BASELINE_FORMAT &&
+    "repo" in raw &&
+    typeof raw.repo === "string" &&
+    "generated" in raw &&
+    typeof raw.generated === "string" &&
+    "total" in raw &&
+    typeof raw.total === "number" &&
+    "findings" in raw &&
+    isFindingsShape(raw.findings)
+  );
+}
+
+// {} is allowed (guard has no current findings); any entry means it isn't done migrating yet.
+function isValidHardFail(
+  hardFail: unknown,
+  findings: SecurityBaseline["findings"],
+): hardFail is readonly string[] {
+  if (!isStringArrayNoDuplicates(hardFail)) return false;
+  return hardFail.every((guardName) => {
+    const perFile = findings[guardName];
+    return !(perFile && Object.keys(perFile).length > 0);
+  });
+}
+
 export function parseSecurityBaseline(raw: unknown): SecurityBaseline | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
-  if (!("format" in raw) || raw.format !== SECURITY_BASELINE_FORMAT) return undefined;
-  if (!("repo" in raw) || typeof raw.repo !== "string") return undefined;
-  if (!("generated" in raw) || typeof raw.generated !== "string") return undefined;
-  if (!("total" in raw) || typeof raw.total !== "number") return undefined;
-  if (!("findings" in raw) || !isFindingsShape(raw.findings)) return undefined;
+  if (!hasBaselineCore(raw)) return undefined;
 
   let hardFail: readonly string[] | undefined;
   if ("hardFail" in raw && raw.hardFail !== undefined) {
-    if (!isStringArrayNoDuplicates(raw.hardFail)) return undefined;
-    for (const guardName of raw.hardFail) {
-      const perFile = raw.findings[guardName];
-      // {} is allowed (guard has no current findings); any entry means it isn't done migrating yet.
-      if (perFile && Object.keys(perFile).length > 0) return undefined;
-    }
+    if (!isValidHardFail(raw.hardFail, raw.findings)) return undefined;
     hardFail = raw.hardFail;
   }
 
@@ -133,27 +153,27 @@ export function locateFinding(
   return { repo: root.name, relPath: relative(root.absPath, abs).split(sep).join("/") };
 }
 
-export function applySecurityBaseline(args: {
-  readonly guardName: string;
-  readonly violations: readonly GuardViolation[];
-  readonly roots: readonly { readonly name: string; readonly absPath: string }[];
-  readonly cwd: string;
-  readonly load: (repo: string) => SecurityBaselineLoad;
-  /** Also fail on baseline headroom (current < baseline) across every root, not just repos with current findings. */
-  readonly strict?: boolean;
-}): { readonly blocking: GuardViolation[]; readonly frozen: number; readonly reduced: number } {
-  const { guardName, violations, roots, cwd, load, strict } = args;
+type RepoRootList = readonly { readonly name: string; readonly absPath: string }[];
 
-  type Located = {
-    readonly relPath: string;
-    readonly index: number;
-    readonly violation: GuardViolation;
-  };
-  const byRepo = new Map<string, Map<string, Located[]>>();
-  // (sortKey, violation) so the final blocking list preserves the original
-  // violation order even after synthetic baseline-file entries are spliced in.
-  const blockingEntries: Array<[number, GuardViolation]> = [];
+type LocatedViolation = {
+  readonly relPath: string;
+  readonly index: number;
+  readonly violation: GuardViolation;
+};
 
+type FindingsByRepo = Map<string, Map<string, LocatedViolation[]>>;
+
+// (sortKey, violation) so the final blocking list preserves the original
+// violation order even after synthetic baseline-file entries are spliced in.
+type BlockingEntry = [number, GuardViolation];
+
+function groupFindingsByRepo(
+  violations: readonly GuardViolation[],
+  roots: RepoRootList,
+  cwd: string,
+  blockingEntries: BlockingEntry[],
+): FindingsByRepo {
+  const byRepo: FindingsByRepo = new Map();
   for (const [index, violation] of violations.entries()) {
     if (violation.neverFrozen) {
       blockingEntries.push([index, violation]);
@@ -173,6 +193,132 @@ export function applySecurityBaseline(args: {
     bucket.push({ relPath: located.relPath, index, violation });
     perRepo.set(located.relPath, bucket);
   }
+  return byRepo;
+}
+
+function invalidBaselineViolation(
+  baseline: Extract<SecurityBaselineLoad, { kind: "invalid" }>,
+): GuardViolation {
+  return {
+    file: baseline.file,
+    line: 1,
+    message: `Security baseline unreadable or invalid: ${baseline.reason}. Fix the file; a broken baseline must not release any findings.`,
+  };
+}
+
+function countsPerPath(
+  byPath: ReadonlyMap<string, readonly LocatedViolation[]>,
+): Record<string, number> {
+  const current: Record<string, number> = {};
+  for (const [relPath, entries] of byPath) current[relPath] = entries.length;
+  return current;
+}
+
+function applyRepoBaseline(args: {
+  readonly guardName: string;
+  readonly repo: string;
+  readonly byPath: ReadonlyMap<string, readonly LocatedViolation[]>;
+  readonly baseline: SecurityBaselineLoad;
+  readonly blockingEntries: BlockingEntry[];
+}): { readonly frozen: number; readonly reduced: number } {
+  const { guardName, repo, byPath, baseline, blockingEntries } = args;
+  const allEntries = [...byPath.values()].flat();
+  if (baseline.kind === "invalid") {
+    const minIndex = Math.min(...allEntries.map((e) => e.index));
+    blockingEntries.push([minIndex - 0.5, invalidBaselineViolation(baseline)]);
+    for (const e of allEntries) blockingEntries.push([e.index, e.violation]);
+    return { frozen: 0, reduced: 0 };
+  }
+  if (baseline.hardFail.includes(guardName)) {
+    for (const e of allEntries) {
+      blockingEntries.push([
+        e.index,
+        {
+          ...e.violation,
+          message: `${e.violation.message} (security baseline ${repo}: ${guardName} finished migrating — no baseline tolerance)`,
+        },
+      ]);
+    }
+    return { frozen: 0, reduced: 0 };
+  }
+  const baselineForGuard = baseline.findings[guardName] ?? {};
+  const { regressions, reduced } = compareToBaseline(countsPerPath(byPath), baselineForGuard);
+  const regressionByPath = new Map(regressions.map((r) => [r.file, r]));
+  let frozen = 0;
+  for (const [relPath, entries] of byPath) {
+    const regression = regressionByPath.get(relPath);
+    if (regression) {
+      for (const e of entries) {
+        blockingEntries.push([
+          e.index,
+          {
+            ...e.violation,
+            message: `${e.violation.message} (security baseline ${repo}: allowed=${regression.baseline}, current=${regression.current})`,
+          },
+        ]);
+      }
+    } else {
+      frozen += entries.length;
+    }
+  }
+  return { frozen, reduced };
+}
+
+// Strict mode also visits repos without current findings, so baseline headroom
+// there fails too. Returns the headroom that counts as reduced.
+function applyStrictHeadroom(args: {
+  readonly guardName: string;
+  readonly roots: RepoRootList;
+  readonly byRepo: FindingsByRepo;
+  readonly loadOnce: (repo: string) => SecurityBaselineLoad;
+  readonly firstSortKey: number;
+  readonly blockingEntries: BlockingEntry[];
+}): number {
+  const { guardName, roots, byRepo, loadOnce, firstSortKey, blockingEntries } = args;
+  let strictIndex = 0;
+  let reduced = 0;
+  for (const root of roots) {
+    const baseline = loadOnce(root.name);
+    const byPath = byRepo.get(root.name);
+    if (baseline.kind === "invalid") {
+      // Repos with current findings already got this entry in the per-repo pass.
+      if (byPath) continue;
+      blockingEntries.push([firstSortKey + strictIndex++, invalidBaselineViolation(baseline)]);
+      continue;
+    }
+    const current = byPath ? countsPerPath(byPath) : {};
+    const baselineForGuard = baseline.findings[guardName] ?? {};
+    const { reductions } = compareToBaseline(current, baselineForGuard);
+    if (!byPath) {
+      reduced += reductions.reduce((sum, r) => sum + (r.baseline - r.current), 0);
+    }
+    for (const r of reductions) {
+      blockingEntries.push([
+        firstSortKey + strictIndex++,
+        {
+          file: join(root.absPath, r.file),
+          line: 1,
+          message: `Security baseline stale: ${root.name}/${r.file} allows ${r.baseline}, found ${r.current} — run \`--write-security-baseline\` and commit, otherwise the headroom covers new findings.`,
+        },
+      ]);
+    }
+  }
+  return reduced;
+}
+
+export function applySecurityBaseline(args: {
+  readonly guardName: string;
+  readonly violations: readonly GuardViolation[];
+  readonly roots: RepoRootList;
+  readonly cwd: string;
+  readonly load: (repo: string) => SecurityBaselineLoad;
+  /** Also fail on baseline headroom (current < baseline) across every root, not just repos with current findings. */
+  readonly strict?: boolean;
+}): { readonly blocking: GuardViolation[]; readonly frozen: number; readonly reduced: number } {
+  const { guardName, violations, roots, cwd, load, strict } = args;
+
+  const blockingEntries: BlockingEntry[] = [];
+  const byRepo = groupFindingsByRepo(violations, roots, cwd, blockingEntries);
 
   const loadCache = new Map<string, SecurityBaselineLoad>();
   const loadOnce = (repo: string): SecurityBaselineLoad => {
@@ -187,95 +333,26 @@ export function applySecurityBaseline(args: {
   let reduced = 0;
 
   for (const [repo, byPath] of byRepo) {
-    const baseline = loadOnce(repo);
-    const allEntries = [...byPath.values()].flat();
-    if (baseline.kind === "invalid") {
-      const minIndex = Math.min(...allEntries.map((e) => e.index));
-      blockingEntries.push([
-        minIndex - 0.5,
-        {
-          file: baseline.file,
-          line: 1,
-          message: `Security baseline unreadable or invalid: ${baseline.reason}. Fix the file; a broken baseline must not release any findings.`,
-        },
-      ]);
-      for (const e of allEntries) blockingEntries.push([e.index, e.violation]);
-      continue;
-    }
-    if (baseline.hardFail.includes(guardName)) {
-      for (const e of allEntries) {
-        blockingEntries.push([
-          e.index,
-          {
-            ...e.violation,
-            message: `${e.violation.message} (security baseline ${repo}: ${guardName} finished migrating — no baseline tolerance)`,
-          },
-        ]);
-      }
-      continue;
-    }
-    const current: Record<string, number> = {};
-    for (const [relPath, entries] of byPath) current[relPath] = entries.length;
-    const baselineForGuard = baseline.findings[guardName] ?? {};
-    const { regressions, reduced: repoReduced } = compareToBaseline(current, baselineForGuard);
-    reduced += repoReduced;
-    const regressionByPath = new Map(regressions.map((r) => [r.file, r]));
-    for (const [relPath, entries] of byPath) {
-      const regression = regressionByPath.get(relPath);
-      if (regression) {
-        for (const e of entries) {
-          blockingEntries.push([
-            e.index,
-            {
-              ...e.violation,
-              message: `${e.violation.message} (security baseline ${repo}: allowed=${regression.baseline}, current=${regression.current})`,
-            },
-          ]);
-        }
-      } else {
-        frozen += entries.length;
-      }
-    }
+    const repoResult = applyRepoBaseline({
+      guardName,
+      repo,
+      byPath,
+      baseline: loadOnce(repo),
+      blockingEntries,
+    });
+    frozen += repoResult.frozen;
+    reduced += repoResult.reduced;
   }
 
   if (strict === true) {
-    let strictIndex = 0;
-    for (const root of roots) {
-      const baseline = loadOnce(root.name);
-      const byPath = byRepo.get(root.name);
-      if (baseline.kind === "invalid") {
-        // Repos with current findings already got this entry in the loop above.
-        if (byPath) continue;
-        blockingEntries.push([
-          violations.length + strictIndex++,
-          {
-            file: baseline.file,
-            line: 1,
-            message: `Security baseline unreadable or invalid: ${baseline.reason}. Fix the file; a broken baseline must not release any findings.`,
-          },
-        ]);
-        continue;
-      }
-      const current: Record<string, number> = {};
-      if (byPath) {
-        for (const [relPath, entries] of byPath) current[relPath] = entries.length;
-      }
-      const baselineForGuard = baseline.findings[guardName] ?? {};
-      const { reductions } = compareToBaseline(current, baselineForGuard);
-      if (!byPath) {
-        reduced += reductions.reduce((sum, r) => sum + (r.baseline - r.current), 0);
-      }
-      for (const r of reductions) {
-        blockingEntries.push([
-          violations.length + strictIndex++,
-          {
-            file: join(root.absPath, r.file),
-            line: 1,
-            message: `Security baseline stale: ${root.name}/${r.file} allows ${r.baseline}, found ${r.current} — run \`--write-security-baseline\` and commit, otherwise the headroom covers new findings.`,
-          },
-        ]);
-      }
-    }
+    reduced += applyStrictHeadroom({
+      guardName,
+      roots,
+      byRepo,
+      loadOnce,
+      firstSortKey: violations.length,
+      blockingEntries,
+    });
   }
 
   blockingEntries.sort((a, b) => a[0] - b[0]);

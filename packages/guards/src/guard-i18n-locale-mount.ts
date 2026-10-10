@@ -23,6 +23,7 @@ import {
   type FileSystemHost,
   type Identifier,
   type Node,
+  type ObjectLiteralExpression,
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
@@ -248,37 +249,20 @@ function isNothingLiteral(node: Node): boolean {
   );
 }
 
-// Finds the clientFeatures property that wins at runtime in the mount call's
-// options — a literal right there, or an identifier pointing at a same-repo
-// constant (offlot's `APP_OPTIONS` shape). Properties are walked last to
-// first, mirroring object-spread override semantics: the last property or
-// spread that sets `clientFeatures` decides. Resolvable spreads without
-// `clientFeatures` are skipped; unresolvable/cross-repo ones are fail-closed.
-function lookupClientFeatures(value: Node | undefined, depth = 0): ClientFeaturesLookup {
-  if (value === undefined) return CLIENT_FEATURES_ABSENT;
-  if (depth > MAX_ALIAS_DEPTH) return CLIENT_FEATURES_UNRESOLVABLE;
-  const unwrapped = unwrapAsExpression(value);
-  if (unwrapped.isKind(SyntaxKind.Identifier)) {
-    const init = resolveSameRepoInitializer(unwrapped);
-    return init === undefined
-      ? CLIENT_FEATURES_UNRESOLVABLE
-      : lookupClientFeatures(init, depth + 1);
-  }
-  const branches = conditionalBranches(unwrapped);
-  if (branches !== undefined) {
-    const found = branches
-      .map((branch) => lookupClientFeatures(branch, depth + 1))
-      .filter((lookup) => lookup.found);
-    if (found.length === 0) return CLIENT_FEATURES_ABSENT;
-    // Which branch runs is unknown statically: German must be registered in every branch that sets clientFeatures.
-    return {
-      found: true,
-      registersGerman: found.every((lookup) => lookup.found && lookup.registersGerman),
-    };
-  }
-  if (isNothingLiteral(unwrapped)) return CLIENT_FEATURES_ABSENT;
-  if (!unwrapped.isKind(SyntaxKind.ObjectLiteralExpression)) return CLIENT_FEATURES_UNRESOLVABLE;
-  for (const prop of [...unwrapped.getProperties()].reverse()) {
+function lookupAcrossBranches(branches: readonly Node[], depth: number): ClientFeaturesLookup {
+  const found = branches
+    .map((branch) => lookupClientFeatures(branch, depth + 1))
+    .filter((lookup) => lookup.found);
+  if (found.length === 0) return CLIENT_FEATURES_ABSENT;
+  // Which branch runs is unknown statically: German must be registered in every branch that sets clientFeatures.
+  return {
+    found: true,
+    registersGerman: found.every((lookup) => lookup.found && lookup.registersGerman),
+  };
+}
+
+function lookupInObjectLiteral(obj: ObjectLiteralExpression, depth: number): ClientFeaturesLookup {
+  for (const prop of [...obj.getProperties()].reverse()) {
     if (
       (prop.isKind(SyntaxKind.PropertyAssignment) ||
         prop.isKind(SyntaxKind.ShorthandPropertyAssignment)) &&
@@ -296,6 +280,29 @@ function lookupClientFeatures(value: Node | undefined, depth = 0): ClientFeature
     }
   }
   return CLIENT_FEATURES_ABSENT;
+}
+
+// Finds the clientFeatures property that wins at runtime in the mount call's
+// options — a literal right there, or an identifier pointing at a same-repo
+// constant (offlot's `APP_OPTIONS` shape). Properties are walked last to
+// first, mirroring object-spread override semantics: the last property or
+// spread that sets `clientFeatures` decides. Resolvable spreads without
+// `clientFeatures` are skipped; unresolvable/cross-repo ones are fail-closed.
+function lookupClientFeatures(value: Node | undefined, depth = 0): ClientFeaturesLookup {
+  if (value === undefined) return CLIENT_FEATURES_ABSENT;
+  if (depth > MAX_ALIAS_DEPTH) return CLIENT_FEATURES_UNRESOLVABLE;
+  const unwrapped = unwrapAsExpression(value);
+  if (unwrapped.isKind(SyntaxKind.Identifier)) {
+    const init = resolveSameRepoInitializer(unwrapped);
+    return init === undefined
+      ? CLIENT_FEATURES_UNRESOLVABLE
+      : lookupClientFeatures(init, depth + 1);
+  }
+  const branches = conditionalBranches(unwrapped);
+  if (branches !== undefined) return lookupAcrossBranches(branches, depth);
+  if (isNothingLiteral(unwrapped)) return CLIENT_FEATURES_ABSENT;
+  if (!unwrapped.isKind(SyntaxKind.ObjectLiteralExpression)) return CLIENT_FEATURES_UNRESOLVABLE;
+  return lookupInObjectLiteral(unwrapped, depth);
 }
 
 function objectRegistersGermanClientFeatures(value: Node | undefined): boolean {

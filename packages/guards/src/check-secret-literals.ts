@@ -105,6 +105,33 @@ const SECRET_LITERAL_TOKEN = /hmac|private[_-]?key|signing[_-]?key/i;
 const LHS_NAME = /([\w$]+)\s*[:=][^:=]*$/;
 const UNNAMED_PLACEHOLDER = "<unnamed>";
 
+type SecretFallback = { readonly name: string; readonly literalLength: number };
+
+function secretNameFor(left: string, literal: string): string | undefined {
+  return (
+    SECRET_NAME.exec(left)?.[0] ??
+    (SECRET_LITERAL_TOKEN.test(literal)
+      ? (LHS_NAME.exec(left)?.[1] ?? UNNAMED_PLACEHOLDER)
+      : undefined)
+  );
+}
+
+// Every fallback on the line is inspected; the name is read only from the text since the
+// previous fallback, so an earlier assignee cannot lend its name to a later literal.
+function firstSecretFallback(code: string): SecretFallback | undefined {
+  let previousEnd = 0;
+  for (const match of code.matchAll(STRING_FALLBACK)) {
+    const left = code.slice(previousEnd, match.index);
+    previousEnd = match.index + match[0].length;
+    const literal = match[2];
+    if (!literal || literal.length < MIN_SECRET_LENGTH || TRIVIAL_LITERAL.test(literal)) continue;
+    const name = secretNameFor(left, literal);
+    if (name === undefined) continue;
+    return { name, literalLength: literal.length };
+  }
+  return undefined;
+}
+
 /**
  * Per-file scan on comment-masked source (see maskComments), so only comment
  * text is skipped and a wrapped code line that starts with `*` is still
@@ -116,26 +143,10 @@ export function scanLinesForSecretLiterals(lines: readonly string[]): SecretLite
   const maskedLines = maskComments(lines.join("\n")).split("\n");
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i] ?? "";
-    const code = maskedLines[i] ?? "";
     if (lineHasIgnoreTag(raw, IGNORE_TAG) || lineHasIgnoreTag(lines[i - 1] ?? "", IGNORE_TAG))
       continue;
-    // Every fallback on the line is inspected; the name is read only from the text since the
-    // previous fallback, so an earlier assignee cannot lend its name to a later literal.
-    let previousEnd = 0;
-    for (const match of code.matchAll(STRING_FALLBACK)) {
-      const left = code.slice(previousEnd, match.index);
-      previousEnd = match.index + match[0].length;
-      const literal = match[2];
-      if (!literal || literal.length < MIN_SECRET_LENGTH || TRIVIAL_LITERAL.test(literal)) continue;
-      const name =
-        SECRET_NAME.exec(left)?.[0] ??
-        (SECRET_LITERAL_TOKEN.test(literal)
-          ? (LHS_NAME.exec(left)?.[1] ?? UNNAMED_PLACEHOLDER)
-          : undefined);
-      if (name === undefined) continue;
-      hits.push({ lineNumber: i + 1, name, literalLength: literal.length });
-      break;
-    }
+    const fallback = firstSecretFallback(maskedLines[i] ?? "");
+    if (fallback) hits.push({ lineNumber: i + 1, ...fallback });
   }
   return hits;
 }

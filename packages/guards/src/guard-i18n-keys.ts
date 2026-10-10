@@ -240,6 +240,39 @@ function collectBundleDefinedKeys(sf: SourceFile): DefinedKey[] {
   return defined;
 }
 
+// Collects the entries of one `keys:` initializer of an inline `.translations({...})` call.
+function collectInlineKeysInitializer(
+  defined: DefinedKey[],
+  initializer: Node | undefined,
+  featureName: string,
+  file: string,
+): void {
+  if (initializer?.isKind(SyntaxKind.ObjectLiteralExpression)) {
+    for (const entry of extractKeysFromTranslationsObject(initializer)) {
+      pushDefined(defined, `${featureName}:${entry.key}`, entry.locales, file, entry.line);
+      if (entry.key.includes(":")) {
+        pushDefined(defined, entry.key, entry.locales, file, entry.line);
+      }
+    }
+  } else if (initializer?.isKind(SyntaxKind.Identifier)) {
+    // getDefinitionNodes() follows "go to definition" through an
+    // import alias to the real declaration (possibly in another
+    // file) instead of stopping at the ImportSpecifier — plain
+    // getSymbol().getDeclarations() only resolved a same-file const.
+    const decl = initializer
+      .getDefinitionNodes()
+      .find((n) => n.isKind(SyntaxKind.VariableDeclaration));
+    if (decl?.isKind(SyntaxKind.VariableDeclaration)) {
+      const bundleInit = decl.getInitializer();
+      if (bundleInit?.isKind(SyntaxKind.ObjectLiteralExpression)) {
+        for (const entry of extractKeysFromTranslationsObject(bundleInit)) {
+          addDefinedEntries(defined, [entry], file, featureName);
+        }
+      }
+    }
+  }
+}
+
 function collectInlineTranslationsDefinedKeys(sf: SourceFile): DefinedKey[] {
   const defined: DefinedKey[] = [];
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
@@ -255,37 +288,7 @@ function collectInlineTranslationsDefinedKeys(sf: SourceFile): DefinedKey[] {
     for (const prop of first.getProperties()) {
       if (!prop.isKind(SyntaxKind.PropertyAssignment)) continue;
       if (prop.getNameNode().getText() !== "keys") continue;
-      const initializer = prop.getInitializer();
-      if (initializer?.isKind(SyntaxKind.ObjectLiteralExpression)) {
-        for (const entry of extractKeysFromTranslationsObject(initializer)) {
-          pushDefined(
-            defined,
-            `${featureName}:${entry.key}`,
-            entry.locales,
-            relFile(sf),
-            entry.line,
-          );
-          if (entry.key.includes(":")) {
-            pushDefined(defined, entry.key, entry.locales, relFile(sf), entry.line);
-          }
-        }
-      } else if (initializer?.isKind(SyntaxKind.Identifier)) {
-        // getDefinitionNodes() follows "go to definition" through an
-        // import alias to the real declaration (possibly in another
-        // file) instead of stopping at the ImportSpecifier — plain
-        // getSymbol().getDeclarations() only resolved a same-file const.
-        const decl = initializer
-          .getDefinitionNodes()
-          .find((n) => n.isKind(SyntaxKind.VariableDeclaration));
-        if (decl?.isKind(SyntaxKind.VariableDeclaration)) {
-          const bundleInit = decl.getInitializer();
-          if (bundleInit?.isKind(SyntaxKind.ObjectLiteralExpression)) {
-            for (const entry of extractKeysFromTranslationsObject(bundleInit)) {
-              addDefinedEntries(defined, [entry], relFile(sf), featureName);
-            }
-          }
-        }
-      }
+      collectInlineKeysInitializer(defined, prop.getInitializer(), featureName, relFile(sf));
     }
   }
   return defined;

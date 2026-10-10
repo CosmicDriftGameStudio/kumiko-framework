@@ -28,7 +28,7 @@
  */
 
 import path from "node:path";
-import { type SourceFile, SyntaxKind } from "ts-morph";
+import { type Identifier, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
 const ROOT = process.cwd();
@@ -66,6 +66,26 @@ export interface Finding {
   readonly snippet: string;
 }
 
+const NEVER_CALL_SITE_PARENT_KINDS: ReadonlySet<SyntaxKind> = new Set([
+  SyntaxKind.ImportSpecifier,
+  SyntaxKind.ExportSpecifier,
+  SyntaxKind.PropertyAssignment,
+  SyntaxKind.ShorthandPropertyAssignment,
+]);
+
+// The identifier names something other than a runtime call of the symbol: an
+// import/export specifier (the violation is the call-site, not "having the
+// name in scope"; the `as` alias case still flags the call), an object key,
+// the right-hand side of a property access (`obj.unsafePushTables` — a method
+// on an unrelated type), or a type-level member (`interface { unsafePushTables(): void }`).
+function isNotRuntimeCallSite(id: Identifier, parent: Node): boolean {
+  if (NEVER_CALL_SITE_PARENT_KINDS.has(parent.getKind())) return true;
+  if (parent.isKind(SyntaxKind.PropertyAccessExpression)) return parent.getNameNode() === id;
+  if (parent.isKind(SyntaxKind.PropertySignature)) return parent.getNameNode() === id;
+  if (parent.isKind(SyntaxKind.MethodSignature)) return parent.getNameNode() === id;
+  return false;
+}
+
 export function collectFindings(sf: SourceFile, repoRoot: string): Finding[] {
   const absPath = sf.getFilePath();
   if (isAllowed(absPath)) return [];
@@ -77,35 +97,9 @@ export function collectFindings(sf: SourceFile, repoRoot: string): Finding[] {
     const name = id.getText();
     if (!UNSAFE_NAMES.has(name)) continue;
 
-    // Skip the import/export specifier itself — the violation is the
-    // call-site, not "having the name in scope". An app that imports
-    // unsafe* without calling it is weird but not the bypass we care
-    // about (and the `as` alias case still flags the call below).
     const parent = id.getParent();
     if (!parent) continue;
-    const pk = parent.getKind();
-    if (pk === SyntaxKind.ImportSpecifier) continue;
-    if (pk === SyntaxKind.ExportSpecifier) continue;
-
-    // Skip property-access right-hand-side (`obj.unsafePushTables`):
-    // a method on some unrelated type that happens to share the name.
-    if (pk === SyntaxKind.PropertyAccessExpression) {
-      const pae = parent.asKindOrThrow(SyntaxKind.PropertyAccessExpression);
-      if (pae.getNameNode() === id) continue;
-    }
-    if (pk === SyntaxKind.PropertyAssignment) continue;
-    if (pk === SyntaxKind.ShorthandPropertyAssignment) continue;
-    // Type-level shadows: `interface { unsafePushTables(): void }` or
-    // `type T = { unsafePushTables: () => void }`. Different namespace,
-    // not the runtime call.
-    if (pk === SyntaxKind.PropertySignature) {
-      const ps = parent.asKindOrThrow(SyntaxKind.PropertySignature);
-      if (ps.getNameNode() === id) continue;
-    }
-    if (pk === SyntaxKind.MethodSignature) {
-      const ms = parent.asKindOrThrow(SyntaxKind.MethodSignature);
-      if (ms.getNameNode() === id) continue;
-    }
+    if (isNotRuntimeCallSite(id, parent)) continue;
 
     const line = id.getStartLineNumber();
     const raw = (lines[line - 1] ?? "").trim();

@@ -147,6 +147,101 @@ function registrarCallChain(prop: Node): CallExpression[] | undefined {
   return undefined;
 }
 
+function checkJsxTextNodes(sf: SourceFile, violations: GuardViolation[]): void {
+  for (const textNode of sf.getDescendantsOfKind(SyntaxKind.JsxText)) {
+    const text = textNode.getText().trim();
+    if (!HUMAN_TEXT.test(text)) continue;
+    if (hasIgnoreTag(textNode, IGNORE_TAG)) continue;
+    violations.push({
+      file: sf.getFilePath(),
+      line: textNode.getStartLineNumber(),
+      message: `hardcoded JSX text: "${text.slice(0, 40)}${text.length > 40 ? "…" : ""}"`,
+    });
+  }
+}
+
+function checkLabelAttributes(sf: SourceFile, violations: GuardViolation[]): void {
+  for (const attr of sf.getDescendantsOfKind(SyntaxKind.JsxAttribute)) {
+    if (!LABEL_PROPS.has(attr.getNameNode().getText())) continue;
+    const init = attr.getInitializer();
+    if (init === undefined || init.getKind() !== SyntaxKind.StringLiteral) continue;
+    const value = init.asKindOrThrow(SyntaxKind.StringLiteral).getLiteralText();
+    if (!HUMAN_TEXT.test(value)) continue;
+    if (hasIgnoreTag(attr, IGNORE_TAG)) continue;
+    violations.push({
+      file: sf.getFilePath(),
+      line: attr.getStartLineNumber(),
+      message: `hardcoded label prop ${attr.getNameNode().getText()}="${value.slice(0, 40)}"`,
+    });
+  }
+}
+
+function checkTernaryLogicalExpressions(sf: SourceFile, violations: GuardViolation[]): void {
+  // Ternary/logical JSX expressions: `{saving ? "Saving…" : "Save"}` as a
+  // child, or `title={busy ? "…" : "Send"}` on a label prop — a string
+  // literal reachable only via getDescendantsOfKind(JsxText/JsxAttribute)
+  // above never fires here since the literal sits one level deeper,
+  // inside the {…} expression.
+  for (const jsxExpr of sf.getDescendantsOfKind(SyntaxKind.JsxExpression)) {
+    const inner = jsxExpr.getExpression();
+    if (inner === undefined || !isTernaryOrLogical(inner)) continue;
+    const attr = jsxExpr.getParentIfKind(SyntaxKind.JsxAttribute);
+    if (attr !== undefined && !LABEL_PROPS.has(attr.getNameNode().getText())) continue;
+    if (hasIgnoreTag(jsxExpr, IGNORE_TAG)) continue;
+    for (const piece of collectTernaryLogicText(inner)) {
+      if (!HUMAN_TEXT.test(piece.text)) continue;
+      const shown = `${piece.text.slice(0, 40)}${piece.text.length > 40 ? "…" : ""}`;
+      violations.push({
+        file: sf.getFilePath(),
+        line: piece.node.getStartLineNumber(),
+        message:
+          attr !== undefined
+            ? `hardcoded label prop ${attr.getNameNode().getText()} in ternary/logical expression: "${shown}"`
+            : `hardcoded JSX text in ternary/logical expression: "${shown}"`,
+      });
+    }
+  }
+}
+
+function checkRegistrarLabelProperties(sf: SourceFile, violations: GuardViolation[]): void {
+  // r.nav({ label: "..." }) etc.: registrar param is conventionally
+  // named "r" across framework/bundled-features/app repos (verified,
+  // no exceptions found) — see the samples/ scan-boundary note above.
+  for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+    if (!LABEL_PROPS.has(prop.getName())) continue;
+    if (HEADER_SPEC_PROPS.has(prop.getName())) {
+      const enclosingObject = prop.getParentIfKind(SyntaxKind.ObjectLiteralExpression);
+      const enclosingProp = enclosingObject?.getParentIfKind(SyntaxKind.PropertyAssignment);
+      if (enclosingProp?.getName() === "header") continue;
+    }
+    const init = prop.getInitializer();
+    if (init === undefined || init.getKind() !== SyntaxKind.StringLiteral) continue;
+    const value = init.asKindOrThrow(SyntaxKind.StringLiteral).getLiteralText();
+    if (!HUMAN_TEXT.test(value) || I18N_KEY_SHAPE.test(value)) continue;
+    const callChain = registrarCallChain(prop);
+    if (callChain === undefined) continue;
+    // The agent-doc slot (kumiko-framework#2615) is LLM metadata for the
+    // AI tool catalog: English by design, never rendered as UI text. The
+    // slot is the options object handed to a call on the registrar
+    // argument chain, so forwarding it through a `defineEntity*Handler`
+    // helper is the same slot and stays exempt.
+    if (
+      prop.getName() === "description" &&
+      prop
+        .getParentIfKind(SyntaxKind.ObjectLiteralExpression)
+        ?.getParentIfKind(SyntaxKind.CallExpression) !== undefined
+    )
+      continue;
+    if (callChain.some((c) => hasIgnoreTag(c, IGNORE_TAG)) || hasIgnoreTag(prop, IGNORE_TAG))
+      continue;
+    violations.push({
+      file: sf.getFilePath(),
+      line: prop.getStartLineNumber(),
+      message: `hardcoded label property ${prop.getName()}="${value.slice(0, 40)}" in r.* call — use an i18n key instead of plain text`,
+    });
+  }
+}
+
 export const guard: AstGuard = {
   name: "i18n-UI-Strings Guard (App-Repos)",
   scan: SCAN,
@@ -157,89 +252,10 @@ export const guard: AstGuard = {
     const violations: GuardViolation[] = [];
     for (const sf of files) {
       if (EXCLUDE.test(sf.getFilePath())) continue;
-      for (const textNode of sf.getDescendantsOfKind(SyntaxKind.JsxText)) {
-        const text = textNode.getText().trim();
-        if (!HUMAN_TEXT.test(text)) continue;
-        if (hasIgnoreTag(textNode, IGNORE_TAG)) continue;
-        violations.push({
-          file: sf.getFilePath(),
-          line: textNode.getStartLineNumber(),
-          message: `hardcoded JSX text: "${text.slice(0, 40)}${text.length > 40 ? "…" : ""}"`,
-        });
-      }
-      for (const attr of sf.getDescendantsOfKind(SyntaxKind.JsxAttribute)) {
-        if (!LABEL_PROPS.has(attr.getNameNode().getText())) continue;
-        const init = attr.getInitializer();
-        if (init === undefined || init.getKind() !== SyntaxKind.StringLiteral) continue;
-        const value = init.asKindOrThrow(SyntaxKind.StringLiteral).getLiteralText();
-        if (!HUMAN_TEXT.test(value)) continue;
-        if (hasIgnoreTag(attr, IGNORE_TAG)) continue;
-        violations.push({
-          file: sf.getFilePath(),
-          line: attr.getStartLineNumber(),
-          message: `hardcoded label prop ${attr.getNameNode().getText()}="${value.slice(0, 40)}"`,
-        });
-      }
-      // Ternary/logical JSX expressions: `{saving ? "Saving…" : "Save"}` as a
-      // child, or `title={busy ? "…" : "Send"}` on a label prop — a string
-      // literal reachable only via getDescendantsOfKind(JsxText/JsxAttribute)
-      // above never fires here since the literal sits one level deeper,
-      // inside the {…} expression.
-      for (const jsxExpr of sf.getDescendantsOfKind(SyntaxKind.JsxExpression)) {
-        const inner = jsxExpr.getExpression();
-        if (inner === undefined || !isTernaryOrLogical(inner)) continue;
-        const attr = jsxExpr.getParentIfKind(SyntaxKind.JsxAttribute);
-        if (attr !== undefined && !LABEL_PROPS.has(attr.getNameNode().getText())) continue;
-        if (hasIgnoreTag(jsxExpr, IGNORE_TAG)) continue;
-        for (const piece of collectTernaryLogicText(inner)) {
-          if (!HUMAN_TEXT.test(piece.text)) continue;
-          const shown = `${piece.text.slice(0, 40)}${piece.text.length > 40 ? "…" : ""}`;
-          violations.push({
-            file: sf.getFilePath(),
-            line: piece.node.getStartLineNumber(),
-            message:
-              attr !== undefined
-                ? `hardcoded label prop ${attr.getNameNode().getText()} in ternary/logical expression: "${shown}"`
-                : `hardcoded JSX text in ternary/logical expression: "${shown}"`,
-          });
-        }
-      }
-      // r.nav({ label: "..." }) etc.: registrar param is conventionally
-      // named "r" across framework/bundled-features/app repos (verified,
-      // no exceptions found) — see the samples/ scan-boundary note above.
-      for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
-        if (!LABEL_PROPS.has(prop.getName())) continue;
-        if (HEADER_SPEC_PROPS.has(prop.getName())) {
-          const enclosingObject = prop.getParentIfKind(SyntaxKind.ObjectLiteralExpression);
-          const enclosingProp = enclosingObject?.getParentIfKind(SyntaxKind.PropertyAssignment);
-          if (enclosingProp?.getName() === "header") continue;
-        }
-        const init = prop.getInitializer();
-        if (init === undefined || init.getKind() !== SyntaxKind.StringLiteral) continue;
-        const value = init.asKindOrThrow(SyntaxKind.StringLiteral).getLiteralText();
-        if (!HUMAN_TEXT.test(value) || I18N_KEY_SHAPE.test(value)) continue;
-        const callChain = registrarCallChain(prop);
-        if (callChain === undefined) continue;
-        // The agent-doc slot (kumiko-framework#2615) is LLM metadata for the
-        // AI tool catalog: English by design, never rendered as UI text. The
-        // slot is the options object handed to a call on the registrar
-        // argument chain, so forwarding it through a `defineEntity*Handler`
-        // helper is the same slot and stays exempt.
-        if (
-          prop.getName() === "description" &&
-          prop
-            .getParentIfKind(SyntaxKind.ObjectLiteralExpression)
-            ?.getParentIfKind(SyntaxKind.CallExpression) !== undefined
-        )
-          continue;
-        if (callChain.some((c) => hasIgnoreTag(c, IGNORE_TAG)) || hasIgnoreTag(prop, IGNORE_TAG))
-          continue;
-        violations.push({
-          file: sf.getFilePath(),
-          line: prop.getStartLineNumber(),
-          message: `hardcoded label property ${prop.getName()}="${value.slice(0, 40)}" in r.* call — use an i18n key instead of plain text`,
-        });
-      }
+      checkJsxTextNodes(sf, violations);
+      checkLabelAttributes(sf, violations);
+      checkTernaryLogicalExpressions(sf, violations);
+      checkRegistrarLabelProperties(sf, violations);
     }
     return { violations };
   },

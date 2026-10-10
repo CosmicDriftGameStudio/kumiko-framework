@@ -113,4 +113,18 @@ describe("kumiko-guards comment-lang", () => {
       expect(result.exitCode).toBe(1);
     });
   });
+
+  test("a baseline file containing JSON null fails with the drift message instead of crashing", async () => {
+    await withFixtureRepo(async (dir) => {
+      mkdirSync(join(dir, "src"), { recursive: true });
+      writeFileSync(join(dir, "src/a.ts"), "export const a = 1;\n", "utf-8");
+      writeFileSync(join(dir, ".kumiko-comment-lang-baseline.json"), "null\n", "utf-8");
+
+      const result = await run(["bun", CLI_PATH, "comment-lang"], dir);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toContain("Baseline format drift");
+      expect(result.stderr).not.toContain("TypeError");
+    });
+  });
 });
