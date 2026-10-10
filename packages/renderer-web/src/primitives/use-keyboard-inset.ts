@@ -14,6 +14,7 @@ export function useKeyboardInset(): number {
 
   useEffect(() => {
     const viewport = window.visualViewport;
+    // skip: without visualViewport no keyboard inset is measurable
     if (viewport === null || viewport === undefined) return;
     const update = (): void => setInset(readKeyboardInset());
     update();
