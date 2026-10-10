@@ -38,6 +38,7 @@ const writeOutcomes: ProbeOutcome[] = [];
 const writeAsOutcomes: ProbeOutcome[] = [];
 const writeAsFailures: string[] = [];
 const jobQueryAsSystemResults: Array<{ readonly roles: readonly string[] }> = [];
+const queryAsFailures: string[] = [];
 
 function recordOutcome(sink: ProbeOutcome[], result: WriteResult): void {
   sink.push({
@@ -78,15 +79,30 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     recordOutcome(writeOutcomes, result);
   });
 
-  // fw#2859 — JobContext.queryAs stays UNgated by the SYSTEM identity-switch gate.
-  r.job("queryAsSystemWhoami", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
-    const result = (await ctx.queryAs(
-      createSystemUser(ctx.systemUser.tenantId),
-      "write-as-probe:query:whoami",
-      {},
-    )) as { roles: readonly string[] }; // @cast-boundary engine-payload
-    jobQueryAsSystemResults.push(result);
-  });
+  const queryAsSystemWhoamiJob: JobHandlerFn = async (_payload, ctx) => {
+    try {
+      const result = (await ctx.queryAs(
+        createSystemUser(ctx.systemUser.tenantId),
+        "write-as-probe:query:whoami",
+        {},
+      )) as { roles: readonly string[] }; // @cast-boundary engine-payload
+      jobQueryAsSystemResults.push(result);
+    } catch (error) {
+      queryAsFailures.push(error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+  };
+
+  r.job("queryAsSystemWhoami", { trigger: { manual: true }, retries: 0 }, queryAsSystemWhoamiJob);
+  r.job(
+    "queryAsSystemWhoamiEscapeHatch",
+    {
+      trigger: { manual: true },
+      retries: 0,
+      escapeHatch: { reason: "test job reads as the system identity" },
+    },
+    queryAsSystemWhoamiJob,
+  );
 
   const writeAsActorJob: JobHandlerFn = async (payload, ctx) => {
     const actor: SessionUser = {
@@ -115,6 +131,18 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     writeAsActorJob,
   );
   r.job("writeAsActorNoGrant", { trigger: { manual: true }, retries: 0 }, writeAsActorJob);
+});
+
+const queryAsSystemScopeProbeFeature = defineFeature("queryAsSystemScopeProbe", (r) => {
+  r.systemScope();
+  r.job("whoami", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
+    const result = (await ctx.queryAs(
+      createSystemUser(ctx.systemUser.tenantId),
+      "write-as-probe:query:whoami",
+      {},
+    )) as { roles: readonly string[] }; // @cast-boundary engine-payload
+    jobQueryAsSystemResults.push(result);
+  });
 });
 
 const JWT = "job-write-as-test-secret-must-be-32-chars!";
@@ -307,27 +335,56 @@ describe("JobContext.writeAs before attachDispatcher()", () => {
   });
 });
 
-describe("JobContext.queryAs stays ungated by the SYSTEM identity-switch gate (framework#2859)", () => {
-  test("ctx.queryAs(createSystemUser(...), whoami) succeeds from inside a job", async () => {
+describe("JobContext.queryAs is gated by the job's identity-switch grant like writeAs", () => {
+  async function runQueryAsJob(
+    label: string,
+    jobName: string,
+    features: Parameters<typeof createRegistry>[0],
+  ): Promise<void> {
     jobQueryAsSystemResults.length = 0;
+    queryAsFailures.length = 0;
     const worker = createWorkerEntrypoint({
-      registry: createRegistry([writeAsProbeFeature]),
+      registry: createRegistry(features),
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
       redisUrl: redisUrl(),
-      queueNamePrefix: uniquePrefix("job-query-as-system"),
+      queueNamePrefix: uniquePrefix(label),
     });
-
     await worker.start();
     try {
-      await worker.jobRunner.dispatch("write-as-probe:job:query-as-system-whoami", {});
-
+      await worker.jobRunner.dispatch(jobName, {});
       await waitFor(() => {
-        expect(jobQueryAsSystemResults.length).toBe(1);
+        expect(jobQueryAsSystemResults.length + queryAsFailures.length).toBe(1);
       });
-      expect(jobQueryAsSystemResults[0]?.roles).toContain("system");
     } finally {
       await worker.stop();
     }
+  }
+
+  test("without a grant ctx.queryAs(createSystemUser(...)) is refused", async () => {
+    await runQueryAsJob("job-query-as-no-grant", "write-as-probe:job:query-as-system-whoami", [
+      writeAsProbeFeature,
+    ]);
+    expect(jobQueryAsSystemResults).toHaveLength(0);
+    expect(queryAsFailures[0]).toContain("may not switch identity to SYSTEM");
+  });
+
+  test("with an escapeHatch systemIdentity grant it succeeds", async () => {
+    await runQueryAsJob(
+      "job-query-as-hatch",
+      "write-as-probe:job:query-as-system-whoami-escape-hatch",
+      [writeAsProbeFeature],
+    );
+    expect(queryAsFailures).toHaveLength(0);
+    expect(jobQueryAsSystemResults[0]?.roles).toContain("system");
+  });
+
+  test("inside an r.systemScope() feature it succeeds", async () => {
+    await runQueryAsJob("job-query-as-scope", "query-as-system-scope-probe:job:whoami", [
+      writeAsProbeFeature,
+      queryAsSystemScopeProbeFeature,
+    ]);
+    expect(queryAsFailures).toHaveLength(0);
+    expect(jobQueryAsSystemResults[0]?.roles).toContain("system");
   });
 });

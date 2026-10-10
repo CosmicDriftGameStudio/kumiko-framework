@@ -1164,7 +1164,6 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       }
       return dispatchWriteRef.queryAs(user, qn, payload, jobOrigin);
     };
-    // Only writeAs is gated for jobs; queryAs stays ungated (fw#2859).
     const gatedIdentitySwitch = createGatedIdentitySwitch(
       `job "${jobName}"`,
       jobSystemUser,
@@ -1214,7 +1213,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         return dispatchWriteRef.write(jobSystemUser, qn, payload, jobOrigin);
       },
       writeAs: gatedIdentitySwitch.writeAs,
-      queryAs: ungatedQueryAs,
+      queryAs: gatedIdentitySwitch.queryAs,
       queryAsMember: (userId: string, qn: string, payload: unknown) => {
         if (!dispatchWriteRef) {
           throw new Error(
