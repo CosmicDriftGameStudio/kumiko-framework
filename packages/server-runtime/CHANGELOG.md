@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.356.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.356.1
+- @cosmicdrift/kumiko-types@0.356.1
+- @cosmicdrift/kumiko-bundled-features@0.356.1
+- @cosmicdrift/kumiko-headless@0.356.1
+- @cosmicdrift/kumiko-renderer-web@0.356.1
+
 ## 0.356.0
 
 ### Minor Changes

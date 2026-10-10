@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.356.1",
+    "type": "fix",
+    "title": "comment-lang reports an unreadable or non-object baseline instead of crashing",
+    "detail": "`kumiko-guards comment-lang` with a baseline file that is not valid JSON, is `null` or has a `null` perFile now prints a baseline-format message and exits 1 instead of throwing a TypeError. A security baseline with the wrong shape now reports the reason `unexpected_baseline_shape`."
+  },
+  {
     "version": "0.355.0",
     "type": "breaking",
     "title": "Security guards ignore kumiko.json excludes beyond node_modules and dist; kind framework is reserved for kumiko-framework",
