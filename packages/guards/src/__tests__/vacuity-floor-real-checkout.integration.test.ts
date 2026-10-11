@@ -1,8 +1,8 @@
-// Parses the whole real checkout, so it lives in the integration suite (15 s budget) instead of the 5 s unit budget.
+// Walks the whole real checkout, so it lives in the integration suite instead of the 5 s unit budget.
 import { describe, expect, test } from "bun:test";
-import { buildSharedProject, checkRootFloor, filesForGuard } from "../_lib/guard-kit";
+import { checkRootFloor, isSecurityGuard } from "../_lib/guard-kit";
 import { resolveRepoRoots } from "../_lib/roots";
-import { scanRoots } from "../_lib/scan-scope";
+import { scanFiles, scanRoots } from "../_lib/scan-scope";
 import { GUARDS } from "../run-guards";
 
 describe("Vacuity-Floor gegen den echten Checkout", () => {
@@ -11,14 +11,15 @@ describe("Vacuity-Floor gegen den echten Checkout", () => {
   // nothing under the guard's own narrowing is not. Against this repo's real
   // checkout every guard must end up with either real files or a legitimately
   // narrowed-to-zero result — never a silent floor violation nobody looks at.
+  // Only file counts matter here: parsing every file through ts-morph pushed
+  // this test past its 15 s budget on CI.
   test("jeder Guard bekommt Dateien oder ist legitim leer", () => {
     const roots = resolveRepoRoots();
     if (roots.length === 0) return;
-    const project = buildSharedProject(GUARDS, roots);
     const problems = GUARDS.flatMap((guard) => {
       const scans = scanRoots(guard.scan, roots);
       if (scans.length === 0) return [];
-      const files = filesForGuard(project, guard, roots);
+      const files = scanFiles(guard.scan, roots, { security: isSecurityGuard(guard) });
       if (files.length > 0) return [];
       const { violatingRoots } = checkRootFloor(guard, scans);
       return violatingRoots.length > 0 ? [{ name: guard.name, violatingRoots }] : [];
