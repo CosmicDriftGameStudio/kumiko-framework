@@ -1,5 +1,72 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.358.0
+
+### Minor Changes
+
+- 5037fe8: Dashboards keep their width at 390 px and the stacked-area chart reads better
+
+  The dashboard grid has an explicit single column on narrow screens and its cells can shrink, so a wide panel no longer stretches the page. The panel header wraps: title, subtitle and range switch stack instead of squeezing into one row. The KPI strip delta chip no longer wraps, it moves below the label when space is short. Stacked-area charts get a taller plot, a compact y axis ("1,5 Mio. €"), dashed grid lines, calendar-aligned x-axis ticks that thin out with the container width, and larger brush handles (24 px hit area). New panel option `markerLabels` writes marker labels vertically next to their guide lines on wide panels; narrow ones keep numbered pins with a list below. Labeled stat groups now wrap their cards instead of overflowing when values are wide (e.g. 2 + 1 instead of 3 columns).
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Dashboards fit 390 px screens; stacked-area chart gets compact axis, grid lines, x ticks and markerLabels
+  -->
+
+- eec3b6b: ctx.dbOutsideTransaction and ctx.outsideTransaction run on their own small connection pool, and the DATABASE*POOL*\* settings are now actually read at boot
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Outside-transaction access no longer deadlocks against the write pool
+  detail: |
+    ctx.dbOutsideTransaction, ctx.systemDb.outsideTransaction and ctx.outsideTransaction used the same pool as the handler's own transaction. With as many concurrent writes as pool slots, each write held a connection and waited for a second one, so every request hung forever. They now use a dedicated pool (DispatcherOptions.outsideTransactionDb) sized by the new DATABASE_OUTSIDE_TX_POOL_MAX (default 3). runProdApp and the worker boot also read DATABASE_POOL_MAX, DATABASE_POOL_IDLE_TIMEOUT and DATABASE_POOL_CONNECT_TIMEOUT now; before, production ignored them and used the postgres.js default of 10.
+  migration: |
+    Each pod now opens up to DATABASE_POOL_MAX + DATABASE_OUTSIDE_TX_POOL_MAX connections (defaults 10 + 3) plus the LISTEN connection; check the total against Postgres max_connections, including rolling-update surge. A set but invalid DATABASE_POOL_MAX, DATABASE_POOL_IDLE_TIMEOUT, DATABASE_POOL_CONNECT_TIMEOUT or DATABASE_OUTSIDE_TX_POOL_MAX now aborts the boot. Hand-built dispatchers can pass outsideTransactionDb in DispatcherOptions; without it the app pool is shared as before.
+  -->
+
+- e028f23: Entity PII fields get personal.whenAbsent: "tenant"; a nullable owner field without it fails boot
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Entity PII fields need whenAbsent: "tenant" when the owner field is nullable
+  detail: |
+    personal: { of: "<owner>", whenAbsent: "tenant" } makes rows without an owner editable, deletable and forgettable with an active KMS, without plaintext PII. The subject is resolved in this order: the owner on the previous row, the owner the same event sets, then the tenant key (tenant:<tenantId>). Before, an update, delete or forget of an ownerless row failed with SubjectResolutionError (HTTP 500) once a KMS was configured. backfill-pii follows the same chain and checks the projection row for the owner before it falls back to the tenant key; an updated event whose previous.owner is null but whose changes.owner is set no longer loses the owner. Entity fields have no plaintext fallback, so "tenant" is the only value. bundled jobs: cron and system runs (triggeredById null) now store payload, error and log messages as ciphertext under the system tenant key instead of plaintext.
+  migration: |
+    Boot now aborts for a personal: { of: "<owner>" } field whose owner field is not required and that declares no whenAbsent: [Feature X] Field "f" on entity "e" is personal: { of: "ownerId" }, but "ownerId" is not required — rows without an owner would fail to encrypt (SubjectResolutionError, HTTP 500) on update, delete and forget. Declare { personal: { of: "ownerId", whenAbsent: "tenant" } } to encrypt those rows under the tenant key, or make "ownerId" required: true. Entity fields have no plaintext fallback (fw#3654). Fix: add whenAbsent: "tenant", or make the owner field required: true if every row has one. whenAbsent on personal: { of: "id" } throws at declaration. Known consumer sites: kumiko-enterprise kumiko-credit entity.ts and bauspar-entity.ts (ownerUserId), ai-agent entity.ts (authorId, ownerId) and attachment-store.ts (authorId), ai-conversation entity.ts (authorId), pattern-storage entity.ts (authorId), offlot-app src/features/lead/schema/entity.ts (enquiryId). Existing plaintext job-run rows of cron runs stay readable; new ones are ciphertext.
+  -->
+
+### Patch Changes
+
+- b182c6c: feature-ast reads function values in useExtension options and extension names imported from installed packages
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: useExtension options with function values and package-imported extension names no longer fail to parse
+  detail: |
+    r.useExtension(...) options that contain arrow or function expressions (for example isPublic: ({ entityId }) => ...) were reported as "options could not be read as a plain object", which turned the whole feature into a legacy corpus entry. The functions are now kept verbatim as raw references, option keys stay visible and parse to render round-trips unchanged. An extension name imported from a package whose types resolve to dist/*.d.ts (an installed @cosmicdrift/* package in a consumer repo) is now read from its `export declare const NAME: "value"` type instead of failing. Function values elsewhere (entity, nav, metric, job) are still rejected on purpose.
+  migration: |
+    Consumers that ship a checked-in few-shot corpus (Enterprise) should regenerate it on the next framework bump; its drift test enforces that. The new ratchet test in dev-server pins the framework's own canonical count and parse-error ceiling.
+  -->
+
+- 067bc4c: Job runner removes job schedulers of cron jobs that no longer exist
+
+  When an app drops a cron job, its BullMQ job scheduler stayed in Redis and kept firing, so the worker logged `Unknown job` on every tick. On start, each lane now removes every scheduler in its own queue that does not belong to a registered cron job of that lane (logged per removal). Each runner records when it last upserted a scheduler; a scheduler outside the runner's own set is only removed if it was not upserted within the last hour, so an old pod restarting during a rolling deploy does not delete the scheduler of a cron job the new version just added. Schedulers with no record, such as the old colon-form ids, are removed right away. A failing cleanup is logged as a warning and does not stop the start. This replaces the dedicated removal of the old colon-form scheduler ids.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Job runner removes job schedulers of cron jobs that no longer exist
+  -->
+
+- Updated dependencies [5037fe8]
+- Updated dependencies [e028f23]
+  - @cosmicdrift/kumiko-types@0.358.0
+  - @cosmicdrift/kumiko-http@0.358.0
+
 ## 0.357.0
 
 ### Minor Changes

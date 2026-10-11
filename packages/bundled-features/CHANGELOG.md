@@ -1,5 +1,58 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.358.0
+
+### Minor Changes
+
+- bea04fb: cap-counter: reserveCalendarCapUsage reserves capacity before an expensive call and settles the actual usage afterwards, from handlers and jobs
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: Reserve and settle cap usage outside the dispatcher
+  detail: |
+    reserveCalendarCapUsage(ctx, { capName, periodStartIso, limit, profile, amount, notify? }) runs the same sweep, soft-hit notification and guarded hard-cap reservation as withCapEnforcement and returns a handle. settle(actualAmount) replaces the reserved amount by the actual one in one transaction (and books the full actual amount if the reservation was swept or released meanwhile); release() gives it back. Parallel callers cannot exceed the hard cap. It works with a HandlerContext (also r.systemScope() handlers) and a JobContext. Pattern: `const r = await reserveCalendarCapUsage(ctx, {...}); try { ...; await r.settle(actual) } catch (e) { await r.release(); throw e }`. bookCapUsage, markCapSoftWarned, releaseCapUsage and the enforceCap family accept a JobContext as well.
+  migration: |
+    withCapEnforcement and bookCapUsage now work on r.systemScope() handlers; before, they failed on the fail-closed ctx.db. Reservation rows carry the tenant of ctx.user explicitly, and a context whose tenant-mode db belongs to another tenant than ctx.user is rejected with access_denied. enforceCap now filters the counter by ctx.user.tenantId, so a system-mode db no longer reads another tenant's counter.
+  -->
+
+- e028f23: Entity PII fields get personal.whenAbsent: "tenant"; a nullable owner field without it fails boot
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Entity PII fields need whenAbsent: "tenant" when the owner field is nullable
+  detail: |
+    personal: { of: "<owner>", whenAbsent: "tenant" } makes rows without an owner editable, deletable and forgettable with an active KMS, without plaintext PII. The subject is resolved in this order: the owner on the previous row, the owner the same event sets, then the tenant key (tenant:<tenantId>). Before, an update, delete or forget of an ownerless row failed with SubjectResolutionError (HTTP 500) once a KMS was configured. backfill-pii follows the same chain and checks the projection row for the owner before it falls back to the tenant key; an updated event whose previous.owner is null but whose changes.owner is set no longer loses the owner. Entity fields have no plaintext fallback, so "tenant" is the only value. bundled jobs: cron and system runs (triggeredById null) now store payload, error and log messages as ciphertext under the system tenant key instead of plaintext.
+  migration: |
+    Boot now aborts for a personal: { of: "<owner>" } field whose owner field is not required and that declares no whenAbsent: [Feature X] Field "f" on entity "e" is personal: { of: "ownerId" }, but "ownerId" is not required — rows without an owner would fail to encrypt (SubjectResolutionError, HTTP 500) on update, delete and forget. Declare { personal: { of: "ownerId", whenAbsent: "tenant" } } to encrypt those rows under the tenant key, or make "ownerId" required: true. Entity fields have no plaintext fallback (fw#3654). Fix: add whenAbsent: "tenant", or make the owner field required: true if every row has one. whenAbsent on personal: { of: "id" } throws at declaration. Known consumer sites: kumiko-enterprise kumiko-credit entity.ts and bauspar-entity.ts (ownerUserId), ai-agent entity.ts (authorId, ownerId) and attachment-store.ts (authorId), ai-conversation entity.ts (authorId), pattern-storage entity.ts (authorId), offlot-app src/features/lead/schema/entity.ts (enquiryId). Existing plaintext job-run rows of cron runs stay readable; new ones are ciphertext.
+  -->
+
+### Patch Changes
+
+- 0f10302: forget-subject shreds note bodies even when the host entity has anonymize or blockDelete retention
+
+  <!-- kumiko-changes
+  feature: notes-history
+  type: fix
+  title: forget-subject shreds note bodies even when the host entity has anonymize or blockDelete retention
+  detail: |
+    Note bodies that @-mention the forgotten subject or hang on it as host entity were skipped when the host entity's retention strategy was anonymize or blockDelete, so the note text stayed readable while the host's own PII fields were anonymized. The note text is free-form PII, and a retention strategy protects the row, not its content, so these bodies are now always crypto-shredded. This applies to the manual `forget-subject` command and to the automated Art. 17 delete hook.
+  -->
+
+- Updated dependencies [5037fe8]
+- Updated dependencies [b182c6c]
+- Updated dependencies [067bc4c]
+- Updated dependencies [eec3b6b]
+- Updated dependencies [e028f23]
+- Updated dependencies [716b837]
+  - @cosmicdrift/kumiko-renderer-web@0.358.0
+  - @cosmicdrift/kumiko-types@0.358.0
+  - @cosmicdrift/kumiko-framework@0.358.0
+  - @cosmicdrift/kumiko-headless@0.358.0
+  - @cosmicdrift/kumiko-renderer@0.358.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.358.0
+
 ## 0.357.0
 
 ### Minor Changes
