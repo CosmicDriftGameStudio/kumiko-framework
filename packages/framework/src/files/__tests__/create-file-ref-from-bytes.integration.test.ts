@@ -104,8 +104,15 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-beforeEach(() => {
+let fileRefCountBeforeTest = 0;
+
+async function countTenantAFileRefs(): Promise<number> {
+  return (await selectMany(stack.db, fileRefsTable, { tenantId: tenantA })).length;
+}
+
+beforeEach(async () => {
   provider.clear();
+  fileRefCountBeforeTest = await countTenantAFileRefs();
   jobStoredIds = [];
   jobStoreFailure = undefined;
 });
@@ -144,7 +151,7 @@ async function download(user: typeof userA, id: string): Promise<Response> {
 }
 
 async function expectNothingStored(): Promise<void> {
-  expect(await selectMany(stack.db, fileRefsTable, { tenantId: tenantA })).toHaveLength(0);
+  expect(await countTenantAFileRefs()).toBe(fileRefCountBeforeTest);
   expect(provider.keys()).toHaveLength(0);
 }
 
