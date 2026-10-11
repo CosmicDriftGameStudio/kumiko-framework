@@ -7,6 +7,7 @@ import { isRealProviderRun } from "@cosmicdrift/kumiko-framework/testing/real-pr
 import {
   defineConfig,
   devices,
+  type LaunchOptions,
   type PlaywrightTestConfig,
   type PlaywrightTestOptions,
   type PlaywrightWorkerOptions,
@@ -83,15 +84,47 @@ export type E2eProject = Omit<Project, (typeof TEMPLATE_OWNED_PROJECT_KEYS)[numb
   readonly use?: Omit<ProjectUse, (typeof TEMPLATE_OWNED_USE_KEYS)[number]>;
 };
 
+type ServerStart =
+  | {
+      readonly serverEntry?: string;
+      readonly preload?: string | readonly string[];
+      readonly serverCommand?: never;
+    }
+  | {
+      readonly serverCommand: string;
+      readonly serverEntry?: never;
+      readonly preload?: never;
+    };
+
 export type AppE2eConfigInput = {
   readonly port: number;
   readonly env?: Readonly<Record<string, string>>;
   readonly locale?: string;
   readonly projects?: readonly E2eProject[];
-  readonly serverEntry?: string;
   readonly testDir?: string;
   readonly testMatch?: string | RegExp | readonly (string | RegExp)[];
-};
+  readonly permissions?: readonly string[];
+  readonly launchOptions?: LaunchOptions;
+} & ServerStart;
+
+function serverStartCommand(input: {
+  readonly serverCommand?: string;
+  readonly serverEntry?: string;
+  readonly preload?: string | readonly string[];
+}): string {
+  const { serverCommand, serverEntry = "e2e/server.ts", preload } = input;
+  if (serverCommand !== undefined) {
+    if (input.serverEntry !== undefined || preload !== undefined) {
+      throw new Error(
+        "defineAppE2eConfig: serverCommand replaces serverEntry and preload; set only one",
+      );
+    }
+    return serverCommand;
+  }
+  const preloads = preload === undefined ? [] : typeof preload === "string" ? [preload] : preload;
+  const preloadFlags = preloads.map((path) => `--preload ${path} `).join("");
+  return `bun run ${preloadFlags}${serverEntry}`;
+}
 
 function mutableTestMatch(
   match: NonNullable<AppE2eConfigInput["testMatch"]>,
@@ -154,10 +187,12 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
     env = {},
     locale = "en",
     projects = [],
-    serverEntry = "e2e/server.ts",
     testDir = "./e2e",
     testMatch,
+    permissions,
+    launchOptions,
   } = input;
+  const serverCommand = serverStartCommand(input);
   assertNoReservedEnv(env);
   for (const project of projects) assertTemplateOwnedKeysUnset(project);
   // A dedicated screenshots config (testDir: "./e2e/screenshots") has its
@@ -190,6 +225,8 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
       screenshot: "only-on-failure",
       actionTimeout: E2E_TIMEOUT_MS.action,
       navigationTimeout: E2E_TIMEOUT_MS.navigation,
+      ...(permissions !== undefined && { permissions: [...permissions] }),
+      ...(launchOptions !== undefined && { launchOptions }),
     },
     projects: [
       {
@@ -203,7 +240,7 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
       ...projects,
     ],
     webServer: {
-      command: `bun run ${serverEntry}`,
+      command: serverCommand,
       url: baseURL,
       env: {
         ...infraEnvDefaults(),
