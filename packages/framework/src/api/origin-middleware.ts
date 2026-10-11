@@ -56,19 +56,36 @@ export function isWebSocketOriginAllowed(
   if (getAuthTransport(c) !== "cookie") return true;
   const origin = c.req.header("origin");
   if (origin === undefined || origin === "null") return false;
+  // With an allowlist there is deliberately no same-host fallback: wide
+  // cookieDomain setups are exactly where a sibling subdomain is the attacker.
+  if (normalizedAllowlist !== undefined && normalizedAllowlist.size > 0) {
+    return isOriginAllowed(origin, normalizedAllowlist);
+  }
+  return isSameHostOrigin(c);
+}
+
+// The request's own host is a safe extra origin only with host-only session
+// cookies: no sibling host ever receives them.
+export function isSameHostOrigin(c: Context): boolean {
+  const origin = c.req.header("origin");
+  if (origin === undefined || origin === "null") return false;
   let originHost: string;
   try {
     originHost = new URL(origin).host.toLowerCase();
   } catch {
     return false;
   }
-  // With an allowlist there is deliberately no same-host fallback: wide
-  // cookieDomain setups are exactly where a sibling subdomain is the attacker.
-  if (normalizedAllowlist !== undefined && normalizedAllowlist.size > 0) {
-    return isOriginAllowed(origin, normalizedAllowlist);
-  }
   const requestHost = c.req.header("host")?.toLowerCase();
   return requestHost !== undefined && originHost === requestHost;
+}
+
+export function publicOriginOf(baseUrl: string): string | undefined {
+  try {
+    const origin = new URL(baseUrl).origin;
+    return origin === "null" ? undefined : normalizeOrigin(origin);
+  } catch {
+    return undefined;
+  }
 }
 
 // Server-side Origin-allowlist guard — an additional CSRF-hardening layer on
@@ -85,7 +102,10 @@ export function isWebSocketOriginAllowed(
 // Bearer-auth requests skip — browsers cannot set Authorization cross-origin,
 // and native clients send no/foreign Origin, so guarding them would be a
 // false-positive with no CSRF vector to defend.
-export function originMiddleware(allowedOrigins: readonly string[]) {
+export function originMiddleware(
+  allowedOrigins: readonly string[],
+  options: { readonly allowRequestHost?: boolean } = {},
+) {
   const allowlist: ReadonlySet<string> = new Set(allowedOrigins.map(normalizeOrigin));
   return async (c: Context, next: Next) => {
     const transport = getAuthTransport(c);
@@ -97,7 +117,10 @@ export function originMiddleware(allowedOrigins: readonly string[]) {
     // by the allowlist branch inside isForeignCookieOrigin. The residual is
     // only the no-Origin-yet-Sec-Fetch-Site combo, which no current browser
     // emits for state-changing requests.
-    if (isForeignCookieOrigin(c, allowlist)) return rejectOrigin(c);
+    if (isForeignCookieOrigin(c, allowlist)) {
+      if (options.allowRequestHost === true && isSameHostOrigin(c)) return next();
+      return rejectOrigin(c);
+    }
     return next();
   };
 }
@@ -134,4 +157,25 @@ export function assertOriginGuardConfig(
         "auth.unsafeSkipOriginCheck: true to accept the risk explicitly.",
     );
   }
+}
+
+// An explicit allowlist always wins and is strict. Without one, a known public
+// origin still enables the guard, but only for host-only cookies (no
+// cookieDomain) and never against an explicit opt-out.
+export function resolveOriginGuard(
+  auth:
+    | {
+        cookieDomain?: string;
+        allowedOrigins?: readonly string[];
+        publicOrigin?: string;
+        unsafeSkipOriginCheck?: boolean;
+      }
+    | undefined,
+): ReturnType<typeof originMiddleware> | undefined {
+  if (auth?.allowedOrigins && auth.allowedOrigins.length > 0) {
+    return originMiddleware(auth.allowedOrigins);
+  }
+  if (auth?.publicOrigin === undefined || auth.unsafeSkipOriginCheck === true) return undefined;
+  if (auth.cookieDomain) return undefined;
+  return originMiddleware([auth.publicOrigin], { allowRequestHost: true });
 }

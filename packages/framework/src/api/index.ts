@@ -72,6 +72,7 @@ export {
 } from "./http-cache.js";
 export type { JwtHelper, JwtKeyring, JwtPayload } from "./jwt.js";
 export { createJwtHelper, loadJwtSecretOrKeyring } from "./jwt.js";
+export { publicOriginOf } from "./origin-middleware.js";
 export { patAllows, qnMatches } from "./pat-scope.js";
 export type {
   PostAuthLandingArgs,

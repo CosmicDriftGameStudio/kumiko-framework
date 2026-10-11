@@ -4,7 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../engine/index.js";
+import { defineFeature, type TenantId } from "../../engine/index.js";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 import { getSetCookies } from "../../testing/http-cookies.js";
 import { CSRF_HEADER_NAME } from "../auth-middleware.js";
@@ -30,7 +30,15 @@ const hostCookieFeature = defineFeature("hostcookie", (r) => {
   r.writeHandler("ping", z.object({}), async () => ({ isSuccess: true as const, data: {} }), {
     access: { roles: ["User"] },
   });
+  r.writeHandler(
+    "whoami",
+    z.object({}),
+    async (event) => ({ isSuccess: true as const, data: { roles: event.user.roles } }),
+    { access: { roles: ["anonymous", "User"] } },
+  );
 });
+
+const ANONYMOUS_TENANT_ID = "00000000-0000-4000-8000-0000000000a1" as TenantId;
 
 const BASE_AUTH_CONFIG: AuthRoutesConfig = {
   membershipQuery: "tenant:query:memberships",
@@ -40,8 +48,9 @@ const BASE_AUTH_CONFIG: AuthRoutesConfig = {
 async function withStack(
   authConfig: AuthRoutesConfig,
   run: (stack: TestStack) => Promise<void>,
+  extra: Pick<Parameters<typeof setupTestStack>[0], "anonymousAccess"> = {},
 ): Promise<void> {
-  const stack = await setupTestStack({ features: [hostCookieFeature], authConfig });
+  const stack = await setupTestStack({ features: [hostCookieFeature], authConfig, ...extra });
   try {
     await run(stack);
   } finally {
@@ -67,6 +76,21 @@ async function ping(stack: TestStack, headers: Record<string, string>): Promise<
 
 function isExpiry(header: string, name: string): boolean {
   return header.startsWith(`${name}=`) && /Max-Age=0/i.test(header);
+}
+
+function expectAllSessionCookieVariantsExpired(res: Response): void {
+  const headers = res.headers.getSetCookie();
+  for (const name of [PREFIXED_AUTH, PREFIXED_CSRF, AUTH_COOKIE_BASE, CSRF_COOKIE_BASE]) {
+    expect(headers.some((h) => isExpiry(h, name))).toBe(true);
+  }
+}
+
+async function loginCookies(stack: TestStack): Promise<{ auth: string; csrf: string }> {
+  const cookies = getSetCookies(await login(stack));
+  const auth = cookies.get(PREFIXED_AUTH)?.value;
+  const csrf = cookies.get(PREFIXED_CSRF)?.value;
+  if (auth === undefined || csrf === undefined) throw new Error("login set no session cookies");
+  return { auth, csrf };
 }
 
 describe("__Host- session cookies (integration)", () => {
@@ -160,6 +184,94 @@ describe("__Host- session cookies (integration)", () => {
           Origin: "https://admin.example.eu",
         });
         expect(ok.status).toBe(200);
+      },
+    );
+  });
+
+  test("a duplicated auth cookie makes the request unauthenticated and expires every variant", async () => {
+    await withStack({ ...BASE_AUTH_CONFIG, secureCookies: true }, async (stack) => {
+      const { auth, csrf } = await loginCookies(stack);
+      const res = await ping(stack, {
+        Cookie: `${PREFIXED_AUTH}=${auth}; ${PREFIXED_AUTH}=${auth}; ${PREFIXED_CSRF}=${csrf}`,
+        [CSRF_HEADER_NAME]: csrf,
+      });
+      expect(res.status).toBe(401);
+      expectAllSessionCookieVariantsExpired(res);
+    });
+  });
+
+  test("a duplicated csrf cookie on a POST is unauthenticated instead of a CSRF mismatch", async () => {
+    await withStack({ ...BASE_AUTH_CONFIG, secureCookies: true }, async (stack) => {
+      const { auth, csrf } = await loginCookies(stack);
+      const res = await ping(stack, {
+        Cookie: `${PREFIXED_AUTH}=${auth}; ${PREFIXED_CSRF}=${csrf}; ${PREFIXED_CSRF}=stale`,
+        [CSRF_HEADER_NAME]: csrf,
+      });
+      expect(res.status).toBe(401);
+      expectAllSessionCookieVariantsExpired(res);
+    });
+  });
+
+  test("with anonymousAccess a duplicated auth cookie continues as anonymous and expires every variant", async () => {
+    await withStack(
+      { ...BASE_AUTH_CONFIG, secureCookies: true },
+      async (stack) => {
+        const { auth, csrf } = await loginCookies(stack);
+        const res = await stack.app.request("/api/write", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: `${PREFIXED_AUTH}=${auth}; ${PREFIXED_AUTH}=${auth}; ${PREFIXED_CSRF}=${csrf}`,
+            [CSRF_HEADER_NAME]: csrf,
+          },
+          body: JSON.stringify({ type: "hostcookie:write:whoami", payload: {} }),
+        });
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { data: { roles: readonly string[] } };
+        expect(body.data.roles).toEqual(["anonymous"]);
+        expectAllSessionCookieVariantsExpired(res);
+      },
+      { anonymousAccess: { defaultTenantId: ANONYMOUS_TENANT_ID } },
+    );
+  });
+
+  test("the prefixed and the legacy auth cookie side by side are not a duplicate", async () => {
+    await withStack({ ...BASE_AUTH_CONFIG, secureCookies: true }, async (stack) => {
+      const { auth, csrf } = await loginCookies(stack);
+      const res = await ping(stack, {
+        Cookie: `${AUTH_COOKIE_BASE}=old; ${PREFIXED_AUTH}=${auth}; ${PREFIXED_CSRF}=${csrf}`,
+        [CSRF_HEADER_NAME]: csrf,
+      });
+      expect(res.status).toBe(200);
+    });
+  });
+
+  test("publicOrigin enables the Origin guard for the public origin and the request's own host", async () => {
+    await withStack(
+      { ...BASE_AUTH_CONFIG, secureCookies: true, publicOrigin: "https://app.example.eu" },
+      async (stack) => {
+        const { auth, csrf } = await loginCookies(stack);
+        const session = {
+          Cookie: `${PREFIXED_AUTH}=${auth}; ${PREFIXED_CSRF}=${csrf}`,
+          [CSRF_HEADER_NAME]: csrf,
+        };
+        const fromPublicOrigin = await ping(stack, {
+          ...session,
+          Origin: "https://app.example.eu",
+        });
+        expect(fromPublicOrigin.status).toBe(200);
+
+        const fromOwnHost = await ping(stack, {
+          ...session,
+          Host: "custom.example.com",
+          Origin: "https://custom.example.com",
+        });
+        expect(fromOwnHost.status).toBe(200);
+
+        const fromSibling = await ping(stack, { ...session, Origin: "https://tenant.example.eu" });
+        expect(fromSibling.status).toBe(403);
+        const body = (await fromSibling.json()) as { error: { code: string } };
+        expect(body.error.code).toBe("origin_not_allowed");
       },
     );
   });

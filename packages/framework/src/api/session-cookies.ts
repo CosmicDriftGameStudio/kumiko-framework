@@ -1,9 +1,12 @@
 import {
+  AUTH_COOKIE_BASE,
+  CSRF_COOKIE_BASE,
   isHostPrefixedCookieName,
   resolveSessionCookieNames,
   type SessionCookieNames,
 } from "@cosmicdrift/kumiko-types/session-cookies";
 import type { Context, MiddlewareHandler } from "hono";
+import { deleteCookie } from "hono/cookie";
 
 export {
   AUTH_COOKIE_BASE,
@@ -22,6 +25,8 @@ const SESSION_COOKIES_KEY = "sessionCookies";
 export type ResolvedSessionCookies = {
   readonly secure: boolean;
   readonly names: SessionCookieNames;
+  readonly domain?: string | undefined;
+  readonly retiredDomains?: readonly string[] | undefined;
 };
 
 // Browsers drop Secure cookies on http, so Secure is off outside production
@@ -34,9 +39,15 @@ export function resolveSecureCookies(configured?: boolean): boolean {
 export function resolveSessionCookies(options: {
   readonly secureCookies?: boolean | undefined;
   readonly cookieDomain?: string | undefined;
+  readonly retiredCookieDomains?: readonly string[] | undefined;
 }): ResolvedSessionCookies {
   const secure = resolveSecureCookies(options.secureCookies);
-  return { secure, names: resolveSessionCookieNames({ secure, domain: options.cookieDomain }) };
+  return {
+    secure,
+    names: resolveSessionCookieNames({ secure, domain: options.cookieDomain }),
+    domain: options.cookieDomain,
+    retiredDomains: options.retiredCookieDomains,
+  };
 }
 
 export function sessionCookiesMiddleware(resolved: ResolvedSessionCookies): MiddlewareHandler {
@@ -67,4 +78,49 @@ export function getSessionCookies(
 // itself Secure, Path=/ and Domain-less.
 export function hostOnlyDeleteOptions(name: string): { path: "/"; secure?: true } {
   return isHostPrefixedCookieName(name) ? { path: "/", secure: true } : { path: "/" };
+}
+
+// Expire every variant: the Domain cookie (current) and the host-only one
+// (from before cookieDomain), otherwise a cookie left over from an earlier
+// config keeps the session alive after logout. With __Host- names the
+// unprefixed leftovers from before the prefix are expired as well. Retired
+// domains only ever carried unprefixed names.
+export function clearSessionCookies(c: Context, cookies: ResolvedSessionCookies): void {
+  const { names, domain } = cookies;
+  deleteCookie(c, names.auth, hostOnlyDeleteOptions(names.auth));
+  deleteCookie(c, names.csrf, hostOnlyDeleteOptions(names.csrf));
+  if (isHostPrefixedCookieName(names.auth)) {
+    deleteCookie(c, AUTH_COOKIE_BASE, { path: "/" });
+    deleteCookie(c, CSRF_COOKIE_BASE, { path: "/" });
+  }
+  if (domain !== undefined) {
+    deleteCookie(c, AUTH_COOKIE_BASE, { path: "/", domain });
+    deleteCookie(c, CSRF_COOKIE_BASE, { path: "/", domain });
+  }
+  for (const retiredDomain of cookies.retiredDomains ?? []) {
+    deleteCookie(c, AUTH_COOKIE_BASE, { path: "/", domain: retiredDomain });
+    deleteCookie(c, CSRF_COOKIE_BASE, { path: "/", domain: retiredDomain });
+  }
+}
+
+function cookieNameOccurrences(cookieHeader: string, name: string): number {
+  let count = 0;
+  for (const pair of cookieHeader.split(";")) {
+    const separator = pair.indexOf("=");
+    const pairName = (separator === -1 ? pair : pair.slice(0, separator)).trim();
+    if (pairName === name) count++;
+  }
+  return count;
+}
+
+// Two cookies with the same name (e.g. a host-only and a Domain variant, or one
+// planted by a sibling subdomain) are indistinguishable server-side; Hono's
+// getCookie would silently bind to whichever the browser sent first.
+export function hasDuplicateSessionCookie(c: Context, names: SessionCookieNames): boolean {
+  const cookieHeader = c.req.header("cookie");
+  if (cookieHeader === undefined) return false;
+  return (
+    cookieNameOccurrences(cookieHeader, names.auth) > 1 ||
+    cookieNameOccurrences(cookieHeader, names.csrf) > 1
+  );
 }

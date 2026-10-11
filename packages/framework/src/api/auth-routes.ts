@@ -36,8 +36,8 @@ import { resolvePostAuthLandingPath } from "./post-auth-landing.js";
 import {
   AUTH_COOKIE_BASE,
   CSRF_COOKIE_BASE,
+  clearSessionCookies,
   getSessionCookies,
-  hostOnlyDeleteOptions,
   isHostPrefixedCookieName,
   type ResolvedSessionCookies,
   resolveSessionCookies,
@@ -78,7 +78,7 @@ function setAuthCookies(
     ...(opts.domain !== undefined && { domain: opts.domain }),
   } as const;
 
-  // With a Domain, expire the host-only variant first (as clearAuthCookies
+  // With a Domain, expire the host-only variant first (as clearSessionCookies
   // does): after a deploy that sets cookieDomain, the old host-only cookie
   // would coexist with the new Domain cookie (RFC 6265 treats name+domain as
   // distinct) and the server could bind to the stale host-only token. With
@@ -101,32 +101,6 @@ function setAuthCookies(
   // Intentionally NOT HttpOnly — the web client has to read this from
   // document.cookie to include it in the X-CSRF-Token request header.
   setCookie(c, names.csrf, opts.csrfToken, { ...common, httpOnly: false });
-}
-
-function clearAuthCookies(
-  c: Context,
-  names: ResolvedSessionCookies["names"],
-  domain: string | undefined,
-  retiredDomains: readonly string[],
-): void {
-  // Expire every variant: the Domain cookie (current) and the host-only one
-  // (from before cookieDomain), otherwise a cookie left over from an earlier
-  // config keeps the session alive after logout. With __Host- names the
-  // unprefixed leftovers from before the prefix are expired as well.
-  deleteCookie(c, names.auth, hostOnlyDeleteOptions(names.auth));
-  deleteCookie(c, names.csrf, hostOnlyDeleteOptions(names.csrf));
-  if (isHostPrefixedCookieName(names.auth)) {
-    deleteCookie(c, AUTH_COOKIE_BASE, { path: "/" });
-    deleteCookie(c, CSRF_COOKIE_BASE, { path: "/" });
-  }
-  if (domain !== undefined) {
-    deleteCookie(c, AUTH_COOKIE_BASE, { path: "/", domain });
-    deleteCookie(c, CSRF_COOKIE_BASE, { path: "/", domain });
-  }
-  for (const retiredDomain of retiredDomains) {
-    deleteCookie(c, AUTH_COOKIE_BASE, { path: "/", domain: retiredDomain });
-    deleteCookie(c, CSRF_COOKIE_BASE, { path: "/", domain: retiredDomain });
-  }
 }
 
 const INVALID_COOKIE_DOMAIN_CHARS = /[;,\s]/;
@@ -545,6 +519,12 @@ export type AuthRoutesConfig = {
   // Empty/unset (default) disables the guard; required only when
   // `cookieDomain` widens the cookie across subdomains.
   allowedOrigins?: readonly string[];
+  // Canonical public origin of the app (scheme+host+optional port). Used only
+  // when `allowedOrigins` is unset: the Origin guard then admits this origin
+  // plus the request's own host, which keeps custom domains working because
+  // the session cookies are host-only. runProdApp fills it from
+  // `auth.mail.baseUrl` or the APP_BASE_URL env.
+  publicOrigin?: string;
   // Explicit opt-out of the fail-closed Origin guard. When `cookieDomain` is
   // set the framework REFUSES TO BOOT unless `allowedOrigins` is configured — a
   // wide cookie without an Origin check is the unguarded-subdomain-XSS footgun.
@@ -790,6 +770,7 @@ export function createAuthRoutes(
   const sessionCookies = resolveSessionCookies({
     secureCookies: config.secureCookies,
     cookieDomain,
+    retiredCookieDomains: config.retiredCookieDomains,
   });
   assertRetiredCookieDomains(config.retiredCookieDomains, cookieDomain);
   const retiredCookieDomains = config.retiredCookieDomains ?? [];
@@ -1507,12 +1488,7 @@ export function createAuthRoutes(
     }
     // Clear cookies on the cookie-transport path. Idempotent — clearing a
     // missing cookie is a no-op, so bearer-only clients aren't affected.
-    clearAuthCookies(
-      c,
-      getSessionCookies(c, sessionCookies).names,
-      cookieDomain,
-      retiredCookieDomains,
-    );
+    clearSessionCookies(c, getSessionCookies(c, sessionCookies));
     return c.json({ isSuccess: true });
   });
 

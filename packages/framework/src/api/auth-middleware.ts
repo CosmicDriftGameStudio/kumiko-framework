@@ -7,7 +7,11 @@ import type { SessionUser, TenantId } from "../engine/types/index.js";
 import { isSessionRequiredApiPath, TENANT_HEADER_NAME } from "./api-constants.js";
 import type { JwtHelper } from "./jwt.js";
 import { isForeignCookieOrigin } from "./origin-middleware.js";
-import { getSessionCookies } from "./session-cookies.js";
+import {
+  clearSessionCookies,
+  getSessionCookies,
+  hasDuplicateSessionCookie,
+} from "./session-cookies.js";
 
 const USER_KEY = "pipelineUser";
 const AUTH_TRANSPORT_KEY = "authTransport";
@@ -228,10 +232,20 @@ function isStaleCookieDowngradable(
 // Note: this is NOT a CSRF control — Bearer-only clients are already safe
 // because browsers can't set Authorization headers cross-origin. The reject
 // exists so future middleware authors can't accidentally mix transports.
+//
+// Duplicate auth/csrf cookie names make the cookie transport untrustworthy:
+// the request is treated as carrying no cookie and every variant is expired,
+// so the browser recovers with a fresh login instead of staying stuck.
 function extractToken(
   c: Context,
 ): { token: string; transport: AuthTransport } | { error: "both" | "missing" } {
-  const cookieToken = getCookie(c, getSessionCookies(c).names.auth);
+  const sessionCookies = getSessionCookies(c);
+  let cookieToken: string | undefined;
+  if (hasDuplicateSessionCookie(c, sessionCookies.names)) {
+    clearSessionCookies(c, sessionCookies);
+  } else {
+    cookieToken = getCookie(c, sessionCookies.names.auth);
+  }
   const header = c.req.header("Authorization");
   const bearerToken = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
 
