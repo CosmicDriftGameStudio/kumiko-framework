@@ -13,9 +13,16 @@ import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispat
 import { TestUsers } from "../../stack/index.js";
 import { getSetCookieRaw, getSetCookies } from "../../testing/http-cookies.js";
 import { PUBLIC_API_PATHS } from "../api-constants.js";
-import { AUTH_COOKIE_NAME, authMiddleware, CSRF_COOKIE_NAME } from "../auth-middleware.js";
+import { authMiddleware } from "../auth-middleware.js";
 import { type AuthRoutesConfig, createAuthRoutes } from "../auth-routes.js";
 import { createJwtHelper } from "../jwt.js";
+import {
+  AUTH_COOKIE_BASE,
+  CSRF_COOKIE_BASE,
+  HOST_COOKIE_PREFIX,
+  resolveSessionCookies,
+  sessionCookiesMiddleware,
+} from "../session-cookies.js";
 
 const JWT_SECRET = "auth-routes-cookie-test-secret-min-32-characters";
 
@@ -91,6 +98,15 @@ async function buildApp(
     ...overrides,
   };
   const app = new HonoCtor();
+  app.use(
+    "*",
+    sessionCookiesMiddleware(
+      resolveSessionCookies({
+        secureCookies: overrides.secureCookies,
+        cookieDomain: overrides.cookieDomain,
+      }),
+    ),
+  );
   const jwtGuard = authMiddleware(jwt);
   app.use("/api/*", async (c, next) => {
     if (PUBLIC_API_PATHS.has(c.req.path)) return next();
@@ -110,8 +126,8 @@ describe("auth-routes cookie behaviour on /auth/login", () => {
     });
     expect(res.status).toBe(200);
     const cookies = getSetCookies(res);
-    expect(cookies.get(AUTH_COOKIE_NAME)).toBeDefined();
-    expect(cookies.get(CSRF_COOKIE_NAME)).toBeDefined();
+    expect(cookies.get(AUTH_COOKIE_BASE)).toBeDefined();
+    expect(cookies.get(CSRF_COOKIE_BASE)).toBeDefined();
   });
 
   test("cookieSameSite defaults to Lax", async () => {
@@ -121,7 +137,7 @@ describe("auth-routes cookie behaviour on /auth/login", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "a@b.c", password: "pw" }),
     });
-    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/SameSite=Lax/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_BASE)).toMatch(/SameSite=Lax/i);
   });
 
   test("cookieSameSite: strict → SameSite=Strict flag", async () => {
@@ -131,7 +147,7 @@ describe("auth-routes cookie behaviour on /auth/login", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "a@b.c", password: "pw" }),
     });
-    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/SameSite=Strict/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_BASE)).toMatch(/SameSite=Strict/i);
   });
 
   test("auth cookie is HttpOnly, csrf cookie is not", async () => {
@@ -141,8 +157,8 @@ describe("auth-routes cookie behaviour on /auth/login", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "a@b.c", password: "pw" }),
     });
-    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/HttpOnly/i);
-    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).not.toMatch(/HttpOnly/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_BASE)).toMatch(/HttpOnly/i);
+    expect(getSetCookieRaw(res, CSRF_COOKIE_BASE)).not.toMatch(/HttpOnly/i);
   });
 
   test("login still returns token in body (for native bearer clients)", async () => {
@@ -166,8 +182,8 @@ describe("auth-routes cookie behaviour on /auth/login", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "a@b.c", password: "pw" }),
     });
-    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(new RegExp(`Max-Age=${customTtl}\\b`));
-    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).toMatch(new RegExp(`Max-Age=${customTtl}\\b`));
+    expect(getSetCookieRaw(res, AUTH_COOKIE_BASE)).toMatch(new RegExp(`Max-Age=${customTtl}\\b`));
+    expect(getSetCookieRaw(res, CSRF_COOKIE_BASE)).toMatch(new RegExp(`Max-Age=${customTtl}\\b`));
   });
 });
 
@@ -179,8 +195,8 @@ describe("auth-routes cookie behaviour on /auth/logout", () => {
       headers: { Authorization: `Bearer ${validToken}` },
     });
     expect(res.status).toBe(200);
-    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/Max-Age=0/i);
-    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).toMatch(/Max-Age=0/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_BASE)).toMatch(/Max-Age=0/i);
+    expect(getSetCookieRaw(res, CSRF_COOKIE_BASE)).toMatch(/Max-Age=0/i);
   });
 });
 
@@ -225,9 +241,9 @@ describe("auth-routes cookie behaviour on /auth/switch-tenant", () => {
     });
     expect(res.status).toBe(200);
     const cookies = getSetCookies(res);
-    const newAuth = cookies.get(AUTH_COOKIE_NAME);
+    const newAuth = cookies.get(AUTH_COOKIE_BASE);
     expect(newAuth).toBeDefined();
-    expect(cookies.get(CSRF_COOKIE_NAME)).toBeDefined();
+    expect(cookies.get(CSRF_COOKIE_BASE)).toBeDefined();
     expect(newAuth?.value).not.toBe(validToken); // new jwt
   });
 });
@@ -247,15 +263,15 @@ describe("auth-routes cookieDomain", () => {
   test("ohne cookieDomain: kein Domain-Attribut auf den Cookies", async () => {
     const { app } = await buildApp();
     const res = await login(app);
-    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).not.toMatch(/Domain=/i);
-    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).not.toMatch(/Domain=/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_BASE)).not.toMatch(/Domain=/i);
+    expect(getSetCookieRaw(res, CSRF_COOKIE_BASE)).not.toMatch(/Domain=/i);
   });
 
   test("login: cookieDomain setzt Domain auf BEIDEN Cookies", async () => {
     const { app } = await buildApp({ cookieDomain: "example.eu" });
     const res = await login(app);
-    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/Domain=example\.eu/i);
-    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).toMatch(/Domain=example\.eu/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_BASE)).toMatch(/Domain=example\.eu/i);
+    expect(getSetCookieRaw(res, CSRF_COOKIE_BASE)).toMatch(/Domain=example\.eu/i);
   });
 
   // Symmetrisch zum Logout (#321/1): wer mit cookieDomain SETZT, muss die
@@ -265,8 +281,8 @@ describe("auth-routes cookieDomain", () => {
   test("login: cookieDomain invalidiert zusätzlich die host-only-Variante", async () => {
     const { app } = await buildApp({ cookieDomain: "example.eu" });
     const raw = (await login(app)).headers.getSetCookie();
-    const authCookies = raw.filter((c) => c.startsWith(`${AUTH_COOKIE_NAME}=`));
-    const csrfCookies = raw.filter((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`));
+    const authCookies = raw.filter((c) => c.startsWith(`${AUTH_COOKIE_BASE}=`));
+    const csrfCookies = raw.filter((c) => c.startsWith(`${CSRF_COOKIE_BASE}=`));
     // host-only-Delete: Max-Age=0 ohne Domain-Attribut.
     expect(authCookies.some((c) => /Max-Age=0/i.test(c) && !/Domain=/i.test(c))).toBe(true);
     expect(csrfCookies.some((c) => /Max-Age=0/i.test(c) && !/Domain=/i.test(c))).toBe(true);
@@ -280,8 +296,8 @@ describe("auth-routes cookieDomain", () => {
     const { app } = await buildApp();
     const raw = (await login(app)).headers.getSetCookie();
     // Nur das eine Set-Cookie pro Name, kein Max-Age=0-Delete.
-    expect(raw.filter((c) => c.startsWith(`${AUTH_COOKIE_NAME}=`)).length).toBe(1);
-    expect(raw.some((c) => c.startsWith(`${AUTH_COOKIE_NAME}=`) && /Max-Age=0/i.test(c))).toBe(
+    expect(raw.filter((c) => c.startsWith(`${AUTH_COOKIE_BASE}=`)).length).toBe(1);
+    expect(raw.some((c) => c.startsWith(`${AUTH_COOKIE_BASE}=`) && /Max-Age=0/i.test(c))).toBe(
       false,
     );
   });
@@ -312,10 +328,10 @@ describe("auth-routes cookieDomain", () => {
       body: JSON.stringify({ tenantId: otherTenant.tenantId }),
     });
     expect(res.status).toBe(200);
-    expect(getSetCookieRaw(res, AUTH_COOKIE_NAME)).toMatch(/Domain=example\.eu/i);
+    expect(getSetCookieRaw(res, AUTH_COOKIE_BASE)).toMatch(/Domain=example\.eu/i);
     // CSRF cookie is rotated with the same common options as the auth cookie:
     // without a Domain attribute it would be host-only and the double-submit check could read the wrong one.
-    expect(getSetCookieRaw(res, CSRF_COOKIE_NAME)).toMatch(/Domain=example\.eu/i);
+    expect(getSetCookieRaw(res, CSRF_COOKIE_BASE)).toMatch(/Domain=example\.eu/i);
   });
 
   test("logout löscht beide Varianten: mit Domain UND host-only", async () => {
@@ -327,10 +343,10 @@ describe("auth-routes cookieDomain", () => {
     expect(res.status).toBe(200);
     const raw = res.headers.getSetCookie();
     const authDeletes = raw.filter(
-      (c) => c.startsWith(`${AUTH_COOKIE_NAME}=`) && /Max-Age=0/i.test(c),
+      (c) => c.startsWith(`${AUTH_COOKIE_BASE}=`) && /Max-Age=0/i.test(c),
     );
     const csrfDeletes = raw.filter(
-      (c) => c.startsWith(`${CSRF_COOKIE_NAME}=`) && /Max-Age=0/i.test(c),
+      (c) => c.startsWith(`${CSRF_COOKIE_BASE}=`) && /Max-Age=0/i.test(c),
     );
     // Host-only-Bestand (vor cookieDomain gesetzt) + aktuelle Domain-
     // Variante — beide müssen invalidiert werden, sonst wirkt der Logout
@@ -339,6 +355,109 @@ describe("auth-routes cookieDomain", () => {
     expect(authDeletes.some((c) => !/Domain=/i.test(c))).toBe(true);
     expect(csrfDeletes.some((c) => /Domain=example\.eu/i.test(c))).toBe(true);
     expect(csrfDeletes.some((c) => !/Domain=/i.test(c))).toBe(true);
+  });
+});
+
+describe("auth-routes __Host- cookie prefix", () => {
+  const PREFIXED_AUTH = `${HOST_COOKIE_PREFIX}${AUTH_COOKIE_BASE}`;
+  const PREFIXED_CSRF = `${HOST_COOKIE_PREFIX}${CSRF_COOKIE_BASE}`;
+
+  async function login(app: Hono): Promise<Response> {
+    return await app.request("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "a@b.c", password: "[REDACTED:API key param]" }),
+    });
+  }
+
+  function isDeleteFor(header: string, name: string): boolean {
+    return header.startsWith(`${name}=`) && /Max-Age=0/i.test(header);
+  }
+
+  test("secure without cookieDomain: prefixed names with Secure, Path=/, no Domain", async () => {
+    const { app } = await buildApp({ secureCookies: true });
+    const res = await login(app);
+    expect(res.status).toBe(200);
+    const cookies = getSetCookies(res);
+    for (const name of [PREFIXED_AUTH, PREFIXED_CSRF]) {
+      const raw = cookies.get(name)?.raw;
+      expect(raw).toBeDefined();
+      expect(raw).toMatch(/;\s*Secure/i);
+      expect(raw).toMatch(/;\s*Path=\//i);
+      expect(raw).not.toMatch(/Domain=/i);
+    }
+  });
+
+  test("login also expires the legacy unprefixed host-only cookies", async () => {
+    const { app } = await buildApp({ secureCookies: true });
+    const headers = (await login(app)).headers.getSetCookie();
+    for (const name of [AUTH_COOKIE_BASE, CSRF_COOKIE_BASE]) {
+      const deletes = headers.filter((h) => isDeleteFor(h, name));
+      expect(deletes).toHaveLength(1);
+      expect(deletes[0]).not.toMatch(/Domain=/i);
+    }
+  });
+
+  test("with cookieDomain the names stay unprefixed even when secure", async () => {
+    const { app } = await buildApp({ secureCookies: true, cookieDomain: "example.eu" });
+    const cookies = getSetCookies(await login(app));
+    expect(cookies.get(AUTH_COOKIE_BASE)?.raw).toMatch(/Domain=example\.eu/i);
+    expect(cookies.get(CSRF_COOKIE_BASE)?.raw).toMatch(/Domain=example\.eu/i);
+    expect(cookies.get(PREFIXED_AUTH)).toBeUndefined();
+    expect(cookies.get(PREFIXED_CSRF)).toBeUndefined();
+  });
+
+  test("without Secure the names stay unprefixed", async () => {
+    const { app } = await buildApp({ secureCookies: false });
+    const cookies = getSetCookies(await login(app));
+    expect(cookies.get(AUTH_COOKIE_BASE)).toBeDefined();
+    expect(cookies.get(PREFIXED_AUTH)).toBeUndefined();
+  });
+
+  test("retired domains are deleted under the unprefixed names only", async () => {
+    const { app } = await buildApp({ secureCookies: true, retiredCookieDomains: ["old.example"] });
+    const headers = (await login(app)).headers.getSetCookie();
+    const retiredDeletes = headers.filter((h) => /Domain=old\.example/i.test(h));
+    expect(retiredDeletes).toHaveLength(2);
+    expect(retiredDeletes.every((h) => !h.startsWith(HOST_COOKIE_PREFIX))).toBe(true);
+  });
+
+  test("logout with the prefixed cookie clears prefixed and legacy names; prefixed deletes stay Secure + Path=/", async () => {
+    const { app, validToken } = await buildApp({ secureCookies: true });
+    const res = await app.request("/api/auth/logout", {
+      method: "POST",
+      headers: { Cookie: `${PREFIXED_AUTH}=${validToken}` },
+    });
+    expect(res.status).toBe(200);
+    const headers = res.headers.getSetCookie();
+    for (const name of [PREFIXED_AUTH, PREFIXED_CSRF]) {
+      const deletes = headers.filter((h) => isDeleteFor(h, name));
+      expect(deletes).toHaveLength(1);
+      expect(deletes[0]).toMatch(/;\s*Secure/i);
+      expect(deletes[0]).toMatch(/;\s*Path=\//i);
+      expect(deletes[0]).not.toMatch(/Domain=/i);
+    }
+    for (const name of [AUTH_COOKIE_BASE, CSRF_COOKIE_BASE]) {
+      expect(headers.filter((h) => isDeleteFor(h, name))).toHaveLength(1);
+    }
+  });
+
+  test("a request carrying only the legacy auth cookie is not authenticated", async () => {
+    const { app, validToken } = await buildApp({ secureCookies: true });
+    const res = await app.request("/api/auth/logout", {
+      method: "POST",
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${validToken}` },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  test("the prefixed auth cookie authenticates", async () => {
+    const { app, validToken } = await buildApp({ secureCookies: true });
+    const res = await app.request("/api/auth/logout", {
+      method: "POST",
+      headers: { Cookie: `${PREFIXED_AUTH}=${validToken}` },
+    });
+    expect(res.status).toBe(200);
   });
 });
 

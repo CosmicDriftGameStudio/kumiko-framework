@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { defineFeature } from "../../engine/index.js";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
-import { AUTH_COOKIE_NAME, CSRF_COOKIE_NAME } from "../auth-middleware.js";
 import type { AuthRoutesConfig } from "../auth-routes.js";
+import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
 
 const loginFeature = defineFeature("retiredcookie", (r) => {
   r.writeHandler(
@@ -65,7 +65,7 @@ describe("retiredCookieDomains (integration)", () => {
         const res = await login(stack);
         expect(res.status).toBe(200);
         const headers = res.headers.getSetCookie();
-        for (const name of [AUTH_COOKIE_NAME, CSRF_COOKIE_NAME]) {
+        for (const name of [AUTH_COOKIE_BASE, CSRF_COOKIE_BASE]) {
           const sets = headers.filter((h) => isSetFor(h, name));
           expect(sets).toHaveLength(1);
           expect(sets[0]).not.toMatch(/Domain=/i);
@@ -89,7 +89,7 @@ describe("retiredCookieDomains (integration)", () => {
         });
         expect(res.status).toBe(200);
         const headers = res.headers.getSetCookie();
-        for (const name of [AUTH_COOKIE_NAME, CSRF_COOKIE_NAME]) {
+        for (const name of [AUTH_COOKIE_BASE, CSRF_COOKIE_BASE]) {
           const deletes = headers.filter((h) => isDeleteFor(h, name));
           expect(deletes.some((h) => !/Domain=/i.test(h))).toBe(true);
           expect(deletes.some((h) => hasDomain(h, "example.com"))).toBe(true);

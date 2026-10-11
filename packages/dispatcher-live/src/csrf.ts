@@ -3,6 +3,8 @@
 // Kumiko's auth-middleware sets two cookies on login (see Vorarbeit A):
 //   - `kumiko_auth`  — HttpOnly, carries the JWT. Invisible to JS.
 //   - `kumiko_csrf`  — JS-readable, carries a random token.
+// Both carry the `__Host-` prefix when the server writes them Secure and
+// without a Domain (see @cosmicdrift/kumiko-types/session-cookies).
 //
 // The double-submit CSRF pattern: every state-changing request echoes the
 // `kumiko_csrf` value into an `X-CSRF-Token` header. Server compares header
@@ -12,14 +14,19 @@
 // cannot READ `document.cookie` of our origin — so they can't populate the
 // header with the matching value.
 
-// Exported constants stay in sync with auth-middleware.ts. Kept here as
-// literals rather than imported from @cosmicdrift/kumiko-framework because this
+import {
+  CSRF_COOKIE_BASE,
+  sessionCookieNameCandidates,
+} from "@cosmicdrift/kumiko-types/session-cookies";
+
+// Kept here as a literal rather than imported from @cosmicdrift/kumiko-framework because this
 // package must remain server-dep-free (runs in browsers and React Native).
-// If the server ever renames the cookie, this file needs a one-line bump.
-export const CSRF_COOKIE_NAME = "kumiko_csrf";
+// The framework's csrf-constants-sync test guards against drift.
 export const CSRF_HEADER_NAME = "X-CSRF-Token";
 
-// Reads the kumiko_csrf token from document.cookie. Returns undefined when:
+const CSRF_COOKIE_NAMES = sessionCookieNameCandidates(CSRF_COOKIE_BASE);
+
+// Reads the csrf token from document.cookie. Returns undefined when:
 //   - `document` isn't available (SSR, Web Worker, React Native)
 //   - the cookie was never set (before login, after logout)
 //
@@ -33,15 +40,16 @@ export function readCsrfToken(cookieSource?: string): string | undefined {
   // cookie format: "a=1; b=2; kumiko_csrf=<uuid>; c=3"
   // Parse by splitting on "; " — cookie values never contain that
   // delimiter literally (they're percent-encoded if needed).
-  const pairs = raw.split(/;\s*/);
-  for (const pair of pairs) {
+  const valuesByName = new Map<string, string>();
+  for (const pair of raw.split(/;\s*/)) {
     const eq = pair.indexOf("=");
     if (eq < 0) continue;
     const name = pair.slice(0, eq);
-    if (name === CSRF_COOKIE_NAME) {
-      const value = pair.slice(eq + 1);
-      return value.length > 0 ? decodeURIComponent(value) : undefined;
-    }
+    if (!valuesByName.has(name)) valuesByName.set(name, pair.slice(eq + 1));
+  }
+  for (const name of CSRF_COOKIE_NAMES) {
+    const value = valuesByName.get(name);
+    if (value !== undefined) return value.length > 0 ? decodeURIComponent(value) : undefined;
   }
   return undefined;
 }

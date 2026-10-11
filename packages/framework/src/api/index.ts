@@ -15,7 +15,6 @@ export type {
   TokenVerifier,
 } from "./auth-middleware.js";
 export {
-  AUTH_COOKIE_NAME,
   authMiddleware,
   getUser,
   PAT_TOKEN_PREFIX,
@@ -103,6 +102,17 @@ export {
 export { createApiRoutes } from "./routes.js";
 export type { KumikoServer, ServerOptions } from "./server.js";
 export { buildServer, makeDispatchSystemQuery, makeDispatchSystemWrite } from "./server.js";
+export type { SessionCookieBase, SessionCookieNames } from "./session-cookies.js";
+export {
+  AUTH_COOKIE_BASE,
+  CSRF_COOKIE_BASE,
+  getSessionCookies,
+  HOST_COOKIE_PREFIX,
+  isHostPrefixedCookieName,
+  resolveSessionCookieNames,
+  sessionCookieName,
+  TENANT_COOKIE_BASE,
+} from "./session-cookies.js";
 export type { SseBroker, SseClient, SseEvent } from "./sse-broker.js";
 export { createSseBroker } from "./sse-broker.js";
 export { createSseRoute, SSE_HEARTBEAT_INTERVAL_MS, type SseRouteOptions } from "./sse-route.js";

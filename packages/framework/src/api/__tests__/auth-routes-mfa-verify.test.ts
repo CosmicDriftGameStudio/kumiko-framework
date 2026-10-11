@@ -13,13 +13,14 @@ import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispat
 import { TestUsers } from "../../stack/index.js";
 import { getSetCookies } from "../../testing/http-cookies.js";
 import { PUBLIC_API_PATHS } from "../api-constants.js";
-import { AUTH_COOKIE_NAME, authMiddleware, CSRF_COOKIE_NAME } from "../auth-middleware.js";
+import { authMiddleware } from "../auth-middleware.js";
 import {
   type AuthRoutesConfig,
   createAuthRoutes,
   createInMemoryLoginRateLimiter,
 } from "../auth-routes.js";
 import { createJwtHelper } from "../jwt.js";
+import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
 
 const JWT_SECRET = "auth-routes-mfa-verify-test-secret-min-32-characters";
 const MFA_VERIFY_QN = "auth-mfa:write:verify";
@@ -140,8 +141,8 @@ describe("POST /auth/mfa/verify", () => {
     expect(body.token.length).toBeGreaterThan(20);
 
     const cookies = getSetCookies(res);
-    expect(cookies.get(AUTH_COOKIE_NAME)).toBeDefined();
-    expect(cookies.get(CSRF_COOKIE_NAME)).toBeDefined();
+    expect(cookies.get(AUTH_COOKIE_BASE)).toBeDefined();
+    expect(cookies.get(CSRF_COOKIE_BASE)).toBeDefined();
   });
 
   test("postAuthLanding wired → response carries landingPath", async () => {

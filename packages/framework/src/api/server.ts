@@ -128,6 +128,7 @@ import {
   registerVersionRoute,
 } from "./route-registrars.js";
 import { createApiRoutes, handleUncaughtRouteError } from "./routes.js";
+import { resolveSessionCookies, sessionCookiesMiddleware } from "./session-cookies.js";
 import type { SseBroker } from "./sse-broker.js";
 import { createSseRoute } from "./sse-route.js";
 import {
@@ -777,6 +778,14 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // Sub-apps mounted via app.route() without their own handler inherit this one.
   app.onError(handleUncaughtRouteError);
 
+  // Resolved once; auth routes, auth/csrf middleware and the tenant-cookie
+  // helpers read the cookie names from the request context.
+  const sessionCookies = resolveSessionCookies({
+    secureCookies: options.auth?.secureCookies,
+    cookieDomain: options.auth?.cookieDomain,
+  });
+  app.use("*", sessionCookiesMiddleware(sessionCookies));
+
   // Only entry:"signature" bypasses jwtGuard (verify() authenticates
   // itself); entry:"anonymous" still needs the anonymousAccess fallthrough
   // (tenant-by-host), entry:"user" needs c.get("user") populated.
@@ -1001,7 +1010,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
     }
     app.route(
       "/api",
-      createAuthRoutes(dispatcher, jwt, { ...options.auth, resolver: clientIpResolver }),
+      createAuthRoutes(dispatcher, jwt, {
+        ...options.auth,
+        secureCookies: sessionCookies.secure,
+        resolver: clientIpResolver,
+      }),
     );
   }
   app.route(

@@ -1,3 +1,4 @@
+import { CSRF_COOKIE_NAME } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 import {
   REGULAR_USER_EMAIL,
@@ -31,7 +32,7 @@ export async function loginAsRegularUser(page: Page): Promise<void> {
 
 export async function csrfToken(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
-  const csrf = cookies.find((c) => c.name === "kumiko_csrf")?.value;
-  if (!csrf) throw new Error("no kumiko_csrf cookie after login");
+  const csrf = cookies.find((c) => c.name === CSRF_COOKIE_NAME)?.value;
+  if (!csrf) throw new Error(`no ${CSRF_COOKIE_NAME} cookie after login`);
   return csrf;
 }

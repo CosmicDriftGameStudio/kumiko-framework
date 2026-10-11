@@ -1,12 +1,26 @@
 import { describe, expect, test } from "bun:test";
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, readCsrfToken } from "../csrf.js";
+import { CSRF_COOKIE_BASE, sessionCookieName } from "@cosmicdrift/kumiko-types/session-cookies";
+import { CSRF_HEADER_NAME, readCsrfToken } from "../csrf.js";
+
+const PREFIXED_CSRF = sessionCookieName(CSRF_COOKIE_BASE, { secure: true });
+const PLAIN_CSRF = sessionCookieName(CSRF_COOKIE_BASE, { secure: false });
 
 describe("CSRF token extraction", () => {
-  test("constants match server-side expectations", () => {
-    // If the server renames the cookie or header, these literals must
-    // be bumped in sync — see auth-middleware.ts.
-    expect(CSRF_COOKIE_NAME).toBe("kumiko_csrf");
+  test("header constant matches server-side expectation", () => {
     expect(CSRF_HEADER_NAME).toBe("X-CSRF-Token");
+  });
+
+  test("prefers the __Host- cookie when both names exist", () => {
+    const raw = `${PLAIN_CSRF}=legacy; ${PREFIXED_CSRF}=prefixed`;
+    expect(readCsrfToken(raw)).toBe("prefixed");
+  });
+
+  test("reads the __Host- cookie alone", () => {
+    expect(readCsrfToken(`a=1; ${PREFIXED_CSRF}=prefixed`)).toBe("prefixed");
+  });
+
+  test("falls back to the plain cookie when no __Host- cookie exists", () => {
+    expect(readCsrfToken(`${PLAIN_CSRF}=legacy`)).toBe("legacy");
   });
 
   test("reads the token from a cookie string with one entry", () => {

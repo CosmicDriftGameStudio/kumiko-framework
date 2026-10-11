@@ -1,3 +1,5 @@
+import { CSRF_COOKIE_BASE, sessionCookieName } from "@cosmicdrift/kumiko-types/session-cookies";
+
 export const KUMIKO_SECRETS_MASTER_KEY_V1 = "a3VtaWtvLXNjcmVlbnNob3QtZGV2LW1hc3Rlci0zMmI=";
 
 export const PLAYWRIGHT_DEMO_ENV = {
@@ -7,7 +9,8 @@ export const PLAYWRIGHT_DEMO_ENV = {
   KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
 } as const;
 
-export const CSRF_COOKIE_NAME = "kumiko_csrf";
+// e2e servers run on plain http, so the cookies are never Secure and keep the unprefixed names.
+export const CSRF_COOKIE_NAME = sessionCookieName(CSRF_COOKIE_BASE, { secure: false });
 export const CSRF_HEADER_NAME = "X-CSRF-Token";
 
 export const SEED_ENABLE_ENV = "KUMIKO_TEST_SEED";

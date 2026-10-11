@@ -5,14 +5,10 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { TestUsers } from "../../stack/index.js";
-import {
-  AUTH_COOKIE_NAME,
-  authMiddleware,
-  CSRF_COOKIE_NAME,
-  CSRF_HEADER_NAME,
-} from "../auth-middleware.js";
+import { authMiddleware, CSRF_HEADER_NAME } from "../auth-middleware.js";
 import { csrfMiddleware } from "../csrf-middleware.js";
 import { createJwtHelper } from "../jwt.js";
+import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
 
 const JWT_SECRET = "csrf-middleware-test-secret-min-32-characters-long";
 const CSRF = "csrf-token-fixed-for-test";
@@ -41,7 +37,7 @@ describe("csrf-middleware", () => {
   test("cookie transport + GET → no csrf check (safe method)", async () => {
     const { app, token } = await buildApp();
     const res = await app.request("/api/ping", {
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}` },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}` },
     });
     expect(res.status).toBe(200);
   });
@@ -51,7 +47,7 @@ describe("csrf-middleware", () => {
     const res = await app.request("/api/write", {
       method: "POST",
       headers: {
-        Cookie: `${AUTH_COOKIE_NAME}=${token}; ${CSRF_COOKIE_NAME}=${CSRF}`,
+        Cookie: `${AUTH_COOKIE_BASE}=${token}; ${CSRF_COOKIE_BASE}=${CSRF}`,
         [CSRF_HEADER_NAME]: CSRF,
       },
     });
@@ -63,7 +59,7 @@ describe("csrf-middleware", () => {
     const res = await app.request("/api/write", {
       method: "POST",
       headers: {
-        Cookie: `${AUTH_COOKIE_NAME}=${token}; ${CSRF_COOKIE_NAME}=${CSRF}`,
+        Cookie: `${AUTH_COOKIE_BASE}=${token}; ${CSRF_COOKIE_BASE}=${CSRF}`,
       },
     });
     expect(res.status).toBe(403);
@@ -76,7 +72,7 @@ describe("csrf-middleware", () => {
     const res = await app.request("/api/write", {
       method: "POST",
       headers: {
-        Cookie: `${AUTH_COOKIE_NAME}=${token}; ${CSRF_COOKIE_NAME}=${CSRF}`,
+        Cookie: `${AUTH_COOKIE_BASE}=${token}; ${CSRF_COOKIE_BASE}=${CSRF}`,
         [CSRF_HEADER_NAME]: "wrong-value",
       },
     });
@@ -88,7 +84,7 @@ describe("csrf-middleware", () => {
     const res = await app.request("/api/write", {
       method: "POST",
       headers: {
-        Cookie: `${AUTH_COOKIE_NAME}=${token}`,
+        Cookie: `${AUTH_COOKIE_BASE}=${token}`,
         [CSRF_HEADER_NAME]: CSRF,
       },
     });

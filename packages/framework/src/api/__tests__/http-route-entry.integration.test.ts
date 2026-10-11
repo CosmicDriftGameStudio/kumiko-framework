@@ -13,12 +13,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "../../engine/index.js";
 import type { TenantId } from "../../engine/types/identifiers.js";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
-import {
-  AUTH_COOKIE_NAME,
-  CSRF_COOKIE_NAME,
-  CSRF_HEADER_NAME,
-  getUser,
-} from "../auth-middleware.js";
+import { CSRF_HEADER_NAME, getUser } from "../auth-middleware.js";
+import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 
@@ -86,7 +82,7 @@ describe("r.httpRoute anonymous:false — session auth chain", () => {
     const token = await stack.jwt.sign(TestUsers.user);
     const res = await stack.app.request("/entry-private", {
       method: "POST",
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}` },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}` },
     });
     expect(res.status).toBe(403);
     const body = (await res.json()) as { error: { code: string } };
@@ -99,7 +95,7 @@ describe("r.httpRoute anonymous:false — session auth chain", () => {
     const res = await stack.app.request("/entry-private", {
       method: "POST",
       headers: {
-        Cookie: `${AUTH_COOKIE_NAME}=${token}; ${CSRF_COOKIE_NAME}=${csrf}`,
+        Cookie: `${AUTH_COOKIE_BASE}=${token}; ${CSRF_COOKIE_BASE}=${csrf}`,
         [CSRF_HEADER_NAME]: csrf,
       },
     });
@@ -144,7 +140,7 @@ describe("r.httpRoute anonymous:false — origin allowlist", () => {
     return originStack.app.request("/entry-private", {
       method: "POST",
       headers: {
-        Cookie: `${AUTH_COOKIE_NAME}=${token}; ${CSRF_COOKIE_NAME}=${csrf}`,
+        Cookie: `${AUTH_COOKIE_BASE}=${token}; ${CSRF_COOKIE_BASE}=${csrf}`,
         [CSRF_HEADER_NAME]: csrf,
         Origin: origin,
       },

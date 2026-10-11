@@ -26,6 +26,10 @@
       "types": "./src/identifiers.ts",
       "default": "./src/identifiers.ts"
     },
+    "./session-cookies": {
+      "types": "./src/session-cookies.ts",
+      "default": "./src/session-cookies.ts"
+    },
     "./target-ref": {
       "types": "./src/target-ref.ts",
       "default": "./src/target-ref.ts"
@@ -292,6 +296,10 @@
       "./identifiers": {
         "types": "./dist/identifiers.d.ts",
         "default": "./dist/identifiers.js"
+      },
+      "./session-cookies": {
+        "types": "./dist/session-cookies.d.ts",
+        "default": "./dist/session-cookies.js"
       },
       "./target-ref": {
         "types": "./dist/target-ref.d.ts",

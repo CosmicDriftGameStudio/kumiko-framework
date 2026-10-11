@@ -1,4 +1,4 @@
-export { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, readCsrfToken } from "./csrf.js";
+export { CSRF_HEADER_NAME, readCsrfToken } from "./csrf.js";
 export type { LiveDispatcherOptions } from "./dispatcher-live.js";
 export { createLiveDispatcher } from "./dispatcher-live.js";
 export { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping.js";

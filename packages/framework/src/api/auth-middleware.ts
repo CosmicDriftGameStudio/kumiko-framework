@@ -4,23 +4,15 @@ import { TENANT_TEARDOWN_STATUSES } from "../engine/active-membership.js";
 import { createAnonymousUser } from "../engine/system-user.js";
 import { parseTenantId, SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
 import type { SessionUser, TenantId } from "../engine/types/index.js";
-import {
-  isSessionRequiredApiPath,
-  TENANT_COOKIE_NAME,
-  TENANT_HEADER_NAME,
-} from "./api-constants.js";
+import { isSessionRequiredApiPath, TENANT_HEADER_NAME } from "./api-constants.js";
 import type { JwtHelper } from "./jwt.js";
 import { isForeignCookieOrigin } from "./origin-middleware.js";
+import { getSessionCookies } from "./session-cookies.js";
 
 const USER_KEY = "pipelineUser";
 const AUTH_TRANSPORT_KEY = "authTransport";
 const AUTH_TOKEN_EXPIRY_KEY = "authTokenExpiry";
 
-// Names used across middleware and auth-routes. Kept here so csrf-middleware
-// and auth-routes import them from a single source of truth — renaming a
-// cookie is a coordinated change across issuer, reader and deleter.
-export const AUTH_COOKIE_NAME = "kumiko_auth";
-export const CSRF_COOKIE_NAME = "kumiko_csrf";
 export const CSRF_HEADER_NAME = "X-CSRF-Token";
 
 // Prefix that marks a bearer token as a long-lived Personal Access Token
@@ -228,7 +220,7 @@ function isStaleCookieDowngradable(
   );
 }
 
-// Extract the JWT from either the kumiko_auth cookie (web) or the
+// Extract the JWT from either the auth cookie (web) or the
 // Authorization Bearer header (native / server-to-server). The two paths
 // are mutually exclusive: if both are present the request is rejected with
 // `ambiguous_auth` to prevent a confused-deputy bug where a server-bug
@@ -239,7 +231,7 @@ function isStaleCookieDowngradable(
 function extractToken(
   c: Context,
 ): { token: string; transport: AuthTransport } | { error: "both" | "missing" } {
-  const cookieToken = getCookie(c, AUTH_COOKIE_NAME);
+  const cookieToken = getCookie(c, getSessionCookies(c).names.auth);
   const header = c.req.header("Authorization");
   const bearerToken = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
 
@@ -512,7 +504,7 @@ async function handleAnonymous(
   // Step 1+2: parse client-supplied tenant. Reject malformed values before
   // they touch any downstream consumer (DB, cache, audit row).
   const headerRaw = c.req.header(TENANT_HEADER_NAME);
-  const cookieRaw = getCookie(c, TENANT_COOKIE_NAME);
+  const cookieRaw = getCookie(c, getSessionCookies(c).names.tenant);
 
   const headerCheck = parseClientTenant(headerRaw, "X-Tenant header");
   if (headerCheck.error) return rejectTenant(headerCheck.error);

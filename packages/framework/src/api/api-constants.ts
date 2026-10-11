@@ -144,7 +144,6 @@ export const STATE_CHANGING_METHODS: ReadonlySet<string> = new Set([
 // access. The middleware reads header first, then cookie, then falls back to
 // `anonymousAccess.tenantResolver` and finally `anonymousAccess.defaultTenantId`.
 export const TENANT_HEADER_NAME = "X-Tenant";
-export const TENANT_COOKIE_NAME = "kumiko_tenant";
 
 // Client-declared active UI locale (BCP-47). Read once per request in
 // request-id-middleware.ts, before auth, so it reaches public routes

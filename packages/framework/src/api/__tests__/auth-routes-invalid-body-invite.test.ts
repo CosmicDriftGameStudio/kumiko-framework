@@ -9,9 +9,10 @@ import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispat
 import { TestUsers } from "../../stack/index.js";
 import { getSetCookies } from "../../testing/http-cookies.js";
 import { PUBLIC_API_PATHS } from "../api-constants.js";
-import { AUTH_COOKIE_NAME, authMiddleware, CSRF_COOKIE_NAME } from "../auth-middleware.js";
+import { authMiddleware } from "../auth-middleware.js";
 import { type AuthRoutesConfig, createAuthRoutes } from "../auth-routes.js";
 import { createJwtHelper } from "../jwt.js";
+import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
 
 const JWT_SECRET = "auth-routes-invalid-body-invite-secret-min-32-chars";
 const INVITE_ACCEPT_QN = "auth:write:invite-accept";
@@ -257,7 +258,7 @@ describe("POST /auth/invite-accept-with-login — invalid_body + success", () =>
     expect(typeof body.token).toBe("string");
     expect(body.tenantId).toBe(tenantId);
     expect(body.role).toBe("User");
-    expect(getSetCookies(res).get(AUTH_COOKIE_NAME)).toBeDefined();
-    expect(getSetCookies(res).get(CSRF_COOKIE_NAME)).toBeDefined();
+    expect(getSetCookies(res).get(AUTH_COOKIE_BASE)).toBeDefined();
+    expect(getSetCookies(res).get(CSRF_COOKIE_BASE)).toBeDefined();
   });
 });

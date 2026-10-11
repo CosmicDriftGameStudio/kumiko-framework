@@ -10,7 +10,7 @@ import { createEntity, defineFeature } from "../../engine/index.js";
 import type { TenantId } from "../../engine/types/identifiers.js";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 import { Routes } from "../api-constants.js";
-import { AUTH_COOKIE_NAME } from "../auth-middleware.js";
+import { AUTH_COOKIE_BASE } from "../session-cookies.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const SCHEMA_PATH = `/api${Routes.schema}`;
@@ -78,7 +78,7 @@ describe("GET /api/schema", () => {
   test("signed-in user via kumiko_auth cookie → 200", async () => {
     const token = await stack.jwt.sign(TestUsers.user);
     const res = await stack.app.request(SCHEMA_PATH, {
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}` },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}` },
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { features: Array<{ featureName: string }> };

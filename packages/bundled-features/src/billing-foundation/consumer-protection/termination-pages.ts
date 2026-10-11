@@ -1,7 +1,7 @@
 // Public § 312k pages (/legal/kuendigen, /legal/cancel): form → review → confirm,
 // no JavaScript. Every echoed value goes through escapeHtml/escapeHtmlAttr.
 
-import type { AnonymousExtraRoute } from "@cosmicdrift/kumiko-framework/api";
+import { type AnonymousExtraRoute, getSessionCookies } from "@cosmicdrift/kumiko-framework/api";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import type { Context } from "hono";
 import { getCookie } from "hono/cookie";
@@ -279,7 +279,6 @@ type WriteResponseBody = {
 const RATE_LIMITED_CODE = "rate_limited";
 
 const TENANT_HEADER = "x-tenant";
-const TENANT_COOKIE = "kumiko_tenant";
 // Exactly what the anonymous tenant resolution reads. The resolver and its
 // trust rules still decide; the re-entry only sees what a direct /api/write
 // from this client would see. Never the session cookie or Authorization (the
@@ -298,9 +297,10 @@ function reentryHeaders(c: Context): Headers {
     const value = c.req.header(name);
     if (value !== undefined) headers.set(name, value);
   }
-  const tenantCookie = getCookie(c, TENANT_COOKIE);
+  const tenantCookieName = getSessionCookies(c).names.tenant;
+  const tenantCookie = getCookie(c, tenantCookieName);
   if (tenantCookie !== undefined) {
-    headers.set("cookie", `${TENANT_COOKIE}=${encodeURIComponent(tenantCookie)}`);
+    headers.set("cookie", `${tenantCookieName}=${encodeURIComponent(tenantCookie)}`);
   }
   return headers;
 }

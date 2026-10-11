@@ -7,7 +7,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
-  AUTH_COOKIE_NAME,
+  AUTH_COOKIE_BASE,
   type KumikoWebSocketData,
   WEBSOCKET_PENDING_BUFFER_LIMIT_BYTES,
 } from "@cosmicdrift/kumiko-framework/api";
@@ -240,7 +240,7 @@ async function startHarness(
     httpOrigin: `http://localhost:${server.port}`,
     url: (path) => `ws://localhost:${server.port}${path}`,
     cookie: async (sid) =>
-      `${AUTH_COOKIE_NAME}=${await stack.jwt.sign(sid ? { ...TestUsers.user, sid } : TestUsers.user)}`,
+      `${AUTH_COOKIE_BASE}=${await stack.jwt.sign(sid ? { ...TestUsers.user, sid } : TestUsers.user)}`,
   };
 }
 

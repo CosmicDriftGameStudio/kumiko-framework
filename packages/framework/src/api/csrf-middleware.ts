@@ -2,7 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
 import { STATE_CHANGING_METHODS } from "./api-constants.js";
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, getAuthTransport } from "./auth-middleware.js";
+import { CSRF_HEADER_NAME, getAuthTransport } from "./auth-middleware.js";
+import { getSessionCookies } from "./session-cookies.js";
 
 // Constant-time byte compare. `a !== b` short-circuits at the first
 // differing byte and leaks the common prefix length to anyone who can
@@ -48,7 +49,7 @@ export function csrfMiddleware() {
     // CSRF-via-GET vector.
     if (!STATE_CHANGING_METHODS.has(c.req.method)) return next();
 
-    const cookieToken = getCookie(c, CSRF_COOKIE_NAME);
+    const cookieToken = getCookie(c, getSessionCookies(c).names.csrf);
     const headerToken = c.req.header(CSRF_HEADER_NAME);
 
     // Both must exist and match byte-for-byte. A missing cookie means the
