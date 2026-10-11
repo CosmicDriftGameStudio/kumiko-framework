@@ -9,7 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ProjectionListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.js";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
@@ -208,5 +208,44 @@ describe("ProjectionListBody — search/sort capability wiring (fw#2165)", () =>
     const notSortableProps = getCapturedProps();
     if (notSortableProps === undefined) throw new Error("DataTable was not rendered");
     expect(notSortableProps.columns.find((c) => c.field === "description")?.sortable).toBe(false);
+  });
+
+  test("URL sort on a sortable column is applied to the payload", async () => {
+    queryCalls = [];
+    renderProjectionList(
+      {
+        id: "schedule-list",
+        type: "projectionList",
+        query: "ledger:query:schedule:list",
+        columns: ["description", "amount"],
+        sortable: true,
+      },
+      { "schedule-list.sort": "amount", "schedule-list.dir": "desc" },
+    );
+
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+    expect(queryCalls[0]?.payload).toMatchObject({ sort: "amount", sortDirection: "desc" });
+  });
+
+  test("URL sort on a sortable:false or unknown column falls back to defaultSort", async () => {
+    for (const staleField of ["amount", "doesNotExist"]) {
+      queryCalls = [];
+      cleanup();
+      renderProjectionList(
+        {
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["description", { field: "amount", sortable: false }],
+          sortable: true,
+          defaultSort: { field: "description", dir: "asc" },
+        },
+        { "schedule-list.sort": staleField, "schedule-list.dir": "desc" },
+      );
+
+      await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+      expect(queryCalls.every((c) => JSON.stringify(c.payload).includes(staleField))).toBe(false);
+      expect(queryCalls[0]?.payload).toMatchObject({ sort: "description", sortDirection: "asc" });
+    }
   });
 });

@@ -2805,7 +2805,15 @@ function ProjectionListBody({
   // carry a value — a stale/hand-crafted URL (?…q=x on a non-searchable
   // screen) must not smuggle a param the query's Zod schema doesn't accept.
   const activeSearch = searchable ? urlState.q : "";
-  const activeSort = sortable ? (urlState.sort ?? screen.defaultSort ?? null) : null;
+  // Same predicate that makes a header clickable: a stale link onto a
+  // sortable:false/unknown column must not reach the server (it answers 400).
+  const urlSort = urlState.sort;
+  const urlSortField = urlSort === null ? undefined : entity.fields[urlSort.field];
+  const urlSortAllowed =
+    urlSortField !== undefined && "sortable" in urlSortField && urlSortField.sortable === true;
+  const activeSort = sortable
+    ? ((urlSortAllowed ? urlSort : null) ?? screen.defaultSort ?? null)
+    : null;
   const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   // Pages-mode only (see header comment) — an author-set pagination:
   // "infinite" on a paginated projectionList is silently a no-op today.
