@@ -33,7 +33,7 @@ detail: createFileRefFromBytes({ db, files, registry, user }, { fileName, mimeTy
 feature: framework
 type: improvement
 title: Cron jobs with an IANA time zone, images fields with capture
-detail: A cron trigger accepts tz (IANA name, default UTC) and is scheduled in that zone, DST included. r.job() throws at boot for an invalid zone. createImagesField accepts capture ("environment" | "user") like createImageField, and the edit view model carries it for images fields.
+detail: A cron trigger accepts tz (IANA name; without it the server process zone applies) and is scheduled in that zone, DST included. r.job() throws at boot for an invalid zone. createImagesField accepts capture ("environment" | "user") like createImageField, and the edit view model carries it for images fields.
 -->
 
 <!-- kumiko-changes
