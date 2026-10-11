@@ -49,6 +49,7 @@ const OUT_OF_SCOPE_PACKAGES = [
 ] as const;
 
 const BASELINE_FILE = ".kumiko-public-exports-baseline.json";
+const REFREEZE_COMMAND = "bun packages/guards/src/cli.ts public-exports-changelog --write-baseline";
 const BASELINE_FORMAT_VERSION = 1;
 
 export type ExportsByKey = Readonly<Record<string, readonly string[]>>;
@@ -187,12 +188,6 @@ function changesetFeatureFor(pkg: PackageName, key: string): string {
   return pkg === "framework" ? "framework" : featureNameForBundledKey(key);
 }
 
-// framework-core matches `kumiko changes add --feature framework-core`;
-// bundled features use the feature dir name itself.
-export function featureFlagForCli(pkg: PackageName, key: string): string {
-  return pkg === "framework" ? "framework-core" : featureNameForBundledKey(key);
-}
-
 // x.y.z tuple compare, numeric per segment; a prerelease suffix is ignored.
 export function compareVersionsLocal(a: string, b: string): number {
   const parse = (v: string): number[] =>
@@ -329,14 +324,13 @@ function buildFinding(missing: MissingExport, version: string): UncoveredFinding
   }
   const pkg = missing.pkg;
   const changelogPath = owningChangelogPath(pkg, missing.key);
-  const feature = featureFlagForCli(pkg, missing.key);
   const title = `${missing.names.join(", ")} removed/renamed from ${missing.pkg}${missing.key}`;
   const snippet = JSON.stringify(
     { version, type: "breaking", title, detail: "TODO", migration: "TODO" },
     null,
     2,
   );
-  const cliHint = `kumiko changes add --breaking --title "${title}" --migration "TODO" --feature ${feature}`;
+  const cliHint = `add a breaking kumiko-changes block (feature: ${changesetFeatureFor(pkg, missing.key)}) that names ${missing.names.join(", ")} to a .changeset/*.md, then run ${REFREEZE_COMMAND}`;
   return {
     pkg: missing.pkg,
     key: missing.key,
@@ -456,32 +450,58 @@ export async function loadChangesetParser(frameworkRootAbsPath: string): Promise
   return parse;
 }
 
-function breakingFeatureOf(change: unknown): string[] {
-  if (!isRecord(change) || change["type"] !== "breaking") return [];
-  const feature = change["feature"];
-  return typeof feature === "string" ? [feature] : [];
+// Feature name → the text (title, detail, migration) of each of its open
+// breaking changeset blocks.
+export type PendingBreakingChanges = ReadonlyMap<string, readonly string[]>;
+
+function textField(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  return typeof value === "string" ? value : "";
 }
 
-export function pendingBreakingFeaturesIn(
+function breakingChangeOf(change: unknown): { feature: string; text: string } | undefined {
+  if (!isRecord(change) || change["type"] !== "breaking") return undefined;
+  const feature = change["feature"];
+  if (typeof feature !== "string") return undefined;
+  const text = ["title", "detail", "migration"].map((key) => textField(change, key)).join(" ");
+  return { feature, text };
+}
+
+export function pendingBreakingChangesIn(
   changesetDir: string,
   parse: ChangesetParser,
-): ReadonlySet<string> {
-  const features = new Set<string>();
-  if (!existsSync(changesetDir)) return features;
+): PendingBreakingChanges {
+  const textsByFeature = new Map<string, string[]>();
+  if (!existsSync(changesetDir)) return textsByFeature;
   for (const name of readdirSync(changesetDir).filter((n) => n.endsWith(".md"))) {
     const source = join(changesetDir, name);
     for (const change of parse(readFileSync(source, "utf-8"), source)) {
-      for (const feature of breakingFeatureOf(change)) features.add(feature);
+      const breaking = breakingChangeOf(change);
+      if (breaking === undefined) continue;
+      const texts = textsByFeature.get(breaking.feature) ?? [];
+      texts.push(breaking.text);
+      textsByFeature.set(breaking.feature, texts);
     }
   }
-  return features;
+  return textsByFeature;
 }
 
-export async function loadPendingBreakingFeatures(
+export async function loadPendingBreakingChanges(
   frameworkRootAbsPath: string,
-): Promise<ReadonlySet<string>> {
+): Promise<PendingBreakingChanges> {
   const parse = await loadChangesetParser(frameworkRootAbsPath);
-  return pendingBreakingFeaturesIn(join(frameworkRootAbsPath, ".changeset"), parse);
+  return pendingBreakingChangesIn(join(frameworkRootAbsPath, ".changeset"), parse);
+}
+
+// A feature-wide breaking block must not cover unrelated drops: the block has
+// to name at least one of the dropped exports.
+export function isCoveredByPendingChangeset(
+  pending: PendingBreakingChanges,
+  feature: string,
+  droppedNames: readonly string[],
+): boolean {
+  const texts = pending.get(feature) ?? [];
+  return texts.some((text) => droppedNames.some((name) => text.includes(name)));
 }
 
 // ── Write baseline ────────────────────────────────────────────────────────
@@ -501,7 +521,7 @@ function uncoveredDrops(
   cwd: string,
   scans: readonly PackageScan[],
   oldBaseline: BaselinePayload,
-  pendingBreakingFeatures: ReadonlySet<string>,
+  pendingBreakingChanges: PendingBreakingChanges,
 ): UncoveredFinding[] {
   const scannedPkgNames = new Set(scans.map((s) => s.pkg));
   const oldBaselineForScanned: Record<string, ExportsByKey> = {};
@@ -513,7 +533,15 @@ function uncoveredDrops(
   const uncovered: UncoveredFinding[] = [];
   for (const m of missing) {
     if (!isPackageName(m.pkg)) continue;
-    if (pendingBreakingFeatures.has(changesetFeatureFor(m.pkg, m.key))) continue;
+    if (
+      isCoveredByPendingChangeset(
+        pendingBreakingChanges,
+        changesetFeatureFor(m.pkg, m.key),
+        m.names,
+      )
+    ) {
+      continue;
+    }
     const entries = readChangelogEntries(join(cwd, owningChangelogPath(m.pkg, m.key)));
     if (isCoveredByChangelog(entries, oldBaseline.asOfVersion, m.names)) continue;
     uncovered.push(buildFinding(m, versionByPkg.get(m.pkg) ?? "0.0.0"));
@@ -525,7 +553,7 @@ export function writeBaseline(
   cwd: string,
   project: Project,
   baselinePath: string,
-  pendingBreakingFeatures: ReadonlySet<string> = new Set(),
+  pendingBreakingChanges: PendingBreakingChanges = new Map(),
 ): number {
   logOutOfScopeNotice();
   const scans = scanAllPackages(cwd, project);
@@ -539,7 +567,7 @@ export function writeBaseline(
 
   const oldBaseline = readOldBaselineForRefreeze(baselinePath);
   if (oldBaseline) {
-    const uncovered = uncoveredDrops(cwd, scans, oldBaseline, pendingBreakingFeatures);
+    const uncovered = uncoveredDrops(cwd, scans, oldBaseline, pendingBreakingChanges);
     if (uncovered.length > 0) {
       report({ scans, baselineStatus: "ok", findings: uncovered });
       console.error(
@@ -611,7 +639,7 @@ function reportViolations(violations: readonly GuardViolation[]): void {
       ok: false,
       ms: 0,
       outcome: { violations },
-      hint: "Add a breaking changes.json entry that names the dropped export, then --write-baseline.",
+      hint: `Add a breaking kumiko-changes block that names the dropped export to a .changeset/*.md, then run ${REFREEZE_COMMAND}.`,
     },
   ]);
 }
@@ -644,9 +672,9 @@ export async function runPublicExportsChangelogCli(
   const scanCwd = frameworkRoot.absPath;
 
   if (argv.includes("--write-baseline")) {
-    let pending: ReadonlySet<string>;
+    let pending: PendingBreakingChanges;
     try {
-      pending = await loadPendingBreakingFeatures(scanCwd);
+      pending = await loadPendingBreakingChanges(scanCwd);
     } catch (e) {
       console.error(`  Cannot read open changesets: ${e instanceof Error ? e.message : String(e)}`);
       return 1;
