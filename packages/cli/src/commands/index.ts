@@ -1,6 +1,7 @@
 import { agentCommand } from "./agent";
 import { checkCommand } from "./check";
 import { consumerCommand } from "./consumer";
+import { handbuchCommand } from "./handbuch";
 import { projectCommand } from "./project";
 import type { CliCommand } from "./types";
 
@@ -9,6 +10,7 @@ export const APP_COMMANDS: ReadonlyArray<CliCommand> = [
   agentCommand,
   projectCommand,
   consumerCommand,
+  handbuchCommand,
 ];
 
 export function findAppCommand(id: string): CliCommand | undefined {
@@ -23,4 +25,4 @@ export {
   runCheck,
 } from "./check";
 export type { CliCommand, CliCommandContext } from "./types";
-export { agentCommand, checkCommand, consumerCommand, projectCommand };
+export { agentCommand, checkCommand, consumerCommand, handbuchCommand, projectCommand };
