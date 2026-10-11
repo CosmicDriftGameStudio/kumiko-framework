@@ -1339,6 +1339,35 @@ describe("DataTable", () => {
       expect(onRowClick).toHaveBeenCalledTimes(1);
     });
 
+    test("rowClick-Aktion per isVisible ausgeblendet: Zeilenklick tut nichts, kein Klick-Cursor", async () => {
+      const user = userEvent.setup();
+      const onRowClick = mock();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          onRowClick={onRowClick}
+          rowActions={[
+            {
+              id: "open",
+              label: "Open",
+              rowClick: true,
+              isVisible: (row) => row.id === "r1",
+              onTrigger: mock(),
+            },
+          ]}
+        />,
+      );
+      expect(screen.getByTestId("row-r1").className).toContain("cursor-pointer");
+      expect(screen.getByTestId("row-r2").className).not.toContain("cursor-pointer");
+      await user.click(screen.getByTestId("row-r2"));
+      expect(onRowClick).not.toHaveBeenCalled();
+      await user.click(screen.getByTestId("row-r1"));
+      expect(onRowClick).toHaveBeenCalledTimes(1);
+      expect(onRowClick.mock.calls[0]?.[0]).toMatchObject({ id: "r1" });
+    });
+
     test(">2 Actions: primäre Aktion inline + Rest im Kebab-Dropdown", () => {
       render(
         <DataTable

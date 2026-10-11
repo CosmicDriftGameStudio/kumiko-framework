@@ -1629,7 +1629,10 @@ function DefaultDataTable({
   // then the only keyboard route to the rowClick action.
   const tableActions =
     rowActionMode === "inline" || onCellChange !== undefined ? rowActions : menuActions;
-  const rowClickLabel = rowActions?.find((action) => action.rowClick === true)?.label;
+  const rowClickAction = rowActions?.find((action) => action.rowClick === true);
+  const rowClickLabel = rowClickAction?.label;
+  const rowClickIsHidden = (row: ListRowViewModel): boolean =>
+    rowClickAction?.isVisible !== undefined && !rowClickAction.isVisible(row);
   const hasTableActions = tableActions !== undefined && tableActions.length > 0;
   const isEmpty = rows.length === 0;
   const expansionIdPrefix = useId();
@@ -1798,10 +1801,14 @@ function DefaultDataTable({
                   <TableRow
                     data-testid={rowTestId(row)}
                     data-tone={rowTone?.(row)}
-                    onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
+                    onClick={
+                      onRowClick !== undefined && !rowClickIsHidden(row)
+                        ? () => onRowClick(row)
+                        : undefined
+                    }
                     className={cn(
                       rowToneClass(rowTone?.(row)),
-                      onRowClick !== undefined && "cursor-pointer",
+                      rowIsLink && !rowClickIsHidden(row) && "cursor-pointer",
                       fillsHeight && "h-10 border-border-row hover:bg-muted",
                     )}
                   >
@@ -1838,7 +1845,10 @@ function DefaultDataTable({
                       >
                         <FirstCellLink
                           enabled={
-                            colIndex === 0 && onRowClick !== undefined && onCellChange === undefined
+                            colIndex === 0 &&
+                            onRowClick !== undefined &&
+                            !rowClickIsHidden(row) &&
+                            onCellChange === undefined
                           }
                           onOpen={() => onRowClick?.(row)}
                           empty={isEmptyCellValue(row.values[col.field])}
@@ -1961,6 +1971,7 @@ function DefaultDataTable({
     const showStatus =
       cardStatusColumn !== undefined && !isEmptyCellValue(row.values[cardStatusColumn.field]);
     const hasMenu = menuActions !== undefined && menuActions.length > 0;
+    const opensOnClick = rowIsLink && !rowClickIsHidden(row);
     const body = (
       <>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -2020,7 +2031,7 @@ function DefaultDataTable({
             </div>
           )}
         </div>
-        {rowIsLink && (
+        {opensOnClick && (
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         )}
       </>
@@ -2036,10 +2047,10 @@ function DefaultDataTable({
           isRowExpandable ? "pl-2" : "pl-4",
           hasMenu ? "pr-2" : "pr-4",
         )}
-        {...(rowIsLink && { onClick: () => onRowClick(row) })}
+        {...(opensOnClick && { onClick: () => onRowClick(row) })}
       >
         {renderExpandToggle(row)}
-        {rowIsLink ? (
+        {opensOnClick ? (
           <button
             type="button"
             className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 bg-transparent p-0 text-left"
