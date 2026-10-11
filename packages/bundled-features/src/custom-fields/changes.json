@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.359.0",
+    "type": "improvement",
+    "title": "update-tenant-field keeps the stored type when serializedField.type is omitted",
+    "detail": "custom-fields: update-tenant-field accepts serializedField without type and keeps the stored type; a different type is still refused with 422 field_type_immutable. The handler declares excludedFields [\"type\"]."
+  },
+  {
     "version": "0.338.0",
     "type": "fix",
     "title": "field-definition list keeps TenantAdmin when fieldDefinitionWriteRoles is set",
