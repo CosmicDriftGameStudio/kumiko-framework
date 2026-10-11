@@ -93,7 +93,11 @@ import {
   usePrimitives,
 } from "../primitives.js";
 import { screenFillsHeight } from "../screen-fills-height.js";
-import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim.js";
+import {
+  actionFormSubmittableFields,
+  synthesizeActionFormEntity,
+  synthesizeActionFormScreen,
+} from "./action-form-shim.js";
 import { useAppFeatures } from "./app-features-context.js";
 import {
   buildConfigEditSchema,
@@ -4153,7 +4157,11 @@ function ActionFormBody({
   const { Banner } = usePrimitives();
   // Unused when drawer-hosted — onSuccess/onCancelOverride win below first.
   const returnTarget = useReturnTarget(screen.id);
-  const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
+  const submittableFields = useMemo(() => actionFormSubmittableFields(screen), [screen]);
+  const synthEntity = useMemo(
+    () => synthesizeActionFormEntity(submittableFields),
+    [submittableFields],
+  );
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
   const pendingHandoff = useInitialValuesHandoff(screen.id);
   // A drawer-hosted form is not a navigation target, so it never takes a handoff.
@@ -4174,7 +4182,7 @@ function ActionFormBody({
   } = useMoneyCurrencyOverrides(screen.fields, tenantCurrencyFieldNames, undefined);
   const initial = useMemo(
     () =>
-      mergeSearchParamsIntoInitial(screen.fields, {
+      mergeSearchParamsIntoInitial(submittableFields, {
         searchParams: nav.searchParams,
         urlPrefillFields: screen.urlPrefillFields,
         renderableFields: layoutFieldNames(synthScreen),
@@ -4183,7 +4191,7 @@ function ActionFormBody({
         ...(handoffValues !== undefined && { handoffValues }),
       }) as FormValues,
     [
-      screen.fields,
+      submittableFields,
       screen.urlPrefillFields,
       nav.searchParams,
       synthScreen,

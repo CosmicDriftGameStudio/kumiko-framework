@@ -859,6 +859,47 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
     expect(row?.["type"]).toBe("text");
   });
 
+  test("update ohne serializedField.type → 200, gespeicherter Typ bleibt und ist weiter im serializedField", async () => {
+    await defineField("property", "budget", "number");
+    await updateField("budget", {
+      serializedField: { min: 0, max: 10 },
+      label: { de: "Budget", en: "Budget" },
+    });
+
+    const row = await fetchDefinitionRow(admin.tenantId, "budget");
+    expect(row?.["type"]).toBe("number");
+    const sf = JSON.parse(String(row?.["serialized_field"])) as Record<string, unknown>;
+    expect(sf["type"]).toBe("number");
+    expect(sf["max"]).toBe(10);
+
+    const propertyId = "22222222-2222-4000-8000-000000000001";
+    await createProperty(propertyId, "Budget-Haus");
+    await setCustomField("property", propertyId, "budget", 5);
+    const err = await stack.http.writeErr(
+      "custom-fields:write:set-custom-field",
+      { entityName: "property", entityId: propertyId, fieldKey: "budget", value: 11 },
+      admin,
+    );
+    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+  });
+
+  test("define-tenant-field ohne serializedField.type → Validierungsfehler, nichts gespeichert", async () => {
+    const err = await stack.http.writeErr(
+      "custom-fields:write:define-tenant-field",
+      {
+        entityName: "property",
+        fieldKey: "typeless",
+        serializedField: { required: true },
+        required: false,
+        searchable: false,
+        displayOrder: 0,
+      },
+      admin,
+    );
+    expect(err.httpStatus).toBe(400);
+    expect(await fetchDefinitionRow(admin.tenantId, "typeless")).toBeUndefined();
+  });
+
   test("Cross-Tenant: fremde (entityName,fieldKey) → 404, Owner-Definition unverändert", async () => {
     await defineField("property", "secret", "text");
     // Expliziter Fremd-Tenant — createTestUser ohne tenantId landet im

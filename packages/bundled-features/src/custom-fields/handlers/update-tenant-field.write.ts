@@ -4,32 +4,33 @@ import { fieldDefinitionAggregateId } from "../aggregate-id.js";
 import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../constants.js";
 import { fieldDefinitionExecutor } from "../executor.js";
 import { buildFieldDefinitionColumns } from "../lib/field-definition-row.js";
-import { type UpdateFieldPayload, updateFieldPayloadSchema } from "../schemas.js";
+import { fieldTypeSchema, type UpdateFieldPayload, updateFieldPayloadSchema } from "../schemas.js";
 
-// update-tenant-field — TenantAdmin ersetzt den Stand einer bestehenden
-// Field-Definition (Vollersatz: Payload-Shape = define, der Edit-Screen
-// schickt den kompletten neuen Stand). Identität ist (entityName, fieldKey)
-// → deterministische aggregate-id wie bei define/delete; tenantId kommt
-// aus event.user (Cross-Tenant-Mutation unmöglich, fremde Definitionen
-// derivieren auf eine andere aggregate-id → 404).
+// update-tenant-field: a TenantAdmin replaces the state of an existing field
+// definition (full replacement: payload shape = define except that
+// `serializedField.type` may be omitted). Identity is (entityName, fieldKey),
+// giving the same deterministic aggregate id as define/delete; tenantId comes
+// from event.user, so a cross-tenant mutation is impossible (a foreign
+// definition derives a different aggregate id and yields 404).
 //
-// **type ist immutable.** Ein Type-Wechsel würde bestehende Values in den
-// host-entity customFields-jsonbs verwaisen (text-Wert unter number-Feld);
-// dafür ist delete + re-define der ehrliche Weg (Bug-Bash D2: bewusst KEIN
-// delete+redefine im update — das würde Event-Historie + Field-Ids
-// zerstören, aber ein Type-Wechsel will genau diese Zäsur).
+// **type is immutable**; an omitted type keeps the stored one. A type change
+// would orphan existing values in the host entities' customFields jsonb (a
+// text value under a number field), so delete + re-define is the honest path
+// (Bug-Bash D2: deliberately no delete+redefine inside update, since that
+// destroys event history and field ids, which is exactly the break a type
+// change needs to make visible).
 //
-// **Bekannte MVP-Grenze (bewusst):** der Edit reconciled bestehende
-// Host-Werte NICHT gegen die neue Definition — Constraint-Narrowing
-// (enum-Wert weg, min/max enger) lässt alte Werte still non-conformant,
-// required false→true macht Bestands-Rows unvollständig, searchable-Toggle
-// re-indexed nicht. Werte werden beim NÄCHSTEN Write der Host-Row gegen
-// die aktuelle Def validiert; eine Reject-mit-Konflikt-Liste-Variante
-// wäre der Ausbau, wenn der Bedarf real wird.
+// **Known MVP limit (deliberate):** the edit does NOT reconcile existing host
+// values against the new definition. Narrowed constraints (enum value removed,
+// tighter min/max) leave old values silently non-conformant, required
+// false→true leaves existing rows incomplete, and toggling searchable does not
+// re-index. Values are validated against the current definition on the NEXT
+// write of the host row; a reject-with-conflict-list variant is the upgrade
+// once the need is real.
 //
-// **skipOptimisticLock:** Definition-Edits sind admin-only + low-frequency
-// (gleiche Abwägung wie der Quota-soft-cap in define). Last-write-wins
-// statt version-Roundtrip durch den Edit-Screen.
+// **skipOptimisticLock:** definition edits are admin-only and low-frequency
+// (same trade-off as the quota soft cap in define), so last write wins instead
+// of a version round trip through the edit screen.
 export interface UpdateTenantFieldOptions {
   /** Access roles for this handler. Default ["TenantAdmin"] (#2296) — see
    *  DefineTenantFieldOptions.roles, the definition-CRUD triad shares one gate. */
@@ -44,7 +45,8 @@ export function createUpdateTenantFieldHandler(
     schema: updateFieldPayloadSchema,
     access: { roles: opts.roles ?? DEFAULT_FIELD_DEFINITION_WRITE_ROLES },
     description:
-      "Replaces a tenant-owned custom-field definition with a complete new spec while refusing any change to the field's type; use it to relabel or re-constrain an existing field rather than to create or remove one.",
+      "Replaces a tenant-owned custom-field definition with a complete new spec; serializedField.type may be omitted, in which case the stored type applies, and a different type is refused. Use it to relabel or re-constrain an existing field rather than to create or remove one.",
+    excludedFields: ["type"],
     handler: async (event, ctx) => {
       const payload = event.payload as UpdateFieldPayload; // @cast-boundary engine-payload
       const tenantId = event.user.tenantId;
@@ -70,12 +72,19 @@ export function createUpdateTenantFieldHandler(
         return failNotFound("field-definition", aggregateId);
       }
 
-      if (existing["type"] !== payload.serializedField.type) {
+      const storedType = fieldTypeSchema.safeParse(existing["type"]);
+      if (!storedType.success) {
+        throw new Error(
+          `update-tenant-field: stored definition ${aggregateId} has an invalid type`,
+        );
+      }
+      const requestedType = payload.serializedField.type;
+      if (requestedType !== undefined && requestedType !== storedType.data) {
         return failUnprocessable("field_type_immutable", {
           entityName: payload.entityName,
           fieldKey: payload.fieldKey,
-          currentType: existing["type"],
-          requestedType: payload.serializedField.type,
+          currentType: storedType.data,
+          requestedType,
         });
       }
 
@@ -84,7 +93,10 @@ export function createUpdateTenantFieldHandler(
         entityName: _entityName,
         fieldKey: _fieldKey,
         ...changes
-      } = buildFieldDefinitionColumns(payload);
+      } = buildFieldDefinitionColumns({
+        ...payload,
+        serializedField: { ...payload.serializedField, type: storedType.data },
+      });
 
       return fieldDefinitionExecutor.update({ id: aggregateId, changes }, event.user, ctx.db, {
         skipOptimisticLock: true,

@@ -350,7 +350,18 @@ function projectScreens(
         ...entityEditWriteExcludedFields(featureName, screen.entity, registry),
       };
     }
-    if (screen.type === "actionForm" || screen.type === "secretMint") {
+    if (screen.type === "actionForm") {
+      const { writeExcludedFields: _authoredExclusions, ...authoredScreen } = screen;
+      const excluded = registry.getWriteHandler(screen.handler)?.excludedFields;
+      return {
+        ...authoredScreen,
+        urlPrefillFields: sortedUrlPrefillFields(
+          urlPrefillFieldsByScreenQn.get(qualifyEntityName(featureName, "screen", shortId)),
+        ),
+        ...(excluded !== undefined && { writeExcludedFields: excluded }),
+      };
+    }
+    if (screen.type === "secretMint") {
       return {
         ...screen,
         urlPrefillFields: sortedUrlPrefillFields(

@@ -1716,6 +1716,9 @@ export type ActionFormScreenDefinition = {
   readonly fallback?: string;
   /** Derived by buildAppSchema — see EntityEditScreenDefinition.urlPrefillFields. */
   readonly urlPrefillFields?: readonly string[];
+  /** Derived by buildAppSchema from the `excludedFields` of the called `handler`; the form
+   *  shows these fields read-only, not required and never in the payload. An authored value is overwritten. */
+  readonly writeExcludedFields?: readonly string[];
   /** Submit is enabled without edits: values seeded from navigate `params` count as the
    *  user's intent. Every required field the layout hides with `visible: false` must hold a
    *  value, otherwise submit stays disabled (boot-checked against navigate `params`). */
