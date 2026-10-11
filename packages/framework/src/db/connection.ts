@@ -55,3 +55,18 @@ export function dbConnectionOptionsFromEnv(
   if (connect !== undefined) opts.connectTimeoutSeconds = connect;
   return opts;
 }
+
+// Outside-tx access runs on its own pool: sharing the write pool deadlocks once
+// pool-max concurrent writes each hold a tx and then wait for a second connection.
+export const DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX = 3;
+
+export function outsideTransactionPoolOptionsFromEnv(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): import("./api.js").DbConnectionOptions {
+  return {
+    ...dbConnectionOptionsFromEnv(env),
+    maxConnections:
+      readPositiveIntEnv(env, "DATABASE_OUTSIDE_TX_POOL_MAX") ??
+      DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX,
+  };
+}

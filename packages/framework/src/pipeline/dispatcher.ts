@@ -2,6 +2,7 @@ import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { runWithWriteOrigin } from "../api/request-context.js";
 import type { SseBroker } from "../api/sse-broker.js";
+import type { DbConnection } from "../db/connection.js";
 import type { buildEntityTable } from "../db/table-builder.js";
 import { TENANT_MEMBERSHIPS_QUERY } from "../engine/extension-names.js";
 import type { defineTransitions } from "../engine/state-machine.js";
@@ -59,6 +60,9 @@ export type DispatcherOptions = {
   // Statement timeout (and, on the pool path, idle-in-transaction timeout) for ctx.queryAsMember
   // reads, in whole milliseconds. Defaults to 10000.
   memberReadTimeoutMs?: number;
+  // Own small pool for ctx.dbOutsideTransaction / ctx.outsideTransaction. Sharing the write pool
+  // deadlocks when pool-max concurrent writes each hold a tx and then wait for a second connection.
+  outsideTransactionDb?: DbConnection;
   // Resolves the effective-feature set per tenant — the dispatcher uses
   // it to gate calls to handlers of disabled features (403 feature_disabled)
   // and to populate ctx.hasFeature. Absent = all features treated as
@@ -239,6 +243,7 @@ export function createDispatcher(
     meter: dispatcherMeter,
     membershipQuery,
     memberReadTimeoutMs,
+    outsideTransactionDb: options.outsideTransactionDb,
   };
 
   const dispatcher: Dispatcher = {

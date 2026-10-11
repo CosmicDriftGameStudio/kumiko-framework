@@ -162,6 +162,10 @@ export type TestStackOptions = {
    *  owns its lifecycle. Default false (test contract). Used by
    *  dev-server wiring to survive hot-reloads. */
   persistentDb?: boolean;
+  /** Cap on the main app pool (default: driver default). Lets tests saturate it deliberately. */
+  dbPoolMax?: number;
+  /** Size of the dedicated pool behind ctx.dbOutsideTransaction / ctx.outsideTransaction. */
+  outsideTransactionPoolMax?: number;
   /** Forwarded to buildServer — when set, requests without a JWT pass
    *  through as anonymous instead of 401. See AnonymousAccessConfig.
    *  Akzeptiert entweder einen statischen Config-Object ODER eine Factory
@@ -286,6 +290,10 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     createTestDb({
       ...(options.dbName !== undefined && { dbName: options.dbName }),
       ...(options.persistentDb !== undefined && { persistent: options.persistentDb }),
+      ...(options.dbPoolMax !== undefined && { poolMax: options.dbPoolMax }),
+      ...(options.outsideTransactionPoolMax !== undefined && {
+        outsideTransactionPoolMax: options.outsideTransactionPoolMax,
+      }),
     }),
     createTestRedis(
       options.sharedRedisWith && { borrowKeyPrefix: options.sharedRedisWith.redis.keyPrefix },
@@ -553,6 +561,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       dispatcherOptions: {
         idempotency,
         cacheSync,
+        outsideTransactionDb: testDb.outsideTransactionDb,
         ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
         ...(jobRunner && { jobRunner }),
       },
