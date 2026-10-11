@@ -126,7 +126,7 @@ describe("validateBoot — PII annotations", () => {
         createEntity({
           fields: {
             body: createLongTextField({
-              personal: { of: "authorId" },
+              personal: { of: "authorId", whenAbsent: "tenant" },
               find: "none",
             }),
             authorId: { type: "reference", entity: "user" },
@@ -233,7 +233,7 @@ describe("validateBoot — PII annotations", () => {
         createEntity({
           fields: {
             body: createLongTextField({
-              personal: { of: "authorId" },
+              personal: { of: "authorId", whenAbsent: "tenant" },
               find: "none",
             }),
             authorId: { ...unannotatedText },
@@ -242,6 +242,64 @@ describe("validateBoot — PII annotations", () => {
       );
     });
     expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  describe("nullable owner needs whenAbsent (fw#3654)", () => {
+    function commentFeature(withWhenAbsent: boolean, ownerRequired: boolean) {
+      return defineFeature("test", (r) => {
+        r.entity(
+          "comment",
+          createEntity({
+            fields: {
+              body: withWhenAbsent
+                ? createLongTextField({
+                    personal: { of: "authorId", whenAbsent: "tenant" },
+                    find: "none",
+                  })
+                : createLongTextField({ personal: { of: "authorId" }, find: "none" }),
+              authorId: { ...unannotatedText, ...(ownerRequired && { required: true }) },
+            },
+          }),
+        );
+      });
+    }
+
+    test("nullable owner without whenAbsent throws and names the fix", () => {
+      expect(() => validateBoot([commentFeature(false, false)])).toThrow(
+        /"authorId" is not required.*Declare \{ personal: \{ of: "authorId", whenAbsent: "tenant" \} \}.*or make "authorId" required: true/,
+      );
+    });
+
+    test("nullable owner with whenAbsent tenant passes", () => {
+      expect(() => validateBoot([commentFeature(true, false)])).not.toThrow();
+    });
+
+    test("required owner without whenAbsent passes", () => {
+      expect(() => validateBoot([commentFeature(false, true)])).not.toThrow();
+    });
+
+    test('whenAbsent "plaintext" throws — entity fields have no plaintext fallback', () => {
+      const resolved = createLongTextField({
+        personal: { of: "authorId", whenAbsent: "tenant" },
+        find: "none",
+      });
+      const feature = defineFeature("test", (r) => {
+        r.entity(
+          "comment",
+          createEntity({
+            fields: {
+              body: {
+                ...resolved,
+                // Not type-checked here (spread field defs are structurally loose); the boot check is the runtime backstop
+                userOwned: { ownerField: "authorId", whenAbsent: "plaintext" },
+              },
+              authorId: { ...unannotatedText },
+            },
+          }),
+        );
+      });
+      expect(() => validateBoot([feature])).toThrow(/only support whenAbsent: "tenant"/);
+    });
   });
 
   test("userOwned.ownerField pointing to a non-id-capable field throws", () => {
@@ -273,7 +331,7 @@ describe("validateBoot — PII annotations", () => {
         createEntity({
           fields: {
             body: createLongTextField({
-              personal: { of: "employeeId" },
+              personal: { of: "employeeId", whenAbsent: "tenant" },
               find: "none",
             }),
             employeeId: { type: "reference", entity: "employee" },
@@ -385,7 +443,10 @@ describe("validateBoot — PII annotations", () => {
         "comment",
         createEntity({
           fields: {
-            body: createLongTextField({ personal: { of: ownerFieldName }, find: "none" }),
+            body: createLongTextField({
+              personal: { of: ownerFieldName, whenAbsent: "tenant" },
+              find: "none",
+            }),
             authorId: { type: "reference", entity: "user" },
             ownerId: { type: "reference", entity: "user" },
           },
@@ -845,7 +906,10 @@ describe("validateBoot — retention", () => {
 
   test.each([
     ["self", { personal: "self" as const, find: "none" as const }],
-    ["userOwned", { personal: { of: "authorId" } as const, find: "none" as const }],
+    [
+      "userOwned",
+      { personal: { of: "authorId", whenAbsent: "tenant" } as const, find: "none" as const },
+    ],
     ["tenantOwned", { personal: "tenant" as const, find: "none" as const }],
   ])(
     "blockDelete warns when subjectRef coexists with anonymizable %s field (#2336)",
@@ -987,7 +1051,10 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
         createEntity({
           fields: {
             bio: rawLongTextField({
-              ...createLongTextField({ personal: { of: "ownerId" }, find: "none" }),
+              ...createLongTextField({
+                personal: { of: "ownerId", whenAbsent: "tenant" },
+                find: "none",
+              }),
               lookupable: true,
             }),
             ownerId: { ...unannotatedText, required: true },

@@ -43,6 +43,29 @@ type PersonalOverridesInput = {
 // referenced user — resolves to `recordOwned` instead of `userOwned`.
 const RECORD_OWNER_FIELD = "id";
 
+function resolvePersonalFlags(
+  personal: PersonalOverridesInput["personal"],
+  reason: PersonalOverridesInput["reason"],
+): ResolvedPiiFlags {
+  if (personal === "self") return { pii: true };
+  if (personal === "tenant") return { tenantOwned: true };
+  if (personal === "ref") return { subjectRef: true };
+  if (personal === false) return { allowPlaintext: reason };
+  if (!personal) return {};
+  if (personal.of === RECORD_OWNER_FIELD) {
+    if (personal.whenAbsent !== undefined) {
+      throw new Error(
+        `personal: { of: "${RECORD_OWNER_FIELD}", whenAbsent } is meaningless: a row always has an id, so there is never an absent owner (fw#3654)`,
+      );
+    }
+    return { recordOwned: true };
+  }
+  const { whenAbsent } = personal;
+  return {
+    userOwned: { ownerField: personal.of, ...(whenAbsent !== undefined && { whenAbsent }) },
+  };
+}
+
 // Resolves the author-facing `personal`/`find` annotations (kumiko-framework#2250)
 // into the internal ResolvedPiiFlags every factory below merges into its
 // return value. `personal`, `find`, `reason` never survive into the field def.
@@ -54,20 +77,7 @@ function expandPersonalAnnotations<T extends PersonalOverridesInput>(
   }
   const { personal, find, reason, anonymize, ...rest } = overrides;
 
-  let personalFlags: ResolvedPiiFlags = {};
-  if (personal === "self") {
-    personalFlags = { pii: true };
-  } else if (personal === "tenant") {
-    personalFlags = { tenantOwned: true };
-  } else if (personal === "ref") {
-    personalFlags = { subjectRef: true };
-  } else if (personal === false) {
-    personalFlags = { allowPlaintext: reason };
-  } else if (personal && personal.of === RECORD_OWNER_FIELD) {
-    personalFlags = { recordOwned: true };
-  } else if (personal) {
-    personalFlags = { userOwned: { ownerField: personal.of } };
-  }
+  const personalFlags = resolvePersonalFlags(personal, reason);
 
   // `searchable`/`sensitive` live on the individual FieldDef, not on
   // ResolvedPiiFlags — "fuzzy"/"secret" resolve into those too.

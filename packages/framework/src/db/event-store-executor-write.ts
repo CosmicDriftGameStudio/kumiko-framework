@@ -647,8 +647,11 @@ export function createWriteVerbs(
         // re-encrypt it before it's persisted so plaintext of pii/encrypted
         // fields doesn't land in the immutable log (flatChanges is already
         // ciphertext from encryptForStorage above).
+        // Owner chain for the ownerless-then-assigned row: previous owner, then the
+        // owner this event sets, then whenAbsent (fw#3654).
         const encryptedPrevious = await encryptForStorage(previous, user, {
           keyTenantId: streamTenantId,
+          ownerFallback: submittedChanges,
         });
         // Savepoint-scoped — see the create() append() above for why:
         // confines a losing writer's unique-violation to a nested scope

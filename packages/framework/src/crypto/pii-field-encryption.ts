@@ -199,6 +199,7 @@ export interface EncryptPiiOptions {
   readonly subjectSource?: Record<string, unknown>;
   // Canonical registry entity name — required to resolve recordOwned fields.
   readonly entityName: string;
+  readonly ownerFallback?: Record<string, unknown>;
 }
 
 export async function encryptPiiFieldValues(
@@ -229,6 +230,7 @@ export async function encryptPiiFieldValues(
     const subject = resolveSubjectForField(entity, name, subjectSource, {
       entityName: opts.entityName,
       ...(opts.tenantId !== undefined && { tenantId: opts.tenantId }),
+      ...(opts.ownerFallback !== undefined && { ownerFallback: opts.ownerFallback }),
     });
     // skip: collectPiiSubjectFields only yields annotated fields — null is unreachable, kept as a type guard
     if (subject === null) continue;

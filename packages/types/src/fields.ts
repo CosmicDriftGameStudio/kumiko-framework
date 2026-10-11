@@ -74,6 +74,10 @@ export type FieldAccess = {
 //   - `personal: { of: "<f>" }`  → `userOwned: { ownerField: "<f>" }`. the
 //                                  user referenced in that field.
 //                                  comment.body → comment.authorId.
+//                                  `whenAbsent: "tenant"` encrypts rows whose
+//                                  owner is empty under the tenant key instead
+//                                  of failing; a nullable owner needs it
+//                                  (fw#3654).
 //   - `personal: "tenant"`       → `tenantOwned: true`. the current tenant
 //                                  (ctx.tenantId at write time).
 //                                  tenantBranding.brandColor.
@@ -133,7 +137,10 @@ export type FieldAccess = {
 // `personal`/`find` annotations below. No field author sets this directly.
 export type ResolvedPiiFlags = {
   readonly pii?: boolean;
-  readonly userOwned?: { readonly ownerField: string };
+  readonly userOwned?: {
+    readonly ownerField: string;
+    readonly whenAbsent?: EntityPiiAbsentSubject;
+  };
   readonly tenantOwned?: boolean;
   readonly recordOwned?: true;
   readonly anonymize?: () => unknown | Promise<unknown>;
@@ -157,7 +164,13 @@ export type ResolvedPiiFlags = {
 // (`personal`, resolved to a subject key) and how findable must it stay
 // (`find`, resolved to the search/lookup flags). Field factories expand
 // these into `ResolvedPiiFlags` — see packages/framework/src/engine/factories.ts.
-export type PersonalSubject = "self" | { readonly of: string } | "tenant";
+// Entity fields have no plaintext fallback for an ownerless row: stored PII
+// must stay shreddable (fw#3654).
+export type EntityPiiAbsentSubject = "tenant";
+export type PersonalSubject =
+  | "self"
+  | { readonly of: string; readonly whenAbsent?: EntityPiiAbsentSubject }
+  | "tenant";
 export type Findability = "exact" | "fuzzy" | "none" | "secret";
 
 // Marks "no personal annotation given" — plain `Record<string, never>` would

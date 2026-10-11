@@ -88,7 +88,7 @@ describe("S0 Integration — full surface stack", () => {
         createEntity({
           fields: {
             body: createLongTextField({
-              personal: { of: "authorId" },
+              personal: { of: "authorId", whenAbsent: "tenant" },
               find: "none",
               anonymize: () => "[ANONYMIZED]",
             }),

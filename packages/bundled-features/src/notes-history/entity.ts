@@ -77,9 +77,10 @@ export function createNoteEntryEntity(
       }),
       // Stamped once at write time, never re-resolved later — the history
       // needs the name as it was then, not whatever the account is called now.
+      // whenAbsent: authorless notes (system-written) encrypt under the tenant key.
       authorName: createTextField({
         maxLength: 200,
-        personal: { of: "authorId" },
+        personal: { of: "authorId", whenAbsent: "tenant" },
         find: "none",
       }),
       body: createLongTextField({

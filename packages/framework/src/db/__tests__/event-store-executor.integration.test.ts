@@ -823,7 +823,7 @@ const piiEntity = createEntity({
   fields: {
     email: createTextField({ required: true, personal: "self", find: "none" }),
     note: createTextField({
-      personal: { of: "authorId" },
+      personal: { of: "authorId", whenAbsent: "tenant" },
       find: "none",
     }),
     authorId: createTextField({ personal: false, reason: "test_fixture" }),

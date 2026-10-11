@@ -51,6 +51,7 @@ let logger: ReturnType<typeof createJobRunLogger>;
 let kms: InMemoryKmsAdapter;
 
 const USER_ID = "u-pii-9";
+const SYSTEM_TENANT_SUBJECT = `tenant:${SYSTEM_TENANT_ID}`;
 const SECRET_PAYLOAD = JSON.stringify({ iban: "DE89370400440532013000" });
 
 beforeAll(async () => {
@@ -136,13 +137,18 @@ describe("jobs run-started payload under KMS", () => {
     expect(row?.["payload"]).toBe(PII_ERASED_SENTINEL);
   });
 
-  test("system run (no triggeredById) stays plaintext — no subject to shred", async () => {
+  test("system run (no triggeredById) is encrypted under the system tenant key", async () => {
     await logger.onJobStart?.("app:job:cron-sweep", "bull-3", {
       payload: JSON.stringify({ scope: "all" }),
     });
 
     const row = await fetchOne(testDb.db, jobRunsTable, { bullJobId: "bull-3" });
-    expect(row?.["payload"]).toBe(JSON.stringify({ scope: "all" }));
+    expect(isPiiCiphertext(row?.["payload"])).toBe(true);
+    expect(String(row?.["payload"])).toContain(SYSTEM_TENANT_SUBJECT);
+    const back = await decryptPiiFieldValues({ payload: row?.["payload"] }, ["payload"], kms, {
+      requestId: "t",
+    });
+    expect(back["payload"]).toBe(JSON.stringify({ scope: "all" }));
   });
 
   test("without a KMS the payload stays plaintext (rollout mode)", async () => {
@@ -217,13 +223,18 @@ describe("jobs run-completed/-failed log messages under KMS (#2247)", () => {
     expect(after["message"]).toBe(PII_ERASED_SENTINEL);
   });
 
-  test("system run (no triggeredById) → completed log messages stay plaintext", async () => {
+  test("system run (no triggeredById) → completed log messages are encrypted under the system tenant key", async () => {
     await logger.onJobStart?.("app:job:cron-sweep", "bull-c3", {});
     await logger.onJobComplete?.("app:job:cron-sweep", "bull-c3", 5, [
       { level: "info", message: "plain sweep log", timestamp: Temporal.Now.instant() },
     ]);
     const logs = await selectMany(testDb.db, jobRunLogsTable, { runId: await runIdFor("bull-c3") });
-    expect(logs[0]?.["message"]).toBe("plain sweep log");
+    expect(isPiiCiphertext(logs[0]?.["message"])).toBe(true);
+    expect(String(logs[0]?.["message"])).toContain(SYSTEM_TENANT_SUBJECT);
+    const back = await decryptPiiFieldValues({ message: logs[0]?.["message"] }, ["message"], kms, {
+      requestId: "t",
+    });
+    expect(back["message"]).toBe("plain sweep log");
   });
 
   test("without a KMS the completed log message stays plaintext (rollout mode)", async () => {
@@ -321,11 +332,16 @@ describe("jobs run-failed error column under KMS (#2307)", () => {
     expect(row?.["error"]).toBe(PII_ERASED_SENTINEL);
   });
 
-  test("system run (no triggeredById) → error column stays plaintext", async () => {
+  test("system run (no triggeredById) → error column is encrypted under the system tenant key", async () => {
     await logger.onJobStart?.("app:job:cron-sweep", "bull-e4", {});
     await logger.onJobFailed?.("app:job:cron-sweep", "bull-e4", "plain sweep failure", []);
     const row = await fetchOne(testDb.db, jobRunsTable, { id: await runIdFor("bull-e4") });
-    expect(row?.["error"]).toBe("plain sweep failure");
+    expect(isPiiCiphertext(row?.["error"])).toBe(true);
+    expect(String(row?.["error"])).toContain(SYSTEM_TENANT_SUBJECT);
+    const back = await decryptPiiFieldValues({ error: row?.["error"] }, ["error"], kms, {
+      requestId: "t",
+    });
+    expect(back["error"]).toBe("plain sweep failure");
   });
 
   test("without a KMS the error column stays plaintext (rollout mode)", async () => {
@@ -419,13 +435,18 @@ describe("jobs stale-run sweep error column under KMS", () => {
     expect(row?.["error"]).toBe(PII_ERASED_SENTINEL);
   });
 
-  test("system-triggered stale row (no triggeredById) keeps a plaintext error", async () => {
+  test("system-triggered stale row (no triggeredById) is encrypted under the system tenant key", async () => {
     const id = await seedStaleRunning();
 
     await markStaleJobRunsFailed(testDb.db, 24);
 
     const row = await fetchOne(testDb.db, jobRunsTable, { id });
-    expect(row?.["error"]).toBe(STALE_JOB_RUN_ERROR);
+    expect(isPiiCiphertext(row?.["error"])).toBe(true);
+    expect(String(row?.["error"])).toContain(SYSTEM_TENANT_SUBJECT);
+    const back = await decryptPiiFieldValues({ error: row?.["error"] }, ["error"], kms, {
+      requestId: "t",
+    });
+    expect(back["error"]).toBe(STALE_JOB_RUN_ERROR);
   });
 
   test("without a KMS the error column stays plaintext (rollout mode)", async () => {
@@ -515,6 +536,32 @@ describe("jobs:query:details decrypts log messages and error end-to-end (#2247, 
     );
 
     expect(result.error).toBe(SECRET_DETAIL_ERROR);
+  });
+
+  test("jobs:query:details returns plaintext payload, error and log of a cron run (no triggeredById) stored under the system tenant key", async () => {
+    await detailLogger.onJobStart?.("app:job:cron-detail", "bull-detail-cron", {
+      payload: SECRET_PAYLOAD,
+    });
+    await detailLogger.onJobFailed?.("app:job:cron-detail", "bull-detail-cron", "cron boom", [
+      { level: "error", message: SECRET_DETAIL_LOG, timestamp: Temporal.Now.instant() },
+    ]);
+
+    const row = await fetchOne(detailStack.db, jobRunsTable, { bullJobId: "bull-detail-cron" });
+    const runId = String(row?.["id"]);
+    expect(String(row?.["payload"])).toContain(SYSTEM_TENANT_SUBJECT);
+    expect(String(row?.["error"])).toContain(SYSTEM_TENANT_SUBJECT);
+    const storedLogs = await selectMany(detailStack.db, jobRunLogsTable, { runId });
+    expect(String(storedLogs[0]?.["message"])).toContain(SYSTEM_TENANT_SUBJECT);
+
+    const result = await detailStack.http.queryOk<{
+      payload: string;
+      error: string;
+      logs: readonly { message: string }[];
+    }>(JobQueries.details, { runId }, TestUsers.systemAdmin);
+
+    expect(result.payload).toBe(SECRET_PAYLOAD);
+    expect(result.error).toBe("cron boom");
+    expect(result.logs[0]?.message).toBe(SECRET_DETAIL_LOG);
   });
 
   test("jobs:query:list returns plaintext payload + error even though the stored row is ciphertext", async () => {

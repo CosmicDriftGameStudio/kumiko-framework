@@ -97,8 +97,17 @@ const noteEntity = createEntity({
 });
 const noteTable = buildEntityTable("note", noteEntity);
 
+const memoEntity = createEntity({
+  fields: {
+    ownerId: createTextField({ personal: "ref" }),
+    body: createTextField({ personal: { of: "ownerId", whenAbsent: "tenant" }, find: "none" }),
+  },
+});
+const memoTable = buildEntityTable("memo", memoEntity);
+
 const notesFeature = defineFeature("notes", (r) => {
   r.entity("note", noteEntity);
+  r.entity("memo", memoEntity);
 });
 
 // personal: { of: "id" } → recordOwned (kumiko-framework#2786): the row
@@ -148,6 +157,7 @@ beforeAll(async () => {
   ]);
   await unsafeCreateEntityTable(testDb.db, contactEntity, "contact");
   await unsafeCreateEntityTable(testDb.db, noteEntity, "note");
+  await unsafeCreateEntityTable(testDb.db, memoEntity, "memo");
   await unsafeCreateEntityTable(testDb.db, surveyEntity, "survey");
 });
 
@@ -160,6 +170,7 @@ beforeEach(async () => {
   await raw.unsafe(`TRUNCATE "kumiko_events" RESTART IDENTITY`);
   await raw.unsafe(`TRUNCATE "${contactTable.tableName}"`);
   await raw.unsafe(`TRUNCATE "${noteTable.tableName}"`);
+  await raw.unsafe(`TRUNCATE "${memoTable.tableName}"`);
   await raw.unsafe(`TRUNCATE "${surveyTable.tableName}"`);
   // Plaintext era: NO KMS while the legacy events are appended.
   resetPiiSubjectKmsForTests();
@@ -675,6 +686,84 @@ describe("backfillEventPiiEncryption: owner-resolution chain (fw#2266)", () => {
 
     expect(result.failures).toEqual([]);
     expect(result.updatedEvents).toBe(0);
+  });
+});
+
+describe("backfillEventPiiEncryption: whenAbsent owner chain (fw#3654)", () => {
+  async function payloadOf(id: string, version: number): Promise<Record<string, unknown>> {
+    const events = await loadAggregate(testDb.db, id, TENANT);
+    return events[version]?.payload as Record<string, unknown>;
+  }
+
+  test("previous.owner null, changes.owner set: previous encrypts under the user, like live", async () => {
+    const user = generateId();
+    const memoId = generateId();
+    await appendPlain(memoId, "memo", "memo.created", { id: memoId, ownerId: null });
+    await appendPlain(
+      memoId,
+      "memo",
+      "memo.updated",
+      {
+        changes: { ownerId: user, body: "new body" },
+        previous: { id: memoId, ownerId: null, body: "old body" },
+      },
+      1,
+    );
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+
+    expect(result.failures).toEqual([]);
+    const updated = await payloadOf(memoId, 1);
+    const changes = updated["changes"] as Record<string, unknown>;
+    const previous = updated["previous"] as Record<string, unknown>;
+    expect(String(changes["body"])).toContain(`user:${user}`);
+    expect(String(previous["body"])).toContain(`user:${user}`);
+  });
+
+  test("owner null everywhere: encrypts under the tenant key", async () => {
+    const memoId = generateId();
+    await appendPlain(
+      memoId,
+      "memo",
+      "memo.updated",
+      {
+        changes: { body: "new body" },
+        previous: { id: memoId, ownerId: null, body: "old body" },
+      },
+      0,
+    );
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+
+    expect(result.failures).toEqual([]);
+    const updated = await payloadOf(memoId, 0);
+    const changes = updated["changes"] as Record<string, unknown>;
+    const previous = updated["previous"] as Record<string, unknown>;
+    expect(String(changes["body"])).toContain(`tenant:${TENANT}`);
+    expect(String(previous["body"])).toContain(`tenant:${TENANT}`);
+  });
+
+  test("payload without owner, projection row has it: the projection wins over whenAbsent", async () => {
+    const user = generateId();
+    const memoId = generateId();
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
+      [memoId, TENANT, user, "projection-row-body"],
+    );
+    await appendPlain(memoId, "memo", "memo.created", { id: memoId, body: "old plaintext" });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry, {
+      resolveOwnerFromProjection: true,
+    });
+
+    expect(result.failures).toEqual([]);
+    expect(result.ownerFromProjection).toBe(1);
+    const created = await payloadOf(memoId, 0);
+    expect(String(created["body"])).toContain(`user:${user}`);
+    expect(String(created["body"])).not.toContain("tenant:");
   });
 });
 

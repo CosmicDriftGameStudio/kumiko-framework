@@ -46,11 +46,18 @@ export const jobRunEntity = createEntity({
     status: createTextField({ required: true, personal: false, reason: "system_metadata" }),
     // The run-started payload can carry arbitrary caller-supplied data,
     // encrypted by job-run-logger.ts under the triggering user's DEK (see
-    // jobs-pii-kms.integration.test.ts) — same subject as `triggeredById`.
-    payload: createTextField({ personal: { of: "triggeredById" }, find: "none" }),
+    // jobs-pii-kms.integration.test.ts) — same subject as `triggeredById`;
+    // cron runs have none and use the system tenant key (whenAbsent).
+    payload: createTextField({
+      personal: { of: "triggeredById", whenAbsent: "tenant" },
+      find: "none",
+    }),
     // Failure messages can echo payload content back — same subject/DEK as
     // `payload` (job-run-logger.ts encryptFailureError).
-    error: createTextField({ personal: { of: "triggeredById" }, find: "none" }),
+    error: createTextField({
+      personal: { of: "triggeredById", whenAbsent: "tenant" },
+      find: "none",
+    }),
     attempt: createNumberField({ required: true, default: 1, integer: true }),
     startedAt: createTimestampField({ required: true }),
     finishedAt: createTimestampField(),

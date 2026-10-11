@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-11
+verified: 2026-10-11
 ---
 
 # Crypto-shredding: the "record" (row) subject
@@ -43,6 +43,26 @@ primary key instead of a foreign reference. It resolves internally to
 `recordOwned: true` (not `userOwned: { ownerField: "id" }`), so downstream
 GDPR guards never mistake a record subject for user-forget coverage and
 never build an `id = <userId>` search-purge predicate for it.
+
+## Rows without an owner: `whenAbsent: "tenant"`
+
+A field annotated `personal: { of: "<owner>" }` needs a value in the owner
+field to pick the user key. When the owner field is nullable, some rows have
+none, and with a KMS configured an update, delete or forget of such a row
+would fail with `SubjectResolutionError`. Declare the fallback explicitly:
+
+```ts
+name: createTextField({ personal: { of: "ownerId", whenAbsent: "tenant" }, find: "none" })
+```
+
+The subject is then resolved in this order: the owner on the row, the owner
+the same update sets, the tenant key (`tenant:<tenantId>`). Entity fields have
+no plaintext fallback, so `"tenant"` is the only accepted value. Boot fails
+for a non-required owner field without `whenAbsent`; make the owner
+`required: true` if every row has one. `whenAbsent` on `personal: { of: "id" }`
+is rejected, because a row always has an id. `backfill-pii` follows the same
+order, but it consults the projection row for the owner before it falls back to
+the tenant key.
 
 ## Entity name is mandatory at the write path
 

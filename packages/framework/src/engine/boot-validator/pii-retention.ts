@@ -286,6 +286,17 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
             `[Feature ${feature.name}] personal.of "${ownerName}" on entity "${entityName}" must be a reference or text (userId) field, got type "${ownerField.type}"`,
           );
         }
+        const { whenAbsent } = annot.userOwned;
+        if (whenAbsent !== undefined && whenAbsent !== "tenant") {
+          throw new Error(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares personal.whenAbsent "${String(whenAbsent)}" — entity fields only support whenAbsent: "tenant" (no plaintext fallback for stored PII).`,
+          );
+        }
+        if (ownerField.required !== true && whenAbsent === undefined) {
+          throw new Error(
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" is personal: { of: "${ownerName}" }, but "${ownerName}" is not required — rows without an owner would fail to encrypt (SubjectResolutionError, HTTP 500) on update, delete and forget. Declare { personal: { of: "${ownerName}", whenAbsent: "tenant" } } to encrypt those rows under the tenant key, or make "${ownerName}" required: true. Entity fields have no plaintext fallback (fw#3654).`,
+          );
+        }
         // Soft-Warning wenn das reference-target nicht offensichtlich user
         // ist — custom subject-entities (HR-Mitarbeiter, Patient) sind
         // erlaubt, müssen aber bewusste Wahl sein.

@@ -238,6 +238,7 @@ export type ExecutorContext = {
       onlyKeys?: Iterable<string>;
       subjectSource?: Record<string, unknown>;
       keyTenantId?: TenantId | undefined;
+      ownerFallback?: Record<string, unknown>;
     },
   ) => Promise<Record<string, unknown>>;
   readonly decryptForRead: (
@@ -382,6 +383,7 @@ export function buildExecutorContext(
       onlyKeys?: Iterable<string>;
       subjectSource?: Record<string, unknown>;
       keyTenantId?: TenantId | undefined;
+      ownerFallback?: Record<string, unknown>;
     },
   ): Promise<Record<string, unknown>> {
     let out = row;
@@ -404,6 +406,7 @@ export function buildExecutorContext(
             entityName,
             ...(opts?.onlyKeys !== undefined && { onlyKeys: opts.onlyKeys }),
             ...(opts?.subjectSource !== undefined && { subjectSource: opts.subjectSource }),
+            ...(opts?.ownerFallback !== undefined && { ownerFallback: opts.ownerFallback }),
           },
         );
       } catch (e) {
