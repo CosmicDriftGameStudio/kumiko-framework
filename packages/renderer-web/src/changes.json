@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.358.0",
+    "type": "improvement",
+    "title": "Dashboards fit 390 px screens; stacked-area chart gets compact axis, grid lines, x ticks and markerLabels",
+    "detail": "Dashboards keep their width at 390 px and the stacked-area chart reads better\nThe dashboard grid has an explicit single column on narrow screens and its cells can shrink, so a wide panel no longer stretches the page. The panel header wraps: title, subtitle and range switch stack instead of squeezing into one row. The KPI strip delta chip no longer wraps, it moves below the label when space is short. Stacked-area charts get a taller plot, a compact y axis (\"1,5 Mio. €\"), dashed grid lines, calendar-aligned x-axis ticks that thin out with the container width, and larger brush handles (24 px hit area). New panel option `markerLabels` writes marker labels vertically next to their guide lines on wide panels; narrow ones keep numbered pins with a list below. Labeled stat groups now wrap their cards instead of overflowing when values are wide (e.g. 2 + 1 instead of 3 columns)."
+  },
+  {
+    "version": "0.358.0",
+    "type": "improvement",
+    "title": "Stacked-area tooltip, gradient bands, non-overlapping marker pins, compact axis on all charts",
+    "detail": "Stacked-area charts get a tooltip, gradient bands and staggered marker pins\nHovering the plot (mouse) or tapping it (touch tap, not a swipe; a second tap, a tap outside or Escape closes) shows a card with the bucket date, every series and every forecast line with its compact formatted value. The bands fade from top to bottom and have a crisp top edge. Marker pins that sit close together are staggered into up to three rows instead of overlapping. Stacked-bar and timeseries charts use the compact currency y axis as well (\"1,5 Mio. €\")."
+  },
+  {
     "version": "0.357.0",
     "type": "fix",
     "title": "List rows no longer fire the rowClick action, or show a click cursor, when the action's visible condition hides it for that row."
