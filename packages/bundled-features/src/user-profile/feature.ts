@@ -12,13 +12,21 @@ import {
 } from "./constants.js";
 import { changeEmailWrite } from "./handlers/change-email.write.js";
 
-export function createUserProfileFeature(): FeatureDefinition {
+export type UserProfileFeatureOptions = {
+  /** Default true. false drops the change-email handler and the email
+   *  section — for apps whose login email is managed elsewhere (SSO, admin-set). */
+  readonly allowEmailChange?: boolean;
+};
+
+export function createUserProfileFeature(options?: UserProfileFeatureOptions): FeatureDefinition {
+  const allowEmailChange = options?.allowEmailChange ?? true;
   return defineFeature("user-profile", (r) => {
     r.describe(
       "Self-service account page (fw#2312: declarative `projectionDetail` bound to " +
         "the signed-in user's own `me` row) plus its `change-email` write handler " +
         "(re-auth via current password, uniqueness check, resets emailVerified and " +
-        "expects the app to trigger the verification flow). Change-password and " +
+        "expects the app to trigger the verification flow; opt out with " +
+        "`allowEmailChange: false`, which drops handler and section). Change-password and " +
         "change-email stay custom `EditExtensionSection` components (re-auth flows a " +
         "declarative action can't express); account deletion (user-data-rights " +
         "request/cancel with grace period) is declarative fields + actions. Apps " +
@@ -38,9 +46,7 @@ export function createUserProfileFeature(): FeatureDefinition {
     r.requires("user-data-rights");
     r.requires("user-data-rights-defaults");
 
-    const handlers = {
-      changeEmail: r.writeHandler(changeEmailWrite),
-    };
+    const handlers = allowEmailChange ? { changeEmail: r.writeHandler(changeEmailWrite) } : {};
 
     // Boot-validator requires a "screen:<id>.title" key per r.screen(), plus
     // one entry per i18nKey()-marked dot-form label below — kept inline (not
@@ -100,12 +106,16 @@ export function createUserProfileFeature(): FeatureDefinition {
       },
       layout: {
         sections: [
-          {
-            kind: "extension",
-            title: i18nKey("profile.email.title"),
-            component: { react: { __component: CHANGE_EMAIL_SECTION_EXTENSION_NAME } },
-            entityName: "user",
-          },
+          ...(allowEmailChange
+            ? [
+                {
+                  kind: "extension" as const,
+                  title: i18nKey("profile.email.title"),
+                  component: { react: { __component: CHANGE_EMAIL_SECTION_EXTENSION_NAME } },
+                  entityName: "user",
+                },
+              ]
+            : []),
           {
             kind: "extension",
             title: i18nKey("profile.password.title"),

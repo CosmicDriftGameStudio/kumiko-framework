@@ -164,6 +164,14 @@ subject_erased:
     A forgotten subject never receives new data; the encrypt step refuses the
     write instead of minting a fresh key.
 
+file_rejected:
+  endUser: |
+    This file can't be stored.
+  developer: |
+    `UnprocessableError`: `createFileRefFromBytes` rejected the file (size,
+    type, content or attach target). `details.error` carries the same error
+    string `POST /files` answers with.
+
 public_intake_required:
   endUser: |
     This action isn't allowed.

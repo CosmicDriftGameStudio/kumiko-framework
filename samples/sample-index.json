@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 41,
+  "featureCount": 42,
   "features": {
     "admin-shell": {
       "samples": [
@@ -296,6 +296,13 @@
       "whenToUse": "A headless client (CI, a script, a customer ERP, Zapier) must call your HTTP API without a browser login — a long-lived, revocable `kpat_` bearer token carries the user's live roles and a scoped subset of handlers.",
       "sampleBlurb": "use-all-bundled mounts the feature with per-domain read/write scopes (pages, tags, ledger); the integration test mints a token, calls the API with the Bearer header, and asserts fail-closed scope enforcement and revocation.",
       "screenshot": null
+    },
+    "renderer-pdf": {
+      "samples": [
+        "recipes-pdf-audit-export"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "renderTablePdf (@cosmicdrift/kumiko-bundled-features/renderer-pdf) draws a table document in pure JavaScript: repeating header, weighted columns, page footer. The handler passes ready-formatted strings. - createFileRefFromBytes (@cosmicdrift/kumiko-framework/files) stores the bytes like an upload (validation, tenant-prefixed storage key, fileRef.created event); the tenant comes from the caller. - The result is a normal FileRef: GET /api/files/:id serves it with Content-Type: application/pdf, other tenants get 404."
     },
     "secrets": {
       "samples": [

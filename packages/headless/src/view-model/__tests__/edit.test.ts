@@ -704,8 +704,6 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
     expect(field?.capture).toBeUndefined();
   });
 
-  // `images` has no `capture` on its field def (a multi-picker never opens
-  // the camera directly), so the hint stays image-only.
   describe("images field", () => {
     function imagesField(): EditFieldsSectionViewModel["fields"][number] | undefined {
       const entity = {
@@ -745,8 +743,8 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
       expect(imagesField()?.imageVariant).toBe("thumb");
     });
 
-    test("capture is not forwarded, even if the def carries it", () => {
-      expect(imagesField()?.capture).toBeUndefined();
+    test("capture is forwarded when the def carries it", () => {
+      expect(imagesField()?.capture).toBe("environment");
     });
 
     test("a plain file field gets upload hints but no imageVariant", () => {

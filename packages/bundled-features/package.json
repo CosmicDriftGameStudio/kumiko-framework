@@ -116,6 +116,7 @@
     "./channel-teams": "./src/channel-teams/index.ts",
     "./channel-telegram": "./src/channel-telegram/index.ts",
     "./renderer-simple": "./src/renderer-simple/index.ts",
+    "./renderer-pdf": "./src/renderer-pdf/index.ts",
     "./files-provider-s3": "./src/files-provider-s3/index.ts",
     "./rate-limiting": "./src/rate-limiting/index.ts",
     "./presets": "./src/presets/index.ts",
@@ -166,6 +167,7 @@
     "mailparser": "^3.9.32",
     "marked": "^18.0.3",
     "nodemailer": "^10.0.13",
+    "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
     "react": "^19.2.6",
     "sharp": "^0.35.5",
@@ -555,6 +557,10 @@
         "types": "./dist/renderer-simple/index.d.ts",
         "default": "./dist/renderer-simple/index.js"
       },
+      "./renderer-pdf": {
+        "types": "./dist/renderer-pdf/index.d.ts",
+        "default": "./dist/renderer-pdf/index.js"
+      },
       "./files-provider-s3": {
         "types": "./dist/files-provider-s3/index.d.ts",
         "default": "./dist/files-provider-s3/index.js"
@@ -683,6 +689,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@cosmicdrift/kumiko-locale-de": "workspace:*",
     "@cosmicdrift/kumiko-locale-es": "workspace:*",
-    "jsqr": "^1.4.0"
+    "jsqr": "^1.4.0",
+    "unpdf": "^1.8.1"
   }
 }

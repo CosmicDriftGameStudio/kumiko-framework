@@ -748,13 +748,14 @@ describe("buildAppSchema", () => {
     expect(fields["pickupAt"]?.["locale"]).toBe("de-DE");
   });
 
-  test("image: capture überlebt die Projection (fw#2497)", () => {
+  test("image/images: capture überlebt die Projection (fw#2497)", () => {
     // Regression: `capture` decides whether a mobile file picker opens the
     // rear or front camera — never arrived, so it never applied.
     const entity = {
       fields: {
         idPhoto: { type: "image", capture: "environment" },
         avatar: { type: "image" },
+        gallery: { type: "images", capture: "user" },
       },
     } as unknown as EntityDefinition;
 
@@ -770,6 +771,7 @@ describe("buildAppSchema", () => {
 
     expect(fields["idPhoto"]?.["capture"]).toBe("environment");
     expect(fields["avatar"]?.["capture"]).toBeUndefined();
+    expect(fields["gallery"]?.["capture"]).toBe("user");
   });
 
   test("number unit (static and sibling-field form) and entity defaultCurrency survive the projection", () => {

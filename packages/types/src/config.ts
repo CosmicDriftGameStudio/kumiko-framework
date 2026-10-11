@@ -393,7 +393,10 @@ export type JobTrigger =
       // lets N jobs share one broad event QN, partitioned by a discriminant.
       readonly where?: Readonly<Record<string, string | number | boolean>>;
     }
-  | { readonly cron: string }
+  // `tz`: IANA zone the cron fields are read in (default: the server process
+  // zone, UTC in the standard containers). A wall-clock
+  // time skipped by DST runs once, shifted by the gap; a doubled one runs once, at its first occurrence.
+  | { readonly cron: string; readonly tz?: string }
   | { readonly manual: true };
 
 export type JobBackoffStrategy = "fixed" | "exponential";

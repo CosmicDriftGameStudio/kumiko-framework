@@ -72,3 +72,23 @@ describe("job trigger resolution", () => {
     );
   });
 });
+
+describe("cron trigger tz", () => {
+  function featureWithTz(tz: string) {
+    return defineFeature("shop", (r) => {
+      r.job("nightly", { trigger: { cron: "0 9 * * *", tz } }, async () => {});
+    });
+  }
+
+  test("a valid IANA zone is kept on the registered job", () => {
+    const registry = createRegistry([featureWithTz("Europe/Berlin")]);
+    expect(registry.getJob("shop:job:nightly")?.trigger).toEqual({
+      cron: "0 9 * * *",
+      tz: "Europe/Berlin",
+    });
+  });
+
+  test.each(["Mars/Olympus", "europe/berlin", ""])("tz %p is rejected at declaration", (tz) => {
+    expect(() => featureWithTz(tz)).toThrow(/r\.job\("nightly"\) declares trigger/);
+  });
+});

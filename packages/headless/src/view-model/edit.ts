@@ -421,7 +421,8 @@ function deriveFileFieldHints(
     fieldDef.type === "image" || fieldDef.type === "images"
       ? Object.keys(fileDef?.variants ?? {})[0]
       : undefined;
-  const capture = fieldDef.type === "image" ? fileDef?.capture : undefined;
+  const capture =
+    fieldDef.type === "image" || fieldDef.type === "images" ? fileDef?.capture : undefined;
   return {
     ...(fileDef?.accept !== undefined && { accept: fileDef.accept }),
     ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),

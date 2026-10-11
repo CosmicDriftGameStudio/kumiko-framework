@@ -51,6 +51,7 @@ import {
   parseWriteOrigin,
 } from "../pipeline/write-origin.js";
 import { bridgeStub } from "../testing/handler-context.js";
+import { cronRepeatOptions } from "./cron-repeat-options.js";
 
 // Shape-checked after the BullMQ/Redis JSON round-trip. Unlike `_writeOrigin`
 // (a security-relevant escape hatch that must fail the run closed), a
@@ -1496,20 +1497,16 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         if ("cron" in jobDef.trigger) {
           const schedulerId = schedulerIdForJobName(name);
           expectedSchedulerIds.add(schedulerId);
-          await consumerQueue.upsertJobScheduler(
-            schedulerId,
-            { pattern: jobDef.trigger.cron },
-            {
-              name: jobDef.perTenant ? `_perTenant:${name}` : name,
-              data: {},
-              // Queue-level defaultJobOptions (jobRetentionOpts) covers
-              // retention; a count here would sweep queue-wide again and
-              // evict perTenant children and boot jobs.
-              opts: {
-                ...buildRetryBullOpts(jobDef),
-              },
+          await consumerQueue.upsertJobScheduler(schedulerId, cronRepeatOptions(jobDef.trigger), {
+            name: jobDef.perTenant ? `_perTenant:${name}` : name,
+            data: {},
+            // Queue-level defaultJobOptions (jobRetentionOpts) covers
+            // retention; a count here would sweep queue-wide again and
+            // evict perTenant children and boot jobs.
+            opts: {
+              ...buildRetryBullOpts(jobDef),
             },
-          );
+          });
           await (await consumerQueue.client).hset(schedulerSeenKey(consumerQueue), {
             [schedulerId]: String(Date.now()),
           });

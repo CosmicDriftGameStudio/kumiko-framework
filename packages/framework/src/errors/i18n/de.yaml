@@ -171,6 +171,14 @@ subject_erased:
     Verschlüsselungsschritt lehnt den Write ab, statt einen neuen Schlüssel
     anzulegen.
 
+file_rejected:
+  endUser: |
+    Diese Datei kann nicht gespeichert werden.
+  developer: |
+    `UnprocessableError`: `createFileRefFromBytes` hat die Datei abgelehnt
+    (Größe, Typ, Inhalt oder Anhang-Ziel). `details.error` trägt denselben
+    Fehlertext, mit dem `POST /files` antwortet.
+
 public_intake_required:
   endUser: |
     Diese Aktion ist nicht erlaubt.
