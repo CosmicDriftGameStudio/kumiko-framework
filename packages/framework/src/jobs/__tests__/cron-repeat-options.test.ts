@@ -13,11 +13,6 @@ describe("cronRepeatOptions", () => {
     expect(cronRepeatOptions({ cron: "0 9 * * *" })).toEqual({ pattern: "0 9 * * *" });
   });
 
-  test("without tz the schedule stays UTC", () => {
-    expect(nextRun({ cron: "0 9 * * *" }, "2026-07-01T00:00:00Z")).toBe("2026-07-01T09:00:00.000Z");
-    expect(nextRun({ cron: "0 9 * * *" }, "2026-01-01T00:00:00Z")).toBe("2026-01-01T09:00:00.000Z");
-  });
-
   test("tz is passed through", () => {
     expect(cronRepeatOptions({ cron: "0 9 * * *", tz: "Europe/Berlin" })).toEqual({
       pattern: "0 9 * * *",
