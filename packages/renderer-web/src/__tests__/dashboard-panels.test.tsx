@@ -1441,6 +1441,75 @@ describe("dashboard stacked-area panel header and axes", () => {
     expect(tick.parentElement?.textContent).not.toContain("1.500.000,00");
   });
 
+  test("the tooltip rounds sub-million amounts to whole compact euros", async () => {
+    renderDashboard(
+      chartScreen("stacked-area", {
+        valueFormat: { kind: "currency", currency: "EUR" },
+        legendTotals: false,
+      }),
+      {
+        "demo:query:metric:chart": () =>
+          ok({
+            windowStartMs: years[0],
+            windowEndMs: years[2],
+            series: [
+              {
+                key: "remaining",
+                label: "Remaining",
+                points: years.map((atMs) => ({ atMs, value: 29_898_990 })),
+              },
+            ],
+          }),
+      },
+      { locale: "de-DE" },
+    );
+    const overlay = await screen.findByTestId("chart-tooltip-overlay");
+    overlay.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 400, height: 100, right: 400, bottom: 100 }) as DOMRect;
+    fireEvent.pointerMove(overlay, { pointerType: "mouse", clientX: 200 });
+    const card = screen.getByTestId("chart-tooltip");
+    expect(within(card).getByText(/^299\.000\s€$/)).toBeTruthy();
+  });
+
+  test("stacked-bars and timeseries y axes use compact currency while legend totals stay exact", async () => {
+    const big = { kind: "currency", currency: "EUR" } as const;
+    renderDashboard(
+      chartScreen("stacked-bars", { valueFormat: big }),
+      {
+        "demo:query:metric:chart": () =>
+          ok({
+            windowStartMs: day1,
+            windowEndMs,
+            series: [{ key: "ok", label: "Income", points: dayPoints([150000000, 0, 0]) }],
+          }),
+      },
+      { locale: "de-DE" },
+    );
+    await waitFor(() => expect(screen.getByTestId("chart-legend-ok")).toBeTruthy());
+    expect(await screen.findByText(/^2\sMio\.\s€$/)).toBeTruthy();
+    expect(
+      within(screen.getByTestId("chart-legend-ok")).getByText(/^1\.500\.000,00\s€$/),
+    ).toBeTruthy();
+  });
+
+  test("timeseries y axis uses compact currency", async () => {
+    renderDashboard(
+      chartScreen("timeseries", { valueFormat: { kind: "currency", currency: "EUR" } }),
+      {
+        "demo:query:metric:chart": () =>
+          ok({
+            windowStartMs: day1,
+            windowEndMs: day3,
+            points: dayPoints([100000000, 150000000, 120000000]),
+          }),
+      },
+      { locale: "de-DE" },
+    );
+    await waitFor(() => expect(screen.getByTestId("dashboard-chart-main")).toBeTruthy());
+    expect(screen.getByTestId("dashboard-chart-main").textContent).toMatch(/Mio\./);
+    expect(screen.getByTestId("dashboard-chart-main").textContent).not.toContain("1.500.000,00");
+  });
+
   test("the subtitle sits in its own element right after the title inside the header", async () => {
     renderDashboard(chartScreen("stacked-area", { subtitle: "demo:chart-subtitle" }), handlers);
     const subtitle = await screen.findByText("demo:chart-subtitle");
