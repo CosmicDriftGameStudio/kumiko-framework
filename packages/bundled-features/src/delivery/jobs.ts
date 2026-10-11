@@ -118,6 +118,7 @@ async function releaseIdempotencyOnTerminalFailure(
   ctx: JobContext,
   p: RenderJobPayload,
 ): Promise<void> {
+  // skip: nothing to release before the last attempt or without an idempotency key
   if (!ctx.finalAttempt || !p.idempotencyKey) return;
   if (!ctx.redis) {
     ctx.log.warn("delivery: idempotency key not released, job context has no redis", {

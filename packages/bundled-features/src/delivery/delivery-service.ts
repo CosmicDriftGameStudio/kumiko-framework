@@ -787,6 +787,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         options.recipientId ?? null,
         run,
       );
+      // skip: explicit route is delivered directly, no recipient resolution needed
       return;
     }
 
