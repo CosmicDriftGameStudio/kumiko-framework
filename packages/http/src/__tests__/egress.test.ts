@@ -51,7 +51,7 @@ beforeAll(() => {
       if (url.pathname === "/cross-host-redirect") {
         // Redirects to a *different* allowlisted host (not just a
         // disallowed one) — this must still be rejected even though both
-        // hosts individually pass assertAllowedHost, because init.headers
+        // hosts individually pass assertAllowedTarget, because init.headers
         // are replayed on every hop and must not leak across hosts.
         return countedResponse(
           "/cross-host-redirect",
@@ -135,6 +135,190 @@ describe("egress internal", () => {
   test("throws once the redirect hop cap is exceeded", async () => {
     const fetchIt = egress({ kind: "internal", allowHosts: ["127.0.0.1"] });
     await expect(fetchIt(`http://127.0.0.1:${port}/redirect-loop`)).rejects.toThrow(/redirects/);
+  });
+});
+
+describe("egress internal: headers across origin-changing redirects", () => {
+  let echoServer: ReturnType<typeof Bun.serve>;
+  let echoPort: number;
+  let hopServer: ReturnType<typeof Bun.serve>;
+  let hopPort: number;
+  const echoCounts = new Map<string, number>();
+
+  function echoHeaders(req: Request): Response {
+    const path = new URL(req.url).pathname;
+    echoCounts.set(path, (echoCounts.get(path) ?? 0) + 1);
+    return Response.json({
+      authorization: req.headers.get("authorization"),
+      apiKey: req.headers.get("x-api-key"),
+      contentType: req.headers.get("content-type"),
+    });
+  }
+
+  beforeAll(() => {
+    echoServer = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: echoHeaders,
+    });
+    echoPort = Number(echoServer.port);
+    hopServer = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch(req) {
+        const path = new URL(req.url).pathname;
+        const redirectTo = (location: string) =>
+          new Response(null, { status: 307, headers: { location } });
+        if (path === "/to-echo") return redirectTo(`http://127.0.0.1:${echoPort}/echo`);
+        if (path === "/same-origin") return redirectTo("/echo");
+        return echoHeaders(req);
+      },
+    });
+    hopPort = Number(hopServer.port);
+  });
+
+  afterAll(() => {
+    echoServer.stop(true);
+    hopServer.stop(true);
+  });
+
+  const credentials = {
+    method: "POST",
+    body: "{}",
+    headers: {
+      authorization: "Bearer secret",
+      "x-api-key": "key-1",
+      "content-type": "application/json",
+    },
+  };
+
+  test("drops credential headers but keeps content-type when the redirect changes the port", async () => {
+    const fetchIt = egress({ kind: "internal", allowHosts: ["127.0.0.1"] });
+    const res = await fetchIt(`http://127.0.0.1:${hopPort}/to-echo`, credentials);
+    expect(await res.json()).toEqual({
+      authorization: null,
+      apiKey: null,
+      contentType: "application/json",
+    });
+  });
+
+  test("keeps headers on a same-origin redirect", async () => {
+    const fetchIt = egress({ kind: "internal", allowHosts: ["127.0.0.1"] });
+    const res = await fetchIt(`http://127.0.0.1:${hopPort}/same-origin`, credentials);
+    expect(await res.json()).toEqual({
+      authorization: "Bearer secret",
+      apiKey: "key-1",
+      contentType: "application/json",
+    });
+  });
+
+  test("stays stripped after returning to the original origin", async () => {
+    const redirectTo = (location: string) =>
+      new Response(null, { status: 307, headers: { location } });
+    let originPort = 0;
+    const detour = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => redirectTo(`http://127.0.0.1:${originPort}/echo`),
+    });
+    const origin = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: (req) =>
+        new URL(req.url).pathname === "/start"
+          ? redirectTo(`http://127.0.0.1:${detour.port}/detour`)
+          : echoHeaders(req),
+    });
+    originPort = Number(origin.port);
+    try {
+      const fetchIt = egress({ kind: "internal", allowHosts: ["127.0.0.1"] });
+      const res = await fetchIt(`http://127.0.0.1:${originPort}/start`, credentials);
+      expect(await res.json()).toMatchObject({ authorization: null, apiKey: null });
+    } finally {
+      origin.stop(true);
+      detour.stop(true);
+    }
+  });
+
+  test("allowOrigins rejects a redirect to another port before any request goes out", async () => {
+    const before = echoCounts.get("/echo") ?? 0;
+    const fetchIt = egress({ kind: "internal", allowOrigins: [`http://127.0.0.1:${hopPort}`] });
+    await expect(fetchIt(`http://127.0.0.1:${hopPort}/to-echo`, credentials)).rejects.toThrow(
+      /not in allowlist/,
+    );
+    expect(echoCounts.get("/echo") ?? 0).toBe(before);
+  });
+
+  test("allowOrigins follows a redirect within the same origin", async () => {
+    const fetchIt = egress({ kind: "internal", allowOrigins: [`http://127.0.0.1:${hopPort}`] });
+    const res = await fetchIt(`http://127.0.0.1:${hopPort}/same-origin`, credentials);
+    expect(await res.json()).toMatchObject({ authorization: "Bearer secret" });
+  });
+});
+
+describe("egress internal: https to http downgrade redirect", () => {
+  let plainServer: ReturnType<typeof Bun.serve>;
+  let tlsRedirector: ReturnType<typeof Bun.serve>;
+  let cert: Buffer;
+  let certDir: string;
+
+  beforeAll(() => {
+    certDir = mkdtempSync(join(tmpdir(), "kumiko-egress-tls-downgrade-test-"));
+    const certPath = join(certDir, "cert.pem");
+    const keyPath = join(certDir, "key.pem");
+    execFileSync("openssl", [
+      "req",
+      "-x509",
+      "-newkey",
+      "rsa:2048",
+      "-nodes",
+      "-days",
+      "1",
+      "-keyout",
+      keyPath,
+      "-out",
+      certPath,
+      "-subj",
+      "/CN=127.0.0.1",
+      "-addext",
+      "subjectAltName=IP:127.0.0.1",
+    ]);
+    cert = readFileSync(certPath);
+    plainServer = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: (req) =>
+        Response.json({
+          authorization: req.headers.get("authorization"),
+          contentType: req.headers.get("content-type"),
+        }),
+    });
+    tlsRedirector = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      tls: { cert, key: readFileSync(keyPath) },
+      fetch: () =>
+        new Response(null, {
+          status: 307,
+          headers: { location: `http://127.0.0.1:${plainServer.port}/echo` },
+        }),
+    });
+  });
+
+  afterAll(() => {
+    plainServer.stop(true);
+    tlsRedirector.stop(true);
+    rmSync(certDir, { recursive: true, force: true });
+  });
+
+  test("drops authorization when the redirect downgrades https to http", async () => {
+    const fetchIt = egress({ kind: "internal", allowHosts: ["127.0.0.1"] });
+    const init: RequestInit & { tls: { ca: Buffer } } = {
+      headers: { authorization: "Bearer secret", "content-type": "text/plain" },
+      tls: { ca: cert },
+    };
+    const res = await fetchIt(`https://127.0.0.1:${tlsRedirector.port}/start`, init);
+    expect(await res.json()).toEqual({ authorization: null, contentType: "text/plain" });
   });
 });
 

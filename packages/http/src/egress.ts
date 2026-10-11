@@ -1,7 +1,9 @@
 import {
-  assertAllowedHost,
+  assertAllowedTarget,
   assertHttpScheme,
+  assertValidInternalPolicy,
   type EgressPolicy,
+  type InternalEgressPolicy,
   type ResolvedHost,
   resolvePublicHost,
 } from "./policy.js";
@@ -19,6 +21,7 @@ type PinnedRequestInit = RequestInit & { tls?: { servername: string } };
 export function egress(
   policy: EgressPolicy,
 ): (raw: string, init?: RequestInit) => Promise<Response> {
+  if (policy.kind === "internal") assertValidInternalPolicy(policy);
   return (raw, init) => runEgress(policy, raw, init);
 }
 
@@ -31,8 +34,8 @@ async function runEgress(
   assertHttpScheme(url);
 
   if (policy.kind === "internal") {
-    assertAllowedHost(url, policy.allowHosts);
-    return fetchWithAllowlistedRedirects(url, policy.allowHosts, init);
+    assertAllowedTarget(url, policy);
+    return fetchWithAllowlistedRedirects(url, policy, init);
   }
 
   // external + tenant-supplied: deny private/reserved/link-local ranges,
@@ -107,26 +110,44 @@ export function withManualRedirect(init: RequestInit | undefined): RequestInit {
   return { ...init, redirect: "manual" };
 }
 
+const ORIGIN_CHANGE_SAFE_HEADERS: ReadonlySet<string> = new Set([
+  "content-type",
+  "accept",
+  "accept-encoding",
+  "accept-language",
+  "user-agent",
+]);
+
+// Allowlist, not denylist: any credential-bearing header we have not thought
+// of (x-api-key, custom tokens) must not follow a redirect to another origin.
+function stripToSafeHeaders(init: RequestInit | undefined): RequestInit {
+  const kept = new Headers();
+  for (const [name, value] of new Headers(init?.headers)) {
+    if (ORIGIN_CHANGE_SAFE_HEADERS.has(name)) kept.set(name, value);
+  }
+  return { ...init, headers: kept };
+}
+
 // `internal` is the only kind that permits redirects (it is the only kind
-// with a host allowlist to re-validate them against). Each hop's Location
-// header is resolved and checked against the same allowlist AND restricted
-// to the current hop's host before it is followed, capped at
-// MAX_INTERNAL_REDIRECTS to avoid an infinite loop.
-// `init` (method, body, headers) is replayed verbatim on every hop — unlike
-// a browser, this does not downgrade POST to GET on a 301/302/303. That is
-// deliberate for an allowlisted internal target: a silent method change is
-// its own class of surprise, and a streamed body would fail on the second
-// hop either way. Replaying headers verbatim is also why redirects may not
-// cross hosts (see below): a second allowlisted host must not receive the
-// first host's Authorization/Cookie headers.
+// with an allowlist to re-validate them against). Each hop's Location is
+// resolved, restricted to the current hop's host and checked against the
+// policy before it is followed, capped at MAX_INTERNAL_REDIRECTS.
+// `init` (method, body) is replayed verbatim on every hop — unlike a browser,
+// this does not downgrade POST to GET on a 301/302/303. Headers are replayed
+// only while the origin is unchanged; once a hop leaves the original origin
+// (scheme or port differs), credential headers are dropped for the rest of the
+// chain. The body is still replayed to the new origin (as fetch does on
+// 307/308); use allowOrigins to forbid such hops entirely.
 async function fetchWithAllowlistedRedirects(
   url: URL,
-  allowHosts: readonly string[],
+  policy: InternalEgressPolicy,
   init: RequestInit | undefined,
 ): Promise<Response> {
   let current = url;
+  let hopInit = init;
+  let strippedInit: RequestInit | undefined;
   for (let hop = 0; hop <= MAX_INTERNAL_REDIRECTS; hop++) {
-    const res = await fetch(current, withManualRedirect(init));
+    const res = await fetch(current, withManualRedirect(hopInit));
     if (res.status < 300 || res.status >= 400) return res;
     const location = res.headers.get("location");
     if (!location) return res; // 3xx without Location — nothing to follow
@@ -140,18 +161,18 @@ async function fetchWithAllowlistedRedirects(
       );
     }
     assertHttpScheme(next);
-    // `init.headers` (e.g. Authorization, Cookie) is replayed verbatim on
-    // every hop above. Without this check, one allowlisted host redirecting
-    // to a second, different allowlisted host would forward the caller's
-    // credentials to it — a classic redirect-credential-leak. Restricting
-    // hops to the same host keeps the realistic internal case (path
-    // rewrite, trailing slash) working while closing that leak.
+    // Hosts may differ in the allowlist; credentials must still not hop
+    // between them.
     if (next.hostname.toLowerCase() !== current.hostname.toLowerCase()) {
       throw new Error(
         `egress(internal): redirect crosses host (${current.hostname} -> ${next.hostname}), not followed`,
       );
     }
-    assertAllowedHost(next, allowHosts);
+    assertAllowedTarget(next, policy);
+    if (next.origin !== url.origin) {
+      strippedInit ??= stripToSafeHeaders(init);
+      hopInit = strippedInit;
+    }
     current = next;
   }
   throw new Error(`egress(internal): exceeded ${MAX_INTERNAL_REDIRECTS} redirects`);
