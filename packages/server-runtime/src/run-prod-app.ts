@@ -95,6 +95,8 @@ import {
   configureEntityFieldEncryption,
   createDbConnection,
   type DbRunner,
+  dbConnectionOptionsFromEnv,
+  outsideTransactionPoolOptionsFromEnv,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   collectWriteHandlerQns,
@@ -970,7 +972,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     }
   }
 
-  const { db, close: closeDb } = createDbConnection(databaseUrl);
+  const { db, close: closeDb } = createDbConnection(
+    databaseUrl,
+    dbConnectionOptionsFromEnv(envSource),
+  );
+  const { db: outsideTransactionDb, close: closeOutsideTransactionDb } = createDbConnection(
+    databaseUrl,
+    outsideTransactionPoolOptionsFromEnv(envSource),
+  );
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
   // Sprint-8a Tier-Composition auto-wire: scan features for a
@@ -1156,6 +1165,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     dispatcherOptions: {
       idempotency,
       cacheSync,
+      outsideTransactionDb,
       ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
     },
     eventDedup,
@@ -1484,6 +1494,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       handle.server?.stop();
       await flushEscapeHatchAudits();
       await closeDb();
+      await closeOutsideTransactionDb();
       redis.disconnect();
     },
   };

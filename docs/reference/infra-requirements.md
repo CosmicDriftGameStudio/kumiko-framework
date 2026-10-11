@@ -31,6 +31,15 @@ Each value must match `^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,62}$`. An invalid value
 fails the scaffold instead of producing a script that Postgres rejects at
 migrate time.
 
+### Connection budget
+
+Each app or worker pod opens up to `DATABASE_POOL_MAX` (default 10) connections
+for the main pool plus `DATABASE_OUTSIDE_TX_POOL_MAX` (default 3) for the
+dedicated pool behind `ctx.dbOutsideTransaction` / `ctx.outsideTransaction`, and
+one extra connection for the event dispatcher's LISTEN session. Keep
+`pods × (DATABASE_POOL_MAX + DATABASE_OUTSIDE_TX_POOL_MAX + 1)` below Postgres
+`max_connections`, counting the extra pods of a rolling-update surge.
+
 ## + Redis
 
 Redis is required as soon as any of the following are in use:

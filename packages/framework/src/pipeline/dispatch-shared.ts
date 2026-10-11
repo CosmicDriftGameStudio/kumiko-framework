@@ -177,6 +177,8 @@ export type DispatchContext = {
   membershipQuery: string;
   // ctx.queryAsMember statement timeout in whole milliseconds.
   memberReadTimeoutMs: number;
+  // Dedicated pool for ctx.dbOutsideTransaction / outsideTransaction. Undefined = share the app pool.
+  outsideTransactionDb: DbConnection | undefined;
 };
 
 export const DEFAULT_MEMBER_READ_TIMEOUT_MS = 10_000;
@@ -446,7 +448,7 @@ export async function buildHandlerContext(
   // that is meant to outlive the request. Computed before `systemDb` below
   // so its guarded escape hatch (ctx.systemDb.outsideTransaction) can wrap
   // this same TenantDb instead of a second, independently-built one.
-  const outsideTxSource = resolveDbSource(ctx, undefined);
+  const outsideTxSource = ctx.outsideTransactionDb ?? resolveDbSource(ctx, undefined);
   const rawDbOutsideTransaction = outsideTxSource
     ? buildTenantScopedDb(outsideTxSource, undefined)
     : undefined;

@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { dbConnectionOptionsFromEnv } from "../connection.js";
+import {
+  DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX,
+  dbConnectionOptionsFromEnv,
+  outsideTransactionPoolOptionsFromEnv,
+} from "../connection.js";
 
 // createDbConnection itself opens a real postgres.js socket, so it's
 // exercised in the DB-integration suite. The env-parsing + validation
@@ -64,5 +68,36 @@ describe("dbConnectionOptionsFromEnv", () => {
       DATABASE_POOL_MAX: "10",
     });
     expect(opts).toEqual({ maxConnections: 10 });
+  });
+});
+
+describe("outsideTransactionPoolOptionsFromEnv", () => {
+  test("defaults to a small dedicated pool", () => {
+    expect(DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX).toBe(3);
+    expect(outsideTransactionPoolOptionsFromEnv({})).toEqual({ maxConnections: 3 });
+  });
+
+  test("DATABASE_OUTSIDE_TX_POOL_MAX sets the size independently of DATABASE_POOL_MAX", () => {
+    expect(
+      outsideTransactionPoolOptionsFromEnv({
+        DATABASE_POOL_MAX: "25",
+        DATABASE_OUTSIDE_TX_POOL_MAX: "5",
+      }),
+    ).toEqual({ maxConnections: 5 });
+  });
+
+  test("invalid value throws", () => {
+    expect(() =>
+      outsideTransactionPoolOptionsFromEnv({ DATABASE_OUTSIDE_TX_POOL_MAX: "abc" }),
+    ).toThrow(/DATABASE_OUTSIDE_TX_POOL_MAX="abc"/);
+  });
+
+  test("inherits idle and connect timeouts from the main pool settings", () => {
+    expect(
+      outsideTransactionPoolOptionsFromEnv({
+        DATABASE_POOL_IDLE_TIMEOUT: "60",
+        DATABASE_POOL_CONNECT_TIMEOUT: "5",
+      }),
+    ).toEqual({ maxConnections: 3, idleTimeoutSeconds: 60, connectTimeoutSeconds: 5 });
   });
 });

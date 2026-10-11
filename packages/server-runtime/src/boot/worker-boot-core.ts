@@ -15,6 +15,8 @@ import {
   configureEntityFieldEncryption,
   createDbConnection,
   type DbConnection,
+  dbConnectionOptionsFromEnv,
+  outsideTransactionPoolOptionsFromEnv,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
@@ -199,7 +201,14 @@ export async function bootWorkerProcess(
     }
   }
 
-  const { db, close: closeDb } = createDbConnection(databaseUrl);
+  const { db, close: closeDb } = createDbConnection(
+    databaseUrl,
+    dbConnectionOptionsFromEnv(envSource),
+  );
+  const { db: outsideTransactionDb, close: closeOutsideTransactionDb } = createDbConnection(
+    databaseUrl,
+    outsideTransactionPoolOptionsFromEnv(envSource),
+  );
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
   const cacheSync = createRedisCacheSyncBus({
@@ -215,6 +224,7 @@ export async function bootWorkerProcess(
       await assertWorkerSchemaCurrent(db, options.migrations?.dir, processName);
     } catch (err) {
       await closeDb();
+      await closeOutsideTransactionDb();
       redis.disconnect();
       await cacheSync.close();
       throw err;
@@ -262,6 +272,7 @@ export async function bootWorkerProcess(
     dispatcherOptions: {
       idempotency,
       cacheSync,
+      outsideTransactionDb,
       ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
     },
     eventDedup,
@@ -294,6 +305,7 @@ export async function bootWorkerProcess(
     close: async () => {
       await entrypoint.stop();
       await closeDb();
+      await closeOutsideTransactionDb();
       redis.disconnect();
     },
   };

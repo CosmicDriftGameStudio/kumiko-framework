@@ -4,6 +4,7 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
 import { createConnection } from "../db/api.js";
+import { DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX } from "../db/connection.js";
 import { createDatabase, databaseExists, dropDatabaseIfExists } from "../db/queries/test-stack.js";
 import { ensureTemporalPolyfill } from "../time/polyfill.js";
 import { generateId } from "../utils/index.js";
@@ -20,6 +21,7 @@ function requireEnv(name: string): string {
 
 export type TestDb = {
   db: DbConnection;
+  outsideTransactionDb: DbConnection;
   client: unknown;
   dbName: string;
   cleanup: () => Promise<void>;
@@ -29,6 +31,8 @@ export type CreateTestDbOptions = {
   readonly baseUrl?: string;
   readonly dbName?: string;
   readonly persistent?: boolean;
+  readonly poolMax?: number;
+  readonly outsideTransactionPoolMax?: number;
 };
 
 /**
@@ -56,17 +60,25 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
   }
 
   const testUrl = url.replace(/\/[^/]+$/, `/${dbName}`);
-  const conn = await createConnection(testUrl);
+  const conn = await createConnection(
+    testUrl,
+    opts.poolMax !== undefined ? { maxConnections: opts.poolMax } : {},
+  );
+  const outsideConn = await createConnection(testUrl, {
+    maxConnections: opts.outsideTransactionPoolMax ?? DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX,
+  });
 
   const { createEventsTable } = await import("../event-store/index.js");
   await createEventsTable(conn.db);
 
   return {
     db: conn.db,
+    outsideTransactionDb: outsideConn.db,
     client: conn.client,
     dbName,
     cleanup: async () => {
       await conn.close();
+      await outsideConn.close();
       if (!opts.persistent) {
         const admin2 = await createConnection(adminUrl, { maxConnections: 1 });
         try {

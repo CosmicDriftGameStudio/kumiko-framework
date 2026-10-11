@@ -17,7 +17,12 @@ export type {
   DbRunner,
   DbTx,
 } from "./connection.js";
-export { createDbConnection, dbConnectionOptionsFromEnv } from "./connection.js";
+export {
+  createDbConnection,
+  DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX,
+  dbConnectionOptionsFromEnv,
+  outsideTransactionPoolOptionsFromEnv,
+} from "./connection.js";
 export type { CursorQueryOptions, CursorResult, DecodedKeysetCursor } from "./cursor.js";
 export { decodeCursor, decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.js";
 export type { SchemaTable, SelectQuery, TableColumns } from "./dialect.js";
