@@ -464,3 +464,29 @@ describe("search consumer: named domain events (#2765)", () => {
     ).toBe(false);
   });
 });
+
+describe("search consumer: update on a soft-deleted row", () => {
+  test("an includeDeleted update does not put the deleted row back into the index", async () => {
+    const executor = noteExecutor();
+    const created = await executor.create({ label: "before-delete" }, admin, tenantDb());
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = String(created.data.id);
+    const deleted = await executor.delete({ id }, admin, tenantDb());
+    if (!deleted.isSuccess) throw new Error("delete failed");
+    await stack.eventDispatcher?.runOnce();
+
+    const moved = await executor.update(
+      { id, version: 2, changes: { label: "moved-while-deleted" } },
+      admin,
+      tenantDb(),
+      { includeDeleted: true },
+    );
+    if (!moved.isSuccess) throw new Error("update failed");
+    await stack.eventDispatcher?.runOnce();
+
+    const hits = await stack.search.search(admin.tenantId, "moved-while-deleted", {
+      filterType: "note",
+    });
+    expect(hits).toHaveLength(0);
+  });
+});
