@@ -209,10 +209,14 @@ function thinToSlots(
   return kept;
 }
 
+// Start/end labels are edge-aligned (a full label width inward) while inner
+// ticks are centred, so the edge gap needs 1.5 slots for the same clearance.
+const EDGE_GAP_SLOTS = 1.5;
+
 /** Calendar-aligned (UTC) tick times strictly inside the window: the smallest
- *  step whose inner ticks fit `maxLabels - 2` and keep one label slot
- *  (`span / maxLabels`) between all neighbours including the start/end labels.
- *  If no step fits, the coarsest one is thinned greedily. */
+ *  step whose inner ticks fit `maxLabels - 2`, keep one label slot
+ *  (`span / maxLabels`) between inner neighbours and `EDGE_GAP_SLOTS` to the
+ *  start/end labels. If no step fits, the coarsest one is thinned greedily. */
 export function stackedAreaAxisTicks(
   window: ChartWindow,
   maxLabels: number,
@@ -221,6 +225,7 @@ export function stackedAreaAxisTicks(
   const span = window.endMs - window.startMs;
   if (span <= 0) return [];
   const slotMs = span / maxLabels;
+  const edgeGapMs = slotMs * EDGE_GAP_SLOTS;
   const innerBudget = Math.max(0, maxLabels - 2);
   const candidates: readonly (() => readonly number[])[] = [
     ...(format === "day" ? DAY_TICK_STEPS.map((step) => () => dayTicks(window, step)) : []),
@@ -229,7 +234,7 @@ export function stackedAreaAxisTicks(
   let ticks: readonly number[] = [];
   for (const candidate of candidates) {
     ticks = candidate().filter(
-      (atMs) => atMs - window.startMs >= slotMs && window.endMs - atMs >= slotMs,
+      (atMs) => atMs - window.startMs >= edgeGapMs && window.endMs - atMs >= edgeGapMs,
     );
     if (ticks.length <= innerBudget && hasRoomBetweenLabels(window, ticks, slotMs)) return ticks;
   }

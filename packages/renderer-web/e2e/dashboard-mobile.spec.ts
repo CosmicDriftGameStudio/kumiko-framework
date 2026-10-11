@@ -76,7 +76,7 @@ async function expectNoHorizontalScroll(page: Page, width: number): Promise<void
   );
 }
 
-async function expectAxisLabelsDoNotOverlap(page: Page): Promise<void> {
+async function expectAxisLabelsDoNotOverlap(page: Page, minimumLabels: number): Promise<void> {
   const labels = await page.evaluate(() => {
     const chart = document.querySelector('[data-testid="dashboard-chart-chart"]');
     const axis = chart?.querySelector('[data-testid="chart-axis-tick"]')?.parentElement
@@ -90,7 +90,7 @@ async function expectAxisLabelsDoNotOverlap(page: Page): Promise<void> {
       .filter((rect) => rect.right - rect.left > 0)
       .sort((a, b) => a.left - b.left);
   });
-  expect(labels.length).toBeGreaterThanOrEqual(4);
+  expect(labels.length).toBeGreaterThanOrEqual(minimumLabels);
   for (let i = 1; i < labels.length; i++) {
     const previous = labels[i - 1];
     const current = labels[i];
@@ -197,7 +197,7 @@ test.describe("dashboard at 390px (mobile)", () => {
   });
 
   test("x axis labels do not overlap", async ({ page }) => {
-    await expectAxisLabelsDoNotOverlap(page);
+    await expectAxisLabelsDoNotOverlap(page, 3);
   });
 
   test("marker names are listed below the chart", async ({ page }) => {
@@ -239,7 +239,7 @@ test.describe("dashboard at 1440px (desktop)", () => {
       if (await tick.isVisible()) visibleTicks += 1;
     }
     expect(visibleTicks).toBeGreaterThanOrEqual(3);
-    await expectAxisLabelsDoNotOverlap(page);
+    await expectAxisLabelsDoNotOverlap(page, 4);
     const labels = page.getByTestId("chart-marker-label");
     await expect(labels.first()).toBeVisible();
     await expect(labels.filter({ hasText: "Autokredit abbezahlt" })).toBeVisible();
