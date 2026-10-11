@@ -157,11 +157,9 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
       registry,
     });
 
-    // 4 creates + 3 updates + 2 deletes + 1 restore = 10 Events. Wenn
-    // die ImplicitProjection silently nichts apply'd hätte, wäre der
-    // Count 0 — der Test würde dann den nachfolgenden deep-equal trotzdem
-    // verfehlen, aber explizit der Count fängt den Sub-Bug "apply lief,
-    // aber für die falsche Event-Anzahl".
+    // 4 creates + 3 updates + 2 deletes + 1 restore = 10 events. The explicit count
+    // catches the sub-bug "apply ran, but for the wrong number of events", which the
+    // deep-equal below alone could miss.
     expect(result.eventsProcessed).toBe(10);
 
     // 3. Vergleich. Erst ID-für-ID strikt prüfen damit klar ist welche
