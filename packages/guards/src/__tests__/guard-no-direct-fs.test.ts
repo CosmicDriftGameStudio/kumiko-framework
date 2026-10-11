@@ -195,6 +195,59 @@ describe("No-Direct-Fs Guard", () => {
     expect(guard.run(sfs).violations).toHaveLength(1);
   });
 
+  test("classifies findings under a nonstandard sibling root instead of throwing", () => {
+    const siblingRoot = fixtureRoot("solon", "/private/tmp/claude-501/scratchpad/wt/solon", {
+      kind: "app",
+      sourceRoots: ["src"],
+      testGlobs: ["src/**/*.{test,integration}.{ts,tsx}"],
+    });
+    const path = join(siblingRoot.absPath, "src/rogue/feature.ts");
+    const project = new Project({ skipAddingFilesFromTsConfig: true, useInMemoryFileSystem: true });
+    project.createSourceFile(
+      path,
+      `
+        import { readFileSync } from "node:fs";
+        void readFileSync;
+      `,
+    );
+
+    let outcome: ReturnType<typeof guard.run> | undefined;
+    expect(() => {
+      outcome = guard.run(project.getSourceFiles(), [siblingRoot]);
+    }).not.toThrow();
+
+    expect(outcome?.violations).toHaveLength(1);
+    expect(outcome?.violations[0]?.message).toContain("node:fs");
+    expect(outcome?.violations[0]?.file).toContain("wt/solon/src/rogue/feature.ts");
+  });
+
+  test("attributes a sibling root's allowlisted path correctly (repo-scoped allowlist, not just no-throw)", () => {
+    const siblingFrameworkRoot = fixtureRoot(
+      "kumiko-framework",
+      "/private/tmp/claude-501/scratchpad/wt/kumiko-framework",
+      {
+        kind: "framework",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.{test,integration}.{ts,tsx}"],
+      },
+    );
+    const path = join(
+      siblingFrameworkRoot.absPath,
+      "packages/framework/src/files/local-provider.ts",
+    );
+    const project = new Project({ skipAddingFilesFromTsConfig: true, useInMemoryFileSystem: true });
+    project.createSourceFile(
+      path,
+      `
+        import { readFileSync } from "node:fs";
+        void readFileSync;
+      `,
+    );
+
+    const outcome = guard.run(project.getSourceFiles(), [siblingFrameworkRoot]);
+    expect(outcome.violations).toHaveLength(0);
+  });
+
   test("an ancestor 'tools/' segment above the repo root does not exclude the whole repo (path-normalization regression)", () => {
     const sfs = files({
       "tools/wt/packages/bundled-features/src/rogue/feature.ts": `
