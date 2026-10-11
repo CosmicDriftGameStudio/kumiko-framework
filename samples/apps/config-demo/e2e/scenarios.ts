@@ -1,3 +1,4 @@
+// @runtime test
 import { CSRF_COOKIE_NAME, type Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 

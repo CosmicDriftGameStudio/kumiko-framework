@@ -1,3 +1,4 @@
+// @runtime test
 // Role-gating E2E for admin-console — separate seeded users per role.
 // Complements security.integration tests (HTTP 403 matrix) with workspace
 // switcher + overview + members UI checks.

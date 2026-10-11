@@ -1,3 +1,4 @@
+// @runtime test
 // Playwright specs derived programmatically from the registry.
 //
 // How it works: globalSetup (see global-setup.ts) spawns an emitter script
