@@ -27,13 +27,15 @@ describe("stackedAreaAxisTicks", () => {
 
   for (const [name, window] of Object.entries(windows)) {
     for (const maxLabels of [4, 7, 12]) {
-      test(`${name} with ${maxLabels} labels keeps one label slot between all neighbours`, () => {
+      test(`${name} with ${maxLabels} labels keeps one label slot between inner neighbours and 1.5 to the edges`, () => {
         const ticks = stackedAreaAxisTicks(window, maxLabels, stackedAreaDateFormatFor(window));
         const positions = [window.startMs, ...ticks, window.endMs];
         const slot = (window.endMs - window.startMs) / maxLabels;
         expect(ticks.length).toBeLessThanOrEqual(maxLabels - 2);
         for (let i = 1; i < positions.length; i++) {
-          expect((positions[i] ?? 0) - (positions[i - 1] ?? 0)).toBeGreaterThanOrEqual(slot);
+          const touchesEdge = i === 1 || i === positions.length - 1;
+          const minGap = touchesEdge ? slot * 1.5 : slot;
+          expect((positions[i] ?? 0) - (positions[i - 1] ?? 0)).toBeGreaterThanOrEqual(minGap);
         }
       });
     }
