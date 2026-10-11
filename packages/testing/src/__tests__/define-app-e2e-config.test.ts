@@ -107,7 +107,7 @@ describe("defineAppE2eConfig defaults", () => {
     }
   });
 
-  test("the free parameters are port, env, locale, projects, serverEntry, testDir and testMatch", () => {
+  test("the free parameters include port, env, locale, projects, serverEntry, testDir and testMatch", () => {
     const config = defineAppE2eConfig({
       port: 5000,
       locale: "de",
@@ -122,6 +122,54 @@ describe("defineAppE2eConfig defaults", () => {
     if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
     expect(server.command).toBe("bun run e2e/custom-server.ts");
     expect(server.env?.["APP_FLAG"]).toBe("on");
+  });
+
+  test("permissions and launchOptions land in the shared use block and stay unset by default", () => {
+    const config = defineAppE2eConfig({
+      port: 1,
+      permissions: ["camera", "microphone"],
+      launchOptions: { args: ["--use-fake-device-for-media-stream"] },
+    });
+    expect(config.use?.permissions).toEqual(["camera", "microphone"]);
+    expect(config.use?.launchOptions).toEqual({ args: ["--use-fake-device-for-media-stream"] });
+
+    const defaults = defineAppE2eConfig({ port: 1 });
+    expect(defaults.use?.permissions).toBeUndefined();
+    expect(defaults.use?.launchOptions).toBeUndefined();
+    expect(defaults.use).not.toHaveProperty("permissions");
+    expect(defaults.use).not.toHaveProperty("launchOptions");
+  });
+
+  test("serverCommand is used verbatim as the webServer command", () => {
+    const server = defineAppE2eConfig({
+      port: 1,
+      serverCommand: "cd .. && bun run src/app/server.ts",
+    }).webServer;
+    if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
+    expect(server.command).toBe("cd .. && bun run src/app/server.ts");
+  });
+
+  test("preload (single and list) puts --preload flags before the server entry", () => {
+    const commandOf = (input: Parameters<typeof defineAppE2eConfig>[0]) => {
+      const server = defineAppE2eConfig(input).webServer;
+      if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
+      return server.command;
+    };
+    expect(commandOf({ port: 1, preload: "./e2e/_helpers/fake.ts" })).toBe(
+      "bun run --preload ./e2e/_helpers/fake.ts e2e/server.ts",
+    );
+    expect(
+      commandOf({ port: 1, serverEntry: "src/server.ts", preload: ["./a.ts", "./b.ts"] }),
+    ).toBe("bun run --preload ./a.ts --preload ./b.ts src/server.ts");
+  });
+
+  test("serverCommand combined with serverEntry or preload is a type error and throws at runtime", () => {
+    // @ts-expect-error serverCommand replaces serverEntry
+    const withEntry = () => defineAppE2eConfig({ port: 1, serverCommand: "x", serverEntry: "y" });
+    // @ts-expect-error serverCommand replaces preload
+    const withPreload = () => defineAppE2eConfig({ port: 1, serverCommand: "x", preload: "p" });
+    expect(withEntry).toThrow(/serverCommand replaces serverEntry and preload/);
+    expect(withPreload).toThrow(/serverCommand replaces serverEntry and preload/);
   });
 
   test("the default chromium project runs at the 1920×1080 desktop standard, not the device's 1280×720", () => {
