@@ -27,6 +27,7 @@ import type {
   WriteResult,
 } from "@cosmicdrift/kumiko-headless";
 
+import { dashboardQueryResponse } from "./dashboard-fixture";
 import { ROLE_AVAILABILITY_QUERY } from "./schema";
 
 type Row = Record<string, unknown> & { id: string };
@@ -141,6 +142,10 @@ export function createMockDispatcher(state: MockDispatcherState = {}): Dispatche
         { value: "TenantAdmin", disabled: true },
       ];
       return { isSuccess: true, data: { rows } as unknown as TData };
+    }
+    const dashboardResponse = dashboardQueryResponse(type);
+    if (dashboardResponse !== undefined) {
+      return { isSuccess: true, data: dashboardResponse as unknown as TData };
     }
     const { entity, verb } = parseQn(type);
     const table = getTable(entity);

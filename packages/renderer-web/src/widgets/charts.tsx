@@ -19,6 +19,7 @@ import {
   type StackedAreaRanges,
   type StackedAreaWindowSelection,
   snapBrushWindow,
+  stackedAreaAxisTicks,
   stackedAreaDateFormatFor,
 } from "./chart-window.js";
 import { ModeSwitch } from "./mode-switch.js";
@@ -688,6 +689,36 @@ function YTicks({
 
 const BAR_LABEL_TARGET = 8;
 
+const STACKED_AREA_PLOT_HEIGHT_CLASS = "h-48 @2xl:h-64";
+
+// Container-query density tiers for the x axis: label budget per tier.
+const AXIS_TIERS = [
+  { maxLabels: 4, visibilityClass: "@xl:hidden" },
+  { maxLabels: 7, visibilityClass: "hidden @xl:block @4xl:hidden" },
+  { maxLabels: 12, visibilityClass: "hidden @4xl:block" },
+] as const;
+
+const MARKER_LABEL_FLIP_FRACTION = 0.97;
+
+type MarkerLabelGroup = {
+  readonly atMs: number;
+  readonly text: string;
+  readonly color: string;
+};
+
+// Markers sharing a timestamp become one label ("A, B") in the first one's color.
+function groupMarkerLabels(markers: readonly ChartMarker[]): readonly MarkerLabelGroup[] {
+  const groups = new Map<number, ChartMarker[]>();
+  for (const marker of [...markers].sort((a, b) => a.atMs - b.atMs)) {
+    groups.set(marker.atMs, [...(groups.get(marker.atMs) ?? []), marker]);
+  }
+  return [...groups.entries()].map(([atMs, members]) => ({
+    atMs,
+    text: members.map((m) => m.label).join(", "),
+    color: members[0]?.color ?? "var(--color-foreground)",
+  }));
+}
+
 /** Vertically stacked bars per bucket (x axis = bucket, not time).
  *  The last bucket carries `todayLabel` when it contains `windowEndMs` and
  *  has day granularity. */
@@ -882,7 +913,9 @@ function MarkerPins({
   windowEndMs,
   numbered = true,
   formatMarkerTime,
+  className,
 }: {
+  readonly className?: string;
   readonly markers: readonly ChartMarker[];
   readonly windowStartMs: number;
   readonly windowEndMs: number;
@@ -892,7 +925,7 @@ function MarkerPins({
 }): ReactNode {
   const span = Math.max(1, windowEndMs - windowStartMs);
   return (
-    <div aria-hidden="true" className="relative mt-1 h-5">
+    <div aria-hidden="true" className={cn("relative mt-1 h-5", className)}>
       {sortMarkers(markers).map((marker, i) => (
         <span
           key={marker.key}
@@ -937,12 +970,14 @@ function markerLegendItems(
 function MarkerLegend({
   markers,
   formatMarkerTime,
+  className,
 }: {
+  readonly className?: string;
   readonly markers: readonly ChartMarker[];
   readonly formatMarkerTime?: (atMs: number) => string;
 }): ReactNode {
   return (
-    <ol className="flex flex-col gap-1 text-xs text-muted-foreground">
+    <ol className={cn("flex flex-col gap-1 text-xs text-muted-foreground", className)}>
       {sortMarkers(markers).map((marker, i) => (
         <li key={marker.key} data-testid="chart-marker-item" className="flex gap-2">
           <span
@@ -1084,7 +1119,7 @@ function StackedAreaBrush({
   const startFraction = fractionOf(window.startMs);
   const endFraction = fractionOf(window.endMs);
   const handleClass =
-    "absolute top-0 z-10 h-full w-2 -translate-x-1/2 cursor-ew-resize touch-none rounded-sm bg-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+    "absolute top-0 z-10 h-full w-6 -translate-x-1/2 cursor-ew-resize touch-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
   const renderHandle = (handle: BrushHandle): ReactNode => (
     <div
       data-testid={`${testId}-${handle}`}
@@ -1098,7 +1133,12 @@ function StackedAreaBrush({
       style={{ left: percent(handle === "start" ? startFraction : endFraction) }}
       onKeyDown={handleKeyDown(handle)}
       {...dragHandlers(handle)}
-    />
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-1/2 w-2 -translate-x-1/2 rounded-sm bg-foreground/60"
+      />
+    </div>
   );
 
   return (
@@ -1151,9 +1191,11 @@ export function StackedAreaChart({
   todayLabel,
   formatBucketLabel,
   formatValue = String,
+  formatAxisValue = formatValue,
   formatMarkerTime,
   dateFormat,
   markerLegend = "list",
+  markerLabels = false,
   scrollable = false,
   showLegendTotals = true,
   emptyContent,
@@ -1183,11 +1225,15 @@ export function StackedAreaChart({
   readonly todayLabel: string;
   readonly formatBucketLabel: (atMs: number, format: StackedAreaDateFormat) => string;
   readonly formatValue?: (value: number) => string;
+  /** y-axis tick labels only (legend and totals keep `formatValue`); defaults to `formatValue`. */
+  readonly formatAxisValue?: (value: number) => string;
   readonly formatMarkerTime?: (atMs: number, format: StackedAreaDateFormat) => string;
   /** Overrides the automatic format (month and year once the visible window spans 18 months). */
   readonly dateFormat?: StackedAreaDateFormat;
   /** "legend": unnumbered pins with tooltip, one dashed legend entry per marker label and color. */
   readonly markerLegend?: "list" | "legend";
+  /** Writes each marker label vertically next to its guide line on wide containers; narrow ones keep the pins. */
+  readonly markerLabels?: boolean;
   /** Fixed width per bucket; the plot scrolls horizontally, y ticks stay put. */
   readonly scrollable?: boolean;
   readonly showLegendTotals?: boolean;
@@ -1330,7 +1376,7 @@ export function StackedAreaChart({
       <svg
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
-        className="block h-32 w-full"
+        className={cn("block w-full", STACKED_AREA_PLOT_HEIGHT_CLASS)}
         role="img"
         aria-label={ariaLabel}
       >
@@ -1343,10 +1389,24 @@ export function StackedAreaChart({
             <rect x={todayX} y={0} width={width - todayX} height={height} />
           </clipPath>
         </defs>
-        <g clipPath={`url(#${clipId}-past)`}>{renderBands(0.85)}</g>
+        {[0, max / 2, max].map((tickValue) => (
+          <line
+            key={tickValue}
+            data-testid="chart-grid-line"
+            x1={0}
+            x2={width}
+            y1={yOf(tickValue)}
+            y2={yOf(tickValue)}
+            stroke="var(--color-border)"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        <g clipPath={`url(#${clipId}-past)`}>{renderBands(0.55)}</g>
         {todayFraction !== undefined && (
           <g data-testid="chart-forecast-region" clipPath={`url(#${clipId}-future)`}>
-            {renderBands(0.3)}
+            {renderBands(0.25)}
           </g>
         )}
         {coloredMarkers.map((marker) => {
@@ -1408,18 +1468,58 @@ export function StackedAreaChart({
           ))}
         </div>
       ) : (
-        <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-          <span>{formatBucket(windowStartMs)}</span>
-          <span>{formatBucket(windowEndMs)}</span>
+        <div className="relative mt-1 h-4 text-[11px] text-muted-foreground">
+          <span className="absolute left-0 whitespace-nowrap">{formatBucket(windowStartMs)}</span>
+          <span className="absolute right-0 whitespace-nowrap">{formatBucket(windowEndMs)}</span>
+          {AXIS_TIERS.map((tier) => (
+            <div key={tier.maxLabels} className={cn("absolute inset-0", tier.visibilityClass)}>
+              {stackedAreaAxisTicks(visibleWindow, tier.maxLabels, effectiveDateFormat).map(
+                (tickMs) => (
+                  <span
+                    key={tickMs}
+                    data-testid="chart-axis-tick"
+                    className="absolute -translate-x-1/2 whitespace-nowrap"
+                    style={{ left: percent(fractionOf(tickMs)) }}
+                  >
+                    {formatBucket(tickMs)}
+                  </span>
+                ),
+              )}
+            </div>
+          ))}
         </div>
       )}
+      {markerLabels &&
+        groupMarkerLabels(markers ?? []).map((group) => {
+          const fraction = fractionOf(group.atMs);
+          const flipped = fraction > MARKER_LABEL_FLIP_FRACTION;
+          return (
+            <div
+              key={group.atMs}
+              className={cn(
+                "pointer-events-none absolute top-0 hidden @2xl:block",
+                flipped ? "-translate-x-full pr-1" : "pl-1",
+              )}
+              style={{ left: percent(fraction) }}
+            >
+              <span
+                data-testid="chart-marker-label"
+                className="block max-h-44 rotate-180 overflow-hidden text-ellipsis whitespace-nowrap text-[11px] leading-none [writing-mode:vertical-rl] @2xl:max-h-60"
+                style={{ color: group.color }}
+              >
+                {group.text}
+              </span>
+            </div>
+          );
+        })}
       {markers !== undefined && markers.length > 0 && (
         <MarkerPins
           markers={markers}
           windowStartMs={windowStartMs}
           windowEndMs={windowEndMs}
-          numbered={markerLegend === "list"}
+          numbered={markerLegend === "list" || markerLabels}
           formatMarkerTime={formatMarkerTimeInWindow}
+          {...(markerLabels && { className: "@2xl:hidden" })}
         />
       )}
     </>
@@ -1456,13 +1556,13 @@ export function StackedAreaChart({
     ) : undefined;
 
   return (
-    <div data-testid={testId} className="flex flex-col gap-3">
+    <div data-testid={testId} className="@container flex flex-col gap-3">
       {ownRangeSwitch}
       <div className="flex gap-2">
         <YTicks
           max={max}
-          formatValue={formatValue}
-          className={cn("h-32 pb-0", scrollable && "mt-4")}
+          formatValue={formatAxisValue}
+          className={cn("shrink-0 pb-0", STACKED_AREA_PLOT_HEIGHT_CLASS, scrollable && "mt-4")}
         />
         {scrollable ? (
           <div
@@ -1509,8 +1609,12 @@ export function StackedAreaChart({
             : []),
         ]}
       />
-      {markerLegend === "list" && markers !== undefined && markers.length > 0 && (
-        <MarkerLegend markers={markers} formatMarkerTime={formatMarkerTimeInWindow} />
+      {markers !== undefined && markers.length > 0 && (markerLegend === "list" || markerLabels) && (
+        <MarkerLegend
+          markers={markers}
+          formatMarkerTime={formatMarkerTimeInWindow}
+          {...(markerLegend !== "list" && { className: "@2xl:hidden" })}
+        />
       )}
     </div>
   );

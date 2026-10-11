@@ -117,5 +117,10 @@ Lines use the same y scale as the bands and count toward its maximum; a `null` v
 | `markerKinds` | marker `kind` to `{ tone }` or `{ color }`. Matching markers get a colored pin and a dashed guide line through the plot; markers without a declared kind keep the neutral pin. |
 | `legendTotals` | `false` hides the per-series sums in the legend (useful for balances). Default `true`. |
 | `ranges` | a range switch in the panel header: `{ options: { value, label, months? }[], default }`. An option with `months` shows a window of that many months starting at `todayMs` (or the last bucket), moved back when the data ends earlier. An option without `months` shows everything. Bands, lines and markers are all filtered to the window. |
+| `brush` | `true` adds a scrubber under the plot to drag the visible window; without `ranges` it starts at today. |
+| `initialWindow` | `"from-today"` starts at today even when `ranges.default` is set. Default `"default-range"`. |
+| `dateFormat` | `"day"` or `"month"` for axis and marker labels. Default automatic: day and month below 18 visible months, month and year above. |
+| `markerLegend` | `"legend"` drops the numbered marker list: pins become plain dots with a tooltip and the legend lists marker kinds (see `markerKinds[].label`). Default `"list"`. |
+| `markerLabels` | `true` writes each marker label vertically next to its guide line on wide panels; narrow panels keep the pins. Markers with the same timestamp share one label. Default `false`. |
 
-The boot validator rejects these options on other chart kinds, an empty `ranges.options`, duplicate option values, a `default` that is not an option, a `months` that is not a positive integer, a marker kind without tone and color, and an empty color.
+The boot validator rejects these options on other chart kinds, an empty `ranges.options`, duplicate option values, a `default` that is not an option, a `months` that is not a positive integer, a marker kind without tone and color, an empty color, and a non-boolean `brush`, `legendTotals` or `markerLabels`.

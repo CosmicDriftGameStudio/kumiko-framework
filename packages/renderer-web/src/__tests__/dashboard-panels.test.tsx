@@ -1149,21 +1149,19 @@ describe("dashboard stat-group subtitle, strip icons and progress sub line", () 
     expect(cell("wide")).toContain("lg:col-span-4");
   });
 
-  test("a labeled stat-group sizes its columns to its values", async () => {
+  test("a labeled stat-group wraps its tiles by available width", async () => {
     renderDashboard(
       {
         id: "group-cols",
         type: "dashboard",
-        panels: [labeledGroup("one", 1), labeledGroup("two", 2), labeledGroup("three", 3)],
+        panels: [labeledGroup("one", 1), labeledGroup("three", 3)],
       },
       { "demo:query:kpi:any": () => ok({ value: "1" }) },
     );
     const grid = (id: string) =>
       screen.getByTestId(`dashboard-panel-${id}`).querySelector("section.grid")?.className ?? "";
-    await waitFor(() => expect(grid("two")).toContain("sm:grid-cols-2"));
-    expect(grid("two")).not.toContain("sm:grid-cols-3");
-    expect(grid("three")).toContain("sm:grid-cols-3");
-    expect(grid("one")).not.toContain("sm:grid-cols");
+    await waitFor(() => expect(grid("three")).toContain("auto-fit"));
+    expect(grid("one")).toContain("auto-fit");
   });
 
   test("an unlabeled stat-group keeps each child's icon and accent color", async () => {
@@ -1399,5 +1397,79 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
     });
     await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
     expect(screen.getByTestId("dashboard-chart-main").textContent).toContain("2027");
+  });
+});
+
+describe("dashboard stacked-area panel header and axes", () => {
+  const years = [2026, 2027, 2028].map((year) => Date.UTC(year, 0, 1));
+  const payload = {
+    windowStartMs: years[0],
+    windowEndMs: years[2],
+    series: [
+      {
+        key: "remaining",
+        label: "Remaining",
+        points: years.map((atMs, i) => ({ atMs, value: 150_000_000 - i * 50_000_000 })),
+      },
+    ],
+    markers: [
+      { atMs: years[1], label: "Payoff one" },
+      { atMs: years[2], label: "Payoff two" },
+    ],
+  };
+  const handlers = { "demo:query:metric:chart": () => ok(payload) };
+  const ranges = {
+    options: [
+      { value: "y1", label: "1 Y", months: 12 },
+      { value: "max", label: "Max" },
+    ],
+    default: "max",
+  };
+
+  test("the y axis shows compact currency, not the full amount", async () => {
+    renderDashboard(
+      chartScreen("stacked-area", {
+        valueFormat: { kind: "currency", currency: "EUR" },
+        legendTotals: false,
+      }),
+      handlers,
+      { locale: "de-DE" },
+    );
+    const tick = await screen.findByText(/^1,5\sMio\.\s€$/);
+    expect(screen.getByText(/^750\.000\s€$/)).toBeTruthy();
+    expect(screen.getByText(/^0\s€$/)).toBeTruthy();
+    expect(tick.parentElement?.textContent).not.toContain("1.500.000,00");
+  });
+
+  test("the subtitle sits in its own element right after the title inside the header", async () => {
+    renderDashboard(chartScreen("stacked-area", { subtitle: "demo:chart-subtitle" }), handlers);
+    const subtitle = await screen.findByText("demo:chart-subtitle");
+    const title = screen.getByRole("heading", { name: "demo:chart" });
+    expect(title.nextElementSibling).toBe(subtitle);
+    expect(subtitle.parentElement).toBe(title.parentElement);
+    expect(subtitle.closest("header")).not.toBeNull();
+  });
+
+  test("markerLabels is passed through to the chart", async () => {
+    renderDashboard(chartScreen("stacked-area", { markerLabels: true }), handlers);
+    const labels = await screen.findAllByTestId("chart-marker-label");
+    expect(labels.map((label) => label.textContent)).toEqual(["Payoff one", "Payoff two"]);
+  });
+
+  test("marker labels are absent without markerLabels", async () => {
+    renderDashboard(chartScreen("stacked-area"), handlers);
+    await screen.findByTestId("dashboard-chart-main");
+    expect(screen.queryByTestId("chart-marker-label")).toBeNull();
+  });
+
+  test("the pill of ranges.default is active", async () => {
+    renderDashboard(chartScreen("stacked-area", { ranges }), handlers);
+    const rangeSwitch = await screen.findByTestId("dashboard-chart-range-main");
+    expect(
+      within(rangeSwitch).getByRole("button", { name: "Max" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      within(rangeSwitch).getByRole("button", { name: "1 Y" }).getAttribute("aria-pressed"),
+    ).toBe("false");
   });
 });

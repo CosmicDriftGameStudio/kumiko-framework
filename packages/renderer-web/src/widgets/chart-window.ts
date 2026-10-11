@@ -151,3 +151,87 @@ export function snapBrushWindow(
   }
   return { startMs: times[startIndex] ?? startMs, endMs: times[endIndex] ?? endMs };
 }
+
+const MONTH_TICK_STEPS = [1, 2, 3, 6, 12, 24, 36, 60, 120] as const;
+const DAY_TICK_STEPS = [1, 2, 7, 14] as const;
+const DAY_MS = 86_400_000;
+
+function monthTicks(window: ChartWindow, step: number): readonly number[] {
+  const startOfMonth = Temporal.Instant.fromEpochMilliseconds(window.startMs)
+    .toZonedDateTimeISO("UTC")
+    .startOfDay()
+    .with({ day: 1 });
+  const ticks: number[] = [];
+  for (let cursor = startOfMonth; ; cursor = cursor.add({ months: 1 })) {
+    const atMs = cursor.epochMilliseconds;
+    if (atMs >= window.endMs) break;
+    if (atMs > window.startMs && (cursor.year * 12 + cursor.month - 1) % step === 0) {
+      ticks.push(atMs);
+    }
+  }
+  return ticks;
+}
+
+function dayTicks(window: ChartWindow, step: number): readonly number[] {
+  const ticks: number[] = [];
+  for (
+    let atMs = Math.ceil(window.startMs / DAY_MS) * DAY_MS;
+    atMs < window.endMs;
+    atMs += DAY_MS
+  ) {
+    if (atMs > window.startMs && (atMs / DAY_MS) % step === 0) ticks.push(atMs);
+  }
+  return ticks;
+}
+
+function hasRoomBetweenLabels(
+  window: ChartWindow,
+  ticks: readonly number[],
+  slotMs: number,
+): boolean {
+  const positions = [window.startMs, ...ticks, window.endMs];
+  return positions.every((atMs, i) => i === 0 || atMs - (positions[i - 1] ?? atMs) >= slotMs);
+}
+
+function thinToSlots(
+  window: ChartWindow,
+  ticks: readonly number[],
+  slotMs: number,
+): readonly number[] {
+  const kept: number[] = [];
+  let previous = window.startMs;
+  for (const atMs of ticks) {
+    if (atMs - previous >= slotMs && window.endMs - atMs >= slotMs) {
+      kept.push(atMs);
+      previous = atMs;
+    }
+  }
+  return kept;
+}
+
+/** Calendar-aligned (UTC) tick times strictly inside the window: the smallest
+ *  step whose inner ticks fit `maxLabels - 2` and keep one label slot
+ *  (`span / maxLabels`) between all neighbours including the start/end labels.
+ *  If no step fits, the coarsest one is thinned greedily. */
+export function stackedAreaAxisTicks(
+  window: ChartWindow,
+  maxLabels: number,
+  format: StackedAreaDateFormat,
+): readonly number[] {
+  const span = window.endMs - window.startMs;
+  if (span <= 0) return [];
+  const slotMs = span / maxLabels;
+  const innerBudget = Math.max(0, maxLabels - 2);
+  const candidates: readonly (() => readonly number[])[] = [
+    ...(format === "day" ? DAY_TICK_STEPS.map((step) => () => dayTicks(window, step)) : []),
+    ...MONTH_TICK_STEPS.map((step) => () => monthTicks(window, step)),
+  ];
+  let ticks: readonly number[] = [];
+  for (const candidate of candidates) {
+    ticks = candidate().filter(
+      (atMs) => atMs - window.startMs >= slotMs && window.endMs - atMs >= slotMs,
+    );
+    if (ticks.length <= innerBudget && hasRoomBetweenLabels(window, ticks, slotMs)) return ticks;
+  }
+  return thinToSlots(window, ticks, slotMs).slice(0, innerBudget);
+}

@@ -12,6 +12,7 @@ import type {
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer-web";
+import { dashboardScreen } from "./dashboard-fixture";
 
 export const thingEntity = {
   fields: {
@@ -78,8 +79,15 @@ export const e2eSchema: AppSchema = {
   features: [
     {
       featureName: "test",
+      translations: { "screen:debt-dashboard.title": { en: "Debts", de: "Schulden" } },
       entities: { thing: thingEntity },
-      screens: [thingEditScreen, thingListScreen, rolesPlainScreen, rolesAvailabilityScreen],
+      screens: [
+        thingEditScreen,
+        thingListScreen,
+        rolesPlainScreen,
+        rolesAvailabilityScreen,
+        dashboardScreen,
+      ],
       navs: [
         { id: "thing-list", label: "Things", screen: "thing-list", order: 10 },
         { id: "thing-new", label: "New Thing", screen: "thing-edit", order: 20 },

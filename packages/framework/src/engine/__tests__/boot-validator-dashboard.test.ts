@@ -857,6 +857,7 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
     ["dateFormat", { dateFormat: "month" }],
     ["initialWindow", { initialWindow: "from-today" }],
     ["markerLegend", { markerLegend: "legend" }],
+    ["markerLabels", { markerLabels: true }],
   ] as const)("rejects %s on a chart kind other than stacked-area", (prop, extra) => {
     const feature = gatedFeature([{ ...AREA, chart: "stacked-bars", ...extra }]);
     expect(() => validateBoot([feature])).toThrow(
@@ -895,6 +896,12 @@ describe("validateBoot — dashboard panel gates, stat-group subtitle and stacke
     expect(() => validateBoot([gatedFeature([{ ...AREA, brush: true }])])).not.toThrow();
     const feature = gatedFeature([{ ...AREA, brush: "yes" as unknown as boolean }]);
     expect(() => validateBoot([feature])).toThrow(/non-boolean brush/);
+  });
+
+  test("accepts markerLabels on stacked-area and rejects a non-boolean markerLabels", () => {
+    expect(() => validateBoot([gatedFeature([{ ...AREA, markerLabels: true }])])).not.toThrow();
+    const feature = gatedFeature([{ ...AREA, markerLabels: "yes" as unknown as boolean }]);
+    expect(() => validateBoot([feature])).toThrow(/non-boolean markerLabels/);
   });
 
   test("accepts dateFormat, initialWindow, markerLegend and a marker kind label on stacked-area", () => {
