@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.359.0",
+    "type": "improvement",
+    "title": "actionForm screens honour the called handler's excludedFields",
+    "detail": "buildAppSchema projects the handler's excludedFields onto actionForm screens as writeExcludedFields (a flat list, unlike entityEdit's per-verb object). The form shows these fields read-only, not required and never in the payload.",
+    "migration": "Drop a hand-written readOnly lock on an actionForm field once the handler it calls declares excludedFields for it."
+  },
+  {
     "version": "0.358.0",
     "type": "fix",
     "title": "useExtension options with function values and package-imported extension names no longer fail to parse",
