@@ -26,6 +26,11 @@ export {
   type DeliveryStatusValue,
 } from "./public-names.js";
 
+// Single source for claim (delivery-service) and terminal-failure release (jobs).
+export function deliveryIdempotencyRedisKey(tenantId: string, key: string): string {
+  return `delivery:idem:${tenantId}:${key}`;
+}
+
 // notify() priority → BullMQ job priority. Lower number = processed first; all
 // > 0 so prioritised delivery jobs never mix with BullMQ's "0 = unprioritised
 // FIFO" bucket. critical jobs jump ahead of normal/low in the worker queue.

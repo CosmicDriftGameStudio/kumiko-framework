@@ -18,6 +18,7 @@ export type CreateDeliveryTestContextOptions = {
   readonly log?: Logger;
   readonly jobRunner?: JobRunner;
   readonly secrets?: SecretsContext;
+  readonly idempotencyRedis?: Redis;
 };
 
 /**
