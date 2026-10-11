@@ -16,9 +16,10 @@ Embedded lists are accessible: every cell control has an accessible name ("Qty, 
 
 <!-- kumiko-changes
 feature: framework
-type: improvement
+type: breaking
 title: Uploads from an update form are attached to the record
-detail: computeEditViewModel accepts entityId (the record being edited, update mode only) and sets it on the hints of file, image, files and images fields; RenderEdit passes the id it was mounted with and the file input sends it as the entityId multipart part of POST /api/files. Behaviour change: such files are now attached to the record, so the default file access guard lets only the uploader and Admin/SystemAdmin read them. Apps that want tenant-wide read set accessGuard or privilegedRoles. A qr-overlay variant of an image field no longer throws for a file uploaded from an update form. Write-form sections and create forms send no entityId.
+detail: computeEditViewModel accepts entityId (the record being edited, update mode only) and sets it on the hints of file, image, files and images fields; RenderEdit passes the id it was mounted with and the file input sends it as the entityId multipart part of POST /api/files. Behaviour change: such files are now attached to the record, so the default file access guard lets only the uploader and Admin/SystemAdmin read them. Apps that want tenant-wide read set accessGuard or privilegedRoles. A qr-overlay variant of an image field no longer throws for a file uploaded from an update form. Write-form sections and create forms send no entityId. EmbeddedListInput has a new required actionsLabel prop.
+migration: Check every image, images, file and files field that is edited in an update form. If users other than the uploader and Admin/SystemAdmin must see new uploads (shared photos, avatars shown to colleagues), set accessGuard or add their roles to privilegedRoles in the files feature options. Files uploaded before the update keep their old access. Custom primitive sets that implement EmbeddedListInput accept the new actionsLabel prop and render it as the actions column header; custom file/image Input primitives forward entityId into the upload and offer a remove control that calls onChange(null).
 -->
 
 <!-- kumiko-changes

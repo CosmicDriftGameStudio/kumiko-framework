@@ -377,6 +377,9 @@ export type InputProps =
       readonly name: string;
       /** FileRef-UUID (gespeicherte Datei) oder null (kein Upload). */
       readonly value: string | null;
+      /** Implementations must offer their own remove control that calls
+       *  `onChange(null)`: FileListField relies on it to drop a file from an
+       *  `images`/`files` field. */
       readonly onChange: (fileId: string | null) => void;
       readonly disabled?: boolean;
       readonly required?: boolean;
@@ -387,7 +390,8 @@ export type InputProps =
       /** Für den Upload-POST `/api/files` — der Endpoint prüft maxSize/accept
        *  gegen die Field-Def von (entityType, fieldName). */
       readonly entityType?: string;
-      /** Sent with the upload so the FileRef is attached to the record. */
+      /** Must be sent as the `entityId` part of the upload so the FileRef is
+       *  attached to the record (qr overlays and access guards need it). */
       readonly entityId?: string;
       readonly fieldName?: string;
       /** Only for kind:"image" — variant name for the preview
