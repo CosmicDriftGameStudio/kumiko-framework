@@ -25,7 +25,11 @@ import { isIP } from "node:net";
 
 export type EgressPolicy =
   | { readonly kind: "external" }
-  | { readonly kind: "internal"; readonly allowHosts: readonly string[] }
+  | {
+      readonly kind: "internal";
+      readonly allowHosts?: readonly string[];
+      readonly allowOrigins?: readonly string[];
+    }
   | { readonly kind: "tenant-supplied" };
 
 export function isBlockedIp(ip: string): boolean {
@@ -282,17 +286,69 @@ export async function isPublicHost(
   }
 }
 
-// Explicit allowlist check for `internal` — the hostname (not the resolved
-// IP) must appear verbatim (case-insensitive) in `allowHosts`. No range
-// check: `internal` targets are deliberately private/cluster-local.
-// `allowHosts` is a host allowlist, not an origin allowlist: it is
-// deliberately port- and scheme-agnostic (`svc.internal` also admits
-// `svc.internal:9999` over http or https) — `EgressPolicy` doesn't carry a
-// port or scheme in its shape, so there is nothing more specific to check.
-export function assertAllowedHost(url: URL, allowHosts: readonly string[]): void {
+export type InternalEgressPolicy = Extract<EgressPolicy, { kind: "internal" }>;
+
+function isHostEntryWellFormed(entry: string): boolean {
+  if (entry.includes("/") || entry.includes("@") || entry.includes("://")) return false;
+  if (!entry.includes(":")) return true;
+  return isIP(stripBrackets(entry)) === 6;
+}
+
+function isOriginEntryWellFormed(entry: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(entry);
+  } catch {
+    return false;
+  }
+  return (
+    (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+    !parsed.username &&
+    !parsed.password &&
+    parsed.pathname === "/" &&
+    !parsed.search &&
+    !parsed.hash
+  );
+}
+
+// Runs once at bind time so a misconfigured allowlist fails at startup, not
+// on the first request.
+export function assertValidInternalPolicy(policy: InternalEgressPolicy): void {
+  const allowHosts = policy.allowHosts ?? [];
+  const allowOrigins = policy.allowOrigins ?? [];
+  if (allowHosts.length === 0 && allowOrigins.length === 0) {
+    throw new Error("egress(internal): allowHosts or allowOrigins must list at least one entry");
+  }
+  for (const entry of allowHosts) {
+    if (!isHostEntryWellFormed(entry)) {
+      throw new Error(
+        `egress(internal): allowHosts entry must be a bare hostname, got "${entry}" (use allowOrigins to pin scheme and port)`,
+      );
+    }
+  }
+  // The entry is named by index only: it may carry credentials that must not reach startup logs.
+  allowOrigins.forEach((entry, index) => {
+    if (!isOriginEntryWellFormed(entry)) {
+      throw new Error(
+        `egress(internal): allowOrigins[${index}] must be an http(s) origin like "https://host:port" without path, query or credentials`,
+      );
+    }
+  });
+}
+
+// Explicit allowlist check for `internal` — no range check, since `internal`
+// targets are deliberately private/cluster-local. The hostname (not the
+// resolved IP) must match `allowHosts` (any port/scheme) or the full origin
+// (scheme + host + port) must match `allowOrigins`.
+export function assertAllowedTarget(url: URL, policy: InternalEgressPolicy): void {
   const host = stripBrackets(url.hostname).toLowerCase();
-  const allowed = allowHosts.some((h) => h.toLowerCase() === host);
-  if (!allowed) {
-    throw new Error(`egress: host not in allowlist: ${host}`);
+  const hostAllowed = (policy.allowHosts ?? []).some(
+    (entry) => stripBrackets(entry).toLowerCase() === host,
+  );
+  const originAllowed = (policy.allowOrigins ?? []).some(
+    (entry) => new URL(entry).origin === url.origin,
+  );
+  if (!hostAllowed && !originAllowed) {
+    throw new Error(`egress: target not in allowlist: ${url.origin}`);
   }
 }

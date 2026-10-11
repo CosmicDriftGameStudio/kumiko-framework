@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { lookup } from "node:dns/promises";
+import { egress } from "../egress.js";
 import {
-  assertAllowedHost,
+  assertAllowedTarget,
   assertHttpScheme,
   BlockedHostError,
   HostResolutionError,
@@ -211,17 +212,56 @@ describe("resolvePublicHostname", () => {
   });
 });
 
-describe("assertAllowedHost", () => {
+describe("assertAllowedTarget", () => {
   test("allows a host present in allowHosts (case-insensitive)", () => {
     expect(() =>
-      assertAllowedHost(new URL("http://Internal-Service.local/"), ["internal-service.local"]),
+      assertAllowedTarget(new URL("http://Internal-Service.local/"), {
+        kind: "internal",
+        allowHosts: ["internal-service.local"],
+      }),
     ).not.toThrow();
   });
 
   test("rejects a host absent from allowHosts", () => {
     expect(() =>
-      assertAllowedHost(new URL("http://other.local/"), ["internal-service.local"]),
+      assertAllowedTarget(new URL("http://other.local/"), {
+        kind: "internal",
+        allowHosts: ["internal-service.local"],
+      }),
     ).toThrow();
+  });
+
+  test("allowOrigins matches scheme, host and normalized default port exactly", () => {
+    const policy = { kind: "internal", allowOrigins: ["https://svc.internal"] } as const;
+    expect(() => assertAllowedTarget(new URL("https://svc.internal:443/x"), policy)).not.toThrow();
+    expect(() => assertAllowedTarget(new URL("http://svc.internal/x"), policy)).toThrow(
+      /http:\/\/svc\.internal/,
+    );
+    expect(() => assertAllowedTarget(new URL("https://svc.internal:9999/x"), policy)).toThrow();
+  });
+});
+
+describe("egress(internal) bind-time validation", () => {
+  test.each([
+    ["host with port", { allowHosts: ["svc.internal:9999"] }],
+    ["host with path", { allowHosts: ["svc.internal/x"] }],
+    ["origin with path", { allowOrigins: ["https://svc.internal/path"] }],
+    ["origin with ftp scheme", { allowOrigins: ["ftp://x"] }],
+    ["origin without scheme", { allowOrigins: ["svc.internal:9999"] }],
+    ["origin with credentials", { allowOrigins: ["https://u:p@svc.internal"] }],
+    ["both lists empty", { allowHosts: [], allowOrigins: [] }],
+    ["both lists missing", {}],
+  ])("rejects %s", (_name, lists) => {
+    expect(() => egress({ kind: "internal", ...lists })).toThrow(/egress\(internal\)/);
+  });
+
+  test.each([
+    ["bare IPv6", { allowHosts: ["::1"] }],
+    ["bracketed IPv6", { allowHosts: ["[::1]"] }],
+    ["plain host", { allowHosts: ["svc.internal"] }],
+    ["origin with port", { allowOrigins: ["https://svc.internal:9443"] }],
+  ])("accepts %s", (_name, lists) => {
+    expect(() => egress({ kind: "internal", ...lists })).not.toThrow();
   });
 });
 

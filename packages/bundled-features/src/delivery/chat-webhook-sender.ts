@@ -57,7 +57,7 @@ export type ChatWebhookRequest = ChatWebhookTarget & {
 function policyFor(request: ChatWebhookRequest, target: URL): EgressPolicy {
   return request.requireHttps
     ? { kind: "external" }
-    : { kind: "internal", allowHosts: [target.hostname] };
+    : { kind: "internal", allowOrigins: [target.origin] };
 }
 
 function hostMatches(hostname: string, allowedHost: string): boolean {
