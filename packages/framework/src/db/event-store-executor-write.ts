@@ -481,7 +481,9 @@ export function createWriteVerbs(
             "be SYSTEM_TENANT_ID or omitted.",
         });
       }
-      const previous = await loadById(payload.id, db);
+      const previous = await loadById(payload.id, db, {
+        includeDeleted: updateOptions?.includeDeleted === true,
+      });
       if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
       const streamTenantId = updateOptions?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, previous, streamTenantId);

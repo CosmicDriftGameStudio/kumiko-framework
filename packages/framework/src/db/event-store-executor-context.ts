@@ -201,7 +201,11 @@ export type ExecutorContext = {
     requestedStreamTenantId: TenantId | undefined,
   ) => WriteFailure | undefined;
   readonly idFilter: (id: EntityId) => WhereObject;
-  readonly loadById: (id: EntityId, db: TenantDb) => Promise<Record<string, unknown> | null>;
+  readonly loadById: (
+    id: EntityId,
+    db: TenantDb,
+    options?: { readonly includeDeleted?: boolean },
+  ) => Promise<Record<string, unknown> | null>;
   readonly assertStreamWritable: (db: TenantDb, id: EntityId, tenantId: TenantId) => Promise<void>;
   readonly loadWithOwnership: (
     db: TenantDb,
@@ -470,8 +474,13 @@ export function buildExecutorContext(
     return filter;
   }
 
-  async function loadById(id: EntityId, db: TenantDb): Promise<Record<string, unknown> | null> {
-    const row = await db.fetchOne(table, idFilter(id));
+  async function loadById(
+    id: EntityId,
+    db: TenantDb,
+    options?: { readonly includeDeleted?: boolean },
+  ): Promise<Record<string, unknown> | null> {
+    // Only the soft-delete predicate is relaxed; the tenant filter of db.fetchOne stays.
+    const row = await db.fetchOne(table, options?.includeDeleted ? { id } : idFilter(id));
     if (!row) return null;
     return await decryptForRead(rehydrateCompoundTypes(row as DbRow, entity));
   }

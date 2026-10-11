@@ -45,6 +45,11 @@ export type EventStoreExecutor = {
     options?: StreamTenantOption & {
       skipOptimisticLock?: boolean;
       skipUnchanged?: boolean;
+      // Server-code only (never forwarded by the generic update handler): also
+      // update a soft-deleted row, e.g. to move it with its parent so a later
+      // restore lands consistently. Tenant and ownership checks still apply;
+      // the row stays deleted.
+      includeDeleted?: boolean;
       preSave?: PreSaveRunner;
       // Declarative precondition for a "genau einmal"-transition:
       // field/value pairs the row must still hold at write
