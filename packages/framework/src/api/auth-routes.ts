@@ -36,6 +36,7 @@ import { resolvePostAuthLandingPath } from "./post-auth-landing.js";
 import {
   AUTH_COOKIE_BASE,
   CSRF_COOKIE_BASE,
+  getSessionCookies,
   hostOnlyDeleteOptions,
   isHostPrefixedCookieName,
   type ResolvedSessionCookies,
@@ -839,7 +840,7 @@ export function createAuthRoutes(
     const token = await jwt.sign(sessionForJwt);
     const csrfToken = generateToken();
     setAuthCookies(c, {
-      cookies: sessionCookies,
+      cookies: getSessionCookies(c, sessionCookies),
       token,
       csrfToken,
       sameSite: cookieSameSite,
@@ -1508,7 +1509,12 @@ export function createAuthRoutes(
     }
     // Clear cookies on the cookie-transport path. Idempotent — clearing a
     // missing cookie is a no-op, so bearer-only clients aren't affected.
-    clearAuthCookies(c, sessionCookies.names, cookieDomain, retiredCookieDomains);
+    clearAuthCookies(
+      c,
+      getSessionCookies(c, sessionCookies).names,
+      cookieDomain,
+      retiredCookieDomains,
+    );
     return c.json({ isSuccess: true });
   });
 

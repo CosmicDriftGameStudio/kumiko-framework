@@ -102,7 +102,11 @@ export {
 export { createApiRoutes } from "./routes.js";
 export type { KumikoServer, ServerOptions } from "./server.js";
 export { buildServer, makeDispatchSystemQuery, makeDispatchSystemWrite } from "./server.js";
-export type { SessionCookieBase, SessionCookieNames } from "./session-cookies.js";
+export type {
+  ResolvedSessionCookies,
+  SessionCookieBase,
+  SessionCookieNames,
+} from "./session-cookies.js";
 export {
   AUTH_COOKIE_BASE,
   CSRF_COOKIE_BASE,
@@ -110,7 +114,9 @@ export {
   HOST_COOKIE_PREFIX,
   isHostPrefixedCookieName,
   resolveSessionCookieNames,
+  resolveSessionCookies,
   sessionCookieName,
+  sessionCookiesMiddleware,
   TENANT_COOKIE_BASE,
 } from "./session-cookies.js";
 export type { SseBroker, SseClient, SseEvent } from "./sse-broker.js";

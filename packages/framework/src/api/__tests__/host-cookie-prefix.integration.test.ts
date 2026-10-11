@@ -139,7 +139,7 @@ describe("__Host- session cookies (integration)", () => {
     });
   });
 
-  test("with cookieDomain the names stay unprefixed", async () => {
+  test("with cookieDomain the names stay unprefixed and the session cookie authenticates", async () => {
     await withStack(
       {
         ...BASE_AUTH_CONFIG,
@@ -151,6 +151,15 @@ describe("__Host- session cookies (integration)", () => {
         const cookies = getSetCookies(await login(stack));
         expect(cookies.get(AUTH_COOKIE_BASE)?.raw).toMatch(/Domain=example\.eu/i);
         expect(cookies.get(PREFIXED_AUTH)).toBeUndefined();
+
+        const auth = cookies.get(AUTH_COOKIE_BASE)?.value;
+        const csrf = cookies.get(CSRF_COOKIE_BASE)?.value;
+        const ok = await ping(stack, {
+          Cookie: `${AUTH_COOKIE_BASE}=${auth}; ${CSRF_COOKIE_BASE}=${csrf}`,
+          [CSRF_HEADER_NAME]: csrf ?? "",
+          Origin: "https://admin.example.eu",
+        });
+        expect(ok.status).toBe(200);
       },
     );
   });

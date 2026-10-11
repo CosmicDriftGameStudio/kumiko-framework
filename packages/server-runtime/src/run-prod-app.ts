@@ -390,6 +390,10 @@ export type RunProdAppAuthOptions = {
    *  AuthRoutesConfig.cookieDomain). Set to the registrable parent
    *  domain when login and app live on different subdomains. */
   readonly cookieDomain?: string;
+  /** Secure flag for the session cookies (see AuthRoutesConfig.secureCookies).
+   *  Defaults to NODE_ENV === "production"; set it to true when TLS ends at a
+   *  proxy and NODE_ENV is not "production". */
+  readonly secureCookies?: boolean;
   /** Former cookie domains cleared on login/logout (see
    *  AuthRoutesConfig.retiredCookieDomains). */
   readonly retiredCookieDomains?: readonly string[];
@@ -1193,6 +1197,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         loginRateLimit: createRedisLoginRateLimiter(redis),
         ...(effectiveAuth.cookieDomain !== undefined && {
           cookieDomain: effectiveAuth.cookieDomain,
+        }),
+        ...(effectiveAuth.secureCookies !== undefined && {
+          secureCookies: effectiveAuth.secureCookies,
         }),
         ...(effectiveAuth.retiredCookieDomains !== undefined && {
           retiredCookieDomains: effectiveAuth.retiredCookieDomains,

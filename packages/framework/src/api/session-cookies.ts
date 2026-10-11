@@ -50,11 +50,17 @@ function isResolvedSessionCookies(value: unknown): value is ResolvedSessionCooki
   return typeof value === "object" && value !== null && "names" in value && "secure" in value;
 }
 
-// Falls back to the env-derived default (no cookieDomain) for contexts that
-// never ran through buildServer, e.g. a bare Hono app in a unit test.
-export function getSessionCookies(c: Context): ResolvedSessionCookies {
+// buildServer resolves the names once and stores them per request, so writer
+// (auth routes) and readers (auth/csrf/tenant) cannot diverge. The fallback
+// only applies to contexts that never ran through buildServer, e.g. a bare
+// Hono app in a unit test or a standalone createAuthRoutes mount.
+export function getSessionCookies(
+  c: Context,
+  fallback?: ResolvedSessionCookies,
+): ResolvedSessionCookies {
   const stored: unknown = c.get(SESSION_COOKIES_KEY);
-  return isResolvedSessionCookies(stored) ? stored : resolveSessionCookies({});
+  if (isResolvedSessionCookies(stored)) return stored;
+  return fallback ?? resolveSessionCookies({});
 }
 
 // A deletion of a `__Host-` cookie is ignored by the browser unless it is
