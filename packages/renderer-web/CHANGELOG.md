@@ -1,5 +1,63 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.357.0
+
+### Minor Changes
+
+- b1a40a1: HeaderActionGroup replaces the overflow menu child selector for header action wrappers
+
+  App wrappers around headerActions are no longer restyled into a stacked column inside the phone overflow menu (the [&>div] child selector reached into app markup). Use HeaderActionGroup instead: a horizontal row in the header, a stacked column in the overflow menu.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: HeaderActionGroup replaces the overflow menu child selector for header action wrappers
+  -->
+
+- eb71a72: List card meta values wrap instead of being clipped; more than 3 meta columns fail boot
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: List card meta values wrap instead of being clipped; more than 3 meta columns fail boot
+  migration: |
+    Narrow list cards (entityList, projectionList, relatedList sections, expandableRow) now render meta values as a dot-separated row that wraps onto further lines instead of being cut off after two lines (and no longer subject to a silent runtime cap of 3 values); only a single value wider than the card is truncated. Meta columns are all columns except the title (first column), the status select and columns with hideOnNarrow: true. validateBoot now rejects a list with more than 3 meta columns and names feature, screen, section and fields. Fix: mark the extra columns hideOnNarrow: true (tables keep them) or drop them. collectCardMetaOverflow(features) from @cosmicdrift/kumiko-framework/engine lists all offenders at once. headless now also honors hideOnNarrow on reference, derived, row-meta and renderer-only columns, which it previously ignored there.
+  -->
+
+- f49e849: Section actions render in the title row instead of a footer; WriteFormSection submit moves below its fields
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Section actions render in the title row instead of a footer; WriteFormSection submit moves below its fields
+  migration: |
+    Section.actions (renderer-web DefaultSection) render top right in the title row since #3241, no longer as a footer. A button that depends on content below it (a confirmation checkbox, a list it acts on) belongs in the section's children instead of actions. WriteFormSection's own submit button now sits below its fields; caller actions stay in the title row.
+  -->
+
+### Patch Changes
+
+- 7d830ab: List rows no longer fire the rowClick action, or show a click cursor, when the action's visible condition hides it for that row.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: List rows no longer fire the rowClick action, or show a click cursor, when the action's visible condition hides it for that row.
+  -->
+
+- Updated dependencies [774c60c]
+- Updated dependencies [06e8ad8]
+- Updated dependencies [d7872bd]
+- Updated dependencies [b1a40a1]
+- Updated dependencies [eb71a72]
+- Updated dependencies [89f414e]
+- Updated dependencies [f49e849]
+- Updated dependencies [91501d3]
+  - @cosmicdrift/kumiko-framework@0.357.0
+  - @cosmicdrift/kumiko-types@0.357.0
+  - @cosmicdrift/kumiko-headless@0.357.0
+  - @cosmicdrift/kumiko-renderer@0.357.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.357.0
+
 ## 0.356.0
 
 ### Patch Changes

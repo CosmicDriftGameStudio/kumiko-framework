@@ -2,13 +2,25 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-10
+verified: 2026-10-11
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.357.0
+
+### enterprise:renderer
+
+**List card meta values wrap instead of being clipped; more than 3 meta columns fail boot**
+
+**Migration:** Narrow list cards (entityList, projectionList, relatedList sections, expandableRow) now render meta values as a dot-separated row that wraps onto further lines instead of being cut off after two lines (and no longer subject to a silent runtime cap of 3 values); only a single value wider than the card is truncated. Meta columns are all columns except the title (first column), the status select and columns with hideOnNarrow: true. validateBoot now rejects a list with more than 3 meta columns and names feature, screen, section and fields. Fix: mark the extra columns hideOnNarrow: true (tables keep them) or drop them. collectCardMetaOverflow(features) from @cosmicdrift/kumiko-framework/engine lists all offenders at once. headless now also honors hideOnNarrow on reference, derived, row-meta and renderer-only columns, which it previously ignored there.
+
+**Section actions render in the title row instead of a footer; WriteFormSection submit moves below its fields**
+
+**Migration:** Section.actions (renderer-web DefaultSection) render top right in the title row since #3241, no longer as a footer. A button that depends on content below it (a confirmation checkbox, a list it acts on) belongs in the section's children instead of actions. WriteFormSection's own submit button now sits below its fields; caller actions stay in the title row.
 
 ## 0.356.0
 

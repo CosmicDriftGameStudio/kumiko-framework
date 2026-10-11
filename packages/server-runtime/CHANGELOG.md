@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.357.0
+
+### Patch Changes
+
+- da74267: composeFeatures no longer warns about auth-self-registration listed in APP_FEATURES
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: composeFeatures no longer warns about auth-self-registration listed in APP_FEATURES
+  -->
+
+  With `includeBundled` and `authOptions.signup`, `composeFeatures` still drops an `auth-self-registration` copy from `APP_FEATURES`, but no longer logs a boot warning for it. The toggle takes no options, so the copy is identical, and apps keep it in `APP_FEATURES` because the schema CLI and tests compose without `authOptions.signup`.
+
+- Updated dependencies [03b6438]
+- Updated dependencies [774c60c]
+- Updated dependencies [1ed997b]
+- Updated dependencies [06e8ad8]
+- Updated dependencies [d7872bd]
+- Updated dependencies [b1a40a1]
+- Updated dependencies [eb71a72]
+- Updated dependencies [f49e849]
+- Updated dependencies [7d830ab]
+- Updated dependencies [91501d3]
+  - @cosmicdrift/kumiko-bundled-features@0.357.0
+  - @cosmicdrift/kumiko-framework@0.357.0
+  - @cosmicdrift/kumiko-types@0.357.0
+  - @cosmicdrift/kumiko-headless@0.357.0
+  - @cosmicdrift/kumiko-renderer-web@0.357.0
+
 ## 0.356.0
 
 ### Minor Changes

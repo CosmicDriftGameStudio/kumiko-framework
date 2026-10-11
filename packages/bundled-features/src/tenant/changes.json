@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.357.0",
+    "type": "improvement",
+    "title": "The member roles form only offers roles the signed-in admin may assign",
+    "detail": "New query tenant:query:member-role-availability; TenantAdmin still sees every role."
+  },
+  {
     "version": "0.354.0",
     "type": "breaking",
     "title": "createTenantFeature fails the boot when a declared assignable app role is missing from its assignableAppRoles option",
