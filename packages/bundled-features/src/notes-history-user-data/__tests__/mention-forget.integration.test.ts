@@ -6,8 +6,8 @@
 //     note-mention lookup → kms.eraseKey on the note's own record subject)
 //   - a sibling note on the SAME host with NO mention on S stays fully
 //     readable — proves the cascade doesn't collaterally shred every note
-//   - the host entity's retention strategy is consulted BEFORE shredding:
-//     an `anonymize` override on the host blocks the erase entirely
+//   - the host entity's retention strategy (anonymize/blockDelete) does NOT
+//     block the shred: the note text is free PII, the strategy protects the row
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
@@ -261,7 +261,7 @@ describe("notes-history mention-forget cascade", () => {
     expect(untouched?.["body"]).toBe("unrelated note");
   });
 
-  test("host entity retention override (anonymize) blocks the shred", async () => {
+  test("host entity retention override (anonymize) still shreds the body", async () => {
     await seedForgottenSubject();
     await seedContactRetentionOverride("anonymize");
     const tenantDb = createTenantDb(stack.db, author.tenantId, "system");
@@ -284,11 +284,11 @@ describe("notes-history mention-forget cascade", () => {
     });
     expect(result.processedUserIds).toContain(SUBJECT_S);
 
-    const stillReadable = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
-    expect(stillReadable?.["body"]).toBe("kept under retention");
+    const shredded = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
+    expect(shredded?.["body"]).toBe(PII_ERASED_SENTINEL);
   });
 
-  test("host entity retention override (blockDelete) blocks the shred", async () => {
+  test("host entity retention override (blockDelete) still shreds the body", async () => {
     await seedForgottenSubject();
     await seedContactRetentionOverride("blockDelete");
     const tenantDb = createTenantDb(stack.db, author.tenantId, "system");
@@ -311,8 +311,8 @@ describe("notes-history mention-forget cascade", () => {
     });
     expect(result.processedUserIds).toContain(SUBJECT_S);
 
-    const stillReadable = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
-    expect(stillReadable?.["body"]).toBe("kept under legal hold");
+    const shredded = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
+    expect(shredded?.["body"]).toBe(PII_ERASED_SENTINEL);
   });
 
   test("host entity retention override (hardDelete) does not block the shred", async () => {
@@ -427,7 +427,7 @@ describe("notes-history mention-forget cascade", () => {
     }
   });
 
-  test("host entity protected by the tenant's compliance-profile preset blocks the shred", async () => {
+  test("host entity protected by the tenant's compliance-profile preset still shreds the body", async () => {
     await seedForgottenSubject();
     await stack.http.writeOk(
       ComplianceProfileHandlers.setProfile,
@@ -456,7 +456,7 @@ describe("notes-history mention-forget cascade", () => {
     expect(result.errors).toEqual([]);
 
     const stillReadable = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
-    expect(stillReadable?.["body"]).toBe("kept under preset retention");
+    expect(stillReadable?.["body"]).toBe(PII_ERASED_SENTINEL);
   });
 
   test("same invoice host without a compliance profile: the mentioned note is shredded", async () => {

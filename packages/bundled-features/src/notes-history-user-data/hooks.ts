@@ -8,18 +8,11 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configuredPiiSubjectKms, type SubjectId } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
-  Registry,
   TenantId,
   UserDataDeleteHook,
   UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  type RetentionPresetKey,
-  resolveRetentionPolicyForTenant,
-  resolveTenantRetentionPreset,
-} from "../data-retention/index.js";
 import { noteEntryTable, noteMentionTable } from "../notes-history/index.js";
-import { policyToStrategy } from "../user-data-rights/index.js";
 
 // note-entry has no per-tenant scope quirk (unlike folders) — it's genuinely
 // per-user content, so the export filters by authorId directly.
@@ -84,17 +77,15 @@ async function selectNotesReachingSubject(
 // @-mentions the subject (`note-mention`, fw#2787) or hangs on it as host.
 // Free-text mentions are NOT detected — the documented gap in entity.ts.
 //
-// Per reached note the HOST entity's retention strategy (entityType, resolved
-// for the note's own tenant — the manual forget-subject path runs cross-tenant)
-// is consulted first: anonymize/blockDelete win over erasure, same rule the
-// automated forget-cleanup applies to every other entity.
+// Reached bodies are shredded regardless of the host entity's retention strategy:
+// the note text is free-form PII, and a host's anonymize/blockDelete protects the
+// row, not its content, just like the host's own PII fields get anonymized.
 //
 // Without a mounted KMS this erases nothing: record-owned fields fall back to
 // plaintext framework-wide (see pii-field-encryption.ts), so apps that need
 // Art. 17 coverage must mount one.
 export async function eraseNoteBodiesReachingSubject(args: {
   readonly db: DbRunner | TenantDb;
-  readonly registry: Registry;
   readonly subject: SubjectId;
   readonly erasedBy: string;
   readonly requestId: string;
@@ -104,36 +95,7 @@ export async function eraseNoteBodiesReachingSubject(args: {
   if (!kms) return;
 
   const notes = await selectNotesReachingSubject(args.db, args.subject);
-  const dataRetentionMounted = args.registry.features.has("data-retention");
-  const presetByTenant = new Map<string, RetentionPresetKey | null>();
-  const strategyByTenantAndEntityType = new Map<string, ReturnType<typeof policyToStrategy>>();
   for (const note of notes) {
-    const strategyKey = `${note.tenantId}:${note.entityType}`;
-    let strategy = strategyByTenantAndEntityType.get(strategyKey);
-    if (strategy === undefined) {
-      let tenantPreset = presetByTenant.get(note.tenantId);
-      if (tenantPreset === undefined) {
-        tenantPreset = await resolveTenantRetentionPreset({
-          db: args.db,
-          registry: args.registry,
-          tenantId: note.tenantId,
-        });
-        presetByTenant.set(note.tenantId, tenantPreset);
-      }
-      const hostPolicy = await resolveRetentionPolicyForTenant({
-        db: args.db,
-        registry: args.registry,
-        tenantId: note.tenantId,
-        entityName: note.entityType,
-        preloadedTenantPreset: tenantPreset,
-        // Without data-retention there is no override table to read.
-        ...(!dataRetentionMounted && { preloadedOverride: null }),
-      });
-      strategy = policyToStrategy(hostPolicy.policy?.strategy ?? null);
-      strategyByTenantAndEntityType.set(strategyKey, strategy);
-    }
-    if (strategy === "anonymize") continue;
-
     await kms.eraseKey(
       { kind: "record", entity: "note-entry", id: note.id },
       {
@@ -148,7 +110,6 @@ export async function eraseNoteBodiesReachingSubject(args: {
 export const noteEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
   await eraseNoteBodiesReachingSubject({
     db: ctx.db,
-    registry: ctx.registry,
     subject: { kind: "user", userId: ctx.userId },
     erasedBy: ctx.userId,
     requestId: "notes-history-user-data:forget-reached-notes",
