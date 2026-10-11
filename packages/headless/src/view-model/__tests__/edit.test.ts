@@ -747,6 +747,22 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
       expect(imagesField()?.capture).toBe("environment");
     });
 
+    test("maxCount travels with files/images fields", () => {
+      const entity = {
+        fields: { gallery: { type: "images", maxCount: 3 }, docs: { type: "files", maxCount: 5 } },
+      } as unknown as EntityDefinition;
+      const vm = computeEditViewModel({
+        screen: editScreen({ sections: [{ title: "x", fields: ["gallery", "docs"] }] }),
+        entity,
+        values: {},
+        translate,
+        featureName: "orders",
+      });
+      const [gallery, docs] = asFields(vm.sections[0]).fields;
+      expect(gallery?.maxCount).toBe(3);
+      expect(docs?.maxCount).toBe(5);
+    });
+
     test("a plain file field gets upload hints but no imageVariant", () => {
       const entity = {
         fields: { doc: { type: "file", variants: { thumb: {} } } },
@@ -1383,5 +1399,53 @@ describe("computeEditViewModel: writeExcludedFields", () => {
       ["notes", false],
       ["kind", false],
     ]);
+  });
+});
+
+describe("computeEditViewModel — entityId on file fields", () => {
+  const entity = {
+    fields: {
+      avatar: { type: "image" },
+      gallery: { type: "images" },
+      doc: { type: "file" },
+      docs: { type: "files" },
+      notes: { type: "text" },
+    },
+  } as unknown as EntityDefinition;
+  const screen = editScreen({
+    sections: [{ title: "x", fields: ["avatar", "gallery", "doc", "docs", "notes"] }],
+  });
+
+  test("update mode puts the record id on image/images/file/files fields only", () => {
+    const vm = computeEditViewModel({
+      screen,
+      entity,
+      values: {},
+      translate,
+      featureName: "orders",
+      mode: "update",
+      entityId: "rec-1",
+    });
+    const byName = Object.fromEntries(asFields(vm.sections[0]).fields.map((f) => [f.field, f]));
+    expect(byName["avatar"]?.entityId).toBe("rec-1");
+    expect(byName["gallery"]?.entityId).toBe("rec-1");
+    expect(byName["doc"]?.entityId).toBe("rec-1");
+    expect(byName["docs"]?.entityId).toBe("rec-1");
+    expect(byName["docs"]?.entityType).toBe("order");
+    expect(byName["notes"]?.entityId).toBeUndefined();
+  });
+
+  test("create mode (no entityId) leaves it off every field", () => {
+    const vm = computeEditViewModel({
+      screen,
+      entity,
+      values: {},
+      translate,
+      featureName: "orders",
+      mode: "create",
+    });
+    for (const field of asFields(vm.sections[0]).fields) {
+      expect(field.entityId).toBeUndefined();
+    }
   });
 });

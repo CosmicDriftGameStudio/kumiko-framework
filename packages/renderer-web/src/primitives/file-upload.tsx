@@ -4,9 +4,11 @@
 // preview (GET /api/files/:id, or the declared variant), file → file name.
 
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
+import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { toAcceptAttr } from "../lib/accept-attr.js";
+import { buildFileUploadFormData } from "../lib/file-upload-form-data.js";
 import { resizeImageBeforeUpload } from "../lib/resize-image.js";
 import { Button as UiButton } from "../ui/button.js";
 
@@ -18,6 +20,7 @@ export type FileUploadInputProps = {
   readonly accept?: readonly string[];
   readonly disabled?: boolean;
   readonly entityType?: string;
+  readonly entityId?: string;
   readonly fieldName?: string;
   readonly imageVariant?: string;
   readonly capture?: "environment" | "user";
@@ -31,10 +34,12 @@ export function FileUploadInput({
   accept,
   disabled,
   entityType,
+  entityId,
   fieldName,
   imageVariant,
   capture,
 }: FileUploadInputProps): ReactNode {
+  const t = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,10 +51,7 @@ export function FileUploadInput({
     setError(null);
     try {
       const uploadFile = await resizeImageBeforeUpload(file);
-      const fd = new FormData();
-      fd.append("file", uploadFile);
-      if (entityType !== undefined) fd.append("entityType", entityType);
-      if (fieldName !== undefined) fd.append("fieldName", fieldName);
+      const fd = buildFileUploadFormData({ file: uploadFile, entityType, entityId, fieldName });
       // Double-Submit-CSRF wie der Dispatcher: kumiko_csrf-Cookie → Header.
       const csrf = readCsrfToken();
       const res = await fetch("/api/files", {
@@ -59,12 +61,12 @@ export function FileUploadInput({
       });
       const json = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
       if (!res.ok || json.id === undefined) {
-        setError(json.error ?? "upload_failed");
+        setError(json.error ?? t("kumiko.field.file-upload.failed"));
         return;
       }
       onChange(json.id);
     } catch {
-      setError("upload_failed");
+      setError(t("kumiko.field.file-upload.failed"));
     } finally {
       setUploading(false);
       // Clear the input so re-picking the SAME file still fires change — the
@@ -94,7 +96,9 @@ export function FileUploadInput({
           </div>
         ))}
       {kind === "file" && value !== null && (
-        <span className="text-muted-foreground text-sm">File attached</span>
+        <span className="text-muted-foreground text-sm">
+          {t("kumiko.field.file-upload.attached")}
+        </span>
       )}
       <input
         ref={inputRef}
@@ -114,11 +118,13 @@ export function FileUploadInput({
         onClick={() => inputRef.current?.click()}
       >
         {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-        {value !== null ? "Change" : "Upload"}
+        {value !== null
+          ? t("kumiko.field.file-upload.change")
+          : t("kumiko.field.file-upload.upload")}
       </UiButton>
       {value !== null && (
         <UiButton type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
-          Remove
+          {t("kumiko.field.file-upload.remove")}
         </UiButton>
       )}
       {error !== null && <span className="text-destructive text-xs">{error}</span>}

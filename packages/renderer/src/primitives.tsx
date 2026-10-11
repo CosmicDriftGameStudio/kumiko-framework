@@ -387,6 +387,8 @@ export type InputProps =
       /** Für den Upload-POST `/api/files` — der Endpoint prüft maxSize/accept
        *  gegen die Field-Def von (entityType, fieldName). */
       readonly entityType?: string;
+      /** Sent with the upload so the FileRef is attached to the record. */
+      readonly entityId?: string;
       readonly fieldName?: string;
       /** Only for kind:"image" — variant name for the preview
        *  (`/api/files/:id/variant/:name`). Absent → the original. */
@@ -944,6 +946,8 @@ export type EmbeddedListInputProps = {
     grid: readonly (readonly string[])[],
   ) => void;
   readonly addLabel: string;
+  /** Accessible name of the (otherwise headerless) row-actions column. */
+  readonly actionsLabel: string;
   readonly removeLabel: string;
   readonly duplicateLabel: string;
   readonly moveUpLabel: string;

@@ -1086,6 +1086,7 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.accept !== undefined && { accept: props.accept })}
           {...(props.disabled !== undefined && { disabled: props.disabled })}
           {...(props.entityType !== undefined && { entityType: props.entityType })}
+          {...(props.entityId !== undefined && { entityId: props.entityId })}
           {...(props.fieldName !== undefined && { fieldName: props.fieldName })}
           {...(props.imageVariant !== undefined && { imageVariant: props.imageVariant })}
           {...(props.capture !== undefined && { capture: props.capture })}

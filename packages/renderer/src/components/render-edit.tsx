@@ -944,8 +944,18 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         translate,
         featureName,
         mode: writeVerb,
+        ...(!isCreateMode && entityIdProp != null && { entityId: entityIdProp }),
       }),
-    [screen, entity, snapshot.values, translate, featureName, writeVerb],
+    [
+      screen,
+      entity,
+      snapshot.values,
+      translate,
+      featureName,
+      writeVerb,
+      isCreateMode,
+      entityIdProp,
+    ],
   );
 
   const filteredSections = useMemo(

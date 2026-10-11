@@ -29,6 +29,7 @@ export type MoneyInputProps = {
   readonly disabled?: boolean;
   readonly required?: boolean;
   readonly hasError?: boolean;
+  readonly ariaLabel?: string;
 };
 
 // The border and focus ring live on the wrapper so the currency symbol can be
@@ -55,6 +56,7 @@ export function MoneyInput({
   disabled,
   required,
   hasError,
+  ariaLabel,
 }: MoneyInputProps): ReactNode {
   const decimals = currencyDecimals(currency);
   const factor = 10 ** decimals;
@@ -147,6 +149,7 @@ export function MoneyInput({
         disabled={disabled}
         aria-required={required}
         aria-invalid={hasError === true ? true : undefined}
+        aria-label={ariaLabel}
         aria-describedby={symbol !== "" ? `${id}-currency` : undefined}
         value={focused ? draft : formatted}
         onFocus={handleFocus}

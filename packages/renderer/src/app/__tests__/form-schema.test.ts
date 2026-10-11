@@ -170,19 +170,24 @@ describe("buildFormSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  test("required files field → no issue (#1925: no multi-upload widget yet, deliberately deferred)", () => {
-    const entity = entityWith({ attachments: { type: "files" } });
-    const screen = screenWith([{ field: "attachments", required: true }]);
-    expect(
-      buildFormSchema(entity, screen, "create").safeParse({ attachments: undefined }).success,
-    ).toBe(true);
+  test.each([
+    ["files", "attachments"],
+    ["images", "gallery"],
+  ] as const)("required %s field → issue when missing or an empty array", (type, name) => {
+    const entity = entityWith({ [name]: { type } });
+    const screen = screenWith([{ field: name, required: true }]);
+    const schema = buildFormSchema(entity, screen, "create");
+    expect(schema.safeParse({ [name]: undefined }).success).toBe(false);
+    expect(schema.safeParse({ [name]: [] }).success).toBe(false);
   });
 
-  test("required images field → no issue (#1925: no multi-upload widget yet, deliberately deferred)", () => {
+  test("required images field → no issue once at least one file id is present", () => {
     const entity = entityWith({ gallery: { type: "images" } });
     const screen = screenWith([{ field: "gallery", required: true }]);
     expect(
-      buildFormSchema(entity, screen, "create").safeParse({ gallery: undefined }).success,
+      buildFormSchema(entity, screen, "create").safeParse({
+        gallery: ["11111111-1111-1111-1111-111111111111"],
+      }).success,
     ).toBe(true);
   });
 

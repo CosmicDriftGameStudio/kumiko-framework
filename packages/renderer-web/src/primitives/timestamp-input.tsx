@@ -60,6 +60,7 @@ export type TimestampInputProps = {
   readonly disabled?: boolean;
   readonly required?: boolean;
   readonly hasError?: boolean;
+  readonly ariaLabel?: string;
   readonly locale?: string;
   /** Untere/obere Grenze als ISO-Datetime. Begrenzt den Kalender auf
    *  Tages-Granularität; die exakte Uhrzeit-Grenze setzt die Zod-Validierung
@@ -88,6 +89,7 @@ export function TimestampInput({
   disabled,
   required,
   hasError,
+  ariaLabel,
   locale,
   min,
   max,
@@ -126,6 +128,7 @@ export function TimestampInput({
         {...(disabled !== undefined && { disabled })}
         {...(required !== undefined && { required })}
         {...(hasError !== undefined && { hasError })}
+        {...(ariaLabel !== undefined && { ariaLabel })}
       />
       <input
         type="time"

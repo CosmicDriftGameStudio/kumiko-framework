@@ -72,6 +72,8 @@ export type ComputeEditViewModelInput<
    *  for that verb (create hides them, update shows them read-only); omitted
    *  means no exclusion applies. */
   readonly mode?: EditFormMode;
+  /** The record being edited; omitted on create. */
+  readonly entityId?: string;
 };
 
 export type EditFormMode = "create" | "update";
@@ -397,7 +399,14 @@ function deriveReferenceMultiHints(
 
 type FileFieldHints = Pick<
   EditFieldViewModel,
-  "accept" | "maxSize" | "entityType" | "fieldName" | "imageVariant" | "capture"
+  | "accept"
+  | "maxSize"
+  | "maxCount"
+  | "entityType"
+  | "entityId"
+  | "fieldName"
+  | "imageVariant"
+  | "capture"
 >;
 
 // file/image: entityType/fieldName travel with the upload POST so the
@@ -406,13 +415,18 @@ function deriveFileFieldHints(
   fieldDef: EntityFieldDef,
   entityName: string,
   fieldName: string,
+  entityId: string | undefined,
 ): FileFieldHints {
   const isFileType =
-    fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.type === "images";
+    fieldDef.type === "file" ||
+    fieldDef.type === "image" ||
+    fieldDef.type === "files" ||
+    fieldDef.type === "images";
   const fileDef = isFileType
     ? (fieldDef as unknown as {
         accept?: readonly string[];
         maxSize?: string;
+        maxCount?: number;
         variants?: Readonly<Record<string, unknown>>;
         capture?: "environment" | "user";
       })
@@ -426,7 +440,9 @@ function deriveFileFieldHints(
   return {
     ...(fileDef?.accept !== undefined && { accept: fileDef.accept }),
     ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),
+    ...(fileDef?.maxCount !== undefined && { maxCount: fileDef.maxCount }),
     ...(isFileType && { entityType: entityName, fieldName }),
+    ...(isFileType && entityId !== undefined && { entityId }),
     ...(imageVariant !== undefined && { imageVariant }),
     ...(capture !== undefined && { capture }),
   };
@@ -561,7 +577,7 @@ function buildExtensionSectionViewModel(
 export function computeEditViewModel<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 >(input: ComputeEditViewModelInput<TValues>): EditViewModel {
-  const { screen, entity, values, translate, featureName, mode } = input;
+  const { screen, entity, values, translate, featureName, mode, entityId } = input;
   const excludedFields = new Set(mode === undefined ? [] : screen.writeExcludedFields?.[mode]);
   const isHiddenByExclusion = (fieldSpec: EditFieldSpec): boolean =>
     mode === "create" && excludedFields.has(normalizeEditField(fieldSpec).field);
@@ -649,7 +665,7 @@ export function computeEditViewModel<
           declaredRefTarget,
           featureName,
         );
-        const fileHints = deriveFileFieldHints(fieldDef, screen.entity, normalized.field);
+        const fileHints = deriveFileFieldHints(fieldDef, screen.entity, normalized.field, entityId);
         const embeddedListHints = deriveEmbeddedListHints(
           fieldDef,
           translate,

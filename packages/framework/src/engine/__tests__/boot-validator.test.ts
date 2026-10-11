@@ -3657,7 +3657,7 @@ describe("boot-validator", () => {
   });
 
   // --- no-widget field types + required (#1925) ---
-  // jsonb/embedded/files/images render read-only on the auto-wired
+  // jsonb/embedded render read-only on the auto-wired
   // entityEdit path (render-field.tsx) — a statically-`required: true`
   // field of one of these types would be unresolvable by the user, so it's
   // caught loudly at boot instead of silently accepting an unfillable form.
@@ -3777,21 +3777,38 @@ describe("boot-validator", () => {
       );
     });
 
-    test("files field, screen-spec required: true override → Throw (deliberately deferred, no multi-upload widget)", () => {
+    test("files and images field, screen-spec required: true → kein Throw (FileListField widget)", () => {
       const features = [
         defineFeature("shop", (r) => {
-          r.entity("order", createEntity({ fields: { attachments: createFilesField() } }));
+          r.entity(
+            "order",
+            createEntity({
+              fields: { attachments: createFilesField(), gallery: createImagesField() },
+            }),
+          );
           r.screen({
             id: "order-edit",
             type: "entityEdit",
             entity: "order",
-            layout: { sections: [{ fields: [{ field: "attachments", required: true }] }] },
+            layout: {
+              sections: [
+                {
+                  fields: [
+                    { field: "attachments", required: true },
+                    { field: "gallery", required: true },
+                  ],
+                },
+              ],
+            },
           });
         }),
       ];
-      expect(() => validateBoot(features)).toThrow(
-        /field "attachments" is type "files", which renders read-only/,
-      );
+      process.env["FILE_STORAGE_PROVIDER"] = "local";
+      try {
+        expect(() => validateBoot(features)).not.toThrow();
+      } finally {
+        delete process.env["FILE_STORAGE_PROVIDER"];
+      }
     });
 
     test("multiSelect field, entity-level required: true → kein Throw (has a combobox widget since #1925)", () => {
