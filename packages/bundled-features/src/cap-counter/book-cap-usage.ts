@@ -4,10 +4,12 @@ import { runInOwnTransaction, type TenantDb } from "@cosmicdrift/kumiko-framewor
 import {
   createEntityExecutor,
   type HandlerContext,
+  type JobContext,
   type SessionUser,
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable, VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
@@ -82,17 +84,69 @@ export type BookCapUsageOptions = {
   readonly guardCurrentValue?: (currentValue: number) => void;
 };
 
-export function requireOutsideTransactionDb(ctx: HandlerContext): TenantDb {
-  if (!ctx.dbOutsideTransaction) {
+export type CapCounterContext = HandlerContext | JobContext;
+
+export type CapCounterScope = {
+  readonly user: SessionUser;
+  readonly readDb: TenantDb;
+  readonly writeDb: TenantDb;
+};
+
+// A tenant-mode db pins every row it writes to its own tenant; counter and reservation row would
+// silently land on different tenants if that is not the user's.
+function assertDbServesUser(db: TenantDb, user: SessionUser): TenantDb {
+  if (db.mode === "tenant" && db.tenantId !== user.tenantId) {
+    throw new AccessDeniedError({
+      message: "cap-counter: the context's database belongs to a different tenant than its user",
+    });
+  }
+  return db;
+}
+
+// Jobs write in place (their db is not transaction-bound); systemScope handlers reach both dbs via
+// systemDb, because their ctx.db / ctx.dbOutsideTransaction are fail-closed proxies.
+export function resolveCapCounterScope(
+  ctx: CapCounterContext,
+  outsideTransaction: boolean,
+): CapCounterScope {
+  // A job context spread into a handler-shaped one (user set) is a handler context: its user, not
+  // the job's systemUser, names the metered tenant.
+  if (!("user" in ctx) || !ctx.user) {
+    const jobUser = "systemUser" in ctx ? ctx.systemUser : undefined;
+    if (!jobUser) {
+      throw new Error("cap-counter: ctx.user.tenantId missing — required to resolve the counter");
+    }
+    const db = assertDbServesUser(ctx.db, jobUser);
+    return { user: jobUser, readDb: db, writeDb: db };
+  }
+  const { user } = ctx;
+  if (!user.tenantId) {
+    throw new Error("cap-counter: ctx.user.tenantId missing — required to resolve the counter");
+  }
+  if (ctx.systemDb) {
+    const readDb = ctx.systemDb.assertTenantMatch(user.tenantId);
+    const writeDb = outsideTransaction
+      ? ctx.systemDb.outsideTransaction.assertTenantMatch(user.tenantId)
+      : readDb;
+    return { user, readDb, writeDb };
+  }
+  const writeDb = outsideTransaction ? ctx.dbOutsideTransaction : ctx.db;
+  if (!writeDb) {
     throw new Error(
-      "cap-counter.bookCapUsage: outsideTransaction requested but ctx.dbOutsideTransaction is undefined",
+      outsideTransaction
+        ? "cap-counter: outsideTransaction requested but ctx.dbOutsideTransaction is undefined"
+        : "cap-counter: ctx.db missing — run inside a handler context",
     );
   }
-  return ctx.dbOutsideTransaction;
+  return {
+    user,
+    readDb: assertDbServesUser(ctx.db, user),
+    writeDb: assertDbServesUser(writeDb, user),
+  };
 }
 
 export async function bookCapUsage(
-  ctx: HandlerContext,
+  ctx: CapCounterContext,
   options: BookCapUsageOptions,
 ): Promise<WriteResult> {
   return applyCapDelta(ctx, options, "add");
@@ -100,7 +154,7 @@ export async function bookCapUsage(
 
 // Gives back a reservation whose operation failed afterwards; the counter never drops below 0.
 export async function releaseCapUsage(
-  ctx: HandlerContext,
+  ctx: CapCounterContext,
   options: Omit<BookCapUsageOptions, "guardCurrentValue">,
 ): Promise<WriteResult> {
   return applyCapDelta(ctx, options, "subtract");
@@ -157,18 +211,18 @@ export async function applyCapDeltaOn(
 }
 
 async function applyCapDelta(
-  ctx: HandlerContext,
+  ctx: CapCounterContext,
   options: BookCapUsageOptions,
   direction: "add" | "subtract",
 ): Promise<WriteResult> {
+  const { user, writeDb } = resolveCapCounterScope(ctx, options.outsideTransaction === true);
   if (options.outsideTransaction) {
-    const outsideDb = requireOutsideTransactionDb(ctx);
     return retryCounterWriteOnVersionConflict(() =>
-      runInOwnTransaction(outsideDb, (txDb) => applyCapDeltaOn(txDb, ctx.user, options, direction)),
+      runInOwnTransaction(writeDb, (txDb) => applyCapDeltaOn(txDb, user, options, direction)),
     );
   }
   return retryCounterWriteOnVersionConflict(() =>
-    applyCapDeltaOn(ctx.db, ctx.user, options, direction),
+    applyCapDeltaOn(writeDb, user, options, direction),
   );
 }
 
@@ -179,21 +233,18 @@ export type MarkCapSoftWarnedOptions = {
 };
 
 export async function markCapSoftWarned(
-  ctx: HandlerContext,
+  ctx: CapCounterContext,
   options: MarkCapSoftWarnedOptions,
 ): Promise<WriteResult> {
   const parsed = capPeriodSchema.parse(options);
-  const aggregateId = capCounterAggregateId(
-    ctx.user.tenantId,
-    parsed.capName,
-    parsed.periodStartIso,
-  );
+  const { user, writeDb } = resolveCapCounterScope(ctx, options.outsideTransaction === true);
+  const aggregateId = capCounterAggregateId(user.tenantId, parsed.capName, parsed.periodStartIso);
 
   async function attemptMark(db: TenantDb): Promise<WriteResult> {
     const existing = await db.selectMany(table, { id: aggregateId }, { limit: 1 });
     if (existing.length === 0) {
       throw new Error(
-        `cap-counter: cannot mark-soft-warned, no counter found for tenant=${ctx.user.tenantId} cap=${parsed.capName} period=${parsed.periodStartIso}`,
+        `cap-counter: cannot mark-soft-warned, no counter found for tenant=${user.tenantId} cap=${parsed.capName} period=${parsed.periodStartIso}`,
       );
     }
     const row = existing[0];
@@ -213,16 +264,15 @@ export async function markCapSoftWarned(
         version: currentVersion,
         changes: { lastSoftWarnedAt: Temporal.Now.instant() },
       },
-      ctx.user,
+      user,
       db,
     );
   }
 
   if (options.outsideTransaction) {
-    const outsideDb = requireOutsideTransactionDb(ctx);
-    return retryCounterWriteOnVersionConflict(() => runInOwnTransaction(outsideDb, attemptMark));
+    return retryCounterWriteOnVersionConflict(() => runInOwnTransaction(writeDb, attemptMark));
   }
-  return retryCounterWriteOnVersionConflict(() => attemptMark(ctx.db));
+  return retryCounterWriteOnVersionConflict(() => attemptMark(writeDb));
 }
 
 export type ReadRollingCapUsageOptions = {
