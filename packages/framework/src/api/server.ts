@@ -29,6 +29,7 @@ import { createFileContext } from "../files/file-handle.js";
 import type { FileRoutesOptions } from "../files/file-routes.js";
 import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes.js";
 import { makeFileProviderResolver } from "../files/provider-resolver.js";
+import { createRecordReadCheck } from "../files/record-read-check.js";
 import type { Lifecycle } from "../lifecycle/index.js";
 import { createFallbackLogger } from "../logging/index.js";
 import {
@@ -1074,6 +1075,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         db: fileDb,
         registry: options.registry,
         resolveProvider: fileProviderResolver,
+        canReadRecord: createRecordReadCheck(options.registry, dispatcher.query),
         ...(routeOptions.accessGuard ? { accessGuard: routeOptions.accessGuard } : {}),
         ...(routeOptions.privilegedRoles ? { privilegedRoles: routeOptions.privilegedRoles } : {}),
         ...(routeOptions.maxUploadSize ? { maxUploadSize: routeOptions.maxUploadSize } : {}),

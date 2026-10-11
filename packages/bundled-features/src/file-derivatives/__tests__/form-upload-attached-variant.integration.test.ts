@@ -1,16 +1,18 @@
-// An upload from an UPDATE form must carry the record id, otherwise the
-// FileRef is attached to no record and a qr-overlay variant has nothing to
-// resolve the QR payload against. The upload body is built from the real
-// edit view model's hints and the real renderer-web form-data builder; the
-// negative case (create-mode hints, no entityId) proves the id is what makes
-// the variant work.
+// Form uploads must end up attached to their record, otherwise a qr-overlay
+// variant has nothing to resolve the QR payload against. An update form sends
+// the record id with the upload; a create form uploads before the record
+// exists and the create binds the caller's pending uploads. Attached files are
+// readable by everyone who may read the record. Upload bodies are built from
+// the real edit view model's hints and the real renderer-web form-data builder.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntity,
   createImageField,
   createTextField,
   defineEntityCreateHandler,
+  defineEntityDetailHandler,
   defineFeature,
   EXT_DERIVATIVE_OVERLAY_RESOLVER,
   EXT_DERIVATIVE_RENDERER,
@@ -46,6 +48,9 @@ import { createFileDerivativesFeature } from "../feature.js";
 
 const tenantId = testTenantId(1);
 const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
+const otherAdmin = createTestUser({ id: 2, tenantId, roles: ["Admin"] });
+const technician = createTestUser({ id: 3, tenantId, roles: ["Technician"] });
+const guest = createTestUser({ id: 4, tenantId, roles: ["Guest"] });
 
 const QR_LAYER = {
   kind: "qr",
@@ -84,6 +89,11 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
   r.entity("gadget", gadgetEntity);
   r.writeHandler(
     defineEntityCreateHandler("gadget", gadgetEntity, { access: { roles: ["Admin"] } }),
+  );
+  r.queryHandler(
+    defineEntityDetailHandler("gadget", gadgetEntity, {
+      access: { roles: ["Admin", "Technician"] },
+    }),
   );
   r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", stubRenderer);
   r.useExtension(EXT_DERIVATIVE_OVERLAY_RESOLVER, "gadget", {
@@ -167,7 +177,10 @@ beforeEach(() => {
   renderedSpecs = [];
 });
 
-async function uploadLikeTheForm(hints: EditFieldViewModel): Promise<string> {
+async function uploadLikeTheForm(
+  hints: EditFieldViewModel,
+  uploader: SessionUser = user,
+): Promise<string> {
   const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
   const formData = buildFileUploadFormData({
     file: new File([Buffer.from(jpegBytes)], "photo.jpg", { type: "image/jpeg" }),
@@ -176,10 +189,9 @@ async function uploadLikeTheForm(hints: EditFieldViewModel): Promise<string> {
     fieldName: hints.fieldName,
   });
   const { body, contentType } = await buildMultipartBody(formData);
-  const token = await stack.jwt.sign(user);
   const res = await stack.app.request("/api/files", {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    headers: { Authorization: await bearer(uploader), "Content-Type": contentType },
     body,
   });
   expect(res.status).toBe(201);
@@ -187,57 +199,97 @@ async function uploadLikeTheForm(hints: EditFieldViewModel): Promise<string> {
   return json.id;
 }
 
-async function createGadget(): Promise<string> {
+async function bearer(sessionUser: SessionUser): Promise<string> {
+  return `Bearer ${await stack.jwt.sign(sessionUser)}`;
+}
+
+async function createGadget(photo?: string): Promise<string> {
   const created = await stack.http.writeOk<{ id: string }>(
     "form-upload-gadget:write:gadget:create",
-    { title: "Gadget" },
+    { title: "Gadget", ...(photo !== undefined && { photo }) },
     user,
   );
   return created.id;
 }
 
-describe("upload from an update form, then a qr-overlay variant", () => {
+async function renderCard(
+  fileRefId: string,
+): Promise<{ rendered: boolean; failedWithInternalError: boolean }> {
+  return await stack.http.writeOk("form-upload-gadget:write:render-card", { fileRefId }, user);
+}
+
+function expectQrResolvedAgainst(gadgetId: string): void {
+  expect(resolverCalls).toEqual([
+    { entityId: gadgetId, tenantId, fieldName: "photo", dataToken: "public-url" },
+  ]);
+  expect(renderedSpecs).toHaveLength(1);
+  expect(renderedSpecs[0]).toMatchObject({
+    resolvedOverlays: [
+      {
+        kind: "qr",
+        data: `https://example.com/gadget/${gadgetId}`,
+        widthPct: 0.2,
+        gravity: "center",
+      },
+    ],
+  });
+}
+
+describe("form uploads attached to their record, then a qr-overlay variant", () => {
   test("update-mode hints carry the record id, so the variant renders with the QR resolved against that record", async () => {
     const gadgetId = await createGadget();
     const hints = photoHints("update", gadgetId);
     expect(hints.entityId).toBe(gadgetId);
 
     const fileRefId = await uploadLikeTheForm(hints);
-    const result = await stack.http.writeOk<{ rendered: boolean }>(
-      "form-upload-gadget:write:render-card",
-      { fileRefId },
-      user,
-    );
+    const result = await renderCard(fileRefId);
 
     expect(result.rendered).toBe(true);
-    expect(resolverCalls).toEqual([
-      { entityId: gadgetId, tenantId, fieldName: "photo", dataToken: "public-url" },
-    ]);
-    expect(renderedSpecs).toHaveLength(1);
-    expect(renderedSpecs[0]).toMatchObject({
-      resolvedOverlays: [
-        {
-          kind: "qr",
-          data: `https://example.com/gadget/${gadgetId}`,
-          widthPct: 0.2,
-          gravity: "center",
-        },
-      ],
-    });
+    expectQrResolvedAgainst(gadgetId);
   });
 
-  test("create-mode hints carry no record id: the same variant fails with an InternalError", async () => {
+  test("a create-form upload is bound to the record by the create, so the variant renders", async () => {
     const hints = photoHints("create");
     expect(hints.entityId).toBeUndefined();
-
     const fileRefId = await uploadLikeTheForm(hints);
-    const result = await stack.http.writeOk<{
-      rendered: boolean;
-      failedWithInternalError: boolean;
-    }>("form-upload-gadget:write:render-card", { fileRefId }, user);
+
+    const gadgetId = await createGadget(fileRefId);
+    const result = await renderCard(fileRefId);
+
+    expect(result).toEqual({ rendered: true, failedWithInternalError: false });
+    expectQrResolvedAgainst(gadgetId);
+  });
+
+  test("a create naming another user's pending upload leaves that upload unbound", async () => {
+    const foreignFileRefId = await uploadLikeTheForm(photoHints("create"), otherAdmin);
+
+    await createGadget(foreignFileRefId);
+    const result = await renderCard(foreignFileRefId);
 
     expect(result).toEqual({ rendered: false, failedWithInternalError: true });
     expect(resolverCalls).toEqual([]);
-    expect(renderedSpecs).toEqual([]);
+  });
+});
+
+describe("read access to files attached to a record", () => {
+  test("whoever may read the record reads its files; others and deletes stay denied", async () => {
+    const gadgetId = await createGadget();
+    const fileRefId = await uploadLikeTheForm(photoHints("update", gadgetId));
+
+    const asTechnician = await stack.app.request(`/api/files/${fileRefId}`, {
+      headers: { Authorization: await bearer(technician) },
+    });
+    expect(asTechnician.status).toBe(200);
+
+    const asGuest = await stack.app.request(`/api/files/${fileRefId}`, {
+      headers: { Authorization: await bearer(guest) },
+    });
+    expect(asGuest.status).toBe(404);
+
+    const deleteAsTechnician = await stack.app.request(`/api/files/${fileRefId}`, {
+      method: "DELETE",
+      headers: { Authorization: await bearer(technician) },
+    });
+    expect(deleteAsTechnician.status).toBe(404);
   });
 });

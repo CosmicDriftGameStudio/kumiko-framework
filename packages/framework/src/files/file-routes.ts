@@ -35,6 +35,7 @@ import { createFileContext } from "./file-handle.js";
 import { fileRefEntity } from "./file-ref-entity.js";
 import { fileRefsTable } from "./file-ref-table.js";
 import type { FileProviderResolver } from "./provider-resolver.js";
+import type { RecordReadCheck } from "./record-read-check.js";
 import { neutralFileNameForMimeType } from "./resolve-content-type.js";
 import { parseMaxSize, resolveServedContentType } from "./types.js";
 
@@ -62,9 +63,9 @@ export type FileRef = {
 // event types — there is no bespoke files:event:* anymore.
 
 // Checks whether `user` may read/delete the given file. The default guard
-// (ownerOrPrivilegedGuard) approves uploaders + any role in privilegedRoles.
-// Apps can supply a custom guard to layer entity-level access (e.g. "drivers
-// can read files attached to orders assigned to them").
+// approves uploaders, any role in privilegedRoles and, for reads, everyone who
+// may read the record the file is attached to. Apps can supply a custom guard
+// to replace that decision entirely.
 export type FileAccessGuard = (args: {
   readonly fileRef: FileRef;
   readonly user: SessionUser;
@@ -83,9 +84,12 @@ export type FileRoutesOptions = {
   // Roles that bypass the default owner-check on entity-attached files.
   // Defaults to ["Admin", "SystemAdmin"]; override to match your app's roles.
   readonly privilegedRoles?: readonly string[];
-  // Replaces the default guard entirely. When set, privilegedRoles is ignored
-  // — the app takes full responsibility for the decision.
+  // Replaces the default guard entirely. When set, privilegedRoles and
+  // canReadRecord are ignored — the app takes full responsibility.
   readonly accessGuard?: FileAccessGuard;
+  // Lets the default guard grant read on an attached file to everyone who may
+  // read its record. buildServer wires it to the entity's detail query.
+  readonly canReadRecord?: RecordReadCheck;
 };
 
 const DEFAULT_PRIVILEGED_ROLES = ["Admin", "SystemAdmin"] as const;
@@ -95,17 +99,26 @@ const DEFAULT_PRIVILEGED_ROLES = ["Admin", "SystemAdmin"] as const;
 // credential (see "Signed-URL default expiry" in core-files.md).
 const SIGNED_URL_DEFAULT_EXPIRY_SECONDS = 15 * 60;
 
-// Default guard: on attached files, allow the uploader or a privileged role.
-// Unattached files are tenant-wide (the tenant boundary is already enforced
-// by the query).
-function createDefaultGuard(privilegedRoles: readonly string[]): FileAccessGuard {
-  return ({ fileRef, user }) => {
+// Default guard: on attached files, allow the uploader or a privileged role,
+// and for reads also everyone who may read the record. Delete stays with the
+// uploader and privileged roles: reading a record is no right to remove its
+// files. Unattached files are tenant-wide (the tenant boundary is already
+// enforced by the query).
+function createDefaultGuard(
+  privilegedRoles: readonly string[],
+  canReadRecord: RecordReadCheck | undefined,
+): FileAccessGuard {
+  return async ({ fileRef, user, operation }) => {
     if (fileRef.entityType === null || fileRef.entityId === null) return "allow";
     if (fileRef.insertedById === user.id) return "allow";
-    for (const role of privilegedRoles) {
-      if (user.roles.includes(role)) return "allow";
-    }
-    return "deny";
+    if (privilegedRoles.some((role) => user.roles.includes(role))) return "allow";
+    if (operation !== "read" || canReadRecord === undefined) return "deny";
+    const recordReadable = await canReadRecord({
+      entityType: fileRef.entityType,
+      entityId: fileRef.entityId,
+      user,
+    });
+    return recordReadable ? "allow" : "deny";
   };
 }
 
@@ -149,7 +162,8 @@ export function readFilesRouteOptions(
 export function createFileRoutes(options: FileRoutesOptions): Hono {
   const { db } = options;
   const privilegedRoles = options.privilegedRoles ?? DEFAULT_PRIVILEGED_ROLES;
-  const guard: FileAccessGuard = options.accessGuard ?? createDefaultGuard(privilegedRoles);
+  const guard: FileAccessGuard =
+    options.accessGuard ?? createDefaultGuard(privilegedRoles, options.canReadRecord);
   const executor = getFileRefExecutor();
   const piiSubjectFields = collectPiiSubjectFields(fileRefEntity);
   const api = new Hono();
@@ -248,7 +262,8 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   // Authorization stack:
   //   1. tenantId must match (hard isolation, never crossable).
   //   2. The configured FileAccessGuard decides read access. Default:
-  //      unattached → allow; attached → uploader or privileged role.
+  //      unattached → allow; attached → uploader, privileged role or a
+  //      reader of the record.
   //      Apps override via options.accessGuard to layer entity-level rules.
   api.get("/files/:id", async (c) => {
     const user = getUser(c);
