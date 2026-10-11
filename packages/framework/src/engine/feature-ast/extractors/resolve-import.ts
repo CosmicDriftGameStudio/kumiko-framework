@@ -15,7 +15,13 @@ const MODULE_RESOLUTION_OPTIONS: ts.CompilerOptions = {
 
 const MAX_RESOLUTION_DEPTH = 24;
 
-export function resolveModuleFile(fromFile: SourceFile, specifier: string): SourceFile | undefined {
+const DECLARATION_FILES_OK = { allowDeclarationFiles: true } as const;
+
+export function resolveModuleFile(
+  fromFile: SourceFile,
+  specifier: string,
+  { allowDeclarationFiles = false }: { readonly allowDeclarationFiles?: boolean } = {},
+): SourceFile | undefined {
   const project = fromFile.getProject();
   // The project's own host, not ts.sys: it honours an in-memory file system
   // (Designer) and exists outside Node.
@@ -27,10 +33,10 @@ export function resolveModuleFile(fromFile: SourceFile, specifier: string): Sour
   );
   const resolvedFileName = resolved.resolvedModule?.resolvedFileName;
   if (!resolvedFileName) return undefined;
-  // A declaration file has no initializers to read. Installed packages that
-  // ship .ts sources (the @cosmicdrift/* packages in a consumer repo) stay
-  // resolvable, as they were via the type checker.
-  if (resolvedFileName.endsWith(".d.ts")) return undefined;
+  // A declaration file has no initializers to read. Callers that only need
+  // `export declare const X: "literal"` types opt in (installed packages
+  // resolve to dist/*.d.ts through their publishConfig exports).
+  if (!allowDeclarationFiles && resolvedFileName.endsWith(".d.ts")) return undefined;
   return fromFile.getProject().addSourceFileAtPathIfExists(resolvedFileName);
 }
 
@@ -97,7 +103,7 @@ function resolveViaNamedExportSpecifier(
 
     const moduleSpecifierValue = exportDecl.getModuleSpecifierValue();
     if (!moduleSpecifierValue) continue;
-    const target = resolveModuleFile(file, moduleSpecifierValue);
+    const target = resolveModuleFile(file, moduleSpecifierValue, DECLARATION_FILES_OK);
     if (!target) continue;
     const resolved = resolveExportedVariable(target, originalName, visited, depth + 1);
     if (resolved) return resolved;
@@ -115,7 +121,7 @@ function resolveLocalExportBinding(
   if (localDecl) return localDecl;
   const binding = findImportBindingForLocalName(file, originalName);
   if (!binding) return undefined;
-  const target = resolveModuleFile(file, binding.moduleSpecifier);
+  const target = resolveModuleFile(file, binding.moduleSpecifier, DECLARATION_FILES_OK);
   if (!target) return undefined;
   return resolveExportedVariable(target, binding.importedName, visited, depth + 1);
 }
@@ -132,7 +138,7 @@ function resolveViaStarExport(
     if (exportDecl.getNamespaceExport()) continue; // `export * as ns from "./m"` is not a re-export target.
     const moduleSpecifierValue = exportDecl.getModuleSpecifierValue();
     if (!moduleSpecifierValue) continue;
-    const target = resolveModuleFile(file, moduleSpecifierValue);
+    const target = resolveModuleFile(file, moduleSpecifierValue, DECLARATION_FILES_OK);
     if (!target) continue;
     const resolved = resolveExportedVariable(target, exportedName, visited, depth + 1);
     if (resolved) return resolved;

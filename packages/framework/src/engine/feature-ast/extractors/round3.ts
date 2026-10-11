@@ -369,6 +369,8 @@ export function extractReferenceData(
   });
 }
 
+const USE_EXTENSION_READ_OPTIONS = { functionValuesAsRaw: true } as const;
+
 export function extractUseExtension(
   call: CallExpression,
   sourceFile: SourceFile,
@@ -422,7 +424,7 @@ export function extractUseExtension(
       ?.asKind(SyntaxKind.PropertyAssignment)
       ?.getInitializer();
     if (optionsInit) {
-      const parsed = readDataLiteralNode(optionsInit);
+      const parsed = readDataLiteralNode(optionsInit, USE_EXTENSION_READ_OPTIONS);
       if (!isPlainObject(parsed)) {
         return fail(
           "useExtension",
@@ -468,7 +470,7 @@ export function extractUseExtension(
   const optionsArg = args[2];
   let options: Readonly<Record<string, unknown>> | undefined;
   if (optionsArg) {
-    const parsed = readDataLiteralNode(optionsArg);
+    const parsed = readDataLiteralNode(optionsArg, USE_EXTENSION_READ_OPTIONS);
     if (!isPlainObject(parsed)) {
       return fail(
         "useExtension",

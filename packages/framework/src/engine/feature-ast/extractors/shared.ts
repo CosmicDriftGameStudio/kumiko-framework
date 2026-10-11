@@ -1,5 +1,5 @@
-import type { CallExpression, Node, ObjectLiteralExpression } from "ts-morph";
-import { SyntaxKind } from "ts-morph";
+import type { CallExpression, ObjectLiteralExpression, VariableDeclaration } from "ts-morph";
+import { Node, SyntaxKind } from "ts-morph";
 import { isPlainObject } from "../../../utils/is-plain-object.js";
 import type { ParseError } from "../parse.js";
 import {
@@ -81,7 +81,17 @@ export function containsRawRefSentinel(value: unknown): boolean {
   return false;
 }
 
-export function readDataLiteralNode(node: Node): unknown {
+export type ReadDataLiteralOptions = {
+  /**
+   * Keep arrow/function-expression values as `__raw` sentinels instead of
+   * failing the whole read. Only for pattern options that are code by
+   * nature (useExtension); data-only definitions (entity, nav) must still
+   * reject functions.
+   */
+  readonly functionValuesAsRaw?: boolean;
+};
+
+export function readDataLiteralNode(node: Node, readOptions: ReadDataLiteralOptions = {}): unknown {
   const kind = node.getKind();
   switch (kind) {
     case SyntaxKind.StringLiteral:
@@ -99,7 +109,7 @@ export function readDataLiteralNode(node: Node): unknown {
     case SyntaxKind.PrefixUnaryExpression: {
       const expr = node.asKindOrThrow(SyntaxKind.PrefixUnaryExpression);
       if (expr.getOperatorToken() !== SyntaxKind.MinusToken) return undefined;
-      const inner = readDataLiteralNode(expr.getOperand());
+      const inner = readDataLiteralNode(expr.getOperand(), readOptions);
       if (typeof inner !== "number") return undefined;
       return -inner;
     }
@@ -107,7 +117,7 @@ export function readDataLiteralNode(node: Node): unknown {
       const arr = node.asKindOrThrow(SyntaxKind.ArrayLiteralExpression);
       const out: unknown[] = [];
       for (const el of arr.getElements()) {
-        const value = readDataLiteralNode(el);
+        const value = readDataLiteralNode(el, readOptions);
         if (value === undefined) return undefined;
         out.push(value);
       }
@@ -121,21 +131,26 @@ export function readDataLiteralNode(node: Node): unknown {
         if (!propAssign) return undefined;
         const initializer = propAssign.getInitializer();
         if (!initializer) return undefined;
-        const value = readDataLiteralNode(initializer);
+        const value = readDataLiteralNode(initializer, readOptions);
         if (value === undefined) return undefined;
         out[readPropertyKey(propAssign)] = value;
       }
       return out;
     }
     case SyntaxKind.AsExpression:
-      return readDataLiteralNode(node.asKindOrThrow(SyntaxKind.AsExpression).getExpression());
+      return readDataLiteralNode(
+        node.asKindOrThrow(SyntaxKind.AsExpression).getExpression(),
+        readOptions,
+      );
     case SyntaxKind.SatisfiesExpression:
       return readDataLiteralNode(
         node.asKindOrThrow(SyntaxKind.SatisfiesExpression).getExpression(),
+        readOptions,
       );
     case SyntaxKind.ParenthesizedExpression:
       return readDataLiteralNode(
         node.asKindOrThrow(SyntaxKind.ParenthesizedExpression).getExpression(),
+        readOptions,
       );
     case SyntaxKind.Identifier:
     case SyntaxKind.CallExpression:
@@ -145,6 +160,11 @@ export function readDataLiteralNode(node: Node): unknown {
       // resolving/inlining it would silently rewrite the source on the next
       // parse->render roundtrip (see readDataLiteralNode doc above).
       return { __raw: node.getText() } satisfies RawRefSentinel;
+    case SyntaxKind.ArrowFunction:
+    case SyntaxKind.FunctionExpression:
+      return readOptions.functionValuesAsRaw
+        ? ({ __raw: node.getText() } satisfies RawRefSentinel)
+        : undefined;
     default:
       return undefined;
   }
@@ -203,6 +223,15 @@ function unwrapLiteralInitializer(node: Node): string | undefined {
   return undefined;
 }
 
+// `export declare const NAME: "value"` in a .d.ts has no initializer, only a
+// string-literal type.
+function readDeclaredStringLiteralType(decl: VariableDeclaration): string | undefined {
+  const typeNode = decl.getTypeNode();
+  if (!typeNode || !Node.isLiteralTypeNode(typeNode)) return undefined;
+  const literal = typeNode.getLiteral();
+  return Node.isStringLiteral(literal) ? literal.getLiteralValue() : undefined;
+}
+
 /**
  * Resolves a bare Identifier to the string value of its declaration's
  * initializer (`export const EXT_TENANT_DATA = "tenant-data" as const`),
@@ -225,11 +254,15 @@ function resolveIdentifierToStringLiteral(identifier: Node): string | undefined 
 
   const binding = findImportBindingForLocalName(id.getSourceFile(), name);
   if (!binding) return undefined;
-  const targetFile = resolveModuleFile(id.getSourceFile(), binding.moduleSpecifier);
+  const targetFile = resolveModuleFile(id.getSourceFile(), binding.moduleSpecifier, {
+    allowDeclarationFiles: true,
+  });
   if (!targetFile) return undefined;
   const decl = resolveExportedVariable(targetFile, binding.importedName);
-  const init = decl?.getInitializer();
-  return init ? unwrapLiteralInitializer(init) : undefined;
+  if (!decl) return undefined;
+  const init = decl.getInitializer();
+  if (init) return unwrapLiteralInitializer(init);
+  return readDeclaredStringLiteralType(decl);
 }
 
 /**
