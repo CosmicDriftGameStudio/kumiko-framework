@@ -3,11 +3,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
+  testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
@@ -23,7 +23,7 @@ import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defa
 import { UserProfileHandlers } from "../constants.js";
 import { createUserProfileFeature } from "../feature.js";
 
-const TENANT: TenantId = "00000000-0000-4000-8000-000000000001" as TenantId; // @cast-boundary test-fixture
+const TENANT = testTenantId(1);
 
 let stack: TestStack;
 
