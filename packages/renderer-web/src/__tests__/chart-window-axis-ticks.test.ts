@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { stackedAreaAxisTicks, stackedAreaDateFormatFor } from "../widgets/chart-window.js";
+import {
+  bucketIndexAtFraction,
+  stackedAreaAxisTicks,
+  stackedAreaDateFormatFor,
+} from "../widgets/chart-window.js";
 
 const utc = (year: number, monthIndex: number, day = 1): number => Date.UTC(year, monthIndex, day);
 const monthOf = (atMs: number): number => new Date(atMs).getUTCMonth();
@@ -74,5 +78,22 @@ describe("stackedAreaAxisTicks", () => {
 
   test("an empty window has no ticks", () => {
     expect(stackedAreaAxisTicks({ startMs: 5, endMs: 5 }, 12, "month")).toEqual([]);
+  });
+});
+
+describe("bucketIndexAtFraction", () => {
+  const times = [0, 10, 20, 40];
+  const window = { startMs: 0, endMs: 40 };
+
+  test("maps a fraction to the nearest bucket", () => {
+    expect(bucketIndexAtFraction(times, window, 0)).toBe(0);
+    expect(bucketIndexAtFraction(times, window, 0.3)).toBe(1);
+    expect(bucketIndexAtFraction(times, window, 0.6)).toBe(2);
+    expect(bucketIndexAtFraction(times, window, 0.95)).toBe(3);
+  });
+
+  test("clamps fractions outside 0..1", () => {
+    expect(bucketIndexAtFraction(times, window, -2)).toBe(0);
+    expect(bucketIndexAtFraction(times, window, 5)).toBe(3);
   });
 });

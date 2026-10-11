@@ -890,7 +890,8 @@ describe("StackedAreaChart", () => {
       />,
     );
     expect(container.querySelectorAll("circle").length).toBe(0);
-    expect(container.querySelectorAll("path").length).toBe(1);
+    expect(container.querySelectorAll('path[fill^="url("]').length).toBe(1);
+    expect(container.querySelectorAll('[data-testid="chart-band-edge-a"]').length).toBe(1);
   });
 
   const areaSeries = [

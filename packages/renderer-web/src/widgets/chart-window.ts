@@ -117,6 +117,16 @@ export function resolveStackedAreaWindow({
   return fullWindow;
 }
 
+/** Bucket closest to a horizontal position given as a 0..1 fraction of the window. */
+export function bucketIndexAtFraction(
+  times: readonly number[],
+  window: ChartWindow,
+  fraction: number,
+): number {
+  const clamped = Math.max(0, Math.min(1, fraction));
+  return nearestIndex(times, window.startMs + clamped * (window.endMs - window.startMs));
+}
+
 export function nearestIndex(times: readonly number[], atMs: number): number {
   let best = 0;
   for (let i = 1; i < times.length; i++) {

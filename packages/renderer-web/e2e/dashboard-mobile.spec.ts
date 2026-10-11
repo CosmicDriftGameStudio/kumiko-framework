@@ -119,6 +119,7 @@ async function box(locator: Locator): Promise<{
 
 test.describe("dashboard at 390px (mobile)", () => {
   const WIDTH = 390;
+  test.use({ hasTouch: true });
 
   test.beforeEach(async ({ page }) => {
     await openDashboard(page, WIDTH, 844);
@@ -193,7 +194,7 @@ test.describe("dashboard at 390px (mobile)", () => {
 
   test("plot is tall enough to read", async ({ page }) => {
     const plot = await box(page.getByTestId("dashboard-chart-chart").locator('svg[role="img"]'));
-    expect(plot.bottom - plot.top).toBeGreaterThanOrEqual(180);
+    expect(plot.bottom - plot.top).toBeGreaterThanOrEqual(210);
   });
 
   test("x axis labels do not overlap", async ({ page }) => {
@@ -204,6 +205,64 @@ test.describe("dashboard at 390px (mobile)", () => {
     await expect(
       page.getByTestId("chart-marker-item").filter({ hasText: "Zwischenfinanzierung abbezahlt" }),
     ).toBeVisible();
+  });
+
+  test("marker pins never overlap each other", async ({ page }) => {
+    const pins = page.getByTestId("chart-marker-pin");
+    const boxes = [];
+    for (const pin of await pins.all()) boxes.push(await pin.boundingBox());
+    expect(boxes.length).toBeGreaterThan(1);
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i];
+        const b = boxes[j];
+        if (a === null || a === undefined || b === null || b === undefined) {
+          throw new Error("marker pin has no bounding box");
+        }
+        const overlaps =
+          a.x < b.x + b.width &&
+          b.x < a.x + a.width &&
+          a.y < b.y + b.height &&
+          b.y < a.y + a.height;
+        expect(overlaps, `pin ${i + 1} overlaps pin ${j + 1}`).toBe(false);
+      }
+    }
+  });
+
+  test("tapping the plot opens a tooltip inside the viewport, a second tap closes it", async ({
+    page,
+  }) => {
+    const overlay = page.getByTestId("chart-tooltip-overlay");
+    const plot = await overlay.boundingBox();
+    if (plot === null) throw new Error("overlay has no bounding box");
+    const x = plot.x + plot.width / 2;
+    const y = plot.y + plot.height / 2;
+    await page.touchscreen.tap(x, y);
+    const card = page.getByTestId("chart-tooltip");
+    await expect(card).toBeVisible();
+    const cardBox = await card.boundingBox();
+    if (cardBox === null) throw new Error("tooltip has no bounding box");
+    expect(cardBox.x).toBeGreaterThanOrEqual(0);
+    expect(cardBox.x + cardBox.width).toBeLessThanOrEqual(WIDTH);
+    expect(cardBox.x).toBeGreaterThanOrEqual(plot.x - EDGE_TOLERANCE_PX);
+    expect(cardBox.x + cardBox.width).toBeLessThanOrEqual(plot.x + plot.width + EDGE_TOLERANCE_PX);
+    await expectNoHorizontalScroll(page, WIDTH);
+    await page.touchscreen.tap(x, y);
+    await expect(card).toBeHidden();
+  });
+
+  test("tapping outside the chart closes the tooltip", async ({ page }) => {
+    const plot = await page.getByTestId("chart-tooltip-overlay").boundingBox();
+    if (plot === null) throw new Error("overlay has no bounding box");
+    await page.touchscreen.tap(plot.x + plot.width / 2, plot.y + plot.height / 2);
+    await expect(page.getByTestId("chart-tooltip")).toBeVisible();
+    const header = await page
+      .getByTestId("dashboard-panel-chart")
+      .getByRole("heading", { name: "Restschuld, Tilgung & Zinsen" })
+      .boundingBox();
+    if (header === null) throw new Error("heading has no bounding box");
+    await page.touchscreen.tap(header.x + 4, header.y + header.height / 2);
+    await expect(page.getByTestId("chart-tooltip")).toBeHidden();
   });
 
   test("range pill Max is the active one", async ({ page }) => {
@@ -248,5 +307,20 @@ test.describe("dashboard at 1440px (desktop)", () => {
   test("chart plot is tall enough to read", async ({ page }) => {
     const plot = await box(page.getByTestId("dashboard-chart-chart").locator('svg[role="img"]'));
     expect(plot.bottom - plot.top).toBeGreaterThanOrEqual(200);
+  });
+
+  test("hovering the forecast region shows the compact balance in the tooltip", async ({
+    page,
+  }) => {
+    const overlay = page.getByTestId("chart-tooltip-overlay");
+    const plot = await overlay.boundingBox();
+    if (plot === null) throw new Error("overlay has no bounding box");
+    await page.mouse.move(plot.x + plot.width * 0.8, plot.y + plot.height / 2);
+    const card = page.getByTestId("chart-tooltip");
+    await expect(card).toBeVisible();
+    await expect(card).toContainText("Restschuld");
+    await expect(card).toContainText("€");
+    await page.mouse.move(plot.x + plot.width * 0.8, plot.y - 200);
+    await expect(card).toBeHidden();
   });
 });

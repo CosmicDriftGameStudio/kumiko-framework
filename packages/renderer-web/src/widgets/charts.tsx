@@ -9,6 +9,7 @@ import {
 } from "react";
 import { cn } from "../lib/cn.js";
 import {
+  bucketIndexAtFraction,
   type ChartWindow,
   initialWindowSelection,
   nearestIndex,
@@ -689,7 +690,42 @@ function YTicks({
 
 const BAR_LABEL_TARGET = 8;
 
-const STACKED_AREA_PLOT_HEIGHT_CLASS = "h-48 @2xl:h-64";
+const STACKED_AREA_PLOT_HEIGHT_CLASS = "h-56 @2xl:h-64";
+
+// A 16px pin on a ~230px-wide plot (390px viewport) collides when markers sit
+// within ~7% of each other, so close pins are staggered into extra rows.
+const MARKER_PIN_MIN_GAP_FRACTION = 0.07;
+const MARKER_PIN_MAX_ROWS = 3;
+const MARKER_PIN_ROW_HEIGHT_PX = 18;
+const TOOLTIP_WIDTH_REM = 14;
+const TOOLTIP_OFFSET_PX = 8;
+// A swipe over the plot (scrolling the page or the chart) must not open the card.
+const TOOLTIP_TAP_MAX_MOVEMENT_PX = 8;
+
+type ChartTooltipRow = {
+  readonly key: string;
+  readonly label: string;
+  readonly color: string;
+  readonly swatch: "area" | "line" | "dashed-line";
+  readonly value: number;
+};
+
+function assignPinRows(fractions: readonly number[]): readonly number[] {
+  const lastFractionPerRow: number[] = [];
+  return fractions.map((fraction) => {
+    let row = lastFractionPerRow.findIndex(
+      (last) => fraction - last >= MARKER_PIN_MIN_GAP_FRACTION,
+    );
+    if (row === -1) {
+      row =
+        lastFractionPerRow.length < MARKER_PIN_MAX_ROWS
+          ? lastFractionPerRow.length
+          : MARKER_PIN_MAX_ROWS - 1;
+    }
+    lastFractionPerRow[row] = fraction;
+    return row;
+  });
+}
 
 // Container-query density tiers for the x axis: label budget per tier.
 const AXIS_TIERS = [
@@ -731,6 +767,7 @@ export function StackedBarChart({
   todayLabel,
   formatBucketLabel,
   formatValue = String,
+  formatAxisValue = formatValue,
   emptyContent,
   testId,
 }: {
@@ -742,6 +779,8 @@ export function StackedBarChart({
   readonly todayLabel: string;
   readonly formatBucketLabel: (atMs: number) => string;
   readonly formatValue?: (value: number) => string;
+  /** y-axis tick labels only; defaults to `formatValue`. */
+  readonly formatAxisValue?: (value: number) => string;
   readonly emptyContent?: ReactNode;
   readonly testId?: string;
 }): ReactNode {
@@ -760,7 +799,7 @@ export function StackedBarChart({
   return (
     <div data-testid={testId} className="flex flex-col gap-3">
       <div className="flex gap-2">
-        <YTicks max={max} formatValue={formatValue} className="h-40 pb-5 pt-0" />
+        <YTicks max={max} formatValue={formatAxisValue} className="h-40 pb-5 pt-0" />
         <div
           role="img"
           aria-label={ariaLabel}
@@ -924,9 +963,19 @@ function MarkerPins({
   readonly formatMarkerTime?: (atMs: number) => string;
 }): ReactNode {
   const span = Math.max(1, windowEndMs - windowStartMs);
+  const sorted = sortMarkers(markers);
+  const fractions = sorted.map((marker) =>
+    Math.max(0, Math.min(1, (marker.atMs - windowStartMs) / span)),
+  );
+  const rows = assignPinRows(fractions);
+  const rowCount = Math.max(1, ...rows.map((row) => row + 1));
   return (
-    <div aria-hidden="true" className={cn("relative mt-1 h-5", className)}>
-      {sortMarkers(markers).map((marker, i) => (
+    <div
+      aria-hidden="true"
+      className={cn("relative mt-1", className)}
+      style={{ height: rowCount * MARKER_PIN_ROW_HEIGHT_PX }}
+    >
+      {sorted.map((marker, i) => (
         <span
           key={marker.key}
           data-testid="chart-marker-pin"
@@ -939,11 +988,12 @@ function MarkerPins({
           }
           className={cn(
             "absolute flex -translate-x-1/2 items-center justify-center rounded-full text-[10px] font-medium text-background",
-            numbered ? "size-4" : "top-1 size-2",
+            numbered ? "size-4" : "size-2",
             marker.color === undefined && "bg-foreground",
           )}
           style={{
-            left: percent(Math.max(0, Math.min(1, (marker.atMs - windowStartMs) / span))),
+            left: percent(fractions[i] ?? 0),
+            top: (rows[i] ?? 0) * MARKER_PIN_ROW_HEIGHT_PX + (numbered ? 0 : 4),
             ...(marker.color !== undefined && { backgroundColor: marker.color }),
           }}
         >
@@ -1287,6 +1337,28 @@ export function StackedAreaChart({
   const fractionOf = (atMs: number): number =>
     Math.max(0, Math.min(1, (atMs - windowStartMs) / span));
   const todayFraction = todayMs !== undefined ? fractionOf(todayMs) : undefined;
+  const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
+  const tooltipOverlayRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ readonly x: number; readonly y: number } | null>(null);
+
+  useEffect(() => {
+    if (tooltipIndex === null) return;
+    const closeOnEscape = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === "Escape") setTooltipIndex(null);
+    };
+    const closeOnOutsidePointerDown = (event: globalThis.PointerEvent): void => {
+      const overlay = tooltipOverlayRef.current;
+      if (overlay !== null && event.target instanceof Node && overlay.contains(event.target))
+        return;
+      setTooltipIndex(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsidePointerDown);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsidePointerDown);
+    };
+  }, [tooltipIndex]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1327,6 +1399,7 @@ export function StackedAreaChart({
     return {
       key: s.key,
       color: chartColor(s.key, si, tones, colors),
+      edge: `M ${top.join(" L ")}`,
       d: `M ${top.join(" L ")} L ${bottom.join(" L ")} Z`,
       dot: isSingleBucket && bucketHeight > 0 ? clampDotY(yOf(bucketTop), height) : undefined,
     };
@@ -1345,10 +1418,27 @@ export function StackedAreaChart({
   );
 
   const todayX = (todayFraction ?? 1) * width;
-  const renderBands = (fillOpacity: number): ReactNode =>
-    bands.map((band) =>
+  const bandGradientId = (index: number): string => `${clipId}-band-${index}`;
+  const renderBands = (fillOpacity: number, edgeOpacity: number): ReactNode =>
+    bands.map((band, bi) =>
       band.dot === undefined ? (
-        <path key={band.key} d={band.d} fill={band.color} fillOpacity={fillOpacity} stroke="none" />
+        <g key={band.key}>
+          <path
+            d={band.d}
+            fill={`url(#${bandGradientId(bi)})`}
+            fillOpacity={fillOpacity}
+            stroke="none"
+          />
+          <path
+            data-testid={`chart-band-edge-${band.key}`}
+            d={band.edge}
+            fill="none"
+            stroke={band.color}
+            strokeOpacity={edgeOpacity}
+            strokeWidth={1.5}
+            vectorEffect="non-scaling-stroke"
+          />
+        </g>
       ) : (
         <circle
           key={band.key}
@@ -1361,6 +1451,119 @@ export function StackedAreaChart({
         />
       ),
     );
+
+  const tooltipAtMs = tooltipIndex === null ? undefined : times[tooltipIndex];
+  const tooltipFraction = tooltipAtMs === undefined ? 0 : fractionOf(tooltipAtMs);
+  const tooltipRows: readonly ChartTooltipRow[] =
+    tooltipAtMs === undefined
+      ? []
+      : [
+          ...series.map(
+            (s, i): ChartTooltipRow => ({
+              key: s.key,
+              label: s.label,
+              color: chartColor(s.key, i, tones, colors),
+              swatch: "area",
+              value: valueAt(s, tooltipAtMs),
+            }),
+          ),
+          ...lines.flatMap((line, li): readonly ChartTooltipRow[] => {
+            const value = line.points.find((p) => p.atMs === tooltipAtMs)?.value;
+            return value === null || value === undefined
+              ? []
+              : [
+                  {
+                    key: line.key,
+                    label: line.label,
+                    color: linePaths[li]?.color ?? "var(--color-foreground)",
+                    swatch: line.dashed === true ? "dashed-line" : "line",
+                    value,
+                  },
+                ];
+          }),
+        ];
+  const tooltipOnLeft = tooltipFraction > 0.5;
+  const tooltipEdge = `${percent(tooltipFraction)} ${tooltipOnLeft ? "-" : "+"} ${TOOLTIP_OFFSET_PX}px`;
+  const tooltipLeft = tooltipOnLeft
+    ? `max(0px, calc(${tooltipEdge} - ${TOOLTIP_WIDTH_REM}rem))`
+    : `min(calc(${tooltipEdge}), calc(100% - ${TOOLTIP_WIDTH_REM}rem))`;
+  const bucketIndexUnderPointer = (event: PointerEvent<HTMLDivElement>): number => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return bucketIndexAtFraction(
+      times,
+      visibleWindow,
+      rect.width === 0 ? 0 : (event.clientX - rect.left) / rect.width,
+    );
+  };
+  const tooltipOverlay = (
+    <div
+      ref={tooltipOverlayRef}
+      data-testid="chart-tooltip-overlay"
+      className={cn("absolute inset-x-0 top-0", STACKED_AREA_PLOT_HEIGHT_CLASS)}
+      onPointerMove={(event) => {
+        if (event.pointerType === "mouse") setTooltipIndex(bucketIndexUnderPointer(event));
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType === "mouse") setTooltipIndex(null);
+      }}
+      onPointerDown={(event) => {
+        if (event.pointerType === "mouse") return;
+        touchStartRef.current = { x: event.clientX, y: event.clientY };
+      }}
+      onPointerCancel={() => {
+        touchStartRef.current = null;
+      }}
+      onPointerUp={(event) => {
+        const start = touchStartRef.current;
+        touchStartRef.current = null;
+        if (event.pointerType === "mouse" || start === null) return;
+        const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+        if (moved >= TOOLTIP_TAP_MAX_MOVEMENT_PX) return;
+        const next = bucketIndexUnderPointer(event);
+        setTooltipIndex((current) => (current === next ? null : next));
+      }}
+    >
+      {tooltipAtMs !== undefined && (
+        <>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 w-px bg-foreground/40"
+            style={{ left: percent(tooltipFraction) }}
+          />
+          <div
+            data-testid="chart-tooltip"
+            data-side={tooltipOnLeft ? "left" : "right"}
+            className="pointer-events-none absolute top-2 max-w-[14rem] rounded-md border bg-popover p-2 text-xs text-popover-foreground shadow-sm"
+            style={{ left: tooltipLeft, width: `${TOOLTIP_WIDTH_REM}rem` }}
+          >
+            <div className="mb-1 font-medium">{formatBucket(tooltipAtMs)}</div>
+            {tooltipRows.map((row) => (
+              <div key={row.key} className="flex items-center gap-1.5">
+                {row.swatch === "area" ? (
+                  <span
+                    aria-hidden="true"
+                    className="size-2 shrink-0 rounded-[2px]"
+                    style={{ backgroundColor: row.color }}
+                  />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="w-3 shrink-0 border-t-2"
+                    style={{
+                      borderColor: row.color,
+                      borderTopStyle: row.swatch === "dashed-line" ? "dashed" : "solid",
+                    }}
+                  />
+                )}
+                <span className="min-w-0 truncate text-muted-foreground">{row.label}</span>
+                <span className="ml-auto tabular-nums">{formatAxisValue(row.value)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
 
   const plot = (
     <>
@@ -1382,6 +1585,12 @@ export function StackedAreaChart({
       >
         <title>{ariaLabel}</title>
         <defs>
+          {bands.map((band, bi) => (
+            <linearGradient key={band.key} id={bandGradientId(bi)} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor={band.color} stopOpacity={1} />
+              <stop offset="100%" stopColor={band.color} stopOpacity={0.35} />
+            </linearGradient>
+          ))}
           <clipPath id={`${clipId}-past`}>
             <rect x={0} y={0} width={todayX} height={height} />
           </clipPath>
@@ -1403,10 +1612,10 @@ export function StackedAreaChart({
             vectorEffect="non-scaling-stroke"
           />
         ))}
-        <g clipPath={`url(#${clipId}-past)`}>{renderBands(0.55)}</g>
+        <g clipPath={`url(#${clipId}-past)`}>{renderBands(0.55, 0.9)}</g>
         {todayFraction !== undefined && (
           <g data-testid="chart-forecast-region" clipPath={`url(#${clipId}-future)`}>
-            {renderBands(0.25)}
+            {renderBands(0.25, 0.5)}
           </g>
         )}
         {coloredMarkers.map((marker) => {
@@ -1489,6 +1698,7 @@ export function StackedAreaChart({
           ))}
         </div>
       )}
+      {tooltipOverlay}
       {markerLabels &&
         groupMarkerLabels(markers ?? []).map((group) => {
           const fraction = fractionOf(group.atMs);

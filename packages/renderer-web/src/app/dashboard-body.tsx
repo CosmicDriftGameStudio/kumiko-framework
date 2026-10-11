@@ -172,10 +172,17 @@ function useDashboardFormats(): DashboardFormats {
   const locale = resolver.locale();
   const timeZone = resolver.timeZone();
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
-  const compactNumber = new Intl.NumberFormat(locale, {
+  // Without the significant-digit cap, values below the locale's first
+  // abbreviation step keep a decimal ("298.989,9 €" in de); lessPrecision
+  // picks whichever rule rounds more, so that becomes "299.000 €" while
+  // "1,5 Mio. €" keeps its one decimal.
+  const compactOptions = {
     notation: "compact",
     maximumFractionDigits: 1,
-  });
+    maximumSignificantDigits: 3,
+    roundingPriority: "lessPrecision",
+  } as const satisfies Intl.NumberFormatOptions;
+  const compactNumber = new Intl.NumberFormat(locale, compactOptions);
   const percent = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 });
   const day = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", timeZone });
   const month = new Intl.DateTimeFormat(locale, { month: "2-digit", year: "numeric", timeZone });
@@ -200,8 +207,7 @@ function useDashboardFormats(): DashboardFormats {
         return (value) => compactNumber.format(value);
       }
       const compactMoney = new Intl.NumberFormat(resolveSafeLocale(locale), {
-        notation: "compact",
-        maximumFractionDigits: 1,
+        ...compactOptions,
         style: "currency",
         currency: valueFormat.currency,
       });
@@ -834,6 +840,7 @@ function ChartPanelBody({
                 spacing < DAY_MS - HOUR_MS ? formats.formatHour : formats.formatDay
               }
               formatValue={formatValue}
+              formatAxisValue={formats.formatPanelAxisValue(panel.valueFormat)}
               testId={testId}
             />
           );
@@ -890,7 +897,7 @@ function ChartPanelBody({
             markers={markers}
             formatMarkerTime={formats.formatDay}
             {...(panel.valueFormat !== undefined && {
-              yAxis: { ticks: 3, format: formatValue },
+              yAxis: { ticks: 3, format: formats.formatPanelAxisValue(panel.valueFormat) },
             })}
             ariaLabel={label}
             testId={testId}
