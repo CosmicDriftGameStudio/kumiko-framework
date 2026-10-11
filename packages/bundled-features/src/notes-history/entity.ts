@@ -26,17 +26,18 @@ import {
 //
 // `body` is instead `personal: { of: "id" }` (Row-Subject, fw#2596/#2786):
 // the note's OWN row is its content's subject, so `body` is encrypted under a
-// per-note key that nothing else shares. That key gets erased only when
-// `note-mention` (below) names this note as reached by a forgotten subject
-// (see `notes-history-user-data/hooks.ts`) — a note with no mention on the
-// forgotten subject is untouched. GDPR erasure of the AUTHOR still separately
+// per-note key that nothing else shares. That key gets erased only when the
+// note is reached by a forgotten subject: `note-mention` (below) names the
+// subject, or the note hangs on the subject as host (entityId, plus entityType
+// for record subjects). See `notes-history-user-data/hooks.ts`; any other note
+// is untouched. GDPR erasure of the AUTHOR still separately
 // shreds `authorName` (`personal: { of: "authorId" }`, the name as stamped at
 // write time); the two erasures are independent.
 //
 // Known gap (fw#2596, not fixed by this entity): prose that names a third
 // party without a structured @-mention is not tracked — regex/NLP over
-// free text is unreliable. The operator's manual `forget-subject` path
-// covers what this structured trigger misses.
+// free text is unreliable. An operator must erase such a note's own record
+// subject (`forget-subject` kind "record", entity "note-entry") to cover it.
 export function createNoteEntryEntity(
   access?: EntityDefinition["access"],
   parents?: readonly string[],

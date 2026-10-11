@@ -4,9 +4,17 @@
 // dependency. Mirrors job-run/delivery-attempt (user-data-rights-defaults):
 // export-only, erasure via crypto-shredding.
 
-import { configuredPiiSubjectKms } from "@cosmicdrift/kumiko-framework/crypto";
-import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { configuredPiiSubjectKms, type SubjectId } from "@cosmicdrift/kumiko-framework/crypto";
+import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type {
+  Registry,
+  TenantId,
+  UserDataDeleteHook,
+  UserDataExportHook,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
+  type RetentionPresetKey,
   resolveRetentionPolicyForTenant,
   resolveTenantRetentionPreset,
 } from "../data-retention/index.js";
@@ -32,95 +40,134 @@ export const noteEntryExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
+type NoteRow = {
+  readonly id: string;
+  readonly tenantId: TenantId;
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly body: unknown;
+  readonly insertedAt: unknown;
+};
+
+// What erasing a subject's key reaches: notes that @-mention the subject plus notes
+// attached to it as host. Export and erasure both go through this, so Art. 15
+// lists exactly what Art. 17 shreds.
+async function selectNotesReachingSubject(
+  db: DbRunner | TenantDb,
+  subject: SubjectId,
+): Promise<readonly NoteRow[]> {
+  if (subject.kind === "tenant") return [];
+  const subjectId = subject.kind === "user" ? subject.userId : subject.id;
+  const attachedWhere =
+    subject.kind === "record"
+      ? { entityType: subject.entity, entityId: subjectId }
+      : { entityId: subjectId };
+
+  const mentions = await selectMany<{ noteId: string }>(db, noteMentionTable, { subjectId });
+  const mentioned =
+    mentions.length === 0
+      ? []
+      : await selectMany<NoteRow>(db, noteEntryTable, {
+          id: { in: [...new Set(mentions.map((m) => m.noteId))] },
+        });
+  const attached = await selectMany<NoteRow>(db, noteEntryTable, attachedWhere);
+
+  const byId = new Map<string, NoteRow>();
+  for (const note of [...mentioned, ...attached]) byId.set(note.id, note);
+  return [...byId.values()];
+}
+
 // `authorName` is separately annotated `personal: { of: "authorId" }`
 // (entity.ts), so forgetting the AUTHOR already crypto-shreds that field on
-// its own — unrelated to this hook. `body` is Row-Subject (`personal: { of:
-// "id" }`): its key is per-note, not per-user, so forgetting a user only
-// reaches a note's body when that note structurally @-mentions the user via
-// a `note-mention` row (fw#2787). Free-text mentions are NOT detected —
-// that's the documented gap in entity.ts, not a bug here.
+// its own. `body` is Row-Subject (`personal: { of: "id" }`): its key is per
+// note, so forgetting a subject only reaches a body when the note structurally
+// @-mentions the subject (`note-mention`, fw#2787) or hangs on it as host.
+// Free-text mentions are NOT detected — the documented gap in entity.ts.
 //
-// Per reached note: consult the HOST entity's (entityType, not note-entry's
-// own) retention strategy first — blockDelete/anonymize must win over
-// erasure, same rule the automated forget-cleanup pipeline applies to every
-// other entity. The `strategy` this hook itself is called with is resolved
-// for note-entry, not the host, so it is deliberately unused here.
+// Per reached note the HOST entity's retention strategy (entityType, resolved
+// for the note's own tenant — the manual forget-subject path runs cross-tenant)
+// is consulted first: anonymize/blockDelete win over erasure, same rule the
+// automated forget-cleanup applies to every other entity.
 //
-// Precondition: this ONLY erases anything if the app mounts a KMS adapter —
-// without one, record-owned fields fall back to plaintext storage
-// framework-wide (see pii-field-encryption.ts) and forget is a true no-op.
-// That gap is a property of the framework's crypto-shredding design, not
-// specific to this hook; apps that need Art.17 coverage without KMS must
-// mount one.
-export const noteEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
+// Without a mounted KMS this erases nothing: record-owned fields fall back to
+// plaintext framework-wide (see pii-field-encryption.ts), so apps that need
+// Art. 17 coverage must mount one.
+export async function eraseNoteBodiesReachingSubject(args: {
+  readonly db: DbRunner | TenantDb;
+  readonly registry: Registry;
+  readonly subject: SubjectId;
+  readonly erasedBy: string;
+  readonly requestId: string;
+}): Promise<void> {
   const kms = configuredPiiSubjectKms();
-  // skip: no KMS adapter mounted — record-owned fields stay plaintext framework-wide, forget is a true no-op
+  // skip: no KMS adapter mounted — forget is a true no-op
   if (!kms) return;
 
-  const mentions = await ctx.db.selectMany<{ noteId: string }>(noteMentionTable, {
-    subjectId: ctx.userId,
-  });
-  // skip: no note-mention rows for this user — nothing structurally reaches this user's data to shred
-  if (mentions.length === 0) return;
-
-  const noteIds = new Set(mentions.map((m) => m.noteId));
-  // Once per hook run: the preset depends on the tenant only, not the note.
-  const tenantPreset = await resolveTenantRetentionPreset({
-    db: ctx.db,
-    registry: ctx.registry,
-    tenantId: ctx.tenantId,
-  });
-  // Append-only rows are never hard-deleted, so every mentioned note should
-  // resolve; a missing one has no host and thus no retention policy to consult.
-  const notes = await ctx.db.selectMany<{ id: string; entityType: string }>(noteEntryTable, {
-    id: { in: [...noteIds] },
-  });
-  const strategyByEntityType = new Map<string, ReturnType<typeof policyToStrategy>>();
+  const notes = await selectNotesReachingSubject(args.db, args.subject);
+  const dataRetentionMounted = args.registry.features.has("data-retention");
+  const presetByTenant = new Map<string, RetentionPresetKey | null>();
+  const strategyByTenantAndEntityType = new Map<string, ReturnType<typeof policyToStrategy>>();
   for (const note of notes) {
-    let strategy = strategyByEntityType.get(note.entityType);
+    const strategyKey = `${note.tenantId}:${note.entityType}`;
+    let strategy = strategyByTenantAndEntityType.get(strategyKey);
     if (strategy === undefined) {
+      let tenantPreset = presetByTenant.get(note.tenantId);
+      if (tenantPreset === undefined) {
+        tenantPreset = await resolveTenantRetentionPreset({
+          db: args.db,
+          registry: args.registry,
+          tenantId: note.tenantId,
+        });
+        presetByTenant.set(note.tenantId, tenantPreset);
+      }
       const hostPolicy = await resolveRetentionPolicyForTenant({
-        db: ctx.db,
-        registry: ctx.registry,
-        tenantId: ctx.tenantId,
+        db: args.db,
+        registry: args.registry,
+        tenantId: note.tenantId,
         entityName: note.entityType,
         preloadedTenantPreset: tenantPreset,
+        // Without data-retention there is no override table to read.
+        ...(!dataRetentionMounted && { preloadedOverride: null }),
       });
       strategy = policyToStrategy(hostPolicy.policy?.strategy ?? null);
-      strategyByEntityType.set(note.entityType, strategy);
+      strategyByTenantAndEntityType.set(strategyKey, strategy);
     }
     if (strategy === "anonymize") continue;
-    const noteId = note.id;
 
     await kms.eraseKey(
-      { kind: "record", entity: "note-entry", id: noteId },
+      { kind: "record", entity: "note-entry", id: note.id },
       {
-        requestId: "notes-history-user-data:forget-mentioned-notes",
-        userId: ctx.userId,
-        eraseReason: "notes-history:mention-forget",
+        requestId: args.requestId,
+        userId: args.erasedBy,
+        eraseReason: "notes-history:subject-forget",
       },
     );
   }
+}
+
+export const noteEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
+  await eraseNoteBodiesReachingSubject({
+    db: ctx.db,
+    registry: ctx.registry,
+    subject: { kind: "user", userId: ctx.userId },
+    erasedBy: ctx.userId,
+    requestId: "notes-history-user-data:forget-reached-notes",
+  });
 };
 
-// Erasure reaches every note that structurally mentions the user (see
-// noteEntryDeleteHook), so the Art. 15/20 export must list those notes too.
+// Erasure reaches every note that mentions the user or hangs on the user as host
+// (see eraseNoteBodiesReachingSubject), so the Art. 15/20 export lists those too.
 export const noteMentionExportHook: UserDataExportHook = async (ctx) => {
-  const mentions = await ctx.db.selectMany<{ noteId: string }>(noteMentionTable, {
-    subjectId: ctx.userId,
-  });
-  if (mentions.length === 0) return null;
-  const noteIds = [...new Set(mentions.map((m) => m.noteId))];
-  const notes = await ctx.db.selectMany(noteEntryTable, { id: { in: noteIds } });
+  const notes = await selectNotesReachingSubject(ctx.db, { kind: "user", userId: ctx.userId });
   if (notes.length === 0) return null;
   return {
     entity: "note-mention",
     rows: notes.map((note) => ({
-      noteId: note["id"],
-      entityType: note["entityType"],
-      entityId: note["entityId"],
-      body: note["body"],
-      insertedAt: note["insertedAt"],
+      noteId: note.id,
+      entityType: note.entityType,
+      entityId: note.entityId,
+      body: note.body,
+      insertedAt: note.insertedAt,
     })),
   };
 };
