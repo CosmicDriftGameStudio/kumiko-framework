@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gitEnv } from "../_lib/git-env";
@@ -7,7 +7,6 @@ import { isGermanComment, scanGermanComments } from "../guard-comment-lang";
 import { writeRepo } from "./parent-workspace-fixture";
 
 const CLI_PATH = join(import.meta.dir, "..", "cli.ts");
-const LEGACY_BIN = join(import.meta.dir, "../../../../node_modules/.bin/kumiko-guard-comment-lang");
 
 function git(cwd: string, ...args: string[]): void {
   const proc = Bun.spawnSync(["git", "-c", "user.email=t@t.test", "-c", "user.name=t", ...args], {
@@ -84,12 +83,6 @@ describe("kumiko-guards comment-lang", () => {
       expect(result.exitCode).toBe(1);
       expect(result.stdout).toContain("src/new.ts");
       expect(result.stdout).toContain(":1  // Dieser Wert wird nicht benötigt");
-
-      if (existsSync(LEGACY_BIN)) {
-        const legacy = await run([LEGACY_BIN, "--touched", "--base=main"], dir);
-        expect(legacy.exitCode).toBe(1);
-        expect(legacy.stdout).toContain(":1  // Dieser Wert wird nicht benötigt");
-      }
     });
   });
 
