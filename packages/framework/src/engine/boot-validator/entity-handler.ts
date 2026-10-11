@@ -969,11 +969,15 @@ export function validateEntitySelectAvailabilityQuery(
 ): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
-      if (field.type !== "select" || field.optionsAvailabilityQuery === undefined) continue;
+      if (
+        (field.type !== "select" && field.type !== "multiSelect") ||
+        field.optionsAvailabilityQuery === undefined
+      )
+        continue;
       const query = field.optionsAvailabilityQuery;
       if (query.length === 0 || !queryHandlers.has(query)) {
         throw new Error(
-          `[Feature ${feature.name}] Select field "${fieldName}" on entity "${entityName}" ` +
+          `[Feature ${feature.name}] ${field.type === "select" ? "Select" : "MultiSelect"} field "${fieldName}" on entity "${entityName}" ` +
             `declares optionsAvailabilityQuery "${query}" which is not a registered query-handler. ` +
             `Check the QN spelling (expected "<feature>:query:<short>") and that the handler ` +
             `is declared via r.queryHandler(...).`,

@@ -26,9 +26,10 @@ export const MEMBER_ROLES_CELL_COMPONENT = "MemberRolesCell" as const;
 // Admin (rank 2) shares the invite-create screen with TenantAdmin — TenantAdmin
 // must not appear here or Admin sees an unassignable option (fw#2414).
 export const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Editor", "Admin"] as const;
-// Full assignable rank list, used by memberRolesEditScreen: that screen is
-// prefilled with a member's *current* roles, so it must be able to represent
-// every rank a membership can actually hold, including TenantAdmin (fw#2452).
+// Full rank list for memberRolesEditScreen: it is prefilled with a member's
+// *current* roles, so it must represent every rank a membership can hold,
+// including TenantAdmin (fw#2452). The screen hides what the caller may not
+// assign via TenantQueries.memberRoleAvailability.
 export const OWNER_INVITE_ROLE_OPTIONS = [
   "User",
   "Member",
@@ -67,6 +68,8 @@ export const TenantQueries = {
   invitations: "tenant:query:invitations",
   // Combined active-members + pending-invitations list backing /members.
   teamList: "tenant:query:team:list",
+  // Per-role assignability for the caller, mirrors the rank rule of updateMemberRoles.
+  memberRoleAvailability: "tenant:query:member-role-availability",
 } as const;
 
 // Error codes

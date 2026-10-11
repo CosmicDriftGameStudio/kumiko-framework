@@ -472,6 +472,11 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
    *  `"checkboxes"` grid becomes scrollable. Omitted = the grid grows with its
    *  content and never scrolls. Ignored unless `display: "checkboxes"`. */
   readonly maxRows?: number;
+  /** Query returning `{ rows: { value, disabled?, hint? }[] }`. The renderer hides
+   *  options whose row has `disabled: true` unless the value is currently selected;
+   *  `hint` is ignored. Static `options` stay authoritative and the write path must
+   *  enforce the same rule, the renderer only mirrors it. Called with an empty payload. */
+  readonly optionsAvailabilityQuery?: string;
 } & ResolvedPiiFlags;
 
 /**

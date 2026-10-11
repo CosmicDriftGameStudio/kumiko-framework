@@ -101,6 +101,14 @@ function checkFormFieldQueryRefs(
   fields: Readonly<Record<string, FieldDefinition>>,
 ): void {
   for (const [fieldName, field] of Object.entries(fields)) {
+    if (field.type === "multiSelect" && field.optionsAvailabilityQuery !== undefined) {
+      checkQueryRef(
+        queryHandlers,
+        field.optionsAvailabilityQuery,
+        () =>
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) multiSelect field "${fieldName}" optionsAvailabilityQuery`,
+      );
+    }
     if (field.type !== "select") continue;
     if (field.optionsQuery !== undefined) {
       checkQueryRef(

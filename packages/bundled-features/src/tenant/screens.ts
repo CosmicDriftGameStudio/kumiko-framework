@@ -15,10 +15,10 @@ import {
   MEMBER_ROLES_EDIT_SCREEN_ID,
   MEMBER_STATUS_CELL_COMPONENT,
   MEMBERS_SCREEN_ID,
-  OWNER_INVITE_ROLE_OPTIONS,
   TenantHandlers,
   TenantQueries,
 } from "./constants.js";
+import { memberRoleOptions } from "./member-role-options.js";
 
 // Cross-tenant SystemAdmin platform view of the tenants themselves. The tenant
 // feature runs with `r.systemScope()`, so the entityList returns every tenant.
@@ -200,13 +200,15 @@ export function createMemberRolesEditScreen(assignableAppRoles: AssignableAppRol
     cancelTarget: MEMBERS_SCREEN_ID,
     fields: {
       userId: { type: "text", required: true },
-      // Prefilled with the member's current roles, so the option list must be
-      // able to represent every assignable rank — DEFAULT_INVITE_ROLE_OPTIONS
-      // omits TenantAdmin and would silently strip it on submit. Escalation
-      // still stays server-side via findForbiddenRoleAssignment (update-member-roles.write.ts).
+      // Prefilled with the member's current roles, so the static options must
+      // represent every rank (DEFAULT_INVITE_ROLE_OPTIONS omits TenantAdmin and
+      // would silently strip it on submit); the availability query hides what the
+      // caller may not assign. Enforcement stays server-side via
+      // findForbiddenRoleAssignment (update-member-roles.write.ts).
       roles: {
         type: "multiSelect",
-        options: [...OWNER_INVITE_ROLE_OPTIONS, ...assignableAppRoles.keys()],
+        options: memberRoleOptions(assignableAppRoles),
+        optionsAvailabilityQuery: TenantQueries.memberRoleAvailability,
         required: true,
       },
     },

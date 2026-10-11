@@ -61,6 +61,43 @@ export function mergeOptionAvailability(
   });
 }
 
+// Combobox primitives cannot disable a single option, so unavailable ones are
+// dropped; an already selected value stays listed so it can still be removed.
+export function filterUnavailableOptions(
+  options: readonly SelectOptionEntry[],
+  rows: readonly unknown[],
+  currentValues: readonly string[],
+): readonly SelectOptionEntry[] {
+  const unavailable = new Set<string>();
+  for (const row of rows) {
+    if (isAvailabilityRow(row) && row.disabled === true) unavailable.add(row.value);
+  }
+  return options.filter(
+    (option) => !unavailable.has(option.value) || currentValues.includes(option.value),
+  );
+}
+
+type AvailabilityOptionsMultiSelectProps = {
+  readonly field: EditFieldViewModel;
+  readonly query: string;
+  readonly currentValues: readonly string[];
+  readonly children: (options: readonly SelectOptionEntry[]) => ReactNode;
+};
+
+// Until the result arrives, and when the query fails, every static option is
+// shown; the write path enforces the rule either way.
+export function AvailabilityOptionsMultiSelect({
+  field,
+  query,
+  currentValues,
+  children,
+}: AvailabilityOptionsMultiSelectProps): ReactNode {
+  const { data } = useQuery<AvailabilityResult>(query, {});
+  return children(
+    filterUnavailableOptions(staticSelectOptions(field), data?.rows ?? [], currentValues),
+  );
+}
+
 type AvailabilityOptionsSelectProps = {
   readonly field: EditFieldViewModel;
   readonly query: string;

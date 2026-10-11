@@ -20,6 +20,7 @@ import { invitationsQuery } from "./handlers/invitations.query.js";
 import { listQuery } from "./handlers/list.query.js";
 import { meQuery } from "./handlers/me.query.js";
 import { memberDirectoryQuery } from "./handlers/member-directory.query.js";
+import { memberRoleAvailabilityQuery } from "./handlers/member-role-availability.query.js";
 import { membersQuery } from "./handlers/members.query.js";
 import { membershipsQuery } from "./handlers/memberships.query.js";
 import { removeMemberWrite } from "./handlers/remove-member.write.js";
@@ -166,6 +167,7 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
       resolveUserIds: r.queryHandler(resolveUserIdsQuery),
       invitations: r.queryHandler(invitationsQuery),
       teamList: r.queryHandler(teamListQuery),
+      memberRoleAvailability: r.queryHandler(memberRoleAvailabilityQuery),
     };
 
     // Entity-convention handlers for the SystemAdmin entityList/entityEdit

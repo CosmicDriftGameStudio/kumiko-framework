@@ -23,7 +23,12 @@ import { useQuery } from "../hooks/use-query.js";
 import { referenceOptionSource } from "../hooks/use-reference-lookup.js";
 import { useLocale, useTranslation } from "../i18n.js";
 import { type FieldProps, usePrimitives } from "../primitives.js";
-import { AvailabilityOptionsSelect, staticSelectOptions } from "./availability-options-select.js";
+import {
+  AvailabilityOptionsMultiSelect,
+  AvailabilityOptionsSelect,
+  type SelectOptionEntry,
+  staticSelectOptions,
+} from "./availability-options-select.js";
 import { EmbeddedListField } from "./embedded-list-field.js";
 import { MultiSelectCheckboxes } from "./multi-select-checkboxes.js";
 import { QueryOptionsSelect } from "./query-options-select.js";
@@ -716,34 +721,38 @@ function renderInput({
         />
       );
     case "multiSelect": {
-      const rawOptions = field.options ?? [];
-      const labels = field.optionLabels;
-      const multiSelectOptions =
-        labels !== undefined
-          ? rawOptions.map((value: string) => ({ value, label: labels[value] ?? value }))
-          : rawOptions.map((value: string) => ({ value, label: value }));
       const arrayValue = Array.isArray(field.value) ? (field.value as readonly string[]) : [];
-      if (field.display === "checkboxes") {
-        return (
+      const renderMultiSelect = (options: readonly SelectOptionEntry[]): ReactNode =>
+        field.display === "checkboxes" ? (
           <MultiSelectCheckboxes
             field={field}
             id={id}
-            options={multiSelectOptions}
+            options={options}
             value={arrayValue}
             onChange={(v) => onChange(v)}
           />
+        ) : (
+          <Input
+            kind="combobox"
+            {...common}
+            multiple
+            value={arrayValue}
+            onChange={(v) => onChange(v)}
+            options={options}
+          />
+        );
+      if (field.selectOptionsAvailabilityQuery !== undefined && field.readOnly !== true) {
+        return (
+          <AvailabilityOptionsMultiSelect
+            field={field}
+            query={field.selectOptionsAvailabilityQuery.query}
+            currentValues={arrayValue}
+          >
+            {renderMultiSelect}
+          </AvailabilityOptionsMultiSelect>
         );
       }
-      return (
-        <Input
-          kind="combobox"
-          {...common}
-          multiple
-          value={arrayValue}
-          onChange={(v) => onChange(v)}
-          options={multiSelectOptions}
-        />
-      );
+      return renderMultiSelect(staticSelectOptions(field));
     }
     case "money": {
       const currency = resolveMoneyCurrency(field.value, field.currency);

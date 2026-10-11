@@ -995,6 +995,33 @@ describe("computeEditViewModel — declared reference metadata (fw#2662)", () =>
     expect(mode?.selectOptionsAvailabilityQuery).toBeUndefined();
   });
 
+  test("a multiSelect field's optionsAvailabilityQuery reaches the view-model with an empty payload", () => {
+    const entity: EntityDefinition = {
+      fields: {
+        roles: {
+          type: "multiSelect",
+          options: ["User", "Admin"],
+          optionsAvailabilityQuery: "tenant:query:member-role-availability",
+        },
+        tags: { type: "multiSelect", options: ["x"] },
+      },
+    };
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ fields: ["roles", "tags"] }] }),
+      entity,
+      values: {},
+      translate,
+      featureName: "shop",
+    });
+
+    const [roles, tags] = asFields(vm.sections[0]).fields;
+    expect(roles?.selectOptionsAvailabilityQuery).toEqual({
+      query: "tenant:query:member-role-availability",
+      payload: {},
+    });
+    expect(tags?.selectOptionsAvailabilityQuery).toBeUndefined();
+  });
+
   test("non-regression: a projectionDetail field without refEntity metadata stays 'text', unchanged (fw#2662)", () => {
     const vm = computeEditViewModel({
       screen: editScreen({ sections: [{ fields: ["ip"] }] }),

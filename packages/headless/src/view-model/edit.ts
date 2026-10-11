@@ -215,6 +215,13 @@ function deriveSelectOptionsQuery(
 function deriveSelectOptionsAvailabilityQuery(
   fieldDef: EntityFieldDef,
 ): Pick<EditFieldViewModel, "selectOptionsAvailabilityQuery"> {
+  if (fieldDef.type === "multiSelect") {
+    return fieldDef.optionsAvailabilityQuery !== undefined
+      ? {
+          selectOptionsAvailabilityQuery: { query: fieldDef.optionsAvailabilityQuery, payload: {} },
+        }
+      : {};
+  }
   return fieldDef.type === "select" && fieldDef.optionsAvailabilityQuery !== undefined
     ? {
         selectOptionsAvailabilityQuery: {

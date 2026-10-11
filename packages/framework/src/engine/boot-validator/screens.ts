@@ -867,6 +867,12 @@ function validateFormSelectOptions(
     } else if (fdef.optionsQueryPayload !== undefined) {
       throw new Error(`${where} has optionsQueryPayload without optionsQuery`);
     }
+  } else if (fdef.type === "multiSelect" && fdef.optionsAvailabilityQuery !== undefined) {
+    if (fdef.optionsAvailabilityQuery.length === 0) {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (${context}) multiSelect field "${fieldName}" has an empty optionsAvailabilityQuery`,
+      );
+    }
   }
 }
 
