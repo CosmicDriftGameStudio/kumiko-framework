@@ -79,19 +79,26 @@
         "@cosmicdrift/kumiko-guards": "workspace:*",
         "@cosmicdrift/kumiko-repo-manifest": "workspace:*",
         "@cosmicdrift/kumiko-testing": "workspace:*",
+        "marked": "^18.0.3",
         "zod": "^4.4.3",
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-headless": "workspace:*",
+        "sharp": "^0.35.5",
       },
       "peerDependencies": {
         "@cosmicdrift/kumiko-bundled-features": ">=0.353.0 <1.0.0",
         "@cosmicdrift/kumiko-framework": ">=0.353.0 <1.0.0",
+        "@cosmicdrift/kumiko-headless": ">=0.353.0 <1.0.0",
+        "sharp": "^0.35.5",
       },
       "optionalPeers": [
         "@cosmicdrift/kumiko-bundled-features",
         "@cosmicdrift/kumiko-framework",
+        "@cosmicdrift/kumiko-headless",
+        "sharp",
       ],
     },
     "packages/create-kumiko-app": {

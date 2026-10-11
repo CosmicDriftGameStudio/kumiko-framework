@@ -127,6 +127,7 @@ beforeAll(() => {
     symlinkSync(installedPackageDir(name), join(installRoot, "node_modules", name));
   }
   symlinkSync(installedPackageDir("zod"), join(installRoot, "node_modules", "zod"));
+  symlinkSync(installedPackageDir("marked"), join(installRoot, "node_modules", "marked"));
   const binTarget = resolve(installedPkgRoot, manifest.bin["kumiko"] ?? "");
   chmodSync(binTarget, 0o755);
 
@@ -166,6 +167,7 @@ describe("published @cosmicdrift/kumiko-cli tarball", () => {
     expect(res.out).toContain("kumiko agent");
     expect(res.out).toContain("kumiko project");
     expect(res.out).toContain("kumiko consumer");
+    expect(res.out).toContain("kumiko handbuch");
   });
 
   test("kumiko check --help works from the packed install", () => {
@@ -195,6 +197,13 @@ describe("published @cosmicdrift/kumiko-cli tarball", () => {
     expect(res.code).toBe(0);
     expect(res.out).not.toContain("not found");
     expect(res.out).toContain("restart");
+  });
+
+  test("kumiko handbuch --help works from the packed install", () => {
+    const res = runKumiko(["handbuch", "--help"], installRoot);
+    expect(res.code).toBe(0);
+    expect(res.out).not.toContain("not found");
+    expect(res.out).toContain("--web-shots");
   });
 
   test("kumiko agent lint reports a doc gap from the packed install", () => {
