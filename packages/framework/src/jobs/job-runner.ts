@@ -113,9 +113,56 @@ export function bootJobIdForJobName(jobName: string): string {
   return `boot-${jobName.replace(/[.:]/g, "-")}`;
 }
 
-// ponytail: migration shim, remove after fw#1603 deploy is everywhere.
-function legacySchedulerIdForJobName(jobName: string): string {
-  return `scheduler-${jobName.replace(/\./g, "-")}`;
+const SCHEDULER_PAGE_SIZE = 100;
+
+// Rolling deploys run old and new pods against the same Redis for a while; an
+// old runner restarting in that window must not delete the scheduler of a
+// cron job the new version just added.
+export const ORPHAN_SCHEDULER_GRACE_MS = 60 * 60 * 1000;
+
+function schedulerSeenKey(queue: Queue): string {
+  return queue.toKey("kumiko-scheduler-seen");
+}
+
+type OrphanSchedulerLog = {
+  info(msg: string, data?: Record<string, unknown>): void;
+  warn(msg: string, data?: Record<string, unknown>): void;
+};
+
+// A cron job dropped from the app (or an older scheduler-id format) leaves its
+// scheduler in Redis, where it keeps firing jobs the worker no longer knows
+// ("Unknown job"). Best-effort: a Redis hiccup here must not stop the start.
+async function removeOrphanJobSchedulers(
+  queue: Queue,
+  expectedSchedulerIds: ReadonlySet<string>,
+  lane: JobRunIn,
+  log: OrphanSchedulerLog,
+): Promise<void> {
+  try {
+    // Collect first: removing while paging would shift the indices.
+    const existingKeys: string[] = [];
+    for (let start = 0; ; start += SCHEDULER_PAGE_SIZE) {
+      const page = await queue.getJobSchedulers(start, start + SCHEDULER_PAGE_SIZE - 1);
+      for (const scheduler of page) existingKeys.push(scheduler.key);
+      if (page.length < SCHEDULER_PAGE_SIZE) break;
+    }
+    const client = await queue.client;
+    const seenAt = await client.hgetall(schedulerSeenKey(queue));
+    const now = Date.now();
+    for (const key of existingKeys) {
+      if (expectedSchedulerIds.has(key)) continue;
+      const lastSeen = Number(seenAt[key]);
+      if (key in seenAt && now - lastSeen < ORPHAN_SCHEDULER_GRACE_MS) continue;
+      await queue.removeJobScheduler(key);
+      await client.hdel(schedulerSeenKey(queue), key);
+      log.info("removed orphan job scheduler", { schedulerId: key, lane });
+    }
+  } catch (err) {
+    log.warn("orphan job scheduler cleanup failed", {
+      lane,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 // Deterministic per-tenant child job id, derived from the perTenant
@@ -1443,19 +1490,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // Only schedule cron + boot for jobs that belong to this lane. Jobs
       // assigned to the other lane get their cron/boot wiring from the
       // runner running on that lane. Running both here would double-fire.
+      const expectedSchedulerIds = new Set<string>();
       for (const [name, jobDef] of allJobs) {
         if (laneForJob(jobDef) !== consumerLane) continue;
         if ("cron" in jobDef.trigger) {
           const schedulerId = schedulerIdForJobName(name);
-          const legacyId = legacySchedulerIdForJobName(name);
-          // Drop pre-sanitize scheduler ids so colon-form ghosts stop firing.
-          if (legacyId !== schedulerId) {
-            try {
-              await consumerQueue.removeJobScheduler(legacyId);
-            } catch {
-              // skip: legacy scheduler absent (fresh install / already purged)
-            }
-          }
+          expectedSchedulerIds.add(schedulerId);
           await consumerQueue.upsertJobScheduler(
             schedulerId,
             { pattern: jobDef.trigger.cron },
@@ -1470,8 +1510,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
               },
             },
           );
+          await (await consumerQueue.client).hset(schedulerSeenKey(consumerQueue), {
+            [schedulerId]: String(Date.now()),
+          });
         }
       }
+
+      await removeOrphanJobSchedulers(consumerQueue, expectedSchedulerIds, consumerLane, {
+        info: (msg, data) =>
+          context.log ? context.log.info(msg, data) : errorLogger.debug(msg, data),
+        warn: errorLogger.warn,
+      });
 
       // Persistent marker outside the swept completed/failed sets: a plain
       // Redis hash at one key per consumer queue, fields = boot job ids
