@@ -1,3 +1,4 @@
+import type { ResolvedPiiFlags } from "@cosmicdrift/kumiko-types/fields";
 import { type EventPiiSubject, normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
 import type { EntityDefinition } from "../engine/types/fields.js";
 import type { TenantId } from "../engine/types/identifiers.js";
@@ -23,6 +24,12 @@ export interface ResolveSubjectOptions {
   // Canonical source is the registry entity name (executor `entityName` /
   // event `aggregate_type`) — required to resolve recordOwned fields.
   readonly entityName: string;
+  // The owner the same event sets: an update's `previous` row is still
+  // ownerless while the event assigns one (fw#3654).
+  readonly ownerFallback?: Record<string, unknown>;
+  // Backfill resolves the projection row before falling back to whenAbsent,
+  // so it asks for the strict chain first.
+  readonly ignoreWhenAbsent?: boolean;
 }
 
 function nonEmptyString(value: unknown): string | null {
@@ -54,15 +61,22 @@ function resolveRecordSubject(
 }
 
 function resolveUserOwnedSubject(
-  ownerField: string,
+  userOwned: NonNullable<ResolvedPiiFlags["userOwned"]>,
   fieldName: string,
   row: Record<string, unknown>,
+  opts: ResolveSubjectOptions,
 ): SubjectId {
-  const userId = nonEmptyString(row[ownerField]);
-  if (userId === null) {
-    throw new SubjectResolutionError(fieldName, `owner field "${ownerField}" is empty on the row`);
+  const { ownerField } = userOwned;
+  const userId =
+    nonEmptyString(row[ownerField]) ?? nonEmptyString(opts.ownerFallback?.[ownerField]);
+  if (userId !== null) return { kind: "user", userId };
+  if (userOwned.whenAbsent === "tenant" && opts.ignoreWhenAbsent !== true) {
+    return resolveTenantSubject(fieldName, row, opts);
   }
-  return { kind: "user", userId };
+  throw new SubjectResolutionError(
+    fieldName,
+    `owner field "${ownerField}" is empty on the row and the field declares no whenAbsent — declare { personal: { of: "${ownerField}", whenAbsent: "tenant" } } (fw#3654)`,
+  );
 }
 
 function resolveTenantSubject(
@@ -112,7 +126,7 @@ export function resolveSubjectForField(
   }
 
   if ("userOwned" in field && field.userOwned !== undefined) {
-    return resolveUserOwnedSubject(field.userOwned.ownerField, fieldName, row);
+    return resolveUserOwnedSubject(field.userOwned, fieldName, row, opts);
   }
 
   if ("tenantOwned" in field && field.tenantOwned === true) {

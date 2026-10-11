@@ -25,17 +25,22 @@
 // second run reports 0 updates. One failing event does not abort the run;
 // failures are collected and reported (fail-loud at the caller).
 //
-// Owner resolution for entity-lifecycle events (backfill-only — the live
-// write path in event-store-executor-write.ts / subject-resolver.ts stays
-// fail-closed and is untouched by this):
-//   1. payload — the event section itself names the owner field.
+// Owner resolution for entity-lifecycle events. The live write path
+// (event-store-executor-write.ts) resolves the same chain via
+// subject-resolver.ts: row owner, then the owner the same event sets, then
+// the field's whenAbsent (fw#3654). Backfill adds two opt-in stages and
+// delays whenAbsent behind the projection so a known owner is never shadowed:
+//   1. payload — the event section (plus the owner the same event sets) names
+//      the owner field; whenAbsent is not applied yet.
 //   2. projection ({@link PiiBackfillOptions.resolveOwnerFromProjection}) —
 //      pre-owner-field-addition events don't carry it; read it from the
 //      entity's current projection row instead.
+//   2b. whenAbsent — the payload again, now falling back to the tenant key for
+//      fields that declare it.
 //   3. erase ({@link PiiBackfillOptions.eraseUnresolvableSubjects}) — still
 //      unresolvable (hard-deleted aggregate, no projection) → PII_ERASED_SENTINEL.
-//   Both stages are opt-in and off by default; without them an unresolvable
-//   subject still fails loud into `failures`, as before.
+//   Stages 2 and 3 are opt-in and off by default; without them an
+//   unresolvable subject still fails loud into `failures`, as before.
 //
 // Snapshots of touched aggregates are dropped per batch (they may cache
 // plaintext); the next snapshotting load recreates them. AFTER a run, rebuild the
@@ -61,6 +66,7 @@ import {
 } from "../../crypto/pii-field-encryption.js";
 import {
   collectPiiSubjectFields,
+  type ResolveSubjectOptions,
   resolveEventSubject,
   resolveSubjectForField,
   SubjectResolutionError,
@@ -434,14 +440,11 @@ export async function backfillEventPiiEncryptionBatch(
     ): Promise<void> {
       const sections = lifecycleSections(payload);
       for (const section of sections) {
-        // Update-changes may carry a pii field without its owner field —
-        // resolve subjects from the merged view; aggregate_id backs the
-        // self-subject when a section lacks the id column.
-        const subjectSource: Record<string, unknown> = {
-          id: row.aggregate_id,
-          ...Object.assign({}, ...sections),
-          ...section,
-        };
+        const { subjectSource, ownerFallback } = lifecycleSubjectView(
+          section,
+          payload,
+          row.aggregate_id,
+        );
         for (const field of target.piiFields) {
           const value = section[field];
           if (value === null || value === undefined) continue;
@@ -458,6 +461,7 @@ export async function backfillEventPiiEncryptionBatch(
             target.entity,
             field,
             subjectSource,
+            ownerFallback,
             projectionOwnerRow,
             // @cast-boundary db-read — tenant_id column is the branded TenantId
             row.tenant_id as TenantId,
@@ -549,34 +553,60 @@ type OwnerSubjectResolution =
   | { readonly kind: "unresolved"; readonly error: SubjectResolutionError }
   | { readonly kind: "resolved"; readonly subject: SubjectId; readonly viaProjection: boolean };
 
-// Stage 1 (payload) then stage 2 (projection row, when supplied) — stage 3
-// (erase) is the caller's call, made from the "unresolved" outcome.
+type SubjectAttempt =
+  | { readonly ok: true; readonly subject: SubjectId | null }
+  | { readonly ok: false; readonly error: SubjectResolutionError };
+
+function attemptResolve(
+  entity: EntityDefinition,
+  field: string,
+  source: Record<string, unknown>,
+  opts: ResolveSubjectOptions,
+): SubjectAttempt {
+  try {
+    return { ok: true, subject: resolveSubjectForField(entity, field, source, opts) };
+  } catch (e) {
+    if (!(e instanceof SubjectResolutionError)) throw e;
+    return { ok: false, error: e };
+  }
+}
+
+// Stage 1 (payload) and stage 2 (projection row, when supplied) resolve the
+// owner strictly, ignoring whenAbsent — an ownerless payload must not shadow
+// an owner the projection knows. Stage 2b then applies whenAbsent to the
+// payload. Stage 3 (erase) is the caller's call, made from "unresolved".
 function resolveOwnerSubject(
   entity: EntityDefinition,
   field: string,
   subjectSource: Record<string, unknown>,
+  ownerFallback: Record<string, unknown> | undefined,
   projectionOwnerRow: Record<string, unknown> | undefined,
   tenantId: TenantId,
   entityName: string,
 ): OwnerSubjectResolution {
-  try {
-    const subject = resolveSubjectForField(entity, field, subjectSource, { tenantId, entityName });
-    return subject === null
+  const baseOpts = { tenantId, entityName, ...(ownerFallback && { ownerFallback }) };
+  const strictOpts = { ...baseOpts, ignoreWhenAbsent: true };
+
+  const payloadAttempt = attemptResolve(entity, field, subjectSource, strictOpts);
+  if (payloadAttempt.ok) {
+    return payloadAttempt.subject === null
       ? { kind: "unannotated" }
-      : { kind: "resolved", subject, viaProjection: false };
-  } catch (e) {
-    if (!(e instanceof SubjectResolutionError)) throw e;
-    if (projectionOwnerRow) {
-      try {
-        const augmented = { ...subjectSource, ...projectionOwnerRow };
-        const subject = resolveSubjectForField(entity, field, augmented, { tenantId, entityName });
-        if (subject !== null) return { kind: "resolved", subject, viaProjection: true };
-      } catch (e2) {
-        if (!(e2 instanceof SubjectResolutionError)) throw e2;
-      }
-    }
-    return { kind: "unresolved", error: e };
+      : { kind: "resolved", subject: payloadAttempt.subject, viaProjection: false };
   }
+
+  if (projectionOwnerRow) {
+    const augmented = { ...subjectSource, ...projectionOwnerRow };
+    const projectionAttempt = attemptResolve(entity, field, augmented, strictOpts);
+    if (projectionAttempt.ok && projectionAttempt.subject !== null) {
+      return { kind: "resolved", subject: projectionAttempt.subject, viaProjection: true };
+    }
+  }
+
+  const whenAbsentAttempt = attemptResolve(entity, field, subjectSource, baseOpts);
+  if (whenAbsentAttempt.ok && whenAbsentAttempt.subject !== null) {
+    return { kind: "resolved", subject: whenAbsentAttempt.subject, viaProjection: false };
+  }
+  return { kind: "unresolved", error: payloadAttempt.error };
 }
 
 // Projection columns are snake_case (author_id); event-payload/subject
@@ -610,6 +640,28 @@ function lifecycleSections(payload: Record<string, unknown>): Record<string, unk
   if (isRecord(payload["previous"])) sections.push(payload["previous"]);
   if (sections.length === 0) sections.push(payload);
   return sections;
+}
+
+// Same view the live write path resolves from: changes see the merged row,
+// previous sees the owner the same event sets as fallback. aggregate_id backs
+// the self-subject when a section lacks the id column.
+function lifecycleSubjectView(
+  section: Record<string, unknown>,
+  payload: Record<string, unknown>,
+  aggregateId: string,
+): { subjectSource: Record<string, unknown>; ownerFallback: Record<string, unknown> | undefined } {
+  const changes = isRecord(payload["changes"]) ? payload["changes"] : undefined;
+  const previous = isRecord(payload["previous"]) ? payload["previous"] : undefined;
+  if (section === changes) {
+    return {
+      subjectSource: { id: aggregateId, ...previous, ...changes },
+      ownerFallback: undefined,
+    };
+  }
+  return {
+    subjectSource: { id: aggregateId, ...section },
+    ownerFallback: section === previous ? changes : undefined,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

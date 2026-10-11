@@ -109,6 +109,79 @@ describe("resolveSubjectForField", () => {
     ).toThrow(SubjectResolutionError);
   });
 
+  describe("userOwned owner chain (fw#3654)", () => {
+    const nullableOwnerEntity = createEntity({
+      fields: {
+        body: createTextField({ personal: { of: "authorId", whenAbsent: "tenant" }, find: "none" }),
+        authorId: createTextField({ personal: "ref" }),
+      },
+      table: "resolver_nullable_owner",
+    });
+    const opts = { entityName: ENTITY_NAME };
+
+    test("owner comes from the row", () => {
+      expect(
+        resolveSubjectForField(nullableOwnerEntity, "body", { authorId: UUID_A }, opts),
+      ).toEqual({ kind: "user", userId: UUID_A });
+    });
+
+    test("ownerFallback supplies the owner when the row has none", () => {
+      expect(
+        resolveSubjectForField(
+          nullableOwnerEntity,
+          "body",
+          { authorId: null },
+          {
+            ...opts,
+            ownerFallback: { authorId: UUID_B },
+          },
+        ),
+      ).toEqual({ kind: "user", userId: UUID_B });
+    });
+
+    test("the row owner wins over ownerFallback", () => {
+      expect(
+        resolveSubjectForField(
+          nullableOwnerEntity,
+          "body",
+          { authorId: UUID_A },
+          {
+            ...opts,
+            ownerFallback: { authorId: UUID_B },
+          },
+        ),
+      ).toEqual({ kind: "user", userId: UUID_A });
+    });
+
+    test("whenAbsent tenant prefers the row's tenantId over the write-time tenantId", () => {
+      expect(
+        resolveSubjectForField(
+          nullableOwnerEntity,
+          "body",
+          { authorId: null, tenantId: UUID_A },
+          { ...opts, tenantId: UUID_B as TenantId },
+        ),
+      ).toEqual({ kind: "tenant", tenantId: UUID_A });
+    });
+
+    test("without whenAbsent an empty owner throws and names the fix", () => {
+      expect(() => resolveSubjectForField(commentEntity, "body", { id: UUID_A }, opts)).toThrow(
+        /declare \{ personal: \{ of: "authorId", whenAbsent: "tenant" \} \}/,
+      );
+    });
+
+    test("ignoreWhenAbsent throws despite a declared whenAbsent", () => {
+      expect(() =>
+        resolveSubjectForField(
+          nullableOwnerEntity,
+          "body",
+          { authorId: null, tenantId: UUID_A },
+          { ...opts, ignoreWhenAbsent: true },
+        ),
+      ).toThrow(SubjectResolutionError);
+    });
+  });
+
   test("tenantOwned without any tenant scope throws", () => {
     expect(() =>
       resolveSubjectForField(

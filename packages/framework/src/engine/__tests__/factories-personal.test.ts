@@ -128,6 +128,20 @@ describe("createTextField — personal/find resolution", () => {
     expect(f.lookupable).toBe(true);
   });
 
+  test('personal: { of, whenAbsent: "tenant" } → userOwned carries whenAbsent', () => {
+    const f = createTextField({
+      personal: { of: "ownerId", whenAbsent: "tenant" },
+      find: "none",
+    });
+    expect(f.userOwned).toEqual({ ownerField: "ownerId", whenAbsent: "tenant" });
+  });
+
+  test('personal: { of: "id", whenAbsent } throws — a row always has an id', () => {
+    expect(() =>
+      createTextField({ personal: { of: "id", whenAbsent: "tenant" }, find: "none" }),
+    ).toThrow(/whenAbsent/);
+  });
+
   test('personal: "ref" → subjectRef only, no find allowed on this variant', () => {
     const f = createTextField({ personal: "ref" });
     expect(f.subjectRef).toBe(true);

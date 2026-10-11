@@ -71,7 +71,7 @@ const vehicleEntity = createEntity({
     driverSelfie: createImageField({ personal: "self" }),
     unannotatedDoc: createFileField(),
     ownerId: createTextField({ personal: false, reason: "owner_id_test_fixture" }),
-    ownerPhoto: createImageField({ personal: { of: "ownerId" } }),
+    ownerPhoto: createImageField({ personal: { of: "ownerId", whenAbsent: "tenant" } }),
     recordPhoto: createImageField({ personal: { of: "id" } }),
     tenantLogo: createImageField({ personal: "tenant" }),
     subjectPhoto: createImageField({ personal: "ref" }),
