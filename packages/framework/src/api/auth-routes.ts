@@ -78,13 +78,12 @@ function setAuthCookies(
     ...(opts.domain !== undefined && { domain: opts.domain }),
   } as const;
 
-  // Bei gesetzter Domain zuerst die host-only-Variante invalidieren (analog
-  // clearAuthCookies): sonst koexistiert nach einem Deploy mit neuem
-  // cookieDomain das alte host-only-Cookie mit dem neuen Domain-Cookie
-  // (RFC 6265: name+domain ist distinct) und der Server bindet
-  // umgebungsabhängig potenziell ans veraltete host-only-Token.
-  // Mit __Host--Namen ist die unprefixte host-only-Variante Altbestand aus der
-  // Zeit vor dem Prefix und wird ebenfalls invalidiert.
+  // With a Domain, expire the host-only variant first (as clearAuthCookies
+  // does): after a deploy that sets cookieDomain, the old host-only cookie
+  // would coexist with the new Domain cookie (RFC 6265 treats name+domain as
+  // distinct) and the server could bind to the stale host-only token. With
+  // __Host- names the unprefixed host-only cookie is a leftover from before
+  // the prefix and is expired too.
   if (opts.domain !== undefined || isHostPrefixedCookieName(names.auth)) {
     deleteCookie(c, AUTH_COOKIE_BASE, { path: "/" });
     deleteCookie(c, CSRF_COOKIE_BASE, { path: "/" });
@@ -110,11 +109,10 @@ function clearAuthCookies(
   domain: string | undefined,
   retiredDomains: readonly string[],
 ): void {
-  // Beide Varianten löschen: mit Domain (aktuelle Cookies) UND host-only
-  // (Bestand aus der Zeit vor cookieDomain) — sonst bleibt nach einem
-  // Deploy mit neu gesetztem cookieDomain der alte Cookie liegen und der
-  // Logout wirkt nur scheinbar. Mit __Host--Namen kommt der unprefixte
-  // Altbestand dazu.
+  // Expire every variant: the Domain cookie (current) and the host-only one
+  // (from before cookieDomain), otherwise a cookie left over from an earlier
+  // config keeps the session alive after logout. With __Host- names the
+  // unprefixed leftovers from before the prefix are expired as well.
   deleteCookie(c, names.auth, hostOnlyDeleteOptions(names.auth));
   deleteCookie(c, names.csrf, hostOnlyDeleteOptions(names.csrf));
   if (isHostPrefixedCookieName(names.auth)) {
