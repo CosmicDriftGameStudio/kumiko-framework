@@ -40,6 +40,7 @@ import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/se
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { resolveRetentionPolicyForTenant } from "../../data-retention/index.js";
+import { eraseNoteBodiesReachingSubject } from "../../notes-history-user-data/index.js";
 import { revokeAllPatTokensForUser } from "../../personal-access-tokens/index.js";
 import { USER_STATUS } from "../../user/index.js";
 import {
@@ -300,6 +301,7 @@ async function sweepDerivedSubjectData(
   subject: SubjectId,
   subjectKey: string,
   crossTenantRunner: DbRunner,
+  audit: { readonly requestId: string; readonly erasedBy: string },
 ): Promise<string | undefined> {
   try {
     await runInSavepointIfSupported(crossTenantRunner, async (crossTenantSubjectRunner) => {
@@ -317,6 +319,17 @@ async function sweepDerivedSubjectData(
           subjectKey,
           subject,
         );
+      }
+
+      // Note bodies are keyed per note, so the subject's own key never reaches them.
+      if (ctx.registry.features.has("notes-history")) {
+        await eraseNoteBodiesReachingSubject({
+          db: crossTenantSubjectRunner,
+          registry: ctx.registry,
+          subject,
+          erasedBy: audit.erasedBy,
+          requestId: audit.requestId,
+        });
       }
     });
     return undefined;
@@ -471,8 +484,9 @@ export const forgetSubjectWrite = defineWriteHandler({
     // but no event exists — a retry is a no-op erase plus the event. The
     // reverse order could leave an audit trail claiming a shred that never
     // happened.
+    const requestId = requestContext.get()?.requestId ?? "crypto-shredding:forget-subject";
     await kms.eraseKey(subject, {
-      requestId: requestContext.get()?.requestId ?? "crypto-shredding:forget-subject",
+      requestId,
       userId: event.user.id,
       eraseReason: event.payload.reason,
     });
@@ -482,6 +496,7 @@ export const forgetSubjectWrite = defineWriteHandler({
       subject,
       subjectKey,
       ctx.db.unsafeRaw(),
+      { requestId, erasedBy: event.user.id },
     );
 
     // User subject: close the login door. DEK-erase makes the passwordHash
