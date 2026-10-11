@@ -81,6 +81,10 @@ export const FrameworkReasons = {
   // ConflictError: a write touched a personal-data field of a data subject whose
   // key was erased (crypto-shredding); the subject can no longer receive data.
   subjectErased: "subject_erased",
+
+  // UnprocessableError: createFileRefFromBytes refused the file (size, type,
+  // content or attach target). `details.error` carries the upload-route error string.
+  fileRejected: "file_rejected",
 } as const;
 
 export type FrameworkReason = (typeof FrameworkReasons)[keyof typeof FrameworkReasons];

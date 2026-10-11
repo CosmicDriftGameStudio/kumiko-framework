@@ -76,6 +76,7 @@ import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-f
 import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 import { readinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createRendererPdfFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
 import { createRendererSimpleFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
@@ -336,6 +337,7 @@ export const APP_FEATURES = [
   collectionLabelsFeature,
   createRendererFoundationFeature(),
   createRendererSimpleFeature(),
+  createRendererPdfFeature(),
 
   // managed-pages: requires config (auto-bundled). Smoke resolver never serves
   // (boot-only). allowCustomCss:true boot-validates the CSS code path + emits

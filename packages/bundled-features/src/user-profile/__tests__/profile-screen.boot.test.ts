@@ -67,6 +67,17 @@ describe("user-profile screen (fw#2312 projectionDetail conversion)", () => {
     }
   });
 
+  test("allowEmailChange: false drops the email section and the handler, and still boot-validates", () => {
+    const f = createUserProfileFeature({ allowEmailChange: false });
+    const screen = f.screens["profile"];
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    const extensionSections = screen.layout.sections.filter((s) => s.kind === "extension");
+    expect(extensionSections.map((s) => s.title)).toEqual(["profile.password.title"]);
+    expect(Object.keys(f.writeHandlers)).toEqual([]);
+    const withoutEmail = features.map((x) => (x.name === "user-profile" ? f : x));
+    expect(() => validateBoot(withoutEmail)).not.toThrow();
+  });
+
   test("gracePeriodEnd is hidden unless a deletion is actually pending", () => {
     const f = createUserProfileFeature();
     const screen = f.screens["profile"];

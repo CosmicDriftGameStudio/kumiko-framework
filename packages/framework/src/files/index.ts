@@ -1,3 +1,9 @@
+export type {
+  CreatedFileRef,
+  CreateFileRefContext,
+  CreateFileRefInput,
+} from "./create-file-ref-from-bytes.js";
+export { createFileRefFromBytes } from "./create-file-ref-from-bytes.js";
 export { createFilesFeature } from "./feature.js";
 export type { FileContext, FileHandle } from "./file-handle.js";
 // `createFileHandle` is an implementation detail — construct handles via

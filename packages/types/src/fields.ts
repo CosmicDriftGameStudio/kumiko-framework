@@ -949,6 +949,9 @@ export type ImagesFieldDef = {
   readonly accept?: readonly string[];
   readonly maxCount?: number;
   readonly variants?: Readonly<Record<string, VariantSpec>>;
+  /** Forwarded to the file input's `capture` attribute so a phone opens the
+   *  camera instead of the file picker. */
+  readonly capture?: "environment" | "user";
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
 

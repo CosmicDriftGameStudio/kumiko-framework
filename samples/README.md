@@ -46,6 +46,7 @@ an open-source statuspage clone built with Kumiko.
 | Encrypted tenant config (per-tenant secrets at rest) | [recipes/encrypted-tenant-config](recipes/encrypted-tenant-config/) | Integration |
 | Feature toggles (per-tenant on/off) | [recipes/feature-toggles](recipes/feature-toggles/) | Integration |
 | File upload + post-processing (resize, virus scan, etc.) | [recipes/files-post-processing](recipes/files-post-processing/) | Integration |
+| Export tenant data as PDF and keep it as a FileRef | [recipes/pdf-audit-export](recipes/pdf-audit-export/) | Integration |
 | Legal pages (terms, privacy, imprint) with versioned acceptance | [recipes/legal-pages](recipes/legal-pages/) | Integration |
 | DSGVO Art. 15+17+20 für deine Domain (`EXT_USER_DATA`-Hooks) | [recipes/user-data-rights](recipes/user-data-rights/) | Integration |
 | Rate limiting per user / IP / endpoint | [recipes/rate-limiting](recipes/rate-limiting/) | Integration |

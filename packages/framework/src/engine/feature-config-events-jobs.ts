@@ -4,6 +4,7 @@ import {
 } from "@cosmicdrift/kumiko-types/handlers";
 import type * as z from "zod";
 import { ZodObject, type ZodType } from "zod";
+import { isValidIanaTimeZone } from "../time/iana.js";
 import type { FeatureBuilderState } from "./feature-builder-state.js";
 import { resolveName } from "./handler-helpers.js";
 import { splitNamedDefinition, unwrapArrayForm } from "./object-form.js";
@@ -276,6 +277,15 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         throw new Error(
           `[Feature ${name}] r.job("${jobName}") declares an invalid escapeHatch — ${jobGrantsProblem}`,
         );
+      }
+      if ("cron" in jobOptions.trigger && jobOptions.trigger.tz !== undefined) {
+        const tz = jobOptions.trigger.tz;
+        if (!isValidIanaTimeZone(tz)) {
+          throw new Error(
+            `[Feature ${name}] r.job("${jobName}") declares trigger { cron, tz: ${JSON.stringify(tz)} } — ` +
+              'tz must be an IANA time zone name such as "Europe/Berlin".',
+          );
+        }
       }
       // Resolve NameOrRef(s) in trigger.on. Multi-Trigger-Form: Array
       // wird zu Array von resolved strings, Single bleibt single string —

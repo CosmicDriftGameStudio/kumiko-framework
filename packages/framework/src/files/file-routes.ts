@@ -12,7 +12,6 @@ import {
   PII_ERASED_SENTINEL,
 } from "../crypto/index.js";
 import type { DbConnection } from "../db/connection.js";
-import { createEventStoreExecutor } from "../db/event-store-executor.js";
 import { createTenantDb, type TenantDb } from "../db/tenant-db.js";
 import {
   createDerivativesContext,
@@ -20,28 +19,24 @@ import {
   resolveRenderer,
 } from "../derivatives/index.js";
 import {
-  type AnyFileFieldDef,
   isFileField,
   isUuid,
   type Registry,
   type SessionUser,
   type TenantId,
 } from "../engine/types/index.js";
-import { generateId } from "../utils/index.js";
 import { buildContentDispositionHeader } from "./content-disposition.js";
+import {
+  DEFAULT_MAX_UPLOAD_SIZE,
+  getFileRefExecutor,
+  storeFileAsFileRef,
+} from "./create-file-ref.js";
 import { createFileContext } from "./file-handle.js";
 import { fileRefEntity } from "./file-ref-entity.js";
 import { fileRefsTable } from "./file-ref-table.js";
 import type { FileProviderResolver } from "./provider-resolver.js";
-import { neutralFileNameForMimeType, resolveContentType } from "./resolve-content-type.js";
-import {
-  buildStorageKey,
-  parseMaxSize,
-  resolveServedContentType,
-  resolveUploadMimeType,
-  validateFile,
-  validateFileContent,
-} from "./types.js";
+import { neutralFileNameForMimeType } from "./resolve-content-type.js";
+import { parseMaxSize, resolveServedContentType } from "./types.js";
 
 // Decision returned by a FileAccessGuard — distinct from boolean so callers
 // can't accidentally negate or default it.
@@ -114,32 +109,6 @@ function createDefaultGuard(privilegedRoles: readonly string[]): FileAccessGuard
   };
 }
 
-type AttachedFieldResolution =
-  | { readonly kind: "unattached" }
-  | { readonly kind: "resolved"; readonly fieldDef: AnyFileFieldDef }
-  | { readonly kind: "unresolvable" };
-
-// entityType/fieldName drive the GDPR-forget decision downstream
-// (fileRefDeleteHook resolves the field's PII annotation from exactly this
-// pairing) — attaching to a field nobody can resolve would leave that
-// decision hanging on an unverified client string. Either both are omitted
-// (unattached upload, allowed) or both must resolve to a real registered
-// field.
-function resolveAttachedField(
-  registry: Registry | undefined,
-  entityType: string | undefined,
-  fieldName: string | undefined,
-): AttachedFieldResolution {
-  if (entityType === undefined && fieldName === undefined) return { kind: "unattached" };
-  const entity = entityType !== undefined ? registry?.getEntity(entityType) : undefined;
-  const fieldDef = entity && fieldName !== undefined ? entity.fields[fieldName] : undefined;
-  if (!entityType || !fieldName || !entity || !fieldDef || !isFileField(fieldDef))
-    return { kind: "unresolvable" };
-  return { kind: "resolved", fieldDef };
-}
-
-const DEFAULT_MAX_UPLOAD_SIZE = "10mb";
-
 // Multipart framing plus the small entityType/entityId/fieldName parts
 // riding alongside the file.
 const MULTIPART_OVERHEAD_MARGIN_BYTES = 64 * 1024;
@@ -181,13 +150,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   const { db } = options;
   const privilegedRoles = options.privilegedRoles ?? DEFAULT_PRIVILEGED_ROLES;
   const guard: FileAccessGuard = options.accessGuard ?? createDefaultGuard(privilegedRoles);
-  // Standard entity executor for fileRef — self-contained (table + entity).
-  // create/delete emit fileRef.created/deleted and write file_refs via
-  // applyEntityEvent in one tx (read-your-own-write), exactly like any other
-  // entity's lifecycle. The registry only feeds custom projections on those events.
-  const executor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
-    entityName: "fileRef",
-  });
+  const executor = getFileRefExecutor();
   const piiSubjectFields = collectPiiSubjectFields(fileRefEntity);
   const api = new Hono();
   const projectionGrants = options.registry ? { projectionRegistry: options.registry } : undefined;
@@ -262,125 +225,22 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const entityId = typeof body["entityId"] === "string" ? body["entityId"] : undefined;
     const fieldName = typeof body["fieldName"] === "string" ? body["fieldName"] : undefined;
 
-    // These interpolate directly into the storage key (buildStorageKey below) —
-    // reject anything but a safe identifier so a client can't path-traverse
-    // out of its tenant's storage prefix (../.. segments, absolute paths).
-    for (const [field, value] of [
-      ["entityType", entityType],
-      ["entityId", entityId],
-      ["fieldName", fieldName],
-    ] as const) {
-      if (value !== undefined && !/^[A-Za-z0-9_-]+$/.test(value)) {
-        return c.json({ error: `invalid_${field}: must match /^[A-Za-z0-9_-]+$/` }, 400);
-      }
-    }
-
-    // Validate against entity field definition if available.
-    let maxSize = options.maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE;
-    let accept: readonly string[] | undefined;
-
-    const attachedField = resolveAttachedField(options.registry, entityType, fieldName);
-    if (attachedField.kind === "unresolvable") {
-      return c.json(
-        {
-          error:
-            "unresolvable_field: entityType/fieldName must resolve to a registered file field, or both must be omitted for an unattached upload",
-        },
-        400,
-      );
-    }
-    if (attachedField.kind === "resolved") {
-      if (attachedField.fieldDef.maxSize) maxSize = attachedField.fieldDef.maxSize;
-      if (attachedField.fieldDef.accept) accept = attachedField.fieldDef.accept;
-    }
-
-    const validationError = validateFile(
-      { fileName: file.name, mimeType: file.type, size: file.size },
-      { maxSize, accept },
-    );
-    if (validationError) {
-      return c.json({ error: validationError }, 400);
-    }
-
     const data = new Uint8Array(await file.arrayBuffer());
-
-    const contentValidation = validateFileContent(file.name, data, accept);
-    if (contentValidation.kind === "rejected") {
-      return c.json({ error: contentValidation.error }, 400);
-    }
-
-    // A normalized upload's real type is already known from the sniffed
-    // bytes — resolveUploadMimeType's alias/rewrite step only applies to the
-    // declared mimeType of an unnormalized upload.
-    let mimeType: string;
-    if (contentValidation.kind === "normalized") {
-      mimeType = contentValidation.mimeType;
-    } else {
-      const mimeTypeResolution = resolveUploadMimeType(file.name, file.type, data);
-      if (mimeTypeResolution.kind === "rejected") {
-        return c.json({ error: mimeTypeResolution.error }, 400);
-      }
-      mimeType = resolveContentType({
-        declared: mimeTypeResolution.mimeType,
-        bytes: data,
-        filename: file.name,
-      });
-    }
-
-    const fileRefId = generateId();
-    const storageKey = buildStorageKey(
-      user.tenantId,
-      entityType ?? "unattached",
-      entityId,
-      fieldName ?? "file",
-      file.name,
-      generateId(),
-      contentValidation.kind === "normalized" ? contentValidation.extension : undefined,
-    );
-
-    // Write binary FIRST (outside the tx — network/disk I/O doesn't belong
-    // inside a PG connection's tx window). On DB-tx rollback below the bytes
-    // are orphaned in the provider; cleanup-jobs sweep those later. Losing a
-    // row on append-failure is acceptable; corrupting a committed row with a
-    // missing binary is not.
     const storageProvider = await options.resolveProvider(user.tenantId);
-    await storageProvider.write(storageKey, data, mimeType);
-
-    // Create via the standard entity executor: emits fileRef.created +
-    // materialises the file_refs row in one tx (read-your-own-write). id is
-    // explicit so the response + storageKey stay consistent; tenantId,
-    // insertedAt and insertedById are set by applyEntityEvent from the event
-    // metadata. The binary was written above, outside the tx — a create
-    // failure orphans bytes (cleanup-job sweeps) rather than committing a row
-    // whose binary is missing.
-    const result = await executor.create(
+    const outcome = await storeFileAsFileRef(
       {
-        id: fileRefId,
-        storageKey,
-        fileName: file.name,
-        mimeType,
-        size: file.size,
-        entityType: entityType ?? null,
-        entityId: entityId ?? null,
-        fieldName: fieldName ?? null,
+        user,
+        tenantDb: tenantDbFor(user.tenantId),
+        registry: options.registry,
+        defaultMaxUploadSize: options.maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE,
+        writeBytes: (key, bytes, mimeType) => storageProvider.write(key, bytes, mimeType),
+        deleteBytes: (key) => storageProvider.delete(key),
       },
-      user,
-      tenantDbFor(user.tenantId),
+      { fileName: file.name, declaredMimeType: file.type, data, entityType, entityId, fieldName },
     );
-    if (!result.isSuccess) {
-      return c.json({ error: "upload_failed" }, 500);
-    }
-
-    return c.json(
-      {
-        id: fileRefId,
-        fileName: file.name,
-        mimeType,
-        size: file.size,
-        storageKey,
-      },
-      201,
-    );
+    if (outcome.kind === "rejected") return c.json({ error: outcome.error }, 400);
+    if (outcome.kind === "failed") return c.json({ error: "upload_failed" }, 500);
+    return c.json(outcome.fileRef, 201);
   });
 
   // GET /files/:id — download.

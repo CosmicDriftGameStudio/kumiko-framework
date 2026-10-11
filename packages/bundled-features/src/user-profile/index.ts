@@ -8,4 +8,4 @@ export {
   UserProfileHandlers,
   UserProfileQueries,
 } from "./constants.js";
-export { createUserProfileFeature } from "./feature.js";
+export { createUserProfileFeature, type UserProfileFeatureOptions } from "./feature.js";

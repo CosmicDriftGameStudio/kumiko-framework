@@ -322,6 +322,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/renderer-simple",
     factory: "createRendererSimpleFeature",
   },
+  "renderer-pdf": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/renderer-pdf",
+    factory: "createRendererPdfFeature",
+  },
   "rate-limiting": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/rate-limiting",

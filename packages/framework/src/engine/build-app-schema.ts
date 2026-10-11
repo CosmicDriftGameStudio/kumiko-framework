@@ -614,7 +614,7 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (typeof def["max"] === "number" || typeof def["max"] === "string") out["max"] = def["max"];
   // date/timestamp/locatedTimestamp: display/parsing locale override (fw#2497).
   if (typeof def["locale"] === "string") out["locale"] = def["locale"];
-  // image: which camera a mobile capture opens (fw#2497).
+  // image/images: which camera a mobile capture opens (fw#2497).
   if (typeof def["capture"] === "string") out["capture"] = def["capture"];
   // number: display-only suffix, static or read from a sibling field of the row.
   const unit = def["unit"];

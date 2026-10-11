@@ -250,7 +250,7 @@ export type EditFieldViewModel = {
    *  die richtige Field-Def prüfen kann. */
   readonly entityType?: string;
   readonly fieldName?: string;
-  /** Only for `type: "image"` — the variant name the preview requests
+  /** Only for `type: "image"` and `"images"` — the variant name the preview requests
    *  (`/api/files/:id/variant/:name`) instead of the original. The FIRST
    *  variant declared on the field def wins; a spec may legitimately carry
    *  neither `size` nor `maxEdge` (format-/blur-only), so "the smallest one"

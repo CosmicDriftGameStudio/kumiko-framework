@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 81,
+  "featureCount": 82,
   "features": [
     {
       "name": "admin-shell",
@@ -2068,6 +2068,32 @@
       "writeHandlers": [],
       "uiHints": {
         "displayLabel": "Renderer Foundation",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
+      "name": "renderer-pdf",
+      "description": "Renderer plugin for `kind=\"document-pdf\"` that draws a table document (title, meta lines, weighted columns, repeating header, page footer) as a PDF in pure JavaScript, without a browser or Puppeteer service. `payload.variables` must be a `PdfTableDocument`. Requires `renderer-foundation`; mount a Puppeteer-based plugin instead when you need HTML/CSS layouts.",
+      "toggleableDefault": null,
+      "requires": [
+        "renderer-foundation"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "renderer",
+          "entityName": "pdf"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Renderer · PDF tables",
         "category": "notifications",
         "recommended": false
       }
