@@ -19,7 +19,7 @@ import { configValuesTable } from "../../config/table.js";
 import { createUserFeature } from "../../user/feature.js";
 import { userEntity } from "../../user/schema/user.js";
 import { seedUser } from "../../user/seeding.js";
-import { TenantHandlers } from "../constants.js";
+import { TenantHandlers, TenantQueries } from "../constants.js";
 import { collectAssignableAppRoles, createTenantFeature } from "../feature.js";
 import { tenantMembershipsTable } from "../membership-table.js";
 import { tenantEntity } from "../schema/tenant.js";
@@ -204,5 +204,37 @@ describe("updateMemberRoles keeps roles the actor cannot grant", () => {
     );
     expect(res.status).toBe(200);
     expect(await rolesOfMember()).toEqual(["Editor"]);
+  });
+});
+
+describe("member role availability query", () => {
+  async function disabledByRole(role: string): Promise<Record<string, boolean>> {
+    const { rows } = await stack.http.queryOk<{
+      rows: readonly { value: string; disabled: boolean }[];
+    }>(TenantQueries.memberRoleAvailability, {}, actor(role));
+    return Object.fromEntries(rows.map((row) => [row.value, row.disabled]));
+  }
+
+  test("Admin may not assign TenantAdmin or a role raised to TenantAdmin", async () => {
+    expect(await disabledByRole("Admin")).toEqual({
+      User: false,
+      Member: false,
+      Editor: false,
+      Admin: false,
+      TenantAdmin: true,
+      PropertyManager: false,
+      Auditor: true,
+    });
+  });
+
+  test("TenantAdmin may assign every role", async () => {
+    const byRole = await disabledByRole("TenantAdmin");
+    expect(Object.values(byRole).every((disabled) => !disabled)).toBe(true);
+    expect(byRole["TenantAdmin"]).toBe(false);
+  });
+
+  test("a User without an admin role is refused", async () => {
+    const res = await stack.http.query(TenantQueries.memberRoleAvailability, {}, actor("User"));
+    expect(res.status).toBe(403);
   });
 });

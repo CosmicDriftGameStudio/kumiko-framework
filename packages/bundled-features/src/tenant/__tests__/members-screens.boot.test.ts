@@ -106,7 +106,8 @@ describe("tenant members screen + handler access alignment", () => {
     expect(section.fields).toEqual([{ field: "userId", readOnly: true }, "roles"]);
     expect(screen.fields["roles"]).toEqual({
       type: "multiSelect",
-      options: OWNER_INVITE_ROLE_OPTIONS,
+      options: [...OWNER_INVITE_ROLE_OPTIONS],
+      optionsAvailabilityQuery: TenantQueries.memberRoleAvailability,
       required: true,
     });
     if (screen && "access" in screen && screen.access && "roles" in screen.access) {

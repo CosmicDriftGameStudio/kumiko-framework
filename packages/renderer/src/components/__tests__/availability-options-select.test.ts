@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { mergeOptionAvailability } from "../availability-options-select.js";
+import {
+  filterUnavailableOptions,
+  mergeOptionAvailability,
+} from "../availability-options-select.js";
 
 const OPTIONS = [
   { value: "free", label: "Free" },
@@ -48,5 +51,40 @@ describe("mergeOptionAvailability", () => {
 
   test("no rows leaves every option choosable", () => {
     expect(mergeOptionAvailability(OPTIONS, [], "free")).toEqual([...OPTIONS]);
+  });
+});
+
+describe("filterUnavailableOptions", () => {
+  test("drops options whose row is disabled, keeps the rest", () => {
+    const filtered = filterUnavailableOptions(
+      OPTIONS,
+      [
+        { value: "pro", disabled: true, hint: "ignored" },
+        { value: "max", disabled: false },
+      ],
+      [],
+    );
+    expect(filtered.map((option) => option.value)).toEqual(["free", "max"]);
+  });
+
+  test("a currently selected value stays listed even when disabled", () => {
+    const filtered = filterUnavailableOptions(OPTIONS, [{ value: "pro", disabled: true }], ["pro"]);
+    expect(filtered.map((option) => option.value)).toEqual(["free", "pro", "max"]);
+  });
+
+  test("unknown values, malformed rows and no rows leave every option", () => {
+    expect(
+      filterUnavailableOptions(
+        OPTIONS,
+        [
+          { value: "ghost", disabled: true },
+          { disabled: true },
+          null,
+          { value: "pro", disabled: "yes" },
+        ],
+        [],
+      ),
+    ).toEqual([...OPTIONS]);
+    expect(filterUnavailableOptions(OPTIONS, [], [])).toEqual([...OPTIONS]);
   });
 });

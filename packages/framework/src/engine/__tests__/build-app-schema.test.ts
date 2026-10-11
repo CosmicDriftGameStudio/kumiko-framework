@@ -507,6 +507,7 @@ describe("buildAppSchema", () => {
       "display",
       "columns",
       "maxRows",
+      "optionsAvailabilityQuery",
       "default", // array-valued for multiSelect — projectField's
       // isJsonSafeValue() (fw#2497) now recurses into arrays/plain
       // objects instead of only string/number/boolean/null.
@@ -542,6 +543,7 @@ describe("buildAppSchema", () => {
           display: "checkboxes",
           columns: 2,
           maxRows: 4,
+          optionsAvailabilityQuery: "ent:query:tag-availability",
           sensitive: true,
           access: { read: ["admin"] },
           pii: true,

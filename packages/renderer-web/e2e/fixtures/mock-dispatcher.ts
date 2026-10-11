@@ -27,6 +27,8 @@ import type {
   WriteResult,
 } from "@cosmicdrift/kumiko-headless";
 
+import { ROLE_AVAILABILITY_QUERY } from "./schema";
+
 type Row = Record<string, unknown> & { id: string };
 
 export type MockDispatcherState = {
@@ -133,6 +135,13 @@ export function createMockDispatcher(state: MockDispatcherState = {}): Dispatche
     payload: unknown,
     _opts?: QueryOpts,
   ): Promise<QueryResult<TData>> {
+    if (type === ROLE_AVAILABILITY_QUERY) {
+      const rows = [
+        ...["User", "Member", "Editor", "Admin"].map((value) => ({ value, disabled: false })),
+        { value: "TenantAdmin", disabled: true },
+      ];
+      return { isSuccess: true, data: { rows } as unknown as TData };
+    }
     const { entity, verb } = parseQn(type);
     const table = getTable(entity);
 

@@ -6,6 +6,7 @@
 // createKumikoApp gehängt (keine window.__KUMIKO_SCHEMA__-Injection).
 
 import type {
+  ActionFormScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
@@ -44,15 +45,51 @@ export const thingEditScreen: EntityEditScreenDefinition = {
   },
 };
 
+export const ROLE_AVAILABILITY_QUERY = "test:query:role-availability";
+
+const ROLE_OPTIONS = ["User", "Member", "Editor", "Admin", "TenantAdmin"] as const;
+
+function rolesFormScreen(
+  id: string,
+  optionsAvailabilityQuery?: string,
+): ActionFormScreenDefinition {
+  return {
+    id,
+    type: "actionForm",
+    handler: "test:write:thing:set-roles",
+    fields: {
+      roles: {
+        type: "multiSelect",
+        options: ROLE_OPTIONS,
+        ...(optionsAvailabilityQuery !== undefined && { optionsAvailabilityQuery }),
+      },
+    },
+    layout: { sections: [{ title: "Roles", fields: ["roles"] }] },
+  };
+}
+
+export const rolesPlainScreen = rolesFormScreen("roles-plain");
+export const rolesAvailabilityScreen = rolesFormScreen(
+  "roles-availability",
+  ROLE_AVAILABILITY_QUERY,
+);
+
 export const e2eSchema: AppSchema = {
   features: [
     {
       featureName: "test",
       entities: { thing: thingEntity },
-      screens: [thingEditScreen, thingListScreen],
+      screens: [thingEditScreen, thingListScreen, rolesPlainScreen, rolesAvailabilityScreen],
       navs: [
         { id: "thing-list", label: "Things", screen: "thing-list", order: 10 },
         { id: "thing-new", label: "New Thing", screen: "thing-edit", order: 20 },
+        { id: "roles-plain", label: "Roles plain", screen: "roles-plain", order: 30 },
+        {
+          id: "roles-availability",
+          label: "Roles availability",
+          screen: "roles-availability",
+          order: 40,
+        },
       ],
     },
   ],

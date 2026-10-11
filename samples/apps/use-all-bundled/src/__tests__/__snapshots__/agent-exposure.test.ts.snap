@@ -203,6 +203,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "tenant:query:invitations expose=true risk=high",
   "tenant:query:list expose=true risk=low",
   "tenant:query:me expose=true risk=low",
+  "tenant:query:member-role-availability expose=true risk=low",
   "tenant:query:memberDirectory expose=false risk=low",
   "tenant:query:members expose=true risk=high",
   "tenant:query:memberships expose=true risk=low",

@@ -169,9 +169,10 @@ export type EditFieldViewModel = {
     readonly query: string;
     readonly payload: OptionsQueryPayload;
   };
-  /** Set for `type: "select"` when SelectFieldDef.optionsAvailabilityQuery is set:
+  /** Set for `type: "select"` / `"multiSelect"` when optionsAvailabilityQuery is set:
    *  the renderer loads `{ rows: { value, disabled?, hint? }[] }` from this query and
-   *  merges it onto `options`. `payload` is optionsQueryPayload, `{}` when absent. */
+   *  merges it onto `options`. `payload` is optionsQueryPayload, `{}` when absent
+   *  (always `{}` for multiSelect). */
   readonly selectOptionsAvailabilityQuery?: {
     readonly query: string;
     readonly payload: OptionsQueryPayload;

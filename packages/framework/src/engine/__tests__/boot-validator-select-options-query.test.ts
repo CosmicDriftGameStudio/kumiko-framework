@@ -383,6 +383,52 @@ describe("validateBoot — select optionsAvailabilityQuery on entity fields", ()
   });
 });
 
+describe("validateBoot — multiSelect optionsAvailabilityQuery", () => {
+  const roleEntity = (optionsAvailabilityQuery: string) =>
+    defineFeature("shop", (r) => {
+      r.entity("item", {
+        fields: {
+          roles: { type: "multiSelect", options: ["a", "b"], optionsAvailabilityQuery },
+        },
+      });
+    });
+
+  const roleForm = (optionsAvailabilityQuery: string) =>
+    defineFeature("shop", (r) => {
+      r.writeHandler("set-roles", z.object({}), async () => ({ isSuccess: true, data: {} }), {
+        access: OPEN_ACCESS,
+      });
+      r.screen({
+        id: "roles-form",
+        type: "actionForm",
+        handler: "shop:write:set-roles",
+        fields: { roles: { type: "multiSelect", options: ["a", "b"], optionsAvailabilityQuery } },
+        layout: { sections: [{ fields: ["roles"] }] },
+      });
+    });
+
+  test("a registered availability query boots on entity and form fields", () => {
+    expect(() => validateBoot([catalog, roleEntity("catalog:query:model-options")])).not.toThrow();
+    expect(() => validateBoot([catalog, roleForm("catalog:query:model-options")])).not.toThrow();
+  });
+
+  test("a dead availability QN throws on entity and form fields", () => {
+    expect(() => validateBoot([catalog, roleEntity("catalog:query:ghost")])).toThrow(
+      /MultiSelect field "roles" on entity "item" declares optionsAvailabilityQuery "catalog:query:ghost" which is not a registered query-handler/,
+    );
+    expect(() => validateBoot([catalog, roleForm("catalog:query:ghost")])).toThrow(
+      /multiSelect field "roles" optionsAvailabilityQuery.*catalog:query:ghost/,
+    );
+  });
+
+  test("an empty availability QN throws on entity and form fields", () => {
+    expect(() => validateBoot([catalog, roleEntity("")])).toThrow(/optionsAvailabilityQuery ""/);
+    expect(() => validateBoot([catalog, roleForm("")])).toThrow(
+      /multiSelect field "roles" has an empty optionsAvailabilityQuery/,
+    );
+  });
+});
+
 describe("validateBoot — select optionTones", () => {
   test("an unknown tone on an entity select field throws, a known one boots", () => {
     const withTone = (tone: string) =>
