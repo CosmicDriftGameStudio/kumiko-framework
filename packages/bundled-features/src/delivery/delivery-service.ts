@@ -6,6 +6,7 @@ import type {
   EscapeHatchAuditSink,
   NotifyDelivery,
   NotifyJobDispatcher,
+  NotifyOptions,
   NotifyPriority,
   Registry,
   TenantId,
@@ -21,7 +22,12 @@ import { redactErrorText } from "../shared/index.js";
 import { hashUnsubscribeAddress } from "./address-opt-out.js";
 import { appendAttemptEvent, logAttempt } from "./attempt-log.js";
 import { buildChannelContext } from "./channel-context.js";
-import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs, deliveryPriorityRank } from "./constants.js";
+import {
+  DELIVERY_CHANNEL_EXTENSION,
+  DeliveryJobs,
+  deliveryIdempotencyRedisKey,
+  deliveryPriorityRank,
+} from "./constants.js";
 import {
   type AddressOptOutKey,
   addressOptOutKey,
@@ -171,9 +177,23 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         "Delivery idempotencyKey requires options.idempotencyRedis (or rateLimit.redis) to be configured",
       );
     }
-    const k = `delivery:idem:${tenantId}:${key}`;
-    const res = await idemRedis.set(k, "1", "EX", ttlSec, "NX");
+    const res = await idemRedis.set(
+      deliveryIdempotencyRedisKey(tenantId, key),
+      "1",
+      "EX",
+      ttlSec,
+      "NX",
+    );
     return res === "OK";
+  }
+
+  function isDeliveredOrQueued(delivery: NotifyDelivery): boolean {
+    return delivery.status === "sent" || delivery.status === "queued";
+  }
+
+  // A key that guarded nothing must not turn the caller's retry into a skipped duplicate.
+  async function releaseIdempotency(tenantId: TenantId, key: string): Promise<void> {
+    await idemRedis?.del(deliveryIdempotencyRedisKey(tenantId, key));
   }
 
   async function resolveUserIdsForTenant(tenantId: TenantId): Promise<readonly string[]> {
@@ -233,6 +253,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     readonly deliveries: NotifyDelivery[];
     readonly jobDispatcher: NotifyJobDispatcher | undefined;
     readonly locale: string | undefined;
+    // Set only when exactly one channel carries the call: the queued job may then free
+    // the key on terminal failure without risking a duplicate send on another channel.
+    readonly jobIdempotencyKey: string | undefined;
   };
 
   function recordDelivery(
@@ -343,6 +366,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           deliveryAttemptId,
           priority,
           message,
+          ...(run.jobIdempotencyKey !== undefined && { idempotencyKey: run.jobIdempotencyKey }),
         },
         { priority: deliveryPriorityRank[priority] },
       );
@@ -745,14 +769,76 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     }
   }
 
+  async function dispatchNotification(
+    notificationType: string,
+    options: NotifyOptions,
+    tenantId: TenantId,
+    priority: NotifyPriority,
+    run: NotifyRun,
+  ): Promise<void> {
+    const { to, route, data } = options;
+    if (route) {
+      await deliverDirect(
+        route,
+        notificationType,
+        data,
+        tenantId,
+        priority,
+        options.recipientId ?? null,
+        run,
+      );
+      return;
+    }
+
+    if (to !== undefined) {
+      let userIds: readonly string[];
+
+      if (typeof to === "string") {
+        userIds = [to];
+      } else if ("tenant" in to) {
+        userIds = await resolveUserIdsForTenant(to.tenant);
+      } else {
+        userIds = to;
+      }
+
+      const prefetchedAddresses =
+        priority === "critical"
+          ? new Map<string, string | null>()
+          : await prefetchUserAddresses(userIds, tenantId, notificationType);
+      const suppressed = await loadSuppressedAddresses(
+        tenantId,
+        notificationType,
+        priority,
+        [...prefetchedAddresses.values()].filter((address): address is string => !!address),
+      );
+
+      for (const userId of userIds) {
+        await deliverToUser(
+          userId,
+          notificationType,
+          data,
+          tenantId,
+          priority,
+          run,
+          prefetchedAddresses,
+          suppressed,
+        );
+      }
+    }
+  }
+
   return {
     async notify(notificationType, options, _user, tenantId, jobDispatcher) {
-      const { to, route, data, idempotencyKey } = options;
+      const { route, idempotencyKey } = options;
       const priority: NotifyPriority = options.priority ?? "normal";
       const run: NotifyRun = {
         deliveries: [],
         jobDispatcher: options.immediate ? undefined : (jobDispatcher ?? jobRunner),
         locale: options.locale,
+        jobIdempotencyKey:
+          idempotencyKey && route && channels.filter((channel) => route[channel.name]).length === 1
+            ? idempotencyKey
+            : undefined,
       };
 
       if (idempotencyKey) {
@@ -772,53 +858,15 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         }
       }
 
-      if (route) {
-        await deliverDirect(
-          route,
-          notificationType,
-          data,
-          tenantId,
-          priority,
-          options.recipientId ?? null,
-          run,
-        );
-        return { deliveries: run.deliveries };
+      try {
+        await dispatchNotification(notificationType, options, tenantId, priority, run);
+      } catch (err) {
+        if (idempotencyKey) await releaseIdempotency(tenantId, idempotencyKey);
+        throw err;
       }
-
-      if (to !== undefined) {
-        let userIds: readonly string[];
-
-        if (typeof to === "string") {
-          userIds = [to];
-        } else if ("tenant" in to) {
-          userIds = await resolveUserIdsForTenant(to.tenant);
-        } else {
-          userIds = to;
-        }
-
-        const prefetchedAddresses =
-          priority === "critical"
-            ? new Map<string, string | null>()
-            : await prefetchUserAddresses(userIds, tenantId, notificationType);
-        const suppressed = await loadSuppressedAddresses(
-          tenantId,
-          notificationType,
-          priority,
-          [...prefetchedAddresses.values()].filter((address): address is string => !!address),
-        );
-
-        for (const userId of userIds) {
-          await deliverToUser(
-            userId,
-            notificationType,
-            data,
-            tenantId,
-            priority,
-            run,
-            prefetchedAddresses,
-            suppressed,
-          );
-        }
+      // Partial success across recipients keeps the key: a retry would re-send to those who got it.
+      if (idempotencyKey && !run.deliveries.some(isDeliveredOrQueued)) {
+        await releaseIdempotency(tenantId, idempotencyKey);
       }
       return { deliveries: run.deliveries };
     },

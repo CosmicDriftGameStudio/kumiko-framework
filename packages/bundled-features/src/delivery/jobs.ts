@@ -18,7 +18,7 @@ import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
 import { appendAttemptEvent } from "./attempt-log.js";
 import { buildChannelContext } from "./channel-context.js";
-import { DeliveryJobs, deliveryPriorityRank } from "./constants.js";
+import { DeliveryJobs, deliveryIdempotencyRedisKey, deliveryPriorityRank } from "./constants.js";
 import { collectChannels, redactedMessageOf } from "./delivery-service.js";
 import type {
   ChannelMessage,
@@ -44,6 +44,7 @@ const renderJobPayloadSchema = z.object({
   deliveryAttemptId: z.string(),
   priority: z.enum(["critical", "normal", "low"]),
   message: channelMessageSchema,
+  idempotencyKey: z.string().optional(),
 });
 
 const sendJobPayloadSchema = renderJobPayloadSchema.extend({
@@ -110,6 +111,29 @@ function entryFor(
   };
 }
 
+// Only the final retry frees the key: earlier failures are retried by the runner and
+// must still dedup. Assumes ctx.redis is the handle the service claimed on; runProdApp
+// wires the same instance into both.
+async function releaseIdempotencyOnTerminalFailure(
+  ctx: JobContext,
+  p: RenderJobPayload,
+): Promise<void> {
+  if (!ctx.finalAttempt || !p.idempotencyKey) return;
+  if (!ctx.redis) {
+    ctx.log.warn("delivery: idempotency key not released, job context has no redis", {
+      notificationType: p.notificationType,
+    });
+    return;
+  }
+  try {
+    await ctx.redis.del(deliveryIdempotencyRedisKey(p.tenantId, p.idempotencyKey));
+  } catch (err) {
+    ctx.log.warn(`delivery: idempotency key release failed: ${redactedMessageOf(err)}`, {
+      notificationType: p.notificationType,
+    });
+  }
+}
+
 // The job runner stores err.message in the run row, and BullMQ keeps failedReason and
 // the stack trace in Redis in plain text, so the rethrown error carries only the code.
 // The redacted message goes to the log.
@@ -132,6 +156,7 @@ async function failAttempt(
     p.deliveryAttemptId,
     entryFor(p, "failed", code, p.address),
   );
+  await releaseIdempotencyOnTerminalFailure(ctx, p);
   throw new Error(code);
 }
 
