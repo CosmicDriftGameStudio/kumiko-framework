@@ -15,6 +15,7 @@ import {
   createTestUser,
   type TestDb,
   TestUsers,
+  testTenantId,
   unsafeCreateEntityTable,
 } from "../../stack/index.js";
 import { createTestEnvelopeCipher } from "../../testing/index.js";
@@ -232,6 +233,88 @@ describe("event-store-executor write-verbs — restore without softDelete", () =
     expect(result.isSuccess).toBe(false);
     if (result.isSuccess) return;
     expect((result.error.details as { reason?: string }).reason).toBe("soft_delete_not_enabled");
+  });
+});
+
+// =============================================================================
+// update(includeDeleted) — move a soft-deleted row without un-deleting it
+// =============================================================================
+
+const teamRowEntity = createEntity({
+  table: "read_es_write_team_row",
+  fields: {
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    teamId: createTextField({ personal: false, reason: "test_fixture" }),
+  },
+  softDelete: true,
+});
+const teamRowTable = buildEntityTable("esWriteTeamRow", teamRowEntity);
+
+describe("event-store-executor write-verbs — update on soft-deleted rows", () => {
+  const crud = createEventStoreExecutor(teamRowTable, teamRowEntity, {
+    entityName: "esWriteTeamRow",
+  });
+
+  beforeAll(async () => {
+    await unsafeCreateEntityTable(testDb.db, teamRowEntity, "esWriteTeamRow");
+  });
+
+  beforeEach(async () => {
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_write_team_row RESTART IDENTITY CASCADE`,
+    );
+  });
+
+  async function createDeletedRow(): Promise<{ id: string; version: number }> {
+    const created = await crud.create({ name: "moved", teamId: "team-a" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    const deleted = await crud.delete({ id: created.data.id }, admin, tdb);
+    if (!deleted.isSuccess) throw new Error("delete setup failed");
+    return { id: String(created.data.id), version: 2 };
+  }
+
+  test("without the option a soft-deleted row is not found", async () => {
+    const row = await createDeletedRow();
+    const result = await crud.update(
+      { id: row.id, version: row.version, changes: { teamId: "team-b" } },
+      admin,
+      tdb,
+    );
+    expect(result.isSuccess).toBe(false);
+    if (result.isSuccess) return;
+    expect(result.error.code).toBe("not_found");
+  });
+
+  test("includeDeleted moves the row, keeps it deleted, and the later restore lands in the new team", async () => {
+    const row = await createDeletedRow();
+    const moved = await crud.update(
+      { id: row.id, version: row.version, changes: { teamId: "team-b" } },
+      admin,
+      tdb,
+      { includeDeleted: true },
+    );
+    expect(moved.isSuccess).toBe(true);
+
+    const stillDeleted = await crud.list({}, admin, tdb, { includeDeleted: true });
+    expect(stillDeleted.rows).toHaveLength(1);
+    expect(stillDeleted.rows[0]).toMatchObject({ teamId: "team-b", isDeleted: true });
+    expect((await crud.list({}, admin, tdb)).rows).toHaveLength(0);
+
+    const restored = await crud.restore({ id: row.id }, admin, tdb);
+    expect(restored.isSuccess).toBe(true);
+    expect(await crud.detail({ id: row.id }, admin, tdb)).toMatchObject({ teamId: "team-b" });
+  });
+
+  test("includeDeleted does not cross the tenant boundary", async () => {
+    const row = await createDeletedRow();
+    const otherTenantDb = createTenantDb(testDb.db, testTenantId(99));
+    const result = await crud.update(
+      { id: row.id, version: row.version, changes: { teamId: "team-b" } },
+      admin,
+      otherTenantDb,
+      { includeDeleted: true },
+    );
+    expect(result.isSuccess).toBe(false);
   });
 });
 

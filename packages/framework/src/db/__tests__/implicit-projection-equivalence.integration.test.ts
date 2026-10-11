@@ -101,6 +101,14 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
     if (!b.isSuccess) throw new Error("setup B failed");
     await crud.update({ id: b.data.id, version: 1, changes: { isEnabled: false } }, adminUser, tdb);
     await crud.delete({ id: b.data.id }, adminUser, tdb);
+    // Update on the soft-deleted row (includeDeleted) must rebuild to the same row.
+    const movedWhileDeleted = await crud.update(
+      { id: b.data.id, version: 3, changes: { firstName: "Bob Moved" } },
+      adminUser,
+      tdb,
+      { includeDeleted: true },
+    );
+    if (!movedWhileDeleted.isSuccess) throw new Error("setup B update-while-deleted failed");
 
     const c = await crud.create({ email: "c@test.de", firstName: "Carol" }, adminUser, tdb);
     if (!c.isSuccess) throw new Error("setup C failed");
@@ -124,7 +132,8 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
     });
     expect(byEmail.get("b@test.de")).toMatchObject({
       isEnabled: false,
-      version: 3,
+      firstName: "Bob Moved",
+      version: 4,
       isDeleted: true,
     });
     expect(byEmail.get("c@test.de")).toMatchObject({
@@ -148,12 +157,12 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
       registry,
     });
 
-    // 4 creates + 2 updates + 2 deletes + 1 restore = 9 Events. Wenn
+    // 4 creates + 3 updates + 2 deletes + 1 restore = 10 Events. Wenn
     // die ImplicitProjection silently nichts apply'd hätte, wäre der
     // Count 0 — der Test würde dann den nachfolgenden deep-equal trotzdem
     // verfehlen, aber explizit der Count fängt den Sub-Bug "apply lief,
     // aber für die falsche Event-Anzahl".
-    expect(result.eventsProcessed).toBe(9);
+    expect(result.eventsProcessed).toBe(10);
 
     // 3. Vergleich. Erst ID-für-ID strikt prüfen damit klar ist welche
     // Felder verglichen werden — dann das Array-deep-equal als Catch-all.
