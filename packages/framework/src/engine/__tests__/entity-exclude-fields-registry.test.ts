@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import * as z from "zod";
 import { buildAppSchema } from "../build-app-schema.js";
 import { defineFeature } from "../define-feature.js";
 import { createEntity, createTextField } from "../factories.js";
@@ -88,5 +89,49 @@ describe("buildAppSchema projects excludeFields onto entityEdit screens", () => 
 
   test("an authored list never survives: the registry-derived value (or none) wins", () => {
     expect(screenById("plain-authored-edit")).not.toHaveProperty("writeExcludedFields");
+  });
+});
+
+describe("buildAppSchema projects handler excludedFields onto actionForm screens", () => {
+  const actionFeature = defineFeature("exclude-action", (r) => {
+    r.writeHandler({
+      name: "with-excluded",
+      schema: z.object({ label: z.string() }),
+      access: { roles: ["User"] },
+      excludedFields: ["type"],
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+    });
+    r.writeHandler({
+      name: "plain",
+      schema: z.object({ label: z.string() }),
+      access: { roles: ["User"] },
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+    });
+    const fields = { label: createTextField({ personal: false, reason: "test_fixture" }) };
+    r.screen({
+      id: "excluded-form",
+      type: "actionForm",
+      handler: "exclude-action:write:with-excluded",
+      fields,
+      layout: { sections: [{ fields: ["label"] }] },
+    });
+    r.screen({
+      id: "plain-form",
+      type: "actionForm",
+      handler: "exclude-action:write:plain",
+      fields,
+      layout: { sections: [{ fields: ["label"] }] },
+      writeExcludedFields: ["label"],
+    });
+  });
+  const screens = buildAppSchema(createRegistry([actionFeature])).features[0]?.screens ?? [];
+  const screenById = (id: string) => screens.find((s) => s.id.endsWith(id));
+
+  test("the called handler's excludedFields become the screen's flat list", () => {
+    expect(screenById("excluded-form")).toMatchObject({ writeExcludedFields: ["type"] });
+  });
+
+  test("a handler without exclusions leaves no property, an authored list is dropped", () => {
+    expect(screenById("plain-form")).not.toHaveProperty("writeExcludedFields");
   });
 });

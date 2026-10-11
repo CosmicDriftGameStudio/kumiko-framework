@@ -2,7 +2,7 @@ import * as z from "zod";
 import { SUPPORTED_FIELD_TYPES } from "./constants.js";
 
 // Field-Type-Validator — pinnt valid type-Werte für fieldDefinition.
-const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);
+export const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);
 
 // Per-field access-control. When set, `set/clear-custom-field` handlers
 // require the calling user to hold at least one of the listed roles —
@@ -37,29 +37,37 @@ export type CustomFieldAccess = z.infer<typeof customFieldAccessSchema>;
 // Everything else stays loose pending B2's per-type discriminated-union —
 // EXCEPT `sensitive`, which is explicitly rejected below: custom fields
 // carry supplemental business data only, PII support was removed (#972).
+const serializedFieldBaseShape = {
+  fieldAccess: customFieldAccessSchema,
+  // `retention` (T1.5d): per-field expiry. The retention-cron strips
+  // values whose host-row `modified_at` is older than `keepFor`. Strategy
+  // `delete` removes the key from the customFields jsonb; `anonymize`
+  // sets it to `null` (key stays, value gone — preserves the schema
+  // shape for downstream consumers).
+  retention: z
+    .object({
+      keepFor: z
+        .string()
+        .regex(/^\d+[hdwmy]$/, "keepFor must match /^\\d+[hdwmy]$/ (e.g. '30d', '10y')"),
+      strategy: z.enum(["delete", "anonymize"]),
+    })
+    .optional(),
+};
+
+const rejectSensitive = [
+  (v: Record<string, unknown>) => !("sensitive" in v),
+  "custom fields don't support PII — `sensitive` was removed (#972). Model personal data as a schema entity field with a pii/userOwned/tenantOwned annotation instead.",
+] as const;
+
 const serializedFieldSchema = z
-  .looseObject({
-    type: fieldTypeSchema,
-    fieldAccess: customFieldAccessSchema,
-    // `retention` (T1.5d): per-field expiry. The retention-cron strips
-    // values whose host-row `modified_at` is older than `keepFor`. Strategy
-    // `delete` removes the key from the customFields jsonb; `anonymize`
-    // sets it to `null` (key stays, value gone — preserves the schema
-    // shape for downstream consumers).
-    retention: z
-      .object({
-        keepFor: z
-          .string()
-          .regex(/^\d+[hdwmy]$/, "keepFor must match /^\\d+[hdwmy]$/ (e.g. '30d', '10y')"),
-        strategy: z.enum(["delete", "anonymize"]),
-      })
-      .optional(),
-  })
+  .looseObject({ type: fieldTypeSchema, ...serializedFieldBaseShape })
   .refine((v) => typeof v["type"] === "string", "serializedField must have a string `type`")
-  .refine(
-    (v) => !("sensitive" in v),
-    "custom fields don't support PII — `sensitive` was removed (#972). Model personal data as a schema entity field with a pii/userOwned/tenantOwned annotation instead.",
-  );
+  .refine(...rejectSensitive);
+
+// Update may omit `type`: it is immutable, so the handler takes it from the stored definition.
+const updateSerializedFieldSchema = z
+  .looseObject({ type: fieldTypeSchema.optional(), ...serializedFieldBaseShape })
+  .refine(...rejectSensitive);
 
 // i18n-labels — `{ de: "...", en: "...", ... }`. Mindestens ein Eintrag.
 const labelSchema = z.record(z.string().min(2).max(8), z.string().min(1));
@@ -83,12 +91,14 @@ export const defineFieldPayloadSchema = z.object({
 });
 export type DefineFieldPayload = z.infer<typeof defineFieldPayloadSchema>;
 
-// Payload für `update-tenant-field` — bewusst dieselbe Shape wie define
-// (Vollersatz-Semantik: der Edit-Screen schickt den kompletten neuen Stand;
-// entityName+fieldKey sind die Identität, type ist immutable und wird im
-// Handler gegen den Bestand geprüft).
-export const updateFieldPayloadSchema = defineFieldPayloadSchema;
-export type UpdateFieldPayload = DefineFieldPayload;
+// Payload for `update-tenant-field`: full replacement like define (the edit
+// screen sends the complete new state; entityName+fieldKey are the identity),
+// except that `serializedField.type` may be omitted. type is immutable; a
+// differing value is refused in the handler.
+export const updateFieldPayloadSchema = defineFieldPayloadSchema.extend({
+  serializedField: updateSerializedFieldSchema,
+});
+export type UpdateFieldPayload = z.infer<typeof updateFieldPayloadSchema>;
 
 // Payload für `delete-tenant-field` / `delete-system-field`.
 export const deleteFieldPayloadSchema = z.object({
