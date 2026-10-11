@@ -6,11 +6,22 @@
 // bin and the direct `bun run-*.ts` invocation can never drift apart.
 import { buildGuardKitInventory, cliFlagsError } from "./_lib/guard-kit";
 import { COMMENT_LANG_FLAGS, runCommentLangCli } from "./guard-comment-lang";
+import {
+  PUBLIC_EXPORTS_CHANGELOG_FLAGS,
+  runPublicExportsChangelogCli,
+} from "./guard-public-exports-changelog";
 import { GUARD_FLAGS, GUARDS, runGuardsCli } from "./run-guards";
 import { REPO_CHECK_FLAGS, REPO_CHECKS, runRepoChecksCli } from "./run-repo-checks";
 import { runUiGuardsCli, UI_GUARD_FLAGS, UI_GUARDS } from "./run-ui-guards";
 
-const SUBCOMMANDS = ["guards", "ui", "checks", "comment-lang", "list"] as const;
+const SUBCOMMANDS = [
+  "guards",
+  "ui",
+  "checks",
+  "comment-lang",
+  "public-exports-changelog",
+  "list",
+] as const;
 type Subcommand = (typeof SUBCOMMANDS)[number];
 
 const SUBCOMMAND_FLAGS: Record<Subcommand, readonly string[]> = {
@@ -18,6 +29,7 @@ const SUBCOMMAND_FLAGS: Record<Subcommand, readonly string[]> = {
   ui: UI_GUARD_FLAGS,
   checks: REPO_CHECK_FLAGS,
   "comment-lang": [...COMMENT_LANG_FLAGS, "--base=<ref>"],
+  "public-exports-changelog": PUBLIC_EXPORTS_CHANGELOG_FLAGS,
   list: [],
 };
 
@@ -26,7 +38,9 @@ function isSubcommand(value: string): value is Subcommand {
 }
 
 function printHelp(): void {
-  console.log("Usage: kumiko-guards [guards|ui|checks|comment-lang|list] [flags]");
+  console.log(
+    "Usage: kumiko-guards [guards|ui|checks|comment-lang|public-exports-changelog|list] [flags]",
+  );
   console.log();
   for (const sub of SUBCOMMANDS) {
     const flags = SUBCOMMAND_FLAGS[sub];
@@ -86,9 +100,14 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Not part of the no-subcommand run: it needs a baseline or a git base ref.
+  // Not part of the no-subcommand run: comment-lang needs a baseline or a git base ref,
+  // public-exports-changelog only applies to the kumiko-framework repo.
   if (subcommand === "comment-lang") {
     process.exit(runCommentLangCli(flags));
+  }
+
+  if (subcommand === "public-exports-changelog") {
+    process.exit(await runPublicExportsChangelogCli(flags));
   }
 
   let failed = 0;
