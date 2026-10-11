@@ -325,7 +325,6 @@ async function sweepDerivedSubjectData(
       if (ctx.registry.features.has("notes-history")) {
         await eraseNoteBodiesReachingSubject({
           db: crossTenantSubjectRunner,
-          registry: ctx.registry,
           subject,
           erasedBy: audit.erasedBy,
           requestId: audit.requestId,

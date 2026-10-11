@@ -283,18 +283,20 @@ describe("forget-subject reaches note bodies", () => {
     expect(await bodyOf(note)).toBe("written by the author");
   });
 
-  test("host entity retention anonymize keeps the body", async () => {
-    await seedContactRetentionOverride("anonymize");
-    const attached = await addNote(CONTACT_X, "kept under retention");
+  for (const strategy of ["anonymize", "blockDelete"] as const) {
+    test(`host entity retention ${strategy} still shreds the body`, async () => {
+      await seedContactRetentionOverride(strategy);
+      const attached = await addNote(CONTACT_X, "free-text PII under retention");
 
-    await stack.http.writeOk(
-      FORGET,
-      { subject: { kind: "user", userId: CONTACT_X }, reason: REASON },
-      dpo,
-    );
+      await stack.http.writeOk(
+        FORGET,
+        { subject: { kind: "user", userId: CONTACT_X }, reason: REASON },
+        dpo,
+      );
 
-    expect(await bodyOf(attached)).toBe("kept under retention");
-  });
+      expect(await bodyOf(attached)).toBe(PII_ERASED_SENTINEL);
+    });
+  }
 
   test("record subject: only notes on that entity type and id are erased", async () => {
     const onContact = await addNote(CONTACT_X, "note on the contact row");
