@@ -212,6 +212,34 @@ describe("__Host- session cookies (integration)", () => {
     });
   });
 
+  test("with cookieDomain a duplicated auth cookie expires the domain and the host-only variants", async () => {
+    await withStack(
+      {
+        ...BASE_AUTH_CONFIG,
+        secureCookies: true,
+        cookieDomain: "example.eu",
+        allowedOrigins: ["https://admin.example.eu"],
+      },
+      async (stack) => {
+        const cookies = getSetCookies(await login(stack));
+        const auth = cookies.get(AUTH_COOKIE_BASE)?.value;
+        const csrf = cookies.get(CSRF_COOKIE_BASE)?.value ?? "";
+        const res = await ping(stack, {
+          Cookie: `${AUTH_COOKIE_BASE}=${auth}; ${AUTH_COOKIE_BASE}=${auth}; ${CSRF_COOKIE_BASE}=${csrf}`,
+          [CSRF_HEADER_NAME]: csrf,
+          Origin: "https://admin.example.eu",
+        });
+        expect(res.status).toBe(401);
+        const expiries = res.headers.getSetCookie();
+        for (const name of [AUTH_COOKIE_BASE, CSRF_COOKIE_BASE]) {
+          const variants = expiries.filter((h) => isExpiry(h, name));
+          expect(variants.some((h) => /Domain=example\.eu/i.test(h))).toBe(true);
+          expect(variants.some((h) => !/Domain=/i.test(h))).toBe(true);
+        }
+      },
+    );
+  });
+
   test("with anonymousAccess a duplicated auth cookie continues as anonymous and expires every variant", async () => {
     await withStack(
       { ...BASE_AUTH_CONFIG, secureCookies: true },
