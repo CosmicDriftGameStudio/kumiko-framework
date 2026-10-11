@@ -192,8 +192,26 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   }
 
   // A key that guarded nothing must not turn the caller's retry into a skipped duplicate.
-  async function releaseIdempotency(tenantId: TenantId, key: string): Promise<void> {
+  // Partial success keeps it: a retry would re-send to those who got it.
+  async function releaseIdempotencyIfNothingDelivered(
+    tenantId: TenantId,
+    key: string | undefined,
+    run: NotifyRun,
+  ): Promise<void> {
+    // skip: no key claimed, or a recipient already got the notification
+    if (!key || run.deliveries.some(isDeliveredOrQueued)) return;
     await idemRedis?.del(deliveryIdempotencyRedisKey(tenantId, key));
+  }
+
+  // Only a single-channel route lets the queued job free the key on terminal failure
+  // without risking a duplicate send on another channel.
+  function jobIdempotencyKeyFor(
+    idempotencyKey: string | undefined,
+    route: NotifyOptions["route"],
+  ): string | undefined {
+    if (!idempotencyKey || !route) return undefined;
+    const routedChannelCount = channels.filter((channel) => route[channel.name]).length;
+    return routedChannelCount === 1 ? idempotencyKey : undefined;
   }
 
   async function resolveUserIdsForTenant(tenantId: TenantId): Promise<readonly string[]> {
@@ -836,10 +854,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         deliveries: [],
         jobDispatcher: options.immediate ? undefined : (jobDispatcher ?? jobRunner),
         locale: options.locale,
-        jobIdempotencyKey:
-          idempotencyKey && route && channels.filter((channel) => route[channel.name]).length === 1
-            ? idempotencyKey
-            : undefined,
+        jobIdempotencyKey: jobIdempotencyKeyFor(idempotencyKey, route),
       };
 
       if (idempotencyKey) {
@@ -862,13 +877,17 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       try {
         await dispatchNotification(notificationType, options, tenantId, priority, run);
       } catch (err) {
-        if (idempotencyKey) await releaseIdempotency(tenantId, idempotencyKey);
+        // A failing release must not replace the dispatch error the caller retries on.
+        await releaseIdempotencyIfNothingDelivered(tenantId, idempotencyKey, run).catch(
+          (releaseErr: unknown) => {
+            logError.warn(`idempotency key release failed: ${redactedMessageOf(releaseErr)}`, {
+              notificationType,
+            });
+          },
+        );
         throw err;
       }
-      // Partial success across recipients keeps the key: a retry would re-send to those who got it.
-      if (idempotencyKey && !run.deliveries.some(isDeliveredOrQueued)) {
-        await releaseIdempotency(tenantId, idempotencyKey);
-      }
+      await releaseIdempotencyIfNothingDelivered(tenantId, idempotencyKey, run);
       return { deliveries: run.deliveries };
     },
   };

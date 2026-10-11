@@ -7,8 +7,10 @@ import {
   defineFeature,
   defineWriteHandler,
   type NotifyFn,
+  type NotifyJobDispatcher,
   type NotifyResult,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   createTestUser,
   setupTestStack,
@@ -19,6 +21,7 @@ import * as z from "zod";
 import { createConfigFeature } from "../../config/feature.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { DELIVERY_CHANNEL_EXTENSION, deliveryIdempotencyRedisKey } from "../constants.js";
+import { collectChannels, createDeliveryService } from "../delivery-service.js";
 import { createDeliveryFeature } from "../feature.js";
 import { deliveryAttemptsTable } from "../tables.js";
 import { createDeliveryTestContext } from "../testing.js";
@@ -97,6 +100,16 @@ async function buildStack(withJobs: boolean): Promise<TestStack> {
   return stack;
 }
 
+const throwingErrorLogger: Logger = {
+  info: () => {},
+  warn: () => {},
+  debug: () => {},
+  error: () => {
+    throw new Error("log sink down");
+  },
+  child: () => throwingErrorLogger,
+};
+
 let keyCounter = 0;
 function freshKey(): string {
   return `idem-release-${Date.now()}-${keyCounter++}`;
@@ -167,6 +180,36 @@ describe("inline path (no job runner)", () => {
     const result = await ping(stack, key, ["idem-inline-ok", "idem-inline-flaky"]);
 
     expect(result.deliveries.map((d) => d.status).sort()).toEqual(["failed", "sent"]);
+    expect(await keyExists(stack, key)).toBe(true);
+  });
+
+  test("notify() throwing after a delivered channel keeps the key", async () => {
+    const key = freshKey();
+    // The failed hand-off is caught and logged; a logger that throws there is the
+    // remaining way out of dispatch once a channel already delivered.
+    const service = createDeliveryService({
+      db: stack.db,
+      registry: stack.registry,
+      channels: collectChannels(stack.registry),
+      idempotencyRedis: stack.redis.redis,
+      log: throwingErrorLogger,
+    });
+    const brokenQueue: NotifyJobDispatcher = {
+      dispatch: async () => {
+        throw new Error("queue down");
+      },
+    };
+
+    const notifying = service.notify(
+      "app:notify:idem-release",
+      { route: { "idem-inline-ok": "addr", "idem-queued": "addr" }, idempotencyKey: key },
+      admin,
+      admin.tenantId,
+      brokenQueue,
+    );
+
+    await expect(notifying).rejects.toThrow("log sink down");
+    expect(sentTo).toEqual(["addr"]);
     expect(await keyExists(stack, key)).toBe(true);
   });
 });

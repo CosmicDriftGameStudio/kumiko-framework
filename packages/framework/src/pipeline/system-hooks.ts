@@ -75,6 +75,13 @@ export type SearchOperation =
       readonly entityId: EntityId;
     };
 
+// An executor update with includeDeleted leaves the row deleted; indexing it would make it findable again.
+function isUpdateOfSoftDeletedRow(event: StoredEvent, verb: string | undefined): boolean {
+  return (
+    verb === "updated" && reconstructStateForSearch(event.payload, "updated")["isDeleted"] === true
+  );
+}
+
 // Resolves what one event implies for the search index, without touching
 // the adapter — same decision tree the old per-event handler ran inline.
 async function resolveSearchOperation(
@@ -86,9 +93,9 @@ async function resolveSearchOperation(
   const verb = event.type.split(".").pop();
   const tenantId = event.tenantId;
 
-  // skip: delete/forgotten remove the index entry — reconstruct only
-  // makes sense for created/updated/restored (field data in payload).
-  if (verb === "deleted" || verb === "forgotten") {
+  // skip: delete/forgotten (and an update on a still soft-deleted row) remove the
+  // index entry — reconstruct only makes sense for live created/updated/restored.
+  if (verb === "deleted" || verb === "forgotten" || isUpdateOfSoftDeletedRow(event, verb)) {
     return { kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId };
   }
 
