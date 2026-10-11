@@ -29,15 +29,11 @@ import type {
   WriteEvent,
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  releaseExpiredCapReservations,
-  reserveCalendarCap,
-  reserveRollingCap,
-} from "./cap-reservation.js";
+import { reserveEnforcedCalendarCap } from "./calendar-cap-usage-reservation.js";
+import { releaseExpiredCapReservations, reserveRollingCap } from "./cap-reservation.js";
 import {
   assertBelowHardCap,
   type CapToleranceProfileName,
-  enforceCapAndMaybeNotify,
   enforceRollingCapAndMaybeNotify,
   type SoftHitNotifier,
 } from "./enforce-cap.js";
@@ -93,25 +89,7 @@ export function withCapEnforcement(
       handler.reserveBeforeTransaction,
       async (event, ctx) => {
         const cap = await capResolver(event, ctx);
-
-        await releaseExpiredCapReservations(ctx, cap.capName);
-        await enforceCapAndMaybeNotify(ctx, {
-          capName: cap.capName,
-          periodStartIso: cap.periodStartIso,
-          limit: cap.limit,
-          profile: cap.profile,
-          notify: cap.notify,
-          markSoftWarnedOutsideTransaction: true,
-          ...(cap.amount !== undefined && { amount: cap.amount }),
-        });
-
-        const amount = cap.amount ?? 1;
-        return reserveCalendarCap(ctx, {
-          capName: cap.capName,
-          amount,
-          periodStartIso: cap.periodStartIso,
-          guardCurrentValue: (currentValue) => assertBelowHardCap(currentValue + amount - 1, cap),
-        });
+        return reserveEnforcedCalendarCap(ctx, { ...cap, amount: cap.amount ?? 1 });
       },
     ),
   };

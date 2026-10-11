@@ -1,7 +1,12 @@
-import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
 import { KumikoError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { markCapSoftWarned, readRollingCapUsage } from "./book-cap-usage.js";
+import {
+  type CapCounterContext,
+  markCapSoftWarned,
+  readRollingCapUsage,
+  resolveCapCounterScope,
+} from "./book-cap-usage.js";
 import { capCounterEntity } from "./entity.js";
 
 const { table } = createEntityExecutor("cap-counter", capCounterEntity);
@@ -95,7 +100,7 @@ export function assertBelowHardCap(
  * level (e.g. uniqueness-index on apps.tenantId+slot-number).
  */
 export async function enforceCap(
-  ctx: HandlerContext,
+  ctx: CapCounterContext,
   options: {
     readonly capName: string;
     readonly periodStartIso: string;
@@ -106,9 +111,7 @@ export async function enforceCap(
     readonly amount?: number;
   },
 ): Promise<EnforceCapResult> {
-  if (!ctx.db) {
-    throw new Error("cap-counter.enforceCap: ctx.db missing — run inside a handler context");
-  }
+  const { user, readDb } = resolveCapCounterScope(ctx, false);
 
   const amount = options.amount ?? 1;
   if (!Number.isInteger(amount) || amount < 1) {
@@ -120,9 +123,9 @@ export async function enforceCap(
   const tolerance = CAP_TOLERANCES[options.profile];
   const softThreshold = options.limit * tolerance.soft;
 
-  const rows = await ctx.db.selectMany(
+  const rows = await readDb.selectMany(
     table,
-    { capName: options.capName, periodStart: options.periodStartIso },
+    { tenantId: user.tenantId, capName: options.capName, periodStart: options.periodStartIso },
     { limit: 1 },
   );
 
@@ -170,7 +173,7 @@ export async function enforceCap(
  * vorgezogen.
  */
 export async function enforceRollingCap(
-  ctx: HandlerContext,
+  ctx: CapCounterContext,
   options: {
     readonly capName: string;
     readonly windowDays: number;
@@ -178,20 +181,13 @@ export async function enforceRollingCap(
     readonly profile: CapToleranceProfileName;
   },
 ): Promise<EnforceCapResult> {
-  if (!ctx.db) {
-    throw new Error("cap-counter.enforceRollingCap: ctx.db missing — run inside a handler context");
-  }
-  if (!ctx.user?.tenantId) {
-    throw new Error(
-      "cap-counter.enforceRollingCap: ctx.user.tenantId missing — required to compute aggregate-id",
-    );
-  }
+  const { user, readDb } = resolveCapCounterScope(ctx, false);
 
   const tolerance = CAP_TOLERANCES[options.profile];
   const softThreshold = options.limit * tolerance.soft;
   const hardThreshold = options.limit * tolerance.hard;
 
-  const value = await readRollingCapUsage(ctx.db, ctx.user.tenantId, {
+  const value = await readRollingCapUsage(readDb, user.tenantId, {
     capName: options.capName,
     windowDays: options.windowDays,
   });
@@ -295,7 +291,7 @@ export type SoftHitNotifier = (info: {
  * Email-Notification).
  */
 export async function enforceCapAndMaybeNotify(
-  ctx: HandlerContext,
+  ctx: CapCounterContext,
   options: {
     readonly capName: string;
     readonly periodStartIso: string;
@@ -315,16 +311,11 @@ export async function enforceCapAndMaybeNotify(
   });
 
   if (result.state === "soft-hit" && result.crossed) {
-    if (!ctx.user?.tenantId) {
-      throw new Error(
-        "cap-counter.enforceCapAndMaybeNotify: ctx.user.tenantId missing — required for notification",
-      );
-    }
     await options.notify({
       capName: options.capName,
       value: result.value,
       limit: options.limit,
-      tenantId: ctx.user.tenantId,
+      tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
     });
     // Flip the soft-warned flag so the same period doesn't re-notify.
     const marked = await markCapSoftWarned(ctx, {
@@ -349,7 +340,7 @@ export async function enforceCapAndMaybeNotify(
  * Tag/Stunde auf (Hourly-Cron statt pro Request).
  */
 export async function enforceRollingCapAndMaybeNotify(
-  ctx: HandlerContext,
+  ctx: CapCounterContext,
   options: {
     readonly capName: string;
     readonly windowDays: number;
@@ -366,16 +357,11 @@ export async function enforceRollingCapAndMaybeNotify(
   });
 
   if (result.state === "soft-hit") {
-    if (!ctx.user?.tenantId) {
-      throw new Error(
-        "cap-counter.enforceRollingCapAndMaybeNotify: ctx.user.tenantId missing — required for notification",
-      );
-    }
     await options.notify({
       capName: options.capName,
       value: result.value,
       limit: options.limit,
-      tenantId: ctx.user.tenantId,
+      tenantId: resolveCapCounterScope(ctx, false).user.tenantId,
     });
   }
 
