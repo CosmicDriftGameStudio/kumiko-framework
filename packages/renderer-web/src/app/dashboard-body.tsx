@@ -64,7 +64,7 @@ import type {
   DashboardValueFormat,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Translate } from "@cosmicdrift/kumiko-headless";
+import { currencyDecimals, type Translate } from "@cosmicdrift/kumiko-headless";
 import {
   type DashboardBodyProps,
   dispatcherErrorText,
@@ -91,8 +91,10 @@ import {
   useMemo,
   useState,
 } from "react";
+import { cn } from "../lib/cn.js";
 import { EmbeddedFormProvider } from "../primitives/index.js";
 import { PageSection } from "../primitives/layout.js";
+import { resolveSafeLocale } from "../primitives/locale-number.js";
 import { formatMoney } from "../primitives/money-input.js";
 import { Skeleton } from "../ui/skeleton.js";
 import {
@@ -125,6 +127,7 @@ const STAT_TONES: ReadonlySet<string> = new Set(["default", "positive", "warn", 
 const SKELETON_SEGMENT_WIDTHS = ["100%", "72%", "48%"] as const;
 const WIDE_PANEL = "sm:col-span-2 lg:col-span-4";
 const HALF_PANEL = "sm:col-span-2 lg:col-span-2";
+const CURRENCY_CODE_PATTERN = /^[A-Za-z]{3}$/;
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 const SKELETON_BAR_HEIGHTS = ["40%", "65%", "50%", "85%", "60%", "75%", "45%", "70%"];
@@ -158,6 +161,10 @@ type DashboardFormats = {
   readonly formatPanelValue: (
     valueFormat: DashboardValueFormat | undefined,
   ) => (value: number) => string;
+  /** Compact variant of `formatPanelValue` for chart axes ("1,5 Mio. €"). */
+  readonly formatPanelAxisValue: (
+    valueFormat: DashboardValueFormat | undefined,
+  ) => (value: number) => string;
 };
 
 function useDashboardFormats(): DashboardFormats {
@@ -165,6 +172,10 @@ function useDashboardFormats(): DashboardFormats {
   const locale = resolver.locale();
   const timeZone = resolver.timeZone();
   const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+  const compactNumber = new Intl.NumberFormat(locale, {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  });
   const percent = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 });
   const day = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", timeZone });
   const month = new Intl.DateTimeFormat(locale, { month: "2-digit", year: "numeric", timeZone });
@@ -184,6 +195,19 @@ function useDashboardFormats(): DashboardFormats {
       valueFormat === undefined
         ? (value) => number.format(value)
         : (value) => formatMinor(value, valueFormat.currency, valueFormat.fractionDigits),
+    formatPanelAxisValue: (valueFormat) => {
+      if (valueFormat === undefined || !CURRENCY_CODE_PATTERN.test(valueFormat.currency)) {
+        return (value) => compactNumber.format(value);
+      }
+      const compactMoney = new Intl.NumberFormat(resolveSafeLocale(locale), {
+        notation: "compact",
+        maximumFractionDigits: 1,
+        style: "currency",
+        currency: valueFormat.currency,
+      });
+      const decimals = currencyDecimals(valueFormat.currency);
+      return (value) => compactMoney.format(value / 10 ** decimals);
+    },
     formatNumber: (value) => number.format(value),
     formatPercent: (fraction) => percent.format(fraction),
     formatDay: (atMs) => day.format(atMs),
@@ -289,12 +313,12 @@ function PanelShell({
       data-testid={testId}
       className="flex h-full flex-col rounded-lg border border-border bg-card text-card-foreground"
     >
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border-row px-4">
-        <h2 className="truncate text-sm font-semibold">{title}</h2>
-        {subtitle !== undefined && (
-          <span className="truncate text-xs text-muted-foreground">{subtitle}</span>
-        )}
-        {action !== undefined && <div className="ml-auto shrink-0">{action}</div>}
+      <header className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border-row px-4 py-2">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h2 className="text-sm font-semibold break-words">{title}</h2>
+          {subtitle !== undefined && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+        </div>
+        {action !== undefined && <div className="shrink-0">{action}</div>}
       </header>
       <div className="grow p-4">{children}</div>
     </section>
@@ -560,11 +584,6 @@ function readDelta(
   return { value: String(value), direction, ...(tone !== undefined && { tone }) };
 }
 
-function labeledGroupColumns(valueCount: number): string {
-  if (valueCount <= 1) return "";
-  return valueCount === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3";
-}
-
 function StatGroupPanelBody({
   panel,
   label,
@@ -605,7 +624,7 @@ function StatGroupPanelBody({
       {...(panel.subtitle !== undefined && { subtitle: translate(panel.subtitle) })}
       testId={testId}
     >
-      <section className={`grid grid-cols-1 gap-3 ${labeledGroupColumns(panel.stats.length)}`}>
+      <section className="grid grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))] gap-3">
         {panel.stats.map((stat) => (
           <StatPanelBody
             key={stat.id}
@@ -849,6 +868,8 @@ function ChartPanelBody({
               todayLabel={todayLabel}
               formatBucketLabel={formatDateByFormat}
               formatValue={formatValue}
+              formatAxisValue={formats.formatPanelAxisValue(panel.valueFormat)}
+              markerLabels={panel.markerLabels === true}
               formatMarkerTime={formatDateByFormat}
               {...(panel.dateFormat !== undefined && { dateFormat: panel.dateFormat })}
               {...(panel.markerLegend !== undefined && { markerLegend: panel.markerLegend })}
@@ -1317,7 +1338,7 @@ function GatedGridCell({
     const verdict = evalVisibleWhen(visibleWhen, visibility);
     if (verdict === "error" && visibility?.error) {
       return (
-        <div className={className} data-testid={`dashboard-panel-${panel.id}`}>
+        <div className={cn("min-w-0", className)} data-testid={`dashboard-panel-${panel.id}`}>
           <PanelError
             label={label}
             error={visibility.error}
@@ -1329,7 +1350,7 @@ function GatedGridCell({
     // Loading renders nothing too: a skeleton that then vanishes flickers.
     if (verdict !== "visible") return null;
   }
-  return <div className={className}>{children}</div>;
+  return <div className={cn("min-w-0", className)}>{children}</div>;
 }
 
 function ScreenPanelTile({
@@ -1353,7 +1374,7 @@ function ScreenPanelTile({
     // account-security page that would hide every MFA enable/disable path.
     if (verdict === "error" && visibility?.error) {
       return (
-        <div className={WIDE_PANEL} data-testid={`dashboard-panel-${panel.id}`}>
+        <div className={cn("min-w-0", WIDE_PANEL)} data-testid={`dashboard-panel-${panel.id}`}>
           <PanelError
             label={panel.label !== undefined ? translate(panel.label) : panel.id}
             error={visibility.error}
@@ -1374,7 +1395,7 @@ function ScreenPanelTile({
       screenBody
     );
   return (
-    <div className={WIDE_PANEL} data-testid={`dashboard-panel-${panel.id}`}>
+    <div className={cn("min-w-0", WIDE_PANEL)} data-testid={`dashboard-panel-${panel.id}`}>
       {panel.label !== undefined && panel.chromeless !== true ? (
         <SectionCard title={translate(panel.label)}>{embedded}</SectionCard>
       ) : (
@@ -1449,7 +1470,7 @@ export function WebDashboardBody({
       <PageSection className="flex flex-col gap-4" testId={`dashboard-${screen.id}`}>
         {badgeInHeader && <PageHeader status={scopeBadge} />}
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             {!badgeInHeader && scopeBadge}
             {picker}
           </div>
@@ -1476,7 +1497,7 @@ export function WebDashboardBody({
           </Banner>
         )}
         <VisibilityQueryScopes gates={visibilityGates}>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {screen.panels.map((panel) => {
               if (panel.kind === "screen") {
                 return (

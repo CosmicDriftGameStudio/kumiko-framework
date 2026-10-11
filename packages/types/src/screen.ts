@@ -1053,6 +1053,8 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     /** Only for chart "stacked-area": "legend" drops the numbered marker list; pins become
      *  plain dots with a tooltip and the legend lists marker kinds (see `markerKinds[].label`). Default "list". */
     readonly markerLegend?: "list" | "legend";
+    /** Only for chart "stacked-area": true writes each marker label vertically next to its guide line on wide panels; narrow panels keep the pins. Default false. */
+    readonly markerLabels?: boolean;
   };
 
 // Kurzliste im Dashboard — Query-Contract wie projectionList

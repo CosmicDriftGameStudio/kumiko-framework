@@ -3035,7 +3035,7 @@ function validateDashboardChartDisplay(
     "from-today",
   ]);
   validateStackedAreaEnumProp(where, "markerLegend", panel.markerLegend, ["list", "legend"]);
-  const nonBooleanProp = (["brush", "legendTotals"] as const).find(
+  const nonBooleanProp = (["brush", "legendTotals", "markerLabels"] as const).find(
     (prop) => panel[prop] !== undefined && typeof panel[prop] !== "boolean",
   );
   if (nonBooleanProp !== undefined) {
@@ -3077,6 +3077,7 @@ function validateStackedAreaOnlyProps(where: string, panel: DashboardChartPanel)
       "dateFormat",
       "initialWindow",
       "markerLegend",
+      "markerLabels",
     ] as const
   ).filter((prop) => panel[prop] !== undefined);
   if (stackedAreaOnly.length > 0) {

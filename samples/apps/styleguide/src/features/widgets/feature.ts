@@ -153,6 +153,7 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
         legendTotals: false,
         initialWindow: "from-today",
         markerLegend: "legend",
+        markerLabels: true,
         markerKinds: {
           extra: { tone: "active", label: "widgets:dashboard:kind-extra" },
           payoff: { tone: "positive", label: "widgets:dashboard:kind-payoff" },
