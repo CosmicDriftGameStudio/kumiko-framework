@@ -1,5 +1,5 @@
 import { buildEntityTable } from "../db/table-builder.js";
-import { fileRefEntity } from "./file-ref-entity.js";
+import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.js";
 
 // `file_refs` ist die read-table des `fileRef`-Entity. Aus der Entity-
 // Definition gebaut (kein hand-gepflegtes pgTable mehr), damit die implizite
@@ -10,4 +10,4 @@ import { fileRefEntity } from "./file-ref-entity.js";
 // jeder Upload appended `fileRef.created`, jeder Delete `fileRef.deleted`
 // (Standard-Entity-Auto-Verben). UUIDs schließen die Enumeration-Attacke
 // auf /files/:id.
-export const fileRefsTable = buildEntityTable("fileRef", fileRefEntity);
+export const fileRefsTable = buildEntityTable(FILE_REF_ENTITY_NAME, fileRefEntity);

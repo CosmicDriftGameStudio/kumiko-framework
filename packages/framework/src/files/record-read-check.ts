@@ -1,3 +1,4 @@
+import { toKebab } from "../engine/qualified-name.js";
 import type { Registry, SessionUser } from "../engine/types/index.js";
 import { isKumikoError } from "../errors/index.js";
 import { createFallbackLogger } from "../logging/index.js";
@@ -10,16 +11,21 @@ export type RecordReadCheck = (args: {
 
 type QueryAsUser = (type: string, payload: unknown, user: SessionUser) => Promise<unknown>;
 
-const DETAIL_VERB_SUFFIX = ":detail";
-
 const log = createFallbackLogger("files");
+
+// Only the "<entity>:detail" handler counts: other "<entity>:...:detail"
+// queries map to the same entity but may return a different shape or scope.
+// Entity names are globally unique and only the owning feature maps handlers
+// to its entity, so at most one QN matches per entity.
+function isEntityDetailQuery(qn: string, entityName: string): boolean {
+  return qn.endsWith(`:query:${toKebab(entityName)}:detail`);
+}
 
 function buildDetailQueryIndex(registry: Registry): ReadonlyMap<string, string> {
   const detailQueryByEntity = new Map<string, string>();
   for (const qn of registry.getAllQueryHandlers().keys()) {
-    if (!qn.endsWith(DETAIL_VERB_SUFFIX)) continue;
     const entityName = registry.getHandlerEntity(qn);
-    if (entityName !== undefined && !detailQueryByEntity.has(entityName)) {
+    if (entityName !== undefined && isEntityDetailQuery(qn, entityName)) {
       detailQueryByEntity.set(entityName, qn);
     }
   }

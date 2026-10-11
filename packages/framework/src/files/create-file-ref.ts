@@ -8,7 +8,7 @@ import {
 } from "../engine/types/index.js";
 import type { WriteFailure } from "../errors/index.js";
 import { generateId } from "../utils/index.js";
-import { fileRefEntity } from "./file-ref-entity.js";
+import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.js";
 import { fileRefsTable } from "./file-ref-table.js";
 import { resolveContentType } from "./resolve-content-type.js";
 import {
@@ -27,7 +27,9 @@ export const DEFAULT_MAX_UPLOAD_SIZE = "10mb";
 let fileRefExecutor: ReturnType<typeof buildFileRefExecutor> | undefined;
 
 function buildFileRefExecutor() {
-  return createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName: "fileRef" });
+  return createEventStoreExecutor(fileRefsTable, fileRefEntity, {
+    entityName: FILE_REF_ENTITY_NAME,
+  });
 }
 
 export function getFileRefExecutor(): ReturnType<typeof buildFileRefExecutor> {

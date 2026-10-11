@@ -10,6 +10,7 @@ import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEntity,
   createImageField,
+  createImagesField,
   createTextField,
   defineEntityCreateHandler,
   defineEntityDetailHandler,
@@ -65,6 +66,7 @@ const gadgetEntity = createEntity({
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
     photo: createImageField({ variants: { card: CARD_VARIANT } }),
+    gallery: createImagesField({ maxCount: 4 }),
   },
 });
 
@@ -86,17 +88,17 @@ const stubRenderer: DerivativeRendererPlugin = {
 
 const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
   r.requires("file-derivatives");
-  r.entity("gadget", gadgetEntity);
+  r.entity("fieldGadget", gadgetEntity);
   r.writeHandler(
-    defineEntityCreateHandler("gadget", gadgetEntity, { access: { roles: ["Admin"] } }),
+    defineEntityCreateHandler("fieldGadget", gadgetEntity, { access: { roles: ["Admin"] } }),
   );
   r.queryHandler(
-    defineEntityDetailHandler("gadget", gadgetEntity, {
+    defineEntityDetailHandler("fieldGadget", gadgetEntity, {
       access: { roles: ["Admin", "Technician"] },
     }),
   );
   r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", stubRenderer);
-  r.useExtension(EXT_DERIVATIVE_OVERLAY_RESOLVER, "gadget", {
+  r.useExtension(EXT_DERIVATIVE_OVERLAY_RESOLVER, "fieldGadget", {
     resolve: async (args: ResolverArgs) => {
       resolverCalls.push(args);
       return `https://example.com/gadget/${args.entityId}`;
@@ -130,11 +132,19 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
 const editScreen: EntityEditScreenDefinition = {
   id: "form-upload-gadget:screen:gadget-edit",
   type: "entityEdit",
-  entity: "gadget",
-  layout: { sections: [{ fields: ["title", "photo"] }] },
+  entity: "fieldGadget",
+  layout: { sections: [{ fields: ["title", "photo", "gallery"] }] },
 };
 
 function photoHints(mode: "create" | "update", entityId?: string): EditFieldViewModel {
+  return fieldHints("photo", mode, entityId);
+}
+
+function fieldHints(
+  fieldName: "photo" | "gallery",
+  mode: "create" | "update",
+  entityId?: string,
+): EditFieldViewModel {
   const viewModel: EditViewModel = computeEditViewModel({
     screen: editScreen,
     entity: gadgetEntity,
@@ -146,9 +156,9 @@ function photoHints(mode: "create" | "update", entityId?: string): EditFieldView
   });
   const section = viewModel.sections[0];
   if (section?.kind !== "fields") throw new Error("expected a fields section");
-  const photo = section.fields.find((f) => f.field === "photo");
-  if (photo === undefined) throw new Error("photo field missing from the view model");
-  return photo;
+  const field = section.fields.find((f) => f.field === fieldName);
+  if (field === undefined) throw new Error(`${fieldName} field missing from the view model`);
+  return field;
 }
 
 let stack: TestStack;
@@ -203,13 +213,22 @@ async function bearer(sessionUser: SessionUser): Promise<string> {
   return `Bearer ${await stack.jwt.sign(sessionUser)}`;
 }
 
-async function createGadget(photo?: string): Promise<string> {
+async function createGadget(
+  files: { readonly photo?: string; readonly gallery?: readonly string[] } = {},
+): Promise<string> {
   const created = await stack.http.writeOk<{ id: string }>(
-    "form-upload-gadget:write:gadget:create",
-    { title: "Gadget", ...(photo !== undefined && { photo }) },
+    "form-upload-gadget:write:field-gadget:create",
+    { title: "Gadget", ...files },
     user,
   );
   return created.id;
+}
+
+async function readFileAs(fileRefId: string, reader: SessionUser): Promise<number> {
+  const res = await stack.app.request(`/api/files/${fileRefId}`, {
+    headers: { Authorization: await bearer(reader) },
+  });
+  return res.status;
 }
 
 async function renderCard(
@@ -253,7 +272,7 @@ describe("form uploads attached to their record, then a qr-overlay variant", () 
     expect(hints.entityId).toBeUndefined();
     const fileRefId = await uploadLikeTheForm(hints);
 
-    const gadgetId = await createGadget(fileRefId);
+    const gadgetId = await createGadget({ photo: fileRefId });
     const result = await renderCard(fileRefId);
 
     expect(result).toEqual({ rendered: true, failedWithInternalError: false });
@@ -263,7 +282,7 @@ describe("form uploads attached to their record, then a qr-overlay variant", () 
   test("a create naming another user's pending upload leaves that upload unbound", async () => {
     const foreignFileRefId = await uploadLikeTheForm(photoHints("create"), otherAdmin);
 
-    await createGadget(foreignFileRefId);
+    await createGadget({ photo: foreignFileRefId });
     const result = await renderCard(foreignFileRefId);
 
     expect(result).toEqual({ rendered: false, failedWithInternalError: true });
@@ -272,6 +291,20 @@ describe("form uploads attached to their record, then a qr-overlay variant", () 
 });
 
 describe("read access to files attached to a record", () => {
+  test("every pending upload of a plural images field is bound by the create", async () => {
+    const galleryHints = fieldHints("gallery", "create");
+    const first = await uploadLikeTheForm(galleryHints);
+    const second = await uploadLikeTheForm(galleryHints);
+    expect(await readFileAs(first, guest)).toBe(200);
+
+    await createGadget({ gallery: [first, second] });
+
+    for (const fileRefId of [first, second]) {
+      expect(await readFileAs(fileRefId, technician)).toBe(200);
+      expect(await readFileAs(fileRefId, guest)).toBe(404);
+    }
+  });
+
   test("whoever may read the record reads its files; others and deletes stay denied", async () => {
     const gadgetId = await createGadget();
     const fileRefId = await uploadLikeTheForm(photoHints("update", gadgetId));

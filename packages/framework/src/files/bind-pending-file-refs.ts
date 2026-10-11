@@ -8,6 +8,7 @@ import {
 } from "../engine/types/index.js";
 import { reraiseAsKumikoError } from "../errors/index.js";
 import { getFileRefExecutor } from "./create-file-ref.js";
+import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
 
 function fileRefIdsOf(value: unknown): readonly string[] {
   if (typeof value === "string") return isUuid(value) ? [value] : [];
@@ -48,11 +49,16 @@ export async function bindPendingFileRefs(args: {
   const entity = registry.getEntity(entityName);
   // skip: saves of unregistered aggregates (custom executors) declare no file fields
   if (entity === undefined) return;
+  // skip: without the files feature the file_refs table is not part of the schema
+  if (registry.getEntity(FILE_REF_ENTITY_NAME) === undefined) return;
 
   const executor = getFileRefExecutor();
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
     if (!isFileField(fieldDef)) continue;
-    for (const fileRefId of fileRefIdsOf(result.data[fieldName])) {
+    // files/images fields have no projection column, so their ids are only in
+    // the create's input (changes), not in the returned row (data).
+    const namedIds = result.data[fieldName] ?? result.changes[fieldName];
+    for (const fileRefId of fileRefIdsOf(namedIds)) {
       const row = await executor.detail({ id: fileRefId }, user, db);
       if (row === null || !isPendingUploadFor(row, entityName, fieldName, user)) continue;
       const version = typeof row["version"] === "number" ? row["version"] : undefined;
