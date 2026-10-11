@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.357.0",
+    "type": "fix",
+    "title": "composeFeatures no longer warns about auth-self-registration listed in APP_FEATURES"
+  },
+  {
     "version": "0.356.0",
     "type": "improvement",
     "title": "composeFeatures mounts files-tenant-data when files and tenant-lifecycle are present"

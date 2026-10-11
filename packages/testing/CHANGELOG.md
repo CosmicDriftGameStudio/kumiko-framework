@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.357.0
+
+### Minor Changes
+
+- 71b4f59: defineAppE2eConfig accepts permissions, launchOptions, a custom server command and Bun preloads
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: defineAppE2eConfig accepts permissions, launchOptions, a custom server command and Bun preloads
+  detail: |
+    Apps that need browser permissions (camera, microphone), Chromium launch flags such as fake media devices, or a preloaded module for the e2e server no longer have to hand-roll their Playwright config. permissions and launchOptions land in the shared use block. preload (one path or a list) is prefixed to serverEntry as bun run --preload flags; serverCommand replaces the whole server start command and cannot be combined with serverEntry or preload.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [03b6438]
+- Updated dependencies [774c60c]
+- Updated dependencies [1ed997b]
+- Updated dependencies [06e8ad8]
+- Updated dependencies [d7872bd]
+- Updated dependencies [eb71a72]
+- Updated dependencies [91501d3]
+  - @cosmicdrift/kumiko-bundled-features@0.357.0
+  - @cosmicdrift/kumiko-framework@0.357.0
+  - @cosmicdrift/kumiko-dev-server@0.357.0
+
 ## 0.356.0
 
 ### Patch Changes

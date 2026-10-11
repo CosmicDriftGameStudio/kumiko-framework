@@ -1,5 +1,67 @@
 # @cosmicdrift/kumiko-types
 
+## 0.357.0
+
+### Minor Changes
+
+- 774c60c: Executor update accepts includeDeleted for soft-deleted rows
+
+  `executor.update(payload, user, db, { includeDeleted: true })` loads the row without the soft-delete filter (the tenant filter stays), so server code can move a trashed row together with its parent (for example a team change) and a later restore lands consistently. The row stays deleted. The default is unchanged (NotFound) and the generic HTTP update handler never sets the option. The projection apply was already unfiltered by `isDeleted`, so live and rebuild agree. The search consumer treats an update on a soft-deleted row as a removal, so the moved row does not reappear in search.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Executor update accepts includeDeleted for soft-deleted rows
+  -->
+
+- d7872bd: Multi-select options can be hidden per caller, and the member roles form only offers assignable roles
+
+  `MultiSelectFieldDef.optionsAvailabilityQuery` names a query that returns `{ rows: { value, disabled?, hint? }[] }`, called with an empty payload. The renderer hides every option whose row has `disabled: true`, in the combobox and in the `display: "checkboxes"` grid, unless the value is currently selected. `hint` is ignored because the combobox cannot show a per-option hint. Static `options` stay authoritative, and until the result arrives or when the query fails all options are shown, so the write path still has to enforce the rule. Boot fails when the query is empty or not a registered query handler, on entity fields and on form screen fields.
+
+  The tenant feature registers `tenant:query:member-role-availability` and wires it to the `roles` field of `memberRolesEditScreen`. An Admin no longer sees TenantAdmin or an app role declared with `assignableFrom: "TenantAdmin"`; a TenantAdmin sees every role. The rank rule is the one `updateMemberRoles` already enforces, so the server behaviour is unchanged.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: MultiSelectFieldDef.optionsAvailabilityQuery hides static multiSelect options per caller
+  detail: The query returns { rows: { value, disabled?, hint? }[] }; disabled options are hidden unless currently selected.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validation covers multiSelect optionsAvailabilityQuery on entity and screen fields
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: Edit view-model carries selectOptionsAvailabilityQuery for multiSelect fields
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: MultiSelect inputs load optionsAvailabilityQuery and hide unavailable options
+  -->
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: The member roles form only offers roles the signed-in admin may assign
+  detail: New query tenant:query:member-role-availability; TenantAdmin still sees every role.
+  -->
+
+### Patch Changes
+
+- 91501d3: secretMint `reveal.acknowledge` (i18n key) renders a checkbox on the reveal card that must be ticked before the confirm step or the acknowledge button can be used; the tick never reaches the payload. Text fields accept an `autoComplete` token that reaches the input. The MFA enable screen uses both: a "saved my recovery codes" gate and `one-time-code` on the code field
+
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: improvement
+  title: MFA enable asks to confirm saved recovery codes, code field autocompletes one-time codes
+  -->
+
 ## 0.356.0
 
 ### Minor Changes
