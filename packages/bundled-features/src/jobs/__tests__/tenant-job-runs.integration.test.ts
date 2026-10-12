@@ -288,18 +288,21 @@ describe("jobs:query:tenant-runs (fw#3616)", () => {
     expect(first?.finishedAt).not.toBeNull();
 
     await generate(userA, "c1", "succeed");
+    // The outcome write and the prune of older finished rows are two
+    // statements; the query already dedupes finished rows per subject, so the
+    // stored row count is only settled once the prune has run as well.
     await waitFor(async () => {
       const rows = await ofCampaign(userA, "c1");
       expect(rows).toHaveLength(1);
       expect(rows[0]?.status).toBe("completed");
       expect(rows[0]?.finishedAt).not.toBe(first?.finishedAt);
+      expect(
+        await selectMany(db, tenantJobRunsTable, {
+          tenantId: tenantA,
+          subject: serializeJobSubject({ campaignId: "c1" }),
+        }),
+      ).toHaveLength(1);
     });
-    expect(
-      await selectMany(db, tenantJobRunsTable, {
-        tenantId: tenantA,
-        subject: serializeJobSubject({ campaignId: "c1" }),
-      }),
-    ).toHaveLength(1);
   });
 
   test("a running job reads as running, with its start time", async () => {
