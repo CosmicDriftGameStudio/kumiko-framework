@@ -499,3 +499,38 @@ describe("tenant run state housekeeping", () => {
     expect(await statusOf("ret-running-old")).toBe("running");
   });
 });
+
+describe("tenant run outcome under concurrency", () => {
+  test("two runs of one subject finishing at the same time leave one finished row", async () => {
+    const logger = createJobRunLogger({
+      db,
+      registry: createRegistry([appFeature, createJobsFeature()]),
+    });
+    const jobName = "app:job:generate-texts";
+    const subjects = Array.from({ length: 8 }, (_, i) =>
+      serializeJobSubject({ campaignId: `race-${i}` }),
+    );
+    const { onJobComplete } = logger;
+    if (onJobComplete === undefined) throw new Error("job run logger has no onJobComplete");
+    const complete = async (bullJobId: string, subject: string): Promise<void> => {
+      await onJobComplete(jobName, bullJobId, 1, [], {
+        tenantId: tenantA,
+        finalAttempt: true,
+        tenantVisibleRun: { subject },
+      });
+    };
+
+    await Promise.all(
+      subjects.flatMap((subject, i) => [
+        complete(`race-a-${i}`, subject),
+        complete(`race-b-${i}`, subject),
+      ]),
+    );
+
+    for (const subject of subjects) {
+      expect(await selectMany(db, tenantJobRunsTable, { tenantId: tenantA, subject })).toHaveLength(
+        1,
+      );
+    }
+  });
+});
