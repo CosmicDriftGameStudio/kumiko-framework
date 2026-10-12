@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-09-24
-evidence: "kumiko-framework#2345 (enumOption); #2332 (unit); packages/types/src/screen.ts (FieldFormatRegistry); packages/headless/src/format"
+verified: 2026-10-12
+evidence: "kumiko-framework#2345 (enumOption); #2332 (unit); packages/types/src/screen.ts (FieldFormatRegistry); packages/headless/src/format; packages/headless/src/view-model/list-file-display.ts (format image/file)"
 ---
 
 # Field-Formats: deklarative Wert-Formatierung (`FormatSpec`)
@@ -48,6 +48,14 @@ App-Locale. `{ format: "number", grouping: false }` schaltet sie ab. Gilt
 sowohl im headless `applyFormatSpec`-Pfad (Columns) als auch im read-only
 `RenderField`-Pfad (`field.grouping`, ohne eigenen `renderer`) — beide teilen
 dieselbe `Intl.NumberFormat`-Semantik, unabhängig voneinander implementiert.
+
+## `image` / `file` (Listen-Spalten)
+
+`{ format: "image", variant? }` zeigt in Listen-Zellen das erste Bild als
+Thumbnail (Variante, sonst Original, sonst Platzhalter), `{ format: "file" }`
+den Dateinamen als Link. Mehrere Dateien zeigen `+N`. Ohne `format` greift
+dasselbe für Felder vom Typ `file`/`image`/`files`/`images`; es erscheint nie
+eine Datei-ID.
 
 ## Anwendung
 

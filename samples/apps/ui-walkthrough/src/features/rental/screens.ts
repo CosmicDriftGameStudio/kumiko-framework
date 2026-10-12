@@ -452,3 +452,55 @@ export const recordPositionsScreen: ActionFormScreenDefinition = {
   submitLabel: "rental.action.recordPositions",
   access: OPEN_ACCESS,
 };
+
+// Fixtures for the UI-gap screenshots: a long status label, a confirm-gated
+// primary action next to the default edit action, and a list that is empty
+// because of its default filter.
+export const leaseDetailGapsScreen: ProjectionDetailScreenDefinition = {
+  ...leaseDetailScreen,
+  id: "lease-detail-gaps",
+  query: RENTAL_QUERIES.leaseAkteDraft,
+  detailFor: "lease",
+  primaryAction: "activate",
+  actions: [
+    {
+      kind: "writeHandler",
+      id: "activate",
+      icon: "check",
+      label: "rental.action.activate",
+      handler: RENTAL_WRITES.leaseActivate,
+      payload: { pick: ["id"] },
+      confirm: "rental.action.activateConfirm",
+      style: "primary",
+    },
+    {
+      kind: "writeHandler",
+      id: "terminate",
+      icon: "x",
+      label: "rental.action.terminate",
+      handler: RENTAL_WRITES.leaseTerminate,
+      payload: { pick: ["id"] },
+      confirm: "rental.action.terminateConfirm",
+    },
+  ],
+};
+
+export const leaseListEmptyScreen: EntityListScreenDefinition = {
+  id: "lease-list-empty",
+  type: "entityList",
+  entity: "lease",
+  dormant: true,
+  description: "rental.leaseListEmpty.description",
+  emptyState: {
+    title: "rental.leaseListEmpty.emptyTitle",
+    description: "rental.leaseListEmpty.emptyDescription",
+  },
+  columns: [...OPEN_FILL_COLUMNS],
+  defaultSort: { field: "beginn", dir: "desc" },
+  filter: { field: "status", op: "eq", value: "terminated" },
+  defaultFilters: { status: ["active"] },
+  createLabel: "rental.action.createLease",
+  searchPlaceholder: "rental.search.placeholder",
+  rowActions: [openLeaseDetail],
+  access: OPEN_ACCESS,
+};

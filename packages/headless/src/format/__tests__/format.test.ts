@@ -313,3 +313,10 @@ describe("unit format keys stay in lockstep with UnitKey", () => {
     expect([...UNIT_FORMAT_KEYS].sort()).toEqual([...TYPE_UNIT_KEYS].sort());
   });
 });
+
+describe("applyFormatSpec — image and file", () => {
+  test("fall back to the raw id outside the web list cell, joining arrays", () => {
+    expect(applyFormatSpec({ format: "image", variant: "thumb" }, "abc")).toBe("abc");
+    expect(applyFormatSpec({ format: "file" }, ["a", "b"])).toBe("a, b");
+  });
+});

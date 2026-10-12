@@ -63,10 +63,7 @@ import {
   type RenderEditControls,
   resolveRecordTitle,
 } from "../components/render-edit.js";
-import {
-  needsActionConfirm,
-  RenderEditActionButton,
-} from "../components/render-edit-action-button.js";
+import { RenderEditActionButton } from "../components/render-edit-action-button.js";
 import { RenderList } from "../components/render-list.js";
 import { useActionMenuItems } from "../components/use-action-menu-items.js";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context.js";
@@ -110,7 +107,13 @@ import { EntityListExpandedRow } from "./entity-list-expanded-row.js";
 import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.js";
 import type { FeatureSchema } from "./feature-schema.js";
 import { buildFormSchema } from "./form-schema.js";
+import {
+  compactHeaderIconAction,
+  orderPlainHeaderActions,
+  primaryHeaderAction,
+} from "./header-actions.js";
 import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.js";
+import { isListNarrowed, useListEmptyContent } from "./list-empty-content.js";
 import {
   buildDateRangePayload,
   buildEntityFilterFacets,
@@ -1292,14 +1295,16 @@ function EntityEditCreateBody({
             ...(entityId !== undefined && { entityId }),
           });
         } else {
-          const { screenId, entityId } = resolveRedirectTarget(
-            redirect,
-            result.data,
-            schema,
-            appFeatures,
-            controlsRef.current?.getValues(),
+          navigateToRedirectTarget(
+            nav,
+            resolveRedirectTarget(
+              redirect,
+              result.data,
+              schema,
+              appFeatures,
+              controlsRef.current?.getValues(),
+            ),
           );
-          nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
         }
       } else {
         navigateToReturnOr(nav, returnTarget, navigateToList);
@@ -2578,6 +2583,13 @@ function EntityListBody({
       openDrawer,
     ],
   );
+  const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
+    nav,
+    host,
+    dispatcher,
+    openDrawer,
+    onWriteSuccess: refreshRowsAfterWrite,
+  });
 
   // Expandable rows: open state is keyed by row id, so it survives refetch,
   // sort and page changes. Several rows can be open at once.
@@ -2705,6 +2717,11 @@ function EntityListBody({
         rows={renderRows}
         featureName={featureName}
         searchable={searchable}
+        narrowed={isListNarrowed(urlState.q, urlState.filters, defaultFilters)}
+        {...(screen.description !== undefined && {
+          description: effectiveTranslate(screen.description),
+        })}
+        {...(emptyContent !== undefined && { emptyContent })}
         searchValue={urlState.q}
         onSearchChange={urlState.setQ}
         sort={effectiveSort}
@@ -2991,6 +3008,13 @@ function ProjectionListBody({
       openDrawer,
     ],
   );
+  const emptyContent = useListEmptyContent(screen.emptyState, effectiveTranslate, {
+    nav,
+    host,
+    dispatcher,
+    openDrawer,
+    onWriteSuccess: rowsQuery.refetch,
+  });
 
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
@@ -3056,6 +3080,11 @@ function ProjectionListBody({
         rows={rowsQuery.data?.rows ?? []}
         featureName={schema.featureName}
         searchable={searchable}
+        narrowed={isListNarrowed(activeSearch, urlState.filters)}
+        {...(screen.description !== undefined && {
+          description: effectiveTranslate(screen.description),
+        })}
+        {...(emptyContent !== undefined && { emptyContent })}
         searchValue={urlState.q}
         onSearchChange={urlState.setQ}
         sort={activeSort}
@@ -3251,16 +3280,6 @@ function resolveSubtitleHref(
 // natives Form-Submit (Enter-Keypress) würde ohne customSubmit gegen
 // controller.submit() ohne submit-config throwen — der No-Op macht diesen
 // Pfad harmlos statt ihn dem Zufall zu überlassen.
-// The primary header action always stays a visible text button — `edit` if
-// declared, else the first `style: "primary"` action, else the first action
-// at all. One step longer than row actions' `primaryRowAction` (renderer-web
-// primitives/index.tsx): rows don't declare `style: "primary"`.
-function primaryHeaderAction(actions: readonly RenderEditAction[]): RenderEditAction | undefined {
-  return (
-    actions.find((a) => a.id === "edit") ?? actions.find((a) => a.style === "primary") ?? actions[0]
-  );
-}
-
 // Header actions bar (A7): <=2 actions render as plain buttons; >2 with an
 // `ActionOverflowMenu` primitive collapse to the primary button plus a menu
 // for the rest — same rule as RowActionsCell for table rows. Owns confirm
@@ -3275,8 +3294,11 @@ function HeaderActionsBar({
   onError,
   collapseAfterPrimary = false,
   compact = false,
+  preferredPrimaryId,
   PageHeader,
 }: {
+  /** `primaryAction` of the screen: wins over the edit/primary-style precedence. */
+  readonly preferredPrimaryId?: string;
   /** Header slot layout: only the primary action stays a button, the rest goes into the menu. */
   readonly collapseAfterPrimary?: boolean;
   /** Phone-width shell header: an icon-only primary button, the rest in the shell's overflow menu. */
@@ -3294,13 +3316,7 @@ function HeaderActionsBar({
     onError,
   });
   if (compact && PageHeader !== undefined) {
-    const primary = primaryHeaderAction(actions);
-    // A bare icon for a destructive or confirm-gated action (e.g. "x" for terminate)
-    // reads as "close"; such actions go to the labelled menu instead.
-    const iconPrimary =
-      primary?.icon !== undefined && primary.style !== "danger" && !needsActionConfirm(primary)
-        ? primary
-        : undefined;
+    const iconPrimary = compactHeaderIconAction(actions, preferredPrimaryId);
     const overflowActions = actions.filter((a) => a !== iconPrimary);
     return (
       <>
@@ -3325,7 +3341,7 @@ function HeaderActionsBar({
   if (actions.length <= maxPlainButtons || ActionOverflowMenu === undefined) {
     return (
       <>
-        {actions.map((action) => (
+        {orderPlainHeaderActions(actions, preferredPrimaryId).map((action) => (
           <RenderEditActionButton
             key={action.id}
             action={action}
@@ -3338,7 +3354,7 @@ function HeaderActionsBar({
       </>
     );
   }
-  const primary = primaryHeaderAction(actions);
+  const primary = primaryHeaderAction(actions, preferredPrimaryId);
   const rest = actions.filter((a) => a.id !== primary?.id);
   return (
     <>
@@ -3687,6 +3703,7 @@ function ProjectionDetailBody({
         Dialog={Dialog}
         ActionOverflowMenu={ActionOverflowMenu}
         onError={setActionError}
+        {...(screen.primaryAction !== undefined && { preferredPrimaryId: screen.primaryAction })}
       />
     </Grid>
   );
@@ -3818,6 +3835,28 @@ function ProjectionDetailBody({
     );
   const usesPageHeaderSlot = pageHeaderSlotAvailable && PageHeader !== undefined;
   const pageHeaderCompact = pageHeaderCompactContext && usesPageHeaderSlot;
+  // The phone shell header clips a long status mid-word, so on phones the badge
+  // sits in the body instead of the shell header slot.
+  const statusBadge =
+    header?.status !== undefined && StatusBadge !== undefined ? (
+      <StatusBadge
+        value={String(record[header.status] ?? "")}
+        tone={headerStatusTone(header, record)}
+        testId="kumiko-screen-projection-detail-status"
+      />
+    ) : undefined;
+  // Lives in the band's subtitle row so it shares the metrics' horizontal inset.
+  const bandSubtitle =
+    pageHeaderCompact && statusBadge !== undefined ? (
+      <>
+        <Grid columns="auto" testId="kumiko-screen-projection-detail-status-row">
+          {statusBadge}
+        </Grid>
+        {headerSubtitleSlot}
+      </>
+    ) : (
+      headerSubtitleSlot
+    );
   const actionErrorBanner = actionError !== null && (
     <Banner variant="error" testId="render-edit-action-error">
       {actionError}
@@ -3830,16 +3869,7 @@ function ProjectionDetailBody({
           <PageHeader
             {...(header !== undefined && { title: String(record[header.title] ?? "") })}
             {...(header === undefined && recordTitle !== undefined && { title: recordTitle })}
-            {...(header?.status !== undefined &&
-              StatusBadge !== undefined && {
-                status: (
-                  <StatusBadge
-                    value={String(record[header.status] ?? "")}
-                    tone={headerStatusTone(header, record)}
-                    testId="kumiko-screen-projection-detail-status"
-                  />
-                ),
-              })}
+            {...(!pageHeaderCompact && statusBadge !== undefined && { status: statusBadge })}
             {...(hasHeaderActions && {
               actions: (
                 <Grid columns="auto" testId="kumiko-screen-projection-detail-actions">
@@ -3852,6 +3882,9 @@ function ProjectionDetailBody({
                     collapseAfterPrimary
                     compact={pageHeaderCompact}
                     PageHeader={PageHeader}
+                    {...(screen.primaryAction !== undefined && {
+                      preferredPrimaryId: screen.primaryAction,
+                    })}
                   />
                 </Grid>
               ),
@@ -3859,11 +3892,11 @@ function ProjectionDetailBody({
           />
           {/* The band owns the horizontal inset; the slot is its unstyled lead
               row so it lines up with the metrics below. */}
-          {MetricBand === undefined && headerSubtitleSlot}
+          {MetricBand === undefined && bandSubtitle}
           {MetricBand === undefined && headerSlot}
-          {(hasMetrics || headerSubtitleSlot !== undefined || headerSlot !== undefined) &&
+          {(hasMetrics || bandSubtitle !== undefined || headerSlot !== undefined) &&
             (MetricBand !== undefined || hasMetrics) &&
-            metricsBlock(headerSubtitleSlot, MetricBand !== undefined ? headerSlot : undefined)}
+            metricsBlock(bandSubtitle, MetricBand !== undefined ? headerSlot : undefined)}
           {actionErrorBanner}
         </>
       ) : (
@@ -4053,18 +4086,37 @@ function resolveRedirectTarget(
   schema: FeatureSchema,
   appFeatures: readonly FeatureSchema[],
   fallbackRecord?: Readonly<Record<string, unknown>>,
-): { readonly screenId: string; readonly entityId: string | undefined } {
+): ResolvedRedirectTarget {
   const redirectScreen = redirectScreenTarget(redirect);
   const idField = typeof redirect === "string" ? "id" : redirect.idFrom;
   const targetId = lastSegment(redirectScreen);
   const target = findRedirectTargetScreen(redirect, schema, appFeatures);
   const carriesId =
     target !== undefined && (target.type === "entityEdit" || target.type === "projectionDetail");
-  if (!carriesId) return { screenId: targetId, entityId: undefined };
+  if (!carriesId) return { screenId: targetId, entityId: undefined, tab: undefined };
   const entityId =
     extractIdField(submittedData, idField) ??
     (fallbackRecord !== undefined ? extractIdField(fallbackRecord, idField) : undefined);
-  return { screenId: targetId, entityId };
+  return {
+    screenId: targetId,
+    entityId,
+    tab: typeof redirect === "string" ? undefined : redirect.tab,
+  };
+}
+
+type ResolvedRedirectTarget = {
+  readonly screenId: string;
+  readonly entityId: string | undefined;
+  readonly tab: string | undefined;
+};
+
+function navigateToRedirectTarget(nav: NavApi, target: ResolvedRedirectTarget): void {
+  const navTarget = {
+    screenId: target.screenId,
+    ...(target.entityId !== undefined && { entityId: target.entityId }),
+  };
+  if (target.tab === undefined) nav.navigate(navTarget);
+  else nav.navigate(navTarget, { searchParams: { tab: target.tab } });
 }
 
 // Success navigation for a configured redirect — shared by entityEdit's
@@ -4089,14 +4141,10 @@ function navigateAfterRedirect(options: {
     nav.navigate({ screenId: lastSegment(redirect) });
     return;
   }
-  const { screenId, entityId } = resolveRedirectTarget(
-    redirect,
-    resultData,
-    schema,
-    appFeatures,
-    record,
+  navigateToRedirectTarget(
+    nav,
+    resolveRedirectTarget(redirect, resultData, schema, appFeatures, record),
   );
-  nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
 }
 
 // The update payload nests the saved projection under `data`; a changed
@@ -4243,13 +4291,10 @@ function ActionFormBody({
         if (returnToWinsOverRedirect(returnTarget, screen.redirect, schema, appFeatures)) {
           navigateToReturn(nav, returnTarget);
         } else {
-          const { screenId, entityId } = resolveRedirectTarget(
-            screen.redirect,
-            result.data,
-            schema,
-            appFeatures,
+          navigateToRedirectTarget(
+            nav,
+            resolveRedirectTarget(screen.redirect, result.data, schema, appFeatures),
           );
-          nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
         }
       }
     },

@@ -13,6 +13,7 @@ import type {
   DashboardScreenDefinition,
   EntityListExpandableRow,
   FeatureDefinition,
+  ListEmptyStateSpec,
   NavDefinition,
   RowAction,
   ScreenDefinition,
@@ -207,6 +208,15 @@ function pushRelatedListSectionKeys(out: Set<string>, section: EntityListExpanda
   for (const label of Object.values(section.groupBy?.labels ?? {})) pushKey(out, label);
 }
 
+function pushListEmptyStateKeys(
+  out: Set<string>,
+  emptyState: ListEmptyStateSpec | undefined,
+): void {
+  pushKey(out, emptyState?.title);
+  pushKey(out, emptyState?.description);
+  if (emptyState?.action !== undefined) pushRowActionKeys(out, emptyState.action);
+}
+
 function pushExpandableRowKeys(out: Set<string>, section: EntityListExpandableRow): void {
   pushRelatedListSectionKeys(out, section);
   for (const action of section.actions ?? []) pushRowActionKeys(out, action);
@@ -245,6 +255,8 @@ export function requiredKeysFromScreen(
       }
       pushKey(out, list.createLabel);
       pushKey(out, list.searchPlaceholder);
+      pushKey(out, list.description);
+      pushListEmptyStateKeys(out, list.emptyState);
       for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
       for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
       if (list.expandableRow !== undefined) pushExpandableRowKeys(out, list.expandableRow);
@@ -259,6 +271,8 @@ export function requiredKeysFromScreen(
       }
       pushKey(out, list.createLabel);
       pushKey(out, list.searchPlaceholder);
+      pushKey(out, list.description);
+      pushListEmptyStateKeys(out, list.emptyState);
       for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
       for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
       break;

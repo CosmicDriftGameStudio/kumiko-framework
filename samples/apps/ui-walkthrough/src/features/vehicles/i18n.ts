@@ -10,6 +10,7 @@ export const vehiclesTranslations: TranslationsByLocale = {
     "screen:vehicle-list.title": "Fahrzeuge",
     "screen:vehicle-edit.title": "Angaben bearbeiten",
     "screen:vehicle-wizard.title": "Fahrzeug bearbeiten",
+    "screen:vehicle-edit-flow.title": "Ausstattung bearbeiten",
     "screen:campaign-list.title": "Kampagnen",
 
     "vehicles.action.edit": "Bearbeiten",
@@ -119,6 +120,7 @@ export const vehiclesTranslations: TranslationsByLocale = {
     "screen:vehicle-list.title": "Vehicles",
     "screen:vehicle-edit.title": "Edit details",
     "screen:vehicle-wizard.title": "Edit vehicle",
+    "screen:vehicle-edit-flow.title": "Edit equipment",
     "screen:campaign-list.title": "Campaigns",
 
     "vehicles.action.edit": "Edit",

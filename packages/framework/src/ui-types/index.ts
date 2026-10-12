@@ -129,6 +129,7 @@ export type {
   ListBadgeTone,
   ListColumnDisplay,
   ListColumnSpec,
+  ListEmptyStateSpec,
   ListFacetSpec,
   ListSortSpec,
   MetricNavigate,

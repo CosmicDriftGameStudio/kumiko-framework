@@ -81,6 +81,13 @@ export interface FieldFormatRegistry {
   enumOption: { readonly keyPrefix: string };
   /** JSON-safe structured value rendered as indented text. */
   json: { readonly indent?: number };
+  /** List cell: FileRef id (or id array) as a thumbnail. `variant` names an
+   *  image variant to request (falls back to the original if it is not served).
+   *  Outside list cells the raw value is shown. */
+  image: { readonly variant?: string };
+  /** List cell: FileRef id (or id array) as a download link with the file name.
+   *  Outside list cells the raw value is shown. */
+  file: object;
 }
 
 // Discriminated union derived from the registry — one variant per key.
@@ -580,6 +587,8 @@ export type EntityListScreenDefinition = {
    *  through `defaultFilters` and the URL). Fields without an entry keep the
    *  default dropdown. */
   readonly facets?: Readonly<Record<string, EntityListFacetConfig | false>>;
+  /** Replaces the default empty-list title/hint; the create button stays when the list can create. */
+  readonly emptyState?: ListEmptyStateSpec;
   /** i18n key for the primary create button label (default `kumiko.actions.create`). */
   readonly createLabel?: string;
   /** i18n key for the search field placeholder (default `kumiko.list.search-placeholder`). */
@@ -682,6 +691,8 @@ export type ProjectionListScreenDefinition = {
   readonly pagination?: ListPaginationMode;
   readonly pageSize?: number;
   readonly defaultSort?: ListSortSpec;
+  /** Replaces the default empty-list title/hint; the create button stays when the list can create. */
+  readonly emptyState?: ListEmptyStateSpec;
   /** i18n key for the primary create button label (default `kumiko.actions.create`). */
   readonly createLabel?: string;
   /** i18n key for the search field placeholder (default `kumiko.list.search-placeholder`). */
@@ -834,6 +845,12 @@ export type ProjectionDetailScreenDefinition = {
    *  `rowClick` has no target here (there is no row to click) and is
    *  rejected by the boot-validator. */
   readonly actions?: readonly RowAction[];
+  /** Id of the action that stays the visible header button when the actions
+   *  collapse into a menu (and the one that keeps the phone icon slot when it
+   *  has an icon and no confirm). An `actions` id or `"edit"` (the default edit
+   *  action); default precedence is `edit`, then `style: "primary"`, then the
+   *  first action. */
+  readonly primaryAction?: string;
   /** How head fields render. Default "text" — plain text instead of a
    *  disabled Input, since every field on this screen type is forced
    *  readOnly anyway (there is no write path, see the shim doc above).
@@ -1379,6 +1396,17 @@ export type RelatedListRowTone = Exclude<FieldCondition, boolean> & {
   readonly tone: SelectOptionTone;
 };
 
+/** Replacement for the default "no rows" box of a list. `title`/`description`
+ *  are i18n keys. `action` is a record action evaluated against an empty
+ *  record on list screens (the parent record on a relatedList); its icon must
+ *  resolve, same as `ProjectionDetailScreenDefinition.actions`. A narrowed list
+ *  (search term or changed filters) shows the neutral "no matches" text instead. */
+export type ListEmptyStateSpec = {
+  readonly title: string;
+  readonly description?: string;
+  readonly action?: RowAction;
+};
+
 // Read-only list of related records, driven by its own query — for a
 // projectionDetail screen showing e.g. a tenant's payments below the
 // tenant's own fields. Only supported on projectionDetail (fw#2166); the
@@ -1478,11 +1506,7 @@ export type EditRelatedListSection = {
    *  section's query returns zero rows. Omitted: the DataTable default
    *  ("kumiko.list.no-entries") applies. `action`'s icon must resolve, same
    *  as `actions` above. */
-  readonly emptyState?: {
-    readonly title: string;
-    readonly description?: string;
-    readonly action?: RowAction;
-  };
+  readonly emptyState?: ListEmptyStateSpec;
 };
 
 // A declarative, self-persisting form section for `projectionDetail`
@@ -1824,6 +1848,10 @@ export type ActionFormRedirect = {
    *  `projectionDetail`); a non-string or missing value navigates without
    *  an id, same as a payload without `id` does today. */
   readonly idFrom: string;
+  /** Section id to open on the target `projectionDetail` with `layout.mode:
+   *  "tabs"` (the `tab` search param, same as `ToolbarAction` navigate `tab`).
+   *  Boot rejects other targets and unknown section ids. */
+  readonly tab?: string;
 };
 
 /** Author-declared field shown once after a mint-form submit — API token,

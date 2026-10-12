@@ -9,6 +9,7 @@ import {
   normalizeListColumn,
   parseRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { deriveListFileDisplay } from "./list-file-display.js";
 import type { ListColumnViewModel, ListRowViewModel, ListViewModel, Translate } from "./types.js";
 
 const WRITE_ONLY_SET_LABEL_KEY = "kumiko.field.writeOnly.set";
@@ -179,6 +180,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
         : undefined;
     const optionTones = fieldDef.type === "select" ? fieldDef.optionTones : undefined;
     const grouping = fieldDef.type === "number" ? fieldDef.grouping : undefined;
+    const fileDisplay = deriveListFileDisplay(fieldDef, normalized.renderer);
     const column: ListColumnViewModel = {
       field: normalized.field,
       label,
@@ -191,6 +193,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       ...(refFeature !== undefined && { refFeature }),
       ...(refLabelField !== undefined && { refLabelField }),
       ...(grouping !== undefined && { grouping }),
+      ...(fileDisplay !== undefined && { fileDisplay }),
       ...(normalized.hideOnNarrow === true && { hideOnNarrow: true }),
     };
     columns.push(column);

@@ -80,6 +80,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "kumiko.list.search-placeholder": "Search…",
     "kumiko.list.empty.title": "No entries yet.",
+    "kumiko.list.empty.filtered": "No entries match the current search or filters.",
     "kumiko.list.empty.hint": "Create the first one to get started.",
     "kumiko.list.no-entries": "No entries.",
     "kumiko.record.not-found.title": "This record was not found.",

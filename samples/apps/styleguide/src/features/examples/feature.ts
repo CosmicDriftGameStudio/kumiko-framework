@@ -37,14 +37,19 @@ export const shippingEntity = createEntity({
 });
 
 // Profile — testet das Avatar-Image-Upload-Feld (createImageField) in der
-// Auto-Form: runde Preview + "Change"-Button, Upload an /api/files.
+// Auto-Form: rechteckige Preview + "Change"-Button, Upload an /api/files.
 export const profileEntity = createEntity({
   table: "read_examples_profile",
   fields: {
     avatar: createImageField({ maxSize: "5mb", accept: ["jpg", "jpeg", "png"] }),
     fullName: createTextField({ personal: { of: "id" }, find: "none", required: true }),
     // Demo-Daten, kein echtes PII-Encryption-Setup → Plaintext bewusst erlaubt.
-    email: createTextField({ required: true, personal: false, reason: "is_business_data" }),
+    email: createTextField({
+      required: true,
+      personal: false,
+      reason: "is_business_data",
+      sortable: true,
+    }),
     bio: createTextField({ personal: { of: "id" }, find: "none", multiline: { rows: 3 } }),
   },
 });
@@ -105,7 +110,51 @@ export const examplesFeature = defineFeature("examples", (r) => {
     },
   });
 
-  r.crud("profile", profileEntity, editFormOnly);
+  r.crud("profile", profileEntity, {
+    ...editFormOnly,
+    verbs: { delete: false, restore: false },
+  });
+
+  r.screen({
+    id: "profile-list",
+    type: "entityList",
+    entity: "profile",
+    dormant: true,
+    columns: ["avatar", "fullName", "email"],
+    searchable: true,
+    defaultSort: { field: "email", dir: "asc" },
+    rowActions: [
+      {
+        kind: "navigate",
+        id: "view",
+        label: "examples:profile:view",
+        screen: "profile-view",
+        entityId: "id",
+        rowClick: true,
+      },
+    ],
+    access: { openToAll: { reason: openReason } },
+  });
+
+  r.screen({
+    id: "profile-view",
+    type: "entityEdit",
+    entity: "profile",
+    dormant: true,
+    listScreenId: "profile-list",
+    layout: {
+      sections: [
+        {
+          columns: 2,
+          fields: [
+            { field: "avatar", span: 2, readOnly: true },
+            { field: "fullName", readOnly: true },
+            { field: "email", readOnly: true },
+          ],
+        },
+      ],
+    },
+  });
 
   r.screen({
     id: "profile-edit",

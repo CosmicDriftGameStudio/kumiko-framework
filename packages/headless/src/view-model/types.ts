@@ -47,6 +47,11 @@ export type RuntimeRenderer = (value: unknown, row?: Readonly<Record<string, unk
 // LocaleResolver.translate() from the i18nKey wired onto the field.
 // `renderer` passes through ScreenDefinition's FieldRenderer verbatim; the
 // renderer layer may also inject a RuntimeRenderer closure (reference lookups).
+/** How a list cell shows a FileRef value (id or id array). */
+export type ListColumnFileDisplay =
+  | { readonly kind: "image"; readonly variant?: string }
+  | { readonly kind: "file" };
+
 export type ListColumnViewModel = {
   readonly field: string;
   readonly label: string;
@@ -81,6 +86,10 @@ export type ListColumnViewModel = {
    *  `true`). `false` renders without thousands-separators (e.g. a model
    *  year). */
   readonly grouping?: boolean;
+  /** Set for file/image columns: from the entity field type, or from a
+   *  `{ format: "image" | "file" }` renderer. The cell shows a thumbnail or the
+   *  file name instead of the FileRef UUID. */
+  readonly fileDisplay?: ListColumnFileDisplay;
 };
 
 export type ListRowViewModel = {

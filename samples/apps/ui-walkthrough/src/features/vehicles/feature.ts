@@ -13,6 +13,7 @@ import { vehiclesTranslations } from "./i18n";
 import {
   campaignEditScreen,
   campaignListScreen,
+  vehicleEditFlowScreen,
   vehicleEditScreen,
   vehicleListScreen,
   vehicleWizardScreen,
@@ -67,6 +68,7 @@ export const vehiclesFeature = defineFeature("vehicles", (r) => {
   r.screen(vehicleListScreen);
   r.screen(vehicleEditScreen);
   r.screen(vehicleWizardScreen);
+  r.screen(vehicleEditFlowScreen);
   r.screen(campaignListScreen);
   r.screen(campaignEditScreen);
 

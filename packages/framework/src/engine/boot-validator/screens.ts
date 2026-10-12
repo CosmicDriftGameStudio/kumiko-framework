@@ -60,6 +60,7 @@ import type {
   FieldCondition,
   ListColumnSpec,
   ListFacetSpec,
+  ProjectionDetailScreenDefinition,
   RelatedListToolbarAction,
   RowAction,
   RowActionNavigateBase,
@@ -146,6 +147,8 @@ type NavigateSourceScreenType =
   | "projectionList"
   | "projectionDetail"
   | "entityEdit"
+  | "actionForm"
+  | "secretMint"
   | "entityList expandableRow";
 
 // Tier 2.7e navigate rowAction → target-screen params validity. Shared by
@@ -380,7 +383,7 @@ function isRegisteredIcon(icon: IconKey): boolean {
 export function validateActionHasIcon(
   featureName: string,
   screenId: string,
-  screenType: "projectionDetail" | "entityEdit",
+  screenType: "projectionDetail" | "entityEdit" | "entityList" | "projectionList",
   context: string,
   action: { readonly id: string; readonly icon?: IconKey },
 ): void {
@@ -1011,8 +1014,9 @@ function validateRedirectTarget(
   screenId: string,
   screenKind: "actionForm" | "secretMint" | "entityEdit" | "projectionDetail",
   redirect: string | ActionFormRedirect,
-  allScreenQns: ReadonlySet<string>,
+  lookups: NavigateTargetLookups,
 ): void {
+  const { allScreenQns } = lookups;
   const redirectTarget = typeof redirect === "string" ? redirect : redirect.screen;
   if (
     typeof redirect !== "string" &&
@@ -1056,6 +1060,22 @@ function validateRedirectTarget(
         `"${redirectTarget}" (${sameFeatureTarget.type}) carries no id — use the plain string form.`,
     );
   }
+  if (typeof redirect !== "string" && redirect.tab !== undefined) {
+    const targetQn = resolveScreenTargetQn(feature.name, redirectTarget);
+    const target = lookups.screensByShortId
+      .get(targetQn.slice(targetQn.lastIndexOf(":") + 1))
+      ?.find(
+        (entry) => qualifyEntityName(entry.featureName, "screen", entry.screen.id) === targetQn,
+      );
+    validateRowActionNavigateTab(
+      feature.name,
+      screenId,
+      screenKind,
+      "redirect",
+      { kind: "navigate", id: redirectTarget, label: redirectTarget, tab: redirect.tab },
+      target,
+    );
+  }
 }
 
 // redirect is only honored on record actions; on list/related-list row
@@ -1082,11 +1102,34 @@ function validateRecordActionRedirect(
   screenId: string,
   screenKind: "projectionDetail" | "entityEdit",
   action: RowAction,
-  allScreenQns: ReadonlySet<string>,
+  lookups: NavigateTargetLookups,
 ): void {
   if (action.kind !== "navigate" && action.kind !== "drawer" && action.redirect !== undefined) {
-    validateRedirectTarget(feature, screenId, screenKind, action.redirect, allScreenQns);
+    validateRedirectTarget(feature, screenId, screenKind, action.redirect, lookups);
   }
+}
+
+// "edit" is the default edit action, which only exists when detailFor names
+// the entity; a typo would otherwise silently fall back to the default precedence.
+function validatePrimaryActionTarget(
+  featureName: string,
+  screenId: string,
+  screen: ProjectionDetailScreenDefinition,
+): void {
+  if (screen.primaryAction === undefined) return;
+  const declaredIds = (screen.actions ?? []).map((action) => action.id);
+  const editIsAvailable = screen.detailFor !== undefined;
+  if (
+    declaredIds.includes(screen.primaryAction) ||
+    (editIsAvailable && screen.primaryAction === "edit")
+  ) {
+    return;
+  }
+  throw new Error(
+    `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) primaryAction "${screen.primaryAction}" ` +
+      `matches no action — use one of the declared action ids (${declaredIds.join(", ") || "none declared"})` +
+      `${editIsAvailable ? ' or "edit"' : ' ("edit" needs detailFor on this screen)'}.`,
+  );
 }
 
 function validateScreenVisibleWhen(
@@ -1146,10 +1189,11 @@ function validateInlineFormNavTargets(
   screenId: string,
   screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
   kind: "actionForm" | "secretMint",
-  allScreenQns: ReadonlySet<string>,
+  lookups: NavigateTargetLookups,
 ): void {
+  const { allScreenQns } = lookups;
   if (screen.redirect !== undefined) {
-    validateRedirectTarget(feature, screenId, kind, screen.redirect, allScreenQns);
+    validateRedirectTarget(feature, screenId, kind, screen.redirect, lookups);
   }
   if (typeof screen.cancelTarget === "string") {
     // Same rule as redirect — `false` (no Cancel button) needs no validation.
@@ -1173,7 +1217,7 @@ function validateInlineFormScreen(
   screen: ActionFormScreenDefinition | SecretMintScreenDefinition,
   kind: "actionForm" | "secretMint",
   allWriteHandlerQns: ReadonlySet<string>,
-  allScreenQns: ReadonlySet<string>,
+  lookups: NavigateTargetLookups,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   validateWriteHandlerRegistered(feature.name, screenId, kind, screen.handler, allWriteHandlerQns);
@@ -1196,7 +1240,7 @@ function validateInlineFormScreen(
     allowEmptyMintForm && fieldNames.size === 0,
   );
   validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap);
-  validateInlineFormNavTargets(feature, screenId, screen, kind, allScreenQns);
+  validateInlineFormNavTargets(feature, screenId, screen, kind, lookups);
 }
 
 // SecretMintConfirmStep (fw#2838): an optional proof-of-receipt form rendered
@@ -1620,6 +1664,26 @@ export function validateScreens(
   };
   for (const [screenId, screen] of Object.entries(feature.screens)) {
     validateExplicitListScreenExists(feature.name, screenId, screen, screensByShortId);
+    if (
+      (screen.type === "entityList" || screen.type === "projectionList") &&
+      screen.emptyState?.action !== undefined
+    ) {
+      validateActionHasIcon(
+        feature.name,
+        screenId,
+        screen.type,
+        "emptyState action",
+        screen.emptyState.action,
+      );
+      validateNavigateActionTab(
+        feature.name,
+        screenId,
+        screen.type,
+        "emptyState action",
+        screen.emptyState.action,
+        navigateLookups,
+      );
+    }
     // Output of buildAppSchema, which overwrites it — an authored value would be a silent no-op.
     if (
       (screen.type === "entityEdit" ||
@@ -1951,7 +2015,7 @@ export function validateScreens(
               screenId,
               "projectionDetail",
               action,
-              allScreenQns,
+              navigateLookups,
             );
             validateNavigateActionTab(
               feature.name,
@@ -2121,10 +2185,17 @@ export function validateScreens(
       // the row), so the same navigate/writeHandler existence checks as
       // entityList/projectionList apply. `rowClick` is rejected outright —
       // a detail screen has no row to click.
+      validatePrimaryActionTarget(feature.name, screenId, screen);
       if (screen.actions !== undefined) {
         for (const action of screen.actions) {
           validateActionHasIcon(feature.name, screenId, "projectionDetail", "action", action);
-          validateRecordActionRedirect(feature, screenId, "projectionDetail", action, allScreenQns);
+          validateRecordActionRedirect(
+            feature,
+            screenId,
+            "projectionDetail",
+            action,
+            navigateLookups,
+          );
           if (action.kind === "navigate" && action.rowClick === true) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${qualifyEntityName(feature.name, "screen", screenId)}" ` +
@@ -2285,7 +2356,7 @@ export function validateScreens(
         screen,
         "actionForm",
         allWriteHandlerQns,
-        allScreenQns,
+        navigateLookups,
         featureMap,
       );
       continue;
@@ -2298,7 +2369,7 @@ export function validateScreens(
         screen,
         "secretMint",
         allWriteHandlerQns,
-        allScreenQns,
+        navigateLookups,
         featureMap,
       );
       if (screen.reveal.fields.length === 0) {
@@ -2707,7 +2778,7 @@ export function validateScreens(
               `section "${sectionLabel}" action`,
               action,
             );
-            validateRecordActionRedirect(feature, screenId, "entityEdit", action, allScreenQns);
+            validateRecordActionRedirect(feature, screenId, "entityEdit", action, navigateLookups);
             validateNavigateActionTab(
               feature.name,
               screenId,
@@ -2767,7 +2838,7 @@ export function validateScreens(
       // row to click either.
       if (screen.actions !== undefined) {
         for (const action of screen.actions) {
-          validateRecordActionRedirect(feature, screenId, "entityEdit", action, allScreenQns);
+          validateRecordActionRedirect(feature, screenId, "entityEdit", action, navigateLookups);
           if (action.kind === "navigate" && action.rowClick === true) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${qualifyEntityName(feature.name, "screen", screenId)}" ` +
@@ -2823,7 +2894,7 @@ export function validateScreens(
         );
       }
       if (screen.redirect !== undefined) {
-        validateRedirectTarget(feature, screenId, "entityEdit", screen.redirect, allScreenQns);
+        validateRedirectTarget(feature, screenId, "entityEdit", screen.redirect, navigateLookups);
       }
     }
   }

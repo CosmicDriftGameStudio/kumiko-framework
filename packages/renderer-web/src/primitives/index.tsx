@@ -15,7 +15,7 @@ import type {
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
+import type { ListColumnFileDisplay, ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import { applyFormatSpec, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import type {
   DataTableRowAction,
@@ -144,6 +144,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu.js";
 import { EmbeddedListInput } from "./embedded-list-input.js";
+import { FileDisplayCell } from "./file-thumbnail.js";
 import { FileUploadInput } from "./file-upload.js";
 import { DefaultJsonView } from "./json-view.js";
 import {
@@ -1868,6 +1869,7 @@ function DefaultDataTable({
                             })}
                             {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
                             {...(col.grouping !== undefined && { grouping: col.grouping })}
+                            {...(col.fileDisplay !== undefined && { fileDisplay: col.fileDisplay })}
                             {...(onCellChange !== undefined && {
                               onChange: (value: unknown) => onCellChange(row.id, col.field, value),
                             })}
@@ -1956,6 +1958,7 @@ function DefaultDataTable({
         {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
         {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
         {...(col.grouping !== undefined && { grouping: col.grouping })}
+        {...(col.fileDisplay !== undefined && { fileDisplay: col.fileDisplay })}
         {...(onCellChange !== undefined && {
           onChange: (value: unknown) => onCellChange(row.id, col.field, value),
         })}
@@ -3332,6 +3335,7 @@ type DataTableCellProps = {
   readonly translate?: (key: string, params?: Readonly<Record<string, unknown>>) => string;
   readonly locale?: string;
   readonly grouping?: boolean;
+  readonly fileDisplay?: ListColumnFileDisplay;
 };
 
 const EMPTY_CELL_PLACEHOLDER = "–";
@@ -3410,6 +3414,7 @@ function DataTableCell({
   translate,
   locale,
   grouping = true,
+  fileDisplay,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
@@ -3432,6 +3437,15 @@ function DataTableCell({
       <span data-empty-cell="true" className="text-muted-foreground">
         {EMPTY_CELL_PLACEHOLDER}
       </span>
+    );
+  }
+  if (fileDisplay !== undefined) {
+    return (
+      <FileDisplayCell
+        value={value}
+        display={fileDisplay}
+        fallbackLabel={translate?.("kumiko.field.file-upload.attached") ?? "File attached"}
+      />
     );
   }
   if (typeof renderer === "object" && renderer !== null && "format" in renderer) {

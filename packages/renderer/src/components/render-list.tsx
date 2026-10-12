@@ -28,6 +28,7 @@ import {
   shouldRenderActionsIconOnly,
   usePrimitives,
 } from "../primitives.js";
+import { ListEmptyStateBody, type ListEmptyStateContent } from "./list-empty-state.js";
 import { needsActionConfirm } from "./render-edit-action-button.js";
 
 // RenderList — präsentationaler View für entityList-Screens.
@@ -67,8 +68,12 @@ export type RenderListProps = {
   /** Placeholder für das Search-Input. Default kommt aus dem i18n-
    *  Bundle (`kumiko.list.search-placeholder`). */
   readonly searchPlaceholder?: string;
-  /** Hint at the left of the toolbar when there is no search box (already translated). */
+  /** Hint at the left of the toolbar (already translated). */
   readonly description?: string;
+  /** Author-declared replacement for the default empty box (already translated). */
+  readonly emptyContent?: ListEmptyStateContent;
+  /** Search or filters changed the result; the empty box then says "no matches". */
+  readonly narrowed?: boolean;
   /** Plural-forms key for the footer count noun; default is the entity's `:noun` convention key. */
   readonly itemNounKey?: string;
   /** Aktueller Search-Term (vom URL-State / Parent). RenderList puffert
@@ -189,6 +194,8 @@ export function RenderList(props: RenderListProps): ReactNode {
     searchable = false,
     searchPlaceholder,
     description,
+    emptyContent,
+    narrowed = false,
     itemNounKey,
     searchValue,
     onSearchChange,
@@ -220,7 +227,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   // wären Column-Header raw i18n-Keys.
   const t = useTranslation();
   const translate: Translate = translateProp ?? t;
-  const { DataTable, Button, Dialog, Input, Text, Banner, PageHeader } = usePrimitives();
+  const { DataTable, Button, Dialog, Input, Banner, PageHeader } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const pageHeaderCompact = usePageHeaderCompact();
   const createInPageHeader =
@@ -446,14 +453,24 @@ export function RenderList(props: RenderListProps): ReactNode {
   // DataTable auf den DataTable-Default zurück (`kumiko.list.no-entries`).
   const composedEmptyState =
     emptyState ??
-    (onCreate !== undefined ? (
-      <>
-        <Text>{translate("kumiko.list.empty.title")}</Text>
-        <Text variant="small">{translate("kumiko.list.empty.hint")}</Text>
-        <Button variant="primary" icon="plus" onClick={onCreate} testId="render-list-empty-create">
-          {effectiveCreateLabel}
-        </Button>
-      </>
+    (onCreate !== undefined || emptyContent !== undefined || narrowed ? (
+      <ListEmptyStateBody
+        content={emptyContent}
+        narrowed={narrowed}
+        translate={translate}
+        createButton={
+          onCreate !== undefined && !narrowed ? (
+            <Button
+              variant="primary"
+              icon="plus"
+              onClick={onCreate}
+              testId="render-list-empty-create"
+            >
+              {effectiveCreateLabel}
+            </Button>
+          ) : undefined
+        }
+      />
     ) : undefined);
 
   // Title-Resolution: ein konventioneller i18n-Key `screen:<id>.title`.
@@ -490,7 +507,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(onRowClick !== undefined && { onRowClick })}
         {...(composedEmptyState !== undefined && { emptyState: composedEmptyState })}
         {...(toolbarStart !== undefined && { toolbarStart })}
-        {...(description !== undefined && !searchable && { toolbarDescription: description })}
+        {...(description !== undefined && { toolbarDescription: description })}
         {...(toolbarEnd !== undefined && { toolbarEnd })}
         {...(sort !== undefined && { sort })}
         {...(onSortChange !== undefined && { onSortChange })}

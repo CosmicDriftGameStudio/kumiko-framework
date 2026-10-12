@@ -227,6 +227,11 @@ export function applyFormatSpec(
       // multiSelect-style columns hold an array of option values
       return Array.isArray(value) ? value.map(labelFor).join(", ") : labelFor(value);
     }
+    // Thumbnails and file links are drawn by the web list cell; this is the
+    // text fallback for every other surface.
+    case "image":
+    case "file":
+      return Array.isArray(value) ? value.join(", ") : String(value);
     case "json":
       return stringifyJsonOrString(value, typeof spec["indent"] === "number" ? spec["indent"] : 2);
     default:

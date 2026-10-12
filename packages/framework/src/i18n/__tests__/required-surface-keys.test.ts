@@ -122,3 +122,54 @@ describe("requiredKeysFromFeature — filterable multiSelect facets", () => {
     expect(keys).toContain(selectFacetOptionKey("crm", "contact", "tags", "b"));
   });
 });
+
+describe("requiredKeysFromScreen — list emptyState and description", () => {
+  const emptyState = {
+    title: "shop:orders:empty",
+    description: "shop:orders:empty-hint",
+    action: {
+      kind: "writeHandler" as const,
+      id: "sync",
+      label: "shop:orders:sync",
+      handler: "shop:write:sync",
+    },
+  };
+
+  test("entityList requires emptyState title, description, action label and screen description", () => {
+    const keys = requiredKeysFromScreen("shop", {
+      id: "order-list",
+      type: "entityList",
+      entity: "order",
+      columns: ["name"],
+      description: "shop:orders:description",
+      emptyState,
+    });
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "shop:orders:empty",
+        "shop:orders:empty-hint",
+        "shop:orders:sync",
+        "shop:orders:description",
+      ]),
+    );
+  });
+
+  test("projectionList requires the same keys", () => {
+    const keys = requiredKeysFromScreen("shop", {
+      id: "order-overview",
+      type: "projectionList",
+      query: "shop:query:order:list",
+      columns: [{ field: "name", label: "shop:orders:name" }],
+      description: "shop:orders:description",
+      emptyState,
+    });
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "shop:orders:empty",
+        "shop:orders:empty-hint",
+        "shop:orders:sync",
+        "shop:orders:description",
+      ]),
+    );
+  });
+});

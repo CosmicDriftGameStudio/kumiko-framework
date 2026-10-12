@@ -36,6 +36,15 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental.action.adjustRent": "Miete anpassen",
     "rental.adjustRent.hint":
       "Die alte Position endet am Vortag, die neue beginnt am Stichtag. Art, Menge und Einheit bleiben dabei unverändert, so bleibt die Mietgeschichte nachvollziehbar.",
+    "rental.action.activate": "Vertrag aktivieren",
+    "rental.action.activateConfirm": "Soll dieser Mietvertrag aktiviert werden?",
+    "rental.leaseListEmpty.description":
+      "Gekündigte Verträge, die aktuell als aktiv geführt werden.",
+    "rental.leaseListEmpty.emptyTitle": "Alles in Ordnung",
+    "rental.leaseListEmpty.emptyDescription":
+      "Es gibt keine gekündigten Verträge, die noch als aktiv geführt werden.",
+    "screen:lease-detail-gaps.title": "Mietvertrag",
+    "screen:lease-list-empty.title": "Mietverträge (Prüfliste)",
     "rental.action.createLease": "Mietvertrag abschließen",
     "rental:entity:lease:noun": { one: "Mietvertrag", other: "Mietverträgen" },
     "rental.search.placeholder": "Mieter, Einheit oder Liegenschaft",
@@ -141,6 +150,13 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental.action.adjustRent": "Adjust rent",
     "rental.adjustRent.hint":
       "The old position ends the day before, the new one starts on the effective date. Type, quantity and unit stay unchanged, so the rent history stays traceable.",
+    "rental.action.activate": "Activate lease",
+    "rental.action.activateConfirm": "Activate this lease?",
+    "rental.leaseListEmpty.description": "Terminated leases that are still marked active.",
+    "rental.leaseListEmpty.emptyTitle": "All clear",
+    "rental.leaseListEmpty.emptyDescription": "No terminated leases are still marked active.",
+    "screen:lease-detail-gaps.title": "Lease",
+    "screen:lease-list-empty.title": "Leases (review list)",
     "rental.action.createLease": "Sign lease",
     "rental:entity:lease:noun": { one: "lease", other: "leases" },
     "rental.search.placeholder": "Tenant, unit or property",

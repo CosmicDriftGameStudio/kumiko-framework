@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-04
-evidence: "packages/renderer/src/app/facet-count-bridge.tsx (chip counts refresh after writes); packages/renderer-web/src/primitives/index.tsx (responsive row actions, 44px touch targets); kumiko-framework#3449 (step picker, phone footer); packages/renderer-web/src/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
+verified: 2026-10-12
+evidence: "packages/renderer/src/app/header-actions.ts; packages/renderer/src/components/list-empty-state.tsx; packages/renderer/src/app/facet-count-bridge.tsx (chip counts refresh after writes); packages/renderer-web/src/primitives/index.tsx (responsive row actions, 44px touch targets); kumiko-framework#3449 (step picker, phone footer); packages/renderer-web/src/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
 ---
 
 # Screen layout: fixed height, dimensions and declarative layout props
@@ -77,6 +77,10 @@ The slot holds one `overflowItems` list per page; the last `PageHeader` that set
 | `rowActionMode` | entityList, projectionList, relatedList | `"adaptive"` (default) or `"inline"` |
 | `display` | row action | `"button" \| "link" \| "icon"`; the action stays inline next to the kebab |
 | `title`, `subtitle` | drawer action | i18n keys; `{param}` comes from the row prefill; `title` replaces `label` as the drawer title |
+| `description` | entityList, projectionList | i18n key for the hint under the list title (also shown when the list is searchable) |
+| `primaryAction` | projectionDetail | id of a header record action that renders as the filled primary button; the others stay secondary. The boot validator rejects an id that is not a header action |
+| `emptyState` | entityList, projectionList | `{ title, description?, action? }` shown when the list has no rows; `action` is a record action that runs against an empty record and needs a resolvable icon. A search or filter with no match shows a "no entries match" text instead |
+| `span` | edit field | in a flow layout `span` gives the field a full row |
 | `submit: false` | edit field | shown and validated, but not in the written payload |
 | `footerActions` | actionForm | extra footer buttons: `{ id, label, icon?, variant?, patch }` |
 | `submitPrefilled` | actionForm, secretMint | `true` enables submit without edits, so values seeded from navigate `params` count as intent |
@@ -195,7 +199,7 @@ rowActions: [{ id: "mark-posted", label: "campaigns.action.mark-posted", handler
 - A wizard that edits an existing record shows each step as done by data, not position. A fields step is done when its fields validate (hidden fields and root issues ignored) and at least one visible, editable field that is not a select or boolean holds a non-empty value (`null`, `""`, `[]`, `0`, `false` and a money amount of 0 count as empty), or when the user passed it with Next. Every non-current step is a jump target. Jumping forward runs the same validate gate as Next on the current step and stays put with the field errors shown when it fails; jumping back is always allowed. Create-mode wizards keep position-based done state and only allow jumping back.
 - Below `lg` (vertical rail) and `sm` (horizontal chips), an update-mode wizard shows the step label as an expandable step list with the same done and jump rules.
 - An extension step of such a wizard gets `reportStepComplete(complete)` in its props (undefined everywhere else). Report through `useReportStepComplete(reportStepComplete, complete)` from `@cosmicdrift/kumiko-renderer` with whether the step already holds its data (`null` while it loads, which reports nothing), so the step bar shows it as done. App code needs no raw `useEffect` for this. Without a report the step is done only after the user passed it with Next.
-- A `writeHandler` record action (projectionDetail and entityEdit header and section actions) takes an optional `redirect`, the same forms as entityEdit `redirect` (screen id or `{ screen, idFrom }`). A valid `returnTo` wins over it. The boot validator rejects a target that is not a registered screen. List row actions ignore it.
+- A `writeHandler` record action (projectionDetail and entityEdit header and section actions) takes an optional `redirect`, the same forms as entityEdit `redirect` (screen id or `{ screen, idFrom, tab? }`; `tab` opens that tab of a projectionDetail target). A valid `returnTo` wins over it. The boot validator rejects a target that is not a registered screen. List row actions ignore it.
 - A `writeHandler` record action that deletes the shown record (handler ends in `:delete` and the payload `id` is the record id, which the default payload satisfies) leaves the screen after success without any config: `returnTo`, else `redirect` if set, else `listScreenId` or the entity's list screen. With none of them the screen refetches.
 - `successMessage` on an actionForm is an i18n key for a confirmation above the form after a successful submit. It only shows when the screen stays put: with a `redirect` set, or when the form is hosted in a drawer, it is ignored. `{field}` placeholders resolve from the submitted values, formatted for display. A `reference` field resolves to the chosen record's `labelField` instead of its id, so a cross-tenant admin form can name the record it just changed. If that lookup fails or the row is not in the capped lookup list, the placeholder falls back to the raw id.
 - `submitPrefilled: true` on a full-page actionForm or secretMint lets a row action submit the form straight away, without the user editing anything. Every required field the layout hides with `visible: false` must be named by a navigate `params` source into the screen, otherwise boot fails. With `readOnly: true` instead of `visible: false` the user still sees which record the action applies to. The `params` keys of such a navigation must be declared, non-sensitive fields in the target layout. Without the flag a form holding only URL-prefilled values keeps its submit disabled.
@@ -219,3 +223,7 @@ rowActions: [{ id: "mark-posted", label: "campaigns.action.mark-posted", handler
 - An actionForm in a drawer shows `title` and `subtitle` of the opening drawer action instead of the action label.
 
 Related: `docs/reference/theming.md` for tokens and fonts, `docs/reference/select-field.md` for the select presentation.
+
+## Projection detail header on phones
+
+On a narrow viewport the status badge of a projectionDetail header moves from the title row into the page body, so a long status stays fully readable, and the header keeps the edit pencil as an icon.

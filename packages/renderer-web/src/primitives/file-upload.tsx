@@ -1,7 +1,8 @@
 // File/image upload widget for the auto-edit form. Uploads via multipart POST
 // to /api/files (mounted by the stack when a storageProvider is set), gets the
-// FileRef UUID back and lifts it up as the field value. Image → round avatar
-// preview (GET /api/files/:id, or the declared variant), file → file name.
+// FileRef UUID back and lifts it up as the field value. Image → uncropped
+// rectangular preview (GET /api/files/:id, or the declared variant), file →
+// file name link. A disabled input shows the value only, without controls.
 
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
@@ -11,6 +12,7 @@ import { toAcceptAttr } from "../lib/accept-attr.js";
 import { buildFileUploadFormData } from "../lib/file-upload-form-data.js";
 import { resizeImageBeforeUpload } from "../lib/resize-image.js";
 import { Button as UiButton } from "../ui/button.js";
+import { FileNameLink, FileThumbnail } from "./file-thumbnail.js";
 
 export type FileUploadInputProps = {
   readonly kind: "file" | "image";
@@ -79,26 +81,19 @@ export function FileUploadInput({
 
   return (
     <div className="flex items-center gap-4">
-      {kind === "image" &&
-        (value !== null ? (
-          <img
-            src={
-              imageVariant !== undefined
-                ? `/api/files/${value}/variant/${imageVariant}`
-                : `/api/files/${value}`
-            }
-            alt=""
-            className="size-16 rounded-full border object-cover"
-          />
-        ) : (
-          <div className="bg-muted text-muted-foreground flex size-16 items-center justify-center rounded-full border">
-            <ImageIcon className="size-6" />
-          </div>
-        ))}
+      {kind === "image" && value !== null && (
+        <FileThumbnail
+          fileId={value}
+          {...(imageVariant !== undefined && { variant: imageVariant })}
+        />
+      )}
+      {kind === "image" && value === null && (
+        <div className="bg-muted text-muted-foreground flex h-24 w-32 items-center justify-center rounded-md border">
+          <ImageIcon className="size-6" />
+        </div>
+      )}
       {kind === "file" && value !== null && (
-        <span className="text-muted-foreground text-sm">
-          {t("kumiko.field.file-upload.attached")}
-        </span>
+        <FileNameLink fileId={value} fallbackLabel={t("kumiko.field.file-upload.attached")} />
       )}
       <input
         ref={inputRef}
@@ -110,22 +105,30 @@ export function FileUploadInput({
         onChange={(e) => void onPick(e)}
         disabled={disabled}
       />
-      <UiButton
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={disabled === true || uploading}
-        onClick={() => inputRef.current?.click()}
-      >
-        {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-        {value !== null
-          ? t("kumiko.field.file-upload.change")
-          : t("kumiko.field.file-upload.upload")}
-      </UiButton>
-      {value !== null && (
-        <UiButton type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
-          {t("kumiko.field.file-upload.remove")}
-        </UiButton>
+      {disabled !== true && (
+        <>
+          <UiButton
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={uploading}
+            onClick={() => inputRef.current?.click()}
+          >
+            {uploading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Upload className="size-4" />
+            )}
+            {value !== null
+              ? t("kumiko.field.file-upload.change")
+              : t("kumiko.field.file-upload.upload")}
+          </UiButton>
+          {value !== null && (
+            <UiButton type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
+              {t("kumiko.field.file-upload.remove")}
+            </UiButton>
+          )}
+        </>
       )}
       {error !== null && <span className="text-destructive text-xs">{error}</span>}
     </div>
