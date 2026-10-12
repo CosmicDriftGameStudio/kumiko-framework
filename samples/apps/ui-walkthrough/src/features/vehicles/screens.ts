@@ -92,6 +92,24 @@ export const vehicleEditScreen: EntityEditScreenDefinition = {
   access: OPEN_ACCESS,
 };
 
+export const vehicleEditFlowScreen: EntityEditScreenDefinition = {
+  id: "vehicle-edit-flow",
+  type: "entityEdit",
+  entity: "vehicle",
+  dormant: true,
+  listScreenId: "vehicle-list",
+  recordTitleField: "modell",
+  layout: {
+    sections: [
+      {
+        title: "vehicles.section.equipment",
+        fields: ["marke", "modell", { field: "ausstattung", span: 2 }],
+      },
+    ],
+  },
+  access: OPEN_ACCESS,
+};
+
 export const vehicleWizardScreen: EntityEditScreenDefinition = {
   id: "vehicle-wizard",
   type: "entityEdit",

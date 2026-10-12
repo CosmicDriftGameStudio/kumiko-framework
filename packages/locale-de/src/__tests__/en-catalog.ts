@@ -752,6 +752,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.list.count.noun": "{count} {noun}",
   "kumiko.list.count.one": "1 entry",
   "kumiko.list.count.other": "{count} entries",
+  "kumiko.list.empty.filtered": "No entries match the current search or filters.",
   "kumiko.list.empty.hint": "Create the first one to get started.",
   "kumiko.list.empty.title": "No entries yet.",
   "kumiko.list.end-of-list": "— End of list —",

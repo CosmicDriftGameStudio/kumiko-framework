@@ -144,6 +144,7 @@ function schemaWith(opts: {
   readonly withList: boolean;
   readonly singleton?: boolean;
   readonly redirect?: string;
+  readonly withSummaryScreen?: boolean;
 }): FeatureSchema {
   const editScreen = {
     id: "rent-edit",
@@ -160,10 +161,20 @@ function schemaWith(opts: {
     columns: ["name"],
   } as unknown as FeatureSchema["screens"][number];
   const overview = { ...listScreen, id: "rent-overview", entity: opts.withList ? "rent" : "other" };
+  const summary = {
+    id: "rent-summary",
+    type: "projectionDetail",
+    query: "app:query:rent:summary",
+    layout: {
+      mode: "tabs",
+      sections: [{ id: "payments", title: "Payments", fields: ["name"] }],
+    },
+  } as unknown as FeatureSchema["screens"][number];
+  const base = opts.withList ? [editScreen, listScreen, overview] : [editScreen, overview];
   return {
     featureName: "app",
     entities: { rent: entity },
-    screens: opts.withList ? [editScreen, listScreen, overview] : [editScreen, overview],
+    screens: opts.withSummaryScreen === true ? [...base, summary] : base,
   } as FeatureSchema;
 }
 
@@ -171,14 +182,22 @@ async function runAction(
   schema: FeatureSchema,
   actionId: string,
   searchParams: Readonly<Record<string, string>> = {},
-): Promise<{ readonly navigated: ScreenTarget[]; readonly calls: Calls }> {
+): Promise<{
+  readonly navigated: ScreenTarget[];
+  readonly navigateSearchParams: (Readonly<Record<string, string>> | undefined)[];
+  readonly calls: Calls;
+}> {
   dialogSpy.current = null as DialogProps | null;
   const navigated: ScreenTarget[] = [];
+  const navigateSearchParams: (Readonly<Record<string, string>> | undefined)[] = [];
   const calls: Calls = { writes: 0, detailQueries: 0, listQueries: 0 };
   const navApi: NavApi = {
     route: { screenId: "app:screen:rent-edit" },
-    navigate: (target) => {
-      if ("screenId" in target) navigated.push(target);
+    navigate: (target, options) => {
+      if ("screenId" in target) {
+        navigated.push(target);
+        navigateSearchParams.push(options?.searchParams);
+      }
     },
     replace: () => {},
     hrefFor: () => "",
@@ -222,7 +241,7 @@ async function runAction(
     });
   }
   await waitFor(() => expect(calls.writes).toBe(1));
-  return { navigated, calls };
+  return { navigated, navigateSearchParams, calls };
 }
 
 describe("entityEdit actions that leave the shown record", () => {
@@ -261,6 +280,41 @@ describe("entityEdit actions that leave the shown record", () => {
       "archive",
     );
     await waitFor(() => expect(navigated).toEqual([{ screenId: "rent-overview" }]));
+  });
+
+  test("an object-form redirect with a tab opens that tab on the target screen", async () => {
+    const { navigated, navigateSearchParams } = await runAction(
+      schemaWith({
+        actions: [
+          {
+            ...archiveAction,
+            redirect: { screen: "rent-summary", idFrom: "id", tab: "payments" },
+          },
+        ],
+        withList: true,
+        withSummaryScreen: true,
+      }),
+      "archive",
+    );
+    await waitFor(() =>
+      expect(navigated).toEqual([{ screenId: "rent-summary", entityId: "rent-1" }]),
+    );
+    expect(navigateSearchParams).toEqual([{ tab: "payments" }]);
+  });
+
+  test("an object-form redirect without a tab navigates without search params", async () => {
+    const { navigated, navigateSearchParams } = await runAction(
+      schemaWith({
+        actions: [{ ...archiveAction, redirect: { screen: "rent-summary", idFrom: "id" } }],
+        withList: true,
+        withSummaryScreen: true,
+      }),
+      "archive",
+    );
+    await waitFor(() =>
+      expect(navigated).toEqual([{ screenId: "rent-summary", entityId: "rent-1" }]),
+    );
+    expect(navigateSearchParams).toEqual([undefined]);
   });
 
   test("a delete without any list screen reloads the record instead of staying stale", async () => {

@@ -183,7 +183,7 @@ export function RenderField({
         hasError={hasError}
         onChange={onChange}
       />
-    ) : readOnlyText && !isComplexFieldType(field.type) ? (
+    ) : readOnlyText && !isComplexFieldType(field.type) && !isFileFieldType(field.type) ? (
       <Text testId={`field-value-${field.field}`}>{readOnlyDisplayText(field, appLocale, t)}</Text>
     ) : field.type === "text" && field.writeOnly === true && !readOnlyText ? (
       <WriteOnlyTextInput
@@ -597,6 +597,12 @@ function ReadOnlyReferenceValue({
 // in text-display mode too.
 function isComplexFieldType(type: string): boolean {
   return type === "embedded" || type === "jsonb";
+}
+
+// Read-only file fields keep their (disabled) widget: it shows a thumbnail or
+// the file name, where plain text could only show the FileRef UUID.
+function isFileFieldType(type: string): boolean {
+  return type === "file" || type === "image" || type === "files" || type === "images";
 }
 
 // Mirrors ACTION_ICON_BY_ID (kumiko-screen.tsx) for fields: only names with
@@ -1072,12 +1078,6 @@ function readOnlyDisplayText(
         .map((v) => (typeof v === "string" ? (labels?.[v] ?? v) : stringValue(v)))
         .join(", ");
     }
-    case "file":
-    case "image":
-      return typeof value === "string" ? value : "—";
-    case "files":
-    case "images":
-      return Array.isArray(value) && value.length > 0 ? value.map(stringValue).join(", ") : "—";
     default:
       return stringValue(value);
   }

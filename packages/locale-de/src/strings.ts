@@ -781,6 +781,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.list.count.noun": "{count} {noun}",
   "kumiko.list.count.one": "1 Eintrag",
   "kumiko.list.count.other": "{count} Einträge",
+  "kumiko.list.empty.filtered": "Keine Einträge passen zur Suche oder zu den Filtern.",
   "kumiko.list.empty.hint": "Lege den ersten an, um loszulegen.",
   "kumiko.list.empty.title": "Noch keine Einträge.",
   "kumiko.list.end-of-list": "— Ende der Liste —",

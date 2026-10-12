@@ -262,6 +262,102 @@ describe("compact shell header with a projection detail", () => {
     },
   );
 
+  test("a confirm-gated primaryAction goes into the panel while the pencil stays an icon button", async () => {
+    setViewportWidth(PHONE);
+    renderDetail({
+      ...schema,
+      screens: [
+        {
+          ...detailScreen,
+          primaryAction: "activate",
+          actions: [
+            ...(detailScreen.actions ?? []),
+            {
+              kind: "writeHandler",
+              id: "activate",
+              label: "actions.activate",
+              handler: "app:write:activate",
+              icon: "check",
+              style: "primary",
+              confirm: "actions.activateConfirm",
+            },
+          ],
+        },
+      ],
+    });
+    await waitFor(() => screen.getByTestId("render-edit-action-edit"));
+
+    expect(screen.getByTestId("render-edit-action-edit").textContent).toBe("");
+    expect(screen.queryByTestId("render-edit-action-activate")).toBeNull();
+    fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
+    expect(screen.getByTestId("shell-header-overflow-item-activate")).toBeTruthy();
+  });
+
+  test("desktop shows the primaryAction as the text button and moves edit into the menu", async () => {
+    setViewportWidth(DESKTOP);
+    renderDetail({
+      ...schema,
+      screens: [
+        {
+          ...detailScreen,
+          primaryAction: "duplicate",
+        },
+      ],
+    });
+    await waitFor(() => screen.getByTestId("render-edit-action-duplicate"));
+    expect(screen.queryByTestId("render-edit-action-edit")).toBeNull();
+  });
+
+  describe("status badge", () => {
+    const statusScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      header: { title: "userId", status: "statusLabel" },
+    };
+    const statusSchema: FeatureSchema = { ...schema, screens: [statusScreen] };
+    const statusDispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", statusLabel: "Aktiv, Änderungen nicht veröffentlicht" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    function renderStatusDetail(): void {
+      renderWithSidebar(
+        <DispatcherProvider dispatcher={statusDispatcher}>
+          <PageHeaderSlotProvider>
+            <ShellHeader schema={{ features: [statusSchema] }} />
+            <KumikoScreen
+              schema={statusSchema}
+              qn="sessions:screen:session-detail"
+              entityId="sess-1"
+            />
+          </PageHeaderSlotProvider>
+        </DispatcherProvider>,
+      );
+    }
+
+    test("on a phone the badge sits in the body, not in the clipped shell header", async () => {
+      setViewportWidth(PHONE);
+      renderStatusDetail();
+      const row = await waitFor(() =>
+        screen.getByTestId("kumiko-screen-projection-detail-status-row"),
+      );
+      expect(within(row).getByText("Aktiv, Änderungen nicht veröffentlicht")).toBeTruthy();
+      expect(
+        within(document.querySelector("header") as HTMLElement).queryByText(
+          "Aktiv, Änderungen nicht veröffentlicht",
+        ),
+      ).toBeNull();
+    });
+
+    test("on desktop the badge stays in the shell header and no status row is added", async () => {
+      setViewportWidth(DESKTOP);
+      renderStatusDetail();
+      await waitFor(() => screen.getByText("Aktiv, Änderungen nicht veröffentlicht"));
+      expect(screen.queryByTestId("kumiko-screen-projection-detail-status-row")).toBeNull();
+    });
+  });
+
   test("desktop keeps the primary as a text button and the existing overflow menu", async () => {
     setViewportWidth(DESKTOP);
     renderDetail();

@@ -365,6 +365,7 @@ export type {
   FormatSpec,
   FormWidth,
   ListColumnSpec,
+  ListEmptyStateSpec,
   ListFacetSpec,
   ListPaginationMode,
   ListSortDir,

@@ -556,6 +556,38 @@ describe("projectionDetail default edit action (fw#2166)", () => {
     ).toBe("actions.auditLog");
   });
 
+  test("three header actions with primaryAction → the declared action stays the text button, edit moves into the overflow menu", async () => {
+    const schema: FeatureSchema = {
+      featureName: "app",
+      entities: {},
+      screens: [
+        detailScreen({
+          primaryAction: "duplicate",
+          actions: [
+            { kind: "navigate", id: "edit", label: "actions.edit", screen: "rent-edit" },
+            { kind: "navigate", id: "duplicate", label: "actions.duplicate", screen: "rent-edit" },
+            { kind: "navigate", id: "audit-log", label: "actions.auditLog", screen: "rent-edit" },
+          ],
+        }),
+        editScreen("rent"),
+      ],
+    };
+    const { getByTestId, queryByTestId, queryByText } = renderDetail({
+      primarySchema: schema,
+      features: [schema],
+      userRoles: [],
+    });
+    await waitFor(() => expect(queryByText("Loading…")).toBeNull());
+
+    expect(getByTestId("render-edit-action-duplicate").textContent).toBe("actions.duplicate");
+    expect(queryByTestId("render-edit-action-edit")).toBeNull();
+
+    fireEvent.click(getByTestId("kumiko-screen-projection-detail-actions-overflow"));
+    expect(
+      getByTestId("kumiko-screen-projection-detail-actions-overflow-item-edit").textContent,
+    ).toBe("actions.edit");
+  });
+
   test("four header actions incl. edit → edit stays a text button, the other three are only reachable via the overflow menu (fw bedienkonzept A7)", async () => {
     const schema: FeatureSchema = {
       featureName: "app",

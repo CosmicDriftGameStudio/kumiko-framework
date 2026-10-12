@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-09-24
-evidence: "kumiko-framework#2509 (screen field refs vs query handler outputSchema); engine/boot-validator/*"
+verified: 2026-10-12
+evidence: "packages/framework/src/engine/boot-validator/screens.ts (primaryAction, emptyState action, redirect tab); kumiko-framework#2509 (screen field refs vs query handler outputSchema); engine/boot-validator/*"
 ---
 
 # Boot-Validator: Screen-Field-Refs + Query-OutputSchema
@@ -49,7 +49,7 @@ Das ist der typische Fehler: man übergibt das Row-Schema statt der Envelope.
 
 Jede Action, die als Button in einer `projectionDetail`/`entityEdit`-Card-
 Titelzeile landet — Screen-`actions`, Section-`actions`, und `relatedList`
-`emptyState.action` — muss ein auflösbares Icon haben
+`emptyState.action` (auch der von `entityList`/`projectionList`) — muss ein auflösbares Icon haben
 (`validateActionHasIcon`, `packages/framework/src/engine/boot-validator/screens.ts`).
 Auflösung: explizites `icon` auf der Action, sonst ein Default über die
 `id`-Konvention (z. B. ein `deletion`-Segment in der id → `trash`). Fehlt
