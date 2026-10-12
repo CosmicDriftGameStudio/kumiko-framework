@@ -24,7 +24,8 @@
     }
   },
   "dependencies": {
-    "@cosmicdrift/kumiko-headless": "workspace:*"
+    "@cosmicdrift/kumiko-headless": "workspace:*",
+    "@cosmicdrift/kumiko-types": "workspace:*"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",

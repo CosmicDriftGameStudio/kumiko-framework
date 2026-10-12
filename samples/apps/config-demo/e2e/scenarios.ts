@@ -1,4 +1,5 @@
-import type { Scenario } from "@cosmicdrift/kumiko-testing/e2e";
+// @runtime test
+import { CSRF_COOKIE_NAME, type Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 
 async function writeConfig(
@@ -8,10 +9,10 @@ async function writeConfig(
   scope: "system" | "tenant" | "user",
 ): Promise<void> {
   // CSRF token is in cookie set by auto-mint JWT
-  const csrf = await page.evaluate(() => {
-    const m = document.cookie.match(/kumiko_csrf=([^;]+)/);
+  const csrf = await page.evaluate((cookieName) => {
+    const m = document.cookie.match(new RegExp(`${cookieName}=([^;]+)`));
     return m?.[1] ?? "";
-  });
+  }, CSRF_COOKIE_NAME);
   const res = await page.request.post("/api/write", {
     headers: { "X-CSRF-Token": csrf, "Content-Type": "application/json" },
     data: { type: "config:write:set", payload: { key, value, scope } },

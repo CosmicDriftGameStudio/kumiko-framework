@@ -1,3 +1,4 @@
+// @runtime test
 // Playwright specs derived programmatically from the registry.
 //
 // How it works: globalSetup (see global-setup.ts) spawns an emitter script
@@ -16,6 +17,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CSRF_COOKIE_NAME } from "@cosmicdrift/kumiko-testing/e2e";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
@@ -110,8 +112,8 @@ async function runListHasFixtureRow(
   // state-changing → needs an X-CSRF-Token header mirroring the kumiko_csrf
   // cookie (double-submit pattern).
   const cookies = await page.context().cookies();
-  const csrf = cookies.find((c) => c.name === "kumiko_csrf")?.value;
-  if (!csrf) throw new Error("no kumiko_csrf cookie after login");
+  const csrf = cookies.find((c) => c.name === CSRF_COOKIE_NAME)?.value;
+  if (!csrf) throw new Error(`no ${CSRF_COOKIE_NAME} cookie after login`);
 
   const res = await page.request.post("/api/write", {
     data: { type: spec.writeHandlerQn, payload: spec.fixture },

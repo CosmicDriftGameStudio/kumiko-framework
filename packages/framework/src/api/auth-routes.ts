@@ -20,10 +20,8 @@ import { assertUnreachable } from "../utils/index.js";
 import { parseRoles } from "../utils/serialization.js";
 import { Routes } from "./api-constants.js";
 import {
-  AUTH_COOKIE_NAME,
   type AuthSessionChecker,
   type AuthSessionStatus,
-  CSRF_COOKIE_NAME,
   getUser,
   type TokenVerifier,
 } from "./auth-middleware.js";
@@ -35,21 +33,22 @@ import {
 import type { JwtHelper } from "./jwt.js";
 import type { PostAuthLandingArgs, PostAuthLandingResolver } from "./post-auth-landing.js";
 import { resolvePostAuthLandingPath } from "./post-auth-landing.js";
+import {
+  AUTH_COOKIE_BASE,
+  CSRF_COOKIE_BASE,
+  clearSessionCookies,
+  getSessionCookies,
+  isHostPrefixedCookieName,
+  type ResolvedSessionCookies,
+  resolveSessionCookies,
+} from "./session-cookies.js";
 import { generateToken } from "./tokens.js";
 
 // 429 comes from the per-route rate limit; handler errors map to the rest.
 type PublicAuthErrorStatus = 400 | 401 | 403 | 422 | 429 | 500;
 
-// Resolves the Secure cookie flag. Locked off in dev/test so Playwright
-// against http://localhost:… can actually receive the cookie. Production
-// flips it on — browsers drop Secure cookies on http, so a misconfigured
-// prod deploy would silently break login rather than fail loud.
-function cookieSecure(): boolean {
-  return process.env["NODE_ENV"] === "production";
-}
-
-// Double-entry cookie write used at login and switch-tenant. kumiko_auth is
-// the HttpOnly carrier of the JWT; kumiko_csrf is the JS-readable token the
+// Double-entry cookie write used at login and switch-tenant. The auth cookie is
+// the HttpOnly carrier of the JWT; the csrf cookie is the JS-readable token the
 // web client echoes in X-CSRF-Token on every state-changing request. Both
 // cookies share lifetime and SameSite so a stale auth-cookie can't outlive
 // its csrf partner (or vice versa) and leave the client in a half-logged-in
@@ -57,6 +56,7 @@ function cookieSecure(): boolean {
 function setAuthCookies(
   c: Context,
   opts: {
+    cookies: ResolvedSessionCookies;
     token: string;
     csrfToken: string;
     sameSite: "lax" | "strict";
@@ -68,56 +68,39 @@ function setAuthCookies(
     ttlSeconds: number;
   },
 ): void {
+  const { secure, names } = opts.cookies;
   const sameSite = opts.sameSite === "strict" ? "Strict" : "Lax";
   const common = {
-    secure: cookieSecure(),
+    secure,
     sameSite,
     path: "/",
     maxAge: opts.ttlSeconds,
     ...(opts.domain !== undefined && { domain: opts.domain }),
   } as const;
 
-  // Bei gesetzter Domain zuerst die host-only-Variante invalidieren (analog
-  // clearAuthCookies): sonst koexistiert nach einem Deploy mit neuem
-  // cookieDomain das alte host-only-Cookie mit dem neuen Domain-Cookie
-  // (RFC 6265: name+domain ist distinct) und der Server bindet
-  // umgebungsabhängig potenziell ans veraltete host-only-Token.
-  if (opts.domain !== undefined) {
-    deleteCookie(c, AUTH_COOKIE_NAME, { path: "/" });
-    deleteCookie(c, CSRF_COOKIE_NAME, { path: "/" });
+  // With a Domain, expire the host-only variant first (as clearSessionCookies
+  // does): after a deploy that sets cookieDomain, the old host-only cookie
+  // would coexist with the new Domain cookie (RFC 6265 treats name+domain as
+  // distinct) and the server could bind to the stale host-only token. With
+  // __Host- names the unprefixed host-only cookie is a leftover from before
+  // the prefix and is expired too.
+  if (opts.domain !== undefined || isHostPrefixedCookieName(names.auth)) {
+    deleteCookie(c, AUTH_COOKIE_BASE, { path: "/" });
+    deleteCookie(c, CSRF_COOKIE_BASE, { path: "/" });
   }
   // Must precede the setCookie calls: browsers apply Set-Cookie in order and
   // a retired domain equal to the new one is rejected at config time.
+  // Retired domains only ever carried unprefixed names (a __Host- cookie has no
+  // Domain), and a __Host- delete with a Domain would be ignored.
   for (const retiredDomain of opts.retiredDomains) {
-    deleteCookie(c, AUTH_COOKIE_NAME, { path: "/", domain: retiredDomain });
-    deleteCookie(c, CSRF_COOKIE_NAME, { path: "/", domain: retiredDomain });
+    deleteCookie(c, AUTH_COOKIE_BASE, { path: "/", domain: retiredDomain });
+    deleteCookie(c, CSRF_COOKIE_BASE, { path: "/", domain: retiredDomain });
   }
 
-  setCookie(c, AUTH_COOKIE_NAME, opts.token, { ...common, httpOnly: true });
+  setCookie(c, names.auth, opts.token, { ...common, httpOnly: true });
   // Intentionally NOT HttpOnly — the web client has to read this from
   // document.cookie to include it in the X-CSRF-Token request header.
-  setCookie(c, CSRF_COOKIE_NAME, opts.csrfToken, { ...common, httpOnly: false });
-}
-
-function clearAuthCookies(
-  c: Context,
-  domain: string | undefined,
-  retiredDomains: readonly string[],
-): void {
-  // Beide Varianten löschen: mit Domain (aktuelle Cookies) UND host-only
-  // (Bestand aus der Zeit vor cookieDomain) — sonst bleibt nach einem
-  // Deploy mit neu gesetztem cookieDomain der alte Cookie liegen und der
-  // Logout wirkt nur scheinbar.
-  deleteCookie(c, AUTH_COOKIE_NAME, { path: "/" });
-  deleteCookie(c, CSRF_COOKIE_NAME, { path: "/" });
-  if (domain !== undefined) {
-    deleteCookie(c, AUTH_COOKIE_NAME, { path: "/", domain });
-    deleteCookie(c, CSRF_COOKIE_NAME, { path: "/", domain });
-  }
-  for (const retiredDomain of retiredDomains) {
-    deleteCookie(c, AUTH_COOKIE_NAME, { path: "/", domain: retiredDomain });
-    deleteCookie(c, CSRF_COOKIE_NAME, { path: "/", domain: retiredDomain });
-  }
+  setCookie(c, names.csrf, opts.csrfToken, { ...common, httpOnly: false });
 }
 
 const INVALID_COOKIE_DOMAIN_CHARS = /[;,\s]/;
@@ -506,6 +489,12 @@ export type AuthRoutesConfig = {
   // wide cookie makes the JS-readable csrf cookie reachable from every
   // subdomain, weakening the double-submit defence).
   cookieDomain?: string;
+  // Force the Secure flag on the session cookies. Default: on when
+  // NODE_ENV is "production". Secure cookies without a `cookieDomain` are
+  // written under the `__Host-` prefix (`__Host-kumiko_auth` etc.), which a
+  // sibling subdomain cannot set or shadow; with a `cookieDomain` or without
+  // Secure the plain names are used. buildServer resolves this once.
+  secureCookies?: boolean;
   // Domains that previously carried the auth cookies (an earlier `cookieDomain`
   // value). Login and logout additionally send delete headers for these
   // domains, so a stale `Domain=<old>` cookie cannot shadow the new one after
@@ -530,6 +519,12 @@ export type AuthRoutesConfig = {
   // Empty/unset (default) disables the guard; required only when
   // `cookieDomain` widens the cookie across subdomains.
   allowedOrigins?: readonly string[];
+  // Canonical public origin of the app (scheme+host+optional port). Used only
+  // when `allowedOrigins` is unset: the Origin guard then admits this origin
+  // plus the request's own host, which keeps custom domains working because
+  // the session cookies are host-only. runProdApp fills it from
+  // `auth.mail.baseUrl` or the APP_BASE_URL env.
+  publicOrigin?: string;
   // Explicit opt-out of the fail-closed Origin guard. When `cookieDomain` is
   // set the framework REFUSES TO BOOT unless `allowedOrigins` is configured — a
   // wide cookie without an Origin check is the unguarded-subdomain-XSS footgun.
@@ -772,6 +767,11 @@ export function createAuthRoutes(
   // working. High-security apps can opt into "strict" — see AuthRoutesConfig.
   const cookieSameSite = config.cookieSameSite ?? "lax";
   const cookieDomain = config.cookieDomain;
+  const sessionCookies = resolveSessionCookies({
+    secureCookies: config.secureCookies,
+    cookieDomain,
+    retiredCookieDomains: config.retiredCookieDomains,
+  });
   assertRetiredCookieDomains(config.retiredCookieDomains, cookieDomain);
   const retiredCookieDomains = config.retiredCookieDomains ?? [];
   // Single hop-count-aware IP getter for every rate-limit call site below —
@@ -819,6 +819,7 @@ export function createAuthRoutes(
     const token = await jwt.sign(sessionForJwt);
     const csrfToken = generateToken();
     setAuthCookies(c, {
+      cookies: getSessionCookies(c, sessionCookies),
       token,
       csrfToken,
       sameSite: cookieSameSite,
@@ -1487,7 +1488,7 @@ export function createAuthRoutes(
     }
     // Clear cookies on the cookie-transport path. Idempotent — clearing a
     // missing cookie is a no-op, so bearer-only clients aren't affected.
-    clearAuthCookies(c, cookieDomain, retiredCookieDomains);
+    clearSessionCookies(c, getSessionCookies(c, sessionCookies));
     return c.json({ isSuccess: true });
   });
 

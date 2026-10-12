@@ -12,12 +12,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { defineFeature } from "../../engine/index.js";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
-import {
-  AUTH_COOKIE_NAME,
-  CSRF_COOKIE_NAME,
-  CSRF_HEADER_NAME,
-  getUser,
-} from "../auth-middleware.js";
+import { CSRF_HEADER_NAME, getUser } from "../auth-middleware.js";
+import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
 
 const ALLOWED = "https://admin.example.eu";
 const DISALLOWED = "https://tenant.example.eu";
@@ -44,7 +40,7 @@ describe("origin-middleware (integration)", () => {
       },
     });
     const token = await stack.jwt.sign(TestUsers.user);
-    authCookie = `${AUTH_COOKIE_NAME}=${token}`;
+    authCookie = `${AUTH_COOKIE_BASE}=${token}`;
   });
 
   afterAll(async () => {
@@ -75,7 +71,7 @@ describe("origin-middleware (integration)", () => {
   test("no Origin + valid CSRF token → reaches dispatcher (Safari same-origin POST)", async () => {
     const csrf = "csrf-fixed-integration-token";
     const res = await stack.http.raw("POST", "/api/query", QUERY_BODY, {
-      Cookie: `${authCookie}; ${CSRF_COOKIE_NAME}=${csrf}`,
+      Cookie: `${authCookie}; ${CSRF_COOKIE_BASE}=${csrf}`,
       [CSRF_HEADER_NAME]: csrf,
     });
     // Both guards passed → the dispatcher 404s the unknown query. A positive
@@ -120,7 +116,7 @@ describe("origin-middleware opt-out (unsafeSkipOriginCheck)", () => {
       },
     });
     const token = await stack.jwt.sign(TestUsers.user);
-    authCookie = `${AUTH_COOKIE_NAME}=${token}`;
+    authCookie = `${AUTH_COOKIE_BASE}=${token}`;
   });
 
   afterAll(async () => {
@@ -187,7 +183,7 @@ describe("origin-middleware + anonymousAccess: foreign-origin cookie becomes ano
       anonymousAccess: { defaultTenantId: TestUsers.user.tenantId },
     });
     const token = await stack.jwt.sign(TestUsers.user);
-    authCookie = `${AUTH_COOKIE_NAME}=${token}`;
+    authCookie = `${AUTH_COOKIE_BASE}=${token}`;
   });
 
   afterAll(async () => {
@@ -210,7 +206,7 @@ describe("origin-middleware + anonymousAccess: foreign-origin cookie becomes ano
 
   test("foreign origin + garbage cookie value → still anonymous, jwt.verify never runs", async () => {
     const res = await stack.http.raw("POST", "/api/query", anonEchoQuery, {
-      Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt`,
+      Cookie: `${AUTH_COOKIE_BASE}=not-a-valid-jwt`,
       Origin: DISALLOWED,
     });
     // A malformed token would 401 invalid_token if jwt.verify ran on it —
@@ -265,7 +261,7 @@ describe("origin-middleware + anonymousAccess: foreign-origin cookie becomes ano
   test("allowed origin + cookie + valid CSRF → authenticated as the real user, not anonymous", async () => {
     const csrf = "csrf-fixed-anon-fallthrough-token";
     const res = await stack.http.raw("POST", "/api/write", userOnlyRoute, {
-      Cookie: `${authCookie}; ${CSRF_COOKIE_NAME}=${csrf}`,
+      Cookie: `${authCookie}; ${CSRF_COOKIE_BASE}=${csrf}`,
       Origin: ALLOWED,
       [CSRF_HEADER_NAME]: csrf,
     });

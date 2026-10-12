@@ -8,7 +8,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { type AnonymousAccessConfig, AUTH_COOKIE_NAME } from "../api/auth-middleware.js";
+import type { AnonymousAccessConfig } from "../api/auth-middleware.js";
+import { AUTH_COOKIE_BASE } from "../api/session-cookies.js";
 import { createEventStoreExecutor } from "../db/event-store-executor.js";
 import { asRawClient, selectMany } from "../db/query.js";
 import { buildEntityTable } from "../db/table-builder.js";
@@ -200,7 +201,7 @@ describe("anonymous access — single-tenant default", () => {
       "POST",
       "/api/query",
       { type: "anonshop:query:product:list", payload: {} },
-      { Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt` },
+      { Cookie: `${AUTH_COOKIE_BASE}=not-a-valid-jwt` },
     );
     expect(res.status).toBe(200);
   });
@@ -210,7 +211,7 @@ describe("anonymous access — single-tenant default", () => {
       "POST",
       "/api/write",
       { type: "anonshop:write:product:create", payload: { name: "Tea Set" } },
-      { Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt` },
+      { Cookie: `${AUTH_COOKIE_BASE}=not-a-valid-jwt` },
     );
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
@@ -220,7 +221,7 @@ describe("anonymous access — single-tenant default", () => {
 
   test("stale auth cookie on /api/auth/* keeps 401 invalid_token", async () => {
     const res = await stack.http.raw("GET", "/api/auth/tenants", undefined, {
-      Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt`,
+      Cookie: `${AUTH_COOKIE_BASE}=not-a-valid-jwt`,
     });
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
@@ -363,7 +364,7 @@ describe("anonymous access — header-supplied tenant", () => {
       "POST",
       "/api/query",
       { type: "anonshop:query:product:list", payload: {} },
-      { Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt` },
+      { Cookie: `${AUTH_COOKIE_BASE}=not-a-valid-jwt` },
     );
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
@@ -404,7 +405,7 @@ describe("anonymous access — revoked session cookie", () => {
 
   async function revokedSessionCookie(): Promise<string> {
     const token = await stack.jwt.sign({ ...TestUsers.admin, sid: REVOKED_SID });
-    return `${AUTH_COOKIE_NAME}=${token}`;
+    return `${AUTH_COOKIE_BASE}=${token}`;
   }
 
   test("anonymous handler stays reachable", async () => {
@@ -464,7 +465,7 @@ describe("anonymous access — stale cookie on a torn-down tenant", () => {
       "POST",
       "/api/query",
       { type: "anonshop:query:product:list", payload: {} },
-      { Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt` },
+      { Cookie: `${AUTH_COOKIE_BASE}=not-a-valid-jwt` },
     );
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
@@ -639,7 +640,7 @@ describe("anonymous access — /api/schema without a session, authoritative reso
 
   async function sessionCookie(): Promise<string> {
     const token = await stack.jwt.sign({ ...TestUsers.admin, sid: LIVE_SID });
-    return `${AUTH_COOKIE_NAME}=${token}`;
+    return `${AUTH_COOKIE_BASE}=${token}`;
   }
 
   test("after logout the cookie is gone → 401, not 400 tenant_required", async () => {
@@ -754,7 +755,7 @@ describe("anonymous access — disabled by default", () => {
     // The web client's EventSource probe relies on exactly this contract to
     // end the session instead of silently losing live updates.
     const res = await stack.http.raw("GET", "/api/sse", undefined, {
-      Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt`,
+      Cookie: `${AUTH_COOKIE_BASE}=not-a-valid-jwt`,
     });
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };

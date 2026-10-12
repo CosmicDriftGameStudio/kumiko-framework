@@ -167,6 +167,7 @@ import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-se
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
 import { assertPiiBootInvariants } from "./pii-boot-gate.js";
+import { resolveAuthPublicOrigin } from "./resolve-auth-public-origin.js";
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
@@ -390,6 +391,10 @@ export type RunProdAppAuthOptions = {
    *  AuthRoutesConfig.cookieDomain). Set to the registrable parent
    *  domain when login and app live on different subdomains. */
   readonly cookieDomain?: string;
+  /** Secure flag for the session cookies (see AuthRoutesConfig.secureCookies).
+   *  Defaults to NODE_ENV === "production"; set it to true when TLS ends at a
+   *  proxy and NODE_ENV is not "production". */
+  readonly secureCookies?: boolean;
   /** Former cookie domains cleared on login/logout (see
    *  AuthRoutesConfig.retiredCookieDomains). */
   readonly retiredCookieDomains?: readonly string[];
@@ -402,6 +407,10 @@ export type RunProdAppAuthOptions = {
    *  — accept the wide-cookie CSRF risk explicitly instead of setting
    *  `allowedOrigins`. */
   readonly unsafeSkipOriginCheck?: boolean;
+  /** Canonical public origin for the default Origin guard (see
+   *  AuthRoutesConfig.publicOrigin). Defaults to the origin of
+   *  `mail.baseUrl`, then of the APP_BASE_URL env. */
+  readonly publicOrigin?: string;
   /** Number of trusted reverse-proxy hops between the client and this
    *  process for client-IP derivation (see AuthRoutesConfig.trustedProxyHops,
    *  kumiko-framework#1539) — closes the X-Forwarded-For spoofing hole on
@@ -908,6 +917,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   const effectiveAuth = options.auth
     ? resolveAuthMail(options.auth, jwtSecret, envSource)
     : undefined;
+  const authPublicOrigin = effectiveAuth
+    ? resolveAuthPublicOrigin(effectiveAuth, envSource, (message) => {
+        // biome-ignore lint/suspicious/noConsole: boot-time warn, no logger configured this early
+        console.warn(message);
+      })
+    : undefined;
 
   // 3. Feature registry. Auth-mode auto-mixes config/user/tenant/auth-email-
   //    password via composeFeatures — same source-of-truth as runDevApp
@@ -1194,6 +1209,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         ...(effectiveAuth.cookieDomain !== undefined && {
           cookieDomain: effectiveAuth.cookieDomain,
         }),
+        ...(effectiveAuth.secureCookies !== undefined && {
+          secureCookies: effectiveAuth.secureCookies,
+        }),
         ...(effectiveAuth.retiredCookieDomains !== undefined && {
           retiredCookieDomains: effectiveAuth.retiredCookieDomains,
         }),
@@ -1203,6 +1221,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         ...(effectiveAuth.unsafeSkipOriginCheck !== undefined && {
           unsafeSkipOriginCheck: effectiveAuth.unsafeSkipOriginCheck,
         }),
+        ...(authPublicOrigin !== undefined && { publicOrigin: authPublicOrigin }),
         ...(trustedProxyHops !== undefined && { trustedProxyHops }),
         ...(effectiveAuth.postAuthLanding !== undefined && {
           postAuthLanding: effectiveAuth.postAuthLanding,

@@ -6,13 +6,13 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { TestUsers } from "../../stack/index.js";
 import {
-  AUTH_COOKIE_NAME,
   authMiddleware,
   getAuthTokenExpiry,
   getAuthTransport,
   getUser,
 } from "../auth-middleware.js";
 import { createJwtHelper } from "../jwt.js";
+import { AUTH_COOKIE_BASE } from "../session-cookies.js";
 
 const JWT_SECRET = "auth-middleware-transport-test-secret-min-32-chars";
 
@@ -44,7 +44,7 @@ describe("auth-middleware transport selection", () => {
   test("auth cookie authenticates and sets transport=cookie", async () => {
     const { app, token } = await buildApp();
     const res = await app.request("/api/ping", {
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}` },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}` },
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { userId: string; transport: string };
@@ -57,7 +57,7 @@ describe("auth-middleware transport selection", () => {
     const res = await app.request("/api/ping", {
       headers: {
         Authorization: `Bearer ${token}`,
-        Cookie: `${AUTH_COOKIE_NAME}=${token}`,
+        Cookie: `${AUTH_COOKIE_BASE}=${token}`,
       },
     });
     expect(res.status).toBe(400);
@@ -77,7 +77,7 @@ describe("auth-middleware transport selection", () => {
   test("invalid cookie JWT → 401 invalid_token", async () => {
     const { app } = await buildApp();
     const res = await app.request("/api/ping", {
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=not-a-real-jwt` },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=not-a-real-jwt` },
     });
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };

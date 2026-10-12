@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { TestUsers } from "../../stack/index.js";
-import { AUTH_COOKIE_NAME, authMiddleware } from "../auth-middleware.js";
+import { authMiddleware } from "../auth-middleware.js";
 import { createJwtHelper } from "../jwt.js";
 import {
   assertOriginGuardConfig,
@@ -16,6 +16,7 @@ import {
   normalizeOrigin,
   originMiddleware,
 } from "../origin-middleware.js";
+import { AUTH_COOKIE_BASE } from "../session-cookies.js";
 
 function isErrorBody(v: unknown): v is { error: { code: string } } {
   if (typeof v !== "object" || v === null || !("error" in v)) return false;
@@ -118,7 +119,7 @@ describe("originMiddleware", () => {
   test("cookie transport + GET → no check (safe method)", async () => {
     const { app, token } = await buildApp();
     const res = await app.request("/api/ping", {
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, Origin: DISALLOWED },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}`, Origin: DISALLOWED },
     });
     expect(res.status).toBe(200);
   });
@@ -127,7 +128,7 @@ describe("originMiddleware", () => {
     const { app, token } = await buildApp();
     const res = await app.request("/api/write", {
       method: "POST",
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, Origin: ALLOWED },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}`, Origin: ALLOWED },
     });
     expect(res.status).toBe(200);
   });
@@ -136,7 +137,7 @@ describe("originMiddleware", () => {
     const { app, token } = await buildApp();
     const res = await app.request("/api/write", {
       method: "POST",
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, Origin: DISALLOWED },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}`, Origin: DISALLOWED },
     });
     expect(res.status).toBe(403);
     expect(await readErrorCode(res)).toBe("origin_not_allowed");
@@ -150,7 +151,7 @@ describe("originMiddleware", () => {
       const { app, token } = await buildApp();
       const res = await app.request("/api/write", {
         method,
-        headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, Origin: DISALLOWED },
+        headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}`, Origin: DISALLOWED },
       });
       expect(res.status).toBe(403);
       expect(await readErrorCode(res)).toBe("origin_not_allowed");
@@ -164,7 +165,7 @@ describe("originMiddleware", () => {
     const res = await app.request("/api/write", {
       method: "POST",
       headers: {
-        Cookie: `${AUTH_COOKIE_NAME}=${token}`,
+        Cookie: `${AUTH_COOKIE_BASE}=${token}`,
         Origin: DISALLOWED,
         "Content-Type": "text/plain",
       },
@@ -177,7 +178,7 @@ describe("originMiddleware", () => {
     const { app, token } = await buildApp();
     const res = await app.request("/api/write", {
       method: "POST",
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}` },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}` },
     });
     expect(res.status).toBe(200);
   });
@@ -186,7 +187,7 @@ describe("originMiddleware", () => {
     const { app, token } = await buildApp();
     const res = await app.request("/api/write", {
       method: "POST",
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, "Sec-Fetch-Site": "same-origin" },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}`, "Sec-Fetch-Site": "same-origin" },
     });
     expect(res.status).toBe(200);
   });
@@ -198,7 +199,7 @@ describe("originMiddleware", () => {
     const { app, token } = await buildApp();
     const res = await app.request("/api/write", {
       method: "POST",
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, "Sec-Fetch-Site": "same-site" },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}`, "Sec-Fetch-Site": "same-site" },
     });
     expect(res.status).toBe(200);
   });
@@ -207,7 +208,7 @@ describe("originMiddleware", () => {
     const { app, token } = await buildApp();
     const res = await app.request("/api/write", {
       method: "POST",
-      headers: { Cookie: `${AUTH_COOKIE_NAME}=${token}`, "Sec-Fetch-Site": "cross-site" },
+      headers: { Cookie: `${AUTH_COOKIE_BASE}=${token}`, "Sec-Fetch-Site": "cross-site" },
     });
     expect(res.status).toBe(403);
     expect(await readErrorCode(res)).toBe("origin_not_allowed");
@@ -232,7 +233,7 @@ describe("isWebSocketOriginAllowed", () => {
     app.get("/api/ws/probe", (c) => c.json({ allowed: isWebSocketOriginAllowed(c, list) }));
     const auth: Record<string, string> =
       transport === "cookie"
-        ? { Cookie: `${AUTH_COOKIE_NAME}=${token}` }
+        ? { Cookie: `${AUTH_COOKIE_BASE}=${token}` }
         : { Authorization: `Bearer ${token}` };
     const res = await app.request("/api/ws/probe", {
       headers: { Host: HOST, ...auth, ...headers },

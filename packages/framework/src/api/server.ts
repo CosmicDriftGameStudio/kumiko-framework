@@ -111,8 +111,8 @@ import {
   assertOriginGuardConfig,
   isWebSocketOriginAllowed,
   normalizeOrigin,
-  originMiddleware,
   rejectOrigin,
+  resolveOriginGuard,
 } from "./origin-middleware.js";
 import { patRouteGuard } from "./pat-route-guard.js";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard.js";
@@ -128,6 +128,7 @@ import {
   registerVersionRoute,
 } from "./route-registrars.js";
 import { createApiRoutes, handleUncaughtRouteError } from "./routes.js";
+import { resolveSessionCookies, sessionCookiesMiddleware } from "./session-cookies.js";
 import type { SseBroker } from "./sse-broker.js";
 import { createSseRoute } from "./sse-route.js";
 import {
@@ -777,6 +778,15 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // Sub-apps mounted via app.route() without their own handler inherit this one.
   app.onError(handleUncaughtRouteError);
 
+  // Resolved once; auth routes, auth/csrf middleware and the tenant-cookie
+  // helpers read the cookie names from the request context.
+  const sessionCookies = resolveSessionCookies({
+    secureCookies: options.auth?.secureCookies,
+    cookieDomain: options.auth?.cookieDomain,
+    retiredCookieDomains: options.auth?.retiredCookieDomains,
+  });
+  app.use("*", sessionCookiesMiddleware(sessionCookies));
+
   // Only entry:"signature" bypasses jwtGuard (verify() authenticates
   // itself); entry:"anonymous" still needs the anonymousAccess fallthrough
   // (tenant-by-host), entry:"user" needs c.get("user") populated.
@@ -932,7 +942,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
 
   // Origin-allowlist guard — additional CSRF-hardening for deployments that
   // widen the auth cookie across subdomains (auth.cookieDomain). Registered
-  // only when allowedOrigins is non-empty, with the same /api/* + public-skip
+  // when allowedOrigins is non-empty, or with host-only cookies when
+  // auth.publicOrigin is known (see resolveOriginGuard), with the same /api/* + public-skip
   // scope as the CSRF guard and BEFORE it, so a disallowed cross-site POST
   // surfaces as `origin_not_allowed` rather than `csrf_token_mismatch`. Fails
   // closed (assertOriginGuardConfig throws) when a wide cookieDomain is set
@@ -941,8 +952,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   assertOriginGuardConfig(options.auth);
   assertSessionCallbacksPaired(options.auth);
   const allowedOrigins = options.auth?.allowedOrigins;
-  const originGuard =
-    allowedOrigins && allowedOrigins.length > 0 ? originMiddleware(allowedOrigins) : undefined;
+  const originGuard = resolveOriginGuard(options.auth);
   if (originGuard) {
     app.use("/api/*", async (c, next) => {
       if (PUBLIC_API_PATHS.has(c.req.path) || isExtraRoutePublicPath(c)) return next();
@@ -1001,7 +1011,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
     }
     app.route(
       "/api",
-      createAuthRoutes(dispatcher, jwt, { ...options.auth, resolver: clientIpResolver }),
+      createAuthRoutes(dispatcher, jwt, {
+        ...options.auth,
+        secureCookies: sessionCookies.secure,
+        resolver: clientIpResolver,
+      }),
     );
   }
   app.route(

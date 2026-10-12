@@ -11,20 +11,17 @@
 import type { Context } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
 import type { TenantId } from "../engine/types/index.js";
-import { TENANT_COOKIE_NAME } from "./api-constants.js";
+import {
+  getSessionCookies,
+  hostOnlyDeleteOptions,
+  isHostPrefixedCookieName,
+  TENANT_COOKIE_BASE,
+} from "./session-cookies.js";
 
 // 30 days. The tenant assignment is stable for the lifetime of the
 // visitor's relationship with the deployment — re-running the resolver
 // on every visit would just hit the DB for no new information.
 const DEFAULT_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
-
-// Cookies marked Secure are dropped by browsers on http:// — locked off in
-// dev/test so localhost works without TLS, on in prod where http would be
-// a deployment bug we want to fail loud about (no cookie ⇒ resolver runs
-// every request and the misconfiguration is visible in latency dashboards).
-function cookieSecure(): boolean {
-  return process.env["NODE_ENV"] === "production";
-}
 
 export type SetTenantCookieOptions = {
   // Override the default 30-day lifetime. Use shorter values for previews,
@@ -43,9 +40,10 @@ export function setTenantCookie(
   tenantId: TenantId,
   options: SetTenantCookieOptions = {},
 ): void {
-  setCookie(c, TENANT_COOKIE_NAME, tenantId, {
+  const { secure, names } = getSessionCookies(c);
+  setCookie(c, names.tenant, tenantId, {
     httpOnly: true,
-    secure: cookieSecure(),
+    secure,
     sameSite: options.sameSite ?? "Lax",
     path: "/",
     maxAge: options.maxAgeSeconds ?? DEFAULT_MAX_AGE_SECONDS,
@@ -55,7 +53,10 @@ export function setTenantCookie(
 // Removes the kumiko_tenant cookie. Use on switch-tenant flows or when
 // the resolver no longer recognises the visitor's tenant — leaving a
 // stale cookie behind would keep them pointed at a deleted tenant.
-// @wrapper-known semantic-alias
 export function deleteTenantCookie(c: Context): void {
-  deleteCookie(c, TENANT_COOKIE_NAME, { path: "/" });
+  const { names } = getSessionCookies(c);
+  deleteCookie(c, names.tenant, hostOnlyDeleteOptions(names.tenant));
+  if (isHostPrefixedCookieName(names.tenant)) {
+    deleteCookie(c, TENANT_COOKIE_BASE, { path: "/" });
+  }
 }

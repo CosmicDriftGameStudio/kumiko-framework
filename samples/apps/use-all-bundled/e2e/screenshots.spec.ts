@@ -8,6 +8,7 @@
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import {
+  CSRF_COOKIE_NAME,
   clearSession,
   runMatrix,
   type Scenario,
@@ -39,8 +40,8 @@ async function signInAsAdmin(page: Page): Promise<void> {
 
 async function csrfTokenOf(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
-  const csrf = cookies.find((c) => c.name === "kumiko_csrf")?.value;
-  if (!csrf) throw new Error("no kumiko_csrf cookie after login");
+  const csrf = cookies.find((c) => c.name === CSRF_COOKIE_NAME)?.value;
+  if (!csrf) throw new Error(`no ${CSRF_COOKIE_NAME} cookie after login`);
   return csrf;
 }
 

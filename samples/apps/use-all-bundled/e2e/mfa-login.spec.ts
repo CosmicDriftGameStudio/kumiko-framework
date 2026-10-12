@@ -22,14 +22,14 @@
 
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
-import { clearSession, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { CSRF_COOKIE_NAME, clearSession, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 
 const DISPLAY_NAME = "MFA E2E";
 
 async function csrfFrom(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
-  return cookies.find((c) => c.name === "kumiko_csrf")?.value ?? "";
+  return cookies.find((c) => c.name === CSRF_COOKIE_NAME)?.value ?? "";
 }
 
 async function expectShell(page: Page): Promise<void> {

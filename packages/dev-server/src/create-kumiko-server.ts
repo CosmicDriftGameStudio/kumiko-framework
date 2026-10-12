@@ -22,10 +22,13 @@ import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { resolveAnonymousAccessFromRegistry } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
+  AUTH_COOKIE_BASE,
   type AuthRoutesConfig,
+  CSRF_COOKIE_BASE,
   createClientIpResolver,
   type ExtraRouteDefinition,
   generateToken,
+  sessionCookieName,
 } from "@cosmicdrift/kumiko-framework/api";
 import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
@@ -286,8 +289,9 @@ export type KumikoServerHandle = {
   readonly jobQueueNamePrefix: string;
 };
 
-const CSRF_COOKIE = "kumiko_csrf";
-const AUTH_COOKIE = "kumiko_auth";
+// The dev server speaks plain http, so its minted cookies are never Secure and keep the unprefixed names.
+const CSRF_COOKIE = sessionCookieName(CSRF_COOKIE_BASE, { secure: false });
+const AUTH_COOKIE = sessionCookieName(AUTH_COOKIE_BASE, { secure: false });
 
 // Duplicated in packages/testing/src/e2e/constants.ts: the Playwright config
 // runs under Node and cannot import this module.

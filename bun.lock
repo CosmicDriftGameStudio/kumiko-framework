@@ -145,6 +145,7 @@
       "version": "0.359.0",
       "dependencies": {
         "@cosmicdrift/kumiko-headless": "workspace:*",
+        "@cosmicdrift/kumiko-types": "workspace:*",
       },
     },
     "packages/framework": {
@@ -319,6 +320,7 @@
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-dev-server": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-types": "workspace:*",
         "zod": "^4.4.3",
       },
       "devDependencies": {

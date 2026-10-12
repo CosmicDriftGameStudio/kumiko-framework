@@ -10,9 +10,9 @@ import {
   exportNamesForEntry,
   isCoveredByChangelog,
   loadChangesetParser,
-  loadPendingBreakingFeatures,
+  loadPendingBreakingChanges,
   owningChangelogPath,
-  pendingBreakingFeaturesIn,
+  pendingBreakingChangesIn,
   runPublicExportsChangelogCli,
   writeBaseline,
 } from "../guard-public-exports-changelog";
@@ -222,9 +222,10 @@ describe("evaluatePublicExportsChangelog — end to end", () => {
       const parsed = JSON.parse(finding.snippet);
       expect(parsed.type).toBe("breaking");
       expect(parsed.version).toBe("1.5.0");
-      expect(finding.cliHint).toContain("kumiko changes add");
-      expect(finding.cliHint).toContain("--breaking");
-      expect(finding.cliHint).toContain("--feature framework-core");
+      expect(finding.cliHint).toContain(".changeset/");
+      expect(finding.cliHint).toContain("feature: framework");
+      expect(finding.cliHint).toContain("logout");
+      expect(finding.cliHint).toContain("--write-baseline");
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
@@ -405,11 +406,17 @@ describe("writeBaseline", () => {
     return { cwd, project, baselinePath };
   }
 
-  function writeChangeset(cwd: string, type: string, feature: string): void {
+  function writeChangeset(
+    cwd: string,
+    type: string,
+    feature: string,
+    title = "Drop logout",
+    migration = "use login",
+  ): void {
     mkdirSync(join(cwd, ".changeset"), { recursive: true });
     writeFileSync(
       join(cwd, ".changeset/drop.md"),
-      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\nDrop logout\n\n<!-- kumiko-changes\nfeature: ${feature}\ntype: ${type}\ntitle: Drop logout\nmigration: use login\n-->\n`,
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n${title}\n\n<!-- kumiko-changes\nfeature: ${feature}\ntype: ${type}\ntitle: ${title}\nmigration: ${migration}\n-->\n`,
     );
   }
 
@@ -418,10 +425,40 @@ describe("writeBaseline", () => {
     const parseChangesetChanges = await loadChangesetParser(REAL_FRAMEWORK_ROOT);
     try {
       writeChangeset(cwd, "breaking", "framework");
-      const pending = pendingBreakingFeaturesIn(join(cwd, ".changeset"), parseChangesetChanges);
+      const pending = pendingBreakingChangesIn(join(cwd, ".changeset"), parseChangesetChanges);
       expect(writeBaseline(cwd, project, baselinePath, pending)).toBe(0);
       const written = JSON.parse(readFileSync(baselinePath, "utf-8"));
       expect(written.packages.framework["./auth"]).toEqual(["login"]);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("writeBaseline refuses when the breaking changeset does not name the dropped export", async () => {
+    const { cwd, project, baselinePath } = buildRefreezeFixture();
+    const parseChangesetChanges = await loadChangesetParser(REAL_FRAMEWORK_ROOT);
+    try {
+      writeChangeset(cwd, "breaking", "framework", "Session handling changed", "log in again");
+      const pending = pendingBreakingChangesIn(join(cwd, ".changeset"), parseChangesetChanges);
+      expect(writeBaseline(cwd, project, baselinePath, pending)).toBe(1);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("writeBaseline accepts a breaking changeset that names the dropped export only in its migration", async () => {
+    const { cwd, project, baselinePath } = buildRefreezeFixture();
+    const parseChangesetChanges = await loadChangesetParser(REAL_FRAMEWORK_ROOT);
+    try {
+      writeChangeset(
+        cwd,
+        "breaking",
+        "framework",
+        "Session handling changed",
+        "replace logout with login",
+      );
+      const pending = pendingBreakingChangesIn(join(cwd, ".changeset"), parseChangesetChanges);
+      expect(writeBaseline(cwd, project, baselinePath, pending)).toBe(0);
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
@@ -432,7 +469,7 @@ describe("writeBaseline", () => {
     const parseChangesetChanges = await loadChangesetParser(REAL_FRAMEWORK_ROOT);
     try {
       writeChangeset(cwd, "improvement", "framework");
-      const pending = pendingBreakingFeaturesIn(join(cwd, ".changeset"), parseChangesetChanges);
+      const pending = pendingBreakingChangesIn(join(cwd, ".changeset"), parseChangesetChanges);
       expect(pending.size).toBe(0);
       expect(writeBaseline(cwd, project, baselinePath, pending)).toBe(1);
     } finally {
@@ -445,22 +482,22 @@ describe("writeBaseline", () => {
     const parseChangesetChanges = await loadChangesetParser(REAL_FRAMEWORK_ROOT);
     try {
       writeChangeset(cwd, "breaking", "audit");
-      const pending = pendingBreakingFeaturesIn(join(cwd, ".changeset"), parseChangesetChanges);
+      const pending = pendingBreakingChangesIn(join(cwd, ".changeset"), parseChangesetChanges);
       expect(writeBaseline(cwd, project, baselinePath, pending)).toBe(1);
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
   });
 
-  test("loadPendingBreakingFeatures loads the real parser from the framework root", async () => {
-    const pending = await loadPendingBreakingFeatures(REAL_FRAMEWORK_ROOT);
+  test("loadPendingBreakingChanges loads the real parser from the framework root", async () => {
+    const pending = await loadPendingBreakingChanges(REAL_FRAMEWORK_ROOT);
     expect(pending.has("guards")).toBe(false);
   });
 
-  test("loadPendingBreakingFeatures fails loudly when the parser module is missing", async () => {
+  test("loadPendingBreakingChanges fails loudly when the parser module is missing", async () => {
     const cwd = tmpDir("public-exports-noparser-");
     try {
-      await expect(loadPendingBreakingFeatures(cwd)).rejects.toThrow("changeset parser not found");
+      await expect(loadPendingBreakingChanges(cwd)).rejects.toThrow("changeset parser not found");
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
