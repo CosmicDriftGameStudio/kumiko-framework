@@ -167,6 +167,8 @@ async function encryptStartedPayload(
 // pg_advisory_xact_lock namespace (int4): 'tjfl' as ASCII, disjoint from the
 // framework's other fixed advisory-lock keys.
 const TENANT_JOB_FAILURE_LOCK_NAMESPACE = 0x746a666c;
+// 'tjrl': serialises the finished-row write + prune per tenant run key.
+const TENANT_JOB_RUN_LOCK_NAMESPACE = 0x746a726c;
 
 // fw#3079 — which row the tenant-visible failure record lives in: one per
 // (tenant, job, subject), so the next outcome of the same work replaces or
@@ -311,16 +313,27 @@ async function recordTenantRunOutcome(
     // skip: retry pending, the row stays active until the final attempt
     return;
   }
-  await upsertOnConflict(
-    db,
-    tenantJobRunsTable,
-    { ...key, bullJobId, status: result, finishedAt: now, updatedAt: now },
-    { conflictKeys: ["bullJobId"], update: { status: result, finishedAt: now, updatedAt: now } },
-  );
-  await deleteMany(db, tenantJobRunsTable, {
-    ...key,
-    status: { in: ["completed", "failed"] },
-    bullJobId: { ne: bullJobId },
+  // One transaction: a reader never sees the new finished row next to the
+  // one it replaces. The per-key lock keeps two runs of the same subject that
+  // finish together from each missing the other's uncommitted row and leaving
+  // both behind.
+  await transaction(db, async (tx) => {
+    await acquireNamespacedAdvisoryLock(
+      tx,
+      TENANT_JOB_RUN_LOCK_NAMESPACE,
+      JSON.stringify([key.tenantId, key.jobName, key.subject]),
+    );
+    await upsertOnConflict(
+      tx,
+      tenantJobRunsTable,
+      { ...key, bullJobId, status: result, finishedAt: now, updatedAt: now },
+      { conflictKeys: ["bullJobId"], update: { status: result, finishedAt: now, updatedAt: now } },
+    );
+    await deleteMany(tx, tenantJobRunsTable, {
+      ...key,
+      status: { in: ["completed", "failed"] },
+      bullJobId: { ne: bullJobId },
+    });
   });
 }
 
