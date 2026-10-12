@@ -1,5 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "../engine/index.js";
-import { fileRefEntity } from "./file-ref-entity.js";
+import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.js";
 import type { FileAccessGuard } from "./file-routes.js";
 
 export { fileRefEntity } from "./file-ref-entity.js";
@@ -38,7 +38,7 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
       category: "storage",
       recommended: false,
     });
-    r.entity("fileRef", fileRefEntity);
+    r.entity(FILE_REF_ENTITY_NAME, fileRefEntity);
     return { routeOptions: options };
   });
 }

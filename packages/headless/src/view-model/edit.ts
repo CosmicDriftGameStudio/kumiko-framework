@@ -72,6 +72,8 @@ export type ComputeEditViewModelInput<
    *  for that verb (create hides them, update shows them read-only); omitted
    *  means no exclusion applies. */
   readonly mode?: EditFormMode;
+  /** The record being edited; omitted on create. */
+  readonly entityId?: string;
 };
 
 export type EditFormMode = "create" | "update";
@@ -397,38 +399,63 @@ function deriveReferenceMultiHints(
 
 type FileFieldHints = Pick<
   EditFieldViewModel,
-  "accept" | "maxSize" | "entityType" | "fieldName" | "imageVariant" | "capture"
+  | "accept"
+  | "maxSize"
+  | "maxCount"
+  | "entityType"
+  | "entityId"
+  | "fieldName"
+  | "imageVariant"
+  | "capture"
 >;
 
 // file/image: entityType/fieldName travel with the upload POST so the
 // endpoint validates against the right field definition.
+type FileFieldDefOptions = {
+  accept?: readonly string[];
+  maxSize?: string;
+  maxCount?: number;
+  variants?: Readonly<Record<string, unknown>>;
+  capture?: "environment" | "user";
+};
+
+function isFileFieldType(fieldDef: EntityFieldDef): boolean {
+  return (
+    fieldDef.type === "file" ||
+    fieldDef.type === "image" ||
+    fieldDef.type === "files" ||
+    fieldDef.type === "images"
+  );
+}
+
+function deriveImageHints(
+  fieldDef: EntityFieldDef,
+  fileDef: FileFieldDefOptions,
+): Pick<EditFieldViewModel, "imageVariant" | "capture"> {
+  if (fieldDef.type !== "image" && fieldDef.type !== "images") return {};
+  const imageVariant = Object.keys(fileDef.variants ?? {})[0];
+  return {
+    ...(imageVariant !== undefined && { imageVariant }),
+    ...(fileDef.capture !== undefined && { capture: fileDef.capture }),
+  };
+}
+
 function deriveFileFieldHints(
   fieldDef: EntityFieldDef,
   entityName: string,
   fieldName: string,
+  entityId: string | undefined,
 ): FileFieldHints {
-  const isFileType =
-    fieldDef.type === "file" || fieldDef.type === "image" || fieldDef.type === "images";
-  const fileDef = isFileType
-    ? (fieldDef as unknown as {
-        accept?: readonly string[];
-        maxSize?: string;
-        variants?: Readonly<Record<string, unknown>>;
-        capture?: "environment" | "user";
-      })
-    : undefined;
-  const imageVariant =
-    fieldDef.type === "image" || fieldDef.type === "images"
-      ? Object.keys(fileDef?.variants ?? {})[0]
-      : undefined;
-  const capture =
-    fieldDef.type === "image" || fieldDef.type === "images" ? fileDef?.capture : undefined;
+  if (!isFileFieldType(fieldDef)) return {};
+  const fileDef = fieldDef as unknown as FileFieldDefOptions;
   return {
-    ...(fileDef?.accept !== undefined && { accept: fileDef.accept }),
-    ...(fileDef?.maxSize !== undefined && { maxSize: fileDef.maxSize }),
-    ...(isFileType && { entityType: entityName, fieldName }),
-    ...(imageVariant !== undefined && { imageVariant }),
-    ...(capture !== undefined && { capture }),
+    ...(fileDef.accept !== undefined && { accept: fileDef.accept }),
+    ...(fileDef.maxSize !== undefined && { maxSize: fileDef.maxSize }),
+    ...(fileDef.maxCount !== undefined && { maxCount: fileDef.maxCount }),
+    entityType: entityName,
+    fieldName,
+    ...(entityId !== undefined && { entityId }),
+    ...deriveImageHints(fieldDef, fileDef),
   };
 }
 
@@ -561,7 +588,7 @@ function buildExtensionSectionViewModel(
 export function computeEditViewModel<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 >(input: ComputeEditViewModelInput<TValues>): EditViewModel {
-  const { screen, entity, values, translate, featureName, mode } = input;
+  const { screen, entity, values, translate, featureName, mode, entityId } = input;
   const excludedFields = new Set(mode === undefined ? [] : screen.writeExcludedFields?.[mode]);
   const isHiddenByExclusion = (fieldSpec: EditFieldSpec): boolean =>
     mode === "create" && excludedFields.has(normalizeEditField(fieldSpec).field);
@@ -649,7 +676,7 @@ export function computeEditViewModel<
           declaredRefTarget,
           featureName,
         );
-        const fileHints = deriveFileFieldHints(fieldDef, screen.entity, normalized.field);
+        const fileHints = deriveFileFieldHints(fieldDef, screen.entity, normalized.field, entityId);
         const embeddedListHints = deriveEmbeddedListHints(
           fieldDef,
           translate,

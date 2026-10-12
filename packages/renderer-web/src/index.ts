@@ -154,6 +154,7 @@ export type { WorkspaceSwitcherProps } from "./layout/workspace-switcher.js";
 export { WorkspaceSwitcher } from "./layout/workspace-switcher.js";
 export { cn } from "./lib/cn.js";
 export { postWithDownload } from "./lib/download.js";
+export { buildFileUploadFormData } from "./lib/file-upload-form-data.js";
 export type { ActionMenuProps, MenuItemDef } from "./primitives/action-menu.js";
 export { ActionMenu } from "./primitives/action-menu.js";
 export {

@@ -201,12 +201,14 @@ function IssueMessages({
 function renderCellControl({
   cellId,
   column,
+  label,
   value,
   disabled,
   onChange,
   currency,
 }: {
   readonly cellId: string;
+  readonly label: string;
   readonly column: EmbeddedListColumn;
   readonly value: unknown;
   readonly disabled: boolean;
@@ -221,6 +223,7 @@ function renderCellControl({
         <UiInput
           data-cell-id={cellId}
           type="text"
+          aria-label={label}
           className="min-w-0"
           disabled={isDisabled}
           value={typeof value === "string" ? value : ""}
@@ -233,6 +236,7 @@ function renderCellControl({
         <UiInput
           data-cell-id={cellId}
           type="number"
+          aria-label={label}
           disabled={isDisabled}
           className="min-w-0 text-right tabular-nums"
           value={typeof value === "number" ? value : ""}
@@ -247,6 +251,7 @@ function renderCellControl({
         <div className="flex justify-center">
           <Checkbox
             data-cell-id={cellId}
+            aria-label={label}
             disabled={isDisabled}
             checked={value === true}
             onCheckedChange={(checked) => onChange(checked === true)}
@@ -262,6 +267,7 @@ function renderCellControl({
           <DateInput
             id={cellId}
             name={cellId}
+            ariaLabel={label}
             value={typeof value === "string" ? value : ""}
             onChange={(v) => onChange(v)}
             disabled={isDisabled}
@@ -276,6 +282,7 @@ function renderCellControl({
           <TimestampInput
             id={cellId}
             name={cellId}
+            ariaLabel={label}
             value={typeof value === "string" ? value : ""}
             onChange={(v) => onChange(v)}
             disabled={isDisabled}
@@ -288,6 +295,7 @@ function renderCellControl({
           <MoneyInput
             id={cellId}
             name={cellId}
+            ariaLabel={label}
             value={typeof value === "number" ? value : ""}
             onChange={(v) => onChange(v)}
             currency={currency}
@@ -305,6 +313,7 @@ function renderCellControl({
           <ComboboxInput
             id={cellId}
             name={cellId}
+            ariaLabel={label}
             value={typeof value === "string" ? value : ""}
             onChange={(v) => onChange(v)}
             options={options}
@@ -319,6 +328,7 @@ function renderCellControl({
           <ComboboxInput
             id={cellId}
             name={cellId}
+            ariaLabel={label}
             value={typeof value === "string" ? value : ""}
             onChange={(v) => onChange(v)}
             options={column.referenceOptions ?? []}
@@ -440,6 +450,7 @@ export function EmbeddedListInput({
   onMoveRow,
   onPasteCells,
   addLabel,
+  actionsLabel,
   removeLabel,
   duplicateLabel,
   moveUpLabel,
@@ -452,6 +463,9 @@ export function EmbeddedListInput({
   // callers/tests that predate #1839) keep getting the same "EUR" this
   // component always hardcoded.
   const effectiveCurrency = currency ?? "EUR";
+  const t = useTranslation();
+  const cellLabel = (column: EmbeddedListColumn, rowIndex: number): string =>
+    t("kumiko.field.embedded-list.cell-label", { column: column.label, row: rowIndex + 1 });
   const resolvedLocale = useLocale().locale();
   const isMobile = useIsNarrowViewport();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -652,7 +666,7 @@ export function EmbeddedListInput({
                             isHorizontallyScrollable &&
                               "shadow-[inset_1px_0_0_var(--color-border)]",
                           )}
-                          aria-label="Actions"
+                          aria-label={actionsLabel}
                         />
                       )}
                     </TableRow>
@@ -683,6 +697,7 @@ export function EmbeddedListInput({
                                 >
                                   {renderCellControl({
                                     cellId: cellId(rowIndex, column.field),
+                                    label: cellLabel(column, rowIndex),
                                     column,
                                     value: row[column.field],
                                     disabled: disabled === true,
@@ -818,6 +833,7 @@ export function EmbeddedListInput({
                       </span>
                       {renderCellControl({
                         cellId: cellId(rowIndex, column.field),
+                        label: cellLabel(column, rowIndex),
                         column,
                         value: row[column.field],
                         disabled: disabled === true,

@@ -23,6 +23,7 @@ import {
   ValidationError,
   writeFailure,
 } from "../errors/index.js";
+import { bindPendingFileRefs } from "../files/bind-pending-file-refs.js";
 import { CACHE_SYNC_TOPICS, type TenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
 import { assertNoSecretLeak } from "../secrets/index.js";
 import type { DispatchContext, WriteOrigin } from "./dispatch-shared.js";
@@ -169,6 +170,12 @@ async function runLifecycle(
   await runProjections(result, handlerContext.registry, runner);
 
   if (result.kind === "save") {
+    await bindPendingFileRefs({
+      registry: handlerContext.registry,
+      result,
+      user,
+      db: handlerContext.db,
+    });
     await lifecycle.runPostSave(type, result, handlerContext, HookPhases.inTransaction);
     afterCommitHooks.push(async () => {
       const afterCommitContext = await buildHandlerContext(

@@ -245,11 +245,16 @@ export type EditFieldViewModel = {
    *  Upload-Endpoint gegen die Field-Def. */
   readonly accept?: readonly string[];
   readonly maxSize?: string;
+  /** Only for `type: "files" | "images"` — upper bound on list length. */
+  readonly maxCount?: number;
   /** Nur bei `type: "file" | "image"` — Entity-Name + Field-Name für den
    *  Upload-POST (`/api/files`), damit der Endpoint maxSize/accept gegen
    *  die richtige Field-Def prüfen kann. */
   readonly entityType?: string;
   readonly fieldName?: string;
+  /** Record being edited (update mode only). Sent with the upload so the
+   *  FileRef is attached to the record. */
+  readonly entityId?: string;
   /** Only for `type: "image"` and `"images"` — the variant name the preview requests
    *  (`/api/files/:id/variant/:name`) instead of the original. The FIRST
    *  variant declared on the field def wins; a spec may legitimately carry

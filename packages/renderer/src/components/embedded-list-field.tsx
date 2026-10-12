@@ -347,6 +347,7 @@ function EmbeddedListFieldInner({
       onMoveRow={handleMoveRow}
       onPasteCells={handlePasteCells}
       addLabel={t("kumiko.field.embedded-list.add-row")}
+      actionsLabel={t("kumiko.field.embedded-list.actions")}
       removeLabel={t("kumiko.field.embedded-list.remove-row")}
       duplicateLabel={t("kumiko.field.embedded-list.duplicate-row")}
       moveUpLabel={t("kumiko.field.embedded-list.move-up")}

@@ -1033,12 +1033,7 @@ export type AnyFileFieldDef = FileFieldDef | ImageFieldDef | FilesFieldDef | Ima
 // A plain array, not a Set: kumiko-types stays free of module-scope runtime
 // identity (guard-types-class-free.test.ts) since a consumer may resolve two
 // copies of this package.
-export const NO_WIDGET_FIELD_TYPES: readonly FieldDefinition["type"][] = [
-  "jsonb",
-  "embedded",
-  "files",
-  "images",
-];
+export const NO_WIDGET_FIELD_TYPES: readonly FieldDefinition["type"][] = ["jsonb", "embedded"];
 
 // --- Derived (computed) fields ---
 //

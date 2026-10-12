@@ -44,6 +44,7 @@ export type DateFieldProps = {
   readonly disabled?: boolean;
   readonly required?: boolean;
   readonly hasError?: boolean;
+  readonly ariaLabel?: string;
   readonly locale?: string;
   /** Lower/upper bound as ISO `yyyy-mm-dd`. Limits the calendar
    *  (year-dropdown range + greyed-out days). Server-side validation runs
@@ -67,6 +68,7 @@ export function DateField({
   disabled,
   required,
   hasError,
+  ariaLabel,
   locale,
   min,
   max,
@@ -105,6 +107,7 @@ export function DateField({
         disabled={disabled}
         required={required}
         aria-invalid={hasError === true ? true : undefined}
+        aria-label={ariaLabel}
         // Deliberate: slot order/separator follow resolvedLocale (the
         // `locale` prop, or the browser locale), but the letters follow
         // the app's UI locale via t() — a caller rendering a date in a

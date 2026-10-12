@@ -30,6 +30,7 @@ import {
   staticSelectOptions,
 } from "./availability-options-select.js";
 import { EmbeddedListField } from "./embedded-list-field.js";
+import { FileListField } from "./file-list-field.js";
 import { MultiSelectCheckboxes } from "./multi-select-checkboxes.js";
 import { QueryOptionsSelect } from "./query-options-select.js";
 import { ReferenceCreateDialog } from "./reference-create-dialog.js";
@@ -591,11 +592,11 @@ function ReadOnlyReferenceValue({
 }
 
 // Field types whose read display already isn't a boxed "disabled input" look
-// (embedded/jsonb render as an info Banner, files/images as an unsupported-
-// type Banner) — `readOnlyDisplayText` doesn't cover these, they keep going
-// through `renderInput`'s existing Banner branch in text-display mode too.
+// (embedded/jsonb render as an info Banner) — `readOnlyDisplayText` doesn't
+// cover these, they keep going through `renderInput`'s existing Banner branch
+// in text-display mode too.
 function isComplexFieldType(type: string): boolean {
-  return type === "embedded" || type === "jsonb" || type === "files" || type === "images";
+  return type === "embedded" || type === "jsonb";
 }
 
 // Mirrors ACTION_ICON_BY_ID (kumiko-screen.tsx) for fields: only names with
@@ -849,26 +850,34 @@ function renderInput({
           {...(field.accept !== undefined && { accept: field.accept })}
           {...(field.maxSize !== undefined && { maxSize: field.maxSize })}
           {...(field.entityType !== undefined && { entityType: field.entityType })}
+          {...(field.entityId !== undefined && { entityId: field.entityId })}
           {...(field.fieldName !== undefined && { fieldName: field.fieldName })}
           {...(field.imageVariant !== undefined && { imageVariant: field.imageVariant })}
           {...(field.capture !== undefined && { capture: field.capture })}
         />
       );
     }
+    case "files":
+    case "images":
+      return (
+        <FileListField
+          field={field}
+          id={id}
+          kind={field.type === "images" ? "image" : "file"}
+          hasError={hasError}
+          onChange={(ids) => onChange(ids)}
+        />
+      );
     // embedded (without embeddedListCells — that's embeddedList, which has
     // had its own EmbeddedListField widget since #1838) and jsonb carry
-    // arbitrary objects; files/images carry a FileRef-UUID array and have
-    // no multi-upload widget yet (deliberately deferred, #1925). Without a
-    // dedicated widget these must NOT fall through to a text input:
-    // stringValue() turns them into "[object Object]" / a comma-joined
-    // string, and saving that overwrites the real data with the mangled
-    // string (#1834). A `required: true` on any of these is caught loudly
+    // arbitrary objects. Without a dedicated widget these must NOT fall
+    // through to a text input: stringValue() turns them into
+    // "[object Object]" and saving that overwrites the real data with the
+    // mangled string (#1834). A `required: true` on either is caught loudly
     // at boot (validateNoWidgetRequiredField in the framework package)
     // instead of silently failing here.
     case "embedded":
-    case "jsonb":
-    case "files":
-    case "images": {
+    case "jsonb": {
       const hasValue = field.value !== undefined && field.value !== null && field.value !== "";
       return (
         <Banner id={id} variant="info">
@@ -1066,6 +1075,9 @@ function readOnlyDisplayText(
     case "file":
     case "image":
       return typeof value === "string" ? value : "—";
+    case "files":
+    case "images":
+      return Array.isArray(value) && value.length > 0 ? value.map(stringValue).join(", ") : "—";
     default:
       return stringValue(value);
   }

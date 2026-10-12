@@ -1,12 +1,10 @@
 // Regression #1834: field types without a dedicated widget (embedded
-// without embeddedListCells, jsonb, files, images) must render read-only
+// without embeddedListCells, jsonb) must render read-only
 // instead of falling back to a text input. The old default-branch
 // fallback ran the value through stringValue() — an object/array turned
 // into "[object Object]"/"a,b", and saving that overwrote the real data.
 // #1925 gave multiSelect a real combobox widget (so it dropped out of this
-// list) and moved files/images in (no multi-upload widget yet, deliberately
-// deferred — they used to hit the same text-input corruption via the
-// default branch).
+// list); files/images got FileListField later and left it too.
 //
 // Capture-Input/Banner instead of real primitives, same pattern as
 // render-field-app-locale.test.tsx.
@@ -90,8 +88,6 @@ function renderField(field: EditFieldViewModel): void {
 describe.each([
   ["embedded (kein embeddedListCells)", baseField({ type: "embedded", value: { note: "x" } })],
   ["jsonb", baseField({ type: "jsonb", value: { a: 1 } })],
-  ["files", baseField({ type: "files", value: ["11111111-1111-1111-1111-111111111111"] })],
-  ["images", baseField({ type: "images", value: ["11111111-1111-1111-1111-111111111111"] })],
 ])("RenderField — %s ohne Widget", (_name, field) => {
   test("rendert einen schreibgeschützten Banner statt eines editierbaren Text-Inputs", () => {
     renderField(field);
@@ -114,6 +110,16 @@ describe.each([
     if (!valuePreview) throw new Error("expected a value-preview element");
     expect(valuePreview.props.children).toBe(JSON.stringify(field.value));
   });
+});
+
+describe("RenderField — files/images have a widget", () => {
+  test.each(["files", "images"] as const)(
+    "%s renders file inputs instead of the banner",
+    (type) => {
+      renderField(baseField({ type, value: [] }));
+      expect(capturedBanner).toBeUndefined();
+    },
+  );
 });
 
 describe("RenderField — unsupported-type Banner ohne Wert", () => {

@@ -43,6 +43,7 @@ type ComboboxBaseProps = {
   readonly disabled?: boolean;
   readonly required?: boolean;
   readonly hasError?: boolean;
+  readonly ariaLabel?: string;
   readonly placeholder?: string;
   readonly searchPlaceholder?: string;
   readonly emptyText?: string;
@@ -123,6 +124,7 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
     disabled,
     required,
     hasError,
+    ariaLabel,
     placeholder,
     searchPlaceholder,
     emptyText,
@@ -187,6 +189,7 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
         disabled={disabled}
         aria-required={required}
         aria-invalid={hasError === true ? true : undefined}
+        aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
         title={!multiple && singleLabel !== "" ? singleLabel : undefined}

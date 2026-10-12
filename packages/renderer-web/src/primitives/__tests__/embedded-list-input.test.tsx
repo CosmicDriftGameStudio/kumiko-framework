@@ -45,6 +45,7 @@ const COLUMNS: readonly EmbeddedListColumn[] = [
 
 const LABELS = {
   addLabel: "Add row",
+  actionsLabel: "Actions",
   removeLabel: "Remove row",
   duplicateLabel: "Duplicate row",
   moveUpLabel: "Move up",
@@ -929,5 +930,73 @@ describe("EmbeddedListInput — horizontal scroll (fw#2159)", () => {
     renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
     const secondContainer = screen.getByTestId("lines-desktop-scroll");
     expect(secondContainer.scrollLeft).toBe(0);
+  });
+});
+
+describe("EmbeddedListInput — accessible names", () => {
+  const ALL_TYPE_COLUMNS: readonly EmbeddedListColumn[] = [
+    { field: "text", label: "Description", type: "text", required: false, derived: false },
+    { field: "num", label: "Qty", type: "number", required: false, derived: false },
+    { field: "flag", label: "Billable", type: "boolean", required: false, derived: false },
+    { field: "day", label: "Day", type: "date", required: false, derived: false },
+    { field: "at", label: "Starts", type: "timestamp", required: false, derived: false },
+    { field: "amount", label: "Amount", type: "money", required: false, derived: false },
+    {
+      field: "kind",
+      label: "Kind",
+      type: "select",
+      required: false,
+      derived: false,
+      options: ["a", "b"],
+    },
+    {
+      field: "owner",
+      label: "Owner",
+      type: "reference",
+      required: false,
+      derived: false,
+      referenceOptions: [{ value: "u1", label: "Una" }],
+    },
+  ];
+  const ROWS = [{ text: "x" }];
+
+  function expectEveryCellControlNamed(container: HTMLElement): void {
+    expect(within(container).getByRole("textbox", { name: "Description, row 1" })).toBeDefined();
+    expect(within(container).getByRole("spinbutton", { name: "Qty, row 1" })).toBeDefined();
+    expect(within(container).getByRole("checkbox", { name: "Billable, row 1" })).toBeDefined();
+    expect(within(container).getByRole("textbox", { name: "Day, row 1" })).toBeDefined();
+    expect(within(container).getByRole("textbox", { name: "Starts, row 1" })).toBeDefined();
+    expect(within(container).getByRole("textbox", { name: "Amount, row 1" })).toBeDefined();
+    expect(within(container).getByRole("button", { name: "Kind, row 1" })).toBeDefined();
+    expect(within(container).getByRole("button", { name: "Owner, row 1" })).toBeDefined();
+  }
+
+  test("every desktop cell control carries the column label and row number as its name", () => {
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ columns: ALL_TYPE_COLUMNS, rows: ROWS })} />,
+    );
+    expectEveryCellControlNamed(screen.getByTestId("lines-desktop"));
+  });
+
+  test("every mobile card cell control is named too", () => {
+    const originalWidth = window.innerWidth;
+    window.innerWidth = 500;
+    try {
+      renderWithLocale(
+        <EmbeddedListInput {...baseProps({ columns: ALL_TYPE_COLUMNS, rows: ROWS })} />,
+      );
+      expectEveryCellControlNamed(screen.getByTestId("lines-mobile"));
+    } finally {
+      window.innerWidth = originalWidth;
+    }
+  });
+
+  test("the row-actions column header uses the translated actionsLabel", () => {
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ rows: ROWS, actionsLabel: "Aktionen" })} />,
+    );
+    expect(
+      within(screen.getByTestId("lines-desktop")).getByRole("columnheader", { name: "Aktionen" }),
+    ).toBeDefined();
   });
 });
