@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.360.0",
+    "type": "improvement",
+    "title": "change-email can be switched off",
+    "detail": "createUserProfileFeature({ allowEmailChange: false }) neither registers the change-email write handler nor shows the email section on the profile screen. Without the option nothing changes."
+  },
+  {
     "version": "0.243.1",
     "type": "fix",
     "title": "Security fix: ChangePasswordSection/ChangeEmailSection no longer nest a <form> inside the host RenderEdit form.",

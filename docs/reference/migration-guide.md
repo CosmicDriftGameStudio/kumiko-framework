@@ -2,13 +2,35 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-11
+verified: 2026-10-12
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.360.0
+
+### framework-core
+
+**Secure host-only session cookies use the __Host- prefix**
+
+Auth, csrf and tenant cookies are named __Host-kumiko_auth, __Host-kumiko_csrf and __Host-kumiko_tenant when they are written Secure and without a Domain (the tenant cookie is always host-only). With auth.cookieDomain or without Secure the auth and csrf names stay kumiko_auth and kumiko_csrf. New auth option secureCookies forces Secure (default NODE_ENV === "production"). Login deletes the legacy unprefixed host-only cookies, logout and deleteTenantCookie delete the prefixed and the legacy names. The server reads only the resolved names, so a request that carries only the legacy kumiko_auth is anonymous. AUTH_COOKIE_NAME, CSRF_COOKIE_NAME and TENANT_COOKIE_NAME are removed from the framework and dispatcher-live; the base names and sessionCookieName() are exported from @cosmicdrift/kumiko-types/session-cookies and @cosmicdrift/kumiko-framework/api, getSessionCookies(c) returns the resolved names of a request. The testing package's CSRF_COOKIE_NAME stays and resolves to the unprefixed name (e2e servers run without Secure).
+
+**Migration:** Every user logs in once after the deploy, because the old kumiko_auth cookie is no longer read. Custom clients, proxies or scripts that read or forward the cookies by literal name break: read the names through sessionCookieName() / resolveSessionCookieNames() (types package) or getSessionCookies(c) on the server, and handle both the prefixed and the plain name in browser code (readCsrfToken() already does). Replace imports of AUTH_COOKIE_NAME, CSRF_COOKIE_NAME and TENANT_COOKIE_NAME with AUTH_COOKIE_BASE, CSRF_COOKIE_BASE and TENANT_COOKIE_BASE plus sessionCookieName(); e2e helpers that imported CSRF_COOKIE_NAME from @cosmicdrift/kumiko-dispatcher-live import it from @cosmicdrift/kumiko-testing/e2e instead (known: solon e2e/_helpers/api.ts and e2e/session-ended.spec.ts, kumiko-enterprise ai-agent-live-transcription.integration.test.ts uses AUTH_COOKIE_NAME). A reverse proxy that strips or rewrites cookie names must pass the __Host- names unchanged. Staging or preview deployments over plain http need no change (Secure is off there); set auth.secureCookies (also accepted by runProdApp) explicitly when TLS terminates before the app and NODE_ENV is not "production". A standalone createAuthRoutes mount outside buildServer must also mount sessionCookiesMiddleware with the same resolved names, otherwise the readers fall back to the domain-less default.
+
+**Origin guard defaults on when the public app URL is known**
+
+New auth option publicOrigin. Without allowedOrigins, cookieDomain and unsafeSkipOriginCheck, buildServer mounts the Origin guard for cookie-authenticated state-changing /api requests and admits publicOrigin plus the request's own host (Host header). runProdApp sets publicOrigin from auth.publicOrigin, then auth.mail.baseUrl, then the APP_BASE_URL env (origin only, path dropped); with none of them in production it logs a warning that the Origin guard is off and boots anyway. allowedOrigins keeps its strict meaning, and the WebSocket check and the anonymous downgrade still use only allowedOrigins.
+
+**Migration:** Cookie-authenticated POST, PUT, PATCH or DELETE requests from a page on another origin than the public app URL and than the API host itself now get 403 origin_not_allowed in runProdApp deployments that set auth.mail.baseUrl or APP_BASE_URL. A web client served from a different host than the API (for example a sibling subdomain) must list its origin in auth.allowedOrigins. Same-host setups, custom domains served by the same server and Bearer clients need no change.
+
+**Uploads from an update form are attached to the record**
+
+computeEditViewModel accepts entityId (the record being edited, update mode only) and sets it on the hints of file, image, files and images fields; RenderEdit passes the id it was mounted with and the file input sends it as the entityId multipart part of POST /api/files. Create forms send no entityId; after a successful create the write pipeline binds the caller's own pending uploads named in the record's file fields (same entityType and fieldName, entityId null, insertedById = caller) to the new record via a fileRef.updated event in the same transaction, for single and plural file fields alike, when the files feature (fileRef entity) is mounted. Behaviour change: such files are now attached to the record. The default file access guard allows read on an attached file to the uploader, privilegedRoles (default Admin/SystemAdmin) and everyone whose run of the entity's <entity>:detail query returns the record; delete stays uploader and privilegedRoles only. A qr-overlay variant of an image field no longer throws for a file uploaded from an update or create form. Write-form sections send no entityId. EmbeddedListInput has a new required actionsLabel prop.
+
+**Migration:** Files attached through forms now follow the record's read access instead of being tenant-wide: anyone who cannot read the record no longer reads the file, anyone who can read it does. Check image, images, file and files fields whose files must be visible beyond the record's readers (for example an avatar shown in lists to users without detail access) and add those roles to privilegedRoles or set accessGuard in the files feature options. An entity without a detail query falls back to uploader plus privilegedRoles. Files uploaded before the update keep their old attachment. Custom primitive sets that implement EmbeddedListInput accept the new actionsLabel prop and render it as the actions column header; custom file/image Input primitives forward entityId into the upload and offer a remove control that calls onChange(null).
 
 ## 0.358.0
 

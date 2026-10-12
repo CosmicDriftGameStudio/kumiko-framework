@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.360.0",
+    "type": "improvement",
+    "title": "German strings for the file list widget and embedded list accessibility",
+    "detail": "Adds kumiko.field.file-list.add, empty, move-down and move-up, kumiko.field.file-upload.attached, change, failed, remove and upload, plus kumiko.field.embedded-list.actions and cell-label."
+  },
+  {
     "version": "0.341.0",
     "type": "fix",
     "title": "Add errors.rate_limit_unavailable (de, formal)"
