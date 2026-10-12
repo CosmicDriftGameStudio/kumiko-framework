@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.360.0",
+    "type": "improvement",
+    "title": "Pure-JS PDF renderer for table documents",
+    "detail": "renderTablePdf(doc, options?) renders a PdfTableDocument (title, subtitle, meta lines, weighted columns, wrapped cells, header row repeated per page, footerText and a pageLabel template with {page} and {pages}) to PDF bytes with pdf-lib. Characters outside WinAnsi are replaced by \"?\". Identical input yields identical bytes. createRendererPdfFeature() registers it as plugin \"pdf\" for kind \"document-pdf\"; payload.variables is validated against pdfTableDocumentSchema, anything else fails with RendererError invalid_payload."
+  }
+]

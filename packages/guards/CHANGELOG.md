@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.360.0
+
+### Minor Changes
+
+- 94abdbb: Add the public-exports-changelog guard: a dropped public export of packages/framework or packages/bundled-features fails unless a breaking changelog entry names it before the baseline is refrozen
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New public-exports-changelog guard (kumiko-guards public-exports-changelog) ratchets the public export surface of framework and bundled-features
+  -->
+
+### Patch Changes
+
+- cc46b78: public-exports-changelog: an open breaking changeset only covers a dropped export when its title, detail or migration names that export, and the finding hint points to a changeset block plus `--write-baseline` instead of `kumiko changes add`.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: public-exports-changelog requires the open breaking changeset to name the dropped export
+  detail: Before, any open breaking kumiko-changes block of the owning feature let --write-baseline drop every export of that feature. Now the block's title, detail or migration must contain at least one dropped name, the same rule changes.json entries already follow. The finding hint and the report hint name the .changeset block and bun packages/guards/src/cli.ts public-exports-changelog --write-baseline. pendingBreakingFeaturesIn and loadPendingBreakingFeatures are renamed to pendingBreakingChangesIn and loadPendingBreakingChanges and return feature to block texts; featureFlagForCli is removed.
+  -->
+
+  - @cosmicdrift/kumiko-repo-manifest@0.360.0
+
 ## 0.359.0
 
 ### Patch Changes

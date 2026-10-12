@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.360.0",
+    "type": "fix",
+    "title": "public-exports-changelog requires the open breaking changeset to name the dropped export",
+    "detail": "Before, any open breaking kumiko-changes block of the owning feature let --write-baseline drop every export of that feature. Now the block's title, detail or migration must contain at least one dropped name, the same rule changes.json entries already follow. The finding hint and the report hint name the .changeset block and bun packages/guards/src/cli.ts public-exports-changelog --write-baseline. pendingBreakingFeaturesIn and loadPendingBreakingFeatures are renamed to pendingBreakingChangesIn and loadPendingBreakingChanges and return feature to block texts; featureFlagForCli is removed."
+  },
+  {
+    "version": "0.360.0",
+    "type": "improvement",
+    "title": "New public-exports-changelog guard (kumiko-guards public-exports-changelog) ratchets the public export surface of framework and bundled-features",
+    "detail": "Add the public-exports-changelog guard: a dropped public export of packages/framework or packages/bundled-features fails unless a breaking changelog entry names it before the baseline is refrozen"
+  },
+  {
     "version": "0.357.0",
     "type": "fix",
     "title": "comment-lang reports an unreadable or non-object baseline instead of crashing",

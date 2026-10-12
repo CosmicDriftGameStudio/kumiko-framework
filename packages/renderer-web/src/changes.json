@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.360.0",
+    "type": "improvement",
+    "title": "File inputs post entityId; embedded list cells have accessible names",
+    "detail": "FileUploadInput accepts entityId, translates its labels (kumiko.field.file-upload.*) and builds its multipart body with the exported buildFileUploadFormData. Every embedded list cell control (text, number, boolean, date, timestamp, money, select, reference) carries aria-label \"<column>, row <n>\" in the table and the mobile card layout, and the actions column header uses the actionsLabel prop instead of the fixed \"Actions\". MoneyInput, DateField, TimestampInput and ComboboxInput accept an optional ariaLabel."
+  },
+  {
     "version": "0.358.0",
     "type": "improvement",
     "title": "Dashboards fit 390 px screens; stacked-area chart gets compact axis, grid lines, x ticks and markerLabels",

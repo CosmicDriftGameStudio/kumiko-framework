@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.360.0",
+    "type": "improvement",
+    "title": "Edit view model carries entityId and maxCount for file fields",
+    "detail": "ComputeEditViewModelInput has an optional entityId (the record being edited, omitted on create). EditFieldViewModel gains entityId for file, image, files and images fields and maxCount for files and images. The file-field hints now also cover type files, which was missing."
+  },
+  {
     "version": "0.357.0",
     "type": "improvement",
     "title": "Edit view-model carries selectOptionsAvailabilityQuery for multiSelect fields"

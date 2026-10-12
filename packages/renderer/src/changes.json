@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.360.0",
+    "type": "improvement",
+    "title": "FileListField edits images and files fields",
+    "detail": "RenderField renders type images and files as FileListField instead of the unsupported banner. One tile per stored FileRef id with move up, move down and remove buttons, one trailing empty tile to add a file (hidden at maxCount or when read-only). It is built from Input kind file or image, Button and the layout primitives, passes accept, maxSize, entityType, entityId, fieldName, imageVariant and capture to every tile, and reads only string ids from the stored value. The read-only text display of these fields lists the ids. New i18n keys kumiko.field.file-list.add, move-up, move-down and empty; kumiko.field.file-upload.upload, change, remove, attached and failed; kumiko.field.embedded-list.actions and cell-label. The file and image Input kinds accept entityId. EmbeddedListInput has a new required actionsLabel prop."
+  },
+  {
     "version": "0.357.0",
     "type": "improvement",
     "title": "MultiSelect inputs load optionsAvailabilityQuery and hide unavailable options"

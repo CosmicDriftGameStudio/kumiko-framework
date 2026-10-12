@@ -1,5 +1,99 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.360.0
+
+### Minor Changes
+
+- cc46b78: Session cookies written Secure and without a Domain attribute now use the `__Host-` prefix: `__Host-kumiko_auth`, `__Host-kumiko_csrf` and `__Host-kumiko_tenant`. A browser only accepts such a cookie when it is Secure, Path=/ and host-only, so a sibling subdomain can no longer set or shadow it. With `auth.cookieDomain` or without Secure the plain names stay. The new auth option `secureCookies` forces the Secure flag (default: `NODE_ENV === "production"`); buildServer resolves it once.
+
+  The base names and the naming rule live in `@cosmicdrift/kumiko-types/session-cookies` (`AUTH_COOKIE_BASE`, `CSRF_COOKIE_BASE`, `TENANT_COOKIE_BASE`, `sessionCookieName`, `resolveSessionCookieNames`). `readCsrfToken()` reads the prefixed csrf cookie first and falls back to the plain one.
+
+  A request that carries the auth or the csrf cookie name twice is treated as having no session cookie (anonymous with `anonymousAccess`, otherwise 401) and the response expires every cookie variant, so a shadowed or stale duplicate can no longer pin a browser to the wrong session.
+
+  The Origin guard now also runs without `allowedOrigins` when the app's public origin is known: the new auth option `publicOrigin`, which runProdApp fills from `auth.mail.baseUrl` and then from the `APP_BASE_URL` env. It admits that origin plus the request's own host. Without such a URL runProdApp warns at boot in production and keeps running.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Secure host-only session cookies use the __Host- prefix
+  detail: Auth, csrf and tenant cookies are named __Host-kumiko_auth, __Host-kumiko_csrf and __Host-kumiko_tenant when they are written Secure and without a Domain (the tenant cookie is always host-only). With auth.cookieDomain or without Secure the auth and csrf names stay kumiko_auth and kumiko_csrf. New auth option secureCookies forces Secure (default NODE_ENV === "production"). Login deletes the legacy unprefixed host-only cookies, logout and deleteTenantCookie delete the prefixed and the legacy names. The server reads only the resolved names, so a request that carries only the legacy kumiko_auth is anonymous. AUTH_COOKIE_NAME, CSRF_COOKIE_NAME and TENANT_COOKIE_NAME are removed from the framework and dispatcher-live; the base names and sessionCookieName() are exported from @cosmicdrift/kumiko-types/session-cookies and @cosmicdrift/kumiko-framework/api, getSessionCookies(c) returns the resolved names of a request. The testing package's CSRF_COOKIE_NAME stays and resolves to the unprefixed name (e2e servers run without Secure).
+  migration: Every user logs in once after the deploy, because the old kumiko_auth cookie is no longer read. Custom clients, proxies or scripts that read or forward the cookies by literal name break: read the names through sessionCookieName() / resolveSessionCookieNames() (types package) or getSessionCookies(c) on the server, and handle both the prefixed and the plain name in browser code (readCsrfToken() already does). Replace imports of AUTH_COOKIE_NAME, CSRF_COOKIE_NAME and TENANT_COOKIE_NAME with AUTH_COOKIE_BASE, CSRF_COOKIE_BASE and TENANT_COOKIE_BASE plus sessionCookieName(); e2e helpers that imported CSRF_COOKIE_NAME from @cosmicdrift/kumiko-dispatcher-live import it from @cosmicdrift/kumiko-testing/e2e instead (known: solon e2e/_helpers/api.ts and e2e/session-ended.spec.ts, kumiko-enterprise ai-agent-live-transcription.integration.test.ts uses AUTH_COOKIE_NAME). A reverse proxy that strips or rewrites cookie names must pass the __Host- names unchanged. Staging or preview deployments over plain http need no change (Secure is off there); set auth.secureCookies (also accepted by runProdApp) explicitly when TLS terminates before the app and NODE_ENV is not "production". A standalone createAuthRoutes mount outside buildServer must also mount sessionCookiesMiddleware with the same resolved names, otherwise the readers fall back to the domain-less default.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Duplicate session cookie names end the cookie session
+  detail: When the Cookie header carries the resolved auth or csrf cookie name more than once, authMiddleware ignores the cookie transport and expires every variant (prefixed host-only, legacy host-only, the cookieDomain variant and retired domains). With anonymousAccess the request continues as anonymous, otherwise it gets 401 missing_token; a Bearer token on the same request still authenticates. A prefixed and a legacy name side by side are not a duplicate. The cookie clearing moved from the auth routes into clearSessionCookies in session-cookies.ts; ResolvedSessionCookies carries domain and retiredDomains.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Origin guard defaults on when the public app URL is known
+  detail: New auth option publicOrigin. Without allowedOrigins, cookieDomain and unsafeSkipOriginCheck, buildServer mounts the Origin guard for cookie-authenticated state-changing /api requests and admits publicOrigin plus the request's own host (Host header). runProdApp sets publicOrigin from auth.publicOrigin, then auth.mail.baseUrl, then the APP_BASE_URL env (origin only, path dropped); with none of them in production it logs a warning that the Origin guard is off and boots anyway. allowedOrigins keeps its strict meaning, and the WebSocket check and the anonymous downgrade still use only allowedOrigins.
+  migration: Cookie-authenticated POST, PUT, PATCH or DELETE requests from a page on another origin than the public app URL and than the API host itself now get 403 origin_not_allowed in runProdApp deployments that set auth.mail.baseUrl or APP_BASE_URL. A web client served from a different host than the API (for example a sibling subdomain) must list its origin in auth.allowedOrigins. Same-host setups, custom domains served by the same server and Bearer clients need no change.
+  -->
+
+- b0e8bd3: New `renderer-pdf` bundled feature: `renderTablePdf(doc)` draws a table document as a PDF in pure JavaScript (pdf-lib, no browser, no native dependency). The document has a title, meta lines, weighted columns, cell wrapping, a header row repeated on every page and a footer with page numbers. `createRendererPdfFeature()` registers it as the `pdf` plugin for `kind: "document-pdf"` in `renderer-foundation`. Recipe: `samples/recipes/pdf-audit-export`.
+
+  `createFileRefFromBytes(ctx, { fileName, mimeType, data, attachTo? })` from `@cosmicdrift/kumiko-framework/files` stores bytes a write handler or job produced itself as a FileRef. It runs the same pipeline as `POST /api/files`, which now calls it too. That covers the identifier check, field resolution, size and accept limits, content sniffing and the MIME allowlist, the tenant-bound storage key and the `fileRef.created` event. Rejections come back as 422 `file_rejected` with the upload error in `details.error`.
+
+  `createImagesField({ capture })` forwards `capture` to the edit view model the same way `createImageField` does.
+
+  Cron jobs take an optional IANA time zone: `trigger: { cron: "0 7 * * *", tz: "Europe/Berlin" }`. Boot aborts for an invalid zone.
+
+  `createUserProfileFeature({ allowEmailChange: false })` drops the `change-email` handler and the email section of the profile screen. The default keeps both.
+
+  <!-- kumiko-changes
+  feature: renderer-pdf
+  type: improvement
+  title: Pure-JS PDF renderer for table documents
+  detail: renderTablePdf(doc, options?) renders a PdfTableDocument (title, subtitle, meta lines, weighted columns, wrapped cells, header row repeated per page, footerText and a pageLabel template with {page} and {pages}) to PDF bytes with pdf-lib. Characters outside WinAnsi are replaced by "?". Identical input yields identical bytes. createRendererPdfFeature() registers it as plugin "pdf" for kind "document-pdf"; payload.variables is validated against pdfTableDocumentSchema, anything else fails with RendererError invalid_payload.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: createFileRefFromBytes creates FileRefs from handler- or job-produced bytes
+  detail: createFileRefFromBytes({ db, files, registry, user }, { fileName, mimeType, data, attachTo? }) shares one pipeline with POST /api/files, so identifier checks, field-level maxSize/accept, content sniffing, MIME resolution, the tenant-prefixed storage key and the fileRef.created event are identical. The tenant always comes from ctx.user. A rejected file returns a 422 write failure with reason file_rejected and the upload error string in details.error. The FileRef's insertedById is the passed user, so the default access guard lets only that user and privileged roles read files attached to an entity.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Cron jobs with an IANA time zone, images fields with capture
+  detail: A cron trigger accepts tz (IANA name; without it the server process zone applies) and is scheduled in that zone, DST included. r.job() throws at boot for an invalid zone. createImagesField accepts capture ("environment" | "user") like createImageField, and the edit view model carries it for images fields.
+  -->
+
+  <!-- kumiko-changes
+  feature: user-profile
+  type: improvement
+  title: change-email can be switched off
+  detail: createUserProfileFeature({ allowEmailChange: false }) neither registers the change-email write handler nor shows the email section on the profile screen. Without the option nothing changes.
+  -->
+
+### Patch Changes
+
+- e71b639: A finished tenant job run replaces the older finished run of the same subject in one transaction, so the run store never holds two finished rows for one subject.
+
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Finished tenant job run replaces the older one atomically
+  detail: recordTenantRunOutcome wrote the new completed or failed row and pruned older finished rows of the same tenant, job and subject in two separate statements, so the store briefly held two finished rows per subject, and two runs of one subject finishing together could each miss the other's row and leave both. Both writes now run in one transaction under a per-key advisory lock (namespace tjrl). jobs:query:tenant-runs already showed only the newest finished row, so its result does not change.
+  -->
+
+- Updated dependencies [cc46b78]
+- Updated dependencies [b0e8bd3]
+- Updated dependencies [16fe359]
+  - @cosmicdrift/kumiko-framework@0.360.0
+  - @cosmicdrift/kumiko-types@0.360.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.360.0
+  - @cosmicdrift/kumiko-headless@0.360.0
+  - @cosmicdrift/kumiko-renderer@0.360.0
+  - @cosmicdrift/kumiko-renderer-web@0.360.0
+
 ## 0.359.0
 
 ### Minor Changes
