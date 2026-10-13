@@ -754,7 +754,10 @@ export type RecordHeaderSpec = {
    *  (`target="_blank"`) instead of plain text. Only valid with the string
    *  form of `subtitle`. */
   readonly subtitleHref?: string;
-  /** Badge tone per `status` field value; unlisted values fall back to the value heuristic. */
+  /** Record field whose value selects the `statusTones` entry, for a badge text that
+   *  carries more than the state (e.g. "Terminated on 31.03.2027"). Defaults to `status`. */
+  readonly statusToneField?: string;
+  /** Badge tone per `statusToneField` value (default: the `status` value); unlisted values fall back to the value heuristic. */
   readonly statusTones?: { readonly [statusValue: string]: SelectOptionTone };
 };
 

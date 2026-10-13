@@ -149,7 +149,7 @@ function checkProjectionDetailOutputFields(
   const prefix = `[Feature ${featureName}] Screen "${screenId}" (projectionDetail)`;
   // @wrapper-known semantic-alias
   const checkHeaderField = (
-    part: "title" | "subtitle" | "subtitleHref" | "status",
+    part: "title" | "subtitle" | "subtitleHref" | "status" | "statusToneField",
     field: string,
   ): void => {
     checkFieldExists(
@@ -179,6 +179,9 @@ function checkProjectionDetailOutputFields(
       checkHeaderField("subtitleHref", screen.header.subtitleHref);
     }
     if (screen.header.status !== undefined) checkHeaderField("status", screen.header.status);
+    if (screen.header.statusToneField !== undefined) {
+      checkHeaderField("statusToneField", screen.header.statusToneField);
+    }
   }
   if (screen.recordTitleField !== undefined) {
     const field = screen.recordTitleField;

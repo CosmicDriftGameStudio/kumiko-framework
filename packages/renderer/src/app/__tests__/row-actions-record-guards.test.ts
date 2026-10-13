@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { RelatedListToolbarAction, RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import { stubDispatcher } from "../../__tests__/stub-dispatcher.js";
+import { compactHeaderPrimary, primaryHeaderAction } from "../header-actions.js";
 import type { NavApi } from "../nav.js";
 import { buildProjectionToolbarActions, buildRecordActions } from "../row-actions.js";
 
@@ -77,5 +78,48 @@ describe("buildProjectionToolbarActions conditional visibility", () => {
   test("follows the condition when a record is supplied", () => {
     expect(build({ status: "open" })).toHaveLength(1);
     expect(build({ status: "closed" })).toBeUndefined();
+  });
+});
+
+describe("declared primaryAction hidden by its visible condition", () => {
+  const actions: readonly RowAction[] = [
+    { id: "edit", label: "edit", icon: "pencil", handler: "shop:write:order:edit" },
+    {
+      id: "terminate",
+      label: "terminate",
+      icon: "x",
+      style: "primary",
+      confirm: "sure?",
+      handler: "shop:write:order:terminate",
+      visible: { field: "status", eq: "active" },
+    },
+  ];
+
+  function headerFor(status: string) {
+    return buildRecordActions({
+      actions,
+      record: { id: "rec-1", status },
+      translate: (key) => key,
+      nav,
+      host: undefined,
+      dispatcher: stubDispatcher().dispatcher,
+      openDrawer: () => {},
+      onWriteSuccess: async () => {},
+    });
+  }
+
+  test("a visible primaryAction leads the desktop and phone header", () => {
+    const visible = headerFor("active") ?? [];
+    expect(primaryHeaderAction(visible, "terminate")?.id).toBe("terminate");
+    expect(compactHeaderPrimary(visible, "terminate")?.action.id).toBe("terminate");
+  });
+
+  test("an invisible primaryAction makes edit the main button on desktop and phone", () => {
+    const hidden = headerFor("terminated") ?? [];
+    expect(hidden.map((a) => a.id)).toEqual(["edit"]);
+    expect(primaryHeaderAction(hidden, "terminate")?.id).toBe("edit");
+    const [edit] = hidden;
+    if (edit === undefined) throw new Error("edit action missing");
+    expect(compactHeaderPrimary(hidden, "terminate")).toEqual({ action: edit, iconOnly: true });
   });
 });

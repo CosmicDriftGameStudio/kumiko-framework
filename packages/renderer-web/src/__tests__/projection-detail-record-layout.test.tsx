@@ -604,6 +604,38 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     );
   });
 
+  test("statusToneField picks the tone from another field than the badge text", async () => {
+    const headerScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: {
+        title: "tenantName",
+        status: "stateLabel",
+        statusToneField: "state",
+        statusTones: { custom: "bad" },
+      },
+    };
+    const dispatcher = dispatcherReturning({
+      ...rowData,
+      state: "custom",
+      stateLabel: "Ended on 31.03.2027",
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor(headerScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const badge = screen.getByTestId("kumiko-screen-projection-detail-status");
+    expect(badge.textContent).toBe("Ended on 31.03.2027");
+    expect(badge.className).toContain("text-status-bad");
+  });
+
   test("an unmapped status value falls back to the muted tone", async () => {
     const headerScreen: ProjectionDetailScreenDefinition = {
       ...baseScreen,

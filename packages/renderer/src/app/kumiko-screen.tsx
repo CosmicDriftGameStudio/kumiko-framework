@@ -3252,7 +3252,7 @@ function headerStatusTone(
   record: Readonly<Record<string, unknown>>,
 ): StatusTone | undefined {
   if (header.status === undefined) return undefined;
-  const value = String(record[header.status] ?? "");
+  const value = String(record[header.statusToneField ?? header.status] ?? "");
   const declared =
     header.statusTones !== undefined && Object.hasOwn(header.statusTones, value)
       ? header.statusTones[value]

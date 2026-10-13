@@ -11,6 +11,7 @@ import {
   germanStatusLabel,
   idPayloadSchema,
   leaseExecutor,
+  noticePeriodEnd,
   parseLeaseRow,
   partyExecutor,
   positionExecutor,
@@ -63,45 +64,6 @@ function positionFromItem(
   };
 }
 
-type LeaseExecutorArgs = Parameters<typeof leaseExecutor.detail>;
-
-const DRAFT_STATUS_LABEL = "Aktiv, Änderungen nicht veröffentlicht";
-
-async function loadLeaseAkte(
-  id: string,
-  user: LeaseExecutorArgs[1],
-  db: LeaseExecutorArgs[2],
-  statusLabelOf: (status: string) => string,
-) {
-  const row = await leaseExecutor.detail({ id }, user, db);
-  if (!row) return failNotFound("lease", id);
-  const lease = parseLeaseRow(row);
-  const countChildren = async (executor: typeof positionExecutor): Promise<number> => {
-    const page = await executor.list(
-      { filter: { field: "lease", op: "eq", value: lease.id }, limit: 1, totalCount: true },
-      user,
-      db,
-    );
-    return page.total ?? page.rows.length;
-  };
-  return {
-    id: lease.id,
-    mieter: lease.mieter,
-    statusLabel: statusLabelOf(lease.status),
-    grundmiete: formatGermanMoney(lease.grundmiete),
-    beginn: formatGermanDate(lease.beginn),
-    kuendigungsfrist: lease.kuendigungsfrist ?? "",
-    zahltag: lease.zahltag != null ? `Tag ${lease.zahltag}` : "",
-    einheit: lease.einheit ?? "",
-    liegenschaft: lease.liegenschaft ?? "",
-    ende: "",
-    kontostand: "0,00 €",
-    notizen: "",
-    partyCount: await countChildren(partyExecutor),
-    positionCount: await countChildren(positionExecutor),
-  };
-}
-
 export const rentalFeature = defineFeature("rental", (r) => {
   r.translations({ keys: toKeyFirst(rentalTranslations) });
 
@@ -112,14 +74,36 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.queryHandler(
     "lease:akte",
     idPayloadSchema,
-    (query, ctx) => loadLeaseAkte(query.payload.id, query.user, ctx.db, germanStatusLabel),
-    open,
-  );
-
-  r.queryHandler(
-    "lease:akte-draft",
-    idPayloadSchema,
-    (query, ctx) => loadLeaseAkte(query.payload.id, query.user, ctx.db, () => DRAFT_STATUS_LABEL),
+    async (query, ctx) => {
+      const row = await leaseExecutor.detail({ id: query.payload.id }, query.user, ctx.db);
+      if (!row) return failNotFound("lease", query.payload.id);
+      const lease = parseLeaseRow(row);
+      const countChildren = async (executor: typeof positionExecutor): Promise<number> => {
+        const page = await executor.list(
+          { filter: { field: "lease", op: "eq", value: lease.id }, limit: 1, totalCount: true },
+          query.user,
+          ctx.db,
+        );
+        return page.total ?? page.rows.length;
+      };
+      return {
+        id: lease.id,
+        mieter: lease.mieter,
+        status: lease.status,
+        statusLabel: germanStatusLabel(lease.status, lease.ende),
+        grundmiete: formatGermanMoney(lease.grundmiete),
+        beginn: formatGermanDate(lease.beginn),
+        kuendigungsfrist: lease.kuendigungsfrist ?? "",
+        zahltag: lease.zahltag != null ? `Tag ${lease.zahltag}` : "",
+        einheit: lease.einheit ?? "",
+        liegenschaft: lease.liegenschaft ?? "",
+        ende: "",
+        kontostand: "0,00 €",
+        notizen: "",
+        partyCount: await countChildren(partyExecutor),
+        positionCount: await countChildren(positionExecutor),
+      };
+    },
     open,
   );
 
@@ -172,21 +156,11 @@ export const rentalFeature = defineFeature("rental", (r) => {
       leaseExecutor.update(
         {
           id: event.payload.id,
-          changes: { status: "terminated", ende: ctx.tz.today(ctx.tz.tenant).toString() },
+          changes: {
+            status: "terminated",
+            ende: noticePeriodEnd(ctx.tz.today(ctx.tz.tenant).toString()),
+          },
         },
-        event.user,
-        ctx.db,
-        { skipOptimisticLock: true },
-      ),
-    open,
-  );
-
-  r.writeHandler(
-    "lease:activate",
-    idPayloadSchema,
-    async (event, ctx) =>
-      leaseExecutor.update(
-        { id: event.payload.id, changes: { status: "active" } },
         event.user,
         ctx.db,
         { skipOptimisticLock: true },

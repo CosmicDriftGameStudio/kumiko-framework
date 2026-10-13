@@ -163,6 +163,7 @@ const BOARD_LEASES: readonly BoardLease[] = [
 
 const MAX_NACHMIETER_INDEX = 2;
 const GENERATED_LEASE_COUNT = 300;
+const TERMINATED_LEASE_ID = "00000000-0000-4000-8000-000000003999";
 const FIRST_NAMES = [
   "Anna",
   "Ben",
@@ -204,7 +205,7 @@ function generatedLease(index: number): BoardLease & { readonly terminated: bool
     einheit: `WE-${String(100 + index)}`,
     liegenschaft: PROPERTIES[index % PROPERTIES.length] ?? "Haus Eichenweg",
     beginn: `${year}-${month}-01`,
-    ...(terminated && { ende: "2025-12-31" }),
+    ...(terminated && { ende: "2027-03-31" }),
     miete: 500 + (index % 20) * 15,
     terminated,
   };
@@ -240,7 +241,7 @@ export const seedRental: SeedFn = async (stack) => {
   }
   for (let index = 0; index < GENERATED_LEASE_COUNT; index++) {
     const lease = generatedLease(index);
-    await createLease(lease, lease.terminated);
+    await createLease(lease, lease.terminated, lease.terminated ? TERMINATED_LEASE_ID : undefined);
   }
 
   const maxId = boardLeaseId(MAX_NACHMIETER_INDEX);
