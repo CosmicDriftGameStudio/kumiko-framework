@@ -96,10 +96,12 @@ export function germanStatusLabel(status: string, ende?: string | null): string 
   return GERMAN_STATUS_LABEL[status] ?? status;
 }
 
-// Tenant notice (§ 573c BGB, simplified): the lease ends on the last day of the
-// month after next.
+// Tenant notice (§ 573c BGB, simplified to the 3rd calendar day instead of the
+// 3rd working day): notice received by then ends the lease after the month after
+// next, later notice one month later.
 export function noticePeriodEnd(isoToday: string): string {
-  const target = getTemporal().PlainDate.from(isoToday).add({ months: 2 });
+  const today = getTemporal().PlainDate.from(isoToday);
+  const target = today.add({ months: today.day <= 3 ? 2 : 3 });
   return target.with({ day: target.daysInMonth }).toString();
 }
 
