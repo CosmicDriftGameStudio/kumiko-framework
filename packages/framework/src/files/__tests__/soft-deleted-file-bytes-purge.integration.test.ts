@@ -2,9 +2,9 @@
 // (original and derivatives) before it removes their rows; a row whose bytes could not be
 // deleted stays for the next run.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../bun-db/query.js";
 import { selectMany } from "../../db/query.js";
 import { SOFT_DELETE_CLEANUP_JOB } from "../../engine/soft-delete-cleanup.js";
+import { runSeedWritesAt, SEED_MODE_ENV } from "../../event-store/index.js";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.js";
@@ -36,8 +36,12 @@ const provider: InMemoryFileProvider = {
 
 let stack: TestStack;
 const admin = TestUsers.admin;
+const previousSeedMode = process.env[SEED_MODE_ENV];
 
 beforeAll(async () => {
+  // Seed mode lets the upload and delete run through the real write path with a back-dated
+  // event time, so deletedAt lies past the grace period.
+  process.env[SEED_MODE_ENV] = "1";
   patchFileInstanceofForBunTest();
   stack = await setupTestStack({
     features: [createFilesFeature()],
@@ -51,20 +55,22 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+  if (previousSeedMode === undefined) delete process.env[SEED_MODE_ENV];
+  else process.env[SEED_MODE_ENV] = previousSeedMode;
 });
 
 beforeEach(() => {
   failDeleteForKey = undefined;
 });
 
-async function uploadAndSoftDelete(
-  name: string,
-  ageDays: number,
-): Promise<{
-  id: string;
-  storageKey: string;
-  derivativeKey: string;
-}> {
+type SoftDeletedFile = { id: string; storageKey: string; derivativeKey: string };
+
+function uploadAndSoftDelete(name: string, ageDays: number): Promise<SoftDeletedFile> {
+  const deletedAt = Temporal.Now.instant().subtract({ hours: ageDays * 24 });
+  return runSeedWritesAt(deletedAt, () => uploadAndDelete(name));
+}
+
+async function uploadAndDelete(name: string): Promise<SoftDeletedFile> {
   const token = await stack.jwt.sign(admin);
   const formData = new FormData();
   formData.append("file", new File([Buffer.from(PNG_BYTES)], name, { type: "image/png" }));
@@ -88,12 +94,6 @@ async function uploadAndSoftDelete(
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(deleted.status).toBe(200);
-
-  // kumiko-lint-ignore raw-sql test fixture ages deletedAt past the default grace period
-  await asRawClient(stack.db).unsafe(
-    `UPDATE file_refs SET deleted_at = now() - make_interval(days => $2) WHERE id = $1`,
-    [id, ageDays],
-  );
   return { id, storageKey, derivativeKey };
 }
 
