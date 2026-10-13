@@ -165,7 +165,8 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
       { field: "liegenschaft", navigate: { screen: "lease-list" } },
     ],
     status: "statusLabel",
-    statusTones: { Aktiv: "ok", Gekündigt: "bad" },
+    statusToneField: "status",
+    statusTones: { active: "ok", terminated: "bad" },
   },
   metrics: ["grundmiete", "beginn", "kuendigungsfrist", "zahltag", "mieter"],
   fieldLabels: {
@@ -286,6 +287,7 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
       handler: RENTAL_WRITES.leaseTerminate,
       payload: { pick: ["id"] },
       confirm: "rental.action.terminateConfirm",
+      visible: { field: "status", eq: "active" },
     },
     {
       kind: "navigate",
@@ -453,26 +455,15 @@ export const recordPositionsScreen: ActionFormScreenDefinition = {
   access: OPEN_ACCESS,
 };
 
-// Fixtures for the UI-gap screenshots: a long status label, a confirm-gated
-// primary action next to the default edit action, and a list that is empty
-// because of its default filter.
+// Fixtures for the UI-gap screenshots: a confirm-gated primary action that is
+// visible only while the lease is active (a terminated lease falls back to edit
+// as the main button), and a list that is empty because of its default filter.
 export const leaseDetailGapsScreen: ProjectionDetailScreenDefinition = {
   ...leaseDetailScreen,
   id: "lease-detail-gaps",
-  query: RENTAL_QUERIES.leaseAkteDraft,
   detailFor: "lease",
-  primaryAction: "activate",
+  primaryAction: "terminate",
   actions: [
-    {
-      kind: "writeHandler",
-      id: "activate",
-      icon: "check",
-      label: "rental.action.activate",
-      handler: RENTAL_WRITES.leaseActivate,
-      payload: { pick: ["id"] },
-      confirm: "rental.action.activateConfirm",
-      style: "primary",
-    },
     {
       kind: "writeHandler",
       id: "terminate",
@@ -481,6 +472,8 @@ export const leaseDetailGapsScreen: ProjectionDetailScreenDefinition = {
       handler: RENTAL_WRITES.leaseTerminate,
       payload: { pick: ["id"] },
       confirm: "rental.action.terminateConfirm",
+      style: "primary",
+      visible: { field: "status", eq: "active" },
     },
   ],
 };

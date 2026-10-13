@@ -65,7 +65,7 @@ The slot holds one `overflowItems` list per page; the last `PageHeader` that set
 | `optionTones` | select field | `{ [value]: "ok" \| "warn" \| "bad" \| "neutral" }`, shown as toned badge |
 | `recordTitleField` | entityEdit | field of the loaded record shown as record crumb: "list > record > screen title" (edit mode only) |
 | `recordTitleField` | projectionDetail | query output field that titles the page header (breadcrumb "list > record"); rejected together with `header` |
-| `statusTones` | projectionDetail | same for the `status` field of the header badge |
+| `statusTones` | projectionDetail | same for the `status` field of the header badge, or for `header.statusToneField` when the badge text carries more than the state |
 | `subtitle` | projectionDetail | `header.subtitle`: a query output field, or a list of parts (field name or `{ field, navigate? }`) shown as one line under the title |
 | `valueType` | relatedList column | `number`, `decimal`, `bigInt` or `money`: right-aligned tabular column and header |
 | `hideOnNarrow` | list column | leaves the column out of the card layout below `md`; a card draws at most 3 other meta columns (one row each), more is a boot error |

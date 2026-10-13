@@ -29,15 +29,13 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental.tab.notes": "Notizen",
 
     "rental.action.open": "Öffnen",
-    "rental.action.terminate": "Mietvertrag kündigen",
+    "rental.action.terminate": "Kündigung erfassen",
     "rental.action.editLease": "Vertragsdaten bearbeiten",
-    "rental.action.terminateConfirm": "Soll dieser Mietvertrag gekündigt werden?",
+    "rental.action.terminateConfirm": "Kündigung zum Ende der Kündigungsfrist erfassen?",
     "rental.action.addPosition": "Position hinzufügen",
     "rental.action.adjustRent": "Miete anpassen",
     "rental.adjustRent.hint":
       "Die alte Position endet am Vortag, die neue beginnt am Stichtag. Art, Menge und Einheit bleiben dabei unverändert, so bleibt die Mietgeschichte nachvollziehbar.",
-    "rental.action.activate": "Vertrag aktivieren",
-    "rental.action.activateConfirm": "Soll dieser Mietvertrag aktiviert werden?",
     "rental.leaseListEmpty.description":
       "Gekündigte Verträge, die aktuell als aktiv geführt werden.",
     "rental.leaseListEmpty.emptyTitle": "Alles in Ordnung",
@@ -143,15 +141,13 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental.tab.notes": "Notes",
 
     "rental.action.open": "Open",
-    "rental.action.terminate": "Terminate lease",
+    "rental.action.terminate": "Record notice",
     "rental.action.editLease": "Edit lease details",
-    "rental.action.terminateConfirm": "Terminate this lease?",
+    "rental.action.terminateConfirm": "Record notice to the end of the notice period?",
     "rental.action.addPosition": "Add position",
     "rental.action.adjustRent": "Adjust rent",
     "rental.adjustRent.hint":
       "The old position ends the day before, the new one starts on the effective date. Type, quantity and unit stay unchanged, so the rent history stays traceable.",
-    "rental.action.activate": "Activate lease",
-    "rental.action.activateConfirm": "Activate this lease?",
     "rental.leaseListEmpty.description": "Terminated leases that are still marked active.",
     "rental.leaseListEmpty.emptyTitle": "All clear",
     "rental.leaseListEmpty.emptyDescription": "No terminated leases are still marked active.",

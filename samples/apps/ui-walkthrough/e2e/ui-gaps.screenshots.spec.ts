@@ -8,7 +8,8 @@ import { loginAsAdmin } from "./_helpers/login";
 
 const DESKTOP = { width: 1440, height: 900 } as const;
 const MOBILE = { width: 390, height: 844 } as const;
-const LEASE_ID = "00000000-0000-4000-8000-000000003103";
+const TERMINATED_LEASE_ID = "00000000-0000-4000-8000-000000003999";
+const ACTIVE_LEASE_ID = "00000000-0000-4000-8000-000000003103";
 const LONG_EQUIPMENT =
   "Klimaautomatik, Navigation, Sitzheizung, Anhängerkupplung, Standheizung, Panoramadach, Lederausstattung, Matrix-LED-Scheinwerfer";
 
@@ -19,15 +20,24 @@ async function shot(page: Page, name: string): Promise<void> {
   await captureScreenshot(page, name);
 }
 
-async function openLeaseDetailGaps(page: Page): Promise<void> {
+async function openLeaseDetailGaps(page: Page, leaseId: string, mieter: string): Promise<void> {
   await loginAsAdmin(page);
-  await page.goto(`/lease-detail-gaps/${LEASE_ID}`);
-  await expect(page.getByText("Max Nachmieter").first()).toBeVisible();
+  await page.goto(`/lease-detail-gaps/${leaseId}`);
+  await expect(page.getByText(mieter).first()).toBeVisible();
 }
 
-test("lease-detail-desktop", async ({ page }) => {
-  await openLeaseDetailGaps(page);
-  await shot(page, "lease-detail-desktop");
+const openTerminated = (page: Page) =>
+  openLeaseDetailGaps(page, TERMINATED_LEASE_ID, "Gekündigt zum 31.03.2027");
+const openActive = (page: Page) => openLeaseDetailGaps(page, ACTIVE_LEASE_ID, "Max Nachmieter");
+
+test("lease-detail-terminated-desktop", async ({ page }) => {
+  await openTerminated(page);
+  await shot(page, "lease-detail-terminated-desktop");
+});
+
+test("lease-detail-active-desktop", async ({ page }) => {
+  await openActive(page);
+  await shot(page, "lease-detail-active-desktop");
 });
 
 test("lease-list-empty-desktop", async ({ page }) => {
@@ -52,9 +62,14 @@ test("vehicle-edit-flow-desktop", async ({ page }) => {
 test.describe("mobile", () => {
   test.use({ viewport: MOBILE });
 
-  test("lease-detail-mobile", async ({ page }) => {
-    await openLeaseDetailGaps(page);
-    await shot(page, "lease-detail-mobile");
+  test("lease-detail-terminated-mobile", async ({ page }) => {
+    await openTerminated(page);
+    await shot(page, "lease-detail-terminated-mobile");
+  });
+
+  test("lease-detail-active-mobile", async ({ page }) => {
+    await openActive(page);
+    await shot(page, "lease-detail-active-mobile");
   });
 
   test("lease-list-empty-mobile", async ({ page }) => {
