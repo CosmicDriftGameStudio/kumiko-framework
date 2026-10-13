@@ -6,7 +6,7 @@
 
 <!-- kumiko-changes
 feature: framework
-type: feature
+type: improvement
 title: setupTestStack option lifecycleSystemHooks
 detail: Passes the given SystemHooks to buildServer, so tests can exercise pipeline lifecycle hooks like createCascadeDeleteHook through the real HTTP stack.
 -->

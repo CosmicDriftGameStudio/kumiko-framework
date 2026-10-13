@@ -96,20 +96,26 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
     // these separately, once, with a fixed grace period.
     if (isSystemScopedSoftDeleteTable(proj.table, entity)) continue;
     const where: WhereObject = { isDeleted: true, deletedAt: { lt: cutoff }, tenantId };
-    if (proj.source === FILE_REF_ENTITY_NAME) {
-      // The row is the only record of the storageKey, so its bytes go first.
-      await purgeExpiredFileRefsWithBytes({
-        db,
-        table: proj.table,
-        where,
-        files: ctx.files,
-        log: ctx.log,
-      });
-      continue;
-    }
-    await deleteMany(db, proj.table, where);
+    await purgeExpiredRows(db, proj.source, proj.table, where, ctx);
   }
 };
+
+type JobContext = Parameters<JobHandlerFn>[1];
+
+async function purgeExpiredRows(
+  db: NonNullable<JobContext["db"]>,
+  source: string,
+  table: Parameters<typeof deleteMany>[1],
+  where: WhereObject,
+  ctx: Pick<JobContext, "files" | "log">,
+): Promise<void> {
+  if (source === FILE_REF_ENTITY_NAME) {
+    // The row is the only record of the storageKey, so its bytes go first.
+    await purgeExpiredFileRefsWithBytes({ db, table, where, files: ctx.files, log: ctx.log });
+  } else {
+    await deleteMany(db, table, where);
+  }
+}
 
 // System-global soft-deleted entities (tenancy "global" or no tenantId column) can't take a
 // per-tenant grace period — there's no "this tenant's view" of a row that
