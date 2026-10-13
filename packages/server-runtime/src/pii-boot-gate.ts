@@ -61,7 +61,7 @@ export function assertPiiBootInvariants(
   if (opts.mode === "dev") {
     // biome-ignore lint/suspicious/noConsole: boot-time security warning
     console.warn(
-      `[${tag}] ${carriers} carry pii/userOwned/tenantOwned/recordOwned annotations or a non-"none" defineEvent PII stance but no \`kms\` adapter is configured — fields are stored in PLAINTEXT locally. Pass { kms: new InMemoryKmsAdapter() } (ephemeral DB) or createPgKmsAdapter(...) to exercise crypto-shredding in dev.`,
+      `[${tag}] ${carriers} carry pii/userOwned/tenantOwned/recordOwned annotations or a non-"none" defineEvent PII stance but no \`kms\` adapter is configured — fields are stored in PLAINTEXT locally. Plaintext PII means dev/e2e raw reads will not see the ciphertext prod stores. Pass { kms: new InMemoryKmsAdapter() } (ephemeral DB) or createPgKmsAdapter(...) (persistent dev DB) to exercise crypto-shredding in dev.`,
     );
     // skip: dev mode, plaintext-PII warning already logged above
     return;

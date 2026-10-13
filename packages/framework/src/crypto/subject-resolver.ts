@@ -234,6 +234,23 @@ export function collectPiiSubjectFields(entity: EntityDefinition): readonly stri
     .map(([name]) => name);
 }
 
+function isFileReferenceField(field: EntityDefinition["fields"][string]): boolean {
+  return (
+    field.type === "file" ||
+    field.type === "image" ||
+    field.type === "files" ||
+    field.type === "images"
+  );
+}
+
+// File columns hold only the fileRef uuid; the binary is erased by the file-ref
+// user-data hook, so these stay annotated (forget) but are never ciphertext.
+export function collectPiiEncryptedFields(entity: EntityDefinition): readonly string[] {
+  return Object.entries(entity.fields)
+    .filter(([, field]) => hasSubjectAnnotation(field) && !isFileReferenceField(field))
+    .map(([name]) => name);
+}
+
 /** Subject-annotated fields that may be plaintext in the derived search index (#1610). */
 export function collectSearchableSubjectFields(entity: EntityDefinition): readonly string[] {
   return Object.entries(entity.fields)

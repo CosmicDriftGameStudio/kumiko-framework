@@ -8,7 +8,7 @@
 //   - entity lifecycle events (<entity>.created/updated/deleted/forgotten/
 //     restored) for every entity with PII subject annotations — generic over
 //     subject kind (user/tenant/record, fw#2790), since it goes through the
-//     same collectPiiSubjectFields/resolveSubjectForField the live write
+//     same collectPiiEncryptedFields/resolveSubjectForField the live write
 //     path uses
 //   - custom events from the event-PII catalog (r.defineEvent piiFields) —
 //     user/tenant/self subjects, via the same resolveEventSubject the live
@@ -65,7 +65,7 @@ import {
   PII_ERASED_SENTINEL,
 } from "../../crypto/pii-field-encryption.js";
 import {
-  collectPiiSubjectFields,
+  collectPiiEncryptedFields,
   type ResolveSubjectOptions,
   resolveEventSubject,
   resolveSubjectForField,
@@ -159,7 +159,7 @@ function collectPiiTargets(registry: Registry): PiiTargets {
     { readonly entity: EntityDefinition; readonly piiFields: readonly string[] }
   >();
   for (const [name, entity] of registry.getAllEntities()) {
-    const piiFields = collectPiiSubjectFields(entity);
+    const piiFields = collectPiiEncryptedFields(entity);
     if (piiFields.length > 0) entityTargets.set(name, { entity, piiFields });
   }
   return { entityTargets, eventCatalog: configuredEventPiiCatalog() };

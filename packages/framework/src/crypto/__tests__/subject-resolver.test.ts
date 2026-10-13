@@ -1,7 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/factories.js";
+import {
+  createEntity,
+  createFileField,
+  createFilesField,
+  createImageField,
+  createImagesField,
+  createTextField,
+} from "../../engine/factories.js";
 import type { TenantId } from "../../engine/types/identifiers.js";
 import {
+  collectPiiEncryptedFields,
   collectPiiSubjectFields,
   resolveEventSubject,
   resolveSubjectForField,
@@ -211,6 +219,35 @@ describe("collectPiiSubjectFields", () => {
     expect(collectPiiSubjectFields(userLikeEntity)).toEqual(["email"]);
     expect(collectPiiSubjectFields(commentEntity)).toEqual(["body"]);
     expect(collectPiiSubjectFields(brandingEntity)).toEqual(["brandColor"]);
+  });
+});
+
+describe("collectPiiEncryptedFields", () => {
+  const mediaEntity = createEntity({
+    table: "resolver_media",
+    fields: {
+      authorId: createTextField({ personal: false, reason: "test_fixture" }),
+      caption: createTextField({ personal: { of: "authorId" }, find: "none" }),
+      attachment: createFileField({ personal: { of: "authorId" } }),
+      selfie: createImageField({ personal: "self" }),
+      attachments: createFilesField({ personal: { of: "authorId" } }),
+      selfies: createImagesField({ personal: "self" }),
+    },
+  });
+
+  test("file/image fields stay subject-annotated but are never encrypted", () => {
+    expect(collectPiiSubjectFields(mediaEntity)).toEqual([
+      "caption",
+      "attachment",
+      "selfie",
+      "attachments",
+      "selfies",
+    ]);
+    expect(collectPiiEncryptedFields(mediaEntity)).toEqual(["caption"]);
+  });
+
+  test("equals the subject fields for entities without file fields", () => {
+    expect(collectPiiEncryptedFields(userLikeEntity)).toEqual(["email"]);
   });
 });
 

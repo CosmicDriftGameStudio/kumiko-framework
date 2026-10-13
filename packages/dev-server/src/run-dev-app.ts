@@ -98,7 +98,9 @@ import {
   type CreateKumikoServerOptions,
   createKumikoServer,
   type KumikoServerHandle,
+  logInfo,
 } from "./create-kumiko-server.js";
+import { resolveDevPiiKms } from "./resolve-dev-pii-kms.js";
 import { renderWelcomeBanner } from "./welcome-banner.js";
 
 // Re-export der shared Auth-Setup-Types damit Apps nur einen Import-Pfad
@@ -245,12 +247,12 @@ export type RunDevAppOptions = {
    *  `createEnvMasterKeyProvider`. Override für KMS-Backends. Nur relevant
    *  wenn das secrets-Feature gemountet ist. Symmetrisch zu runProdApp. */
   readonly masterKey?: MasterKeyProvider;
-  /** Subject-Key-KMS für pii-annotierte Felder (Crypto-Shredding) — dev-
-   *  Pendant zu runProdApp({ kms }). Ephemere DB: InMemoryKmsAdapter reicht.
-   *  Persistente Dev-DB: createPgKmsAdapter gegen dieselbe DB, sonst sind
-   *  alte Rows nach dem Restart unlesbar (DEKs weg). Ohne Adapter: Klartext
-   *  + Boot-Warnung. */
-  readonly kms?: KmsAdapter;
+  /** Subject KMS for PII-annotated fields, the dev counterpart of runProdApp({ kms }).
+   *  Unset: an ephemeral DB gets an InMemoryKmsAdapter plus a throwaway blind-index key;
+   *  a persistent dev DB (KUMIKO_DEV_DB_NAME) stays plaintext with a boot warning, pass
+   *  createPgKmsAdapter against that DB there (in-memory DEKs vanish on restart).
+   *  `false`: explicit plaintext, with the boot warning. */
+  readonly kms?: KmsAdapter | false;
   /** 32-Byte-Key (base64) für Blind-Index-HMACs — Pflicht sobald `kms`
    *  gesetzt ist und lookupable-Felder gemountet sind (sonst Boot-Abbruch,
    *  symmetrisch zu runProdApp). */
@@ -407,13 +409,19 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // Subject-KMS + Blind-Index (symmetrisch zu runProdApp). Dev warnt bei
   // Klartext-PII statt zu failen; kms+lookupable ohne blindIndexKey bricht
   // auch hier (Lookups wären in jedem Modus kaputt).
-  configurePiiSubjectKms(options.kms);
-  configureBlindIndexKey(options.blindIndexKey);
+  const piiKms = resolveDevPiiKms(options);
+  configurePiiSubjectKms(piiKms.kms);
+  configureBlindIndexKey(piiKms.blindIndexKey);
   assertPiiBootInvariants(features, {
-    kms: options.kms,
-    blindIndexKey: options.blindIndexKey,
+    kms: piiKms.kms,
+    blindIndexKey: piiKms.blindIndexKey,
     mode: "dev",
   });
+  if (piiKms.mode === "ephemeral-default") {
+    logInfo(
+      "[runDevApp] PII encrypted with in-memory KMS (ephemeral DB); pass kms: false to opt out",
+    );
+  }
   // Throwaway registry, built once and reused below — mirrors runProdApp's
   // `createRegistry(features)` right after validateBoot (#2027). Symmetric
   // sessionStoreProviderMounted check to runProdApp's (registry.getExtension-
