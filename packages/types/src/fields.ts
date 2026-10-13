@@ -719,6 +719,9 @@ export type EmbeddedSubFieldDef =
   | (EmbeddedSubFieldBase & {
       readonly type: "select";
       readonly options: readonly string[];
+      /** Same contract as `SelectFieldDef.display`; in a table cell the
+       *  default stays a dropdown. */
+      readonly display?: "radio" | "dropdown";
     })
   | (EmbeddedSubFieldBase & {
       readonly type: "reference";

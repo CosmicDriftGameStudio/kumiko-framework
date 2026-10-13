@@ -34,7 +34,7 @@ describe("resolveNavigation", () => {
   test("flat list: all top-level entries become root nodes", () => {
     const source = buildSource([
       { id: "orders:nav:list", label: "Orders", screen: "orders:screen:order-list" },
-      { id: "orders:nav:dashboard", label: "Home" },
+      { id: "orders:nav:dashboard", label: "Home", screen: "orders:screen:home" },
     ]);
 
     const tree = resolveNavigation({ source });
@@ -78,9 +78,9 @@ describe("resolveNavigation", () => {
 
   test("sort order: `order` ASC, ties broken by qualifiedName alphabetic", () => {
     const source = buildSource([
-      { id: "app:nav:alpha", label: "A", order: 10 },
-      { id: "app:nav:beta", label: "B", order: 5 },
-      { id: "app:nav:charlie", label: "C", order: 5 }, // same order as beta
+      { id: "app:nav:alpha", label: "A", order: 10, screen: "app:screen:a" },
+      { id: "app:nav:beta", label: "B", order: 5, screen: "app:screen:b" },
+      { id: "app:nav:charlie", label: "C", order: 5, screen: "app:screen:c" }, // same order as beta
     ]);
 
     const tree = resolveNavigation({ source });
@@ -95,8 +95,13 @@ describe("resolveNavigation", () => {
 
   test("access: role-gated entries drop out for non-matching users", () => {
     const source = buildSource([
-      { id: "app:nav:public", label: "Public" },
-      { id: "app:nav:admin-only", label: "Admin Area", access: { roles: ["Admin"] } },
+      { id: "app:nav:public", label: "Public", screen: "app:screen:public" },
+      {
+        id: "app:nav:admin-only",
+        label: "Admin Area",
+        screen: "app:screen:admin",
+        access: { roles: ["Admin"] },
+      },
     ]);
 
     const adminTree = resolveNavigation({ source, user: userAdmin });
@@ -114,6 +119,7 @@ describe("resolveNavigation", () => {
       {
         id: "app:nav:help",
         label: "Help",
+        screen: "app:screen:help",
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       },
     ]);
@@ -170,7 +176,7 @@ describe("resolveNavigation", () => {
   });
 
   test("order default is 0 on the NavNode when not provided", () => {
-    const source = buildSource([{ id: "app:nav:x", label: "X" }]);
+    const source = buildSource([{ id: "app:nav:x", label: "X", screen: "app:screen:x" }]);
     expect(resolveNavigation({ source })[0]?.order).toBe(0);
   });
 
@@ -273,5 +279,48 @@ describe("resolveNavigation", () => {
     expect("target" in (node ?? {})).toBe(false);
     expect("provider" in (node ?? {})).toBe(false);
     expect("actions" in (node ?? {})).toBe(false);
+  });
+
+  test("group whose children are all hidden or absent is dropped, a group with a visible child stays", () => {
+    const source = buildSource([
+      { id: "app:nav:empty-group", label: "Empty" },
+      { id: "app:nav:admin-group", label: "Admin group" },
+      {
+        id: "app:nav:admin-child",
+        label: "Admin child",
+        parent: "app:nav:admin-group",
+        screen: "app:screen:admin",
+        access: { roles: ["Admin"] },
+      },
+      { id: "app:nav:mixed-group", label: "Mixed" },
+      {
+        id: "app:nav:mixed-admin",
+        label: "Mixed admin",
+        parent: "app:nav:mixed-group",
+        screen: "app:screen:mixed-admin",
+        access: { roles: ["Admin"] },
+      },
+      {
+        id: "app:nav:mixed-open",
+        label: "Mixed open",
+        parent: "app:nav:mixed-group",
+        screen: "app:screen:mixed-open",
+      },
+    ]);
+
+    const stdTree = resolveNavigation({ source, user: userStandard });
+    expect(stdTree.map((n) => n.qualifiedName)).toEqual(["app:nav:mixed-group"]);
+    expect(stdTree[0]?.children.map((n) => n.qualifiedName)).toEqual(["app:nav:mixed-open"]);
+
+    const adminTree = resolveNavigation({ source, user: userAdmin });
+    expect(adminTree.map((n) => n.qualifiedName)).toEqual([
+      "app:nav:admin-group",
+      "app:nav:mixed-group",
+    ]);
+  });
+
+  test("a group with an own screen stays visible without children", () => {
+    const source = buildSource([{ id: "app:nav:hub", label: "Hub", screen: "app:screen:hub" }]);
+    expect(resolveNavigation({ source }).map((n) => n.qualifiedName)).toEqual(["app:nav:hub"]);
   });
 });

@@ -41,8 +41,7 @@ import { createFilesFeature } from "../feature.js";
 import { createLocalProvider } from "../local-provider.js";
 
 // Covers ALL four file-field variants: singular (file/image) stores a UUID in
-// the entity column; plural (files/images) has no entity column — the array
-// of UUIDs lives in the event payload only (resolved via fileRefs otherwise).
+// the entity column; plural (files/images) a jsonb array of UUIDs in order.
 // Both shapes must validate + round-trip through the CRUD pipeline.
 const documentEntity = createEntity({
   table: "pipeline_documents",
@@ -187,10 +186,7 @@ describe("file/image field through the CRUD pipeline", () => {
   });
 
   test("plural files/images fields accept arrays of UUIDs end-to-end", async () => {
-    // Plural variants have NO entity-column (table-builder returns {} for
-    // files/images) — the array of UUIDs lives in the event payload. The
-    // pipeline still has to validate + accept it. Pre-fix this was
-    // z.array(z.number()) which would have rejected every UUID array.
+    // Pre-fix the schema was z.array(z.number()), which rejected every UUID array.
     const a = await uploadFile("a.jpg", JPEG_BYTES, "image/jpeg");
     const b = await uploadFile("b.jpg", JPEG_BYTES, "image/jpeg");
     const c = await uploadFile("notes.pdf", PDF_BYTES, "application/pdf");
@@ -215,6 +211,45 @@ describe("file/image field through the CRUD pipeline", () => {
     // Version bumped by the CRUD executor → proves the write actually
     // committed an event (not a silent no-op from validation-strip).
     expect(updated.id).toBe(created.id);
+
+    const detail = await stack.http.queryOk<{ photos: string[]; docs: string[] }>(
+      "pipeline-documents:query:document:detail",
+      { id: created.id },
+      user,
+    );
+    expect(detail.photos).toEqual([a, d]);
+    expect(detail.docs).toEqual([c, e]);
+  });
+
+  test("plural field detail keeps the stored order and reflects a reorder that drops one id", async () => {
+    const first = await uploadFile("1.jpg", JPEG_BYTES, "image/jpeg");
+    const second = await uploadFile("2.jpg", JPEG_BYTES, "image/jpeg");
+    const third = await uploadFile("3.jpg", JPEG_BYTES, "image/jpeg");
+
+    const created = await stack.http.writeOk<{ id: string }>(
+      "pipeline-documents:write:document:create",
+      { title: "Gallery", photos: [first, second] },
+      user,
+    );
+    const afterCreate = await stack.http.queryOk<{ photos: string[]; docs: string[] }>(
+      "pipeline-documents:query:document:detail",
+      { id: created.id },
+      user,
+    );
+    expect(afterCreate.photos).toEqual([first, second]);
+    expect(afterCreate.docs).toEqual([]);
+
+    await stack.http.writeOk(
+      "pipeline-documents:write:document:update",
+      { id: created.id, version: 1, changes: { photos: [third, first] } },
+      user,
+    );
+    const afterUpdate = await stack.http.queryOk<{ photos: string[] }>(
+      "pipeline-documents:query:document:detail",
+      { id: created.id },
+      user,
+    );
+    expect(afterUpdate.photos).toEqual([third, first]);
   });
 
   test("plural files field rejects non-UUID element (schema validates EACH array element)", async () => {

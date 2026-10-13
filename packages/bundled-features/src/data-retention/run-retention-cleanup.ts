@@ -259,14 +259,14 @@ async function forgetRowAndEraseKeys(args: {
 type FileFieldPlan = {
   /** type file|image — stores the fileRef-id directly in the entity column. */
   readonly singleFields: readonly string[];
-  /** type files|images — no entity column, resolved via file_refs. */
+  /** type files|images — resolved via file_refs (bound by entityType/entityId/fieldName). */
   readonly multiFields: readonly string[];
 };
 
 const NO_FILE_FIELDS: FileFieldPlan = { singleFields: [], multiFields: [] };
 
 // file/image = single-column fields (fileRef-id lives directly in the entity
-// row); files/images = plural, no column, resolved via file_refs. Same set
+// row); files/images = plural, resolved via file_refs. Same set
 // as boot-validator/entity-handler.ts FILE_FIELD_TYPES and engine's
 // isFileField — inlined here rather than importing across the package
 // barrel since this module already needs the single/multi split, not just
@@ -285,8 +285,8 @@ function planFileFields(fields: Readonly<Record<string, unknown>>): FileFieldPla
 }
 
 // Every fileRef-id a row's file/image/files/images-fields reference: single
-// fields hold the id in their own column, plural fields have no column and
-// resolve via file_refs (tenantId, entityType, entityId, fieldName).
+// fields hold the id in their own column, plural fields resolve
+// via file_refs (tenantId, entityType, entityId, fieldName).
 async function collectFileRefIds(
   db: DbRunner,
   tenantId: TenantId,

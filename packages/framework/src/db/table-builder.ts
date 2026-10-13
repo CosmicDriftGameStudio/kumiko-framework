@@ -59,7 +59,7 @@ export type AnyPgColumn = ColumnHandle;
 type AnyColumnBuilder = ColumnBuilder<any>;
 
 // Returns column(s) for a field. Most fields return a single entry,
-// money returns two (amount + currency), files/images return none.
+// money returns two (amount + currency).
 //
 // `required: true` auf einem FieldDefinition mappt **immer** auf .notNull()
 // in der DB-Spalte. Die alte Implementation hat das nur für reference-
@@ -227,11 +227,8 @@ function fieldToColumns(
     }
     case "files":
     case "images":
-      // Multi file: no column in entity table, resolved via FileRef table
-      // over (entityType, entityId, fieldName). A bridge-table with
-      // CASCADE + sort-order is a later improvement; today plural files
-      // live entirely in fileRefsTable.
-      return {};
+      // Ordered fileRef UUID array, same shape as multiSelect: never null.
+      return { [name]: jsonb(snakeName).default([]).notNull() };
     default:
       assertUnreachable(field, "field type");
   }
@@ -297,8 +294,7 @@ type Col<_T> = ColumnHandle & { readonly __notNull: true };
 type NullCol<_T> = ColumnHandle & { readonly __notNull: false };
 
 // Per-field column shape — matches `fieldToColumns`. Money +
-// locatedTimestamp produce two-column pairs; files/images contribute no
-// columns (resolved via FileRef table). `notNull` propagiert von
+// locatedTimestamp produce two-column pairs. `notNull` propagiert von
 // `field.required` (literal preserved by createXField generics).
 type ColumnsForField<K extends string, F extends FieldDefinition> = F extends {
   type: "text";
@@ -376,7 +372,7 @@ type ColumnsForField<K extends string, F extends FieldDefinition> = F extends {
                                 ? { readonly [P in K]: Col<string> }
                                 : { readonly [P in K]: NullCol<string> }
                               : F extends { type: "files" | "images" }
-                                ? Record<never, never>
+                                ? { readonly [P in K]: Col<readonly string[]> }
                                 : never;
 
 type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never) extends (

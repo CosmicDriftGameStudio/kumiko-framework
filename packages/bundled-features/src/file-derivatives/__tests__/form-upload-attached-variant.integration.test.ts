@@ -1,9 +1,11 @@
 // Form uploads must end up attached to their record, otherwise a qr-overlay
 // variant has nothing to resolve the QR payload against. An update form sends
-// the record id with the upload; a create form uploads before the record
-// exists and the create binds the caller's pending uploads. Attached files are
-// readable by everyone who may read the record. Upload bodies are built from
-// the real edit view model's hints and the real renderer-web form-data builder.
+// the record id with the upload; a create form (or a server handler) uploads
+// before the record names the file and the create or update binds the caller's
+// pending uploads. Attached files are readable by everyone who may read the
+// record; a pending upload only by its uploader and privileged roles. Upload
+// bodies are built from the real edit view model's hints and the real
+// renderer-web form-data builder.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
@@ -14,12 +16,14 @@ import {
   createTextField,
   defineEntityCreateHandler,
   defineEntityDetailHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   EXT_DERIVATIVE_OVERLAY_RESOLVER,
   EXT_DERIVATIVE_RENDERER,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
+  createFileRefFromBytes,
   createFilesFeature,
   createInMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
@@ -51,7 +55,10 @@ const tenantId = testTenantId(1);
 const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
 const otherAdmin = createTestUser({ id: 2, tenantId, roles: ["Admin"] });
 const technician = createTestUser({ id: 3, tenantId, roles: ["Technician"] });
+const otherTechnician = createTestUser({ id: 5, tenantId, roles: ["Technician"] });
 const guest = createTestUser({ id: 4, tenantId, roles: ["Guest"] });
+
+const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
 
 const QR_LAYER = {
   kind: "qr",
@@ -92,6 +99,9 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
   r.writeHandler(
     defineEntityCreateHandler("fieldGadget", gadgetEntity, { access: { roles: ["Admin"] } }),
   );
+  r.writeHandler(
+    defineEntityUpdateHandler("fieldGadget", gadgetEntity, { access: { roles: ["Admin"] } }),
+  );
   r.queryHandler(
     defineEntityDetailHandler("fieldGadget", gadgetEntity, {
       access: { roles: ["Admin", "Technician"] },
@@ -104,6 +114,27 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
       return `https://example.com/gadget/${args.entityId}`;
     },
   });
+  r.writeHandler(
+    "attach-generated-photo",
+    z.object({ gadgetId: z.uuid(), version: z.number() }),
+    async (event, ctx) => {
+      const stored = await createFileRefFromBytes(ctx, {
+        fileName: "generated.jpg",
+        mimeType: "image/jpeg",
+        data: JPEG_BYTES,
+        attachTo: { entityType: "fieldGadget", fieldName: "photo" },
+      });
+      if (!stored.isSuccess) return stored;
+      const updated = await ctx.write("form-upload-gadget:write:field-gadget:update", {
+        id: event.payload.gadgetId,
+        version: event.payload.version,
+        changes: { photo: stored.data.id },
+      });
+      if (!updated.isSuccess) return updated;
+      return { isSuccess: true as const, data: { fileRefId: stored.data.id } };
+    },
+    { access: { roles: ["Admin"] } },
+  );
   r.writeHandler(
     "render-card",
     z.object({ fileRefId: z.uuid() }),
@@ -191,9 +222,8 @@ async function uploadLikeTheForm(
   hints: EditFieldViewModel,
   uploader: SessionUser = user,
 ): Promise<string> {
-  const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
   const formData = buildFileUploadFormData({
-    file: new File([Buffer.from(jpegBytes)], "photo.jpg", { type: "image/jpeg" }),
+    file: new File([Buffer.from(JPEG_BYTES)], "photo.jpg", { type: "image/jpeg" }),
     entityType: hints.entityType,
     entityId: hints.entityId,
     fieldName: hints.fieldName,
@@ -225,10 +255,26 @@ async function createGadget(
 }
 
 async function readFileAs(fileRefId: string, reader: SessionUser): Promise<number> {
-  const res = await stack.app.request(`/api/files/${fileRefId}`, {
+  return await requestFileRoute(fileRefId, reader, "");
+}
+
+async function requestFileRoute(
+  fileRefId: string,
+  reader: SessionUser,
+  suffix: "" | "/meta" | "/download-url" | "/variant/card",
+): Promise<number> {
+  const res = await stack.app.request(`/api/files/${fileRefId}${suffix}`, {
     headers: { Authorization: await bearer(reader) },
   });
   return res.status;
+}
+
+async function updateGadgetPhoto(gadgetId: string, photo: string): Promise<void> {
+  await stack.http.writeOk(
+    "form-upload-gadget:write:field-gadget:update",
+    { id: gadgetId, version: 1, changes: { photo } },
+    user,
+  );
 }
 
 async function renderCard(
@@ -295,7 +341,7 @@ describe("read access to files attached to a record", () => {
     const galleryHints = fieldHints("gallery", "create");
     const first = await uploadLikeTheForm(galleryHints);
     const second = await uploadLikeTheForm(galleryHints);
-    expect(await readFileAs(first, guest)).toBe(200);
+    expect(await readFileAs(first, technician)).toBe(404);
 
     await createGadget({ gallery: [first, second] });
 
@@ -324,5 +370,97 @@ describe("read access to files attached to a record", () => {
       headers: { Authorization: await bearer(technician) },
     });
     expect(deleteAsTechnician.status).toBe(404);
+  });
+});
+
+describe("pending uploads are private to their uploader until bound", () => {
+  test("another user in the tenant gets 404 on every read route; uploader and admin read it", async () => {
+    const pendingId = await uploadLikeTheForm(photoHints("create"), technician);
+
+    for (const suffix of ["", "/meta", "/download-url", "/variant/card"] as const) {
+      expect(await requestFileRoute(pendingId, otherTechnician, suffix)).toBe(404);
+    }
+    expect(await requestFileRoute(pendingId, technician, "")).toBe(200);
+    expect(await requestFileRoute(pendingId, technician, "/meta")).toBe(200);
+    expect(await requestFileRoute(pendingId, user, "")).toBe(200);
+    expect(await requestFileRoute(pendingId, user, "/meta")).toBe(200);
+  });
+
+  test("an upload without an entityType stays readable tenant-wide", async () => {
+    const hints = { ...photoHints("create"), entityType: undefined, fieldName: undefined };
+    const formData = buildFileUploadFormData({
+      file: new File([Buffer.from(JPEG_BYTES)], "loose.jpg", { type: "image/jpeg" }),
+      entityType: hints.entityType,
+      entityId: undefined,
+      fieldName: hints.fieldName,
+    });
+    const { body, contentType } = await buildMultipartBody(formData);
+    const res = await stack.app.request("/api/files", {
+      method: "POST",
+      headers: { Authorization: await bearer(technician), "Content-Type": contentType },
+      body,
+    });
+    expect(res.status).toBe(201);
+    const { id } = (await res.json()) as { id: string };
+
+    expect(await readFileAs(id, otherTechnician)).toBe(200);
+  });
+
+  test("an update that names the caller's pending upload binds it, so record readers can read it", async () => {
+    const gadgetId = await createGadget();
+    const pendingId = await uploadLikeTheForm(photoHints("create"));
+    expect(await readFileAs(pendingId, technician)).toBe(404);
+
+    await updateGadgetPhoto(gadgetId, pendingId);
+
+    expect(await readFileAs(pendingId, technician)).toBe(200);
+    expect(await readFileAs(pendingId, guest)).toBe(404);
+    const result = await renderCard(pendingId);
+    expect(result.rendered).toBe(true);
+    expectQrResolvedAgainst(gadgetId);
+  });
+
+  test("an update naming another user's pending upload leaves it unbound", async () => {
+    const gadgetId = await createGadget();
+    const foreignId = await uploadLikeTheForm(photoHints("create"), otherAdmin);
+
+    await updateGadgetPhoto(gadgetId, foreignId);
+
+    expect(await readFileAs(foreignId, technician)).toBe(404);
+  });
+
+  test("a server handler that stores bytes for a field and then updates the record binds the file", async () => {
+    const gadgetId = await createGadget();
+
+    const { fileRefId } = await stack.http.writeOk<{ fileRefId: string }>(
+      "form-upload-gadget:write:attach-generated-photo",
+      { gadgetId, version: 1 },
+      user,
+    );
+
+    expect(await readFileAs(fileRefId, technician)).toBe(200);
+    expect(await readFileAs(fileRefId, guest)).toBe(404);
+  });
+
+  test("a plural update binds only the ids it names, in the stored order", async () => {
+    const gadgetId = await createGadget();
+    const galleryHints = fieldHints("gallery", "create");
+    const first = await uploadLikeTheForm(galleryHints);
+    const second = await uploadLikeTheForm(galleryHints);
+
+    await stack.http.writeOk(
+      "form-upload-gadget:write:field-gadget:update",
+      { id: gadgetId, version: 1, changes: { gallery: [second, first] } },
+      user,
+    );
+
+    const detail = await stack.http.queryOk<{ gallery: string[] }>(
+      "form-upload-gadget:query:field-gadget:detail",
+      { id: gadgetId },
+      user,
+    );
+    expect(detail.gallery).toEqual([second, first]);
+    expect(await readFileAs(first, technician)).toBe(200);
+    expect(await readFileAs(second, technician)).toBe(200);
   });
 });

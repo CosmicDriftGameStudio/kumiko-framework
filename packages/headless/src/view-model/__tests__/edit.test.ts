@@ -468,6 +468,50 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
     expect(byField["product"]?.refOptionsQuery).toBeUndefined();
   });
 
+  test("embeddedList spec: readOnlyCells and fixedRows reach the view-model, select display too", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            title: "x",
+            fields: [
+              { field: "lines", embeddedList: { readOnlyCells: ["description"], fixedRows: true } },
+            ],
+          },
+        ],
+      }),
+      entity: embeddedListEntity({
+        schema: {
+          ...lineFieldSchema,
+          unit: { type: "select", options: ["hour", "day"], display: "radio" },
+        },
+      }),
+      values: { lines: [] },
+      translate,
+      featureName: "orders",
+    });
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.embeddedListFixedRows).toBe(true);
+    const byField = Object.fromEntries((field?.embeddedListCells ?? []).map((c) => [c.field, c]));
+    expect(byField["description"]?.readOnly).toBe(true);
+    expect(byField["quantity"]?.readOnly).toBeUndefined();
+    expect(byField["unit"]?.display).toBe("radio");
+    expect(byField["description"]?.display).toBeUndefined();
+  });
+
+  test("without an embeddedList spec no cell is read-only and rows are not fixed", () => {
+    const vm = computeEditViewModel({
+      screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),
+      entity: embeddedListEntity(),
+      values: { lines: [] },
+      translate,
+      featureName: "orders",
+    });
+    const field = asFields(vm.sections[0]).fields[0];
+    expect(field?.embeddedListFixedRows).toBeUndefined();
+    expect(field?.embeddedListCells?.some((c) => c.readOnly !== undefined)).toBe(false);
+  });
+
   test("a reference sub-field's optionsQuery reaches the cell view-model (fw#2780)", () => {
     const vm = computeEditViewModel({
       screen: editScreen({ sections: [{ title: "x", fields: ["lines"] }] }),

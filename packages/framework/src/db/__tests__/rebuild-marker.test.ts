@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { EntityTableMeta } from "../entity-table-meta.js";
-import { diffSnapshots, snapshotFromMetas } from "../migrate-generator.js";
+import { createEntity, createImagesField, createTextField } from "../../engine/index.js";
+import { deriveEntityTableMeta, type EntityTableMeta } from "../entity-table-meta.js";
+import { diffSnapshots, renderMigrationSql, snapshotFromMetas } from "../migrate-generator.js";
 import { readRebuildMarker, rebuildTablesFromDiff, writeRebuildMarker } from "../rebuild-marker.js";
 
 function meta(
@@ -176,5 +177,28 @@ describe("write/read marker", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("plural file field added to an existing managed entity", () => {
+  const textField = createTextField({ personal: false, reason: "test_fixture" });
+  const before = createEntity({ table: "albums", fields: { title: textField } });
+  const after = createEntity({
+    table: "albums",
+    fields: { title: textField, photos: createImagesField() },
+  });
+
+  test("is an in-place ADD COLUMN with a '[]' default and no rebuild marker", () => {
+    const diff = diffSnapshots(
+      snapshotFromMetas([deriveEntityTableMeta("albums", before)]),
+      snapshotFromMetas([deriveEntityTableMeta("albums", after)]),
+    );
+
+    expect(rebuildTablesFromDiff(diff)).toEqual([]);
+    const sql = renderMigrationSql(diff, { name: "add_photos", sequenceNumber: 1 });
+    expect(sql).toContain(
+      `ALTER TABLE "albums" ADD COLUMN "photos" jsonb DEFAULT '[]'::jsonb NOT NULL;`,
+    );
+    expect(sql).not.toContain("DROP TABLE");
   });
 });

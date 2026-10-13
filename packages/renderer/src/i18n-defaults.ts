@@ -56,6 +56,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.embedded-list.actions": "Actions",
     "kumiko.field.embedded-list.cell-label": "{column}, row {row}",
     "kumiko.field.file-list.add": "Add file",
+    "kumiko.field.file-list.item": "File {number}",
     "kumiko.field.file-list.move-up": "Move file up",
     "kumiko.field.file-list.move-down": "Move file down",
     "kumiko.field.file-list.empty": "No files yet.",

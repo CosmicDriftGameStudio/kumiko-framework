@@ -13,6 +13,8 @@ import {
   createBooleanField,
   createDateField,
   createEntity,
+  createFilesField,
+  createImagesField,
   createLocatedTimestampField,
   createMoneyField,
   createMultiSelectField,
@@ -104,14 +106,21 @@ describe("EntityTable<E> — locatedTimestamp produces Utc + Tz", () => {
   });
 });
 
-describe("EntityTable<E> — files/images produzieren keine columns", () => {
-  // files/images werden über fileRefsTable resolved, nicht in der entity-table.
-  // Ein Type-Test der das pinnt würde createFilesField verlangen — wir lassen
-  // das hier weg, weil das Authoring-Pattern "createXField" ohne file-helper
-  // ist (file/image gehen durch createFileField/createImageField mit single
-  // mode, was eine column hat). multi-Mode (files/images) ist Edge-Case.
-  test("kein column für files-typed field — separate Test-Sprint", () => {
-    expect(true).not.toBe(false);
+describe("EntityTable<E> — files/images produce one jsonb column each", () => {
+  const ent = createEntity({
+    table: "album",
+    fields: {
+      photos: createImagesField(),
+      docs: createFilesField(),
+    },
+  });
+  const t = buildEntityTable("album", ent);
+
+  test("columns exist with the UUID-array row type", () => {
+    expectTypeOf(t.photos).not.toBeNever();
+    expectTypeOf(t.docs).not.toBeNever();
+    expect(t.photos).toBeDefined();
+    expect(t.docs).toBeDefined();
   });
 });
 

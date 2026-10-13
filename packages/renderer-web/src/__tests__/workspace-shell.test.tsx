@@ -537,7 +537,12 @@ describe("WorkspaceShell — nav hierarchy after filter", () => {
       screens: [],
       navs: [
         { id: "catalog", label: "Catalog" },
-        { id: "catalog-products", label: "Products", parent: "catalog" },
+        {
+          id: "catalog-products",
+          label: "Products",
+          parent: "catalog",
+          target: { featureId: "shop", action: "products" },
+        },
       ],
       workspaces: [
         ws("ops", {
@@ -705,13 +710,21 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
           featureName: "orders",
           entities: {},
           screens: [],
-          navs: [{ id: "list", label: "Order List" }],
+          navs: [
+            { id: "list", label: "Order List", target: { featureId: "orders", action: "list" } },
+          ],
         },
         {
           featureName: "fleet",
           entities: {},
           screens: [],
-          navs: [{ id: "vehicles", label: "Vehicles" }],
+          navs: [
+            {
+              id: "vehicles",
+              label: "Vehicles",
+              target: { featureId: "fleet", action: "vehicles" },
+            },
+          ],
         },
       ],
       workspaces: [
@@ -745,13 +758,21 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
           featureName: "orders",
           entities: {},
           screens: [],
-          navs: [{ id: "list", label: "Order List" }],
+          navs: [
+            { id: "list", label: "Order List", target: { featureId: "orders", action: "list" } },
+          ],
         },
         {
           featureName: "fleet",
           entities: {},
           screens: [],
-          navs: [{ id: "vehicles", label: "Vehicles" }],
+          navs: [
+            {
+              id: "vehicles",
+              label: "Vehicles",
+              target: { featureId: "fleet", action: "vehicles" },
+            },
+          ],
         },
       ],
       workspaces: [
@@ -851,7 +872,7 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
       featureName: "demo",
       entities: {},
       screens: [],
-      navs: [{ id: "list", label: "List" }],
+      navs: [{ id: "list", label: "List", target: { featureId: "demo", action: "list" } }],
       workspaces: [
         ws("admin", {
           label: "Admin",
@@ -888,7 +909,7 @@ describe("WorkspaceShell — EINE Nav", () => {
       featureName: "demo",
       entities: {},
       screens: [],
-      navs: [{ id: "list", label: "List" }],
+      navs: [{ id: "list", label: "List", target: { featureId: "demo", action: "list" } }],
       workspaces: [
         ws("admin", {
           label: "Admin",

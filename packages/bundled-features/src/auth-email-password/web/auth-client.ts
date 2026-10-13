@@ -452,6 +452,8 @@ export type CurrentUserProfile = {
   readonly email: string;
   readonly displayName: string;
   readonly locale?: string;
+  /** Effective IANA zone (user override, else tenant, else UTC). */
+  readonly effectiveTimeZone?: string;
   readonly globalRoles: readonly string[];
 };
 
@@ -477,6 +479,7 @@ export async function fetchCurrentUser(): Promise<CurrentUserProfile | null> {
       email: string;
       displayName: string;
       locale?: string;
+      effectiveTimeZone?: string;
       // JSON-encoded string[] — siehe userEntity.roles. Default "[]" wenn
       // keine globalen Rollen.
       roles?: string;
@@ -488,6 +491,9 @@ export async function fetchCurrentUser(): Promise<CurrentUserProfile | null> {
     email: body.data.email,
     displayName: body.data.displayName,
     ...(body.data.locale !== undefined && { locale: body.data.locale }),
+    ...(body.data.effectiveTimeZone !== undefined && {
+      effectiveTimeZone: body.data.effectiveTimeZone,
+    }),
     globalRoles: parseRoles(body.data.roles),
   };
 }

@@ -729,6 +729,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.field.embedded-list.remove-row": "Zeile entfernen",
   "kumiko.field.file-list.add": "Datei hinzufügen",
   "kumiko.field.file-list.empty": "Noch keine Dateien.",
+  "kumiko.field.file-list.item": "Datei {number}",
   "kumiko.field.file-list.move-down": "Datei nach unten verschieben",
   "kumiko.field.file-list.move-up": "Datei nach oben verschieben",
   "kumiko.field.file-upload.attached": "Datei angehängt",

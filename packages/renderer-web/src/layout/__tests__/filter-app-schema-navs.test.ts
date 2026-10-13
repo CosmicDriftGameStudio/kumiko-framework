@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { filterAppSchemaNavsByAllowlist } from "../filter-app-schema-navs.js";
+import {
+  filterAppSchemaNavsByAllowlist,
+  reparentAppSchemaNavs,
+} from "../filter-app-schema-navs.js";
 
 function feature(overrides: Partial<FeatureSchema> & { featureName: string }): FeatureSchema {
   return {
@@ -109,5 +112,43 @@ describe("filterAppSchemaNavsByAllowlist", () => {
         order: 10,
       },
     ]);
+  });
+});
+
+describe("reparentAppSchemaNavs", () => {
+  const schema: AppSchema = {
+    features: [
+      feature({
+        featureName: "docs",
+        navs: [
+          { id: "docs-list", label: "Docs", screen: "docs:screen:list", order: 3 },
+          { id: "other", label: "Other", screen: "docs:screen:other" },
+        ],
+      }),
+      feature({ featureName: "app-shell", navs: [{ id: "group", label: "Group" }] }),
+    ],
+  };
+
+  test("moves only the named navs and keeps all of them (no filtering)", () => {
+    const result = reparentAppSchemaNavs(
+      schema,
+      new Map([["docs:nav:docs-list", { parent: "app-shell:nav:group", order: 7 }]]),
+    );
+
+    expect(result.features[0]?.navs).toEqual([
+      {
+        id: "docs-list",
+        label: "Docs",
+        screen: "docs:screen:list",
+        parent: "app-shell:nav:group",
+        order: 7,
+      },
+      { id: "other", label: "Other", screen: "docs:screen:other" },
+    ]);
+    expect(result.features[1]).toEqual(schema.features[1]);
+  });
+
+  test("without overrides the schema is returned as is", () => {
+    expect(reparentAppSchemaNavs(schema, new Map())).toBe(schema);
   });
 });

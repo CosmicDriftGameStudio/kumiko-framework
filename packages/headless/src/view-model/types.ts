@@ -130,6 +130,10 @@ export type EmbeddedListCellViewModel = {
   /** Only for `type: "select"`. */
   readonly options?: readonly string[];
   readonly optionLabels?: Readonly<Record<string, string>>;
+  /** Only for `type: "select"`; `"radio"` renders segmented buttons instead of a dropdown. */
+  readonly display?: "radio" | "dropdown";
+  /** Cell is shown but not editable (`EditFieldSpec.embeddedList.readOnlyCells`). */
+  readonly readOnly?: boolean;
   /** Only for `type: "reference"`. */
   readonly refEntity?: string;
   readonly refFeature?: string;
@@ -294,6 +298,9 @@ export type EditFieldViewModel = {
   >;
   /** Numeric sub-field names to sum in a totals row. From EmbeddedFieldDef.totals. */
   readonly embeddedListTotals?: readonly string[];
+  /** No add, remove, duplicate or move; cells stay editable. From
+   *  EditFieldSpec.embeddedList.fixedRows. */
+  readonly embeddedListFixedRows?: boolean;
   /** Currency for the whole embedded list's money cells and totals row —
    *  currency lives on the head aggregate (EntityDefinition.defaultCurrency),
    *  not per row. Falls back to "EUR" when the entity has no defaultCurrency. */

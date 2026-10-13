@@ -564,3 +564,71 @@ describe("RenderField — routes embedded-list fields to EmbeddedListField (plum
     expect(captured?.cellIssues?.["0.amount"]).toEqual([issue]);
   });
 });
+
+describe("EmbeddedListField — read-only cells, fixed rows, segmented select", () => {
+  const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
+
+  test("forwards readOnly and display of the cells and the fixedRows flag", async () => {
+    const field = invoiceLinesField({
+      value: rows,
+      embeddedListFixedRows: true,
+      embeddedListCells: [
+        {
+          field: "unit",
+          label: "Unit",
+          type: "select",
+          required: true,
+          options: ["pcs", "kg"],
+          display: "radio",
+        },
+        { field: "quantity", label: "Qty", type: "number", required: true, readOnly: true },
+      ],
+      embeddedListDerived: undefined,
+      embeddedListTotals: undefined,
+    });
+    await renderEmbeddedListField(field, () => {});
+    expect(captured?.fixedRows).toBe(true);
+    expect(captured?.columns.find((c) => c.field === "unit")?.display).toBe("radio");
+    expect(captured?.columns.find((c) => c.field === "quantity")?.readOnly).toBe(true);
+    expect(captured?.columns.find((c) => c.field === "unit")?.readOnly).toBeUndefined();
+  });
+
+  test("a paste never writes into a readOnly cell", async () => {
+    let lastValue: unknown;
+    await renderEmbeddedListField(
+      invoiceLinesField({
+        value: rows,
+        embeddedListCells: [
+          { field: "quantity", label: "Qty", type: "number", required: true, readOnly: true },
+          { field: "unitPrice", label: "Unit Price", type: "money", required: true },
+        ],
+        embeddedListDerived: undefined,
+        embeddedListTotals: undefined,
+      }),
+      (v) => {
+        lastValue = v;
+      },
+    );
+    captured?.onPasteCells?.(0, 0, [["9", "5,00"]]);
+    const result = lastValue as readonly Record<string, unknown>[];
+    expect(result[0]?.["quantity"]).toBe(1);
+    expect(result[0]?.["unitPrice"]).toBe(500);
+  });
+
+  test("with fixedRows a paste past the last row does not append rows", async () => {
+    let lastValue: unknown;
+    await renderEmbeddedListField(
+      invoiceLinesField({ value: rows, embeddedListFixedRows: true }),
+      (v) => {
+        lastValue = v;
+      },
+    );
+    captured?.onPasteCells?.(0, 2, [
+      ["2", "200"],
+      ["3", "300"],
+    ]);
+    const result = lastValue as readonly Record<string, unknown>[];
+    expect(result.length).toBe(1);
+    expect(result[0]?.["quantity"]).toBe(2);
+  });
+});

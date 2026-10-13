@@ -123,7 +123,10 @@ export { DefaultAppShell } from "./layout/default-app-shell.js";
 export type { EditorPanelProps, ResolverComponent } from "./layout/editor-panel.js";
 export { EditorPanel } from "./layout/editor-panel.js";
 export type { NavReparentOverride } from "./layout/filter-app-schema-navs.js";
-export { filterAppSchemaNavsByAllowlist } from "./layout/filter-app-schema-navs.js";
+export {
+  filterAppSchemaNavsByAllowlist,
+  reparentAppSchemaNavs,
+} from "./layout/filter-app-schema-navs.js";
 export type { HeaderActionGroupProps } from "./layout/header-action-group.js";
 export { HeaderActionGroup } from "./layout/header-action-group.js";
 export type { LanguageMenuItemsProps } from "./layout/language-menu-items.js";

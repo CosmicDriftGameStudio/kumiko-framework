@@ -69,6 +69,7 @@ import { useActionMenuItems } from "../components/use-action-menu-items.js";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context.js";
 import { useIsEmbeddedScreen } from "../context/embedded-screen-context.js";
 import { useUserRoles } from "../context/user-roles-context.js";
+import { useOptionalCurrentUser } from "../current-user.js";
 import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.js";
 import { type ListSort, PAGE_SIZE_OPTIONS, useListUrlState } from "../hooks/use-list-url-state.js";
 import { type UseQueryResult, useQuery } from "../hooks/use-query.js";
@@ -103,6 +104,7 @@ import {
 } from "./config-edit-shim.js";
 import { useCustomScreenComponent } from "./custom-screens.js";
 import { useDashboardBody } from "./dashboard-body.js";
+import { applyEditPrefill } from "./edit-prefill.js";
 import { EntityListExpandedRow } from "./entity-list-expanded-row.js";
 import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.js";
 import type { FeatureSchema } from "./feature-schema.js";
@@ -112,7 +114,7 @@ import {
   orderPlainHeaderActions,
   primaryHeaderAction,
 } from "./header-actions.js";
-import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.js";
+import { hiddenRequiredFieldsFilled, layoutEditFields, layoutFieldNames } from "./layout-fields.js";
 import { isListNarrowed, useListEmptyContent } from "./list-empty-content.js";
 import {
   buildDateRangePayload,
@@ -1244,16 +1246,22 @@ function EntityEditCreateBody({
     tenantCurrencyFieldNames,
     entityDefaultCurrency,
   );
+  const currentUser = useOptionalCurrentUser();
+  const fallbackTimeZone = useOptionalTimeZone();
   const initial = useMemo(
     () =>
-      mergeSearchParamsIntoInitial(entity.fields, {
-        searchParams: nav.searchParams,
-        urlPrefillFields: screen.urlPrefillFields,
-        renderableFields: layoutFieldNames(screen),
-        defaultCurrency: entityDefaultCurrency,
-        ...(moneyCurrencyOverrides !== undefined && { moneyCurrencyOverrides }),
-        ...(handoffValues !== undefined && { handoffValues }),
-      }) as FormValues,
+      applyEditPrefill(
+        mergeSearchParamsIntoInitial(entity.fields, {
+          searchParams: nav.searchParams,
+          urlPrefillFields: screen.urlPrefillFields,
+          renderableFields: layoutFieldNames(screen),
+          defaultCurrency: entityDefaultCurrency,
+          ...(moneyCurrencyOverrides !== undefined && { moneyCurrencyOverrides }),
+          ...(handoffValues !== undefined && { handoffValues }),
+        }),
+        layoutEditFields(screen),
+        { now: new Date(), fallbackTimeZone, user: currentUser },
+      ) as FormValues,
     [
       entity.fields,
       nav.searchParams,
@@ -1261,6 +1269,8 @@ function EntityEditCreateBody({
       entityDefaultCurrency,
       moneyCurrencyOverrides,
       handoffValues,
+      currentUser,
+      fallbackTimeZone,
     ],
   );
   const formSchema = useMemo(() => buildFormSchema(entity, screen, "create"), [entity, screen]);
@@ -1690,6 +1700,10 @@ function EntityEditUpdateForm({
     );
   }
 
+  // Evaluated against the stored record only, so typing in a form can never
+  // flip the screen between editable and view.
+  const viewMode = screen.readOnly !== undefined && evalFieldCondition(screen.readOnly, record);
+
   return (
     <>
       <RenderEdit
@@ -1697,6 +1711,7 @@ function EntityEditUpdateForm({
         entity={entity}
         featureName={schema.featureName}
         initial={initial}
+        {...(viewMode && { viewMode: true })}
         // Real route id for the extension section (set-value UI): the update
         // form deliberately keeps `id` out of the form values, so the section
         // needs it explicitly — otherwise it renders in create mode.
@@ -1714,7 +1729,7 @@ function EntityEditUpdateForm({
         // allowDelete:false marks an entity without a CRUD delete (history is
         // kept) — without this gate the button dispatched against an
         // unregistered `<entity>:delete` handler.
-        {...(screen.allowDelete !== false && { onDelete: handleDelete })}
+        {...(screen.allowDelete !== false && !viewMode && { onDelete: handleDelete })}
         onCancel={handleCancel}
         onReload={() => void onReload()}
         {...(screenFillsHeight(screen) && { fillScreenHeight: true })}

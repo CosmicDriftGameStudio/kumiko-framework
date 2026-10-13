@@ -208,6 +208,12 @@ export interface EncryptPiiOptions {
   readonly ownerFallback?: Record<string, unknown>;
 }
 
+// Fields whose value is not a string but sits in a jsonb column: plural file
+// fields hold a UUID array there, like jsonb holds any JSON value.
+function isJsonStoredField(field: EntityDefinition["fields"][string] | undefined): boolean {
+  return field?.type === "jsonb" || field?.type === "files" || field?.type === "images";
+}
+
 export async function encryptPiiFieldValues(
   row: Record<string, unknown>,
   entity: EntityDefinition,
@@ -228,7 +234,7 @@ export async function encryptPiiFieldValues(
     // Re-encrypt paths (update previous, detail cache) may see values that
     // are already ciphertext or the erased sentinel — both stay as-is.
     if (isPiiCiphertext(value) || value === PII_ERASED_SENTINEL) continue;
-    const isJsonbField = entity.fields[name]?.type === "jsonb";
+    const isJsonbField = isJsonStoredField(entity.fields[name]);
     if (!isJsonbField && typeof value !== "string") {
       throw new Error(`PII field "${name}" must be a string, got ${typeof value}`);
     }
