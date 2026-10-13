@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityTableMeta, IndexMeta } from "../entity-table-meta.js";
 import {
+  assertUniqueTableNames,
   assertValidMigrationName,
   diffSnapshots,
   generateMigration,
@@ -428,5 +429,45 @@ describe("assertValidMigrationName", () => {
   test("rejects leading hyphen and oversized names", () => {
     expect(() => assertValidMigrationName("-foo")).toThrow(/Invalid migration name/);
     expect(() => assertValidMigrationName(`a${"x".repeat(64)}`)).toThrow(/Invalid migration name/);
+  });
+});
+
+describe("generateMigration — duplicate tableName in metas", () => {
+  const newIndex: IndexMeta = {
+    name: "x_tenant_user_created_idx",
+    columns: ["tenant_id", "user_id", "created_at"],
+  };
+  const legacyIndex: IndexMeta = { name: "x_user_id_idx", columns: ["user_id"] };
+  const prevSnapshot = snapshotFromMetas([metaWithIndexes("in_app_messages", [])]);
+
+  test("throws and names the table when two metas share a tableName", () => {
+    expect(() =>
+      generateMigration({
+        metas: [
+          metaWithIndexes("in_app_messages", [newIndex]),
+          metaWithIndexes("in_app_messages", [legacyIndex]),
+        ],
+        prevSnapshot,
+        name: "dup",
+        sequenceNumber: 2,
+      }),
+    ).toThrow(/in_app_messages/);
+  });
+
+  test("a single meta emits CREATE INDEX for the new index", () => {
+    const out = generateMigration({
+      metas: [metaWithIndexes("in_app_messages", [newIndex])],
+      prevSnapshot,
+      name: "idx",
+      sequenceNumber: 2,
+    });
+    expect(out.sqlContent).toContain('CREATE INDEX IF NOT EXISTS "x_tenant_user_created_idx"');
+  });
+
+  test("assertUniqueTableNames reports every duplicated table at once", () => {
+    expect(() =>
+      assertUniqueTableNames([meta("a"), meta("a"), meta("b"), meta("b"), meta("b"), meta("c")]),
+    ).toThrow(/"a" 2 times[\s\S]*"b" 3 times/);
+    expect(() => assertUniqueTableNames([meta("a"), meta("b")])).not.toThrow();
   });
 });
