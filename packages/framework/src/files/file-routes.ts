@@ -36,6 +36,7 @@ import { fileRefEntity } from "./file-ref-entity.js";
 import { fileRefsTable } from "./file-ref-table.js";
 import type { FileProviderResolver } from "./provider-resolver.js";
 import type { RecordReadCheck } from "./record-read-check.js";
+import { type RecordWriteCheck, RecordWriteDecisions } from "./record-write-check.js";
 import { neutralFileNameForMimeType } from "./resolve-content-type.js";
 import { parseMaxSize, resolveServedContentType } from "./types.js";
 
@@ -90,6 +91,10 @@ export type FileRoutesOptions = {
   // Lets the default guard grant read on an attached file to everyone who may
   // read its record. buildServer wires it to the entity's detail query.
   readonly canReadRecord?: RecordReadCheck;
+  // Gates uploads that name an entityId (attach to a stored record). Absent: such uploads
+  // answer 403. A custom accessGuard does not replace it; the guard only covers read/delete
+  // of existing files.
+  readonly canWriteRecord?: RecordWriteCheck;
 };
 
 const DEFAULT_PRIVILEGED_ROLES = ["Admin", "SystemAdmin"] as const;
@@ -239,6 +244,30 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // store it in the text entityId column.
     const entityId = typeof body["entityId"] === "string" ? body["entityId"] : undefined;
     const fieldName = typeof body["fieldName"] === "string" ? body["fieldName"] : undefined;
+
+    if (entityId !== undefined) {
+      if (entityType === undefined) {
+        return c.json({ error: "missing_entity_type: entityId requires entityType" }, 400);
+      }
+      // Before any bytes are written: a rejected attach must leave no file behind. An
+      // unregistered entityType attaches to nothing; storeFileAsFileRef rejects it with 400.
+      const decision =
+        options.registry !== undefined && options.registry.getEntity(entityType) === undefined
+          ? RecordWriteDecisions.writable
+          : options.canWriteRecord
+            ? await options.canWriteRecord({ entityType, entityId, fieldName, user })
+            : RecordWriteDecisions.forbidden;
+      switch (decision) {
+        case RecordWriteDecisions.writable:
+          break;
+        case RecordWriteDecisions.notFound:
+          return c.json({ error: "not_found" }, 404);
+        case RecordWriteDecisions.forbidden:
+          return c.json({ error: "forbidden: no write access to this record" }, 403);
+        case RecordWriteDecisions.locked:
+          return c.json({ error: "record_locked: the record is locked" }, 409);
+      }
+    }
 
     const data = new Uint8Array(await file.arrayBuffer());
     const storageProvider = await options.resolveProvider(user.tenantId);

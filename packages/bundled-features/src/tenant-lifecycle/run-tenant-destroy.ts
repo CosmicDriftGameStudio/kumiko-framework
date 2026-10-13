@@ -1,7 +1,11 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner, TenantDb, WhereObject } from "@cosmicdrift/kumiko-framework/db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  WritePurposes,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type EscapeHatchAuditSink,
@@ -177,7 +181,7 @@ async function markTenantDestroyFailed(db: DbRunner, tenantId: TenantId): Promis
     },
     user,
     scopedDb,
-    { skipOptimisticLock: true },
+    { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
   );
   invalidateTenantLifecycleGate(tenantId);
 }
@@ -436,6 +440,7 @@ export async function runTenantDestructionSweep(args: {
       { id: tenantId, version, changes: { status: "destroying", destroyStartedAt: now } },
       user,
       scopedDb,
+      { writePurpose: WritePurposes.erasure },
     );
     if (!result.isSuccess) continue;
     invalidateTenantLifecycleGate(tenantId);

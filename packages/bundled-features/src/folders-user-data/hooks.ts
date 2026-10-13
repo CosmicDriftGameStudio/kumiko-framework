@@ -4,7 +4,7 @@
 // Mirrors credit-user-data — standard tenant-scoped pattern, no name-stripping
 // (a folder name is tenant data, not per-user PII).
 
-import type { EventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { type EventStoreExecutor, WritePurposes } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   createSystemUser,
@@ -64,7 +64,9 @@ function tenantScopedDelete(
     const systemUser = createSystemUser(ctx.tenantId);
     const rows = await ctx.db.selectMany<{ id: string }>(table, { tenantId: ctx.tenantId });
     for (const row of rows) {
-      await executor.delete({ id: row.id }, systemUser, ctx.db);
+      await executor.delete({ id: row.id }, systemUser, ctx.db, {
+        writePurpose: WritePurposes.erasure,
+      });
     }
   };
 }

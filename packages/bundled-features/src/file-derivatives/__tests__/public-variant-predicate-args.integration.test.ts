@@ -8,6 +8,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import {
   createEntity,
   createImageField,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
   EXT_DERIVATIVE_RENDERER,
@@ -21,6 +24,7 @@ import {
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   buildMultipartBody,
@@ -35,7 +39,7 @@ import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.q
 const VARIANT_BYTES = new Uint8Array([9, 9, 9]);
 const fakeRender: DerivativeRendererPlugin["render"] = async () => VARIANT_BYTES;
 
-const ENTITY_ID = "gadget-1";
+let entityId = "";
 const HOST = "gadgets.example.com";
 const TENANT = testTenantId(7);
 
@@ -58,6 +62,10 @@ const gadgetEntity = createEntity({
 
 const gadgetPredicateFeature = defineFeature("publicvariantpredicateargstest", (r) => {
   r.entity("gadget", gadgetEntity);
+  const adminOnly = { access: { roles: ["Admin"] } } as const;
+  r.writeHandler(defineEntityCreateHandler("gadget", gadgetEntity, adminOnly));
+  r.writeHandler(defineEntityUpdateHandler("gadget", gadgetEntity, adminOnly));
+  r.queryHandler(defineEntityDetailHandler("gadget", gadgetEntity, adminOnly));
   r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "gadget", {
     isPublic: (args: DerivativePublicPredicateArgs) => {
       receivedArgs.push(args);
@@ -69,6 +77,10 @@ const gadgetPredicateFeature = defineFeature("publicvariantpredicateargstest", (
 });
 
 const user = createTestUser({ id: 1, tenantId: TENANT, roles: ["Admin"] });
+
+const provider = createInMemoryFileProvider();
+const readerWithoutUpdate = createTestUser({ id: 2, tenantId: TENANT, roles: ["User"] });
+const foreignTenantAdmin = createTestUser({ id: 3, tenantId: testTenantId(8), roles: ["Admin"] });
 
 let stack: TestStack;
 
@@ -84,8 +96,15 @@ beforeAll(async () => {
       }),
       gadgetPredicateFeature,
     ],
-    files: { storageProvider: createInMemoryFileProvider() },
+    files: { storageProvider: provider },
   });
+  await unsafeCreateEntityTable(stack.db, gadgetEntity, "gadget");
+  const created = await stack.http.writeOk<{ id: string }>(
+    "publicvariantpredicateargstest:write:gadget:create",
+    {},
+    user,
+  );
+  entityId = created.id;
 });
 
 afterAll(async () => {
@@ -98,20 +117,24 @@ beforeEach(async () => {
   await stack.redis.flushNamespace();
 });
 
-async function uploadGadgetImage(): Promise<string> {
-  const token = await stack.jwt.sign(user);
+async function postGadgetImage(uploader: typeof user): Promise<Response> {
+  const token = await stack.jwt.sign(uploader);
   const fd = new FormData();
   const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
   fd.append("file", new File([Buffer.from(jpegBytes)], "img.jpg", { type: "image/jpeg" }));
   fd.append("entityType", "gadget");
-  fd.append("entityId", ENTITY_ID);
+  fd.append("entityId", entityId);
   fd.append("fieldName", "img");
   const { body, contentType } = await buildMultipartBody(fd);
-  const res = await stack.app.request("/api/files", {
+  return await stack.app.request("/api/files", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
     body,
   });
+}
+
+async function uploadGadgetImage(): Promise<string> {
+  const res = await postGadgetImage(user);
   expect(res.status).toBe(201);
   const json = (await res.json()) as { id: string };
   return json.id;
@@ -127,7 +150,7 @@ describe("file-derivatives :: isPublic receives fieldName + variant", () => {
     expect(receivedArgs).toHaveLength(1);
     expect(receivedArgs[0]).toMatchObject({
       fileRefId: fileId,
-      entityId: ENTITY_ID,
+      entityId,
       fieldName: "img",
       variant: "thumb",
     });
@@ -143,6 +166,17 @@ describe("file-derivatives :: isPublic receives fieldName + variant", () => {
 
     expect(legitRes.status).toBe(200);
     expect(spoofedRes.status).toBe(404);
+  });
+
+  test("a user without update rights or from another tenant cannot attach a file to the record", async () => {
+    const keysBefore = provider.keys().length;
+
+    const withoutUpdate = await postGadgetImage(readerWithoutUpdate);
+    const foreignTenant = await postGadgetImage(foreignTenantAdmin);
+
+    expect(withoutUpdate.status).toBe(404);
+    expect(foreignTenant.status).toBe(404);
+    expect(provider.keys()).toHaveLength(keysBefore);
   });
 
   test("a predicate that opts a specific variant out denies exactly that variant, not the whole entity", async () => {

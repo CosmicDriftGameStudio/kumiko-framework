@@ -1,4 +1,8 @@
-import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  type TenantDb,
+  WritePurposes,
+} from "@cosmicdrift/kumiko-framework/db";
 import { deleteStoredFileAndDerivatives } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   createSystemUser,
@@ -206,6 +210,7 @@ async function severPersonLink(
     if (typeof id !== "string") continue;
     await crud.update({ id, changes: { insertedById: null } }, systemUser, tdb, {
       skipOptimisticLock: true,
+      writePurpose: WritePurposes.erasure,
     });
   }
 }

@@ -27,13 +27,14 @@ import {
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   buildMultipartBody,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-framework/testing";
 import sharp from "sharp";
-import { coverOrder, filesPostProcessingFeature, publishedPhotoIds } from "../feature";
+import { coverOrder, filesPostProcessingFeature, photoEntity, publishedPhotoIds } from "../feature";
 
 const HOST = "photos.example.com";
 const HOST_B = "photos-b.example.com";
@@ -75,7 +76,17 @@ beforeAll(async () => {
     ],
     files: { storageProvider: provider },
   });
+  await unsafeCreateEntityTable(stack.db, photoEntity, "photo");
 });
+
+async function createPhoto(asUser: typeof user = user): Promise<string> {
+  const created = await stack.http.writeOk<{ id: string }>(
+    "files-post-processing:write:photo:create",
+    {},
+    asUser,
+  );
+  return created.id;
+}
 
 afterAll(async () => {
   await stack.cleanup();
@@ -113,9 +124,10 @@ async function uploadPhoto(
 
 describe("entry point 1 — declarative field variant", () => {
   test("GET /api/files/:id/variant/:name renders a real resized webp", async () => {
+    const photoId = await createPhoto();
     const fileId = await uploadPhoto({
       entityType: "photo",
-      entityId: "p1",
+      entityId: photoId,
       fieldName: "original",
     });
     const token = await stack.jwt.sign(user);
@@ -152,9 +164,10 @@ describe("entry point 2 — imperative ctx.derivatives.variant() with region-blu
 
 describe("entry point 3 — public route, default-deny", () => {
   test("unpublished photo → 404", async () => {
+    const photoId = await createPhoto();
     const fileId = await uploadPhoto({
       entityType: "photo",
-      entityId: "p2",
+      entityId: photoId,
       fieldName: "original",
     });
 
@@ -164,12 +177,13 @@ describe("entry point 3 — public route, default-deny", () => {
   });
 
   test("photo published via the write-handler → 200 with rendered bytes", async () => {
+    const photoId = await createPhoto();
     const fileId = await uploadPhoto({
       entityType: "photo",
-      entityId: "p3",
+      entityId: photoId,
       fieldName: "original",
     });
-    await stack.http.writeOk("files-post-processing:write:publish", { entityId: "p3" }, user);
+    await stack.http.writeOk("files-post-processing:write:publish", { entityId: photoId }, user);
 
     const res = await stack.app.request(`http://${HOST}/media/${fileId}/thumb`);
 
@@ -177,17 +191,21 @@ describe("entry point 3 — public route, default-deny", () => {
     expect(res.headers.get("Content-Type")).toBe("image/webp");
   });
 
-  test("publishing entityId p3 under tenant A does not publish tenant B's own entityId p3 (#1983/1)", async () => {
+  test("publishing tenant A's photo does not publish tenant B's photo (#1983/1)", async () => {
+    const photoIdA = await createPhoto(user);
+    const photoIdB = await createPhoto(userB);
     const fileIdA = await uploadPhoto(
-      { entityType: "photo", entityId: "p3", fieldName: "original" },
+      { entityType: "photo", entityId: photoIdA, fieldName: "original" },
       user,
     );
     const fileIdB = await uploadPhoto(
-      { entityType: "photo", entityId: "p3", fieldName: "original" },
+      { entityType: "photo", entityId: photoIdB, fieldName: "original" },
       userB,
     );
 
-    await stack.http.writeOk("files-post-processing:write:publish", { entityId: "p3" }, user);
+    // publish accepts any entityId: tenant A names B's photo too, which must not publish it.
+    await stack.http.writeOk("files-post-processing:write:publish", { entityId: photoIdB }, user);
+    await stack.http.writeOk("files-post-processing:write:publish", { entityId: photoIdA }, user);
 
     const resA = await stack.app.request(`http://${HOST}/media/${fileIdA}/thumb`);
     const resB = await stack.app.request(`http://${HOST_B}/media/${fileIdB}/thumb`);
@@ -199,9 +217,10 @@ describe("entry point 3 — public route, default-deny", () => {
 
 describe("event emission contract", () => {
   test("fileRef.created event payload carries storageKey, not the binary", async () => {
+    const photoId = await createPhoto();
     const fileId = await uploadPhoto({
       entityType: "photo",
-      entityId: "p4",
+      entityId: photoId,
       fieldName: "original",
     });
 

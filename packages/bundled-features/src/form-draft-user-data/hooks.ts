@@ -3,6 +3,7 @@
 // consumers without the user-data-rights pipeline don't pull a hard
 // dependency.
 
+import { WritePurposes } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type UserDataDeleteHook,
@@ -42,7 +43,9 @@ export const formDraftDeleteHook: UserDataDeleteHook = async (ctx) => {
   const systemUser = createSystemUser(ctx.tenantId);
   const failures: string[] = [];
   for (const row of rows) {
-    const result = await formDraftExecutor.delete({ id: row.id }, systemUser, ctx.db);
+    const result = await formDraftExecutor.delete({ id: row.id }, systemUser, ctx.db, {
+      writePurpose: WritePurposes.erasure,
+    });
     if (!result.isSuccess) {
       failures.push(`${row.id}: ${result.error.message}`);
     }

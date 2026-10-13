@@ -10,6 +10,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import {
   createEntity,
   createImageField,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
   EXT_DERIVATIVE_RENDERER,
@@ -24,6 +27,7 @@ import {
   type TestStack,
   TestUsers,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   buildMultipartBody,
@@ -44,6 +48,7 @@ const TENANT_A = testTenantId(11);
 const TENANT_B = testTenantId(12);
 const HOST_A = "cross-tenant-a.example.com";
 
+const publicGadgetIds = new Set<string>();
 let receivedArgs: DerivativePublicPredicateArgs[] = [];
 const gadgetEntity = createEntity({
   table: "cross_tenant_public_variant_gadgets",
@@ -54,10 +59,14 @@ const gadgetEntity = createEntity({
 
 const gadgetPredicateFeature = defineFeature("crosstenantpublicvarianttest", (r) => {
   r.entity("gadget", gadgetEntity);
+  const adminOnly = { access: { roles: ["Admin"] } } as const;
+  r.writeHandler(defineEntityCreateHandler("gadget", gadgetEntity, adminOnly));
+  r.writeHandler(defineEntityUpdateHandler("gadget", gadgetEntity, adminOnly));
+  r.queryHandler(defineEntityDetailHandler("gadget", gadgetEntity, adminOnly));
   r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "gadget", {
     isPublic: (args: DerivativePublicPredicateArgs) => {
       receivedArgs.push(args);
-      return args.entityId === "public-1";
+      return publicGadgetIds.has(args.entityId);
     },
   });
   r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", { render: fakeRender });
@@ -66,11 +75,33 @@ const gadgetPredicateFeature = defineFeature("crosstenantpublicvarianttest", (r)
 const userA = createTestUser({ id: 1, tenantId: TENANT_A, roles: ["Admin"] });
 const userB = createTestUser({ id: 2, tenantId: TENANT_B, roles: ["Admin"] });
 
+type GadgetKind = "public" | "private";
+const gadgetIdsByUser = new Map<string, Record<GadgetKind, string>>();
+
+async function seedGadgets(stack: TestStack): Promise<void> {
+  await unsafeCreateEntityTable(stack.db, gadgetEntity, "gadget");
+  for (const owner of [userA, userB]) {
+    const createGadget = async (): Promise<string> =>
+      (
+        await stack.http.writeOk<{ id: string }>(
+          "crosstenantpublicvarianttest:write:gadget:create",
+          {},
+          owner,
+        )
+      ).id;
+    const ids = { public: await createGadget(), private: await createGadget() };
+    publicGadgetIds.add(ids.public);
+    gadgetIdsByUser.set(owner.id, ids);
+  }
+}
+
 async function uploadImage(
   stack: TestStack,
   asUser: typeof userA,
-  entityId: string,
+  kind: GadgetKind,
 ): Promise<string> {
+  const entityId = gadgetIdsByUser.get(asUser.id)?.[kind];
+  if (entityId === undefined) throw new Error(`no seeded gadget for user ${asUser.id}`);
   const token = await stack.jwt.sign(asUser);
   const fd = new FormData();
   const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
@@ -121,6 +152,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
       { id: TENANT_B, key: "cross-tenant-b", name: "Cross Tenant B" },
       TestUsers.systemAdmin,
     );
+    await seedGadgets(stack);
   });
 
   afterAll(async () => {
@@ -133,7 +165,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
   });
 
   test("a tenant B public file is served through tenant A's shared host, isPublic runs against tenant B", async () => {
-    const fileId = await uploadImage(stack, userB, "public-1");
+    const fileId = await uploadImage(stack, userB, "public");
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
 
@@ -144,7 +176,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
   });
 
   test("one /media request costs one rate-limit token: 31 GETs from one IP all succeed against a limit of 60", async () => {
-    const fileId = await uploadImage(stack, userB, "public-1");
+    const fileId = await uploadImage(stack, userB, "public");
 
     for (let i = 0; i < 31; i++) {
       const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`, {
@@ -155,7 +187,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
   });
 
   test("a tenant A public file is also served through tenant A's host", async () => {
-    const fileId = await uploadImage(stack, userA, "public-1");
+    const fileId = await uploadImage(stack, userA, "public");
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
 
@@ -164,7 +196,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
   });
 
   test("a non-public tenant B file, an unknown fileRefId, and an unknown host all 404 with the same body", async () => {
-    const privateFileId = await uploadImage(stack, userB, "private-1");
+    const privateFileId = await uploadImage(stack, userB, "private");
 
     const privateRes = await stack.app.request(`http://${HOST_A}/media/${privateFileId}/thumb`);
     const unknownFileRefRes = await stack.app.request(
@@ -179,7 +211,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
   });
 
   test("an unknown host 404s even for a public file, before isPublic runs", async () => {
-    const publicFileId = await uploadImage(stack, userB, "public-1");
+    const publicFileId = await uploadImage(stack, userB, "public");
     const unknownFileRefRes = await stack.app.request(
       `http://${HOST_A}/media/00000000-0000-4000-8000-000000000000/thumb`,
     );
@@ -219,7 +251,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
     }
 
     test("a non-public tenant B file yields no data, same as an unknown fileRefId", async () => {
-      const privateFileId = await uploadImage(stack, userB, "private-1");
+      const privateFileId = await uploadImage(stack, userB, "private");
 
       const priv = await queryAnonymously(privateFileId);
       const unknown = await queryAnonymously("00000000-0000-4000-8000-000000000000");
@@ -230,7 +262,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
     });
 
     test("a public tenant B file yields the variant, isPublic runs against tenant B", async () => {
-      const publicFileId = await uploadImage(stack, userB, "public-1");
+      const publicFileId = await uploadImage(stack, userB, "public");
 
       const res = await queryAnonymously(publicFileId);
 
@@ -248,7 +280,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
   // tenant/__tests__/multi-tenant.integration.test.ts.
   describe("a disabled tenant answers like an unknown fileRef", () => {
     test("tenant B's public variant 200s before disable, then 404s identically to an unknown fileRef after disable", async () => {
-      const fileId = await uploadImage(stack, userB, "public-1");
+      const fileId = await uploadImage(stack, userB, "public");
       const beforeRes = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
       expect(beforeRes.status).toBe(200);
 
@@ -288,6 +320,7 @@ describe("file-derivatives :: default ('host') mode is unchanged", () => {
       ],
       files: { storageProvider: createInMemoryFileProvider() },
     });
+    await seedGadgets(stack);
   });
 
   afterAll(async () => {
@@ -300,7 +333,7 @@ describe("file-derivatives :: default ('host') mode is unchanged", () => {
   });
 
   test("a tenant B public file requested through tenant A's host 404s, identical body to an unknown FileRef", async () => {
-    const fileId = await uploadImage(stack, userB, "public-1");
+    const fileId = await uploadImage(stack, userB, "public");
 
     const crossTenantRes = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
     const unknownFileRefRes = await stack.app.request(

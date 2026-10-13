@@ -18,7 +18,7 @@ import { createBigIntField, createEntity, createTextField } from "../engine/inde
 //     reference: "Marc-Lebenslauf.pdf", "Krankheitsattest-Mai.pdf"). The other
 //     fields (storageKey, mimeType, entityType, entityId, fieldName) are
 //     technical references or system metadata, not subject content.
-export const FILE_REF_ENTITY_NAME = "fileRef";
+export { FILE_REF_ENTITY_NAME } from "./types.js";
 
 export const fileRefEntity = createEntity({
   table: "file_refs",

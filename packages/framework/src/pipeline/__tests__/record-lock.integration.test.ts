@@ -5,12 +5,13 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { createEventStoreExecutor, WritePurposes } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query-api.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import {
   createBooleanField,
   createEntity,
+  createSystemUser,
   createTextField,
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
@@ -113,6 +114,36 @@ const lockFeature = defineFeature("lock", (r) => {
       return { isSuccess: true as const, data: { ok: true } };
     },
     IRREVERSIBLE,
+  );
+
+  // Framework system-user writes: the purpose decides whether the lock applies.
+  r.writeHandler(
+    "ticket:system-rename",
+    z.object({ id: z.uuid(), title: z.string(), purpose: z.enum(["none", "erasure"]) }),
+    async (event, ctx) =>
+      executor.update(
+        { id: event.payload.id, changes: { title: event.payload.title } },
+        createSystemUser(event.user.tenantId),
+        ctx.db,
+        {
+          skipOptimisticLock: true,
+          ...(event.payload.purpose === "erasure" && { writePurpose: WritePurposes.erasure }),
+        },
+      ),
+    ROLES,
+  );
+
+  r.writeHandler(
+    "ticket:user-rename-with-purpose",
+    z.object({ id: z.uuid(), title: z.string() }),
+    async (event, ctx) =>
+      executor.update(
+        { id: event.payload.id, changes: { title: event.payload.title } },
+        event.user,
+        ctx.db,
+        { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
+      ),
+    ROLES,
   );
 
   r.writeHandler(
@@ -289,6 +320,31 @@ describe("lockedWhen", () => {
       [id],
     );
     expect(rows).toHaveLength(0);
+  });
+
+  test("a system-user write without a writePurpose is rejected on a locked record", async () => {
+    const id = await createTicket("closed");
+    await expectLocked("lock:write:ticket:system-rename", { id, title: "x", purpose: "none" }, id);
+  });
+
+  test("a system-user write with writePurpose erasure reaches a locked record", async () => {
+    const id = await createTicket("closed");
+    await stack.http.writeOk(
+      "lock:write:ticket:system-rename",
+      { id, title: "anonymised", purpose: "erasure" },
+      admin,
+    );
+    const detail = await stack.http.queryOk<{ title: string }>(
+      "lock:query:ticket:detail",
+      { id },
+      admin,
+    );
+    expect(detail.title).toBe("anonymised");
+  });
+
+  test("a regular user cannot use a writePurpose to pass the lock", async () => {
+    const id = await createTicket("closed");
+    await expectLocked("lock:write:ticket:user-rename-with-purpose", { id, title: "x" }, id);
   });
 
   test("an executor call with unsafeSkipLockGuard may unlock", async () => {

@@ -13,11 +13,15 @@ import {
   createImageField,
   createRegistry,
   createTextField,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type SessionUser,
 } from "../../engine/index.js";
 import { loadAggregate } from "../../event-store/index.js";
 import {
+  createRequestHelper,
   createTestDb,
   createTestUser,
   type TestDb,
@@ -72,9 +76,42 @@ const testTenantEntity = createEntity({
   },
 });
 
-const tenantFeature = defineFeature("tenant", (r) => {
-  r.entity("tenant", testTenantEntity);
+// Attaching a file to a record needs the rights to read and update that record, so the
+// feature carries the generic handlers. RECORD_EDITOR_ROLE is a role no other test user has,
+// which keeps "who may read the attached file" decided by the file guard, not by this role.
+const RECORD_EDITOR_ROLE = "RecordEditor";
+
+function tenantFeatureFor(roles: readonly string[]) {
+  const access = { access: { roles } };
+  return defineFeature("tenant", (r) => {
+    r.entity("tenant", testTenantEntity);
+    r.writeHandler(defineEntityCreateHandler("tenant", testTenantEntity, access));
+    r.writeHandler(defineEntityUpdateHandler("tenant", testTenantEntity, access));
+    r.queryHandler(defineEntityDetailHandler("tenant", testTenantEntity, access));
+  });
+}
+
+const tenantFeature = tenantFeatureFor(["Admin", RECORD_EDITOR_ROLE]);
+const editorOnlyTenantFeature = tenantFeatureFor([RECORD_EDITOR_ROLE]);
+const recordEditor = createTestUser({
+  id: 7,
+  tenantId: adminUser.tenantId,
+  roles: [RECORD_EDITOR_ROLE],
 });
+
+async function createTenantRecord(
+  target: { readonly app: Hono; readonly jwt: JwtHelper },
+  creator: SessionUser,
+): Promise<string> {
+  const created = await createRequestHelper(target.app, target.jwt).writeOk<{ id: string }>(
+    "tenant:write:tenant:create",
+    { name: "record" },
+    creator,
+  );
+  return created.id;
+}
+
+let mainRecordId = "";
 
 beforeAll(async () => {
   // Bun v1.3.x bun:test: Hono's parseBody() returns cross-realm Blob objects
@@ -100,6 +137,7 @@ beforeAll(async () => {
   });
   app = server.app;
   jwt = server.jwt;
+  mainRecordId = await createTenantRecord(server, adminUser);
 });
 
 afterAll(async () => {
@@ -542,7 +580,7 @@ describe("file upload flow via API", () => {
   test("upload a logo image", async () => {
     const res = await uploadFile(adminUser, "logo.png", testPngContent, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
 
@@ -552,7 +590,7 @@ describe("file upload flow via API", () => {
     expect(body.fileName).toBe("logo.png");
     expect(body.mimeType).toBe("image/png");
     expect(body.size).toBe(testPngContent.length);
-    expect(body.storageKey).toContain("1/tenant/1/logo/");
+    expect(body.storageKey).toContain(`1/tenant/${mainRecordId}/logo/`);
 
     uploadedFileId = body.id;
   });
@@ -609,9 +647,7 @@ describe("file upload flow via API", () => {
     const body = await res.json();
     expect(body.fileName).toBe("logo.png");
     expect(body.entityType).toBe("tenant");
-    // entity_id is text post-migration — the upload route passes whatever
-    // string the client sent (here "1") straight through.
-    expect(body.entityId).toBe("1");
+    expect(body.entityId).toBe(mainRecordId);
     expect(body.fieldName).toBe("logo");
   });
 
@@ -793,7 +829,7 @@ describe("content_mismatch is enforced by filename extension for every signature
   test("PDF bytes uploaded as x.jpg against an accept: [png, jpg] field are rejected with content_mismatch", async () => {
     const res = await uploadFile(adminUser, "x.jpg", pdfBytes, "image/jpeg", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     expect(res.status).toBe(400);
@@ -804,7 +840,7 @@ describe("content_mismatch is enforced by filename extension for every signature
   test("PNG bytes uploaded as x.jpg are normalized and stored as image/png when png is in the field's accept", async () => {
     const res = await uploadFile(adminUser, "x.jpg", pngBytes, "image/jpeg", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     expect(res.status).toBe(201);
@@ -817,7 +853,7 @@ describe("content_mismatch is enforced by filename extension for every signature
   test("PNG bytes normalized on upload are served back with the matching image/png Content-Type", async () => {
     const uploadRes = await uploadFile(adminUser, "x.jpg", pngBytes, "image/jpeg", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     expect(uploadRes.status).toBe(201);
@@ -831,7 +867,7 @@ describe("content_mismatch is enforced by filename extension for every signature
   test("PNG bytes uploaded as x.jpg against a field whose accept doesn't include png are still rejected with content_mismatch", async () => {
     const res = await uploadFile(adminUser, "x.jpg", pngBytes, "image/jpeg", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "strictLogo",
     });
     expect(res.status).toBe(400);
@@ -909,7 +945,7 @@ describe("vnd.ms-excel via HTTP (.xls)", () => {
   test("attached .xls upload is rejected by the importFile field's csv-only accept list", async () => {
     const res = await uploadFile(adminUser, "legacy.xls", docBytes, "application/vnd.ms-excel", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "importFile",
     });
     expect(res.status).toBe(400);
@@ -936,13 +972,13 @@ describe("attached file owner-scope", () => {
   const memberUser: SessionUser = {
     id: "11111111-0000-4000-8000-000000000042",
     tenantId: "00000000-0000-4000-8000-000000000001",
-    roles: ["User"],
+    roles: [RECORD_EDITOR_ROLE],
   };
 
   test("non-uploader, non-admin in same tenant cannot download an entity-attached file", async () => {
     const uploadRes = await uploadFile(memberUser, "mine.png", testPng, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     expect(uploadRes.status).toBe(201);
@@ -962,7 +998,7 @@ describe("attached file owner-scope", () => {
   test("uploader can download their own entity-attached file", async () => {
     const uploadRes = await uploadFile(memberUser, "mine2.png", testPng, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     const { id } = await uploadRes.json();
@@ -974,7 +1010,7 @@ describe("attached file owner-scope", () => {
   test("Admin in same tenant can download any attached file", async () => {
     const uploadRes = await uploadFile(memberUser, "mine3.png", testPng, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     const { id } = await uploadRes.json();
@@ -1024,12 +1060,16 @@ describe("custom file access guard", () => {
     const provider = providerOverride ?? createLocalProvider(storagePath);
     // Route policy (accessGuard/privilegedRoles/maxUploadSize) now rides on the
     // files feature; the provider is injected as the per-tenant resolver.
-    const isolatedRegistry = createRegistry([tenantFeature, createFilesFeature(routeOptions)]);
+    const isolatedRegistry = createRegistry([
+      editorOnlyTenantFeature,
+      createFilesFeature(routeOptions),
+    ]);
     const isolatedServer = buildServer({
       registry: isolatedRegistry,
       context: { db: isolatedDb.db, _fileProviderResolver: () => Promise.resolve(provider) },
       jwtSecret: JWT_SECRET,
     });
+    const recordId = await createTenantRecord(isolatedServer, recordEditor);
 
     try {
       const upload = async (user: SessionUser, name: string) => {
@@ -1037,7 +1077,7 @@ describe("custom file access guard", () => {
         const fd = new FormData();
         fd.append("file", new File([Buffer.from(testPng)], name, { type: "image/png" }));
         fd.append("entityType", "tenant");
-        fd.append("entityId", "1");
+        fd.append("entityId", recordId);
         fd.append("fieldName", "logo");
         const { body: multipartBody, contentType } = await buildMultipartBody(fd);
         return isolatedServer.app.request("/api/files", {
@@ -1075,7 +1115,7 @@ describe("custom file access guard", () => {
         const uploader: SessionUser = {
           id: "11111111-0000-4000-8000-000000000010",
           tenantId: "00000000-0000-4000-8000-000000000001",
-          roles: ["User"],
+          roles: [RECORD_EDITOR_ROLE],
         };
         const supervisor: SessionUser = {
           id: "11111111-0000-4000-8000-000000000020",
@@ -1114,7 +1154,7 @@ describe("custom file access guard", () => {
         const uploader: SessionUser = {
           id: "11111111-0000-4000-8000-000000000040",
           tenantId: "00000000-0000-4000-8000-000000000001",
-          roles: ["User"],
+          roles: [RECORD_EDITOR_ROLE],
         };
         const other: SessionUser = {
           id: "11111111-0000-4000-8000-000000000041",
@@ -1207,7 +1247,7 @@ describe("error handling", () => {
     const pdfContent = new TextEncoder().encode("fake-pdf-content");
     const res = await uploadFile(adminUser, "document.pdf", pdfContent, "application/pdf", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo", // logo only accepts png, jpg
     });
     expect(res.status).toBe(400);
@@ -1219,7 +1259,7 @@ describe("error handling", () => {
     const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
       entityType: "../../tenantB",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     expect(res.status).toBe(400);
@@ -1231,7 +1271,7 @@ describe("error handling", () => {
     const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "../../escape",
     });
     expect(res.status).toBe(400);
@@ -1247,7 +1287,7 @@ describe("error handling", () => {
     const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
       entityType: "no-such-entity",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     expect(res.status).toBe(400);
@@ -1259,7 +1299,7 @@ describe("error handling", () => {
     const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "no-such-field",
     });
     expect(res.status).toBe(400);
@@ -1271,7 +1311,7 @@ describe("error handling", () => {
     const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "name",
     });
     expect(res.status).toBe(400);
@@ -1283,7 +1323,7 @@ describe("error handling", () => {
     const pngContent = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const res = await uploadFile(adminUser, "logo.png", pngContent, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
     });
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -1424,6 +1464,7 @@ describe("download-url endpoint", () => {
     storageProvider: FileStorageProvider,
     body: (args: {
       jwt: JwtHelper;
+      recordId: string;
       upload: (user: SessionUser) => Promise<Response>;
       getDownloadUrl: (user: SessionUser, fileId: string) => Promise<Response>;
     }) => Promise<void>,
@@ -1437,6 +1478,7 @@ describe("download-url endpoint", () => {
       context: { db: isolatedDb.db, _fileProviderResolver: () => Promise.resolve(storageProvider) },
       jwtSecret: JWT_SECRET,
     });
+    const recordId = await createTenantRecord(isolatedServer, adminUser);
 
     try {
       const upload = async (user: SessionUser) => {
@@ -1444,7 +1486,7 @@ describe("download-url endpoint", () => {
         const fd = new FormData();
         fd.append("file", new File([Buffer.from(testPng)], "photo.png", { type: "image/png" }));
         fd.append("entityType", "tenant");
-        fd.append("entityId", "1");
+        fd.append("entityId", recordId);
         fd.append("fieldName", "logo");
         const { body: multipartBody, contentType } = await buildMultipartBody(fd);
         return isolatedServer.app.request("/api/files", {
@@ -1460,30 +1502,33 @@ describe("download-url endpoint", () => {
           headers: { Authorization: `Bearer ${token}` },
         });
       };
-      await body({ jwt: isolatedServer.jwt, upload, getDownloadUrl });
+      await body({ jwt: isolatedServer.jwt, recordId, upload, getDownloadUrl });
     } finally {
       await isolatedDb.cleanup();
     }
   }
 
   test("returns signed URL + expiresAt for authorized caller", async () => {
-    await withIsolatedServer(createInMemoryFileProvider(), async ({ upload, getDownloadUrl }) => {
-      const before = Date.now();
-      const { id } = await (await upload(adminUser)).json();
+    await withIsolatedServer(
+      createInMemoryFileProvider(),
+      async ({ recordId, upload, getDownloadUrl }) => {
+        const before = Date.now();
+        const { id } = await (await upload(adminUser)).json();
 
-      const res = await getDownloadUrl(adminUser, id);
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      // The in-memory provider returns a memory:// URL with key + expiry —
-      // that's enough to prove the route wired the provider through.
-      expect(body.url).toMatch(/^memory:\/\//);
-      expect(body.url).toContain(`${adminUser.tenantId}/tenant/1/logo/`);
-      expect(body.url).toContain("expires=900");
-      // expiresAt is ~15 min in the future (ISO-8601).
-      const expiresAtMs = Date.parse(body.expiresAt);
-      expect(expiresAtMs).toBeGreaterThan(before + 14 * 60 * 1000);
-      expect(expiresAtMs).toBeLessThan(before + 16 * 60 * 1000);
-    });
+        const res = await getDownloadUrl(adminUser, id);
+        expect(res.status).toBe(200);
+        const body = await res.json();
+        // The in-memory provider returns a memory:// URL with key + expiry —
+        // that's enough to prove the route wired the provider through.
+        expect(body.url).toMatch(/^memory:\/\//);
+        expect(body.url).toContain(`${adminUser.tenantId}/tenant/${recordId}/logo/`);
+        expect(body.url).toContain("expires=900");
+        // expiresAt is ~15 min in the future (ISO-8601).
+        const expiresAtMs = Date.parse(body.expiresAt);
+        expect(expiresAtMs).toBeGreaterThan(before + 14 * 60 * 1000);
+        expect(expiresAtMs).toBeLessThan(before + 16 * 60 * 1000);
+      },
+    );
   });
 
   test("returns 404 for nonexistent file", async () => {
@@ -1505,7 +1550,7 @@ describe("download-url endpoint", () => {
     const memberUploader: SessionUser = {
       id: "11111111-0000-4000-8000-000000000050",
       tenantId: "00000000-0000-4000-8000-000000000001",
-      roles: ["User"],
+      roles: [RECORD_EDITOR_ROLE],
     };
     const memberOther: SessionUser = {
       id: "11111111-0000-4000-8000-000000000051",
@@ -1526,7 +1571,7 @@ describe("download-url endpoint", () => {
     // download URL — the route must detect the missing method and 501.
     const uploadRes = await uploadFile(adminUser, "no-signed.png", testPng, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     const { id } = await uploadRes.json();
@@ -1571,7 +1616,7 @@ describe("meta route with field-encrypted fileName", () => {
       "Krankheitsattest-Mai.png",
       testPng,
       "image/png",
-      { entityType: "tenant", entityId: "1", fieldName: "logo" },
+      { entityType: "tenant", entityId: mainRecordId, fieldName: "logo" },
     );
     expect(uploadRes.status).toBe(201);
     const { id } = await uploadRes.json();
@@ -1596,7 +1641,7 @@ describe("meta route with field-encrypted fileName", () => {
     const memberUploader: SessionUser = {
       id: "11111111-0000-4000-8000-000000000060",
       tenantId: adminUser.tenantId,
-      roles: ["User"],
+      roles: [RECORD_EDITOR_ROLE],
     };
     const memberOther: SessionUser = {
       id: "11111111-0000-4000-8000-000000000061",
@@ -1606,7 +1651,7 @@ describe("meta route with field-encrypted fileName", () => {
 
     const uploadRes = await uploadFile(memberUploader, "own-meta.png", testPng, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     expect(uploadRes.status).toBe(201);
@@ -1623,7 +1668,7 @@ describe("meta route with field-encrypted fileName", () => {
 
     const uploadRes = await uploadFile(adminUser, "cross-tenant.png", testPng, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     const { id } = await uploadRes.json();
@@ -1644,7 +1689,7 @@ describe("meta route with field-encrypted fileName", () => {
 
     const uploadRes = await uploadFile(adminUser, "trashed.png", testPng, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     const { id } = await uploadRes.json();
@@ -1682,7 +1727,7 @@ describe("byte-serving routes with field-encrypted fileName", () => {
       "Krankheitsattest-Mai.png",
       testPng,
       "image/png",
-      { entityType: "tenant", entityId: "1", fieldName: "logo" },
+      { entityType: "tenant", entityId: mainRecordId, fieldName: "logo" },
     );
     expect(uploadRes.status).toBe(201);
     const { id } = await uploadRes.json();
@@ -1700,7 +1745,7 @@ describe("byte-serving routes with field-encrypted fileName", () => {
 
     const uploadRes = await uploadFile(adminUser, "to-be-erased.png", testPng, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     expect(uploadRes.status).toBe(201);
@@ -1719,7 +1764,7 @@ describe("byte-serving routes with field-encrypted fileName", () => {
 
     const uploadRes = await uploadFile(adminUser, "no-kms-later.png", testPng, "image/png", {
       entityType: "tenant",
-      entityId: "1",
+      entityId: mainRecordId,
       fieldName: "logo",
     });
     expect(uploadRes.status).toBe(201);
@@ -1758,6 +1803,7 @@ describe("byte-serving routes with field-encrypted fileName", () => {
       },
       jwtSecret: JWT_SECRET,
     });
+    const recordId = await createTenantRecord(isolatedServer, adminUser);
 
     try {
       const fd = new FormData();
@@ -1766,7 +1812,7 @@ describe("byte-serving routes with field-encrypted fileName", () => {
         new File([Buffer.from(testPng)], "Krankheitsattest-Mai.png", { type: "image/png" }),
       );
       fd.append("entityType", "tenant");
-      fd.append("entityId", "1");
+      fd.append("entityId", recordId);
       fd.append("fieldName", "logo");
       const { body: multipartBody, contentType } = await buildMultipartBody(fd);
       const token = await isolatedServer.jwt.sign(adminUser);

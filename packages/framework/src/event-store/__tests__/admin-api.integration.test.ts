@@ -154,22 +154,24 @@ describe("appendRaw — single event", () => {
     // Open a dedicated LISTEN connection. postgres-js exposes listen() on the
     // client; the callback is invoked per NOTIFY payload. The resolved value
     // is a meta-object with an `unlisten` method, not a plain function.
+    // Postgres delivers notifications in commit order, so a sentinel NOTIFY sent
+    // after the control append proves that everything committed before it has
+    // already been delivered; no sleeping needed.
+    const sentinel = "sentinel-after-control-append";
     const notifications: string[] = [];
-    const subscription = await (testDb.client as PgClient).listen(
-      "kumiko_events_new",
-      (payload: string) => {
-        notifications.push(payload);
-      },
-    );
+    let markSentinelSeen: () => void = () => {};
+    const sentinelSeen = new Promise<void>((resolve) => {
+      markSentinelSeen = resolve;
+    });
+    const client = testDb.client as PgClient;
+    const subscription = await client.listen("kumiko_events_new", (payload: string) => {
+      if (payload === sentinel) markSentinelSeen();
+      else notifications.push(payload);
+    });
 
     try {
-      // appendRaw path — MUST NOT fire.
+      // appendRaw path: MUST NOT fire.
       await appendRaw(testDb.db, makeEvent());
-      // Give the event-loop a moment; LISTEN delivery is async but within
-      // the same tick usually.
-      await new Promise((r) => setTimeout(r, 50));
-      expect(notifications).toHaveLength(0);
-
       // Control: regular append() DOES fire. Same test-DB, same LISTEN.
       await append(testDb.db, {
         aggregateId: uuid(),
@@ -180,8 +182,10 @@ describe("appendRaw — single event", () => {
         payload: {},
         metadata: { userId: userMigration },
       });
-      await new Promise((r) => setTimeout(r, 50));
-      expect(notifications.length).toBeGreaterThan(0);
+      await client.notify("kumiko_events_new", sentinel);
+      await sentinelSeen;
+      // Exactly the control append's notification: appendRaw sent none.
+      expect(notifications).toHaveLength(1);
     } finally {
       await subscription.unlisten();
     }

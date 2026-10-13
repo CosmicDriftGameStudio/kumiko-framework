@@ -30,10 +30,18 @@ export type PreSaveRunner = (
 // to the loaded row's tenant; anything else fails the write.
 export type StreamTenantOption = { readonly streamTenantId?: TenantId | undefined };
 
-// The executor refuses to update or delete a row that meets the entity's `lockedWhen`
-// (forget and framework-system-user writes are exempt). Only server code that changes the
-// locked row on purpose (unlocking) sets this; it applies to that one call and nothing else.
-export type LockGuardOption = { readonly unsafeSkipLockGuard?: boolean };
+// Why a framework system-user write may reach a locked row. Statutory deletion (retention)
+// and Art. 17 erasure must succeed on locked rows; any other system write stays blocked.
+export const WritePurposes = { retention: "retention", erasure: "erasure" } as const;
+export type WritePurpose = (typeof WritePurposes)[keyof typeof WritePurposes];
+
+// The executor refuses to update or delete a row that meets the entity's `lockedWhen`.
+// Exempt: forget, a framework system user that names a `writePurpose`, and a call that
+// sets `unsafeSkipLockGuard` (server code unlocking a row on purpose; applies to that one call).
+export type LockGuardOption = {
+  readonly unsafeSkipLockGuard?: boolean;
+  readonly writePurpose?: WritePurpose;
+};
 
 export type EventStoreExecutor = {
   create: (

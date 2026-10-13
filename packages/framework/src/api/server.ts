@@ -2,6 +2,7 @@ import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { Hono, type MiddlewareHandler } from "hono";
 import { ROLES } from "../auth/roles.js";
 import type { DbConnection, PgClient } from "../db/connection.js";
+import { createTenantDb } from "../db/tenant-db.js";
 import { createDerivativesContext } from "../derivatives/derivatives-context.js";
 import { buildAppSchema } from "../engine/build-app-schema.js";
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.js";
@@ -30,6 +31,7 @@ import type { FileRoutesOptions } from "../files/file-routes.js";
 import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes.js";
 import { makeFileProviderResolver } from "../files/provider-resolver.js";
 import { createRecordReadCheck } from "../files/record-read-check.js";
+import { createRecordWriteCheck } from "../files/record-write-check.js";
 import type { Lifecycle } from "../lifecycle/index.js";
 import { createFallbackLogger } from "../logging/index.js";
 import {
@@ -1083,13 +1085,22 @@ export function buildServer(options: ServerOptions): KumikoServer {
     const fileDb = options.context.db as FileRoutesOptions["db"]; // @cast-boundary engine-bridge
     if (!fileDb) throw new Error("file routes require db in context");
     const routeOptions = readFilesRouteOptions(options.registry);
+    const canReadRecord = createRecordReadCheck(options.registry, dispatcher.query);
     app.route(
       "/api",
       createFileRoutes({
         db: fileDb,
         registry: options.registry,
         resolveProvider: fileProviderResolver,
-        canReadRecord: createRecordReadCheck(options.registry, dispatcher.query),
+        canReadRecord,
+        canWriteRecord: createRecordWriteCheck({
+          registry: options.registry,
+          canReadRecord,
+          tenantDbFor: (tenantId) =>
+            createTenantDb(fileDb, tenantId, "tenant", undefined, undefined, undefined, {
+              projectionRegistry: options.registry,
+            }),
+        }),
         ...(routeOptions.accessGuard ? { accessGuard: routeOptions.accessGuard } : {}),
         ...(routeOptions.privilegedRoles ? { privilegedRoles: routeOptions.privilegedRoles } : {}),
         ...(routeOptions.maxUploadSize ? { maxUploadSize: routeOptions.maxUploadSize } : {}),
