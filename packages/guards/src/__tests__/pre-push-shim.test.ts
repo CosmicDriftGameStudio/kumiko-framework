@@ -66,8 +66,14 @@ beforeAll(() => {
   templateRepoDir = join(fixtureRoot, "template-repo");
   mkdirSync(templateRepoDir);
   runGit(["init", "-q", "."], templateRepoDir, fixtureRoot);
+  // git commit may start a detached auto-maintenance that writes objects/maintenance.lock
+  // while cpSync walks the template, so the copy races a vanishing file.
   runGit(
     [
+      "-c",
+      "maintenance.auto=false",
+      "-c",
+      "gc.auto=0",
       "-c",
       "user.email=test@example.com",
       "-c",
