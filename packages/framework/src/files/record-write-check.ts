@@ -1,0 +1,85 @@
+import type { TenantDb } from "../db/tenant-db.js";
+import { hasAccess } from "../engine/access.js";
+import { normalizeAccessEntry, userCanWriteFieldRow } from "../engine/ownership.js";
+import { toKebab } from "../engine/qualified-name.js";
+import { isRecordLocked } from "../engine/screen-helpers.js";
+import type { Registry, SessionUser, TenantId } from "../engine/types/index.js";
+import type { RecordReadCheck } from "./record-read-check.js";
+
+export const RecordWriteDecisions = {
+  writable: "writable",
+  notFound: "not_found",
+  forbidden: "forbidden",
+  locked: "locked",
+} as const;
+export type RecordWriteDecision = (typeof RecordWriteDecisions)[keyof typeof RecordWriteDecisions];
+
+export type RecordWriteCheck = (args: {
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly fieldName: string | undefined;
+  readonly user: SessionUser;
+}) => Promise<RecordWriteDecision>;
+
+function isEntityUpdateWrite(qn: string, entityName: string): boolean {
+  return qn.endsWith(`:write:${toKebab(entityName)}:update`);
+}
+
+// "May this user attach a file to the record?" asks what saving the record would ask: the
+// entity's update handler, the row-level and field-level write rules against the stored row,
+// and the lock. Not-readable, foreign-tenant and missing records answer alike (not_found) so
+// the upload never confirms what exists.
+export function createRecordWriteCheck(args: {
+  readonly registry: Registry;
+  readonly canReadRecord: RecordReadCheck;
+  readonly tenantDbFor: (tenantId: TenantId) => TenantDb;
+}): RecordWriteCheck {
+  const { registry, canReadRecord, tenantDbFor } = args;
+
+  function findUpdateHandlerAccess(entityType: string) {
+    for (const [qn, handler] of registry.getAllWriteHandlers()) {
+      if (registry.getHandlerEntity(qn) === entityType && isEntityUpdateWrite(qn, entityType)) {
+        return handler.access;
+      }
+    }
+    return undefined;
+  }
+
+  function findEntityTable(entityType: string) {
+    for (const projection of registry.getAllProjections().values()) {
+      if (projection.isImplicit === true && projection.source === entityType) {
+        return projection.table;
+      }
+    }
+    return undefined;
+  }
+
+  return async ({ entityType, entityId, fieldName, user }) => {
+    if (!(await canReadRecord({ entityType, entityId, user }))) {
+      return RecordWriteDecisions.notFound;
+    }
+    const entity = registry.getEntity(entityType);
+    const table = findEntityTable(entityType);
+    if (!entity || !table) return RecordWriteDecisions.notFound;
+
+    // The stored row, not the detail output: the detail query can hide ownership fields.
+    const row = await tenantDbFor(user.tenantId).fetchOne<Record<string, unknown>>(table, {
+      id: entityId,
+      ...(entity.softDelete === true && { isDeleted: false }),
+    });
+    if (!row) return RecordWriteDecisions.notFound;
+
+    if (!hasAccess(user, findUpdateHandlerAccess(entityType)))
+      return RecordWriteDecisions.forbidden;
+    if (!userCanWriteFieldRow(user, entity.access?.write, row, row)) {
+      return RecordWriteDecisions.forbidden;
+    }
+    const fieldWriteRules =
+      fieldName === undefined ? undefined : entity.fields[fieldName]?.access?.write;
+    if (!userCanWriteFieldRow(user, normalizeAccessEntry(fieldWriteRules), row, row)) {
+      return RecordWriteDecisions.forbidden;
+    }
+    if (isRecordLocked(entity.lockedWhen, row)) return RecordWriteDecisions.locked;
+    return RecordWriteDecisions.writable;
+  };
+}

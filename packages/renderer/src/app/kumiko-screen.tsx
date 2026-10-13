@@ -26,6 +26,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   evalFieldCondition,
+  isRecordLocked,
   isWriteFormEditSection,
   metricField,
   parseRefTarget,
@@ -1704,9 +1705,10 @@ function EntityEditUpdateForm({
   // flip the screen between editable and view.
   // Either condition shows the view: the server rejects saves of a locked record
   // whatever the screen says, so a screen condition can only add read-only, never lift it.
-  const viewMode = [screen.readOnly, entity.lockedWhen].some(
-    (condition) => condition !== undefined && evalFieldCondition(condition, record),
-  );
+  // A record without the lock field counts as locked (isRecordLocked), matching the server.
+  const viewMode =
+    (screen.readOnly !== undefined && evalFieldCondition(screen.readOnly, record)) ||
+    isRecordLocked(entity.lockedWhen, record);
 
   return (
     <>

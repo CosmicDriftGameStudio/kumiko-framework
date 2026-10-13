@@ -8,7 +8,12 @@ import { buildExecutorContext, type Table } from "./event-store-executor-context
 import { createReadVerbs } from "./event-store-executor-read.js";
 import { createWriteVerbs } from "./event-store-executor-write.js";
 
-export type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-executor-types";
+export type {
+  EventStoreExecutor,
+  LockGuardOption,
+  WritePurpose,
+} from "@cosmicdrift/kumiko-types/event-store-executor-types";
+export { WritePurposes } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 
 // The executor writes events + auto-projection (entity table) in one TX.
 // It no longer knows about user projections — those are driven by the

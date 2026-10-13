@@ -1,4 +1,4 @@
-import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, WritePurposes } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type UserDataDeleteHook,
@@ -102,7 +102,7 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
       },
       systemUser,
       ctx.db,
-      { skipOptimisticLock: true },
+      { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
     );
   } else {
     // anonymize: PII raus, aber Row bleibt active (damit FK-References
@@ -120,7 +120,7 @@ export const userDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
       },
       systemUser,
       ctx.db,
-      { skipOptimisticLock: true },
+      { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
     );
   }
 };

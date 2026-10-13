@@ -79,8 +79,14 @@ export type {
   EntityLifecycleVerb,
   EventStoreExecutor,
   EventStoreExecutorOptions,
+  LockGuardOption,
+  WritePurpose,
 } from "./event-store-executor.js";
-export { createEventStoreExecutor, entityEventName } from "./event-store-executor.js";
+export {
+  createEventStoreExecutor,
+  entityEventName,
+  WritePurposes,
+} from "./event-store-executor.js";
 export {
   enumerateFeatureTableSources,
   type FeatureTableSource,

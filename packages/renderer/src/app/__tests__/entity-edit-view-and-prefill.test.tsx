@@ -348,6 +348,16 @@ describe("entityEdit view mode from entity.lockedWhen", () => {
     expect(screen.getByTestId("render-edit-submit")).toBeDefined();
   });
 
+  test("a record without the lock field opens as a view (fail-closed)", async () => {
+    const { acknowledged: _omitted, ...recordWithoutLockField } = record;
+    mount({ entityId: "p1", record: recordWithoutLockField, lockedWhen });
+    await waitFor(() => {
+      expect(capturedInputs["inspector"]).toBeDefined();
+    });
+    expect(capturedInputs["inspector"]?.disabled).toBe(true);
+    expect(screen.queryByTestId("render-edit-submit")).toBeNull();
+  });
+
   test("a screen.readOnly that does not match cannot unlock a locked record", async () => {
     mount({
       entityId: "p1",

@@ -6,6 +6,7 @@ import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership
 import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.js";
 import {
   findUnavailableSelectOptions,
+  isRecordLocked,
   type UnavailableSelectOption,
 } from "../engine/screen-helpers.js";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.js";
@@ -42,7 +43,7 @@ import { generateId } from "../utils/index.js";
 import { applyEntityEvent } from "./apply-entity-event.js";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.js";
 import type { DbRow, DbRunner } from "./connection.js";
-import type { EventStoreExecutor } from "./event-store-executor.js";
+import type { EventStoreExecutor, LockGuardOption } from "./event-store-executor.js";
 import {
   buildEventMetadata,
   type ExecutorContext,
@@ -53,7 +54,6 @@ import {
 } from "./event-store-executor-context.js";
 import { projectionRegistryOf } from "./projection-registry-binding.js";
 import { runInSavepointIfSupported } from "./query.js";
-import { isRecordLocked } from "./record-lock.js";
 import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.js";
 import { tenantDbRunner } from "./tenant-db-runner.js";
 
@@ -208,18 +208,18 @@ export function createWriteVerbs(
 
   // update and delete funnel through here, so custom handlers and nested writes cannot
   // bypass the lock whatever they return. Setting the lock (unlocked row) passes.
-  // Framework system writes (retention, erasure jobs) are exempt: statutory deletion must
-  // reach locked rows, and forget (Art. 17) never checks the lock at all. The option is
-  // server-code only; no request field is ever copied into these executor options.
+  // Framework system writes that name a writePurpose (retention, erasure) are exempt:
+  // statutory deletion must reach locked rows, and forget (Art. 17) never checks the lock
+  // at all. The options are server-code only; no request field is ever copied into them.
   function recordLockedFailure(
     row: Readonly<Record<string, unknown>>,
     id: EntityId,
     user: SessionUser,
-    options: { readonly unsafeSkipLockGuard?: boolean } | undefined,
+    options: LockGuardOption | undefined,
   ): WriteFailure | undefined {
     if (
       options?.unsafeSkipLockGuard === true ||
-      isFrameworkSystemUser(user) ||
+      (options?.writePurpose !== undefined && isFrameworkSystemUser(user)) ||
       !isRecordLocked(entity.lockedWhen, row)
     ) {
       return undefined;

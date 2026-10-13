@@ -1172,8 +1172,9 @@ export type EntityDefinition<
   /** Rows whose stored state meets this condition are read-only: every executor
    *  update and delete on them is rejected with a 409 (`errors.recordLocked`), whatever
    *  handler or job calls it. The write that sets the lock passes, because the check reads the
-   *  state before the write. Forget and framework-system-user writes (retention, erasure
-   *  jobs) are exempt. A call site that must unlock a row passes `{ unsafeSkipLockGuard: true }` to that one executor call. The entityEdit
+   *  state before the write. Forget is exempt, and so are framework system-user writes that name
+   *  a `writePurpose` (retention, erasure); a system user without one is blocked like anyone else.
+   *  A call site that must unlock a row passes `{ unsafeSkipLockGuard: true }` to that one executor call. The entityEdit
    *  screen shows such rows in view mode. The condition field must be a plaintext text, select,
    *  boolean, number or reference field. */
   readonly lockedWhen?: FieldCondition;

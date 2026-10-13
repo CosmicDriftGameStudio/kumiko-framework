@@ -1,5 +1,9 @@
 import type { TenantId } from "../engine/types/identifiers.js";
 
+// Lives here (not in file-ref-entity.ts) so engine code can name the entity without importing
+// a module that calls createEntity at load time.
+export const FILE_REF_ENTITY_NAME = "fileRef";
+
 export type FileMetadata = {
   readonly fileName: string;
   readonly mimeType: string;

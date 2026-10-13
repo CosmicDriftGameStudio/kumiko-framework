@@ -21,6 +21,9 @@ import type { DerivativePublicPredicateArgs } from "@cosmicdrift/kumiko-bundled-
 import {
   createEntity,
   createImageField,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -32,7 +35,7 @@ import { z } from "zod";
 // the public route's fixed presets (thumb/card/hero/full, entry point 3)
 // share the name `thumb` but are a completely separate spec — same label,
 // different whitelist, different actual pixels.
-const photoEntity = createEntity({
+export const photoEntity = createEntity({
   table: "files_post_processing_photos",
   fields: {
     original: createImageField({
@@ -58,6 +61,13 @@ export const coverOrder: string[] = [];
 export const filesPostProcessingFeature = defineFeature("files-post-processing", (r) => {
   r.requires("file-derivatives");
   r.entity("photo", photoEntity);
+
+  // Uploading a file to a photo's field needs the same rights as saving the
+  // photo, so the photo must exist and the uploader needs update access.
+  const photoAccess = { access: { roles: ["Admin"] } } as const;
+  r.writeHandler(defineEntityCreateHandler("photo", photoEntity, photoAccess));
+  r.writeHandler(defineEntityUpdateHandler("photo", photoEntity, photoAccess));
+  r.queryHandler(defineEntityDetailHandler("photo", photoEntity, photoAccess));
 
   // Entry point 2 — imperative. A real app would gate this behind real
   // roles; `openToAll` keeps the recipe's HTTP wiring to one line.

@@ -8,6 +8,7 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   type DbRunner,
+  WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -233,7 +234,7 @@ async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<StageRunOut
     },
     user,
     db,
-    { skipOptimisticLock: true },
+    { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
   );
   invalidateTenantLifecycleGate(ctx.tenantId);
   return STAGE_DONE;

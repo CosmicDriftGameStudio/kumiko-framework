@@ -19,7 +19,7 @@ import { createArchivedStreamsTable, createEventsTable } from "../event-store/in
 import { createJobRunner, type JobRunner, type JobRunnerOptions } from "../jobs/index.js";
 import type { Lifecycle } from "../lifecycle/index.js";
 import { createNoopProvider, type ObservabilityProvider } from "../observability/index.js";
-import type { Dispatcher, EventDispatcher } from "../pipeline/index.js";
+import type { Dispatcher, EventDispatcher, SystemHooks } from "../pipeline/index.js";
 import {
   createEntityCache,
   createEventDedup,
@@ -98,6 +98,8 @@ export type TestStackOptions = {
   features: readonly FeatureDefinition[];
   /** System hooks to wire up. Default: all (sse, search) */
   systemHooks?: ("sse" | "search")[];
+  /** Pipeline system hooks handed to buildServer, e.g. the cascade-delete preDelete hook. None by default. */
+  lifecycleSystemHooks?: SystemHooks;
   /** Search config per tenant — defaults to tenant 1 with all text fields */
   searchConfig?: {
     tenantId: TenantId;
@@ -558,6 +560,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       context: rateLimitFallback ? { ...appContext, rateLimit: rateLimitFallback } : appContext,
       jwtSecret,
       ...(options.observability ? { observability: options.observability } : {}),
+      ...(options.lifecycleSystemHooks && { systemHooks: options.lifecycleSystemHooks }),
       dispatcherOptions: {
         idempotency,
         cacheSync,

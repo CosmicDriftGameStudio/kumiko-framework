@@ -10,6 +10,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import {
   createEntity,
   createImageField,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
   EXT_DERIVATIVE_RENDERER,
@@ -23,6 +26,7 @@ import {
   setupTestStack,
   type TestStack,
   testTenantId,
+  unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
   buildMultipartBody,
@@ -47,8 +51,9 @@ const fakeRender: DerivativeRendererPlugin["render"] = async (_input, spec) => {
   return VARIANT_BYTES;
 };
 
-const PUBLIC_WIDGET_ID = "widget-public";
-const OTHER_WIDGET_ID = "widget-other";
+let publicWidgetId = "";
+let otherWidgetId = "";
+let noPredicateId = "";
 
 // `full` deliberately overrides the built-in preset's maxEdge (2560) — this
 // is what proves the route resolves the spec from the field declaration
@@ -94,10 +99,19 @@ let predicateCalls = 0;
 const widgetPredicateFeature = defineFeature("publicvariantroutetest", (r) => {
   r.entity("widget", widgetEntity);
   r.entity("nopredicate", noPredicateEntity);
+  const adminOnly = { access: { roles: ["Admin"] } } as const;
+  for (const [name, entity] of [
+    ["widget", widgetEntity],
+    ["nopredicate", noPredicateEntity],
+  ] as const) {
+    r.writeHandler(defineEntityCreateHandler(name, entity, adminOnly));
+    r.writeHandler(defineEntityUpdateHandler(name, entity, adminOnly));
+    r.queryHandler(defineEntityDetailHandler(name, entity, adminOnly));
+  }
   r.useExtension(EXT_DERIVATIVE_PUBLIC_PREDICATE, "widget", {
     isPublic: (args: DerivativePublicPredicateArgs) => {
       predicateCalls++;
-      return args.entityId === PUBLIC_WIDGET_ID;
+      return args.entityId === publicWidgetId;
     },
   });
   // EXT_DERIVATIVE_RENDERER itself is already declared by
@@ -132,6 +146,19 @@ beforeAll(async () => {
     ],
     files: { storageProvider: createInMemoryFileProvider() },
   });
+  await unsafeCreateEntityTable(stack.db, widgetEntity, "widget");
+  await unsafeCreateEntityTable(stack.db, noPredicateEntity, "nopredicate");
+  const createRecord = async (entityName: string): Promise<string> =>
+    (
+      await stack.http.writeOk<{ id: string }>(
+        `publicvariantroutetest:write:${entityName}:create`,
+        {},
+        userA,
+      )
+    ).id;
+  publicWidgetId = await createRecord("widget");
+  otherWidgetId = await createRecord("widget");
+  noPredicateId = await createRecord("nopredicate");
 });
 
 afterAll(async () => {
@@ -178,7 +205,7 @@ async function uploadFile(
 
 describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   test("no predicate registered for the FileRef's entityType → 404", async () => {
-    const fileId = await uploadFile(userA, { entityType: "nopredicate", entityId: "x" });
+    const fileId = await uploadFile(userA, { entityType: "nopredicate", entityId: noPredicateId });
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
 
@@ -187,7 +214,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("predicate registered but returns false → 404", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: OTHER_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: otherWidgetId });
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
 
@@ -197,7 +224,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("predicate returns true → 200 with rendered bytes, mimeType, Vary: Host", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
 
@@ -209,7 +236,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
 
   // setupTestStack doesn't wrap with the app-wide security-headers default, so a pass proves the route sets its own.
   test("sets X-Content-Type-Options: nosniff on the response itself", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
 
@@ -218,7 +245,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("a second call on the same (fileRefId, variant) hits the cache — renderer runs once", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const first = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
     const second = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
@@ -229,7 +256,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("If-None-Match with a matching ETag → 304, no body", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const first = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`);
     const etag = first.headers.get("ETag");
@@ -244,7 +271,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("syntactically malformed variant names → 404, pre-check runs before any DB/systemQuery work", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
     // Well-formed-looking but unregistered names (e.g. "not-a-preset") now
     // reach the DB — the pre-check is purely syntactic since #1985, not a
     // name list. Only pathological input is rejected here.
@@ -264,7 +291,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("the field's own spec is used, not the built-in preset — proves resolution comes from the field declaration (#1985)", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/full`);
 
@@ -276,7 +303,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("a field-declared name with no preset counterpart is served end-to-end — the exact case #1985 reported", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/plan`);
 
@@ -285,7 +312,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("a declared name outside [a-z0-9-] (camelCase) is still reachable — the syntactic gate isn't a narrower name list", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/heroWide`);
 
@@ -294,7 +321,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("a preset name the field doesn't declare in its variants → 404", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     // widgetEntity's "img" field declares thumb/full/plan/heroWide/raw —
     // "card" and "hero" aren't in its variants map.
@@ -308,7 +335,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   test("a FileRef whose field declares no variants at all → 404", async () => {
     const fileId = await uploadFile(
       userA,
-      { entityType: "widget", entityId: PUBLIC_WIDGET_ID },
+      { entityType: "widget", entityId: publicWidgetId },
       "plain",
     );
 
@@ -340,7 +367,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("cross-tenant: FileRef under tenant A, request resolves to tenant B → 404", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const res = await stack.app.request(`http://${HOST_B}/media/${fileId}/thumb`);
 
@@ -348,7 +375,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("resolveApexTenant returns null for an unknown host → 404", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
 
     const res = await stack.app.request(`http://unknown.example.com/media/${fileId}/thumb`);
 
@@ -362,7 +389,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   test("a variant with no spec.format never echoes a non-safe, client-controlled source mimeType", async () => {
     const fileId = await uploadFile(
       userA,
-      { entityType: "widget", entityId: PUBLIC_WIDGET_ID },
+      { entityType: "widget", entityId: publicWidgetId },
       "img",
       "image/svg+xml",
     );
@@ -375,7 +402,7 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
   });
 
   test("more than `limit` requests from the same IP within the window → 429 (Step-1 regression)", async () => {
-    const fileId = await uploadFile(userA, { entityType: "widget", entityId: PUBLIC_WIDGET_ID });
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
     const xff = "203.0.113.9";
 
     // publicVariantQuery's rateLimit is {per: "ip", limit: 60, windowSeconds: 60}

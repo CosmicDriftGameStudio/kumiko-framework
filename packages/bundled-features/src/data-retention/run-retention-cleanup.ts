@@ -55,6 +55,7 @@ import {
   nullBlindIndexesForSubject,
   type TenantDb,
   type WhereObject,
+  WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
 import { deleteStoredFileAndDerivatives } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
@@ -771,7 +772,8 @@ export async function runRetentionCleanup(
           proj.table,
           { ...where, isDeleted: false },
           batchLimit,
-          (id) => executor.delete({ id }, systemUser, tdb),
+          (id) =>
+            executor.delete({ id }, systemUser, tdb, { writePurpose: WritePurposes.retention }),
         );
         break;
       }
@@ -803,7 +805,10 @@ export async function runRetentionCleanup(
           batchLimit,
           targets,
           (id, changes) =>
-            executor.update({ id, changes }, systemUser, tdb, { skipOptimisticLock: true }),
+            executor.update({ id, changes }, systemUser, tdb, {
+              skipOptimisticLock: true,
+              writePurpose: WritePurposes.retention,
+            }),
         );
         break;
       }

@@ -1,4 +1,4 @@
-import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, WritePurposes } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type UserDataDeleteHook,
@@ -117,7 +117,7 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
           { id, changes: { email: `forgotten-${id}@anonymized.invalid` } },
           systemUser,
           ctx.db,
-          { skipOptimisticLock: true },
+          { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
         );
       }
     }
@@ -138,6 +138,7 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
     if (typeof id !== "string") continue;
     await crud.update({ id, changes: { invitedBy: INVITED_BY_ANONYMIZED } }, systemUser, ctx.db, {
       skipOptimisticLock: true,
+      writePurpose: WritePurposes.erasure,
     });
   }
   throwIfErasureFailed(failures);

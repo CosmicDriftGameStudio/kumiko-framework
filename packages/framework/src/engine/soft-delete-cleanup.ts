@@ -12,6 +12,8 @@
 // (pruneEvents), a separate, consumer-lag-guarded path.
 
 import { asEntityTableMeta, deleteMany, type WhereObject } from "../db/query.js";
+import { purgeExpiredFileRefsWithBytes } from "../files/purge-expired-file-ref-bytes.js";
+import { FILE_REF_ENTITY_NAME } from "../files/types.js";
 import { SYSTEM_USER_ID } from "./system-user.js";
 import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/config.js";
 import type { EntityDefinition } from "./types/index.js";
@@ -94,6 +96,17 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
     // these separately, once, with a fixed grace period.
     if (isSystemScopedSoftDeleteTable(proj.table, entity)) continue;
     const where: WhereObject = { isDeleted: true, deletedAt: { lt: cutoff }, tenantId };
+    if (proj.source === FILE_REF_ENTITY_NAME) {
+      // The row is the only record of the storageKey, so its bytes go first.
+      await purgeExpiredFileRefsWithBytes({
+        db,
+        table: proj.table,
+        where,
+        files: ctx.files,
+        log: ctx.log,
+      });
+      continue;
+    }
     await deleteMany(db, proj.table, where);
   }
 };
