@@ -14,7 +14,7 @@ import {
   tenantMembershipsTable,
   tenantTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
+import { userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
   type CreateKumikoServerOptions,
   type KumikoServerHandle,
@@ -22,11 +22,17 @@ import {
 } from "@cosmicdrift/kumiko-dev-server";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  collectPiiEncryptedFields,
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,
   defineWriteHandler,
+  type EntityDefinition,
   type FeatureDefinition,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -109,6 +115,21 @@ async function boot(
     createE2eSeedRoutes(seedOptions);
   handle = await runDevApp({ features, port: 0, auth: { admin: ADMIN }, extraRoutes });
   return handle;
+}
+
+// runDevApp encrypts PII on its ephemeral DB, so raw rows carry ciphertext.
+async function fetchDecrypted(
+  h: KumikoServerHandle,
+  table: Parameters<typeof fetchOne>[1],
+  entity: EntityDefinition,
+  id: string,
+): Promise<Record<string, unknown>> {
+  const row = await fetchOne<Record<string, unknown>>(h.stack.db, table, { id });
+  const kms = configuredPiiSubjectKms();
+  if (!row || !kms) throw new Error(`cannot decrypt row ${id}: row or KMS missing`);
+  return decryptPiiFieldValues(row, collectPiiEncryptedFields(entity), kms, {
+    requestId: "seed-route-test",
+  });
 }
 
 function post(h: KumikoServerHandle, path: string, body: unknown, token: string | null = TOKEN) {
@@ -245,7 +266,7 @@ describe("POST /__test/seed-tenant", () => {
 
     expect(seeded.name).toBe("route gmbh");
     expect(seeded.members).toHaveLength(1);
-    expect(await fetchOne(h.stack.db, tenantTable, { id: seeded.id })).toMatchObject({
+    expect(await fetchDecrypted(h, tenantTable, tenantEntity, seeded.id)).toMatchObject({
       key: seeded.key,
       name: "route gmbh",
     });
@@ -253,7 +274,7 @@ describe("POST /__test/seed-tenant", () => {
       [seeded.admin, ["TenantAdmin"]],
       [seeded.members[0]!, ["Member"]],
     ] as const) {
-      expect(await fetchOne(h.stack.db, userTable, { id: user.id })).toMatchObject({
+      expect(await fetchDecrypted(h, userTable, userEntity, user.id)).toMatchObject({
         email: user.email,
         emailVerified: true,
       });
@@ -328,7 +349,7 @@ describe("POST /__test/seed-user", () => {
     expect(res.status).toBe(200);
     const user = seedUserResponseSchema.parse(await res.json());
 
-    expect(await fetchOne(h.stack.db, userTable, { id: user.id })).toMatchObject({
+    expect(await fetchDecrypted(h, userTable, userEntity, user.id)).toMatchObject({
       displayName: "Priya Screenshot",
       email: `priya-${seeded.id}@example.test`,
     });
@@ -584,7 +605,7 @@ describe("seedTenant fixture: addUser identity", () => {
         const tenant = await seedTenantFixture();
         const member = await tenant.addUser(["Member"], { displayName: "Priya Screenshot" });
 
-        expect(await fetchOne(h.stack.db, userTable, { id: member.id })).toMatchObject({
+        expect(await fetchDecrypted(h, userTable, userEntity, member.id)).toMatchObject({
           displayName: "Priya Screenshot",
         });
       },

@@ -3,6 +3,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { redactPiiCiphertext } from "../../shared/index.js";
 
 // DSGVO Art. 15 Selbstauskunft — User reads HIS OWN audit-log.
 // WHERE createdBy = ctx.user.id ist hard-coded (kein userId-Param,
@@ -75,7 +76,7 @@ export const myAuditLogQuery = defineQueryHandler({
       aggregateType: r["aggregate_type"],
       version: r["version"],
       type: r["type"],
-      payload: r["payload"],
+      payload: redactPiiCiphertext(r["payload"]),
       createdAt: r["created_at"],
     }));
     const last = serialised[serialised.length - 1];

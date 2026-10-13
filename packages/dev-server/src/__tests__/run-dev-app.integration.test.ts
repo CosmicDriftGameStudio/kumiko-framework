@@ -16,6 +16,12 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { AnonymousExtraRoute } from "@cosmicdrift/kumiko-framework/api";
 import {
+  configuredBlindIndexKey,
+  configuredPiiSubjectKms,
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
+import {
   createEntity,
   createTextField,
   defineFeature,
@@ -23,6 +29,10 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/testing";
 import * as jose from "jose";
 import * as z from "zod";
 import type { KumikoServerHandle } from "../create-kumiko-server.js";
@@ -286,5 +296,54 @@ describe("runDevApp — session boot gate (#2027)", () => {
     const body = (await login.json()) as { token?: string };
     expect(body.token).toBeTypeOf("string");
     expect(typeof jose.decodeJwt(body.token!).jti).toBe("string");
+  });
+});
+
+describe("runDevApp — default PII KMS on an ephemeral DB", () => {
+  const savedDevDbName = process.env["KUMIKO_DEV_DB_NAME"];
+
+  beforeEach(() => {
+    delete process.env["KUMIKO_DEV_DB_NAME"];
+    resetPiiSubjectKmsForTests();
+    resetBlindIndexKeyForTests();
+  });
+
+  afterEach(() => {
+    if (savedDevDbName === undefined) delete process.env["KUMIKO_DEV_DB_NAME"];
+    else process.env["KUMIKO_DEV_DB_NAME"] = savedDevDbName;
+    resetPiiSubjectKmsForTests();
+    resetBlindIndexKeyForTests();
+  });
+
+  test("configures an in-memory KMS and blind-index key while running and unsets them on stop", async () => {
+    handle = await runDevApp({ features: [validFeature()], port: 0, auth: { admin: ADMIN } });
+    expect(configuredPiiSubjectKms()).toBeDefined();
+    expect(configuredBlindIndexKey()).toBeDefined();
+
+    await handle.stop();
+    handle = undefined;
+    expect(configuredPiiSubjectKms()).toBeUndefined();
+    expect(configuredBlindIndexKey()).toBeUndefined();
+  });
+
+  test("kms: false configures nothing", async () => {
+    handle = await runDevApp({
+      features: [validFeature()],
+      port: 0,
+      auth: { admin: ADMIN },
+      kms: false,
+    });
+    expect(configuredPiiSubjectKms()).toBeUndefined();
+    expect(configuredBlindIndexKey()).toBeUndefined();
+  });
+
+  test("stop leaves a KMS that was configured after boot untouched", async () => {
+    handle = await runDevApp({ features: [validFeature()], port: 0, auth: { admin: ADMIN } });
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    const replacement = configuredPiiSubjectKms();
+
+    await handle.stop();
+    handle = undefined;
+    expect(configuredPiiSubjectKms()).toBe(replacement);
   });
 });

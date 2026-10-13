@@ -100,7 +100,7 @@ import {
   type KumikoServerHandle,
   logInfo,
 } from "./create-kumiko-server.js";
-import { resolveDevPiiKms } from "./resolve-dev-pii-kms.js";
+import { captureEphemeralDevPiiKms, resolveDevPiiKms } from "./resolve-dev-pii-kms.js";
 import { renderWelcomeBanner } from "./welcome-banner.js";
 
 // Re-export der shared Auth-Setup-Types damit Apps nur einen Import-Pfad
@@ -412,6 +412,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   const piiKms = resolveDevPiiKms(options);
   configurePiiSubjectKms(piiKms.kms);
   configureBlindIndexKey(piiKms.blindIndexKey);
+  const releaseEphemeralPiiKms = captureEphemeralDevPiiKms(piiKms);
   assertPiiBootInvariants(features, {
     kms: piiKms.kms,
     blindIndexKey: piiKms.blindIndexKey,
@@ -665,6 +666,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         await seed(stack);
       }
     },
+  }).catch((error: unknown) => {
+    releaseEphemeralPiiKms();
+    throw error;
   });
 
   if (options.welcomeBanner) {
@@ -685,7 +689,16 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     console.log(`\n${banner}\n`);
   }
 
-  return handle;
+  return {
+    ...handle,
+    stop: async () => {
+      try {
+        await handle.stop();
+      } finally {
+        releaseEphemeralPiiKms();
+      }
+    },
+  };
 }
 
 // Exported for the wiring-contract test (config-resolver-default.integration):

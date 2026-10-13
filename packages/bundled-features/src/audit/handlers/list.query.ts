@@ -9,16 +9,15 @@
 // A SystemAdmin can pass scope "system" to read the app-instance system events
 // (e.g. app.started); no other cross-tenant read exists.
 //
-// Sensitive field-values are ciphertext inside the event payload (the log
-// carries them encrypted); stripSensitive only strips the event echo. This
-// query returns payloads as stored, so a sensitive value surfaces as ciphertext,
-// never as plaintext.
+// Event payloads hold PII as subject-KMS ciphertext; it is replaced by
+// REDACTED_PII_PLACEHOLDER before returning, since the API leak guard refuses ciphertext.
 
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { redactPiiCiphertext } from "../../shared/index.js";
 import { AUDIT_SCOPE_VALUES } from "../constants.js";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.js";
 
@@ -132,7 +131,7 @@ export const listQuery = defineQueryHandler({
       aggregateType: r.aggregateType,
       version: r.version,
       type: r.type,
-      payload: r.payload,
+      payload: redactPiiCiphertext(r.payload),
       metadata: r.metadata,
       createdAt: r.createdAt,
       createdBy: r.createdBy,

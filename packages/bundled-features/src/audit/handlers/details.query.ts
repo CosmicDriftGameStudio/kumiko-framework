@@ -7,6 +7,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import * as z from "zod";
+import { redactPiiCiphertext } from "../../shared/index.js";
 import { AUDIT_SCOPE_VALUES } from "../constants.js";
 import { resolveAuditScopeFilter } from "./resolve-audit-tenant.js";
 
@@ -51,7 +52,7 @@ export const detailsQuery = defineQueryHandler({
       aggregateType: row.aggregateType,
       version: row.version,
       type: row.type,
-      payload: row.payload,
+      payload: redactPiiCiphertext(row.payload),
       metadata: row.metadata,
       createdAt: row.createdAt,
       createdBy: row.createdBy,
