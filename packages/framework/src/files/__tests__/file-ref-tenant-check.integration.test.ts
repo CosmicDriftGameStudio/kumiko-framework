@@ -17,6 +17,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
 } from "../../engine/index.js";
+import { createSystemUser } from "../../engine/system-user.js";
 import {
   createTestUser,
   setupTestStack,
@@ -37,7 +38,7 @@ const noteEntity = createEntity({
   },
 });
 
-const ROLES = { access: { roles: ["Admin", "User"] } } as const;
+const ROLES = { access: { roles: ["Admin", "User", "SystemAdmin"] } } as const;
 
 const noteFeature = defineFeature("tenant-check-notes", (r) => {
   r.entity("note", noteEntity);
@@ -187,5 +188,15 @@ describe("file references are tenant-checked on write", () => {
     );
     expect(foreignErr.details).toEqual(ghostErr.details);
     expect(JSON.stringify(foreignErr)).not.toContain(foreign);
+  });
+
+  test("a system user writing for the tenant may reference the tenant's own file", async () => {
+    const own = await upload(userA);
+    const result = await stack.dispatcher.write(
+      CREATE,
+      { title: "By job", attachment: own },
+      createSystemUser(userA.tenantId, ["SystemAdmin"]),
+    );
+    expect(result.isSuccess).toBe(true);
   });
 });
