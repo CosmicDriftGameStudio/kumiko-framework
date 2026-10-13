@@ -233,12 +233,15 @@ async function forgetRowAndEraseKeys(args: {
   readonly kms: KmsAdapter | undefined;
   readonly registry: Registry;
 }): Promise<{ readonly isSuccess: boolean }> {
+  // Retention and erasure must reach locked rows: a lock protects a record from edits,
+  // not from the deletion duty that expires its retention period.
   return runInSubTransaction(args.db, async (sp) => {
     const tdb = createTenantDb(sp, args.tenantId, "system");
     const result = await args.executor.forget(
       { id: args.row["id"] as EntityId },
       args.systemUser,
       tdb,
+      { unsafeSkipLockGuard: true },
     );
     if (!result.isSuccess) return { isSuccess: false };
     await eraseHardDeletedRowKeys({
@@ -771,7 +774,7 @@ export async function runRetentionCleanup(
           proj.table,
           { ...where, isDeleted: false },
           batchLimit,
-          (id) => executor.delete({ id }, systemUser, tdb),
+          (id) => executor.delete({ id }, systemUser, tdb, { unsafeSkipLockGuard: true }),
         );
         break;
       }
@@ -803,7 +806,10 @@ export async function runRetentionCleanup(
           batchLimit,
           targets,
           (id, changes) =>
-            executor.update({ id, changes }, systemUser, tdb, { skipOptimisticLock: true }),
+            executor.update({ id, changes }, systemUser, tdb, {
+              skipOptimisticLock: true,
+              unsafeSkipLockGuard: true,
+            }),
         );
         break;
       }

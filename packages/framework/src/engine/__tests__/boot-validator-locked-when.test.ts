@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "../boot-validator.js";
 import { defineFeature } from "../define-feature.js";
-import { createEntity, createSelectField, createTextField } from "../factories.js";
+import { createDateField, createEntity, createSelectField, createTextField } from "../factories.js";
 import type { EntityDefinition } from "../types/index.js";
 
 function bootWith(lockedWhen: EntityDefinition["lockedWhen"], fields: EntityDefinition["fields"]) {
@@ -36,5 +36,11 @@ describe("boot validation of entity.lockedWhen", () => {
     expect(() => bootWith({ field: "secret", eq: "x" }, { status, secret: field })).toThrow(
       /lockedWhen field "secret" is personal or encrypted/,
     );
+  });
+
+  test("a field type without a plain scalar value is rejected", () => {
+    expect(() =>
+      bootWith({ field: "closedOn", eq: "x" }, { status, closedOn: createDateField({}) }),
+    ).toThrow(/lockedWhen field "closedOn" has type "date"/);
   });
 });

@@ -1177,6 +1177,18 @@ function isCiphertextAtRest(field: FieldDefinition): boolean {
   );
 }
 
+// Types whose stored value is a plain scalar that the condition's `===` can match.
+// Compound, temporal, array and bigint columns come back in another shape than the
+// literal an author writes, so such a lock would silently never hold.
+const LOCKABLE_FIELD_TYPES: ReadonlySet<string> = new Set([
+  "text",
+  "longText",
+  "boolean",
+  "select",
+  "number",
+  "reference",
+]);
+
 export function validateLockedWhen(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const { lockedWhen } = entity;
@@ -1191,6 +1203,11 @@ export function validateLockedWhen(feature: FeatureDefinition): void {
     if (isCiphertextAtRest(field)) {
       throw new Error(
         `${where} is personal or encrypted — the lock condition is evaluated on the stored value, which is ciphertext. Use a plaintext field.`,
+      );
+    }
+    if (!LOCKABLE_FIELD_TYPES.has(field.type)) {
+      throw new Error(
+        `${where} has type "${field.type}", which does not store a plain scalar the condition can compare. Use a text, select, boolean, number or reference field.`,
       );
     }
   }

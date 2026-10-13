@@ -28,7 +28,8 @@ function isBoundTo(
 // path as DELETE /files/:id (soft delete, bytes kept until retention), so
 // record readers get 404 afterwards. Only fileRefs bound to exactly this
 // record and field are touched: an id that is pending, shared or bound
-// elsewhere is not this save's to dispose.
+// elsewhere is not this save's to dispose. The authority is the caller's write
+// right on the record (the fileRef entity declares no write access of its own).
 export async function disposeRemovedFileRefs(args: {
   readonly registry: Registry;
   readonly result: SaveContext;

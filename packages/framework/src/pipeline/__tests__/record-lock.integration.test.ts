@@ -1,6 +1,7 @@
 // lockedWhen: a stored row whose state meets the entity condition cannot be
-// changed or deleted by any write handler (CRUD, custom, nested ctx.write),
-// while the write that sets the lock itself passes.
+// changed or deleted through the event-store executor, whatever the calling
+// handler returns (CRUD, custom, nested ctx.write), while the write that sets
+// the lock itself passes. A call site opts out per executor call.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
@@ -8,15 +9,14 @@ import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query-api.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import {
+  createBooleanField,
   createEntity,
-  createSelectField,
   createTextField,
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
   defineEntityDetailHandler,
   defineEntityUpdateHandler,
   defineFeature,
-  defineWriteHandler,
 } from "../../engine/index.js";
 import { loadAggregate } from "../../event-store/index.js";
 import {
@@ -30,9 +30,10 @@ const ticketEntity = createEntity({
   table: "read_lock_tickets",
   fields: {
     title: createTextField({ personal: false, reason: "test_fixture", required: true }),
-    status: createSelectField({ options: ["open", "closed"] as const, default: "open" }),
+    // Two-word name on purpose: the guard reads the stored row, which must be camelCase.
+    isAcknowledged: createBooleanField({ default: false }),
   },
-  lockedWhen: { field: "status", eq: "closed" },
+  lockedWhen: { field: "isAcknowledged", eq: true },
 });
 const ticketTable = buildEntityTable("ticket", ticketEntity);
 
@@ -70,19 +71,52 @@ const lockFeature = defineFeature("lock", (r) => {
     ROLES,
   );
 
+  // Return something other than the lifecycle result: the guard must not depend on it.
   r.writeHandler(
-    defineWriteHandler({
-      name: "ticket:reopen",
-      schema: z.object({ id: z.uuid(), version: z.number() }),
-      access: ROLES.access,
-      unsafeSkipLockGuard: true,
-      handler: async (event, ctx) =>
-        executor.update(
-          { id: event.payload.id, version: event.payload.version, changes: { status: "open" } },
-          event.user,
-          ctx.db,
-        ),
-    }),
+    "ticket:rename-quiet",
+    z.object({ id: z.uuid(), version: z.number(), title: z.string() }),
+    async (event, ctx) => {
+      const result = await executor.update(
+        {
+          id: event.payload.id,
+          version: event.payload.version,
+          changes: { title: event.payload.title },
+        },
+        event.user,
+        ctx.db,
+      );
+      if (!result.isSuccess) return result;
+      return { isSuccess: true as const, data: { ok: true } };
+    },
+    ROLES,
+  );
+
+  r.writeHandler(
+    "ticket:purge-quiet",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) => {
+      const result = await executor.delete({ id: event.payload.id }, event.user, ctx.db);
+      if (!result.isSuccess) return result;
+      return { isSuccess: true as const, data: { ok: true } };
+    },
+    ROLES,
+  );
+
+  r.writeHandler(
+    "ticket:reopen",
+    z.object({ id: z.uuid(), version: z.number() }),
+    async (event, ctx) =>
+      executor.update(
+        {
+          id: event.payload.id,
+          version: event.payload.version,
+          changes: { isAcknowledged: false },
+        },
+        event.user,
+        ctx.db,
+        { unsafeSkipLockGuard: true },
+      ),
+    ROLES,
   );
 });
 
@@ -105,10 +139,10 @@ afterEach(async () => {
   await stack.eventDispatcher?.ensureRegistered();
 });
 
-async function createTicket(status: "open" | "closed" = "open"): Promise<string> {
+async function createTicket(state: "open" | "closed" = "open"): Promise<string> {
   const created = await stack.http.writeOk<{ id: string }>(
     "lock:write:ticket:create",
-    { title: "t", status },
+    { title: "t", isAcknowledged: state === "closed" },
     admin,
   );
   return created.id;
@@ -152,7 +186,7 @@ describe("lockedWhen", () => {
     const id = await createTicket();
     await stack.http.writeOk(
       "lock:write:ticket:update",
-      { id, version: 1, changes: { status: "closed" } },
+      { id, version: 1, changes: { isAcknowledged: true } },
       admin,
     );
     await expectLocked(
@@ -182,7 +216,13 @@ describe("lockedWhen", () => {
     await expectLocked("lock:write:ticket:rename-nested", { id, version: 1, title: "x" }, id);
   });
 
-  test("a handler with unsafeSkipLockGuard may unlock", async () => {
+  test("a custom handler that returns something else than the lifecycle result is rejected too", async () => {
+    const id = await createTicket("closed");
+    await expectLocked("lock:write:ticket:rename-quiet", { id, version: 1, title: "x" }, id);
+    await expectLocked("lock:write:ticket:purge-quiet", { id }, id);
+  });
+
+  test("an executor call with unsafeSkipLockGuard may unlock", async () => {
     const id = await createTicket("closed");
     await stack.http.writeOk("lock:write:ticket:reopen", { id, version: 1 }, admin);
     await stack.http.writeOk(

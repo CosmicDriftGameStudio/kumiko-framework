@@ -50,7 +50,6 @@ import {
 import { runPreHandlerGates } from "./pre-handler-gates.js";
 import { type ConsumedReservation, consumeReservation } from "./pre-transaction-reservations.js";
 import { runProjections } from "./projections-runner.js";
-import { assertRecordNotLocked } from "./record-lock-guard.js";
 
 function getTable(
   ctx: DispatchContext,
@@ -620,9 +619,6 @@ async function executeWriteInner(
 
   if (result.isSuccess) {
     try {
-      if (!handler.unsafeSkipLockGuard && isLifecycleResult(result.data)) {
-        assertRecordNotLocked(registry, result.data);
-      }
       const runner = resolveDbSource(ctx, tx);
       await runLifecycle(
         ctx,

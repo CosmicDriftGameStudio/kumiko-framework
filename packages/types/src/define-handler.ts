@@ -44,8 +44,6 @@ export type WriteHandlerDefinition<
   /** Set by the entity convention create/update handlers; see WriteHandlerDef.excludedFields. */
   readonly excludedFields?: readonly string[];
   readonly unsafeSkipTransitionGuard?: boolean;
-  /** Opt-out of the `lockedWhen` guard, for handlers that unlock a record on purpose. */
-  readonly unsafeSkipLockGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   readonly escapeHatch?: EscapeHatchDeclaration;
@@ -77,8 +75,6 @@ export type WriteHandlerInput<
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
-  /** Opt-out of the `lockedWhen` guard, for handlers that unlock a record on purpose. */
-  readonly unsafeSkipLockGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   readonly escapeHatch?: EscapeHatchDeclaration;

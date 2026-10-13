@@ -1169,11 +1169,13 @@ export type EntityDefinition<
   readonly eventMigrations?: readonly EntityEventMigration[];
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
-  /** Rows whose stored state meets this condition are read-only: every write handler of the
-   *  entity is rejected with a 409 (`errors.recordLocked`), including delete. The write that
-   *  sets the lock passes, because the check reads the state before the write. Handlers that
-   *  unlock on purpose set `unsafeSkipLockGuard`. The entityEdit screen shows such rows in view
-   *  mode. The condition field must exist and must not be `personal`. */
+  /** Rows whose stored state meets this condition are read-only: every executor
+   *  update, delete and forget on them is rejected with a 409 (`errors.recordLocked`), whatever
+   *  handler or job calls it. The write that sets the lock passes, because the check reads the
+   *  state before the write. A call site that must change a locked row (erasure, retention,
+   *  unlocking) passes `{ unsafeSkipLockGuard: true }` to that one executor call. The entityEdit
+   *  screen shows such rows in view mode. The condition field must be a plaintext text, select,
+   *  boolean, number or reference field. */
   readonly lockedWhen?: FieldCondition;
   /** Allowed state transitions per field. Boot validates against select options. */
   readonly transitions?: Readonly<Record<string, TransitionMap>>;

@@ -17,6 +17,7 @@ import {
   InternalError,
   NotFoundError,
   PreconditionFailedError,
+  RecordLockedError,
   UnprocessableError,
   type WriteFailure,
   writeFailure,
@@ -52,6 +53,7 @@ import {
 } from "./event-store-executor-context.js";
 import { projectionRegistryOf } from "./projection-registry-binding.js";
 import { runInSavepointIfSupported } from "./query.js";
+import { isRecordLocked } from "./record-lock.js";
 import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.js";
 import { tenantDbRunner } from "./tenant-db-runner.js";
 
@@ -203,6 +205,20 @@ export function createWriteVerbs(
     loadExpectSnapshot,
   } = ctx;
   const entityInstructionFieldNames = instructionFieldNames(entity);
+
+  // Every write verb that changes or removes a stored row funnels through here, so custom
+  // handlers, nested writes, jobs and system writes cannot bypass the lock whatever they
+  // return. Setting the lock (unlocked row) passes.
+  function recordLockedFailure(
+    row: Readonly<Record<string, unknown>>,
+    id: EntityId,
+    options: { readonly unsafeSkipLockGuard?: boolean } | undefined,
+  ): WriteFailure | undefined {
+    if (options?.unsafeSkipLockGuard === true || !isRecordLocked(entity.lockedWhen, row)) {
+      return undefined;
+    }
+    return writeFailure(new RecordLockedError({ entityName, entityId: id }));
+  }
   const eventVersion = entity.eventVersion ?? 1;
   let insertSchema: ZodType | undefined;
   let updateSchema: ZodType | undefined;
@@ -538,6 +554,8 @@ export function createWriteVerbs(
           }),
         );
       }
+      const lockedUpdate = recordLockedFailure(previous, payload.id, updateOptions);
+      if (lockedUpdate) return lockedUpdate;
 
       // Field-level write-ownership on update — this is the path the
       // dispatcher could not evaluate (no oldRow). Now that we have
@@ -790,6 +808,8 @@ export function createWriteVerbs(
           }),
         );
       }
+      const lockedDelete = recordLockedFailure(existing, payload.id, options);
+      if (lockedDelete) return lockedDelete;
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
 
@@ -903,6 +923,8 @@ export function createWriteVerbs(
           }),
         );
       }
+      const lockedForget = recordLockedFailure(existing, payload.id, options);
+      if (lockedForget) return lockedForget;
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
       const currentVersion = await getStreamVersion(

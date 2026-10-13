@@ -6,20 +6,20 @@
 "@cosmicdrift/kumiko-locale-es": minor
 ---
 
-An entity can declare `lockedWhen: FieldCondition`, for example `lockedWhen: { field: "status", eq: "closed" }`. A stored row whose state meets the condition can no longer be changed or deleted by any write handler of the entity: generic create/update/delete, custom handlers that return a save or delete result, and nested `ctx.write` calls. The write answers 409 `record_locked` (`errors.recordLocked`) and the transaction rolls back, so no event is written. The check reads the state before the write, so the write that sets the lock still passes. A handler that unlocks on purpose sets `unsafeSkipLockGuard: true` (`defineWriteHandler` form). Boot rejects a condition on an unknown field and on a `personal` or `encrypted` field. An `entityEdit` screen without its own `readOnly` shows a locked record as a read-only view, so the condition is declared once; `screen.readOnly` adds a UI-only condition on top; either one shows the view. Handlers that write through `ctx.appendEvent` or a bare executor without returning a save or delete result are not seen by the guard.
+An entity can declare `lockedWhen: FieldCondition`, for example `lockedWhen: { field: "status", eq: "closed" }`. The event-store executor refuses `update`, `delete` and `forget` on a stored row whose state meets the condition, so generic CRUD, custom handlers (whatever they return), nested `ctx.write`, jobs and system writes are all covered. The write answers 409 `record_locked` (`errors.recordLocked`) and the transaction rolls back, so no event is written. The check reads the state before the write, so the write that sets the lock still passes. A row that lacks the condition field counts as locked. A call site that must change a locked row on purpose passes `{ unsafeSkipLockGuard: true }` as an executor option; data-retention cleanup does this, so retention deletion and anonymisation still reach locked rows. Boot rejects a condition on an unknown field, on a `personal` or `encrypted` field, and on any type other than text, longText, select, boolean, number or reference. An `entityEdit` screen without its own `readOnly` shows a locked record as a read-only view, so the condition is declared once; `screen.readOnly` adds a UI-only condition on top; either one shows the view. A cascading parent delete (`onDelete: cascade`) answers 409 when a child row is locked, instead of removing it with the parent. Remaining limits: `restore` is not guarded (it brings back unchanged data), and a custom projection that reacts to a domain event from `ctx.appendEvent` can still change a locked row, because that bypasses the executor. App-written erasure hooks for entities with `lockedWhen` must pass the option too.
 
 <!-- kumiko-changes
 feature: types
 type: improvement
-title: EntityDefinition.lockedWhen and WriteHandlerDef.unsafeSkipLockGuard
-detail: lockedWhen is a FieldCondition evaluated against the stored row. unsafeSkipLockGuard opts a write handler out. EntityEditScreenDefinition.readOnly is combined with the entity's lockedWhen (either shows the view).
+title: EntityDefinition.lockedWhen and the executor option unsafeSkipLockGuard
+detail: lockedWhen is a FieldCondition evaluated against the stored row. update, delete and forget on the EventStoreExecutor take unsafeSkipLockGuard to opt one call out. EntityEditScreenDefinition.readOnly is combined with the entity's lockedWhen (either shows the view).
 -->
 
 <!-- kumiko-changes
 feature: framework
 type: improvement
-title: Locked records reject every write handler
-detail: dispatch-write checks entity.lockedWhen against SaveContext.previous (updates) and DeleteContext.data (deletes) after the handler and before projections, and throws RecordLockedError (409, code record_locked, i18n key errors.recordLocked). The transaction rolls back with the event. Create and the write that sets the lock pass. validateBoot rejects a lockedWhen field that is unknown, personal or encrypted.
+title: Locked records reject executor writes
+detail: The event-store executor checks entity.lockedWhen against the loaded row in update, delete and forget and fails with RecordLockedError (409, code record_locked, i18n key errors.recordLocked); a missing condition field counts as locked. Create, restore and the write that sets the lock pass; data-retention cleanup opts out per call. validateBoot rejects a lockedWhen field that is unknown, personal, encrypted or not a plain scalar type.
 -->
 
 <!-- kumiko-changes

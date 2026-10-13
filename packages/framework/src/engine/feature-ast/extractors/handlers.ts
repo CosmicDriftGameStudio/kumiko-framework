@@ -86,7 +86,6 @@ const WRITE_HANDLER_KEY_KINDS: Record<keyof WriteHandlerDef, KeyClassification> 
   agent: "modeled",
   excludedFields: "opaque",
   unsafeSkipTransitionGuard: "modeled",
-  unsafeSkipLockGuard: "opaque",
   rateLimit: "modeled",
   additionalRateLimits: "modeled",
   escapeHatch: "modeled",

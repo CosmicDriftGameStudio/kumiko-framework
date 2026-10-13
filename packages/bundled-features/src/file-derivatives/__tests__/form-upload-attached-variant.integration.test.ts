@@ -56,6 +56,7 @@ const user = createTestUser({ id: 1, tenantId, roles: ["Admin"] });
 const otherAdmin = createTestUser({ id: 2, tenantId, roles: ["Admin"] });
 const technician = createTestUser({ id: 3, tenantId, roles: ["Technician"] });
 const otherTechnician = createTestUser({ id: 5, tenantId, roles: ["Technician"] });
+const editor = createTestUser({ id: 6, tenantId, roles: ["Editor"] });
 const guest = createTestUser({ id: 4, tenantId, roles: ["Guest"] });
 
 const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
@@ -100,7 +101,9 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
     defineEntityCreateHandler("fieldGadget", gadgetEntity, { access: { roles: ["Admin"] } }),
   );
   r.writeHandler(
-    defineEntityUpdateHandler("fieldGadget", gadgetEntity, { access: { roles: ["Admin"] } }),
+    defineEntityUpdateHandler("fieldGadget", gadgetEntity, {
+      access: { roles: ["Admin", "Editor"] },
+    }),
   );
   r.queryHandler(
     defineEntityDetailHandler("fieldGadget", gadgetEntity, {
@@ -509,6 +512,20 @@ describe("files removed from a record are disposed", () => {
 
     expect(await readFileAs(uploaded, technician)).toBe(404);
     expect(await readFileAs(uploaded, otherAdmin)).toBe(404);
+  });
+
+  test("an updater who is neither admin nor the uploader can remove the file through the record write right", async () => {
+    const uploaded = await uploadLikeTheForm(photoHints("create"), otherAdmin);
+    const created = await stack.http.writeOk<{ id: string }>(
+      "form-upload-gadget:write:field-gadget:create",
+      { title: "Gadget", photo: uploaded },
+      otherAdmin,
+    );
+    expect(await readFileAs(uploaded, technician)).toBe(200);
+
+    await updateGadget(created.id, 1, { photo: null }, editor);
+
+    expect(await readFileAs(uploaded, technician)).toBe(404);
   });
 
   test("replacing a single file makes the old file 404 and keeps the new one readable", async () => {
