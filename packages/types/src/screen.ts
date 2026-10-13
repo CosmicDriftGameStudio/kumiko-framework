@@ -1652,6 +1652,8 @@ export type EntityEditScreenDefinition = {
    *  record (not for unsaved form values): all fields disabled, no save, discard
    *  or delete button; record `actions` stay. The title uses
    *  `screen:<id>.view.title`, then `screen:<id>.title`. Never applies to create.
+   *  The entity's `lockedWhen` always applies as well; set this only to add a
+   *  UI-only condition (either one shows the view).
    *  UI only: the update handler still has to enforce access. */
   readonly readOnly?: FieldCondition;
   readonly layout: EditLayout;

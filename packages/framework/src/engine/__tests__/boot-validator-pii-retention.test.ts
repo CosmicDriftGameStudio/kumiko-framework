@@ -539,10 +539,25 @@ describe("validateBoot — PII annotations", () => {
       expect(fileFieldWarning()).toBeDefined();
     });
 
-    test("personal annotation silences the warning", () => {
-      bootWithField(createFileField({ personal: "self" }));
+    test.each([
+      ["files", createFilesField({ personal: "self" })],
+      ["images", createImagesField({ personal: "self" })],
+    ] as const)("personal annotation silences the warning on a %s field", (_type, field) => {
+      bootWithField(field);
       expect(fileFieldWarning()).toBeUndefined();
     });
+
+    test.each([
+      ["file", createFileField({ personal: "self" }), "createFilesField"],
+      ["image", createImageField({ personal: { of: "id" } }), "createImagesField"],
+    ] as const)(
+      "a subject annotation on a single %s field is rejected at boot",
+      (_type, field, plural) => {
+        expect(() => bootWithField(field)).toThrow(
+          new RegExp(`uuid column and cannot store ciphertext.*${plural}`),
+        );
+      },
+    );
 
     test("an explicit business-data stance silences the warning", () => {
       bootWithField(createFileField({ personal: false, reason: "is_business_data" }));

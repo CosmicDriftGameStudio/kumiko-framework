@@ -103,17 +103,16 @@ const SIGNED_URL_DEFAULT_EXPIRY_SECONDS = 15 * 60;
 // and for reads also everyone who may read the record. Delete stays with the
 // uploader and privileged roles: reading a record is no right to remove its
 // files. Pending uploads (entityType set, record not yet created) are the
-// uploader's own until bound. Uploads without an entityType are tenant-wide
-// (the tenant boundary is already enforced by the query).
+// uploader's own until bound; so are uploads without an entityType, which no
+// record can ever claim.
 function createDefaultGuard(
   privilegedRoles: readonly string[],
   canReadRecord: RecordReadCheck | undefined,
 ): FileAccessGuard {
   return async ({ fileRef, user, operation }) => {
-    if (fileRef.entityType === null) return "allow";
     if (fileRef.insertedById === user.id) return "allow";
     if (privilegedRoles.some((role) => user.roles.includes(role))) return "allow";
-    if (fileRef.entityId === null) return "deny";
+    if (fileRef.entityType === null || fileRef.entityId === null) return "deny";
     if (operation !== "read" || canReadRecord === undefined) return "deny";
     const recordReadable = await canReadRecord({
       entityType: fileRef.entityType,

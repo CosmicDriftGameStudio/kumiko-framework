@@ -42,6 +42,9 @@ const gadgetEntity = createEntity({
   fields: {
     label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
   },
+  // Retention runs through the executor, not the dispatch lock guard: a locked
+  // row (label "expired") must still be soft-deleted.
+  lockedWhen: { field: "label", eq: "expired" },
   retention: { keepFor: "30d", strategy: "softDelete" },
 });
 
@@ -95,6 +98,8 @@ const anonEntity = createEntity({
       reason: "is_business_data",
     }),
   },
+  // The expired row is locked on purpose: anonymisation must bypass the lock guard.
+  lockedWhen: { field: "note", eq: "business-note" },
   retention: { keepFor: "30d", strategy: "anonymize" },
 });
 

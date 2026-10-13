@@ -35,11 +35,7 @@ export async function assertFileRefsBelongToTenant(args: {
   const executor = getFileRefExecutor();
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
     if (!isFileField(fieldDef)) continue;
-    // Plural fields have no projection column, so a create's ids sit in `changes`.
-    const written = result.isNew
-      ? (result.data[fieldName] ?? result.changes[fieldName])
-      : result.changes[fieldName];
-    for (const fileRefId of fileRefIdsOf(written)) {
+    for (const fileRefId of fileRefIdsOf(result.changes[fieldName])) {
       if (await isFileRefOfTenant(executor, fileRefId, user, db)) continue;
       throw new ValidationError({
         fields: [

@@ -3,13 +3,13 @@
 "@cosmicdrift/kumiko-renderer-web": minor
 ---
 
-An app can file navigation entries of other features, including bundled ones, under a group of its own: `reparentAppSchemaNavs(schema, overrides)` is exported from renderer-web and rewrites parent and order of the entries named by their qualified nav name, without filtering anything. `filterAppSchemaNavsByAllowlist` now uses it, its behaviour is unchanged. A nav entry that only groups (no screen, target, provider or create action) is hidden when all of its children are hidden or absent, so a group no longer shows up empty for users who may open none of its entries. Apps that filter the sidebar with an allowlist (for example offlot) lose such groups from the tree as soon as the allowlist leaves them without children; allow or re-parent at least one child to keep the group.
+An app can file navigation entries of other features, including bundled ones, under a group of its own: `reparentAppSchemaNavs(schema, overrides)` is exported from renderer-web and rewrites parent and order of the entries named by their qualified nav name, without filtering anything. `filterAppSchemaNavsByAllowlist` now uses it, its behaviour is unchanged. Behaviour change: `resolveNavigation` no longer renders a nav entry that has no `screen`, `target`, `provider`, `actions` or `createAction` unless at least one of its children is visible. That covers a pure group whose children are all hidden by access or filtered out (for example by an allowlist), and an entry that never had children and declares nothing to open. Before, both rendered as an empty, unclickable heading. Apps that filter the sidebar with an allowlist (for example offlot) lose such groups as soon as the allowlist leaves them without children; allow or re-parent at least one child, or give the entry a `screen`, to keep it.
 
 <!-- kumiko-changes
 feature: headless
 type: improvement
-title: resolveNavigation hides empty groups
-detail: A nav node without screen, target, provider and createAction is dropped when none of its children is visible, also for a group that was childless to begin with. Allowlisted sidebars lose groups whose children are all filtered out.
+title: resolveNavigation no longer renders empty groups or entries that open nothing
+detail: A nav node with no screen, target, provider, actions and createAction is dropped when none of its children is visible, also when it never had children. Allowlisted sidebars lose groups whose children are all filtered out. Give the entry a screen or keep a child visible to retain it.
 -->
 
 <!-- kumiko-changes

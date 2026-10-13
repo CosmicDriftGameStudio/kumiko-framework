@@ -99,8 +99,12 @@ function stubDispatcher(record: Readonly<Record<string, unknown>>): Dispatcher {
   };
 }
 
-function buildSchema(readOnly: EntityEditScreenDefinition["readOnly"]): FeatureSchema {
+function buildSchema(
+  readOnly: EntityEditScreenDefinition["readOnly"],
+  lockedWhen: EntityDefinition["lockedWhen"],
+): FeatureSchema {
   const entity: EntityDefinition = {
+    ...(lockedWhen !== undefined && { lockedWhen }),
     fields: {
       acknowledged: { type: "boolean", required: false },
       inspector: {
@@ -158,6 +162,7 @@ function buildSchema(readOnly: EntityEditScreenDefinition["readOnly"]): FeatureS
 
 function mount(opts: {
   readonly readOnly?: EntityEditScreenDefinition["readOnly"];
+  readonly lockedWhen?: EntityDefinition["lockedWhen"];
   readonly record?: Readonly<Record<string, unknown>>;
   readonly entityId?: string;
   readonly userTimeZone?: string;
@@ -200,7 +205,7 @@ function mount(opts: {
           >
             <PrimitivesProvider value={testPrimitives}>
               <KumikoScreen
-                schema={buildSchema(opts.readOnly)}
+                schema={buildSchema(opts.readOnly, opts.lockedWhen)}
                 qn="demo:screen:protocol-edit"
                 {...(opts.entityId !== undefined && { entityId: opts.entityId })}
               />
@@ -317,5 +322,42 @@ describe("entityEdit readOnly view mode", () => {
     mount({ readOnly: true });
     expect(capturedInputs["inspector"]?.disabled).toBeFalsy();
     expect(screen.getByTestId("render-edit-submit")).toBeDefined();
+  });
+});
+
+describe("entityEdit view mode from entity.lockedWhen", () => {
+  const record = { id: "p1", version: 1, acknowledged: true, inspector: "Ines", day: "" };
+  const lockedWhen = { field: "acknowledged", eq: true } as const;
+
+  test("a locked record opens as a view without its own screen.readOnly", async () => {
+    mount({ entityId: "p1", record, lockedWhen });
+    await waitFor(() => {
+      expect(capturedInputs["inspector"]).toBeDefined();
+    });
+    expect(capturedInputs["inspector"]?.disabled).toBe(true);
+    expect(screen.queryByTestId("render-edit-submit")).toBeNull();
+    expect(screen.queryByTestId("render-edit-delete")).toBeNull();
+  });
+
+  test("an unlocked record stays editable", async () => {
+    mount({ entityId: "p1", record: { ...record, acknowledged: false }, lockedWhen });
+    await waitFor(() => {
+      expect(capturedInputs["inspector"]).toBeDefined();
+    });
+    expect(capturedInputs["inspector"]?.disabled).toBeFalsy();
+    expect(screen.getByTestId("render-edit-submit")).toBeDefined();
+  });
+
+  test("a screen.readOnly that does not match cannot unlock a locked record", async () => {
+    mount({
+      entityId: "p1",
+      record,
+      lockedWhen,
+      readOnly: { field: "acknowledged", eq: false },
+    });
+    await waitFor(() => {
+      expect(capturedInputs["inspector"]).toBeDefined();
+    });
+    expect(capturedInputs["inspector"]?.disabled).toBe(true);
   });
 });

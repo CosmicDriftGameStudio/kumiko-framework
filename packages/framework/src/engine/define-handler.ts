@@ -18,6 +18,16 @@ export type {
   WriteHandlerInput,
 } from "./types/define-handler.js";
 
+function guardOptOuts(def: {
+  readonly unsafeSkipTransitionGuard?: boolean;
+  readonly unsafeSkipLockGuard?: boolean;
+}) {
+  return {
+    ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
+    ...(def.unsafeSkipLockGuard && { unsafeSkipLockGuard: true }),
+  };
+}
+
 export function defineWriteHandler<
   const TName extends string,
   TSchema extends ZodType,
@@ -82,9 +92,7 @@ export function defineWriteHandler<
     ...(def.access && { access: def.access }),
     ...(def.description !== undefined && { description: def.description }),
     ...(def.agent && { agent: def.agent }),
-    ...(def.unsafeSkipTransitionGuard && {
-      unsafeSkipTransitionGuard: def.unsafeSkipTransitionGuard,
-    }),
+    ...guardOptOuts(def),
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
     ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
     ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),

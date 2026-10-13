@@ -491,6 +491,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "errors.rate_limited": "Too many requests. Please try again shortly.",
   "errors.rate_limit_unavailable":
     "Rate limiting is temporarily unavailable. Please try again shortly.",
+  "errors.recordLocked": "This record is locked and can no longer be changed.",
   "errors.unconfigured": "This feature isn't configured yet.",
   "errors.uniqueViolation": "This entry already exists.",
   "errors.unprocessable": "The request could not be processed.",
@@ -705,7 +706,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.field.file-list.item": "File {number}",
   "kumiko.field.file-list.move-down": "Move file down",
   "kumiko.field.file-list.move-up": "Move file up",
-  "kumiko.field.file-upload.attached": "File attached",
   "kumiko.field.file-upload.change": "Change",
   "kumiko.field.file-upload.failed": "Upload failed",
   "kumiko.field.file-upload.remove": "Remove",

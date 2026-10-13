@@ -3,7 +3,11 @@
 // projection column, and detail/list/rebuild read the array back.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { selectMany } from "../../bun-db/index.js";
 import { buildEntityTable } from "../../db/index.js";
 import {
@@ -11,14 +15,23 @@ import {
   createImagesField,
   createTextField,
   defineFeature,
+  type SessionUser,
 } from "../../engine/index.js";
 import { createFilesFeature, createInMemoryFileProvider } from "../../files/index.js";
 import { rebuildProjection } from "../../pipeline/index.js";
-import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import {
+  createTestUser,
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+} from "../../stack/index.js";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
 import { configurePiiSubjectKms, PII_CIPHERTEXT_PREFIX_JSON } from "../pii-field-encryption.js";
 
 const admin = TestUsers.admin;
+const secondReader = createTestUser({ id: 77, tenantId: admin.tenantId, roles: ["Reader"] });
+const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...Array(10).fill(0)]);
 
 const albumEntity = createEntity({
   table: "pii_plural_file_albums",
@@ -33,7 +46,7 @@ const feature = defineFeature("pluralfilepii", (r) => {
   r.entity("album", albumEntity);
   r.crud("album", albumEntity, {
     write: { access: { roles: ["Admin"] } },
-    read: { access: { roles: ["Admin"] } },
+    read: { access: { roles: ["Admin", "Reader"] } },
   });
 });
 
@@ -50,6 +63,7 @@ const THIRD = "5d0c6b7e-3a4f-4c1d-8e2a-000000000003";
 let stack: TestStack;
 
 beforeAll(async () => {
+  patchFileInstanceofForBunTest();
   stack = await setupTestStack({
     features: [createFilesFeature(), feature],
     files: { storageProvider: createInMemoryFileProvider() },
@@ -119,5 +133,41 @@ describe("personal plural file field", () => {
 
     expect(String(await storedPhotos(id))).toStartWith(PII_CIPHERTEXT_PREFIX_JSON);
     expect((await detail(id))["photos"]).toEqual([THIRD, FIRST]);
+  });
+
+  test("a pending upload bound by the create is readable by a second reader until an update removes it", async () => {
+    const form = new FormData();
+    form.append("file", new File([Buffer.from(JPEG_BYTES)], "photo.jpg", { type: "image/jpeg" }));
+    form.append("entityType", "album");
+    form.append("fieldName", "photos");
+    const { body, contentType } = await buildMultipartBody(form);
+    const upload = await stack.app.request("/api/files", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${await stack.jwt.sign(admin)}`,
+        "Content-Type": contentType,
+      },
+      body,
+    });
+    expect(upload.status).toBe(201);
+    const { id: fileRefId } = (await upload.json()) as { id: string };
+    const readAs = async (reader: SessionUser): Promise<number> =>
+      (
+        await stack.app.request(`/api/files/${fileRefId}`, {
+          headers: { Authorization: `Bearer ${await stack.jwt.sign(reader)}` },
+        })
+      ).status;
+    expect(await readAs(secondReader)).toBe(404);
+
+    const id = await createAlbum([fileRefId]);
+    expect(await readAs(secondReader)).toBe(200);
+
+    const row = await detail(id);
+    await stack.http.writeOk(
+      UPDATE,
+      { id, version: row["version"], changes: { photos: [] } },
+      admin,
+    );
+    expect(await readAs(secondReader)).toBe(404);
   });
 });

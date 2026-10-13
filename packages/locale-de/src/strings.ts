@@ -515,6 +515,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "errors.rate_limited": "Zu viele Anfragen. Bitte versuche es in Kürze erneut.",
   "errors.rate_limit_unavailable":
     "Die Anfragenbegrenzung ist vorübergehend nicht verfügbar. Bitte versuche es in Kürze erneut.",
+  "errors.recordLocked": "Dieser Eintrag ist gesperrt und kann nicht mehr geändert werden.",
   "errors.unconfigured": "Diese Funktion ist noch nicht konfiguriert.",
   "errors.uniqueViolation": "Dieser Eintrag existiert bereits.",
   "errors.unprocessable": "Die Anfrage konnte nicht verarbeitet werden.",
@@ -732,7 +733,6 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.field.file-list.item": "Datei {number}",
   "kumiko.field.file-list.move-down": "Datei nach unten verschieben",
   "kumiko.field.file-list.move-up": "Datei nach oben verschieben",
-  "kumiko.field.file-upload.attached": "Datei angehängt",
   "kumiko.field.file-upload.change": "Ändern",
   "kumiko.field.file-upload.failed": "Upload fehlgeschlagen",
   "kumiko.field.file-upload.remove": "Entfernen",

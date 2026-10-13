@@ -386,7 +386,7 @@ describe("pending uploads are private to their uploader until bound", () => {
     expect(await requestFileRoute(pendingId, user, "/meta")).toBe(200);
   });
 
-  test("an upload without an entityType stays readable tenant-wide", async () => {
+  test("an upload without an entityType is private to its uploader and admins", async () => {
     const hints = { ...photoHints("create"), entityType: undefined, fieldName: undefined };
     const formData = buildFileUploadFormData({
       file: new File([Buffer.from(JPEG_BYTES)], "loose.jpg", { type: "image/jpeg" }),
@@ -403,7 +403,10 @@ describe("pending uploads are private to their uploader until bound", () => {
     expect(res.status).toBe(201);
     const { id } = (await res.json()) as { id: string };
 
-    expect(await readFileAs(id, otherTechnician)).toBe(200);
+    expect(await readFileAs(id, otherTechnician)).toBe(404);
+    expect(await requestFileRoute(id, otherTechnician, "/meta")).toBe(404);
+    expect(await readFileAs(id, technician)).toBe(200);
+    expect(await readFileAs(id, user)).toBe(200);
   });
 
   test("an update that names the caller's pending upload binds it, so record readers can read it", async () => {
@@ -462,5 +465,73 @@ describe("pending uploads are private to their uploader until bound", () => {
     expect(detail.gallery).toEqual([second, first]);
     expect(await readFileAs(first, technician)).toBe(200);
     expect(await readFileAs(second, technician)).toBe(200);
+  });
+});
+
+describe("files removed from a record are disposed", () => {
+  async function updateGadget(
+    gadgetId: string,
+    version: number,
+    changes: Record<string, unknown>,
+    actor: SessionUser = user,
+  ): Promise<void> {
+    await stack.http.writeOk(
+      "form-upload-gadget:write:field-gadget:update",
+      { id: gadgetId, version, changes },
+      actor,
+    );
+  }
+
+  test("an update that drops one image of a plural field leaves 404 for it and 200 for the kept one", async () => {
+    const galleryHints = fieldHints("gallery", "create");
+    const kept = await uploadLikeTheForm(galleryHints);
+    const dropped = await uploadLikeTheForm(galleryHints);
+    const gadgetId = await createGadget({ gallery: [kept, dropped] });
+    expect(await readFileAs(dropped, technician)).toBe(200);
+
+    await updateGadget(gadgetId, 1, { gallery: [kept] });
+
+    expect(await readFileAs(kept, technician)).toBe(200);
+    expect(await readFileAs(dropped, technician)).toBe(404);
+    expect(await readFileAs(dropped, user)).toBe(404);
+  });
+
+  test("another user with write access can remove a photo the first user uploaded and attached", async () => {
+    const uploaded = await uploadLikeTheForm(photoHints("create"), otherAdmin);
+    const created = await stack.http.writeOk<{ id: string }>(
+      "form-upload-gadget:write:field-gadget:create",
+      { title: "Gadget", photo: uploaded },
+      otherAdmin,
+    );
+    expect(await readFileAs(uploaded, technician)).toBe(200);
+
+    await updateGadget(created.id, 1, { photo: null }, user);
+
+    expect(await readFileAs(uploaded, technician)).toBe(404);
+    expect(await readFileAs(uploaded, otherAdmin)).toBe(404);
+  });
+
+  test("replacing a single file makes the old file 404 and keeps the new one readable", async () => {
+    const oldFile = await uploadLikeTheForm(photoHints("create"));
+    const gadgetId = await createGadget({ photo: oldFile });
+    const replacement = await uploadLikeTheForm(photoHints("update", gadgetId));
+
+    await updateGadget(gadgetId, 1, { photo: replacement });
+
+    expect(await readFileAs(oldFile, technician)).toBe(404);
+    expect(await readFileAs(replacement, technician)).toBe(200);
+  });
+
+  test("a file bound to another record is not disposed when this record drops its id", async () => {
+    const shared = await uploadLikeTheForm(photoHints("create"));
+    const owner = await createGadget({ photo: shared });
+    const other = await createGadget();
+    await updateGadget(other, 1, { photo: shared });
+    expect(await readFileAs(shared, technician)).toBe(200);
+
+    await updateGadget(other, 2, { photo: null });
+
+    expect(await readFileAs(shared, technician)).toBe(200);
+    expect(owner).not.toBe(other);
   });
 });

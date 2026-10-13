@@ -178,6 +178,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           ...agentSlots(def),
           ...(def.excludedFields && { excludedFields: def.excludedFields }),
           ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
+          ...(def.unsafeSkipLockGuard && { unsafeSkipLockGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
           ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),

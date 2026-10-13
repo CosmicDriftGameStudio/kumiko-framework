@@ -552,6 +552,8 @@ export function createEntity<F, const T extends EntityTenancy = "tenant">(def: {
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
   readonly transitions?: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>;
+  /** See EntityDefinition.lockedWhen. */
+  readonly lockedWhen?: EntityDefinition["lockedWhen"];
   readonly indexes?: readonly EntityIndexDef[];
   readonly idType?: "serial" | "uuid";
   readonly access?: EntityDefinition["access"];

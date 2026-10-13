@@ -1702,7 +1702,11 @@ function EntityEditUpdateForm({
 
   // Evaluated against the stored record only, so typing in a form can never
   // flip the screen between editable and view.
-  const viewMode = screen.readOnly !== undefined && evalFieldCondition(screen.readOnly, record);
+  // Either condition shows the view: the server rejects saves of a locked record
+  // whatever the screen says, so a screen condition can only add read-only, never lift it.
+  const viewMode = [screen.readOnly, entity.lockedWhen].some(
+    (condition) => condition !== undefined && evalFieldCondition(condition, record),
+  );
 
   return (
     <>

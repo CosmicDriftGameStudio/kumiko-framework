@@ -1410,6 +1410,8 @@ export type WriteHandlerDef = {
    *  Set only when non-empty; the renderer and the agent manifest read it from here. */
   readonly excludedFields?: readonly string[];
   readonly unsafeSkipTransitionGuard?: boolean;
+  /** Opt-out of the `lockedWhen` guard, for handlers that unlock a record on purpose. */
+  readonly unsafeSkipLockGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   /** Per-payload-field limits, e.g. per recipient address. Complements
    *  `rateLimit`; anonymous handlers still need an ip-keyed `rateLimit`. */

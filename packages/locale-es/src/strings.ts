@@ -512,6 +512,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "errors.rate_limited": "Demasiadas solicitudes. Inténtalo de nuevo en breve.",
   "errors.rate_limit_unavailable":
     "La limitación de solicitudes no está disponible temporalmente. Inténtalo de nuevo en breve.",
+  "errors.recordLocked": "Este registro está bloqueado y ya no se puede modificar.",
   "errors.unconfigured": "Esta función todavía no está configurada.",
   "errors.uniqueViolation": "Esta entrada ya existe.",
   "errors.unprocessable": "No se pudo procesar la solicitud.",
@@ -728,7 +729,6 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.field.file-list.item": "Archivo {number}",
   "kumiko.field.file-list.move-down": "Mover archivo hacia abajo",
   "kumiko.field.file-list.move-up": "Mover archivo hacia arriba",
-  "kumiko.field.file-upload.attached": "Archivo adjunto",
   "kumiko.field.file-upload.change": "Cambiar",
   "kumiko.field.file-upload.failed": "Error al subir",
   "kumiko.field.file-upload.remove": "Quitar",

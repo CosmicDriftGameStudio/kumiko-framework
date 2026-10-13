@@ -21,6 +21,7 @@ export {
   PreconditionFailedError,
   RateLimitError,
   RateLimitUnavailableError,
+  RecordLockedError,
   UnauthenticatedError,
   UnconfiguredError,
   UniqueViolationError,
