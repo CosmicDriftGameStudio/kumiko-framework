@@ -9,6 +9,7 @@ import {
   type KmsContext,
   type LocalKeyKmsAdapter,
 } from "../crypto/index.js";
+import { personalFieldsRekeyedOnOwnerTransition } from "../crypto/owner-transition-rekey.js";
 import { executeRawQueryRead } from "../db/queries/raw-sql.js";
 import type { WhereObject } from "../db/query.js";
 import { shiftParams } from "../engine/ownership.js";
@@ -245,6 +246,11 @@ export type ExecutorContext = {
     row: Record<string, unknown>,
     opts?: DecryptForReadOptions,
   ) => Promise<Record<string, unknown>>;
+  readonly ownerTransitionRekeys: (
+    previous: Record<string, unknown>,
+    mergedNew: Record<string, unknown>,
+    submittedChanges: Record<string, unknown>,
+  ) => Record<string, unknown>;
   readonly applyDefaults: (payload: Record<string, unknown>) => Record<string, unknown>;
   readonly stripSensitive: (
     payload: Record<string, unknown> | undefined,
@@ -449,6 +455,15 @@ export function buildExecutorContext(
       );
     }
     return out;
+  }
+
+  function ownerTransitionRekeys(
+    previous: Record<string, unknown>,
+    mergedNew: Record<string, unknown>,
+    submittedChanges: Record<string, unknown>,
+  ): Record<string, unknown> {
+    if (!hasPiiFields || !piiKms()) return {};
+    return personalFieldsRekeyedOnOwnerTransition(entity, previous, mergedNew, submittedChanges);
   }
 
   function applyDefaults(payload: Record<string, unknown>): Record<string, unknown> {
@@ -684,6 +699,7 @@ export function buildExecutorContext(
     loadExpectSnapshot,
     encryptForStorage,
     decryptForRead,
+    ownerTransitionRekeys,
     applyDefaults,
     stripSensitive,
   };

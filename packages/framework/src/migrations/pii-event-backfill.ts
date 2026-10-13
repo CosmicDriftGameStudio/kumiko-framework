@@ -101,8 +101,15 @@ export function piiAnnotationEntries(registry: Registry): readonly string[] {
   return entries.sort();
 }
 
+// Bump when the backfill gains a transform stage: completed states keyed by the
+// old fingerprint must run one more full pass. Kept out of piiAnnotationEntries,
+// whose emptiness gates no_pii.
+const PII_BACKFILL_TRANSFORM_VERSION = "owner-rekey-v1";
+
 export function piiAnnotationFingerprint(registry: Registry): string {
-  return createHash("sha256").update(piiAnnotationEntries(registry).join("\n")).digest("hex");
+  return createHash("sha256")
+    .update([...piiAnnotationEntries(registry), PII_BACKFILL_TRANSFORM_VERSION].join("\n"))
+    .digest("hex");
 }
 
 export type PiiEventBackfillOptions = {
@@ -129,6 +136,7 @@ export type PiiEventBackfillResult =
       readonly updatedEvents: number;
       readonly encryptedFields: number;
       readonly erasedFields: number;
+      readonly rekeyedFields: number;
       readonly failures: readonly PiiBackfillFailure[];
       readonly queuedTables: readonly string[];
       readonly rebuild: PiiRebuildRun | null;
@@ -188,6 +196,7 @@ type RunProgress = {
     updatedEvents: number;
     encryptedFields: number;
     erasedFields: number;
+    rekeyedFields: number;
   };
   readonly failures: PiiBackfillFailure[];
   readonly queuedTables: Set<string>;
@@ -243,6 +252,7 @@ async function runOneBatch(
       ...(retryEventIds && { eventIds: retryEventIds }),
       batchSize: ctx.batchSize,
       resolveOwnerFromProjection: true,
+      rekeyTenantKeyedOwnerFields: true,
       scanCache: progress.scanCache,
     });
 
@@ -276,6 +286,7 @@ function recordBatch(progress: RunProgress, step: BatchStep): void {
   progress.totals.updatedEvents += batch.updatedEvents;
   progress.totals.encryptedFields += batch.encryptedFields;
   progress.totals.erasedFields += batch.erasedFields;
+  progress.totals.rekeyedFields += batch.rekeyedFields;
   for (const failure of batch.failures) {
     // The catch-up overlap and the per-event retry can hit the same failed event twice in one run.
     if (progress.failedIdsSeen.has(failure.eventId)) continue;
@@ -355,7 +366,13 @@ export async function runPiiEventBackfill(
   const progress: RunProgress = {
     scanCursor,
     scanCache: {},
-    totals: { scannedEvents: 0, updatedEvents: 0, encryptedFields: 0, erasedFields: 0 },
+    totals: {
+      scannedEvents: 0,
+      updatedEvents: 0,
+      encryptedFields: 0,
+      erasedFields: 0,
+      rekeyedFields: 0,
+    },
     failures: [],
     queuedTables: new Set(),
     failedIdsSeen: new Set(),

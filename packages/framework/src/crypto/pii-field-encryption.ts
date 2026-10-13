@@ -134,6 +134,12 @@ async function getOrCreateDek(
   return kms.getKey(subject, ctx);
 }
 
+// The subject a ciphertext is keyed under, read from its inline prefix without
+// touching the KMS.
+export function piiCiphertextSubject(value: string): SubjectId {
+  return parseCiphertext(value).subject;
+}
+
 // Single-value encrypt for callers that resolve the subject themselves
 // (event-pii catalog, backfill). Ciphertext/sentinel inputs pass through —
 // idempotent like the field-map variant. `field` names the value's storage
