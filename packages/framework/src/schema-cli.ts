@@ -17,6 +17,7 @@ import {
   resolveKmsWiringAsync,
 } from "./crypto/index.js";
 import {
+  assertUniqueTableNames,
   assertValidMigrationName,
   baselineMigrations,
   createDbConnection,
@@ -74,10 +75,9 @@ async function loadSchemaModFromApp(schemaFile: string): Promise<SchemaMod> {
       `Schema file ${schemaFile} muss \`export const ENTITY_METAS: EntityTableMeta[]\` haben.`,
     );
   }
-  return {
-    entityMetas: mod.ENTITY_METAS as Parameters<typeof renderTablesDdl>[0],
-    features: mod.FEATURES,
-  };
+  const entityMetas = mod.ENTITY_METAS as Parameters<typeof renderTablesDdl>[0];
+  assertUniqueTableNames(entityMetas);
+  return { entityMetas, features: mod.FEATURES };
 }
 
 function nextSequenceNumber(migrationsDir: string): number {
@@ -205,7 +205,13 @@ export async function runSchemaCli(
         out.err("    export const ENTITY_METAS: EntityTableMeta[] = [...]");
         return 1;
       }
-      const { entityMetas: metas } = await loadSchemaModFromApp(schemaFile);
+      let metas: SchemaMod["entityMetas"];
+      try {
+        ({ entityMetas: metas } = await loadSchemaModFromApp(schemaFile));
+      } catch (e) {
+        out.err(`  ${e instanceof Error ? e.message : String(e)}`);
+        return 1;
+      }
       const snapshotPath = join(migrationsDir, SNAPSHOT_FILENAME);
       const prevSnapshot = existsSync(snapshotPath) ? loadSnapshotJson(snapshotPath) : null;
       const result = generateMigration({

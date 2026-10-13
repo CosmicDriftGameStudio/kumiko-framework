@@ -87,6 +87,7 @@ export {
 } from "./feature-table-sources.js";
 export { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "./located-timestamp.js";
 export {
+  assertUniqueTableNames,
   assertValidMigrationName,
   diffSnapshots,
   type GenerateMigrationInput,

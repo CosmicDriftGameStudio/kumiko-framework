@@ -216,10 +216,35 @@ describe("runSchemaCli — no-DB paths", () => {
   });
 });
 
+function writeDuplicateTableSchemaFile(appCwd: string, tableName: string): void {
+  const entry = `{ tableName: "${tableName}", source: "unmanaged", indexes: [], columns: [{ name: "id", pgType: "uuid", notNull: true, primaryKey: true }] }`;
+  writeFileSync(
+    join(appCwd, "kumiko/schema.ts"),
+    `export const ENTITY_METAS = [${entry}, ${entry}];\n`,
+  );
+}
+
 describe("runSchemaCli — validate (static CI gate, no DB)", () => {
   let appCwd: string;
   beforeEach(() => {
     appCwd = freshAppCwd();
+  });
+
+  test("ENTITY_METAS listing a table twice → exit 1 naming the table", async () => {
+    writeDuplicateTableSchemaFile(appCwd, "in_app_messages");
+    const cap = captureOut();
+    const code = await runSchemaCli(["validate"], appCwd, cap.out);
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain('"in_app_messages" 2 times');
+  });
+
+  test("generate with a table listed twice → exit 1, writes no migration and no snapshot", async () => {
+    writeDuplicateTableSchemaFile(appCwd, "in_app_messages");
+    const cap = captureOut();
+    const code = await runSchemaCli(["generate", "init"], appCwd, cap.out);
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain('"in_app_messages" 2 times');
+    expect(existsSync(join(appCwd, "kumiko/migrations"))).toBe(false);
   });
 
   test("missing schema.ts exits 1", async () => {

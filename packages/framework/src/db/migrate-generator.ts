@@ -562,8 +562,25 @@ export function assertValidMigrationName(name: string): void {
   }
 }
 
+export function assertUniqueTableNames(metas: readonly EntityTableMeta[]): void {
+  const counts = new Map<string, number>();
+  for (const { tableName } of metas) counts.set(tableName, (counts.get(tableName) ?? 0) + 1);
+  const duplicates = [...counts].filter(([, count]) => count > 1);
+  if (duplicates.length > 0) {
+    throw new Error(
+      duplicates
+        .map(
+          ([tableName, count]) =>
+            `ENTITY_METAS lists table "${tableName}" ${count} times — the migration diff would silently use only one definition. collectTableMetas(features) already includes every table a feature registers (r.storeTable, entities, projections); remove the hand-added meta for "${tableName}".`,
+        )
+        .join("\n"),
+    );
+  }
+}
+
 export function generateMigration(input: GenerateMigrationInput): GenerateMigrationOutput {
   assertValidMigrationName(input.name);
+  assertUniqueTableNames(input.metas);
   const nextSnapshot = snapshotFromMetas(input.metas);
   const diff = diffSnapshots(input.prevSnapshot, nextSnapshot);
   const retiredDrops = findRetiredTableDrops(input.priorMigrationsSql ?? [], nextSnapshot);
