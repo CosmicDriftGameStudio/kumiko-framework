@@ -103,6 +103,17 @@ const lockFeature = defineFeature("lock", (r) => {
   );
 
   r.writeHandler(
+    "ticket:erase",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) => {
+      const result = await executor.forget({ id: event.payload.id }, event.user, ctx.db);
+      if (!result.isSuccess) return result;
+      return { isSuccess: true as const, data: { ok: true } };
+    },
+    ROLES,
+  );
+
+  r.writeHandler(
     "ticket:reopen",
     z.object({ id: z.uuid(), version: z.number() }),
     async (event, ctx) =>
@@ -220,6 +231,59 @@ describe("lockedWhen", () => {
     const id = await createTicket("closed");
     await expectLocked("lock:write:ticket:rename-quiet", { id, version: 1, title: "x" }, id);
     await expectLocked("lock:write:ticket:purge-quiet", { id }, id);
+  });
+
+  test("an unsafeSkipLockGuard in the request payload cannot unlock the generic update", async () => {
+    const id = await createTicket("closed");
+    await expectLocked(
+      "lock:write:ticket:update",
+      { id, version: 1, changes: { title: "x" }, unsafeSkipLockGuard: true },
+      id,
+    );
+    const before = await eventCount(id);
+    const err = await stack.http.writeErr(
+      "lock:write:ticket:update",
+      { id, version: 1, changes: { title: "x", unsafeSkipLockGuard: true } },
+      admin,
+    );
+    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(await eventCount(id)).toBe(before);
+  });
+
+  test("permission is checked before the lock, so a locked record leaks nothing", async () => {
+    const id = await createTicket("closed");
+    const update = (target: string) => ({ id: target, version: 1, changes: { title: "x" } });
+
+    const noRole = await stack.http.writeErr(
+      "lock:write:ticket:update",
+      update(id),
+      TestUsers.user,
+    );
+    expect(noRole.httpStatus).toBe(403);
+
+    const missing = await stack.http.writeErr(
+      "lock:write:ticket:update",
+      update(crypto.randomUUID()),
+      TestUsers.otherTenant,
+    );
+    const foreign = await stack.http.writeErr(
+      "lock:write:ticket:update",
+      update(id),
+      TestUsers.otherTenant,
+    );
+    expect(foreign.code).not.toBe("record_locked");
+    expect({ status: foreign.httpStatus, code: foreign.code }).toEqual({
+      status: missing.httpStatus,
+      code: missing.code,
+    });
+    expect(await eventCount(id)).toBe(1);
+  });
+
+  test("forget (Art. 17) erases a locked record without any option", async () => {
+    const id = await createTicket("closed");
+    await stack.http.writeOk("lock:write:ticket:erase", { id }, admin);
+    const err = await stack.http.queryErr("lock:query:ticket:detail", { id }, admin);
+    expect(err.httpStatus).toBe(404);
   });
 
   test("an executor call with unsafeSkipLockGuard may unlock", async () => {

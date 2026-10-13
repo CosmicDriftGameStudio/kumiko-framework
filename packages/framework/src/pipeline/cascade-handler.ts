@@ -64,22 +64,22 @@ export function createCascadeDeleteHook(
             }
           }
 
-          if (strategy === OnDeleteStrategies.cascade) {
-            // The raw delete below bypasses the executor, so a locked child must block
-            // the parent delete here instead of vanishing with it.
+          // The raw delete/update below bypasses the executor, so a locked child must
+          // block the parent delete here instead of changing with it. The error names
+          // the parent only: the caller may delete the parent without reading the child.
+          if (strategy === OnDeleteStrategies.cascade || strategy === OnDeleteStrategies.setNull) {
             const childLock = registry.getEntity(relation.target)?.lockedWhen;
             if (childLock !== undefined) {
               const children = await selectMany(db, targetTable, {
                 [relation.foreignKey]: payload.id,
               });
-              const locked = children.find((child) => isRecordLocked(childLock, child));
-              if (locked) {
-                throw new RecordLockedError({
-                  entityName: relation.target,
-                  entityId: String(locked["id"]),
-                });
+              if (children.some((child) => isRecordLocked(childLock, child))) {
+                throw new RecordLockedError({ entityName, entityId: payload.id });
               }
             }
+          }
+
+          if (strategy === OnDeleteStrategies.cascade) {
             await deleteMany(db, targetTable, { [relation.foreignKey]: payload.id });
           }
 

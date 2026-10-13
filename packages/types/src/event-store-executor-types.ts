@@ -30,9 +30,9 @@ export type PreSaveRunner = (
 // to the loaded row's tenant; anything else fails the write.
 export type StreamTenantOption = { readonly streamTenantId?: TenantId | undefined };
 
-// The executor refuses to change or remove a row that meets the entity's `lockedWhen`.
-// Only the call site that writes the locked row on purpose sets this (DSGVO erasure and
-// anonymisation, retention cleanup, unlocking); it applies to that one call and nothing else.
+// The executor refuses to update or delete a row that meets the entity's `lockedWhen`
+// (forget and framework-system-user writes are exempt). Only server code that changes the
+// locked row on purpose (unlocking) sets this; it applies to that one call and nothing else.
 export type LockGuardOption = { readonly unsafeSkipLockGuard?: boolean };
 
 export type EventStoreExecutor = {
@@ -90,7 +90,7 @@ export type EventStoreExecutor = {
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption & LockGuardOption,
+    options?: StreamTenantOption,
   ) => Promise<WriteResult<DeleteContext>>;
 
   restore: (

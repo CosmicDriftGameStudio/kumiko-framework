@@ -206,15 +206,22 @@ export function createWriteVerbs(
   } = ctx;
   const entityInstructionFieldNames = instructionFieldNames(entity);
 
-  // Every write verb that changes or removes a stored row funnels through here, so custom
-  // handlers, nested writes, jobs and system writes cannot bypass the lock whatever they
-  // return. Setting the lock (unlocked row) passes.
+  // update and delete funnel through here, so custom handlers and nested writes cannot
+  // bypass the lock whatever they return. Setting the lock (unlocked row) passes.
+  // Framework system writes (retention, erasure jobs) are exempt: statutory deletion must
+  // reach locked rows, and forget (Art. 17) never checks the lock at all. The option is
+  // server-code only; no request field is ever copied into these executor options.
   function recordLockedFailure(
     row: Readonly<Record<string, unknown>>,
     id: EntityId,
+    user: SessionUser,
     options: { readonly unsafeSkipLockGuard?: boolean } | undefined,
   ): WriteFailure | undefined {
-    if (options?.unsafeSkipLockGuard === true || !isRecordLocked(entity.lockedWhen, row)) {
+    if (
+      options?.unsafeSkipLockGuard === true ||
+      isFrameworkSystemUser(user) ||
+      !isRecordLocked(entity.lockedWhen, row)
+    ) {
       return undefined;
     }
     return writeFailure(new RecordLockedError({ entityName, entityId: id }));
@@ -554,9 +561,6 @@ export function createWriteVerbs(
           }),
         );
       }
-      const lockedUpdate = recordLockedFailure(previous, payload.id, updateOptions);
-      if (lockedUpdate) return lockedUpdate;
-
       // Field-level write-ownership on update — this is the path the
       // dispatcher could not evaluate (no oldRow). Now that we have
       // `previous`, we can run the ownership rules per field against both
@@ -595,6 +599,9 @@ export function createWriteVerbs(
           }),
         );
       }
+
+      const lockedUpdate = recordLockedFailure(previous, payload.id, user, updateOptions);
+      if (lockedUpdate) return lockedUpdate;
 
       const unavailableOnUpdate = selectOptionNotAvailableFailure(
         findUnavailableSelectOptions(entity.fields, mergedNew, previous),
@@ -808,7 +815,8 @@ export function createWriteVerbs(
           }),
         );
       }
-      const lockedDelete = recordLockedFailure(existing, payload.id, options);
+
+      const lockedDelete = recordLockedFailure(existing, payload.id, user, options);
       if (lockedDelete) return lockedDelete;
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
@@ -923,8 +931,6 @@ export function createWriteVerbs(
           }),
         );
       }
-      const lockedForget = recordLockedFailure(existing, payload.id, options);
-      if (lockedForget) return lockedForget;
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
       const currentVersion = await getStreamVersion(
