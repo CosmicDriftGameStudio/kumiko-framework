@@ -426,8 +426,8 @@ export function buildInsertSchema(
 // Field types whose column is nullable and whose projection write accepts a
 // plain `null`. Excluded: select/writeOnly text (fieldToZod is already
 // nullable there), and types where null would not clear cleanly — NOT NULL
-// jsonb columns (multiSelect, embedded, jsonb, multi reference), files/images
-// (no column; stripped from updates), locatedTimestamp (split into _utc/_tz
+// jsonb columns (multiSelect, embedded, jsonb, multi reference, files/images),
+// locatedTimestamp (split into _utc/_tz
 // columns, a bare null targets a column that does not exist) and money (the
 // currency column would keep its stale value).
 const NULL_CLEARABLE_FIELD_TYPES: ReadonlySet<FieldDefinition["type"]> = new Set([

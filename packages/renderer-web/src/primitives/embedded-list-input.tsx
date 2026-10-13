@@ -46,6 +46,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { ComboboxInput } from "./combobox.js";
 import { DateInput } from "./date-input.js";
 import { formatMoney, MoneyInput } from "./money-input.js";
+import { SegmentedControl } from "./segmented-select.js";
 import { TimestampInput } from "./timestamp-input.js";
 import { useIsNarrowViewport } from "./use-narrow-viewport.js";
 
@@ -215,7 +216,7 @@ function renderCellControl({
   readonly onChange: (value: unknown) => void;
   readonly currency: string;
 }): ReactNode {
-  const isDisabled = disabled || column.derived;
+  const isDisabled = disabled || column.derived || column.readOnly === true;
 
   switch (column.type) {
     case "text":
@@ -308,6 +309,21 @@ function renderCellControl({
         value: opt,
         label: column.optionLabels?.[opt] ?? opt,
       }));
+      if (column.display === "radio" && options.length > 0) {
+        return (
+          <div data-cell-id={cellId} className="w-full min-w-0">
+            <SegmentedControl
+              id={cellId}
+              name={cellId}
+              labelProps={{ "aria-label": label }}
+              value={typeof value === "string" ? value : ""}
+              onChange={(v) => onChange(v)}
+              options={options}
+              disabled={isDisabled}
+            />
+          </div>
+        );
+      }
       return (
         <div data-cell-id={cellId} className="w-full min-w-0">
           <ComboboxInput
@@ -438,6 +454,7 @@ export function EmbeddedListInput({
   totals,
   currency,
   disabled,
+  fixedRows,
   minItems,
   maxItems,
   listIssues,
@@ -536,7 +553,8 @@ export function EmbeddedListInput({
   // derived column (e.g. a trailing "amount" total).
   const lastEditableIndex = columns.findLastIndex((column) => !column.derived);
 
-  const showControls = disabled !== true;
+  // Fixed rows drop every row-mutation affordance but leave cells editable.
+  const showControls = disabled !== true && fixedRows !== true;
   // The pinned actions column marks its edge with an inset shadow: in a
   // border-collapse table a border-l is painted at the cell's unscrolled
   // position and vanishes while content scrolls underneath.
@@ -558,7 +576,7 @@ export function EmbeddedListInput({
   };
 
   const handleLastCellKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
-    if (disabled === true) return;
+    if (disabled === true || fixedRows === true) return;
     const isTabForward = event.key === "Tab" && !event.shiftKey;
     const isEnter = event.key === "Enter";
     if (!isTabForward && !isEnter) return;

@@ -129,9 +129,6 @@ export async function applyEntityEvent(
     case "updated": {
       // payload-Shape: { changes, previous } — siehe event-store-executor.ts.
       const rawChanges = (event.payload["changes"] ?? {}) as Record<string, unknown>; // @cast-boundary engine-payload
-      // Plural file fields (files/images) have no entity-table column — the
-      // array of UUIDs lives in the event payload only. Strip them from the
-      // UPDATE so Postgres doesn't error with "column X does not exist".
       const changes: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(rawChanges)) {
         const field = entity.fields[key];
@@ -140,7 +137,6 @@ export async function applyEntityEvent(
         // Base/soft-delete columns (insertedById, deletedAt, ...) are table
         // columns without an entity field and must still be applied.
         if (field === undefined && !(key in table)) continue;
-        if (field?.type === "files" || field?.type === "images") continue;
         changes[key] = value;
       }
       const rows = await updateMany<DbRow>(

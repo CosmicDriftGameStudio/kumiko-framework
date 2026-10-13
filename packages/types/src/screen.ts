@@ -1268,6 +1268,27 @@ export type EditFieldSpec =
       /** Row field on the referenced entity shown as the label (default
        *  "id"). Only meaningful together with `refEntity`. */
       readonly refLabelField?: string;
+      /** Embedded-list fields only (`createEmbeddedListField`). */
+      readonly embeddedList?: EmbeddedListEditSpec;
+      /** Fills an empty value when the create form opens; the update form and
+       *  values from URL params or a handoff are never touched. Unlike a
+       *  field `default`, it is not applied server-side. */
+      readonly prefill?: EditFieldPrefill;
+    };
+
+export type EmbeddedListEditSpec = {
+  /** Sub-fields shown as read-only cells; every other cell stays editable. */
+  readonly readOnlyCells?: readonly string[];
+  /** `true` keeps the rows as they are: no add, remove, duplicate, move or
+   *  paste-appended rows. Cells stay editable (unless in `readOnlyCells`). */
+  readonly fixedRows?: boolean;
+};
+
+export type EditFieldPrefill =
+  | { readonly kind: "today" }
+  | {
+      readonly kind: "currentUser";
+      readonly property: "displayName" | "email" | "id";
     };
 
 // A section is a normal field-grid (default — `kind` omitted keeps every
@@ -1627,6 +1648,14 @@ export type EntityEditScreenDefinition = {
    *  wizard: "Add {make} {model}"). Falls back to the plain title while the
    *  placeholders are still empty. */
   readonly titleTemplate?: string;
+  /** Shows a saved record read-only while the condition holds for the loaded
+   *  record (not for unsaved form values): all fields disabled, no save, discard
+   *  or delete button; record `actions` stay. The title uses
+   *  `screen:<id>.view.title`, then `screen:<id>.title`. Never applies to create.
+   *  The entity's `lockedWhen` always applies as well; set this only to add a
+   *  UI-only condition (either one shows the view).
+   *  UI only: the update handler still has to enforce access. */
+  readonly readOnly?: FieldCondition;
   readonly layout: EditLayout;
   /** Optionaler i18n-Key (oder Roh-String) für den Submit-Button. Default
    *  `kumiko.actions.save`. Lässt den Auto-Edit-Screen domain-spezifische

@@ -8,6 +8,7 @@ const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user
 
 // Returns the currently signed-in user's profile. Field-level read access
 // strips out the passwordHash automatically (configured on the entity).
+// `effectiveTimeZone` is the effective IANA zone of the caller.
 export const meQuery = defineQueryHandler({
   name: "user:me",
   schema: z.object({}),
@@ -33,6 +34,9 @@ export const meQuery = defineQueryHandler({
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "user rows are tenant-agnostic identity records; self-lookup by id needs no tenant filter",
     );
-    return crud.detail({ id: query.user.id }, query.user, db); // @wrapper-known semantic-alias
+    const row = await crud.detail({ id: query.user.id }, query.user, db);
+    // `timezone` on the row is only the stored override (often unset); clients
+    // need the effective zone (override, else tenant, else UTC) to compute "today".
+    return row === null ? row : { ...row, effectiveTimeZone: ctx.tz.user };
   },
 });

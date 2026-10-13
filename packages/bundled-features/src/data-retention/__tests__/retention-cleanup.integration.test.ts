@@ -32,6 +32,8 @@ const widgetEntity = createEntity({
   fields: {
     label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
   },
+  // Retention runs as the framework system user: a locked row must still be hard-deleted.
+  lockedWhen: { field: "label", eq: "expired-t1" },
   retention: { keepFor: "30d", strategy: "hardDelete" },
 });
 
@@ -42,6 +44,8 @@ const gadgetEntity = createEntity({
   fields: {
     label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
   },
+  // A locked row (label "expired") must still be soft-deleted by the system user.
+  lockedWhen: { field: "label", eq: "expired" },
   retention: { keepFor: "30d", strategy: "softDelete" },
 });
 
@@ -95,6 +99,8 @@ const anonEntity = createEntity({
       reason: "is_business_data",
     }),
   },
+  // The expired row is locked on purpose: the system user must still anonymise it.
+  lockedWhen: { field: "note", eq: "business-note" },
   retention: { keepFor: "30d", strategy: "anonymize" },
 });
 

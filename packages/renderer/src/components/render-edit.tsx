@@ -478,7 +478,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onChange,
     onControlsReady,
     fields: fieldsFilter,
-    disabled = false,
+    disabled: disabledProp = false,
+    viewMode = false,
     hideActions,
     valueDisplay = "form",
     hideSectionTitles,
@@ -490,6 +491,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     leadContent,
     submitBlocked = false,
   } = props;
+  // View mode is a locked form, so everything keyed on `disabled` follows.
+  const disabled = disabledProp || viewMode;
   const i18nScreenId = props.i18nScreenId ?? screen.id;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
@@ -1564,10 +1567,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // persistExtensions() runs on the customSubmit path too.
   const isFieldlessSubmitForm = isFieldless && screen.entity !== PROJECTION_DETAIL_ENTITY;
   const showsSubmit =
-    isFormEditable ||
-    hasExtensionRegistrations ||
-    isFieldlessSubmitForm ||
-    submitWithoutChanges !== undefined;
+    !viewMode &&
+    (isFormEditable ||
+      hasExtensionRegistrations ||
+      isFieldlessSubmitForm ||
+      submitWithoutChanges !== undefined);
   const footerSlot = screen.slots?.footer;
   // An unregistered footer component renders null, so only a resolvable one may
   // count as an action (else read-only screens get an empty footer strip).
@@ -1597,6 +1601,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // changes"); wizards keep the status-only-when-dirty behaviour.
   const hasDirtyFooter =
     !isWizard &&
+    !viewMode &&
     (dirtyFooter === true || (isScreenForm && !isCreate && headerRegion === undefined));
   const unsavedCount = !hasDirtyFooter
     ? undefined
@@ -1722,7 +1727,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   );
 
   // Title + Subtitle, create/edit-bewusst. i18n-Keys (mode = "create"|"edit"):
-  //   screen:<id>.<mode>.title / .<mode>.subtitle
+  //   screen:<id>.<mode>.title / .<mode>.subtitle  (mode = "create"|"edit"|"view")
   // Fallback-Kette: mode-spezifisch → generisch (screen:<id>.title/.subtitle).
   // title falls back to screenId; subtitle falls back to screen.description,
   // itself run through translate() so an i18n key (the established
@@ -1731,7 +1736,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // prose, same as it does for an unknown key (fw#2723 review). Same slot
   // section.description already fills for a section. Falls back to
   // undefined (no subtitle) when neither is set.
-  const formMode = isCreate ? "create" : "edit";
+  const formMode = isCreate ? "create" : viewMode ? "view" : "edit";
   const recordTitle =
     !isCreate && screen.recordTitleField !== undefined
       ? resolveRecordTitle(initial[screen.recordTitleField])

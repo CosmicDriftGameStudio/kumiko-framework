@@ -1000,3 +1000,101 @@ describe("EmbeddedListInput — accessible names", () => {
     ).toBeDefined();
   });
 });
+
+describe("EmbeddedListInput — read-only cells, fixed rows, segmented select", () => {
+  const checkColumns: readonly EmbeddedListColumn[] = [
+    {
+      field: "text",
+      label: "Checkpoint",
+      type: "text",
+      required: true,
+      derived: false,
+      readOnly: true,
+    },
+    {
+      field: "result",
+      label: "Result",
+      type: "select",
+      required: false,
+      derived: false,
+      options: ["ok", "bad"],
+      optionLabels: { ok: "OK", bad: "Defect" },
+      display: "radio",
+    },
+    { field: "note", label: "Note", type: "text", required: false, derived: false },
+  ];
+  const checkRows = [{ text: "Brakes", result: "", note: "" }];
+
+  test("a readOnly cell is disabled while its sibling cells stay editable", () => {
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ columns: checkColumns, rows: checkRows })} />,
+    );
+    const row = within(screen.getByTestId("lines-desktop")).getByTestId("lines-row-0");
+    expect((within(row).getByDisplayValue("Brakes") as HTMLInputElement).disabled).toBe(true);
+    const note = row.querySelector('[data-cell-id="lines-0-note"]') as HTMLInputElement;
+    expect(note.disabled).toBe(false);
+  });
+
+  test("fixedRows removes add, remove, duplicate and move but keeps cells editable", () => {
+    const onCellChange = mock((_r: number, _f: string, _v: unknown) => {});
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({ columns: checkColumns, rows: checkRows, fixedRows: true, onCellChange })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    expect(screen.queryByTestId("lines-add")).toBeNull();
+    expect(desktop.queryByTestId("lines-row-0-remove")).toBeNull();
+    expect(desktop.queryByTestId("lines-row-0-duplicate")).toBeNull();
+    expect(desktop.queryByTestId("lines-row-0-move-up")).toBeNull();
+    const note = desktop
+      .getByTestId("lines-row-0")
+      .querySelector('[data-cell-id="lines-0-note"]') as HTMLInputElement;
+    fireEvent.change(note, { target: { value: "worn" } });
+    expect(onCellChange).toHaveBeenCalledWith(0, "note", "worn");
+  });
+
+  test("fixedRows: Tab in the last editable cell does not append a row", () => {
+    const onAddRow = mock(() => {});
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({ columns: checkColumns, rows: checkRows, fixedRows: true, onAddRow })}
+      />,
+    );
+    const note = within(screen.getByTestId("lines-desktop"))
+      .getByTestId("lines-row-0")
+      .querySelector('[data-cell-id="lines-0-note"]') as HTMLInputElement;
+    fireEvent.keyDown(note, { key: "Tab" });
+    expect(onAddRow).not.toHaveBeenCalled();
+  });
+
+  test("a select cell with display radio renders segments and reports the chosen option", () => {
+    const onCellChange = mock((_r: number, _f: string, _v: unknown) => {});
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({ columns: checkColumns, rows: checkRows, onCellChange })}
+      />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const group = desktop.getByTestId("segmented-lines-0-result");
+    expect(group.getAttribute("aria-label")).toContain("Result");
+    fireEvent.click(desktop.getByTestId("segmented-lines-0-result-bad"));
+    expect(onCellChange).toHaveBeenCalledWith(0, "result", "bad");
+  });
+
+  test("a select cell without display stays a dropdown", () => {
+    const columns = checkColumns.map((c) =>
+      c.field === "result" ? { ...c, display: undefined } : c,
+    );
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: checkRows })} />);
+    expect(screen.queryByTestId("segmented-lines-0-result")).toBeNull();
+  });
+
+  test("a readOnly radio cell disables its segments", () => {
+    const columns = checkColumns.map((c) => (c.field === "result" ? { ...c, readOnly: true } : c));
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: checkRows })} />);
+    expect((screen.getByTestId("segmented-lines-0-result-ok") as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+  });
+});

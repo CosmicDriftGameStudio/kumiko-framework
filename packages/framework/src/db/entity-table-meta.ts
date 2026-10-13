@@ -228,7 +228,7 @@ function fieldToColumnMeta(
       return [{ name: snake, pgType: "uuid", notNull: field.required === true }];
     case "files":
     case "images":
-      return [];
+      return [{ name: snake, pgType: "jsonb", notNull: true, defaultSql: "'[]'::jsonb" }];
     default:
       return [];
   }

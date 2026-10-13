@@ -187,6 +187,7 @@ function EmbeddedListFieldInner({
         type: cell.type,
         required: cell.required,
         derived: isDerived,
+        ...(cell.readOnly === true && { readOnly: true }),
         referenceOptions,
         referenceLoading: query?.loading ?? false,
       };
@@ -197,8 +198,10 @@ function EmbeddedListFieldInner({
       type: cell.type,
       required: cell.required,
       derived: isDerived,
+      ...(cell.readOnly === true && { readOnly: true }),
       ...(cell.options !== undefined && { options: cell.options }),
       ...(cell.optionLabels !== undefined && { optionLabels: cell.optionLabels }),
+      ...(cell.display !== undefined && { display: cell.display }),
     };
   });
 
@@ -281,6 +284,7 @@ function EmbeddedListFieldInner({
     grid: readonly (readonly string[])[],
   ): void {
     const maxItems = field.embeddedListMaxItems;
+    const fixedRows = field.embeddedListFixedRows === true;
     const nextRows = [...rows];
     const touchedIndices = new Set<number>();
     let droppedRows = 0;
@@ -289,7 +293,7 @@ function EmbeddedListFieldInner({
     grid.forEach((gridRow, gridRowOffset) => {
       const targetRowIndex = rowIndex + gridRowOffset;
       if (targetRowIndex >= nextRows.length) {
-        if (maxItems !== undefined && nextRows.length >= maxItems) {
+        if (fixedRows || (maxItems !== undefined && nextRows.length >= maxItems)) {
           droppedRows += 1;
           return;
         }
@@ -300,7 +304,7 @@ function EmbeddedListFieldInner({
       let updatedRow: Record<string, unknown> = { ...targetRow };
       gridRow.forEach((text, gridColOffset) => {
         const column = columns[columnIndex + gridColOffset];
-        if (column === undefined) return;
+        if (column === undefined || column.readOnly === true) return;
         const coerced = coerceCellValue(column, text, field.embeddedListCurrency ?? "EUR");
         // Also covers an unparseable money paste (e.g. mangled thousands
         // separators) — the cell must stay unchanged instead of silently
@@ -335,6 +339,7 @@ function EmbeddedListFieldInner({
       totals={totals}
       currency={field.embeddedListCurrency}
       disabled={field.readOnly}
+      fixedRows={field.embeddedListFixedRows}
       minItems={field.embeddedListMinItems}
       maxItems={field.embeddedListMaxItems}
       listIssues={combinedListIssues}

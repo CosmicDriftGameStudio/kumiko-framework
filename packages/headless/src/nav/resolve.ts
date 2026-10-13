@@ -7,7 +7,9 @@ import type { NavNode, NavTree, ResolveNavigationOptions } from "./types.js";
 // access-checked; a hidden parent drops its entire subtree implicitly
 // because we never recurse into it. Siblings sort by `order` (ascending,
 // default 0), tie-broken by qualified name so renders stay deterministic
-// across registry iteration orders.
+// across registry iteration orders. A pure group (no screen, target,
+// provider or createAction) whose children are all hidden or absent is
+// dropped too.
 //
 // Pure — same inputs produce the same tree. The renderer memoizes the
 // result and only recomputes when the registry changes (rare — boot
@@ -26,6 +28,9 @@ export function resolveNavigation(options: ResolveNavigationOptions): NavTree {
       const node = build(child);
       if (node !== null) children.push(node);
     }
+    // A pure group (nothing to open itself) with nothing visible below it
+    // would render as an empty, unclickable heading.
+    if (children.length === 0 && isPureGroup(entry)) return null;
     children.sort(bySortKey);
     return {
       qualifiedName: entry.id,
@@ -48,6 +53,16 @@ export function resolveNavigation(options: ResolveNavigationOptions): NavTree {
   }
   roots.sort(bySortKey);
   return roots;
+}
+
+function isPureGroup(entry: NavDefinition): boolean {
+  return (
+    entry.screen === undefined &&
+    entry.target === undefined &&
+    entry.provider === undefined &&
+    entry.actions === undefined &&
+    entry.createAction === undefined
+  );
 }
 
 function bySortKey(a: NavNode, b: NavNode): number {

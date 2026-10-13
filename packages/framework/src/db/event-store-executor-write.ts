@@ -17,6 +17,7 @@ import {
   InternalError,
   NotFoundError,
   PreconditionFailedError,
+  RecordLockedError,
   UnprocessableError,
   type WriteFailure,
   writeFailure,
@@ -52,6 +53,7 @@ import {
 } from "./event-store-executor-context.js";
 import { projectionRegistryOf } from "./projection-registry-binding.js";
 import { runInSavepointIfSupported } from "./query.js";
+import { isRecordLocked } from "./record-lock.js";
 import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.js";
 import { tenantDbRunner } from "./tenant-db-runner.js";
 
@@ -203,6 +205,27 @@ export function createWriteVerbs(
     loadExpectSnapshot,
   } = ctx;
   const entityInstructionFieldNames = instructionFieldNames(entity);
+
+  // update and delete funnel through here, so custom handlers and nested writes cannot
+  // bypass the lock whatever they return. Setting the lock (unlocked row) passes.
+  // Framework system writes (retention, erasure jobs) are exempt: statutory deletion must
+  // reach locked rows, and forget (Art. 17) never checks the lock at all. The option is
+  // server-code only; no request field is ever copied into these executor options.
+  function recordLockedFailure(
+    row: Readonly<Record<string, unknown>>,
+    id: EntityId,
+    user: SessionUser,
+    options: { readonly unsafeSkipLockGuard?: boolean } | undefined,
+  ): WriteFailure | undefined {
+    if (
+      options?.unsafeSkipLockGuard === true ||
+      isFrameworkSystemUser(user) ||
+      !isRecordLocked(entity.lockedWhen, row)
+    ) {
+      return undefined;
+    }
+    return writeFailure(new RecordLockedError({ entityName, entityId: id }));
+  }
   const eventVersion = entity.eventVersion ?? 1;
   let insertSchema: ZodType | undefined;
   let updateSchema: ZodType | undefined;
@@ -538,7 +561,6 @@ export function createWriteVerbs(
           }),
         );
       }
-
       // Field-level write-ownership on update — this is the path the
       // dispatcher could not evaluate (no oldRow). Now that we have
       // `previous`, we can run the ownership rules per field against both
@@ -577,6 +599,9 @@ export function createWriteVerbs(
           }),
         );
       }
+
+      const lockedUpdate = recordLockedFailure(previous, payload.id, user, updateOptions);
+      if (lockedUpdate) return lockedUpdate;
 
       const unavailableOnUpdate = selectOptionNotAvailableFailure(
         findUnavailableSelectOptions(entity.fields, mergedNew, previous),
@@ -790,6 +815,9 @@ export function createWriteVerbs(
           }),
         );
       }
+
+      const lockedDelete = recordLockedFailure(existing, payload.id, user, options);
+      if (lockedDelete) return lockedDelete;
 
       await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
 

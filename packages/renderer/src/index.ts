@@ -137,6 +137,8 @@ export { DraftStorageProvider, useDraftStorage } from "./context/draft-storage-c
 export { EmbeddedScreenProvider, useIsEmbeddedScreen } from "./context/embedded-screen-context.js";
 export type { UserRolesProviderProps } from "./context/user-roles-context.js";
 export { UserRolesProvider, useUserRoles } from "./context/user-roles-context.js";
+export type { CurrentUser } from "./current-user.js";
+export { CurrentUserProvider, useOptionalCurrentUser } from "./current-user.js";
 export { formatWhen } from "./format-when.js";
 export {
   REFERENCE_COMBOBOX_LIMIT,

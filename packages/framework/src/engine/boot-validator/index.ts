@@ -37,6 +37,7 @@ import {
   validateHandlerAccess,
   validateImageVariants,
   validateLocatedTimestamps,
+  validateLockedWhen,
   validateMultiSelectFields,
   validateMultiStreamProjections,
   validateReferenceFields,
@@ -284,6 +285,7 @@ export function validateBoot(
     validateReferenceFields(feature, featureMap, queryHandlerQns);
     validateHandlerFieldReferences(feature, featureMap);
     validateTransitions(feature);
+    validateLockedWhen(feature);
     validateExtensionUsages(feature, extensionProviders);
     validateExtendSchemaCollisions(feature);
     validateDerivedFieldCollisions(feature);

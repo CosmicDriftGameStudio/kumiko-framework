@@ -1,8 +1,9 @@
 import type { TableColumns } from "../db/dialect.js";
-import { deleteMany, fetchOne, updateMany } from "../db/query.js";
+import { deleteMany, fetchOne, selectMany, updateMany } from "../db/query.js";
+import { isRecordLocked } from "../db/record-lock.js";
 import { OnDeleteStrategies, SystemHookNames, SystemHookPriorities } from "../engine/constants.js";
 import type { PreDeleteHookFn, Registry } from "../engine/types/index.js";
-import { ConflictError, FrameworkReasons } from "../errors/index.js";
+import { ConflictError, FrameworkReasons, RecordLockedError } from "../errors/index.js";
 import type { SystemHookDef } from "./lifecycle-pipeline.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
@@ -60,6 +61,21 @@ export function createCascadeDeleteHook(
                   entityId: payload.id,
                 },
               });
+            }
+          }
+
+          // The raw delete/update below bypasses the executor, so a locked child must
+          // block the parent delete here instead of changing with it. The error names
+          // the parent only: the caller may delete the parent without reading the child.
+          if (strategy === OnDeleteStrategies.cascade || strategy === OnDeleteStrategies.setNull) {
+            const childLock = registry.getEntity(relation.target)?.lockedWhen;
+            if (childLock !== undefined) {
+              const children = await selectMany(db, targetTable, {
+                [relation.foreignKey]: payload.id,
+              });
+              if (children.some((child) => isRecordLocked(childLock, child))) {
+                throw new RecordLockedError({ entityName, entityId: payload.id });
+              }
             }
           }
 

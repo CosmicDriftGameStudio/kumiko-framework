@@ -892,9 +892,14 @@ export type EmbeddedListColumn = {
   /** Read-only, value supplied by the caller (already computed from
    *  sibling cells) — not directly user-editable. */
   readonly derived: boolean;
+  /** Shown but not editable by the user; unlike `derived` it is not computed. */
+  readonly readOnly?: boolean;
   /** Only for `type: "select"`. */
   readonly options?: readonly string[];
   readonly optionLabels?: Readonly<Record<string, string>>;
+  /** Only for `type: "select"`; `"radio"` renders segmented buttons, the
+   *  default is a dropdown. */
+  readonly display?: "radio" | "dropdown";
   /** Only for `type: "reference"` — pre-fetched by the caller, ONE query
    *  per column shared across every row (not one query per cell). */
   readonly referenceOptions?: readonly { readonly value: string; readonly label: string }[];
@@ -927,6 +932,8 @@ export type EmbeddedListInputProps = {
   /** Whole-list read-only (e.g. a released invoice) — hides row-mutation
    *  affordances and disables every cell. */
   readonly disabled?: boolean;
+  /** Rows are fixed: no add, remove, duplicate or move; cells stay editable. */
+  readonly fixedRows?: boolean;
   readonly minItems?: number;
   readonly maxItems?: number;
   /** Shown under the whole list (e.g. under the totals row). */

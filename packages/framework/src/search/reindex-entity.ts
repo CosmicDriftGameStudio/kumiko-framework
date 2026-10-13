@@ -43,10 +43,9 @@ function quoteIdent(name: string): string {
 
 // Read-table state, forward-mapped from entity.fields (fieldName →
 // toSnakeCase(fieldName)). SELECT * + forward-map instead of building an
-// explicit column list: some field types (files/images) emit no column at
-// all, others (locatedTimestamp, money) emit companion columns under a
-// different name — an explicit alias list breaks on those. Missing columns
-// are just skipped, matching what a `.created` event payload would carry.
+// explicit column list: some field types (locatedTimestamp, money) emit
+// companion columns under a different name — an explicit alias list breaks on
+// those. Missing columns are just skipped, matching what a `.created` event payload would carry.
 function rowToState(
   row: Record<string, unknown>,
   fieldNames: readonly string[],

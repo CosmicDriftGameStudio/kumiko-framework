@@ -175,12 +175,14 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  no way to force-disable an arbitrary registered component. Omitting
    *  this prop keeps unchanged behavior.
    *
-   *  ponytail: direct-consumer only — kumiko-screen.tsx's RenderEdit call
-   *  sites pass explicit prop lists without a spread and never forward
-   *  `disabled`, so a screen-driven app can't set the locked state today.
-   *  Upgrade path if that's needed: thread a screen-spec flag through to
-   *  `EntityEditCreateBody`/`EntityEditEditBody`. */
+   *  Screen-driven read-only is `viewMode`, not this flag. */
   readonly disabled?: boolean;
+  /** Read-only view of an existing record (`EntityEditScreenDefinition.readOnly`):
+   *  every field is disabled, no submit, discard or dirty footer, and the title
+   *  resolves `screen:<id>.view.title` first. The host omits `onDelete`; record
+   *  actions and cancel stay. UI only: server-side protection is the access
+   *  rules and write handlers. */
+  readonly viewMode?: boolean;
   /** Renders the fields without RenderEdit's own action bar (save, cancel,
    *  delete, copy-link). For hosts that put those controls into their own
    *  chrome — a drawer footer, a wizard shell — and drive the write through

@@ -10,8 +10,20 @@
 // und die Transitions.
 
 import { readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
-import { useSessionEndedSignal } from "@cosmicdrift/kumiko-renderer";
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
+import {
+  type CurrentUser,
+  CurrentUserProvider,
+  useSessionEndedSignal,
+} from "@cosmicdrift/kumiko-renderer";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   AuthRequestError,
   type CurrentUserProfile,
@@ -232,7 +244,31 @@ export function SessionProvider({
   }, []);
 
   const api: SessionApi = { ...state, login, logout, switchTenant, refresh: doRefresh };
-  return <SessionContext.Provider value={api}>{children}</SessionContext.Provider>;
+  // Keyed on the primitives, not the profile object: every refresh (tenant
+  // switch, session bootstrap retry) builds a new profile object, and a new
+  // CurrentUser reference would re-seed a create form and drop typed input.
+  const profile = state.user;
+  const userId = profile?.id;
+  const userEmail = profile?.email;
+  const userDisplayName = profile?.displayName;
+  const userTimeZone = profile?.effectiveTimeZone;
+  const currentUser = useMemo<CurrentUser | undefined>(
+    () =>
+      userId === undefined || userEmail === undefined || userDisplayName === undefined
+        ? undefined
+        : {
+            id: userId,
+            email: userEmail,
+            displayName: userDisplayName,
+            ...(userTimeZone !== undefined && { timeZone: userTimeZone }),
+          },
+    [userId, userEmail, userDisplayName, userTimeZone],
+  );
+  return (
+    <SessionContext.Provider value={api}>
+      <CurrentUserProvider user={currentUser}>{children}</CurrentUserProvider>
+    </SessionContext.Provider>
+  );
 }
 
 export function useSession(): SessionApi {

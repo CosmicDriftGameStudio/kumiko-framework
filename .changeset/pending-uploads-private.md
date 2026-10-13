@@ -1,0 +1,13 @@
+---
+"@cosmicdrift/kumiko-framework": minor
+---
+
+Uploads that no record has claimed yet can only be read by their uploader and `privilegedRoles`. That covers pending uploads (an `entityType` but no `entityId` yet) and uploads without any `entityType`. Before, any user of the tenant could read another user's upload through `GET /files/:id`, `/meta`, `/download-url` and `/variant/:name`: pending uploads until a record claimed them, uploads without an `entityType` forever. The file routes answer 404 as for any denied file. A save also binds the caller's pending uploads on update, not only on create. On update, only the file ids the update names in its `changes` are bound, so `createFileRefFromBytes` with `attachTo` and no `entityId`, followed by an update that stores the id, now attaches the file. A file without `entityType` can never be bound to a record, so it stays private to its uploader.
+
+<!-- kumiko-changes
+feature: framework
+type: breaking
+title: Unbound uploads are private to the uploader (security)
+detail: The default file access guard denies every operation on a file with no entityType or no entityId unless the caller is the uploader or has a role in privilegedRoles; the file routes answer 404 as for any denied file. Before, files without entityType were readable by the whole tenant and pending uploads until a record claimed them. bindPendingFileRefs now also runs for updates and binds the file ids named in the update's changes for file, image, files and images fields (same entityType and fieldName, entityId null, insertedById = caller), so createFileRefFromBytes with attachTo but no entityId plus a following update write attaches the file to the record.
+migration: Code that shows a file without entityType to other users (tenant logo, avatar, mail attachment, import preview, AI-agent output) must upload it with entityType and fieldName of a file field on a record and save the record, so readers of that record can read it; or keep it uploader-only, run the read as a role in privilegedRoles, or set a custom accessGuard in the files feature options. Apps that set accessGuard keep their own decision. Code that reads another user's pending upload before the record is saved must bind the file first or run as the uploader. Known case: solon's document upload (`document/web/upload-file.ts`) posts without entityType and the later document record (created by the ingest job, not the uploader) stores the id in its `fileId` field, so other users no longer read the original; solon must upload with entityType and fieldName of `fileId` and bind the file when the record is created, because a different creator cannot claim the pending upload.
+-->

@@ -179,6 +179,20 @@ export class PreconditionFailedError extends ConflictError {
   }
 }
 
+// The entity's `lockedWhen` condition holds for the stored row: no write handler
+// may change or delete it. Same 409 family as the other state conflicts.
+export class RecordLockedError extends ConflictError {
+  override readonly code: string = "record_locked";
+
+  constructor(details: { readonly entityName: string; readonly entityId: number | string }) {
+    super({
+      message: `${details.entityName} ${details.entityId} is locked and cannot be changed`,
+      i18nKey: "errors.recordLocked",
+      details,
+    });
+  }
+}
+
 // The caller retried a write with an idempotencyKey it had already used —
 // the event-store's partial unique index on metadata.idempotencyKey caught
 // the duplicate. Distinct from unique_violation/version_conflict: this is

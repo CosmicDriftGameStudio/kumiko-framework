@@ -9,6 +9,7 @@ import type {
   EmbeddedFieldDef,
   EntityDefinition,
   FeatureDefinition,
+  FieldDefinition,
   MultiSelectFieldDef,
   QueryHandlerDef,
 } from "../types/index.js";
@@ -423,7 +424,7 @@ export function validateEntityIndexes(feature: FeatureDefinition): void {
         ) {
           throw new Error(
             `${where}: column "${col}" is a multi-value field (${field.type}) — ` +
-              `these have no DB column to index on. Use a single-value field or remove from the index.`,
+              `a jsonb array cannot be indexed as a column. Use a single-value field or remove from the index.`,
           );
         }
         if (field && field.type === "longText") {
@@ -1160,6 +1161,54 @@ export function validateImageVariants(feature: FeatureDefinition): void {
       for (const [name, spec] of Object.entries(field.variants)) {
         assertValidVariantSpec(name, spec, where);
       }
+    }
+  }
+}
+
+// --- lockedWhen validation ---
+
+function isCiphertextAtRest(field: FieldDefinition): boolean {
+  return (
+    ("pii" in field && field.pii === true) ||
+    ("userOwned" in field && field.userOwned !== undefined) ||
+    ("tenantOwned" in field && field.tenantOwned === true) ||
+    ("recordOwned" in field && field.recordOwned === true) ||
+    ("encrypted" in field && field.encrypted === true)
+  );
+}
+
+// Types whose stored value is a plain scalar that the condition's `===` can match.
+// Compound, temporal, array and bigint columns come back in another shape than the
+// literal an author writes, so such a lock would silently never hold.
+const LOCKABLE_FIELD_TYPES: ReadonlySet<string> = new Set([
+  "text",
+  "longText",
+  "boolean",
+  "select",
+  "number",
+  "reference",
+]);
+
+export function validateLockedWhen(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    const { lockedWhen } = entity;
+    if (typeof lockedWhen !== "object") continue;
+    const where = `Entity "${entityName}" in feature "${feature.name}": lockedWhen field "${lockedWhen.field}"`;
+    const field = entity.fields[lockedWhen.field];
+    if (!field) {
+      throw new Error(
+        `${where} is not a field of the entity (known: ${Object.keys(entity.fields).sort().join(", ")}).`,
+      );
+    }
+    if (isCiphertextAtRest(field)) {
+      throw new Error(
+        `${where} is personal or encrypted — the lock condition is evaluated on the stored value, which is ciphertext. Use a plaintext field.`,
+      );
+    }
+    if (!LOCKABLE_FIELD_TYPES.has(field.type)) {
+      throw new Error(
+        `${where} has type "${field.type}", which does not store a plain scalar the condition can compare. Use a text, select, boolean, number or reference field.`,
+      );
     }
   }
 }

@@ -25,6 +25,7 @@ import {
 } from "../errors/index.js";
 import { assertFileRefsBelongToTenant } from "../files/assert-file-refs-belong-to-tenant.js";
 import { bindPendingFileRefs } from "../files/bind-pending-file-refs.js";
+import { disposeRemovedFileRefs } from "../files/dispose-removed-file-refs.js";
 import { CACHE_SYNC_TOPICS, type TenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
 import { assertNoSecretLeak } from "../secrets/index.js";
 import type { DispatchContext, WriteOrigin } from "./dispatch-shared.js";
@@ -171,18 +172,10 @@ async function runLifecycle(
   await runProjections(result, handlerContext.registry, runner);
 
   if (result.kind === "save") {
-    await assertFileRefsBelongToTenant({
-      registry: handlerContext.registry,
-      result,
-      user,
-      db: handlerContext.db,
-    });
-    await bindPendingFileRefs({
-      registry: handlerContext.registry,
-      result,
-      user,
-      db: handlerContext.db,
-    });
+    const fileRefArgs = { registry: handlerContext.registry, result, user, db: handlerContext.db };
+    await assertFileRefsBelongToTenant(fileRefArgs);
+    await bindPendingFileRefs(fileRefArgs);
+    await disposeRemovedFileRefs(fileRefArgs);
     await lifecycle.runPostSave(type, result, handlerContext, HookPhases.inTransaction);
     afterCommitHooks.push(async () => {
       const afterCommitContext = await buildHandlerContext(

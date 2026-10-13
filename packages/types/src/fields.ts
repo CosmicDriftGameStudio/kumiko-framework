@@ -719,6 +719,9 @@ export type EmbeddedSubFieldDef =
   | (EmbeddedSubFieldBase & {
       readonly type: "select";
       readonly options: readonly string[];
+      /** Same contract as `SelectFieldDef.display`; in a table cell the
+       *  default stays a dropdown. */
+      readonly display?: "radio" | "dropdown";
     })
   | (EmbeddedSubFieldBase & {
       readonly type: "reference";
@@ -1166,6 +1169,14 @@ export type EntityDefinition<
   readonly eventMigrations?: readonly EntityEventMigration[];
   readonly searchWeight?: number;
   readonly defaultCurrency?: string;
+  /** Rows whose stored state meets this condition are read-only: every executor
+   *  update and delete on them is rejected with a 409 (`errors.recordLocked`), whatever
+   *  handler or job calls it. The write that sets the lock passes, because the check reads the
+   *  state before the write. Forget and framework-system-user writes (retention, erasure
+   *  jobs) are exempt. A call site that must unlock a row passes `{ unsafeSkipLockGuard: true }` to that one executor call. The entityEdit
+   *  screen shows such rows in view mode. The condition field must be a plaintext text, select,
+   *  boolean, number or reference field. */
+  readonly lockedWhen?: FieldCondition;
   /** Allowed state transitions per field. Boot validates against select options. */
   readonly transitions?: Readonly<Record<string, TransitionMap>>;
   /** Composite-Indices über mehrere Felder. Single-column FK-Indices und

@@ -3,6 +3,7 @@ import type {
   EditFieldSpec,
   EditRelatedListSection,
   EditWriteFormSection,
+  EmbeddedListEditSpec,
   EntityDefinition,
   EntityEditScreenDefinition,
   FieldCondition,
@@ -58,6 +59,7 @@ type EmbeddedSubFieldShape = {
   readonly labelField?: string;
   readonly optionsQuery?: string;
   readonly scale?: number;
+  readonly display?: "radio" | "dropdown";
 };
 
 export type ComputeEditViewModelInput<
@@ -467,7 +469,79 @@ type EmbeddedListHints = Pick<
   | "embeddedListDerived"
   | "embeddedListTotals"
   | "embeddedListCurrency"
+  | "embeddedListFixedRows"
 >;
+
+type EmbeddedCellSelectHints = Pick<EmbeddedListCellViewModel, "options" | "optionLabels">;
+type EmbeddedCellReferenceHints = Pick<
+  EmbeddedListCellViewModel,
+  "refEntity" | "refFeature" | "refLabelField" | "refOptionsQuery"
+>;
+
+function deriveEmbeddedCellSelectHints(
+  subField: EmbeddedSubFieldShape,
+  translate: Translate,
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  subFieldName: string,
+): EmbeddedCellSelectHints {
+  if (subField.type !== "select") return {};
+  const options = subField.options ?? [];
+  return {
+    options,
+    optionLabels: buildOptionLabels(
+      translate,
+      (value) =>
+        embeddedCellOptionLabelKey(featureName, entityName, fieldName, subFieldName, value),
+      options,
+    ),
+  };
+}
+
+function deriveEmbeddedCellReferenceHints(
+  subField: EmbeddedSubFieldShape,
+  featureName: string,
+): EmbeddedCellReferenceHints {
+  if (subField.type !== "reference") return {};
+  const target =
+    subField.entity !== undefined ? parseRefTarget(subField.entity, featureName) : undefined;
+  return {
+    ...(target !== undefined && { refEntity: target.entityName, refFeature: target.featureName }),
+    ...(subField.labelField !== undefined && { refLabelField: subField.labelField }),
+    ...(subField.optionsQuery !== undefined && { refOptionsQuery: subField.optionsQuery }),
+  };
+}
+
+function buildEmbeddedListCell(
+  subFieldName: string,
+  subField: EmbeddedSubFieldShape,
+  translate: Translate,
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  listSpec: EmbeddedListEditSpec | undefined,
+): EmbeddedListCellViewModel {
+  return {
+    field: subFieldName,
+    label: translate(embeddedCellLabelKey(featureName, entityName, fieldName, subFieldName)),
+    type: subField.type,
+    required: subField.required === true,
+    ...deriveEmbeddedCellSelectHints(
+      subField,
+      translate,
+      featureName,
+      entityName,
+      fieldName,
+      subFieldName,
+    ),
+    ...deriveEmbeddedCellReferenceHints(subField, featureName),
+    ...(subField.type === "decimal" && subField.scale !== undefined && { scale: subField.scale }),
+    ...(subField.type === "select" &&
+      subField.display !== undefined && { display: subField.display }),
+    ...(listSpec?.readOnlyCells?.includes(subFieldName) === true && { readOnly: true }),
+  };
+}
 
 // Embedded-LIST field (`multiple: true`) — per-cell metadata for a renderer
 // to draw one row per array item (invoice-positions-style table). A plain
@@ -481,6 +555,7 @@ function deriveEmbeddedListHints(
   entityName: string,
   fieldName: string,
   resolvedCurrency: string,
+  listSpec: EmbeddedListEditSpec | undefined,
 ): EmbeddedListHints {
   const isEmbeddedList =
     fieldDef.type === "embedded" &&
@@ -501,47 +576,17 @@ function deriveEmbeddedListHints(
     : undefined;
   const embeddedListCells: readonly EmbeddedListCellViewModel[] | undefined =
     embeddedListDef !== undefined
-      ? Object.entries(embeddedListDef.schema).map(([subFieldName, subField]) => {
-          const cellLabel = translate(
-            embeddedCellLabelKey(featureName, entityName, fieldName, subFieldName),
-          );
-          const cellOptions = subField.type === "select" ? (subField.options ?? []) : undefined;
-          const cellOptionLabels =
-            cellOptions !== undefined
-              ? buildOptionLabels(
-                  translate,
-                  (value) =>
-                    embeddedCellOptionLabelKey(
-                      featureName,
-                      entityName,
-                      fieldName,
-                      subFieldName,
-                      value,
-                    ),
-                  cellOptions,
-                )
-              : undefined;
-          const cellRef = subField.type === "reference" ? subField : undefined;
-          const cellRefTarget =
-            cellRef?.entity !== undefined ? parseRefTarget(cellRef.entity, featureName) : undefined;
-          const cell: EmbeddedListCellViewModel = {
-            field: subFieldName,
-            label: cellLabel,
-            type: subField.type,
-            required: subField.required === true,
-            ...(cellOptions !== undefined && { options: cellOptions }),
-            ...(cellOptionLabels !== undefined && { optionLabels: cellOptionLabels }),
-            ...(cellRefTarget !== undefined && { refEntity: cellRefTarget.entityName }),
-            ...(cellRefTarget !== undefined && { refFeature: cellRefTarget.featureName }),
-            ...(cellRef?.labelField !== undefined && { refLabelField: cellRef.labelField }),
-            ...(cellRef?.optionsQuery !== undefined && {
-              refOptionsQuery: cellRef.optionsQuery,
-            }),
-            ...(subField.type === "decimal" &&
-              subField.scale !== undefined && { scale: subField.scale }),
-          };
-          return cell;
-        })
+      ? Object.entries(embeddedListDef.schema).map(([subFieldName, subField]) =>
+          buildEmbeddedListCell(
+            subFieldName,
+            subField,
+            translate,
+            featureName,
+            entityName,
+            fieldName,
+            listSpec,
+          ),
+        )
       : undefined;
   return {
     ...(embeddedListCells !== undefined && { embeddedListCells }),
@@ -560,6 +605,8 @@ function deriveEmbeddedListHints(
     // Currency lives on the head aggregate (entity.defaultCurrency), not per
     // row — one value for the whole embedded list.
     ...(embeddedListDef !== undefined && { embeddedListCurrency: resolvedCurrency }),
+    ...(embeddedListDef !== undefined &&
+      listSpec?.fixedRows === true && { embeddedListFixedRows: true }),
   };
 }
 
@@ -684,6 +731,7 @@ export function computeEditViewModel<
           screen.entity,
           normalized.field,
           resolvedCurrency,
+          normalized.embeddedList,
         );
         const view: EditFieldViewModel = {
           field: normalized.field,

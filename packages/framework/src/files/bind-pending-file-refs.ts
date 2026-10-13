@@ -30,12 +30,13 @@ function isPendingUploadFor(
   );
 }
 
-// A create form uploads before the record exists, so its fileRefs carry
-// entityType + fieldName but no entityId. Binding them in the create's own
-// transaction makes record-bound variants (qr overlay) and record-read file
-// access work for them. Only the caller's own pending uploads for exactly this
-// entity field are bound: naming someone else's upload id in a create payload
-// must not pull that file into a record the caller controls.
+// A form (or a server handler via createFileRefFromBytes) uploads before the
+// record references the file, so its fileRefs carry entityType + fieldName but
+// no entityId. Binding them in the save's own transaction makes record-bound
+// variants (qr overlay) and record-read file access work for them. Only the
+// caller's own pending uploads for exactly this entity field are bound: naming
+// someone else's upload id in a save payload must not pull that file into a
+// record the caller controls.
 export async function bindPendingFileRefs(args: {
   readonly registry: Registry;
   readonly result: SaveContext;
@@ -43,8 +44,8 @@ export async function bindPendingFileRefs(args: {
   readonly db: TenantDb;
 }): Promise<void> {
   const { registry, result, user, db } = args;
-  // skip: only a create can carry still-pending uploads for its own record
-  if (!result.isNew || result.entityName === undefined) return;
+  // skip: saves of unnamed aggregates declare no file fields
+  if (result.entityName === undefined) return;
   const entityName = result.entityName;
   const entity = registry.getEntity(entityName);
   // skip: saves of unregistered aggregates (custom executors) declare no file fields
@@ -55,10 +56,9 @@ export async function bindPendingFileRefs(args: {
   const executor = getFileRefExecutor();
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
     if (!isFileField(fieldDef)) continue;
-    // files/images fields have no projection column, so their ids are only in
-    // the create's input (changes), not in the returned row (data).
-    const namedIds = result.data[fieldName] ?? result.changes[fieldName];
-    for (const fileRefId of fileRefIdsOf(namedIds)) {
+    // changes, not data: an update's row carries every stored file id, including
+    // ones bound earlier; only the ids this save names can be pending uploads.
+    for (const fileRefId of fileRefIdsOf(result.changes[fieldName])) {
       const row = await executor.detail({ id: fileRefId }, user, db);
       if (row === null || !isPendingUploadFor(row, entityName, fieldName, user)) continue;
       const version = typeof row["version"] === "number" ? row["version"] : undefined;

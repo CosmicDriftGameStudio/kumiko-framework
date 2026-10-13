@@ -30,6 +30,11 @@ export type PreSaveRunner = (
 // to the loaded row's tenant; anything else fails the write.
 export type StreamTenantOption = { readonly streamTenantId?: TenantId | undefined };
 
+// The executor refuses to update or delete a row that meets the entity's `lockedWhen`
+// (forget and framework-system-user writes are exempt). Only server code that changes the
+// locked row on purpose (unlocking) sets this; it applies to that one call and nothing else.
+export type LockGuardOption = { readonly unsafeSkipLockGuard?: boolean };
+
 export type EventStoreExecutor = {
   create: (
     payload: Record<string, unknown>,
@@ -42,38 +47,39 @@ export type EventStoreExecutor = {
     payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown> },
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption & {
-      skipOptimisticLock?: boolean;
-      skipUnchanged?: boolean;
-      // Server-code only (never forwarded by the generic update handler): also
-      // update a soft-deleted row, e.g. to move it with its parent so a later
-      // restore lands consistently. Tenant and ownership checks still apply;
-      // the row stays deleted.
-      includeDeleted?: boolean;
-      preSave?: PreSaveRunner;
-      // Declarative precondition for a "genau einmal"-transition:
-      // field/value pairs the row must still hold at write
-      // time — a `null` expected value matches a null field. Re-read fresh,
-      // atomically with the write's stream version (not the payload's stale
-      // `previous`), so a concurrent writer that already moved the row on is
-      // caught even when it doesn't collide with the stream-version check.
-      // Mismatch fails the whole update with PreconditionFailedError instead
-      // of applying it.
-      // Scalars only (string/number/boolean/null) — the check is `!==`, so an
-      // object/Date/Instant value would compare by reference and silently
-      // never match; a timestamp precondition needs its own scalar mirror
-      // field to check against, not the compound value itself. Also plain
-      // columns only: the check reads raw column values (no decrypt pass),
-      // so a pii/encrypted field can't be used here.
-      expect?: Readonly<Record<string, string | number | boolean | null>>;
-    },
+    options?: StreamTenantOption &
+      LockGuardOption & {
+        skipOptimisticLock?: boolean;
+        skipUnchanged?: boolean;
+        // Server-code only (never forwarded by the generic update handler): also
+        // update a soft-deleted row, e.g. to move it with its parent so a later
+        // restore lands consistently. Tenant and ownership checks still apply;
+        // the row stays deleted.
+        includeDeleted?: boolean;
+        preSave?: PreSaveRunner;
+        // Declarative precondition for a "genau einmal"-transition:
+        // field/value pairs the row must still hold at write
+        // time — a `null` expected value matches a null field. Re-read fresh,
+        // atomically with the write's stream version (not the payload's stale
+        // `previous`), so a concurrent writer that already moved the row on is
+        // caught even when it doesn't collide with the stream-version check.
+        // Mismatch fails the whole update with PreconditionFailedError instead
+        // of applying it.
+        // Scalars only (string/number/boolean/null) — the check is `!==`, so an
+        // object/Date/Instant value would compare by reference and silently
+        // never match; a timestamp precondition needs its own scalar mirror
+        // field to check against, not the compound value itself. Also plain
+        // columns only: the check reads raw column values (no decrypt pass),
+        // so a pii/encrypted field can't be used here.
+        expect?: Readonly<Record<string, string | number | boolean | null>>;
+      },
   ) => Promise<WriteResult<SaveContext>>;
 
   delete: (
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption,
+    options?: StreamTenantOption & LockGuardOption,
   ) => Promise<WriteResult<DeleteContext>>;
 
   // Hard-purge (Art. 17 erasure). Like delete, but emits `<entity>.forgotten`

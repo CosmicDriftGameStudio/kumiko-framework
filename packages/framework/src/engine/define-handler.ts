@@ -82,9 +82,7 @@ export function defineWriteHandler<
     ...(def.access && { access: def.access }),
     ...(def.description !== undefined && { description: def.description }),
     ...(def.agent && { agent: def.agent }),
-    ...(def.unsafeSkipTransitionGuard && {
-      unsafeSkipTransitionGuard: def.unsafeSkipTransitionGuard,
-    }),
+    ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
     ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
     ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),

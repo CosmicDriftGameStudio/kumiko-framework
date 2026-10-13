@@ -96,6 +96,56 @@ function validateAtMostOneRowClick(
 // literal `required: true` (screen-spec override or entity-level default).
 // A dynamic FieldCondition depends on runtime form values and can't be
 // evaluated at boot; buildFormSchema() silently skips presence-checking it.
+// `embeddedList` and `prefill` only make sense on field types that support them;
+// a misplaced spec would otherwise be a silent no-op.
+function validateEditFieldExtras(
+  featureName: string,
+  screenId: string,
+  entityDef: EntityDefinition,
+  fieldSpec: Exclude<EditFieldSpec, string>,
+): void {
+  const fieldDef = entityDef.fields[fieldSpec.field];
+  // skip: the field name is not on the entity, other checks report unknown fields
+  if (fieldDef === undefined) return;
+  const where = `[Feature ${featureName}] Screen "${screenId}" (entityEdit) field "${fieldSpec.field}"`;
+  const listSpec = fieldSpec.embeddedList;
+  if (listSpec !== undefined) {
+    if (fieldDef.type !== "embedded" || fieldDef.multiple !== true) {
+      throw new Error(
+        `${where} sets embeddedList, which only applies to an embedded list ` +
+          `(createEmbeddedListField); the field is type "${fieldDef.type}".`,
+      );
+    }
+    for (const cell of listSpec.readOnlyCells ?? []) {
+      if (fieldDef.schema[cell] === undefined) {
+        throw new Error(
+          `${where} embeddedList.readOnlyCells names "${cell}", which is not a sub-field ` +
+            `(known: ${Object.keys(fieldDef.schema).sort().join(", ")}).`,
+        );
+      }
+    }
+  }
+  const prefill = fieldSpec.prefill;
+  // skip: no prefill declared
+  if (prefill === undefined) return;
+  if (prefill.kind === "today") {
+    if (fieldDef.type !== "date") {
+      throw new Error(
+        `${where} prefill "today" needs a date field; the field is type "${fieldDef.type}".`,
+      );
+    }
+    // skip: today carries no property, nothing further to check
+    return;
+  }
+  const allowsUserId = fieldDef.type === "text" || fieldDef.type === "reference";
+  if (prefill.property === "id" ? !allowsUserId : fieldDef.type !== "text") {
+    throw new Error(
+      `${where} prefill currentUser.${prefill.property} does not fit a field of type ` +
+        `"${fieldDef.type}" (displayName and email need text; id needs text or a reference).`,
+    );
+  }
+}
+
 function validateNoWidgetRequiredField(
   featureName: string,
   screenId: string,
@@ -2829,6 +2879,7 @@ export function validateScreens(
             );
           }
           validateNoWidgetRequiredField(feature.name, screenId, entityDef, normalized);
+          validateEditFieldExtras(feature.name, screenId, entityDef, normalized);
         }
       }
       validateWizardLayout(feature.name, screenId, "entityEdit", screen.layout, featureMap);
@@ -2890,6 +2941,13 @@ export function validateScreens(
         throw new Error(
           `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) recordTitleField ` +
             `"${screen.recordTitleField}" is not a field of entity "${screen.entity}" ` +
+            `(known: ${[...fieldNames].sort().join(", ")}).`,
+        );
+      }
+      if (typeof screen.readOnly === "object" && !fieldNames.has(screen.readOnly.field)) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) readOnly condition field ` +
+            `"${screen.readOnly.field}" is not a field of entity "${screen.entity}" ` +
             `(known: ${[...fieldNames].sort().join(", ")}).`,
         );
       }

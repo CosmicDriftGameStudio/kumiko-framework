@@ -12,6 +12,10 @@ import type {
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
+import {
+  filterAppSchemaNavsByAllowlist,
+  reparentAppSchemaNavs,
+} from "../filter-app-schema-navs.js";
 import { buildNavRegistrySlice, buildNavRegistrySliceForApp } from "../nav-tree.js";
 
 function feature(navs: readonly NavDefinition[], featureName = "tasks"): FeatureSchema {
@@ -192,5 +196,88 @@ describe("buildNavRegistrySliceForApp", () => {
     const source = buildNavRegistrySliceForApp(app);
     const tree = resolveNavigation({ source, user: { id: "u1", roles: ["Editor"] } });
     expect(tree).toEqual([]);
+  });
+});
+
+describe("nav groups across features", () => {
+  const groupFeature: FeatureSchema = {
+    featureName: "app-shell",
+    entities: {},
+    screens: [],
+    navs: [{ id: "tools", label: "Tools" }],
+  };
+
+  test("a feature nav can name another feature's group as parent without any helper", () => {
+    const app: AppSchema = {
+      features: [
+        groupFeature,
+        feature(
+          [{ id: "list", label: "List", parent: "app-shell:nav:tools", screen: "x" }],
+          "docs",
+        ),
+      ],
+    };
+    const tree = resolveNavigation({ source: buildNavRegistrySliceForApp(app) });
+    expect(tree.map((n) => n.qualifiedName)).toEqual(["app-shell:nav:tools"]);
+    expect(tree[0]?.children.map((n) => n.qualifiedName)).toEqual(["docs:nav:list"]);
+  });
+
+  test("reparentAppSchemaNavs files a foreign nav under the app's group", () => {
+    const app: AppSchema = {
+      features: [groupFeature, feature([{ id: "list", label: "List", screen: "x" }], "docs")],
+    };
+    const moved = reparentAppSchemaNavs(
+      app,
+      new Map([["docs:nav:list", { parent: "app-shell:nav:tools", order: 1 }]]),
+    );
+    const tree = resolveNavigation({ source: buildNavRegistrySliceForApp(moved) });
+    expect(tree.map((n) => n.qualifiedName)).toEqual(["app-shell:nav:tools"]);
+    expect(tree[0]?.children.map((n) => n.qualifiedName)).toEqual(["docs:nav:list"]);
+  });
+
+  test("a group that only gets children through the allowlist reparent stays visible", () => {
+    const app: AppSchema = {
+      features: [
+        groupFeature,
+        feature(
+          [
+            { id: "list", label: "List", screen: "x" },
+            { id: "dropped", label: "Dropped", screen: "y" },
+          ],
+          "docs",
+        ),
+      ],
+    };
+    const adopted = filterAppSchemaNavsByAllowlist(
+      app,
+      new Set(["app-shell:nav:tools", "docs:nav:list"]),
+      new Map([["docs:nav:list", { parent: "app-shell:nav:tools", order: 1 }]]),
+    );
+    const tree = resolveNavigation({ source: buildNavRegistrySliceForApp(adopted) });
+    expect(tree.map((n) => n.qualifiedName)).toEqual(["app-shell:nav:tools"]);
+    expect(tree[0]?.children.map((n) => n.qualifiedName)).toEqual(["docs:nav:list"]);
+  });
+
+  test("a group whose only child is access-hidden disappears from the tree", () => {
+    const app: AppSchema = {
+      features: [
+        groupFeature,
+        feature(
+          [
+            {
+              id: "list",
+              label: "List",
+              parent: "app-shell:nav:tools",
+              screen: "x",
+              access: { roles: ["Admin"] },
+            },
+          ],
+          "docs",
+        ),
+      ],
+    };
+    const source = buildNavRegistrySliceForApp(app);
+    expect(resolveNavigation({ source, user: { id: "u", roles: ["User"] } })).toEqual([]);
+    expect(resolveNavigation({ source, user: { id: "a", roles: ["Admin"] } })).toHaveLength(1);
   });
 });
