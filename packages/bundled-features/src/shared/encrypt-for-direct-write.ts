@@ -1,6 +1,6 @@
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import {
-  collectPiiSubjectFields,
+  collectPiiEncryptedFields,
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
   KeyErasedError,
@@ -24,7 +24,7 @@ export async function encryptForDirectWrite(
     return await encryptPiiFieldValues(
       row,
       entity,
-      collectPiiSubjectFields(entity),
+      collectPiiEncryptedFields(entity),
       kms,
       { requestId: requestContext.get()?.requestId ?? fallbackRequestId },
       { entityName },

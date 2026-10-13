@@ -69,6 +69,7 @@ import {
   stripNoRouteMatchHeader,
   tryHonoFirst,
 } from "@cosmicdrift/kumiko-server-runtime/try-hono-first";
+import { isPersistentDevDb } from "./is-persistent-dev-db.js";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
 // target runtime), but the test-suite runs under vitest on Node — we
@@ -85,7 +86,7 @@ type BunServer = typeof Bun extends undefined ? unknown : ReturnType<typeof Bun.
 
 // @wrapper-known semantic-alias
 // biome-ignore lint/suspicious/noConsole: dev-server status logging
-const logInfo = (msg: string): void => console.log(msg);
+export const logInfo = (msg: string): void => console.log(msg);
 // @wrapper-known semantic-alias
 // biome-ignore lint/suspicious/noConsole: dev-server error logging
 const logError = (...args: unknown[]): void => console.error(...args);
@@ -922,7 +923,7 @@ export async function createKumikoServer(
   // on purpose — every dev-server pattern benefits from the same
   // toggle, not just one sample.
   const devDbName = process.env["KUMIKO_DEV_DB_NAME"];
-  const persistentDb = devDbName !== undefined && devDbName !== "";
+  const persistentDb = isPersistentDevDb(process.env);
 
   // Redis is shared across boots AND across apps (unlike the per-boot test
   // DB, which is ephemeral or persistent per KUMIKO_DEV_DB_NAME), so every

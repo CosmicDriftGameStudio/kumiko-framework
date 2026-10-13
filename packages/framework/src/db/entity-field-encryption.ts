@@ -4,7 +4,7 @@
 // single-key ciphertexts (pre-envelope ENCRYPTION_KEY era) readable via
 // the cipher's legacy fallback until re-encrypted.
 
-import { collectPiiSubjectFields } from "../crypto/index.js";
+import { collectPiiEncryptedFields } from "../crypto/index.js";
 import type { EntityDefinition, TenantId } from "../engine/types/index.js";
 import { createLogger, type Logger } from "../logging/index.js";
 import { createEnvMasterKeyProvider } from "../secrets/env-master-key-provider.js";
@@ -26,7 +26,8 @@ export function collectEncryptedFieldNames(entity: EntityDefinition): ReadonlySe
 // column to compare against directly.
 export function isSensitiveLabelField(entity: EntityDefinition, field: string): boolean {
   return (
-    collectEncryptedFieldNames(entity).has(field) || collectPiiSubjectFields(entity).includes(field)
+    collectEncryptedFieldNames(entity).has(field) ||
+    collectPiiEncryptedFields(entity).includes(field)
   );
 }
 

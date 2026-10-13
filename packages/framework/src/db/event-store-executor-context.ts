@@ -1,7 +1,7 @@
 import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { requestContext } from "../api/request-context.js";
 import {
-  collectPiiSubjectFields,
+  collectPiiEncryptedFields,
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
   encryptPiiFieldValues,
@@ -356,7 +356,7 @@ export function buildExecutorContext(
   const encryptedFields = collectEncryptedFieldNames(entity);
   const hasEncryptedFields = encryptedFields.size > 0;
 
-  const piiSubjectFields = collectPiiSubjectFields(entity);
+  const piiSubjectFields = collectPiiEncryptedFields(entity);
   const hasPiiFields = piiSubjectFields.length > 0;
 
   function fieldCipher(): EnvelopeCipher {

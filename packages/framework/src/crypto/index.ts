@@ -78,6 +78,7 @@ export {
   type RequestKmsCache,
 } from "./request-kms-cache.js";
 export {
+  collectPiiEncryptedFields,
   collectPiiSubjectFields,
   collectSearchableSubjectFields,
   type ResolveSubjectOptions,

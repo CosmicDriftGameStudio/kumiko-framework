@@ -17,7 +17,7 @@
 //      `store_` table name — `read_` is reserved for managed projections (#1208/#1220).
 
 import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
-import { collectPiiSubjectFields } from "../crypto/index.js";
+import { collectPiiEncryptedFields } from "../crypto/index.js";
 import type { EntityDefinition, EntityIndexDef, FieldDefinition } from "../engine/types/index.js";
 import { SQL_EXPR_BRAND } from "./dialect.js";
 import type {
@@ -400,7 +400,7 @@ export function deriveEntityTableMeta(
     }
   }
 
-  const piiSubjectFields = collectPiiSubjectFields(entity);
+  const piiSubjectFields = collectPiiEncryptedFields(entity);
   return {
     tableName,
     columns,

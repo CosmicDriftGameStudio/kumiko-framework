@@ -32,7 +32,7 @@ import { backfillEventPiiEncryption } from "../../db/queries/backfill-pii.js";
 import { asRawClient, fetchOne } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { defineFeature } from "../../engine/define-feature.js";
-import { createEntity, createTextField } from "../../engine/factories.js";
+import { createEntity, createFileField, createTextField } from "../../engine/factories.js";
 import { createRegistry } from "../../engine/registry.js";
 import type { Registry, TenantId } from "../../engine/types/index.js";
 import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack/index.js";
@@ -46,6 +46,7 @@ const contactEntity = createEntity({
   fields: {
     email: createTextField({ required: true, personal: "self", find: "exact" }),
     displayName: createTextField({ personal: false, reason: "test_fixture" }),
+    avatar: createFileField({ personal: "self" }),
   },
 });
 const contactTable = buildEntityTable("contact", contactEntity);
@@ -224,6 +225,28 @@ describe("backfillEventPiiEncryption", () => {
     };
     expect(isPiiCiphertext(updated.changes["email"])).toBe(true);
     expect(isPiiCiphertext(updated.previous["email"])).toBe(true);
+  });
+
+  test("leaves a personal file field's fileRef uuid plaintext while encrypting the text PII", async () => {
+    const c3 = generateId();
+    const avatarRef = generateId();
+    await appendPlain(c3, "contact", "contact.created", {
+      id: c3,
+      email: "pic@x.com",
+      avatar: avatarRef,
+    });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+
+    expect(result.failures).toEqual([]);
+    expect(result.encryptedFields).toBe(1);
+    const created = (await loadAggregate(testDb.db, c3, TENANT))[0]?.payload as Record<
+      string,
+      unknown
+    >;
+    expect(isPiiCiphertext(created["email"])).toBe(true);
+    expect(created["avatar"]).toBe(avatarRef);
   });
 
   test("pre-KMS-forgotten aggregate gets [[erased]], not a fresh key", async () => {
