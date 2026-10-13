@@ -2273,10 +2273,7 @@ function DefaultDataTable({
 
   const collapsesFacetsBehindButton = isNarrow && fillsHeight && facetCluster !== undefined;
   const hasToolbar =
-    toolbarStart !== undefined ||
-    toolbarDescription !== undefined ||
-    toolbarEnd !== undefined ||
-    facetCluster !== undefined;
+    toolbarStart !== undefined || toolbarEnd !== undefined || facetCluster !== undefined;
 
   // dashboard-01-Muster: die Toolbar (Search + Facets + "+ Neu") sitzt ÜBER
   // der Tabelle im selben Padding-Block — kein separater bg-Bar, kein Screen-
@@ -2338,16 +2335,6 @@ function DefaultDataTable({
               {toolbarStart}
             </div>
           )}
-          {toolbarDescription !== undefined && (
-            <p
-              data-testid={
-                testId !== undefined ? `${testId}-description` : "render-list-description"
-              }
-              className="m-0 text-[13px] text-muted-foreground"
-            >
-              {toolbarDescription}
-            </p>
-          )}
           {collapsesFacetsBehindButton ? (
             <>
               <UiButton
@@ -2371,6 +2358,17 @@ function DefaultDataTable({
             <div className="flex flex-wrap items-center gap-2 ml-auto">{toolbarEnd}</div>
           )}
         </div>
+      )}
+      {toolbarDescription !== undefined && (
+        <p
+          data-testid={testId !== undefined ? `${testId}-description` : "render-list-description"}
+          className={cn(
+            "m-0 text-[13px] text-muted-foreground",
+            fillsHeight && (isNarrow ? "px-3 pb-2" : "px-6 pb-2"),
+          )}
+        >
+          {toolbarDescription}
+        </p>
       )}
       {content}
     </div>

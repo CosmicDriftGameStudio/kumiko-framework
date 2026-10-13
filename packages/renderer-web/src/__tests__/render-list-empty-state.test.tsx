@@ -66,7 +66,7 @@ describe("RenderList — empty state", () => {
     expect(queryByTestId("render-list-empty-create")).toBeNull();
   });
 
-  test("the description stays visible next to the search box", () => {
+  test("the description sits in its own row below the toolbar", () => {
     const { getByTestId, container } = renderEmptyList({
       searchable: true,
       description: "Open leases of the current month",
@@ -75,5 +75,7 @@ describe("RenderList — empty state", () => {
       "Open leases of the current month",
     );
     expect(container.querySelector("#render-list-search")).not.toBeNull();
+    const toolbar = getByTestId("render-list-table-toolbar");
+    expect(toolbar.contains(getByTestId("render-list-table-description"))).toBe(false);
   });
 });

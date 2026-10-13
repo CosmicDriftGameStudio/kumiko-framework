@@ -18,7 +18,7 @@ export const vehiclesTranslations: TranslationsByLocale = {
     "vehicles.action.details": "Details",
     "vehicles.action.saveChanges": "Änderungen speichern",
     "vehicles.search.placeholder": "Fahrzeug suchen",
-    "vehicles:entity:vehicle:noun": { one: "Fahrzeug", other: "Fahrzeugen" },
+    "vehicles:entity:vehicle:noun": { one: "Fahrzeug", other: "Fahrzeuge" },
     "vehicles:entity:campaign:noun": { one: "Kampagne", other: "Kampagnen" },
 
     "vehicles.section.basics": "Basisdaten",

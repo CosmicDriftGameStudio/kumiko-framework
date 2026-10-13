@@ -23,6 +23,7 @@ import {
   ValidationError,
   writeFailure,
 } from "../errors/index.js";
+import { assertFileRefsBelongToTenant } from "../files/assert-file-refs-belong-to-tenant.js";
 import { bindPendingFileRefs } from "../files/bind-pending-file-refs.js";
 import { CACHE_SYNC_TOPICS, type TenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
 import { assertNoSecretLeak } from "../secrets/index.js";
@@ -170,6 +171,12 @@ async function runLifecycle(
   await runProjections(result, handlerContext.registry, runner);
 
   if (result.kind === "save") {
+    await assertFileRefsBelongToTenant({
+      registry: handlerContext.registry,
+      result,
+      user,
+      db: handlerContext.db,
+    });
     await bindPendingFileRefs({
       registry: handlerContext.registry,
       result,

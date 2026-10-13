@@ -237,13 +237,13 @@ describe("FileField", () => {
         label="Bild"
         id="f3"
         name="f3"
-        value="file-abc"
+        value="11111111-2222-4333-8444-555555555555"
         onChange={() => {}}
         variant="image"
       />,
     );
     const img = document.querySelector("img") as HTMLImageElement;
-    expect(img.src).toContain("/api/files/file-abc");
+    expect(img.src).toContain("/api/files/11111111-2222-4333-8444-555555555555");
     expect(screen.getByRole("button", { name: "Remove" })).toBeTruthy();
   });
 
@@ -254,7 +254,7 @@ describe("FileField", () => {
         label="Bild"
         id="f4"
         name="f4"
-        value="file-abc"
+        value="11111111-2222-4333-8444-555555555555"
         onChange={onChange}
         variant="image"
       />,

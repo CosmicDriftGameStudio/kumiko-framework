@@ -24,14 +24,24 @@ function canStandAsIconButton(action: RenderEditAction | undefined): action is R
   return action?.icon !== undefined && action.style !== "danger" && !needsActionConfirm(action);
 }
 
-// Falls back to the precedence-only primary so an icon action (the pencil)
-// stays visible when the declared primary action needs a confirm dialog.
-export function compactHeaderIconAction(
+export type CompactHeaderPrimary = {
+  readonly action: RenderEditAction;
+  readonly iconOnly: boolean;
+};
+
+// A declared, visible `primaryAction` is always the phone header's button
+// (labelled when a bare icon would mislead), so it matches the desktop header
+// and `edit` moves into the menu. Without one the pencil-style icon action
+// stays visible, falling back to the precedence-only primary.
+export function compactHeaderPrimary(
   actions: readonly RenderEditAction[],
   preferredId?: string,
-): RenderEditAction | undefined {
-  const candidates = [primaryHeaderAction(actions, preferredId), primaryHeaderAction(actions)];
-  return candidates.find(canStandAsIconButton);
+): CompactHeaderPrimary | undefined {
+  const declared =
+    preferredId !== undefined ? actions.find((a) => a.id === preferredId) : undefined;
+  if (declared !== undefined) return { action: declared, iconOnly: canStandAsIconButton(declared) };
+  const iconAction = primaryHeaderAction(actions);
+  return canStandAsIconButton(iconAction) ? { action: iconAction, iconOnly: true } : undefined;
 }
 
 export function orderPlainHeaderActions(

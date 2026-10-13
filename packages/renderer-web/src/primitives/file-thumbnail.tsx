@@ -1,14 +1,24 @@
 import type { ListColumnFileDisplay } from "@cosmicdrift/kumiko-headless";
+import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import { ImageIcon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/cn.js";
 
+// Stored values are untrusted: only UUIDs reach a request, and path segments are
+// encoded so an id like "../x" or "a?b" cannot redirect the request.
 export function fileOriginalUrl(fileId: string): string {
-  return `/api/files/${fileId}`;
+  return `/api/files/${encodeURIComponent(fileId)}`;
 }
 
-function fileVariantUrl(fileId: string, variant: string): string {
-  return `/api/files/${fileId}/variant/${variant}`;
+export function fileVariantUrl(fileId: string, variant: string): string {
+  return `${fileOriginalUrl(fileId)}/variant/${encodeURIComponent(variant)}`;
+}
+
+function thumbnailSources(fileId: string, variant: string | undefined): readonly string[] {
+  if (!isUuid(fileId)) return [];
+  return variant === undefined
+    ? [fileOriginalUrl(fileId)]
+    : [fileVariantUrl(fileId, variant), fileOriginalUrl(fileId)];
 }
 
 // A declared variant can 404 when the upload carried no entityType/fieldName
@@ -25,10 +35,7 @@ function ThumbnailChain({
   readonly className: string;
   readonly testId: string | undefined;
 }): ReactNode {
-  const sources =
-    variant === undefined
-      ? [fileOriginalUrl(fileId)]
-      : [fileVariantUrl(fileId, variant), fileOriginalUrl(fileId)];
+  const sources = thumbnailSources(fileId, variant);
   const [failedCount, setFailedCount] = useState(0);
   const src = sources[failedCount];
   if (src === undefined) {
@@ -96,9 +103,11 @@ export function FileNameLink({
   readonly className?: string;
 }): ReactNode {
   const [fileName, setFileName] = useState<string | null>(null);
+  const validId = isUuid(fileId);
   useEffect(() => {
     let cancelled = false;
     setFileName(null);
+    if (!validId) return;
     fetch(`${fileOriginalUrl(fileId)}/meta`)
       .then((res) => (res.ok ? res.json() : null))
       .then((meta: unknown) => {
@@ -108,7 +117,8 @@ export function FileNameLink({
     return () => {
       cancelled = true;
     };
-  }, [fileId]);
+  }, [fileId, validId]);
+  if (!validId) return <span className={cn("text-sm", className)}>{fallbackLabel}</span>;
   return (
     <a
       href={fileOriginalUrl(fileId)}
