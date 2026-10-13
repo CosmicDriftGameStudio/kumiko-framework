@@ -38,6 +38,8 @@ const ticketEntity = createEntity({
 const ticketTable = buildEntityTable("ticket", ticketEntity);
 
 const ROLES = { access: { roles: ["Admin"] } } as const;
+// A hard delete or forget from a custom handler is irreversible and needs agent risk "high".
+const IRREVERSIBLE = { ...ROLES, agent: { risk: "high" } } as const;
 
 const lockFeature = defineFeature("lock", (r) => {
   r.entity("ticket", ticketEntity);
@@ -99,7 +101,7 @@ const lockFeature = defineFeature("lock", (r) => {
       if (!result.isSuccess) return result;
       return { isSuccess: true as const, data: { ok: true } };
     },
-    ROLES,
+    IRREVERSIBLE,
   );
 
   r.writeHandler(
@@ -110,7 +112,7 @@ const lockFeature = defineFeature("lock", (r) => {
       if (!result.isSuccess) return result;
       return { isSuccess: true as const, data: { ok: true } };
     },
-    ROLES,
+    IRREVERSIBLE,
   );
 
   r.writeHandler(
@@ -282,8 +284,11 @@ describe("lockedWhen", () => {
   test("forget (Art. 17) erases a locked record without any option", async () => {
     const id = await createTicket("closed");
     await stack.http.writeOk("lock:write:ticket:erase", { id }, admin);
-    const err = await stack.http.queryErr("lock:query:ticket:detail", { id }, admin);
-    expect(err.httpStatus).toBe(404);
+    const rows = await asRawClient(stack.db).unsafe(
+      "SELECT id FROM read_lock_tickets WHERE id = $1",
+      [id],
+    );
+    expect(rows).toHaveLength(0);
   });
 
   test("an executor call with unsafeSkipLockGuard may unlock", async () => {

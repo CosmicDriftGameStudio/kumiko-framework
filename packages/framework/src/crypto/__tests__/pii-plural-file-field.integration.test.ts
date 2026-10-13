@@ -56,10 +56,6 @@ const DETAIL = "pluralfilepii:query:album:detail";
 const LIST = "pluralfilepii:query:album:list";
 const PROJECTION = "pluralfilepii:projection:album-entity";
 
-const FIRST = "5d0c6b7e-3a4f-4c1d-8e2a-000000000001";
-const SECOND = "5d0c6b7e-3a4f-4c1d-8e2a-000000000002";
-const THIRD = "5d0c6b7e-3a4f-4c1d-8e2a-000000000003";
-
 let stack: TestStack;
 
 beforeAll(async () => {
@@ -83,6 +79,24 @@ afterEach(async () => {
   await resetEventStore(stack, ["pii_plural_file_albums"]);
 });
 
+async function uploadPhoto(): Promise<string> {
+  const form = new FormData();
+  form.append("file", new File([Buffer.from(JPEG_BYTES)], "photo.jpg", { type: "image/jpeg" }));
+  form.append("entityType", "album");
+  form.append("fieldName", "photos");
+  const { body, contentType } = await buildMultipartBody(form);
+  const upload = await stack.app.request("/api/files", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${await stack.jwt.sign(admin)}`,
+      "Content-Type": contentType,
+    },
+    body,
+  });
+  expect(upload.status).toBe(201);
+  return ((await upload.json()) as { id: string }).id;
+}
+
 async function createAlbum(photos: readonly string[]): Promise<string> {
   const { id } = await stack.http.writeOk<{ id: string }>(
     CREATE,
@@ -103,6 +117,7 @@ async function storedPhotos(id: string): Promise<unknown> {
 
 describe("personal plural file field", () => {
   test("column holds the plain ordered array, detail and list return it", async () => {
+    const [FIRST, SECOND] = [await uploadPhoto(), await uploadPhoto()];
     const id = await createAlbum([SECOND, FIRST]);
 
     expect(await storedPhotos(id)).toEqual([SECOND, FIRST]);
@@ -117,6 +132,7 @@ describe("personal plural file field", () => {
   });
 
   test("update stores the reordered array and a projection rebuild reproduces it", async () => {
+    const [FIRST, SECOND, THIRD] = [await uploadPhoto(), await uploadPhoto(), await uploadPhoto()];
     const id = await createAlbum([FIRST, SECOND]);
     const row = await detail(id);
     await stack.http.writeOk(
@@ -133,21 +149,7 @@ describe("personal plural file field", () => {
   });
 
   test("a pending upload bound by the create is readable by a second reader until an update removes it", async () => {
-    const form = new FormData();
-    form.append("file", new File([Buffer.from(JPEG_BYTES)], "photo.jpg", { type: "image/jpeg" }));
-    form.append("entityType", "album");
-    form.append("fieldName", "photos");
-    const { body, contentType } = await buildMultipartBody(form);
-    const upload = await stack.app.request("/api/files", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${await stack.jwt.sign(admin)}`,
-        "Content-Type": contentType,
-      },
-      body,
-    });
-    expect(upload.status).toBe(201);
-    const { id: fileRefId } = (await upload.json()) as { id: string };
+    const fileRefId = await uploadPhoto();
     const readAs = async (reader: SessionUser): Promise<number> =>
       (
         await stack.app.request(`/api/files/${fileRefId}`, {
