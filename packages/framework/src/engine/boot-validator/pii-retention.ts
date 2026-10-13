@@ -199,14 +199,6 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         );
       }
 
-      // The single-file column is a uuid, which cannot hold the ciphertext a
-      // subject annotation produces; plural file fields store it in jsonb.
-      if ((field.type === "file" || field.type === "image") && annotCount > 0) {
-        throw new Error(
-          `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" is a ${field.type} field with a subject-key annotation (personal: "self" / "tenant" / { of: "<field>" }). A single file field is a uuid column and cannot store ciphertext — use ${field.type === "file" ? "createFilesField" : "createImagesField"}, or personal: false with a reason.`,
-        );
-      }
-
       // lookupable (#818): nur text + nur MIT Subject-Annotation. Ohne
       // Subject bleibt der Wert eh Klartext — der Blind-Index wäre eine
       // zweite (deterministische!) Kopie ohne Nutzen.

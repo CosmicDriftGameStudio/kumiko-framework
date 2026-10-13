@@ -26,19 +26,19 @@ detail: The event-store executor checks entity.lockedWhen against the loaded row
 feature: renderer
 type: improvement
 title: entityEdit shows locked records as a view
-detail: EntityEditUpdateForm shows the view when screen.readOnly or entity.lockedWhen matches. Adds the default string errors.recordLocked and removes the unused kumiko.field.file-upload.attached.
+detail: EntityEditUpdateForm shows the view when screen.readOnly or entity.lockedWhen matches. Adds the default string errors.recordLocked.
 -->
 
 <!-- kumiko-changes
 feature: locale-de
 type: improvement
 title: German string for locked records
-detail: Adds errors.recordLocked. Removes the unused kumiko.field.file-upload.attached.
+detail: Adds errors.recordLocked.
 -->
 
 <!-- kumiko-changes
 feature: locale-es
 type: improvement
 title: Spanish string for locked records
-detail: Adds errors.recordLocked. Removes the unused kumiko.field.file-upload.attached.
+detail: Adds errors.recordLocked.
 -->

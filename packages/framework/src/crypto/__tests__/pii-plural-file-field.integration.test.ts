@@ -1,6 +1,6 @@
-// A personal plural file field is stored like a personal jsonb field: the UUID
-// array is encrypted into a ciphertext JSON string in the event and the
-// projection column, and detail/list/rebuild read the array back.
+// A personal plural file field keeps its UUID array in plaintext in the
+// projection column (file fields are excluded from PII encryption), detail/list/
+// rebuild read the array back, and the file routes follow the record.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
@@ -27,7 +27,7 @@ import {
   TestUsers,
 } from "../../stack/index.js";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
-import { configurePiiSubjectKms, PII_CIPHERTEXT_PREFIX_JSON } from "../pii-field-encryption.js";
+import { configurePiiSubjectKms } from "../pii-field-encryption.js";
 
 const admin = TestUsers.admin;
 const secondReader = createTestUser({ id: 77, tenantId: admin.tenantId, roles: ["Reader"] });
@@ -102,13 +102,10 @@ async function storedPhotos(id: string): Promise<unknown> {
 }
 
 describe("personal plural file field", () => {
-  test("column holds a ciphertext string, detail and list return the ordered array", async () => {
+  test("column holds the plain ordered array, detail and list return it", async () => {
     const id = await createAlbum([SECOND, FIRST]);
 
-    const stored = await storedPhotos(id);
-    expect(typeof stored).toBe("string");
-    expect(String(stored)).toStartWith(PII_CIPHERTEXT_PREFIX_JSON);
-    expect(String(stored)).not.toContain(FIRST);
+    expect(await storedPhotos(id)).toEqual([SECOND, FIRST]);
 
     expect((await detail(id))["photos"]).toEqual([SECOND, FIRST]);
     const list = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
@@ -119,7 +116,7 @@ describe("personal plural file field", () => {
     expect(list.rows[0]?.["photos"]).toEqual([SECOND, FIRST]);
   });
 
-  test("update re-encrypts the reordered array and a projection rebuild reproduces it", async () => {
+  test("update stores the reordered array and a projection rebuild reproduces it", async () => {
     const id = await createAlbum([FIRST, SECOND]);
     const row = await detail(id);
     await stack.http.writeOk(
@@ -131,7 +128,7 @@ describe("personal plural file field", () => {
 
     await rebuildProjection(PROJECTION, { db: stack.db, registry: stack.registry });
 
-    expect(String(await storedPhotos(id))).toStartWith(PII_CIPHERTEXT_PREFIX_JSON);
+    expect(await storedPhotos(id)).toEqual([THIRD, FIRST]);
     expect((await detail(id))["photos"]).toEqual([THIRD, FIRST]);
   });
 

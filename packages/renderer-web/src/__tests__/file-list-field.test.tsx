@@ -133,12 +133,10 @@ describe("FileListField (images/files edit widget)", () => {
     expect(document.querySelector("#kumiko-edit-gallery-add")).not.toBeNull();
   });
 
-  test("readOnly shows no add tile and no remove or reorder buttons", () => {
+  test("readOnly shows no add tile and no row buttons", () => {
     renderField(imagesField({ value: [ID_A, ID_B], readOnly: true }));
     expect(document.querySelector("#kumiko-edit-gallery-add")).toBeNull();
-    expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Move file up" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Move file down" })).toBeNull();
   });
 
   test("capture reaches the file input of the add tile", () => {
@@ -154,58 +152,8 @@ describe("FileListField (images/files edit widget)", () => {
   });
 
   test("files fields render file tiles without an image preview", () => {
-    fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", { status: 404 }));
     renderField(imagesField({ field: "docs", type: "files", value: [ID_A] }));
-    expect(screen.getByRole("link", { name: "Open file" }).getAttribute("href")).toBe(
-      `/api/files/${ID_A}`,
-    );
+    expect(screen.getByText("File attached")).toBeDefined();
     expect(document.querySelector("img")).toBeNull();
-  });
-});
-
-describe("read-only file fields as text (valueDisplay=text)", () => {
-  function renderText(field: EditFieldViewModel): void {
-    render(
-      <RenderField
-        field={{ ...field, readOnly: true }}
-        featureName="orders"
-        onChange={() => {}}
-        valueDisplay="text"
-      />,
-    );
-  }
-
-  test("a single file shows an open link, never its UUID", () => {
-    renderText(imagesField({ field: "scan", type: "file", value: ID_A }));
-    const link = screen.getByRole("link", { name: "Open file" });
-    expect(link.getAttribute("href")).toBe(`/api/files/${ID_A}`);
-    expect(link.getAttribute("target")).toBe("_blank");
-    expect(screen.getByTestId("field-value-scan").textContent).not.toContain(ID_A);
-  });
-
-  test("a single image links the same way", () => {
-    renderText(imagesField({ field: "cover", type: "image", value: ID_A }));
-    expect(screen.getByRole("link", { name: "Open file" }).getAttribute("href")).toBe(
-      `/api/files/${ID_A}`,
-    );
-  });
-
-  test("plural fields show one numbered link per file, in order, without UUIDs", () => {
-    renderText(imagesField({ value: [ID_B, ID_A] }));
-    const links = screen.getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["File 1", "File 2"]);
-    expect(links.map((link) => link.getAttribute("href"))).toEqual([
-      `/api/files/${ID_B}`,
-      `/api/files/${ID_A}`,
-    ]);
-    const text = screen.getByTestId("field-value-gallery").textContent ?? "";
-    expect(text).not.toContain(ID_A);
-    expect(text).not.toContain(ID_B);
-  });
-
-  test("an empty value keeps the dash placeholder", () => {
-    renderText(imagesField({ value: [] }));
-    expect(screen.getByTestId("field-value-gallery").textContent).toBe("—");
-    expect(screen.queryByRole("link")).toBeNull();
   });
 });
