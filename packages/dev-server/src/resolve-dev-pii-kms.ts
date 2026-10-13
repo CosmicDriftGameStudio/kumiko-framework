@@ -1,5 +1,12 @@
 import { randomBytes } from "node:crypto";
-import { InMemoryKmsAdapter, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  configureBlindIndexKey,
+  configuredBlindIndexKey,
+  configuredPiiSubjectKms,
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+  type KmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { isPersistentDevDb } from "./is-persistent-dev-db.js";
 
 export type DevPiiKmsResolution = {
@@ -12,6 +19,23 @@ type DevPiiKmsOptions = {
   readonly kms?: KmsAdapter | false;
   readonly blindIndexKey?: string;
 };
+
+// Call right after configuring the resolved values. The returned restore only
+// unsets what the ephemeral default installed, so a KMS a later test or the app
+// configured survives.
+export function captureEphemeralDevPiiKms(resolution: DevPiiKmsResolution): () => void {
+  if (resolution.mode !== "ephemeral-default") return () => {};
+  const ownKms = configuredPiiSubjectKms();
+  const ownBlindIndexKey = configuredBlindIndexKey();
+  return () => {
+    if (ownKms !== undefined && configuredPiiSubjectKms() === ownKms) {
+      configurePiiSubjectKms(undefined);
+    }
+    if (ownBlindIndexKey !== undefined && configuredBlindIndexKey() === ownBlindIndexKey) {
+      configureBlindIndexKey(undefined);
+    }
+  };
+}
 
 export function resolveDevPiiKms(
   options: DevPiiKmsOptions,

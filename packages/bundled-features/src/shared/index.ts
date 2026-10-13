@@ -33,6 +33,7 @@ export {
   redactErrorText,
   redactUrls,
 } from "./redact.js";
+export { REDACTED_PII_PLACEHOLDER, redactPiiCiphertext } from "./redact-pii-ciphertext.js";
 export { requireForTenant } from "./require-for-tenant.js";
 export {
   type RowBoundGrantResult,
