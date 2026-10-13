@@ -27,6 +27,7 @@ export async function assertFileRefsBelongToTenant(args: {
   // skip: saves of unregistered aggregates (custom executors) declare no file fields
   if (result.entityName === undefined) return;
   const entity = registry.getEntity(result.entityName);
+  // skip: an aggregate without an entity definition has no file fields
   if (entity === undefined) return;
   // skip: without the files feature the file_refs table is not part of the schema
   if (registry.getEntity(FILE_REF_ENTITY_NAME) === undefined) return;

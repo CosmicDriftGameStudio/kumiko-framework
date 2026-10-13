@@ -1116,20 +1116,20 @@ function validatePrimaryActionTarget(
   screenId: string,
   screen: ProjectionDetailScreenDefinition,
 ): void {
+  // skip: no declared primaryAction, the default header precedence applies
   if (screen.primaryAction === undefined) return;
   const declaredIds = (screen.actions ?? []).map((action) => action.id);
   const editIsAvailable = screen.detailFor !== undefined;
-  if (
+  const targetExists =
     declaredIds.includes(screen.primaryAction) ||
-    (editIsAvailable && screen.primaryAction === "edit")
-  ) {
-    return;
+    (editIsAvailable && screen.primaryAction === "edit");
+  if (!targetExists) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) primaryAction "${screen.primaryAction}" ` +
+        `matches no action — use one of the declared action ids (${declaredIds.join(", ") || "none declared"})` +
+        `${editIsAvailable ? ' or "edit"' : ' ("edit" needs detailFor on this screen)'}.`,
+    );
   }
-  throw new Error(
-    `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) primaryAction "${screen.primaryAction}" ` +
-      `matches no action — use one of the declared action ids (${declaredIds.join(", ") || "none declared"})` +
-      `${editIsAvailable ? ' or "edit"' : ' ("edit" needs detailFor on this screen)'}.`,
-  );
 }
 
 function validateScreenVisibleWhen(
