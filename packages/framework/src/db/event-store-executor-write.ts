@@ -195,6 +195,7 @@ export function createWriteVerbs(
     streamTenantCreateFailure,
     encryptForStorage,
     decryptForRead,
+    ownerTransitionRekeys,
     applyDefaults,
     stripSensitive,
     loadById,
@@ -631,9 +632,16 @@ export function createWriteVerbs(
               ),
             )
           : changes;
-        const flatChangesPlain = flattenCompoundTypes(submittedChanges, entity);
+        // fw#3670: crypto-shredding follows the current owner, so personal
+        // fields not in this update are re-written under the new owner's key.
+        // Owner -> absent is not re-keyed; the value stays under the old owner.
+        const changesToPersist = {
+          ...submittedChanges,
+          ...ownerTransitionRekeys(previous, mergedNew, submittedChanges),
+        };
+        const flatChangesPlain = flattenCompoundTypes(changesToPersist, entity);
         const flatChanges = await encryptForStorage(flatChangesPlain, user, {
-          onlyKeys: Object.keys(submittedChanges),
+          onlyKeys: Object.keys(changesToPersist),
           subjectSource: mergedNew,
           keyTenantId: streamTenantId,
         });

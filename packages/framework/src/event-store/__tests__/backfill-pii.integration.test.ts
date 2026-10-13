@@ -18,6 +18,8 @@ import {
   configuredEventPiiCatalog,
   configureEventPiiCatalog,
   configurePiiSubjectKms,
+  decryptPiiValueForSubject,
+  encryptPiiValueForSubject,
   InMemoryKmsAdapter,
   isPiiCiphertext,
   KeyNotFoundError,
@@ -764,6 +766,143 @@ describe("backfillEventPiiEncryption: whenAbsent owner chain (fw#3654)", () => {
     const created = await payloadOf(memoId, 0);
     expect(String(created["body"])).toContain(`user:${user}`);
     expect(String(created["body"])).not.toContain("tenant:");
+  });
+});
+
+describe("backfillEventPiiEncryption: owner re-key (fw#3670)", () => {
+  const REKEY = { resolveOwnerFromProjection: true, rekeyTenantKeyedOwnerFields: true } as const;
+  const OTHER_TENANT = "00000000-0000-4000-8000-0000000000aa" as TenantId;
+
+  async function createdBody(id: string): Promise<string> {
+    const events = await loadAggregate(testDb.db, id, TENANT);
+    return String((events[0]?.payload as Record<string, unknown> | undefined)?.["body"]);
+  }
+
+  // The state this stage exists for: created while ownerless (tenant key), owner known later.
+  async function seedTenantKeyedMemo(projectionOwner: string | null): Promise<string> {
+    const memoId = generateId();
+    await appendPlain(memoId, "memo", "memo.created", { id: memoId, body: "Alice" });
+    armKms();
+    const first = await backfillEventPiiEncryption(testDb.db, registry);
+    expect(first.failures).toEqual([]);
+    expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
+      [memoId, TENANT, projectionOwner, "projection-row-body"],
+    );
+    return memoId;
+  }
+
+  test("tenant-keyed value moves under the projection owner and still decrypts", async () => {
+    const user = generateId();
+    const memoId = await seedTenantKeyedMemo(user);
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.failures).toEqual([]);
+    expect(result.rekeyedFields).toBe(1);
+    expect(result.updatedEvents).toBe(1);
+    const body = await createdBody(memoId);
+    expect(body).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${user}:`);
+    expect(await decryptPiiValueForSubject(kms, body, { requestId: "test" }, "body")).toBe("Alice");
+  });
+
+  test("projection owner null: the value stays tenant-keyed", async () => {
+    const memoId = await seedTenantKeyedMemo(null);
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.rekeyedFields).toBe(0);
+    expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
+  });
+
+  test("a projection row of another tenant with the same id names no owner", async () => {
+    const memoId = await seedTenantKeyedMemo(null);
+    await asRawClient(testDb.db).unsafe(
+      `UPDATE "${memoTable.tableName}" SET "tenant_id" = $1, "owner_id" = $2 WHERE id = $3`,
+      [OTHER_TENANT, generateId(), memoId],
+    );
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.rekeyedFields).toBe(0);
+    expect(await createdBody(memoId)).toContain(`tenant:${TENANT}`);
+  });
+
+  test("ciphertext keyed under another tenant is untouched", async () => {
+    armKms();
+    const user = generateId();
+    const memoId = generateId();
+    const foreign = await encryptPiiValueForSubject(
+      kms,
+      { kind: "tenant", tenantId: OTHER_TENANT },
+      "Alice",
+      { requestId: "test" },
+      "body",
+    );
+    await appendPlain(memoId, "memo", "memo.created", { id: memoId, body: foreign });
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
+      [memoId, TENANT, user, "projection-row-body"],
+    );
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.rekeyedFields).toBe(0);
+    expect(await createdBody(memoId)).toBe(foreign);
+  });
+
+  test("owner forgotten: the value becomes the erased sentinel", async () => {
+    const user = generateId();
+    const memoId = await seedTenantKeyedMemo(user);
+    await kms.createKey({ kind: "user", userId: user });
+    await kms.eraseKey({ kind: "user", userId: user });
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.failures).toEqual([]);
+    expect(result.rekeyedFields).toBe(0);
+    expect(result.erasedFields).toBe(1);
+    expect(await createdBody(memoId)).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("dryRun predicts the re-key and writes nothing", async () => {
+    const user = generateId();
+    const memoId = await seedTenantKeyedMemo(user);
+    const before = await createdBody(memoId);
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, {
+      ...REKEY,
+      dryRun: true,
+    });
+
+    expect(result.rekeyedFields).toBe(1);
+    expect(await createdBody(memoId)).toBe(before);
+  });
+
+  test("without the option the tenant-keyed value is untouched", async () => {
+    const memoId = await seedTenantKeyedMemo(generateId());
+    const before = await createdBody(memoId);
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, {
+      resolveOwnerFromProjection: true,
+    });
+
+    expect(result.rekeyedFields).toBe(0);
+    expect(result.updatedEvents).toBe(0);
+    expect(await createdBody(memoId)).toBe(before);
+  });
+
+  test("a second run changes nothing", async () => {
+    const memoId = await seedTenantKeyedMemo(generateId());
+    await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+    const afterFirst = await createdBody(memoId);
+
+    const second = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(second.updatedEvents).toBe(0);
+    expect(second.rekeyedFields).toBe(0);
+    expect(await createdBody(memoId)).toBe(afterFirst);
   });
 });
 

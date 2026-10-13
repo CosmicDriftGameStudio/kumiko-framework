@@ -3,6 +3,7 @@
 // cheap catch-up passes afterwards.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { resetBlindIndexKeyForTests } from "../../crypto/blind-index.js";
 import {
   configureBlindIndexKey,
@@ -29,7 +30,11 @@ import { createSnapshotsTable, saveSnapshot } from "../../event-store/index.js";
 import { getConsumerState } from "../../pipeline/index.js";
 import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 import { createPendingRebuildsTable } from "../pending-rebuilds.js";
-import { type PiiEventBackfillResult, runPiiEventBackfill } from "../pii-event-backfill.js";
+import {
+  type PiiEventBackfillResult,
+  piiAnnotationEntries,
+  runPiiEventBackfill,
+} from "../pii-event-backfill.js";
 
 const BIDX_KEY = Buffer.alloc(32, 7).toString("base64");
 const CONTACT_TABLE = "read_pii_backfill_contacts";
@@ -479,6 +484,24 @@ describe("runPiiEventBackfill", () => {
     const lateEvent = (await readEvents()).find((e) => e.aggregate_id === late.id);
     expect(await decryptField(lateEvent?.payload["email"], "email")).toBe(late.email);
     expect(await decryptField(lateEvent?.payload["phone"], "phone")).toBe(late.phone);
+  });
+
+  test("a state completed under the pre-rekey fingerprint triggers one more full pass", async () => {
+    await createContact(1);
+    armKms();
+    expectRan(await runPiiEventBackfill(stack.db, registryV2));
+    const legacyFingerprint = createHash("sha256")
+      .update(piiAnnotationEntries(registryV2).join("\n"))
+      .digest("hex");
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "kumiko_pii_backfill_state" SET "fingerprint" = $1`,
+      [legacyFingerprint],
+    );
+
+    const result = expectRan(await runPiiEventBackfill(stack.db, registryV2));
+
+    expect(result.mode).toBe("full");
+    expect(result.scannedEvents).toBeGreaterThan(0);
   });
 
   test("no KMS configured: skipped, events untouched", async () => {

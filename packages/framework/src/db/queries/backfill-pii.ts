@@ -41,6 +41,9 @@
 //      unresolvable (hard-deleted aggregate, no projection) → PII_ERASED_SENTINEL.
 //   Stages 2 and 3 are opt-in and off by default; without them an
 //   unresolvable subject still fails loud into `failures`, as before.
+//   4. owner re-key ({@link PiiBackfillOptions.rekeyTenantKeyedOwnerFields}) —
+//   tenant-keyed ciphertext of a userOwned field moves under the user the
+//   strict chain (stages 1+2, never whenAbsent) names.
 //
 // Snapshots of touched aggregates are dropped per batch (they may cache
 // plaintext); the next snapshotting load recreates them. AFTER a run, rebuild the
@@ -60,9 +63,11 @@ import {
 } from "../../crypto/kms-adapter.js";
 import {
   configuredPiiSubjectKms,
+  decryptPiiValueForSubject,
   encryptPiiValueForSubject,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
+  piiCiphertextSubject,
 } from "../../crypto/pii-field-encryption.js";
 import {
   collectPiiSubjectFields,
@@ -89,6 +94,8 @@ export type PiiBackfillResult = {
   readonly updatedEvents: number;
   readonly encryptedFields: number;
   readonly erasedFields: number;
+  // Tenant-keyed personal fields moved under their owner's key (stage 4).
+  readonly rekeyedFields: number;
   // Subset of encryptedFields + erasedFields whose owner came from stage 2
   // (the payload itself lacked it).
   readonly ownerFromProjection: number;
@@ -124,6 +131,11 @@ export type PiiBackfillOptions = {
   // Stage 3: write PII_ERASED_SENTINEL for subjects still unresolvable
   // after stage 1+2, instead of failing the event into `failures`.
   readonly eraseUnresolvableSubjects?: boolean;
+  // Stage 4: a personal field written while the row had no owner is tenant-keyed
+  // forever in the immutable log; once the owner is known, only its own key
+  // makes the owner's forget erase the value. Off by default: it decrypts and
+  // re-encrypts already-encrypted values.
+  readonly rekeyTenantKeyedOwnerFields?: boolean;
 };
 
 export type PiiBackfillBatchOptions = PiiBackfillOptions & {
@@ -190,6 +202,7 @@ export async function backfillEventPiiEncryption(
     updatedEvents: 0,
     encryptedFields: 0,
     erasedFields: 0,
+    rekeyedFields: 0,
     ownerFromProjection: 0,
     erasedUnresolvable: 0,
     deletedSnapshots: 0,
@@ -208,6 +221,7 @@ export async function backfillEventPiiEncryption(
     total.updatedEvents += batch.updatedEvents;
     total.encryptedFields += batch.encryptedFields;
     total.erasedFields += batch.erasedFields;
+    total.rekeyedFields += batch.rekeyedFields;
     total.ownerFromProjection += batch.ownerFromProjection;
     total.erasedUnresolvable += batch.erasedUnresolvable;
     total.deletedSnapshots += batch.deletedSnapshots;
@@ -240,6 +254,7 @@ export async function backfillEventPiiEncryptionBatch(
     updatedEvents: 0,
     encryptedFields: 0,
     erasedFields: 0,
+    rekeyedFields: 0,
     ownerFromProjection: 0,
     erasedUnresolvable: 0,
     deletedSnapshots: 0,
@@ -287,6 +302,7 @@ export async function backfillEventPiiEncryptionBatch(
       if (outcome === null) continue;
       result.encryptedFields += outcome.encrypted;
       result.erasedFields += outcome.erased;
+      result.rekeyedFields += outcome.rekeyed;
       result.ownerFromProjection += outcome.ownerFromProjection;
       result.erasedUnresolvable += outcome.erasedUnresolvable;
       if (!options.dryRun) {
@@ -348,8 +364,8 @@ export async function backfillEventPiiEncryptionBatch(
 
   async function loadProjectionOwners(
     rows: readonly EventRow[],
-  ): Promise<ReadonlyMap<string, ReadonlyMap<string, Record<string, unknown>>>> {
-    const byType = new Map<string, ReadonlyMap<string, Record<string, unknown>>>();
+  ): Promise<ReadonlyMap<string, ReadonlyMap<string, ProjectionOwner>>> {
+    const byType = new Map<string, ReadonlyMap<string, ProjectionOwner>>();
     if (!options.resolveOwnerFromProjection) return byType;
 
     const idsByType = new Map<string, Set<string>>();
@@ -364,7 +380,7 @@ export async function backfillEventPiiEncryptionBatch(
       const target = entityTargets.get(aggregateType);
       if (!target) continue;
       const tableName = resolveTableName(aggregateType, target.entity, undefined);
-      const ownersById = new Map<string, Record<string, unknown>>();
+      const ownersById = new Map<string, ProjectionOwner>();
       // Existence check instead of catching undefined_table: a caught SQL error
       // aborts the surrounding transaction (25P02). Entity never mounted/rebuilt
       // → stage 3 still gets a chance; this batch just contributes no owners.
@@ -376,7 +392,11 @@ export async function backfillEventPiiEncryptionBatch(
         for (const projectionRow of projectionRows) {
           const id = projectionRow["id"];
           if (typeof id === "string") {
-            ownersById.set(id, projectionRowToCamel(target.entity, projectionRow));
+            const rowTenantId = projectionRow["tenant_id"];
+            ownersById.set(id, {
+              tenantId: typeof rowTenantId === "string" ? rowTenantId : undefined,
+              fields: projectionRowToCamel(target.entity, projectionRow),
+            });
           }
         }
       }
@@ -387,16 +407,24 @@ export async function backfillEventPiiEncryptionBatch(
 
   async function transformEvent(
     row: EventRow,
-    projectionOwners: ReadonlyMap<string, Record<string, unknown>> | undefined,
+    projectionOwners: ReadonlyMap<string, ProjectionOwner> | undefined,
   ): Promise<{
     payload: Record<string, unknown>;
     encrypted: number;
     erased: number;
+    rekeyed: number;
     ownerFromProjection: number;
     erasedUnresolvable: number;
   } | null> {
-    const counters = { encrypted: 0, erased: 0, ownerFromProjection: 0, erasedUnresolvable: 0 };
+    const counters = {
+      encrypted: 0,
+      erased: 0,
+      rekeyed: 0,
+      ownerFromProjection: 0,
+      erasedUnresolvable: 0,
+    };
     const payload = structuredClone(row.payload);
+    const tenantId = row.tenant_id as TenantId; // @cast-boundary db-read — tenant_id column is the branded TenantId
 
     const catalogFields = eventCatalog.get(row.type);
     if (catalogFields) {
@@ -404,7 +432,7 @@ export async function backfillEventPiiEncryptionBatch(
         let subject: ReturnType<typeof resolveEventSubject>;
         try {
           subject = resolveEventSubject(field, spec, payload, {
-            tenantId: row.tenant_id as TenantId, // @cast-boundary db-read — tenant_id column is the branded TenantId
+            tenantId,
             aggregateType: row.aggregate_type,
             aggregateId: row.aggregate_id,
           });
@@ -423,10 +451,14 @@ export async function backfillEventPiiEncryptionBatch(
     } else {
       const target = entityTargets.get(row.aggregate_type);
       if (!target || !isLifecycleEventOf(row.type, row.aggregate_type)) return null;
-      await applyEntityLifecycleFields(target, projectionOwners?.get(row.aggregate_id));
+      const ownerRow = projectionOwnerRowOfTenant(
+        projectionOwners?.get(row.aggregate_id),
+        row.tenant_id,
+      );
+      await applyEntityLifecycleFields(target, ownerRow);
     }
 
-    if (counters.encrypted === 0 && counters.erased === 0) return null;
+    if (counters.encrypted === 0 && counters.erased === 0 && counters.rekeyed === 0) return null;
     return { payload, ...counters };
 
     function bump(outcome: FieldOutcome): void {
@@ -452,10 +484,24 @@ export async function backfillEventPiiEncryptionBatch(
           // value here would otherwise get the v2 text format into a jsonb column.
           if (target.entity.fields[field]?.type === "jsonb") continue;
           if (typeof value !== "string") continue;
-          // Already-ciphertext/sentinel fields must never enter owner
-          // resolution — an unresolvable owner on an already-handled field
+          // Already-ciphertext/sentinel fields must never enter the encrypt/erase
+          // owner resolution — an unresolvable owner on an already-handled field
           // must stay untouched, not get erased by stage 3.
-          if (isPiiCiphertext(value) || value === PII_ERASED_SENTINEL) continue;
+          if (isPiiCiphertext(value)) {
+            if (options.rekeyTenantKeyedOwnerFields) {
+              await rekeyField(
+                target.entity,
+                section,
+                field,
+                value,
+                subjectSource,
+                ownerFallback,
+                projectionOwnerRow,
+              );
+            }
+            continue;
+          }
+          if (value === PII_ERASED_SENTINEL) continue;
 
           const resolution = resolveOwnerSubject(
             target.entity,
@@ -463,8 +509,7 @@ export async function backfillEventPiiEncryptionBatch(
             subjectSource,
             ownerFallback,
             projectionOwnerRow,
-            // @cast-boundary db-read — tenant_id column is the branded TenantId
-            row.tenant_id as TenantId,
+            tenantId,
             row.aggregate_type,
           );
           if (resolution.kind === "unannotated") continue;
@@ -481,6 +526,43 @@ export async function backfillEventPiiEncryptionBatch(
           const outcome = await encryptField(section, field, resolution.subject);
           bump(outcome);
         }
+      }
+    }
+
+    async function rekeyField(
+      entity: EntityDefinition,
+      section: Record<string, unknown>,
+      field: string,
+      ciphertext: string,
+      subjectSource: Record<string, unknown>,
+      ownerFallback: Record<string, unknown> | undefined,
+      projectionOwnerRow: Record<string, unknown> | undefined,
+    ): Promise<void> {
+      const rekey = await rekeyTenantKeyedValue(
+        {
+          subjectKms,
+          kmsCtx,
+          dryRun: options.dryRun === true,
+          isForgottenSubject: (subject) => isForgottenSubject(subject, row.aggregate_id),
+          predictOutcome: predictEncryptOutcome,
+        },
+        {
+          entity,
+          field,
+          ciphertext,
+          tenantId,
+          aggregateType: row.aggregate_type,
+          subjectSource,
+          ownerFallback,
+          projectionOwnerRow,
+        },
+      );
+      if (rekey.kind === "rekeyed") {
+        section[field] = rekey.value;
+        counters.rekeyed++;
+      } else if (rekey.kind === "erased") {
+        section[field] = PII_ERASED_SENTINEL;
+        counters.erased++;
       }
     }
 
@@ -545,6 +627,114 @@ export async function backfillEventPiiEncryptionBatch(
     )) as ReadonlyArray<{ id: string }>;
     scanCache.destroyedTenants = new Set(rows.map((r) => r.id));
     return scanCache.destroyedTenants;
+  }
+}
+
+type ProjectionOwner = {
+  // Undefined when the projection table has no tenant_id column.
+  readonly tenantId: string | undefined;
+  readonly fields: Record<string, unknown>;
+};
+
+// aggregate_id is only unique per tenant: another tenant's projection row must not name the owner.
+function projectionOwnerRowOfTenant(
+  owner: ProjectionOwner | undefined,
+  tenantId: string,
+): Record<string, unknown> | undefined {
+  if (owner === undefined) return undefined;
+  return owner.tenantId === undefined || owner.tenantId === tenantId ? owner.fields : undefined;
+}
+
+type RekeyOutcome =
+  | { readonly kind: "unchanged" }
+  | { readonly kind: "erased" }
+  | { readonly kind: "rekeyed"; readonly value: string };
+
+type RekeyDeps = {
+  readonly subjectKms: LocalKeyKmsAdapter;
+  readonly kmsCtx: KmsContext;
+  readonly dryRun: boolean;
+  readonly isForgottenSubject: (subject: SubjectId) => Promise<boolean>;
+  readonly predictOutcome: (subject: SubjectId) => Promise<FieldOutcome>;
+};
+
+type RekeyTarget = {
+  readonly entity: EntityDefinition;
+  readonly field: string;
+  readonly ciphertext: string;
+  readonly tenantId: TenantId;
+  readonly aggregateType: string;
+  readonly subjectSource: Record<string, unknown>;
+  readonly ownerFallback: Record<string, unknown> | undefined;
+  readonly projectionOwnerRow: Record<string, unknown> | undefined;
+};
+
+function isPlainUserOwnedField(entity: EntityDefinition, field: string): boolean {
+  const fieldDef = entity.fields[field];
+  if (fieldDef === undefined || !("userOwned" in fieldDef) || fieldDef.userOwned === undefined) {
+    return false;
+  }
+  return !("recordOwned" in fieldDef && fieldDef.recordOwned === true);
+}
+
+// Stage 4. In dryRun the "rekeyed" value is the untouched ciphertext (nothing is written).
+async function rekeyTenantKeyedValue(deps: RekeyDeps, target: RekeyTarget): Promise<RekeyOutcome> {
+  const { entity, field, ciphertext } = target;
+  if (!isPlainUserOwnedField(entity, field) || !isTenantKeyedUnder(ciphertext, target.tenantId)) {
+    return { kind: "unchanged" };
+  }
+
+  const resolution = resolveOwnerSubject(
+    entity,
+    field,
+    target.subjectSource,
+    target.ownerFallback,
+    target.projectionOwnerRow,
+    target.tenantId,
+    target.aggregateType,
+  );
+  if (resolution.kind !== "resolved" || resolution.subject.kind !== "user") {
+    return { kind: "unchanged" };
+  }
+  const userSubject = resolution.subject;
+
+  if (await deps.isForgottenSubject(userSubject)) return { kind: "erased" };
+  if (deps.dryRun) {
+    return (await deps.predictOutcome(userSubject)) === "erased"
+      ? { kind: "erased" }
+      : { kind: "rekeyed", value: ciphertext };
+  }
+  const plaintext = await decryptPiiValueForSubject(
+    deps.subjectKms,
+    ciphertext,
+    deps.kmsCtx,
+    field,
+  );
+  if (plaintext === PII_ERASED_SENTINEL) return { kind: "erased" };
+  try {
+    const value = await encryptPiiValueForSubject(
+      deps.subjectKms,
+      userSubject,
+      plaintext,
+      deps.kmsCtx,
+      field,
+    );
+    return { kind: "rekeyed", value };
+  } catch (e) {
+    if (e instanceof KeyErasedError) return { kind: "erased" };
+    throw e;
+  }
+}
+
+// Only the row's own tenant key counts: another tenant's or a user's key is
+// never decrypted here.
+function isTenantKeyedUnder(ciphertext: string, tenantId: string): boolean {
+  try {
+    const subject = piiCiphertextSubject(ciphertext);
+    return subject.kind === "tenant" && subject.tenantId === tenantId;
+  } catch {
+    // skip: a malformed ciphertext prefix is not ours to re-key
+    return false;
   }
 }
 
