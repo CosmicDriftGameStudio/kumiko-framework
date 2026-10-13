@@ -49,6 +49,7 @@ export {
   type StockCapGuard,
   type StockCapSpec,
 } from "./stock-cap-guard.js";
+export { capReservationsTable, capReservationsTableMeta } from "./tables.js";
 export {
   createValueCapGuard,
   type ValueCapGuard,
