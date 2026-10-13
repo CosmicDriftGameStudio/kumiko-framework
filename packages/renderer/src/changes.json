@@ -1,5 +1,42 @@
 [
   {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Create form prefill and CurrentUserProvider",
+    "detail": "EntityEditCreateBody applies prefill to empty initial values. New exports CurrentUser, CurrentUserProvider and useOptionalCurrentUser."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Read-only view mode for entityEdit",
+    "detail": "RenderEdit takes viewMode, which disables all fields and removes submit, discard, delete and the dirty footer while keeping record actions and cancel. The update body sets it when screen.readOnly holds for the record and resolves screen:<id>.view.title before screen:<id>.title."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "EmbeddedListColumn.readOnly and EmbeddedListInput fixedRows",
+    "detail": "EmbeddedListField forwards both, skips readOnly columns when pasting and never appends rows from a paste when rows are fixed."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "EmbeddedListColumn.display",
+    "detail": "EmbeddedListField forwards the select display to the EmbeddedListInput primitive."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "entityEdit shows locked records as a view",
+    "detail": "EntityEditUpdateForm shows the view when screen.readOnly matches or entity.lockedWhen matches or its field is missing from the record. Adds the default string errors.recordLocked."
+  },
+  {
+    "version": "0.361.0",
+    "type": "breaking",
+    "title": "Searchable lists show their description as its own row",
+    "detail": "An entityList or projectionList with search used to hide its description. It now renders as a muted row below the toolbar, the same as on lists without search.",
+    "migration": "Look at lists that set description together with search. Drop descriptions that were only kept as a hint for developers, or move the text into emptyState if it explains an empty list."
+  },
+  {
     "version": "0.360.0",
     "type": "improvement",
     "title": "FileListField edits images and files fields",

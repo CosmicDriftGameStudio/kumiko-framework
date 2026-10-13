@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "German string for locked records",
+    "detail": "Adds errors.recordLocked."
+  },
+  {
     "version": "0.360.0",
     "type": "improvement",
     "title": "German strings for the file list widget and embedded list accessibility",

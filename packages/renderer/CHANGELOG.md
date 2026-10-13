@@ -1,5 +1,222 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.361.0
+
+### Minor Changes
+
+- a3a51aa: An edit field can be pre-filled when the create form opens. `{ field: "date", prefill: { kind: "today" } }` fills a date field with today's calendar date in the user's time zone, `{ field: "inspector", prefill: { kind: "currentUser", property: "displayName" } }` (or `email`, `id`) fills from the signed-in user. Only empty values are filled, the update form and values from URL params or a handoff are never touched, and unlike a field `default` nothing is applied server-side. The auth session now provides the user through the new `CurrentUserProvider` / `useOptionalCurrentUser()` renderer context, and `user:me` additionally returns `effectiveTimeZone`, the user's effective IANA zone (own setting, else tenant, else UTC); without a user zone the locale resolver's zone is used.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EditFieldSpec.prefill
+  detail: New EditFieldPrefill, today or currentUser with displayName, email or id, on the object form of EditFieldSpec.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot check for edit field prefill
+  detail: validateBoot allows today only on date fields, currentUser displayName and email only on text fields and id on text or reference fields.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Create form prefill and CurrentUserProvider
+  detail: EntityEditCreateBody applies prefill to empty initial values. New exports CurrentUser, CurrentUserProvider and useOptionalCurrentUser.
+  -->
+
+  <!-- kumiko-changes
+  feature: user
+  type: improvement
+  title: user:me returns effectiveTimeZone, SessionProvider provides the current user
+  detail: The me query adds effectiveTimeZone (ctx.tz.user), CurrentUserProfile.effectiveTimeZone is parsed by fetchCurrentUser and SessionProvider wraps its children in CurrentUserProvider.
+  -->
+
+- a3a51aa: An `entityEdit` screen can show an existing record as a read-only view. `readOnly: { field: "acknowledged", eq: true }` (any `FieldCondition`) is evaluated against the loaded record only and never applies to the create form. While it holds, every field including file upload and embedded-list row actions is disabled, and the screen has no save, discard or delete button and no unsaved-changes footer; record actions and cancel stay. The title resolves `screen:<id>.view.title` first and falls back to `screen:<id>.title`. This is UI only: write protection still comes from access rules and handlers on the server.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: entityEdit screens accept a readOnly condition
+  detail: EntityEditScreenDefinition.readOnly is a FieldCondition evaluated against the loaded record. UI only, the server is not affected.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot check for the entityEdit readOnly condition
+  detail: validateBoot rejects a screen readOnly condition whose field is not a field of the screen's entity.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Read-only view mode for entityEdit
+  detail: RenderEdit takes viewMode, which disables all fields and removes submit, discard, delete and the dirty footer while keeping record actions and cancel. The update body sets it when screen.readOnly holds for the record and resolves screen:<id>.view.title before screen:<id>.title.
+  -->
+
+- a3a51aa: An embedded list field on an edit screen can lock parts of its table. `{ field: "checkpoints", embeddedList: { readOnlyCells: ["text"], fixedRows: true } }` shows the named columns as non-editable cells and removes add, remove, duplicate and move (including Tab-appends-a-row and pasting past the last row), while the other cells stay editable. Boot validation rejects `embeddedList` on a field that is not an embedded list and `readOnlyCells` that are not sub-fields.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EditFieldSpec.embeddedList for read-only cells and fixed rows
+  detail: New EmbeddedListEditSpec with readOnlyCells and fixedRows on the object form of EditFieldSpec.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot check for embeddedList on edit fields
+  detail: validateBoot requires the field to be an embedded list and every readOnlyCells entry to be a sub-field.
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: Edit view model carries read-only cells and fixed rows
+  detail: EmbeddedListCellViewModel.readOnly and EditFieldViewModel.embeddedListFixedRows are derived from EditFieldSpec.embeddedList.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: EmbeddedListColumn.readOnly and EmbeddedListInput fixedRows
+  detail: EmbeddedListField forwards both, skips readOnly columns when pasting and never appends rows from a paste when rows are fixed.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Embedded list input honours readOnly cells and fixed rows
+  detail: A readOnly column renders disabled cells; fixedRows hides the actions column, the add button and the empty-state button and stops Tab/Enter from appending a row.
+  -->
+
+- a3a51aa: A select sub-field of an embedded list can be shown as segmented buttons in its table cell. Declare `display: "radio"` on the sub-field, the same option a single select field already has; the default in a cell stays a dropdown.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: display on embedded select sub-fields
+  detail: The select variant of EmbeddedSubFieldDef accepts display radio or dropdown.
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: Embedded list cells carry the select display
+  detail: EmbeddedListCellViewModel.display is taken from the sub-field.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: EmbeddedListColumn.display
+  detail: EmbeddedListField forwards the select display to the EmbeddedListInput primitive.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Segmented select in embedded list cells
+  detail: A select column with display radio renders the SegmentedSelect control, now in its own module so the embedded list input can use it.
+  -->
+
+- a3a51aa: An entity can declare `lockedWhen: FieldCondition`, for example `lockedWhen: { field: "status", eq: "closed" }`. The event-store executor refuses `update` and `delete` on a stored row whose state meets the condition, so generic CRUD, custom handlers (whatever they return), nested `ctx.write` and jobs running as a regular user are all covered. The write answers 409 `record_locked` (`errors.recordLocked`) and the transaction rolls back, so no event is written. The check reads the state before the write, so the write that sets the lock still passes. A row that lacks the condition field counts as locked. The check runs after the entity and field ownership checks and before the event append, so a caller without write rights sees `ownership_denied`, not 409. `forget` (Art. 17) never checks the lock. A write by the framework system user skips it only when the executor call names a `writePurpose` (`WritePurposes.retention` or `WritePurposes.erasure`, exported from `@cosmicdrift/kumiko-framework/db`); retention cleanup, the user-data erasure hooks and tenant destroy set it, so statutory deletion and anonymisation reach locked rows. A system-user write without a purpose is rejected like any other. A server-code call site that must change a locked row on purpose passes `{ unsafeSkipLockGuard: true }` as an executor option; neither it nor `writePurpose` is ever read from a request payload. Boot rejects a condition on an unknown field, on a `personal` or `encrypted` field, and on any type other than text, longText, select, boolean, number or reference. An `entityEdit` screen without its own `readOnly` shows a locked record as a read-only view, so the condition is declared once; a record that lacks the lock field (for example no read right on it) is always shown as a view, like the server treats it; `screen.readOnly` adds a UI-only condition on top; either one shows the view. A parent delete with `onDelete: cascade` or `setNull` answers 409 for the parent when a child row is locked, instead of removing or detaching it with the parent; this check runs in the dispatch delete lifecycle, so a write handler that returns the result of a parent `forget` is held back by a locked cascade child too. Remaining limits: `restore` is not guarded (it brings back unchanged data), and a custom projection that reacts to a domain event from `ctx.appendEvent` can still change a locked row, because that bypasses the executor. An app-written erasure hook should use `forget`; one that deletes or anonymises a locked row with `delete` or `update` needs `writePurpose: WritePurposes.erasure` as the system user, or `unsafeSkipLockGuard` as a regular user.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EntityDefinition.lockedWhen and the executor options unsafeSkipLockGuard and writePurpose
+  detail: lockedWhen is a FieldCondition evaluated against the stored row. update and delete on the EventStoreExecutor take unsafeSkipLockGuard to opt one call out, and writePurpose (WritePurposes.retention or erasure) lets the framework system user through. EntityEditScreenDefinition.readOnly is combined with the entity's lockedWhen (either shows the view).
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Locked records reject executor writes
+  detail: The event-store executor checks entity.lockedWhen against the loaded row in update and delete and fails with RecordLockedError (409, code record_locked, i18n key errors.recordLocked); a missing condition field counts as locked. Create, restore, forget, framework-system-user writes that name a writePurpose and the write that sets the lock pass. validateBoot rejects a lockedWhen field that is unknown, personal, encrypted or not a plain scalar type.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityEdit shows locked records as a view
+  detail: EntityEditUpdateForm shows the view when screen.readOnly matches or entity.lockedWhen matches or its field is missing from the record. Adds the default string errors.recordLocked.
+  -->
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: German string for locked records
+  detail: Adds errors.recordLocked.
+  -->
+
+  <!-- kumiko-changes
+  feature: locale-es
+  type: improvement
+  title: Spanish string for locked records
+  detail: Adds errors.recordLocked.
+  -->
+
+- f2346e5: `primaryAction` on a projectionDetail screen names the header action that renders as the filled primary button; the boot validator rejects an id that is not a header action.
+
+  `emptyState` on an entityList or projectionList defines the title, description and an optional action for an empty list, and `description` now also shows on searchable lists; a search or filter without matches shows its own "no entries match" text (`kumiko.list.empty.filtered`).
+
+  `header.statusToneField` on a projectionDetail screen picks the `statusTones` entry from another record field, so a badge text like "Terminated on 31.03.2027" keeps its tone.
+
+  A writeHandler `redirect` accepts `tab` to open a specific tab of a projectionDetail target.
+
+  File and image fields render as a rectangular thumbnail (variant, then original, then placeholder) or the file name instead of an id, in read-only forms and in list cells; `{ format: "image" | "file" }` selects the same display for list columns.
+
+  On narrow screens the status badge of a projectionDetail header moves into the page body so a long status stays readable, and the header keeps the edit pencil.
+
+  In a flow layout an edit field with `span` takes a full row.
+
+  Writes now reject file and image field values whose file id does not exist or does not belong to the writer's tenant, with a validation error on the field.
+
+  File and image fields only request ids that are UUIDs and encode the id and variant in the URL path.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Writes with file ids from another tenant are rejected
+  detail: A create or update that puts a file id into a file or image field now fails with a ValidationError (code invalid_element, path = field name) when the id is not a UUID, does not exist, or belongs to another tenant. That includes files stored under the SYSTEM tenant. On update only the changed fields are checked. The check runs for every write that returns a save result, inside the transaction, before pending file refs are bound. System users created for a tenant pass with that tenant's own files.
+  migration: Check seeds, imports and handlers that copy file ids across tenants or reference files uploaded as SYSTEM. Upload the file in the target tenant (or copy it there) before writing its id. A custom handler that writes through an executor directly, without returning a save result, is not covered and needs its own check.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Searchable lists show their description as its own row
+  detail: An entityList or projectionList with search used to hide its description. It now renders as a muted row below the toolbar, the same as on lists without search.
+  migration: Look at lists that set description together with search. Drop descriptions that were only kept as a hint for developers, or move the text into emptyState if it explains an empty list.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [99d1037]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [4bf01ba]
+- Updated dependencies [7f32198]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [91fc70e]
+- Updated dependencies [99d1037]
+- Updated dependencies [99d1037]
+- Updated dependencies [f2346e5]
+  - @cosmicdrift/kumiko-types@0.361.0
+  - @cosmicdrift/kumiko-framework@0.361.0
+  - @cosmicdrift/kumiko-headless@0.361.0
+
 ## 0.360.0
 
 ### Minor Changes

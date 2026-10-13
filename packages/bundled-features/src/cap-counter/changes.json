@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "cap-counter exports capReservationsTable and capReservationsTableMeta",
+    "detail": "The reservation table store_cap_reservations was only reachable through internal imports, so kumiko-enterprise redeclared it in a test. The cap-counter entry now exports capReservationsTable and capReservationsTableMeta, following the feature-toggles pattern."
+  },
+  {
     "version": "0.358.0",
     "type": "improvement",
     "title": "Reserve and settle cap usage outside the dispatcher",

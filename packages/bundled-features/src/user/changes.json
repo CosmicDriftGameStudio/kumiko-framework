@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "user:me returns effectiveTimeZone, SessionProvider provides the current user",
+    "detail": "The me query adds effectiveTimeZone (ctx.tz.user), CurrentUserProfile.effectiveTimeZone is parsed by fetchCurrentUser and SessionProvider wraps its children in CurrentUserProvider."
+  },
+  {
     "version": "0.354.0",
     "type": "fix",
     "title": "user:write:user:update resolves agent risk high"
