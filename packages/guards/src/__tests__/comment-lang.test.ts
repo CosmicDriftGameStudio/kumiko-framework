@@ -1,9 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gitEnv } from "../_lib/git-env";
-import { isGermanComment, scanGermanComments } from "../guard-comment-lang";
+import { isGermanComment, runCommentLangCli, scanGermanComments } from "../guard-comment-lang";
 import { writeRepo } from "./parent-workspace-fixture";
 
 const CLI_PATH = join(import.meta.dir, "..", "cli.ts");
@@ -33,7 +33,6 @@ async function run(
 function withFixtureRepo<T>(fn: (dir: string) => Promise<T>): Promise<T> {
   const dir = mkdtempSync(join(tmpdir(), "comment-lang-fixture-"));
   writeRepo(dir, { name: "comment-lang-fixture", layout: "flat" });
-  // The legacy bin needs a tsconfig as ts-morph anchor in a standalone repo.
   writeFileSync(join(dir, "tsconfig.json"), "{}", "utf-8");
   git(dir, "init", "-q", "-b", "main");
   git(dir, "add", "-A");
@@ -119,5 +118,93 @@ describe("kumiko-guards comment-lang", () => {
       expect(result.stdout).toContain("Baseline format drift");
       expect(result.stderr).not.toContain("TypeError");
     });
+  });
+});
+
+describe("kumiko-guards comment-lang — tooling repos", () => {
+  test("scans a repo whose manifest kind is tooling", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "comment-lang-tooling-"));
+    try {
+      writeRepo(dir, {
+        name: "tooling-fixture",
+        layout: {
+          manifest: { kind: "tooling", sourceRoots: ["src"], testGlobs: ["src/**/*.test.ts"] },
+        },
+      });
+      writeFileSync(join(dir, "src/a.ts"), "// Dieser Wert wird nicht benötigt\n", "utf-8");
+
+      const result = await run(["bun", CLI_PATH, "comment-lang", "--list"], dir);
+
+      expect(result.stdout).toContain("2 files checked, 1 German comment(s) found");
+      expect(result.exitCode).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("scanGermanComments — division vs regex", () => {
+  test("a division before a trailing German comment is not scanned as a regex", () => {
+    const src = "const half = width / 2; // deutscher Kommentar hier über die Breite\n";
+    expect(scanGermanComments(src, "probe.ts")).toHaveLength(1);
+  });
+
+  test("a brace inside a comment after a division does not desync later comments", () => {
+    const src = [
+      "const half = width / 2; // { deutscher Kommentar über die Breite",
+      ["const other = `x $", "{half}`; // noch ein deutscher Kommentar für die Höhe"].join(""),
+      "",
+    ].join("\n");
+    expect(scanGermanComments(src, "probe.ts")).toHaveLength(2);
+  });
+
+  test("a regex literal containing a brace after an operator is still scanned as a regex", () => {
+    const src = [
+      "const re = /\\{/;",
+      ["const s = `a $", "{re}`; // deutscher Kommentar für den Test"].join(""),
+      "",
+    ].join("\n");
+    expect(scanGermanComments(src, "probe.ts")).toHaveLength(1);
+  });
+});
+
+describe("kumiko-guards comment-lang — push root", () => {
+  function listedCounts(cwd: string, vars: Readonly<Record<string, string | undefined>>): string {
+    const lines: string[] = [];
+    const logSpy = spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+      lines.push(args.join(" "));
+    });
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      runCommentLangCli(["--list"], cwd, vars);
+    } finally {
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+    return lines.join("\n");
+  }
+
+  test("a push root without a matching KUMIKO_CLI_SCOPE does not redirect the scan", () => {
+    const cleanRepo = mkdtempSync(join(tmpdir(), "comment-lang-clean-"));
+    const staleRepo = mkdtempSync(join(tmpdir(), "comment-lang-stale-"));
+    try {
+      writeRepo(cleanRepo, { name: "clean-fixture", layout: "flat" });
+      writeRepo(staleRepo, { name: "stale-fixture", layout: "flat" });
+      mkdirSync(join(staleRepo, "src"), { recursive: true });
+      writeFileSync(join(staleRepo, "src/a.ts"), "// Dieser Wert wird nicht benötigt\n", "utf-8");
+
+      expect(listedCounts(cleanRepo, { KUMIKO_PUSH_REPO_ROOT: staleRepo })).toContain(
+        "0 German comment(s) found",
+      );
+      expect(
+        listedCounts(cleanRepo, {
+          KUMIKO_PUSH_REPO_ROOT: staleRepo,
+          KUMIKO_CLI_SCOPE: "clean-fixture",
+        }),
+      ).toContain("0 German comment(s) found");
+    } finally {
+      rmSync(cleanRepo, { recursive: true, force: true });
+      rmSync(staleRepo, { recursive: true, force: true });
+    }
   });
 });

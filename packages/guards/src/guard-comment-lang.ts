@@ -2,8 +2,9 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { ts } from "ts-morph";
 import { gitEnv } from "./_lib/git-env";
-import { cliFlagsError, isLocalFinding } from "./_lib/guard-kit";
+import { ALL_REPO_KINDS, cliFlagsError, isLocalFinding } from "./_lib/guard-kit";
 import { lineHasIgnoreTag } from "./_lib/ignore-tag";
+import { resolvePushRepoRoot } from "./_lib/push-root";
 import { resolveRepoRoots } from "./_lib/roots";
 import { type ScanSpec, scanFiles } from "./_lib/scan-scope";
 
@@ -28,6 +29,7 @@ const IGNORE_TAG = "kumiko-lint-ignore comment-lang";
 
 const SCAN: ScanSpec = {
   scope: "source",
+  kinds: ALL_REPO_KINDS,
   extensions: ["ts", "tsx"],
   frameworkWithin: ["packages/*/src/**"],
 };
@@ -66,6 +68,48 @@ function germanCommentSite(
   };
 }
 
+// After these tokens a `/` is division, not the start of a regex literal.
+const DIVISION_PRECEDING_KINDS: ReadonlySet<ts.SyntaxKind> = new Set([
+  ts.SyntaxKind.Identifier,
+  ts.SyntaxKind.ThisKeyword,
+  ts.SyntaxKind.TrueKeyword,
+  ts.SyntaxKind.FalseKeyword,
+  ts.SyntaxKind.NullKeyword,
+  ts.SyntaxKind.NumericLiteral,
+  ts.SyntaxKind.BigIntLiteral,
+  ts.SyntaxKind.StringLiteral,
+  ts.SyntaxKind.NoSubstitutionTemplateLiteral,
+  ts.SyntaxKind.TemplateTail,
+  ts.SyntaxKind.RegularExpressionLiteral,
+  ts.SyntaxKind.CloseParenToken,
+  ts.SyntaxKind.CloseBracketToken,
+  ts.SyntaxKind.CloseBraceToken,
+  ts.SyntaxKind.PlusPlusToken,
+  ts.SyntaxKind.MinusMinusToken,
+]);
+
+const TRIVIA_KINDS: ReadonlySet<ts.SyntaxKind> = new Set([
+  ts.SyntaxKind.SingleLineCommentTrivia,
+  ts.SyntaxKind.MultiLineCommentTrivia,
+  ts.SyntaxKind.WhitespaceTrivia,
+  ts.SyntaxKind.NewLineTrivia,
+]);
+
+// The raw scanner always yields SlashToken for `/`; without the rescan a regex
+// body like /\{/ would shift braceDepth and end a template early. After an
+// operand the rescan would instead swallow `/ 2; // {` as a regex and hide the comment.
+function rescanSlashAsRegex(
+  scanner: ts.Scanner,
+  kind: ts.SyntaxKind,
+  previousSignificant: ts.SyntaxKind | undefined,
+): ts.SyntaxKind {
+  if (previousSignificant !== undefined && DIVISION_PRECEDING_KINDS.has(previousSignificant)) {
+    return kind;
+  }
+  const reScanned = scanner.reScanSlashToken();
+  return reScanned === ts.SyntaxKind.RegularExpressionLiteral ? reScanned : kind;
+}
+
 function closesTemplateSubstitution(
   templateBraceDepths: readonly number[],
   braceDepth: number,
@@ -91,6 +135,7 @@ export function scanGermanComments(fullText: string, file: string): Site[] {
 
   const templateBraceDepths: number[] = [];
   let braceDepth = 0;
+  let previousSignificant: ts.SyntaxKind | undefined;
 
   let kind = scanner.scan();
   while (kind !== ts.SyntaxKind.EndOfFileToken) {
@@ -107,13 +152,9 @@ export function scanGermanComments(fullText: string, file: string): Site[] {
         break;
       }
       case ts.SyntaxKind.SlashToken:
-      case ts.SyntaxKind.SlashEqualsToken: {
-        // The raw scanner always yields SlashToken for `/`; without the rescan a
-        // regex body like /\{/ would shift braceDepth and end a template early.
-        const reScanned = scanner.reScanSlashToken();
-        if (reScanned === ts.SyntaxKind.RegularExpressionLiteral) kind = reScanned;
+      case ts.SyntaxKind.SlashEqualsToken:
+        kind = rescanSlashAsRegex(scanner, kind, previousSignificant);
         break;
-      }
       case ts.SyntaxKind.TemplateHead:
       case ts.SyntaxKind.TemplateMiddle:
         templateBraceDepths.push(braceDepth);
@@ -132,6 +173,7 @@ export function scanGermanComments(fullText: string, file: string): Site[] {
       default:
         break;
     }
+    if (!TRIVIA_KINDS.has(kind)) previousSignificant = kind;
     kind = scanner.scan();
   }
   return sites;
@@ -422,7 +464,7 @@ export function runCommentLangCli(
     return 1;
   }
 
-  const pushRoot = env["KUMIKO_PUSH_REPO_ROOT"];
+  const pushRoot = resolvePushRepoRoot(env);
   const root = pushRoot && existsSync(pushRoot) ? pushRoot : cwd;
 
   try {

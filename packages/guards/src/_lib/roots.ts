@@ -9,7 +9,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import {
   type LoadedRepoManifest,
   loadRepoManifest,
@@ -113,6 +113,23 @@ function gitToplevelOf(cwd: string): string | undefined {
   }
   toplevelCache.set(cwd, spelled);
   return spelled;
+}
+
+/**
+ * The main checkout of the repo containing `from`, independent of what a linked
+ * worktree's folder is called. Undefined when git cannot answer or the common
+ * dir is not a `<repo>/.git`.
+ */
+function canonicalCheckoutOf(from: string): string | undefined {
+  const commonDir = git(from, ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+  if (commonDir === undefined || basename(commonDir) !== ".git") return undefined;
+  const checkout = dirname(commonDir);
+  return existsSync(checkout) ? checkout : undefined;
+}
+
+/** Directory name of the repo's canonical checkout; `local.name` when git names none. */
+export function localRepoDirName(local: RepoRoot): string {
+  return basename(canonicalCheckoutOf(local.absPath) ?? local.name);
 }
 
 function rootFrom(name: string, dir: string, loaded: LoadedRepoManifest): RepoRoot {
