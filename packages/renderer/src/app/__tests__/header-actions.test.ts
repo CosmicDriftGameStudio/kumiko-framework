@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { RenderEditAction } from "../../components/render-edit-types.js";
 import {
-  compactHeaderIconAction,
+  compactHeaderPrimary,
   orderPlainHeaderActions,
   primaryHeaderAction,
 } from "../header-actions.js";
@@ -34,21 +34,39 @@ describe("primaryHeaderAction", () => {
   });
 });
 
-describe("compactHeaderIconAction", () => {
-  test("a preferred action with a confirm cannot stand alone, so the pencil stays visible", () => {
-    expect(compactHeaderIconAction([edit, activate], "activate")?.id).toBe("edit");
+describe("compactHeaderPrimary", () => {
+  test("a declared confirm-gated action stays the button, labelled instead of a bare icon", () => {
+    const result = compactHeaderPrimary([edit, activate], "activate");
+    expect(result?.action.id).toBe("activate");
+    expect(result?.iconOnly).toBe(false);
   });
 
-  test("a plain preferred action becomes the icon button", () => {
-    expect(compactHeaderIconAction([edit, archive], "archive")?.id).toBe("archive");
+  test("a declared danger action is labelled too", () => {
+    const withDanger = [edit, terminate];
+    expect(compactHeaderPrimary(withDanger, "terminate")).toEqual({
+      action: terminate,
+      iconOnly: false,
+    });
   });
 
-  test("returns undefined when no candidate may stand alone", () => {
-    expect(compactHeaderIconAction([activate, terminate], "activate")).toBeUndefined();
+  test("a declared plain icon action is icon-only", () => {
+    expect(compactHeaderPrimary([edit, archive], "archive")).toEqual({
+      action: archive,
+      iconOnly: true,
+    });
   });
 
-  test("an icon-less action never becomes the icon button", () => {
-    expect(compactHeaderIconAction([action("sync")])).toBeUndefined();
+  test("without a declared action the pencil stays the icon button", () => {
+    expect(compactHeaderPrimary([edit, activate])).toEqual({ action: edit, iconOnly: true });
+  });
+
+  test("an undeclared id falls back to the pencil", () => {
+    expect(compactHeaderPrimary([edit, activate], "ghost")?.action.id).toBe("edit");
+  });
+
+  test("returns undefined when nothing declared may stand alone", () => {
+    expect(compactHeaderPrimary([activate, terminate])).toBeUndefined();
+    expect(compactHeaderPrimary([action("sync")])).toBeUndefined();
   });
 });
 

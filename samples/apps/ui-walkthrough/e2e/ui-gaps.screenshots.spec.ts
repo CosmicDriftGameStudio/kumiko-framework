@@ -56,4 +56,12 @@ test.describe("mobile", () => {
     await openLeaseDetailGaps(page);
     await shot(page, "lease-detail-mobile");
   });
+
+  test("lease-list-empty-mobile", async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto("/lease-list-empty");
+    await expect(page.getByText("Mietverträge (Prüfliste)").first()).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await shot(page, "lease-list-empty-mobile");
+  });
 });

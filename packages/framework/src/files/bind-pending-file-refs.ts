@@ -10,7 +10,7 @@ import { reraiseAsKumikoError } from "../errors/index.js";
 import { getFileRefExecutor } from "./create-file-ref.js";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
 
-function fileRefIdsOf(value: unknown): readonly string[] {
+export function fileRefIdsOf(value: unknown): readonly string[] {
   if (typeof value === "string") return isUuid(value) ? [value] : [];
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string" && isUuid(item));

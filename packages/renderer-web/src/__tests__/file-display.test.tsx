@@ -3,7 +3,13 @@ import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { RenderField, RenderList } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, waitFor } from "@testing-library/react";
-import { FileDisplayCell, FileNameLink, FileThumbnail } from "../primitives/file-thumbnail.js";
+import {
+  FileDisplayCell,
+  FileNameLink,
+  FileThumbnail,
+  fileOriginalUrl,
+  fileVariantUrl,
+} from "../primitives/file-thumbnail.js";
 import { FileUploadInput } from "../primitives/file-upload.js";
 import { render } from "./test-utils.js";
 
@@ -178,4 +184,44 @@ describe("list file columns", () => {
     );
     expect(await findByText("floorplan.pdf")).toBeDefined();
   });
+});
+
+describe("file URLs from untrusted values", () => {
+  const ID = FILE_ID;
+
+  test("a valid id and variant build the expected paths", () => {
+    expect(fileOriginalUrl(ID)).toBe(`/api/files/${ID}`);
+    expect(fileVariantUrl(ID, "thumb")).toBe(`/api/files/${ID}/variant/thumb`);
+  });
+
+  test("path segments are encoded", () => {
+    expect(fileOriginalUrl("a?b")).toBe("/api/files/a%3Fb");
+    expect(fileVariantUrl(ID, "../x")).toBe(`/api/files/${ID}/variant/..%2Fx`);
+  });
+
+  test.each(["../x", "a?b", "a#b"])(
+    "a non-uuid id %p renders a placeholder and no request",
+    (bad) => {
+      const originalFetch = globalThis.fetch;
+      const calls: string[] = [];
+      globalThis.fetch = ((input: RequestInfo | URL) => {
+        calls.push(String(input));
+        return Promise.reject(new Error("no network"));
+      }) as typeof fetch;
+      try {
+        const { container } = render(
+          <>
+            <FileThumbnail fileId={bad} variant="thumb" />
+            <FileNameLink fileId={bad} fallbackLabel="Attached" />
+          </>,
+        );
+        expect(container.querySelector("img")).toBeNull();
+        expect(container.querySelector("a")).toBeNull();
+        expect(container.textContent).toContain("Attached");
+        expect(calls).toEqual([]);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    },
+  );
 });

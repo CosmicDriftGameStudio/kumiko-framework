@@ -19,3 +19,7 @@ File and image fields render as a rectangular thumbnail (variant, then original,
 On narrow screens the status badge of a projectionDetail header moves into the page body so a long status stays readable, and the header keeps the edit pencil.
 
 In a flow layout an edit field with `span` takes a full row.
+
+Writes now reject file and image field values whose file id does not exist or does not belong to the writer's tenant, with a validation error on the field.
+
+File and image fields only request ids that are UUIDs and encode the id and variant in the URL path.

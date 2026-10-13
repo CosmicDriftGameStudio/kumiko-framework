@@ -108,7 +108,7 @@ import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.js
 import type { FeatureSchema } from "./feature-schema.js";
 import { buildFormSchema } from "./form-schema.js";
 import {
-  compactHeaderIconAction,
+  compactHeaderPrimary,
   orderPlainHeaderActions,
   primaryHeaderAction,
 } from "./header-actions.js";
@@ -3316,17 +3316,18 @@ function HeaderActionsBar({
     onError,
   });
   if (compact && PageHeader !== undefined) {
-    const iconPrimary = compactHeaderIconAction(actions, preferredPrimaryId);
-    const overflowActions = actions.filter((a) => a !== iconPrimary);
+    const compactPrimary = compactHeaderPrimary(actions, preferredPrimaryId);
+    const overflowActions = actions.filter((a) => a !== compactPrimary?.action);
     return (
       <>
-        {iconPrimary !== undefined && (
+        {compactPrimary !== undefined && (
           <RenderEditActionButton
-            key={iconPrimary.id}
-            action={iconPrimary}
+            key={compactPrimary.action.id}
+            action={compactPrimary.action}
             Button={Button}
             Dialog={Dialog}
-            iconOnly
+            iconOnly={compactPrimary.iconOnly}
+            compactLabel
             onError={onError}
           />
         )}

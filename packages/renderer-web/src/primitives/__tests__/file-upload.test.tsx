@@ -4,24 +4,31 @@ import { render } from "../../__tests__/test-utils.js";
 import { FileUploadInput } from "../file-upload.js";
 
 const noop = () => {};
+const FILE_ID = "11111111-2222-4333-8444-555555555555";
 
 // alt="" makes the <img> presentational (no accessible role), so
 // getByRole("img") wouldn't find it — query the DOM directly instead.
 describe("FileUploadInput — image variant preview src (#1950)", () => {
   test("with imageVariant set, the <img> src requests the named variant", () => {
     const { container } = render(
-      <FileUploadInput kind="image" id="avatar" value="abc" onChange={noop} imageVariant="thumb" />,
+      <FileUploadInput
+        kind="image"
+        id="avatar"
+        value={FILE_ID}
+        onChange={noop}
+        imageVariant="thumb"
+      />,
     );
     expect(container.querySelector("img")?.getAttribute("src")).toBe(
-      "/api/files/abc/variant/thumb",
+      `/api/files/${FILE_ID}/variant/thumb`,
     );
   });
 
   test("without imageVariant, the <img> src loads the original", () => {
     const { container } = render(
-      <FileUploadInput kind="image" id="avatar" value="abc" onChange={noop} />,
+      <FileUploadInput kind="image" id="avatar" value={FILE_ID} onChange={noop} />,
     );
-    expect(container.querySelector("img")?.getAttribute("src")).toBe("/api/files/abc");
+    expect(container.querySelector("img")?.getAttribute("src")).toBe(`/api/files/${FILE_ID}`);
   });
 });
 
@@ -52,7 +59,7 @@ describe("FileUploadInput — camera capture (#1953)", () => {
 describe("FileUploadInput — translated labels", () => {
   test("buttons and the attached hint use the locale strings", () => {
     const { getByRole, getByText } = render(
-      <FileUploadInput kind="file" id="doc" value="abc" onChange={noop} />,
+      <FileUploadInput kind="file" id="doc" value={FILE_ID} onChange={noop} />,
     );
     expect(getByRole("button", { name: "Change" })).toBeDefined();
     expect(getByRole("button", { name: "Remove" })).toBeDefined();

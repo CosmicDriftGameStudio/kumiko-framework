@@ -46,7 +46,7 @@ export const rentalTranslations: TranslationsByLocale = {
     "screen:lease-detail-gaps.title": "Mietvertrag",
     "screen:lease-list-empty.title": "Mietverträge (Prüfliste)",
     "rental.action.createLease": "Mietvertrag abschließen",
-    "rental:entity:lease:noun": { one: "Mietvertrag", other: "Mietverträgen" },
+    "rental:entity:lease:noun": { one: "Mietvertrag", other: "Mietverträge" },
     "rental.search.placeholder": "Mieter, Einheit oder Liegenschaft",
     "rental.positions.description": "Alle Positionen dieses Vertrags mit ihrem Verlauf.",
     "rental.positions.noun": { one: "Position", other: "Positionen" },
