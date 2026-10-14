@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Embedded list input honours readOnly cells and fixed rows",
+    "detail": "A readOnly column renders disabled cells; fixedRows hides the actions column, the add button and the empty-state button and stops Tab/Enter from appending a row."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Segmented select in embedded list cells",
+    "detail": "A select column with display radio renders the SegmentedSelect control, now in its own module so the embedded list input can use it."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "reparentAppSchemaNavs",
+    "detail": "New exported helper that re-parents navs by qualified nav name, extracted from filterAppSchemaNavsByAllowlist."
+  },
+  {
     "version": "0.360.0",
     "type": "improvement",
     "title": "File inputs post entityId; embedded list cells have accessible names",

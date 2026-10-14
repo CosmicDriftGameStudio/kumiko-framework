@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.361.0",
+    "type": "fix",
+    "title": "Audit log works under an active subject KMS",
+    "detail": "audit list, audit details and user-data-rights my-audit-log returned event payloads as stored. With a subject KMS configured the payload carried kumiko-pii ciphertext and the API leak guard answered 500 pii_ciphertext_leak. Every PII ciphertext string in the payload is now replaced by REDACTED_PII_PLACEHOLDER (\"[[personal data]]\"); the audit log still never shows plaintext PII."
+  },
+  {
     "version": "0.353.0",
     "type": "fix",
     "title": "Audit list paging no longer repeats rows with ascending sort",

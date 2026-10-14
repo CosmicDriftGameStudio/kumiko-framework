@@ -1,5 +1,95 @@
 [
   {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Boot check for edit field prefill",
+    "detail": "validateBoot allows today only on date fields, currentUser displayName and email only on text fields and id on text or reference fields."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Boot check for the entityEdit readOnly condition",
+    "detail": "validateBoot rejects a screen readOnly condition whose field is not a field of the screen's entity."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Boot check for embeddedList on edit fields",
+    "detail": "validateBoot requires the field to be an embedded list and every readOnlyCells entry to be a sub-field."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Locked records reject executor writes",
+    "detail": "The event-store executor checks entity.lockedWhen against the loaded row in update and delete and fails with RecordLockedError (409, code record_locked, i18n key errors.recordLocked); a missing condition field counts as locked. Create, restore, forget, framework-system-user writes that name a writePurpose and the write that sets the lock pass. validateBoot rejects a lockedWhen field that is unknown, personal, encrypted or not a plain scalar type."
+  },
+  {
+    "version": "0.361.0",
+    "type": "breaking",
+    "title": "POST /files checks write access to the target record",
+    "detail": "createRecordWriteCheck loads the stored row tenant-scoped and applies update-handler access, entity access.write, field write access and lockedWhen before the upload is stored. Results map to 404, 403 and 409 record_locked. Uploads with an entityId and no check wired are refused.",
+    "migration": "Grant the uploader the entity's update right for records they attach files to, or upload without an entityId and bind the file on save. Entities without a generic :update handler no longer accept uploads with an entityId. Code that used entityId as a free slot without a stored record must create the record first."
+  },
+  {
+    "version": "0.361.0",
+    "type": "breaking",
+    "title": "Unbound uploads are private to the uploader (security)",
+    "detail": "The default file access guard denies every operation on a file with no entityType or no entityId unless the caller is the uploader or has a role in privilegedRoles; the file routes answer 404 as for any denied file. Before, files without entityType were readable by the whole tenant and pending uploads until a record claimed them. bindPendingFileRefs now also runs for updates and binds the file ids named in the update's changes for file, image, files and images fields (same entityType and fieldName, entityId null, insertedById = caller), so createFileRefFromBytes with attachTo but no entityId plus a following update write attaches the file to the record.",
+    "migration": "Code that shows a file without entityType to other users (tenant logo, avatar, mail attachment, import preview, AI-agent output) must upload it with entityType and fieldName of a file field on a record and save the record, so readers of that record can read it; or keep it uploader-only, run the read as a role in privilegedRoles, or set a custom accessGuard in the files feature options. Apps that set accessGuard keep their own decision. Code that reads another user's pending upload before the record is saved must bind the file first or run as the uploader. Known case: solon's document upload (`document/web/upload-file.ts`) posts without entityType and the later document record (created by the ingest job, not the uploader) stores the id in its `fileId` field, so other users no longer read the original; solon must upload with entityType and fieldName of `fileId` and bind the file when the record is created, because a different creator cannot claim the pending upload."
+  },
+  {
+    "version": "0.361.0",
+    "type": "fix",
+    "title": "Personal file/image fields are no longer encrypted",
+    "detail": "collectPiiSubjectFields still lists file, image, files and images fields with a personal annotation (forget and retention use it), but the new collectPiiEncryptedFields leaves them out and every encrypt, decrypt, backfill and store-gate path now uses it. The column holds only the fileRef uuid; the binary is erased by the file-ref user-data hook."
+  },
+  {
+    "version": "0.361.0",
+    "type": "fix",
+    "title": "Personal fields are re-keyed to the new owner on owner change",
+    "detail": "On absent to X and X to Y, the executor writes the personal fields (personal: { of: ownerField }) of the row under the new owner's key into the update event, so the projection, a rebuild and every event from the transition on agree and only the current owner's forget decides erasure. As a result <entity>.updated changes can contain personal fields the caller did not send. X to absent keeps the values under X so the last owner's forget still erases them. The created event from before an owner existed stays tenant-keyed in the immutable log. The new backfill option rekeyTenantKeyedOwnerFields moves such tenant-keyed values under the owner the projection or payload names (never via whenAbsent, a projection row of another tenant is ignored, other tenants' keys are not touched, a forgotten owner yields the erased sentinel). The boot PII backfill passes it, and its fingerprint now includes a transform version, so each deployment runs one full pass and afterwards only catch-up passes near the cursor. A created event whose owner transition happens after that full pass is not rescanned and stays tenant-keyed until someone runs backfillEventPiiEncryption(db, registry, { resolveOwnerFromProjection: true, rekeyTenantKeyedOwnerFields: true }) followed by a projection rebuild, or the transform version is bumped.",
+    "migration": "No consumer code change. The boot backfill runs in the background (startPiiEventBackfillOnBoot, it does not block readiness, KUMIKO_SKIP_PII_BACKFILL=1 turns it off). On the first boot after the bump it does one full scan of kumiko_events and rebuilds the affected projections. Consumers reading updated.changes must not treat a personal field there as a user edit when the owner field changed in the same event."
+  },
+  {
+    "version": "0.361.0",
+    "type": "breaking",
+    "title": "Plural file fields have a projection column",
+    "detail": "files and images fields get a jsonb NOT NULL DEFAULT '[]' column on the entity table (entity-table-meta, buildEntityTable row type readonly string[]) and applyEntityEvent no longer strips them from updated events. Detail and list queries return the ordered id arrays; before, they never carried the field, so an edit form of a saved record showed no files. kumiko schema generate emits an in-place ADD COLUMN for existing tables and no .rebuild.json, so existing rows hold [] until their projection is rebuilt from the events.",
+    "migration": "Run kumiko schema generate and apply the migration. Existing rows keep [] until the entity projection is rebuilt, so add a rebuild marker before applying: create <NNNN_migration-name>.rebuild.json next to the generated SQL with {\"version\":1,\"tables\":[\"<table name from the ALTER TABLE statement>\"]}; kumiko schema apply then rebuilds the projection. Without the marker, call enqueueProjectionRebuild(\"<feature>:projection:<entity>-entity\", { db, registry, jobRunner }) from @cosmicdrift/kumiko-framework/migrations once per entity. Known consumers: solon protocol (attachmentFileIds) and the Wartungs-Demo (photos). Code that read the ids of a plural file field from the event log or from file_refs can read the row field instead."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Files removed from a record are deleted",
+    "detail": "disposeRemovedFileRefs runs next to bindPendingFileRefs for every save that is not a create. For each file field named in changes it soft-deletes the fileRefs present in previous but not in the saved row, when entityType, entityId and fieldName match this record. The binary is removed by the soft-delete cleanup job after retention, or by forget."
+  },
+  {
+    "version": "0.361.0",
+    "type": "breaking",
+    "title": "Schema generate rejects a table listed twice in ENTITY_METAS",
+    "detail": "When ENTITY_METAS contained the same tableName twice, the migration diff kept only the last definition and compared it against the previous snapshot entry, so a new index was written to .snapshot.json but no CREATE INDEX reached the migration SQL. kumiko-schema generate, kumiko-schema validate and programmatic generateMigration now throw (generate and validate exit 1 with a message naming every duplicated table) before any file is written.",
+    "migration": "Remove hand-added metas for tables a feature already registers from kumiko/schema.ts. Known: phronexsis kumiko/schema.ts appends IN_APP_MESSAGES_META next to collectTableMetas(FEATURES); drop it (and its comment), then run kumiko-schema generate — the existing in_app_messages_tenant_user_created_idx comes out as CREATE INDEX IF NOT EXISTS (no-op) and the two legacy indexes as commented review drops. The duplicate in_app_messages entry in .snapshot.json disappears with that generate."
+  },
+  {
+    "version": "0.361.0",
+    "type": "fix",
+    "title": "Soft-delete cleanup removes the bytes of expired fileRefs",
+    "detail": "softDeleteCleanupJob handles the fileRef entity through purgeExpiredFileRefsWithBytes, which deletes the original and its derivatives via the file provider and then only the rows whose bytes are gone. Failures are logged and retried on the next run."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "setupTestStack option lifecycleSystemHooks",
+    "detail": "Passes the given SystemHooks to buildServer, so tests can exercise pipeline lifecycle hooks like createCascadeDeleteHook through the real HTTP stack."
+  },
+  {
+    "version": "0.361.0",
+    "type": "breaking",
+    "title": "Writes with file ids from another tenant are rejected",
+    "detail": "A create or update that puts a file id into a file or image field now fails with a ValidationError (code invalid_element, path = field name) when the id is not a UUID, does not exist, or belongs to another tenant. That includes files stored under the SYSTEM tenant. On update only the changed fields are checked. The check runs for every write that returns a save result, inside the transaction, before pending file refs are bound. System users created for a tenant pass with that tenant's own files.",
+    "migration": "Check seeds, imports and handlers that copy file ids across tenants or reference files uploaded as SYSTEM. Upload the file in the target tenant (or copy it there) before writing its id. A custom handler that writes through an executor directly, without returning a save result, is not covered and needs its own check."
+  },
+  {
     "version": "0.360.0",
     "type": "breaking",
     "title": "Secure host-only session cookies use the __Host- prefix",

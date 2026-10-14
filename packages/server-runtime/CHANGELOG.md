@@ -1,5 +1,43 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.361.0
+
+### Patch Changes
+
+- 4bf01ba: runDevApp encrypts PII by default on an ephemeral dev DB, with an in-memory KMS and a throwaway blind-index key. A persistent dev DB (KUMIKO_DEV_DB_NAME) stays plaintext with the boot warning, and `kms: false` opts out.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: runDevApp encrypts PII on ephemeral dev DBs by default
+  detail: Without a kms option, runDevApp now configures an InMemoryKmsAdapter and a random blind-index key when KUMIKO_DEV_DB_NAME is unset. With a persistent dev DB nothing changes (plaintext plus warning, pass createPgKmsAdapter to encrypt). RunDevAppOptions.kms also accepts false for explicit plaintext. An app-provided kms keeps its previous behavior, including the boot abort for lookupable fields without a blindIndexKey.
+  migration: e2e or dev scripts that read PII columns raw must decrypt them or pass kms false to runDevApp. Apps that pass their own kms are unaffected.
+  -->
+
+- Updated dependencies [33db7c0]
+- Updated dependencies [a63365a]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [99d1037]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [4bf01ba]
+- Updated dependencies [7f32198]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [91fc70e]
+- Updated dependencies [99d1037]
+- Updated dependencies [99d1037]
+- Updated dependencies [f2346e5]
+  - @cosmicdrift/kumiko-bundled-features@0.361.0
+  - @cosmicdrift/kumiko-types@0.361.0
+  - @cosmicdrift/kumiko-framework@0.361.0
+  - @cosmicdrift/kumiko-headless@0.361.0
+  - @cosmicdrift/kumiko-renderer-web@0.361.0
+
 ## 0.360.0
 
 ### Minor Changes

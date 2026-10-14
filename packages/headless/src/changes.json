@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Edit view model carries read-only cells and fixed rows",
+    "detail": "EmbeddedListCellViewModel.readOnly and EditFieldViewModel.embeddedListFixedRows are derived from EditFieldSpec.embeddedList."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "Embedded list cells carry the select display",
+    "detail": "EmbeddedListCellViewModel.display is taken from the sub-field."
+  },
+  {
+    "version": "0.361.0",
+    "type": "improvement",
+    "title": "resolveNavigation no longer renders empty groups or entries that open nothing",
+    "detail": "A nav node with no screen, target, provider, actions and createAction is dropped when none of its children is visible, also when it never had children. Allowlisted sidebars lose groups whose children are all filtered out. Give the entry a screen or keep a child visible to retain it."
+  },
+  {
     "version": "0.360.0",
     "type": "improvement",
     "title": "Edit view model carries entityId and maxCount for file fields",

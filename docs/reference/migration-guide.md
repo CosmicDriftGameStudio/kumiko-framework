@@ -2,13 +2,63 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-12
+verified: 2026-10-13
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.361.0
+
+### enterprise:dev-server
+
+**runDevApp encrypts PII on ephemeral dev DBs by default**
+
+Without a kms option, runDevApp now configures an InMemoryKmsAdapter and a random blind-index key when KUMIKO_DEV_DB_NAME is unset. With a persistent dev DB nothing changes (plaintext plus warning, pass createPgKmsAdapter to encrypt). RunDevAppOptions.kms also accepts false for explicit plaintext. An app-provided kms keeps its previous behavior, including the boot abort for lookupable fields without a blindIndexKey.
+
+**Migration:** e2e or dev scripts that read PII columns raw must decrypt them or pass kms false to runDevApp. Apps that pass their own kms are unaffected.
+
+### enterprise:renderer
+
+**Searchable lists show their description as its own row**
+
+An entityList or projectionList with search used to hide its description. It now renders as a muted row below the toolbar, the same as on lists without search.
+
+**Migration:** Look at lists that set description together with search. Drop descriptions that were only kept as a hint for developers, or move the text into emptyState if it explains an empty list.
+
+### framework-core
+
+**POST /files checks write access to the target record**
+
+createRecordWriteCheck loads the stored row tenant-scoped and applies update-handler access, entity access.write, field write access and lockedWhen before the upload is stored. Results map to 404, 403 and 409 record_locked. Uploads with an entityId and no check wired are refused.
+
+**Migration:** Grant the uploader the entity's update right for records they attach files to, or upload without an entityId and bind the file on save. Entities without a generic :update handler no longer accept uploads with an entityId. Code that used entityId as a free slot without a stored record must create the record first.
+
+**Unbound uploads are private to the uploader (security)**
+
+The default file access guard denies every operation on a file with no entityType or no entityId unless the caller is the uploader or has a role in privilegedRoles; the file routes answer 404 as for any denied file. Before, files without entityType were readable by the whole tenant and pending uploads until a record claimed them. bindPendingFileRefs now also runs for updates and binds the file ids named in the update's changes for file, image, files and images fields (same entityType and fieldName, entityId null, insertedById = caller), so createFileRefFromBytes with attachTo but no entityId plus a following update write attaches the file to the record.
+
+**Migration:** Code that shows a file without entityType to other users (tenant logo, avatar, mail attachment, import preview, AI-agent output) must upload it with entityType and fieldName of a file field on a record and save the record, so readers of that record can read it; or keep it uploader-only, run the read as a role in privilegedRoles, or set a custom accessGuard in the files feature options. Apps that set accessGuard keep their own decision. Code that reads another user's pending upload before the record is saved must bind the file first or run as the uploader. Known case: solon's document upload (`document/web/upload-file.ts`) posts without entityType and the later document record (created by the ingest job, not the uploader) stores the id in its `fileId` field, so other users no longer read the original; solon must upload with entityType and fieldName of `fileId` and bind the file when the record is created, because a different creator cannot claim the pending upload.
+
+**Plural file fields have a projection column**
+
+files and images fields get a jsonb NOT NULL DEFAULT '[]' column on the entity table (entity-table-meta, buildEntityTable row type readonly string[]) and applyEntityEvent no longer strips them from updated events. Detail and list queries return the ordered id arrays; before, they never carried the field, so an edit form of a saved record showed no files. kumiko schema generate emits an in-place ADD COLUMN for existing tables and no .rebuild.json, so existing rows hold [] until their projection is rebuilt from the events.
+
+**Migration:** Run kumiko schema generate and apply the migration. Existing rows keep [] until the entity projection is rebuilt, so add a rebuild marker before applying: create <NNNN_migration-name>.rebuild.json next to the generated SQL with {"version":1,"tables":["<table name from the ALTER TABLE statement>"]}; kumiko schema apply then rebuilds the projection. Without the marker, call enqueueProjectionRebuild("<feature>:projection:<entity>-entity", { db, registry, jobRunner }) from @cosmicdrift/kumiko-framework/migrations once per entity. Known consumers: solon protocol (attachmentFileIds) and the Wartungs-Demo (photos). Code that read the ids of a plural file field from the event log or from file_refs can read the row field instead.
+
+**Schema generate rejects a table listed twice in ENTITY_METAS**
+
+When ENTITY_METAS contained the same tableName twice, the migration diff kept only the last definition and compared it against the previous snapshot entry, so a new index was written to .snapshot.json but no CREATE INDEX reached the migration SQL. kumiko-schema generate, kumiko-schema validate and programmatic generateMigration now throw (generate and validate exit 1 with a message naming every duplicated table) before any file is written.
+
+**Migration:** Remove hand-added metas for tables a feature already registers from kumiko/schema.ts. Known: phronexsis kumiko/schema.ts appends IN_APP_MESSAGES_META next to collectTableMetas(FEATURES); drop it (and its comment), then run kumiko-schema generate — the existing in_app_messages_tenant_user_created_idx comes out as CREATE INDEX IF NOT EXISTS (no-op) and the two legacy indexes as commented review drops. The duplicate in_app_messages entry in .snapshot.json disappears with that generate.
+
+**Writes with file ids from another tenant are rejected**
+
+A create or update that puts a file id into a file or image field now fails with a ValidationError (code invalid_element, path = field name) when the id is not a UUID, does not exist, or belongs to another tenant. That includes files stored under the SYSTEM tenant. On update only the changed fields are checked. The check runs for every write that returns a save result, inside the transaction, before pending file refs are bound. System users created for a tenant pass with that tenant's own files.
+
+**Migration:** Check seeds, imports and handlers that copy file ids across tenants or reference files uploaded as SYSTEM. Upload the file in the target tenant (or copy it there) before writing its id. A custom handler that writes through an executor directly, without returning a save result, is not covered and needs its own check.
 
 ## 0.360.0
 

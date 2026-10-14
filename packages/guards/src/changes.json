@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.361.0",
+    "type": "fix",
+    "title": "comment-lang guard scans tooling repos, handles division before a comment and ignores a stale KUMIKO_PUSH_REPO_ROOT",
+    "detail": "comment-lang scans tooling repos, no longer rescans a division as a regex literal, and honours KUMIKO_PUSH_REPO_ROOT only when KUMIKO_CLI_SCOPE names that checkout. The scan-scope helpers scanFiles and scanRoots are exported."
+  },
+  {
     "version": "0.360.0",
     "type": "fix",
     "title": "public-exports-changelog requires the open breaking changeset to name the dropped export",

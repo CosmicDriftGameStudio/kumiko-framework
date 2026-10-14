@@ -1,5 +1,269 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.361.0
+
+### Minor Changes
+
+- a3a51aa: An edit field can be pre-filled when the create form opens. `{ field: "date", prefill: { kind: "today" } }` fills a date field with today's calendar date in the user's time zone, `{ field: "inspector", prefill: { kind: "currentUser", property: "displayName" } }` (or `email`, `id`) fills from the signed-in user. Only empty values are filled, the update form and values from URL params or a handoff are never touched, and unlike a field `default` nothing is applied server-side. The auth session now provides the user through the new `CurrentUserProvider` / `useOptionalCurrentUser()` renderer context, and `user:me` additionally returns `effectiveTimeZone`, the user's effective IANA zone (own setting, else tenant, else UTC); without a user zone the locale resolver's zone is used.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EditFieldSpec.prefill
+  detail: New EditFieldPrefill, today or currentUser with displayName, email or id, on the object form of EditFieldSpec.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot check for edit field prefill
+  detail: validateBoot allows today only on date fields, currentUser displayName and email only on text fields and id on text or reference fields.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Create form prefill and CurrentUserProvider
+  detail: EntityEditCreateBody applies prefill to empty initial values. New exports CurrentUser, CurrentUserProvider and useOptionalCurrentUser.
+  -->
+
+  <!-- kumiko-changes
+  feature: user
+  type: improvement
+  title: user:me returns effectiveTimeZone, SessionProvider provides the current user
+  detail: The me query adds effectiveTimeZone (ctx.tz.user), CurrentUserProfile.effectiveTimeZone is parsed by fetchCurrentUser and SessionProvider wraps its children in CurrentUserProvider.
+  -->
+
+- a3a51aa: An `entityEdit` screen can show an existing record as a read-only view. `readOnly: { field: "acknowledged", eq: true }` (any `FieldCondition`) is evaluated against the loaded record only and never applies to the create form. While it holds, every field including file upload and embedded-list row actions is disabled, and the screen has no save, discard or delete button and no unsaved-changes footer; record actions and cancel stay. The title resolves `screen:<id>.view.title` first and falls back to `screen:<id>.title`. This is UI only: write protection still comes from access rules and handlers on the server.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: entityEdit screens accept a readOnly condition
+  detail: EntityEditScreenDefinition.readOnly is a FieldCondition evaluated against the loaded record. UI only, the server is not affected.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot check for the entityEdit readOnly condition
+  detail: validateBoot rejects a screen readOnly condition whose field is not a field of the screen's entity.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Read-only view mode for entityEdit
+  detail: RenderEdit takes viewMode, which disables all fields and removes submit, discard, delete and the dirty footer while keeping record actions and cancel. The update body sets it when screen.readOnly holds for the record and resolves screen:<id>.view.title before screen:<id>.title.
+  -->
+
+- a3a51aa: An embedded list field on an edit screen can lock parts of its table. `{ field: "checkpoints", embeddedList: { readOnlyCells: ["text"], fixedRows: true } }` shows the named columns as non-editable cells and removes add, remove, duplicate and move (including Tab-appends-a-row and pasting past the last row), while the other cells stay editable. Boot validation rejects `embeddedList` on a field that is not an embedded list and `readOnlyCells` that are not sub-fields.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EditFieldSpec.embeddedList for read-only cells and fixed rows
+  detail: New EmbeddedListEditSpec with readOnlyCells and fixedRows on the object form of EditFieldSpec.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot check for embeddedList on edit fields
+  detail: validateBoot requires the field to be an embedded list and every readOnlyCells entry to be a sub-field.
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: Edit view model carries read-only cells and fixed rows
+  detail: EmbeddedListCellViewModel.readOnly and EditFieldViewModel.embeddedListFixedRows are derived from EditFieldSpec.embeddedList.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: EmbeddedListColumn.readOnly and EmbeddedListInput fixedRows
+  detail: EmbeddedListField forwards both, skips readOnly columns when pasting and never appends rows from a paste when rows are fixed.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Embedded list input honours readOnly cells and fixed rows
+  detail: A readOnly column renders disabled cells; fixedRows hides the actions column, the add button and the empty-state button and stops Tab/Enter from appending a row.
+  -->
+
+- a3a51aa: An entity can declare `lockedWhen: FieldCondition`, for example `lockedWhen: { field: "status", eq: "closed" }`. The event-store executor refuses `update` and `delete` on a stored row whose state meets the condition, so generic CRUD, custom handlers (whatever they return), nested `ctx.write` and jobs running as a regular user are all covered. The write answers 409 `record_locked` (`errors.recordLocked`) and the transaction rolls back, so no event is written. The check reads the state before the write, so the write that sets the lock still passes. A row that lacks the condition field counts as locked. The check runs after the entity and field ownership checks and before the event append, so a caller without write rights sees `ownership_denied`, not 409. `forget` (Art. 17) never checks the lock. A write by the framework system user skips it only when the executor call names a `writePurpose` (`WritePurposes.retention` or `WritePurposes.erasure`, exported from `@cosmicdrift/kumiko-framework/db`); retention cleanup, the user-data erasure hooks and tenant destroy set it, so statutory deletion and anonymisation reach locked rows. A system-user write without a purpose is rejected like any other. A server-code call site that must change a locked row on purpose passes `{ unsafeSkipLockGuard: true }` as an executor option; neither it nor `writePurpose` is ever read from a request payload. Boot rejects a condition on an unknown field, on a `personal` or `encrypted` field, and on any type other than text, longText, select, boolean, number or reference. An `entityEdit` screen without its own `readOnly` shows a locked record as a read-only view, so the condition is declared once; a record that lacks the lock field (for example no read right on it) is always shown as a view, like the server treats it; `screen.readOnly` adds a UI-only condition on top; either one shows the view. A parent delete with `onDelete: cascade` or `setNull` answers 409 for the parent when a child row is locked, instead of removing or detaching it with the parent; this check runs in the dispatch delete lifecycle, so a write handler that returns the result of a parent `forget` is held back by a locked cascade child too. Remaining limits: `restore` is not guarded (it brings back unchanged data), and a custom projection that reacts to a domain event from `ctx.appendEvent` can still change a locked row, because that bypasses the executor. An app-written erasure hook should use `forget`; one that deletes or anonymises a locked row with `delete` or `update` needs `writePurpose: WritePurposes.erasure` as the system user, or `unsafeSkipLockGuard` as a regular user.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EntityDefinition.lockedWhen and the executor options unsafeSkipLockGuard and writePurpose
+  detail: lockedWhen is a FieldCondition evaluated against the stored row. update and delete on the EventStoreExecutor take unsafeSkipLockGuard to opt one call out, and writePurpose (WritePurposes.retention or erasure) lets the framework system user through. EntityEditScreenDefinition.readOnly is combined with the entity's lockedWhen (either shows the view).
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Locked records reject executor writes
+  detail: The event-store executor checks entity.lockedWhen against the loaded row in update and delete and fails with RecordLockedError (409, code record_locked, i18n key errors.recordLocked); a missing condition field counts as locked. Create, restore, forget, framework-system-user writes that name a writePurpose and the write that sets the lock pass. validateBoot rejects a lockedWhen field that is unknown, personal, encrypted or not a plain scalar type.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityEdit shows locked records as a view
+  detail: EntityEditUpdateForm shows the view when screen.readOnly matches or entity.lockedWhen matches or its field is missing from the record. Adds the default string errors.recordLocked.
+  -->
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: German string for locked records
+  detail: Adds errors.recordLocked.
+  -->
+
+  <!-- kumiko-changes
+  feature: locale-es
+  type: improvement
+  title: Spanish string for locked records
+  detail: Adds errors.recordLocked.
+  -->
+
+- 99d1037: `POST /files` with an `entityId` now requires that the caller may write that record, checked before any byte is stored. The record must be readable (else 404 `not_found`), the entity's update handler, entity `access.write` and the file field's write access must allow the caller (else 403), and the record must not be locked by `lockedWhen` (else 409 `record_locked`). Before, any signed-in user of the tenant could attach files to any entityId, including records they could not read or that did not exist. An `entityId` without an `entityType` is rejected with 400 `missing_entity_type`. A custom `accessGuard` does not replace this check.
+
+  Migration: apps that attach files to records the uploader may not update must grant the update right or upload without an `entityId` and bind on save. An entity without a generic `:update` handler rejects uploads that carry an `entityId`. Uploads that used `entityId` as a free slot without a stored record (as the files-post-processing sample did) must create the record first.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: POST /files checks write access to the target record
+  detail: createRecordWriteCheck loads the stored row tenant-scoped and applies update-handler access, entity access.write, field write access and lockedWhen before the upload is stored. Results map to 404, 403 and 409 record_locked. Uploads with an entityId and no check wired are refused.
+  migration: Grant the uploader the entity's update right for records they attach files to, or upload without an entityId and bind the file on save. Entities without a generic :update handler no longer accept uploads with an entityId. Code that used entityId as a free slot without a stored record must create the record first.
+  -->
+
+- a3a51aa: Uploads that no record has claimed yet can only be read by their uploader and `privilegedRoles`. That covers pending uploads (an `entityType` but no `entityId` yet) and uploads without any `entityType`. Before, any user of the tenant could read another user's upload through `GET /files/:id`, `/meta`, `/download-url` and `/variant/:name`: pending uploads until a record claimed them, uploads without an `entityType` forever. The file routes answer 404 as for any denied file. A save also binds the caller's pending uploads on update, not only on create. On update, only the file ids the update names in its `changes` are bound, so `createFileRefFromBytes` with `attachTo` and no `entityId`, followed by an update that stores the id, now attaches the file. A file without `entityType` can never be bound to a record, so it stays private to its uploader.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Unbound uploads are private to the uploader (security)
+  detail: The default file access guard denies every operation on a file with no entityType or no entityId unless the caller is the uploader or has a role in privilegedRoles; the file routes answer 404 as for any denied file. Before, files without entityType were readable by the whole tenant and pending uploads until a record claimed them. bindPendingFileRefs now also runs for updates and binds the file ids named in the update's changes for file, image, files and images fields (same entityType and fieldName, entityId null, insertedById = caller), so createFileRefFromBytes with attachTo but no entityId plus a following update write attaches the file to the record.
+  migration: Code that shows a file without entityType to other users (tenant logo, avatar, mail attachment, import preview, AI-agent output) must upload it with entityType and fieldName of a file field on a record and save the record, so readers of that record can read it; or keep it uploader-only, run the read as a role in privilegedRoles, or set a custom accessGuard in the files feature options. Apps that set accessGuard keep their own decision. Code that reads another user's pending upload before the record is saved must bind the file first or run as the uploader. Known case: solon's document upload (`document/web/upload-file.ts`) posts without entityType and the later document record (created by the ingest job, not the uploader) stores the id in its `fileId` field, so other users no longer read the original; solon must upload with entityType and fieldName of `fileId` and bind the file when the record is created, because a different creator cannot claim the pending upload.
+  -->
+
+- a3a51aa: Plural file fields (`createFilesField`, `createImagesField`) are stored in a projection column. The column is `jsonb NOT NULL DEFAULT '[]'`, like `multiSelect`, and holds the ordered array of file ids. `<entity>:detail` and `<entity>:list` now return the array, so `FileListField` shows the stored files of a saved record instead of "No files yet."
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Plural file fields have a projection column
+  detail: files and images fields get a jsonb NOT NULL DEFAULT '[]' column on the entity table (entity-table-meta, buildEntityTable row type readonly string[]) and applyEntityEvent no longer strips them from updated events. Detail and list queries return the ordered id arrays; before, they never carried the field, so an edit form of a saved record showed no files. kumiko schema generate emits an in-place ADD COLUMN for existing tables and no .rebuild.json, so existing rows hold [] until their projection is rebuilt from the events.
+  migration: Run kumiko schema generate and apply the migration. Existing rows keep [] until the entity projection is rebuilt, so add a rebuild marker before applying: create <NNNN_migration-name>.rebuild.json next to the generated SQL with {"version":1,"tables":["<table name from the ALTER TABLE statement>"]}; kumiko schema apply then rebuilds the projection. Without the marker, call enqueueProjectionRebuild("<feature>:projection:<entity>-entity", { db, registry, jobRunner }) from @cosmicdrift/kumiko-framework/migrations once per entity. Known consumers: solon protocol (attachmentFileIds) and the Wartungs-Demo (photos). Code that read the ids of a plural file field from the event log or from file_refs can read the row field instead.
+  -->
+
+- a3a51aa: An update that removes or replaces an id in a `file`, `image`, `files` or `images` field now deletes the dropped fileRef, so readers of the record get 404 for it. Before, the fileRef stayed bound to the record and readable by everyone who could read it. The delete is the one `DELETE /files/:id` uses (soft delete; the soft-delete cleanup job removes the binary once the retention period is over), runs in the save's transaction and only touches fileRefs bound to exactly this record and field. Pending, shared or elsewhere-bound ids in the previous value are left alone. Deleting a whole record does not dispose its files in this step.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Files removed from a record are deleted
+  detail: disposeRemovedFileRefs runs next to bindPendingFileRefs for every save that is not a create. For each file field named in changes it soft-deletes the fileRefs present in previous but not in the saved row, when entityType, entityId and fieldName match this record. The binary is removed by the soft-delete cleanup job after retention, or by forget.
+  -->
+
+- 99d1037: The per-tenant soft-delete cleanup now removes the stored bytes of expired soft-deleted fileRefs, derivatives included, before it removes their rows. Before, the rows were deleted and the binaries stayed in storage. A row whose bytes could not be deleted, or that is processed without a file provider, stays and is retried by the next run.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Soft-delete cleanup removes the bytes of expired fileRefs
+  detail: softDeleteCleanupJob handles the fileRef entity through purgeExpiredFileRefsWithBytes, which deletes the original and its derivatives via the file provider and then only the rows whose bytes are gone. Failures are logged and retried on the next run.
+  -->
+
+- 99d1037: `setupTestStack` accepts `lifecycleSystemHooks`, a `SystemHooks` object that is handed to the server as its system hooks, so integration tests can run lifecycle hooks such as the cascade-delete hook that the stack does not wire by itself.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: setupTestStack option lifecycleSystemHooks
+  detail: Passes the given SystemHooks to buildServer, so tests can exercise pipeline lifecycle hooks like createCascadeDeleteHook through the real HTTP stack.
+  -->
+
+- f2346e5: `primaryAction` on a projectionDetail screen names the header action that renders as the filled primary button; the boot validator rejects an id that is not a header action.
+
+  `emptyState` on an entityList or projectionList defines the title, description and an optional action for an empty list, and `description` now also shows on searchable lists; a search or filter without matches shows its own "no entries match" text (`kumiko.list.empty.filtered`).
+
+  `header.statusToneField` on a projectionDetail screen picks the `statusTones` entry from another record field, so a badge text like "Terminated on 31.03.2027" keeps its tone.
+
+  A writeHandler `redirect` accepts `tab` to open a specific tab of a projectionDetail target.
+
+  File and image fields render as a rectangular thumbnail (variant, then original, then placeholder) or the file name instead of an id, in read-only forms and in list cells; `{ format: "image" | "file" }` selects the same display for list columns.
+
+  On narrow screens the status badge of a projectionDetail header moves into the page body so a long status stays readable, and the header keeps the edit pencil.
+
+  In a flow layout an edit field with `span` takes a full row.
+
+  Writes now reject file and image field values whose file id does not exist or does not belong to the writer's tenant, with a validation error on the field.
+
+  File and image fields only request ids that are UUIDs and encode the id and variant in the URL path.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Writes with file ids from another tenant are rejected
+  detail: A create or update that puts a file id into a file or image field now fails with a ValidationError (code invalid_element, path = field name) when the id is not a UUID, does not exist, or belongs to another tenant. That includes files stored under the SYSTEM tenant. On update only the changed fields are checked. The check runs for every write that returns a save result, inside the transaction, before pending file refs are bound. System users created for a tenant pass with that tenant's own files.
+  migration: Check seeds, imports and handlers that copy file ids across tenants or reference files uploaded as SYSTEM. Upload the file in the target tenant (or copy it there) before writing its id. A custom handler that writes through an executor directly, without returning a save result, is not covered and needs its own check.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Searchable lists show their description as its own row
+  detail: An entityList or projectionList with search used to hide its description. It now renders as a muted row below the toolbar, the same as on lists without search.
+  migration: Look at lists that set description together with search. Drop descriptions that were only kept as a hint for developers, or move the text into emptyState if it explains an empty list.
+  -->
+
+### Patch Changes
+
+- 4bf01ba: File and image fields with a `personal` annotation are no longer encrypted under an active subject KMS. Before, creating such a row failed because the uuid column received a `kumiko-pii:` ciphertext. The annotation stays and still drives the hard delete of the binary on forget.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Personal file/image fields are no longer encrypted
+  detail: collectPiiSubjectFields still lists file, image, files and images fields with a personal annotation (forget and retention use it), but the new collectPiiEncryptedFields leaves them out and every encrypt, decrypt, backfill and store-gate path now uses it. The column holds only the fileRef uuid; the binary is erased by the file-ref user-data hook.
+  -->
+
+- 7f32198: Personal fields now follow the row's current owner. When an update moves the owner (none to X, or X to Y), the update event carries the personal fields under the new owner's key, so forgetting the new owner erases them. A new backfill option moves older tenant-keyed values under their owner. The boot backfill uses it in its one full pass per fingerprint.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Personal fields are re-keyed to the new owner on owner change
+  detail: On absent to X and X to Y, the executor writes the personal fields (personal: { of: ownerField }) of the row under the new owner's key into the update event, so the projection, a rebuild and every event from the transition on agree and only the current owner's forget decides erasure. As a result <entity>.updated changes can contain personal fields the caller did not send. X to absent keeps the values under X so the last owner's forget still erases them. The created event from before an owner existed stays tenant-keyed in the immutable log. The new backfill option rekeyTenantKeyedOwnerFields moves such tenant-keyed values under the owner the projection or payload names (never via whenAbsent, a projection row of another tenant is ignored, other tenants' keys are not touched, a forgotten owner yields the erased sentinel). The boot PII backfill passes it, and its fingerprint now includes a transform version, so each deployment runs one full pass and afterwards only catch-up passes near the cursor. A created event whose owner transition happens after that full pass is not rescanned and stays tenant-keyed until someone runs backfillEventPiiEncryption(db, registry, { resolveOwnerFromProjection: true, rekeyTenantKeyedOwnerFields: true }) followed by a projection rebuild, or the transform version is bumped.
+  migration: No consumer code change. The boot backfill runs in the background (startPiiEventBackfillOnBoot, it does not block readiness, KUMIKO_SKIP_PII_BACKFILL=1 turns it off). On the first boot after the bump it does one full scan of kumiko_events and rebuilds the affected projections. Consumers reading updated.changes must not treat a personal field there as a user edit when the owner field changed in the same event.
+  -->
+
+- 91fc70e: kumiko-schema generate and validate now reject ENTITY_METAS that list a table twice. Before, the migration silently diffed only the last definition, so a new index landed in the snapshot without any CREATE INDEX SQL.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Schema generate rejects a table listed twice in ENTITY_METAS
+  detail: When ENTITY_METAS contained the same tableName twice, the migration diff kept only the last definition and compared it against the previous snapshot entry, so a new index was written to .snapshot.json but no CREATE INDEX reached the migration SQL. kumiko-schema generate, kumiko-schema validate and programmatic generateMigration now throw (generate and validate exit 1 with a message naming every duplicated table) before any file is written.
+  migration: Remove hand-added metas for tables a feature already registers from kumiko/schema.ts. Known: phronexsis kumiko/schema.ts appends IN_APP_MESSAGES_META next to collectTableMetas(FEATURES); drop it (and its comment), then run kumiko-schema generate — the existing in_app_messages_tenant_user_created_idx comes out as CREATE INDEX IF NOT EXISTS (no-op) and the two legacy indexes as commented review drops. The duplicate in_app_messages entry in .snapshot.json disappears with that generate.
+  -->
+
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [f2346e5]
+  - @cosmicdrift/kumiko-types@0.361.0
+  - @cosmicdrift/kumiko-http@0.361.0
+
 ## 0.360.0
 
 ### Minor Changes

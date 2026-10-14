@@ -1,5 +1,91 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.361.0
+
+### Minor Changes
+
+- a3a51aa: An edit field can be pre-filled when the create form opens. `{ field: "date", prefill: { kind: "today" } }` fills a date field with today's calendar date in the user's time zone, `{ field: "inspector", prefill: { kind: "currentUser", property: "displayName" } }` (or `email`, `id`) fills from the signed-in user. Only empty values are filled, the update form and values from URL params or a handoff are never touched, and unlike a field `default` nothing is applied server-side. The auth session now provides the user through the new `CurrentUserProvider` / `useOptionalCurrentUser()` renderer context, and `user:me` additionally returns `effectiveTimeZone`, the user's effective IANA zone (own setting, else tenant, else UTC); without a user zone the locale resolver's zone is used.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EditFieldSpec.prefill
+  detail: New EditFieldPrefill, today or currentUser with displayName, email or id, on the object form of EditFieldSpec.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot check for edit field prefill
+  detail: validateBoot allows today only on date fields, currentUser displayName and email only on text fields and id on text or reference fields.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Create form prefill and CurrentUserProvider
+  detail: EntityEditCreateBody applies prefill to empty initial values. New exports CurrentUser, CurrentUserProvider and useOptionalCurrentUser.
+  -->
+
+  <!-- kumiko-changes
+  feature: user
+  type: improvement
+  title: user:me returns effectiveTimeZone, SessionProvider provides the current user
+  detail: The me query adds effectiveTimeZone (ctx.tz.user), CurrentUserProfile.effectiveTimeZone is parsed by fetchCurrentUser and SessionProvider wraps its children in CurrentUserProvider.
+  -->
+
+### Patch Changes
+
+- 33db7c0: Audit log list/details (and the own-history self-disclosure) work under an active subject KMS: PII ciphertext in event payloads is replaced by the placeholder `[[personal data]]` instead of being rejected by the API leak guard.
+
+  <!-- kumiko-changes
+  feature: audit
+  type: fix
+  title: Audit log works under an active subject KMS
+  detail: audit list, audit details and user-data-rights my-audit-log returned event payloads as stored. With a subject KMS configured the payload carried kumiko-pii ciphertext and the API leak guard answered 500 pii_ciphertext_leak. Every PII ciphertext string in the payload is now replaced by REDACTED_PII_PLACEHOLDER ("[[personal data]]"); the audit log still never shows plaintext PII.
+  -->
+
+- a63365a: cap-counter now exports its reservation table, so consumers and their tests can read open reservations without declaring `store_cap_reservations` themselves.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: cap-counter exports capReservationsTable and capReservationsTableMeta
+  detail: The reservation table store_cap_reservations was only reachable through internal imports, so kumiko-enterprise redeclared it in a test. The cap-counter entry now exports capReservationsTable and capReservationsTableMeta, following the feature-toggles pattern.
+  -->
+
+- 4bf01ba: File and image fields with a `personal` annotation are no longer encrypted under an active subject KMS. Before, creating such a row failed because the uuid column received a `kumiko-pii:` ciphertext. The annotation stays and still drives the hard delete of the binary on forget.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Personal file/image fields are no longer encrypted
+  detail: collectPiiSubjectFields still lists file, image, files and images fields with a personal annotation (forget and retention use it), but the new collectPiiEncryptedFields leaves them out and every encrypt, decrypt, backfill and store-gate path now uses it. The column holds only the fileRef uuid; the binary is erased by the file-ref user-data hook.
+  -->
+
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [99d1037]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [4bf01ba]
+- Updated dependencies [7f32198]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [91fc70e]
+- Updated dependencies [99d1037]
+- Updated dependencies [99d1037]
+- Updated dependencies [f2346e5]
+  - @cosmicdrift/kumiko-types@0.361.0
+  - @cosmicdrift/kumiko-framework@0.361.0
+  - @cosmicdrift/kumiko-renderer@0.361.0
+  - @cosmicdrift/kumiko-headless@0.361.0
+  - @cosmicdrift/kumiko-renderer-web@0.361.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.361.0
+
 ## 0.360.0
 
 ### Minor Changes

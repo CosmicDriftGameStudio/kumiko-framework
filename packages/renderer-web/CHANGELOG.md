@@ -1,5 +1,150 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.361.0
+
+### Minor Changes
+
+- a3a51aa: An embedded list field on an edit screen can lock parts of its table. `{ field: "checkpoints", embeddedList: { readOnlyCells: ["text"], fixedRows: true } }` shows the named columns as non-editable cells and removes add, remove, duplicate and move (including Tab-appends-a-row and pasting past the last row), while the other cells stay editable. Boot validation rejects `embeddedList` on a field that is not an embedded list and `readOnlyCells` that are not sub-fields.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EditFieldSpec.embeddedList for read-only cells and fixed rows
+  detail: New EmbeddedListEditSpec with readOnlyCells and fixedRows on the object form of EditFieldSpec.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot check for embeddedList on edit fields
+  detail: validateBoot requires the field to be an embedded list and every readOnlyCells entry to be a sub-field.
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: Edit view model carries read-only cells and fixed rows
+  detail: EmbeddedListCellViewModel.readOnly and EditFieldViewModel.embeddedListFixedRows are derived from EditFieldSpec.embeddedList.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: EmbeddedListColumn.readOnly and EmbeddedListInput fixedRows
+  detail: EmbeddedListField forwards both, skips readOnly columns when pasting and never appends rows from a paste when rows are fixed.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Embedded list input honours readOnly cells and fixed rows
+  detail: A readOnly column renders disabled cells; fixedRows hides the actions column, the add button and the empty-state button and stops Tab/Enter from appending a row.
+  -->
+
+- a3a51aa: A select sub-field of an embedded list can be shown as segmented buttons in its table cell. Declare `display: "radio"` on the sub-field, the same option a single select field already has; the default in a cell stays a dropdown.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: display on embedded select sub-fields
+  detail: The select variant of EmbeddedSubFieldDef accepts display radio or dropdown.
+  -->
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: Embedded list cells carry the select display
+  detail: EmbeddedListCellViewModel.display is taken from the sub-field.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: EmbeddedListColumn.display
+  detail: EmbeddedListField forwards the select display to the EmbeddedListInput primitive.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Segmented select in embedded list cells
+  detail: A select column with display radio renders the SegmentedSelect control, now in its own module so the embedded list input can use it.
+  -->
+
+- a3a51aa: An app can file navigation entries of other features, including bundled ones, under a group of its own: `reparentAppSchemaNavs(schema, overrides)` is exported from renderer-web and rewrites parent and order of the entries named by their qualified nav name, without filtering anything. `filterAppSchemaNavsByAllowlist` now uses it, its behaviour is unchanged. Behaviour change: `resolveNavigation` no longer renders a nav entry that has no `screen`, `target`, `provider`, `actions` or `createAction` unless at least one of its children is visible. That covers a pure group whose children are all hidden by access or filtered out (for example by an allowlist), and an entry that never had children and declares nothing to open. Before, both rendered as an empty, unclickable heading. Apps that filter the sidebar with an allowlist (for example offlot) lose such groups as soon as the allowlist leaves them without children; allow or re-parent at least one child, or give the entry a `screen`, to keep it.
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: resolveNavigation no longer renders empty groups or entries that open nothing
+  detail: A nav node with no screen, target, provider, actions and createAction is dropped when none of its children is visible, also when it never had children. Allowlisted sidebars lose groups whose children are all filtered out. Give the entry a screen or keep a child visible to retain it.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: reparentAppSchemaNavs
+  detail: New exported helper that re-parents navs by qualified nav name, extracted from filterAppSchemaNavsByAllowlist.
+  -->
+
+- f2346e5: `primaryAction` on a projectionDetail screen names the header action that renders as the filled primary button; the boot validator rejects an id that is not a header action.
+
+  `emptyState` on an entityList or projectionList defines the title, description and an optional action for an empty list, and `description` now also shows on searchable lists; a search or filter without matches shows its own "no entries match" text (`kumiko.list.empty.filtered`).
+
+  `header.statusToneField` on a projectionDetail screen picks the `statusTones` entry from another record field, so a badge text like "Terminated on 31.03.2027" keeps its tone.
+
+  A writeHandler `redirect` accepts `tab` to open a specific tab of a projectionDetail target.
+
+  File and image fields render as a rectangular thumbnail (variant, then original, then placeholder) or the file name instead of an id, in read-only forms and in list cells; `{ format: "image" | "file" }` selects the same display for list columns.
+
+  On narrow screens the status badge of a projectionDetail header moves into the page body so a long status stays readable, and the header keeps the edit pencil.
+
+  In a flow layout an edit field with `span` takes a full row.
+
+  Writes now reject file and image field values whose file id does not exist or does not belong to the writer's tenant, with a validation error on the field.
+
+  File and image fields only request ids that are UUIDs and encode the id and variant in the URL path.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Writes with file ids from another tenant are rejected
+  detail: A create or update that puts a file id into a file or image field now fails with a ValidationError (code invalid_element, path = field name) when the id is not a UUID, does not exist, or belongs to another tenant. That includes files stored under the SYSTEM tenant. On update only the changed fields are checked. The check runs for every write that returns a save result, inside the transaction, before pending file refs are bound. System users created for a tenant pass with that tenant's own files.
+  migration: Check seeds, imports and handlers that copy file ids across tenants or reference files uploaded as SYSTEM. Upload the file in the target tenant (or copy it there) before writing its id. A custom handler that writes through an executor directly, without returning a save result, is not covered and needs its own check.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Searchable lists show their description as its own row
+  detail: An entityList or projectionList with search used to hide its description. It now renders as a muted row below the toolbar, the same as on lists without search.
+  migration: Look at lists that set description together with search. Drop descriptions that were only kept as a hint for developers, or move the text into emptyState if it explains an empty list.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [99d1037]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [4bf01ba]
+- Updated dependencies [7f32198]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [a3a51aa]
+- Updated dependencies [91fc70e]
+- Updated dependencies [99d1037]
+- Updated dependencies [99d1037]
+- Updated dependencies [f2346e5]
+  - @cosmicdrift/kumiko-types@0.361.0
+  - @cosmicdrift/kumiko-framework@0.361.0
+  - @cosmicdrift/kumiko-renderer@0.361.0
+  - @cosmicdrift/kumiko-headless@0.361.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.361.0
+
 ## 0.360.0
 
 ### Minor Changes
