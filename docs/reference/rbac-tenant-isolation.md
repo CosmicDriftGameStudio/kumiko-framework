@@ -171,12 +171,18 @@ Decision: no row-level security policy today — the TypeScript boundary (`Tenan
 
 ## Enforcement
 
-`infra/guards/guard-tenant-escalation.ts` (scans all Kumiko repos):
+`packages/guards/src/guard-tenant-escalation.ts` (part of `PUBLIC_GUARDS`; scans source and
+tests in all Kumiko repos):
 
 - **A** — every role-input write handler must have a test asserting a reserved
   role is rejected.
 - **B** — every membership-derived JWT mint must call
   `stripForbiddenMembershipRoles`.
+- **C** — a TenantAdmin-reachable write that reads a global user row via `ctx.db.raw` must
+  check the target's membership in the caller's tenant.
+
+The payload `tenantIdOverride` has no guard check: the dispatcher rejects it centrally for
+non-SystemAdmin callers (`tenantOverrideDenied`, see above), so handlers cannot skip it.
 
 ## Consequences
 
