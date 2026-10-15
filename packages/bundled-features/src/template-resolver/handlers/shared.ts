@@ -47,7 +47,6 @@ export const upsertPayloadSchema = z.object({
   content: z.string().max(200_000),
   contentFormat: contentFormatSchema,
   variableSchema: z.record(z.string(), z.unknown()).default({}),
-  linkedResources: z.record(z.string(), z.string()).default({}),
   // Shape depends on kind; validated against template-meta.ts in the handler so
   // problems surface as field issues on `meta.*`.
   meta: z.unknown().optional(),

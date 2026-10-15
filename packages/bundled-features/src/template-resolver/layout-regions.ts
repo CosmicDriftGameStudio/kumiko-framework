@@ -99,17 +99,19 @@ export function sanitizeLayoutHtml(html: string): SanitizeLayoutResult {
       ),
     );
   }
-  const cleaned: Partial<Record<RegionAttribute, string>> = {};
+  const cleanedHtml: Partial<Record<RegionAttribute, string>> = {};
   for (const name of ["data-header", "data-signature", "data-footer"] as const) {
     const inner = parsed.innerHtml[name];
     if (inner === undefined || inner.trim() === "") continue;
     const result = sanitizeDocumentHtml(inner);
-    if (result.ok) cleaned[name] = result.html;
+    if (result.ok) cleanedHtml[name] = result.html;
     else violations.push(...result.violations);
   }
   if (violations.length > 0) return { ok: false, violations };
-  const part = (name: RegionAttribute) =>
-    cleaned[name] === undefined ? "" : `<div ${name}>${cleaned[name]}</div>`;
+  const part = (name: RegionAttribute) => {
+    const regionHtml = cleanedHtml[name];
+    return regionHtml === undefined ? "" : `<div ${name}>${regionHtml}</div>`;
+  };
   return {
     ok: true,
     html: [

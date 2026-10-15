@@ -5,6 +5,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { CONTENT_FORMATS } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { attachTemplateResources } from "../template-resources.js";
 import { resolveTemplateVariables } from "../template-validation.js";
 import { targetExistsIssue } from "./bundle-import.js";
 import { kindSchema, localeSchema, templateSlugSchema } from "./shared.js";
@@ -68,7 +69,7 @@ export const copyLocaleWrite = defineWriteHandler({
     }
 
     const variableSchema = storedRecord(source.variableSchema);
-    return writeTemplateRow({
+    const written = await writeTemplateRow({
       ctx,
       user: event.user,
       tenantId,
@@ -82,11 +83,22 @@ export const copyLocaleWrite = defineWriteHandler({
         content: source.content,
         contentFormat: source.contentFormat,
         variableSchema,
-        linkedResources: stringRecord(source.linkedResources),
         meta: parseStoredJson(source.meta),
         title: source.title,
         folder: source.folder,
       },
     });
+    if (!written.isSuccess) return written;
+    // A system source carries no files of its own: its resource keys are known to the tenant row anyway.
+    if (source.tenantId === tenantId) {
+      const attached = await attachTemplateResources(ctx, {
+        user: event.user,
+        tenantId,
+        templateId: written.data.id,
+        resources: stringRecord(source.linkedResources),
+      });
+      if (!attached.isSuccess) return attached;
+    }
+    return written;
   },
 });

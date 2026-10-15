@@ -63,8 +63,8 @@ export type TemplateWriteInput = {
   readonly content: string | null;
   readonly rawMeta: unknown;
   readonly variables: TemplateVariables;
-  /** data-resource keys the template may reference besides the built-in `logo`. */
-  readonly resourceKeys: readonly string[];
+  /** Keys with an uploaded file besides the built-in `logo`; only feeds the unknownResources warning. */
+  readonly resourceKeys?: readonly string[];
 };
 
 export type TemplateWriteResult =

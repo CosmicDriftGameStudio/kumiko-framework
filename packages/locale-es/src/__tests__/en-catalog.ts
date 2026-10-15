@@ -1089,6 +1089,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Only system layouts may use {detail} source; use the structured html layout.",
   "templateResolver.errors.template.targetExists":
     "A template for locale “{detail}” already exists; overwrite it explicitly to replace it.",
+  "templateResolver.warnings.resourceNotUploaded": "Image not uploaded: {detail}",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Resource files can only be imported as system templates by a user of the system tenant.",
   "templateResolver.errors.collection.kindNotAllowed":

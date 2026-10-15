@@ -1123,6 +1123,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Nur System-Layouts dürfen {detail}-Quelltext verwenden; nutze das strukturierte html-Layout.",
   "templateResolver.errors.template.targetExists":
     "Für die Sprache „{detail}“ gibt es schon eine Vorlage; überschreibe sie ausdrücklich, um sie zu ersetzen.",
+  "templateResolver.warnings.resourceNotUploaded": "Bild nicht hochgeladen: {detail}",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Ressourcendateien lassen sich nur von einem Benutzer des System-Mandanten als Systemvorlagen importieren.",
   "templateResolver.errors.collection.kindNotAllowed":
