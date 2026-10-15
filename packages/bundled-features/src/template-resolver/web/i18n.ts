@@ -21,6 +21,10 @@ export const defaultTranslations: TranslationsByLocale = {
       "Link target “{detail}” is not allowed; use https, http, mailto, tel or a placeholder.",
     "templateResolver.errors.document.documentRequiresHtmlFormat":
       "This template kind requires the html format, got “{detail}”.",
+    "templateResolver.errors.document.embeddedContent":
+      "<{detail}> elements are not allowed in template bodies.",
+    "templateResolver.errors.document.unsafeAttributeValue":
+      "The attribute value “{detail}” must not contain < or >.",
     "templateResolver.errors.document.eventHandlerAttribute":
       "Inline event handler “{detail}” is not allowed.",
     "templateResolver.errors.document.externalImageSource":

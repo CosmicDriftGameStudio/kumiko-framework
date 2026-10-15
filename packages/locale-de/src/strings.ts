@@ -1084,6 +1084,10 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Das Linkziel „{detail}“ ist nicht erlaubt; verwende https, http, mailto, tel oder einen Platzhalter.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Diese Vorlagenart erfordert das Format html, erhalten: „{detail}“.",
+  "templateResolver.errors.document.embeddedContent":
+    "Elemente vom Typ <{detail}> sind in Vorlagentexten nicht erlaubt.",
+  "templateResolver.errors.document.unsafeAttributeValue":
+    "Der Attributwert „{detail}“ darf kein < oder > enthalten.",
   "templateResolver.errors.document.eventHandlerAttribute":
     "Das Inline-Event-Attribut „{detail}“ ist nicht erlaubt.",
   "templateResolver.errors.document.externalImageSource":
