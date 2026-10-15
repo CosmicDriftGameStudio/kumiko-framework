@@ -6,3 +6,10 @@
 // DOM deps.
 
 export { textBlocksClient } from "./client-plugin.js";
+export { DocumentContentEditor } from "./document-editor.js";
+export {
+  type DocumentEditorProps,
+  type DocumentToolbarBlock,
+  MAIL_DOCUMENT_BLOCKS,
+  PDF_DOCUMENT_BLOCKS,
+} from "./document-toolbar-blocks.js";

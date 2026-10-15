@@ -168,6 +168,26 @@ describe("ContentPreview", () => {
     expect(el.value).toBe("Preis: &lt;b&gt;0&lt;/b&gt; &amp; up");
   });
 
+  test("document format passes the content to the editor without substituting placeholders", () => {
+    function DocumentEditor({ value }: ContentEditorProps): ReactNode {
+      return <div data-testid="cp-document">{value}</div>;
+    }
+    const body = '<a data-button="" href="{{url}}">Go</a><span data-variable="name"></span>';
+
+    render(
+      <ContentEditorsProvider value={{ document: DocumentEditor }}>
+        <ContentPreview
+          content={body}
+          variables={{ url: "https://x.test" }}
+          contentFormat="document"
+        />
+      </ContentEditorsProvider>,
+      { wrapper: Wrapper },
+    );
+
+    expect(screen.getByTestId("cp-document").textContent).toBe(body);
+  });
+
   test("plain format: an example value with markup characters passes through unescaped", () => {
     render(
       <ContentPreview

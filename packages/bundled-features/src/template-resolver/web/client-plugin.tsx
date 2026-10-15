@@ -40,6 +40,7 @@ import {
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "../qualified-names.js";
+import { DocumentContentEditor } from "./document-editor.js";
 import { defaultTranslations } from "./i18n.js";
 
 // Exported for the unit test — groupBlocksByFolder is a pure function.
@@ -256,21 +257,22 @@ type TextBlock = {
   readonly modifiedAt: string | null;
 };
 
-// The collection's declared contentFormat ("plain" | "rich" | "markdown",
-// see ContentCollectionDefinition.contentFormat) uses a different vocabulary
+// The collection's declared contentFormat ("plain" | "rich" | "markdown" |
+// "document", see ContentCollectionDefinition.contentFormat) uses a different vocabulary
 // than the stored entry's contentFormat ("plain" | "html" | "markdown" |
-// "mjml", see CONTENT_FORMATS) — "rich" always stores HTML. Without this,
+// "mjml", see CONTENT_FORMATS) — "rich" and "document" always store HTML. Without this,
 // handleSave omitting contentFormat let the write schema's
 // contentFormatSchema.default("markdown") silently stamp every save as
 // markdown, clobbering e.g. a "plain" entry. Undefined (no collection, or
 // the collection didn't declare a format) keeps whatever was already saved
 // instead of guessing.
-function resolveWriteContentFormat(
+// Exported for the unit test — resolveWriteContentFormat is a pure function.
+export function resolveWriteContentFormat(
   collectionContentFormat: string | undefined,
   loadedContentFormat: string | undefined,
 ): string | undefined {
   if (collectionContentFormat === "plain") return "plain";
-  if (collectionContentFormat === "rich") return "html";
+  if (collectionContentFormat === "rich" || collectionContentFormat === "document") return "html";
   if (collectionContentFormat === "markdown") return "markdown";
   return loadedContentFormat;
 }
@@ -505,6 +507,7 @@ export function textBlocksClient(opts?: {
     contentEditors: {
       plain: PlainContentEditor,
       rich: RichContentEditor,
+      document: DocumentContentEditor,
       // ponytail: same textarea+chips as "plain" — markdown is stored as
       // text either way. Shares PlainContentEditor's fixed-DOM-id ceiling
       // (see its own file comment); swap for a live-preview widget or a
