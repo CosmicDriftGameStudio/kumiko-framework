@@ -1072,6 +1072,21 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.saved": "Guardado.",
   "template-resolver.editor.saving": "Guardando…",
   "template-resolver.editor.titleLabel": "Título",
+  "templateResolver.errors.document.buttonHrefNotPlaceholder":
+    "El destino del botón «{detail}» debe ser un marcador.",
+  "templateResolver.errors.document.disallowedLinkHref":
+    "El destino del enlace «{detail}» no está permitido; usa https, http, mailto, tel o un marcador.",
+  "templateResolver.errors.document.documentRequiresHtmlFormat":
+    "Este tipo de plantilla requiere el formato html, recibido: «{detail}».",
+  "templateResolver.errors.document.eventHandlerAttribute":
+    "El atributo de evento en línea «{detail}» no está permitido.",
+  "templateResolver.errors.document.externalImageSource":
+    "Las imágenes deben referenciar un recurso subido; la fuente de imagen «{detail}» no está permitida.",
+  "templateResolver.errors.document.imageWithoutResource":
+    "Las imágenes deben referenciar un recurso subido.",
+  "templateResolver.errors.document.invalidReferenceName": "«{detail}» no es un nombre válido.",
+  "templateResolver.errors.document.scriptElement":
+    "Los elementos <script> no están permitidos en los textos de plantilla.",
   "tenant-settings.currency": "Moneda predeterminada",
   "tenant-settings.locale": "Idioma predeterminado",
   "tenant-settings.settings": "Ajustes de la organización",

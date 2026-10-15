@@ -131,6 +131,7 @@
     "./feature-toggles": "./src/feature-toggles/index.ts",
     "./feature-toggles/web": "./src/feature-toggles/web/index.ts",
     "./template-resolver": "./src/template-resolver/index.ts",
+    "./template-resolver/document-schema": "./src/template-resolver/document-schema.ts",
     "./template-resolver/seeding": "./src/template-resolver/seeding.ts",
     "./template-resolver/testing": "./src/template-resolver/testing.ts",
     "./template-resolver/web": "./src/template-resolver/web/index.ts",
@@ -156,9 +157,15 @@
     "@cosmicdrift/kumiko-types": "workspace:*",
     "@mollie/api-client": "^4.5.0",
     "@node-rs/argon2": "^2.0.2",
+    "@tiptap/core": "3.31.3",
+    "@tiptap/extension-table": "3.31.3",
+    "@tiptap/html": "3.31.3",
+    "@tiptap/pm": "3.31.3",
+    "@tiptap/starter-kit": "3.31.3",
     "@types/mailparser": "^3.4.6",
     "@types/qrcode": "^1.5.5",
     "clsx": "^2.1.1",
+    "happy-dom": "^20.11.2",
     "hono": "^4.13.1",
     "imapflow": "^1.7.8",
     "ioredis": "^5.10.1",
@@ -616,6 +623,10 @@
       "./template-resolver": {
         "types": "./dist/template-resolver/index.d.ts",
         "default": "./dist/template-resolver/index.js"
+      },
+      "./template-resolver/document-schema": {
+        "types": "./dist/template-resolver/document-schema.d.ts",
+        "default": "./dist/template-resolver/document-schema.js"
       },
       "./template-resolver/seeding": {
         "types": "./dist/template-resolver/seeding.d.ts",

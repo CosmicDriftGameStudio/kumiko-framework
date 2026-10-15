@@ -1078,6 +1078,21 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.saved": "Gespeichert.",
   "template-resolver.editor.saving": "Speichern…",
   "template-resolver.editor.titleLabel": "Titel",
+  "templateResolver.errors.document.buttonHrefNotPlaceholder":
+    "Das Ziel der Schaltfläche „{detail}“ muss ein Platzhalter sein.",
+  "templateResolver.errors.document.disallowedLinkHref":
+    "Das Linkziel „{detail}“ ist nicht erlaubt; verwende https, http, mailto, tel oder einen Platzhalter.",
+  "templateResolver.errors.document.documentRequiresHtmlFormat":
+    "Diese Vorlagenart erfordert das Format html, erhalten: „{detail}“.",
+  "templateResolver.errors.document.eventHandlerAttribute":
+    "Das Inline-Event-Attribut „{detail}“ ist nicht erlaubt.",
+  "templateResolver.errors.document.externalImageSource":
+    "Bilder müssen auf eine hochgeladene Ressource verweisen; die Bildquelle „{detail}“ ist nicht erlaubt.",
+  "templateResolver.errors.document.imageWithoutResource":
+    "Bilder müssen auf eine hochgeladene Ressource verweisen.",
+  "templateResolver.errors.document.invalidReferenceName": "„{detail}“ ist kein gültiger Name.",
+  "templateResolver.errors.document.scriptElement":
+    "<script>-Elemente sind in Vorlagentexten nicht erlaubt.",
   "tenant-settings.currency": "Standard-Währung",
   "tenant-settings.locale": "Standard-Sprache",
   "tenant-settings.settings": "Mandanten-Einstellungen",

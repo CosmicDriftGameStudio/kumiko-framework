@@ -4,7 +4,9 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { requireForTenant } from "../../shared/index.js";
+import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.js";
 import type { TemplateResourceRow } from "../table.js";
 import { templateResourcesTable } from "../table.js";
 import { executor, upsertPayloadSchema } from "./shared.js";
@@ -25,6 +27,17 @@ export const upsertSystemWrite = defineWriteHandler({
     const tenantId = SYSTEM_TENANT_ID as TenantId;
     const { db, streamTenantId } = requireForTenant(ctx, tenantId);
 
+    const body = sanitizeTemplateBody({
+      kind: event.payload.kind,
+      contentFormat: event.payload.contentFormat,
+      content: event.payload.content,
+    });
+    if (!body.ok) {
+      return writeFailure(
+        new ValidationError({ fields: documentViolationsToFieldIssues(body.violations) }),
+      );
+    }
+
     const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
       tenantId,
       slug: event.payload.slug,
@@ -36,7 +49,7 @@ export const upsertSystemWrite = defineWriteHandler({
       slug: event.payload.slug,
       kind: event.payload.kind,
       locale: event.payload.locale,
-      content: event.payload.content,
+      content: body.content,
       contentFormat: event.payload.contentFormat,
       variableSchema: JSON.stringify(event.payload.variableSchema),
       linkedResources: JSON.stringify(event.payload.linkedResources),

@@ -4,8 +4,10 @@ import {
   defineWriteHandler,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.js";
+import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.js";
 import {
   type CollectionEntryRow,
   collectionStore,
@@ -50,6 +52,17 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
       // someone else's signature.
       const owner = store.scopeOf(event.user);
 
+      const body = sanitizeTemplateBody({
+        kind: collection.kind,
+        contentFormat: event.payload.contentFormat,
+        content: event.payload.content,
+      });
+      if (!body.ok) {
+        return writeFailure(
+          new ValidationError({ fields: documentViolationsToFieldIssues(body.violations) }),
+        );
+      }
+
       const existing = await fetchOne<CollectionEntryRow>(db, store.table, {
         tenantId,
         slug: event.payload.slug,
@@ -68,7 +81,7 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
             // the template upserts put on the row.
             changes: {
               title: event.payload.title,
-              content: event.payload.content,
+              content: body.content,
               contentFormat: event.payload.contentFormat,
               folder: event.payload.folder ?? null,
             },
@@ -91,7 +104,7 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
           kind: collection.kind,
           locale: event.payload.locale,
           title: event.payload.title,
-          content: event.payload.content,
+          content: body.content,
           contentFormat: event.payload.contentFormat,
           folder: event.payload.folder ?? null,
           ...store.createDefaults(tenantId),

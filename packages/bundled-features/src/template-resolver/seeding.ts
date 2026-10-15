@@ -29,6 +29,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants.js";
+import { sanitizeTemplateBody } from "./document-sanitizer.js";
 import { executor } from "./handlers/shared.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 
@@ -79,6 +80,18 @@ export async function seedSystemTemplate(
   const by = opts.by ?? createSystemUser(tenantId);
   const tdb = createTenantDb(db, tenantId, "system");
 
+  const body = sanitizeTemplateBody({
+    kind: opts.kind,
+    contentFormat: opts.contentFormat,
+    content: opts.content,
+  });
+  if (!body.ok) {
+    const messages = body.violations.map((item) => item.message);
+    throw new Error(
+      `seedSystemTemplate ${opts.slug}/${opts.kind}/${opts.locale} rejected: ${messages.join("; ")}`,
+    );
+  }
+
   const existingRow = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
     tenantId,
     slug: opts.slug,
@@ -100,7 +113,7 @@ export async function seedSystemTemplate(
     slug: opts.slug,
     kind: opts.kind,
     locale: opts.locale,
-    content: opts.content,
+    content: body.content,
     contentFormat: opts.contentFormat,
     variableSchema,
     linkedResources,

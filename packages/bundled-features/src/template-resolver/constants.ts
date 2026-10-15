@@ -14,6 +14,11 @@ export const RENDER_KINDS = [
 ] as const;
 export type RenderKind = (typeof RENDER_KINDS)[number];
 
+// Kinds whose html body is a rich document: the server rebuilds it through the
+// document schema on every write (see document-sanitizer.ts).
+export const DOCUMENT_HTML_KINDS = ["mail-html", "document-pdf"] as const;
+export type DocumentHtmlKind = (typeof DOCUMENT_HTML_KINDS)[number];
+
 // Kinds without a renderer plugin: `text-block` is the Markdown text store
 // (ex text-content feature), `ai-prompt` holds LLM prompts. Both are read,
 // not rendered — keeping them out of RENDER_KINDS is what stops
