@@ -2,12 +2,14 @@ import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { decryptStoredPii } from "../../shared/index.js";
 import { downloadAttemptsTable } from "../schema/download-attempt.js";
 
 // Operator-Query: invalid Download-Attempts (S2.U7).
 // DPO-Sicht fuer Brute-Force-Detection. Tenant-isolated via WHERE.
 
 const MAX_LIMIT = 100;
+const REQUEST_ID = "user-data-rights:list-download-attempts";
 
 export const listDownloadAttemptsQuery = defineQueryHandler({
   name: "list-download-attempts",
@@ -44,6 +46,16 @@ export const listDownloadAttemptsQuery = defineQueryHandler({
       limit: p.limit,
     });
 
-    return { rows };
+    const decryptedRows = await Promise.all(
+      rows.map(async (row) => ({
+        ...row,
+        ip: row.ip === null ? null : await decryptStoredPii(row.ip, "ip", REQUEST_ID),
+        userAgent:
+          row.userAgent === null
+            ? null
+            : await decryptStoredPii(row.userAgent, "userAgent", REQUEST_ID),
+      })),
+    );
+    return { rows: decryptedRows };
   },
 });

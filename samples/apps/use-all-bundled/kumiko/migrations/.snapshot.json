@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-09T15:50:24.419Z",
+  "generatedAt": "2026-10-15T11:31:53.935Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -565,6 +565,11 @@
           "notNull": false
         },
         {
+          "name": "ip_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
           "name": "user_agent",
           "pgType": "text",
           "notNull": false
@@ -579,9 +584,14 @@
         {
           "name": "read_download_attempts_tenant_id_idx",
           "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_download_attempts_ip_bidx_idx",
+          "columns": ["ip_bidx"]
         }
       ],
-      "source": "managed"
+      "source": "managed",
+      "piiSubjectFields": ["ip"]
     },
     {
       "tableName": "read_export_download_tokens",

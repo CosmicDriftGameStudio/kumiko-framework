@@ -25,6 +25,7 @@ export type { SendDeletionExecutedEmailFn } from "./run-forget-cleanup.js";
 export { policyToStrategy, runForgetCleanup } from "./run-forget-cleanup.js";
 export type { UserExportBundle } from "./run-user-export.js";
 export { runUserExport } from "./run-user-export.js";
+export { downloadAttemptEntity, downloadAttemptsTable } from "./schema/download-attempt.js";
 export {
   ACTIVE_JOB_CONSTRAINT,
   EXPORT_JOB_STATUS,
