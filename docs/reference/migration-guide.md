@@ -2,13 +2,21 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-13
+verified: 2026-10-15
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.362.0
+
+### framework-core
+
+**Optional number fields in entity forms start empty instead of 0**
+
+**Migration:** An optional number field without default no longer starts at 0 in entityEdit create/edit, and an untouched one is not sent. If a screen relied on the implicit 0, declare default: 0 on the field.
 
 ## 0.361.0
 

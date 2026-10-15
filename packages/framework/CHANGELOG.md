@@ -1,5 +1,88 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.362.0
+
+### Minor Changes
+
+- e5c2657: Binding of referenced files only for the record creator's own uploads
+
+  files:write:bind-referenced-files now binds a file only if the record creator uploaded it (or the system generated it), so foreign references cannot expose private uploads.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Binding of referenced files only for the record creator's own uploads
+  -->
+
+- e5c2657: files:write:bind-referenced-files binds a record's referenced files
+
+  System-only handler that binds the files a record references through its declared file fields (legacy uploads with entityId null, records created without a save lifecycle) so record readers can open them. Skips files bound elsewhere, of another tenant or missing. Callable from es-ops seeds via ctx.systemWriteAs; pages with limit and nextAfterId.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: files:write:bind-referenced-files binds a record's referenced files
+  -->
+
+- e5c2657: Optional number fields in entity forms start empty instead of 0
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Optional number fields in entity forms start empty instead of 0
+  migration: |
+    An optional number field without default no longer starts at 0 in entityEdit create/edit, and an untouched one is not sent. If a screen relied on the implicit 0, declare default: 0 on the field.
+  -->
+
+- e5c2657: unclaimedUploadReaders option for createFilesFeature
+
+  Roles listed in unclaimedUploadReaders may read (not delete) uploads that have no entityType and entityId, for documents referenced without a file field.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: unclaimedUploadReaders option for createFilesFeature
+  -->
+
+### Patch Changes
+
+- 61f7dd2: The client schema now carries the entity's `lockedWhen` condition. An entityEdit screen shows a record that matches it read-only even when the screen sets no `readOnly` of its own, as the `EditScreen.readOnly` docs already promised.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Client schema carries entity lockedWhen
+  detail: buildAppSchema projects lockedWhen, so an entityEdit screen shows a locked record read-only without a screen-level readOnly.
+  -->
+
+- b6870d9: feature-ast reads function values in r.secret options
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: r.secret options with function values (redact) no longer fail to parse
+  detail: |
+    r.secret(...) options that contain arrow or function expressions (for example redact: () => "••••••••") were reported as "options could not be read as a plain object", which turned the whole feature into a legacy corpus entry. The functions are now kept verbatim as raw references, option keys stay visible and a parse to render round-trip keeps them (multi-line function bodies may be re-indented). Function values in other patterns (entity, nav, metric, job) are still rejected on purpose.
+  migration: |
+    Consumers that ship a checked-in few-shot corpus (Enterprise) should regenerate it on the next framework bump; its drift test enforces that.
+  -->
+
+- 75d3e38: Anonymous query handlers can declare access.personalData: "public-intake" so personal data they write (for example an audit row with the caller's IP) passes the write gate.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Query handlers may declare personalData public-intake
+  detail: |
+    The personal-data write gate computed the public-intake exemption only for write handlers, so an anonymous query handler that wrote personal data (directly or through a nested write) was always rejected, and the boot validator refused access.personalData on query handlers. Query handlers now follow the same rules as write handlers: access.personalData "public-intake" requires the anonymous role and an active rateLimit (not disabled). openToAll.personalData stays write-only, stream handlers still cannot declare personalData.
+  migration: No consumer change; anonymous query handlers that write personal data now declare access.personalData: "public-intake" instead of failing at the write gate.
+  -->
+
+- Updated dependencies [0e8fe37]
+- Updated dependencies [ef14b5a]
+  - @cosmicdrift/kumiko-types@0.362.0
+  - @cosmicdrift/kumiko-http@0.362.0
+
 ## 0.361.0
 
 ### Minor Changes
