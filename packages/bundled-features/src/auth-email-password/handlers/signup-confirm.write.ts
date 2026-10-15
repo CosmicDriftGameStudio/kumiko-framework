@@ -36,6 +36,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { generateUniqueName } from "@cosmicdrift/kumiko-framework/random";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import {
   findSignupHandoverProvider,
@@ -100,10 +101,8 @@ const SIGNUP_CONFIRM_PROVISION_REASON =
 // match; this reads the same field the framework itself uses.
 function isBenignClaimRejection(error: WriteErrorInfo): boolean {
   return (
-    typeof error.details === "object" &&
-    error.details !== null &&
-    (error.details as Record<string, unknown>)["reason"] ===
-      SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE
+    isPlainObject(error.details) &&
+    error.details["reason"] === SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE
   );
 }
 

@@ -29,7 +29,7 @@ export { expandScopes } from "./scopes.js";
 export function patRateLimitFromFeature(feature: FeatureDefinition): PatRateLimit {
   const exports = feature.exports;
   if (exports && typeof exports === "object" && "rateLimit" in exports) {
-    const { rateLimit } = exports as { rateLimit: unknown };
+    const { rateLimit } = exports;
     if (
       rateLimit &&
       typeof rateLimit === "object" &&

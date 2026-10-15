@@ -7,6 +7,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { subscriptionsProjectionTable } from "../../billing-foundation/index.js";
 import type { CapLimitContext } from "../../cap-counter/index.js";
@@ -79,7 +80,7 @@ async function resolveLimitsByTenantAndCap(
 }
 
 function isSortableField(field: string): field is SortableField {
-  return (SORTABLE_FIELDS as readonly string[]).includes(field);
+  return isOneOf(SORTABLE_FIELDS, field);
 }
 
 // tier is a plain string with no defined ordering — lt/gt have no meaning

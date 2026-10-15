@@ -3,6 +3,7 @@ import {
   type FieldDefinition,
   fieldToZod,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
 import { SUPPORTED_FIELD_TYPES } from "../constants.js";
 
@@ -38,9 +39,8 @@ const SUPPORTED_EMBEDDED_SUB_TYPES: ReadonlySet<string> = new Set([
 const CONSTRAINT_KEYS = ["required", "maxLength", "format", "default"] as const;
 
 export function buildCustomFieldValueSchema(parsedField: unknown): z.ZodTypeAny | null {
-  if (!parsedField || typeof parsedField !== "object") return null;
-  const obj = parsedField as Record<string, unknown>;
-  const rawType = obj["type"];
+  if (!isPlainObject(parsedField)) return null;
+  const rawType = parsedField["type"];
   if (typeof rawType !== "string") return null;
   if (!SUPPORTED_TYPES_SET.has(rawType)) return null;
 
@@ -54,35 +54,34 @@ export function buildCustomFieldValueSchema(parsedField: unknown): z.ZodTypeAny 
   // drops everywhere else.
   let strippedSubSchema: Record<string, Record<string, unknown>> | undefined;
   if (rawType === "embedded") {
-    const schema = obj["schema"];
+    const schema = parsedField["schema"];
     if (!schema || typeof schema !== "object") return null;
     strippedSubSchema = {};
     for (const [subKey, sub] of Object.entries(schema)) {
-      if (!sub || typeof sub !== "object") return null;
-      const subObj = sub as Record<string, unknown>;
-      const subType = subObj["type"];
+      if (!isPlainObject(sub)) return null;
+      const subType = sub["type"];
       if (typeof subType !== "string" || !SUPPORTED_EMBEDDED_SUB_TYPES.has(subType)) {
         return null;
       }
-      const strippedSub = { ...subObj };
+      const strippedSub = { ...sub };
       for (const k of CONSTRAINT_KEYS) delete strippedSub[k];
       strippedSubSchema[subKey] = strippedSub;
     }
   }
 
-  const fieldDef: Record<string, unknown> = { ...obj };
+  const fieldDef: Record<string, unknown> = { ...parsedField };
   for (const k of CONSTRAINT_KEYS) delete fieldDef[k];
   if (strippedSubSchema !== undefined) fieldDef["schema"] = strippedSubSchema;
   if (rawType === "enum") {
     fieldDef["type"] = "select";
-    fieldDef["options"] = obj["values"] ?? obj["options"] ?? [];
+    fieldDef["options"] = parsedField["values"] ?? parsedField["options"] ?? [];
   }
 
   // fieldToZod's money case validates `currency` against the passed list, not
   // a field-level key — so surface the field's own currency when it declares
   // one, else fall back to the framework defaults.
   const currencies =
-    typeof obj["currency"] === "string" ? [obj["currency"] as string] : DEFAULT_CURRENCIES;
+    typeof parsedField["currency"] === "string" ? [parsedField["currency"]] : DEFAULT_CURRENCIES;
 
   // @cast-boundary serialized-field is the dehydrated r.field.X() output =
   // a FieldDefinition; fieldToZod reads only its type-specific keys (the

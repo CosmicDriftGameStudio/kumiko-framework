@@ -63,9 +63,7 @@ export function findReversedIds(
 ): Set<string> {
   const ids = new Set(rows.map((r) => r.id));
   return new Set(
-    rows
-      .filter((r) => r.reference !== null && ids.has(r.reference))
-      .map((r) => r.reference as string),
+    rows.flatMap((r) => (r.reference !== null && ids.has(r.reference) ? [r.reference] : [])),
   );
 }
 

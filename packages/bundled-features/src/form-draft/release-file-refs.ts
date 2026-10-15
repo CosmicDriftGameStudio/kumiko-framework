@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { FormDraftBlob } from "./schemas.js";
 
 // The draft blob's `values` is free-form by design (issue #1889: form-draft
@@ -8,8 +9,8 @@ import type { FormDraftBlob } from "./schemas.js";
 // step writes into the draft, whether under a single "file" field or nested
 // in a "files"/"images" array.
 function isFileRefPointer(value: unknown): value is { readonly storageKey: string } {
-  if (typeof value !== "object" || value === null) return false;
-  const storageKey = (value as { storageKey?: unknown }).storageKey;
+  if (!isPlainObject(value)) return false;
+  const storageKey = value["storageKey"];
   return typeof storageKey === "string" && storageKey.length > 0;
 }
 

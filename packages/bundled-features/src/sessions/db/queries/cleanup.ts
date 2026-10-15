@@ -6,7 +6,7 @@ export async function deleteStaleSessionsBatch(
   olderThanDays: number,
   batchSize: number,
 ): Promise<number> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = await asRawClient(db).unsafe<{ id: string }>(
     `DELETE FROM "store_user_sessions"
      WHERE "id" IN (
        SELECT "id" FROM "store_user_sessions"
@@ -16,6 +16,6 @@ export async function deleteStaleSessionsBatch(
      )
      RETURNING "id"`,
     [olderThanDays, batchSize],
-  )) as readonly { id: string }[];
+  );
   return rows.length;
 }

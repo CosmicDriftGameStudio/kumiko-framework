@@ -14,6 +14,7 @@ import type {
   SignatureExtraRouteDeps,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { subscriptionAggregateId } from "./aggregate-id.js";
 import { SubscriptionFoundationQueries, SubscriptionStatuses } from "./constants.js";
 import { createSubscriptionWebhookRoute } from "./webhook-handler.js";
@@ -52,12 +53,8 @@ export function effectiveTierFromSubscription<TTier extends string>(
 // (handler bug, or the handlerQn resolving to a non-list query) fails
 // loudly instead of crashing on `.find` against `undefined`.
 function asRows(result: unknown): ReadonlyArray<Record<string, unknown>> {
-  if (
-    typeof result === "object" &&
-    result !== null &&
-    Array.isArray((result as { rows?: unknown }).rows)
-  ) {
-    return (result as { rows: ReadonlyArray<Record<string, unknown>> }).rows;
+  if (isPlainObject(result) && Array.isArray(result["rows"])) {
+    return result["rows"];
   }
   throw new Error("expected a { rows: [...] } list-query result");
 }

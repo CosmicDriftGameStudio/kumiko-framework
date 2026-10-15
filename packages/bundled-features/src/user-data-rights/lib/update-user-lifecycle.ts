@@ -92,12 +92,12 @@ export type BackfillResult = {
 };
 
 export async function backfillUserLifecycleEvents(conn: DbRunner): Promise<BackfillResult> {
-  const rows = (await selectMany(conn, userTable, {})) as Array<{
+  const rows = await selectMany<{
     id: string;
     status: string;
     gracePeriodEnd: unknown;
     pendingDeletionRequestId: unknown;
-  }>;
+  }>(conn, userTable, {});
 
   let backfilled = 0;
   const failed: Array<{ id: string; error: string }> = [];

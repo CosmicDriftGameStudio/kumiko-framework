@@ -1,5 +1,6 @@
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { createHmacTokenCodec, type HmacTokenVerifyResult } from "./hmac-token-codec.js";
 
 export type MfaPreauthSetupPayload = {
@@ -8,9 +9,8 @@ export type MfaPreauthSetupPayload = {
 };
 
 function isPayload(value: unknown): value is MfaPreauthSetupPayload {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return typeof v["userId"] === "string" && typeof v["tenantId"] === "string";
+  if (!isPlainObject(value)) return false;
+  return typeof value["userId"] === "string" && typeof value["tenantId"] === "string";
 }
 
 // Domain "mfa-preauth-setup" must never equal the challenge domain: a setup

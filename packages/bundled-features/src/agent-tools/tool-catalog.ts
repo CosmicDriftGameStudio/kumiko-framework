@@ -137,9 +137,7 @@ function addToolsForListHandler(
     addTool(sink, tool, { kind: "search", entityName, qn });
   }
 
-  for (const [fieldName, field] of Object.entries(
-    entity.fields as Record<string, FieldDefinition>,
-  )) {
+  for (const [fieldName, field] of Object.entries(entity.fields)) {
     if (!isFilterable(field) || !isReadableWithoutRowCondition(field, roles)) continue;
     const fieldSchema = jsonSchemaTypeForField(field);
     if (!fieldSchema) continue;

@@ -31,9 +31,9 @@ export async function selectFieldDefinitionsForEntity(
   entityName: string,
   tenantId: string,
 ): Promise<readonly { field_key: string; serialized_field: unknown }[]> {
-  return unsafeReadRetrying(
+  return unsafeReadRetrying<{ field_key: string; serialized_field: unknown }>(
     db,
     "SELECT field_key, serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND tenant_id = $2",
     [entityName, tenantId],
-  ) as Promise<readonly { field_key: string; serialized_field: unknown }[]>;
+  );
 }

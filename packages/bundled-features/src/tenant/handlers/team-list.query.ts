@@ -7,6 +7,7 @@ import {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { errorCodeOf, isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { userSessionTable } from "../../sessions/index.js";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
@@ -37,7 +38,7 @@ const SORT_FIELDS = ["email", "status", "createdAt", "lastSeenAt"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
 
 function isSortField(value: string): value is SortField {
-  return (SORT_FIELDS as readonly string[]).includes(value);
+  return isOneOf(SORT_FIELDS, value);
 }
 
 // Nulls (no session yet, invitation rows) sort last regardless of
@@ -141,7 +142,7 @@ export const teamListQuery = definePagedQueryHandler({
         // ponytail: lean sample apps (admin-console) mount auth without
         // sessions — store_user_sessions never gets pushed. Integration tests
         // may seed the table without mounting the feature; prod mounts both.
-        if ((err as { code?: string }).code !== "42P01") throw err;
+        if (errorCodeOf(err) !== "42P01") throw err;
       }
     }
 

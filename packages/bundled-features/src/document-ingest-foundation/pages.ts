@@ -4,6 +4,7 @@
 // the codec here keeps liteparse + recipe consumers lockstep with the
 // entity shape (kumiko-framework#1549/1).
 
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { IngestPage } from "./entity.js";
 
 export function writeIngestPages(pages: readonly IngestPage[]): string {
@@ -28,7 +29,9 @@ function parseJson(raw: string): unknown {
 }
 
 function isIngestPage(value: unknown): value is IngestPage {
-  if (value === null || typeof value !== "object") return false;
-  const page = value as { pageNumber?: unknown; text?: unknown };
-  return typeof page.pageNumber === "number" && typeof page.text === "string";
+  return (
+    isPlainObject(value) &&
+    typeof value["pageNumber"] === "number" &&
+    typeof value["text"] === "string"
+  );
 }

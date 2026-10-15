@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { RendererContext, RenderRequest } from "../renderer-foundation/index.js";
 import {
   createTemplateResolverApi,
@@ -47,8 +48,8 @@ function parsePlainTemplateContent(content: string): Record<string, unknown> {
   if (!trimmed) return {};
   try {
     const parsed: unknown = JSON.parse(trimmed);
-    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
+    if (isPlainObject(parsed)) {
+      return parsed;
     }
   } catch {
     // ponytail: non-JSON plain content becomes a single body section downstream

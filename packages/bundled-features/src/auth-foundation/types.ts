@@ -48,10 +48,10 @@ export type AuthProviderPlugin = {
 
 export function isValidTokenShape(shape: unknown): shape is TokenShape {
   if (typeof shape !== "object" || shape === null || !("kind" in shape)) return false;
-  const kind = (shape as { kind: unknown }).kind;
+  const kind = shape.kind;
   if (kind === "jwt") return true;
   if (kind === "prefix") {
-    const prefix = "prefix" in shape ? (shape as { prefix: unknown }).prefix : undefined;
+    const prefix = "prefix" in shape ? shape.prefix : undefined;
     return typeof prefix === "string" && prefix.length > 0;
   }
   return false;
@@ -64,9 +64,9 @@ export function isAuthProviderPlugin(o: unknown): o is AuthProviderPlugin {
     typeof o === "object" &&
     o !== null &&
     "build" in o &&
-    typeof (o as { build: unknown }).build === "function" &&
+    typeof o.build === "function" &&
     "shape" in o &&
-    isValidTokenShape((o as { shape: unknown }).shape)
+    isValidTokenShape(o.shape)
   );
 }
 
@@ -105,12 +105,7 @@ export type SessionStoreProvider = {
 };
 
 export function isSessionStoreProvider(o: unknown): o is SessionStoreProvider {
-  return (
-    typeof o === "object" &&
-    o !== null &&
-    "build" in o &&
-    typeof (o as { build: unknown }).build === "function"
-  );
+  return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
 }
 
 // Tenant-resolution extension points (#1373). Both are single-provider and
@@ -154,19 +149,14 @@ export function isTenantResolverProvider(o: unknown): o is TenantResolverProvide
     typeof o === "object" &&
     o !== null &&
     "build" in o &&
-    typeof (o as { build: unknown }).build === "function" &&
+    typeof o.build === "function" &&
     "trust" in o &&
-    isTenantResolverTrust((o as { trust: unknown }).trust)
+    isTenantResolverTrust(o.trust)
   );
 }
 
 export function isTenantExistenceProvider(o: unknown): o is TenantExistenceProvider {
-  return (
-    typeof o === "object" &&
-    o !== null &&
-    "build" in o &&
-    typeof (o as { build: unknown }).build === "function"
-  );
+  return typeof o === "object" && o !== null && "build" in o && typeof o.build === "function";
 }
 
 // r.useExtension options-shape for auth-foundation's four extension points.

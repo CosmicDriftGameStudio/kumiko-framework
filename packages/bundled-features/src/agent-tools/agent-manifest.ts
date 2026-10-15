@@ -18,6 +18,7 @@ import {
   SYSTEM_ONLY_JSON_SCHEMA_KEY,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { recordManifestDenyQns } from "./manifest-deny-qns.js";
 import type {
@@ -199,7 +200,7 @@ export function systemOnlyPropertyNames(jsonSchema: Record<string, unknown>): re
   if (typeof properties !== "object" || properties === null) return [];
   return Object.entries(properties)
     .filter(
-      ([, property]) => (property as Record<string, unknown>)[SYSTEM_ONLY_JSON_SCHEMA_KEY] === true,
+      ([, property]) => isPlainObject(property) && property[SYSTEM_ONLY_JSON_SCHEMA_KEY] === true,
     )
     .map(([name]) => name);
 }
@@ -243,9 +244,7 @@ function buildHandlerEntry(
     // A handler whose schema can't be expressed as JSON Schema (transforms,
     // z.instanceof, ...) is unusable for an agent tool call — leave it out
     // rather than ship a broken tool.
-    inputSchema = withoutSystemOnlyProperties(
-      z.toJSONSchema(def.schema, { io: "input" }) as Record<string, unknown>,
-    );
+    inputSchema = withoutSystemOnlyProperties(z.toJSONSchema(def.schema, { io: "input" }));
   } catch {
     return undefined;
   }

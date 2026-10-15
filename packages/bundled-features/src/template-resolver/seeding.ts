@@ -76,7 +76,7 @@ export async function seedSystemTemplate(
   db: DbConnection,
   opts: SeedSystemTemplateOptions,
 ): Promise<{ id: string }> {
-  const tenantId = SYSTEM_TENANT_ID as TenantId;
+  const tenantId = SYSTEM_TENANT_ID;
   const by = opts.by ?? createSystemUser(tenantId);
   const tdb = createTenantDb(db, tenantId, "system");
 
@@ -319,7 +319,7 @@ export async function seedLegalContentFromJson(
   blocks: readonly LegalContentBlock[],
   opts: { readonly tenantId?: TenantId; readonly by?: SessionUser } = {},
 ): Promise<void> {
-  const tenantId = opts.tenantId ?? (SYSTEM_TENANT_ID as TenantId);
+  const tenantId = opts.tenantId ?? SYSTEM_TENANT_ID;
   const by = opts.by ?? createSystemUser(tenantId);
   for (const block of blocks) {
     await seedTextBlock(db, {

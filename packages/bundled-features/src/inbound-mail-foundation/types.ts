@@ -257,17 +257,15 @@ export class InboundTransientError extends Error {
   }
 }
 
-type KindCarrier = { readonly kind?: unknown };
-
 export function isInboundAuthError(e: unknown): e is InboundAuthError {
-  return e instanceof Error && (e as KindCarrier).kind === "inbound-auth-error";
+  return e instanceof Error && "kind" in e && e.kind === "inbound-auth-error";
 }
 export function isInboundRateLimitError(e: unknown): e is InboundRateLimitError {
-  return e instanceof Error && (e as KindCarrier).kind === "inbound-rate-limit-error";
+  return e instanceof Error && "kind" in e && e.kind === "inbound-rate-limit-error";
 }
 export function isInboundCursorInvalidError(e: unknown): e is InboundCursorInvalidError {
-  return e instanceof Error && (e as KindCarrier).kind === "inbound-cursor-invalid-error";
+  return e instanceof Error && "kind" in e && e.kind === "inbound-cursor-invalid-error";
 }
 export function isInboundTransientError(e: unknown): e is InboundTransientError {
-  return e instanceof Error && (e as KindCarrier).kind === "inbound-transient-error";
+  return e instanceof Error && "kind" in e && e.kind === "inbound-transient-error";
 }

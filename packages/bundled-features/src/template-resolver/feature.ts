@@ -88,10 +88,12 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
     // Visual-tree actions for the text-block content tree. The handle is
     // propagated through the setup export so other features can build
     // compile-time-typed cross-feature edit targets.
+    // r.treeActions keeps literal types (const generic); the args only declare string-typed slots.
+    const emptyString: string = "";
     const treeHandle = r.treeActions({
-      edit: { args: { slug: "" as string, locale: "" as string } },
+      edit: { args: { slug: emptyString, locale: emptyString } },
       list: {},
-      create: { args: { folder: "" as string } },
+      create: { args: { folder: emptyString } },
     });
 
     return { handlers, queries, treeHandle };

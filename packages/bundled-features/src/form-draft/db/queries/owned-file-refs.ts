@@ -62,13 +62,13 @@ export async function filterOwnedFileRefs(
   isCreateMode: boolean,
 ): Promise<readonly OwnedFileRef[]> {
   if (candidateKeys.length === 0) return [];
-  const rows = (await unsafeReadRetrying(
+  const rows = await unsafeReadRetrying<{ id: string; storage_key: string }>(
     db,
     `SELECT "id", "storage_key" FROM "file_refs"
      WHERE "tenant_id" = $1 AND "inserted_by_id" = $2
        AND "storage_key" = ANY($3::text[]) AND "is_deleted" = false
        AND ($5::boolean OR "inserted_at" > $4::timestamptz)`,
     [tenantId, ownerId, candidateKeys, draftInsertedAt.toString(), isCreateMode],
-  )) as readonly { id: string; storage_key: string }[];
+  );
   return rows.map((row) => ({ id: row.id, storageKey: row.storage_key }));
 }

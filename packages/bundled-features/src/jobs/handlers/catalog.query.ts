@@ -12,7 +12,7 @@ export type ManualJobCatalogEntry = {
 function payloadSchemaJson(job: JobDefinition): Record<string, unknown> | null {
   if (job.schema === undefined) return null;
   try {
-    return z.toJSONSchema(job.schema) as Record<string, unknown>;
+    return z.toJSONSchema(job.schema);
   } catch {
     // Non-JSON-Schema-able Zod types (transforms/effects) — UI still lists the job.
     return null;

@@ -254,7 +254,7 @@ export async function runForgetCleanup(
 
   // Step 1: Find users with expired grace period.
   const dueUsers = await selectUsersDueForForgetCleanup(
-    db as import("@cosmicdrift/kumiko-types/db-connection").DbConnection,
+    db,
     USER_STATUS.DeletionRequested,
     now.toString(),
   );

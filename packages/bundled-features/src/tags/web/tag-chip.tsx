@@ -21,7 +21,8 @@ export function contrastText(color: string): "#000000" | "#ffffff" | null {
 function hexToRgb(color: string): { r: number; g: number; b: number } | null {
   const match = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(color.trim());
   if (match === null) return null;
-  const short = match[1] as string;
+  const short = match[1];
+  if (short === undefined) return null;
   const hex =
     short.length === 3
       ? `${short[0]}${short[0]}${short[1]}${short[1]}${short[2]}${short[2]}`

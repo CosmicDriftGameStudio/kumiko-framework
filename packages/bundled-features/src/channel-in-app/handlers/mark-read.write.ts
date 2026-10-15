@@ -20,7 +20,7 @@ export const markReadWrite = defineWriteHandler({
   description:
     "Marks one in-app message of the calling user as read by its numeric id, failing with not-found when no such message belongs to the caller; use it when a user opens a single notification.",
   handler: async (event, ctx) => {
-    const rows = await updateMany(
+    const rows = await updateMany<{ id: number }>(
       ctx.db,
       inAppMessagesTable,
       { isRead: true, readAt: Temporal.Now.instant() },
@@ -29,6 +29,6 @@ export const markReadWrite = defineWriteHandler({
     if (rows.length === 0) {
       return writeFailure(new NotFoundError("inAppMessage", event.payload.id));
     }
-    return { isSuccess: true, data: { id: (rows[0] as { id: number } | undefined)?.id } };
+    return { isSuccess: true, data: { id: rows[0]?.id } };
   },
 });

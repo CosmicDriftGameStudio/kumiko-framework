@@ -110,7 +110,7 @@ async function runNew(args: readonly string[], out: Output, cwd: string): Promis
     out.log("  bun run boot");
     return 0;
   } catch (e) {
-    out.err(`kumiko new app: ${(e as Error).message}`);
+    out.err(`kumiko new app: ${e instanceof Error ? e.message : String(e)}`);
     return 1;
   }
 }
@@ -136,7 +136,7 @@ function runAdd(args: readonly string[], out: Output, cwd: string): number {
     );
     return 0;
   } catch (e) {
-    out.err(`kumiko add feature: ${(e as Error).message}`);
+    out.err(`kumiko add feature: ${e instanceof Error ? e.message : String(e)}`);
     return 1;
   }
 }

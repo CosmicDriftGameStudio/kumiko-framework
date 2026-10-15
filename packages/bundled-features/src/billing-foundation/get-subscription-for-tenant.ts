@@ -40,10 +40,10 @@ export async function getSubscriptionForTenant(
   if (!row) return null;
   const piiKms = configuredPiiSubjectKms();
   const decrypted = piiKms
-    ? await decryptPiiFieldValues(row as Record<string, unknown>, SUBSCRIPTION_PII_FIELDS, piiKms, {
+    ? await decryptPiiFieldValues(row, SUBSCRIPTION_PII_FIELDS, piiKms, {
         requestId: `billing-foundation:get-subscription:${tenantId}`,
       })
-    : (row as Record<string, unknown>);
+    : row;
   // @cast-boundary db-row — drizzle-row carries column-as-unknown
   return {
     tier: decrypted["tier"] as string,

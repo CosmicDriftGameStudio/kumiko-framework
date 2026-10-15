@@ -71,12 +71,13 @@ export const cancelDeletionWrite = defineWriteHandler({
 
     // gracePeriodEnd=null im Response symmetrisch zu request-deletion's
     // ISO-Timestamp — Frontend kann beide Endpoints uniform behandeln.
+    const gracePeriodEnd: string | null = null;
     return {
       isSuccess: true as const,
       data: {
         userId: event.user.id,
         status: USER_STATUS.Active,
-        gracePeriodEnd: null as string | null,
+        gracePeriodEnd,
       },
     };
   },

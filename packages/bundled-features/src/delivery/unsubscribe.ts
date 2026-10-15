@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as jose from "jose";
 import * as z from "zod";
 import { hashUnsubscribeAddress } from "./address-opt-out.js";
@@ -412,8 +413,10 @@ function tokenFromRequestBody(request: SignatureExtraRouteVerifyRequest): string
   }
   if (contentType?.includes("application/json")) {
     try {
-      const parsed = JSON.parse(request.rawBody) as { token?: unknown };
-      return typeof parsed.token === "string" ? parsed.token : undefined;
+      const parsed: unknown = JSON.parse(request.rawBody);
+      return isPlainObject(parsed) && typeof parsed["token"] === "string"
+        ? parsed["token"]
+        : undefined;
     } catch {
       return undefined;
     }

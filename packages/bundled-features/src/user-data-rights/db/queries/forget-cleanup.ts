@@ -1,10 +1,10 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { userTable } from "../../../user/index.js";
 
 export async function selectUsersDueForForgetCleanup(
-  db: DbConnection,
+  db: DbRunner,
   status: string,
   gracePeriodEndCutoff: Temporal.Instant | string,
 ): Promise<readonly { id: string }[]> {

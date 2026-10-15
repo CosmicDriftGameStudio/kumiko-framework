@@ -5,6 +5,7 @@ import {
   type RedisClientOptions,
   redisChannelPrefixFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ToggleSyncSignal } from "./toggle-runtime.js";
 
 // Single fixed channel — unlike the SSE broker there's no per-tenant/
@@ -20,10 +21,9 @@ export type RedisToggleSyncSignal = ToggleSyncSignal & {
 
 function isTogglePayload(value: unknown): value is { featureName: string; enabled: boolean } {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { featureName?: unknown }).featureName === "string" &&
-    typeof (value as { enabled?: unknown }).enabled === "boolean"
+    isPlainObject(value) &&
+    typeof value["featureName"] === "string" &&
+    typeof value["enabled"] === "boolean"
   );
 }
 

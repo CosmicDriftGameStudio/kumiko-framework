@@ -13,6 +13,7 @@
 
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 export const EXT_SIGNUP_HANDOVER = "signupHandover" as const;
 
@@ -46,10 +47,9 @@ export type SignupHandoverProvider = {
 
 export function isSignupHandoverProvider(options: unknown): options is SignupHandoverProvider {
   return (
-    typeof options === "object" &&
-    options !== null &&
-    typeof (options as Record<string, unknown>)["verifyGrant"] === "function" &&
-    typeof (options as Record<string, unknown>)["mintClaim"] === "function"
+    isPlainObject(options) &&
+    typeof options["verifyGrant"] === "function" &&
+    typeof options["mintClaim"] === "function"
   );
 }
 

@@ -11,6 +11,7 @@
 // generated secret material, not just re-derive it from a lookup.
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 export type MfaSetupPayload = {
   readonly userId: string;
@@ -47,15 +48,14 @@ export type VerifyMfaSetupResult =
   | { readonly ok: false; readonly reason: "malformed" | "bad_signature" | "expired" };
 
 function isEncodedBody(value: unknown): value is EncodedBody {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
+  if (!isPlainObject(value)) return false;
   return (
-    typeof v["userId"] === "string" &&
-    typeof v["totpSecretBase32"] === "string" &&
-    Array.isArray(v["recoveryCodeHashes"]) &&
-    v["recoveryCodeHashes"].every((h) => typeof h === "string") &&
-    typeof v["expiresAtMs"] === "number" &&
-    (v["tenantId"] === undefined || typeof v["tenantId"] === "string")
+    typeof value["userId"] === "string" &&
+    typeof value["totpSecretBase32"] === "string" &&
+    Array.isArray(value["recoveryCodeHashes"]) &&
+    value["recoveryCodeHashes"].every((h) => typeof h === "string") &&
+    typeof value["expiresAtMs"] === "number" &&
+    (value["tenantId"] === undefined || typeof value["tenantId"] === "string")
   );
 }
 

@@ -22,7 +22,6 @@ import {
   describeWorkflowStepError,
   getStep,
   SYSTEM_TENANT_ID,
-  type TenantId,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RUN_FAILED_TYPE,
   WorkflowStepError,
@@ -71,7 +70,7 @@ export function assertEventTriggerStepsSupported(workflow: WorkflowDefinition): 
     steps = buildPipelineSteps(workflow.pipelineDef, {
       type: "workflow-registration-probe",
       payload: {},
-      user: createSystemUser(SYSTEM_TENANT_ID as TenantId),
+      user: createSystemUser(SYSTEM_TENANT_ID),
     });
   } catch (error) {
     throw new Error(

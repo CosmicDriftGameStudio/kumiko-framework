@@ -1,5 +1,6 @@
 import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { runAsDirectCallEntry } from "@cosmicdrift/kumiko-framework/internal/request-context";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { FILTER_OPS, isRecord } from "./filter-ops.js";
 import type { ToolDispatchDescriptor } from "./types.js";
 
@@ -48,7 +49,7 @@ type PayloadResult =
   | { readonly ok: false; readonly error: string };
 
 function isFilterOp(value: unknown): value is FilterOp {
-  return typeof value === "string" && (FILTER_OPS as readonly string[]).includes(value);
+  return isOneOf(FILTER_OPS, value);
 }
 
 function buildSearchPayload(

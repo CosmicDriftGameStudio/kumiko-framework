@@ -1,17 +1,19 @@
 // @runtime client
+
 import type { ColumnRendererProps } from "@cosmicdrift/kumiko-renderer";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ReactNode } from "react";
 import type { CapUsage } from "../types.js";
 import { CapUsageBar } from "./cap-usage-bar.js";
 
 function isCapUsage(value: unknown): value is CapUsage {
-  if (typeof value !== "object" || value === null) return false;
-  const used = (value as { used?: unknown }).used;
-  const limit = (value as { limit?: unknown }).limit;
+  if (!isPlainObject(value)) return false;
+  const used = value["used"];
+  const limit = value["limit"];
   return (
     (typeof used === "number" || used === null) &&
     (typeof limit === "number" || limit === null) &&
-    typeof (value as { fraction?: unknown }).fraction === "number"
+    typeof value["fraction"] === "number"
   );
 }
 

@@ -1,5 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.js";
 import { isExpiredAt } from "../expiry.js";
@@ -13,7 +14,7 @@ const SORTABLE_COLUMNS = ["id", "name", "createdAt", "expiresAt", "revokedAt"] a
 type SortableColumn = (typeof SORTABLE_COLUMNS)[number];
 
 function isSortableColumn(value: string): value is SortableColumn {
-  return (SORTABLE_COLUMNS as readonly string[]).includes(value);
+  return isOneOf(SORTABLE_COLUMNS, value);
 }
 
 type PatStatus = "active" | "revoked" | "expired";

@@ -13,17 +13,16 @@ export const RENDERER_WEB_FONTS_DIST_DIR = "assets/kumiko/fonts";
 /** Allowlist for servable font file names; also rules out path segments. */
 export const RENDERER_WEB_FONT_FILE_PATTERN = /^[a-z0-9-]+\.woff2$/;
 
-const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+const hasBun = typeof Bun !== "undefined";
 
 /** Directory of the woff2 files next to renderer-web's styles.css, or
  *  undefined when the package can't be resolved from any `searchFrom` dir
  *  (or outside Bun, which does the package-exports resolution). */
 export function resolveRendererWebFontsDir(searchFrom: readonly string[]): string | undefined {
   if (!hasBun) return undefined;
-  const bun = (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }).Bun;
   for (const from of searchFrom) {
     try {
-      const stylesheet = bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", from);
+      const stylesheet = Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", from);
       return join(dirname(stylesheet), "fonts");
     } catch {
       // try the next search root

@@ -12,6 +12,7 @@ import {
   createMetricsHandle,
   createNoopMetricsHandle,
 } from "@cosmicdrift/kumiko-framework/observability";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks.js";
 import {
   EXPORT_SECTION_EXTENSION_NAME,
@@ -520,10 +521,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       handler: async (c, { app, clientIp }) => {
         const url = new URL(c.req.url);
         const parsedBody = await c.req.json().catch(() => null);
-        const token =
-          parsedBody && typeof parsedBody === "object" && "token" in parsedBody
-            ? (parsedBody as { token?: unknown }).token
-            : undefined;
+        const token = isPlainObject(parsedBody) ? parsedBody["token"] : undefined;
         if (typeof token !== "string" || token.length === 0) {
           return c.json({ error: "missing_token" }, 400);
         }

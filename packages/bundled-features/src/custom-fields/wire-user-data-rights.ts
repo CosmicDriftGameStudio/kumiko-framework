@@ -3,6 +3,7 @@
 import { type DbRunner, extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { UserDataExportSnippet, UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { EXT_USER_DATA, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { selectCustomFieldsHostRows } from "./db/queries/user-data-rights.js";
 
 export interface WireCustomFieldsUserDataRightsOptions {
@@ -17,14 +18,14 @@ interface CustomFieldsHostRow {
 }
 
 function asCustomFieldsHostRow(value: unknown): CustomFieldsHostRow | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  if (!("id" in value) || typeof value.id !== "string") return null;
-  const record = value as Record<string, unknown>;
-  const cf = record["custom_fields"] ?? record["customFields"];
+  if (!isPlainObject(value)) return null;
+  const id = value["id"];
+  if (typeof id !== "string") return null;
+  const cf = value["custom_fields"] ?? value["customFields"];
   if (cf === undefined) return null;
-  if (cf === null) return { id: value.id, customFields: null };
+  if (cf === null) return { id, customFields: null };
   if (!cf || typeof cf !== "object" || Array.isArray(cf)) return null;
-  return { id: value.id, customFields: Object.fromEntries(Object.entries(cf)) };
+  return { id, customFields: Object.fromEntries(Object.entries(cf)) };
 }
 
 // fw#2914 — selectCustomFieldsHostRows runs raw SQL against a dynamic host

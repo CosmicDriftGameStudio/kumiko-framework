@@ -4,6 +4,7 @@ import {
   definePagedQueryHandler,
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.js";
 import { userSessionTable } from "../schema/user-session.js";
@@ -17,7 +18,7 @@ const SORTABLE_COLUMNS = ["id", "userId", "createdAt", "expiresAt", "revokedAt"]
 type SortableColumn = (typeof SORTABLE_COLUMNS)[number];
 
 function isSortableColumn(value: string): value is SortableColumn {
-  return (SORTABLE_COLUMNS as readonly string[]).includes(value);
+  return isOneOf(SORTABLE_COLUMNS, value);
 }
 
 // Admin view of every session in the active tenant. ctx.db (TenantDb)

@@ -49,7 +49,7 @@ import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.js";
@@ -158,6 +158,17 @@ export type InboundMailSupervisor = {
   readonly stop: () => Promise<void>;
 };
 
+type ActiveMailAccountRow = {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly provider: string;
+  readonly authMethod: string;
+  readonly ownerUserId?: string | null;
+  readonly address: string;
+  readonly displayName?: string;
+  readonly watchState?: string;
+};
+
 export function createInboundMailSupervisor(
   deps: InboundMailSupervisorDeps,
 ): InboundMailSupervisor {
@@ -206,30 +217,29 @@ export function createInboundMailSupervisor(
   // (Provider arbeiten nie mit Ciphertext).
   // ---------------------------------------------------------------
   async function listActiveAccounts(): Promise<readonly MailAccountRecord[]> {
-    const rows = await selectMany(deps.db, mailAccountsProjectionTable, {
+    const rows = await selectMany<ActiveMailAccountRow>(deps.db, mailAccountsProjectionTable, {
       status: InboundMailAccountStatuses.active,
     });
     const piiKms = configuredPiiSubjectKms();
     const records: MailAccountRecord[] = [];
-    for (const raw of rows) {
-      const row = piiKms
-        ? await decryptPiiFieldValues(
-            raw as Record<string, unknown>,
-            MAIL_ACCOUNT_PII_FIELDS,
-            piiKms,
-            { requestId: "inbound-mail-foundation:supervisor:list-accounts" },
-          )
-        : (raw as Record<string, unknown>);
+    for (const row of rows) {
+      const decrypted = piiKms
+        ? await decryptPiiFieldValues(row, MAIL_ACCOUNT_PII_FIELDS, piiKms, {
+            requestId: "inbound-mail-foundation:supervisor:list-accounts",
+          })
+        : row;
+      const decryptedAddress =
+        typeof decrypted["address"] === "string" ? decrypted["address"] : row.address;
       records.push({
-        id: row["id"] as string,
-        tenantId: row["tenantId"] as string,
-        provider: row["provider"] as string,
-        authMethod: row["authMethod"] as string,
-        ownerUserId: (row["ownerUserId"] as string | null | undefined) ?? null,
-        address: row["address"] as string,
-        displayName: (row["displayName"] as string | undefined) ?? "",
+        id: row.id,
+        tenantId: row.tenantId,
+        provider: row.provider,
+        authMethod: row.authMethod,
+        ownerUserId: row.ownerUserId ?? null,
+        address: decryptedAddress,
+        displayName: row.displayName ?? "",
         status: InboundMailAccountStatuses.active,
-        watchState: (row["watchState"] as string | undefined) ?? "idle",
+        watchState: row.watchState ?? "idle",
       });
     }
     return records;
@@ -239,7 +249,7 @@ export function createInboundMailSupervisor(
   // Cursor-Persistenz (unmanaged direct-write store).
   // ---------------------------------------------------------------
   async function loadCursor(accountId: string): Promise<SyncCursorPayload | null> {
-    const row = await fetchOne<{ cursor: string }>(deps.db, syncCursorTable as EntityTableMeta, {
+    const row = await fetchOne<{ cursor: string }>(deps.db, syncCursorTable, {
       accountId,
       scope: CURSOR_SCOPE,
     });
@@ -258,21 +268,21 @@ export function createInboundMailSupervisor(
     const accountId = account.id;
     const now = Temporal.Now.instant().toString();
     const serialized = JSON.stringify(cursor);
-    const existing = await fetchOne<{ id: string }>(deps.db, syncCursorTable as EntityTableMeta, {
+    const existing = await fetchOne<{ id: string }>(deps.db, syncCursorTable, {
       accountId,
       scope: CURSOR_SCOPE,
     });
     if (existing) {
       await updateMany(
         deps.db,
-        syncCursorTable as EntityTableMeta,
+        syncCursorTable,
         { cursor: serialized, updatedAt: now },
         { accountId, scope: CURSOR_SCOPE },
       );
       // skip: update-Pfad fertig — nicht in den insert-Zweig durchfallen.
       return;
     }
-    await insertOne(deps.db, syncCursorTable as EntityTableMeta, {
+    await insertOne(deps.db, syncCursorTable, {
       id: crypto.randomUUID(),
       // Direct-write store: no executor stamps the NOT NULL tenant_id for us.
       tenantId: account.tenantId,
@@ -288,7 +298,7 @@ export function createInboundMailSupervisor(
     // → nächster fetch läuft als Backfill.
     await updateMany(
       deps.db,
-      syncCursorTable as EntityTableMeta,
+      syncCursorTable,
       { cursor: "", updatedAt: Temporal.Now.instant().toString() },
       { accountId, scope: CURSOR_SCOPE },
     );
