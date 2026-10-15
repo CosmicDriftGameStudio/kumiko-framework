@@ -21,11 +21,10 @@ const TEST_MFA = {
 } as const;
 
 describe("composeStacks", () => {
-  test("composeRendererStack → template-resolver, renderer-foundation, renderer-simple, renderer-mail-html", () => {
+  test("composeRendererStack → template-resolver, renderer-foundation, renderer-mail-html", () => {
     expect(stackFeatureNames(composeRendererStack())).toEqual([
       "template-resolver",
       "renderer-foundation",
-      "renderer-simple",
       "renderer-mail-html",
     ]);
   });
@@ -259,7 +258,7 @@ describe("composeStacks intended block names (snapshot, not live parity)", () =>
       "audit",
       "delivery",
       "jobs",
-      "renderer-simple",
+      "renderer-mail-html",
       "files",
     ]) {
       expect(names).toContain(expected);

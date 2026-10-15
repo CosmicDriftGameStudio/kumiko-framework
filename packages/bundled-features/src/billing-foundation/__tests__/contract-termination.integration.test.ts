@@ -22,6 +22,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import * as z from "zod";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import {
@@ -32,10 +33,10 @@ import { createConfigFeature } from "../../config/index.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferenceEntity } from "../../delivery/tables.js";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { createTemplateResolverApi } from "../../template-resolver/api.js";
 import { TEXT_BLOCK_KIND } from "../../template-resolver/constants.js";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { seedNotificationTemplates } from "../../template-resolver/seeding.js";
 import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.js";
 import { TenantHandlers } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
@@ -142,11 +143,10 @@ async function createTerminationStack(
       createTenantLifecycleFeature(),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
       createBillingFoundationFeature({
@@ -193,6 +193,7 @@ async function resetStack(target: TestStack): Promise<void> {
   await target.db.unsafe?.(`TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`);
   await asRawClient(target.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(target.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
+  await seedNotificationTemplates(target.db, target.registry);
   await seedRow(target.db, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,
     slug: TERMS_SLUG,

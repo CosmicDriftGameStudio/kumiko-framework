@@ -12,6 +12,13 @@ import { rejectHandler } from "./handlers/reject.write.js";
 import { createSubmitHandler } from "./handlers/submit.write.js";
 import { WAITLIST_I18N } from "./i18n.js";
 import { adminAccess } from "./lib.js";
+import {
+  WAITLIST_ADMIN_NOTICE_RECORD,
+  WAITLIST_ADMIN_NOTICE_VARIABLES,
+  WAITLIST_CONFIRMATION_VARIABLES,
+  waitlistAdminNoticeTemplate,
+  waitlistConfirmationTemplate,
+} from "./mail.js";
 import type { WaitlistOptions } from "./options.js";
 import { waitlistListScreen } from "./screens.js";
 import { waitlistEntryDeleteHook, waitlistEntryExportHook } from "./user-data-hooks.js";
@@ -25,6 +32,16 @@ export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefini
     r.systemScope();
     r.requires("tenant", "auth-email-password", "user-data-rights");
     r.translations({ keys: WAITLIST_I18N });
+
+    r.notification("confirmation", {
+      variables: WAITLIST_CONFIRMATION_VARIABLES,
+      localizedTemplate: waitlistConfirmationTemplate,
+    });
+    r.notification("admin-notice", {
+      variables: WAITLIST_ADMIN_NOTICE_VARIABLES,
+      record: WAITLIST_ADMIN_NOTICE_RECORD,
+      localizedTemplate: waitlistAdminNoticeTemplate,
+    });
 
     r.entity("waitlistEntry", waitlistEntryEntity);
     r.writeHandler(createSubmitHandler(opts));

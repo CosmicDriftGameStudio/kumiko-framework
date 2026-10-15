@@ -18,6 +18,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import {
   createComplianceProfilesFeature,
@@ -30,11 +31,11 @@ import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferenceEntity } from "../../delivery/tables.js";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { createTemplateResolverApi } from "../../template-resolver/api.js";
 import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/constants.js";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { TemplateResolverHandlers } from "../../template-resolver/index.js";
+import { seedNotificationTemplates } from "../../template-resolver/seeding.js";
 import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
@@ -159,11 +160,10 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
       createBillingFoundationFeature({
@@ -201,6 +201,7 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
   await seedTerms("de", TERMS_DE);
+  await seedNotificationTemplates(stack.db, stack.registry);
   await seedTerms("en", TERMS_EN);
 });
 

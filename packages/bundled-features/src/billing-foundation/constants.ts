@@ -12,14 +12,14 @@ export const SUBSCRIPTION_PROVIDER_EXTENSION = "subscriptionProvider" as const;
 
 /** delivery notification type of the § 312f contract confirmation mail. */
 export const CONTRACT_CONFIRMATION_NOTIFICATION_TYPE =
-  "billing-foundation:contract-confirmation" as const;
+  "billing-foundation:notify:contract-confirmation" as const;
 
 /** delivery notification types of the § 312k termination receipt and the
  *  operator notice. */
 export const CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE =
-  "billing-foundation:contract-termination-receipt" as const;
+  "billing-foundation:notify:contract-termination-receipt" as const;
 export const CONTRACT_TERMINATION_OPERATOR_NOTIFICATION_TYPE =
-  "billing-foundation:contract-termination-operator-notice" as const;
+  "billing-foundation:notify:contract-termination-operator-notice" as const;
 
 // Qualified write handler names (QN format: scope:type:name).
 export const SubscriptionFoundationHandlers = {

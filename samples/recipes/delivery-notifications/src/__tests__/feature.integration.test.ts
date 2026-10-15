@@ -1,12 +1,13 @@
 // Sample Integration Test: Delivery Notifications
 //
-// Proves the full declarative notification path end-to-end:
-// 1. Admin creates ticket with assignee (via HTTP API)
-// 2. r.notification() fires automatically after postSave
+// Proves the notification path end-to-end:
+// 1. The boot seed writes the declared mail template into the template store
+// 2. Admin creates a ticket with assignee (via HTTP API), the handler sends via ctx.notify
 // 3. InApp → DB + SSE
-// 4. Email → Template → Renderer → Transport
+// 4. Email → stored template → mail renderer → Transport
 // 5. Push → Transport
 // 6. DeliveryLog has entries for all 3 channels
+// 7. A tenant overrides the stored mail text and the next mail uses it
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -32,10 +33,10 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
-  createRendererSimpleFeature,
-  simpleRenderer,
-} from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
-import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+  createTemplateResolverFeature,
+  TemplateResolverHandlers,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import {
   createTenantFeature,
   TenantQueries,
@@ -53,7 +54,8 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { supportFeature, ticketTable } from "../feature";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { supportFeature, TICKET_ASSIGNED, ticketTable } from "../feature";
 
 // --- Test Infrastructure ---
 
@@ -75,12 +77,11 @@ const features = [
   createTenantFeature(),
   createTemplateResolverFeature(),
   createRendererFoundationFeature(),
+  createRendererMailHtmlFeature(),
   createDeliveryFeature(),
   createChannelInAppFeature(),
-  createRendererSimpleFeature(),
   createChannelEmailFeature({
     transport: emailTransport,
-    renderer: simpleRenderer,
     resolveEmail: async (userId) => testEmail(userId),
   }),
   createChannelPushFeature({
@@ -108,6 +109,8 @@ beforeAll(async () => {
     ticketTable,
   });
   await createEventsTable(db);
+  // setupTestStack does not run boot seeds; a real app seeds at boot.
+  await seedNotificationTemplates(db, stack.registry);
 });
 
 afterAll(async () => {
@@ -139,7 +142,7 @@ describe("delivery-notifications sample", () => {
     // --- Assert: InApp ---
     const inAppMessages = await selectMany(db, inAppMessagesTable, { userId: assignee.id });
     expect(inAppMessages).toHaveLength(1);
-    expect(inAppMessages[0]?.["title"]).toBe("Neues Ticket: Login-Button reagiert nicht");
+    expect(inAppMessages[0]?.["title"]).toBe("New ticket: Login-Button reagiert nicht");
     expect(inAppMessages[0]?.["body"]).toContain("Nach Klick auf Login");
 
     const sseEvents = stack.events.sse.filter((e) => e.type === "channel-in-app:event:delivered");
@@ -149,29 +152,26 @@ describe("delivery-notifications sample", () => {
     // --- Assert: Email ---
     const email = emailTransport.sent.find((e: EmailMessage) => e.to === testEmail(assignee.id));
     expect(email).toBeDefined();
-    expect(email?.subject).toContain("Support-Ticket #");
-    expect(email?.subject).toContain("critical");
-    // HTML from Simple Renderer
-    expect(email?.html).toContain("<!DOCTYPE html>");
-    expect(email?.html).toContain("Neues Ticket: Login-Button reagiert nicht"); // header
-    expect(email?.html).toContain("Nach Klick auf Login"); // text section
-    expect(email?.html).toContain("Prioritaet: critical");
-    expect(email?.html).toContain("Ticket oeffnen"); // button
+    expect(email?.subject).toContain("Support ticket #");
+    expect(email?.subject).toContain("(critical)");
+    expect(email?.html).toContain("Login-Button reagiert nicht"); // title
+    expect(email?.html).toContain("Nach Klick auf Login"); // description
+    expect(email?.html).toContain("Priority: critical");
+    expect(email?.html).toContain("Open ticket"); // button
     expect(email?.html).toContain("/support/tickets/"); // button URL
-    expect(email?.html).toContain("Automatische Benachrichtigung"); // footer
 
     // --- Assert: Push ---
     const push = pushTransport.sent.find(
       (p: PushMessage) => p.token === testPushToken(assignee.id),
     );
     expect(push).toBeDefined();
-    expect(push?.title).toBe("Neues Ticket");
+    expect(push?.title).toBe("New ticket");
     expect(push?.body).toContain("Login-Button");
     expect(push?.body).toContain("critical");
 
     // --- Assert: DeliveryLog has entries for all 3 channels ---
     const logs = await selectMany(db, deliveryAttemptsTable, {
-      notificationType: "support:notify:ticket-assigned",
+      notificationType: TICKET_ASSIGNED,
       recipientId: assignee.id,
     });
     expect(logs).toHaveLength(3);
@@ -180,6 +180,37 @@ describe("delivery-notifications sample", () => {
     expect(channels).toContain("email");
     expect(channels).toContain("push");
     expect(logs.every((l) => l["status"] === "sent")).toBe(true);
+  });
+
+  test("a tenant override of the stored mail text replaces the system text", async () => {
+    emailTransport.sent.length = 0;
+    const tenantAdmin = { ...admin, roles: ["TenantAdmin"] };
+
+    const draft = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: TICKET_ASSIGNED,
+        kind: "mail",
+        locale: "en",
+        content:
+          '<p>Tenant text: <span data-variable="title"></span></p><p><span data-variable="description"></span> (<span data-variable="priority"></span>)</p><p><a data-button href="{{url}}">Open</a></p>',
+        contentFormat: "html",
+        meta: { subject: "Tenant subject #{{ticketId}}" },
+        variableSchema: {},
+      },
+      tenantAdmin,
+    );
+    await stack.http.writeOk(TemplateResolverHandlers.publish, { id: draft.id }, tenantAdmin);
+
+    await stack.http.writeOk(
+      "support:write:ticket:create",
+      { title: "Printer on fire", assigneeId: assignee.id, priority: "normal", status: "open" },
+      admin,
+    );
+
+    const email = emailTransport.sent.find((e: EmailMessage) => e.to === testEmail(assignee.id));
+    expect(email?.subject).toContain("Tenant subject #");
+    expect(email?.html).toContain("Tenant text: Printer on fire");
   });
 
   test("ticket without assignee skips notification (recipient returns null)", async () => {

@@ -1,159 +1,143 @@
-// Unit-Tests fuer die Dispatch-Logik der Default-Mailer: rendert das richtige
-// Template + sendet ueber den aufgeloesten Transport an die User-Email. Die
-// echte Job-Lane-Bruecke (configResolver → Transport) wird NICHT hier, sondern
-// in mail-default-bridge.integration.test.ts gegen den echten Cron bewiesen —
-// ein Fake-Resolver wuerde genau diese Naht ueberspringen.
+// Dispatch logic of the notify-based default mailers: right notification type,
+// recipient by userId, locale resolution, tenant-bound notify, delivery failure
+// surfaces as a throw. The real render + transport bridge is proven in
+// mail-default-bridge.integration.test.ts against the real cron.
 
 import { describe, expect, test } from "bun:test";
-import type {
-  EmailMessage,
-  EmailTransport,
-} from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { NotifyFn, NotifyOptions, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   makeDefaultDeletionExecutedEmail,
+  makeDefaultDeletionRequestedEmail,
+  makeDefaultExportFailedEmail,
   makeDefaultExportReadyEmail,
 } from "../lib/default-mailers.js";
+import { GdprMailNotificationTypes } from "../mail-notifications.js";
 
-function capturingTransport(): { transport: EmailTransport; sent: EmailMessage[] } {
-  const sent: EmailMessage[] = [];
-  const transport: EmailTransport = {
-    send: async (m) => {
-      sent.push(m);
-    },
+type NotifyCall = { type: string; options: NotifyOptions };
+
+function capturingNotify(status: "sent" | "failed" = "sent"): {
+  notify: NotifyFn;
+  calls: NotifyCall[];
+} {
+  const calls: NotifyCall[] = [];
+  const notify: NotifyFn = async (type, options) => {
+    calls.push({ type, options });
+    return {
+      kind: "dispatched",
+      deliveries: [
+        {
+          channel: "email",
+          recipientId: "u1",
+          status,
+          error: status === "failed" ? "send_failed" : null,
+        },
+      ],
+    };
   };
-  return { transport, sent };
+  return { notify, calls };
 }
 
 const TENANT_A = "00000000-0000-4000-8000-00000000000a" as TenantId;
 
 registerMailTranslations("de", localeDeBundle);
 
+const exportArgs = {
+  userId: "u1",
+  userEmail: "u1@example.com",
+  tenantId: TENANT_A,
+  jobId: "j1",
+  downloadUrl: "https://app.test/x?token=tok",
+  expiresAt: "2026-07-01T13:45:00Z",
+  bytesWritten: 1234,
+};
+
 describe("default-mailers dispatch", () => {
-  test("export-ready: rendert Template + sendet an userEmail ueber tenant-transport", async () => {
-    const cap = capturingTransport();
-    const resolved: string[] = [];
-    // Kein defaults.locale → die per-User-Locale (user.locale="de") muss die
-    // Sprache bestimmen. Das ist der Advisor-Befund: en-Default an de-User.
+  test("export-ready: notifies the user immediately on the recipient tenant with link + formatted expiry", async () => {
+    const cap = capturingNotify();
+    const tenants: string[] = [];
     const send = makeDefaultExportReadyEmail(
-      async (tenantId) => {
-        resolved.push(tenantId);
-        return cap.transport;
+      (tenantId) => {
+        tenants.push(tenantId);
+        return cap.notify;
       },
       { appName: "Acme" },
     );
 
-    await send({
-      userId: "u1",
-      userEmail: "u1@example.com",
-      userLocale: "de",
-      tenantId: TENANT_A,
-      jobId: "j1",
-      downloadUrl: "https://app.test/x?token=tok",
-      expiresAt: "2026-07-01T13:45:00Z",
-      bytesWritten: 1234,
-    });
+    await send({ ...exportArgs, userLocale: "de" });
 
-    expect(resolved).toEqual([TENANT_A]);
-    expect(cap.sent).toHaveLength(1);
-    expect(cap.sent[0]?.to).toBe("u1@example.com");
-    // user.locale="de" → deutsches Subject, obwohl kein defaults.locale gesetzt.
-    expect(cap.sent[0]?.subject).toBe("Acme — Dein Datenexport ist bereit");
-    expect(cap.sent[0]?.html).toContain("https://app.test/x?token=tok");
+    expect(tenants).toEqual([TENANT_A]);
+    expect(cap.calls).toHaveLength(1);
+    expect(cap.calls[0]?.type).toBe(GdprMailNotificationTypes.exportReady);
+    expect(cap.calls[0]?.options).toMatchObject({
+      to: "u1",
+      locale: "de",
+      immediate: true,
+      data: {
+        appName: "Acme",
+        actionUrl: "https://app.test/x?token=tok",
+        validUntil: "2026-07-01 13:45 UTC",
+      },
+    });
   });
 
-  test("locale precedence: user.locale wins, mailDefaults is fallback for unknown", async () => {
-    const cap = capturingTransport();
-    const resolve = async () => cap.transport;
+  test("locale precedence: user.locale wins, mailDefaults is the fallback, en is the last resort", async () => {
+    const cap = capturingNotify();
+    const notifyFor = () => cap.notify;
 
-    // null user.locale + defaults.locale "en" → English fallback.
-    await makeDefaultExportReadyEmail(resolve, { locale: "en", appName: "Acme" })({
-      userId: "u1",
-      userEmail: "u1@example.com",
-      userLocale: null,
-      tenantId: TENANT_A,
-      jobId: "j1",
-      downloadUrl: "u",
-      expiresAt: "x",
-      bytesWritten: null,
-    });
-    expect(cap.sent[0]?.subject).toBe("Acme — Your data export is ready");
-
-    // unsupported user.locale "fr" + defaults.locale "de" → falls back to de.
-    await makeDefaultExportReadyEmail(resolve, { locale: "de", appName: "Acme" })({
-      userId: "u2",
-      userEmail: "u2@example.com",
+    await makeDefaultExportReadyEmail(notifyFor, { locale: "de" })({
+      ...exportArgs,
       userLocale: "fr",
-      tenantId: TENANT_A,
-      jobId: "j2",
-      downloadUrl: "u",
-      expiresAt: "x",
-      bytesWritten: null,
     });
-    expect(cap.sent[1]?.subject).toBe("Acme — Dein Datenexport ist bereit");
-  });
-
-  test("null user.locale (der Normalfall seit fw#1637, kein Entity-Default mehr): mailDefaults.locale entscheidet, sonst en", async () => {
-    const cap = capturingTransport();
-    const resolve = async () => cap.transport;
-
-    // userLocale: null + mailDefaults.locale: "de" → German subject.
-    await makeDefaultExportReadyEmail(resolve, { locale: "de", appName: "Acme" })({
-      userId: "u1",
-      userEmail: "u1@example.com",
+    await makeDefaultExportReadyEmail(notifyFor, { locale: "de" })({
+      ...exportArgs,
       userLocale: null,
-      tenantId: TENANT_A,
-      jobId: "j1",
-      downloadUrl: "u",
-      expiresAt: "x",
-      bytesWritten: null,
     });
-    expect(cap.sent[0]?.subject).toBe("Acme — Dein Datenexport ist bereit");
-
-    // userLocale: null + no mailDefaults.locale → template default "en".
-    await makeDefaultExportReadyEmail(resolve, { appName: "Acme" })({
-      userId: "u2",
-      userEmail: "u2@example.com",
-      userLocale: null,
-      tenantId: TENANT_A,
-      jobId: "j2",
-      downloadUrl: "u",
-      expiresAt: "x",
-      bytesWritten: null,
-    });
-    expect(cap.sent[1]?.subject).toBe("Acme — Your data export is ready");
-  });
-
-  test("deletion-executed: sendet ueber den ersten Membership-Tenant", async () => {
-    const cap = capturingTransport();
-    const resolved: string[] = [];
-    const send = makeDefaultDeletionExecutedEmail(async (tenantId) => {
-      resolved.push(tenantId);
-      return cap.transport;
-    });
-
-    await send({
-      userId: "u1",
-      userEmail: "u1@example.com",
+    await makeDefaultExportReadyEmail(notifyFor)({ ...exportArgs, userLocale: null });
+    await makeDefaultExportReadyEmail(notifyFor, { locale: "en" })({
+      ...exportArgs,
       userLocale: "de",
-      tenantIds: [TENANT_A, "00000000-0000-4000-8000-00000000000b" as TenantId],
-      executedAt: "2026-07-30T09:05:00Z",
     });
 
-    expect(resolved).toEqual([TENANT_A]);
-    expect(cap.sent).toHaveLength(1);
-    expect(cap.sent[0]?.to).toBe("u1@example.com");
-    expect(cap.sent[0]?.subject).toBe("Konto — Dein Konto wurde gelöscht");
+    expect(cap.calls.map((call) => call.options.locale)).toEqual(["de", "de", "en", "de"]);
   });
 
-  test("deletion-executed orphan (0 Memberships): kein Transport aufgeloest, keine Mail", async () => {
-    const cap = capturingTransport();
+  test("a failed delivery throws so the best-effort caller sees it", async () => {
+    const cap = capturingNotify("failed");
+    const send = makeDefaultExportFailedEmail(() => cap.notify);
+    await expect(send({ ...exportArgs, userLocale: null, errorMessage: "x" })).rejects.toThrow(
+      "send_failed",
+    );
+  });
+
+  test("deletion-requested: notifies the user with the formatted grace deadline", async () => {
+    const cap = capturingNotify();
+    await makeDefaultDeletionRequestedEmail(cap.notify, { appName: "Acme" })({
+      userId: "u1",
+      userEmail: "u1@example.com",
+      userLocale: "en",
+      tenantId: TENANT_A,
+      gracePeriodEnd: "2026-07-30T09:00:00Z",
+    });
+
+    expect(cap.calls[0]?.type).toBe(GdprMailNotificationTypes.deletionRequested);
+    expect(cap.calls[0]?.options).toMatchObject({
+      to: "u1",
+      data: { appName: "Acme", deletionDate: "2026-07-30 09:00 UTC" },
+    });
+  });
+
+  test("deletion-executed orphan (0 memberships): no transport resolved, no mail", async () => {
     let resolverCalled = false;
-    const send = makeDefaultDeletionExecutedEmail(async () => {
-      resolverCalled = true;
-      return cap.transport;
+    const send = makeDefaultDeletionExecutedEmail({
+      registry: {} as never,
+      db: {} as never,
+      resolveTransport: async () => {
+        resolverCalled = true;
+        throw new Error("must not be called");
+      },
+      configFor: () => undefined,
     });
 
     await send({
@@ -165,6 +149,5 @@ describe("default-mailers dispatch", () => {
     });
 
     expect(resolverCalled).toBe(false);
-    expect(cap.sent).toHaveLength(0);
   });
 });

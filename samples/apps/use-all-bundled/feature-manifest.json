@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 83,
+  "featureCount": 82,
   "features": [
     {
       "name": "admin-shell",
@@ -406,7 +406,7 @@
     },
     {
       "name": "channel-email",
-      "description": "Wires an `EmailTransport` (typically `mail-transport-smtp` in production, `createInMemoryTransport()` in tests) into the delivery system as the `email` channel. Requires `delivery`; pass an `EmailChannelOptions` with a `transport`, a `renderer: NotificationRenderer` (e.g. backed by `renderer-simple`), and a `resolveEmail` function that maps a user ID to their email address.",
+      "description": "Wires an `EmailTransport` (typically `mail-transport-smtp` in production, `createInMemoryTransport()` in tests) into the delivery system as the `email` channel. Requires `delivery`; pass an `EmailChannelOptions` with a `transport` and a `resolveEmail` function that maps a user ID to their email address. Mails render from stored templates (`renderer-mail-html`): a notification routed to this channel needs `template` + `meta` on `r.notification`, otherwise its delivery fails.",
       "toggleableDefault": null,
       "requires": [
         "delivery"
@@ -2079,7 +2079,7 @@
     },
     {
       "name": "renderer-foundation",
-      "description": "Plugin registry for content rendering (notification HTML, mail HTML, PDF, images): call `foundation.createRendererForTenant({ tenantId, kind })` at render time to get the right renderer plugin selected by kind, with tenant-level overrides via the `rendererPluginByKind` config key. Requires `template-resolver` (declared via `r.requires`). Low-level building block — add `renderer-simple` (or write a custom plugin via `r.useExtension(\"renderer\", name, { kinds, render })`) rather than using this feature alone.",
+      "description": "Plugin registry for content rendering (mail HTML, PDF, images): call `foundation.createRendererForTenant({ tenantId, kind })` at render time to get the right renderer plugin selected by kind, with tenant-level overrides via the `rendererPluginByKind` config key. Requires `template-resolver` (declared via `r.requires`). Low-level building block — add `renderer-mail-html` (or write a custom plugin via `r.useExtension(\"renderer\", name, { kinds, render })`) rather than using this feature alone.",
       "toggleableDefault": null,
       "requires": [
         "template-resolver"
@@ -2142,34 +2142,6 @@
       "writeHandlers": [],
       "uiHints": {
         "displayLabel": "Renderer · PDF tables",
-        "category": "notifications",
-        "recommended": false
-      }
-    },
-    {
-      "name": "renderer-simple",
-      "description": "Default renderer plugin for `kind=\"notification\"`: takes a structured `EmailTemplateData` variable map (with `header`, `sections[]` of text/button objects, and optional `footer`; falls back to `title`/`body` if no structured fields are present) and returns rendered HTML with inline CSS. Requires `renderer-foundation`; sufficient for plain notification emails — swap it for `renderer-mail-html` if you need MJML layouts.",
-      "toggleableDefault": null,
-      "requires": [
-        "renderer-foundation"
-      ],
-      "optionalRequires": [
-        "template-resolver"
-      ],
-      "configReads": [],
-      "exposesApis": [],
-      "usesApis": [],
-      "extensionsUsed": [
-        {
-          "extensionName": "renderer",
-          "entityName": "simple"
-        }
-      ],
-      "configKeys": [],
-      "secrets": [],
-      "writeHandlers": [],
-      "uiHints": {
-        "displayLabel": "Renderer · Simple",
         "category": "notifications",
         "recommended": false
       }

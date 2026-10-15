@@ -76,7 +76,7 @@
         "apps-cap-billing-demo"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Declarative notifications:: r.notification() fires automatically after a CRUD handler — the feature author writes zero ctx.notify() calls.",
+      "readmeSummary": "Declarative notifications:: r.notification() declares the mail variables, the default mail text, the subject and the short inApp/push texts in one place.",
       "primarySample": "recipes-delivery-notifications",
       "whenToUse": "Email is a delivery channel for ctx.notify — mount channel-email on delivery with per-channel templates and a mail transport (SMTP or in-memory in tests).",
       "sampleBlurb": "Wires channel-email on delivery with per-channel templates; the E2E test asserts rendered HTML in the in-memory transport.",
@@ -143,7 +143,7 @@
         "recipes-delivery-notifications"
       ],
       "hasVisualOutput": true,
-      "readmeSummary": "Declarative notifications:: r.notification() fires automatically after a CRUD handler — the feature author writes zero ctx.notify() calls.",
+      "readmeSummary": "Declarative notifications:: r.notification() declares the mail variables, the default mail text, the subject and the short inApp/push texts in one place.",
       "primarySample": "recipes-delivery-notifications",
       "whenToUse": "You need to notify users across email, in-app, and push from domain handlers without wiring each channel yourself — mount delivery plus the channel features and declare templates.",
       "sampleBlurb": "Declarative r.notification() after CRUD — fans out to InApp, email, and push with per-channel templates and delivery-log assertions.",

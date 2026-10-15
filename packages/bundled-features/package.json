@@ -115,7 +115,6 @@
     "./channel-discord": "./src/channel-discord/index.ts",
     "./channel-teams": "./src/channel-teams/index.ts",
     "./channel-telegram": "./src/channel-telegram/index.ts",
-    "./renderer-simple": "./src/renderer-simple/index.ts",
     "./renderer-pdf": "./src/renderer-pdf/index.ts",
     "./files-provider-s3": "./src/files-provider-s3/index.ts",
     "./rate-limiting": "./src/rate-limiting/index.ts",
@@ -563,10 +562,6 @@
       "./channel-telegram": {
         "types": "./dist/channel-telegram/index.d.ts",
         "default": "./dist/channel-telegram/index.js"
-      },
-      "./renderer-simple": {
-        "types": "./dist/renderer-simple/index.d.ts",
-        "default": "./dist/renderer-simple/index.js"
       },
       "./renderer-pdf": {
         "types": "./dist/renderer-pdf/index.d.ts",

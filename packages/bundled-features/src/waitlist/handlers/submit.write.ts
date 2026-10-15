@@ -10,10 +10,10 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { WAITLIST_NOTIFICATION_TYPES, WAITLIST_STATUS } from "../constants.js";
 import { normalizeEmail, platformActor, waitlistDb, waitlistExecutor } from "../lib.js";
 import {
-  renderWaitlistAdminNoticeEmail,
-  renderWaitlistConfirmationEmail,
   resolveWaitlistAdminMailLocale,
   resolveWaitlistMailLocale,
+  waitlistAdminNoticeVariables,
+  waitlistConfirmationVariables,
 } from "../mail.js";
 import {
   DEFAULT_SUBMIT_EMAIL_RATE_LIMITS,
@@ -130,7 +130,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
       await sendBestEffort(ctx, "confirmation", (notify) =>
         notify(WAITLIST_NOTIFICATION_TYPES.confirmation, {
           route: { email },
-          data: renderWaitlistConfirmationEmail({
+          data: waitlistConfirmationVariables({
             locale: payload.locale,
             appName: opts.appName,
           }),
@@ -145,12 +145,11 @@ export function createSubmitHandler(opts: WaitlistOptions) {
         if (!adminRecipient) return;
         await notify(WAITLIST_NOTIFICATION_TYPES.adminNotice, {
           route: { email: adminRecipient },
-          data: renderWaitlistAdminNoticeEmail({
+          data: waitlistAdminNoticeVariables({
             name: payload.name,
             email,
             company: payload.company,
             message: payload.message,
-            adminLocale: ctx.locale,
           }),
           priority: "normal",
           locale: resolveWaitlistAdminMailLocale(ctx.locale),

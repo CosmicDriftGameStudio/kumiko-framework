@@ -37,7 +37,7 @@ describe("seedSystemTemplate", () => {
     const slug = `welcome-${crypto.randomUUID()}`;
     await seedSystemTemplate(stack.db, {
       slug,
-      kind: "notification",
+      kind: "ai-prompt",
       locale: "de",
       content: JSON.stringify({ header: "Willkommen", sections: [{ text: "Hallo" }] }),
       contentFormat: "plain",
@@ -47,7 +47,7 @@ describe("seedSystemTemplate", () => {
     const resolved = await api.resolveTemplate({
       tenantId: TENANT_ID,
       slug,
-      kind: "notification",
+      kind: "ai-prompt",
       locale: "de",
     });
     expect(resolved.content).toContain("Willkommen");
@@ -58,14 +58,14 @@ describe("seedSystemTemplate", () => {
     const slug = `incident-${crypto.randomUUID()}`;
     await seedSystemTemplate(stack.db, {
       slug,
-      kind: "notification",
+      kind: "ai-prompt",
       locale: "en",
       content: "v1",
       contentFormat: "plain",
     });
     await seedSystemTemplate(stack.db, {
       slug,
-      kind: "notification",
+      kind: "ai-prompt",
       locale: "en",
       content: "v2",
       contentFormat: "plain",
@@ -75,7 +75,7 @@ describe("seedSystemTemplate", () => {
     const row = await fetchOne<TemplateResourceRow>(stack.db, templateResourcesTable, {
       tenantId: SYSTEM_TENANT_ID,
       slug,
-      kind: "notification",
+      kind: "ai-prompt",
       locale: "en",
     });
     expect(row?.content).toBe("v2");
@@ -86,14 +86,14 @@ describe("seedSystemTemplate", () => {
     const slug = `status-${crypto.randomUUID()}`;
     await seedSystemTemplate(stack.db, {
       slug,
-      kind: "notification",
+      kind: "ai-prompt",
       locale: "de",
       content: "original",
       contentFormat: "plain",
     });
     await seedSystemTemplate(stack.db, {
       slug,
-      kind: "notification",
+      kind: "ai-prompt",
       locale: "de",
       content: "would-overwrite",
       contentFormat: "plain",
@@ -102,7 +102,7 @@ describe("seedSystemTemplate", () => {
     const row = await fetchOne<TemplateResourceRow>(stack.db, templateResourcesTable, {
       tenantId: SYSTEM_TENANT_ID,
       slug,
-      kind: "notification",
+      kind: "ai-prompt",
       locale: "de",
     });
     expect(row?.content).toBe("original");

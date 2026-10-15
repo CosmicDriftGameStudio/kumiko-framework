@@ -1,143 +1,52 @@
 import { describe, expect, test } from "bun:test";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
+import { formatGdprMailTimestamp } from "../email-templates.js";
 import {
-  renderDeletionExecutedEmail,
-  renderDeletionRequestedEmail,
-  renderExportFailedEmail,
-  renderExportReadyEmail,
-} from "../email-templates.js";
+  GdprMailNotificationTypes,
+  gdprMailLocalizedTemplate,
+  gdprMailTemplateLocale,
+} from "../mail-notifications.js";
 
 registerMailTranslations("de", localeDeBundle);
 
-describe("gdpr email-templates", () => {
-  test("export-ready: subject + download-button + formatted expiry, de/en differ", () => {
-    const en = renderExportReadyEmail({
-      downloadUrl: "https://app.test/export/by-token?token=abc123",
-      expiresAt: "2026-07-01T13:45:00Z",
-      locale: "en",
-      appName: "Acme",
-    });
-    expect(en.subject).toBe("Acme — Your data export is ready");
-    expect(en.html).toContain("https://app.test/export/by-token?token=abc123");
-    // Button label present.
-    expect(en.html).toContain("Download data export");
-    // Instant formatted to UTC, not the raw ISO.
-    expect(en.html).toContain("2026-07-01 13:45 UTC");
-
-    const de = renderExportReadyEmail({
-      downloadUrl: "https://app.test/x?token=abc",
-      expiresAt: "2026-07-01T13:45:00Z",
-      locale: "de",
-      appName: "Acme",
-    });
-    expect(de.subject).toBe("Acme — Dein Datenexport ist bereit");
-    expect(de.subject).not.toBe(en.subject);
+describe("gdpr mail templates", () => {
+  test("export-ready: subject keeps the appName slot, body has the link slot and button", () => {
+    const template = gdprMailLocalizedTemplate("exportReady")();
+    expect(template["en"]?.meta.subject).toBe("{{appName}} — Your data export is ready");
+    expect(template["en"]?.body).toContain('href="{{actionUrl}}"');
+    expect(template["en"]?.body).toContain("Download data export");
+    expect(template["en"]?.body).toContain('data-variable="validUntil"');
+    expect(template["de"]?.meta.subject).toBe("{{appName}} — Dein Datenexport ist bereit");
   });
 
-  test("export-ready: html lang attribute matches the requested locale (654/1)", () => {
-    const de = renderExportReadyEmail({
-      downloadUrl: "https://app.test/x?token=abc",
-      expiresAt: "2026-07-01T13:45:00Z",
-      locale: "de",
-    });
-    expect(de.html).toContain('<html lang="de">');
-    const en = renderExportReadyEmail({
-      downloadUrl: "https://app.test/x?token=abc",
-      expiresAt: "2026-07-01T13:45:00Z",
-      locale: "en",
-    });
-    expect(en.html).toContain('<html lang="en">');
+  test("export-failed: informational, no link", () => {
+    const template = gdprMailLocalizedTemplate("exportFailed")();
+    expect(template["en"]?.body).not.toContain("<a ");
+    expect(template["en"]?.body).toContain("request the export again");
   });
 
-  test("export-ready: ampersand in download url is escaped in the href attr", () => {
-    const r = renderExportReadyEmail({
-      downloadUrl: "https://app.test/x?token=a&next=b",
-      expiresAt: "2026-07-01T13:45:00Z",
-    });
-    // escapeHtmlAttr turns & into &amp; — no raw unescaped attribute break.
-    expect(r.html).toContain("token=a&amp;next=b");
-    expect(r.html).not.toContain('token=a&next="');
+  test("deletion-requested and -executed carry their date slots", () => {
+    expect(gdprMailLocalizedTemplate("deletionRequested")()["en"]?.body).toContain(
+      'data-variable="deletionDate"',
+    );
+    expect(gdprMailLocalizedTemplate("deletionExecuted")()["de"]?.body).toContain(
+      'data-variable="executedAt"',
+    );
   });
 
-  test("export-ready: default appName when omitted (Account/Konto)", () => {
-    expect(
-      renderExportReadyEmail({ downloadUrl: "u", expiresAt: "x", locale: "en" }).subject,
-    ).toContain("Account");
-    expect(
-      renderExportReadyEmail({ downloadUrl: "u", expiresAt: "x", locale: "de" }).subject,
-    ).toContain("Konto");
-  });
-
-  test("export-failed: informational, no download button", () => {
-    const r = renderExportFailedEmail({ locale: "en", appName: "Acme" });
-    expect(r.subject).toBe("Acme — Your data export failed");
-    expect(r.html).not.toContain("<a ");
-    expect(r.html).toContain("request the export again");
-  });
-
-  test("deletion-requested: grace deadline formatted + cancel hint", () => {
-    const r = renderDeletionRequestedEmail({
-      gracePeriodEnd: "2026-07-30T09:00:00Z",
-      locale: "en",
-      appName: "Acme",
-    });
-    expect(r.subject).toBe("Acme — Account deletion requested");
-    expect(r.html).toContain("2026-07-30 09:00 UTC");
-    expect(r.html).toContain("cancel the deletion");
-  });
-
-  test("deletion-executed: execution timestamp formatted", () => {
-    const r = renderDeletionExecutedEmail({
-      executedAt: "2026-07-30T09:05:00Z",
-      locale: "de",
-      appName: "Acme",
-    });
-    expect(r.subject).toBe("Acme — Dein Konto wurde gelöscht");
-    expect(r.html).toContain("2026-07-30 09:05 UTC");
-  });
-
-  test("un-parsable timestamp falls back to the raw string", () => {
-    const r = renderDeletionExecutedEmail({ executedAt: "not-a-date" });
-    expect(r.html).toContain("not-a-date");
+  test("a locale without its own subject key gets no template and the sender falls back to en", () => {
+    expect(gdprMailTemplateLocale(GdprMailNotificationTypes.exportReady, "de")).toBe("de");
+    expect(gdprMailTemplateLocale(GdprMailNotificationTypes.exportReady, "xx")).toBe("en");
   });
 });
 
-describe("gdpr email-templates text part", () => {
-  test("export-ready: plain text carries intro, raw download url and expiry", () => {
-    const r = renderExportReadyEmail({
-      downloadUrl: "https://app.test/x?token=a&next=b",
-      expiresAt: "2026-07-01T13:45:00Z",
-      locale: "en",
-      appName: "Acme & Co",
-    });
-    expect(r.text).toBe(
-      [
-        "Hi,",
-        "your requested data export for Acme & Co is ready. Download it using the link below:",
-        "Download data export: https://app.test/x?token=a&next=b",
-        "The download link expires on 2026-07-01 13:45 UTC.",
-      ].join("\n\n"),
-    );
+describe("formatGdprMailTimestamp", () => {
+  test("formats an instant in UTC", () => {
+    expect(formatGdprMailTimestamp("2026-07-01T13:45:00Z")).toBe("2026-07-01 13:45 UTC");
   });
 
-  test("deletion-requested: text part is localized and contains no markup", () => {
-    const r = renderDeletionRequestedEmail({
-      gracePeriodEnd: "2026-08-01T00:00:00Z",
-      locale: "de",
-      appName: "Acme",
-    });
-    expect(r.text).toContain("2026-08-01 00:00 UTC");
-    expect(r.text).not.toContain("<");
-    expect(r.text.split("\n\n")).toHaveLength(3);
-  });
-
-  test("export-failed and deletion-executed render greeting plus intro", () => {
-    expect(renderExportFailedEmail({ locale: "en", appName: "Acme" }).text).toBe(
-      "Hi,\n\nyour requested data export for Acme could not be created. Please request the export again.",
-    );
-    expect(
-      renderDeletionExecutedEmail({ executedAt: "2026-08-01T00:00:00Z", locale: "en" }).text,
-    ).toContain("were deleted on 2026-08-01 00:00 UTC");
+  test("falls back to the raw string when unparsable", () => {
+    expect(formatGdprMailTimestamp("not-a-date")).toBe("not-a-date");
   });
 });

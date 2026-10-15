@@ -29,8 +29,6 @@ function makePlugin(name: string, kinds: RendererPlugin["kinds"]): RendererPlugi
     render: async (req: RenderRequest): Promise<RenderResponse> => {
       // shape-by-kind, gibt name in der response damit Tests sehen welcher plugin lief
       switch (req.kind) {
-        case "notification":
-          return { kind: "notification", html: `from:${name}` };
         case "mail":
           return { kind: "mail", subject: name, html: `from:${name}`, text: `from:${name}` };
         case "document-pdf":
@@ -56,18 +54,9 @@ function makePlugin(name: string, kinds: RendererPlugin["kinds"]): RendererPlugi
 const TENANT: TenantId = "22222222-2222-4222-8222-222222222222" as TenantId;
 
 describe("renderer-foundation :: Plugin-Selection", () => {
-  test("default-plugin für notification = 'simple'", async () => {
-    const api = createRendererFoundationApi([
-      makePlugin("simple", ["notification"]),
-      makePlugin("other", ["notification"]),
-    ]);
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
-    expect(plugin.name).toBe("simple");
-  });
-
   test("default-plugin für kind mail = 'mail-html'", async () => {
     const api = createRendererFoundationApi([
-      makePlugin("simple", ["notification", "mail"]),
+      makePlugin("other", ["mail"]),
       makePlugin("mail-html", ["mail"]),
     ]);
     const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
@@ -84,29 +73,29 @@ describe("renderer-foundation :: Plugin-Selection", () => {
 
   test("Tenant-Override gewinnt vor Default", async () => {
     const api = createRendererFoundationApi(
-      [makePlugin("simple", ["notification"]), makePlugin("custom-notif", ["notification"])],
-      (tid) => (tid === TENANT ? { notification: "custom-notif" } : null),
+      [makePlugin("mail-html", ["mail"]), makePlugin("custom-mail", ["mail"])],
+      (tid) => (tid === TENANT ? { mail: "custom-mail" } : null),
     );
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
-    expect(plugin.name).toBe("custom-notif");
+    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
+    expect(plugin.name).toBe("custom-mail");
   });
 
   test("Tenant-Override auf nicht-registriertes Plugin → fällt durch auf Default", async () => {
-    const api = createRendererFoundationApi([makePlugin("simple", ["notification"])], () => ({
-      notification: "ghost-plugin",
+    const api = createRendererFoundationApi([makePlugin("mail-html", ["mail"])], () => ({
+      mail: "ghost-plugin",
     }));
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
-    expect(plugin.name).toBe("simple");
+    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
+    expect(plugin.name).toBe("mail-html");
   });
 
   test("Fallback auf erstes passendes Plugin wenn weder Tenant-Config noch Default-Name matchen", async () => {
-    const api = createRendererFoundationApi([makePlugin("nonstandard-name", ["notification"])]);
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
+    const api = createRendererFoundationApi([makePlugin("nonstandard-name", ["mail"])]);
+    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
     expect(plugin.name).toBe("nonstandard-name");
   });
 
   test("kein Plugin für kind → RendererError", () => {
-    const api = createRendererFoundationApi([makePlugin("simple", ["notification"])]);
+    const api = createRendererFoundationApi([makePlugin("mail-html", ["mail"])]);
     expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" })).toThrow(
       RendererError,
     );
@@ -114,7 +103,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
 
   test("leerer Plugin-Pool → RendererError für jeden kind", () => {
     const api = createRendererFoundationApi([]);
-    expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "notification" })).toThrow(
+    expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "mail" })).toThrow(
       RendererError,
     );
     expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "mail" })).toThrow(
@@ -131,7 +120,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
   test("RendererError code='no_plugin_for_kind' wenn kein Plugin", () => {
     const api = createRendererFoundationApi([]);
     try {
-      api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
+      api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
       throw new Error("expected RendererError");
     } catch (e) {
       expect(e).toBeInstanceOf(RendererError);
@@ -140,11 +129,8 @@ describe("renderer-foundation :: Plugin-Selection", () => {
   });
 
   test("Plugin mit mehreren kinds wird für jeden passend gewählt", async () => {
-    const multi = makePlugin("multi", ["notification", "mail", "document-pdf"]);
+    const multi = makePlugin("multi", ["mail", "document-pdf"]);
     const api = createRendererFoundationApi([multi]);
-    expect(api.createRendererForTenant({ tenantId: TENANT, kind: "notification" }).name).toBe(
-      "multi",
-    );
     expect(api.createRendererForTenant({ tenantId: TENANT, kind: "mail" }).name).toBe("multi");
     expect(api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" }).name).toBe(
       "multi",
@@ -154,35 +140,35 @@ describe("renderer-foundation :: Plugin-Selection", () => {
   test("Plugin mit leeren kinds wird nie ausgewählt", () => {
     const api = createRendererFoundationApi([
       makePlugin("empty-kinds", []),
-      makePlugin("simple", ["notification"]),
+      makePlugin("mail-html", ["mail"]),
     ]);
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
-    expect(plugin.name).toBe("simple");
+    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
+    expect(plugin.name).toBe("mail-html");
   });
 
   test("Tenant-Override mit falschem kind-Plugin → ignoriert, Fallback", async () => {
-    // Tenant config sagt "puppeteer" für notification, aber puppeteer kann
-    // nur document-pdf. Foundation muss den falsche-kind-Eintrag ignorieren.
+    // Tenant config picks "puppeteer" for mail, but puppeteer only renders
+    // document-pdf. The foundation must ignore an entry with the wrong kind.
     const api = createRendererFoundationApi(
-      [makePlugin("simple", ["notification"]), makePlugin("puppeteer", ["document-pdf"])],
-      () => ({ notification: "puppeteer" }),
+      [makePlugin("mail-html", ["mail"]), makePlugin("puppeteer", ["document-pdf"])],
+      () => ({ mail: "puppeteer" }),
     );
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
-    expect(plugin.name).toBe("simple");
+    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
+    expect(plugin.name).toBe("mail-html");
   });
 });
 
 describe("renderer-foundation :: Plugin executes render", () => {
   test("Plugin.render returnt RenderResponse mit gleichem kind", async () => {
-    const api = createRendererFoundationApi([makePlugin("simple", ["notification"])]);
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "notification" });
+    const api = createRendererFoundationApi([makePlugin("mail-html", ["mail"])]);
+    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
     const response = await plugin.render(
-      { kind: "notification", payload: { content: "hello", contentFormat: "markdown" } },
+      { kind: "mail", payload: { slug: "welcome", locale: "en", variables: {} } },
       STUB_CTX,
     );
-    expect(response.kind).toBe("notification");
-    if (response.kind === "notification") {
-      expect(response.html).toBe("from:simple");
+    expect(response.kind).toBe("mail");
+    if (response.kind === "mail") {
+      expect(response.html).toBe("from:mail-html");
     }
   });
 });

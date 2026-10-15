@@ -17,6 +17,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { Redis } from "ioredis";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import {
@@ -27,10 +28,10 @@ import { createConfigFeature } from "../../config/index.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferenceEntity } from "../../delivery/tables.js";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { createTemplateResolverApi } from "../../template-resolver/api.js";
 import { TEXT_BLOCK_KIND } from "../../template-resolver/constants.js";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { seedNotificationTemplates } from "../../template-resolver/seeding.js";
 import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.js";
 import { TenantHandlers } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
@@ -105,11 +106,10 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
       createBillingFoundationFeature({
@@ -133,6 +133,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
   await unsafeCreateEntityTable(stack.db, notificationPreferenceEntity);
+  await seedNotificationTemplates(stack.db, stack.registry);
   await seedRow(stack.db, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,
     slug: TERMS_SLUG,

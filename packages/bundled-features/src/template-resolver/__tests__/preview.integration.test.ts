@@ -22,7 +22,6 @@ import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.js";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
@@ -92,10 +91,8 @@ beforeAll(async () => {
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async (userId) => addressOf(userId),
       }),
       invMailer,

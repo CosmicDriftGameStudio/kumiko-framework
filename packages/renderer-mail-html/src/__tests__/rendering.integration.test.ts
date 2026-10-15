@@ -174,7 +174,7 @@ describe("renderer-mail-html :: registration", () => {
   });
 
   test("a request of another kind is rejected as invalid_payload", async () => {
-    const request: RenderRequest = { kind: "notification", payload: {} };
+    const request: RenderRequest = { kind: "document-pdf", payload: {} };
     const failure = await plugin
       .render(request, { db: stack.db, registry: stack.registry, tenantId: tenantId(1) })
       .catch((error: unknown) => error);

@@ -45,10 +45,6 @@ import {
   notificationPreferencesTable,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
-import {
-  createRendererSimpleFeature,
-  simpleRenderer,
-} from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
@@ -103,10 +99,8 @@ async function bootStack(
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
     ],
@@ -198,10 +192,8 @@ async function bootMailConventionStack(
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
     ],

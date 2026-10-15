@@ -3,7 +3,7 @@
 // path as the upsertSystem handler, without the access check.
 //
 // Use it from runProdApp seeds or TenantCreated hooks that install the welcome,
-// incident or feature mail slugs, so renderer-simple (or mail) can resolve them
+// incident or feature mail slugs, so the mail renderer can resolve them
 // through the template-resolver.
 //
 // Default ifExists="skip". The actor is `createSystemUser(SYSTEM_TENANT_ID)`,

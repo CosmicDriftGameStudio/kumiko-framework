@@ -1,6 +1,6 @@
 # renderer-foundation
 
-Plugin-Foundation für Renderer (Notification, HTML-Mail, PDF, Image). Plugins (`renderer-simple`, `renderer-mail-html`, `renderer-puppeteer-client`) registrieren sich via `r.useExtension("renderer", "<name>", { kinds, render })`.
+Plugin-Foundation für Renderer (HTML-Mail, PDF, Image). Plugins (`renderer-mail-html`, `renderer-puppeteer-client`) registrieren sich via `r.useExtension("renderer", "<name>", { kinds, render })`.
 
 **Plan-Doc:** [`kumiko-platform/docs/plans/features/renderer-foundation.md`](../../../../../../kumiko-platform/docs/plans/features/renderer-foundation.md)
 
@@ -16,8 +16,7 @@ import {
 const features = [
   createTemplateResolverFeature(),
   createRendererFoundationFeature(),
-  createRendererSimpleFeature(),   // Plugin
-  createRendererMailHtmlFeature(), // Plugin (enterprise)
+  createRendererMailHtmlFeature(), // Plugin: kind "mail"
   // weitere Plugins...
 ];
 
@@ -50,7 +49,9 @@ async function sendMail(ctx, tenantId) {
 }
 ```
 
-Plugins ohne Service-Deps (`renderer-simple`) ignorieren den zweiten `ctx`-Parameter.
+Plugins ohne Service-Deps ignorieren den zweiten `ctx`-Parameter.
+
+Mails einer `r.notification` rendert die Delivery selbst: `template` + `meta` an der Notification werden beim Boot gesät (`seedNotificationTemplates`) und über kind `"mail"` gerendert. Ohne `template` + `meta` scheitert der Versand über den Email-Channel.
 
 ## Plugin-Auswahl-Reihenfolge
 

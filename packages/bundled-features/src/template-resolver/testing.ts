@@ -105,7 +105,7 @@ export async function assertConsumerRespectsLocaleFallback(
   await seedTemplate(db, {
     tenantId: SYSTEM_TENANT_ID,
     slug,
-    kind: "notification",
+    kind: "document-pdf",
     locale: FALLBACK_LOCALE,
     scope: "system",
     content: "conformance-fallback-content",
@@ -113,7 +113,7 @@ export async function assertConsumerRespectsLocaleFallback(
   const result = await consumer.resolve({
     tenantId,
     slug,
-    kind: "notification",
+    kind: "document-pdf",
     locale: "tr",
   });
   if (result.locale !== FALLBACK_LOCALE) {

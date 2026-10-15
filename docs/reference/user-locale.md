@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-03
-evidence: "kumiko-framework#2334 (Browser-Locale → Server + lokalisierte Magic-Link-Mails); #2343 (persisted SessionUser.locale im JWT); api/request-context.ts; api/jwt.ts; #3511 (MailBranding pro Locale, simple-renderer.ts)"
+evidence: "kumiko-framework#2334 (Browser-Locale → Server + lokalisierte Magic-Link-Mails); #2343 (persisted SessionUser.locale im JWT); api/request-context.ts; api/jwt.ts; #3511 (Mail-Locale, jetzt Vorlagen pro Locale)"
 ---
 
 # User-Locale: vom Browser bis in Mails und Hintergrund-Jobs
@@ -38,24 +38,17 @@ Account-Unlock) werden in der **Locale des Anfragenden** gerendert.
   Locale-getreu (z. B. `/de/...`) zu bauen.
 - Mails nutzen `ctx.locale` / `SessionUser.locale` statt eines Server-Enums.
 
-## 4. Mail-Branding pro Locale (fw#3511)
+## 4. Mail-Vorlagen pro Locale (fw#3511)
 
 `ctx.notify(type, { locale })` reicht die Locale über `ChannelMessage` und die
 Jobs `delivery.render`/`delivery.send` bis an `renderer.render({ locale })`.
 Die Auth- und Consumer-Protection-Mails setzen sie mit der Locale, in der sie
 ihren Inhalt übersetzen.
 
-`MailBranding` (`createRendererSimpleFeature({ mailBranding })`) nutzt sie für den
-Rahmen um den Inhalt: `footerText`, `footerLinks[].label` und `footerLinks[].url`
-akzeptieren einen String oder eine Sprach-Map (`{ de: "…", en: "…" }`).
-Auswahl: exakte Locale, Sprachteil (`de-AT` → `de`), `MailBranding.defaultLocale`,
-erster Eintrag. Jede URL einer Sprach-Map muss eine absolute http(s)-URL sein,
-sonst bricht der Boot ab.
-
-Logo: `logoUrl` (absolute URL) oder `logoPath` (z. B. `"/logo.png"`) zusammen mit
-`baseUrl` (dieselbe Basis wie `auth.mail.baseUrl`); beides gleichzeitig ist ein
-Boot-Fehler. `logoPath` muss mit genau einem `/` beginnen und auf dem Origin der
-`baseUrl` bleiben. Mail-Clients blockieren SVG, also PNG oder JPEG verwenden.
+Der Mail-Renderer (`renderer-mail-html`) lädt die Vorlage zu dieser Locale über den
+Template-Resolver (Tenant-Override vor System-Text, dann die Fallback-Locale des
+Resolvers). Absender wählen eine Locale, für die die Notification eine Vorlage
+deklariert (`template`/`localizedTemplate` an `r.notification`).
 
 ## Kernregel
 

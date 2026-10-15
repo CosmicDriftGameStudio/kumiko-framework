@@ -49,7 +49,7 @@ afterAll(async () => {
 
 const basePayload = {
   slug: "test-slug",
-  kind: "notification" as const,
+  kind: "ai-prompt" as const,
   locale: "de",
   content: "Hello {{variables.name}}",
   contentFormat: "markdown" as const,
@@ -134,7 +134,7 @@ describe("template-resolver :: upsertTenant", () => {
     );
     const fetched = await stack.http.queryOk<Record<string, unknown>>(
       TemplateResolverQueries.list,
-      { kind: "notification", locale: "de", includeSystem: false },
+      { kind: "ai-prompt", locale: "de", includeSystem: false },
       tenantA_Admin,
     );
     const found = (fetched as unknown as Array<{ slug: string; status: string }>).find(
@@ -149,7 +149,7 @@ describe("template-resolver :: upsertTenant", () => {
     );
     const fetched2 = await stack.http.queryOk<Record<string, unknown>>(
       TemplateResolverQueries.list,
-      { kind: "notification", locale: "de", includeSystem: false },
+      { kind: "ai-prompt", locale: "de", includeSystem: false },
       tenantA_Admin,
     );
     const found2 = (fetched2 as unknown as Array<{ slug: string; status: string }>).find(
@@ -328,17 +328,17 @@ describe("template-resolver :: list query", () => {
   test("includeSystem=true zeigt eigene + system", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
-      { ...basePayload, slug: "list-system-1", locale: "de", kind: "notification" },
+      { ...basePayload, slug: "list-system-1", locale: "de", kind: "ai-prompt" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "list-tenant-1", locale: "de", kind: "notification" },
+      { ...basePayload, slug: "list-tenant-1", locale: "de", kind: "ai-prompt" },
       tenantA_Admin,
     );
     const result = (await stack.http.queryOk(
       TemplateResolverQueries.list,
-      { kind: "notification", locale: "de", includeSystem: true },
+      { kind: "ai-prompt", locale: "de", includeSystem: true },
       tenantA_Admin,
     )) as Array<{ slug: string; scope: string }>;
     const slugs = result.map((r) => r.slug);
@@ -349,17 +349,17 @@ describe("template-resolver :: list query", () => {
   test("includeSystem=false zeigt nur eigenen Tenant", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
-      { ...basePayload, slug: "list-system-2", locale: "tr", kind: "notification" },
+      { ...basePayload, slug: "list-system-2", locale: "tr", kind: "ai-prompt" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "list-tenant-2", locale: "tr", kind: "notification" },
+      { ...basePayload, slug: "list-tenant-2", locale: "tr", kind: "ai-prompt" },
       tenantA_Admin,
     );
     const result = (await stack.http.queryOk(
       TemplateResolverQueries.list,
-      { kind: "notification", locale: "tr", includeSystem: false },
+      { kind: "ai-prompt", locale: "tr", includeSystem: false },
       tenantA_Admin,
     )) as Array<{ slug: string; scope: string }>;
     const slugs = result.map((r) => r.slug);
@@ -375,22 +375,22 @@ describe("template-resolver :: list query", () => {
   test("SystemAdmin + includeSystem=false → nur eigener Tenant, weder System- noch Fremd-Templates", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
-      { ...basePayload, slug: "sysown-system", locale: "pl", kind: "notification" },
+      { ...basePayload, slug: "sysown-system", locale: "pl", kind: "ai-prompt" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "sysown-own", locale: "pl", kind: "notification" },
+      { ...basePayload, slug: "sysown-own", locale: "pl", kind: "ai-prompt" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "sysown-tenant-a", locale: "pl", kind: "notification" },
+      { ...basePayload, slug: "sysown-tenant-a", locale: "pl", kind: "ai-prompt" },
       tenantA_Admin,
     );
     const result = (await stack.http.queryOk(
       TemplateResolverQueries.list,
-      { kind: "notification", locale: "pl", includeSystem: false },
+      { kind: "ai-prompt", locale: "pl", includeSystem: false },
       systemAdmin,
     )) as Array<{ slug: string }>;
     const slugs = result.map((r) => r.slug);
@@ -402,22 +402,22 @@ describe("template-resolver :: list query", () => {
   test("SystemAdmin + includeSystem=true → eigene + System-Templates, Fremd-Tenant bleibt unsichtbar", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
-      { ...basePayload, slug: "syscross-system", locale: "nl", kind: "notification" },
+      { ...basePayload, slug: "syscross-system", locale: "nl", kind: "ai-prompt" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "syscross-own", locale: "nl", kind: "notification" },
+      { ...basePayload, slug: "syscross-own", locale: "nl", kind: "ai-prompt" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "syscross-tenant-b", locale: "nl", kind: "notification" },
+      { ...basePayload, slug: "syscross-tenant-b", locale: "nl", kind: "ai-prompt" },
       tenantB_Admin,
     );
     const result = (await stack.http.queryOk(
       TemplateResolverQueries.list,
-      { kind: "notification", locale: "nl", includeSystem: true },
+      { kind: "ai-prompt", locale: "nl", includeSystem: true },
       systemAdmin,
     )) as Array<{ slug: string }>;
     const slugs = result.map((r) => r.slug);
@@ -429,12 +429,12 @@ describe("template-resolver :: list query", () => {
   test("tenant-isolation: TenantA's templates nicht für TenantB", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "list-iso", locale: "fr", kind: "notification" },
+      { ...basePayload, slug: "list-iso", locale: "fr", kind: "ai-prompt" },
       tenantA_Admin,
     );
     const result = (await stack.http.queryOk(
       TemplateResolverQueries.list,
-      { kind: "notification", locale: "fr", includeSystem: false },
+      { kind: "ai-prompt", locale: "fr", includeSystem: false },
       tenantB_Admin,
     )) as Array<{ slug: string }>;
     expect(result.map((r) => r.slug)).not.toContain("list-iso");
@@ -443,7 +443,7 @@ describe("template-resolver :: list query", () => {
   test("status-Filter funktioniert", async () => {
     const draft = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "filter-draft", locale: "es", kind: "notification", status: "draft" },
+      { ...basePayload, slug: "filter-draft", locale: "es", kind: "ai-prompt", status: "draft" },
       tenantA_Admin,
     );
     await stack.http.writeOk(
@@ -452,14 +452,14 @@ describe("template-resolver :: list query", () => {
         ...basePayload,
         slug: "filter-active",
         locale: "es",
-        kind: "notification",
+        kind: "ai-prompt",
         status: "active",
       },
       tenantA_Admin,
     );
     const drafts = (await stack.http.queryOk(
       TemplateResolverQueries.list,
-      { kind: "notification", locale: "es", status: "draft", includeSystem: false },
+      { kind: "ai-prompt", locale: "es", status: "draft", includeSystem: false },
       tenantA_Admin,
     )) as Array<{ slug: string }>;
     expect(drafts.map((r) => r.slug)).toContain("filter-draft");

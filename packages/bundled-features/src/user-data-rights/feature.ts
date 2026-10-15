@@ -2,17 +2,21 @@
 import { UNKNOWN_CLIENT_IP } from "@cosmicdrift/kumiko-framework/api";
 import {
   createSystemConfig,
+  createSystemUser,
   defineFeature,
   EXT_USER_DATA,
   type FeatureDefinition,
   i18nKey,
   SYSTEM_USER_ID,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   createMetricsHandle,
   createNoopMetricsHandle,
 } from "@cosmicdrift/kumiko-framework/observability";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { createConfigAccessor } from "../config/index.js";
 import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks.js";
 import {
   EXPORT_SECTION_EXTENSION_NAME,
@@ -46,6 +50,8 @@ import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.wri
 import { USER_DATA_RIGHTS_I18N } from "./i18n.js";
 import {
   type GdprMailDefaults,
+  isGdprMailDeliveryAvailable,
+  isMailRendererAvailable,
   isMailTransportAvailable,
   makeDefaultDeletionExecutedEmail,
   makeDefaultExportFailedEmail,
@@ -54,6 +60,7 @@ import {
 import { makeTenantMailTransportResolver } from "./lib/mail-transport-resolver.js";
 import { resolveAppTenantModel } from "./lib/resolve-tenant-model.js";
 import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver.js";
+import { registerGdprMails } from "./mail-notifications.js";
 import {
   EXPORT_CLEANUP_BACKLOG_AGE_METRIC,
   EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC,
@@ -164,11 +171,22 @@ export type UserDataRightsOptions = {
   readonly privacyCenterShowDeletion?: boolean;
 };
 
+function isMailTransportMountedWithoutDelivery(features: readonly FeatureDefinition[]): boolean {
+  const names = new Set(features.map((feature) => feature.name));
+  const hasTransport = [...names].some((name) => name.startsWith("mail-transport-"));
+  return (
+    names.has("mail-foundation") &&
+    hasTransport &&
+    !(names.has("delivery") && names.has("channel-email"))
+  );
+}
+
 export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): FeatureDefinition {
   // One-shot operator warning (the export cron fires daily — warn once per
   // process, not every run). Lives in the factory scope so the cron closure
   // shares it across runs.
   let warnedMissingExportUrl = false;
+  let warnedMissingMailDelivery = false;
   const showDeletion = opts.privacyCenterShowDeletion ?? true;
   return defineFeature("user-data-rights", (r) => {
     r.describe(
@@ -198,7 +216,15 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // EXT_USER_DATA channel owner: any r.useExtension(EXT_USER_DATA, ...)
     // usage already requires user-data-rights to be mounted.
     r.bootCheck(({ features }) => validateGdprHookCompleteness(features));
-    r.bootCheck(({ features }) => validateGdprPiiHookCoverage(features));
+    r.bootCheck(({ features }) => {
+      validateGdprPiiHookCoverage(features);
+      if (!warnedMissingMailDelivery && isMailTransportMountedWithoutDelivery(features)) {
+        warnedMissingMailDelivery = true;
+        createFallbackLogger("user-data-rights").warn(
+          "mail-foundation and a mail transport are mounted but delivery/channel-email are not — the default export and deletion-request mails need them and will not be sent",
+        );
+      }
+    });
 
     // App-level tenant-occupancy model. Default "multi-user" → tenant-scoped
     // contributors (e.g. credit) NEVER erase tenant data on a per-user forget
@@ -313,6 +339,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     });
 
     r.translations({ keys: USER_DATA_RIGHTS_I18N });
+    registerGdprMails(r);
     // Privacy-center dot-form labels (i18nKey()-marked below), duplicated in
     // web/i18n.ts's client bundle since privacy-center-screen.tsx renders
     // them client-side.
@@ -603,28 +630,25 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         // versendet der Cron die Export-Notifications selbst (Default-Templates).
         // Der Resolver baut den per-Tenant-Transport aus configResolver — gleiche
         // Bruecke wie buildStorageProvider.
-        const exportMailResolver = isMailTransportAvailable(exportRegistry)
-          ? makeTenantMailTransportResolver({
-              registry: exportRegistry,
-              configResolver: ctx.configResolver,
-              secrets: ctx.secrets,
-              db: exportDb,
-              userId: exportUserId,
-              handlerName: "user-data-rights:run-export-jobs",
-            })
-          : undefined;
+        // The cron runs across tenants: each mail needs a notify bound to the
+        // recipient's tenant (template override, channel config).
+        const notifyFactory = ctx._notifyFactory;
+        const exportNotifyFor =
+          notifyFactory !== undefined && isGdprMailDeliveryAvailable(exportRegistry)
+            ? (tenantId: TenantId) => notifyFactory(createSystemUser(tenantId), tenantId)
+            : undefined;
         const sendExportReadyEmail =
           opts.sendExportReadyEmail ??
-          (exportMailResolver && opts.appExportDownloadUrl !== undefined
-            ? makeDefaultExportReadyEmail(exportMailResolver, opts.mailDefaults)
+          (exportNotifyFor && opts.appExportDownloadUrl !== undefined
+            ? makeDefaultExportReadyEmail(exportNotifyFor, opts.mailDefaults)
             : undefined);
         const sendExportFailedEmail =
           opts.sendExportFailedEmail ??
-          (exportMailResolver
-            ? makeDefaultExportFailedEmail(exportMailResolver, opts.mailDefaults)
+          (exportNotifyFor
+            ? makeDefaultExportFailedEmail(exportNotifyFor, opts.mailDefaults)
             : undefined);
         if (
-          exportMailResolver &&
+          exportNotifyFor &&
           !opts.sendExportReadyEmail &&
           opts.appExportDownloadUrl === undefined &&
           !warnedMissingExportUrl
@@ -632,7 +656,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           warnedMissingExportUrl = true;
           // biome-ignore lint/suspicious/noConsole: one-shot operator visibility for misconfig
           console.warn(
-            "[user-data-rights:run-export-jobs] mail transport mounted but appExportDownloadUrl unset — default export-ready emails disabled (export-failed + deletion mails still send)",
+            "[user-data-rights:run-export-jobs] mail delivery mounted but appExportDownloadUrl unset — default export-ready emails disabled (export-failed + deletion mails still send)",
           );
         }
 
@@ -695,22 +719,37 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           userId: forgetUserId,
         });
 
-        // C6 — Default-Mail beim delete-flip wenn kein Callback gesetzt + ein
-        // mail-transport gemountet ist (gleiche per-Tenant-Bruecke wie Export).
-        const forgetMailResolver = isMailTransportAvailable(forgetRegistry)
-          ? makeTenantMailTransportResolver({
-              registry: forgetRegistry,
-              configResolver: ctx.configResolver,
-              secrets: ctx.secrets,
-              db: forgetDb,
-              userId: forgetUserId,
-              handlerName: "user-data-rights:run-forget-cleanup",
-            })
-          : undefined;
+        // Without an app callback the default mail goes out when a mail transport and a
+        // mail renderer are mounted. The user is already erased here, so it bypasses the
+        // delivery log: an attempt row would be new personal data.
+        const forgetConfigResolver = ctx.configResolver;
         const sendDeletionExecutedEmail =
           opts.sendDeletionExecutedEmail ??
-          (forgetMailResolver
-            ? makeDefaultDeletionExecutedEmail(forgetMailResolver, opts.mailDefaults)
+          (isMailTransportAvailable(forgetRegistry) && isMailRendererAvailable(forgetRegistry)
+            ? makeDefaultDeletionExecutedEmail(
+                {
+                  registry: forgetRegistry,
+                  db: forgetDb,
+                  resolveTransport: makeTenantMailTransportResolver({
+                    registry: forgetRegistry,
+                    configResolver: forgetConfigResolver,
+                    secrets: ctx.secrets,
+                    db: forgetDb,
+                    userId: forgetUserId,
+                    handlerName: "user-data-rights:run-forget-cleanup",
+                  }),
+                  configFor: (tenantId) =>
+                    forgetConfigResolver &&
+                    createConfigAccessor(
+                      forgetRegistry,
+                      forgetConfigResolver,
+                      tenantId,
+                      forgetUserId,
+                      forgetDb,
+                    ),
+                },
+                opts.mailDefaults,
+              )
             : undefined);
 
         const forgetResult = await runForgetCleanup({

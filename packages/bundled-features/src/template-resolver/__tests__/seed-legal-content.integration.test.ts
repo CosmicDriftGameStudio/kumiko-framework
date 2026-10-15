@@ -152,7 +152,7 @@ describe("seedLegalContentFromJson", () => {
   test("orphan projection (row without events) is recreated on ifExists:update — seedSystemTemplate path", async () => {
     const opts: SeedSystemTemplateOptions = {
       slug: "orphan-notification",
-      kind: "notification",
+      kind: "ai-prompt",
       locale: "de",
       content: "old",
       contentFormat: "plain",

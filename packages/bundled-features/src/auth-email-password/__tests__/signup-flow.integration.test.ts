@@ -44,7 +44,6 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
@@ -115,10 +114,8 @@ beforeAll(async () => {
       createTenantFeature(),
       ...authMailRendererFeatures(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         // route:{email} delivers directly — resolveEmail (userId→address) is
         // never hit by the signup flow, but the channel requires it.
         resolveEmail: async () => "unused@test.local",
@@ -527,10 +524,8 @@ describe("POST /api/auth/signup-request — opts.locale stays a real fallback", 
         createTenantFeature(),
         ...authMailRendererFeatures(),
         createDeliveryFeature(),
-        createRendererSimpleFeature(),
         createChannelEmailFeature({
           transport: optsLocaleTransport,
-          renderer: simpleRenderer,
           resolveEmail: async () => "unused@test.local",
         }),
         createAuthEmailPasswordFeature({
@@ -592,10 +587,8 @@ describe("POST /api/auth/signup-request — appUrl as a function picks the activ
         createTenantFeature(),
         ...authMailRendererFeatures(),
         createDeliveryFeature(),
-        createRendererSimpleFeature(),
         createChannelEmailFeature({
           transport: appUrlTransport,
-          renderer: simpleRenderer,
           resolveEmail: async () => "unused@test.local",
         }),
         createAuthEmailPasswordFeature({

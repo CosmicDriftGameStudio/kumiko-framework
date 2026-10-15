@@ -31,7 +31,7 @@ import {
 import { purchaseRolesOf } from "../plan-catalog.js";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
 import { resolveConsentLocale } from "./consent-text.js";
-import { renderTerminationReceipt, type TerminationDeclaration } from "./termination-mail.js";
+import { type TerminationDeclaration, terminationReceiptVariables } from "./termination-mail.js";
 import { notifyOperator, type OperatorNoticePlan, requireNotify } from "./termination-notify.js";
 import type { RecordContractTerminationResult } from "./termination-record.js";
 import type { OperatorNoticeReason } from "./termination-texts.js";
@@ -111,7 +111,7 @@ async function sendTerminationMails(
 ): Promise<void> {
   await requireNotify(ctx)(CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE, {
     route: { email: plan.declaration.email },
-    data: renderTerminationReceipt({
+    data: terminationReceiptVariables({
       locale: plan.locale,
       requestId: plan.requestId,
       receivedAtIso: plan.receivedAtIso,

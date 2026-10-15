@@ -1,4 +1,10 @@
-import type { AuthMailContent } from "../auth-email-password/index.js";
+import {
+  type NotificationLocalizedTemplate,
+  type NotificationRecordMapping,
+  type TemplateVariables,
+  templateVariable,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { mailHeading, mailParagraph, mailRepeatedRows } from "../shared/index.js";
 
 export type WaitlistMailLocale = "en" | "de" | "es";
 
@@ -72,19 +78,52 @@ export function resolveWaitlistMailLocale(locale: string | undefined): WaitlistM
   return isConfirmationLocale(language) ? language : "en";
 }
 
+export const WAITLIST_CONFIRMATION_VARIABLES: TemplateVariables = {
+  subject: templateVariable.text({ required: true }),
+  intro: templateVariable.text({ required: true }),
+  footer: templateVariable.text({ required: true }),
+};
+
+// Only `name` is a plain entry field; the details rows are composed from several fields.
+export const WAITLIST_ADMIN_NOTICE_RECORD: NotificationRecordMapping = {
+  entity: "waitlistEntry",
+  map: { name: "name" },
+};
+
+export const WAITLIST_ADMIN_NOTICE_VARIABLES: TemplateVariables = {
+  name: templateVariable.text({ required: true }),
+  details: templateVariable.list(
+    { text: templateVariable.text({ required: true }) },
+    { required: true },
+  ),
+};
+
+// The app name is optional, so the sentences that mention it are computed in
+// code and handed over as variables; the template keeps heading and structure.
 // The submitter's name stays out: the address is unverified, so any text in
 // this mail could be planted by whoever typed someone else's email.
-export function renderWaitlistConfirmationEmail(args: {
+export function waitlistConfirmationVariables(args: {
   readonly locale: string | undefined;
   readonly appName?: string | undefined;
-}): AuthMailContent {
+}): { readonly subject: string; readonly intro: string; readonly footer: string } {
   const t = CONFIRMATION_STRINGS[resolveWaitlistMailLocale(args.locale)];
   return {
     subject: t.subject(args.appName),
-    header: t.header,
-    sections: [{ text: t.intro(args.appName) }],
+    intro: t.intro(args.appName),
     footer: t.footer(args.appName),
   };
+}
+
+export function waitlistConfirmationTemplate(): NotificationLocalizedTemplate {
+  return Object.fromEntries(
+    Object.entries(CONFIRMATION_STRINGS).map(([locale, t]) => [
+      locale,
+      {
+        body: [mailHeading(t.header), mailParagraph("{intro}"), mailParagraph("{footer}")].join(""),
+        meta: { subject: "{{subject}}", category: "transactional" as const },
+      },
+    ]),
+  );
 }
 
 // Operator-facing, so the entrant's locale does not apply: en/de, en default.
@@ -92,23 +131,35 @@ export function resolveWaitlistAdminMailLocale(adminLocale: string | undefined):
   return languageOf(adminLocale) === "de" ? "de" : "en";
 }
 
-export function renderWaitlistAdminNoticeEmail(args: {
+export function waitlistAdminNoticeVariables(args: {
   readonly name: string;
   readonly email: string;
   readonly company: string | undefined;
   readonly message: string | undefined;
-  readonly adminLocale: string | undefined;
-}): AuthMailContent {
-  const t = ADMIN_NOTICE_STRINGS[resolveWaitlistAdminMailLocale(args.adminLocale)];
-  const details = [
-    `${args.name} <${args.email}>`,
-    ...(args.company ? [args.company] : []),
-    ...(args.message ? [args.message] : []),
-  ];
+}): { readonly name: string; readonly details: readonly { readonly text: string }[] } {
   return {
-    subject: t.subject(args.name),
-    header: t.header,
-    sections: [{ text: t.intro }, { text: details.join("\n") }],
-    footer: t.footer,
+    name: args.name,
+    details: [
+      `${args.name} <${args.email}>`,
+      ...(args.company ? [args.company] : []),
+      ...(args.message ? [args.message] : []),
+    ].map((text) => ({ text })),
   };
+}
+
+export function waitlistAdminNoticeTemplate(): NotificationLocalizedTemplate {
+  return Object.fromEntries(
+    Object.entries(ADMIN_NOTICE_STRINGS).map(([locale, t]) => [
+      locale,
+      {
+        body: [
+          mailHeading(t.header),
+          mailParagraph(t.intro),
+          mailRepeatedRows("details", "text"),
+          mailParagraph(t.footer),
+        ].join(""),
+        meta: { subject: t.subject("{{name}}"), category: "transactional" as const },
+      },
+    ]),
+  );
 }

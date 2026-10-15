@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { simpleRenderer } from "../../renderer-simple/index.js";
 import {
-  type ContractConfirmationSection,
-  type RenderContractConfirmationArgs,
-  renderContractConfirmation,
+  type ContractConfirmationArgs,
+  contractConfirmationVariables,
 } from "../consumer-protection/confirmation-mail.js";
 import { CONSENT_TEXTS } from "../consumer-protection/consent-text.js";
+import { contractConfirmationTemplate } from "../consumer-protection/mail-notifications.js";
 import type { CheckoutConsentRecordedPayload } from "../events.js";
 
 const vatNote = { de: "Preise inkl. USt.", en: "Prices include VAT." };
@@ -28,12 +27,12 @@ function consentFor(locale: string): CheckoutConsentRecordedPayload {
   };
 }
 
-function render(
+function variablesFor(
   locale: string,
   termsContent = "Terms line one.\n\nTerms line two.",
-  extra: Partial<RenderContractConfirmationArgs> = {},
+  extra: Partial<ContractConfirmationArgs> = {},
 ) {
-  return renderContractConfirmation({
+  return contractConfirmationVariables({
     consent: consentFor(locale),
     timeZone: "UTC",
     consentGivenAtIso: "2026-10-01T10:00:00Z",
@@ -46,90 +45,75 @@ function render(
   });
 }
 
-function sectionText(section: ContractConfirmationSection): string {
-  if ("text" in section) return section.text;
-  if ("heading" in section) return section.heading;
-  return section.markdown;
-}
-
-function allText(
+function contractText(
   locale: string,
   termsContent?: string,
-  extra?: Partial<RenderContractConfirmationArgs>,
+  extra?: Partial<ContractConfirmationArgs>,
 ): string {
-  const content = render(locale, termsContent, extra);
-  return [
-    content.subject,
-    content.header,
-    ...content.sections.map(sectionText),
-    content.footer,
-  ].join("\n");
+  const variables = variablesFor(locale, termsContent, extra);
+  return [...variables.contractLines.map((row) => row.text), variables.consentGivenAt].join("\n");
 }
 
-describe("renderContractConfirmation", () => {
-  test("de carries plan, price, dates, VAT note, consent texts and the full terms", () => {
-    const text = allText("de");
-    expect(text).toContain("Vertragsbestätigung");
+describe("contractConfirmationVariables", () => {
+  test("de carries plan, price, dates and VAT note as rows, the terms as paragraphs", () => {
+    const variables = variablesFor("de");
+    const text = contractText("de");
     expect(text).toContain("Tarif: pro");
     expect(text).toContain("19,00");
     expect(text).toContain("Monat");
     expect(text).toContain("Preise inkl. USt.");
-    expect(text).toContain(CONSENT_TEXTS.de.earlyPerformance);
-    expect(text).toContain(CONSENT_TEXTS.de.withdrawalLoss);
-    expect(text).toContain("Terms line one.");
-    expect(text).toContain("Terms line two.");
     expect(text).toContain("Aktueller Abrechnungszeitraum bis");
-    expect(text).toContain("billing@example.com");
+    expect(variables.termsParagraphs).toEqual([
+      { text: "Terms line one." },
+      { text: "Terms line two." },
+    ]);
+    expect(variables.operatorEmail).toBe("billing@example.com");
   });
 
-  test("en renders English labels and consent texts", () => {
-    const text = allText("en");
-    expect(text).toContain("Contract confirmation");
+  test("en renders English labels", () => {
+    const text = contractText("en");
     expect(text).toContain("Plan: pro");
     expect(text).toContain("Prices include VAT.");
-    expect(text).toContain(CONSENT_TEXTS.en.earlyPerformance);
   });
 
   test("an unknown locale falls back to English", () => {
-    const text = allText("fr");
-    expect(text).toContain("Contract confirmation");
-    expect(text).toContain(CONSENT_TEXTS.en.earlyPerformance);
+    expect(contractText("fr")).toContain("Plan: pro");
   });
 
   test("dates carry the zone name and are shown in the given zone", () => {
-    const berlin = allText("en", undefined, { timeZone: "Europe/Berlin" });
+    const berlin = contractText("en", undefined, { timeZone: "Europe/Berlin" });
     expect(berlin).toContain("2:30 PM");
     expect(berlin).toMatch(/GMT\+2|CEST/);
-    const utc = allText("en");
+    const utc = contractText("en");
     expect(utc).toContain("12:30 PM");
     expect(utc).toContain("UTC");
   });
 
   test("uses the translated tier label, else the raw tier", () => {
-    expect(allText("en", undefined, { tierLabel: "Pro plan" })).toContain("Plan: Pro plan");
-    expect(allText("en")).toContain("Plan: pro");
+    expect(contractText("en", undefined, { tierLabel: "Pro plan" })).toContain("Plan: Pro plan");
+    expect(contractText("en")).toContain("Plan: pro");
   });
 
   test("a one-off payment shows the item label, else the generic text", () => {
     const payment = { ...consentFor("en"), mode: "payment" as const, tier: null, interval: null };
-    expect(allText("en", undefined, { consent: payment, itemLabel: "500 credits" })).toContain(
+    expect(contractText("en", undefined, { consent: payment, itemLabel: "500 credits" })).toContain(
       "Item: 500 credits",
     );
-    expect(allText("en", undefined, { consent: payment })).toContain("Item: One-off payment");
-    expect(allText("de", undefined, { consent: { ...payment, locale: "de" } })).toContain(
+    expect(contractText("en", undefined, { consent: payment })).toContain("Item: One-off payment");
+    expect(contractText("de", undefined, { consent: { ...payment, locale: "de" } })).toContain(
       "Leistung: Einmalzahlung",
     );
   });
 
-  test("terms and consent headings are heading sections, terms one markdown section", () => {
-    const { sections } = render("en", "# AGB\n\nText");
-    expect(sections).toContainEqual({ heading: "Your consents" });
-    expect(sections).toContainEqual({ heading: "Terms and conditions" });
-    expect(sections).toContainEqual({ markdown: "# AGB\n\nText" });
+  test("terms heading markers are dropped and blank-line paragraphs become rows", () => {
+    expect(variablesFor("en", "# AGB\n\nText").termsParagraphs).toEqual([
+      { text: "AGB" },
+      { text: "Text" },
+    ]);
   });
 
   test("omits the period end when the trigger did not carry one", () => {
-    const content = renderContractConfirmation({
+    const variables = contractConfirmationVariables({
       consent: consentFor("en"),
       timeZone: "UTC",
       consentGivenAtIso: "2026-10-01T10:00:00Z",
@@ -138,16 +122,19 @@ describe("renderContractConfirmation", () => {
       operatorEmail: "billing@example.com",
       termsContent: "Terms.",
     });
-    expect(content.sections.map(sectionText).join("\n")).not.toContain("billing period ends");
+    expect(variables.contractLines.map((row) => row.text).join("\n")).not.toContain(
+      "billing period ends",
+    );
   });
+});
 
-  test("a terms text with markup is HTML-escaped by the renderer", async () => {
-    const content = render("de", "Before <script>alert(1)</script> after");
-    const html = await simpleRenderer.render({
-      template: "billing-foundation:contract-confirmation",
-      variables: content,
-    });
-    expect(html).not.toContain("<script>");
-    expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+describe("contractConfirmationTemplate", () => {
+  test("ships de and en with the legal consent wording and the subject of the locale", () => {
+    const template = contractConfirmationTemplate();
+    expect(Object.keys(template).sort()).toEqual(["de", "en"]);
+    expect(template["de"]?.meta.subject).toBe("Vertragsbestätigung");
+    expect(template["en"]?.meta.subject).toBe("Contract confirmation");
+    expect(template["de"]?.body).toContain(CONSENT_TEXTS.de.earlyPerformance);
+    expect(template["en"]?.body).toContain(CONSENT_TEXTS.en.withdrawalLoss);
   });
 });

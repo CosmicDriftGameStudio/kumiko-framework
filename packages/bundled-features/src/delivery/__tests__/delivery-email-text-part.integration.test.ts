@@ -2,10 +2,13 @@
 // payload is re-parsed by zod, which would drop a field the schema omits.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, templateVariable } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  authMailRendererFeatures,
+  seedAuthMailTemplates,
+} from "../../auth-email-password/__tests__/auth-mail-stack.js";
 import { createEmailChannel } from "../../channel-email/email-channel.js";
 import { createInMemoryTransport } from "../../channel-email/types.js";
-import { createSimpleRenderer } from "../../renderer-simple/simple-renderer.js";
 import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs } from "../constants.js";
 import { deliveryRenderJob, deliverySendJob } from "../jobs.js";
 import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.js";
@@ -13,12 +16,20 @@ import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-
 const transport = createInMemoryTransport();
 const emailChannel = createEmailChannel({
   transport,
-  renderer: createSimpleRenderer(),
   resolveEmail: async () => null,
 });
 
+const NOTIFICATION_TYPE = "email-text-probe:notify:text-part";
+
 const emailTextProbeFeature = defineFeature("email-text-probe", (r) => {
   r.requires("delivery");
+  r.notification("text-part", {
+    variables: { actionUrl: templateVariable.link({ required: true }) },
+    template: {
+      en: { body: '<p>Welcome</p><p><a data-button href="{{actionUrl}}">Sign in</a></p>' },
+    },
+    meta: { en: { subject: "Welcome" } },
+  });
   r.useExtension(DELIVERY_CHANNEL_EXTENSION, "email-text-probe", {
     mode: emailChannel.mode,
     render: emailChannel.render,
@@ -29,7 +40,8 @@ const emailTextProbeFeature = defineFeature("email-text-probe", (r) => {
 let harness: ChatHarness;
 
 beforeAll(async () => {
-  harness = await setupChatHarness(emailTextProbeFeature);
+  harness = await setupChatHarness(...authMailRendererFeatures(), emailTextProbeFeature);
+  await seedAuthMailTemplates(harness.stack);
 });
 
 afterAll(async () => {
@@ -37,7 +49,7 @@ afterAll(async () => {
 });
 
 describe("delivery jobs carry the email text part", () => {
-  test("the simple renderer's text part reaches the transport through both jobs", async () => {
+  test("the rendered mail's text part reaches the transport through both jobs", async () => {
     const dispatched: { name: string; payload: Record<string, unknown> }[] = [];
     const runner = {
       async dispatch(name: string, payload: Record<string, unknown>) {
@@ -50,17 +62,14 @@ describe("delivery jobs carry the email text part", () => {
       address: "user@example.com",
       tenantId: tenantAdmin.tenantId,
       recipientId: null,
-      notificationType: "app:notify:text-part",
+      notificationType: NOTIFICATION_TYPE,
       deliveryAttemptId: "00000000-0000-4000-8000-0000000000dd",
       priority: "normal",
       message: {
-        notificationType: "app:notify:text-part",
+        notificationType: NOTIFICATION_TYPE,
         title: "Welcome",
-        data: {
-          subject: "Welcome",
-          header: "Welcome",
-          sections: [{ button: { label: "Sign in", url: "https://app.test/login" } }],
-        },
+        locale: "en",
+        data: { actionUrl: "https://app.test/login" },
       },
     };
 
@@ -72,7 +81,7 @@ describe("delivery jobs carry the email text part", () => {
     await deliverySendJob(sendJob.payload, harness.buildJobContext(runner));
 
     expect(transport.sent).toHaveLength(1);
-    expect(transport.sent[0]?.text).toBe("Welcome\n\nSign in: https://app.test/login");
+    expect(transport.sent[0]?.text).toContain("https://app.test/login");
     expect(transport.sent[0]?.html).toContain('href="https://app.test/login"');
   });
 });

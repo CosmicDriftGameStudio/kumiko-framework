@@ -12,14 +12,13 @@ const TEST_TENANT = "11111111-1111-4111-8111-111111111111" as TenantId;
 let stack: TestStack;
 
 // Mini-Plugin via defineFeature + r.useExtension — wie ein echter
-// renderer-plugin (renderer-simple, renderer-mail-html) sich registriert.
+// renderer-plugin (renderer-mail-html, renderer-puppeteer-client) sich registriert.
 function createTestPluginFeature(name: string, kinds: ReadonlyArray<RenderKind>) {
   return defineFeature(`renderer-${name}`, (r) => {
     r.requires("renderer-foundation");
     r.useExtension(RENDERER_EXTENSION, name, {
       kinds,
       render: async (req: RenderRequest): Promise<RenderResponse> => {
-        if (req.kind === "notification") return { kind: "notification", html: `via:${name}` };
         if (req.kind === "mail")
           return { kind: "mail", subject: name, html: `via:${name}`, text: `via:${name}` };
         if (req.kind === "document-pdf")
@@ -46,7 +45,6 @@ beforeAll(async () => {
     features: [
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
-      createTestPluginFeature("simple", ["notification"]),
       createTestPluginFeature("mail-html", ["mail"]),
       createTestPluginFeature("puppeteer", ["document-pdf", "image-snapshot"]),
     ],
@@ -61,13 +59,12 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
   test("collectRendererPlugins findet alle registrierten Plugins", () => {
     const plugins = collectRendererPlugins(stack.registry);
     const names = plugins.map((p) => p.name).sort();
-    expect(names).toEqual(["mail-html", "puppeteer", "simple"]);
+    expect(names).toEqual(["mail-html", "puppeteer"]);
   });
 
   test("jeder Plugin behält seine kinds-Deklaration", () => {
     const plugins = collectRendererPlugins(stack.registry);
     const byName = new Map(plugins.map((p) => [p.name, p]));
-    expect([...byName.get("simple")!.kinds]).toEqual(["notification"]);
     expect([...byName.get("mail-html")!.kinds]).toEqual(["mail"]);
     expect([...byName.get("puppeteer")!.kinds].sort()).toEqual(["document-pdf", "image-snapshot"]);
   });
@@ -75,9 +72,6 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
   test("API findet Default-Plugin pro kind aus echtem Pool", () => {
     const plugins = collectRendererPlugins(stack.registry);
     const api = createRendererFoundationApi(plugins);
-    expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "notification" }).name).toBe(
-      "simple",
-    );
     expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "mail" }).name).toBe(
       "mail-html",
     );
@@ -110,14 +104,14 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
   test("Plugin.render mit echtem Pool fließt end-to-end durch", async () => {
     const plugins = collectRendererPlugins(stack.registry);
     const api = createRendererFoundationApi(plugins);
-    const plugin = api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "notification" });
+    const plugin = api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "mail" });
     const result = await plugin.render(
-      { kind: "notification", payload: { content: "hello", contentFormat: "markdown" } },
+      { kind: "mail", payload: { slug: "welcome", locale: "en", variables: {} } },
       { db: stack.db, registry: stack.registry, tenantId: TEST_TENANT },
     );
-    expect(result.kind).toBe("notification");
-    if (result.kind === "notification") {
-      expect(result.html).toBe("via:simple");
+    expect(result.kind).toBe("mail");
+    if (result.kind === "mail") {
+      expect(result.html).toBe("via:mail-html");
     }
   });
 });

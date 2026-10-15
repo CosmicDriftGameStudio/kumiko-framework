@@ -25,10 +25,6 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
-  createRendererSimpleFeature,
-  simpleRenderer,
-} from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
-import {
   createTemplateResolverFeature,
   SYSTEM_TENANT_ID,
   TemplateResolverHandlers,
@@ -153,10 +149,8 @@ beforeAll(async () => {
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
       invoiceFeature,

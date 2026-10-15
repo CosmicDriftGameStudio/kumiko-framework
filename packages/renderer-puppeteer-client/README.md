@@ -34,7 +34,7 @@ import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-fea
 const features = [
   createRendererFoundationFeature(),
   createRendererPuppeteerClientFeature(),
-  // weitere renderer-Plugins (renderer-mail-html, renderer-simple, …)
+  // weitere renderer-Plugins (renderer-mail-html, …)
 ];
 
 // In createKumikoApp's extraContext:

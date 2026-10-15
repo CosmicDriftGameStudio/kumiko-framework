@@ -21,7 +21,6 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { hashPassword } from "../../shared/index.js";
 import { TemplateResolverHandlers } from "../../template-resolver/qualified-names.js";
 import { createTenantFeature } from "../../tenant/index.js";
@@ -74,10 +73,8 @@ beforeAll(async () => {
       createTenantFeature(),
       ...authMailRendererFeatures(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
       createAuthEmailPasswordFeature({ invite: { tokenTtlMinutes: 60, appUrl: APP_ACCEPT_URL } }),

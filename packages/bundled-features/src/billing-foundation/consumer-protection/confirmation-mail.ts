@@ -1,6 +1,6 @@
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { CheckoutConsentRecordedPayload } from "../events.js";
-import { CONSENT_TEXTS, type ConsentLocale, resolveConsentLocale } from "./consent-text.js";
+import { type ConsentLocale, resolveConsentLocale } from "./consent-text.js";
 
 // Inline de/en like the consent texts: the confirmation repeats the legal
 // wording the buyer agreed to, so it cannot follow the en-only i18n convention.
@@ -22,7 +22,7 @@ type ConfirmationLabels = {
   readonly every: string;
 };
 
-const LABELS: Readonly<Record<ConsentLocale, ConfirmationLabels>> = {
+export const CONFIRMATION_LABELS: Readonly<Record<ConsentLocale, ConfirmationLabels>> = {
   de: {
     subject: "Vertragsbestätigung",
     intro:
@@ -71,19 +71,17 @@ const LABELS: Readonly<Record<ConsentLocale, ConfirmationLabels>> = {
   },
 };
 
-export type ContractConfirmationSection =
-  | { readonly text: string }
-  | { readonly heading: string }
-  | { readonly markdown: string };
+type TextRow = { readonly text: string };
 
-export type ContractConfirmationContent = {
-  readonly subject: string;
-  readonly header: string;
-  readonly sections: readonly ContractConfirmationSection[];
-  readonly footer: string;
+/** Variables of the contract confirmation template. */
+export type ContractConfirmationVariables = {
+  readonly contractLines: readonly TextRow[];
+  readonly consentGivenAt: string;
+  readonly termsParagraphs: readonly TextRow[];
+  readonly operatorEmail: string;
 };
 
-export type RenderContractConfirmationArgs = {
+export type ContractConfirmationArgs = {
   readonly consent: CheckoutConsentRecordedPayload;
   readonly timeZone: string;
   /** Translated plan name; falls back to the raw tier. */
@@ -99,7 +97,7 @@ export type RenderContractConfirmationArgs = {
 };
 
 function formatPrice(consent: CheckoutConsentRecordedPayload, locale: ConsentLocale): string {
-  const labels = LABELS[locale];
+  const labels = CONFIRMATION_LABELS[locale];
   if (consent.unitAmount === null || consent.currency === null) return "-";
   let amount: string;
   try {
@@ -140,45 +138,41 @@ function formatDate(iso: string, locale: ConsentLocale, timeZone: string): strin
   }).format(epochMilliseconds);
 }
 
-/** Structured mail content (header/sections/footer) for the email channel's
- *  renderer; the renderer owns HTML escaping, this only builds plain text. */
-export function renderContractConfirmation(
-  args: RenderContractConfirmationArgs,
-): ContractConfirmationContent {
-  const locale = resolveConsentLocale(args.consent.locale);
-  const labels = LABELS[locale];
-  const texts = CONSENT_TEXTS[locale];
-  const { consent } = args;
+// The mail template only knows plain text variables, so the Markdown terms
+// become one row per paragraph; heading markers are dropped.
+function termsParagraphsOf(markdown: string): readonly TextRow[] {
+  return markdown
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.replace(/^#{1,6}\s+/gm, "").trim())
+    .filter((paragraph) => paragraph.length > 0)
+    .map((text) => ({ text }));
+}
 
-  const { timeZone } = args;
+export function contractConfirmationVariables(
+  args: ContractConfirmationArgs,
+): ContractConfirmationVariables {
+  const locale = resolveConsentLocale(args.consent.locale);
+  const labels = CONFIRMATION_LABELS[locale];
+  const { consent, timeZone } = args;
+
   const subjectLine =
     consent.mode === "payment"
       ? `${labels.item}: ${args.itemLabel ?? labels.oneOffPayment}`
       : `${labels.plan}: ${args.tierLabel ?? consent.tier ?? labels.oneOffPayment}`;
-  const contractLines = [
-    subjectLine,
-    `${labels.price}: ${formatPrice(consent, locale)}`,
-    `${labels.contractStart}: ${formatDate(args.contractStartIso, locale, timeZone)}`,
-    ...(args.currentPeriodEndIso !== undefined
-      ? [`${labels.currentPeriodEnd}: ${formatDate(args.currentPeriodEndIso, locale, timeZone)}`]
-      : []),
-  ];
   const vatNote = args.vatNote[locale] ?? args.vatNote[resolveConsentLocale()];
 
   return {
-    subject: labels.subject,
-    header: labels.subject,
-    sections: [
-      { text: labels.intro },
-      ...contractLines.map((text) => ({ text })),
-      ...(vatNote !== undefined ? [{ text: vatNote }] : []),
-      { heading: labels.consentHeading },
-      { text: texts.earlyPerformance },
-      { text: texts.withdrawalLoss },
-      { text: `${labels.consentGivenAt}: ${formatDate(args.consentGivenAtIso, locale, timeZone)}` },
-      { heading: labels.termsHeading },
-      { markdown: args.termsContent },
-    ],
-    footer: `${labels.contact} ${args.operatorEmail}`,
+    contractLines: [
+      subjectLine,
+      `${labels.price}: ${formatPrice(consent, locale)}`,
+      `${labels.contractStart}: ${formatDate(args.contractStartIso, locale, timeZone)}`,
+      ...(args.currentPeriodEndIso !== undefined
+        ? [`${labels.currentPeriodEnd}: ${formatDate(args.currentPeriodEndIso, locale, timeZone)}`]
+        : []),
+      ...(vatNote !== undefined ? [vatNote] : []),
+    ].map((text) => ({ text })),
+    consentGivenAt: formatDate(args.consentGivenAtIso, locale, timeZone),
+    termsParagraphs: termsParagraphsOf(args.termsContent),
+    operatorEmail: args.operatorEmail,
   };
 }

@@ -19,7 +19,6 @@ export {
   isRendererRegistrationPlugin,
   type MailDraft,
   type MailPayload,
-  type NotificationPayload,
   type PdfOptions,
   type RenderedTemplateRef,
   type RendererContext,

@@ -21,7 +21,7 @@ export type {
 } from "./bootstrap.js";
 export { BootstrapPlanError, BootstrapWriteError, bootstrapTenants } from "./bootstrap.js";
 export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers, AuthQueries } from "./constants.js";
-export type { AuthMailContent, AuthMailLocale } from "./email-templates.js";
+export type { AuthMailLocale } from "./email-templates.js";
 export type {
   AccountLockoutOptions,
   AccountUnlockOptions,

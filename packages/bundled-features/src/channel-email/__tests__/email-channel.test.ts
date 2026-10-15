@@ -1,18 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import type {
-  ChannelContext,
-  ChannelMessage,
-  NotificationRenderer,
-  RenderedMessage,
-} from "../../delivery/index.js";
+import type { ChannelContext, ChannelMessage, RenderedMessage } from "../../delivery/index.js";
 import { createEmailChannel, fileAttachmentsFrom } from "../email-channel.js";
 import { createInMemoryTransport } from "../types.js";
 
-const stubRenderer: NotificationRenderer = {
-  name: "stub",
-  render: async () => "<p>rendered</p>",
-};
 const resolveEmail = async () => "user@example.com";
 // send() with a `rendered` message only reads ctx.registry (to look up a
 // notification template); render()/resolve() would need more.
@@ -20,7 +11,7 @@ const ctx = { registry: createRegistry([]) } as unknown as ChannelContext;
 const rendered: RenderedMessage = { html: "<p>x</p>", subject: "Re: Wasserschaden" };
 
 function channelWith(transport: ReturnType<typeof createInMemoryTransport>) {
-  return createEmailChannel({ transport, renderer: stubRenderer, resolveEmail });
+  return createEmailChannel({ transport, resolveEmail });
 }
 
 describe("email channel envelope", () => {
@@ -211,35 +202,6 @@ describe("email channel List-Unsubscribe headers", () => {
   });
 });
 
-describe("email channel text part", () => {
-  const message: ChannelMessage = {
-    notificationType: "x",
-    title: "Hallo",
-    body: "Dein Code ist 1234.",
-    data: undefined,
-  };
-
-  test("a renderer with renderText puts its output into the rendered message and the mail", async () => {
-    const transport = createInMemoryTransport();
-    const channel = createEmailChannel({
-      transport,
-      renderer: { ...stubRenderer, renderText: async () => "rendered as text" },
-      resolveEmail,
-    });
-    const renderedMessage = await channel.render?.(message, ctx);
-    expect(renderedMessage?.text).toBe("rendered as text");
-    await channel.send("user@example.com", message, ctx, renderedMessage);
-    expect(transport.sent[0]?.text).toBe("rendered as text");
-  });
-
-  test("a renderer without renderText sends html only", async () => {
-    const transport = createInMemoryTransport();
-    await channelWith(transport).send("user@example.com", message, ctx);
-    expect(transport.sent[0]?.html).toBe("<p>rendered</p>");
-    expect(transport.sent[0]).not.toHaveProperty("text");
-  });
-});
-
 describe("email channel template notifications", () => {
   const templated = defineFeature("tpl", (r) => {
     r.notification("welcome", {
@@ -284,7 +246,7 @@ describe("email channel template notifications", () => {
     });
   });
 
-  test("a declared template without ctx.renderMail fails instead of falling back to the legacy renderer", async () => {
+  test("a declared template without ctx.renderMail fails", async () => {
     await expect(
       channelWith(createInMemoryTransport()).render?.(message, templatedCtx()),
     ).rejects.toThrow(/renderMail/);
@@ -380,5 +342,27 @@ describe("email channel attachments", () => {
       }),
     ).toThrow();
     expect(fileAttachmentsFrom(undefined)).toEqual([]);
+  });
+});
+
+describe("email channel notifications without a template", () => {
+  test("fail with an error naming the notification type", async () => {
+    const withoutTemplate = defineFeature("plain", (r) => {
+      r.notification("hello", {});
+    });
+    const message: ChannelMessage = {
+      notificationType: "plain:notify:hello",
+      title: "t",
+      body: "b",
+      data: undefined,
+    };
+    await expect(
+      channelWith(createInMemoryTransport()).render?.(message, {
+        ...ctx,
+        registry: createRegistry([withoutTemplate]),
+      }),
+    ).rejects.toThrow(
+      /plain:notify:hello.*has no mail template, declare template \+ meta on r\.notification/,
+    );
   });
 });
