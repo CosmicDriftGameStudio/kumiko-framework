@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-07
+verified: 2026-10-15
 evidence: "packages/types/src/screen.ts (DashboardText, DashboardValueFormat, DashboardPanelGate, DashboardChartPanel); packages/renderer-web/src/app/dashboard-body.tsx; packages/renderer-web/src/widgets/stat.tsx; packages/renderer-web/src/widgets/charts.tsx (StackedAreaChart scrollable, lines, markers); packages/framework/src/engine/boot-validator/screens.ts"
 ---
 
@@ -93,6 +93,8 @@ A labeled `stat-group` takes an optional `subtitle` (i18n key) shown next to its
 A `stat-group` takes `span: "half"` or `"full"` like the other panels and defaults to the full row. Two half-width groups sit next to each other on large screens. A labeled group gets one column per value, up to three.
 
 `accentColor` is static. When the icon chip should change color with the result, for example a net cash flow that turns from positive to negative, leave `accentColor` unset and return the tone from `toneField`: the value and the chip both follow it.
+
+Stat tones are `default`, `positive`, `ok`, `warn` and `negative`. `ok` renders in the status green; `positive` follows the theme primary color, which some apps set to a near-black brand color.
 
 ## Stacked-area extras: lines, marker kinds, colors, ranges
 

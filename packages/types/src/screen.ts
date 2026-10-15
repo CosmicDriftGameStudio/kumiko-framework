@@ -947,7 +947,7 @@ export type DashboardPanelEmptyState = {
 // Query result contract: flat record; `valueField` points at the
 // value (string is display-ready, number is locale-formatted, DashboardI18nText
 // is translated), `subField` optionally at a sub line (string | DashboardI18nText), `toneField` optionally at
-// "default" | "positive" | "warn" | "negative".
+// "default" | "positive" | "ok" | "warn" | "negative".
 // `visibleWhen` only on a top-level stat; the boot validator rejects it on a
 // stat-group child (gate the whole group instead).
 export type DashboardStatPanel = DashboardPanelQueryOptions &
@@ -964,7 +964,7 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     /** Formats a numeric value as currency (minor units); ignored for string values. The sparkline is not formatted. */
     readonly valueFormat?: DashboardValueFormat;
     /** Fixed tone when `toneField` is unset or yields none; not applied while the value is 0. */
-    readonly tone?: "default" | "positive" | "warn" | "negative";
+    readonly tone?: "default" | "positive" | "ok" | "warn" | "negative";
     /** Record field holding `{ atMs, value | null }[]` (MetricResult.points),
      *  drawn as a sparkline next to the value. */
     readonly sparklineField?: string;

@@ -123,7 +123,7 @@ import { StatCard, type StatDelta, StatStripCell, type StatTone } from "../widge
 import { EmptyState, LoadingState } from "../widgets/states.js";
 import { StatusBadge } from "../widgets/status-badge.js";
 
-const STAT_TONES: ReadonlySet<string> = new Set(["default", "positive", "warn", "negative"]);
+const STAT_TONES: ReadonlySet<string> = new Set(["default", "positive", "ok", "warn", "negative"]);
 const SKELETON_SEGMENT_WIDTHS = ["100%", "72%", "48%"] as const;
 const WIDE_PANEL = "sm:col-span-2 lg:col-span-4";
 const HALF_PANEL = "sm:col-span-2 lg:col-span-2";

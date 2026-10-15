@@ -506,6 +506,16 @@ describe("dashboard stat panels", () => {
     expect(card.querySelector(".text-status-bad")).not.toBeNull();
   });
 
+  test('toneField "ok" colors the value status green', async () => {
+    renderDashboard(statScreen, {
+      "demo:query:kpi:volume": () => ok({ value: "1.200", tone: "ok", points: dayPoints([1, 2]) }),
+    });
+    await waitFor(() => expect(screen.getByText("1.200")).toBeTruthy());
+    const card = screen.getByTestId("dashboard-panel-volume");
+    expect(card.querySelector(".text-status-ok")).not.toBeNull();
+    expect(card.querySelector(".text-primary")).toBeNull();
+  });
+
   test("non-integers get at most one fraction digit; strings stay untouched", async () => {
     renderDashboard(
       {
