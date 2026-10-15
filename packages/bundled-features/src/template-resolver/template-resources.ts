@@ -6,7 +6,7 @@ import type {
   WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { createFileRefFromBytes, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { requireForTenant } from "../shared/index.js";
 import { executor } from "./handlers/shared.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
@@ -22,8 +22,6 @@ type FileRefRow = {
   readonly fileName: string;
   readonly mimeType: string;
 };
-
-type TemplateResourceContext = Pick<HandlerContext, "db" | "files" | "registry" | "user">;
 
 // Reads the file behind a template resource. Null when the fileRef is unknown
 // to the caller's tenant or has no bytes.
@@ -43,22 +41,8 @@ export async function readTemplateResource(
   return { fileName: row.fileName, contentType: row.mimeType, bytes: await handle.read() };
 }
 
-// Stores a resource file under the caller's tenant; the success data is the
-// fileRef id that linkedResources points at.
-export async function storeTemplateResource(
-  ctx: TemplateResourceContext,
-  file: TemplateResourceFile,
-): Promise<WriteResult<string>> {
-  const result = await createFileRefFromBytes(ctx, {
-    fileName: file.fileName,
-    mimeType: file.contentType,
-    data: file.bytes,
-  });
-  return result.isSuccess ? { isSuccess: true, data: result.data.id } : result;
-}
-
-// Interim: bundle import and copy-locale are the only writers of linkedResources
-// until the resource upload path lands and takes this function over.
+// Replaces the whole key map of one row with files that are already stored (bundle import,
+// copy-locale). Single keys go through storeTemplateResource and resource-remove.
 export async function attachTemplateResources(
   ctx: Pick<HandlerContext, "forTenant">,
   args: {

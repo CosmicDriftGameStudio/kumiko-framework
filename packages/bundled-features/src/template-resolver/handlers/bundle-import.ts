@@ -12,9 +12,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { requireForTenant } from "../../shared/index.js";
 import type { TemplateWriteScope } from "../layout-regions.js";
+import { readTemplateResourceMaxBytes, storeTemplateResource } from "../store-template-resource.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import type { TemplateBundle } from "../template-bundle.js";
-import { attachTemplateResources, storeTemplateResource } from "../template-resources.js";
+import { attachTemplateResources } from "../template-resources.js";
 import { resolveTemplateVariables } from "../template-validation.js";
 import { evaluateTemplateWrite } from "./template-gates.js";
 import {
@@ -87,23 +88,28 @@ async function storeBundleResources(
   args: BundleImport,
 ): Promise<WriteResult<Record<string, string>>> {
   const linked: Record<string, string> = {};
+  const maxBytes = await readTemplateResourceMaxBytes(args.ctx.config, args.ctx.registry);
+  // A bundle is untrusted input like an upload: the same re-encoding decides the stored
+  // content type, so a declared image/png can't smuggle SVG or HTML into a mail or PDF.
   for (const [key, resource] of Object.entries(args.bundle.resources)) {
-    const stored = await storeTemplateResource(
-      { db: args.ctx.db, files: args.ctx.files, registry: args.ctx.registry, user: args.user },
-      {
-        fileName: resource.fileName,
-        contentType: resource.contentType,
-        bytes: Uint8Array.from(Buffer.from(resource.base64, "base64")),
-      },
-    );
+    const stored = await storeTemplateResource({
+      ctx: args.ctx,
+      user: args.user,
+      tenantId: args.tenantId,
+      bytes: Uint8Array.from(Buffer.from(resource.base64, "base64")),
+      maxBytes,
+      key,
+    });
     if (!stored.isSuccess) return stored;
-    linked[key] = stored.data;
+    linked[key] = stored.data.fileRefId;
   }
   return { isSuccess: true, data: linked };
 }
 
 // Validates every locale first, stores the resource files, then writes one row
-// per locale, so a bad locale never leaves files or half a bundle behind.
+// per locale, so a bad locale never leaves files or half a bundle behind. An image
+// that fails re-encoding stops the import before any row is written; files stored
+// for the resources before it stay as unlinked FileRefs, like a replaced upload.
 export async function importTemplateBundle(
   args: BundleImport & { readonly status: BundleImportStatus },
 ): Promise<WriteResult<{ ids: Record<string, string> }>> {

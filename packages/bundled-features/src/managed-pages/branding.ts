@@ -50,6 +50,11 @@ const DESCRIPTION_PATTERN = { regex: "^[\\s\\S]{0,500}$" } as const;
 // there.
 const CUSTOM_CSS_PATTERN = { regex: "^[\\s\\S]{0,8000}$" } as const;
 
+// Empty or a FileRef id (UUID); the upload UI that fills it ships separately.
+const FILE_REF_ID_PATTERN = {
+  regex: "^$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+} as const;
+
 export const LAYOUT_PRESETS = ["minimal", "centered", "wide"] as const;
 
 // Companion toggle feature name. managed-pages reads ctx.hasFeature() against it
@@ -91,6 +96,12 @@ export const BRANDING_KEYS = {
     pattern: HTTPS_PATTERN,
     write: BRANDING_WRITE,
   }),
+  // Ownership is checked where it is read (renderer-mail-html: FileRef must belong to the rendering tenant).
+  brandingLogoFile: createTenantConfig("text", {
+    default: "",
+    pattern: FILE_REF_ID_PATTERN,
+    write: BRANDING_WRITE,
+  }),
   brandingLayoutPreset: createTenantConfig("select", {
     default: "centered",
     options: LAYOUT_PRESETS,
@@ -112,6 +123,7 @@ export const BRANDING_QN = {
   siteUrl: "managed-pages:config:branding-site-url",
   accentColor: "managed-pages:config:branding-accent-color",
   logoUrl: "managed-pages:config:branding-logo-url",
+  logoFile: "managed-pages:config:branding-logo-file",
   layoutPreset: "managed-pages:config:branding-layout-preset",
   customCss: "managed-pages:config:branding-custom-css",
 } as const;

@@ -71,6 +71,8 @@ export type SeedSystemTemplateOptions = {
   readonly content: string;
   readonly contentFormat: ContentFormat;
   readonly variableSchema?: Record<string, unknown>;
+  /** Omitted: links on an existing row stay untouched, so a re-seed on boot keeps images a
+   *  system admin uploaded through resource-upload. */
   readonly linkedResources?: Record<string, string>;
   readonly meta?: unknown;
   readonly parentTemplateId?: string | null;
@@ -120,7 +122,8 @@ export async function seedSystemTemplate(
 
   const variableSchema = JSON.stringify(opts.variableSchema ?? {});
   const meta = evaluated.metaJson;
-  const linkedResources = JSON.stringify(opts.linkedResources ?? {});
+  const linkedResources =
+    opts.linkedResources === undefined ? undefined : JSON.stringify(opts.linkedResources);
   const parentTemplateId = opts.parentTemplateId ?? null;
 
   const rowFields = {
@@ -130,7 +133,7 @@ export async function seedSystemTemplate(
     content: evaluated.content,
     contentFormat: opts.contentFormat,
     variableSchema,
-    linkedResources,
+    ...(linkedResources !== undefined && { linkedResources }),
     meta,
     title: null,
     folder: null,
@@ -151,7 +154,7 @@ export async function seedSystemTemplate(
       current?.title === rowFields.title &&
       current?.variableSchema === rowFields.variableSchema &&
       current?.meta === rowFields.meta &&
-      current?.linkedResources === rowFields.linkedResources
+      (linkedResources === undefined || current?.linkedResources === linkedResources)
     ) {
       return { id: String(row.id) };
     }
@@ -170,7 +173,11 @@ export async function seedSystemTemplate(
     existing,
     ifExists: opts.ifExists,
     create: async () => {
-      const result = await executor.create({ ...rowFields, tenantId }, by, tdb);
+      const result = await executor.create(
+        { ...rowFields, linkedResources: linkedResources ?? "{}", tenantId },
+        by,
+        tdb,
+      );
       if (!result.isSuccess) {
         // Parallel boot pods can both delete the orphan and race on create —
         // unique on (tenantId, slug, kind, locale) → resolve winner and update.

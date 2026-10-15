@@ -18,7 +18,7 @@
 
 import { createTransport, type Transporter } from "nodemailer";
 import addressparser from "nodemailer/lib/addressparser";
-import type { EmailMessage, EmailTransport } from "./types.js";
+import type { EmailAttachment, EmailMessage, EmailTransport } from "./types.js";
 
 export type SmtpTransportOptions = {
   /** SMTP-Server-Host (z.B. "smtp.gmail.com", "in-v3.mailjet.com",
@@ -74,6 +74,17 @@ function fromHeader(
   return parsed?.address ? { name, address: parsed.address } : address;
 }
 
+function toNodemailerAttachment(attachment: EmailAttachment) {
+  const base = {
+    filename: attachment.fileName,
+    content: Buffer.from(attachment.content),
+    contentType: attachment.contentType,
+  };
+  return attachment.kind === "inline"
+    ? { ...base, cid: attachment.cid, contentDisposition: "inline" as const }
+    : base;
+}
+
 export function createSmtpTransport(options: SmtpTransportOptions): EmailTransport {
   const transporter: Transporter = createTransport({
     host: options.host,
@@ -95,6 +106,9 @@ export function createSmtpTransport(options: SmtpTransportOptions): EmailTranspo
         ...(message.text !== undefined && { text: message.text }),
         ...(message.replyTo && { replyTo: message.replyTo }),
         ...(message.headers && { headers: message.headers }),
+        ...(message.attachments && {
+          attachments: message.attachments.map(toNodemailerAttachment),
+        }),
       });
     },
   };

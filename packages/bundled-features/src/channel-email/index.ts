@@ -7,4 +7,10 @@ export {
   type SmtpEnv,
   type SmtpTransportOptions,
 } from "./smtp-transport.js";
-export { createInMemoryTransport, type EmailMessage, type EmailTransport } from "./types.js";
+export {
+  createInMemoryTransport,
+  type EmailAttachment,
+  type EmailAttachmentRef,
+  type EmailMessage,
+  type EmailTransport,
+} from "./types.js";

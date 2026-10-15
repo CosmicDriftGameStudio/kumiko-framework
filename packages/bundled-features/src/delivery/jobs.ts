@@ -16,6 +16,12 @@ import type {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
+import { fileContextForTenant } from "../file-foundation/index.js";
+import {
+  emailAttachmentRefSchema,
+  MAX_EMAIL_ATTACHMENTS,
+  toAttachmentRef,
+} from "./attachment-ref.js";
 import { appendAttemptEvent } from "./attempt-log.js";
 import { buildChannelContext } from "./channel-context.js";
 import { DeliveryJobs, deliveryIdempotencyRedisKey, deliveryPriorityRank } from "./constants.js";
@@ -49,7 +55,12 @@ const renderJobPayloadSchema = z.object({
 
 const sendJobPayloadSchema = renderJobPayloadSchema.extend({
   rendered: z
-    .object({ html: z.string(), subject: z.string(), text: z.string().optional() })
+    .object({
+      html: z.string(),
+      subject: z.string(),
+      text: z.string().optional(),
+      attachments: z.array(emailAttachmentRefSchema).max(MAX_EMAIL_ATTACHMENTS).optional(),
+    })
     .optional(),
 });
 
@@ -63,16 +74,32 @@ function requireTenantScopedDeps(
   if (!registry) throw new Error("delivery job: missing registry in job context");
   // delivery is r.systemScope()'d, so JobContext.systemDb is guaranteed; unsafeRaw
   // hands the underlying DbConnection to both — safe since they filter by tenantId themselves.
+  // Attachment lookups read only this tenant's FileRefs, plus the system tenant's for inline images.
   if (!ctx.systemDb) {
     throw new InternalError({
       message: "delivery job: ctx.systemDb missing on a system-scoped job",
     });
   }
+  // Also makes ctx.config (built for the job's tenant) the accessor of the payload tenant;
+  // job contexts carry no configFor.
   ctx.systemDb.assertTenantMatch(tenantId);
   const db = ctx.systemDb.unsafeRaw(
-    "delivery attempt append and channel context filter by this job's tenantId themselves",
+    "attempt append and channel context filter by this job's tenantId; attachment lookup reads only the job tenant's FileRefs plus, for inline images, the system tenant's",
   ) as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
   return { db, registry };
+}
+
+function toSendRendered(
+  rendered: RenderedMessage,
+): z.infer<typeof sendJobPayloadSchema>["rendered"] {
+  return {
+    html: rendered.html,
+    subject: rendered.subject,
+    ...(rendered.text !== undefined && { text: rendered.text }),
+    ...(rendered.attachments !== undefined && {
+      attachments: rendered.attachments.map(toAttachmentRef),
+    }),
+  };
 }
 
 function resolveChannel(registry: Registry, name: string): DeliveryChannel {
@@ -175,7 +202,8 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
     undefined,
     tenantId,
     ctx.secrets,
-    ctx.configFor?.(tenantId),
+    ctx.config,
+    (fileTenantId) => fileContextForTenant(ctx, fileTenantId),
   );
 
   let rendered: RenderedMessage;
@@ -191,7 +219,7 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
     const jobRunner = ctx["jobRunner"] as JobRunner; // @cast-boundary dynamic-key — dispatch lives on the concrete runner
     await jobRunner.dispatch(
       DeliveryJobs.send,
-      { ...p, rendered },
+      { ...p, rendered: toSendRendered(rendered) },
       { priority: deliveryPriorityRank[p.priority] },
     );
   } catch (err) {
@@ -213,7 +241,8 @@ export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
     undefined,
     tenantId,
     ctx.secrets,
-    ctx.configFor?.(tenantId),
+    ctx.config,
+    (fileTenantId) => fileContextForTenant(ctx, fileTenantId),
   );
 
   try {

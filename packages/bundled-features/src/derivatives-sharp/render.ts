@@ -13,13 +13,10 @@ import type {
 import QRCode from "qrcode";
 import type { OverlayOptions, ResizeOptions, Sharp } from "sharp";
 import sharp from "sharp";
+import { assertNotSvg, SHARP_INPUT_OPTIONS } from "../shared/index.js";
 
 const MIN_SHARP_SIGMA = 0.3;
 const MAX_SHARP_SIGMA = 1000;
-// Above this, a decoded pixel buffer runs into hundreds of MB before any
-// resize even happens — sharp's own default (~268MP) is still large enough
-// to be an OOM primitive for a single request.
-const MAX_INPUT_PIXELS = 100_000_000;
 // Longest output edge a caller may request via `size`/`maxEdge`. Without a
 // cap, `{ maxEdge: 50000 }` allocates a multi-gigabyte buffer per encoder
 // step before any client sees a byte back.
@@ -38,30 +35,12 @@ const MAX_QR_DATA_LENGTH = 1024;
 // camera capture — the AC claims phone-scannable, so an under-sized layer
 // throws instead of caching a silently unusable image.
 const MIN_QR_PIXEL_WIDTH = 160;
-// sequentialRead trades random pixel access for lower peak memory on
-// streamed formats — applied at every decode entry point below since none
-// of them need non-sequential access to the *original* bytes (extract runs
-// against a single already-buffered region per call).
-const SHARP_INPUT_OPTIONS = { limitInputPixels: MAX_INPUT_PIXELS, sequentialRead: true } as const;
-
 function normalizeMimeType(mimeType: string): string {
   return mimeType.toLowerCase().split(";")[0]?.trim() ?? "";
 }
 
 function clampSigma(sigma: number): number {
   return Math.min(MAX_SHARP_SIGMA, Math.max(MIN_SHARP_SIGMA, sigma));
-}
-
-// Shared trust boundary for every image byte source this renderer decodes —
-// the original upload (renderImage) and an overlay layer's bytes (applyOverlays)
-// alike: a base64 string in a field declaration isn't more trustworthy than
-// an upload just because it came from app code.
-function assertNotSvg(format: string | undefined): void {
-  if (format === "svg") {
-    throw new Error(
-      "derivatives-sharp: SVG is not supported — rendering untrusted SVG through libvips is a trust boundary this renderer doesn't need to cross.",
-    );
-  }
 }
 
 function assertValidRegion(region: BlurRegion): void {

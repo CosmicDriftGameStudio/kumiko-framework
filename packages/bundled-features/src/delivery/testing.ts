@@ -1,6 +1,7 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { EscapeHatchAuditSink, Registry } from "@cosmicdrift/kumiko-framework/engine";
+import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
@@ -19,6 +20,7 @@ export type CreateDeliveryTestContextOptions = {
   readonly jobRunner?: JobRunner;
   readonly secrets?: SecretsContext;
   readonly idempotencyRedis?: Redis;
+  readonly filesForTenant?: (tenantId: string) => FileContext | undefined;
 };
 
 /**

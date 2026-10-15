@@ -1,18 +1,22 @@
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbRow } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import * as z from "zod";
 import {
   type ChannelContext,
   type ChannelMessage,
   DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
   DELIVERY_UNSUBSCRIBE_PATH,
   type DeliveryChannel,
+  type EmailAttachmentRef,
+  fileAttachmentRefSchema,
+  MAX_EMAIL_ATTACHMENTS,
   type NotificationRenderer,
   type RenderedMessage,
 } from "../delivery/index.js";
 import { decryptStoredPii } from "../shared/index.js";
 import { guardEmailMessage } from "./pii-guard.js";
-import type { EmailTransport } from "./types.js";
+import type { EmailAttachment, EmailTransport } from "./types.js";
 
 // Envelope (From / Reply-To / threading headers) rides on the channel data —
 // the notification's email template echoes it out of the notify() call, since
@@ -84,6 +88,53 @@ function emailEnvelopeFrom(data: Readonly<Record<string, unknown>> | undefined):
   };
 }
 
+const fileAttachmentsSchema = z.array(fileAttachmentRefSchema).max(MAX_EMAIL_ATTACHMENTS);
+
+// Only kind "file" may come from notify data; inline images are created by the renderer alone.
+// Invalid input throws instead of dropping the attachment silently.
+export function fileAttachmentsFrom(
+  data: Readonly<Record<string, unknown>> | undefined,
+): readonly EmailAttachmentRef[] {
+  const raw = data?.["attachments"];
+  return raw === undefined ? [] : fileAttachmentsSchema.parse(raw);
+}
+
+const INLINE_EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+};
+
+async function resolveAttachments(
+  refs: readonly EmailAttachmentRef[],
+  ctx: ChannelContext,
+): Promise<readonly EmailAttachment[]> {
+  if (refs.length === 0) return [];
+  if (ctx.readAttachment === undefined) {
+    throw new Error(
+      "email channel: the message has attachments but the channel context cannot read files",
+    );
+  }
+  const resolved: EmailAttachment[] = [];
+  for (const ref of refs) {
+    const found = await ctx.readAttachment(ref);
+    if (found === null) {
+      // A missing inline image only degrades the look; a missing file is content the recipient expects.
+      if (ref.kind === "inline") continue;
+      throw new Error(`email channel: attachment file ${ref.fileRefId} was not found`);
+    }
+    const fileName =
+      ref.kind === "file"
+        ? ref.fileName
+        : INLINE_EXTENSION_BY_CONTENT_TYPE[found.contentType]
+          ? `${ref.cid}.${INLINE_EXTENSION_BY_CONTENT_TYPE[found.contentType]}`
+          : ref.cid;
+    resolved.push({ ...ref, fileName, content: found.content, contentType: found.contentType });
+  }
+  return resolved;
+}
+
 export type EmailChannelOptions = {
   readonly transport: EmailTransport;
   readonly renderer: NotificationRenderer;
@@ -113,13 +164,13 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
         );
       }
       const unsubscribeUrl = message.data?.["unsubscribeUrl"];
-      const { subject, html, text } = await ctx.renderMail({
+      const { subject, html, text, attachments } = await ctx.renderMail({
         slug: message.notificationType,
         locale: message.locale ?? "en",
         variables: message.data ?? {},
         ...(typeof unsubscribeUrl === "string" && { unsubscribeUrl }),
       });
-      return { html, subject, text };
+      return { html, subject, text, ...(attachments !== undefined && { attachments }) };
     }
     // Build renderer input: per-channel template data (if any) or fall back
     // to title/body from the message. Renderer handles both cases.
@@ -155,8 +206,12 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
     },
 
     async send(address, message, ctx, rendered) {
-      const { html, subject, text } = rendered ?? (await renderMessage(message, ctx));
+      const { html, subject, text, attachments } = rendered ?? (await renderMessage(message, ctx));
       const envelope = emailEnvelopeFrom(message.data);
+      const resolvedAttachments = await resolveAttachments(
+        [...(attachments ?? []), ...fileAttachmentsFrom(message.data)],
+        ctx,
+      );
       await transport.send(
         guardEmailMessage({
           to: address,
@@ -164,6 +219,7 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
           html,
           ...(text !== undefined && { text }),
           ...envelope,
+          ...(resolvedAttachments.length > 0 && { attachments: resolvedAttachments }),
         }),
       );
       return { status: "sent", address };

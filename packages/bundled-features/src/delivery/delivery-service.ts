@@ -16,6 +16,7 @@ import {
   assertNotificationVariables,
   createSystemUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   assertNotifyTargetsOwnTenant,
@@ -25,6 +26,7 @@ import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
+import { fileContextFromResolver } from "../file-foundation/index.js";
 import { redactErrorText } from "../shared/index.js";
 import { hashUnsubscribeAddress } from "./address-opt-out.js";
 import { appendAttemptEvent, logAttempt } from "./attempt-log.js";
@@ -84,6 +86,8 @@ export type DeliveryServiceOptions = {
   // Credentials source for inline-delivered chat channels (webhook URL / bot
   // token). Jobs get ctx.secrets from the job runner instead.
   readonly secrets?: SecretsContext;
+  // File storage for inline-delivered mails with attachments; jobs use their own ctx instead.
+  readonly filesForTenant?: (tenantId: string) => FileContext | undefined;
   // Attributed escape-hatch audit for resolveUserIdsForTenant's ctx.systemDb —
   // absent means an unattributed warn log (see fallbackEscapeHatchReporter).
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
@@ -120,6 +124,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     idempotencyRedis,
     jobRunner,
     secrets,
+    filesForTenant,
     escapeHatchAuditSink,
     log,
   } = options;
@@ -289,6 +294,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     // Set only when exactly one channel carries the call: the queued job may then free
     // the key on terminal failure without risking a duplicate send on another channel.
     readonly jobIdempotencyKey: string | undefined;
+    readonly filesForTenant: ((tenantId: string) => FileContext | undefined) | undefined;
   };
 
   function recordDelivery(
@@ -525,7 +531,15 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     notificationType: string,
   ): Promise<Map<string, string | null>> {
     const addresses = new Map<string, string | null>();
-    const channelCtx = buildChannelContext(run.db, registry, sseBroker, tenantId, secrets);
+    const channelCtx = buildChannelContext(
+      run.db,
+      registry,
+      sseBroker,
+      tenantId,
+      secrets,
+      undefined,
+      run.filesForTenant,
+    );
     for (const userId of userIds) {
       for (const channel of channels) {
         if (!channel.resolve) continue;
@@ -594,7 +608,15 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     prefetchedAddresses: ReadonlyMap<string, string | null>,
     suppressed: ReadonlySet<AddressOptOutKey>,
   ): Promise<void> {
-    const channelCtx = buildChannelContext(run.db, registry, sseBroker, tenantId, secrets);
+    const channelCtx = buildChannelContext(
+      run.db,
+      registry,
+      sseBroker,
+      tenantId,
+      secrets,
+      undefined,
+      run.filesForTenant,
+    );
 
     for (const channel of channels) {
       // Route-only channel (no per-user address): not a user-notification target.
@@ -734,7 +756,15 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     recipientId: string | null,
     run: NotifyRun,
   ): Promise<void> {
-    const channelCtx = buildChannelContext(run.db, registry, sseBroker, tenantId, secrets);
+    const channelCtx = buildChannelContext(
+      run.db,
+      registry,
+      sseBroker,
+      tenantId,
+      secrets,
+      undefined,
+      run.filesForTenant,
+    );
     const suppressed = await loadSuppressedAddresses(
       run,
       tenantId,
@@ -880,7 +910,15 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   }
 
   return {
-    async notify(notificationType, options, _user, tenantId, jobDispatcher, deliveryDb) {
+    async notify(
+      notificationType,
+      options,
+      _user,
+      tenantId,
+      jobDispatcher,
+      deliveryDb,
+      fileProviderResolver,
+    ) {
       assertNotifyTargetsOwnTenant(options, tenantId);
       assertNotificationVariables(registry, notificationType, options.data);
       const { route, idempotencyKey } = options;
@@ -891,6 +929,10 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         jobDispatcher: options.immediate ? undefined : (jobDispatcher ?? jobRunner),
         locale: options.locale,
         jobIdempotencyKey: jobIdempotencyKeyFor(idempotencyKey, route),
+        filesForTenant:
+          fileProviderResolver === undefined
+            ? filesForTenant
+            : (fileTenantId) => fileContextFromResolver(fileProviderResolver, fileTenantId),
       };
 
       if (idempotencyKey) {

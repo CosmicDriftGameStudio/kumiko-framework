@@ -15,6 +15,7 @@ export { collectRendererPlugins, createRendererFoundationFeature } from "./featu
 export {
   type DocumentPayload,
   type ImageOptions,
+  type InlineAttachmentRef,
   isRendererRegistrationPlugin,
   type MailPayload,
   type NotificationPayload,

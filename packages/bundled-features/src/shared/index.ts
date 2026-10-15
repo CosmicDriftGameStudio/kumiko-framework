@@ -43,6 +43,7 @@ export {
 export { runInSubTransaction } from "./run-in-sub-transaction.js";
 export { registrationLocaleFromRequest, sessionLocaleField } from "./session-locale-field.js";
 export { sessionTimezoneField } from "./session-timezone-field.js";
+export { assertNotSvg, MAX_INPUT_PIXELS, SHARP_INPUT_OPTIONS } from "./sharp-input-limits.js";
 export {
   peekTokenSubject,
   signToken,

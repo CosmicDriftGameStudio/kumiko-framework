@@ -11,6 +11,18 @@ const CIPHERTEXT_RE = /kumiko-pii:v\d+:[^"\s<>\\]*/g;
 // is always refused (the address is garbage — better no mail than a leaked
 // blob); ciphertext in subject/body fails loud in dev and is redacted+logged
 // in prod.
+function assertAttachmentNamesArePlain(message: EmailMessage): void {
+  for (const attachment of message.attachments ?? []) {
+    const fields = [attachment.fileName, attachment.kind === "inline" ? attachment.cid : undefined];
+    if (fields.some((field) => field?.includes(CIPHERTEXT_MARKER))) {
+      throw new Error(
+        `[channel-email] refusing to send: attachment file name is a PII ciphertext ` +
+          `("${PII_CIPHERTEXT_PREFIX}…") — decrypt the stored value before mailing (decryptStoredPii).`,
+      );
+    }
+  }
+}
+
 export function guardEmailMessage(message: EmailMessage): EmailMessage {
   // Every envelope address, not just `to`: a ciphertext From, From-Name or Reply-To is
   // the same garbage as a ciphertext recipient — refuse rather than mail it.
@@ -35,6 +47,7 @@ export function guardEmailMessage(message: EmailMessage): EmailMessage {
       );
     }
   }
+  assertAttachmentNamesArePlain(message);
   const leaking =
     message.subject.includes(CIPHERTEXT_MARKER) ||
     message.html.includes(CIPHERTEXT_MARKER) ||

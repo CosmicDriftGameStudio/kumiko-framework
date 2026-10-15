@@ -5,6 +5,7 @@ import {
   isAllowedDocumentLinkHref,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
+  isDocumentResourceKey,
 } from "./document-schema.js";
 
 // Private-use characters mark where a Handlebars expression goes. Author text
@@ -117,18 +118,66 @@ function neutralizeBraces(html: string): string {
   return html.replace(/[{}]/g, (brace) => (brace === "{" ? "&#123;" : "&#125;"));
 }
 
+export type CompileDocumentBodyOptions = {
+  // Returns the src for an `img[data-resource]` key; undefined drops the image.
+  readonly resourceSrc?: (key: string) => string | undefined;
+};
+
+const RESOURCE_IMAGE_CONTENT_TYPES: ReadonlySet<string> = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+]);
+
+// Unique valid resource keys in document order.
+export function collectDocumentResourceKeys(html: string): readonly string[] {
+  return withParsedDocument(html, (root) => {
+    const keys = new Set<string>();
+    for (const element of Array.from(root.querySelectorAll("img[data-resource]"))) {
+      const key = element.getAttribute("data-resource") ?? "";
+      if (isDocumentResourceKey(key)) keys.add(key);
+    }
+    return [...keys];
+  });
+}
+
+export function toResourceDataUri(contentType: string, bytes: Uint8Array): string {
+  if (!RESOURCE_IMAGE_CONTENT_TYPES.has(contentType)) {
+    throw new Error(`resource content type "${contentType}" cannot be embedded as an image`);
+  }
+  return `data:${contentType};base64,${Buffer.from(bytes).toString("base64")}`;
+}
+
+function rewriteResourceImage(
+  element: ScanElement,
+  resourceSrc: CompileDocumentBodyOptions["resourceSrc"],
+): void {
+  const key = element.getAttribute("data-resource") ?? "";
+  const src = isDocumentResourceKey(key) ? resourceSrc?.(key) : undefined;
+  if (src === undefined) {
+    element.remove();
+    // skip: an unresolved resource key drops the image
+    return;
+  }
+  element.setAttribute("src", src);
+  element.removeAttribute("data-resource");
+}
+
 // Turns a sanitized document body into Handlebars source. Rows and links are
 // rewritten in document order; list rows last so their placeholders still see
 // the `tr[data-each]` ancestor.
 export function compileDocumentBodyToHandlebars(
   html: string,
   variables: TemplateVariables,
+  options: CompileDocumentBodyOptions = {},
 ): string {
   const state: CompileState = { variables, expressions: [] };
   const scrubbed = html.replaceAll(EXPRESSION_OPEN, "").replaceAll(EXPRESSION_CLOSE, "");
   const compiled = withParsedDocument(scrubbed, (root) => {
-    for (const element of Array.from(root.querySelectorAll("script, img[data-resource]"))) {
-      element.remove();
+    for (const element of Array.from(root.querySelectorAll("script"))) element.remove();
+    for (const element of Array.from(root.querySelectorAll("img[data-resource]"))) {
+      rewriteResourceImage(element, options.resourceSrc);
     }
     for (const element of Array.from(root.querySelectorAll("*"))) stripActiveContent(element);
     for (const element of Array.from(root.querySelectorAll("span[data-variable]"))) {
