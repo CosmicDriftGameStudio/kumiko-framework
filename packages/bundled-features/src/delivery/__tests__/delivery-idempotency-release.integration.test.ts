@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import {
   defineFeature,
   defineWriteHandler,
+  type NotifyDelivery,
   type NotifyFn,
   type NotifyJobDispatcher,
   type NotifyResult,
@@ -66,11 +67,12 @@ const idemProbeFeature = defineFeature("idem-probe", (r) => {
         key: z.string(),
         channels: z.array(z.string()).optional(),
         tenantBroadcast: z.boolean().optional(),
+        immediate: z.boolean().optional(),
       }),
       access: { roles: ["TenantAdmin"] },
       handler: async (event, ctx) => {
         const notify = ctx.notify as NotifyFn;
-        const { key, channels, tenantBroadcast } = event.payload;
+        const { key, channels, tenantBroadcast, immediate } = event.payload;
         const target = tenantBroadcast
           ? { to: { tenant: event.user.tenantId } }
           : { route: Object.fromEntries((channels ?? []).map((c) => [c, "addr"])) };
@@ -78,6 +80,7 @@ const idemProbeFeature = defineFeature("idem-probe", (r) => {
           ...target,
           data: { title: "T" },
           idempotencyKey: key,
+          ...(immediate && { immediate: true }),
         });
         return { isSuccess: true, data: result };
       },
@@ -115,8 +118,18 @@ function freshKey(): string {
   return `idem-release-${Date.now()}-${keyCounter++}`;
 }
 
-function ping(stack: TestStack, key: string, channels: string[]) {
-  return stack.http.writeOk<NotifyResult>("idem-probe:write:ping", { key, channels }, admin);
+// A deferred notify reports no deliveries, so tests reading them ask for immediate.
+function ping(stack: TestStack, key: string, channels: string[], immediate = false) {
+  return stack.http.writeOk<NotifyResult>(
+    "idem-probe:write:ping",
+    { key, channels, immediate },
+    admin,
+  );
+}
+
+function deliveriesOf(result: NotifyResult): readonly NotifyDelivery[] {
+  if (result.kind !== "dispatched") throw new Error("expected an immediate (dispatched) result");
+  return result.deliveries;
 }
 
 async function keyExists(stack: TestStack, key: string): Promise<boolean> {
@@ -143,18 +156,18 @@ describe("inline path (no job runner)", () => {
   test("a delivered notification keeps the key: the second call is a duplicate", async () => {
     const key = freshKey();
     await ping(stack, key, ["idem-inline-flaky"]);
-    const second = await ping(stack, key, ["idem-inline-flaky"]);
+    const second = await ping(stack, key, ["idem-inline-flaky"], true);
 
     expect(sentTo).toEqual(["addr"]);
-    expect(second.deliveries[0]?.error).toBe("duplicate_idempotency_key");
+    expect(deliveriesOf(second)[0]?.error).toBe("duplicate_idempotency_key");
     expect(await keyExists(stack, key)).toBe(true);
   });
 
   test("inline transport failure frees the key so the retry delivers", async () => {
     const key = freshKey();
     failFlakyInline = true;
-    const first = await ping(stack, key, ["idem-inline-flaky"]);
-    expect(first.deliveries[0]?.status).toBe("failed");
+    const first = await ping(stack, key, ["idem-inline-flaky"], true);
+    expect(deliveriesOf(first)[0]?.status).toBe("failed");
     expect(await keyExists(stack, key)).toBe(false);
 
     failFlakyInline = false;
@@ -166,7 +179,7 @@ describe("inline path (no job runner)", () => {
     const key = freshKey();
     const error = await stack.http.writeErr(
       "idem-probe:write:ping",
-      { key, tenantBroadcast: true },
+      { key, tenantBroadcast: true, immediate: true },
       admin,
     );
 
@@ -177,9 +190,13 @@ describe("inline path (no job runner)", () => {
   test("a partial success across channels keeps the key", async () => {
     const key = freshKey();
     failFlakyInline = true;
-    const result = await ping(stack, key, ["idem-inline-ok", "idem-inline-flaky"]);
+    const result = await ping(stack, key, ["idem-inline-ok", "idem-inline-flaky"], true);
 
-    expect(result.deliveries.map((d) => d.status).sort()).toEqual(["failed", "sent"]);
+    expect(
+      deliveriesOf(result)
+        .map((d) => d.status)
+        .sort(),
+    ).toEqual(["failed", "sent"]);
     expect(await keyExists(stack, key)).toBe(true);
   });
 
@@ -231,9 +248,9 @@ describe("job path", () => {
     expect(sentTo).toEqual(["addr"]);
     expect(await keyExists(stack, key)).toBe(true);
 
-    const second = await ping(stack, key, ["idem-queued"]);
+    const second = await ping(stack, key, ["idem-queued"], true);
     await stack.drainJobs();
-    expect(second.deliveries[0]?.error).toBe("duplicate_idempotency_key");
+    expect(deliveriesOf(second)[0]?.error).toBe("duplicate_idempotency_key");
     expect(queuedAttempts).toBe(1);
     expect(sentTo).toEqual(["addr"]);
   });

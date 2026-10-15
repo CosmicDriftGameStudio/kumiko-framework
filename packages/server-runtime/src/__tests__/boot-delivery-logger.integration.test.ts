@@ -13,8 +13,8 @@ import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant
 import {
   defineFeature,
   defineWriteHandler,
+  type NotifyDispatched,
   type NotifyFn,
-  type NotifyResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
@@ -107,12 +107,13 @@ test("a failing channel is logged redacted to the boot logger, not the console",
     consoleErrors.push(args);
   };
   try {
-    const result = await stack.http.writeOk<NotifyResult>(
+    const result = await stack.http.writeOk<NotifyDispatched>(
       "boot-logger-probe:write:ping",
       {},
       admin,
     );
 
+    expect(result.kind).toBe("dispatched");
     expect(result.deliveries.map((d) => [d.status, String(d.error)])).toEqual([
       ["failed", "send_failed"],
     ]);

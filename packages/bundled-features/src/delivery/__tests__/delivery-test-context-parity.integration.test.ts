@@ -210,7 +210,7 @@ describe("createDeliveryNotifyFactory", () => {
         jobDispatcher?: unknown,
       ) => {
         dispatchersSeen.push(jobDispatcher);
-        return { deliveries: [] };
+        return { kind: "dispatched", deliveries: [] };
       },
     };
     return { service, dispatchersSeen };

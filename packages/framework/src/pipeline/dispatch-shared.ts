@@ -30,7 +30,11 @@ import type {
   HandlerContext,
   JobRunnerRef,
   MemberReader,
+  NotifyDispatched,
+  NotifyFn,
   NotifyJobDispatcher,
+  NotifyOptions,
+  NotifyResult,
   PayloadRateLimitOption,
   RateLimitDeclaration,
   RateLimitOption,
@@ -190,8 +194,11 @@ export function resolveDbSource(
   ctx: DispatchContext,
   tx: DbTx | undefined,
 ): DbConnection | DbTx | undefined {
-  const { appContext: context } = ctx;
-  return tx ?? (context.db as DbConnection | undefined); // @cast-boundary db-operator
+  return tx ?? resolveAppPoolDb(ctx);
+}
+
+function resolveAppPoolDb(ctx: DispatchContext): DbConnection | undefined {
+  return ctx.appContext.db as DbConnection | undefined; // @cast-boundary db-operator
 }
 
 // ctx.appendEvent — append a domain event onto a specific aggregate stream
@@ -448,7 +455,7 @@ export async function buildHandlerContext(
   // that is meant to outlive the request. Computed before `systemDb` below
   // so its guarded escape hatch (ctx.systemDb.outsideTransaction) can wrap
   // this same TenantDb instead of a second, independently-built one.
-  const outsideTxSource = ctx.outsideTransactionDb ?? resolveDbSource(ctx, undefined);
+  const outsideTxSource = ctx.outsideTransactionDb ?? resolveAppPoolDb(ctx);
   const rawDbOutsideTransaction = outsideTxSource
     ? buildTenantScopedDb(outsideTxSource, undefined)
     : undefined;
@@ -492,13 +499,46 @@ export async function buildHandlerContext(
     userId: user.id,
     ...(reqCtx && { requestId: reqCtx.requestId }),
   });
-  const notify = context._notifyFactory
-    ? context._notifyFactory(
-        user,
-        user.tenantId,
-        isNotifyJobDispatcher(jobRunner) ? jobRunner : undefined,
-      )
-    : undefined;
+  // Cross-feature bridge: ctx.query/write share the current tx + afterCommitHooks sink.
+  // queryAs/writeAs to anyone but the caller itself needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
+  const bridgeSink = afterCommitHooks ?? [];
+  const scheduleAfterCommit = (hook: AfterCommitHook): void => {
+    bridgeSink.push(hook);
+  };
+  const notify = buildNotify();
+  function buildNotify(): NotifyFn | undefined {
+    const factory = context._notifyFactory;
+    if (!factory) return undefined;
+    const notifyJobDispatcher = isNotifyJobDispatcher(jobRunner) ? jobRunner : undefined;
+    const notifyAfterCommit = factory(user, user.tenantId, notifyJobDispatcher);
+    if (tx === undefined) return notifyAfterCommit;
+    // Inside the write tx the app pool's slots can all be held by waiting write txs, so the
+    // delivery's own DB work (broadcast lookup, attempt log, channel sends) runs on the outside-tx pool.
+    const notifyInTransaction = factory(user, user.tenantId, notifyJobDispatcher, outsideTxSource);
+    // A rolled-back write must leave no notification behind; query bridges and post-commit
+    // contexts have no sink to defer to.
+    const deferrable = afterCommitHooks !== undefined && isPostCommit !== true;
+    if (!deferrable) return notifyInTransaction;
+    async function notifyDeferringUntilCommit(
+      notificationType: string,
+      options: NotifyOptions & { readonly immediate: true },
+    ): Promise<NotifyDispatched>;
+    async function notifyDeferringUntilCommit(
+      notificationType: string,
+      options: NotifyOptions,
+    ): Promise<NotifyResult>;
+    async function notifyDeferringUntilCommit(
+      notificationType: string,
+      options: NotifyOptions,
+    ): Promise<NotifyResult> {
+      if (options.immediate === true) return notifyInTransaction(notificationType, options);
+      scheduleAfterCommit(async () => {
+        await notifyAfterCommit(notificationType, options);
+      });
+      return { kind: "deferred" };
+    }
+    return notifyDeferringUntilCommit;
+  }
   // Mirror notify: only built when the config feature wired its factory.
   const config =
     context._configAccessorFactory && db
@@ -592,9 +632,6 @@ export async function buildHandlerContext(
     ? (targetFeatureName: string) => createSafeMetricsHandle(meter, targetFeatureName)
     : () => createNoopMetricsHandle();
 
-  // Cross-feature bridge: ctx.query/write share the current tx + afterCommitHooks sink.
-  // queryAs/writeAs to anyone but the caller itself needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
-  const bridgeSink = afterCommitHooks ?? [];
   // A failed inner write has already appended its event and projections when a later
   // step (e.g. an inTransaction hook) fails, and the outer handler may swallow the
   // failure result. The savepoint makes the failure undo exactly the inner write; the
@@ -637,9 +674,6 @@ export async function buildHandlerContext(
           await runBatch(ctx, [{ type: targetType, payload }], asUser, undefined, origin),
         )
       : executeNestedWriteInSavepoint(asUser, targetType, payload);
-  const scheduleAfterCommit = (hook: AfterCommitHook): void => {
-    bridgeSink.push(hook);
-  };
   const identitySwitchAudit = { reason: identitySwitchGrantReason, report: reportEscapeHatch };
   const identitySwitch = createGatedIdentitySwitch(
     `handler "${type}"`,

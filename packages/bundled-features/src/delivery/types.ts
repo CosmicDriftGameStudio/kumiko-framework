@@ -1,12 +1,12 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
-import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
   DeliveryErrorCode,
   NotifyDeliveryStatus,
+  NotifyDispatched,
   NotifyJobDispatcher,
   NotifyOptions,
   NotifyPriority,
-  NotifyResult,
   Registry,
   SessionUser,
   TenantId,
@@ -114,7 +114,8 @@ export type DeliveryService = {
     user: SessionUser,
     tenantId: TenantId,
     jobDispatcher?: NotifyJobDispatcher,
-  ): Promise<NotifyResult>;
+    deliveryDb?: DbConnection,
+  ): Promise<NotifyDispatched>;
 };
 
 // r.useExtension options-shape: `name` is NOT part of the registration
