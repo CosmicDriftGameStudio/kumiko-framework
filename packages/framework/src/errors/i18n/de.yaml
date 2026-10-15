@@ -127,6 +127,20 @@ tenant_override_requires_system_admin:
     arbeite im eigenen Tenant des Callers. Für andere Cross-Tenant-Felder
     `mayOverrideTenant(user)` im Handler verwenden.
 
+notify_foreign_tenant_broadcast:
+  endUser: |
+    Diese Benachrichtigung kann nicht an eine andere Organisation gehen.
+    Wende dich an einen Administrator wenn du glaubst, dass das ein Fehler ist.
+  developer: |
+    `AccessDeniedError`: `ctx.notify` wurde mit `to: { tenant }` für einen
+    anderen Tenant als den des Callers aufgerufen (`user.tenantId` des
+    Handler- oder Job-Contexts). Die Prüfung läuft vor jeder Zustellung; in
+    einem Write-Handler wirft sie synchron statt später im afterCommit-Log.
+
+    Nur an den eigenen Tenant broadcasten. Für einen anderen Tenant den
+    notify aus einem Job oder Handler aufrufen, dessen Context zu diesem
+    Tenant gehört.
+
 unsafe_all_tenants_denied:
   endUser: |
     Diese Aktion ist nicht erlaubt.
