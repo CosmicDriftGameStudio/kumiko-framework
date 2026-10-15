@@ -95,7 +95,7 @@ export const processPaymentEventHandler: WriteHandlerDef = {
     // ---------------------------------------------------------------
     const eventPayload: PaymentEventPayload = {
       providerName: payload.providerName,
-      providerCustomerId: encryptedFields["providerCustomerId"] as string,
+      providerCustomerId: encryptedFields.providerCustomerId,
       priceId: payload.priceId,
       ...(payload.consentId !== undefined && { consentId: payload.consentId }),
     };

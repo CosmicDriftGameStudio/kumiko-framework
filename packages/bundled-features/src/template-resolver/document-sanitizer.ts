@@ -1,6 +1,7 @@
 // Server-only: pulls in happy-dom via @tiptap/html/server, so it must stay out
 // of client barrels and the document-schema subpath export.
 import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { generateHTML, generateJSON } from "@tiptap/html/server";
 import { type Element as ScanElement, Window } from "happy-dom";
 import type { ContentFormat } from "./constants.js";
@@ -253,7 +254,7 @@ export function sanitizeDocumentHtml(html: string): SanitizeHtmlResult {
 }
 
 function isDocumentHtmlKind(kind: string): boolean {
-  return (DOCUMENT_HTML_KINDS as readonly string[]).includes(kind);
+  return isOneOf(DOCUMENT_HTML_KINDS, kind);
 }
 
 export function sanitizeTemplateBody(input: {

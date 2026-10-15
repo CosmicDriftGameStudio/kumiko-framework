@@ -199,11 +199,11 @@ export const ingestMessageHandler: WriteHandlerDef = {
       ownerUserId: payload.ownerUserId,
       messageIdHeader: effectiveMessageIdHeader,
       threadKey,
-      from: encryptedMessageFields["from"] as string,
-      to: encryptedMessageFields["to"] as string,
-      cc: encryptedMessageFields["cc"] as string,
-      subject: encryptedMessageFields["subject"] as string,
-      snippet: encryptedMessageFields["snippet"] as string,
+      from: encryptedMessageFields.from,
+      to: encryptedMessageFields.to,
+      cc: encryptedMessageFields.cc,
+      subject: encryptedMessageFields.subject,
+      snippet: encryptedMessageFields.snippet,
       receivedAtIso: payload.receivedAtIso,
       bodyRef: payload.bodyRef,
       scope: payload.scope,
@@ -296,7 +296,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
 
       const threadEventPayload: MailThreadEventPayload = {
         threadKey,
-        subject: encryptedThreadFields["subject"] as string,
+        subject: encryptedThreadFields.subject,
         lastMessageAtIso: newLastAt,
         messageCount,
       };
