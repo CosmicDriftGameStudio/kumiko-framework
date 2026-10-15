@@ -16,6 +16,8 @@
       "@cosmicdrift/kumiko-renderer-web",
       "@cosmicdrift/kumiko-locale-de",
       "@cosmicdrift/kumiko-locale-es",
+      "@cosmicdrift/kumiko-renderer-mail-html",
+      "@cosmicdrift/kumiko-renderer-puppeteer-client",
       "@cosmicdrift/kumiko-cli",
       "create-kumiko-app",
       "@cosmicdrift/kumiko-guards",
@@ -31,7 +33,8 @@
   "ignore": [
     "@cosmicdrift/kumiko-sample-*",
     "@cosmicdrift/kumiko-marketing-demo",
-    "@samples/workflow-engine"
+    "@samples/workflow-engine",
+    "@cosmicdrift/kumiko-puppeteer-service"
   ],
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
     "onlyUpdatePeerDependentsWhenOutOfRange": true

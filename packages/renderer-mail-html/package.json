@@ -1,0 +1,63 @@
+{
+  "name": "@cosmicdrift/kumiko-renderer-mail-html",
+  "version": "0.362.0",
+  "description": "Renderer-Foundation plugin for branded HTML emails: MJML layout + Markdown content via Handlebars/marked/mjml/html-to-text. Templates resolved from template-resolver.",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
+  "type": "module",
+  "kumiko": {
+    "runtime": "runtime"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./seeding": {
+      "types": "./src/seeding.ts",
+      "default": "./src/seeding.ts"
+    }
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-types": "workspace:*",
+    "handlebars": "^4.7.8",
+    "html-to-text": "^9.0.5",
+    "mjml": "^5.2.2"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*",
+    "@types/html-to-text": "^9.0.4",
+    "@types/mjml": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
+    "directory": "packages/renderer-mail-html"
+  },
+  "homepage": "https://kumiko.rocks",
+  "bugs": {
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./seeding": {
+        "types": "./dist/seeding.d.ts",
+        "default": "./dist/seeding.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src/changes.json",
+    "README.md",
+    "LICENSE"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@cosmicdrift/kumiko-puppeteer-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HTTP-Service für PDF + Image-Rendering via Puppeteer. Wird von renderer-puppeteer-client (Plugin) konsumiert. Standalone Bun.serve-App.",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts"
+  },
+  "kumiko": {
+    "runtime": "runtime"
+  },
+  "dependencies": {
+    "hono": "^4.12.19",
+    "puppeteer": "^25.0.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*"
+  },
+  "license": "BUSL-1.1",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
+    "directory": "apps/puppeteer-service"
+  }
+}

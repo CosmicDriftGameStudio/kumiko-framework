@@ -2,14 +2,14 @@ import { defineFeature, type Registry } from "@cosmicdrift/kumiko-framework/engi
 import { RENDERER_EXTENSION } from "./constants.js";
 import { isRendererRegistrationPlugin, type RendererPlugin } from "./types.js";
 
-// renderer-foundation — Plugin-Foundation für Renderer (Notification,
-// HTML-Mail, PDF, Image). Plan-Doc:
+// renderer-foundation — plugin foundation for renderers (notification,
+// HTML mail, PDF, image). Plan doc:
 // kumiko-platform/docs/plans/features/renderer-foundation.md
 //
-// Pattern symmetrisch zu ai-foundation: Foundation definiert den
-// Extension-Point `renderer`, Plugins (renderer-simple, renderer-mail-html,
-// renderer-puppeteer-client) registrieren sich via `r.useExtension`.
-// Konsumenten holen sich Plugin runtime via createRendererForTenant.
+// Pattern symmetric to ai-foundation: the foundation defines the
+// extension point `renderer`, plugins (renderer-simple, @cosmicdrift/kumiko-renderer-mail-html,
+// @cosmicdrift/kumiko-renderer-puppeteer-client) register via `r.useExtension`.
+// Consumers get a plugin at runtime via createRendererForTenant.
 export function createRendererFoundationFeature() {
   return defineFeature("renderer-foundation", (r) => {
     r.describe(

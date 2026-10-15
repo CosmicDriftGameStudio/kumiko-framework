@@ -21,7 +21,7 @@ const INTEGRATION_COVERAGE_OUT = "coverage/integration";
 
 async function discoverAllIntegrationFiles(): Promise<string[]> {
   const scanned: string[] = [];
-  for await (const file of new Glob("{packages,samples}/**/*.integration.test.ts").scan(".")) {
+  for await (const file of new Glob("{packages,samples,apps}/**/*.integration.test.ts").scan(".")) {
     scanned.push(file);
   }
   return selectIntegrationFiles(scanned);
@@ -158,7 +158,7 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
 
 const USAGE = `Usage: bun scripts/run-integration-tests.ts [--perf]
 
-Runs every *.integration.test.ts under packages/ and samples/.
+Runs every *.integration.test.ts under packages/, samples/ and apps/.
 
   --perf       run only the wall-clock perf gate files, without --parallel
   -h, --help   print this help and exit`;

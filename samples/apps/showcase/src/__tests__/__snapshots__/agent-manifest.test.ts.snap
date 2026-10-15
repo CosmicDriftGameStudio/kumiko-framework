@@ -355,13 +355,9 @@ exports[`buildAgentManifest against the showcase app matches the recorded snapsh
                 "type": "boolean",
               },
               "notes": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                  },
-                  {
-                    "type": "null",
-                  },
+                "type": [
+                  "string",
+                  "null",
                 ],
               },
               "parentId": {
