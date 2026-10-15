@@ -1,9 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  defineWriteHandler,
-  SYSTEM_TENANT_ID,
-  type TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { requireForTenant } from "../../shared/index.js";
 import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.js";
@@ -23,9 +19,7 @@ export const upsertSystemWrite = defineWriteHandler({
   description:
     "Creates or overwrites a system-default template under the system tenant with its full variable schema and linked resources, active straight away with no draft stage; SystemAdmin only, since tenants shadow these defaults through upsert-tenant instead.",
   handler: async (event, ctx) => {
-    // @cast-boundary engine-payload — SYSTEM_TENANT_ID is a UUID literal,
-    // asserted to the branded TenantId (parseTenantId equivalent).
-    const tenantId = SYSTEM_TENANT_ID as TenantId;
+    const tenantId = SYSTEM_TENANT_ID;
     const { db, streamTenantId } = requireForTenant(ctx, tenantId);
 
     const body = sanitizeTemplateBody({

@@ -117,8 +117,14 @@ await seedSystemTemplate(db, {
 | `TemplateResolverHandlers.upsertTenant` | `template-resolver:write:upsert-tenant` | TenantAdmin (eigener Tenant) + SystemAdmin via `tenantIdOverride` | Erstellt/Updated Tenant-Overrides (scope='tenant'), default-status='draft' |
 | `TemplateResolverHandlers.publish` | `template-resolver:write:publish` | TenantAdmin (eigener Tenant) | Setzt status='active' |
 | `TemplateResolverHandlers.archive` | `template-resolver:write:archive` | TenantAdmin (eigener Tenant) | Setzt status='archived' (Resolver ignoriert es danach) |
+| `TemplateResolverHandlers.publishSystem` | `template-resolver:write:publish-system` | SystemAdmin | Setzt status='active' auf einem System-Default (gleiche Mail-Prüfung wie `publish`) |
+| `TemplateResolverHandlers.archiveSystem` | `template-resolver:write:archive-system` | SystemAdmin | Setzt status='archived' auf einem System-Default; Tenants ohne Override fallen durch |
+| `TemplateResolverHandlers.resetToSystem` | `template-resolver:write:reset-to-system` | TenantAdmin (eigener Tenant) | Archiviert den eigenen Override, sodass wieder die aktive System-Vorlage greift; ohne aktive System-Vorlage `no_system_template` |
 | `TemplateResolverQueries.findById` | `template-resolver:query:find-by-id` | TenantAdmin + User (eigener Tenant + system-templates sichtbar) | Raw-Lookup für Edit-UI |
 | `TemplateResolverQueries.list` | `template-resolver:query:list` | gleich | Filter nach kind/locale/status, optional includeSystem |
+| `TemplateResolverQueries.usage` | `template-resolver:query:usage` | TenantAdmin | Welche Notifications eine Mail-Vorlage bzw. ein Mail-Layout verwenden (aus der Registry) |
+| `TemplateResolverQueries.tenantOverrides` | `template-resolver:query:tenant-overrides` | SystemAdmin | Anzahl aktiver/Entwurf-Overrides einer System-Vorlage und aktive Tenants gesamt, nur Zahlen |
+| `TemplateResolverQueries.diffToSystem` | `template-resolver:query:diff-to-system` | TenantAdmin (eigener Tenant) | Block- und Meta-Vergleich eines Tenant-Overrides mit der System-Vorlage |
 
 **SystemAdmin-Cross-Tenant für publish/archive/findById:** deferred (Task 8) — `upsertTenant` hat `tenantIdOverride` bereits; publish/archive brauchen das erst wenn ein Sysadmin-Panel fremde Tenant-Templates kuratiert. `ctx.db` ist tenant-scoped, fremde IDs → NotFound ohne Override.
 

@@ -19,10 +19,12 @@ export {
   type MailPayload,
   type NotificationPayload,
   type PdfOptions,
+  type RenderedTemplateRef,
   type RendererContext,
   RendererError,
   type RendererPlugin,
   type RendererRegistrationPlugin,
+  type RenderProvenance,
   type RenderRequest,
   type RenderResponse,
 } from "./types.js";

@@ -59,6 +59,11 @@ export type TemplateScope = (typeof TEMPLATE_SCOPES)[number];
 export const TEMPLATE_STATUSES = ["draft", "active", "archived"] as const;
 export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number];
 
+export const PDF_PAGE_FORMATS = ["A4", "Letter"] as const;
+export type PdfPageFormat = (typeof PDF_PAGE_FORMATS)[number];
+
+export const DEFAULT_MAIL_LAYOUT_SLUG = "default";
+
 // System-Templates leben unter der canonical SYSTEM_TENANT_ID-Sentinel-UUID.
 // Re-Export aus framework — single source of truth, vermeidet Drift.
 export { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";

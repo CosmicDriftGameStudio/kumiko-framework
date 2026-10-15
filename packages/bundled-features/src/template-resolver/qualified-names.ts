@@ -7,12 +7,18 @@ export const TemplateResolverHandlers = {
   upsertTenant: "template-resolver:write:upsert-tenant",
   publish: "template-resolver:write:publish",
   archive: "template-resolver:write:archive",
+  publishSystem: "template-resolver:write:publish-system",
+  archiveSystem: "template-resolver:write:archive-system",
+  resetToSystem: "template-resolver:write:reset-to-system",
   set: "template-resolver:write:set",
 } as const;
 
 export const TemplateResolverQueries = {
   findById: "template-resolver:query:find-by-id",
   list: "template-resolver:query:list",
+  usage: "template-resolver:query:usage",
+  tenantOverrides: "template-resolver:query:tenant-overrides",
+  diffToSystem: "template-resolver:query:diff-to-system",
   // Public pair — anonymous-reachable, kind pinned to text-block.
   bySlug: "template-resolver:query:by-slug",
   byTenant: "template-resolver:query:by-tenant",

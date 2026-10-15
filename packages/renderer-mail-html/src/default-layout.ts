@@ -12,7 +12,7 @@
 // **Tenant override:** upsert a template of kind "mail-layout", contentFormat
 // "mjml", slug "default" (or the slug a mail names in meta.layoutSlug).
 
-export const DEFAULT_MAIL_LAYOUT_SLUG = "default";
+export { DEFAULT_MAIL_LAYOUT_SLUG } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 
 export const DEFAULT_MAIL_LAYOUT_MJML = `<mjml>
   <mj-head>

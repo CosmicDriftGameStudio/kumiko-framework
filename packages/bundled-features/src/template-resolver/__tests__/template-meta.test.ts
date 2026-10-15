@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseTemplateMeta, templateSlugSchema } from "../template-meta";
+import { parseTemplateMeta, readPdfTemplateMeta, templateSlugSchema } from "../template-meta";
 
 describe("parseTemplateMeta", () => {
   test("mail requires a subject", () => {
@@ -30,6 +30,51 @@ describe("parseTemplateMeta", () => {
     expect(parseTemplateMeta("mail-layout", { subject: "x" }).ok).toBe(false);
     expect(parseTemplateMeta("text-block", { subject: "x" }).ok).toBe(false);
     expect(parseTemplateMeta("text-block", undefined)).toEqual({ ok: true, meta: null });
+  });
+});
+
+describe("document-pdf meta", () => {
+  const valid = {
+    layoutSlug: "company-letter",
+    pageFormat: "Letter",
+    margins: { top: 20, right: 10, bottom: 20, left: 10.5 },
+    fileName: "Rechnung-{{invoiceNumber}}.pdf",
+    metadata: { title: "Rechnung", author: "ACME" },
+  } as const;
+
+  test("a full valid meta is accepted, no meta at all too", () => {
+    expect(parseTemplateMeta("document-pdf", valid)).toEqual({ ok: true, meta: valid });
+    expect(parseTemplateMeta("document-pdf", undefined)).toEqual({ ok: true, meta: null });
+    expect(parseTemplateMeta("document-pdf", null)).toEqual({ ok: true, meta: null });
+  });
+
+  test("an unknown page format or key is rejected", () => {
+    const format = parseTemplateMeta("document-pdf", { pageFormat: "A5" });
+    expect(format.ok).toBe(false);
+    if (!format.ok) expect(format.issues[0]?.path).toBe("meta.pageFormat");
+    expect(parseTemplateMeta("document-pdf", { orientation: "landscape" }).ok).toBe(false);
+    expect(parseTemplateMeta("document-pdf", { margins: { top: 1, middle: 2 } }).ok).toBe(false);
+  });
+
+  test.each(["a/b.pdf", "a\\b.pdf", "../x.pdf", 'a"b.pdf', "a;b.pdf", "", "a\nb.pdf"])(
+    "fileName %j is rejected",
+    (fileName) => {
+      expect(parseTemplateMeta("document-pdf", { fileName }).ok).toBe(false);
+    },
+  );
+
+  test("margins must be within 0..100 mm", () => {
+    expect(parseTemplateMeta("document-pdf", { margins: { top: 100, left: 0 } }).ok).toBe(true);
+    const tooBig = parseTemplateMeta("document-pdf", { margins: { top: 101 } });
+    expect(tooBig.ok).toBe(false);
+    if (!tooBig.ok) expect(tooBig.issues[0]?.path).toBe("meta.margins.top");
+    expect(parseTemplateMeta("document-pdf", { margins: { left: -1 } }).ok).toBe(false);
+  });
+
+  test("readPdfTemplateMeta returns the parsed meta or null", () => {
+    expect(readPdfTemplateMeta(null)).toBeNull();
+    expect(readPdfTemplateMeta({ subject: "Hi" })).toBeNull();
+    expect(readPdfTemplateMeta({ pageFormat: "A4" })).toEqual({ pageFormat: "A4" });
   });
 });
 

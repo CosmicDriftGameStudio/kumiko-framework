@@ -7,12 +7,21 @@ import { byTenantQuery } from "./handlers/by-tenant.query.js";
 import { makeCollectionItemQuery } from "./handlers/collection-item.query.js";
 import { makeCollectionListQuery } from "./handlers/collection-list.query.js";
 import { makeCollectionSetWrite } from "./handlers/collection-set.write.js";
+import { diffToSystemQuery } from "./handlers/diff-to-system.query.js";
 import { findByIdQuery } from "./handlers/find-by-id.query.js";
 import { listQuery } from "./handlers/list.query.js";
+import { resetToSystemWrite } from "./handlers/reset-to-system.write.js";
 import { setWrite } from "./handlers/set.write.js";
-import { archiveWrite, publishWrite } from "./handlers/toggle-status.write.js";
+import { tenantOverridesQuery } from "./handlers/tenant-overrides.query.js";
+import {
+  archiveSystemWrite,
+  archiveWrite,
+  publishSystemWrite,
+  publishWrite,
+} from "./handlers/toggle-status.write.js";
 import { upsertSystemWrite } from "./handlers/upsert-system.write.js";
 import { upsertTenantWrite } from "./handlers/upsert-tenant.write.js";
+import { usageQuery } from "./handlers/usage.query.js";
 import { templateResourceEntity } from "./table.js";
 import { userContentEntryEntity } from "./user-content-table.js";
 
@@ -22,7 +31,7 @@ import { userContentEntryEntity } from "./user-content-table.js";
 //
 // Consumption paths:
 //   - Render time: ctx.templateResolver.resolveTemplate(...) (see api.ts)
-//   - Admin UI: write/query handlers (upsertSystem, upsertTenant, publish, archive, findById, list)
+//   - Admin UI: write/query handlers (upsertSystem, upsertTenant, publish, archive, publishSystem, archiveSystem, resetToSystem, findById, list, usage, tenantOverrides, diffToSystem)
 //   - Cross-feature: requireTemplateResolver(ctx, callerName)
 export type TemplateResolverOptions = {
   /** Content collections this app mounts. Declared here rather than inside the
@@ -44,7 +53,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
     r.describe(
       [
         "Every piece of editable text lives here, in one entity: mail bodies, notification texts, PDF document templates, AI prompts and plain text blocks. What a record is used for is the `kind` (`notification`, `mail`, `mail-layout`, `document-pdf`, `pdf-layout`, `ai-prompt`, `text-block`, `snippet`, `image-snapshot`).",
-        "Reading is one call — `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })`. It walks four levels: tenant+locale, system+locale, tenant+fallback-locale, system+fallback-locale. A tenant overrides a system default by simply having its own record; no application code changes. Writing programmatically goes through the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers.",
+        "Reading is one call — `ctx.templateResolver.resolveTemplate({ tenantId, slug, kind, locale })`. It walks four levels: tenant+locale, system+locale, tenant+fallback-locale, system+fallback-locale. A tenant overrides a system default by simply having its own record; no application code changes. Writing programmatically goes through the `upsertSystem`, `upsertTenant`, `publish` and `archive` write handlers; a SystemAdmin retires or restores a system default with `publishSystem` and `archiveSystem`, and a tenant drops its override with `resetToSystem`.",
         "Text an editor should be able to change belongs in a collection, declared at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })`. It appears in the navigation, and `access` is part of the mount because a bundled feature cannot know the host's roles. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers, so the dispatcher enforces the separation.",
         "How a collection is edited follows from `contentFormat`: `plain` gives a text area, `rich` a small WYSIWYG (bold, italic, headings, lists, links), `markdown` a text area that stores markdown text (same insertable chips as `plain`). All three offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).",
         'A collection is tenant-wide by default. With `ownership: "user"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one also requires the `template-resolver-user-data` feature and a migration on the app side.',
@@ -68,6 +77,9 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       upsertTenant: r.writeHandler(upsertTenantWrite),
       publish: r.writeHandler(publishWrite),
       archive: r.writeHandler(archiveWrite),
+      publishSystem: r.writeHandler(publishSystemWrite),
+      archiveSystem: r.writeHandler(archiveSystemWrite),
+      resetToSystem: r.writeHandler(resetToSystemWrite),
       set: r.writeHandler(setWrite),
     };
 
@@ -76,6 +88,9 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       list: r.queryHandler(listQuery),
       bySlug: r.queryHandler(bySlugQuery),
       byTenant: r.queryHandler(byTenantQuery),
+      usage: r.queryHandler(usageQuery),
+      tenantOverrides: r.queryHandler(tenantOverridesQuery),
+      diffToSystem: r.queryHandler(diffToSystemQuery),
     };
 
     for (const collection of collections) {

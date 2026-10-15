@@ -6,7 +6,7 @@ import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 // Admin-Lookup für UI-Edit-Flow. Returnt das raw Template inkl. draft/
 // archived Status. Tenant-Isolation: User sieht nur Templates des
 // eigenen Tenants oder SYSTEM_TENANT (system-defaults sind public-
-// readable). SystemAdmin sieht alle. Anonymous bleibt aus — Public-
+// readable); ctx.db is tenant-scoped for every role, so the check below is defense in depth. Anonymous bleibt aus — Public-
 // Read geht über resolveTemplate aus der API, nicht hier.
 export const findByIdQuery = defineQueryHandler({
   name: "find-by-id",
@@ -19,10 +19,9 @@ export const findByIdQuery = defineQueryHandler({
       id: query.payload.id,
     });
     if (!row) return null;
-    const isSystemAdmin = query.user.roles.includes("SystemAdmin");
     const isOwnTenant = row.tenantId === query.user.tenantId;
     const isSystemTemplate = row.scope === "system";
-    if (!isSystemAdmin && !isOwnTenant && !isSystemTemplate) return null;
+    if (!isOwnTenant && !isSystemTemplate) return null;
 
     return {
       id: String(row.id),
@@ -35,6 +34,7 @@ export const findByIdQuery = defineQueryHandler({
       contentFormat: row.contentFormat,
       variableSchema: row.variableSchema,
       linkedResources: row.linkedResources,
+      meta: row.meta,
       scope: row.scope,
       parentTemplateId: row.parentTemplateId,
       status: row.status,

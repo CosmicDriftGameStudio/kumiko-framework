@@ -1,5 +1,5 @@
 import * as z from "zod";
-import type { TemplateKind } from "./constants.js";
+import { PDF_PAGE_FORMATS, type TemplateKind } from "./constants.js";
 
 // One or more kebab segments joined by ":" — notification templates are seeded
 // under their qualified name `feature:notify:name`.
@@ -36,14 +36,44 @@ const mailMetaSchema = z
   })
   .strict();
 
+const marginMm = z.number().finite().min(0).max(100).optional();
+
+// The file name ends up in a Content-Disposition header and on disk.
+const FORBIDDEN_FILE_NAME = /[/\\";]|\.\./;
+
+const pdfMetaSchema = z
+  .object({
+    layoutSlug: templateSlugSchema.optional(),
+    pageFormat: z.enum(PDF_PAGE_FORMATS).optional(),
+    margins: z
+      .object({ top: marginMm, right: marginMm, bottom: marginMm, left: marginMm })
+      .strict()
+      .optional(),
+    fileName: singleLine(200)
+      .min(1)
+      .refine((value) => !FORBIDDEN_FILE_NAME.test(value), 'must not contain / \\ " ; or ..')
+      .optional(),
+    metadata: z
+      .object({ title: singleLine(200).optional(), author: singleLine(200).optional() })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
 const layoutMetaSchema = z.object({}).strict();
 
 export type MailTemplateMeta = z.infer<typeof mailMetaSchema>;
+export type PdfTemplateMeta = z.infer<typeof pdfMetaSchema>;
 export type LayoutTemplateMeta = z.infer<typeof layoutMetaSchema>;
-export type TemplateMeta = MailTemplateMeta | LayoutTemplateMeta;
+export type TemplateMeta = MailTemplateMeta | PdfTemplateMeta | LayoutTemplateMeta;
 
 export function isMailTemplateMeta(meta: TemplateMeta | null): meta is MailTemplateMeta {
   return meta !== null && "subject" in meta;
+}
+
+export function readPdfTemplateMeta(meta: TemplateMeta | null): PdfTemplateMeta | null {
+  const parsed = pdfMetaSchema.safeParse(meta);
+  return parsed.success ? parsed.data : null;
 }
 
 export type TemplateMetaIssue = { readonly path: string; readonly message: string };
@@ -56,6 +86,8 @@ function schemaForKind(kind: TemplateKind) {
   switch (kind) {
     case "mail":
       return mailMetaSchema;
+    case "document-pdf":
+      return pdfMetaSchema;
     case "mail-layout":
     case "pdf-layout":
       return layoutMetaSchema;
@@ -65,7 +97,7 @@ function schemaForKind(kind: TemplateKind) {
 }
 
 // Kinds without a meta schema must not carry meta at all; mail needs it,
-// layouts may omit it.
+// layouts and PDFs may omit it.
 export function parseTemplateMeta(kind: TemplateKind, raw: unknown): TemplateMetaResult {
   const schema = schemaForKind(kind);
   if (schema === null) {
