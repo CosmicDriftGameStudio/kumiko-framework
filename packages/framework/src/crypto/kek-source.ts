@@ -87,7 +87,7 @@ async function decryptCiphertext(
       );
     }
 
-    let body: { plaintext?: unknown };
+    let body: unknown;
     try {
       body = await response.json();
     } catch {
@@ -95,10 +95,12 @@ async function decryptCiphertext(
         `${prefix}Key Manager decrypt for key ${keyId} returned an unparseable response`,
       );
     }
-    if (typeof body.plaintext !== "string") {
+    const plaintext =
+      typeof body === "object" && body !== null && "plaintext" in body ? body.plaintext : undefined;
+    if (typeof plaintext !== "string") {
       throw new Error(`${prefix}Key Manager decrypt for key ${keyId} returned no plaintext field`);
     }
-    return body.plaintext;
+    return plaintext;
   }
   throw new Error(`${prefix}Key Manager decrypt failed for key ${keyId}: retries exhausted`);
 }

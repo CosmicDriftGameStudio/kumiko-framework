@@ -763,24 +763,29 @@ type RejectArgs = {
 
 const TENANT_LIFECYCLE_CANCEL_QN = "tenant-lifecycle:write:cancel-destruction";
 
+function fieldOf(value: unknown, key: "type" | "commands"): unknown {
+  return typeof value === "object" && value !== null && key in value
+    ? Reflect.get(value, key)
+    : undefined;
+}
+
 async function requestsCancelDestruction(c: Context): Promise<boolean> {
   if (c.req.method !== "POST") return false;
   try {
     const path = c.req.path;
-    const body: { type?: string; commands?: Array<{ type?: string }> } = await c.req.raw
-      .clone()
-      .json();
+    const body: unknown = await c.req.raw.clone().json();
     if (path === "/api/write") {
-      return body.type === TENANT_LIFECYCLE_CANCEL_QN;
+      return fieldOf(body, "type") === TENANT_LIFECYCLE_CANCEL_QN;
     }
     if (path === "/api/batch") {
+      const commands = fieldOf(body, "commands");
       // every(), not some(): a batch mixing the cancel command with other
       // writes must NOT wave the whole batch through the teardown gate —
       // only a batch consisting solely of cancel-destruction is exempt.
       return (
-        Array.isArray(body.commands) &&
-        body.commands.length > 0 &&
-        body.commands.every((command) => command.type === TENANT_LIFECYCLE_CANCEL_QN)
+        Array.isArray(commands) &&
+        commands.length > 0 &&
+        commands.every((command) => fieldOf(command, "type") === TENANT_LIFECYCLE_CANCEL_QN)
       );
     }
   } catch {
