@@ -6,7 +6,7 @@ import type {
   NotificationRenderer,
   RenderedMessage,
 } from "../../delivery/index.js";
-import { createEmailChannel } from "../email-channel.js";
+import { createEmailChannel, fileAttachmentsFrom } from "../email-channel.js";
 import { createInMemoryTransport } from "../types.js";
 
 const stubRenderer: NotificationRenderer = {
@@ -288,5 +288,97 @@ describe("email channel template notifications", () => {
     await expect(
       channelWith(createInMemoryTransport()).render?.(message, templatedCtx()),
     ).rejects.toThrow(/renderMail/);
+  });
+});
+
+describe("email channel attachments", () => {
+  const FILE_REF_ID = "0190c000-0000-7000-8000-000000000001";
+  const bytes = new Uint8Array([1, 2, 3]);
+  const withReader = (
+    readAttachment: NonNullable<ChannelContext["readAttachment"]>,
+  ): ChannelContext => ({ ...ctx, readAttachment });
+  const baseMessage: ChannelMessage = {
+    notificationType: "n",
+    title: "t",
+    body: "b",
+    data: { attachments: [{ kind: "file", fileRefId: FILE_REF_ID, fileName: "rechnung.pdf" }] },
+  };
+
+  test("a file ref from notify data is read and sent with the ref's file name", async () => {
+    const transport = createInMemoryTransport();
+    await channelWith(transport).send(
+      "u@example.com",
+      baseMessage,
+      withReader(async () => ({ content: bytes, contentType: "application/pdf" })),
+      rendered,
+    );
+    expect(transport.sent[0]?.attachments).toEqual([
+      {
+        kind: "file",
+        fileRefId: FILE_REF_ID,
+        fileName: "rechnung.pdf",
+        content: bytes,
+        contentType: "application/pdf",
+      },
+    ]);
+  });
+
+  test("an inline ref from the renderer is named after its cid and content type", async () => {
+    const transport = createInMemoryTransport();
+    await channelWith(transport).send(
+      "u@example.com",
+      { notificationType: "n", title: "t", body: "b", data: undefined },
+      withReader(async () => ({ content: bytes, contentType: "image/png" })),
+      { ...rendered, attachments: [{ kind: "inline", cid: "logo", fileRefId: FILE_REF_ID }] },
+    );
+    expect(transport.sent[0]?.attachments?.[0]).toMatchObject({
+      kind: "inline",
+      cid: "logo",
+      fileName: "logo.png",
+    });
+  });
+
+  test("a missing inline image is skipped, a missing file fails the send", async () => {
+    const transport = createInMemoryTransport();
+    const readNothing = withReader(async () => null);
+    await channelWith(transport).send(
+      "u@example.com",
+      { notificationType: "n", title: "t", body: "b", data: undefined },
+      readNothing,
+      { ...rendered, attachments: [{ kind: "inline", cid: "logo", fileRefId: FILE_REF_ID }] },
+    );
+    expect(transport.sent[0]?.attachments).toBeUndefined();
+    await expect(
+      channelWith(transport).send("u@example.com", baseMessage, readNothing, rendered),
+    ).rejects.toThrow(/not found/);
+  });
+
+  test("refs without a channel context that can read files fail loudly", async () => {
+    await expect(
+      channelWith(createInMemoryTransport()).send("u@example.com", baseMessage, ctx, rendered),
+    ).rejects.toThrow(/cannot read files/);
+  });
+
+  test("notify data cannot create inline attachments or oversize lists", () => {
+    expect(() =>
+      fileAttachmentsFrom({
+        attachments: [{ kind: "inline", cid: "logo", fileRefId: FILE_REF_ID }],
+      }),
+    ).toThrow();
+    expect(() =>
+      fileAttachmentsFrom({
+        attachments: Array.from({ length: 21 }, () => ({
+          kind: "file",
+          fileRefId: FILE_REF_ID,
+          fileName: "a.pdf",
+        })),
+      }),
+    ).toThrow();
+    expect(() =>
+      fileAttachmentsFrom({
+        attachments: [{ kind: "file", fileRefId: FILE_REF_ID, fileName: "../etc/passwd" }],
+      }),
+    ).toThrow();
+    expect(fileAttachmentsFrom(undefined)).toEqual([]);
   });
 });

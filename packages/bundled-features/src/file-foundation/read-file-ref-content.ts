@@ -1,0 +1,86 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { isUuid, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createFileContext,
+  type FileContext,
+  type FileProviderResolver,
+  fileRefsTable,
+} from "@cosmicdrift/kumiko-framework/files";
+
+export type FileRefContent = {
+  readonly content: Uint8Array;
+  readonly contentType: string;
+  readonly tenantId: string;
+  readonly size: number;
+};
+
+type FileRefRow = {
+  readonly storageKey: string;
+  readonly mimeType: string;
+  readonly tenantId: string;
+  readonly size: number | bigint | string;
+};
+
+// Tenant-bound on purpose: the FileContext of the current request only reaches its own key space.
+export function fileContextForTenant(
+  ctx: {
+    readonly _fileProviderResolver?: FileProviderResolver | undefined;
+    readonly files?: FileContext | undefined;
+  },
+  tenantId: string,
+): FileContext | undefined {
+  const resolver = ctx._fileProviderResolver;
+  if (resolver === undefined) return ctx.files;
+  return fileContextFromResolver(resolver, tenantId);
+}
+
+export function fileContextFromResolver(
+  resolver: FileProviderResolver,
+  tenantId: string,
+): FileContext {
+  // @cast-boundary engine-payload — tenantId comes from a trusted job payload or session
+  const brandedTenantId = tenantId as TenantId;
+  return createFileContext(() => resolver(brandedTenantId), tenantId);
+}
+
+export class FileRefTooLargeError extends Error {
+  constructor(readonly size: number) {
+    super(`file ref exceeds the size limit (${size} bytes)`);
+  }
+}
+
+// fileName of the row is never used: it is personal data and may be a PII ciphertext.
+export async function readFileRefContent(args: {
+  readonly db: DbConnection | TenantDb;
+  readonly filesForTenant: (tenantId: string) => FileContext | undefined;
+  readonly fileRefId: string;
+  readonly allowedTenantIds: readonly string[];
+  /** Only accept this user's own upload that is not bound to any entity yet. */
+  readonly unclaimedUploadOf?: string;
+  /** Rejects before any bytes are read when the stored size exceeds the limit. */
+  readonly maxBytes?: number;
+}): Promise<FileRefContent | null> {
+  if (!isUuid(args.fileRefId)) return null;
+  const [row] = await selectMany<FileRefRow>(args.db, fileRefsTable, {
+    id: args.fileRefId,
+    tenantId: { in: args.allowedTenantIds },
+    isDeleted: false,
+    ...(args.unclaimedUploadOf !== undefined && {
+      insertedById: args.unclaimedUploadOf,
+      entityType: null,
+      entityId: null,
+    }),
+  });
+  if (row === undefined) return null;
+  const size = Number(row.size);
+  if (args.maxBytes !== undefined && size > args.maxBytes) {
+    throw new FileRefTooLargeError(size);
+  }
+  const files = args.filesForTenant(row.tenantId);
+  if (files === undefined) {
+    throw new Error("readFileRefContent: no file storage is available for the file's tenant");
+  }
+  const content = await files.ref(row.storageKey).read();
+  return { content, contentType: row.mimeType, tenantId: row.tenantId, size };
+}

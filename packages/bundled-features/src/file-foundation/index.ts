@@ -7,3 +7,10 @@ export {
   fileFoundationFeature,
   isFileProviderPlugin,
 } from "./feature.js";
+export {
+  type FileRefContent,
+  FileRefTooLargeError,
+  fileContextForTenant,
+  fileContextFromResolver,
+  readFileRefContent,
+} from "./read-file-ref-content.js";

@@ -6,7 +6,12 @@ export {
   type TemplateResolverApi,
   type TemplateResource,
 } from "./api.js";
-export { compileDocumentBodyToHandlebars } from "./compile-document-body.js";
+export {
+  type CompileDocumentBodyOptions,
+  collectDocumentResourceKeys,
+  compileDocumentBodyToHandlebars,
+  toResourceDataUri,
+} from "./compile-document-body.js";
 export {
   CONTENT_FORMATS,
   type ContentFormat,
@@ -74,6 +79,11 @@ export {
 } from "./qualified-names.js";
 export { mapRecordToVariables } from "./record-mapping.js";
 export {
+  readTemplateResourceMaxBytes,
+  type StoredTemplateResource,
+  storeTemplateResource,
+} from "./store-template-resource.js";
+export {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
@@ -93,11 +103,7 @@ export {
   type TemplateMetaResult,
   templateSlugSchema,
 } from "./template-meta.js";
-export {
-  readTemplateResource,
-  storeTemplateResource,
-  type TemplateResourceFile,
-} from "./template-resources.js";
+export { readTemplateResource, type TemplateResourceFile } from "./template-resources.js";
 export {
   hasPlaceholderProblems,
   resolveTemplateVariables,

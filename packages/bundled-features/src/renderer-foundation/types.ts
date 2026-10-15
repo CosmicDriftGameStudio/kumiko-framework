@@ -23,9 +23,23 @@ export type RenderProvenance = {
   readonly layout?: RenderedTemplateRef;
 };
 
+// Image a rendered mail embeds by Content-ID; the send job reads the bytes.
+export type InlineAttachmentRef = {
+  readonly kind: "inline";
+  readonly cid: string;
+  readonly fileRefId: string;
+};
+
 export type RenderResponse = (
   | { kind: "notification"; html: string; text?: string }
-  | { kind: "mail"; subject: string; html: string; text: string; previewText?: string }
+  | {
+      kind: "mail";
+      subject: string;
+      html: string;
+      text: string;
+      previewText?: string;
+      attachments?: readonly InlineAttachmentRef[];
+    }
   | { kind: "document-pdf"; pdfBytes: Uint8Array; pageCount: number; sizeBytes: number }
   | {
       kind: "image-snapshot";

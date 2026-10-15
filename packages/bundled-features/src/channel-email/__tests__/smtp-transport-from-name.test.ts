@@ -102,3 +102,52 @@ describe("createSmtpTransport — text part", () => {
     expect(rawMessage).not.toContain("multipart/alternative");
   });
 });
+
+const attachmentMail = { to: "user@example.com", subject: "Hi", html: '<img src="cid:logo">' };
+const attachmentTransport = () =>
+  createSmtpTransport({ host: "localhost", from: "App <noreply@x.test>" });
+
+describe("createSmtpTransport attachments", () => {
+  test("an inline image carries its Content-ID and inline disposition", async () => {
+    await attachmentTransport().send({
+      ...attachmentMail,
+      attachments: [
+        {
+          kind: "inline",
+          cid: "logo",
+          fileRefId: "id",
+          fileName: "logo.png",
+          content: new Uint8Array([137, 80, 78, 71]),
+          contentType: "image/png",
+        },
+      ],
+    });
+    expect(rawMessage).toContain("Content-ID: <logo>");
+    expect(rawMessage).toContain("Content-Disposition: inline");
+    expect(rawMessage).toContain("Content-Type: image/png");
+    expect(rawMessage).toContain(Buffer.from([137, 80, 78, 71]).toString("base64"));
+  });
+
+  test("a file attachment is sent with its name and bytes and no Content-ID", async () => {
+    await attachmentTransport().send({
+      ...attachmentMail,
+      attachments: [
+        {
+          kind: "file",
+          fileRefId: "id",
+          fileName: "rechnung.pdf",
+          content: new TextEncoder().encode("%PDF-1.4"),
+          contentType: "application/pdf",
+        },
+      ],
+    });
+    expect(rawMessage).toContain("filename=rechnung.pdf");
+    expect(rawMessage).toContain(Buffer.from("%PDF-1.4").toString("base64"));
+    expect(rawMessage).not.toContain("Content-ID:");
+  });
+
+  test("a message without attachments stays a plain mail", async () => {
+    await attachmentTransport().send(attachmentMail);
+    expect(rawMessage).not.toContain("Content-Disposition");
+  });
+});

@@ -12,6 +12,7 @@
 
 import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
+  type InlineAttachmentRef,
   type RenderedTemplateRef,
   type RendererContext,
   RendererError,
@@ -19,18 +20,24 @@ import {
   type RenderResponse,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
+  collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   createTemplateResolverApi,
   isMailTemplateMeta,
   type MailTemplateMeta,
   resolveTemplateVariables,
-  SYSTEM_TENANT_ID,
   sanitizeLayoutHtml,
   TemplateNotFoundError,
   type TemplateResource,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { TenantSettingsConfig } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
-import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/engine";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  isUuid,
+  SYSTEM_TENANT_ID,
+  TENANT_CURRENCY_CONFIG_KEY,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { formatMoney, resolveSafeMoneyLocale } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import Handlebars from "handlebars";
@@ -127,6 +134,61 @@ async function readMailFormat(ctx: RendererContext, payloadLocale: string): Prom
 
 async function readTenantName(ctx: RendererContext): Promise<string> {
   return (await readConfigText(ctx, BRANDING_QN.title)) ?? "";
+}
+
+const LOGO_RESOURCE_KEY = "logo";
+
+// Lookup order: the template's own link, the system template it overrides, and for
+// "logo" the tenant's branding logo. The system lookup is skipped for system templates.
+async function resolveResourceFileRefs(
+  tplApi: ReturnType<typeof createTemplateResolverApi>,
+  ctx: RendererContext,
+  template: TemplateResource,
+  keys: readonly string[],
+): Promise<ReadonlyMap<string, string>> {
+  if (keys.length === 0) return new Map();
+  let systemLinks: Readonly<Record<string, string>> = {};
+  if (template.scope === "tenant") {
+    try {
+      systemLinks = (
+        await tplApi.resolveTemplate({
+          tenantId: SYSTEM_TENANT_ID,
+          slug: template.slug,
+          kind: template.kind,
+          locale: template.locale,
+        })
+      ).linkedResources;
+    } catch (e) {
+      if (!(e instanceof TemplateNotFoundError)) throw e;
+    }
+  }
+  const brandingLogo = keys.includes(LOGO_RESOURCE_KEY) ? await readBrandingLogo(ctx) : undefined;
+  const fileRefIds = new Map<string, string>();
+  for (const key of keys) {
+    const fileRefId =
+      ownLink(template.linkedResources, key) ??
+      ownLink(systemLinks, key) ??
+      (key === LOGO_RESOURCE_KEY ? brandingLogo : undefined);
+    if (fileRefId !== undefined) fileRefIds.set(key, fileRefId);
+  }
+  return fileRefIds;
+}
+
+// The token is a free field of the tenant admin and the send reader also reaches the system
+// tenant's files, so only a file of the rendering tenant itself counts.
+async function readBrandingLogo(ctx: RendererContext): Promise<string | undefined> {
+  const fileRefId = await readConfigText(ctx, BRANDING_QN.logoFile);
+  if (fileRefId === undefined || !isUuid(fileRefId)) return undefined;
+  const [row] = await selectMany<{ id: string }>(ctx.db, fileRefsTable, {
+    id: fileRefId,
+    tenantId: ctx.tenantId,
+    isDeleted: false,
+  });
+  return row === undefined ? undefined : fileRefId;
+}
+
+function ownLink(links: Readonly<Record<string, string>>, key: string): string | undefined {
+  return Object.hasOwn(links, key) && links[key] !== "" ? links[key] : undefined;
 }
 
 type ResolvedLayout = {
@@ -234,6 +296,78 @@ async function resolveMailTemplate(
   return { template, meta: template.meta };
 }
 
+type MailBody = {
+  readonly contentHtml: string;
+  readonly attachments: readonly InlineAttachmentRef[];
+};
+
+// Each data-resource image becomes an inline attachment referenced by cid; the bytes
+// are read at send time, so the render result carries only file ref ids.
+async function renderMailBody(
+  tplApi: ReturnType<typeof createTemplateResolverApi>,
+  ctx: RendererContext,
+  template: TemplateResource,
+  hbs: typeof Handlebars,
+  context: Readonly<Record<string, unknown>>,
+): Promise<MailBody> {
+  try {
+    const resourceFileRefs = await resolveResourceFileRefs(
+      tplApi,
+      ctx,
+      template,
+      collectDocumentResourceKeys(template.content),
+    );
+    const handlebarsSource = compileDocumentBodyToHandlebars(
+      template.content,
+      resolveTemplateVariables(ctx.registry, template.slug, template.variableSchema),
+      { resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined) },
+    );
+    return {
+      contentHtml: compileSource(hbs, handlebarsSource)(context),
+      attachments: [...resourceFileRefs].map(([cid, fileRefId]) => ({
+        kind: "inline" as const,
+        cid,
+        fileRefId,
+      })),
+    };
+  } catch (e) {
+    throw new RendererError(
+      `renderer-mail-html: rendering the body of "${template.slug}" failed — ${describe(e)}`,
+      "other",
+    );
+  }
+}
+
+function renderSubjectLine(
+  hbs: typeof Handlebars,
+  source: string,
+  context: Readonly<Record<string, unknown>>,
+): string {
+  return compileSource(hbs, source, { noEscape: true })(context).replace(LINE_BREAKS, "");
+}
+
+function renderSubjectLines(
+  hbs: typeof Handlebars,
+  meta: MailTemplateMeta,
+  slug: string,
+  context: Readonly<Record<string, unknown>>,
+): { readonly subject: string; readonly previewText: string | undefined } {
+  try {
+    return {
+      subject: renderSubjectLine(hbs, meta.subject, context),
+      previewText:
+        meta.previewText === undefined
+          ? undefined
+          : renderSubjectLine(hbs, meta.previewText, context),
+    };
+  } catch (e) {
+    throw new RendererError(
+      `renderer-mail-html: rendering subject or preview text of "${slug}" failed — ${describe(e)}`,
+      "other",
+    );
+  }
+}
+
 export async function mailHtmlRender(
   req: RenderRequest,
   ctx: RendererContext,
@@ -264,40 +398,8 @@ export async function mailHtmlRender(
     unsubscribeUrl: unsubscribeUrl ?? "",
   };
 
-  let contentHtml: string;
-  try {
-    const handlebarsSource = compileDocumentBodyToHandlebars(
-      template.content,
-      resolveTemplateVariables(ctx.registry, slug, template.variableSchema),
-    );
-    contentHtml = compileSource(hbs, handlebarsSource)(context);
-  } catch (e) {
-    throw new RendererError(
-      `renderer-mail-html: rendering the body of "${slug}" failed — ${describe(e)}`,
-      "other",
-    );
-  }
-
-  let subject: string;
-  let previewText: string | undefined;
-  try {
-    subject = compileSource(hbs, meta.subject, { noEscape: true })(context).replace(
-      LINE_BREAKS,
-      "",
-    );
-    previewText =
-      meta.previewText === undefined
-        ? undefined
-        : compileSource(hbs, meta.previewText, { noEscape: true })(context).replace(
-            LINE_BREAKS,
-            "",
-          );
-  } catch (e) {
-    throw new RendererError(
-      `renderer-mail-html: rendering subject or preview text of "${slug}" failed — ${describe(e)}`,
-      "other",
-    );
-  }
+  const { contentHtml, attachments } = await renderMailBody(tplApi, ctx, template, hbs, context);
+  const { subject, previewText } = renderSubjectLines(hbs, meta, slug, context);
 
   let mjmlSource: string;
   try {
@@ -354,6 +456,7 @@ export async function mailHtmlRender(
     html: mjmlResult.html,
     text,
     ...(previewText === undefined ? {} : { previewText }),
+    ...(attachments.length > 0 && { attachments }),
     template: {
       templateId: template.id,
       templateVersion: template.version,

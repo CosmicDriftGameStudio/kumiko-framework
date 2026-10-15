@@ -1,5 +1,6 @@
 import {
   type ContentCollectionDefinition,
+  createSystemConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { bySlugQuery } from "./handlers/by-slug.query.js";
@@ -15,6 +16,8 @@ import { importBundleWrite } from "./handlers/import-bundle.write.js";
 import { importBundleSystemWrite } from "./handlers/import-bundle-system.write.js";
 import { listQuery } from "./handlers/list.query.js";
 import { resetToSystemWrite } from "./handlers/reset-to-system.write.js";
+import { resourceRemoveWrite } from "./handlers/resource-remove.write.js";
+import { resourceUploadWrite } from "./handlers/resource-upload.write.js";
 import { setWrite } from "./handlers/set.write.js";
 import { tenantOverridesQuery } from "./handlers/tenant-overrides.query.js";
 import {
@@ -63,6 +66,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
         "How a collection is edited follows from `contentFormat`: `plain` gives a text area, `rich` a small WYSIWYG (bold, italic, headings, lists, links), `markdown` a text area that stores markdown text (same insertable chips as `plain`). All three offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).",
         'A collection is tenant-wide by default. With `ownership: "user"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one also requires the `template-resolver-user-data` feature and a migration on the app side.',
         "`validate` dry-runs the write pipeline for a draft (sanitizer, layout rules, placeholders) and reports what the template uses and misses. `export-bundle` / `import-bundle` (and `import-bundle-system`) move one template with all locales and resource files between tenants or environments; `copy-locale` starts a translation from an existing locale. Layouts are structured: a mail or PDF layout is `data-header` / `data-content` / `data-signature` / `data-footer` regions, and mjml layout source is system-only.",
+        'Images used by a template (`<img data-resource="logo">`) are uploaded with `resourceUpload`, which re-encodes them, stores a file and links it under the key; `resourceRemove` unlinks it. `linkedResources` is written only through these two handlers.',
         "Replaces the former `text-content` feature; its blocks now live here as kind `text-block`.",
       ].join("\n\n"),
     );
@@ -70,6 +74,11 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       displayLabel: "Template Resolver",
       category: "notifications",
       recommended: false,
+    });
+    r.config({
+      keys: {
+        resourceMaxBytes: createSystemConfig("number", { default: 2_097_152, bounds: { min: 1 } }),
+      },
     });
     r.entity("template-resource", templateResourceEntity);
     // Only when the app actually mounts a user-owned collection: the entity's
@@ -90,6 +99,8 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       importBundle: r.writeHandler(importBundleWrite),
       importBundleSystem: r.writeHandler(importBundleSystemWrite),
       copyLocale: r.writeHandler(copyLocaleWrite),
+      resourceUpload: r.writeHandler(resourceUploadWrite),
+      resourceRemove: r.writeHandler(resourceRemoveWrite),
     };
 
     const queries = {

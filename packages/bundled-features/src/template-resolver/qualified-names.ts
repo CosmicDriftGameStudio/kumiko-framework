@@ -14,6 +14,8 @@ export const TemplateResolverHandlers = {
   importBundle: "template-resolver:write:import-bundle",
   importBundleSystem: "template-resolver:write:import-bundle-system",
   copyLocale: "template-resolver:write:copy-locale",
+  resourceUpload: "template-resolver:write:resource-upload",
+  resourceRemove: "template-resolver:write:resource-remove",
 } as const;
 
 export const TemplateResolverQueries = {
@@ -50,4 +52,6 @@ export const TemplateResolverErrors = {
   alreadyArchived: "template_already_archived",
   targetExists: "target_exists",
   systemResourcesNeedSystemTenant: "system_resources_need_system_tenant",
+  resourceTooLarge: "template_resource_too_large",
+  resourceUnsupportedImage: "template_resource_unsupported_image",
 } as const;

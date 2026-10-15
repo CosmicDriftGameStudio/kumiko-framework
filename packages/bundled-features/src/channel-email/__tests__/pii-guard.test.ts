@@ -23,6 +23,40 @@ describe("guardEmailMessage", () => {
     );
   });
 
+  test("a ciphertext attachment file name or cid is refused", () => {
+    const base = { to: "marc@example.com", subject: "Hi", html: "x" };
+    const content = new Uint8Array([1]);
+    expect(() =>
+      guardEmailMessage({
+        ...base,
+        attachments: [
+          {
+            kind: "file",
+            fileRefId: "id",
+            fileName: CIPHERTEXT,
+            content,
+            contentType: "text/plain",
+          },
+        ],
+      }),
+    ).toThrow(/attachment file name is a PII ciphertext/);
+    expect(() =>
+      guardEmailMessage({
+        ...base,
+        attachments: [
+          {
+            kind: "inline",
+            cid: CIPHERTEXT,
+            fileRefId: "id",
+            fileName: "a.png",
+            content,
+            contentType: "image/png",
+          },
+        ],
+      }),
+    ).toThrow(/attachment file name is a PII ciphertext/);
+  });
+
   test("ciphertext in body fails loud outside production", () => {
     expect(() =>
       guardEmailMessage({ to: "marc@example.com", subject: "Hi", html: `<p>${CIPHERTEXT}</p>` }),

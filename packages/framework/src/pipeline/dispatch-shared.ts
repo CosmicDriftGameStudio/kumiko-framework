@@ -512,12 +512,24 @@ export async function buildHandlerContext(
   const notifyInTransactionFactory =
     notifyFactory && tx !== undefined
       ? (notifyUser: SessionUser, notifyTenantId: TenantId): NotifyFn =>
-          notifyFactory(notifyUser, notifyTenantId, notifyJobDispatcher, outsideTxSource)
+          notifyFactory(
+            notifyUser,
+            notifyTenantId,
+            notifyJobDispatcher,
+            outsideTxSource,
+            context._fileProviderResolver,
+          )
       : undefined;
   const notify = buildNotify();
   function buildNotify(): NotifyFn | undefined {
     if (!notifyFactory) return undefined;
-    const notifyAfterCommit = notifyFactory(user, user.tenantId, notifyJobDispatcher);
+    const notifyAfterCommit = notifyFactory(
+      user,
+      user.tenantId,
+      notifyJobDispatcher,
+      undefined,
+      context._fileProviderResolver,
+    );
     if (!notifyInTransactionFactory) return notifyAfterCommit;
     const notifyInTransaction = notifyInTransactionFactory(user, user.tenantId);
     // A rolled-back write must leave no notification behind.

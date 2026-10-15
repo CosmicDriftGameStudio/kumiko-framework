@@ -1,3 +1,14 @@
+import type { EmailAttachmentRef } from "../delivery/index.js";
+
+export type { EmailAttachmentRef };
+
+// What a transport receives: the reference plus the bytes the send job read.
+export type EmailAttachment = EmailAttachmentRef & {
+  readonly content: Uint8Array;
+  readonly contentType: string;
+  readonly fileName: string;
+};
+
 // Transport interface — SMTP in prod, InMemory in tests
 export type EmailMessage = {
   readonly to: string;
@@ -19,6 +30,8 @@ export type EmailMessage = {
   // Extra RFC-5322 headers — In-Reply-To / References thread a reply into the
   // conversation it answers.
   readonly headers?: Readonly<Record<string, string>>;
+  // Refs travel through jobs; the bytes are only read at send time.
+  readonly attachments?: readonly EmailAttachment[];
 };
 
 export type EmailTransport = {

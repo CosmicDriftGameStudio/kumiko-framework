@@ -484,6 +484,8 @@ export type NotifyFactory = (
   tenantId: TenantId,
   jobDispatcher?: NotifyJobDispatcher,
   deliveryDb?: DbConnection,
+  // Lets inline deliveries (immediate, bootstrap) read stored attachments.
+  fileProviderResolver?: FileProviderResolver,
 ) => NotifyFn;
 
 export type EscapeHatchKind =

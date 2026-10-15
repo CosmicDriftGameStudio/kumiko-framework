@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { templateVariable } from "@cosmicdrift/kumiko-framework/engine";
 import Handlebars from "handlebars";
-import { compileDocumentBodyToHandlebars } from "../compile-document-body";
+import {
+  collectDocumentResourceKeys,
+  compileDocumentBodyToHandlebars,
+  toResourceDataUri,
+} from "../compile-document-body";
 
 const variables = {
   name: templateVariable.text(),
@@ -71,5 +75,41 @@ describe("compileDocumentBodyToHandlebars", () => {
   test("unknown variable references compile to nothing dangerous", () => {
     const out = compile('<span data-variable="__proto__"></span>');
     expect(out).not.toContain("__proto__");
+  });
+});
+
+describe("document resources", () => {
+  const body = '<p>a</p><img data-resource="logo" alt="Logo"><img data-resource="sig">';
+
+  test("resourceSrc sets src, drops data-resource and keeps alt", () => {
+    const out = compileDocumentBodyToHandlebars(body, variables, {
+      resourceSrc: (key) => (key === "logo" ? "cid:logo" : undefined),
+    });
+    expect(out).toContain('src="cid:logo"');
+    expect(out).toContain('alt="Logo"');
+    expect(out).not.toContain("data-resource");
+  });
+
+  test("a key without a source removes the image, as does omitting resourceSrc", () => {
+    const withoutSource = compileDocumentBodyToHandlebars(body, variables, {
+      resourceSrc: () => undefined,
+    });
+    expect(withoutSource).not.toContain("<img");
+    expect(compile(body)).not.toContain("<img");
+  });
+
+  test("collectDocumentResourceKeys returns unique valid keys in document order", () => {
+    expect(
+      collectDocumentResourceKeys(
+        '<img data-resource="b"><img data-resource="a"><img data-resource="b"><img data-resource="bad key"><img src="x">',
+      ),
+    ).toEqual(["b", "a"]);
+  });
+
+  test("toResourceDataUri encodes raster images and rejects svg", () => {
+    expect(toResourceDataUri("image/png", new Uint8Array([1, 2, 3]))).toBe(
+      "data:image/png;base64,AQID",
+    );
+    expect(() => toResourceDataUri("image/svg+xml", new Uint8Array([1]))).toThrow();
   });
 });

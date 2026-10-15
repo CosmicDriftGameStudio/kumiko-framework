@@ -1,5 +1,15 @@
 export { hashUnsubscribeAddress } from "./address-opt-out.js";
 export {
+  type EmailAttachmentRef,
+  emailAttachmentRefSchema,
+  type FileAttachmentRef,
+  fileAttachmentRefSchema,
+  type InlineAttachmentRef,
+  inlineAttachmentRefSchema,
+  MAX_EMAIL_ATTACHMENTS,
+  toAttachmentRef,
+} from "./attachment-ref.js";
+export {
   type AttemptLogRetentionOptions,
   DEFAULT_ATTEMPT_LOG_RETENTION_DAYS,
   runAttemptLogRetention,

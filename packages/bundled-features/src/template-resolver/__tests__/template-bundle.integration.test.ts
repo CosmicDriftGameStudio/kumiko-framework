@@ -71,7 +71,16 @@ describe("template-resolver :: bundle", () => {
     );
     expect(first.locales["de"]?.body).toBe(bundle.locales.de.body);
     expect(first.locales["en"]?.body).toBe(bundle.locales.en.body);
-    expect(first.resources["logo"]).toEqual(bundle.resources.logo);
+    // Imported images are re-encoded, so only name and type survive byte for byte.
+    expect(first.resources["logo"]).toMatchObject({
+      fileName: "logo.png",
+      contentType: "image/png",
+    });
+    expect(
+      Buffer.from(first.resources["logo"]?.base64 ?? "", "base64")
+        .subarray(1, 4)
+        .toString(),
+    ).toBe("PNG");
 
     await stack.http.writeOk(TemplateResolverHandlers.importBundle, { bundle: first }, tenantB);
     const second = await stack.http.queryOk<ExportedBundle>(

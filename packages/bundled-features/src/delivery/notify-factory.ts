@@ -8,7 +8,7 @@ export function createDeliveryNotifyFactory(
   deliveryService: Pick<DeliveryService, "notify">,
   options: { readonly deliverQueuedInline?: boolean } = {},
 ): NotifyFactory {
-  return (user, tenantId, jobDispatcher, deliveryDb) => {
+  return (user, tenantId, jobDispatcher, deliveryDb, fileProviderResolver) => {
     const notify: NotifyFn = (notificationType: string, notifyOptions: NotifyOptions) =>
       deliveryService.notify(
         notificationType,
@@ -17,6 +17,7 @@ export function createDeliveryNotifyFactory(
         tenantId,
         options.deliverQueuedInline === true ? undefined : jobDispatcher,
         deliveryDb,
+        fileProviderResolver,
       );
     return notify;
   };
