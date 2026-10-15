@@ -1,5 +1,6 @@
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { TEMPLATE_KINDS, type TemplateKind } from "../constants.js";
 import type { TemplateResourceRow } from "../table.js";
 import { parseTemplateMeta, type TemplateMeta, type TemplateMetaIssue } from "../template-meta.js";
@@ -100,7 +101,7 @@ export function validatePlaceholders(input: {
 }
 
 function isTemplateKind(kind: string): kind is TemplateKind {
-  return (TEMPLATE_KINDS as readonly string[]).includes(kind);
+  return isOneOf(TEMPLATE_KINDS, kind);
 }
 
 function parseStoredJson(raw: string | null): unknown {
