@@ -145,7 +145,7 @@ import {
   DropdownMenuTrigger,
 } from "./dropdown-menu.js";
 import { EmbeddedListInput } from "./embedded-list-input.js";
-import { FileDisplayCell } from "./file-thumbnail.js";
+import { CardLeadingImage, FileDisplayCell } from "./file-thumbnail.js";
 import { FileUploadInput } from "./file-upload.js";
 import { DefaultJsonView } from "./json-view.js";
 import {
@@ -1828,11 +1828,14 @@ function DefaultDataTable({
     { value: `${col.field}:desc`, field: col.field, dir: "desc", label: `${col.label} ↓` },
   ]);
 
+  // The first image column is the card's leading preview; it is neither title nor
+  // meta, so the title stays the first text column.
+  const cardImageColumn = columns.find((col) => col.fileDisplay?.kind === "image");
   const {
     title: cardTitleColumn,
     status: cardStatusColumn,
     meta: cardMetaColumns,
-  } = cardColumnRoles(columns);
+  } = cardColumnRoles(columns.filter((col) => col !== cardImageColumn));
 
   function cardCell(row: ListRowViewModel, col: (typeof columns)[number]): ReactNode {
     // A bare check mark in the subtitle line says nothing without its column.
@@ -1869,6 +1872,14 @@ function DefaultDataTable({
     const opensOnClick = rowIsLink && !rowClickIsHidden(row);
     const body = (
       <>
+        {cardImageColumn?.fileDisplay !== undefined && (
+          <div data-testid={`card-image-${row.id}`} className="shrink-0">
+            <CardLeadingImage
+              value={row.values[cardImageColumn.field]}
+              display={cardImageColumn.fileDisplay}
+            />
+          </div>
+        )}
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex min-w-0 items-start justify-between gap-2">
             {cardTitleColumn !== undefined && (

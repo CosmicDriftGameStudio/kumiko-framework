@@ -1103,6 +1103,9 @@ export function buildServer(options: ServerOptions): KumikoServer {
         }),
         ...(routeOptions.accessGuard ? { accessGuard: routeOptions.accessGuard } : {}),
         ...(routeOptions.privilegedRoles ? { privilegedRoles: routeOptions.privilegedRoles } : {}),
+        ...(routeOptions.unclaimedUploadReaders
+          ? { unclaimedUploadReaders: routeOptions.unclaimedUploadReaders }
+          : {}),
         ...(routeOptions.maxUploadSize ? { maxUploadSize: routeOptions.maxUploadSize } : {}),
       }),
     );

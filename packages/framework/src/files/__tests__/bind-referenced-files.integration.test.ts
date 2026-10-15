@@ -25,6 +25,7 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack/index.js";
 import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { getFileRefExecutor } from "../create-file-ref.js";
 import { createFilesFeature } from "../feature.js";
 import { fileRefsTable } from "../file-ref-table.js";
 import { createLocalProvider } from "../local-provider.js";
@@ -125,12 +126,22 @@ async function fileRefRow(id: string): Promise<Record<string, unknown> | undefin
   return row;
 }
 
-// The system user skips the uploader-only bind of a pending upload, which is
-// exactly how a record ends up referencing files that stay unbound.
-async function createDossierAsSystem(fields: Record<string, unknown>): Promise<string> {
-  const result = await stack.dispatcher.write(CREATE, { title: "Dossier", ...fields }, system);
-  if (!result.isSuccess) throw new Error(`create failed: ${result.error.message}`);
-  return String((result.data as { id: string }).id);
+// Written past the save lifecycle (no tenant check, no pending-upload bind), the way
+// a custom handler or system job creates records; `as` becomes the record's creator.
+async function seedDossier(
+  as: { id: string; tenantId: typeof tenantOne; roles: readonly string[] },
+  fields: Record<string, unknown>,
+): Promise<string> {
+  const table = findImplicitEntityTable(stack.registry, "dossier");
+  if (table === undefined) throw new Error("dossier projection table missing");
+  const executor = createEventStoreExecutor(table, dossierEntity, { entityName: "dossier" });
+  const created = await executor.create(
+    { title: "Dossier", ...fields },
+    as,
+    createTenantDb(stack.db, as.tenantId),
+  );
+  if (!created.isSuccess) throw new Error(`seed failed: ${created.error.message}`);
+  return String((created.data as { id: string }).id);
 }
 
 type BindResult = { bound: number; skipped: number; nextAfterId: string | null };
@@ -142,9 +153,9 @@ async function bindAsSystem(payload: Record<string, unknown>): Promise<BindResul
 }
 
 describe("files:write:bind-referenced-files", () => {
-  test("binds an unbound upload of someone else so a record reader can open it", async () => {
+  test("binds the creator's own unbound upload so another record reader can open it", async () => {
     const fileRefId = await upload(uploader);
-    const dossierId = await createDossierAsSystem({ scan: fileRefId });
+    const dossierId = await seedDossier(uploader, { scan: fileRefId });
     expect(await fileStatusFor(reader, fileRefId)).toBe(404);
 
     const result = await bindAsSystem({ entityType: "dossier", entityIds: [dossierId] });
@@ -160,7 +171,7 @@ describe("files:write:bind-referenced-files", () => {
 
   test("binds a pending upload prepared for the same field", async () => {
     const fileRefId = await upload(uploader, { entityType: "dossier", fieldName: "scan" });
-    const dossierId = await createDossierAsSystem({ scan: fileRefId });
+    const dossierId = await seedDossier(uploader, { scan: fileRefId });
 
     const result = await bindAsSystem({ entityType: "dossier", entityIds: [dossierId] });
 
@@ -170,7 +181,7 @@ describe("files:write:bind-referenced-files", () => {
 
   test("skips a pending upload prepared for another field", async () => {
     const fileRefId = await upload(uploader, { entityType: "dossier", fieldName: "cover" });
-    const dossierId = await createDossierAsSystem({ scan: fileRefId });
+    const dossierId = await seedDossier(uploader, { scan: fileRefId });
 
     const result = await bindAsSystem({ entityType: "dossier", entityIds: [dossierId] });
 
@@ -186,7 +197,7 @@ describe("files:write:bind-referenced-files", () => {
       uploader,
     );
     expect((await fileRefRow(fileRefId))?.["entityId"]).toBe(first.id);
-    const second = await createDossierAsSystem({ scan: fileRefId });
+    const second = await seedDossier(uploader, { scan: fileRefId });
 
     const result = await bindAsSystem({ entityType: "dossier", entityIds: [second] });
 
@@ -197,24 +208,53 @@ describe("files:write:bind-referenced-files", () => {
   test("skips files of another tenant and files that do not exist", async () => {
     const foreignFileRefId = await upload(otherTenantAdmin);
     const missingFileRefId = "0198f2c0-6d1e-7a3b-9c4d-5e6f7a8b9c0d";
-    const table = findImplicitEntityTable(stack.registry, "dossier");
-    if (table === undefined) throw new Error("dossier projection table missing");
-    // Written past the save lifecycle: its tenant check would reject both ids.
-    const executor = createEventStoreExecutor(table, dossierEntity, { entityName: "dossier" });
-    const created = await executor.create(
-      { title: "Legacy", scan: foreignFileRefId, cover: missingFileRefId },
-      system,
-      createTenantDb(stack.db, tenantOne),
-    );
-    if (!created.isSuccess) throw new Error(`seed failed: ${created.error.message}`);
+    const dossierId = await seedDossier(uploader, {
+      scan: foreignFileRefId,
+      cover: missingFileRefId,
+    });
 
     const result = await bindAsSystem({
       entityType: "dossier",
-      entityIds: [String((created.data as { id: string }).id)],
+      entityIds: [dossierId],
     });
 
     expect(result).toEqual({ bound: 0, skipped: 2, nextAfterId: null });
     expect((await fileRefRow(foreignFileRefId))?.["entityId"]).toBeNull();
+  });
+
+  test("skips a file the record's creator did not upload and keeps it private", async () => {
+    const foreignUpload = await upload(uploader);
+    const dossierId = await seedDossier(reader, { scan: foreignUpload });
+
+    const result = await bindAsSystem({ entityType: "dossier", entityIds: [dossierId] });
+
+    expect(result).toEqual({ bound: 0, skipped: 1, nextAfterId: null });
+    expect((await fileRefRow(foreignUpload))?.["entityId"]).toBeNull();
+    expect(await fileStatusFor(reader, foreignUpload)).toBe(404);
+  });
+
+  test("binds a file generated by the system for a record someone else created", async () => {
+    const generatedId = crypto.randomUUID();
+    const generated = await getFileRefExecutor().create(
+      {
+        id: generatedId,
+        storageKey: `test/${generatedId}`,
+        fileName: "gen.pdf",
+        mimeType: "application/pdf",
+        size: PDF_BYTES.byteLength,
+        entityType: null,
+        entityId: null,
+        fieldName: null,
+      },
+      system,
+      createTenantDb(stack.db, tenantOne),
+    );
+    if (!generated.isSuccess) throw new Error(`seed failed: ${generated.error.message}`);
+    const dossierId = await seedDossier(reader, { scan: generatedId });
+
+    const result = await bindAsSystem({ entityType: "dossier", entityIds: [dossierId] });
+
+    expect(result.bound).toBe(1);
   });
 
   test("rejects an entity without file fields and an unknown entity", async () => {
@@ -230,7 +270,7 @@ describe("files:write:bind-referenced-files", () => {
     for (let index = 0; index < 3; index += 1) {
       const fileRefId = await upload(uploader);
       fileRefIds.push(fileRefId);
-      await createDossierAsSystem({ scan: fileRefId });
+      await seedDossier(uploader, { scan: fileRefId });
     }
 
     const firstPage = await bindAsSystem({ entityType: "dossier", limit: 2 });

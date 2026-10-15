@@ -30,6 +30,7 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -462,17 +463,15 @@ describe("ingest events live on their own stream", () => {
 
     await stack.eventDispatcher?.runOnce();
 
-    const onFileRefStream = (await asRawClient(stack.db).unsafe(
-      `SELECT DISTINCT aggregate_type FROM kumiko_events WHERE aggregate_id = $1`,
-      [id],
-    )) as { aggregate_type: string }[];
-    expect(onFileRefStream.map((row) => row.aggregate_type)).toEqual(["fileRef"]);
+    const onFileRefStream = await selectMany(stack.db, eventsTable, { aggregateId: id });
+    expect([...new Set(onFileRefStream.map((row) => row.aggregateType))]).toEqual(["fileRef"]);
 
-    const requested = (await asRawClient(stack.db).unsafe(
-      `SELECT aggregate_id FROM kumiko_events WHERE type = $1 AND payload->>'fileRefId' = $2`,
-      ["document-ingest-foundation:event:document-ingest-requested", id],
-    )) as { aggregate_id: string }[];
-    expect(requested.map((row) => row.aggregate_id)).toEqual([
+    const requested = (
+      await selectMany(stack.db, eventsTable, {
+        type: "document-ingest-foundation:event:document-ingest-requested",
+      })
+    ).filter((row) => row.payload["fileRefId"] === id);
+    expect(requested.map((row) => row.aggregateId)).toEqual([
       documentIngestAggregateId(admin.tenantId, id),
     ]);
 

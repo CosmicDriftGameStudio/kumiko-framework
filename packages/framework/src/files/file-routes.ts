@@ -85,7 +85,12 @@ export type FileRoutesOptions = {
   // Roles that bypass the default owner-check on entity-attached files.
   // Defaults to ["Admin", "SystemAdmin"]; override to match your app's roles.
   readonly privilegedRoles?: readonly string[];
-  // Replaces the default guard entirely. When set, privilegedRoles and
+  // Roles that may read uploads without a target field (entityType and entityId null, e.g.
+  // inbox or dropzone files). Such files belong to no record, so the app decides declaratively
+  // who reads them within the tenant. Read only: never delete, and attached files stay behind
+  // their record's access.
+  readonly unclaimedUploadReaders?: readonly string[];
+  // Replaces the default guard entirely. When set, privilegedRoles, unclaimedUploadReaders and
   // canReadRecord are ignored — the app takes full responsibility.
   readonly accessGuard?: FileAccessGuard;
   // Lets the default guard grant read on an attached file to everyone who may
@@ -113,10 +118,19 @@ const SIGNED_URL_DEFAULT_EXPIRY_SECONDS = 15 * 60;
 function createDefaultGuard(
   privilegedRoles: readonly string[],
   canReadRecord: RecordReadCheck | undefined,
+  unclaimedUploadReaders: readonly string[],
 ): FileAccessGuard {
   return async ({ fileRef, user, operation }) => {
     if (fileRef.insertedById === user.id) return "allow";
     if (privilegedRoles.some((role) => user.roles.includes(role))) return "allow";
+    const isUnclaimed = fileRef.entityType === null && fileRef.entityId === null;
+    if (
+      isUnclaimed &&
+      operation === "read" &&
+      unclaimedUploadReaders.some((role) => user.roles.includes(role))
+    ) {
+      return "allow";
+    }
     if (fileRef.entityType === null || fileRef.entityId === null) return "deny";
     if (operation !== "read" || canReadRecord === undefined) return "deny";
     const recordReadable = await canReadRecord({
@@ -153,13 +167,19 @@ export function resolveMaxUploadBodyBytes(
 // feature's exports so callers apply it without a parallel options surface.
 export function readFilesRouteOptions(
   registry: Registry,
-): Pick<FileRoutesOptions, "accessGuard" | "privilegedRoles" | "maxUploadSize"> {
+): Pick<
+  FileRoutesOptions,
+  "accessGuard" | "privilegedRoles" | "unclaimedUploadReaders" | "maxUploadSize"
+> {
   const exp = registry.features.get("files")?.exports;
   if (exp && typeof exp === "object" && "routeOptions" in exp) {
     const ro = (exp as { routeOptions?: unknown }).routeOptions;
     if (ro && typeof ro === "object") {
       // @cast-boundary feature-exports: engine-payload (unknown) → known shape
-      return ro as Pick<FileRoutesOptions, "accessGuard" | "privilegedRoles" | "maxUploadSize">;
+      return ro as Pick<
+        FileRoutesOptions,
+        "accessGuard" | "privilegedRoles" | "unclaimedUploadReaders" | "maxUploadSize"
+      >;
     }
   }
   return {};
@@ -169,7 +189,12 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   const { db } = options;
   const privilegedRoles = options.privilegedRoles ?? DEFAULT_PRIVILEGED_ROLES;
   const guard: FileAccessGuard =
-    options.accessGuard ?? createDefaultGuard(privilegedRoles, options.canReadRecord);
+    options.accessGuard ??
+    createDefaultGuard(
+      privilegedRoles,
+      options.canReadRecord,
+      options.unclaimedUploadReaders ?? [],
+    );
   const executor = getFileRefExecutor();
   const piiSubjectFields = collectPiiSubjectFields(fileRefEntity);
   const api = new Hono();

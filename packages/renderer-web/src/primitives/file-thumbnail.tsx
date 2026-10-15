@@ -143,6 +143,27 @@ const TABLE_THUMBNAIL_CLASS = "h-16 min-w-16 max-w-24 object-cover";
 // A card's meta line is one text line (h-5) tall.
 const CARD_THUMBNAIL_CLASS = "size-5 rounded-sm object-cover";
 
+const CARD_LEADING_CLASS = "size-14 shrink-0 rounded-md object-cover";
+
+// Leading preview of a narrow list card: the card's own image, not a meta chip.
+export function CardLeadingImage({
+  value,
+  display,
+}: {
+  readonly value: unknown;
+  readonly display: ListColumnFileDisplay;
+}): ReactNode {
+  const [first] = fileIdsOf(value);
+  if (first === undefined || display.kind !== "image") return null;
+  return (
+    <FileThumbnail
+      fileId={first}
+      className={CARD_LEADING_CLASS}
+      {...(display.variant !== undefined && { variant: display.variant })}
+    />
+  );
+}
+
 export function FileDisplayCell({
   value,
   display,

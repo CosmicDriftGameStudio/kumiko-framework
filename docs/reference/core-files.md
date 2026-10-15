@@ -163,6 +163,26 @@ elsewhere, of another tenant, or missing are skipped, never rebound. The
 result is `{ bound, skipped, nextAfterId }`; repeat with `afterId` until
 `nextAfterId` is `null`.
 
+A file is only bound when the record's creator uploaded it themselves (or the
+system generated it). Otherwise a foreign reference could pull someone else's
+private upload into the referencing record; such files are skipped and stay
+private.
+
+### Uploads without a target field: `unclaimedUploadReaders`
+
+Some uploads have no file field to bind to, for example documents that are
+referenced from text in several records. For those, name the roles that may
+read every unclaimed upload of their tenant:
+
+```ts
+createFilesFeature({ unclaimedUploadReaders: ["Clerk"] });
+```
+
+The roles may read (GET, `/meta`, signed URLs, variants) uploads with neither
+`entityType` nor `entityId`. They never delete, and pending uploads (target
+field set) and bound files keep their normal rules. Use binding when the
+reference is a file field, `unclaimedUploadReaders` when it is not.
+
 ## Signed-URL default expiry
 
 The framework-native file-download route signs URLs with a 15-minute default
