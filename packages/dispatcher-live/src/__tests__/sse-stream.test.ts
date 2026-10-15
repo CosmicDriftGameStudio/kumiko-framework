@@ -75,6 +75,32 @@ describe("iterateSseChunks", () => {
     }).toThrow(/nope/);
   });
 
+  test("error frame with non-string code falls back to stream_error", async () => {
+    const data = '{"code":42,"i18nKey":"errors.access","message":"nope"}';
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(`event: error\ndata: ${data}\n\n`));
+        controller.close();
+      },
+    });
+
+    let thrown: unknown;
+    try {
+      for await (const _ of iterateSseChunks(stream)) {
+        // no chunks expected
+      }
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toEqual({
+      code: "stream_error",
+      httpStatus: 200,
+      i18nKey: "errors.unknown",
+      message: data,
+    });
+  });
+
   test("stream closed without a done frame throws instead of ending cleanly", async () => {
     const text = ["event: chunk", 'data: {"i":0}', ""].join("\n");
     const stream = new ReadableStream<Uint8Array>({

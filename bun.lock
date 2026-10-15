@@ -169,6 +169,7 @@
       "dependencies": {
         "@cosmicdrift/kumiko-headless": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
+        "zod": "^4.4.3",
       },
     },
     "packages/framework": {

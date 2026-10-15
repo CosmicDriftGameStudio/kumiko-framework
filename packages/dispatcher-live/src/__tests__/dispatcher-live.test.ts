@@ -459,4 +459,139 @@ describe("createLiveDispatcher", () => {
     // so listener total is still 1.
     expect(listener).toHaveBeenCalledTimes(1);
   });
+
+  describe("envelope validation", () => {
+    const malformedError = { code: 42, i18nKey: "errors.x", message: "nope" };
+
+    test("query: error with non-string code falls back to network_error", async () => {
+      const { fetch } = makeFetch({ status: 400, body: { error: malformedError } });
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      const result = await disp.query("x", {});
+
+      expect(result.isSuccess).toBe(false);
+      if (!result.isSuccess) {
+        expect(result.error.code).toBe("network_error");
+        expect(result.error.httpStatus).toBe(0);
+      }
+    });
+
+    test("query: valid error envelope still maps with the response status", async () => {
+      const { fetch } = makeFetch({
+        status: 403,
+        body: { error: { code: "access_denied", i18nKey: "errors.access", message: "nope" } },
+      });
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      const result = await disp.query("x", {});
+
+      expect(result).toEqual({
+        isSuccess: false,
+        error: {
+          code: "access_denied",
+          httpStatus: 403,
+          i18nKey: "errors.access",
+          message: "nope",
+        },
+      });
+    });
+
+    test("write: malformed failure envelope falls back to network_error", async () => {
+      const { fetch } = makeFetch({
+        status: 400,
+        body: { isSuccess: false, error: malformedError },
+      });
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      const result = await disp.write("x", {});
+
+      expect(result.isSuccess).toBe(false);
+      if (!result.isSuccess) expect(result.error.code).toBe("network_error");
+    });
+
+    test("write: success without data (handler returned undefined) stays a success", async () => {
+      const { fetch } = makeFetch({ body: { isSuccess: true } });
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      const result = await disp.write("x", {});
+
+      expect(result).toEqual({ isSuccess: true, data: undefined });
+    });
+
+    test("write: body without isSuccess falls back to network_error", async () => {
+      const { fetch } = makeFetch({ body: { data: {} } });
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      const result = await disp.write("x", {});
+
+      expect(result.isSuccess).toBe(false);
+      if (!result.isSuccess) expect(result.error.code).toBe("network_error");
+    });
+
+    test("batch: malformed envelope falls back with failedIndex -1", async () => {
+      const { fetch } = makeFetch({
+        body: { isSuccess: false, error: malformedError, failedIndex: 0, results: [] },
+      });
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      const result = await disp.batch([{ type: "x:write:a:create", payload: {} }]);
+
+      expect(result.isSuccess).toBe(false);
+      if (!result.isSuccess) {
+        expect(result.error.code).toBe("network_error");
+        expect(result.failedIndex).toBe(-1);
+        expect(result.results).toEqual([]);
+      }
+    });
+
+    test("batch: valid failure envelope maps error, failedIndex and per-item results", async () => {
+      const { fetch } = makeFetch({
+        status: 400,
+        body: {
+          isSuccess: false,
+          error: { code: "validation_error", i18nKey: "errors.v", message: "bad" },
+          failedIndex: 1,
+          results: [
+            { isSuccess: true, data: { id: "a" } },
+            {
+              isSuccess: false,
+              error: { code: "validation_error", i18nKey: "errors.v", message: "bad" },
+            },
+          ],
+        },
+      });
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      const result = await disp.batch([]);
+
+      expect(result.isSuccess).toBe(false);
+      if (!result.isSuccess) {
+        expect(result.error.httpStatus).toBe(400);
+        expect(result.failedIndex).toBe(1);
+        expect(result.results[0]).toEqual({ isSuccess: true, data: { id: "a" } });
+      }
+    });
+
+    test("stream: non-SSE body with malformed error throws network_error", async () => {
+      const fetch = mock(
+        async () =>
+          new Response(JSON.stringify({ error: malformedError }), {
+            status: 400,
+            headers: { "content-type": "application/json" },
+          }),
+      ) as unknown as typeof globalThis.fetch;
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      let thrown: unknown;
+      try {
+        for await (const _ of disp.stream("x", {})) {
+          // no chunks expected
+        }
+      } catch (e) {
+        thrown = e;
+      }
+
+      expect(thrown).toMatchObject({ code: "network_error" });
+    });
+  });
 });
