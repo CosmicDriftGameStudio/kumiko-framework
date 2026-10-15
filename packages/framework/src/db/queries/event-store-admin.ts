@@ -50,7 +50,7 @@ export async function insertRawSubsequentEvent(
   db: AnyDb,
   params: RawSubsequentEventInsertParams,
 ): Promise<boolean> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = await asRawClient(db).unsafe<{ id: string }>(
     `INSERT INTO "kumiko_events" (
        aggregate_id, aggregate_type, tenant_id, version,
        type, event_version, payload, metadata, created_at, created_by
@@ -76,7 +76,7 @@ export async function insertRawSubsequentEvent(
       params.createdBy,
       params.expectedVersion,
     ],
-  )) as ReadonlyArray<{ id: string }>;
+  );
   return rows.length > 0;
 }
 
@@ -101,7 +101,7 @@ export async function eventPredecessorExists(
   tenantId: string,
   version: number,
 ): Promise<boolean> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = await asRawClient(db).unsafe<{ present: boolean }>(
     `SELECT EXISTS(
        SELECT 1 FROM "kumiko_events"
        WHERE aggregate_id = $1::uuid
@@ -109,7 +109,7 @@ export async function eventPredecessorExists(
          AND version = $3
      ) AS present`,
     [aggregateId, tenantId, version],
-  )) as ReadonlyArray<{ present: boolean }>;
+  );
   return rows[0]?.present === true;
 }
 
@@ -118,12 +118,12 @@ export async function findExistingEventVersion(
   sqlInClause: string,
   params: unknown[],
 ): Promise<{ aggregateId: string; version: number } | undefined> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = await asRawClient(db).unsafe<{ aggregate_id: string; version: number }>(
     `SELECT aggregate_id, version FROM "kumiko_events"
      WHERE (tenant_id, aggregate_id, version) IN (${sqlInClause})
      LIMIT 1`,
     params,
-  )) as ReadonlyArray<{ aggregate_id: string; version: number }>;
+  );
   const row = rows[0];
   if (!row) return undefined;
   return { aggregateId: row.aggregate_id, version: row.version };

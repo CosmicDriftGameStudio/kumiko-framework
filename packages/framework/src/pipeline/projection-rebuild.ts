@@ -248,7 +248,7 @@ export async function rebuildProjection(
   // the shadow. Returns the batch size so the caller can detect the tail
   // (a short batch = no more currently-committed events).
   const drainBatch = async (tx: DbTx): Promise<number> => {
-    const rawEvents = await selectEventsForProjectionRebuildBatch(
+    const rawEvents = await selectEventsForProjectionRebuildBatch<StoredEventRow>(
       tx,
       sourcesList,
       subscribedList,
@@ -257,7 +257,7 @@ export async function rebuildProjection(
     );
     for (const r of rawEvents) {
       deps.signal?.throwIfAborted();
-      const row = coerceRow(r, eventsInfo) as StoredEventRow;
+      const row = coerceRow(r, eventsInfo);
       const storedEvent = await upcastStoredEvent(rowToStoredEvent(row), upcasters, {
         db: tx,
         tenantId: row.tenantId as TenantId, // @cast-boundary db-row

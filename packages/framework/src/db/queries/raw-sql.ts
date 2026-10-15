@@ -9,7 +9,7 @@ export async function executeRawQuery<T = Record<string, unknown>>(
   sqlText: string,
   params: readonly unknown[] = [],
 ): Promise<readonly T[]> {
-  return (await asRawClient(db).unsafe(sqlText, params)) as readonly T[];
+  return await asRawClient(db).unsafe<T>(sqlText, params);
 }
 
 /** SELECT-only escape hatch with the #1163 closed-connection retry. Do not pass

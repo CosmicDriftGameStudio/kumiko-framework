@@ -18,8 +18,8 @@
 
 import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { collectPiiEncryptedFields } from "../crypto/index.js";
-import type { EntityDefinition, EntityIndexDef, FieldDefinition } from "../engine/types/index.js";
-import { SQL_EXPR_BRAND } from "./dialect.js";
+import type { EntityDefinition, FieldDefinition } from "../engine/types/index.js";
+import { isSqlExpression } from "./dialect.js";
 import type {
   BuildEntityTableMetaOptions,
   ColumnMeta,
@@ -272,8 +272,7 @@ export function deriveEntityTableMeta(
     // feature.entities), yet encryptForDirectWrite still keys recordOwned fields as
     // `record:<entity>:<id>`; forgetSubject requires a UUID, so the value could never be shredded.
     const recordOwnedField = Object.entries(entity.fields).find(
-      // @cast-boundary schema-walk — PII flags live on the resolved field annotation
-      ([, field]) => (field as { recordOwned?: boolean }).recordOwned === true,
+      ([, field]) => "recordOwned" in field && field.recordOwned === true,
     );
     if (recordOwnedField) {
       throw new Error(
@@ -352,7 +351,7 @@ export function deriveEntityTableMeta(
   // Explicitly declared indexes (EntityIndexDef). `def.where` is a
   // SqlExpression (`sql\`…\`` from @cosmicdrift/kumiko-framework/db) —
   // renderable via `.text`. Unknown where-shapes stay needsManualWhere.
-  for (const def of (entity.indexes ?? []) as readonly EntityIndexDef[]) {
+  for (const def of entity.indexes ?? []) {
     const cols = def.columns.map(
       (fieldName) => fieldNameToSnake.get(fieldName) ?? toSnakeCase(fieldName),
     );
@@ -415,15 +414,7 @@ export function deriveEntityTableMeta(
 export const buildEntityTableMeta = deriveEntityTableMeta;
 
 function sqlExpressionText(where: unknown): string | undefined {
-  if (
-    typeof where === "object" &&
-    where !== null &&
-    SQL_EXPR_BRAND in where &&
-    typeof (where as unknown as { text?: unknown }).text === "string"
-  ) {
-    return (where as unknown as { text: string }).text;
-  }
-  return undefined;
+  return isSqlExpression(where) ? where.text : undefined;
 }
 
 // Validates that a backing Drizzle table (declared via `r.entity(name, def,

@@ -1,4 +1,4 @@
-import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { escapeLikePattern } from "../crypto/ciphertext-pattern.js";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/index.js";
 import { executeRawQueryRead } from "../db/queries/raw-sql.js";
@@ -26,6 +26,7 @@ import {
 } from "./event-store-executor-context.js";
 import { buildParentRefClause } from "./parent-ref-clause.js";
 import { buildEntityTable, physicalColumnName } from "./table-builder.js";
+import { schemaTableName } from "./table-introspection.js";
 import type { TenantDb, TenantDbMode } from "./tenant-db.js";
 import { tenantDbRunner } from "./tenant-db-runner.js";
 
@@ -73,7 +74,7 @@ function toCursorSortText(value: unknown): string | null | undefined {
   }
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "object") {
-    const tag = (value as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag];
+    const tag = Reflect.get(value, Symbol.toStringTag);
     if (typeof tag === "string" && tag.startsWith("Temporal.")) return String(value);
     return JSON.stringify(value);
   }
@@ -199,9 +200,8 @@ function applyScreenFilter(
         return `$${params.length}`;
       });
       whereSql.push(`${colSql(field)} IN (${placeholders.join(", ")})`);
-    } else if (typeof value === "object") {
-      const valueObj = value as Record<string, unknown>;
-      if (valueObj["ne"] === null && Object.keys(valueObj).length === 1) {
+    } else if (isPlainObject(value)) {
+      if (value["ne"] === null && Object.keys(value).length === 1) {
         whereSql.push(`${colSql(field)} IS NOT NULL`);
         continue;
       }
@@ -214,7 +214,7 @@ function applyScreenFilter(
       };
       for (const [opKey, opSym] of Object.entries(opMap)) {
         if (!(opKey in value)) continue;
-        params.push((value as Record<string, unknown>)[opKey]);
+        params.push(value[opKey]);
         whereSql.push(`${colSql(field)} ${opSym} $${params.length}`);
       }
     } else {
@@ -459,9 +459,7 @@ async function resolveReferenceMatches(
   }
 
   const targetTable = referenceTargetTable(descriptor.targetEntityName, targetEntity);
-  const targetTableName = String(
-    (targetTable as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL],
-  );
+  const targetTableName = String(schemaTableName(targetTable));
 
   if (!isSensitiveLabelField(targetEntity, descriptor.labelField)) {
     return resolveReferenceMatchesViaIlike(
@@ -549,9 +547,7 @@ function buildReferenceSortExpr(
   if (labelAccess.kind !== "pass") return undefined;
   const ownership = buildOwnershipClause(user, targetEntity.access?.read, targetTable);
   if (ownership.kind === "empty") return undefined;
-  const targetTableName = String(
-    (targetTable as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL],
-  );
+  const targetTableName = String(schemaTableName(targetTable));
   const labelCol = physicalColumnName(targetTable, descriptor.labelField);
   const tenantScoped = targetTable["tenantId"] !== undefined && db.mode === "tenant";
   const tenantCol = tenantScoped ? physicalColumnName(targetTable, "tenantId") : "";
@@ -608,7 +604,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       const runner = tenantDbRunner(db);
       const { limit, offset } = resolveListPagination(payload);
       const totalCount = payload.totalCount === true;
-      const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+      const tableName = String(schemaTableName(table));
 
       // H.2 — entity-level read ownership, AND-ed with the parent-ref
       // read-gate (join-row entities derive their visibility from a host
@@ -950,7 +946,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
     },
 
     async detail(payload, user, db, options) {
-      const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+      const tableName = String(schemaTableName(table));
       // H.2 — ownership check, AND-ed with the parent-ref read-gate (see
       // db/parent-ref-clause.ts). `empty` → the user can never see this row
       // regardless of its id. Return null (same shape as "not found", so a

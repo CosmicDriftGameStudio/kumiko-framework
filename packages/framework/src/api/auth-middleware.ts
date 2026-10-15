@@ -767,10 +767,9 @@ async function requestsCancelDestruction(c: Context): Promise<boolean> {
   if (c.req.method !== "POST") return false;
   try {
     const path = c.req.path;
-    const body = (await c.req.raw.clone().json()) as {
-      type?: string;
-      commands?: Array<{ type?: string }>;
-    };
+    const body: { type?: string; commands?: Array<{ type?: string }> } = await c.req.raw
+      .clone()
+      .json();
     if (path === "/api/write") {
       return body.type === TENANT_LIFECYCLE_CANCEL_QN;
     }

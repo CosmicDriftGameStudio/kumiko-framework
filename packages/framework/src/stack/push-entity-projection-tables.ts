@@ -1,7 +1,7 @@
-import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { DbConnection } from "../db/connection.js";
 import type { ColumnMeta } from "../db/entity-table-meta.js";
 import { columnNamesOf, tableExists } from "../db/schema-inspection.js";
+import { schemaTableName } from "../db/table-introspection.js";
 import type { Registry } from "../engine/types/index.js";
 import {
   addMissingColumns,
@@ -43,8 +43,7 @@ export async function pushEntityProjectionTables(
     if (!proj.isImplicit) continue;
     if (seen.has(proj.table)) continue;
     seen.add(proj.table);
-    const tableRec = proj.table as unknown as Record<symbol, unknown>;
-    const physical = tableRec[KUMIKO_NAME_SYMBOL] as string;
+    const physical = schemaTableName(proj.table) ?? tableToMeta(proj.table).tableName;
     if (!(await tableExists(stack.db, `public.${physical}`))) {
       missing[projName] = proj.table;
       continue;

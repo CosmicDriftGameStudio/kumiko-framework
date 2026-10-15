@@ -29,9 +29,7 @@ defineStep<CallFeatureArgs, unknown>({
       // dispatcher's catch maps it back to a typed error response
       // (e.g. validation_failed stays validation_failed, not a
       // generic internal_error).
-      const err = new Error(`callFeature("${args.handler}") returned failure`);
-      (err as Error & { cause?: unknown }).cause = result.error;
-      throw err;
+      throw new Error(`callFeature("${args.handler}") returned failure`, { cause: result.error });
     }
     return result.data;
   },

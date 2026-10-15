@@ -28,11 +28,11 @@ function formatFailure(kind: "write" | "query", type: string, body: unknown): st
       : undefined;
   const causeMessage =
     details && typeof details === "object" && "causeMessage" in details
-      ? String((details as { causeMessage?: unknown }).causeMessage ?? "")
+      ? String(details.causeMessage ?? "")
       : "";
   const causeName =
     details && typeof details === "object" && "causeName" in details
-      ? String((details as { causeName?: unknown }).causeName ?? "")
+      ? String(details.causeName ?? "")
       : "";
   if (code === "internal_error" && (causeMessage || causeName)) {
     return `Expected ${kind} "${type}" to succeed but got error: ${code} (${causeName}: ${causeMessage})`;

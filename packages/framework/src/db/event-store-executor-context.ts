@@ -1,4 +1,3 @@
-import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { requestContext } from "../api/request-context.js";
 import {
   collectPiiEncryptedFields,
@@ -47,6 +46,7 @@ import {
 import type { EventStoreExecutorOptions } from "./event-store-executor.js";
 import { constraintOf, isUniqueViolation } from "./pg-error.js";
 import { toSnakeCase } from "./table-builder.js";
+import { columnHandleName, schemaTableName } from "./table-introspection.js";
 import type { TenantDb } from "./tenant-db.js";
 import { tenantDbRunner } from "./tenant-db-runner.js";
 
@@ -540,7 +540,7 @@ export function buildExecutorContext(
     }
     // ownership has raw SQL — splice it into a raw query alongside the
     // idFilter + tenant-filter that TenantDb would have added.
-    const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+    const tableName = String(schemaTableName(table));
     const { whereParts, params } = buildRawIdWhere(db, idWhere, ownership);
     const sqlText = `SELECT * FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
     return [
@@ -557,7 +557,7 @@ export function buildExecutorContext(
     ownership: { kind: "pass" } | { kind: "sql"; sqlText: string; params: readonly unknown[] },
   ): { whereParts: string[]; params: unknown[] } {
     const colSql = (field: string): string =>
-      `"${(table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field)}"`;
+      `"${columnHandleName(table, field) ?? toSnakeCase(field)}"`;
     const whereParts: string[] = [];
     const params: unknown[] = [];
     if (table["tenantId"] !== undefined && db.mode === "tenant") {
@@ -601,7 +601,7 @@ export function buildExecutorContext(
     aggregateId: string,
   ): Promise<{ readonly row: Record<string, unknown> | null; readonly streamVersion: number }> {
     if (ownership.kind === "empty") return { row: null, streamVersion: 0 };
-    const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+    const tableName = String(schemaTableName(table));
     const { whereParts, params } = buildRawIdWhere(db, idWhere, ownership);
     params.push(aggregateId, streamTenantId);
     const sqlText =
@@ -648,8 +648,8 @@ export function buildExecutorContext(
     }
     const quote = (name: string): string => `"${name.replace(/"/g, '""')}"`;
     const columnOf = (field: string): string =>
-      quote((table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field));
-    const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+      quote(columnHandleName(table, field) ?? toSnakeCase(field));
+    const tableName = String(schemaTableName(table));
 
     const selectCols = expectKeys.map((key) => `${columnOf(key)} AS ${quote(key)}`);
     const whereParts: string[] = [`${columnOf("id")} = $1`];

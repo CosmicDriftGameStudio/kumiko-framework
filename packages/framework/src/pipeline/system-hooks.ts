@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   type AccessInvalidationScope,
   readNonEmptyStringArray,
@@ -629,8 +630,8 @@ const TENANT_MEMBERSHIP_DELETED_EVENT_TYPE = "tenant-membership.deleted";
 
 function readUserIdFromPreviousSnapshot(payload: Record<string, unknown>): string | undefined {
   const previous = payload["previous"];
-  if (typeof previous !== "object" || previous === null) return undefined;
-  const userId = (previous as Record<string, unknown>)["userId"];
+  if (!isPlainObject(previous)) return undefined;
+  const userId = previous["userId"];
   return typeof userId === "string" && userId.length > 0 ? userId : undefined;
 }
 

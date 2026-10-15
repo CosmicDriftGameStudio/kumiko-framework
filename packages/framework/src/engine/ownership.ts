@@ -17,11 +17,9 @@
 // Construction: use the `from(ref, column?)` helper. It returns a FromRule
 // ready to drop into an access map.
 
-import {
-  KUMIKO_COLUMNS_SYMBOL,
-  KUMIKO_NAME_SYMBOL,
-} from "@cosmicdrift/kumiko-types/schema-table-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { toSnakeCase } from "../db/table-builder.js";
+import { columnSqlNameOf, schemaTableName } from "../db/table-introspection.js";
 import type { SessionUser } from "./types/index.js";
 import { assertQualifiedWhereFragment, tableColumnSqlNames } from "./where-rule-lint.js";
 
@@ -239,30 +237,16 @@ const PASS_CLAUSE: OwnershipClause = { kind: "pass" };
 const EMPTY_CLAUSE: OwnershipClause = { kind: "empty" };
 
 export function tableNameOf(table: unknown): string {
-  if (table !== null && typeof table === "object") {
-    const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
-    if (typeof sym === "string") return sym;
-  }
-  return "<unknown>";
+  return schemaTableName(table) ?? "<unknown>";
 }
 
 // Resolve a JS-field name on the table to its underlying SQL column name.
-// Drizzle tables carry the mapping under Symbol.for("kumiko:schema:Columns");
-// we read it without importing drizzle-orm at runtime.
 function columnSqlName(table: unknown, field: string): string | null {
   if (table === null || typeof table !== "object") return null;
-  const cols = (table as Record<symbol, unknown>)[KUMIKO_COLUMNS_SYMBOL];
-  if (cols && typeof cols === "object") {
-    const col = (cols as Record<string, unknown>)[field];
-    if (col && typeof col === "object") {
-      const nameVal = (col as Record<string, unknown>)["name"];
-      if (typeof nameVal === "string") return nameVal;
-    }
-  }
+  const handleName = columnSqlNameOf(table, field);
+  if (handleName !== undefined) return handleName;
   // Field may already be the SQL column name on plain objects (tests, etc.).
-  if ((table as Record<string, unknown>)[field] !== undefined) {
-    return toSnakeCase(field);
-  }
+  if (isPlainObject(table) && table[field] !== undefined) return toSnakeCase(field);
   return null;
 }
 

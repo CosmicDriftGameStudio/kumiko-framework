@@ -110,13 +110,13 @@ export async function acquireConsumerState(
   rearmCooldownMs: number,
   maxRearmCount: number,
 ): Promise<AcquireOutcome> {
-  const rawState = await selectConsumerForUpdateSkipLocked(tx, name, instanceId);
+  const rawState = await selectConsumerForUpdateSkipLocked<ConsumerStateRow>(tx, name, instanceId);
 
   if (!rawState) {
     return { state: null, skip: "not_registered" };
   }
 
-  const state = coerceRow(rawState, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
+  const state = coerceRow(rawState, extractTableInfo(eventConsumerStateTable));
 
   if (!state) {
     // Either the row never existed (no pre-reg, no ensureRegistered) or
@@ -145,10 +145,8 @@ export async function acquireConsumerState(
         cooldownDeadline,
       ) <= 0;
     if (cooldownElapsed && state.rearmCount < maxRearmCount) {
-      const rearmed = await rearmDeadConsumer(tx, name, instanceId);
-      const rearmedState =
-        rearmed &&
-        (coerceRow(rearmed, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
+      const rearmed = await rearmDeadConsumer<ConsumerStateRow>(tx, name, instanceId);
+      const rearmedState = rearmed && coerceRow(rearmed, extractTableInfo(eventConsumerStateTable));
       if (rearmedState) return { state: rearmedState, skip: null };
     }
     // Caller (event-dispatcher.ts's processConsumer) emits
@@ -174,9 +172,9 @@ export async function selectConsumerCursorForUpdate(
   name: string,
   instanceId: string,
 ): Promise<ConsumerCursor | undefined> {
-  const rawState = await selectConsumerForUpdate(db, name, instanceId);
+  const rawState = await selectConsumerForUpdate<ConsumerStateRow>(db, name, instanceId);
   if (!rawState) return undefined;
-  const state = coerceRow(rawState, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
+  const state = coerceRow(rawState, extractTableInfo(eventConsumerStateTable));
   return { lastProcessedEventId: state.lastProcessedEventId, pendingGaps: state.pendingGaps };
 }
 
@@ -270,9 +268,14 @@ export async function fetchPendingEvents(
   batchSize: number,
   pendingRanges: readonly PendingIdRange[] = [],
 ): Promise<ReadonlyArray<StoredEventRow>> {
-  const rawRows = await selectPendingAndNewEventRows(tx, cursor, pendingRanges, batchSize);
+  const rawRows = await selectPendingAndNewEventRows<StoredEventRow>(
+    tx,
+    cursor,
+    pendingRanges,
+    batchSize,
+  );
   const info = extractTableInfo(eventsTable);
-  return rawRows.map((row) => coerceRow(row, info) as StoredEventRow); // @cast-boundary db-row
+  return rawRows.map((row) => coerceRow(row, info));
 }
 
 export type DeliveryOutcome = {

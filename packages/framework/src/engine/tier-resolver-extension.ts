@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // Sprint-8a Tier-Composition: framework-extension-point für per-tenant
 // effective-feature resolution.
 //
@@ -89,11 +90,7 @@ export type TierResolverPlugin = {
  *  plugin shape — the only thing every implementation must provide is the
  *  `build` factory. */
 export function isTierResolverPlugin(v: unknown): v is TierResolverPlugin {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    typeof (v as Record<string, unknown>)["build"] === "function"
-  );
+  return isPlainObject(v) && typeof v["build"] === "function";
 }
 
 export function findTierResolverUsage(

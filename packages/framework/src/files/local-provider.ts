@@ -2,6 +2,7 @@ import { createReadStream, createWriteStream, type Dirent } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
+import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { assertSafeStorageKey, type FileStorageProvider } from "./types.js";
 
 // Local-filesystem backend — intended for dev + tests. Production deploys
@@ -119,7 +120,7 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
       try {
         entries = await readdir(walkRoot, { recursive: true, withFileTypes: true });
       } catch (err) {
-        const code = (err as NodeJS.ErrnoException).code;
+        const code = errorCodeOf(err);
         if (code === "ENOENT" || code === "ENOTDIR") return [];
         throw err;
       }

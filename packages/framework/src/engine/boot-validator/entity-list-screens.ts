@@ -17,9 +17,7 @@ function hasFilterableFields(feature: FeatureDefinition, entityName: string): bo
   if (!entities) return false;
   const entity = entities[entityName];
   if (!entity) return false;
-  return Object.values(entity.fields).some(
-    (raw) => (raw as { readonly filterable?: boolean }).filterable === true,
-  );
+  return Object.values(entity.fields).some((raw) => "filterable" in raw && raw.filterable === true);
 }
 
 function hasEntityEditDetail(feature: FeatureDefinition, entityName: string): boolean {

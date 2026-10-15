@@ -1,7 +1,3 @@
-import {
-  KUMIKO_META_SYMBOL,
-  KUMIKO_NAME_SYMBOL,
-} from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { DbConnection } from "../db/connection.js";
 import { pgTypeToSqlType } from "../db/dialect.js";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "../db/entity-table-meta.js";
@@ -14,17 +10,16 @@ import { truncateTablesRestartIdentity } from "../db/queries/test-stack.js";
 import { renderTableDdl } from "../db/render-ddl.js";
 import { tableExists } from "../db/schema-inspection.js";
 import { buildEntityTable, toTableName } from "../db/table-builder.js";
+import { asEntityTableMeta, schemaTableName } from "../db/table-introspection.js";
 import type { EventDispatcher } from "../pipeline/index.js";
 
 function tableNameOf(table: unknown): string {
   if (typeof table !== "object" || table === null) {
     throw new Error("table-helpers: table is not a SchemaTable object");
   }
-  const rec = table as Record<string | symbol, unknown>;
-  if (typeof rec[KUMIKO_NAME_SYMBOL] === "string") return rec[KUMIKO_NAME_SYMBOL] as string;
-  if (typeof (rec as { tableName?: unknown }).tableName === "string") {
-    return (rec as { tableName: string }).tableName;
-  }
+  const symbolName = schemaTableName(table);
+  if (symbolName !== undefined) return symbolName;
+  if ("tableName" in table && typeof table.tableName === "string") return table.tableName;
   throw new Error("table-helpers: table has no name");
 }
 
@@ -56,27 +51,10 @@ export async function unsafeEnsureEntityTable(
 // Tables produced by the native dialect already carry EntityTableMeta-shape
 // (source/columns/indexes). renderTableDdl converts that to CREATE TABLE +
 // CREATE INDEX statements executed via db/queries/test-stack.
-function isMetaShape(v: unknown): v is EntityTableMeta {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    typeof (v as EntityTableMeta).tableName === "string" &&
-    Array.isArray((v as EntityTableMeta).columns) &&
-    Array.isArray((v as EntityTableMeta).indexes) &&
-    ((v as EntityTableMeta).source === "managed" || (v as EntityTableMeta).source === "unmanaged")
-  );
-}
-
 export function tableToMeta(table: unknown): EntityTableMeta {
-  // table() spreads column handles as enumerable props, so a field named
-  // `columns`/`tableName`/`source`/… shadows the matching meta key — read the
-  // canonical meta from the unshadowable symbol when present.
-  if (table !== null && typeof table === "object") {
-    const fromSymbol = (table as Record<symbol, unknown>)[KUMIKO_META_SYMBOL];
-    if (isMetaShape(fromSymbol)) return fromSymbol;
-  }
-  if (isMetaShape(table)) return table;
-  throw new Error("unsafePushTables: argument is not a SchemaTable / EntityTableMeta");
+  const meta = asEntityTableMeta(table);
+  if (!meta) throw new Error("unsafePushTables: argument is not a SchemaTable / EntityTableMeta");
+  return meta;
 }
 
 /** Applies ALTER TABLE ADD COLUMN for exactly the given columns. */

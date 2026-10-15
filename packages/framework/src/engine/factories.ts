@@ -1,4 +1,5 @@
 import type { EntityTenancy } from "@cosmicdrift/kumiko-types/tenancy-brand";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
   BigIntFieldDef,
   BooleanFieldDef,
@@ -164,7 +165,7 @@ function assertTextFieldStance(factoryName: TextFieldStanceFactory, overrides: u
     throw missingTextFieldStanceError(factoryName);
   }
   const validFinds = TEXT_FIELD_STANCE_FIND_VALUES[factoryName];
-  if (typeof find !== "string" || !(validFinds as readonly string[]).includes(find)) {
+  if (typeof find !== "string" || !isOneOf(validFinds, find)) {
     throw missingTextFieldStanceError(factoryName);
   }
 }

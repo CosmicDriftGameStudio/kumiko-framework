@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // fw#2914 — reads the { escapeHatch: { reason } } convention off a
 // `r.useExtension(...)` registration's untyped options bag. Registration-time
 // validation (feature-ui-extensions.ts's useExtension) already rejects an
@@ -10,8 +11,8 @@ export function extensionUsageEscapeHatchReason(
   usage: Pick<RegistrarExtensionRegistration, "options">,
 ): string | undefined {
   const escapeHatch = usage.options?.["escapeHatch"];
-  if (typeof escapeHatch !== "object" || escapeHatch === null) return undefined;
-  const { reason, grants } = escapeHatch as { reason?: unknown; grants?: unknown };
+  if (!isPlainObject(escapeHatch)) return undefined;
+  const { reason, grants } = escapeHatch;
   if (Array.isArray(grants) && !grants.includes("unsafeRaw")) return undefined;
   return typeof reason === "string" && reason.trim().length > 0 ? reason : undefined;
 }

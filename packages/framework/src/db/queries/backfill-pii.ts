@@ -50,6 +50,7 @@
 // affected projections — applyEntityEvent materializes ciphertext AND the
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { asRawClient } from "../../bun-db/index.js";
 import { quoteIdent } from "../../crypto/ciphertext-pattern.js";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii.js";
@@ -249,6 +250,7 @@ export async function backfillEventPiiEncryptionBatch(
   const { entityTargets, eventCatalog } = collectPiiTargets(registry);
   const aggregateTypes = [...entityTargets.keys()];
   const catalogTypes = [...eventCatalog.keys()];
+  const failures: PiiBackfillFailure[] = [];
   const result = {
     scannedEvents: 0,
     updatedEvents: 0,
@@ -258,7 +260,7 @@ export async function backfillEventPiiEncryptionBatch(
     ownerFromProjection: 0,
     erasedUnresolvable: 0,
     deletedSnapshots: 0,
-    failures: [] as PiiBackfillFailure[],
+    failures,
   };
   const emptyBatch = (): PiiBackfillBatchResult => ({
     ...result,
@@ -270,22 +272,22 @@ export async function backfillEventPiiEncryptionBatch(
   });
   if (aggregateTypes.length === 0 && catalogTypes.length === 0) return emptyBatch();
 
-  const rows = (await (options.eventIds
-    ? raw.unsafe(
+  const rows = await (options.eventIds
+    ? raw.unsafe<EventRow>(
         `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
            FROM "kumiko_events"
           WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" = ANY($3::bigint[])
           ORDER BY "id" ASC`,
         [aggregateTypes, catalogTypes, [...options.eventIds]],
       )
-    : raw.unsafe(
+    : raw.unsafe<EventRow>(
         `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
            FROM "kumiko_events"
           WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" > $3::bigint
           ORDER BY "id" ASC
           LIMIT $4`,
         [aggregateTypes, catalogTypes, String(options.afterEventId ?? 0), batchSize],
-      ))) as ReadonlyArray<EventRow>;
+      ));
   const last = rows[rows.length - 1];
   if (last === undefined) return emptyBatch();
 
@@ -332,10 +334,10 @@ export async function backfillEventPiiEncryptionBatch(
 
   // Snapshots may cache the plaintext state of touched aggregates.
   if (!options.dryRun && touchedAggregates.size > 0) {
-    const deleted = (await raw.unsafe(
+    const deleted = await raw.unsafe(
       `DELETE FROM "kumiko_snapshots" WHERE "aggregate_id" = ANY($1::uuid[]) RETURNING "aggregate_id"`,
       [[...touchedAggregates]],
-    )) as ReadonlyArray<unknown>;
+    );
     result.deletedSnapshots = deleted.length;
   }
 
@@ -355,9 +357,9 @@ export async function backfillEventPiiEncryptionBatch(
     // Pre-KMS forgets left no key tombstone — the *.forgotten event on the
     // stream is the only durable marker. aggregate_id doubles as the user id
     // for user-subject lookups.
-    const forgottenRows = (await raw.unsafe(
+    const forgottenRows = await raw.unsafe<{ aggregate_id: string }>(
       `SELECT DISTINCT "aggregate_id" FROM "kumiko_events" WHERE "type" LIKE '%.forgotten'`,
-    )) as ReadonlyArray<{ aggregate_id: string }>;
+    );
     scanCache.forgottenAggregates = new Set(forgottenRows.map((r) => r.aggregate_id));
     return scanCache.forgottenAggregates;
   }
@@ -385,10 +387,10 @@ export async function backfillEventPiiEncryptionBatch(
       // aborts the surrounding transaction (25P02). Entity never mounted/rebuilt
       // → stage 3 still gets a chance; this batch just contributes no owners.
       if (await tableExists(db, `public.${tableName}`)) {
-        const projectionRows = (await raw.unsafe(
+        const projectionRows = await raw.unsafe<Record<string, unknown>>(
           `SELECT * FROM ${quoteIdent(tableName)} WHERE "id" = ANY($1::uuid[])`,
           [[...ids]],
-        )) as ReadonlyArray<Record<string, unknown>>;
+        );
         for (const projectionRow of projectionRows) {
           const id = projectionRow["id"];
           if (typeof id === "string") {
@@ -622,9 +624,9 @@ export async function backfillEventPiiEncryptionBatch(
   // read_tenants.destroyed_at is the only durable marker.
   async function loadDestroyedTenants(): Promise<ReadonlySet<string>> {
     if (scanCache.destroyedTenants) return scanCache.destroyedTenants;
-    const rows = (await raw.unsafe(
+    const rows = await raw.unsafe<{ id: string }>(
       `SELECT id::text AS id FROM read_tenants WHERE destroyed_at IS NOT NULL`,
-    )) as ReadonlyArray<{ id: string }>;
+    );
     scanCache.destroyedTenants = new Set(rows.map((r) => r.id));
     return scanCache.destroyedTenants;
   }
@@ -818,7 +820,7 @@ function projectionRowToCamel(
 function isLifecycleEventOf(eventType: string, aggregateType: string): boolean {
   if (!eventType.startsWith(`${aggregateType}.`)) return false;
   const verb = eventType.slice(aggregateType.length + 1);
-  return (LIFECYCLE_VERBS as readonly string[]).includes(verb);
+  return isOneOf(LIFECYCLE_VERBS, verb);
 }
 
 // created events carry the fields flat; updated carries { changes, previous };

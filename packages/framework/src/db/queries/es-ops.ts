@@ -9,9 +9,9 @@ export async function acquireEsOpsAdvisoryLock(db: AnyDb): Promise<void> {
 }
 
 export async function esOperationExists(db: AnyDb, operationId: string): Promise<boolean> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = await asRawClient(db).unsafe(
     `SELECT 1 FROM "kumiko_es_operations" WHERE id = $1 LIMIT 1`,
     [operationId],
-  )) as readonly unknown[];
+  );
   return rows.length > 0;
 }

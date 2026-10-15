@@ -16,6 +16,7 @@
 // niemals automatisch droppen.
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { errorCodeOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 import { compareByCodepoint } from "../utils/index.js";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.js";
@@ -85,15 +86,16 @@ export function snapshotFromMetas(metas: readonly EntityTableMeta[]): Snapshot {
 export function loadSnapshotJson(path: string): Snapshot | null {
   try {
     const text = readFileSync(path, "utf8");
-    const parsed = JSON.parse(text) as { version?: unknown };
-    if (parsed.version !== SNAPSHOT_VERSION) {
+    const parsed: unknown = JSON.parse(text);
+    const version = isPlainObject(parsed) ? parsed["version"] : undefined;
+    if (version !== SNAPSHOT_VERSION) {
       throw new Error(
-        `Snapshot at ${path} has version ${String(parsed.version)}, expected ${SNAPSHOT_VERSION}`,
+        `Snapshot at ${path} has version ${String(version)}, expected ${SNAPSHOT_VERSION}`,
       );
     }
     return parsed as Snapshot;
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    if (errorCodeOf(err) === "ENOENT") return null;
     throw err;
   }
 }

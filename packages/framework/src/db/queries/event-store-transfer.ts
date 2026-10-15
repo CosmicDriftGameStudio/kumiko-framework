@@ -20,12 +20,12 @@ export async function transferEventRows(
   db: AnyDb,
   params: TransferEventRowsParams,
 ): Promise<readonly string[]> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = await asRawClient(db).unsafe<{ id: string }>(
     `UPDATE "kumiko_events" SET "tenant_id" = $1 ` +
       `WHERE "tenant_id" = $2 AND "aggregate_type" = $3 AND "aggregate_id" = ANY($4) ` +
       `RETURNING "aggregate_id" AS id`,
     [params.destinationTenantId, params.sourceTenantId, params.aggregateType, params.aggregateIds],
-  )) as ReadonlyArray<{ id: string }>;
+  );
   return [...new Set(rows.map((row) => row.id))];
 }
 

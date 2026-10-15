@@ -12,6 +12,7 @@
 // (pruneEvents), a separate, consumer-lag-guarded path.
 
 import { asEntityTableMeta, deleteMany, type WhereObject } from "../db/query.js";
+import { hasFieldProperty } from "../db/table-introspection.js";
 import { purgeExpiredFileRefsWithBytes } from "../files/purge-expired-file-ref-bytes.js";
 import { FILE_REF_ENTITY_NAME } from "../files/types.js";
 import { SYSTEM_USER_ID } from "./system-user.js";
@@ -40,7 +41,7 @@ export const softDeleteGraceDaysConfig: ConfigKeyDefinition = {
 };
 
 function hasTenantIdColumn(table: unknown): boolean {
-  return (table as Record<string, unknown>)["tenantId"] !== undefined;
+  return hasFieldProperty(table, "tenantId");
 }
 
 // The entity declaration decides, not the column: a `tenancy: "global"` table

@@ -32,6 +32,7 @@ import type {
   IndexMeta,
   PgType,
 } from "./entity-table-meta.js";
+import { schemaTableName } from "./table-introspection.js";
 
 export type { ColumnHandle, SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 
@@ -119,11 +120,11 @@ export type ColumnBuilder<TValue = unknown> = {
   $onUpdate(fn: () => unknown): ColumnBuilder<TValue>;
 };
 
-function buildColumn(
+function buildColumn<TValue>(
   sqlName: string,
   pgType: PgType,
   opts?: { bigintJsMode?: "number" | "bigint" },
-): ColumnBuilder<unknown> {
+): ColumnBuilder<TValue> {
   let notNull = false;
   let primaryKey = false;
   let unique = false;
@@ -137,9 +138,7 @@ function buildColumn(
     if (typeof value === "number") return String(value);
     if (typeof value === "boolean") return value ? "true" : "false";
     if (typeof value === "bigint") return value.toString();
-    if (value && typeof value === "object" && SQL_EXPR_BRAND in value) {
-      return (value as SqlExpression).text;
-    }
+    if (isSqlExpression(value)) return value.text;
     if (typeof value === "function") return null; // function-defaults stay JS-side
     // Object/array → jsonb literal
     const serialised = JSON.stringify(value);
@@ -147,7 +146,7 @@ function buildColumn(
     return `'${serialised.replace(/'/g, "''")}'::jsonb`;
   }
 
-  const builder: ColumnBuilder<unknown> = {
+  const builder: ColumnBuilder<TValue> = {
     __column: true,
     finalise(): ColumnFinal {
       return {
@@ -207,43 +206,43 @@ function buildColumn(
 // ---- Column factories ----
 
 export function uuid(name: string): ColumnBuilder<string> {
-  return buildColumn(name, "uuid") as ColumnBuilder<string>;
+  return buildColumn(name, "uuid");
 }
 
 export function text(name: string): ColumnBuilder<string> {
-  return buildColumn(name, "text") as ColumnBuilder<string>;
+  return buildColumn(name, "text");
 }
 
 export function boolean(name: string): ColumnBuilder<boolean> {
-  return buildColumn(name, "boolean") as ColumnBuilder<boolean>;
+  return buildColumn(name, "boolean");
 }
 
 export function integer(name: string): ColumnBuilder<number> {
-  return buildColumn(name, "integer") as ColumnBuilder<number>;
+  return buildColumn(name, "integer");
 }
 
 export function doublePrecision(name: string): ColumnBuilder<number> {
-  return buildColumn(name, "double precision") as ColumnBuilder<number>;
+  return buildColumn(name, "double precision");
 }
 
 export function serial(name: string): ColumnBuilder<number> {
-  return buildColumn(name, "serial") as ColumnBuilder<number>;
+  return buildColumn(name, "serial");
 }
 
 export function bigint(name: string, opts?: { mode?: "bigint" | "number" }): ColumnBuilder<bigint> {
   const jsMode = opts?.mode === "number" ? "number" : "bigint";
-  return buildColumn(name, "bigint", { bigintJsMode: jsMode }) as ColumnBuilder<bigint>;
+  return buildColumn(name, "bigint", { bigintJsMode: jsMode });
 }
 
 export function bigserial(
   name: string,
   _opts?: { mode?: "bigint" | "number" },
 ): ColumnBuilder<bigint> {
-  return buildColumn(name, "bigserial") as ColumnBuilder<bigint>;
+  return buildColumn(name, "bigserial");
 }
 
 export function jsonb(name: string): ColumnBuilder<Record<string, unknown>> {
-  return buildColumn(name, "jsonb") as ColumnBuilder<Record<string, unknown>>;
+  return buildColumn(name, "jsonb");
 }
 
 // Legacy alias kept for compat — timestamptz with no precision.
@@ -251,7 +250,7 @@ export function timestamp(
   name: string,
   _opts?: { withTimezone?: boolean; mode?: "string" | "date" },
 ): ColumnBuilder<Temporal.Instant | string> {
-  return buildColumn(name, "timestamptz") as ColumnBuilder<Temporal.Instant | string>;
+  return buildColumn(name, "timestamptz");
 }
 
 // numeric → text (we don't currently use Decimal); kept for compat with
@@ -260,7 +259,7 @@ export function numeric(
   name: string,
   _opts?: { precision?: number; scale?: number },
 ): ColumnBuilder<string> {
-  return buildColumn(name, "text") as ColumnBuilder<string>;
+  return buildColumn(name, "text");
 }
 
 export function instant(
@@ -268,7 +267,7 @@ export function instant(
   opts?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6 },
 ): ColumnBuilder<Temporal.Instant> {
   const pgType: PgType = opts?.precision === 3 ? "timestamptz(3)" : "timestamptz";
-  return buildColumn(name, pgType) as ColumnBuilder<Temporal.Instant>;
+  return buildColumn(name, pgType);
 }
 
 // PG `date` — no time-of-day, no timezone. Calendar-day fields (invoice
@@ -276,7 +275,7 @@ export function instant(
 // Instant — that detour is exactly what made `type:"date"` TZ-dependent on
 // both read and write (kumiko-framework#1924).
 export function plainDate(name: string): ColumnBuilder<Temporal.PlainDate> {
-  return buildColumn(name, "date") as ColumnBuilder<Temporal.PlainDate>;
+  return buildColumn(name, "date");
 }
 
 // Real numeric(precision, scale) column — exact decimal storage (interest
@@ -287,15 +286,14 @@ export const decimalColumn = (
   name: string,
   precision: number,
   scale: number,
-): ColumnBuilder<number> =>
-  buildColumn(name, `numeric(${precision},${scale})`) as ColumnBuilder<number>;
+): ColumnBuilder<number> => buildColumn(name, `numeric(${precision},${scale})`);
 
 // moneyAmount kept as a customType-style API but produces a bigint column.
 // bigintJsMode "bigint" — entity-table-meta renders money as bigint, and the
 // table-builder↔meta lockstep guard fails on a number-mode column. (Precision
 // past 2^53 is the underlying motivation, not the immediate breakage.)
 export const moneyAmount = (name: string): ColumnBuilder<number> =>
-  buildColumn(name, "bigint", { bigintJsMode: "bigint" }) as ColumnBuilder<number>;
+  buildColumn(name, "bigint", { bigintJsMode: "bigint" });
 
 // ---- Index + primaryKey helpers ----
 
@@ -389,6 +387,16 @@ export type SqlExpression = {
   readonly [SQL_EXPR_BRAND]: true;
 };
 
+export function isSqlExpression(value: unknown): value is SqlExpression {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    SQL_EXPR_BRAND in value &&
+    "text" in value &&
+    typeof value.text === "string"
+  );
+}
+
 export function sql(strings: TemplateStringsArray, ...values: readonly unknown[]): SqlExpression {
   const parts: string[] = [];
   const params: unknown[] = [];
@@ -396,8 +404,8 @@ export function sql(strings: TemplateStringsArray, ...values: readonly unknown[]
     parts.push(strings[i] ?? "");
     if (i < values.length) {
       const v = values[i];
-      if (v && typeof v === "object" && SQL_EXPR_BRAND in v) {
-        parts.push((v as SqlExpression).text);
+      if (isSqlExpression(v)) {
+        parts.push(v.text);
       } else {
         parts.push(String(v));
       }
@@ -428,6 +436,20 @@ sql.raw = (text: string): SqlExpression => ({
 export type ColumnMap = Record<string, ColumnBuilder<unknown>>;
 
 type IndexOrPk = IndexBuilderWithCols | PrimaryKeyDescriptor;
+
+function isIndexOrPkList(
+  opts: Record<string, IndexOrPk> | ReadonlyArray<IndexOrPk>,
+): opts is ReadonlyArray<IndexOrPk> {
+  return Array.isArray(opts);
+}
+
+function isPrimaryKeyDescriptor(value: IndexOrPk): value is PrimaryKeyDescriptor {
+  return "__pk" in value && value.__pk === true;
+}
+
+function isIndexBuilderWithCols(value: IndexOrPk): value is IndexBuilderWithCols {
+  return "__index" in value && value.__index === true;
+}
 
 export function table<TCols extends ColumnMap>(
   tableName: string,
@@ -474,23 +496,22 @@ export function table<TCols extends ColumnMap>(
   if (optsFn) {
     const tHandle = handles as { [K in keyof TCols]: ColumnHandle };
     const opts = optsFn(tHandle);
-    const entries: Array<[string, IndexOrPk | undefined]> = Array.isArray(opts)
-      ? (opts as ReadonlyArray<IndexOrPk>).map((v, i) => [String(i), v])
+    const entries: Array<[string, IndexOrPk | undefined]> = isIndexOrPkList(opts)
+      ? opts.map((v, i) => [String(i), v])
       : Object.entries(opts);
     for (const [key, value] of entries) {
       if (!value) continue;
-      if ("__pk" in value && value.__pk === true) {
+      if (isPrimaryKeyDescriptor(value)) {
         compositePrimaryKey = {
           name: value.name ?? `${tableName}_pk`,
           columns: value.columns,
         };
-      } else if ("__index" in value && value.__index === true) {
-        const idx = value as IndexBuilderWithCols;
+      } else if (isIndexBuilderWithCols(value)) {
         indexes.push({
-          name: idx.name,
-          columns: idx.columns,
-          ...(idx.unique && { unique: true }),
-          ...(idx.whereSql !== undefined && { whereSql: idx.whereSql }),
+          name: value.name,
+          columns: value.columns,
+          ...(value.unique && { unique: true }),
+          ...(value.whereSql !== undefined && { whereSql: value.whereSql }),
         });
       } else {
         // Inline unique-column declaration via .unique() — not implemented yet.
@@ -524,8 +545,8 @@ export function extractTableName(table: unknown, context = "extractTableName"): 
   if (typeof table !== "object" || table === null) {
     throw new Error(`${context}: table is not an object`);
   }
-  const name = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
-  if (typeof name !== "string") {
+  const name = schemaTableName(table);
+  if (name === undefined) {
     throw new Error(`${context}: table missing kumiko:schema:Name symbol`);
   }
   return name;

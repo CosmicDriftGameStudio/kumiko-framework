@@ -23,10 +23,8 @@
 // caught by this validator. A future lint-rule will enforce the contract
 // statically; today it lives in this comment + the StepBuilder doc.
 
-import {
-  KUMIKO_META_SYMBOL,
-  KUMIKO_NAME_SYMBOL,
-} from "@cosmicdrift/kumiko-types/schema-table-types";
+import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
+import { schemaTableName } from "../db/table-introspection.js";
 import { getStep } from "./define-step.js";
 import { buildPipelineSteps } from "./pipeline.js";
 import type { FeatureDefinition, SessionUser, TenantId, WriteEvent } from "./types/index.js";
@@ -66,22 +64,21 @@ function* walkAllSteps(steps: readonly StepInstance[]): Generator<StepInstance, 
 function resolveTableNameFromStep(table: unknown): string {
   if (typeof table === "object" && table !== null) {
     // Canonical meta under the unshadowable symbol — preferred path.
-    const meta = (table as Record<symbol, unknown>)[KUMIKO_META_SYMBOL];
-    if (meta !== null && typeof meta === "object") {
-      const metaName = (meta as Record<string, unknown>)["tableName"];
-      if (typeof metaName === "string") return metaName;
+    const meta: unknown = Reflect.get(table, KUMIKO_META_SYMBOL);
+    if (
+      typeof meta === "object" &&
+      meta !== null &&
+      "tableName" in meta &&
+      typeof meta.tableName === "string"
+    ) {
+      return meta.tableName;
     }
     // Plain meta (deriveEntityTableMeta / defineUnmanagedTable — no handle-spread).
-    if (
-      "source" in table &&
-      "tableName" in table &&
-      typeof (table as Record<string, unknown>)["tableName"] === "string"
-    ) {
-      return (table as Record<string, unknown>)["tableName"] as string;
+    if ("source" in table && "tableName" in table && typeof table.tableName === "string") {
+      return table.tableName;
     }
-    // drizzle pgTable
-    const name = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
-    if (typeof name === "string") return name;
+    const name = schemaTableName(table);
+    if (name !== undefined) return name;
   }
   throw new Error(`validate-projection-allowlist: cannot resolve table name from ${String(table)}`);
 }

@@ -12,6 +12,7 @@ import type {
 import { toSnakeCase } from "../utils/case.js";
 import { assertUnreachable } from "../utils/index.js";
 import type { Table } from "./event-store-executor-context.js";
+import { columnHandleName } from "./table-introspection.js";
 
 export { toSnakeCase } from "../utils/case.js";
 
@@ -26,12 +27,12 @@ import {
   index,
   instant,
   integer,
+  isSqlExpression,
   jsonb,
   moneyAmount,
   table as pgTable,
   plainDate,
   type SchemaTable,
-  type SqlExpression,
   serial,
   sql,
   type TableColumns,
@@ -47,7 +48,7 @@ export const SOFT_DELETE_LIVE_ROW_PREDICATE = `"is_deleted" = false`;
 // Shared by the CRUD executor and the parent-ref read-gate — a field's
 // declared column name if it has one, else its snake_case default.
 export function physicalColumnName(table: Table, field: string): string {
-  return (table[field] as { name?: string } | undefined)?.name ?? toSnakeCase(field);
+  return columnHandleName(table, field) ?? toSnakeCase(field);
 }
 
 // Local AnyPgColumn alias — kept for legacy field-definition callers that
@@ -634,7 +635,7 @@ export function buildEntityTable<E extends EntityDefinition>(
         // entity.indexes[].where is now a SqlExpression (was drizzle SQL).
         // Pass through to the IndexBuilderWithCols.where()-API.
         if (def.where !== undefined) {
-          chain = chain.where(def.where as SqlExpression);
+          if (isSqlExpression(def.where)) chain = chain.where(def.where);
         } else if (def.unique === true && entity.softDelete === true) {
           // Soft-deleted rows keep their value, so a full unique index would
           // permanently block reuse; kept in lock-step with entity-table-meta.ts (framework#2593).

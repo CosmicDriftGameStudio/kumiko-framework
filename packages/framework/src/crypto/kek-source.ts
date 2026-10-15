@@ -89,7 +89,7 @@ async function decryptCiphertext(
 
     let body: { plaintext?: unknown };
     try {
-      body = (await response.json()) as { plaintext?: unknown };
+      body = await response.json();
     } catch {
       throw new Error(
         `${prefix}Key Manager decrypt for key ${keyId} returned an unparseable response`,

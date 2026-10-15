@@ -1,4 +1,5 @@
 import { escapeHatchGrantsProblem } from "@cosmicdrift/kumiko-types/handlers";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT,
   WEBSOCKET_MAX_PAYLOAD_BYTES,
@@ -311,10 +312,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       // for every extension regardless of its typed hook shape.
       const escapeHatch = optionsBag?.["escapeHatch"];
       if (escapeHatch !== undefined) {
-        const reason =
-          typeof escapeHatch === "object" && escapeHatch !== null
-            ? (escapeHatch as { reason?: unknown }).reason
-            : undefined;
+        const reason = isPlainObject(escapeHatch) ? escapeHatch["reason"] : undefined;
         if (typeof reason !== "string" || reason.trim().length === 0) {
           throw new Error(
             `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ` +

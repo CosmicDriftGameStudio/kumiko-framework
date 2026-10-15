@@ -350,7 +350,7 @@ function applyTotalsMatchRefinements(
         if (siblingMinor === undefined) continue;
         const siblingCurrency =
           typeof siblingRaw === "object" && siblingRaw !== null && "currency" in siblingRaw
-            ? (siblingRaw as { currency: unknown }).currency
+            ? siblingRaw.currency
             : undefined;
         const entityCurrency = entity.defaultCurrency ?? DEFAULT_CURRENCIES[0];
         if (typeof siblingCurrency === "string" && siblingCurrency !== entityCurrency) {
@@ -363,9 +363,7 @@ function applyTotalsMatchRefinements(
         }
         const sumMinor = rawRows.reduce((total: number, row: unknown) => {
           const value =
-            typeof row === "object" && row !== null
-              ? (row as Record<string, unknown>)[subFieldName]
-              : undefined;
+            typeof row === "object" && row !== null ? Reflect.get(row, subFieldName) : undefined;
           return total + (typeof value === "number" ? value : 0);
         }, 0);
         if (sumMinor !== siblingMinor) {

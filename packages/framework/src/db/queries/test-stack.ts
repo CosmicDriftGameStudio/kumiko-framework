@@ -16,10 +16,10 @@ export async function truncateTablesRestartIdentity(
 }
 
 export async function databaseExists(db: AnyDb, dbName: string): Promise<boolean> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = await asRawClient(db).unsafe<{ exists?: boolean }>(
     `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1) AS exists`,
     [dbName],
-  )) as readonly { exists?: boolean }[];
+  );
   return rows[0]?.exists === true;
 }
 
