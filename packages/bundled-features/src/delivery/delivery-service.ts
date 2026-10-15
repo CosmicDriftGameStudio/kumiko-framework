@@ -5,6 +5,7 @@ import type {
   DeliveryErrorCode,
   EscapeHatchAuditSink,
   NotifyDelivery,
+  NotifyDispatched,
   NotifyJobDispatcher,
   NotifyOptions,
   NotifyPriority,
@@ -214,9 +215,14 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     return routedChannelCount === 1 ? idempotencyKey : undefined;
   }
 
-  async function resolveUserIdsForTenant(tenantId: TenantId): Promise<readonly string[]> {
+  async function resolveUserIdsForTenant(
+    run: NotifyRun,
+    tenantId: TenantId,
+  ): Promise<readonly string[]> {
     if (!tenantUserIdsQuery) {
-      throw new Error("Tenant broadcast requires tenantUserIdsQuery in DeliveryServiceOptions");
+      throw new Error(
+        "Tenant broadcast (to: { tenant }) requires the tenant feature (default wiring) or an explicit tenantUserIdsQuery in DeliveryServiceOptions",
+      );
     }
     const handler = registry.getQueryHandler(tenantUserIdsQuery);
     if (!handler) {
@@ -235,7 +241,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     // path a cross-tenant read the dispatcher never allows. Cross-tenant reach only
     // exists through the grant-carrying systemDb view below.
     const isSystem = registry.isHandlerSystemScoped(tenantUserIdsQuery);
-    const tenantDb = createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, {
+    const tenantDb = createTenantDb(run.db, tenantId, "tenant", undefined, undefined, undefined, {
       report,
     });
     // The dispatcher grants a systemScope handler's ctx.systemDb.unsafeRaw() ungated —
@@ -243,7 +249,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     // caller. Only the systemDb view's own source TenantDb carries the grant, so it
     // can't leak onto ctx.db.
     const systemDbSourceTenantDb = isSystem
-      ? createTenantDb(db, tenantId, "system", undefined, undefined, undefined, {
+      ? createTenantDb(run.db, tenantId, "system", undefined, undefined, undefined, {
           report,
           unsafeRaw: { reason: `r.systemScope() handler "${tenantUserIdsQuery}"` },
         })
@@ -268,6 +274,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   // State of one notify() call: collects the per-channel outcome returned to
   // the caller. Passed explicitly — the service itself is shared across calls.
   type NotifyRun = {
+    // All DB work of the call runs here: inside a write transaction the caller passes the
+    // outside-tx pool, because the app pool's slots may all be held by waiting write txs.
+    readonly db: DbConnection;
     readonly deliveries: NotifyDelivery[];
     readonly jobDispatcher: NotifyJobDispatcher | undefined;
     readonly locale: string | undefined;
@@ -295,7 +304,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   // attempts instead append a queued event up front and a terminal event from
   // the send job — see deliverViaChannel + jobs.ts.
   async function logDelivery(run: NotifyRun, entry: DeliveryLogEntry): Promise<void> {
-    const attemptId = await logAttempt(db, registry, entry);
+    const attemptId = await logAttempt(run.db, registry, entry);
     recordDelivery(run, entry, attemptId);
   }
 
@@ -372,7 +381,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         error: null,
         priority,
       };
-      await appendAttemptEvent(db, registry, deliveryAttemptId, queuedEntry);
+      await appendAttemptEvent(run.db, registry, deliveryAttemptId, queuedEntry);
       await run.jobDispatcher.dispatch(
         channel.render ? DeliveryJobs.render : DeliveryJobs.send,
         {
@@ -460,6 +469,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   // no blind-index key configured means no hash, so nothing to look up. One
   // query per notify() call, not per recipient and channel.
   async function loadSuppressedAddresses(
+    run: NotifyRun,
     tenantId: TenantId,
     notificationType: string,
     priority: NotifyPriority,
@@ -472,7 +482,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       const addressHash = hashUnsubscribeAddress(address);
       if (addressHash !== undefined) addressHashes.add(addressHash);
     }
-    return selectOptedOutAddresses(db, tenantId, notificationType, [...addressHashes]);
+    return selectOptedOutAddresses(run.db, tenantId, notificationType, [...addressHashes]);
   }
 
   function isAddressSuppressed(
@@ -487,13 +497,14 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   const recipientChannelKey = (userId: string, channelName: string) => `${userId}|${channelName}`;
 
   async function isChannelDeliverable(
+    run: NotifyRun,
     userId: string,
     tenantId: TenantId,
     notificationType: string,
     channelName: string,
   ): Promise<boolean> {
     if (isChannelKilled && (await isChannelKilled(tenantId, channelName))) return false;
-    return isChannelEnabled(userId, tenantId, notificationType, channelName);
+    return isChannelEnabled(run, userId, tenantId, notificationType, channelName);
   }
 
   // Resolves every user's channel addresses up front so the opt-out lookup can
@@ -502,17 +513,20 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   // Channels the kill switch or the user's preferences disable are never resolved
   // here: resolve may have side effects and deliverToUser skips those channels.
   async function prefetchUserAddresses(
+    run: NotifyRun,
     userIds: readonly string[],
     tenantId: TenantId,
     notificationType: string,
   ): Promise<Map<string, string | null>> {
     const addresses = new Map<string, string | null>();
-    const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId, secrets);
+    const channelCtx = buildChannelContext(run.db, registry, sseBroker, tenantId, secrets);
     for (const userId of userIds) {
       for (const channel of channels) {
         if (!channel.resolve) continue;
         try {
-          if (!(await isChannelDeliverable(userId, tenantId, notificationType, channel.name))) {
+          if (
+            !(await isChannelDeliverable(run, userId, tenantId, notificationType, channel.name))
+          ) {
             continue;
           }
           addresses.set(
@@ -537,13 +551,14 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   //   { type: "orderAssigned", channel: "*", enabled: true }  enables orderAssigned everywhere
   //   → orderAssigned on inApp: disabled (conservative) unless an exact entry overrides.
   async function isChannelEnabled(
+    run: NotifyRun,
     userId: string,
     tenantId: TenantId,
     notificationType: string,
     channelName: string,
   ): Promise<boolean> {
     const prefs = await selectNotificationPreferences(
-      db,
+      run.db,
       tenantId,
       userId,
       notificationType,
@@ -573,7 +588,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     prefetchedAddresses: ReadonlyMap<string, string | null>,
     suppressed: ReadonlySet<AddressOptOutKey>,
   ): Promise<void> {
-    const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId, secrets);
+    const channelCtx = buildChannelContext(run.db, registry, sseBroker, tenantId, secrets);
 
     for (const channel of channels) {
       // Route-only channel (no per-user address): not a user-notification target.
@@ -601,7 +616,13 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
       // Check preferences (critical priority skips preference check)
       if (priority !== "critical") {
-        const enabled = await isChannelEnabled(userId, tenantId, notificationType, channel.name);
+        const enabled = await isChannelEnabled(
+          run,
+          userId,
+          tenantId,
+          notificationType,
+          channel.name,
+        );
         if (!enabled) {
           await logDelivery(run, {
             tenantId,
@@ -707,8 +728,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     recipientId: string | null,
     run: NotifyRun,
   ): Promise<void> {
-    const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId, secrets);
+    const channelCtx = buildChannelContext(run.db, registry, sseBroker, tenantId, secrets);
     const suppressed = await loadSuppressedAddresses(
+      run,
       tenantId,
       notificationType,
       priority,
@@ -815,7 +837,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       if (typeof to === "string") {
         userIds = [to];
       } else if ("tenant" in to) {
-        userIds = await resolveUserIdsForTenant(to.tenant);
+        userIds = await resolveUserIdsForTenant(run, to.tenant);
       } else {
         userIds = to;
       }
@@ -823,8 +845,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       const prefetchedAddresses =
         priority === "critical"
           ? new Map<string, string | null>()
-          : await prefetchUserAddresses(userIds, tenantId, notificationType);
+          : await prefetchUserAddresses(run, userIds, tenantId, notificationType);
       const suppressed = await loadSuppressedAddresses(
+        run,
         tenantId,
         notificationType,
         priority,
@@ -846,11 +869,16 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     }
   }
 
+  function dispatched(run: NotifyRun): NotifyDispatched {
+    return { kind: "dispatched", deliveries: run.deliveries };
+  }
+
   return {
-    async notify(notificationType, options, _user, tenantId, jobDispatcher) {
+    async notify(notificationType, options, _user, tenantId, jobDispatcher, deliveryDb) {
       const { route, idempotencyKey } = options;
       const priority: NotifyPriority = options.priority ?? "normal";
       const run: NotifyRun = {
+        db: deliveryDb ?? db,
         deliveries: [],
         jobDispatcher: options.immediate ? undefined : (jobDispatcher ?? jobRunner),
         locale: options.locale,
@@ -870,7 +898,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             error: "duplicate_idempotency_key",
             priority,
           });
-          return { deliveries: run.deliveries };
+          return dispatched(run);
         }
       }
 
@@ -888,7 +916,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         throw err;
       }
       await releaseIdempotencyIfNothingDelivered(tenantId, idempotencyKey, run);
-      return { deliveries: run.deliveries };
+      return dispatched(run);
     },
   };
 }

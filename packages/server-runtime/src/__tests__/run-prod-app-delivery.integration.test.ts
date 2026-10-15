@@ -5,6 +5,10 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import {
+  createChannelInAppFeature,
+  inAppMessagesTable,
+} from "@cosmicdrift/kumiko-bundled-features/channel-in-app";
 import { createChannelSlackFeature } from "@cosmicdrift/kumiko-bundled-features/channel-slack";
 import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
 import {
@@ -14,6 +18,7 @@ import {
 import {
   createDeliveryFeature,
   deliveryAttemptsTable,
+  notificationPreferencesTable,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   createSecretsFeature,
@@ -107,7 +112,22 @@ const opsFeature = defineFeature("ops", (r) => {
           ...(event.payload.immediate && { immediate: true }),
         };
         const result: NotifyResult = await notify(OPS_NOTIFICATION, options);
-        return { isSuccess: true as const, data: { deliveries: result.deliveries } };
+        return { isSuccess: true as const, data: result };
+      },
+    }),
+  );
+  r.writeHandler(
+    defineWriteHandler({
+      name: "announce-tenant",
+      schema: z.object({}),
+      access: { roles: ["TenantAdmin"] },
+      handler: async (_event, ctx) => {
+        const notify = ctx.notify as NotifyFn;
+        const result = await notify(OPS_NOTIFICATION, {
+          to: { tenant: TENANT_ID },
+          data: { title: "Maintenance tonight" },
+        });
+        return { isSuccess: true as const, data: result };
       },
     }),
   );
@@ -117,7 +137,6 @@ type AnnounceDelivery = {
   channel: string;
   status: string;
   error: string | null;
-  deliveryAttemptId?: string;
 };
 
 let stub: ReturnType<typeof startStub>;
@@ -140,6 +159,8 @@ beforeAll(async () => {
     await unsafePushTables(db, {
       configValuesTable,
       tenantMembershipsTable,
+      inAppMessagesTable,
+      notificationPreferencesTable,
       tenant_secrets: tenantSecretsTable,
       store_delivery_attempts: deliveryAttemptsTable,
     });
@@ -176,6 +197,7 @@ async function bootWithChatChannels(): Promise<ProdAppHandle> {
       createSecretsFeature(),
       createTenantFeature(),
       createDeliveryFeature(),
+      createChannelInAppFeature(),
       createChannelSlackFeature({ allowedHosts: ["127.0.0.1"], requireHttps: false }),
       createChannelTelegramFeature({
         apiBaseUrl: stub.origin,
@@ -203,11 +225,12 @@ async function writeAsTenantAdmin(
   app: ProdAppHandle,
   type: string,
   payload: Record<string, unknown>,
+  roles: string[] = ["TenantAdmin"],
 ): Promise<{ readonly status: number; readonly body: { data?: unknown } }> {
   const token = await app.entrypoint.jwt.sign({
     id: "tenant-admin",
     tenantId: TENANT_ID,
-    roles: ["TenantAdmin"],
+    roles,
   });
   const res = await app.entrypoint.app.fetch(
     new Request("http://test/api/write", {
@@ -219,17 +242,37 @@ async function writeAsTenantAdmin(
   return { status: res.status, body: (await res.json()) as { data?: unknown } };
 }
 
-async function announce(
+async function announceDeferred(app: ProdAppHandle, route: Record<string, string>) {
+  const { status, body } = await writeAsTenantAdmin(app, "ops:write:announce", { route });
+  expect(status).toBe(200);
+  expect(body.data).toEqual({ kind: "deferred" });
+}
+
+async function announceImmediately(
   app: ProdAppHandle,
   route: Record<string, string>,
-  immediate = false,
 ): Promise<AnnounceDelivery[]> {
   const { status, body } = await writeAsTenantAdmin(app, "ops:write:announce", {
     route,
-    ...(immediate && { immediate: true }),
+    immediate: true,
   });
   expect(status).toBe(200);
-  return (body.data as { deliveries: AnnounceDelivery[] }).deliveries;
+  const result = body.data as { kind: string; deliveries: AnnounceDelivery[] };
+  expect(result.kind).toBe("dispatched");
+  return result.deliveries;
+}
+
+// The deferred notify returns no attempt id; the only attempt of a channel in this
+// DB is the one the test just caused.
+async function soleAttemptIdOf(channel: string): Promise<string> {
+  const { db, close } = createDbConnection(TEST_DB_URL);
+  try {
+    const rows = await selectMany<{ id: string }>(db, deliveryAttemptsTable, { channel });
+    expect(rows).toHaveLength(1);
+    return rows[0]?.id ?? "";
+  } finally {
+    await close();
+  }
 }
 
 async function attemptRow(
@@ -266,16 +309,10 @@ describe("runProdApp: chat channels deliver without app wiring", () => {
     });
     expect(set.status).toBe(200);
 
-    const deliveries = await announce(app, { slack: "ops" });
-
-    expect(deliveries).toHaveLength(1);
-    const [delivery] = deliveries;
-    expect(delivery?.channel).toBe("slack");
-    expect(delivery?.status).toBe("queued");
-    const attemptId = delivery?.deliveryAttemptId ?? "";
-    expect(attemptId).not.toBe("");
+    await announceDeferred(app, { slack: "ops" });
 
     await stub.firstRequest;
+    const attemptId = await soleAttemptIdOf("slack");
     await waitFor(async () => (await attemptRow(attemptId))?.status === "sent");
 
     expect(stub.paths).toEqual(["/slack-hook"]);
@@ -290,11 +327,10 @@ describe("runProdApp: chat channels deliver without app wiring", () => {
     });
     expect(set.status).toBe(200);
 
-    const [delivery] = await announce(app, { telegram: "424242" });
-    expect(delivery?.status).toBe("queued");
-    const attemptId = delivery?.deliveryAttemptId ?? "";
+    await announceDeferred(app, { telegram: "424242" });
 
     await stub.firstRequest;
+    const attemptId = await soleAttemptIdOf("telegram");
     await waitFor(async () => (await attemptRow(attemptId))?.status === "sent");
     expect((await attemptRow(attemptId))?.error).toBeNull();
     expect(stub.paths).toHaveLength(1);
@@ -307,7 +343,7 @@ describe("runProdApp: chat channels deliver without app wiring", () => {
       value: `${stub.origin}/slack-hook`,
     });
 
-    const [delivery] = await announce(app, { slack: "ops" }, true);
+    const [delivery] = await announceImmediately(app, { slack: "ops" });
 
     expect(delivery?.status).toBe("sent");
     expect(stub.paths).toEqual(["/slack-hook"]);
@@ -316,10 +352,46 @@ describe("runProdApp: chat channels deliver without app wiring", () => {
   test("immediate without a stored secret reports failed + missing_credentials", async () => {
     const app = await bootWithChatChannels();
 
-    const [delivery] = await announce(app, { slack: "unconfigured" }, true);
+    const [delivery] = await announceImmediately(app, { slack: "unconfigured" });
 
     expect(delivery?.status).toBe("failed");
     expect(delivery?.error).toBe("missing_credentials");
     expect(stub.paths).toHaveLength(0);
+  });
+
+  test("tenant broadcast reaches every member without an explicit tenantUserIdsQuery", async () => {
+    const app = await bootWithChatChannels();
+    const memberIds = [
+      "00000000-0000-4000-8000-0000000000a1",
+      "00000000-0000-4000-8000-0000000000a2",
+    ];
+    const created = await writeAsTenantAdmin(
+      app,
+      "tenant:write:create",
+      { key: "broadcast", name: "Broadcast Tenant" },
+      ["SystemAdmin"],
+    );
+    expect(created.status).toBe(200);
+    for (const userId of memberIds) {
+      const added = await writeAsTenantAdmin(
+        app,
+        "tenant:write:add-member",
+        { userId, tenantId: TENANT_ID, roles: ["User"] },
+        ["SystemAdmin"],
+      );
+      expect(added.status).toBe(200);
+    }
+
+    const { status, body } = await writeAsTenantAdmin(app, "ops:write:announce-tenant", {});
+
+    expect(status).toBe(200);
+    expect(body.data).toEqual({ kind: "deferred" });
+    const { db, close } = createDbConnection(TEST_DB_URL);
+    try {
+      const rows = await selectMany<{ userId: string }>(db, inAppMessagesTable, {});
+      expect(rows.map((row) => row.userId).sort()).toEqual(memberIds);
+    } finally {
+      await close();
+    }
   });
 });

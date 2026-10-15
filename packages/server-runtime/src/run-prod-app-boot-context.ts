@@ -36,6 +36,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { bindAutoRevokeFromFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { TENANT_FEATURE, TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -96,7 +97,8 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
 // and every notification silently skips. sseBroker optional (email/push don't
 // need it, in-app SSE does). Queued channels go through the delivery jobs of
 // the calling context's job runner (3rd factory arg); without one they send
-// inline, with `secrets` for chat-channel credentials.
+// inline, with `secrets` for chat-channel credentials. `to: { tenant }` resolves
+// through tenantUserIdsQuery, which the caller sets when the tenant feature is mounted.
 function buildDeliveryNotifyFactory(opts: {
   readonly db: DbConnection;
   readonly registry: Registry;
@@ -105,6 +107,7 @@ function buildDeliveryNotifyFactory(opts: {
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly log?: Logger;
   readonly redis?: Redis;
+  readonly tenantUserIdsQuery?: string;
   readonly deliverQueuedInline: boolean | undefined;
 }): NotifyFactory {
   const deliveryService = createDeliveryService({
@@ -116,6 +119,7 @@ function buildDeliveryNotifyFactory(opts: {
     ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
     ...(opts.escapeHatchAuditSink && { escapeHatchAuditSink: opts.escapeHatchAuditSink }),
     ...(opts.log && { log: opts.log }),
+    ...(opts.tenantUserIdsQuery && { tenantUserIdsQuery: opts.tenantUserIdsQuery }),
   });
   return createDeliveryNotifyFactory(deliveryService, {
     deliverQueuedInline: opts.deliverQueuedInline === true,
@@ -192,6 +196,7 @@ export function buildBootExtraContext(opts: {
 }): Record<string, unknown> {
   const crypto = opts.crypto ?? resolveBootCrypto(opts.envSource, opts.masterKey);
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
+  const hasTenantFeature = opts.features.some((f) => f.name === TENANT_FEATURE);
   const escapeHatchAuditSink = resolveEscapeHatchAuditSink(opts.features, opts.db);
   const secrets = resolveBootSecrets(opts.db, opts.features, crypto, opts.registry);
   return {
@@ -207,6 +212,7 @@ export function buildBootExtraContext(opts: {
         ...(opts.redis && { redis: opts.redis }),
         ...(escapeHatchAuditSink && { escapeHatchAuditSink }),
         ...(opts.log && { log: opts.log }),
+        ...(hasTenantFeature && { tenantUserIdsQuery: TenantQueries.resolveUserIds }),
         deliverQueuedInline: opts.deliverQueuedInline,
       }),
     }),

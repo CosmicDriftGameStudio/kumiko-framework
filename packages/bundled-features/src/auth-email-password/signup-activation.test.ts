@@ -20,7 +20,7 @@ describe("issueSignupActivation", () => {
       redis,
       notify: async (type, args) => {
         notifications.push({ type, email: args.route?.["email"], data: args.data });
-        return { deliveries: [] };
+        return { kind: "dispatched", deliveries: [] };
       },
       email: "User@Example.com",
       appUrl: "https://app.example.com/activate",

@@ -7,8 +7,8 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   defineFeature,
   defineWriteHandler,
+  type NotifyDispatched,
   type NotifyFn,
-  type NotifyResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
@@ -132,12 +132,13 @@ describe("inline path (no job runner)", () => {
     logged.length = 0;
     const notificationType = `app:notify:codes-${channel}`;
 
-    const result = await stack.http.writeOk<NotifyResult>(
+    const result = await stack.http.writeOk<NotifyDispatched>(
       "codes-probe:write:ping",
       { channel, notificationType, immediate: true },
       admin,
     );
 
+    expect(result.kind).toBe("dispatched");
     expect(result.deliveries.map((d) => [d.status, String(d.error)])).toEqual([["failed", code]]);
     await expectNoLeak(stack, notificationType, code);
     const logLine = logged.find((l) => l.includes(code));

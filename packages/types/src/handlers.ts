@@ -373,9 +373,11 @@ export type NotifyOptions = {
   // forget-subject can reach recipientAddress under this subject. Ignored on
   // the `to` path — there the resolved user id is the recipientId, silently.
   readonly recipientId?: string;
-  // Deliver queued channels (email/push/chat) inline for this call, so the
-  // result carries sent/failed instead of queued. Deliberately bypasses the
-  // job pipeline and with it its retry — meant for "send test message" handlers.
+  // Deliver synchronously, also inside a write handler's transaction (on the
+  // outside-tx pool), and deliver queued channels (email/push/chat) inline, so the
+  // result carries sent/failed instead of queued. Bypasses the job pipeline and its
+  // retry — meant for "send test message" handlers. Without it, a notify inside a
+  // write handler is deferred until the write has committed.
   readonly immediate?: boolean;
   // BCP-47 tag of the language the notification content is written in. Reaches
   // the renderer so frame text around the content (footer, links) can match.
@@ -441,12 +443,25 @@ export type NotifyDelivery = {
   readonly deliveryAttemptId?: string;
 };
 
-export type NotifyResult = {
+export type NotifyDispatched = {
+  readonly kind: "dispatched";
   readonly deliveries: readonly NotifyDelivery[];
 };
 
+// Inside a write handler's transaction the delivery waits for the commit; there is
+// no result to report yet.
+export type NotifyDeferred = { readonly kind: "deferred" };
+
+export type NotifyResult = NotifyDispatched | NotifyDeferred;
+
 // Minimal interface for delivery notifications (concrete type in bundled-features/delivery)
-export type NotifyFn = (notificationType: string, options: NotifyOptions) => Promise<NotifyResult>;
+export type NotifyFn = {
+  (
+    notificationType: string,
+    options: NotifyOptions & { readonly immediate: true },
+  ): Promise<NotifyDispatched>;
+  (notificationType: string, options: NotifyOptions): Promise<NotifyResult>;
+};
 
 // Structural subset of the concrete JobRunner that delivery needs to hand
 // queued channels to the delivery.render/delivery.send jobs.
@@ -460,12 +475,15 @@ export type NotifyJobDispatcher = {
 
 // Factory that produces a bound NotifyFn for a specific user+tenant. The
 // dispatcher is the calling context's job runner; absent means queued
-// channels deliver inline.
+// channels deliver inline. deliveryDb is the connection the delivery's own DB work
+// runs on (the outside-tx pool when called inside a write transaction); absent
+// means the service's default.
 // Concrete implementation in bundled-features/delivery (cross-package boundary)
 export type NotifyFactory = (
   user: SessionUser,
   tenantId: TenantId,
   jobDispatcher?: NotifyJobDispatcher,
+  deliveryDb?: DbConnection,
 ) => NotifyFn;
 
 export type EscapeHatchKind =
