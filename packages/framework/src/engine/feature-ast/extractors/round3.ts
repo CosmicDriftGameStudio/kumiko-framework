@@ -20,6 +20,7 @@ import {
   fail,
   isPlainObject,
   ok,
+  type ReadDataLiteralOptions,
   readDataLiteralNode,
   readNameLiteral,
   readNameLiteralRef,
@@ -34,6 +35,7 @@ export function readNamedOptions(
   call: CallExpression,
   sourceFile: SourceFile,
   methodName: string,
+  readOptions: ReadDataLiteralOptions = {},
 ): NamedOptionsResult {
   const args = call.getArguments();
   const first = args[0];
@@ -59,7 +61,7 @@ export function readNamedOptions(
         "object form requires a string-literal `name` property",
       );
     }
-    const data = readDataLiteralNode(obj);
+    const data = readDataLiteralNode(obj, readOptions);
     if (!isPlainObject(data)) {
       return fail(
         methodName,
@@ -87,7 +89,7 @@ export function readNamedOptions(
       "expected an options object as second argument",
     );
   }
-  const options = readDataLiteralNode(optionsArg);
+  const options = readDataLiteralNode(optionsArg, readOptions);
   if (!isPlainObject(options)) {
     return fail(
       methodName,
@@ -186,7 +188,7 @@ export function extractSecret(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<SecretPattern> {
-  const parsed = readNamedOptions(call, sourceFile, "secret");
+  const parsed = readNamedOptions(call, sourceFile, "secret", { functionValuesAsRaw: true });
   if (parsed.kind === "error") return parsed;
   return ok({
     kind: "secret",

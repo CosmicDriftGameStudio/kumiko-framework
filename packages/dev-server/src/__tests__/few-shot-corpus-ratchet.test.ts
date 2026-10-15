@@ -6,8 +6,8 @@ import { buildFewShotCorpus } from "@cosmicdrift/kumiko-dev-server";
 // regeneration, even when a parser regression silently turns canonical
 // features into legacy ones. Raise MIN_CANONICAL_COUNT / lower
 // MAX_PARSE_ERROR_COUNT when the parser improves; never the other way round.
-const MIN_CANONICAL_COUNT = 105;
-const MAX_PARSE_ERROR_COUNT = 92;
+const MIN_CANONICAL_COUNT = 111;
+const MAX_PARSE_ERROR_COUNT = 88;
 
 const FRAMEWORK_REPO_ROOT = resolve(import.meta.dir, "../../../..");
 

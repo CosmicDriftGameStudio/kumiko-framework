@@ -95,3 +95,46 @@ defineFeature("pkg-name", (r) => {
     });
   });
 });
+
+describe("r.secret options with function values", () => {
+  const SECRET_REDACTS: ReadonlyArray<readonly [string, string]> = [
+    ["expression arrow without parameter", '() => "••••••••"'],
+    ["block body with parameter", "(plaintext) => { return plaintext.slice(0, 2); }"],
+  ];
+
+  for (const [label, redactSource] of SECRET_REDACTS) {
+    test(`${label}: parsed as __raw and render roundtrip is stable`, () => {
+      const source = `
+defineFeature("secret-fn", (r) => {
+  r.secret("api-key", { label: "API key", redact: ${redactSource} });
+});
+`;
+      const first = parseSourceFile(createProject().createSourceFile("secret.ts", source));
+      expect(first.errors).toEqual([]);
+      expect(first.patterns[0]).toMatchObject({
+        kind: "secret",
+        shortName: "api-key",
+        options: { label: "API key", redact: { __raw: redactSource } },
+      });
+      const rendered = renderFeatureFile({
+        featureName: "secret-fn",
+        patterns: first.patterns,
+        imports: [],
+      });
+      expect(rendered).toContain(redactSource);
+      const second = parseSourceFile(createProject().createSourceFile("again.ts", rendered));
+      expect(second.errors).toEqual([]);
+      expect(second.patterns[0]).toMatchObject({
+        options: { redact: { __raw: redactSource } },
+      });
+    });
+  }
+
+  test("metric options still reject function values", () => {
+    const sf = createProject().createSourceFile(
+      "metric.ts",
+      'defineFeature("m", (r) => { r.metric("x", { help: "h", fn: () => 1 }); });',
+    );
+    expect(parseSourceFile(sf).errors).not.toEqual([]);
+  });
+});
