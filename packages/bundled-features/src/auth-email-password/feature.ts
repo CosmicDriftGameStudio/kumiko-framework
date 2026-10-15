@@ -30,6 +30,12 @@ import {
 } from "./handlers/signup-request.write.js";
 import { createSwitchTenantMfaGateHandler } from "./handlers/switch-tenant-mfa-gate.write.js";
 import { createVerifyEmailHandler } from "./handlers/verify-email.write.js";
+import {
+  AUTH_MAIL_VARIABLES,
+  authMailLocalizedTemplate,
+  INVITE_MAIL_VARIABLES,
+  sendsMagicLinkMail,
+} from "./mail-notifications.js";
 
 /**
  * Env-vars contract for the `auth-email-password` feature.
@@ -199,16 +205,31 @@ export function createAuthEmailPasswordFeature(
     // All five magic-link flows (reset/verify/signup/invite/unlock) dispatch
     // via ctx.notify → delivery must be mounted. Fail closed at boot instead
     // of silently dropping the mail.
-    if (
-      opts.passwordReset ||
-      opts.emailVerification ||
-      opts.signup ||
-      opts.invite ||
-      opts.accountUnlock
-    ) {
-      r.requires("delivery");
-    }
+    if (sendsMagicLinkMail(opts)) r.requires("delivery");
     r.envSchema(authEmailPasswordEnvSchema);
+
+    // Declared unconditionally: apps also issue the activation link from their
+    // own flows (issueSignupActivation) without enabling the signup option.
+    r.notification("password-reset", {
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("passwordReset"),
+    });
+    r.notification("account-unlock", {
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("accountUnlock"),
+    });
+    r.notification("email-verification", {
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("emailVerification"),
+    });
+    r.notification("signup-activation", {
+      variables: AUTH_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("signupActivation"),
+    });
+    r.notification("invite", {
+      variables: INVITE_MAIL_VARIABLES,
+      localizedTemplate: authMailLocalizedTemplate("invite"),
+    });
 
     const handlers = {
       login: r.writeHandler(

@@ -21,11 +21,9 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { createSessionsFeature, userSessionTable } from "../../sessions/index.js";
 import { hashPassword, verifyPassword } from "../../shared/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
@@ -36,6 +34,7 @@ import { userEntity, userTable } from "../../user/schema/user.js";
 import { AuthErrors, AuthHandlers } from "../constants.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
 import { signResetToken } from "../reset-token.js";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 // Reset mails now go through delivery (ctx.notify → channel-email). The
 // in-memory transport captures what would be sent; route:{email} delivers
@@ -64,8 +63,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -113,6 +111,7 @@ beforeAll(async () => {
     userSessionTable,
     notificationPreferencesTable,
   });
+  await seedAuthMailTemplates(stack);
 });
 
 afterAll(async () => {
@@ -176,7 +175,9 @@ describe("POST /auth/request-password-reset", () => {
     if (!sent) throw new Error("no email sent");
     expect(sent.to).toBe("alice@example.com");
     expect(sent.subject).toContain("Reset");
-    expect(sent.html).toContain(`${appResetUrl}?token=`);
+    // Handlebars escapes "=" in interpolated href values.
+    expect(sent.html).toContain(`${appResetUrl}?token&#x3D;`);
+    expect(sent.text).toContain(`${appResetUrl}?token=`);
   });
 
   test("the expiry is shown in the recipient's profile time zone, not the anonymous request's fallback", async () => {

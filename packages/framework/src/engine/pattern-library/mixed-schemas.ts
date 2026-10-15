@@ -371,7 +371,6 @@ export const notificationSchema: PatternFormSchema = {
       path: "trigger.on",
       label: { en: "Trigger on entity", de: "Trigger-Entität" },
       input: "entity-ref",
-      required: true,
     },
     {
       path: "recipientBody",

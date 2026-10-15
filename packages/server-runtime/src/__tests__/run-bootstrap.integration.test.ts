@@ -15,11 +15,13 @@ import {
   simpleRenderer,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { tenantInvitationsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { buildComposeAuthOptions, composeFeatures } from "../compose-features.js";
 import { runBootstrap } from "../run-bootstrap.js";
 
@@ -32,6 +34,7 @@ const emailTransport = createInMemoryTransport();
 const appFeatures = [
   createTemplateResolverFeature(),
   createRendererFoundationFeature(),
+  createRendererMailHtmlFeature(),
   createDeliveryFeature(),
   createRendererSimpleFeature(),
   createChannelEmailFeature({
@@ -54,6 +57,7 @@ beforeAll(async () => {
     }),
     dbName: DB_NAME,
   });
+  await seedNotificationTemplates(schemaStack.db, schemaStack.registry);
 });
 
 afterAll(async () => {
@@ -84,7 +88,10 @@ describe("runBootstrap", () => {
     ]);
     expect(first?.invites.map((i) => i.outcome)).toEqual(["invited"]);
     expect(emailTransport.sent.map((m) => m.to)).toEqual([ROOT_EMAIL]);
-    expect(emailTransport.sent[0]?.html).toContain("https://app.example.com/invite/accept?token=");
+    expect(emailTransport.sent[0]?.text).toContain("https://app.example.com/invite/accept?token=");
+    expect(emailTransport.sent[0]?.html).toContain(
+      "https://app.example.com/invite/accept?token&#x3D;",
+    );
 
     expect(await selectMany(schemaStack.db, tenantTable, { id: TENANT_ID })).toHaveLength(1);
     const [invitation] = await selectMany(schemaStack.db, tenantInvitationsTable, {

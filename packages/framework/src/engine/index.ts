@@ -358,7 +358,11 @@ export {
   SYSTEM_ROLE,
   SYSTEM_USER_ID,
 } from "./system-user.js";
-export { templateVariable, templateVariablesToZod } from "./template-variables.js";
+export {
+  assertNotificationVariables,
+  templateVariable,
+  templateVariablesToZod,
+} from "./template-variables.js";
 export {
   type EffectiveFeaturesResolver,
   findTierResolverUsage,
@@ -536,6 +540,7 @@ export type {
   NavIconKey,
   NotificationDataFn,
   NotificationDefinition,
+  NotificationLocalizedTemplate,
   NotificationRecipientFn,
   NotificationTemplateBody,
   NotificationTemplateFn,

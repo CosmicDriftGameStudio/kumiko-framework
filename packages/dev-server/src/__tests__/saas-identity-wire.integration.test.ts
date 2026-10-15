@@ -39,6 +39,7 @@ import {
   userSessionTable,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { sessionCallbacksFromLateBound } from "@cosmicdrift/kumiko-bundled-features/sessions/testing";
+import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import {
   tenantEntity,
   tenantInvitationEntity,
@@ -84,9 +85,9 @@ const callbacks = createLateBoundHolder<SessionCallbacks>("session-callbacks");
 
 let stack: TestStack;
 
-function extractTokenFromMail(html: string): string {
-  const match = html.match(/[?&]token=([^&"'<\s]+)/);
-  if (!match?.[1]) throw new Error(`No token in mail html: ${html.slice(0, 200)}`);
+function extractTokenFromMail(text: string): string {
+  const match = text.match(/[?&]token=([^&"'<\s\]]+)/);
+  if (!match?.[1]) throw new Error(`No token in mail text: ${text.slice(0, 200)}`);
   return decodeURIComponent(match[1]);
 }
 
@@ -199,6 +200,7 @@ beforeAll(async () => {
     notificationPreferencesTable,
     userSessionTable,
   });
+  await seedNotificationTemplates(stack.db, stack.registry);
 });
 
 afterAll(async () => {
@@ -228,7 +230,7 @@ describe("saas-identity-wire", () => {
     const req = await stack.http.raw("POST", "/api/auth/signup-request", { email });
     expect(req.status).toBe(200);
     expect(emailTransport.sent).toHaveLength(1);
-    const token = extractTokenFromMail(emailTransport.sent[0]?.html ?? "");
+    const token = extractTokenFromMail(emailTransport.sent[0]?.text ?? "");
 
     const confirm = await stack.http.raw("POST", "/api/auth/signup-confirm", { token, password });
     expect(confirm.status).toBe(200);
@@ -263,7 +265,7 @@ describe("saas-identity-wire", () => {
     const req = await stack.http.raw("POST", "/api/auth/request-password-reset", { email });
     expect(req.status).toBe(200);
     expect(emailTransport.sent).toHaveLength(1);
-    const token = extractTokenFromMail(emailTransport.sent[0]?.html ?? "");
+    const token = extractTokenFromMail(emailTransport.sent[0]?.text ?? "");
 
     const reset = await stack.http.raw("POST", "/api/auth/reset-password", {
       token,
@@ -304,7 +306,7 @@ describe("saas-identity-wire", () => {
     const invitee = "carol-wire@example.com";
     await stack.http.writeOk(AuthHandlers.inviteCreate, { email: invitee, role: "User" }, admin);
     expect(emailTransport.sent.length).toBeGreaterThanOrEqual(1);
-    const token = extractTokenFromMail(emailTransport.sent.at(-1)?.html ?? "");
+    const token = extractTokenFromMail(emailTransport.sent.at(-1)?.text ?? "");
 
     const complete = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
       token,
@@ -348,7 +350,7 @@ describe("saas-identity-wire", () => {
     const req = await stack.http.raw("POST", "/api/auth/request-email-verification", { email });
     expect(req.status).toBe(200);
     expect(emailTransport.sent).toHaveLength(1);
-    const token = extractTokenFromMail(emailTransport.sent[0]?.html ?? "");
+    const token = extractTokenFromMail(emailTransport.sent[0]?.text ?? "");
 
     const verify = await stack.http.raw("POST", "/api/auth/verify-email", { token });
     expect(verify.status).toBe(200);

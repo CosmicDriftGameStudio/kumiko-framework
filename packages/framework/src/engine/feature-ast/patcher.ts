@@ -140,9 +140,9 @@ export type AddJobArgs = {
 
 export type AddNotificationArgs = {
   readonly name: string;
-  readonly trigger: { readonly on: string };
-  readonly recipientSource: string;
-  readonly dataSource: string;
+  readonly trigger?: { readonly on: string };
+  readonly recipientSource?: string;
+  readonly dataSource?: string;
   readonly templates?: Readonly<Record<string, string>>;
 };
 
@@ -468,9 +468,9 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
         kind: "notification",
         source: SYNTHETIC_LOC,
         notificationName: name,
-        trigger,
-        recipientBody: rawLoc(recipientSource),
-        dataBody: rawLoc(dataSource),
+        ...(trigger !== undefined && { trigger }),
+        ...(recipientSource !== undefined && { recipientBody: rawLoc(recipientSource) }),
+        ...(dataSource !== undefined && { dataBody: rawLoc(dataSource) }),
         ...(templateLocs !== undefined && { templates: templateLocs }),
       });
     },

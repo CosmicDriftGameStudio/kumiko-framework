@@ -44,9 +44,7 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
@@ -59,6 +57,7 @@ import { createUserFeature } from "../../user/feature.js";
 import { userEntity, userTable } from "../../user/schema/user.js";
 import { AuthErrors, AuthHandlers } from "../constants.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
@@ -114,8 +113,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -171,6 +169,7 @@ beforeAll(async () => {
     notificationPreferencesTable,
     tierAssignmentTable,
   });
+  await seedAuthMailTemplates(stack);
 });
 
 afterAll(async () => {
@@ -214,9 +213,9 @@ async function postLogin(email: string, password: string): Promise<Response> {
   return stack.http.raw("POST", "/api/auth/login", { email, password });
 }
 
-function extractTokenFromMail(html: string): string {
-  const match = html.match(/[?&]token=([^&"'<\s]+)/);
-  if (!match?.[1]) throw new Error(`No token in mail html: ${html.slice(0, 200)}`);
+function extractTokenFromMail(text: string): string {
+  const match = text.match(/[?&]token=([^&"'<\s\]]+)/);
+  if (!match?.[1]) throw new Error(`No token in mail text: ${text.slice(0, 200)}`);
   return decodeURIComponent(match[1]);
 }
 
@@ -229,7 +228,8 @@ describe("POST /api/auth/signup-request", () => {
     const sent = emailTransport.sent[0];
     if (!sent) throw new Error("no mail sent");
     expect(sent.to).toBe("alice@example.com");
-    expect(sent.html).toContain(`${APP_ACTIVATION_URL}?token=`);
+    expect(sent.text).toContain(`${APP_ACTIVATION_URL}?token=`);
+    expect(sent.html).toContain(`${APP_ACTIVATION_URL}?token&#x3D;`);
   });
 
   test("Resend: second request for the same email mints a new token and invalidates the previous one", async () => {
@@ -239,8 +239,8 @@ describe("POST /api/auth/signup-request", () => {
     expect(emailTransport.sent).toHaveLength(2);
     const [first, second] = emailTransport.sent;
     if (!first || !second) throw new Error("missing mails");
-    const firstToken = extractTokenFromMail(first.html);
-    const secondToken = extractTokenFromMail(second.html);
+    const firstToken = extractTokenFromMail(first.text ?? "");
+    const secondToken = extractTokenFromMail(second.text ?? "");
     expect(secondToken).not.toBe(firstToken);
 
     // The first mail's link must actually stop working (not just look
@@ -268,7 +268,7 @@ describe("POST /api/auth/signup-confirm", () => {
     expect(res.status).toBe(200);
     const sent = emailTransport.sent[0];
     if (!sent) throw new Error("signup-request fixture didn't send mail");
-    return extractTokenFromMail(sent.html);
+    return extractTokenFromMail(sent.text ?? "");
   }
 
   test("voller Roundtrip: confirm legt user + tenant + Admin-Membership an, Cookies + Login funktioniert", async () => {
@@ -525,8 +525,7 @@ describe("POST /api/auth/signup-request — opts.locale stays a real fallback", 
         createConfigFeature(),
         createUserFeature(),
         createTenantFeature(),
-        createTemplateResolverFeature(),
-        createRendererFoundationFeature(),
+        ...authMailRendererFeatures(),
         createDeliveryFeature(),
         createRendererSimpleFeature(),
         createChannelEmailFeature({
@@ -558,6 +557,7 @@ describe("POST /api/auth/signup-request — opts.locale stays a real fallback", 
       tenantMembershipsTable,
       notificationPreferencesTable,
     });
+    await seedAuthMailTemplates(optsLocaleStack);
   });
 
   afterAll(async () => {
@@ -590,8 +590,7 @@ describe("POST /api/auth/signup-request — appUrl as a function picks the activ
         createConfigFeature(),
         createUserFeature(),
         createTenantFeature(),
-        createTemplateResolverFeature(),
-        createRendererFoundationFeature(),
+        ...authMailRendererFeatures(),
         createDeliveryFeature(),
         createRendererSimpleFeature(),
         createChannelEmailFeature({
@@ -626,6 +625,7 @@ describe("POST /api/auth/signup-request — appUrl as a function picks the activ
       tenantMembershipsTable,
       notificationPreferencesTable,
     });
+    await seedAuthMailTemplates(appUrlStack);
   });
 
   afterAll(async () => {
@@ -643,6 +643,7 @@ describe("POST /api/auth/signup-request — appUrl as a function picks the activ
     expect(appUrlTransport.sent).toHaveLength(1);
     const sent = appUrlTransport.sent[0];
     if (!sent) throw new Error("no mail sent");
-    expect(sent.html).toContain("https://app.example.com/de/activate?token=");
+    expect(sent.text).toContain("https://app.example.com/de/activate?token=");
+    expect(sent.html).toContain("https://app.example.com/de/activate?token&#x3D;");
   });
 });

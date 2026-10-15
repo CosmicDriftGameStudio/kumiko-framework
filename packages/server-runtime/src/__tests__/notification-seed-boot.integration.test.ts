@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createTemplateResolverFeature,
   type TemplateResourceRow,
@@ -16,6 +17,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import * as z from "zod";
 import { applyBootSeeds } from "../boot/apply-boot-seeds.js";
 
@@ -38,7 +40,14 @@ const mailer = defineFeature("boot-mailer", (r) => {
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createTemplateResolverFeature(), mailer] });
+  stack = await setupTestStack({
+    features: [
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
+      mailer,
+    ],
+  });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
 });
 
@@ -56,6 +65,17 @@ describe("applyBootSeeds :: notification templates", () => {
       locale: "de",
     });
     expect(row?.content).toBe("<p>Hallo</p>");
+  });
+
+  test("throws when no mail renderer plugin is mounted", async () => {
+    const withoutMailRenderer = createRegistry([
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      mailer,
+    ]);
+    await expect(applyBootSeeds({ registry: withoutMailRenderer, db: stack.db })).rejects.toThrow(
+      /renderer plugin for kind "mail"/,
+    );
   });
 
   test("throws when the template-resolver feature is not mounted", async () => {

@@ -32,6 +32,8 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   collectAssignableAppRoles,
   createTenantFeature,
@@ -39,6 +41,7 @@ import {
 import { TENANT_LIFECYCLE_FEATURE } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { dedupeFeatures, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 
 const FILES_FEATURE = "files";
 const FILES_TENANT_DATA_FEATURE = "files-tenant-data";
@@ -132,9 +135,22 @@ export function composeFeatures(
     !names.has(FILES_TENANT_DATA_FEATURE);
   return [
     ...bundled,
+    ...missingAuthMailStack(names),
     ...filteredApp,
     ...(needsFilesTenantData ? [createFilesTenantDataFeature()] : []),
   ];
+}
+
+// auth-email-password declares its mails as stored templates, and the boot seed
+// fails without the template-resolver and a mail renderer. Mounting the missing
+// ones here keeps every includeBundled app bootable (also scaffolds); features
+// the app already mounts are skipped because createRegistry rejects duplicates.
+function missingAuthMailStack(mountedNames: ReadonlySet<string>): FeatureDefinition[] {
+  return [
+    createTemplateResolverFeature(),
+    createRendererFoundationFeature(),
+    createRendererMailHtmlFeature(),
+  ].filter((feature) => !mountedNames.has(feature.name));
 }
 
 /** Shape of any run{Prod,Dev}App auth block that can carry a

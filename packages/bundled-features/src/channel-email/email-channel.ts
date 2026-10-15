@@ -2,6 +2,7 @@ import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbRow } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  type ChannelContext,
   type ChannelMessage,
   DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
   DELIVERY_UNSUBSCRIBE_PATH,
@@ -99,7 +100,27 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
   // and runs in the delivery.render job, decoupled from the SMTP send so each
   // can retry independently. Extracted so the inline fallback (no job runner)
   // can reuse it without going through the channel's own render() indirection.
-  async function renderMessage(message: ChannelMessage): Promise<RenderedMessage> {
+  async function renderMessage(
+    message: ChannelMessage,
+    ctx: ChannelContext,
+  ): Promise<RenderedMessage> {
+    // A declared template means the stored mail template is the only source of
+    // subject and body: no fallback to the legacy renderer.
+    if (ctx.registry.getAllNotifications().get(message.notificationType)?.template !== undefined) {
+      if (ctx.renderMail === undefined) {
+        throw new Error(
+          `email channel: notification "${message.notificationType}" has a mail template but the channel context carries no renderMail`,
+        );
+      }
+      const unsubscribeUrl = message.data?.["unsubscribeUrl"];
+      const { subject, html, text } = await ctx.renderMail({
+        slug: message.notificationType,
+        locale: message.locale ?? "en",
+        variables: message.data ?? {},
+        ...(typeof unsubscribeUrl === "string" && { unsubscribeUrl }),
+      });
+      return { html, subject, text };
+    }
     // Build renderer input: per-channel template data (if any) or fall back
     // to title/body from the message. Renderer handles both cases.
     const variables = (message.data as DbRow) ?? {
@@ -129,12 +150,12 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
       return address === PII_ERASED_SENTINEL ? null : address;
     },
 
-    render(message, _ctx) {
-      return renderMessage(message);
+    render(message, ctx) {
+      return renderMessage(message, ctx);
     },
 
-    async send(address, message, _ctx, rendered) {
-      const { html, subject, text } = rendered ?? (await renderMessage(message));
+    async send(address, message, ctx, rendered) {
+      const { html, subject, text } = rendered ?? (await renderMessage(message, ctx));
       const envelope = emailEnvelopeFrom(message.data);
       await transport.send(
         guardEmailMessage({

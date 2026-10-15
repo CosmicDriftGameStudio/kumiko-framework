@@ -1,9 +1,11 @@
+import { assertNotificationVariables } from "../engine/template-variables.js";
 import type { TenantId } from "../engine/types/identifiers.js";
 import type {
   NotifyDispatched,
   NotifyFn,
   NotifyOptions,
   NotifyResult,
+  Registry,
 } from "../engine/types/index.js";
 import { AccessDeniedError, FrameworkReasons } from "../errors/index.js";
 import type { AfterCommitHook } from "./dispatcher-utils.js";
@@ -23,6 +25,7 @@ export function assertNotifyTargetsOwnTenant(options: NotifyOptions, tenantId: T
 }
 
 type DeferringNotifyDeps = {
+  readonly registry: Pick<Registry, "getAllNotifications"> | undefined;
   readonly tenantId: TenantId;
   readonly notifyAfterCommit: NotifyFn;
   readonly notifyNow: NotifyFn;
@@ -32,7 +35,7 @@ type DeferringNotifyDeps = {
 // Without `immediate`, a notify inside a write transaction waits for the commit so a
 // rolled-back write leaves no notification behind.
 export function createDeferringNotify(deps: DeferringNotifyDeps): NotifyFn {
-  const { tenantId, notifyAfterCommit, notifyNow, scheduleAfterCommit } = deps;
+  const { registry, tenantId, notifyAfterCommit, notifyNow, scheduleAfterCommit } = deps;
   async function notifyDeferringUntilCommit(
     notificationType: string,
     options: NotifyOptions & { readonly immediate: true },
@@ -46,6 +49,8 @@ export function createDeferringNotify(deps: DeferringNotifyDeps): NotifyFn {
     options: NotifyOptions,
   ): Promise<NotifyResult> {
     assertNotifyTargetsOwnTenant(options, tenantId);
+    // Fail the write now: after the commit the problem would only surface in the render job.
+    if (registry) assertNotificationVariables(registry, notificationType, options.data);
     if (options.immediate === true) return notifyNow(notificationType, options);
     scheduleAfterCommit(async () => {
       await notifyAfterCommit(notificationType, options);

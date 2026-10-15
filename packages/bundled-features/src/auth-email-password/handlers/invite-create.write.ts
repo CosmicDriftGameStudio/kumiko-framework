@@ -55,12 +55,10 @@ import { GLOBAL_ROLE_OPTIONS } from "../../user/constants.js";
 import { userTable } from "../../user/schema/user.js";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants.js";
 import type { AuthMailLocale } from "../email-templates.js";
-import { renderInviteEmail } from "../email-templates.js";
 import { inviteAlreadyAccepted } from "../errors.js";
 import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store.js";
 import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
-
-const INVITE_NOTIFICATION_TYPE = "auth-email-password:invite";
+import { AuthMailNotificationTypes } from "../mail-notifications.js";
 
 type GlobalRole = (typeof GLOBAL_ROLE_OPTIONS)[number];
 
@@ -247,8 +245,8 @@ async function issueInvitation(
     ctx.notify,
     {
       handlerName: "invite-create",
-      notificationType: INVITE_NOTIFICATION_TYPE,
-      renderContent: (renderArgs) => renderInviteEmail({ ...renderArgs, role: request.role }),
+      notificationType: AuthMailNotificationTypes.invite,
+      fallbackAppName: "Workspace",
     },
     {
       email,
@@ -257,6 +255,7 @@ async function issueInvitation(
       expiresAt: expiresAt.toString(),
       issuedAt: issuedAt.toString(),
       timeZone: ctx.tz.user,
+      role: request.role,
       ...(opts.appName !== undefined && { appName: opts.appName }),
       locale,
     },

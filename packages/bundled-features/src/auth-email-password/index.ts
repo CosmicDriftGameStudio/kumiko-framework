@@ -21,23 +21,7 @@ export type {
 } from "./bootstrap.js";
 export { BootstrapPlanError, BootstrapWriteError, bootstrapTenants } from "./bootstrap.js";
 export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers, AuthQueries } from "./constants.js";
-// Renderers for the auth mails. All four magic-link flows (reset, verify,
-// signup-activation, invite) emit structured AuthMailContent through delivery
-// (ctx.notify).
-export type {
-  AuthMailContent,
-  AuthMailLocale,
-  AuthMailSection,
-  RenderInviteEmailArgs,
-  RenderTokenContentArgs,
-} from "./email-templates.js";
-export {
-  renderActivationEmail,
-  renderInviteEmail,
-  renderResetPasswordEmail,
-  renderUnlockAccountEmail,
-  renderVerifyEmail,
-} from "./email-templates.js";
+export type { AuthMailContent, AuthMailLocale } from "./email-templates.js";
 export type {
   AccountLockoutOptions,
   AccountUnlockOptions,
@@ -48,6 +32,7 @@ export type {
   SignupOptions,
 } from "./feature.js";
 export { authEmailPasswordEnvSchema, createAuthEmailPasswordFeature } from "./feature.js";
+export { AuthMailNotificationTypes } from "./mail-notifications.js";
 export {
   AUTH_SELF_REGISTRATION_FEATURE,
   createAuthSelfRegistrationToggleFeature,

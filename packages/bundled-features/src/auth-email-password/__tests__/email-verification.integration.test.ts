@@ -21,10 +21,8 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { hashPassword } from "../../shared/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
@@ -36,6 +34,7 @@ import { AuthErrors, AuthHandlers } from "../constants.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
 import { signResetToken } from "../reset-token.js";
 import { signVerificationToken } from "../verification-token.js";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 // Verify mails now go through delivery (ctx.notify → channel-email); the
 // in-memory transport captures what would be sent.
@@ -61,8 +60,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -111,6 +109,7 @@ beforeAll(async () => {
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedAuthMailTemplates(stack);
 });
 
 afterAll(async () => {
@@ -175,7 +174,8 @@ describe("POST /auth/request-email-verification", () => {
     const sent = emailTransport.sent[0];
     if (!sent) throw new Error("no email sent");
     expect(sent.to).toBe("fresh@example.com");
-    expect(sent.html).toContain(`${appVerifyUrl}?token=`);
+    expect(sent.text).toContain(`${appVerifyUrl}?token=`);
+    expect(sent.html).toContain(`${appVerifyUrl}?token&#x3D;`);
   });
 
   test("already-verified user → 200, NO mail (enumeration-safe)", async () => {

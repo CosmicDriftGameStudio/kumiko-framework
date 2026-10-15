@@ -43,6 +43,7 @@ export type {
   JobTrigger,
   NotificationDataFn,
   NotificationDefinition,
+  NotificationLocalizedTemplate,
   NotificationRecipientFn,
   NotificationTemplateBody,
   NotificationTemplateFn,

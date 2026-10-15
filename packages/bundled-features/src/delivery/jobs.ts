@@ -169,7 +169,14 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
   const tenantId = p.tenantId as TenantId; // @cast-boundary engine-payload — stream tenant
   const { db, registry } = requireTenantScopedDeps(ctx, tenantId);
   const channel = resolveChannel(registry, p.channelName);
-  const channelCtx = buildChannelContext(db, registry, undefined, tenantId, ctx.secrets);
+  const channelCtx = buildChannelContext(
+    db,
+    registry,
+    undefined,
+    tenantId,
+    ctx.secrets,
+    ctx.configFor?.(tenantId),
+  );
 
   let rendered: RenderedMessage;
   try {
@@ -200,7 +207,14 @@ export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
   const tenantId = p.tenantId as TenantId; // @cast-boundary engine-payload — stream tenant
   const { db, registry } = requireTenantScopedDeps(ctx, tenantId);
   const channel = resolveChannel(registry, p.channelName);
-  const channelCtx = buildChannelContext(db, registry, undefined, tenantId, ctx.secrets);
+  const channelCtx = buildChannelContext(
+    db,
+    registry,
+    undefined,
+    tenantId,
+    ctx.secrets,
+    ctx.configFor?.(tenantId),
+  );
 
   try {
     const result = await channel.send(p.address, toMessage(p), channelCtx, p.rendered);

@@ -12,9 +12,17 @@ import type {
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import type { MailPayload } from "../renderer-foundation/index.js";
 import { DELIVERY_CHANNEL_EXTENSION } from "./constants.js";
 
 // --- Channel Interface ---
+
+export type RenderedMail = {
+  readonly subject: string;
+  readonly html: string;
+  readonly text: string;
+  readonly previewText?: string;
+};
 
 export type ChannelContext = {
   readonly db: TenantDb;
@@ -24,6 +32,9 @@ export type ChannelContext = {
   // Chat channels read their per-tenant webhook URL / bot token from it.
   // Absent when no secrets feature/KEK is wired.
   readonly secrets?: SecretsContext | undefined;
+  // Renders a stored mail template. Lives on the context instead of going through
+  // `db` because the tenant-bound TenantDb cannot see system-owned templates.
+  readonly renderMail?: (payload: MailPayload) => Promise<RenderedMail>;
 };
 
 export type ChannelMessage = {

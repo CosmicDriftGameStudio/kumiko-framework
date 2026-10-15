@@ -74,7 +74,7 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     expect(runConfig).toContain("notesFeature");
   });
 
-  test("Step 3 (composeFeatures) — 3 explicit + 4 auto-mounted = 7 features", () => {
+  test("Step 3 (composeFeatures) — 3 explicit + 7 auto-mounted features", () => {
     // Reproduces the scaffolded APP_FEATURES in-process. notesFeature gets
     // a dummy defineFeature here — the scaffold-side of "notesFeature"
     // (file-content) is pinned in test 2; this test pins the runtime-side
@@ -95,8 +95,9 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     ];
 
     const composed = composeFeatures(APP_FEATURES, { includeBundled: true });
-    // 5 explicit + 4 auto-mounted bundled = 9 total features.
-    expect(composed.length).toBe(9);
+    // 5 explicit + 4 bundled + 3 auth mail stack (template-resolver, renderer-foundation,
+    // renderer-mail-html) = 12 total features.
+    expect(composed.length).toBe(12);
 
     const composedNames = composed.map((f) => f.name).sort();
     expect(composedNames).toEqual([
@@ -105,17 +106,20 @@ describe("walkthrough — DX-3.1 snapshot", () => {
       "config",
       "notes",
       "personal-access-tokens",
+      "renderer-foundation",
+      "renderer-mail-html",
       "secrets",
       "sessions",
+      "template-resolver",
       "tenant",
       "user",
     ]);
 
     // validateBoot must pass (no missing-requires, no schema-errors).
     expect(() => validateBoot(composed)).not.toThrow();
-    // Registry must contain all 9 features.
+    // Registry must contain all 12 features.
     const registry = createRegistry(composed);
-    expect(registry.features.size).toBe(9);
+    expect(registry.features.size).toBe(12);
   });
 
   test("bin/main.ts contains the auth.admin stub the walkthrough relies on", async () => {

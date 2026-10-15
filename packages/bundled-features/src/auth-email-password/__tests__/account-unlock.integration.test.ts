@@ -24,10 +24,8 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { hashPassword } from "../../shared/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
@@ -39,6 +37,7 @@ import { AuthErrors, AuthHandlers } from "../constants.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
 import { getLockoutState, type LockoutState } from "../lockout-store.js";
 import { signUnlockToken } from "../unlock-token.js";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 const emailTransport = createInMemoryTransport();
 
@@ -60,8 +59,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -104,6 +102,7 @@ beforeAll(async () => {
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedAuthMailTemplates(stack);
 });
 
 afterAll(async () => {
@@ -162,7 +161,8 @@ describe("POST /auth/request-account-unlock", () => {
     const sent = emailTransport.sent[0];
     if (!sent) throw new Error("no email sent");
     expect(sent.to).toBe("alice@example.com");
-    expect(sent.html).toContain(`${appUnlockUrl}?token=`);
+    expect(sent.text).toContain(`${appUnlockUrl}?token=`);
+    expect(sent.html).toContain(`${appUnlockUrl}?token&#x3D;`);
   });
 
   test("unknown email → 200 with NO mail sent (enumeration-safe)", async () => {

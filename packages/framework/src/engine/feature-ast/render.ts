@@ -546,9 +546,9 @@ function renderJob(p: JobPattern): string {
 function renderNotification(p: NotificationPattern): string {
   const lines: string[] = ["r.notification({"];
   lines.push(`  name: ${JSON.stringify(p.notificationName)},`);
-  lines.push(`  trigger: { on: ${JSON.stringify(p.trigger.on)} },`);
-  lines.push(`  recipient: ${p.recipientBody.raw},`);
-  lines.push(`  data: ${p.dataBody.raw},`);
+  if (p.trigger) lines.push(`  trigger: { on: ${JSON.stringify(p.trigger.on)} },`);
+  if (p.recipientBody) lines.push(`  recipient: ${p.recipientBody.raw},`);
+  if (p.dataBody) lines.push(`  data: ${p.dataBody.raw},`);
   if (p.templates && Object.keys(p.templates).length > 0) {
     lines.push("  templates: {");
     for (const [k, loc] of Object.entries(p.templates)) {

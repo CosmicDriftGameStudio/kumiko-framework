@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
-import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { renderResetPasswordEmail } from "../../auth-email-password/email-templates.js";
+import type { AuthMailContent } from "../../auth-email-password/index.js";
 import { createSimpleRenderer, type MailBranding, simpleRenderer } from "../simple-renderer.js";
-
-registerMailTranslations("de", localeDeBundle);
 
 const BRANDING: MailBranding = {
   productName: "PublicStatus",
@@ -14,16 +10,33 @@ const BRANDING: MailBranding = {
   footerLinks: [{ label: "Imprint", url: "https://example.com/imprint" }],
 };
 
+const RESET_CONTENT: Readonly<Record<string, AuthMailContent>> = {
+  en: {
+    subject: "PublicStatus — Reset your password",
+    header: "Reset password",
+    sections: [
+      { text: "Hi," },
+      { button: { label: "Reset password", url: "https://app.example/reset?token=abc" } },
+    ],
+    footer: "If you didn't request a reset, you can safely ignore this email.",
+  },
+  de: {
+    subject: "PublicStatus — Passwort zurücksetzen",
+    header: "Passwort zurücksetzen",
+    sections: [
+      { text: "Hallo," },
+      { button: { label: "Reset Passwort", url: "https://app.example/reset?token=abc" } },
+    ],
+    footer: "Wenn du kein Zurücksetzen angefordert hast, ignoriere diese E-Mail.",
+  },
+};
+
 async function renderResetMail(
   renderer: typeof simpleRenderer,
   locale: string,
 ): Promise<{ html: string; subject: string }> {
-  const content = renderResetPasswordEmail({
-    url: "https://app.example/reset?token=abc",
-    expiresAt: "2026-05-04T13:45:00.000Z",
-    locale,
-    appName: "PublicStatus",
-  });
+  const content = RESET_CONTENT[locale];
+  if (content === undefined) throw new Error(`no fixture for ${locale}`);
   const html = await renderer.render({ template: "auth.reset", variables: { ...content } });
   return { html, subject: content.subject };
 }

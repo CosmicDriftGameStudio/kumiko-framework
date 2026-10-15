@@ -671,6 +671,9 @@ export function resolveNotificationTriggersAndRegisterHooks(state: RegistryState
   // Done after all features are registered so cross-feature triggers work
   const allHandlerNames = allHandlerQns(state);
   for (const [qualifiedName, notifDef] of state.notificationMap) {
+    const { trigger, recipient, data: buildData } = notifDef;
+    // Trigger-less notifications are only sent explicitly via ctx.notify.
+    if (trigger === undefined || recipient === undefined || buildData === undefined) continue;
     // Both maps are populated in lockstep — same key-set by construction.
     const featureName = state.notificationFeatureMap.get(qualifiedName) as string; // @cast-boundary engine-bridge
     // I'll try the easy path first: if the trigger is already a fully qualified QN
@@ -678,21 +681,21 @@ export function resolveNotificationTriggersAndRegisterHooks(state: RegistryState
     // as a write handler first (the common case), then as a query. If nothing
     // matches by then, it was a typo and I'll say so.
     let triggerOn: string;
-    if (allHandlerNames.has(notifDef.trigger.on)) {
-      triggerOn = notifDef.trigger.on;
+    if (allHandlerNames.has(trigger.on)) {
+      triggerOn = trigger.on;
     } else {
       // Try as write handler first (most common), then query
-      const writeQn = qualify(featureName, "write", notifDef.trigger.on);
-      const queryQn = qualify(featureName, "query", notifDef.trigger.on);
+      const writeQn = qualify(featureName, "write", trigger.on);
+      const queryQn = qualify(featureName, "query", trigger.on);
       if (allHandlerNames.has(writeQn)) {
         triggerOn = writeQn;
       } else if (allHandlerNames.has(queryQn)) {
         triggerOn = queryQn;
       } else {
         throw new Error(
-          `Notification "${qualifiedName}" triggers on "${notifDef.trigger.on}" ` +
+          `Notification "${qualifiedName}" triggers on "${trigger.on}" ` +
             `but no handler with that name exists. ` +
-            `Tried: "${notifDef.trigger.on}", "${writeQn}", and "${queryQn}"`,
+            `Tried: "${trigger.on}", "${writeQn}", and "${queryQn}"`,
         );
       }
     }
@@ -710,14 +713,14 @@ export function resolveNotificationTriggersAndRegisterHooks(state: RegistryState
           );
           return;
         }
-        const to = notifDef.recipient(result);
+        const to = recipient(result);
         if (to === null) {
           context.log?.debug(
             `notification ${qualifiedName}: skipping — recipient resolver returned null for result ${result.id}`,
           );
           return;
         }
-        const data = notifDef.data(result);
+        const data = buildData(result);
         await context.notify(qualifiedName, { to, data });
       },
     });

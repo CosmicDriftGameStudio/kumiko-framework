@@ -15,10 +15,15 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createSessionsFeature,
   userSessionEntity,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import {
+  createTemplateResolverFeature,
+  templateResourceEntity,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
 import {
   createRedisSseBroker,
@@ -53,6 +58,7 @@ import {
 import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { Queue } from "bullmq";
 import postgres from "postgres";
 import * as z from "zod";
@@ -238,6 +244,7 @@ async function migrateTestDb(): Promise<void> {
     await unsafeEnsureEntityTable(db, widgetEntity, "widget");
     await unsafeEnsureEntityTable(db, userEntity, "user");
     await unsafeEnsureEntityTable(db, userSessionEntity, "user-session");
+    await unsafeEnsureEntityTable(db, templateResourceEntity, "template-resource");
     await asRawClient(db).unsafe(
       `CREATE TABLE IF NOT EXISTS prod_probe_pings (
          id BIGSERIAL PRIMARY KEY,
@@ -1314,6 +1321,9 @@ describe("runProdApp — session boot gate (#1262/#1275)", () => {
         authFoundationFeature,
         createPersonalAccessTokensFeature({ scopes: {} }),
         createSessionsFeature(),
+        createTemplateResolverFeature(),
+        createRendererFoundationFeature(),
+        createRendererMailHtmlFeature(),
       ],
       auth: {
         admin: ADMIN,

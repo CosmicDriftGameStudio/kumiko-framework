@@ -50,6 +50,7 @@ import {
   simpleRenderer,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
 import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/testing";
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -64,6 +65,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { deleteRows } from "@cosmicdrift/kumiko-framework/testing";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { buildComposeAuthOptions, composeFeatures } from "../compose-features.js";
 import type { RunProdAppAuthOptions } from "../run-prod-app.js";
 import { resolveAuthMail } from "../run-prod-app-boot-context.js";
@@ -79,13 +81,12 @@ const APP_VERIFY_URL = "https://app.example.com/verify-email";
 const TEST_TENANT_ID: TenantId = "00000000-0000-4000-8000-000000000001" as TenantId;
 const systemAdmin = TestUsers.systemAdmin;
 
-// Pulls the magic-link out of the rendered mail HTML — the renderer-simple
-// button carries it as the only href. Replaces the old callback-captured
-// resetUrl now that reset/verify mail via delivery.
-function tokenUrlFromHtml(html: string): URL {
-  const match = html.match(/href="([^"]*\?token=[^"]*)"/);
-  if (!match?.[1]) throw new Error("no magic-link href in mail html");
-  return new URL(match[1]);
+// Pulls the magic-link out of the mail's text part, where the URL appears
+// verbatim (the HTML part entity-encodes "=" inside the href).
+function tokenUrlFromMailText(text: string): URL {
+  const match = text.match(/https?:\/\/[^\s\]]*\?token=[^\s\]]*/);
+  if (!match) throw new Error("no magic-link url in mail text");
+  return new URL(match[0]);
 }
 
 async function bootStack(
@@ -100,6 +101,7 @@ async function bootStack(
     [
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -157,6 +159,7 @@ async function bootStack(
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedNotificationTemplates(stack.db, stack.registry);
 
   return { stack, emailTransport };
 }
@@ -193,6 +196,7 @@ async function bootMailConventionStack(
     [
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -230,6 +234,7 @@ async function bootMailConventionStack(
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedNotificationTemplates(stack.db, stack.registry);
 
   return { stack, emailTransport };
 }
@@ -293,7 +298,7 @@ describe("composeFeatures wiring — passwordReset", () => {
     // Token aus der Mail-URL extrahieren — wie der echte User es täte (Mail
     // klicken, Browser parsed query-string). Das pinst den vollen
     // URL-zu-Handler-Roundtrip über delivery.
-    const resetUrl = tokenUrlFromHtml(sent.html);
+    const resetUrl = tokenUrlFromMailText(sent.text ?? "");
     expect(`${resetUrl.origin}${resetUrl.pathname}`).toBe(APP_RESET_URL);
     const token = resetUrl.searchParams.get("token");
     expect(token).toBeTruthy();
@@ -360,7 +365,7 @@ describe("composeFeatures wiring — emailVerification", () => {
     const sent = suite.emailTransport.sent[0];
     if (!sent) throw new Error("no verification email sent");
     expect(sent.to).toBe("bob@example.com");
-    const verifyUrl = tokenUrlFromHtml(sent.html);
+    const verifyUrl = tokenUrlFromMailText(sent.text ?? "");
     expect(`${verifyUrl.origin}${verifyUrl.pathname}`).toBe(APP_VERIFY_URL);
     expect(verifyUrl.searchParams.get("token")).toBeTruthy();
   });
@@ -567,7 +572,7 @@ describe("composeFeatures wiring — auth.mail convenience locale + secret", () 
     expect(res.status).toBe(200);
     const sent = suite.emailTransport.sent[0];
     if (!sent) throw new Error("no email sent");
-    const resetUrl = tokenUrlFromHtml(sent.html);
+    const resetUrl = tokenUrlFromMailText(sent.text ?? "");
     expect(resetUrl.pathname).toBe("/de/reset-password");
     const token = resetUrl.searchParams.get("token");
     if (!token) throw new Error("no token in mail link");
@@ -590,7 +595,7 @@ describe("composeFeatures wiring — auth.mail convenience locale + secret", () 
     expect(res.status).toBe(200);
     const sent = suite.emailTransport.sent[0];
     if (!sent) throw new Error("no email sent");
-    expect(tokenUrlFromHtml(sent.html).pathname).toBe("/reset-password");
+    expect(tokenUrlFromMailText(sent.text ?? "").pathname).toBe("/reset-password");
   });
 
   test("a token signed with the resolveAuthMail call-site secret is rejected", async () => {

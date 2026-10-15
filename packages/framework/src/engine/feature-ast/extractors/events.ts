@@ -281,53 +281,65 @@ export function extractNotification(
       );
     }
   }
-  const triggerObj = defObj
-    .getProperty("trigger")
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer()
-    ?.asKind(SyntaxKind.ObjectLiteralExpression);
-  if (!triggerObj) {
+  const triggerProp = defObj.getProperty("trigger");
+  if (!triggerProp && (defObj.getProperty("recipient") || defObj.getProperty("data"))) {
     return fail(
       "notification",
       sourceLocationFromNode(call, sourceFile),
-      "missing or non-object `trigger` property",
+      "recipient and data require a `trigger`",
     );
   }
-  const onInit = triggerObj
-    .getProperty("on")
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer();
-  const onName = onInit ? readNameOrRef(onInit) : undefined;
-  if (!onName) {
-    return fail(
-      "notification",
-      sourceLocationFromNode(call, sourceFile),
-      "trigger.on must be a string literal or inline { name } object",
-    );
-  }
-  const recipientInit = defObj
-    .getProperty("recipient")
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer();
-  const recipientFn = recipientInit ? findFunctionLiteral(recipientInit) : undefined;
-  if (!recipientFn) {
-    return fail(
-      "notification",
-      sourceLocationFromNode(call, sourceFile),
-      "recipient must be an inline arrow function or function expression",
-    );
-  }
-  const dataInit = defObj
-    .getProperty("data")
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer();
-  const dataFn = dataInit ? findFunctionLiteral(dataInit) : undefined;
-  if (!dataFn) {
-    return fail(
-      "notification",
-      sourceLocationFromNode(call, sourceFile),
-      "data must be an inline arrow function or function expression",
-    );
+  let onName: string | undefined;
+  let recipientFn: ReturnType<typeof findFunctionLiteral>;
+  let dataFn: ReturnType<typeof findFunctionLiteral>;
+  if (triggerProp) {
+    const triggerObj = triggerProp
+      .asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer()
+      ?.asKind(SyntaxKind.ObjectLiteralExpression);
+    if (!triggerObj) {
+      return fail(
+        "notification",
+        sourceLocationFromNode(call, sourceFile),
+        "non-object `trigger` property",
+      );
+    }
+    const onInit = triggerObj
+      .getProperty("on")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    onName = onInit ? readNameOrRef(onInit) : undefined;
+    if (!onName) {
+      return fail(
+        "notification",
+        sourceLocationFromNode(call, sourceFile),
+        "trigger.on must be a string literal or inline { name } object",
+      );
+    }
+    const recipientInit = defObj
+      .getProperty("recipient")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    recipientFn = recipientInit ? findFunctionLiteral(recipientInit) : undefined;
+    if (!recipientFn) {
+      return fail(
+        "notification",
+        sourceLocationFromNode(call, sourceFile),
+        "recipient must be an inline arrow function or function expression",
+      );
+    }
+    const dataInit = defObj
+      .getProperty("data")
+      ?.asKind(SyntaxKind.PropertyAssignment)
+      ?.getInitializer();
+    dataFn = dataInit ? findFunctionLiteral(dataInit) : undefined;
+    if (!dataFn) {
+      return fail(
+        "notification",
+        sourceLocationFromNode(call, sourceFile),
+        "data must be an inline arrow function or function expression",
+      );
+    }
   }
   let templates: Record<string, SourceLocation> | undefined;
   const templatesObj = defObj
@@ -351,9 +363,11 @@ export function extractNotification(
     kind: "notification",
     source: sourceLocationFromNode(call, sourceFile),
     notificationName,
-    trigger: { on: onName },
-    recipientBody: sourceLocationFromNode(recipientFn, sourceFile),
-    dataBody: sourceLocationFromNode(dataFn, sourceFile),
+    ...(onName !== undefined && { trigger: { on: onName } }),
+    ...(recipientFn !== undefined && {
+      recipientBody: sourceLocationFromNode(recipientFn, sourceFile),
+    }),
+    ...(dataFn !== undefined && { dataBody: sourceLocationFromNode(dataFn, sourceFile) }),
     ...(templates !== undefined && { templates }),
   });
 }

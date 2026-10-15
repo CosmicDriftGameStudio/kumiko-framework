@@ -49,6 +49,9 @@ describe("implicitAuthModeFeatureNames", () => {
     expect([...implicitAuthModeFeatureNames()].sort()).toEqual([
       "auth-email-password",
       "config",
+      "renderer-foundation",
+      "renderer-mail-html",
+      "template-resolver",
       "tenant",
       "user",
     ]);

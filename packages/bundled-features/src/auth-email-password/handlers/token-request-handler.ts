@@ -19,11 +19,7 @@ import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { UserQueries } from "../../user/index.js";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.js";
-import type {
-  AuthMailContent,
-  AuthMailLocale,
-  RenderTokenContentArgs,
-} from "../email-templates.js";
+import type { AuthMailLocale } from "../email-templates.js";
 import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
 
 const RequestTokenSchema = z.object({
@@ -67,13 +63,9 @@ export type TokenRequestSpec<TName extends string, TSuccessKind extends string> 
   // soft-deleted". Verification skips when emailVerified is already true;
   // password-reset has no extra condition (returns false).
   readonly extraSilentSkip: (user: AuthUserRow) => boolean;
-  // Notification type dispatched via ctx.notify on success. No r.notification
-  // is declared (the recipient is an anonymous email, not a userId) — the
-  // route:{email} path delivers directly and buildMessage falls back to data.
+  // Trigger-less r.notification dispatched via ctx.notify on success; the
+  // recipient is an anonymous email, so route:{email} delivers directly.
   readonly notificationType: string;
-  // Builds the structured mail body from the magic-link + expiry. Per-flow
-  // (renderResetPasswordEmail / renderVerifyEmail).
-  readonly renderContent: (args: RenderTokenContentArgs) => AuthMailContent;
 };
 
 export type TokenRequestOptions = {
@@ -154,7 +146,6 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
         {
           handlerName: spec.handlerName,
           notificationType: spec.notificationType,
-          renderContent: spec.renderContent,
         },
         {
           // Row value is ciphertext with an active KMS; the byte-exact

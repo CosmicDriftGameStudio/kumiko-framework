@@ -32,10 +32,8 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { decryptStoredPii, hashPassword } from "../../shared/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature, TenantHandlers } from "../../tenant/index.js";
 import {
   INVITATION_STATUS,
@@ -54,6 +52,7 @@ import {
 import { AuthErrors, AuthHandlers } from "../constants.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
 import { seedUser } from "../seeding.js";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";
 const BOB_EMAIL = "bob.kms@example.com";
@@ -71,9 +70,9 @@ let bobId: string;
 let TENANT_A_ID: TenantId;
 let TENANT_B_ID: TenantId;
 
-function extractTokenFromMail(html: string): string {
-  const match = html.match(/[?&]token=([^&"'<\s]+)/);
-  if (!match?.[1]) throw new Error(`No token in invite mail html: ${html.slice(0, 200)}`);
+function extractTokenFromMail(text: string): string {
+  const match = text.match(/[?&]token=([^&"'<\s\]]+)/);
+  if (!match?.[1]) throw new Error(`No token in invite mail text: ${text.slice(0, 200)}`);
   return decodeURIComponent(match[1]);
 }
 
@@ -83,8 +82,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -119,6 +117,7 @@ beforeAll(async () => {
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedAuthMailTemplates(stack);
 });
 
 afterAll(async () => {
@@ -195,7 +194,7 @@ async function inviteEmail(email: string, role: string): Promise<string> {
   await stack.http.writeOk(AuthHandlers.inviteCreate, { email, role }, aliceSession());
   const sent = emailTransport.sent.at(-1);
   if (!sent) throw new Error("invite-create didn't send a mail");
-  return extractTokenFromMail(sent.html);
+  return extractTokenFromMail(sent.text ?? "");
 }
 
 async function rawUserRow(id: string): Promise<Record<string, unknown>> {

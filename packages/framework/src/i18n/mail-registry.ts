@@ -10,6 +10,15 @@ export function registerMailTranslations(
   tables.set(locale, { ...prev, ...bundle });
 }
 
+export function listMailLocales(): readonly string[] {
+  return [...tables.keys()];
+}
+
+// Own key only, without the root/en fallback mailT applies.
+export function hasMailTranslationKey(locale: string, key: string): boolean {
+  return tables.get(locale)?.[key] !== undefined;
+}
+
 export function hasMailTranslations(locale: string): boolean {
   const root = locale.split("-")[0] ?? locale;
   return tables.has(locale) || tables.has(root);

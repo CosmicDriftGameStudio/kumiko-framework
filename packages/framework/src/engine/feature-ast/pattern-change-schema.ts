@@ -698,9 +698,9 @@ const notificationSchema = z
     kind: z.literal("notification"),
     source: sourceFieldSchema,
     notificationName: z.string(),
-    trigger: z.object({ on: z.string() }).strict(),
-    recipientBody: sourceBodySchema,
-    dataBody: sourceBodySchema,
+    trigger: z.object({ on: z.string() }).strict().optional(),
+    recipientBody: sourceBodySchema.optional(),
+    dataBody: sourceBodySchema.optional(),
     templates: z.record(z.string(), sourceBodySchema).optional(),
   })
   .strict();

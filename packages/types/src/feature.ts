@@ -11,6 +11,7 @@ import type {
   JobHandlerFn,
   NotificationDataFn,
   NotificationDefinition,
+  NotificationLocalizedTemplate,
   NotificationRecipientFn,
   NotificationTemplateBody,
   NotificationTemplateFn,
@@ -631,24 +632,26 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   notification(
     name: string,
     definition: {
-      readonly trigger: { readonly on: NameOrRef };
-      readonly recipient: NotificationRecipientFn;
-      readonly data: NotificationDataFn;
+      readonly trigger?: { readonly on: NameOrRef };
+      readonly recipient?: NotificationRecipientFn;
+      readonly data?: NotificationDataFn;
       readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
       readonly variables?: TemplateVariables;
       readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
       readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
+      readonly localizedTemplate?: () => NotificationLocalizedTemplate;
     },
   ): void;
   notification(definition: {
     readonly name: string;
-    readonly trigger: { readonly on: NameOrRef };
-    readonly recipient: NotificationRecipientFn;
-    readonly data: NotificationDataFn;
+    readonly trigger?: { readonly on: NameOrRef };
+    readonly recipient?: NotificationRecipientFn;
+    readonly data?: NotificationDataFn;
     readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
     readonly variables?: TemplateVariables;
     readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
     readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
+    readonly localizedTemplate?: () => NotificationLocalizedTemplate;
   }): void;
 
   translations(def: TranslationsDef): void;

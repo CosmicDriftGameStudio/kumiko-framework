@@ -9,12 +9,15 @@
 
 import { describe, expect, spyOn, test } from "bun:test";
 import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
+import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   defineFeature,
   EXT_ASSIGNABLE_ROLE,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { composeFeatures } from "../compose-features.js";
 
 const noopFeature = defineFeature("noop-app", () => {});
@@ -32,15 +35,47 @@ describe("composeFeatures", () => {
     expect(features.map((f) => f.name)).toEqual(["noop-app"]);
   });
 
-  test("includeBundled=true → 4 bundled Features davor", () => {
+  test("includeBundled=true → bundled Features and the auth mail stack before the app", () => {
     const features = composeFeatures([noopFeature], { includeBundled: true });
     expect(features.map((f) => f.name)).toEqual([
       "config",
       "user",
       "tenant",
       "auth-email-password",
+      "template-resolver",
+      "renderer-foundation",
+      "renderer-mail-html",
       "noop-app",
     ]);
+  });
+
+  test("the auth mail stack the app already mounts is not added twice", () => {
+    const features = composeFeatures(
+      [
+        createTemplateResolverFeature(),
+        createRendererFoundationFeature(),
+        createRendererMailHtmlFeature(),
+        noopFeature,
+      ],
+      {
+        includeBundled: true,
+      },
+    );
+    const names = features.map((f) => f.name);
+    for (const name of ["template-resolver", "renderer-foundation", "renderer-mail-html"]) {
+      expect(names.filter((n) => n === name)).toHaveLength(1);
+    }
+    expect(() => validateBoot(features)).not.toThrow();
+  });
+
+  test("an app mounting only the template-resolver gets the two renderer features", () => {
+    const features = composeFeatures([createTemplateResolverFeature(), noopFeature], {
+      includeBundled: true,
+    });
+    const names = features.map((f) => f.name);
+    expect(names.filter((n) => n === "template-resolver")).toHaveLength(1);
+    expect(names).toContain("renderer-foundation");
+    expect(names).toContain("renderer-mail-html");
   });
 
   test("includeBundled threads app-declared assignable roles into the tenant screens", () => {
@@ -224,6 +259,9 @@ describe("composeFeatures", () => {
       "user",
       "tenant",
       "auth-email-password",
+      "template-resolver",
+      "renderer-foundation",
+      "renderer-mail-html",
       "noop-app",
     ]);
     // The kept instance is the bundled one — confirmed by the presence of

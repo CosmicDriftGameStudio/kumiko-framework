@@ -28,6 +28,7 @@ import type {
   MetricOptions,
   NameOrRef,
   NotificationDataFn,
+  NotificationLocalizedTemplate,
   NotificationRecipientFn,
   NotificationTemplateBody,
   NotificationTemplateFn,
@@ -311,22 +312,24 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       notificationNameOrDefinition:
         | string
         | ({ readonly name: string } & {
-            readonly trigger: { readonly on: NameOrRef };
-            readonly recipient: NotificationRecipientFn;
-            readonly data: NotificationDataFn;
+            readonly trigger?: { readonly on: NameOrRef };
+            readonly recipient?: NotificationRecipientFn;
+            readonly data?: NotificationDataFn;
             readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
             readonly variables?: TemplateVariables;
             readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
             readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
+            readonly localizedTemplate?: () => NotificationLocalizedTemplate;
           }),
       definition?: {
-        readonly trigger: { readonly on: NameOrRef };
-        readonly recipient: NotificationRecipientFn;
-        readonly data: NotificationDataFn;
+        readonly trigger?: { readonly on: NameOrRef };
+        readonly recipient?: NotificationRecipientFn;
+        readonly data?: NotificationDataFn;
         readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
         readonly variables?: TemplateVariables;
         readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
         readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
+        readonly localizedTemplate?: () => NotificationLocalizedTemplate;
       },
     ): void {
       const [notificationName, resolvedDefinition] =
@@ -335,9 +338,13 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           : splitNamedDefinition(notificationNameOrDefinition);
       state.notifications[notificationName] = {
         name: notificationName,
-        trigger: { on: resolveName(resolvedDefinition.trigger.on) },
-        recipient: resolvedDefinition.recipient,
-        data: resolvedDefinition.data,
+        ...(resolvedDefinition.trigger !== undefined
+          ? { trigger: { on: resolveName(resolvedDefinition.trigger.on) } }
+          : {}),
+        ...(resolvedDefinition.recipient !== undefined
+          ? { recipient: resolvedDefinition.recipient }
+          : {}),
+        ...(resolvedDefinition.data !== undefined ? { data: resolvedDefinition.data } : {}),
         templates: resolvedDefinition.templates,
         ...(resolvedDefinition.variables !== undefined
           ? { variables: resolvedDefinition.variables }
@@ -346,6 +353,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           ? { template: resolvedDefinition.template }
           : {}),
         ...(resolvedDefinition.meta !== undefined ? { meta: resolvedDefinition.meta } : {}),
+        ...(resolvedDefinition.localizedTemplate !== undefined
+          ? { localizedTemplate: resolvedDefinition.localizedTemplate }
+          : {}),
       };
     },
     translations(def: TranslationsDef): void {

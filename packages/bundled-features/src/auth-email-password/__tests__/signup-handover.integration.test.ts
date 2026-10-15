@@ -36,9 +36,7 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
@@ -48,6 +46,7 @@ import { createUserFeature } from "../../user/feature.js";
 import { userEntity, userTable } from "../../user/schema/user.js";
 import { AuthHandlers } from "../constants.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 const GRANT_SECRET = "signup-handover-test-secret-min-32-chars-long-enough";
 const CLAIM_QN = "tenant-handover:write:claim";
@@ -117,8 +116,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -162,6 +160,7 @@ beforeAll(async () => {
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedAuthMailTemplates(stack);
 });
 
 afterAll(async () => {
@@ -245,9 +244,9 @@ async function postSignupConfirm(token: string, password: string): Promise<Respo
   return stack.http.raw("POST", "/api/auth/signup-confirm", { token, password });
 }
 
-function extractTokenFromMail(html: string): string {
-  const match = html.match(/[?&]token=([^&"'<\s]+)/);
-  if (!match?.[1]) throw new Error(`No token in mail html: ${html.slice(0, 200)}`);
+function extractTokenFromMail(text: string): string {
+  const match = text.match(/[?&]token=([^&"'<\s\]]+)/);
+  if (!match?.[1]) throw new Error(`No token in mail text: ${text.slice(0, 200)}`);
   return decodeURIComponent(match[1]);
 }
 
@@ -257,7 +256,7 @@ async function requestSignupAndCaptureToken(body: unknown): Promise<string> {
   expect(res.status).toBe(200);
   const sent = emailTransport.sent[0];
   if (!sent) throw new Error("signup-request fixture didn't send mail");
-  return extractTokenFromMail(sent.html);
+  return extractTokenFromMail(sent.text ?? "");
 }
 
 describe("cross-device try-first handover :: signup-request + signup-confirm", () => {
