@@ -2199,12 +2199,13 @@ function EntityListBody({
 }): ReactNode {
   const isEmbeddedScreen = useIsEmbeddedScreen();
   const featureName = schema.featureName;
-  const onCreate = useNavigateToCreateFor(
+  const resolvedCreate = useNavigateToCreateFor(
     schema,
     screen.entity,
     screen.createScreen,
     screen.createUnavailable,
   );
+  const onCreate = screen.allowCreate === false ? undefined : resolvedCreate;
   const { Banner } = usePrimitives();
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
   const nav = useNav();

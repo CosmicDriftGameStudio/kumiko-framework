@@ -537,6 +537,8 @@ export type EntityListScreenDefinition = {
   readonly createScreen?: string;
   /** Set by the role projection when `createScreen` is not reachable for the role: the renderer then shows no create button instead of falling back to the entity's edit screen. Not for app authors. */
   readonly createUnavailable?: boolean;
+  /** `false` hides this list's "+ New" button (and the empty-state create CTA) while the entity's edit screen keeps its create branch for other entry points, e.g. a prefilled action. Default `true`. */
+  readonly allowCreate?: boolean;
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
   // from `columns`. cardRenderer fills the same role on compact layouts.

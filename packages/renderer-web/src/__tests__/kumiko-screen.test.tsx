@@ -3316,6 +3316,36 @@ describe("KumikoScreen: update-only entityEdit (allowCreate/allowDelete)", () =>
     expect(screen.queryByTestId("render-list-create")).toBeNull();
   });
 
+  test("entityList allowCreate:false hides + Neu while the edit screen keeps its create branch", async () => {
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows: [], nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+    });
+    const renderList = async (list: typeof listScreen) => {
+      const view = render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{
+              featureName: "tasks",
+              entities: { task: taskEntity },
+              screens: [{ ...updateOnlyEdit, allowCreate: undefined }, list],
+            }}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>,
+      );
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+      return view;
+    };
+    const hidden = await renderList({ ...listScreen, allowCreate: false });
+    expect(screen.queryByTestId("render-list-create")).toBeNull();
+    hidden.unmount();
+    await renderList(listScreen);
+    expect(screen.getByTestId("render-list-create")).toBeTruthy();
+  });
+
   test("allowCreate:false → Aufruf ohne entityId zeigt Fehler-Banner statt Create-Form", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
