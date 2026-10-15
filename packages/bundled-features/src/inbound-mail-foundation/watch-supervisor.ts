@@ -228,8 +228,11 @@ export function createInboundMailSupervisor(
             requestId: "inbound-mail-foundation:supervisor:list-accounts",
           })
         : row;
-      const decryptedAddress =
-        typeof decrypted["address"] === "string" ? decrypted["address"] : row.address;
+      const decryptedAddress = decrypted["address"];
+      // Falling back to row.address would hand the ciphertext to a provider.
+      if (typeof decryptedAddress !== "string") {
+        throw new Error(`inbound-mail: address of mail account ${row.id} did not decrypt to text`);
+      }
       records.push({
         id: row.id,
         tenantId: row.tenantId,
