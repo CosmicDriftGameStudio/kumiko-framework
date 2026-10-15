@@ -1,331 +1,201 @@
 {
   "format": 2,
-  "generated": "2026-06-03",
-  "totalSuspect": 349,
+  "generated": "2026-10-15",
+  "totalSuspect": 193,
   "perFile": {
-    "../kumiko-enterprise/packages/ai-foundation/src/eval/metrics/pattern-shape-match.ts": {
-      "Record<string, unknown>": 2
+    "packages/bundled-features/src/auth-email-password/handlers/switch-tenant-mfa-gate.write.ts": {
+      "TenantId": 1
     },
-    "../kumiko-enterprise/packages/ai-foundation/src/feature.ts": {
+    "packages/bundled-features/src/billing-foundation/checkout-core.ts": {
+      "SubscriptionProviderPlugin": 1
+    },
+    "packages/bundled-features/src/billing-foundation/tenant-destroy-hook.ts": {
+      "EntityTableMeta": 4
+    },
+    "packages/bundled-features/src/billing-foundation/webhook-handler.ts": {
+      "import(\"@cosmicdrift/kumiko-framework/engine\").TenantId": 1,
+      "SubscriptionProviderPlugin | undefined": 1
+    },
+    "packages/bundled-features/src/cap-overview/handlers/caps-usage.query.ts": {
+      "TenantId": 1
+    },
+    "packages/bundled-features/src/cap-overview/handlers/tenant-caps-list.query.ts": {
+      "TenantId": 1
+    },
+    "packages/bundled-features/src/config/handlers/set.write.ts": {
+      "Exclude<typeof scope, \"system\">": 1
+    },
+    "packages/bundled-features/src/crypto-shredding/handlers/forget-subject.write.ts": {
+      "TenantId": 1
+    },
+    "packages/bundled-features/src/data-retention/run-retention-cleanup.ts": {
+      "EntityId": 2
+    },
+    "packages/bundled-features/src/files-tenant-data/handlers/sweep-orphaned-derivatives.job.ts": {
+      "TenantId": 1
+    },
+    "packages/bundled-features/src/inbound-mail-foundation/connect-routes.ts": {
+      "{ accountId?: unknown } | undefined": 1
+    },
+    "packages/bundled-features/src/inbound-mail-foundation/retention-sweep.ts": {
+      "EntityTableMeta": 1
+    },
+    "packages/bundled-features/src/inbound-provider-imap/feature.ts": {
+      "MailboxObject": 2
+    },
+    "packages/bundled-features/src/inbound-provider-imap/imap-client.ts": {
       "string": 1
     },
-    "../kumiko-enterprise/packages/ai-foundation/src/prompt/corpus.ts": {
-      "{ entries?: CorpusEntry[] }": 1
+    "packages/bundled-features/src/managed-pages/feature.ts": {
+      "BySlugQueryResult": 1
     },
-    "../kumiko-enterprise/packages/ai-patch/src/handler.ts": {
-      "readonly Record<string, unknown>[]": 1,
+    "packages/bundled-features/src/personal-access-tokens/index.ts": {
+      "PatRateLimit": 1
+    },
+    "packages/bundled-features/src/seo/feature.ts": {
+      "{ pages?: readonly { slug: string; title: string; updatedAt:": 1,
+      "Partial<SeoConfigValues>": 1
+    },
+    "packages/bundled-features/src/shared/map-with-concurrency.ts": {
+      "T": 1
+    },
+    "packages/bundled-features/src/shared/run-in-sub-transaction.ts": {
+      "{ begin?: (f: (tx: DbRunner) => Promise<T>) => Promise<T>; s": 1
+    },
+    "packages/bundled-features/src/template-resolver/seeding.ts": {
+      "EntityTableMeta": 1,
+      "Partial<TemplateResourceRow>": 1
+    },
+    "packages/bundled-features/src/tenant-lifecycle/run-tenant-destroy.ts": {
+      "TenantId": 2
+    },
+    "packages/bundled-features/src/tenant-settings/tenant-defaults.ts": {
+      "{ amount?: number; currency?: string } | undefined": 1,
       "Record<string, unknown>": 1
     },
-    "../kumiko-enterprise/packages/ai-provider-anthropic/src/anthropic.ts": {
-      "Anthropic.Tool[\"input_schema\"]": 1,
-      "Readonly<Record<string, unknown>>": 1
+    "packages/bundled-features/src/tenant/seeding.ts": {
+      "{ hasFeature?: (n: string) => Promise<boolean> }": 1,
+      "{ user?: SessionUser }": 1,
+      "| (((tenantId: TenantId) => ReadonlySet<string>) & { trialGa": 1
     },
-    "../kumiko-enterprise/packages/ai-provider-anthropic/src/feature.ts": {
-      "AnthropicEffort": 1,
-      "number": 1
-    },
-    "../kumiko-enterprise/packages/ai-provider-openai-compat/src/feature.ts": {
-      "number": 1,
-      "string": 1
-    },
-    "../kumiko-enterprise/packages/ai-provider-openai-compat/src/openai-compat.ts": {
-      "OpenAIChatCompletionResponse": 1,
-      "Readonly<Record<string, unknown>>": 1
-    },
-    "../kumiko-enterprise/packages/designer/src/feature.ts": {
-      "{ source?: unknown }": 1,
-      "{ version?: unknown }": 1,
-      "readonly PatternChange[]": 1
-    },
-    "../kumiko-enterprise/packages/designer/src/web/api-fetch.ts": {
-      "T": 2,
-      "WireBody": 1
-    },
-    "../kumiko-enterprise/packages/designer/src/web/feature-view.tsx": {
-      "FeaturePatternKind": 1,
-      "PatternLibrary": 1,
-      "Record<string, unknown>": 1
-    },
-    "../kumiko-enterprise/packages/designer/src/web/pattern-form.tsx": {
-      "{ raw: unknown }": 1,
-      "Record<\n              string,\n              unknown\n        ": 1,
-      "Record<string, unknown>": 7
-    },
-    "../kumiko-enterprise/packages/designer/src/web/pattern-update.ts": {
-      "Record<string, unknown>": 3
-    },
-    "../kumiko-enterprise/packages/publish/src/build.ts": {
-      "{ stderr?: unknown }": 1
-    },
-    "../kumiko-enterprise/packages/publish/src/feature.ts": {
-      "{\n          workspaces?: unknown;\n        }": 1,
-      "{\n    id?: unknown;\n    version?: unknown;\n    path?: unknow": 1,
-      "{ path?: unknown }": 1,
-      "{ rows?: unknown }": 2,
-      "{ source?: unknown }": 1
-    },
-    "../kumiko-enterprise/packages/publish/src/rollback.ts": {
-      "{ changes?: unknown }": 1,
-      "{ path?: unknown; source?: unknown }": 2,
-      "readonly { timestamp: Date; eventCount: number }[]": 1
-    },
-    "../kumiko-enterprise/packages/publish/src/validate.ts": {
-      "{\n    category?: unknown;\n    description?: unknown;\n    loc": 1,
-      "{ diagnostics?: unknown }": 1,
-      "{ start?: { line?: unknown; column?: unknown } }": 1,
-      "{ stdout?: unknown }": 1
-    },
-    "../kumiko-enterprise/packages/renderer-puppeteer-client/src/http-client.ts": {
-      "{ error?: string; details?: string }": 1
-    },
-    "../kumiko-platform/tools/docgen/src/generators/reasons.ts": {
-      "I18nFile": 1,
-      "unknown": 1
-    },
-    "../publicstatus/src/features/publicstatus/handlers/page-current.query.ts": {
-      "Record<string, unknown>": 2,
-      "unknown": 1
-    },
-    "packages/bundled-features/src/auth-email-password/web/invite-accept-screen.tsx": {
-      "{ tenantId: string }": 3
-    },
-    "packages/bundled-features/src/billing-foundation/projection.ts": {
-      "{ tableName: string }": 1,
-      "keyof typeof set": 1
-    },
-    "packages/bundled-features/src/channel-in-app/handlers/mark-read.write.ts": {
-      "{ id: number } | undefined": 1
-    },
-    "packages/bundled-features/src/custom-fields/db/queries/field-access.ts": {
-      "ReadonlyArray<Record<string, unknown>>": 1
-    },
-    "packages/bundled-features/src/custom-fields/db/queries/quota.ts": {
-      "ReadonlyArray<Record<string, unknown>>": 1
-    },
-    "packages/bundled-features/src/custom-fields/db/queries/retention.ts": {
-      "Promise<readonly { field_key: string; serialized_field: unkn": 1
-    },
-    "packages/bundled-features/src/custom-fields/db/queries/user-data-rights.ts": {
-      "Promise<readonly { field_key: string; serialized_field: unkn": 1
-    },
-    "packages/bundled-features/src/custom-fields/lib/value-schema.ts": {
-      "Record<string, unknown>": 2,
-      "string": 1
-    },
-    "packages/bundled-features/src/custom-fields/run-retention.ts": {
-      "Record<symbol, unknown>": 1
-    },
-    "packages/bundled-features/src/custom-fields/wire-for-entity.ts": {
-      "Record<symbol, unknown>": 1
-    },
-    "packages/bundled-features/src/custom-fields/wire-user-data-rights.ts": {
-      "Record<string, unknown>": 1,
-      "Record<symbol, unknown>": 1
-    },
-    "packages/bundled-features/src/sessions/db/queries/cleanup.ts": {
-      "readonly { id: string }[]": 1
-    },
-    "packages/bundled-features/src/sessions/handlers/cleanup.job.ts": {
-      "DbConnection": 1
-    },
-    "packages/bundled-features/src/step-dispatcher/feature.ts": {
-      "DispatchRequestedPayload": 1
-    },
-    "packages/bundled-features/src/text-content/feature.ts": {
-      "string": 3
-    },
-    "packages/bundled-features/src/text-content/web/client-plugin.tsx": {
-      "string": 3
-    },
-    "packages/bundled-features/src/user-data-rights/handlers/cancel-deletion.write.ts": {
-      "string | null": 1
-    },
-    "packages/bundled-features/src/user-data-rights/run-forget-cleanup.ts": {
-      "{\n    begin?: (f: (tx: DbRunner) => Promise<void>) => Promis": 1
+    "packages/bundled-features/src/user/handlers/list.query.ts": {
+      "{ rows: readonly Record<string, unknown>[] }": 1
     },
     "packages/bundled-features/src/user/seeding.ts": {
+      "number": 2,
       "string": 1
     },
-    "packages/cli/src/index.ts": {
-      "Error": 2
+    "packages/bundled-features/src/workflow-runner/event-subscriber.ts": {
+      "Parameters<typeof evaluateEventMatch>[0]": 1
     },
-    "packages/dev-server/src/build-prod-bundle.ts": {
-      "{ Bun: { resolveSync: (id: string, from: string) => string }": 3,
-      "{ Bun?: unknown }": 1
-    },
-    "packages/dev-server/src/build-server-bundle.ts": {
-      "{ Bun?: unknown }": 1,
-      "{ dependencies?: Record<string, string> }": 1,
-      "{ name?: string }": 1,
-      "string[]": 1
-    },
-    "packages/dev-server/src/create-kumiko-server.ts": {
-      "{\n        Bun?: {\n          Glob: new (\n            p: strin": 1,
-      "{ Bun: { resolveSync: (id: string, from: string) => string }": 3,
-      "{ Bun: { serve: (opts: unknown) => BunServer } }": 1,
-      "{ Bun?: unknown }": 1,
-      "{ name?: string }": 1,
-      "{ stop: (closeActive?: boolean) => void }": 1
+    "packages/bundled-features/src/workflow-runner/handlers/resume-run.write.ts": {
+      "z.infer<typeof resumeRunSchema>": 1
     },
     "packages/dev-server/src/few-shot-corpus.ts": {
-      "{\n          name?: unknown;\n          description?: unknown;": 1,
-      "FeaturePattern": 1,
-      "FeaturePatternKind": 1,
+      "FeaturePattern": 1
+    },
+    "packages/dev-server/src/scaffold-app.ts": {
+      "(...args: unknown[]) => FeatureDefinition": 1,
+      "FeatureDefinition": 1,
       "Record<string, unknown>": 1
     },
-    "packages/dev-server/src/run-dev-app.ts": {
-      "TierResolverPlugin": 1
-    },
-    "packages/dev-server/src/run-prod-app.ts": {
-      "{ Bun?: unknown }": 1,
-      "{ code?: string }": 1,
-      "ArrayBuffer": 2,
-      "TierResolverPlugin": 1
-    },
-    "packages/dev-server/src/scaffold-deploy.ts": {
-      "{\n        dependencies?: Record<string, string>;\n        dev": 1
-    },
-    "packages/dispatcher-live/src/csrf.ts": {
-      "{ document?: { cookie?: string } }": 1
-    },
     "packages/dispatcher-live/src/dispatcher-live.ts": {
-      "{ data?: unknown; error?: ServerErrorLike }": 1,
-      "{ name?: unknown }": 1,
-      "| { isSuccess: true; data: TData }\n    | { isSuccess: false;": 1,
-      "| BatchResult\n    | {\n        isSuccess: false;\n        erro": 1,
-      "TData": 1
+      "TData": 2
     },
-    "packages/dispatcher-live/src/error-mapping.ts": {
-      "DispatcherError[\"details\"]": 1,
-      "Readonly<Record<string, unknown>>": 1
+    "packages/dispatcher-live/src/sse-stream.ts": {
+      "TChunk": 1
+    },
+    "packages/framework/src/api/auth-routes.ts": {
+      "number": 1
+    },
+    "packages/framework/src/api/routes.ts": {
+      "T": 1
     },
     "packages/framework/src/bun-db/query.ts": {
-      "{ epochNanoseconds?: unknown }": 1,
-      "{ kind?: unknown }": 1,
-      "BunDbRunner": 1,
-      "EntityTableMeta": 5,
-      "readonly { count: number }[]": 1,
-      "readonly Record<\n    string,\n    unknown\n  >[]": 3,
-      "readonly Record<string, unknown>[]": 3,
-      "readonly TRow[]": 3,
-      "readonly unknown[]": 1,
-      "Record<string, unknown>": 8,
-      "Record<string, unknown> | undefined": 1,
-      "Record<symbol, unknown>": 1,
-      "T": 2,
-      "Temporal.Instant": 2,
+      "T": 1,
       "TenantDbDelegate": 1,
-      "TRow": 3
+      "TLeft": 1,
+      "TRight": 1
     },
-    "packages/framework/src/db/assert-exists-in.ts": {
-      "TenantDb": 1
+    "packages/framework/src/crypto/kms-adapter.ts": {
+      "TenantId": 1
+    },
+    "packages/framework/src/crypto/pg-kms-adapter.ts": {
+      "Array<{ subjectId: string; reason: string }>": 1
     },
     "packages/framework/src/db/dialect.ts": {
       "{ [K in keyof TCols]: ColumnHandle }": 1,
-      "{ kind: string }": 1,
-      "ColumnBuilder<bigint>": 2,
-      "ColumnBuilder<boolean>": 1,
-      "ColumnBuilder<number>": 3,
-      "ColumnBuilder<Record<string, unknown>>": 1,
-      "ColumnBuilder<string>": 3,
-      "ColumnBuilder<Temporal.Instant | string>": 1,
-      "ColumnBuilder<Temporal.Instant>": 1,
-      "IndexBuilderWithCols": 1,
-      "ReadonlyArray<IndexOrPk>": 1,
-      "SchemaTable": 1,
-      "SqlExpression": 2
+      "SchemaTable": 1
     },
     "packages/framework/src/db/eagerload.ts": {
-      "Array<\n        Record<string, unknown>\n      >": 1
+      "Array< Record<string, unknown> >": 1
     },
-    "packages/framework/src/db/entity-table-meta.ts": {
-      "{ kind?: unknown }": 1,
-      "{ text: string }": 1,
-      "{ text?: unknown }": 1,
-      "readonly EntityIndexDef[]": 1
+    "packages/framework/src/db/event-store-executor-context.ts": {
+      "Record<string, unknown>": 1
     },
-    "packages/framework/src/db/event-store-executor.ts": {
-      "{ name?: string } | undefined": 2,
-      "Record<string, unknown>": 2
+    "packages/framework/src/db/event-store-executor-write.ts": {
+      "Record<string, unknown>": 1
     },
     "packages/framework/src/db/migrate-generator.ts": {
-      "{ version?: unknown }": 1,
-      "NodeJS.ErrnoException": 1,
       "Snapshot": 1
     },
-    "packages/framework/src/db/migrate-runner.ts": {
-      "{ checksum: string }": 1,
-      "{ checksum?: unknown }": 1,
-      "{ id: string }": 1,
-      "{ id?: unknown }": 1,
-      "{ unsafe: (s: string, p?: readonly unknown[]) => Promise<unk": 1,
-      "never": 3,
-      "Record<string, unknown>": 2,
-      "Record<string, unknown> | undefined": 1
-    },
-    "packages/framework/src/db/queries/es-ops.ts": {
-      "readonly unknown[]": 1
-    },
-    "packages/framework/src/db/queries/event-consumer.ts": {
-      "ReadonlyArray<Record<string, unknown>>": 3
-    },
-    "packages/framework/src/db/queries/event-store-admin.ts": {
-      "ReadonlyArray<{ aggregate_id: string; version: number }>": 1,
-      "ReadonlyArray<{ id: string }>": 1,
-      "ReadonlyArray<{ present: boolean }>": 1
-    },
-    "packages/framework/src/db/queries/event-store.ts": {
-      "ReadonlyArray<{ id: string | bigint }>": 1,
-      "ReadonlyArray<{ max: bigint | string | number | null }>": 1,
-      "ReadonlyArray<{ t: string | null }>": 1,
-      "ReadonlyArray<{ v: number | null }>": 2,
-      "ReadonlyArray<SubsequentEventInsertRow>": 1
-    },
-    "packages/framework/src/db/queries/projection-rebuild.ts": {
-      "ReadonlyArray<Record<string, unknown>>": 1
-    },
-    "packages/framework/src/db/queries/raw-sql.ts": {
-      "readonly T[]": 1
-    },
-    "packages/framework/src/db/queries/seed-context.ts": {
-      "readonly { id: string; email: string; tenant_id: string }[]": 1,
-      "readonly SeedMembershipDbRow[]": 1,
-      "readonly SeedTenantDbRow[]": 1
-    },
-    "packages/framework/src/db/queries/test-stack.ts": {
-      "readonly { exists?: boolean }[]": 1
-    },
-    "packages/framework/src/db/reference-data.ts": {
-      "Record<string, unknown>": 1,
-      "Record<symbol, unknown>": 1
-    },
     "packages/framework/src/db/schema-inspection.ts": {
-      "{\n      unsafe: (s: string, p?: readonly unknown[]) => Promi": 1
-    },
-    "packages/framework/src/db/table-builder.ts": {
-      "SqlExpression": 1
+      "{ unsafe?: UnsafeFn }": 1
     },
     "packages/framework/src/db/tenant-db.ts": {
-      "Record<string, unknown>": 1
+      "(...callArgs: unknown[]) => unknown": 1,
+      "DbRunner": 1,
+      "TenantId": 1
+    },
+    "packages/framework/src/engine/boot-validator/ownership.ts": {
+      "OwnershipMap": 1
     },
     "packages/framework/src/engine/codemod/pipeline-codemod.ts": {
       "import(\"ts-morph\").PropertyAssignment": 1,
       "string": 4
     },
     "packages/framework/src/engine/define-feature.ts": {
-      "PipelineDef": 1,
-      "RequiresApi": 1,
-      "WriteHandlerFn": 1
+      "RequiresApi": 1
     },
     "packages/framework/src/engine/define-handler.ts": {
-      "{\n    readonly handler?: unknown;\n    readonly perform?: unk": 1
+      "{ readonly handler?: unknown; readonly perform?: unknown; re": 1
     },
     "packages/framework/src/engine/define-step.ts": {
       "StepDef": 1
     },
-    "packages/framework/src/engine/ownership.ts": {
-      "Record<string, unknown>": 3,
-      "Record<symbol, unknown>": 2
+    "packages/framework/src/engine/factories.ts": {
+      "Omit<T, \"personal\" | \"find\" | \"reason\"> & ResolvedPiiFlags": 2
+    },
+    "packages/framework/src/engine/feature-config-events-jobs.ts": {
+      "{ readonly type: T }": 1,
+      "JobHandlerFn": 1,
+      "MetricOptions": 1,
+      "NonNullable<typeof definition>": 1,
+      "Omit<JobDefinition, \"name\" | \"handler\">": 1,
+      "SecretNamespaceOptions": 1,
+      "SecretOptions": 1
+    },
+    "packages/framework/src/engine/feature-entity-handlers.ts": {
+      "EntityDefinition": 1,
+      "PipelineDef": 1,
+      "RelationDefinition": 2,
+      "string": 2,
+      "WriteHandlerFn": 1
+    },
+    "packages/framework/src/engine/feature-ui-extensions.ts": {
+      "{ grants?: unknown }": 1,
+      "NameOrRef": 1,
+      "readonly Record<string, unknown>[]": 1
+    },
+    "packages/framework/src/engine/object-form.ts": {
+      "readonly string[]": 1,
+      "Record<K, readonly string[]>": 1
+    },
+    "packages/framework/src/engine/pipeline.ts": {
+      "TAwaits": 1
+    },
+    "packages/framework/src/engine/registry-state.ts": {
+      "ProjectionDefinition[\"table\"]": 1
     },
     "packages/framework/src/engine/run-pipeline.ts": {
       "PipelineCtx<TPayload, TMap>": 1,
@@ -337,9 +207,6 @@
     },
     "packages/framework/src/engine/steps/branch.ts": {
       "Record<string, unknown>": 2
-    },
-    "packages/framework/src/engine/steps/call-feature.ts": {
-      "Error & { cause?: unknown }": 1
     },
     "packages/framework/src/engine/steps/for-each.ts": {
       "Record<string, unknown>": 2
@@ -353,106 +220,139 @@
     "packages/framework/src/engine/steps/retry.ts": {
       "Record<string, unknown>": 2
     },
-    "packages/framework/src/engine/steps/unsafe-projection-upsert.ts": {
-      "Record<string, unknown>": 2,
-      "Record<symbol, unknown>": 2
+    "packages/framework/src/engine/steps/unsafe-projection-delete.ts": {
+      "EntityTableMeta": 1
     },
     "packages/framework/src/engine/validate-projection-allowlist.ts": {
       "{ readonly perform?: PipelineDef }": 1,
       "readonly StepInstance[]": 1,
-      "Record<string, unknown>": 4,
-      "Record<symbol, unknown>": 2,
-      "string": 1,
+      "Record<string, unknown>": 1,
       "UnsafeProjectionStepArgs": 1
-    },
-    "packages/framework/src/event-store/event-store.ts": {
-      "TenantId | null": 1
     },
     "packages/framework/src/files/file-routes.ts": {
       "400 | 403 | 404 | 409 | 422 | 500": 1
     },
-    "packages/framework/src/migrations/projection-table-index.ts": {
-      "Record<symbol, unknown>": 1
+    "packages/framework/src/i18n/required-surface-keys.ts": {
+      "{ readonly filterable?: boolean; readonly type?: string; rea": 1
+    },
+    "packages/framework/src/jobs/job-runner.ts": {
+      "JobSubjectValue": 1
+    },
+    "packages/framework/src/lifecycle/signal-handlers.ts": {
+      "NodeJS.EventEmitter": 2
     },
     "packages/framework/src/pipeline/append-event-core.ts": {
       "Record<string, unknown>": 2
     },
-    "packages/framework/src/pipeline/dispatcher.ts": {
-      "{ [key: symbol]: unknown }": 1,
-      "{ rows?: unknown }": 2,
-      "DbConnection | undefined": 1,
-      "Record<string, unknown>": 1
+    "packages/framework/src/pipeline/dispatch-batch.ts": {
+      "DbConnection | undefined": 1
     },
-    "packages/framework/src/pipeline/event-dispatcher.ts": {
-      "ConsumerStateRow": 5
+    "packages/framework/src/pipeline/dispatch-query.ts": {
+      "{ rows?: unknown }": 2
+    },
+    "packages/framework/src/pipeline/dispatch-shared.ts": {
+      "DbRunner": 1,
+      "JobRunnerRef": 1,
+      "TenantDb": 1
+    },
+    "packages/framework/src/pipeline/member-read-only-transaction.ts": {
+      "DbTx": 1
     },
     "packages/framework/src/pipeline/msp-rebuild.ts": {
-      "NonNullable<typeof msp.table>": 1,
-      "Record<symbol, unknown>": 1
+      "DbRunner": 2
     },
     "packages/framework/src/pipeline/projection-rebuild.ts": {
-      "EventRow": 1,
-      "Record<symbol, unknown>": 1
+      "DbTx": 1
+    },
+    "packages/framework/src/pipeline/system-identity-switch.ts": {
+      "TenantDb": 2,
+      "UncheckedSystemDb": 1
     },
     "packages/framework/src/schema-cli.ts": {
-      "{ ENTITY_METAS?: unknown }": 1,
-      "Parameters<typeof renderTablesDdl>[0]": 1
+      "{ ENTITY_METAS?: unknown; FEATURES?: unknown }": 1,
+      "Parameters<typeof renderTablesDdl>[0]": 1,
+      "readonly FeatureDefinition[]": 1
     },
-    "packages/framework/src/stack/push-entity-projection-tables.ts": {
-      "string": 1
+    "packages/framework/src/scripts/codemod/pii-personal-migration.ts": {
+      "FindBucket[]": 1,
+      "PropertyAssignment": 1
+    },
+    "packages/framework/src/search/purge-subject.ts": {
+      "EntityId": 1,
+      "TenantId": 1
+    },
+    "packages/framework/src/search/reindex-entity.ts": {
+      "Record<string, unknown>": 1,
+      "ReindexEntityFailure[]": 1
     },
     "packages/framework/src/stack/request-helper.ts": {
-      "{\n    isSuccess?: boolean;\n    error?: WireErrorBody | strin": 1,
-      "{ causeMessage?: unknown }": 1,
-      "{ causeName?: unknown }": 1
-    },
-    "packages/framework/src/stack/table-helpers.ts": {
-      "{ tableName: string }": 1,
-      "{ tableName?: unknown }": 1,
-      "EntityTableMeta": 5,
-      "Record<string | symbol, unknown>": 1,
-      "Record<symbol, unknown>": 1,
-      "string": 1
+      "{ isSuccess?: boolean; error?: WireErrorBody | string; }": 1
     },
     "packages/framework/src/stack/test-stack.ts": {
       "PgClient | undefined": 1
     },
     "packages/framework/src/testing/db-cleanup.ts": {
-      "{ tableName?: unknown }": 1
+      "EntityTableMeta": 1
     },
-    "packages/framework/src/testing/multipart-helper.ts": {
-      "Record<string, unknown>": 1
+    "packages/framework/src/testing/late-bound.ts": {
+      "T": 1
+    },
+    "packages/framework/src/testing/seed.ts": {
+      "EntityTableMeta": 4
+    },
+    "packages/framework/src/upgrade-cli.ts": {
+      "{ name?: string }": 1
+    },
+    "packages/guards/src/_lib/guard-kit.ts": {
+      "BaselinePayload": 1
+    },
+    "packages/guards/src/check-real-provider-isolation.ts": {
+      "WorkspaceManifest": 1
+    },
+    "packages/guards/src/guard-write-handler-qns.ts": {
+      "{ readonly features?: ReadonlyArray<{ readonly writeHandlers": 1
     },
     "packages/headless/src/form/form-controller.ts": {
-      "Promise<SubmitResult<TData>>": 2,
-      "TCtx": 3
+      "Promise<SubmitResult<TData>>": 1,
+      "TCtx": 3,
+      "TValues": 1
+    },
+    "packages/headless/src/locale-routing/index.ts": {
+      "[ TPage, Record<string, string>, ][]": 1,
+      "[TPage, Record<string, string>][]": 1,
+      "TPage": 1
     },
     "packages/headless/src/store/create-store.ts": {
       "(prev: T) => T": 1
     },
-    "packages/headless/src/store/equality.ts": {
-      "Record<string, unknown>": 2
-    },
     "packages/headless/src/view-model/edit.ts": {
-      "string | undefined": 1,
-      "TCtx": 1
+      "EntityDefinition": 1
     },
     "packages/renderer-web/src/app/create-app.tsx": {
       "string | undefined": 1
     },
-    "packages/renderer-web/src/layout/visual-tree.tsx": {
-      "HTMLElement": 2,
-      "unknown": 1
+    "packages/renderer-web/src/app/dashboard-body.tsx": {
+      "StatTone": 1
+    },
+    "packages/renderer-web/src/layout/shell-header.tsx": {
+      "HTMLElement": 1
     },
     "packages/renderer-web/src/primitives/index.tsx": {
       "(v: unknown, r?: Readonly<Record<string, unknown>>) => strin": 1,
-      "{ __component?: unknown }": 1,
-      "{ react?: unknown }": 1,
-      "React.CSSProperties": 1
+      "{ format: string; locale?: string } & Record<string, unknown": 1,
+      "{ readonly children?: ReactNode }": 1,
+      "{ readonly type?: string } & StickyPrimaryActionMarker": 1,
+      "FieldIconKey": 1
+    },
+    "packages/renderer-web/src/primitives/narrow-pinned-footer.tsx": {
+      "Partial<FooterNodeProps>": 2
     },
     "packages/renderer-web/src/sse/live-events.ts": {
-      "LiveEvent[\"data\"]": 1,
-      "MessageEvent": 1
+      "LiveEvent[\"data\"]": 1
+    },
+    "packages/renderer-web/src/widgets/query-table.tsx": {
+      "readonly Readonly<Record<string, unknown>>[]": 1,
+      "TData": 1
     },
     "packages/renderer/src/app/action-form-shim.ts": {
       "EntityDefinition": 1
@@ -461,21 +361,15 @@
       "EntityDefinition": 1
     },
     "packages/renderer/src/app/kumiko-screen.tsx": {
-      "{ type?: string }": 2,
-      "{ type?: string; default?: unknown }": 1,
-      "{ version?: number }": 2,
-      "FormValues": 4,
-      "RowActionWriteHandler": 1,
-      "string": 2
+      "{ type?: string; filterable?: boolean; options?: readonly st": 1,
+      "PrefillFieldShape": 1
+    },
+    "packages/renderer/src/components/embedded-list-field.tsx": {
+      "readonly EmbeddedRow[]": 1
     },
     "packages/renderer/src/components/render-edit.tsx": {
-      "(k: string, v: unknown) => void": 1,
-      "FieldConditions<TValues, TCtx>[\"readonly\"]": 1,
-      "FieldConditions<TValues, TCtx>[\"required\"]": 1,
-      "FieldConditions<TValues, TCtx>[\"visible\"]": 1
-    },
-    "packages/renderer/src/components/render-field.tsx": {
-      "readonly string[]": 1
+      "( partial: Readonly<Record<string, unknown>>, ) => void": 1,
+      "(k: string, v: unknown) => void": 1
     },
     "packages/renderer/src/components/render-list.tsx": {
       "EagerloadedRow | undefined": 1
@@ -486,8 +380,17 @@
     "packages/renderer/src/hooks/use-store.ts": {
       "S": 1
     },
+    "packages/renderer/src/hooks/use-stream-handler.ts": {
+      "DispatcherError": 1
+    },
     "packages/renderer/src/tokens.tsx": {
       "Tokens": 1
+    },
+    "packages/testing/src/preload/dom.ts": {
+      "typeof import(\"@testing-library/react/pure\")": 1
+    },
+    "packages/types/src/fields.ts": {
+      "FieldDefinition[\"type\"][]": 1
     }
   }
 }
