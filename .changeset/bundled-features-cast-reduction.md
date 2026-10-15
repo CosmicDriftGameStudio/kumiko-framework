@@ -1,4 +1,5 @@
 ---
+"@cosmicdrift/kumiko-framework": patch
 "@cosmicdrift/kumiko-bundled-features": patch
 "@cosmicdrift/kumiko-dev-server": patch
 "@cosmicdrift/kumiko-server-runtime": patch
