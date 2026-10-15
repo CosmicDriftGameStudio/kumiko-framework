@@ -47,13 +47,9 @@ export function ContentPreview({
           Object.entries(variables).map(([name, value]) => [name, escapeHtmlAttr(value)]),
         )
       : variables;
-  return (
-    <Editor
-      id={id}
-      value={substituteVariables(content, safeVariables)}
-      onChange={noop}
-      variables={[]}
-      readOnly
-    />
-  );
+  // "document" keeps `{{x}}` as-is: substituting it into a button/link href would make the
+  // schema drop that node; variable chips stay visible.
+  const value =
+    contentFormat === "document" ? content : substituteVariables(content, safeVariables);
+  return <Editor id={id} value={value} onChange={noop} variables={[]} readOnly />;
 }

@@ -91,7 +91,7 @@ export type ClientFeatureDefinition = {
     collections: readonly QualifiedContentCollection[],
   ) => CollectionNavProviders;
 
-  /** Content editor components — map `contentFormat` ("plain" | "rich" | "markdown") →
+  /** Content editor components — map `contentFormat` ("plain" | "rich" | "markdown" | "document") →
    *  React component. `r.contentCollection()` declares which format an
    *  editor edits; the collection's editor UI (template-resolver's
    *  TextBlockEditor et al.) looks the component up here and falls back to
