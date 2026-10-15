@@ -108,6 +108,15 @@
     },
     {
       "path": "./packages/locale-es"
+    },
+    {
+      "path": "./packages/renderer-mail-html"
+    },
+    {
+      "path": "./packages/renderer-puppeteer-client"
+    },
+    {
+      "path": "./apps/puppeteer-service"
     }
   ],
   "files": []

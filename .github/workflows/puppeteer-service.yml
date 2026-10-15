@@ -1,0 +1,61 @@
+# Self-contained on purpose: infra's reusable docker-build workflow lives in a
+# private repo and a public repo cannot call it. Builds the arm64 image for the
+# Hetzner target; `latest` is only tagged on main, PRs push sha tags only.
+name: puppeteer-service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/puppeteer-service/**"
+      - ".github/workflows/puppeteer-service.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/puppeteer-service/**"
+      - ".github/workflows/puppeteer-service.yml"
+
+permissions: {}
+
+concurrency:
+  group: puppeteer-service-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Fork PRs get a read-only token and cannot push to ghcr.io.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/cosmicdriftgamestudio/kumiko-puppeteer-service
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-,format=short
+
+      - uses: docker/build-push-action@cb941d0b895b09c17fa011d41c411b33c752cf28
+        with:
+          context: .
+          file: apps/puppeteer-service/Dockerfile
+          push: true
+          platforms: linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

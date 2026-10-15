@@ -46,6 +46,9 @@
     "packages/renderer-web",
     "packages/locale-es",
     "packages/locale-de",
+    "packages/renderer-mail-html",
+    "packages/renderer-puppeteer-client",
+    "apps/puppeteer-service",
     "packages/samples",
     "samples/recipes/*",
     "samples/apps/*"

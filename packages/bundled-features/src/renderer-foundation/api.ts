@@ -10,21 +10,21 @@ import { RendererError, type RendererPlugin } from "./types.js";
 
 export type RendererFoundationApi = {
   /**
-   * Wählt + returnt ein RendererPlugin für (tenantId × kind). Caller
-   * rufen anschließend `plugin.render(req, ctx)`.
+   * Selects + returns a RendererPlugin for (tenantId × kind). Callers
+   * then invoke `plugin.render(req, ctx)`.
    *
-   * **Auswahl-Reihenfolge:**
-   *   1. Tenant-spezifische Config (config-Bundle: `rendererPluginByKind`)
-   *   2. DEFAULT_PLUGIN_BY_KIND aus constants
-   *   3. Erstes Plugin im Pool das das kind bedient
-   *   4. `RendererError("no_plugin_for_kind")` wenn nichts passt
+   * **Selection order:**
+   *   1. Tenant-specific config (config bundle: `rendererPluginByKind`)
+   *   2. DEFAULT_PLUGIN_BY_KIND from constants
+   *   3. First plugin in the pool that serves the kind
+   *   4. `RendererError("no_plugin_for_kind")` if nothing matches
    *
-   * **Caller-Pattern:** `tenantId` MUSS vom Server kommen (typisch
-   * `ctx.user.tenantId`). Plugins, die Service-Access brauchen (z.B.
-   * `renderer-mail-html` für Layout-Resolve via `template-resolver`),
-   * erhalten `RendererContext` als zweites Argument zu `render()` —
-   * matcht das Pattern von `DeliveryChannel.send(addr, msg, ctx)`.
-   * Plugins ohne Service-Deps (z.B. `renderer-simple`) ignorieren ctx.
+   * **Caller pattern:** `tenantId` MUST come from the server (typically
+   * `ctx.user.tenantId`). Plugins that need service access (e.g.
+   * `@cosmicdrift/kumiko-renderer-mail-html` for layout resolution via `template-resolver`)
+   * receive `RendererContext` as the second argument to `render()` —
+   * matches the pattern of `DeliveryChannel.send(addr, msg, ctx)`.
+   * Plugins without service deps (e.g. `renderer-simple`) ignore ctx.
    */
   readonly createRendererForTenant: (args: {
     readonly tenantId: TenantId;

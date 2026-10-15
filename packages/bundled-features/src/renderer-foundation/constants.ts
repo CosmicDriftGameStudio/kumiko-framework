@@ -1,11 +1,11 @@
-// Re-export aus template-resolver — gleiche RenderKind-Domäne. Beide
-// Bundles teilen sich die Enum, damit Plugins (renderer-mail-html etc.)
-// nicht zwei Quellen importieren müssen. Cross-feature-Imports gehen
-// über das Barrel (../template-resolver), nicht via deep-import.
+// Re-export from template-resolver — same RenderKind domain. Both
+// bundles share the enum so plugins (@cosmicdrift/kumiko-renderer-mail-html etc.)
+// do not have to import two sources. Cross-feature imports go
+// through the barrel (../template-resolver), not via deep import.
 import type { RenderKind as RenderKindLocal } from "../template-resolver/index.js";
 
 // Extension-point name for renderer plugins (renderer-simple,
-// renderer-mail-html, renderer-puppeteer-client, ...).
+// @cosmicdrift/kumiko-renderer-mail-html, @cosmicdrift/kumiko-renderer-puppeteer-client, ...).
 export const RENDERER_EXTENSION = "renderer" as const;
 
 export {
