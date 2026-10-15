@@ -18,3 +18,4 @@ export {
   tenantRetentionOverrideEntity,
   tenantRetentionOverrideTable,
 } from "./feature.js";
+export { computeCutoff, type Instant } from "./keep-for.js";
