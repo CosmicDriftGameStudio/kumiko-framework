@@ -1109,6 +1109,16 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Este tipo de plantilla requiere el formato html, recibido: «{detail}».",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":
     "Los diseños de correo requieren el formato mjml, recibido: «{detail}».",
+  "templateResolver.errors.document.layoutInvalidStructure":
+    "El diseño solo puede contener las zonas de encabezado, contenido, firma y pie: {detail}.",
+  "templateResolver.errors.document.layoutMissingContentSlot":
+    "El diseño necesita su hueco de contenido: {detail}.",
+  "templateResolver.errors.document.layoutSourceSystemOnly":
+    "Solo los diseños del sistema pueden usar código {detail}; usa el diseño html estructurado.",
+  "templateResolver.errors.template.targetExists":
+    "Ya existe una plantilla para el idioma «{detail}»; sobrescríbela de forma explícita para reemplazarla.",
+  "templateResolver.errors.template.systemResourcesNeedSystemTenant":
+    "Los archivos de recursos solo los puede importar como plantillas del sistema un usuario del inquilino del sistema.",
   "templateResolver.errors.collection.kindNotAllowed":
     "Las plantillas «{detail}» se editan en su propio editor, no mediante una colección.",
   "templateResolver.errors.noSystemTemplate":

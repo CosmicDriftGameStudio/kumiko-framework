@@ -9,7 +9,7 @@ const variables = {
 };
 
 function validate(body: string, meta: { subject: string; previewText?: string } | null = null) {
-  return validateTemplatePlaceholders({ body, meta, variables });
+  return validateTemplatePlaceholders({ kind: "mail", body, meta, variables });
 }
 
 describe("validateTemplatePlaceholders", () => {

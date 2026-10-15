@@ -122,30 +122,6 @@ describe("sanitizeTemplateBody", () => {
     }
   });
 
-  test("mail-layout requires mjml, pdf-layout requires html", () => {
-    const layout = sanitizeTemplateBody({
-      kind: "mail-layout",
-      contentFormat: "html",
-      content: "x",
-    });
-    expect(layout.ok).toBe(false);
-    if (!layout.ok) expect(layout.violations[0]?.code).toBe("layout_requires_mjml_format");
-    expect(
-      sanitizeTemplateBody({
-        kind: "mail-layout",
-        contentFormat: "mjml",
-        content: "<mjml></mjml>",
-      }),
-    ).toEqual({ ok: true, content: "<mjml></mjml>" });
-    const pdf = sanitizeTemplateBody({
-      kind: "pdf-layout",
-      contentFormat: "markdown",
-      content: "x",
-    });
-    expect(pdf.ok).toBe(false);
-    if (!pdf.ok) expect(pdf.violations[0]?.code).toBe("document_requires_html_format");
-  });
-
   test("sanitizes mail html", () => {
     expect(
       sanitizeTemplateBody({

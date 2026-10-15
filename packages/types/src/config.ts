@@ -536,6 +536,13 @@ export type NotificationLocalizedTemplate = Readonly<
   Record<string, { readonly body: string; readonly meta: NotificationTemplateMeta }>
 >;
 
+// Maps template variables to field paths ("owner.name") of a registered entity
+// so a record can fill the variables of a notification template.
+export type NotificationRecordMapping = {
+  readonly entity: string;
+  readonly map: Readonly<Record<string, string>>;
+};
+
 // Without a trigger the notification is only sent explicitly via ctx.notify;
 // trigger, recipient and data belong together (boot-checked).
 export type NotificationDefinition = {
@@ -545,6 +552,7 @@ export type NotificationDefinition = {
   readonly data?: NotificationDataFn;
   readonly templates: Readonly<Record<string, NotificationTemplateFn>> | undefined;
   readonly variables?: TemplateVariables;
+  readonly record?: NotificationRecordMapping;
   readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
   readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
   // Resolved into template + meta when the registry is built, never present on

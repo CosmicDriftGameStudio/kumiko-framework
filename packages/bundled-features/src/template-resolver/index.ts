@@ -61,16 +61,24 @@ export {
 } from "./document-schema.js";
 export { createTemplateResolverFeature } from "./feature.js";
 export {
+  type LayoutRegions,
+  readLayoutRegions,
+  type SanitizeLayoutResult,
+  sanitizeLayoutHtml,
+} from "./layout-regions.js";
+export {
   TEMPLATE_RESOLVER_FEATURE,
   TemplateResolverErrors,
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "./qualified-names.js";
+export { mapRecordToVariables } from "./record-mapping.js";
 export {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
 } from "./table.js";
+export { type TemplateBundle, templateBundleSchema } from "./template-bundle.js";
 export {
   isMailTemplateMeta,
   type LayoutTemplateMeta,
@@ -86,9 +94,15 @@ export {
   templateSlugSchema,
 } from "./template-meta.js";
 export {
+  readTemplateResource,
+  storeTemplateResource,
+  type TemplateResourceFile,
+} from "./template-resources.js";
+export {
   hasPlaceholderProblems,
   resolveTemplateVariables,
   SYSTEM_PLACEHOLDERS,
+  systemPlaceholdersFor,
   type TemplateValidation,
   validateTemplatePlaceholders,
 } from "./template-validation.js";

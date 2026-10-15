@@ -25,7 +25,10 @@ export type DocumentViolationCode =
   | "unsafe_attribute_value"
   | "button_href_not_placeholder"
   | "document_requires_html_format"
-  | "layout_requires_mjml_format";
+  | "layout_requires_mjml_format"
+  | "layout_invalid_structure"
+  | "layout_missing_content_slot"
+  | "layout_source_system_only";
 
 export type DocumentViolation = {
   readonly code: DocumentViolationCode;
@@ -41,7 +44,7 @@ export type SanitizeBodyResult =
   | { readonly ok: true; readonly content: string | null }
   | { readonly ok: false; readonly violations: readonly DocumentViolation[] };
 
-function violation(
+export function violation(
   code: DocumentViolationCode,
   detail: string,
   message: string,
@@ -269,7 +272,7 @@ function isSanitizedHtmlKind(kind: string): boolean {
   return kind === "snippet" || isOneOf(DOCUMENT_HTML_KINDS, kind);
 }
 
-const HTML_ONLY_KINDS: ReadonlySet<string> = new Set([...DOCUMENT_HTML_KINDS, "pdf-layout"]);
+const HTML_ONLY_KINDS: ReadonlySet<string> = new Set(DOCUMENT_HTML_KINDS);
 
 function requiredFormatViolation(
   kind: string,
@@ -280,13 +283,6 @@ function requiredFormatViolation(
       "document_requires_html_format",
       contentFormat,
       `Templates of kind ${kind} require contentFormat html, got "${contentFormat}"`,
-    );
-  }
-  if (kind === "mail-layout" && contentFormat !== "mjml") {
-    return violation(
-      "layout_requires_mjml_format",
-      contentFormat,
-      `Templates of kind mail-layout require contentFormat mjml, got "${contentFormat}"`,
     );
   }
   return null;
@@ -322,6 +318,9 @@ const VIOLATION_I18N_KEYS: Readonly<Record<DocumentViolationCode, string>> = {
   button_href_not_placeholder: "templateResolver.errors.document.buttonHrefNotPlaceholder",
   document_requires_html_format: "templateResolver.errors.document.documentRequiresHtmlFormat",
   layout_requires_mjml_format: "templateResolver.errors.document.layoutRequiresMjmlFormat",
+  layout_invalid_structure: "templateResolver.errors.document.layoutInvalidStructure",
+  layout_missing_content_slot: "templateResolver.errors.document.layoutMissingContentSlot",
+  layout_source_system_only: "templateResolver.errors.document.layoutSourceSystemOnly",
 };
 
 export function documentViolationsToFieldIssues(

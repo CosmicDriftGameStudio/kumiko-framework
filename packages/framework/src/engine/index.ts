@@ -542,6 +542,7 @@ export type {
   NotificationDefinition,
   NotificationLocalizedTemplate,
   NotificationRecipientFn,
+  NotificationRecordMapping,
   NotificationTemplateBody,
   NotificationTemplateFn,
   NotificationTemplateMeta,

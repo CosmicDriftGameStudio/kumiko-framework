@@ -51,6 +51,16 @@ export const defaultTranslations: TranslationsByLocale = {
       "This template kind requires the html format, got “{detail}”.",
     "templateResolver.errors.document.layoutRequiresMjmlFormat":
       "Mail layouts require the mjml format, got “{detail}”.",
+    "templateResolver.errors.document.layoutInvalidStructure":
+      "The layout may only contain the header, content, signature and footer regions: {detail}.",
+    "templateResolver.errors.document.layoutMissingContentSlot":
+      "The layout needs its content slot: {detail}.",
+    "templateResolver.errors.document.layoutSourceSystemOnly":
+      "Only system layouts may use {detail} source; use the structured html layout.",
+    "templateResolver.errors.template.targetExists":
+      "A template for locale “{detail}” already exists; overwrite it explicitly to replace it.",
+    "templateResolver.errors.template.systemResourcesNeedSystemTenant":
+      "Resource files can only be imported as system templates by a user of the system tenant.",
     "templateResolver.errors.collection.kindNotAllowed":
       "“{detail}” templates are written through their own editor, not through a collection.",
     "templateResolver.errors.noSystemTemplate": "There is no active system template to reset to.",

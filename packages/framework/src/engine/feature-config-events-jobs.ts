@@ -30,6 +30,7 @@ import type {
   NotificationDataFn,
   NotificationLocalizedTemplate,
   NotificationRecipientFn,
+  NotificationRecordMapping,
   NotificationTemplateBody,
   NotificationTemplateFn,
   NotificationTemplateMeta,
@@ -317,6 +318,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
             readonly data?: NotificationDataFn;
             readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
             readonly variables?: TemplateVariables;
+            readonly record?: NotificationRecordMapping;
             readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
             readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
             readonly localizedTemplate?: () => NotificationLocalizedTemplate;
@@ -327,6 +329,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         readonly data?: NotificationDataFn;
         readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
         readonly variables?: TemplateVariables;
+        readonly record?: NotificationRecordMapping;
         readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
         readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
         readonly localizedTemplate?: () => NotificationLocalizedTemplate;
@@ -349,6 +352,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         ...(resolvedDefinition.variables !== undefined
           ? { variables: resolvedDefinition.variables }
           : {}),
+        ...(resolvedDefinition.record !== undefined ? { record: resolvedDefinition.record } : {}),
         ...(resolvedDefinition.template !== undefined
           ? { template: resolvedDefinition.template }
           : {}),

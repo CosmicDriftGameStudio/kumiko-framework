@@ -288,6 +288,14 @@ nebeneinander und führt sie in der UI zusammen.
 Unter `tenantIdOverride` (SystemAdmin) bleibt die Zeile die **eigene** des
 Aufrufers im fremden Tenant — ein Admin editiert nie die Signatur eines anderen.
 
+## Validierung, Layouts, Bundles
+
+- `validate` (Query) trocken-läuft die Schreib-Pipeline: `canSave`, `canPublish`, verwendete/unbekannte/fehlende Platzhalter, verfügbare Variablen. `mail`, `document-pdf`, `pdf-layout` und `mail-layout` laufen durch dasselbe Platzhalter-Gate; `page`/`pages` gibt es nur in `document-pdf` und `pdf-layout`.
+- Layouts: Tenant-`mail-layout` und `pdf-layout` sind strukturiertes HTML mit `data-content`-Slot und Regionen (Header, Signatur, Footer). Rohes MJML mit `{{{content}}}` genau einmal darf nur das System schreiben.
+- `export-bundle`, `import-bundle`, `import-bundle-system`: ein Template mit allen Locales und Ressourcen-Dateien (base64) als eigenständiges Bundle; bestehende Ziele nur mit `overwrite`. Systemimport mit Ressourcen braucht einen Caller im System-Tenant.
+- `copy-locale`: Startpunkt für Übersetzungen, kopiert als Tenant-Draft.
+- `r.notification(..., { record: { entity, map } })` mappt eine Entity-Zeile auf die deklarierten Variablen (`mapRecordToVariables`); Boot prüft Entity, Variablen und Feldpfade.
+
 ## Out-of-Scope
 
 - Rendering (Markdown/MJML → HTML/PDF) — siehe `renderer-foundation`

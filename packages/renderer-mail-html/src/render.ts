@@ -24,6 +24,7 @@ import {
   isMailTemplateMeta,
   type MailTemplateMeta,
   resolveTemplateVariables,
+  SYSTEM_TENANT_ID,
   TemplateNotFoundError,
   type TemplateResource,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
@@ -35,6 +36,7 @@ import Handlebars from "handlebars";
 import { convert as htmlToText } from "html-to-text";
 import mjml2html from "mjml";
 import { DEFAULT_MAIL_LAYOUT_MJML, DEFAULT_MAIL_LAYOUT_SLUG } from "./default-layout.js";
+import { renderStructuredLayoutMjml } from "./structured-layout.js";
 
 const FALLBACK_CURRENCY = "EUR";
 const SAFE_LINK_PROTOCOL = /^(https?:|mailto:)/i;
@@ -126,21 +128,45 @@ async function readTenantName(ctx: RendererContext): Promise<string> {
   return (await readConfigText(ctx, BRANDING_QN.title)) ?? "";
 }
 
+type ResolvedLayout = {
+  readonly content: string;
+  readonly format: "mjml" | "html";
+  readonly ref: RenderedTemplateRef | null;
+};
+
+const IN_CODE_LAYOUT: ResolvedLayout = {
+  content: DEFAULT_MAIL_LAYOUT_MJML,
+  format: "mjml",
+  ref: null,
+};
+
+// MJML source is only trusted from system layouts; a tenant mjml row left over
+// from before that rule is replaced by the system layout of the same slug.
 async function resolveLayout(
   tplApi: ReturnType<typeof createTemplateResolverApi>,
   ctx: RendererContext,
   meta: MailTemplateMeta,
   locale: string,
-): Promise<{ readonly content: string; readonly ref: RenderedTemplateRef | null }> {
+): Promise<ResolvedLayout> {
+  const slug = meta.layoutSlug ?? DEFAULT_MAIL_LAYOUT_SLUG;
   try {
-    const layout = await tplApi.resolveTemplate({
+    let layout = await tplApi.resolveTemplate({
       tenantId: ctx.tenantId,
-      slug: meta.layoutSlug ?? DEFAULT_MAIL_LAYOUT_SLUG,
+      slug,
       kind: "mail-layout",
       locale,
     });
+    if (layout.contentFormat === "mjml" && layout.scope !== "system") {
+      layout = await tplApi.resolveTemplate({
+        tenantId: SYSTEM_TENANT_ID,
+        slug,
+        kind: "mail-layout",
+        locale,
+      });
+    }
     return {
       content: layout.content,
+      format: layout.contentFormat === "html" ? "html" : "mjml",
       ref: { templateId: layout.id, templateVersion: layout.version, scope: layout.scope },
     };
   } catch (e) {
@@ -152,7 +178,7 @@ async function resolveLayout(
         "other",
       );
     }
-    return { content: DEFAULT_MAIL_LAYOUT_MJML, ref: null };
+    return IN_CODE_LAYOUT;
   }
 }
 
@@ -259,18 +285,23 @@ export async function mailHtmlRender(
 
   let mjmlSource: string;
   try {
-    mjmlSource = compileSource(
-      hbs,
-      layout.content,
-    )({
-      content: contentHtml,
+    const layoutContext = {
       subject,
       previewText: previewText ?? "",
       tenantName,
       signature: "",
       imprint: "",
       unsubscribeUrl: unsubscribeUrl ?? "",
-    });
+    };
+    mjmlSource =
+      layout.format === "html"
+        ? renderStructuredLayoutMjml({
+            layoutHtml: layout.content,
+            contentHtml,
+            context: layoutContext,
+            compile: (source) => compileSource(hbs, source),
+          })
+        : compileSource(hbs, layout.content)({ ...layoutContext, content: contentHtml });
   } catch (e) {
     // "other": the caller's payload is fine, the layout template is broken.
     throw new RendererError(
