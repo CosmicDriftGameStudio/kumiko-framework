@@ -1,4 +1,3 @@
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 // @runtime client
 // Export section (Art. 20) — the one part of user-data-rights' privacy-center
 // screen that stays custom (fw#2312). Registered as an EditExtensionSection
@@ -18,6 +17,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { postWithDownload } from "@cosmicdrift/kumiko-renderer-web";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
 import {
   EXPORT_JOB_STATUS,

@@ -1,9 +1,9 @@
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // Canonical at-rest form of an Envelope: every Buffer as base64, ready for
 // jsonb columns (secrets feature) or JSON-stringified TEXT columns
 // (EnvelopeCipher for config values / entity fields). One wire shape for
 // every envelope-encrypted store in the framework.
 
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Envelope } from "./types.js";
 
 export type StoredEnvelope = {
@@ -36,12 +36,11 @@ export function decodeStoredEnvelope(stored: StoredEnvelope): Envelope {
 
 export function isStoredEnvelope(value: unknown): value is StoredEnvelope {
   if (!isPlainObject(value)) return false;
-  const v = value;
   return (
-    typeof v["ciphertext"] === "string" &&
-    typeof v["iv"] === "string" &&
-    typeof v["authTag"] === "string" &&
-    typeof v["encryptedDek"] === "string" &&
-    typeof v["kekVersion"] === "number"
+    typeof value["ciphertext"] === "string" &&
+    typeof value["iv"] === "string" &&
+    typeof value["authTag"] === "string" &&
+    typeof value["encryptedDek"] === "string" &&
+    typeof value["kekVersion"] === "number"
   );
 }

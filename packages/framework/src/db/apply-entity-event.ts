@@ -1,4 +1,3 @@
-import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 // applyEntityEvent — die EINZIGE Schreib-Logik für r.entity-Tabellen aus
 // Stored-Events. Beide Aufrufer benutzen sie:
 //
@@ -45,6 +44,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 //   - "skipped" → Event ist kein Auto-Verb (Domain-Event auf demselben
 //     Aggregate). Caller no-op.
 
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { collectLookupableFields, computeBlindIndexValues } from "../crypto/blind-index.js";
 import { deleteMany, insertOne, updateMany } from "../db/query.js";
 import type { EntityDefinition } from "../engine/types/index.js";

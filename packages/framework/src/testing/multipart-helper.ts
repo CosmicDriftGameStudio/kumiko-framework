@@ -1,4 +1,3 @@
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // Workarounds for Bun v1.3.x bun:test limitations with multipart/form-data.
 //
 // Two bugs combine to break file upload tests in bun:test:
@@ -21,6 +20,9 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
  * Returns the encoded body and the Content-Type header value (including the
  * generated boundary). Pass both directly to app.request or fetch.
  */
+
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+
 export async function buildMultipartBody(
   fd: FormData,
 ): Promise<{ body: BodyInit; contentType: string }> {

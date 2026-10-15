@@ -1,4 +1,3 @@
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // createInboundMailSupervisor — der langlebige Sync-Prozess der
 // Foundation: startet pro aktivem Account `plugin.watch()` (IMAP IDLE,
 // Push in Sekunden) mit Reconnect-Backoff und fährt zusätzlich den
@@ -53,6 +52,7 @@ import {
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.js";
 import { MAIL_ACCOUNT_PII_FIELDS, syncCursorTable } from "./entities.js";
 import {

@@ -1,4 +1,3 @@
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 // Shared boot core of the HTTP-less processes (runWorkerApp, runBootstrap):
 // env fail-fast, Temporal polyfill, composeFeatures/registry, PII invariants,
 // dry-run exit, KMS health gate, connections, schema-drift gate, boot-crypto
@@ -48,6 +47,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/redis";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Redis } from "ioredis";
 import { composeFeatures } from "../compose-features.js";
 import { assertPiiBootInvariants } from "../pii-boot-gate.js";

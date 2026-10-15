@@ -1,10 +1,10 @@
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-
 // Resolves a caller-named set of secret slots from a Key Manager ciphertext
 // when no plaintext is set, so they need not sit in the pod env in the clear.
 // A slot's plaintext always wins over its ciphertext sibling, with no request
 // made at all. Any `*_CIPHERTEXT` in the env that names no requested slot is
 // ignored — a foreign ciphertext must never fail boot.
+
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 const SCALEWAY_KEY_MANAGER_API_VERSION = "v1alpha1";
 const DEFAULT_REGION = "fr-par";

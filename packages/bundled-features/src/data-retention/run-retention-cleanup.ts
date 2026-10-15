@@ -1,4 +1,3 @@
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 // Retention-Cleanup-Runner (S2.D2b) — pure Function, vom retention-cleanup-Cron
 // pro fan-out-Tenant aufgerufen.
 //
@@ -73,6 +72,7 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { runInSubTransaction } from "../shared/index.js";
 import { computeCutoff, type Instant } from "./keep-for.js";
 import type { RetentionPresetKey } from "./presets.js";

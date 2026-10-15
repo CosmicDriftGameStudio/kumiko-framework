@@ -1,4 +1,3 @@
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 // @runtime client
 // Change-password and change-email sections for the declarative `profile`
 // projectionDetail screen (fw#2312, ../feature.ts). Both keep re-auth flows
@@ -14,6 +13,7 @@ import {
   usePrimitives,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { requestEmailVerification } from "../../auth-email-password/web/index.js";

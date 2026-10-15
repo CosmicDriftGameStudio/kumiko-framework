@@ -1,4 +1,3 @@
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 // Migrate-Runner: applied checked-in SQL-Files gegen eine DB.
 // Ersatz für `drizzle-kit migrate` als Runtime-Komponente.
 //
@@ -18,6 +17,7 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 import { asRawClient } from "../bun-db/query.js";
 import type { DbConnection, DbRunner } from "./connection.js";
