@@ -2,16 +2,18 @@ import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.js";
 
-// KPI-Kacheln. `tone` steuert Value-/Chip-Farbe semantisch (default |
-// positive | warn), `accentColor` färbt NUR den Icon-Chip mit einer
-// App-semantischen Farbe (z.B. Finanz-Rollen) — Value/Delta/Sparkline
-// bleiben an `tone`.
+// KPI tiles. `tone` drives value and chip color semantically; "ok" is the
+// status green, while "positive" follows the theme primary, which some apps
+// set to a near-black brand color. `accentColor` only colors the icon chip
+// with an app-semantic color (e.g. finance roles); value, delta and
+// sparkline stay on `tone`.
 
-export type StatTone = "default" | "positive" | "warn" | "negative";
+export type StatTone = "default" | "positive" | "ok" | "warn" | "negative";
 
 const TONE_CHIP: Record<StatTone, string> = {
   default: "bg-muted text-foreground",
   positive: "bg-primary/10 text-primary",
+  ok: "bg-status-ok-surface text-status-ok",
   warn: "bg-destructive/10 text-destructive",
   negative: "bg-status-bad-surface text-status-bad",
 };
@@ -19,6 +21,7 @@ const TONE_CHIP: Record<StatTone, string> = {
 const TONE_VALUE: Record<StatTone, string> = {
   default: "text-foreground",
   positive: "text-primary",
+  ok: "text-status-ok",
   warn: "text-destructive",
   negative: "text-status-bad",
 };
