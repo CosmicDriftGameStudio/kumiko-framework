@@ -4,7 +4,7 @@ import { toKebab } from "./qualified-name.js";
 import type { RegistryState } from "./registry-state.js";
 import { mergeHookList, mergeHookListQualified, qualify } from "./registry-state.js";
 import { WORKFLOW_SYSTEM_EVENT_DEFS } from "./steps/workflow-system-events.js";
-import type { FeatureDefinition } from "./types/index.js";
+import type { FeatureDefinition, NotificationDefinition } from "./types/index.js";
 
 // Feature registration + entities (globally-unique, physical-table-checked) + relations
 // (additive per entity, duplicate-per-name guarded).
@@ -106,6 +106,66 @@ export function populateConfigKeys(state: RegistryState, feature: FeatureDefinit
   }
 }
 
+// Mirrors isDocumentReferenceName in bundled-features/template-resolver: the
+// framework cannot import bundled-features, and both sides must accept the
+// same placeholder names.
+const TEMPLATE_VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
+const FORBIDDEN_TEMPLATE_VARIABLE_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
+// Mirrors SYSTEM_PLACEHOLDERS in bundled-features/template-resolver: the
+// renderer fills these itself, so a declared variable of the same name would
+// be shadowed or shadow them.
+const RESERVED_TEMPLATE_VARIABLE_NAMES = new Set([
+  "tenantName",
+  "signature",
+  "imprint",
+  "unsubscribeUrl",
+]);
+const KEBAB_NOTIFICATION_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+function isTemplateVariableName(value: string): boolean {
+  return (
+    TEMPLATE_VARIABLE_NAME.test(value) &&
+    !value.split(".").some((segment) => FORBIDDEN_TEMPLATE_VARIABLE_SEGMENTS.has(segment))
+  );
+}
+
+export function validateNotificationTemplate(
+  featureName: string,
+  notificationName: string,
+  notifDef: NotificationDefinition,
+): void {
+  // skip: a notification without a template has nothing to validate
+  if (notifDef.template === undefined) return;
+  const where = `Notification "${featureName}:notify:${notificationName}"`;
+  if (!KEBAB_NOTIFICATION_NAME.test(notificationName)) {
+    throw new Error(
+      `${where} declares a template, so its name must be kebab-case (lowercase, digits, dashes): the name becomes the template slug`,
+    );
+  }
+  for (const locale of Object.keys(notifDef.template)) {
+    if (notifDef.meta?.[locale]?.subject === undefined) {
+      throw new Error(
+        `${where} has a template for locale "${locale}" but no meta.${locale}.subject`,
+      );
+    }
+  }
+  for (const [name, def] of Object.entries(notifDef.variables ?? {})) {
+    if (RESERVED_TEMPLATE_VARIABLE_NAMES.has(name)) {
+      throw new Error(
+        `${where} declares variable "${name}" which collides with a system placeholder (${[...RESERVED_TEMPLATE_VARIABLE_NAMES].join(", ")})`,
+      );
+    }
+    const names = def.type === "list" ? [name, ...Object.keys(def.item)] : [name];
+    for (const candidate of names) {
+      if (!isTemplateVariableName(candidate)) {
+        throw new Error(
+          `${where} declares variable "${candidate}" which is not a valid placeholder name (letters, digits, underscore; no prototype segments)`,
+        );
+      }
+    }
+  }
+}
+
 // Jobs (runIn-pinned, duplicate-guarded) + notifications (trigger resolved later).
 export function populateJobsAndNotifications(
   state: RegistryState,
@@ -137,6 +197,7 @@ export function populateJobsAndNotifications(
   // Notifications: scope:notify:name
   for (const [name, notifDef] of Object.entries(feature.notifications ?? {})) {
     const qualifiedName = qualify(feature.name, "notify", name);
+    validateNotificationTemplate(feature.name, name, notifDef);
     state.notificationMap.set(qualifiedName, {
       ...notifDef,
       name: qualifiedName,

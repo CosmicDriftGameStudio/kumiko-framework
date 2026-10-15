@@ -15,6 +15,7 @@ import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../docume
 import type { TemplateResourceRow } from "../table.js";
 import { templateResourcesTable } from "../table.js";
 import { executor, upsertPayloadSchema } from "./shared.js";
+import { runTemplateGates } from "./template-gates.js";
 
 // Tenant-Override anlegen/updaten. Liegt unter event.user.tenantId,
 // scope='tenant'. Default-Status='draft' — User publisht explizit
@@ -61,6 +62,17 @@ export const upsertTenantWrite = defineWriteHandler({
       );
     }
 
+    const gates = runTemplateGates({
+      registry: ctx.registry,
+      slug: event.payload.slug,
+      kind: event.payload.kind,
+      content: body.content,
+      rawMeta: event.payload.meta,
+      variableSchema: event.payload.variableSchema,
+      requireAllRequired: event.payload.status === "active",
+    });
+    if (!gates.ok) return writeFailure(new ValidationError({ fields: [...gates.issues] }));
+
     const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
       tenantId,
       slug: event.payload.slug,
@@ -76,6 +88,7 @@ export const upsertTenantWrite = defineWriteHandler({
       contentFormat: event.payload.contentFormat,
       variableSchema: JSON.stringify(event.payload.variableSchema),
       linkedResources: JSON.stringify(event.payload.linkedResources),
+      meta: gates.metaJson,
       title: event.payload.title ?? null,
       folder: event.payload.folder ?? null,
       scope: "tenant" as const,
@@ -93,7 +106,12 @@ export const upsertTenantWrite = defineWriteHandler({
       if (!result.isSuccess) return result;
       return {
         isSuccess: true as const,
-        data: { id: String(existing.id), slug: event.payload.slug, isNew: false },
+        data: {
+          id: String(existing.id),
+          slug: event.payload.slug,
+          isNew: false,
+          validation: gates.validation,
+        },
       };
     }
 
@@ -111,6 +129,7 @@ export const upsertTenantWrite = defineWriteHandler({
         id: String(createdRow.id),
         slug: event.payload.slug,
         isNew: true,
+        validation: gates.validation,
       },
     };
   },

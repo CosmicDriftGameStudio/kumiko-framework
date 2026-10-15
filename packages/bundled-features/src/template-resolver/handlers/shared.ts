@@ -2,6 +2,7 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import * as z from "zod";
 import { CONTENT_FORMATS, TEMPLATE_STATUSES, UPSERT_KINDS } from "../constants.js";
 import { templateResourceEntity, templateResourcesTable } from "../table.js";
+import { templateSlugSchema } from "../template-meta.js";
 
 // One executor per bundle, shared by all four handlers for create/update via
 // event store + optimistic lock.
@@ -15,6 +16,8 @@ export const slugSchema = z
   .min(1)
   .max(80)
   .regex(/^[a-z0-9][a-z0-9-]*$/, "slug must be kebab-case (lowercase, digits, dashes)");
+
+export { templateSlugSchema };
 
 export const localeSchema = z
   .string()
@@ -38,13 +41,16 @@ export const statusSchema = z.enum(TEMPLATE_STATUSES);
 // Common Upsert-Payload — geteilt zwischen upsertSystem + upsertTenant.
 // Unterschied: ACL + tenantId-Bestimmung, sonst identisch.
 export const upsertPayloadSchema = z.object({
-  slug: slugSchema,
+  slug: templateSlugSchema,
   kind: kindSchema,
   locale: localeSchema,
   content: z.string().max(200_000),
   contentFormat: contentFormatSchema,
   variableSchema: z.record(z.string(), z.unknown()).default({}),
   linkedResources: z.record(z.string(), z.string()).default({}),
+  // Shape depends on kind; validated against template-meta.ts in the handler so
+  // problems surface as field issues on `meta.*`.
+  meta: z.unknown().optional(),
   parentTemplateId: z.string().min(1).optional(),
   title: titleSchema.nullable().optional(),
   folder: folderSchema.nullable().optional(),

@@ -65,11 +65,13 @@ export {
   escapeHtml,
   escapeHtmlAttr,
   escapeXml,
+  formatMoney,
   type HtmlValue,
   html,
   isSafeHref,
   RawHtml,
   raw,
+  resolveSafeMoneyLocale,
   stripControlChars,
   toInstant,
 } from "./format/index.js";

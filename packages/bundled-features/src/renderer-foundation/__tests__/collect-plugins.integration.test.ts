@@ -20,8 +20,8 @@ function createTestPluginFeature(name: string, kinds: ReadonlyArray<RenderKind>)
       kinds,
       render: async (req: RenderRequest): Promise<RenderResponse> => {
         if (req.kind === "notification") return { kind: "notification", html: `via:${name}` };
-        if (req.kind === "mail-html")
-          return { kind: "mail-html", html: `via:${name}`, text: `via:${name}` };
+        if (req.kind === "mail")
+          return { kind: "mail", subject: name, html: `via:${name}`, text: `via:${name}` };
         if (req.kind === "document-pdf")
           return {
             kind: "document-pdf",
@@ -47,7 +47,7 @@ beforeAll(async () => {
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createTestPluginFeature("simple", ["notification"]),
-      createTestPluginFeature("mail-html", ["mail-html"]),
+      createTestPluginFeature("mail-html", ["mail"]),
       createTestPluginFeature("puppeteer", ["document-pdf", "image-snapshot"]),
     ],
   });
@@ -68,7 +68,7 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
     const plugins = collectRendererPlugins(stack.registry);
     const byName = new Map(plugins.map((p) => [p.name, p]));
     expect([...byName.get("simple")!.kinds]).toEqual(["notification"]);
-    expect([...byName.get("mail-html")!.kinds]).toEqual(["mail-html"]);
+    expect([...byName.get("mail-html")!.kinds]).toEqual(["mail"]);
     expect([...byName.get("puppeteer")!.kinds].sort()).toEqual(["document-pdf", "image-snapshot"]);
   });
 
@@ -78,7 +78,7 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
     expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "notification" }).name).toBe(
       "simple",
     );
-    expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "mail-html" }).name).toBe(
+    expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "mail" }).name).toBe(
       "mail-html",
     );
     expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "document-pdf" }).name).toBe(

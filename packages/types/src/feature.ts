@@ -12,10 +12,13 @@ import type {
   NotificationDataFn,
   NotificationDefinition,
   NotificationRecipientFn,
+  NotificationTemplateBody,
   NotificationTemplateFn,
+  NotificationTemplateMeta,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionRegistration,
+  TemplateVariables,
   TranslationKeys,
   TranslationsDef,
 } from "./config.js";
@@ -632,6 +635,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
       readonly recipient: NotificationRecipientFn;
       readonly data: NotificationDataFn;
       readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
+      readonly variables?: TemplateVariables;
+      readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
+      readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
     },
   ): void;
   notification(definition: {
@@ -640,6 +646,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     readonly recipient: NotificationRecipientFn;
     readonly data: NotificationDataFn;
     readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
+    readonly variables?: TemplateVariables;
+    readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
+    readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
   }): void;
 
   translations(def: TranslationsDef): void;

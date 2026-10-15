@@ -89,7 +89,7 @@ export type ContentCollectionDefinition = {
   // Handlers take this id, not a kind — a payload can therefore only ever
   // address a declared collection, with the rules that were declared for it.
   readonly id: string;
-  // Which template-resource kind this collection lists ("mail-html",
+  // Which template-resource kind this collection lists ("mail",
   // "document-pdf", "text-block", ...). The engine keeps it opaque —
   // bundled-features owns the kind vocabulary. Two collections may share a
   // kind and still differ in access and ownership.

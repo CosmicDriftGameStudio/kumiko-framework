@@ -19,7 +19,7 @@ describe("r.contentCollection() — registration", () => {
     const feature = defineFeature("mail", (r) => {
       qn = r.contentCollection({
         id: "templates",
-        kind: "mail-html",
+        kind: "mail",
         nav: { label: "mail:nav.templates", icon: "file" },
       });
     });
@@ -30,7 +30,7 @@ describe("r.contentCollection() — registration", () => {
     expect(feature.navs["templates"]?.provider).toBe(true);
     expect(feature.navs["templates"]?.label).toBe("mail:nav.templates");
     expect(feature.navs["templates"]?.icon).toBe("file");
-    expect(feature.contentCollections?.["templates"]?.kind).toBe("mail-html");
+    expect(feature.contentCollections?.["templates"]?.kind).toBe("mail");
   });
 
   test("passes nav placement through: parent, order, access, workspaces", () => {
@@ -38,7 +38,7 @@ describe("r.contentCollection() — registration", () => {
       r.nav({ id: "root", label: "mail:nav.root" });
       r.contentCollection({
         id: "templates",
-        kind: "mail-html",
+        kind: "mail",
         nav: {
           label: "mail:nav.templates",
           parent: "mail:nav:root",
@@ -61,7 +61,7 @@ describe("r.contentCollection() — registration", () => {
     const feature = defineFeature("mail", (r) => {
       r.contentCollection({
         id: "templates",
-        kind: "mail-html",
+        kind: "mail",
         nav: {
           label: "mail:nav.templates",
           createAction: { label: "mail:action.new", icon: "plus", target },
@@ -106,7 +106,7 @@ describe("r.contentCollection() — registration", () => {
     const feature = defineFeature("mail", (r) => {
       r.contentCollection({
         id: "signatures",
-        kind: "mail-html",
+        kind: "mail",
         ownership: "user",
         nav: { label: "mail:nav.signatures" },
       });
@@ -130,7 +130,7 @@ describe("r.contentCollection() — registration", () => {
 
   test("contentFormat is optional — undefined when the app didn't declare one", () => {
     const feature = defineFeature("mail", (r) => {
-      r.contentCollection({ id: "templates", kind: "mail-html", nav: { label: "a" } });
+      r.contentCollection({ id: "templates", kind: "mail", nav: { label: "a" } });
     });
 
     expect(feature.contentCollections?.["templates"]?.contentFormat).toBeUndefined();
@@ -168,7 +168,7 @@ describe("r.contentCollection() — registration", () => {
 
   test("variableSchema is optional — undefined when the app didn't declare one", () => {
     const feature = defineFeature("mail", (r) => {
-      r.contentCollection({ id: "templates", kind: "mail-html", nav: { label: "a" } });
+      r.contentCollection({ id: "templates", kind: "mail", nav: { label: "a" } });
     });
 
     expect(feature.contentCollections?.["templates"]?.variableSchema).toBeUndefined();
@@ -177,7 +177,7 @@ describe("r.contentCollection() — registration", () => {
   test("rejects a second collection with the same id", () => {
     expect(() =>
       defineFeature("mail", (r) => {
-        r.contentCollection({ id: "templates", kind: "mail-html", nav: { label: "a" } });
+        r.contentCollection({ id: "templates", kind: "mail", nav: { label: "a" } });
         r.contentCollection({ id: "templates", kind: "ai-prompt", nav: { label: "b" } });
       }),
     ).toThrow(/already registered/);
@@ -187,7 +187,7 @@ describe("r.contentCollection() — registration", () => {
     expect(() =>
       defineFeature("mail", (r) => {
         r.nav({ id: "templates", label: "mail:nav.templates" });
-        r.contentCollection({ id: "templates", kind: "mail-html", nav: { label: "b" } });
+        r.contentCollection({ id: "templates", kind: "mail", nav: { label: "b" } });
       }),
     ).toThrow(/already registered/);
   });
@@ -195,7 +195,7 @@ describe("r.contentCollection() — registration", () => {
   test("rejects a non-kebab id", () => {
     expect(() =>
       defineFeature("mail", (r) => {
-        r.contentCollection({ id: "MailTemplates", kind: "mail-html", nav: { label: "a" } });
+        r.contentCollection({ id: "MailTemplates", kind: "mail", nav: { label: "a" } });
       }),
     ).toThrow(/kebab-case/);
   });
@@ -209,7 +209,7 @@ describe("r.contentCollection() — boot validation", () => {
     const templates = defineFeature("templates", (r) => {
       r.contentCollection({
         id: "mail-templates",
-        kind: "mail-html",
+        kind: "mail",
         nav: { label: "templates:nav.mail", parent: "mail:nav:root" },
       });
     });
@@ -221,7 +221,7 @@ describe("r.contentCollection() — boot validation", () => {
     const templates = defineFeature("templates", (r) => {
       r.contentCollection({
         id: "mail-templates",
-        kind: "mail-html",
+        kind: "mail",
         nav: { label: "templates:nav.mail", parent: "mail:nav:root" },
       });
     });
@@ -237,7 +237,7 @@ describe("buildAppSchema — content collections", () => {
         r.nav({ id: "root", label: "mail:nav.root" });
         r.contentCollection({
           id: "templates",
-          kind: "mail-html",
+          kind: "mail",
           contentFormat: "rich",
           nav: { label: "mail:nav.templates", parent: "mail:nav:root" },
         });
@@ -249,7 +249,7 @@ describe("buildAppSchema — content collections", () => {
     expect(mail?.contentCollections).toEqual([
       {
         id: "templates",
-        kind: "mail-html",
+        kind: "mail",
         contentFormat: "rich",
         nav: { label: "mail:nav.templates", parent: "mail:nav:root" },
         navQn: "mail:nav:templates",

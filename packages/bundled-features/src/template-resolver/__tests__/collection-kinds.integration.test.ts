@@ -46,7 +46,7 @@ const feature = createTemplateResolverFeature({
   collections: [
     {
       id: "reply-snippets",
-      kind: "mail-html",
+      kind: "document-pdf",
       access: { roles: ["Agent", "TenantAdmin"] },
       nav: { label: "mail:nav.snippets" },
     },
@@ -225,7 +225,7 @@ describe("collection isolation :: same slug, different collection", () => {
     const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
       tenantId: agent.tenantId,
       slug: "invoice",
-      kind: "mail-html",
+      kind: "document-pdf",
       locale: "de",
     });
     // The tree editor is the no-draft route; upsertTenant + publish is the one
@@ -248,7 +248,7 @@ describe("public handlers stay public and stay text-block", () => {
   test("a kind in the payload changes nothing — there is no such field", async () => {
     const result = await stack.http.queryOk<{ blocks: readonly { title: string }[] }>(
       TemplateResolverQueries.byTenant,
-      { kind: "mail-html" },
+      { kind: "document-pdf" },
       createAnonymousUser(agent.tenantId),
     );
     expect(result.blocks.map((b) => b.title)).toEqual(["Willkommen (Text-Block)"]);
@@ -279,7 +279,7 @@ describe("mount-time entity registration", () => {
       collections: [
         {
           id: "signatures",
-          kind: "mail-html",
+          kind: "document-pdf",
           ownership: "user",
           access: { roles: ["Agent"] },
           nav: { label: "mail:nav.signatures" },

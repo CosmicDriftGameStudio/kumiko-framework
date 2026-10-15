@@ -49,6 +49,14 @@ export const defaultTranslations: TranslationsByLocale = {
       "Link target “{detail}” is not allowed; use https, http, mailto, tel or a placeholder.",
     "templateResolver.errors.document.documentRequiresHtmlFormat":
       "This template kind requires the html format, got “{detail}”.",
+    "templateResolver.errors.document.layoutRequiresMjmlFormat":
+      "Mail layouts require the mjml format, got “{detail}”.",
+    "templateResolver.errors.collection.kindNotAllowed":
+      "“{detail}” templates are written through their own editor, not through a collection.",
+    "templateResolver.errors.template.invalidMeta": "Invalid template settings: {detail}",
+    "templateResolver.errors.template.unknownPlaceholders": "Unknown placeholders: {detail}",
+    "templateResolver.errors.template.missingRequiredPlaceholders":
+      "Required placeholders are not used: {detail}",
     "templateResolver.errors.document.embeddedContent":
       "<{detail}> elements are not allowed in template bodies.",
     "templateResolver.errors.document.unsafeAttributeValue":

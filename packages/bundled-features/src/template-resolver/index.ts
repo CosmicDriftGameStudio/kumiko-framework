@@ -6,6 +6,7 @@ export {
   type TemplateResolverApi,
   type TemplateResource,
 } from "./api.js";
+export { compileDocumentBodyToHandlebars } from "./compile-document-body.js";
 export {
   CONTENT_FORMATS,
   type ContentFormat,
@@ -67,6 +68,25 @@ export {
   templateResourceEntity,
   templateResourcesTable,
 } from "./table.js";
+export {
+  isMailTemplateMeta,
+  type LayoutTemplateMeta,
+  MAIL_CATEGORIES,
+  type MailCategory,
+  type MailTemplateMeta,
+  parseTemplateMeta,
+  type TemplateMeta,
+  type TemplateMetaIssue,
+  type TemplateMetaResult,
+  templateSlugSchema,
+} from "./template-meta.js";
+export {
+  hasPlaceholderProblems,
+  resolveTemplateVariables,
+  SYSTEM_PLACEHOLDERS,
+  type TemplateValidation,
+  validateTemplatePlaceholders,
+} from "./template-validation.js";
 export {
   type UserContentEntryRow,
   userContentEntriesTable,

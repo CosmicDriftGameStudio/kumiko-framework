@@ -49,7 +49,7 @@ afterAll(async () => {
 
 const basePayload = {
   slug: "test-slug",
-  kind: "mail-html" as const,
+  kind: "notification" as const,
   locale: "de",
   content: "Hello {{variables.name}}",
   contentFormat: "markdown" as const,
@@ -134,7 +134,7 @@ describe("template-resolver :: upsertTenant", () => {
     );
     const fetched = await stack.http.queryOk<Record<string, unknown>>(
       TemplateResolverQueries.list,
-      { kind: "mail-html", locale: "de", includeSystem: false },
+      { kind: "notification", locale: "de", includeSystem: false },
       tenantA_Admin,
     );
     const found = (fetched as unknown as Array<{ slug: string; status: string }>).find(
@@ -149,7 +149,7 @@ describe("template-resolver :: upsertTenant", () => {
     );
     const fetched2 = await stack.http.queryOk<Record<string, unknown>>(
       TemplateResolverQueries.list,
-      { kind: "mail-html", locale: "de", includeSystem: false },
+      { kind: "notification", locale: "de", includeSystem: false },
       tenantA_Admin,
     );
     const found2 = (fetched2 as unknown as Array<{ slug: string; status: string }>).find(
@@ -328,17 +328,17 @@ describe("template-resolver :: list query", () => {
   test("includeSystem=true zeigt eigene + system", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
-      { ...basePayload, slug: "list-system-1", locale: "de", kind: "mail-html" },
+      { ...basePayload, slug: "list-system-1", locale: "de", kind: "notification" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "list-tenant-1", locale: "de", kind: "mail-html" },
+      { ...basePayload, slug: "list-tenant-1", locale: "de", kind: "notification" },
       tenantA_Admin,
     );
     const result = (await stack.http.queryOk(
       TemplateResolverQueries.list,
-      { kind: "mail-html", locale: "de", includeSystem: true },
+      { kind: "notification", locale: "de", includeSystem: true },
       tenantA_Admin,
     )) as Array<{ slug: string; scope: string }>;
     const slugs = result.map((r) => r.slug);
@@ -375,22 +375,22 @@ describe("template-resolver :: list query", () => {
   test("SystemAdmin + includeSystem=false → nur eigener Tenant, weder System- noch Fremd-Templates", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
-      { ...basePayload, slug: "sysown-system", locale: "pl", kind: "mail-html" },
+      { ...basePayload, slug: "sysown-system", locale: "pl", kind: "notification" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "sysown-own", locale: "pl", kind: "mail-html" },
+      { ...basePayload, slug: "sysown-own", locale: "pl", kind: "notification" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "sysown-tenant-a", locale: "pl", kind: "mail-html" },
+      { ...basePayload, slug: "sysown-tenant-a", locale: "pl", kind: "notification" },
       tenantA_Admin,
     );
     const result = (await stack.http.queryOk(
       TemplateResolverQueries.list,
-      { kind: "mail-html", locale: "pl", includeSystem: false },
+      { kind: "notification", locale: "pl", includeSystem: false },
       systemAdmin,
     )) as Array<{ slug: string }>;
     const slugs = result.map((r) => r.slug);
@@ -402,22 +402,22 @@ describe("template-resolver :: list query", () => {
   test("SystemAdmin + includeSystem=true → eigene + System-Templates, Fremd-Tenant bleibt unsichtbar", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
-      { ...basePayload, slug: "syscross-system", locale: "nl", kind: "mail-html" },
+      { ...basePayload, slug: "syscross-system", locale: "nl", kind: "notification" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "syscross-own", locale: "nl", kind: "mail-html" },
+      { ...basePayload, slug: "syscross-own", locale: "nl", kind: "notification" },
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      { ...basePayload, slug: "syscross-tenant-b", locale: "nl", kind: "mail-html" },
+      { ...basePayload, slug: "syscross-tenant-b", locale: "nl", kind: "notification" },
       tenantB_Admin,
     );
     const result = (await stack.http.queryOk(
       TemplateResolverQueries.list,
-      { kind: "mail-html", locale: "nl", includeSystem: true },
+      { kind: "notification", locale: "nl", includeSystem: true },
       systemAdmin,
     )) as Array<{ slug: string }>;
     const slugs = result.map((r) => r.slug);

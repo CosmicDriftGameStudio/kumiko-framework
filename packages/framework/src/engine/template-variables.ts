@@ -1,0 +1,93 @@
+import * as z from "zod";
+import type {
+  TemplateListVariableDef,
+  TemplateScalarVariableDef,
+  TemplateVariableDef,
+  TemplateVariables,
+} from "./types/index.js";
+
+type CommonOptions = { readonly label?: string; readonly required?: boolean };
+
+// Builders keep declarations terse and the `type` discriminant out of app code.
+export const templateVariable = {
+  text: (opts: CommonOptions & { readonly example?: string } = {}): TemplateScalarVariableDef => ({
+    type: "text",
+    ...opts,
+  }),
+  link: (opts: CommonOptions & { readonly example?: string } = {}): TemplateScalarVariableDef => ({
+    type: "link",
+    ...opts,
+  }),
+  money: (
+    opts: CommonOptions & {
+      readonly example?: number | { readonly amount: number; readonly currency: string };
+    } = {},
+  ): TemplateScalarVariableDef => ({ type: "money", ...opts }),
+  date: (opts: CommonOptions & { readonly example?: string } = {}): TemplateScalarVariableDef => ({
+    type: "date",
+    ...opts,
+  }),
+  list: (
+    item: Readonly<Record<string, TemplateScalarVariableDef>>,
+    opts: CommonOptions & { readonly example?: readonly Readonly<Record<string, unknown>>[] } = {},
+  ): TemplateListVariableDef => ({ type: "list", item, ...opts }),
+} as const;
+
+const LINK_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:", "mailto:"]);
+
+function isSafeLinkUrl(value: string): boolean {
+  try {
+    return LINK_PROTOCOLS.has(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+
+const linkSchema = z.string().refine(isSafeLinkUrl, "must be an http, https or mailto URL");
+
+const moneySchema = z.union([
+  z.number().int(),
+  z.object({
+    amount: z.number().int(),
+    currency: z.string().regex(/^[A-Z]{3}$/),
+  }),
+]);
+
+const dateSchema = z.union([z.iso.date(), z.iso.datetime({ offset: true })]);
+
+function scalarToZod(def: TemplateScalarVariableDef): z.ZodType {
+  switch (def.type) {
+    case "text":
+      return z.string();
+    case "link":
+      return linkSchema;
+    case "money":
+      return moneySchema;
+    case "date":
+      return dateSchema;
+  }
+}
+
+function variableToZod(def: TemplateVariableDef): z.ZodType {
+  if (def.type !== "list") return scalarToZod(def);
+  return z.array(
+    z.object(
+      Object.fromEntries(
+        Object.entries(def.item).map(([name, item]) => [name, withOptionality(item)]),
+      ),
+    ),
+  );
+}
+
+function withOptionality(def: TemplateVariableDef): z.ZodType {
+  const schema = variableToZod(def);
+  return def.required === true ? schema : schema.optional();
+}
+
+export function templateVariablesToZod(variables: TemplateVariables): z.ZodObject {
+  return z.object(
+    Object.fromEntries(
+      Object.entries(variables).map(([name, def]) => [name, withOptionality(def)]),
+    ),
+  );
+}

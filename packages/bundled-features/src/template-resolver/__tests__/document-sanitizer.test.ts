@@ -95,16 +95,61 @@ describe("sanitizeTemplateBody", () => {
     if (!result.ok) expect(result.violations[0]?.code).toBe("document_requires_html_format");
   });
 
-  test("passes mail-html markdown through unchanged", () => {
+  test("snippet html is sanitized like document html, other formats pass untouched", () => {
+    const html = sanitizeTemplateBody({
+      kind: "snippet",
+      contentFormat: "html",
+      content: '<p style="color:red">Hi</p>',
+    });
+    expect(html).toEqual({ ok: true, content: "<p>Hi</p>" });
+    const hostile = sanitizeTemplateBody({
+      kind: "snippet",
+      contentFormat: "html",
+      content: '<p onclick="x()">Hi</p>',
+    });
+    expect(hostile.ok).toBe(false);
     expect(
-      sanitizeTemplateBody({ kind: "mail-html", contentFormat: "markdown", content: "<script>" }),
-    ).toEqual({ ok: true, content: "<script>" });
+      sanitizeTemplateBody({ kind: "snippet", contentFormat: "markdown", content: "# Hi" }),
+    ).toEqual({ ok: true, content: "# Hi" });
   });
 
-  test("sanitizes mail-html html", () => {
+  test("rejects mail with a non-html format and names the kind", () => {
+    const result = sanitizeTemplateBody({ kind: "mail", contentFormat: "markdown", content: "x" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.violations[0]?.code).toBe("document_requires_html_format");
+      expect(result.violations[0]?.message).toContain("kind mail");
+    }
+  });
+
+  test("mail-layout requires mjml, pdf-layout requires html", () => {
+    const layout = sanitizeTemplateBody({
+      kind: "mail-layout",
+      contentFormat: "html",
+      content: "x",
+    });
+    expect(layout.ok).toBe(false);
+    if (!layout.ok) expect(layout.violations[0]?.code).toBe("layout_requires_mjml_format");
     expect(
       sanitizeTemplateBody({
-        kind: "mail-html",
+        kind: "mail-layout",
+        contentFormat: "mjml",
+        content: "<mjml></mjml>",
+      }),
+    ).toEqual({ ok: true, content: "<mjml></mjml>" });
+    const pdf = sanitizeTemplateBody({
+      kind: "pdf-layout",
+      contentFormat: "markdown",
+      content: "x",
+    });
+    expect(pdf.ok).toBe(false);
+    if (!pdf.ok) expect(pdf.violations[0]?.code).toBe("document_requires_html_format");
+  });
+
+  test("sanitizes mail html", () => {
+    expect(
+      sanitizeTemplateBody({
+        kind: "mail",
         contentFormat: "html",
         content: '<p class="x">a</p>',
       }),

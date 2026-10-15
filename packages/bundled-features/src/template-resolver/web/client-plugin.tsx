@@ -501,7 +501,7 @@ export function textBlocksClient(opts?: {
     resolvers: {
       "template-resolver:edit": TextBlockEditor,
     },
-    // The default for every "plain" collection (ai-prompt, mail-html without
+    // The default for every "plain" collection (ai-prompt, mail without
     // an explicit rich override) — an app-registered "plain" editor on
     // another clientFeature still wins, last-wins same as columnRenderers.
     contentEditors: {

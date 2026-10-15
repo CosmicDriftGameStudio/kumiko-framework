@@ -16,4 +16,15 @@ export async function applyBootSeeds(deps: {
   cipher?: EnvelopeCipher;
 }): Promise<void> {
   await seedAllConfigValues(deps.registry, deps.db, deps.cipher);
+  // Loaded lazily: the seeding module pulls the document sanitizer (happy-dom),
+  // which apps without notification templates must not pay for at boot.
+  const hasNotificationTemplates = Array.from(deps.registry.getAllNotifications().values()).some(
+    (notification) => notification.template !== undefined,
+  );
+  if (hasNotificationTemplates) {
+    const { seedNotificationTemplates } = await import(
+      "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding"
+    );
+    await seedNotificationTemplates(deps.db, deps.registry);
+  }
 }

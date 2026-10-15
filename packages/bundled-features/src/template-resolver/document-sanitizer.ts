@@ -24,7 +24,8 @@ export type DocumentViolationCode =
   | "embedded_content"
   | "unsafe_attribute_value"
   | "button_href_not_placeholder"
-  | "document_requires_html_format";
+  | "document_requires_html_format"
+  | "layout_requires_mjml_format";
 
 export type DocumentViolation = {
   readonly code: DocumentViolationCode;
@@ -223,21 +224,31 @@ function scanElement(element: ScanElement, out: DocumentViolation[]): void {
   scanReferences(tag, element, out);
 }
 
-function scanDocumentHtml(html: string): DocumentViolation[] {
+// Parses `html` in the hardened scan window and always closes it again, also
+// when `read` throws. Shared by the sanitizer and the placeholder scan so there
+// is exactly one DOM setup.
+export function withParsedDocument<T>(html: string, read: (body: ScanElement) => T): T {
   const window = createScanWindow();
-  const violations: DocumentViolation[] = [];
   try {
     const parsed = new window.DOMParser().parseFromString(
       ["<!DOCTYPE html><html><body>", html, "</body></html>"].join(""),
       "text/html",
     );
-    for (const element of Array.from(parsed.querySelectorAll("*"))) {
-      scanElement(element, violations);
-    }
+    return read(parsed.body);
   } finally {
     window.happyDOM.abort();
     window.happyDOM.close();
   }
+}
+
+function scanDocumentHtml(html: string): DocumentViolation[] {
+  const violations: DocumentViolation[] = [];
+  withParsedDocument(html, (body) => {
+    // A second `<body ...>` in the input merges its attributes into this body.
+    for (const element of [body, ...Array.from(body.querySelectorAll("*"))]) {
+      scanElement(element, violations);
+    }
+  });
   return violations;
 }
 
@@ -253,8 +264,32 @@ export function sanitizeDocumentHtml(html: string): SanitizeHtmlResult {
   };
 }
 
-function isDocumentHtmlKind(kind: string): boolean {
-  return isOneOf(DOCUMENT_HTML_KINDS, kind);
+// Snippets accept any format, but their html is as untrusted as a mail body.
+function isSanitizedHtmlKind(kind: string): boolean {
+  return kind === "snippet" || isOneOf(DOCUMENT_HTML_KINDS, kind);
+}
+
+const HTML_ONLY_KINDS: ReadonlySet<string> = new Set([...DOCUMENT_HTML_KINDS, "pdf-layout"]);
+
+function requiredFormatViolation(
+  kind: string,
+  contentFormat: ContentFormat,
+): DocumentViolation | null {
+  if (HTML_ONLY_KINDS.has(kind) && contentFormat !== "html") {
+    return violation(
+      "document_requires_html_format",
+      contentFormat,
+      `Templates of kind ${kind} require contentFormat html, got "${contentFormat}"`,
+    );
+  }
+  if (kind === "mail-layout" && contentFormat !== "mjml") {
+    return violation(
+      "layout_requires_mjml_format",
+      contentFormat,
+      `Templates of kind mail-layout require contentFormat mjml, got "${contentFormat}"`,
+    );
+  }
+  return null;
 }
 
 export function sanitizeTemplateBody(input: {
@@ -262,19 +297,13 @@ export function sanitizeTemplateBody(input: {
   readonly contentFormat: ContentFormat;
   readonly content: string | null;
 }): SanitizeBodyResult {
-  if (input.kind === "document-pdf" && input.contentFormat !== "html") {
-    return {
-      ok: false,
-      violations: [
-        violation(
-          "document_requires_html_format",
-          input.contentFormat,
-          `Templates of kind document-pdf require contentFormat html, got "${input.contentFormat}"`,
-        ),
-      ],
-    };
-  }
-  if (!isDocumentHtmlKind(input.kind) || input.contentFormat !== "html" || input.content === null) {
+  const formatViolation = requiredFormatViolation(input.kind, input.contentFormat);
+  if (formatViolation !== null) return { ok: false, violations: [formatViolation] };
+  if (
+    !isSanitizedHtmlKind(input.kind) ||
+    input.contentFormat !== "html" ||
+    input.content === null
+  ) {
     return { ok: true, content: input.content };
   }
   const result = sanitizeDocumentHtml(input.content);
@@ -292,6 +321,7 @@ const VIOLATION_I18N_KEYS: Readonly<Record<DocumentViolationCode, string>> = {
   unsafe_attribute_value: "templateResolver.errors.document.unsafeAttributeValue",
   button_href_not_placeholder: "templateResolver.errors.document.buttonHrefNotPlaceholder",
   document_requires_html_format: "templateResolver.errors.document.documentRequiresHtmlFormat",
+  layout_requires_mjml_format: "templateResolver.errors.document.layoutRequiresMjmlFormat",
 };
 
 export function documentViolationsToFieldIssues(

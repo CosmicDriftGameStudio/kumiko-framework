@@ -20,7 +20,7 @@ Use `kumiko upgrade` to check what's new since your current version.
 
 ## 0.361.0
 
-### enterprise:dev-server
+### @cosmicdrift/kumiko-dev-server
 
 **runDevApp encrypts PII on ephemeral dev DBs by default**
 
@@ -28,7 +28,7 @@ Without a kms option, runDevApp now configures an InMemoryKmsAdapter and a rando
 
 **Migration:** e2e or dev scripts that read PII columns raw must decrypt them or pass kms false to runDevApp. Apps that pass their own kms are unaffected.
 
-### enterprise:renderer
+### @cosmicdrift/kumiko-renderer
 
 **Searchable lists show their description as its own row**
 
@@ -102,7 +102,7 @@ personal: { of: "<owner>", whenAbsent: "tenant" } makes rows without an owner ed
 
 ## 0.357.0
 
-### enterprise:renderer
+### @cosmicdrift/kumiko-renderer
 
 **List card meta values wrap instead of being clipped; more than 3 meta columns fail boot**
 
@@ -122,7 +122,7 @@ personal: { of: "<owner>", whenAbsent: "tenant" } makes rows without an owner ed
 
 ## 0.355.0
 
-### enterprise:guards
+### @cosmicdrift/kumiko-guards
 
 **Security guards ignore kumiko.json excludes beyond node_modules and dist; kind framework is reserved for kumiko-framework**
 
@@ -139,6 +139,25 @@ personal: { of: "<owner>", whenAbsent: "tenant" } makes rows without an owner ed
 **Migration:** Job ctx.writeAs now needs r.systemScope() on the feature or escapeHatch: { reason } on the job; use ctx.write when the job acts as its own system user. A payload tenantIdOverride is refused by the dispatcher for non-SystemAdmin callers (handlers no longer call crossTenantOverrideDenied, which is removed; use mayOverrideTenant for other cross-tenant fields). Entity convention handlers with a cross-tenant escapeHatch now keep the operator as actor in the row stream (executor option streamTenantId, system-mode db only). createEscapeHatchReporter requires log; pass the runtime logger and share one report window per runtime. EscapeHatchUseEvent and the audit sink payload gain an optional caller. Call flushEscapeHatchAudits() before closing the database on shutdown.
 
 ## 0.354.0
+
+### @cosmicdrift/kumiko-renderer
+
+**Grid columns is number | "auto"**
+
+Final review batch F: renderer, renderer-web, types
+The boot validator rejects a `listScreenId` that matches no mounted screen, a `sortable` column that the list cannot sort (entityList: any value; projectionList: `true`) and an authored `urlPrefillFields`. `TreeAction` is a union: exactly one of `screen` or `target`. `Button` without children needs `icon` and `ariaLabel`. `RenderEditControls` gains `next` and `back`, and `controls.submit()` saves on an intermediate wizard step. An actionForm money field with a tenant currency that cannot be loaded shows an error instead of submitting with a guessed EUR. The MFA setup and recovery-code buttons sit below the content. The boot context passes Redis to the delivery service, so `notify` with an `idempotencyKey` dedupes. `user:query:user:detail` skips the tenants label when the tenant feature is not mounted.
+
+**Migration:** Pass a number or "auto" to Grid columns; other values no longer type-check.
+
+**Button without children requires icon and ariaLabel**
+
+**Migration:** A custom wrapper that forwards ButtonProps must pass either children or both icon and ariaLabel.
+
+### @cosmicdrift/kumiko-renderer-web
+
+**MFA setup and recovery-code buttons moved from Section actions to the section body**
+
+**Migration:** Section actions always render in the title row. Put a footer button into the section children instead of Section actions.
 
 ### auth-email-password
 
@@ -171,25 +190,6 @@ Review batch H1: framework parts of consumer-app findings.
 **POST /resubscribe requires the undo token from the POST /unsubscribe response**
 
 **Migration:** Clients that called the resubscribe route with the unsubscribe token must send the undo token instead: read it from the hidden token field of the page POST /unsubscribe returns (aud kumiko:resubscribe, valid for 1 hour). The unsubscribe token is rejected on /resubscribe with 400, and the undo token is rejected on /unsubscribe.
-
-### enterprise:renderer
-
-**Grid columns is number | "auto"**
-
-Final review batch F: renderer, renderer-web, types
-The boot validator rejects a `listScreenId` that matches no mounted screen, a `sortable` column that the list cannot sort (entityList: any value; projectionList: `true`) and an authored `urlPrefillFields`. `TreeAction` is a union: exactly one of `screen` or `target`. `Button` without children needs `icon` and `ariaLabel`. `RenderEditControls` gains `next` and `back`, and `controls.submit()` saves on an intermediate wizard step. An actionForm money field with a tenant currency that cannot be loaded shows an error instead of submitting with a guessed EUR. The MFA setup and recovery-code buttons sit below the content. The boot context passes Redis to the delivery service, so `notify` with an `idempotencyKey` dedupes. `user:query:user:detail` skips the tenants label when the tenant feature is not mounted.
-
-**Migration:** Pass a number or "auto" to Grid columns; other values no longer type-check.
-
-**Button without children requires icon and ariaLabel**
-
-**Migration:** A custom wrapper that forwards ButtonProps must pass either children or both icon and ariaLabel.
-
-### enterprise:renderer-web
-
-**MFA setup and recovery-code buttons moved from Section actions to the section body**
-
-**Migration:** Section actions always render in the title row. Put a footer button into the section children instead of Section actions.
 
 ### files
 
@@ -327,6 +327,22 @@ Tenant names are PII encrypted under the tenant record and crypto-shredded on te
 
 ## 0.352.0
 
+### @cosmicdrift/kumiko-guards
+
+**upgrade-state guard fails on open manual upgrade steps**
+
+Every entry in the marker's pendingManual list now produces a guard violation until it is resolved.
+
+**Migration:** Run `kumiko-upgrade --resolve <id> --reason "<what you did>"` for each open step once you applied it, or add `--not-applicable` when it does not concern your repo. The guard passes when no manual step is left open.
+
+### @cosmicdrift/kumiko-types
+
+**Apps must import Temporal from @cosmicdrift/kumiko-types/temporal instead of temporal-polyfill (affects every app since 0.351.0)**
+
+Since 0.351.0 the native globalThis.Temporal wins over the polyfill. A Temporal imported from "temporal-polyfill" is a second implementation, so instanceof and z.instanceof(Temporal.Instant) reject values the framework creates. This applies whether you upgrade from before 0.351.0 or are already on it.
+
+**Migration:** Replace every value import from "temporal-polyfill" in app code and tests, e.g. `import { Temporal } from "temporal-polyfill"`, with `import { Temporal } from "@cosmicdrift/kumiko-types/temporal"`, and drop side-effect imports of "temporal-polyfill/global" (importing @cosmicdrift/kumiko-types/temporal already installs the global when the runtime has none). `import type` and `/// <reference types="temporal-polyfill/global" />` may stay. Then run `kumiko check`; the No-Temporal-Polyfill-Import guard lists anything left. Close the step with `kumiko-upgrade --resolve <id> --reason "<what you changed>"`, or add `--not-applicable` when the repo never imported temporal-polyfill.
+
 ### cap-counter
 
 **Calendar cap reservations are stored in the new store_cap_reservations table**
@@ -342,22 +358,6 @@ Capped writes now insert and delete rows in store_cap_reservations, so they fail
 The log query, the export and the stored events show masked addresses, and the feature registers the daily attempt-log-retention job.
 
 **Migration:** Read recipients from your own data, not from the attempt log, because it only shows masked addresses now. Set `attemptLogRetentionDays` on createDeliveryFeature to another number of days, or to `false` to keep the log, if 90 days does not fit. Schedule nothing extra, the feature registers the cron job itself. Existing full-address entries are removed by the retention job once they are older than the window, or erased when their user is forgotten.
-
-### enterprise:guards
-
-**upgrade-state guard fails on open manual upgrade steps**
-
-Every entry in the marker's pendingManual list now produces a guard violation until it is resolved.
-
-**Migration:** Run `kumiko-upgrade --resolve <id> --reason "<what you did>"` for each open step once you applied it, or add `--not-applicable` when it does not concern your repo. The guard passes when no manual step is left open.
-
-### enterprise:types
-
-**Apps must import Temporal from @cosmicdrift/kumiko-types/temporal instead of temporal-polyfill (affects every app since 0.351.0)**
-
-Since 0.351.0 the native globalThis.Temporal wins over the polyfill. A Temporal imported from "temporal-polyfill" is a second implementation, so instanceof and z.instanceof(Temporal.Instant) reject values the framework creates. This applies whether you upgrade from before 0.351.0 or are already on it.
-
-**Migration:** Replace every value import from "temporal-polyfill" in app code and tests, e.g. `import { Temporal } from "temporal-polyfill"`, with `import { Temporal } from "@cosmicdrift/kumiko-types/temporal"`, and drop side-effect imports of "temporal-polyfill/global" (importing @cosmicdrift/kumiko-types/temporal already installs the global when the runtime has none). `import type` and `/// <reference types="temporal-polyfill/global" />` may stay. Then run `kumiko check`; the No-Temporal-Polyfill-Import guard lists anything left. Close the step with `kumiko-upgrade --resolve <id> --reason "<what you changed>"`, or add `--not-applicable` when the repo never imported temporal-polyfill.
 
 ## 0.346.0
 
@@ -410,7 +410,7 @@ Migration: `KumikoError.docsUrl` (the getter) is removed; use `resolveErrorDocsU
 
 ## 0.342.0
 
-### enterprise:cli
+### @cosmicdrift/kumiko-cli
 
 **kumiko check requires uiRoots for kind "app"**
 
@@ -431,6 +431,24 @@ Key Manager slots are required: no more LEGACY_SLOTS default
 Workspace state at release: show-pony `bin/kumiko.ts` and its docs copy `kumiko-platform/apps/docs/_samples/show-pony/bin/kumiko.ts` still call `runSchemaCli` with `features` only. publicstatus, solon, offlot-app, money-horse, phronexsis and kumiko-studio already pass `kmsSlots` / `slots`.
 
 ## 0.341.0
+
+### @cosmicdrift/kumiko-dev-server
+
+**Deploy migrate-step.sh always uses the exact stack network**
+
+The discover variant (docker network ls | head -1) could pick another compose project's network on a shared host. The script now uses COMPOSE_PROJECT_NAME or the directory name plus _stack.
+
+**Migration:** Remove package.json kumiko.deploy.stackNetwork (or set it to "directory"), then re-run scaffoldDeploy. If the deploy directory name differs from the compose project, set COMPOSE_PROJECT_NAME for migrate-step.sh.
+
+### @cosmicdrift/kumiko-guards
+
+**Repo-local direct-fs exceptions with a frozen reason, bundled read-only assets**
+
+`guard-no-direct-fs` has a repo-local exception: `// kumiko-lint-ignore direct-fs <reason>` on the `node:fs` import (or the line above) suppresses the finding only while the `<file>::<reason>` pair is frozen in `.kumiko-direct-fs-baseline.json` at the repo root. It fails closed: without a baseline file, with an unreadable file, with a changed reason, or with more markers than frozen, the finding stays. A bare tag without a reason does not count. Freeze with `kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"`. The guard hint now points to the marker, `FileStorageProvider` and `readBundledAsset`. `AstGuard.writeBaseline` receives the scanned roots as an optional second argument, and `baselineRatchet` takes an opt-in `failClosed` that treats a missing baseline file as empty.
+**Migration (breaking-ish):** the framework allowlist no longer contains `src/marketing/render-landing.ts` and `src/marketing/rebuild-pages-job.ts` for every repo. Apps that have these files (today money-horse, phronexsis, show-pony, publicstatus) put `// kumiko-lint-ignore direct-fs <reason>` above the `node:fs` import in each file and run `kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"` once in the app repo. Commit the generated `.kumiko-direct-fs-baseline.json`.
+`@cosmicdrift/kumiko-server-runtime` can ship read-only files from an app's own build. Declare them in `package.json` under `kumiko.assets` (`[{ "name": "inter-bold.ttf", "source": "packages/site-kit/fonts/inter-bold.ttf" }]`, `source` relative to the app's `package.json`). `buildProdBundle` copies them to `dist/kumiko-bundled-assets/`, which the static file server does not serve, and fails the build on an invalid name, a duplicate, a source outside the package or a missing file. `readBundledAsset(name)` and `resolveBundledAsset(name)` read the dist copy in prod and the declared source in dev, so apps need no `node:fs` for it.
+
+**Migration:** The allowlist no longer frees src/marketing/render-landing.ts and src/marketing/rebuild-pages-job.ts in every repo. Put // kumiko-lint-ignore direct-fs <reason> above the node:fs import in each such file, run kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard" once and commit .kumiko-direct-fs-baseline.json.
 
 ### auth-email-password
 
@@ -465,24 +483,6 @@ Consumers: `NotifyFn` implementations in tests and mocks must now return a `Noti
 
 **Migration:** NotifyFn implementations in tests and mocks must return a NotifyResult, e.g. async () => ({ deliveries: [] }). Queued channels now run through the delivery jobs in production; an API-only deployment (runSingleInstance: false) needs a worker that mounts delivery and the channel features.
 
-### enterprise:dev-server
-
-**Deploy migrate-step.sh always uses the exact stack network**
-
-The discover variant (docker network ls | head -1) could pick another compose project's network on a shared host. The script now uses COMPOSE_PROJECT_NAME or the directory name plus _stack.
-
-**Migration:** Remove package.json kumiko.deploy.stackNetwork (or set it to "directory"), then re-run scaffoldDeploy. If the deploy directory name differs from the compose project, set COMPOSE_PROJECT_NAME for migrate-step.sh.
-
-### enterprise:guards
-
-**Repo-local direct-fs exceptions with a frozen reason, bundled read-only assets**
-
-`guard-no-direct-fs` has a repo-local exception: `// kumiko-lint-ignore direct-fs <reason>` on the `node:fs` import (or the line above) suppresses the finding only while the `<file>::<reason>` pair is frozen in `.kumiko-direct-fs-baseline.json` at the repo root. It fails closed: without a baseline file, with an unreadable file, with a changed reason, or with more markers than frozen, the finding stays. A bare tag without a reason does not count. Freeze with `kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"`. The guard hint now points to the marker, `FileStorageProvider` and `readBundledAsset`. `AstGuard.writeBaseline` receives the scanned roots as an optional second argument, and `baselineRatchet` takes an opt-in `failClosed` that treats a missing baseline file as empty.
-**Migration (breaking-ish):** the framework allowlist no longer contains `src/marketing/render-landing.ts` and `src/marketing/rebuild-pages-job.ts` for every repo. Apps that have these files (today money-horse, phronexsis, show-pony, publicstatus) put `// kumiko-lint-ignore direct-fs <reason>` above the `node:fs` import in each file and run `kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"` once in the app repo. Commit the generated `.kumiko-direct-fs-baseline.json`.
-`@cosmicdrift/kumiko-server-runtime` can ship read-only files from an app's own build. Declare them in `package.json` under `kumiko.assets` (`[{ "name": "inter-bold.ttf", "source": "packages/site-kit/fonts/inter-bold.ttf" }]`, `source` relative to the app's `package.json`). `buildProdBundle` copies them to `dist/kumiko-bundled-assets/`, which the static file server does not serve, and fails the build on an invalid name, a duplicate, a source outside the package or a missing file. `readBundledAsset(name)` and `resolveBundledAsset(name)` read the dist copy in prod and the declared source in dev, so apps need no `node:fs` for it.
-
-**Migration:** The allowlist no longer frees src/marketing/render-landing.ts and src/marketing/rebuild-pages-job.ts in every repo. Put // kumiko-lint-ignore direct-fs <reason> above the node:fs import in each such file, run kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard" once and commit .kumiko-direct-fs-baseline.json.
-
 ### secrets
 
 **ctx.secrets.set validates against the declared valueSchema**
@@ -513,6 +513,14 @@ The discover variant (docker network ls | head -1) could pick another compose pr
 
 ## 0.338.0
 
+### @cosmicdrift/kumiko-repo-manifest
+
+**manifest patterns reject symlinks escaping the repo root behind wildcard segments**
+
+repo-manifest: the root-containment check also resolves wildcard segments. A symlink such as `packages/evil -> /` matched by `packages/*/src` is now rejected; before, only the static prefix before the first glob segment was checked. Segments below a `**` are still not walked, so glob consumers must not follow symlinks inside such a tree.
+
+**Migration:** A kumiko.json whose wildcard pattern matches a symlink that leaves the repo root now fails to load. Point the pattern at paths inside the repo or remove the symlink.
+
 ### billing-foundation
 
 **SubscriptionProviderPlugin.cancelSubscription takes { providerSubscriptionId, when }**
@@ -534,14 +542,6 @@ The discover variant (docker network ls | head -1) could pick another compose pr
 `createCapOverviewFeature` gets `usageVisibleTo?: readonly string[]`. Without it, the `caps:usage` query and the `my-caps` screen accept `access.admin` (TenantAdmin, Admin, SystemAdmin) instead of every tenant member. The screen and the query share the resolved roles. Only built-in roles are accepted (User, Member, Editor, Admin, TenantAdmin, SystemAdmin); an unknown or empty list throws at feature definition. The SystemAdmin `tenantId` override and the platform-wide screens are unchanged. The `MY_CAPS_ACCESS_ROLES` export is replaced by `DEFAULT_CAP_USAGE_ROLES` (the admin default), and `myCapsScreen` by `createMyCapsScreen(roles)`.
 
 **Migration:** Apps whose regular members should keep seeing their usage pass `createCapOverviewFeature({ ..., usageVisibleTo: ["User", "Editor", "Admin", "TenantAdmin", "SystemAdmin"] })`. Code that imported `MY_CAPS_ACCESS_ROLES` (handlers or nav entries mirroring the screen rule) imports `DEFAULT_CAP_USAGE_ROLES` for the admin default, or reuses the same `usageVisibleTo` array it passed to the feature.
-
-### enterprise:repo-manifest
-
-**manifest patterns reject symlinks escaping the repo root behind wildcard segments**
-
-repo-manifest: the root-containment check also resolves wildcard segments. A symlink such as `packages/evil -> /` matched by `packages/*/src` is now rejected; before, only the static prefix before the first glob segment was checked. Segments below a `**` are still not walked, so glob consumers must not follow symlinks inside such a tree.
-
-**Migration:** A kumiko.json whose wildcard pattern matches a symlink that leaves the repo root now fails to load. Point the pattern at paths inside the repo or remove the symlink.
 
 ### framework-core
 
@@ -567,7 +567,7 @@ tags and notes-history: `ownership.write` is now enforced by `assign-tag`, `remo
 
 ## 0.337.0
 
-### enterprise:renderer
+### @cosmicdrift/kumiko-renderer
 
 **DataTableRowGrouping.headerLabel may return undefined**
 
@@ -595,7 +595,7 @@ Both handlers reject a key that no feature declared with `r.secret` (404, i18n k
 
 ## 0.336.0
 
-### enterprise:renderer
+### @cosmicdrift/kumiko-renderer
 
 **LiveEvent data has no payload, it carries eventType**
 
@@ -612,6 +612,25 @@ The SSE broadcast consumer no longer puts the event payload (changes, previous) 
 **Migration:** Code that reads `data.payload` from SSE frames must load the data with a query after the signal instead. Public pages that update anonymously add `liveEntities: ["<entity>"]` to the anonymous query they refetch (for example a `page:current` query), otherwise the live update stays off for anonymous visitors. `createSseRoute(broker)` now needs a second argument, `{ anonymousLiveEntities: collectAnonymousLiveEntities(registry) }`.
 
 ## 0.335.0
+
+### @cosmicdrift/kumiko-renderer
+
+**Wizard editing an existing record shows data-based done state and allows jumping to any step; delete record actions leave the screen**
+
+Update-mode wizards compute done per step from the record (valid, non-empty fields, or passed via Next) and make every non-current step a jump target; forward jumps run the current step's validate gate. `ExtensionSectionProps.reportStepComplete` lets extension steps report completeness. `StepBar` gets `doneSteps` and `selectableSteps`. A writeHandler record action with `redirect`, or a delete of the shown record, navigates away (returnTo, redirect, listScreenId, entity list) instead of refetching.
+
+**Migration:** Extension wizard steps in an entityEdit that edits an existing record should call `reportStepComplete(true)` (usually from an effect) once they hold their data, otherwise the step bar shows them as not done until the user passes them with Next. This also applies to singleton wizards (e.g. a company-setup wizard), whose steps now show done by data and are all jump targets; tests that assumed back-only chips must be updated. A delete writeHandler action on a projectionDetail or entityEdit now navigates away after success (returnTo, else listScreenId or the entity's list) instead of refetching into "record not found"; set `redirect` to choose another target. List row actions are unchanged.
+
+### @cosmicdrift/kumiko-renderer-web
+
+**InfinityList live defaults to false**
+
+Review round 2 fixes for renderer-web.
+- `InfinityList` now defaults `live` to `false` (it was `true`). Lists that relied on the implicit realtime refresh no longer update on SSE events until they pass `live={true}`.
+- A number input with a `unit` exposes the unit to screen readers through `aria-describedby` instead of hiding it with `aria-hidden`.
+- `Drawer` with an explicit `width` is capped at `85vw`, the same limit as the default width.
+
+**Migration:** Pass `live={true}` to every `<InfinityList>` that should refresh from SSE events. Without it the list only loads on mount and on pagination.
 
 ### agent-tools
 
@@ -656,25 +675,6 @@ Stricter input guards. A delivery channel plugin must declare `mode` as `inline`
 **Provider name "unknown" is reserved for upcast legacy events**
 
 **Migration:** Registering a document-ingest provider under the name `unknown` now throws; rename any provider that uses it.
-
-### enterprise:renderer
-
-**Wizard editing an existing record shows data-based done state and allows jumping to any step; delete record actions leave the screen**
-
-Update-mode wizards compute done per step from the record (valid, non-empty fields, or passed via Next) and make every non-current step a jump target; forward jumps run the current step's validate gate. `ExtensionSectionProps.reportStepComplete` lets extension steps report completeness. `StepBar` gets `doneSteps` and `selectableSteps`. A writeHandler record action with `redirect`, or a delete of the shown record, navigates away (returnTo, redirect, listScreenId, entity list) instead of refetching.
-
-**Migration:** Extension wizard steps in an entityEdit that edits an existing record should call `reportStepComplete(true)` (usually from an effect) once they hold their data, otherwise the step bar shows them as not done until the user passes them with Next. This also applies to singleton wizards (e.g. a company-setup wizard), whose steps now show done by data and are all jump targets; tests that assumed back-only chips must be updated. A delete writeHandler action on a projectionDetail or entityEdit now navigates away after success (returnTo, else listScreenId or the entity's list) instead of refetching into "record not found"; set `redirect` to choose another target. List row actions are unchanged.
-
-### enterprise:renderer-web
-
-**InfinityList live defaults to false**
-
-Review round 2 fixes for renderer-web.
-- `InfinityList` now defaults `live` to `false` (it was `true`). Lists that relied on the implicit realtime refresh no longer update on SSE events until they pass `live={true}`.
-- A number input with a `unit` exposes the unit to screen readers through `aria-describedby` instead of hiding it with `aria-hidden`.
-- `Drawer` with an explicit `width` is capped at `85vw`, the same limit as the default width.
-
-**Migration:** Pass `live={true}` to every `<InfinityList>` that should refresh from SSE events. Without it the list only loads on mount and on pagination.
 
 ### framework-core
 
@@ -781,7 +781,7 @@ aggregateId erwartet haben, und diese per loadAggregate ohne aggregateType lesen
 
 ## 0.330.1
 
-### enterprise:renderer
+### @cosmicdrift/kumiko-renderer
 
 **Boolean fields in flow forms use FieldCellWidth "toggle" instead of "auto"**
 
@@ -790,6 +790,30 @@ In flow forms (screen forms and drawers) a boolean field's label now shares the 
 **Migration:** Custom Grid/GridCell primitives keyed by FieldCellWidth: rename `auto` to `toggle`.
 
 ## 0.330.0
+
+### @cosmicdrift/kumiko-locale-de
+
+**locale-de and locale-es drop 110 keys that no framework feature registers any more (old custom-screen keys such as audit.log.*, jobs.runs.*, userDataRights.privacyCenter.title)**
+
+The new i18n-parity test in `use-all-bundled` harvests the English copy from the real registrations (feature translations, client plugins, renderer defaults, mail templates) and fails with `key -> locale` when `locale-de` or `locale-es` lacks a key or an en-catalog drifts. This added the missing German and Spanish copy for billing plans, the privacy-center status field and many more keys, and removed 110 translation keys no feature registers any more. German uses "Ereignisprotokoll" for the audit log everywhere. `userDataRights.privacyCenter.restriction.dialogTitle` and `.deletion.dialogTitle` are registered in English by the feature.
+
+**Migration:** The framework no longer renders these keys, so framework screens are unaffected. If app code or an app test calls t() with one of them, register that key in the app's own translations or switch to the key the framework screen uses now (for example the screen title key screen:<screen-id>.title, as in screen:audit-log.title).
+
+### @cosmicdrift/kumiko-locale-es
+
+**locale-es drops the same keys that no framework feature registers any more**
+
+The new i18n-parity test in `use-all-bundled` harvests the English copy from the real registrations (feature translations, client plugins, renderer defaults, mail templates) and fails with `key -> locale` when `locale-de` or `locale-es` lacks a key or an en-catalog drifts. This added the missing German and Spanish copy for billing plans, the privacy-center status field and many more keys, and removed 110 translation keys no feature registers any more. German uses "Ereignisprotokoll" for the audit log everywhere. `userDataRights.privacyCenter.restriction.dialogTitle` and `.deletion.dialogTitle` are registered in English by the feature.
+
+**Migration:** Same as locale-de: register any removed key your app still calls in the app's own translations, or switch to the key the framework screen uses now.
+
+### @cosmicdrift/kumiko-renderer-web
+
+**Dashboard screens show screen.description only when it is an i18n key; plain-text descriptions stay agent-facing and are no longer rendered**
+
+Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacked-area`, a subtitle, per-series tones, static query `params`, `ignoreScreenFilter`, an empty label and hint, a `span` (half/full width), a stat `sparklineField` and static `tone`, a `negative` tone, an unlabelled `stat-group` KPI strip and bar/badge list columns. Every panel shows skeleton, empty and error states with retry. A screen can declare a `timeRange` control and a `scope` badge and notice. The admin-shell overview screens use all of this and show the metrics of the new `metrics` and `metrics-system` features. `deliveries-by-channel` now labels the email, in-app and push channels.
+
+**Migration:** To keep a visible subtitle under a dashboard title, set screen.description to an i18n key (for example "my-feature:screen.overview.description") and register its translations.
 
 ### admin-shell
 
@@ -801,33 +825,9 @@ Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacke
 
 If you do not mount all of them, pass the same reduced list to all three: createMetricsFeature({ metrics }), createSystemMetricsFeature({ metrics }) and createAdminShellFeature({ metrics }). Overview panels exist only for metric ids in that list.
 
-### enterprise:locale-de
-
-**locale-de and locale-es drop 110 keys that no framework feature registers any more (old custom-screen keys such as audit.log.*, jobs.runs.*, userDataRights.privacyCenter.title)**
-
-The new i18n-parity test in `use-all-bundled` harvests the English copy from the real registrations (feature translations, client plugins, renderer defaults, mail templates) and fails with `key -> locale` when `locale-de` or `locale-es` lacks a key or an en-catalog drifts. This added the missing German and Spanish copy for billing plans, the privacy-center status field and many more keys, and removed 110 translation keys no feature registers any more. German uses "Ereignisprotokoll" for the audit log everywhere. `userDataRights.privacyCenter.restriction.dialogTitle` and `.deletion.dialogTitle` are registered in English by the feature.
-
-**Migration:** The framework no longer renders these keys, so framework screens are unaffected. If app code or an app test calls t() with one of them, register that key in the app's own translations or switch to the key the framework screen uses now (for example the screen title key screen:<screen-id>.title, as in screen:audit-log.title).
-
-### enterprise:locale-es
-
-**locale-es drops the same keys that no framework feature registers any more**
-
-The new i18n-parity test in `use-all-bundled` harvests the English copy from the real registrations (feature translations, client plugins, renderer defaults, mail templates) and fails with `key -> locale` when `locale-de` or `locale-es` lacks a key or an en-catalog drifts. This added the missing German and Spanish copy for billing plans, the privacy-center status field and many more keys, and removed 110 translation keys no feature registers any more. German uses "Ereignisprotokoll" for the audit log everywhere. `userDataRights.privacyCenter.restriction.dialogTitle` and `.deletion.dialogTitle` are registered in English by the feature.
-
-**Migration:** Same as locale-de: register any removed key your app still calls in the app's own translations, or switch to the key the framework screen uses now.
-
-### enterprise:renderer-web
-
-**Dashboard screens show screen.description only when it is an i18n key; plain-text descriptions stay agent-facing and are no longer rendered**
-
-Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacked-area`, a subtitle, per-series tones, static query `params`, `ignoreScreenFilter`, an empty label and hint, a `span` (half/full width), a stat `sparklineField` and static `tone`, a `negative` tone, an unlabelled `stat-group` KPI strip and bar/badge list columns. Every panel shows skeleton, empty and error states with retry. A screen can declare a `timeRange` control and a `scope` badge and notice. The admin-shell overview screens use all of this and show the metrics of the new `metrics` and `metrics-system` features. `deliveries-by-channel` now labels the email, in-app and push channels.
-
-**Migration:** To keep a visible subtitle under a dashboard title, set screen.description to an i18n key (for example "my-feature:screen.overview.description") and register its translations.
-
 ## 0.328.0
 
-### enterprise:headless
+### @cosmicdrift/kumiko-headless
 
 **Dates format with two-digit day and month**
 
@@ -835,7 +835,7 @@ Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacke
 
 **Migration:** Update tests and snapshots that expect single-digit day or month.
 
-### enterprise:renderer
+### @cosmicdrift/kumiko-renderer
 
 **Screens fill the shell height by default**
 
@@ -861,7 +861,7 @@ Screen forms have no card, sections are separated by lines, fields flow in rows 
 
 **Migration:** Adjust screenshots and DOM tests that pin the old card layout. `fillHeight: false` restores page scrolling only; the footer order, the moved actions and the new field layout apply in both modes. Empty list cells render a dash.
 
-### enterprise:renderer-web
+### @cosmicdrift/kumiko-renderer-web
 
 **IBM Plex replaces Inter as the default typeface**
 
@@ -973,7 +973,7 @@ field carries the flag — consumer checklist:
 
 ## 0.323.0
 
-### enterprise:dev-server
+### @cosmicdrift/kumiko-dev-server
 
 **kumiko-build reads client entries from package.json "kumiko.clientEntries"/"kumiko.clientEntry" instead of inferring them from filenames**
 
@@ -988,7 +988,7 @@ re-exports `resolveClientEntries`, `readClientEntriesConfig`, and
 the required package.json changes — the dev-server change is the CLI
 wiring for the same underlying behavior.
 
-### enterprise:server-runtime
+### @cosmicdrift/kumiko-server-runtime
 
 **buildProdBundle takes client entries explicitly via package.json "kumiko.clientEntries"/"kumiko.clientEntry" — no more filename inference**
 
@@ -1237,7 +1237,7 @@ via the new `deps` argument instead.
 
 ## 0.320.0
 
-### enterprise:dev-server
+### @cosmicdrift/kumiko-dev-server
 
 **createKumikoServer/runDevApp gained a trustedProxyHops option**
 
@@ -1256,7 +1256,7 @@ the `kumiko_auth`/`kumiko_csrf` cookies on the HTML response, so a
 client-side fetch to `/api/schema` is authenticated immediately without
 a real login round-trip.
 
-### enterprise:server-runtime
+### @cosmicdrift/kumiko-server-runtime
 
 **runProdApp threads the Bun socket address and a trustedProxyHops option through to the client-IP resolver**
 
@@ -1550,7 +1550,7 @@ and mode:"payment".
 
 ## 0.317.0
 
-### enterprise:testing
+### @cosmicdrift/kumiko-testing
 
 **bunfig --dom preloads the package's own DOM setup instead of an app-local file**
 
@@ -1627,7 +1627,7 @@ content_mismatch.
 
 ## 0.314.0
 
-### enterprise:testing
+### @cosmicdrift/kumiko-testing
 
 **seed-user only reaches a tenant this server's seed-tenant route created**
 
@@ -1696,7 +1696,7 @@ to opt out and keep the old no-invoice behaviour for mode:"payment" checkouts.
 
 ## 0.311.0
 
-### enterprise:guards
+### @cosmicdrift/kumiko-guards
 
 **test-timeouts is now always-enforcing, plus two new guards (test-template-drift, Real-Provider-Isolation)**
 
@@ -1743,7 +1743,7 @@ references out of scripts other than test:real/e2e:real, and regenerate
 bunfig.toml/bunfig.integration.toml/bunfig.dom.toml via
 `kumiko-testing bunfig` instead of hand-editing pathIgnorePatterns.
 
-### enterprise:testing
+### @cosmicdrift/kumiko-testing
 
 **defineAppE2eConfig's chromium project renders screenshot runs at deviceScaleFactor 2**
 
@@ -1756,7 +1756,7 @@ Committed screenshots taken in the chromium project regenerate at 2x.
 
 ## 0.310.0
 
-### enterprise:testing
+### @cosmicdrift/kumiko-testing
 
 **defineAppE2eConfig's chromium project runs at 1920×1080 instead of Desktop Chrome's 1280×720**
 
@@ -1774,13 +1774,7 @@ in the chromium project regenerate at 1920 width.
 
 ## 0.309.0
 
-### data-retention
-
-**data-retention hardDelete now purges file bytes + fileRef rows, not just the entity row (fw#3089)**
-
-**Migration:** hardDelete previously deleted only the entity row and left every file/image/files/images field's storage bytes and `file_refs` row behind — a DSGVO Art. 17 gap. As of this release, an expired row's un-shared fileRefs (same tenant, bound to this row, not referenced by another row of the same entity) have their storage bytes deleted (including derivatives/thumbnails), then their `file_refs` row, then the entity row itself. A fileRef still referenced by another row, or bound to a different entity/record, is left untouched. Without a resolvable file-storage provider in the retention cron's job context, an entity with pending file deletions is skipped entirely (`skipped` reason `missing_file_storage`) rather than silently dropping the row with orphaned bytes; a storage-delete failure skips the row too (`file_delete_failed`) and retries on the next run. Before upgrading, a consumer relying on hardDelete NOT touching file storage should: list entities with `retention.strategy: "hardDelete"` and at least one file/image/files/images field, count rows already past `keepFor` for each, and confirm the referenced files are safe to delete (not needed elsewhere) before the next cron run.
-
-### enterprise:testing
+### @cosmicdrift/kumiko-testing
 
 **reducedMotion defaults to "reduce" in runScreenshots/runMatrix/captureScreenshot; captureScreenshot(page, name) added**
 
@@ -1798,6 +1792,12 @@ offlot's inline page.screenshot writes into docs/screenshots/e2e/.
 **Migration:** Pass `reducedMotion: "no-preference"` in runScreenshots/runMatrix's
 options, or as captureScreenshot's third argument, for a scenario that
 must keep real motion.
+
+### data-retention
+
+**data-retention hardDelete now purges file bytes + fileRef rows, not just the entity row (fw#3089)**
+
+**Migration:** hardDelete previously deleted only the entity row and left every file/image/files/images field's storage bytes and `file_refs` row behind — a DSGVO Art. 17 gap. As of this release, an expired row's un-shared fileRefs (same tenant, bound to this row, not referenced by another row of the same entity) have their storage bytes deleted (including derivatives/thumbnails), then their `file_refs` row, then the entity row itself. A fileRef still referenced by another row, or bound to a different entity/record, is left untouched. Without a resolvable file-storage provider in the retention cron's job context, an entity with pending file deletions is skipped entirely (`skipped` reason `missing_file_storage`) rather than silently dropping the row with orphaned bytes; a storage-delete failure skips the row too (`file_delete_failed`) and retries on the next run. Before upgrading, a consumer relying on hardDelete NOT touching file storage should: list entities with `retention.strategy: "hardDelete"` and at least one file/image/files/images field, count rows already past `keepFor` for each, and confirm the referenced files are safe to delete (not needed elsewhere) before the next cron run.
 
 ## 0.308.0
 
@@ -1829,7 +1829,7 @@ As an extension section (its documented usage: `component: { react: { __componen
 
 ## 0.306.0
 
-### enterprise:testing
+### @cosmicdrift/kumiko-testing
 
 **mailCapture and the /__test/inbox route read tenantless mail via a new mailOutbox option**
 
@@ -1966,29 +1966,29 @@ RoleAccessRule ({ roles, personalData? }) gains an optional personalData?: RoleA
 
 ## 0.298.0
 
-### billing-foundation
-
-**Billing webhook wiring moves from a raw handler to createSubscriptionWebhookRoute()/createWebhookRoute()**
-
-**Migration:** createSubscriptionWebhookHandler(...) is replaced by createSubscriptionWebhookRoute({ path?, afterDispatch? }), which returns an ExtraRouteDefinition for the extraRoutes array instead of a manually-mounted handler; the route path still defaults to /webhooks/subscription/:providerName. createSubscriptionTierSync(...) deps drop db, registry, dispatchSystemWrite and tierAssignmentTable - it now exposes .createWebhookRoute(), which produces the signature-verified ExtraRouteDefinition to add to extraRoutes. A webhook previously wired as extraRoutes: (app, deps) => { app.post("/webhooks/subscription/:providerName", createSubscriptionWebhookHandler(...)) } becomes extraRoutes: [createSubscriptionTierSync({ ... }).createWebhookRoute()] (or createSubscriptionWebhookRoute({...}) for the lower-level handler), with db/registry/dispatchSystemWrite no longer passed in - the route's signature-entry deps (systemQuery, dispatchSystemWrite, dispatchSystemQuery) cover the read/write access the old handler needed.
-
-### enterprise:dev-server
+### @cosmicdrift/kumiko-dev-server
 
 **createKumikoServer/runDevApp take ExtraRouteDefinition[]; dev hostDispatch gets systemQuery**
 
 **Migration:** extraRoutes on createKumikoServer/runDevApp changes from (app, deps) => void to readonly ExtraRouteDefinition[] - see the framework core changelog entry for the route-kind/dep breakdown. wire?: (deps: SystemWireDeps) => void | Promise<void> replaces non-route setup previously done inside the old extraRoutes callback. The dev hostDispatch callback now receives a second argument { systemQuery }; a dispatch implementation reading the dev db directly switches to systemQuery.
 
-### enterprise:server-runtime
+### @cosmicdrift/kumiko-server-runtime
 
 **ExtraRoutesSystemDeps renamed to SystemWireDeps; hostDispatch gains systemQuery**
 
 **Migration:** ExtraRoutesSystemDeps is renamed to SystemWireDeps and now backs the new wire hook instead of extraRoutes; WorkerWireDeps is derived from it. A consumer importing ExtraRoutesSystemDeps from server-runtime must switch to SystemWireDeps (same shape: db, redis, registry, dispatchSystemWrite). HostDispatchFn passed to runProdApp now takes a second argument { systemQuery } - a dispatch function reading db directly for routing decisions must switch to systemQuery.
 
-### enterprise:testing
+### @cosmicdrift/kumiko-testing
 
 **createE2eSeedRoutes() returns ExtraRouteDefinition[] instead of an extraRoutes callback**
 
 **Migration:** createE2eSeedRoutes() now returns readonly ExtraRouteDefinition[] instead of an (app, deps) => void callback. The call site extraRoutes: createE2eSeedRoutes() in setupTestStack is unchanged, but any code that imported createE2eSeedRoutes() to invoke it directly against app (rather than passing it through extraRoutes) must instead treat the result as a route list, e.g. register each entry through the framework's ExtraRouteDefinition handling.
+
+### billing-foundation
+
+**Billing webhook wiring moves from a raw handler to createSubscriptionWebhookRoute()/createWebhookRoute()**
+
+**Migration:** createSubscriptionWebhookHandler(...) is replaced by createSubscriptionWebhookRoute({ path?, afterDispatch? }), which returns an ExtraRouteDefinition for the extraRoutes array instead of a manually-mounted handler; the route path still defaults to /webhooks/subscription/:providerName. createSubscriptionTierSync(...) deps drop db, registry, dispatchSystemWrite and tierAssignmentTable - it now exposes .createWebhookRoute(), which produces the signature-verified ExtraRouteDefinition to add to extraRoutes. A webhook previously wired as extraRoutes: (app, deps) => { app.post("/webhooks/subscription/:providerName", createSubscriptionWebhookHandler(...)) } becomes extraRoutes: [createSubscriptionTierSync({ ... }).createWebhookRoute()] (or createSubscriptionWebhookRoute({...}) for the lower-level handler), with db/registry/dispatchSystemWrite no longer passed in - the route's signature-entry deps (systemQuery, dispatchSystemWrite, dispatchSystemQuery) cover the read/write access the old handler needed.
 
 ### framework-core
 

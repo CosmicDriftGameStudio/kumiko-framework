@@ -52,7 +52,7 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
         },
         {
           id: "richDocs",
-          kind: "mail-html",
+          kind: "mail",
           contentFormat: "rich",
           variableSchema: {},
           nav: { label: "mail:nav.richDocs" },
@@ -153,7 +153,7 @@ describe("textBlocksClient — content collections", () => {
 
   test("one provider + SSE entities per declared collection, keyed on the schema's nav QN", () => {
     const derived = textBlocksClient().navProvidersFromCollections?.([
-      collection("templates", "mail-html"),
+      collection("templates", "mail"),
       collection("prompts", "ai-prompt"),
     ]);
 
@@ -197,7 +197,7 @@ describe("textBlocksClient — content collections", () => {
     }) as unknown as typeof fetch;
 
     const derived = textBlocksClient().navProvidersFromCollections?.([
-      collection("templates", "mail-html"),
+      collection("templates", "mail"),
     ]);
     const provider = derived?.providers["mail:nav:templates"];
     if (provider === undefined) throw new Error("provider missing");

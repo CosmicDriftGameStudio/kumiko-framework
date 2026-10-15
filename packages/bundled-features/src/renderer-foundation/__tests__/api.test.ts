@@ -31,8 +31,8 @@ function makePlugin(name: string, kinds: RendererPlugin["kinds"]): RendererPlugi
       switch (req.kind) {
         case "notification":
           return { kind: "notification", html: `from:${name}` };
-        case "mail-html":
-          return { kind: "mail-html", html: `from:${name}`, text: `from:${name}` };
+        case "mail":
+          return { kind: "mail", subject: name, html: `from:${name}`, text: `from:${name}` };
         case "document-pdf":
           return {
             kind: "document-pdf",
@@ -65,12 +65,12 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     expect(plugin.name).toBe("simple");
   });
 
-  test("default-plugin für mail-html = 'mail-html'", async () => {
+  test("default-plugin für kind mail = 'mail-html'", async () => {
     const api = createRendererFoundationApi([
-      makePlugin("simple", ["notification", "mail-html"]),
-      makePlugin("mail-html", ["mail-html"]),
+      makePlugin("simple", ["notification", "mail"]),
+      makePlugin("mail-html", ["mail"]),
     ]);
-    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail-html" });
+    const plugin = api.createRendererForTenant({ tenantId: TENANT, kind: "mail" });
     expect(plugin.name).toBe("mail-html");
   });
 
@@ -117,7 +117,7 @@ describe("renderer-foundation :: Plugin-Selection", () => {
     expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "notification" })).toThrow(
       RendererError,
     );
-    expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "mail-html" })).toThrow(
+    expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "mail" })).toThrow(
       RendererError,
     );
     expect(() => api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" })).toThrow(
@@ -140,12 +140,12 @@ describe("renderer-foundation :: Plugin-Selection", () => {
   });
 
   test("Plugin mit mehreren kinds wird für jeden passend gewählt", async () => {
-    const multi = makePlugin("multi", ["notification", "mail-html", "document-pdf"]);
+    const multi = makePlugin("multi", ["notification", "mail", "document-pdf"]);
     const api = createRendererFoundationApi([multi]);
     expect(api.createRendererForTenant({ tenantId: TENANT, kind: "notification" }).name).toBe(
       "multi",
     );
-    expect(api.createRendererForTenant({ tenantId: TENANT, kind: "mail-html" }).name).toBe("multi");
+    expect(api.createRendererForTenant({ tenantId: TENANT, kind: "mail" }).name).toBe("multi");
     expect(api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" }).name).toBe(
       "multi",
     );

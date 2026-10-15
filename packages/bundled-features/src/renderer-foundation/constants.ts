@@ -19,7 +19,7 @@ export {
 // gesetzt hat. App-Bootstrap kann das via TenantConfigKey überschreiben.
 export const DEFAULT_PLUGIN_BY_KIND: Readonly<Record<RenderKindLocal, string>> = {
   notification: "simple",
-  "mail-html": "mail-html",
+  mail: "mail-html",
   "document-pdf": "puppeteer",
   "image-snapshot": "puppeteer",
 };

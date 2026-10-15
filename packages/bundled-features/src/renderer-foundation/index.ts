@@ -16,7 +16,7 @@ export {
   type DocumentPayload,
   type ImageOptions,
   isRendererRegistrationPlugin,
-  type MailHtmlPayload,
+  type MailPayload,
   type NotificationPayload,
   type PdfOptions,
   type RendererContext,

@@ -1113,6 +1113,14 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Das Linkziel „{detail}“ ist nicht erlaubt; verwende https, http, mailto, tel oder einen Platzhalter.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Diese Vorlagenart erfordert das Format html, erhalten: „{detail}“.",
+  "templateResolver.errors.document.layoutRequiresMjmlFormat":
+    "Mail-Layouts erfordern das Format mjml, erhalten: „{detail}“.",
+  "templateResolver.errors.collection.kindNotAllowed":
+    "„{detail}“-Vorlagen werden im eigenen Editor gepflegt, nicht über eine Sammlung.",
+  "templateResolver.errors.template.invalidMeta": "Ungültige Vorlageneinstellungen: {detail}",
+  "templateResolver.errors.template.unknownPlaceholders": "Unbekannte Platzhalter: {detail}",
+  "templateResolver.errors.template.missingRequiredPlaceholders":
+    "Pflicht-Platzhalter werden nicht verwendet: {detail}",
   "templateResolver.errors.document.embeddedContent":
     "Elemente vom Typ <{detail}> sind in Vorlagentexten nicht erlaubt.",
   "templateResolver.errors.document.unsafeAttributeValue":

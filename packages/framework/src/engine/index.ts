@@ -358,6 +358,7 @@ export {
   SYSTEM_ROLE,
   SYSTEM_USER_ID,
 } from "./system-user.js";
+export { templateVariable, templateVariablesToZod } from "./template-variables.js";
 export {
   type EffectiveFeaturesResolver,
   findTierResolverUsage,
@@ -536,7 +537,9 @@ export type {
   NotificationDataFn,
   NotificationDefinition,
   NotificationRecipientFn,
+  NotificationTemplateBody,
   NotificationTemplateFn,
+  NotificationTemplateMeta,
   NotifyDeferred,
   NotifyDelivery,
   NotifyDeliveryStatus,
@@ -611,6 +614,10 @@ export type {
   StreamHandlerFn,
   Subscribe,
   TargetRef,
+  TemplateListVariableDef,
+  TemplateScalarVariableDef,
+  TemplateVariableDef,
+  TemplateVariables,
   TenantId,
   TenantWriteTarget,
   TextFieldDef,

@@ -10,7 +10,10 @@
 // in number-Inputs. inputMode="decimal" gibt mobiles Numpad-Keyboard
 // trotzdem.
 
-import { currencyDecimals } from "@cosmicdrift/kumiko-headless";
+import {
+  currencyDecimals,
+  formatMoney as formatMoneyForLocale,
+} from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
 import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.js";
@@ -163,28 +166,14 @@ export function MoneyInput({
 }
 
 // Shared with defaultCellRender (index.tsx) so both formatting paths stay
-// identical instead of drifting. currency is validated against the
-// 3-letter-alpha shape Intl.NumberFormat requires — a non-conforming
-// value (e.g. from a JSONB custom field that never ran through
-// rehydrateMoney) throws a RangeError inside Intl.NumberFormat, and with
-// no ErrorBoundary in this render tree that would take down the whole
-// page instead of just this cell.
+// identical. Resolves the browser locale here; headless stays navigator-free.
 export function formatMoney(
   amountMinor: number,
   currency: string,
   locale?: string,
   fractionDigits?: number,
 ): string {
-  if (!/^[A-Za-z]{3}$/.test(currency)) return String(amountMinor);
-  const decimals = currencyDecimals(currency);
-  const displayDigits = fractionDigits ?? decimals;
-  const resolvedLocale = resolveSafeLocale(locale);
-  return new Intl.NumberFormat(resolvedLocale, {
-    style: "currency",
-    currency,
-    minimumFractionDigits: displayDigits,
-    maximumFractionDigits: displayDigits,
-  }).format(amountMinor / 10 ** decimals);
+  return formatMoneyForLocale(amountMinor, currency, resolveSafeLocale(locale), fractionDigits);
 }
 
 // The currency symbol is rendered as a separate adornment, so the field

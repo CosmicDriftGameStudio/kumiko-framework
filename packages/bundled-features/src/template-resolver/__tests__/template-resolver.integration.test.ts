@@ -82,14 +82,14 @@ describe("template-resolver :: findExact", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "exact-1",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
     });
     const result = await api.findExact({
       tenantId: TENANT_A,
       slug: "exact-1",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
     expect(result).not.toBeNull();
@@ -102,7 +102,7 @@ describe("template-resolver :: findExact", () => {
     const result = await api.findExact({
       tenantId: TENANT_A,
       slug: "does-not-exist",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
     expect(result).toBeNull();
@@ -133,7 +133,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "fallback-1",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       content: "tenant-de-content",
@@ -141,7 +141,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "fallback-1",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
     expect(result.content).toBe("tenant-de-content");
@@ -152,7 +152,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "fallback-2",
-      kind: "mail-html",
+      kind: "mail",
       locale: "tr",
       scope: "system",
       content: "system-tr-content",
@@ -160,7 +160,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "fallback-2",
-      kind: "mail-html",
+      kind: "mail",
       locale: "tr",
     });
     expect(result.content).toBe("system-tr-content");
@@ -173,7 +173,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "fallback-3",
-      kind: "mail-html",
+      kind: "mail",
       locale: FALLBACK_LOCALE,
       scope: "tenant",
       content: "tenant-fallback-content",
@@ -181,7 +181,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "fallback-3",
-      kind: "mail-html",
+      kind: "mail",
       locale: "tr",
     });
     expect(result.content).toBe("tenant-fallback-content");
@@ -192,7 +192,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "fallback-4",
-      kind: "mail-html",
+      kind: "mail",
       locale: FALLBACK_LOCALE,
       scope: "system",
       content: "system-fallback-content",
@@ -200,7 +200,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "fallback-4",
-      kind: "mail-html",
+      kind: "mail",
       locale: "ar",
     });
     expect(result.content).toBe("system-fallback-content");
@@ -212,7 +212,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "priority-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "system",
       content: "system-default",
@@ -220,7 +220,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "priority-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       content: "tenant-override",
@@ -228,7 +228,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "priority-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
     expect(result.content).toBe("tenant-override");
@@ -239,7 +239,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "locale-priority",
-      kind: "mail-html",
+      kind: "mail",
       locale: "tr",
       scope: "system",
       content: "system-tr",
@@ -247,7 +247,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "locale-priority",
-      kind: "mail-html",
+      kind: "mail",
       locale: FALLBACK_LOCALE,
       scope: "system",
       content: "system-de",
@@ -255,7 +255,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "locale-priority",
-      kind: "mail-html",
+      kind: "mail",
       locale: "tr",
     });
     expect(result.content).toBe("system-tr");
@@ -267,7 +267,7 @@ describe("template-resolver :: resolveTemplate :: 4-Stufen-Fallback", () => {
       api.resolveTemplate({
         tenantId: TENANT_A,
         slug: "completely-missing",
-        kind: "mail-html",
+        kind: "mail",
         locale: "tr",
       }),
     ).rejects.toThrow(TemplateNotFoundError);
@@ -279,7 +279,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "skip-1",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       status: "draft",
@@ -288,7 +288,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "skip-1",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "system",
       status: "active",
@@ -297,7 +297,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "skip-1",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
     expect(result.content).toBe("system-active");
@@ -308,7 +308,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "skip-2",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       status: "archived",
@@ -316,7 +316,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "skip-2",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "system",
       status: "active",
@@ -325,7 +325,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "skip-2",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
     expect(result.content).toBe("system-active");
@@ -335,7 +335,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "skip-3",
-      kind: "mail-html",
+      kind: "mail",
       locale: "tr",
       scope: "tenant",
       status: "draft",
@@ -343,7 +343,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "skip-3",
-      kind: "mail-html",
+      kind: "mail",
       locale: "tr",
       scope: "system",
       status: "archived",
@@ -351,7 +351,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "skip-3",
-      kind: "mail-html",
+      kind: "mail",
       locale: FALLBACK_LOCALE,
       scope: "tenant",
       status: "active",
@@ -360,7 +360,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "skip-3",
-      kind: "mail-html",
+      kind: "mail",
       locale: "tr",
     });
     expect(result.content).toBe("tenant-fallback-active");
@@ -371,7 +371,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "skip-4",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       status: "archived",
@@ -379,7 +379,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "skip-4",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "system",
       status: "draft",
@@ -388,7 +388,7 @@ describe("template-resolver :: fallback skips non-active rows", () => {
       api.resolveTemplate({
         tenantId: TENANT_A,
         slug: "skip-4",
-        kind: "mail-html",
+        kind: "mail",
         locale: "de",
       }),
     ).rejects.toThrow(TemplateNotFoundError);
@@ -400,7 +400,7 @@ describe("template-resolver :: status filtering", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "archived-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       status: "archived",
@@ -410,7 +410,7 @@ describe("template-resolver :: status filtering", () => {
       api.resolveTemplate({
         tenantId: TENANT_A,
         slug: "archived-test",
-        kind: "mail-html",
+        kind: "mail",
         locale: "de",
       }),
     ).rejects.toThrow(TemplateNotFoundError);
@@ -420,7 +420,7 @@ describe("template-resolver :: status filtering", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "draft-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       status: "draft",
@@ -430,7 +430,7 @@ describe("template-resolver :: status filtering", () => {
       api.resolveTemplate({
         tenantId: TENANT_A,
         slug: "draft-test",
-        kind: "mail-html",
+        kind: "mail",
         locale: "de",
       }),
     ).rejects.toThrow(TemplateNotFoundError);
@@ -440,7 +440,7 @@ describe("template-resolver :: status filtering", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "active-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       status: "active",
@@ -449,7 +449,7 @@ describe("template-resolver :: status filtering", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "active-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
     expect(result.content).toBe("active-content");
@@ -462,7 +462,7 @@ describe("template-resolver :: tenant-isolation", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "isolation-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       content: "tenant-a-only",
@@ -472,7 +472,7 @@ describe("template-resolver :: tenant-isolation", () => {
       api.resolveTemplate({
         tenantId: TENANT_B,
         slug: "isolation-test",
-        kind: "mail-html",
+        kind: "mail",
         locale: "de",
       }),
     ).rejects.toThrow(TemplateNotFoundError);
@@ -482,14 +482,14 @@ describe("template-resolver :: tenant-isolation", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "isolation-find",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
     });
     const result = await api.findExact({
       tenantId: TENANT_B,
       slug: "isolation-find",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
     expect(result).toBeNull();
@@ -501,7 +501,7 @@ describe("template-resolver :: JSON-Parsing", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "json-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       variableSchema: { rentalTenantName: { type: "string", example: "Frau Schmidt" } },
@@ -510,7 +510,7 @@ describe("template-resolver :: JSON-Parsing", () => {
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "json-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
     expect(result.variableSchema).toEqual({
@@ -543,14 +543,14 @@ describe("template-resolver :: parentTemplateId", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "parent-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "system",
     });
     const systemTemplate = await api.findExact({
       tenantId: TENANT_A,
       slug: "parent-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "system",
     });
@@ -559,7 +559,7 @@ describe("template-resolver :: parentTemplateId", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "parent-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
       scope: "tenant",
       parentTemplateId: systemTemplate?.id ?? "",
@@ -567,7 +567,7 @@ describe("template-resolver :: parentTemplateId", () => {
     const override = await api.findExact({
       tenantId: TENANT_A,
       slug: "parent-test",
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
     expect(override?.parentTemplateId).toBe(systemTemplate?.id);
