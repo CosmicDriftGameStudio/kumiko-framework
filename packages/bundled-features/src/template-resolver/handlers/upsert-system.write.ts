@@ -12,9 +12,8 @@ export const upsertSystemWrite = defineWriteHandler({
   schema: upsertPayloadSchema,
   access: { roles: ["SystemAdmin"] },
   description:
-    "Creates or overwrites a system-default template under the system tenant with its full variable schema and linked resources, active straight away with no draft stage; SystemAdmin only, since tenants shadow these defaults through upsert-tenant instead.",
+    "Creates or overwrites a system-default template under the system tenant with its full variable schema (resource files go through the resource upload), active straight away with no draft stage; SystemAdmin only, since tenants shadow these defaults through upsert-tenant instead.",
   handler: (event, ctx) =>
-    // System-Defaults sind sofort active (kein draft-Stage für seeds).
     writeTemplateRow({
       ctx,
       user: event.user,
