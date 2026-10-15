@@ -48,11 +48,11 @@ function declaresPublicIntake(access: AccessRule): boolean {
 // Only the public dispatcher entry points compute a root; every nested call inherits
 // it, so switching identity via ctx.writeAs(SYSTEM, ...) cannot shed an anonymous root.
 export function rootWriteOrigin(registry: Registry, type: string, user: SessionUser): WriteOrigin {
-  const writeHandler = registry.getWriteHandler(type);
+  const rootHandler = registry.getWriteHandler(type) ?? registry.getQueryHandler(type);
   return {
     rootHandler: type,
     anonymousRoot: user.roles.includes(ANONYMOUS_ROLE),
-    publicIntake: writeHandler !== undefined && declaresPublicIntake(writeHandler.access),
+    publicIntake: rootHandler !== undefined && declaresPublicIntake(rootHandler.access),
   };
 }
 

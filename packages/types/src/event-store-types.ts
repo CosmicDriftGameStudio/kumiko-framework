@@ -54,7 +54,7 @@ export type EventMetadata = {
 export type WriteOrigin = {
   readonly rootHandler: string;
   readonly anonymousRoot: boolean;
-  // Only a write-handler root can declare public-intake; a query/stream root never does.
+  // A write or query root can declare public-intake; a stream root never does.
   readonly publicIntake: boolean;
   readonly viaJob?: string;
 };

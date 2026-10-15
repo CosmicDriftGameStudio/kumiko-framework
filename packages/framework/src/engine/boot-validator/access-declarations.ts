@@ -110,24 +110,33 @@ function validateEscapeHatchReason(
   }
 }
 
-function validatePersonalDataOnlyOnWrite(
+function validatePersonalDataSupportedForKind(
   feature: FeatureDefinition,
   kind: HandlerKind,
   handlerName: string,
   access: AccessRule,
 ): void {
-  // skip: write handlers may declare personalData, or it wasn't declared here
-  if (kind === "write" || declaredPersonalData(access) === undefined) return;
-  const property = "openToAll" in access ? "openToAll.personalData" : "access.personalData";
+  // skip: nothing declared
+  if (declaredPersonalData(access) === undefined) return;
+  // skip: write handlers accept every personalData declaration
+  if (kind === "write") return;
+  const isOpenToAll = "openToAll" in access;
+  // skip: query handlers may declare access.personalData, its value is validated separately
+  if (kind === "query" && !isOpenToAll) return;
+  const property = isOpenToAll ? "openToAll.personalData" : "access.personalData";
+  const onlyAllowed =
+    kind === "query"
+      ? 'only access.personalData: "public-intake" applies to query handlers, which write ' +
+        "personal data through nested writes of an anonymous request."
+      : "it only applies to write handlers, whose input is checked for personal-data fields.";
   throw new Error(
-    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
-      `${property} — it only applies to write handlers, whose input is ` +
-      "checked for personal-data fields.",
+    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ${property} — ${onlyAllowed}`,
   );
 }
 
 function validatePersonalDataValue(
   feature: FeatureDefinition,
+  kind: HandlerKind,
   handlerName: string,
   access: AccessRule,
 ): void {
@@ -138,20 +147,20 @@ function validatePersonalDataValue(
     // skip: the one supported value on openToAll
     if (declared === "tenant-members") return;
     throw new Error(
-      `[Feature ${feature.name}] write handler "${handlerName}" declares an unknown ` +
+      `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an unknown ` +
         `openToAll.personalData ${JSON.stringify(declared)} — the only supported value is "tenant-members".`,
     );
   }
   if (declared !== "public-intake") {
     throw new Error(
-      `[Feature ${feature.name}] write handler "${handlerName}" declares an unknown ` +
+      `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an unknown ` +
         `access.personalData ${JSON.stringify(declared)} — the only supported value is "public-intake".`,
     );
   }
   // skip: roles include "anonymous", which personalData: "public-intake" requires
   if (accessAllowsAnonymous(access)) return;
   throw new Error(
-    `[Feature ${feature.name}] write handler "${handlerName}" declares ` +
+    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
       'access.personalData: "public-intake" but its roles do not include ' +
       `"${ANONYMOUS_ROLE}" — personalData: "public-intake" only applies to handlers ` +
       "that allow anonymous callers.",
@@ -224,15 +233,16 @@ function validateAnonymousPersonalData(
 // generic anonymous opt-out (rateLimit: { disabled: true }) must not apply.
 function validatePublicIntakeRateLimit(
   feature: FeatureDefinition,
+  kind: HandlerKind,
   handlerName: string,
-  handler: WriteHandlerDef,
+  handler: Pick<WriteHandlerDef, "access" | "rateLimit">,
 ): void {
-  // skip: not a public-intake handler, or its rateLimit is active
+  // skip: not a public-intake handler
   if (declaredPersonalData(handler.access) !== "public-intake") return;
   // skip: rateLimit is active
   if (!isRateLimitDisabled(handler.rateLimit)) return;
   throw new Error(
-    `[Feature ${feature.name}] write handler "${handlerName}" declares ` +
+    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
       'access.personalData: "public-intake" with rateLimit: { disabled: true } — the rateLimit ' +
       'is the only protection for anonymous personal-data writes. Declare rateLimit: { per: "ip" ' +
       'or "ip+handler", ... } instead.',
@@ -243,19 +253,21 @@ export function validateAccessDeclarations(feature: FeatureDefinition): void {
   for (const [handlerName, handler] of Object.entries(feature.writeHandlers)) {
     validateOpenToAllReason(feature, "write", handlerName, handler.access);
     validateEscapeHatchReason(feature, "write", handlerName, handler.escapeHatch);
-    validatePersonalDataValue(feature, handlerName, handler.access);
+    validatePersonalDataValue(feature, "write", handlerName, handler.access);
     validateOpenToAllPersonalData(feature, handlerName, handler);
     validateAnonymousPersonalData(feature, handlerName, handler);
-    validatePublicIntakeRateLimit(feature, handlerName, handler);
+    validatePublicIntakeRateLimit(feature, "write", handlerName, handler);
   }
   for (const [handlerName, handler] of Object.entries(feature.queryHandlers)) {
     validateOpenToAllReason(feature, "query", handlerName, handler.access);
     validateEscapeHatchReason(feature, "query", handlerName, handler.escapeHatch);
-    validatePersonalDataOnlyOnWrite(feature, "query", handlerName, handler.access);
+    validatePersonalDataSupportedForKind(feature, "query", handlerName, handler.access);
+    validatePersonalDataValue(feature, "query", handlerName, handler.access);
+    validatePublicIntakeRateLimit(feature, "query", handlerName, handler);
   }
   for (const [handlerName, handler] of Object.entries(feature.streamHandlers)) {
     validateOpenToAllReason(feature, "stream", handlerName, handler.access);
     validateEscapeHatchReason(feature, "stream", handlerName, handler.escapeHatch);
-    validatePersonalDataOnlyOnWrite(feature, "stream", handlerName, handler.access);
+    validatePersonalDataSupportedForKind(feature, "stream", handlerName, handler.access);
   }
 }

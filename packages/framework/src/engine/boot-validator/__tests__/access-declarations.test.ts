@@ -319,8 +319,8 @@ describe("validateAccessDeclarations", () => {
     expect(access).toBeDefined();
   });
 
-  // 4. personalData is only meaningful on a write handler.
-  test("personalData on a query handler throws", () => {
+  // 4. openToAll.personalData is only meaningful on a write handler.
+  test("openToAll personalData on a query handler throws", () => {
     const feature = defineFeature("notes", (r) => {
       r.entity("note", noteEntity);
       r.queryHandler("note:list", z.object({}), async () => [], {
@@ -329,6 +329,7 @@ describe("validateAccessDeclarations", () => {
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:list"/);
+    expect(() => validateAccessDeclarations(feature)).toThrow(/only access\.personalData/);
   });
 
   test("query handler without personalData boots fine", () => {
@@ -350,6 +351,17 @@ describe("validateAccessDeclarations", () => {
     });
     expect(() => validateAccessDeclarations(feature)).toThrow(/Feature notes/);
     expect(() => validateAccessDeclarations(feature)).toThrow(/"note:watch"/);
+  });
+
+  test('personalData: "public-intake" on the roles form of a stream handler throws', () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.streamHandler("note:watch", z.object({}), async function* () {}, {
+        access: { roles: ["anonymous"], personalData: "public-intake" },
+        rateLimit: { per: "ip", limit: 5, windowSeconds: 60 },
+      });
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/stream handler "note:watch"/);
   });
 
   test("stream handler without personalData boots fine", () => {
@@ -764,15 +776,45 @@ describe("validateAccessDeclarations — anonymous (roles-form) personal-data in
     expect(() => validateAccessDeclarations(feature)).toThrow(/"tenant-members"/);
   });
 
-  test("personalData on the roles form of a query handler throws", () => {
-    const feature = defineFeature("notes", (r) => {
-      r.entity("note", noteEntity);
-      r.queryHandler("note:list", z.object({}), async () => [], {
-        access: { roles: ["anonymous"], personalData: "public-intake" },
+  describe("query handlers", () => {
+    const ACTIVE_RATE_LIMIT = { per: "ip", limit: 5, windowSeconds: 60 } as const;
+
+    test('personalData: "public-intake" with anonymous roles and an active rateLimit boots fine', () => {
+      const feature = defineFeature("notes", (r) => {
+        r.entity("note", noteEntity);
+        r.queryHandler("note:probe", z.object({}), async () => [], {
+          access: { roles: ["anonymous"], personalData: "public-intake" },
+          rateLimit: ACTIVE_RATE_LIMIT,
+        });
       });
+      expect(() => validateAccessDeclarations(feature)).not.toThrow();
     });
-    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:list"/);
-    expect(() => validateAccessDeclarations(feature)).toThrow(/access\.personalData/);
+
+    test('personalData: "public-intake" without the anonymous role throws', () => {
+      const feature = defineFeature("notes", (r) => {
+        r.entity("note", noteEntity);
+        r.queryHandler("note:probe", z.object({}), async () => [], {
+          access: { roles: ["Admin"], personalData: "public-intake" },
+          rateLimit: ACTIVE_RATE_LIMIT,
+        });
+      });
+      expect(() => validateAccessDeclarations(feature)).toThrow(
+        /query handler "note:probe".*anonymous/,
+      );
+    });
+
+    test('personalData: "public-intake" with rateLimit { disabled: true } throws', () => {
+      const feature = defineFeature("notes", (r) => {
+        r.entity("note", noteEntity);
+        r.queryHandler("note:probe", z.object({}), async () => [], {
+          access: { roles: ["anonymous"], personalData: "public-intake" },
+          rateLimit: { disabled: true, reason: "test" },
+        });
+      });
+      expect(() => validateAccessDeclarations(feature)).toThrow(
+        /query handler "note:probe".*rateLimit/,
+      );
+    });
   });
 
   test("a non-anonymous roles handler accepting a personal-data field does not throw", () => {

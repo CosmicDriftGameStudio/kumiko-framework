@@ -343,7 +343,7 @@ const featureA = defineFeature("intakea", (r) => {
     );
   }
 
-  // A stream can never declare public-intake (only write handlers can), so an
+  // A stream can never declare public-intake (only write and query handlers can), so an
   // anonymous stream root is always gated.
   r.streamHandler(
     "writeas-detour",
@@ -365,6 +365,28 @@ const featureA = defineFeature("intakea", (r) => {
       escapeHatch: { reason: "test: stream detour to prove the gate applies to stream roots" },
     },
   );
+
+  for (const declared of [false, true]) {
+    const suffix = declared ? "declare" : "no-declare";
+    const access = declared
+      ? ({ roles: ["anonymous"], personalData: "public-intake" } as const)
+      : ({ roles: ["anonymous"] } as const);
+
+    r.queryHandler(
+      `anonymous-query-writeas-${suffix}`,
+      z.object({ note: z.string() }),
+      async (event, ctx) =>
+        ctx.writeAs(createSystemUser(event.user.tenantId), "intakeb:write:create", {
+          email: "leak-query-root@example.com",
+          note: event.payload.note,
+        }),
+      {
+        access,
+        rateLimit: RATE_LIMIT,
+        escapeHatch: { reason: "test: anonymous query root writing through a SYSTEM detour" },
+      },
+    );
+  }
 
   r.writeHandler(
     "non-pii-insert",
@@ -803,6 +825,34 @@ describe("public-intake runtime gate", () => {
       });
       expect(res.status).toBe(200);
       expect(await rowCount()).toBe(2);
+    });
+  });
+
+  describe("anonymous query root", () => {
+    test("nested write of foreign PII is blocked without a public-intake declaration", async () => {
+      const res = await stack.http.raw("POST", "/api/query", {
+        type: "intakea:query:anonymous-query-writeas-no-declare",
+        payload: { note: "x" },
+      });
+      // The handler returns the nested write's failed result as its data.
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: { isSuccess: boolean; error: { details: { reason: string } } };
+      };
+      expect(body.data.isSuccess).toBe(false);
+      expect(body.data.error.details.reason).toBe("public_intake_required");
+      expect(await rowCount()).toBe(0);
+    });
+
+    test("nested write of foreign PII is allowed once the query handler declares public-intake", async () => {
+      const res = await stack.http.raw("POST", "/api/query", {
+        type: "intakea:query:anonymous-query-writeas-declare",
+        payload: { note: "x" },
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { data: { isSuccess: boolean } };
+      expect(body.data.isSuccess).toBe(true);
+      expect(await rowCount()).toBe(1);
     });
   });
 
