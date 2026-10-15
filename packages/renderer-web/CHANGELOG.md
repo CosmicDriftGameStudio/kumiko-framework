@@ -1,5 +1,72 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.362.0
+
+### Minor Changes
+
+- ef14b5a: Dashboard stat panels and `StatCard` accept the tone `ok` (status green) next to `positive`, which keeps following the theme primary color. `toneField` results of `"ok"` are honoured.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: Stat tone "ok"
+  detail: DashboardStatPanel.tone accepts "ok" for a status-green value.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Stat tone "ok"
+  detail: StatCard and dashboard stat panels render tone "ok" with the status-ok tokens, also via toneField. An app-side exhaustive Record<StatTone, …> needs an "ok" entry.
+  -->
+
+### Patch Changes
+
+- 0a70684: `readOnlyCells` of an embedded list now render as plain, wrapping text (select and reference labels, formatted dates, numbers and money) instead of a disabled input that cut off longer values. The row grows with its content, in both the table and the mobile card layout.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Embedded list readOnly cells render as wrapping plain text
+  detail: A readOnly column shows the formatted value (option and reference labels, dates, numbers, money) as text instead of a disabled input, so long values wrap instead of being cut off.
+  -->
+
+- e5c2657: List image columns shrink to the preview and show a larger thumbnail
+
+  fileDisplay columns take only the width of their content; the table thumbnail is 64px high, up to 96px wide, cropped with object-cover. Cards keep a line-height thumbnail.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: List image columns shrink to the preview and show a larger thumbnail
+  -->
+
+- e5c2657: Narrow list cards show an image column as leading preview
+
+  The first image column of a list card is drawn as a 56px preview left of the card text instead of a tiny title; the title is the first text column.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Narrow list cards show an image column as leading preview
+  -->
+
+- Updated dependencies [0e8fe37]
+- Updated dependencies [61f7dd2]
+- Updated dependencies [b6870d9]
+- Updated dependencies [e5c2657]
+- Updated dependencies [e5c2657]
+- Updated dependencies [e5c2657]
+- Updated dependencies [e5c2657]
+- Updated dependencies [75d3e38]
+- Updated dependencies [e5c2657]
+- Updated dependencies [ef14b5a]
+  - @cosmicdrift/kumiko-types@0.362.0
+  - @cosmicdrift/kumiko-renderer@0.362.0
+  - @cosmicdrift/kumiko-framework@0.362.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.362.0
+  - @cosmicdrift/kumiko-headless@0.362.0
+
 ## 0.361.0
 
 ### Minor Changes

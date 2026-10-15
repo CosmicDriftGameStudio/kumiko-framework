@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.362.0",
+    "type": "improvement",
+    "title": "entityList honours allowCreate false",
+    "detail": "EntityListBody passes no onCreate when the list sets allowCreate false."
+  },
+  {
+    "version": "0.362.0",
+    "type": "fix",
+    "title": "A declared primaryAction with an icon is icon-only in the phone header",
+    "detail": "Regardless of confirm or style; the label is the button's aria-label and title. Without an icon it stays a text button. The ui-walkthrough terminate sample uses the circle-stop icon, since a bare x reads as close."
+  },
+  {
     "version": "0.361.0",
     "type": "improvement",
     "title": "Create form prefill and CurrentUserProvider",

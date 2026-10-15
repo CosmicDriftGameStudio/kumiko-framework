@@ -1,5 +1,48 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.362.0
+
+### Patch Changes
+
+- 0e8fe37: `entityList` accepts `allowCreate: false` to hide that list's "+ New" button and empty-state create action. Unlike `allowCreate: false` on an `entityEdit` screen, the entity's edit screen keeps its create branch, so a custom action can still open it with a prefill.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EntityListScreenDefinition.allowCreate
+  detail: allowCreate false hides the list's create button and empty-state create action; the entity's edit screen keeps its create branch.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityList honours allowCreate false
+  detail: EntityListBody passes no onCreate when the list sets allowCreate false.
+  -->
+
+- e5c2657: A declared primaryAction with an icon is icon-only in the phone header
+
+  Regardless of confirm or style; the label is the button's aria-label and title. Without an icon it stays a text button. The ui-walkthrough terminate sample uses the circle-stop icon, since a bare x reads as close.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A declared primaryAction with an icon is icon-only in the phone header
+  -->
+
+- Updated dependencies [0e8fe37]
+- Updated dependencies [61f7dd2]
+- Updated dependencies [b6870d9]
+- Updated dependencies [e5c2657]
+- Updated dependencies [e5c2657]
+- Updated dependencies [e5c2657]
+- Updated dependencies [e5c2657]
+- Updated dependencies [75d3e38]
+- Updated dependencies [ef14b5a]
+  - @cosmicdrift/kumiko-types@0.362.0
+  - @cosmicdrift/kumiko-framework@0.362.0
+  - @cosmicdrift/kumiko-headless@0.362.0
+
 ## 0.361.0
 
 ### Minor Changes

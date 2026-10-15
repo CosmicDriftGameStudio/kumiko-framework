@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.362.0",
+    "type": "fix",
+    "title": "Embedded list readOnly cells render as wrapping plain text",
+    "detail": "A readOnly column shows the formatted value (option and reference labels, dates, numbers, money) as text instead of a disabled input, so long values wrap instead of being cut off."
+  },
+  {
+    "version": "0.362.0",
+    "type": "fix",
+    "title": "List image columns shrink to the preview and show a larger thumbnail",
+    "detail": "fileDisplay columns take only the width of their content; the table thumbnail is 64px high, up to 96px wide, cropped with object-cover. Cards keep a line-height thumbnail."
+  },
+  {
+    "version": "0.362.0",
+    "type": "fix",
+    "title": "Narrow list cards show an image column as leading preview",
+    "detail": "The first image column of a list card is drawn as a 56px preview left of the card text instead of a tiny title; the title is the first text column."
+  },
+  {
+    "version": "0.362.0",
+    "type": "improvement",
+    "title": "Stat tone \"ok\"",
+    "detail": "StatCard and dashboard stat panels render tone \"ok\" with the status-ok tokens, also via toneField. An app-side exhaustive Record<StatTone, …> needs an \"ok\" entry."
+  },
+  {
     "version": "0.361.0",
     "type": "improvement",
     "title": "Embedded list input honours readOnly cells and fixed rows",

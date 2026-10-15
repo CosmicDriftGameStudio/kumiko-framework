@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.362.0",
+    "type": "fix",
+    "title": "document-ingest events live on their own stream",
+    "detail": "documentIngest.requested/skipped were appended to the fileRef's own event stream (aggregateId = fileRefId), so the request-ingest projection racing a save that binds a pending upload broke the fileRef's optimistic lock (409 version_conflict). They now use documentIngestAggregateId(tenantId, fileRefId); payload.fileRefId is unchanged."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Writing a document extract is idempotent per fileRef",

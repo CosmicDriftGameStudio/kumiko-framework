@@ -1,5 +1,41 @@
 # @cosmicdrift/kumiko-types
 
+## 0.362.0
+
+### Minor Changes
+
+- 0e8fe37: `entityList` accepts `allowCreate: false` to hide that list's "+ New" button and empty-state create action. Unlike `allowCreate: false` on an `entityEdit` screen, the entity's edit screen keeps its create branch, so a custom action can still open it with a prefill.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: EntityListScreenDefinition.allowCreate
+  detail: allowCreate false hides the list's create button and empty-state create action; the entity's edit screen keeps its create branch.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityList honours allowCreate false
+  detail: EntityListBody passes no onCreate when the list sets allowCreate false.
+  -->
+
+- ef14b5a: Dashboard stat panels and `StatCard` accept the tone `ok` (status green) next to `positive`, which keeps following the theme primary color. `toneField` results of `"ok"` are honoured.
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: Stat tone "ok"
+  detail: DashboardStatPanel.tone accepts "ok" for a status-green value.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Stat tone "ok"
+  detail: StatCard and dashboard stat panels render tone "ok" with the status-ok tokens, also via toneField. An app-side exhaustive Record<StatTone, …> needs an "ok" entry.
+  -->
+
 ## 0.361.0
 
 ### Minor Changes
