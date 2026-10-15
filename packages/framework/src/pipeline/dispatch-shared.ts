@@ -505,16 +505,21 @@ export async function buildHandlerContext(
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     bridgeSink.push(hook);
   };
+  const notifyFactory = context._notifyFactory;
+  const notifyJobDispatcher = isNotifyJobDispatcher(jobRunner) ? jobRunner : undefined;
+  // Inside the write tx the app pool's slots can all be held by waiting write txs, so the
+  // delivery's own DB work (broadcast lookup, attempt log, channel sends) runs on the outside-tx pool.
+  const notifyInTransactionFactory =
+    notifyFactory && tx !== undefined
+      ? (notifyUser: SessionUser, notifyTenantId: TenantId): NotifyFn =>
+          notifyFactory(notifyUser, notifyTenantId, notifyJobDispatcher, outsideTxSource)
+      : undefined;
   const notify = buildNotify();
   function buildNotify(): NotifyFn | undefined {
-    const factory = context._notifyFactory;
-    if (!factory) return undefined;
-    const notifyJobDispatcher = isNotifyJobDispatcher(jobRunner) ? jobRunner : undefined;
-    const notifyAfterCommit = factory(user, user.tenantId, notifyJobDispatcher);
-    if (tx === undefined) return notifyAfterCommit;
-    // Inside the write tx the app pool's slots can all be held by waiting write txs, so the
-    // delivery's own DB work (broadcast lookup, attempt log, channel sends) runs on the outside-tx pool.
-    const notifyInTransaction = factory(user, user.tenantId, notifyJobDispatcher, outsideTxSource);
+    if (!notifyFactory) return undefined;
+    const notifyAfterCommit = notifyFactory(user, user.tenantId, notifyJobDispatcher);
+    if (!notifyInTransactionFactory) return notifyAfterCommit;
+    const notifyInTransaction = notifyInTransactionFactory(user, user.tenantId);
     // A rolled-back write must leave no notification behind.
     if (!hasLiveCommitSink) return notifyInTransaction;
     return createDeferringNotify({
@@ -1070,9 +1075,15 @@ export async function buildHandlerContext(
 
   // The payload-bucket digest is dispatcher-internal; handlers must not be
   // able to compute bucket keys.
-  const { _rateLimitPayloadDigest: _omitPayloadDigest, ...contextForHandler } = context;
+  const {
+    _rateLimitPayloadDigest: _omitPayloadDigest,
+    // Bound to this call's tx: an outer context's factory must not leak into a tx-less one.
+    _notifyInTransactionFactory: _omitOuterNotifyInTransactionFactory,
+    ...contextForHandler
+  } = context;
   const handlerContext = {
     ...contextForHandler,
+    ...(notifyInTransactionFactory && { _notifyInTransactionFactory: notifyInTransactionFactory }),
     registry,
     db: exposedDb,
     dbOutsideTransaction,

@@ -150,16 +150,21 @@ function scopeSeedHookContext(
 
   const notifyFactory = context._notifyFactory;
   const scheduleAfterCommit = context.scheduleAfterCommit;
+  // Still inside the caller's write tx: delivery DB work must not wait for an app-pool slot.
+  const notifyInsideTransaction =
+    notifyTiming === "deferUntilCommit"
+      ? (context._notifyInTransactionFactory ?? notifyFactory)
+      : notifyFactory;
   const notify =
-    notifyFactory && scopedUser
+    notifyFactory && notifyInsideTransaction && scopedUser
       ? notifyTiming === "deferUntilCommit" && scheduleAfterCommit
         ? createDeferringNotify({
             tenantId: targetTenantId,
             notifyAfterCommit: notifyFactory(scopedUser, targetTenantId),
-            notifyNow: notifyFactory(scopedUser, targetTenantId),
+            notifyNow: notifyInsideTransaction(scopedUser, targetTenantId),
             scheduleAfterCommit,
           })
-        : notifyFactory(scopedUser, targetTenantId)
+        : notifyInsideTransaction(scopedUser, targetTenantId)
       : context.notify;
 
   const features = context.effectiveFeatures as

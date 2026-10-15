@@ -34,7 +34,10 @@ import { createAuthEmailPasswordFeature } from "../feature.js";
 
 const PARALLEL_SIGNUPS = 2;
 const NOTIFICATION_TYPE = "app:notify:signup-welcome";
+const IMMEDIATE_NOTIFICATION_TYPE = "app:notify:signup-welcome-immediate";
 const emailTransport = createInMemoryTransport();
+let notifyImmediately = false;
+const notifyOutcomeKinds: string[] = [];
 
 function createBarrier(parties: number): () => Promise<void> {
   let arrived = 0;
@@ -61,10 +64,17 @@ const welcomeHookFeature = defineFeature("signup-welcome-hook-test", (r) => {
       if (!result.isNew) return;
       await waitForAllSignups();
       const notify = context.notify as NotifyFn;
-      await notify(NOTIFICATION_TYPE, {
-        to: { tenant: result.data["tenantId"] as string },
-        data: { title: NOTIFICATION_TYPE },
+      const notificationType = notifyImmediately ? IMMEDIATE_NOTIFICATION_TYPE : NOTIFICATION_TYPE;
+      // An immediate tenant broadcast resolves members on the outside-tx pool, which cannot see
+      // the membership this uncommitted signup tx just wrote, so it addresses the user directly.
+      const outcome = await notify(notificationType, {
+        to: notifyImmediately
+          ? (result.data["userId"] as string)
+          : { tenant: result.data["tenantId"] as string },
+        data: { title: notificationType },
+        ...(notifyImmediately && { immediate: true }),
       });
+      notifyOutcomeKinds.push(outcome.kind);
     },
     { phase: HookPhases.inTransaction },
   );
@@ -148,26 +158,50 @@ async function requestSignupToken(email: string): Promise<string> {
   return extractTokenFromMail(sent.html);
 }
 
+async function confirmSignupsInParallel(emailPrefix: string): Promise<void> {
+  waitForAllSignups = createBarrier(PARALLEL_SIGNUPS);
+  notifyOutcomeKinds.length = 0;
+  const emails = Array.from(
+    { length: PARALLEL_SIGNUPS },
+    (_, i) => `${emailPrefix}-${i}@example.com`,
+  );
+  const tokens: string[] = [];
+  for (const email of emails) tokens.push(await requestSignupToken(email));
+
+  const responses = await Promise.all(
+    tokens.map((token) =>
+      stack.http.raw("POST", "/api/auth/signup-confirm", {
+        token,
+        password: "fresh-secure-pw-1234",
+      }),
+    ),
+  );
+  for (const res of responses) expect(res.status).toBe(200);
+}
+
 describe("self-signup with seed-hook notifications and an exhausted app pool", () => {
   test("parallel signups complete and deliver the hook notification after commit", async () => {
-    waitForAllSignups = createBarrier(PARALLEL_SIGNUPS);
-    const emails = Array.from({ length: PARALLEL_SIGNUPS }, (_, i) => `hook-${i}@example.com`);
-    const tokens: string[] = [];
-    for (const email of emails) tokens.push(await requestSignupToken(email));
+    notifyImmediately = false;
+    await confirmSignupsInParallel("hook");
 
-    const responses = await Promise.all(
-      tokens.map((token) =>
-        stack.http.raw("POST", "/api/auth/signup-confirm", {
-          token,
-          password: "fresh-secure-pw-1234",
-        }),
-      ),
-    );
-
-    for (const res of responses) expect(res.status).toBe(200);
+    expect(notifyOutcomeKinds).toEqual(Array(PARALLEL_SIGNUPS).fill("deferred"));
     await waitFor(async () => {
       const inbox = await selectMany(stack.db, inAppMessagesTable, {
         notificationType: NOTIFICATION_TYPE,
+      });
+      expect(inbox).toHaveLength(PARALLEL_SIGNUPS);
+    });
+  });
+
+  test("parallel signups with immediate: true deliver inside the signup tx on the outside-tx pool", async () => {
+    notifyImmediately = true;
+    await confirmSignupsInParallel("hook-immediate");
+
+    expect(notifyOutcomeKinds).toEqual(Array(PARALLEL_SIGNUPS).fill("dispatched"));
+    // Queued channels go through the signup dispatcher's job runner, so the inbox fills async.
+    await waitFor(async () => {
+      const inbox = await selectMany(stack.db, inAppMessagesTable, {
+        notificationType: IMMEDIATE_NOTIFICATION_TYPE,
       });
       expect(inbox).toHaveLength(PARALLEL_SIGNUPS);
     });
