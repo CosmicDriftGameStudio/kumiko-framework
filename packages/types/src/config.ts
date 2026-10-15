@@ -532,15 +532,24 @@ export type NotificationTemplateMeta = {
 
 export type NotificationTemplateBody = { readonly body: string };
 
+export type NotificationLocalizedTemplate = Readonly<
+  Record<string, { readonly body: string; readonly meta: NotificationTemplateMeta }>
+>;
+
+// Without a trigger the notification is only sent explicitly via ctx.notify;
+// trigger, recipient and data belong together (boot-checked).
 export type NotificationDefinition = {
   readonly name: string;
-  readonly trigger: { readonly on: string };
-  readonly recipient: NotificationRecipientFn;
-  readonly data: NotificationDataFn;
+  readonly trigger?: { readonly on: string };
+  readonly recipient?: NotificationRecipientFn;
+  readonly data?: NotificationDataFn;
   readonly templates: Readonly<Record<string, NotificationTemplateFn>> | undefined;
   readonly variables?: TemplateVariables;
   readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
   readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
+  // Resolved into template + meta when the registry is built, never present on
+  // a stored definition.
+  readonly localizedTemplate?: () => NotificationLocalizedTemplate;
 };
 
 // --- Translations ---

@@ -35,6 +35,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/testing";
 import * as jose from "jose";
 import * as z from "zod";
+import { composeRendererStack } from "../compose-stacks.js";
 import type { KumikoServerHandle } from "../create-kumiko-server.js";
 import { runDevApp } from "../run-dev-app.js";
 
@@ -101,7 +102,7 @@ describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
   test("cookieDomain + allowedOrigins clears the guard — allowlist reaches the server", async () => {
     // Without the forwarding fix this would ALSO throw /allowedOrigins is empty/.
     handle = await runDevApp({
-      features: [validFeature()],
+      features: [validFeature(), ...composeRendererStack()],
       // Port 0 → OS-assigned ephemeral port, no fixed-port collision in CI.
       port: 0,
       auth: {
@@ -120,7 +121,7 @@ describe("runDevApp — auth allowedOrigins forwarding (#399/1)", () => {
     // (first test), but unsafeSkipOriginCheck=true bypasses it. A dropped/
     // mis-spread key would let the guard fire → /allowedOrigins is empty/.
     handle = await runDevApp({
-      features: [validFeature()],
+      features: [validFeature(), ...composeRendererStack()],
       port: 0,
       auth: {
         admin: ADMIN,
@@ -261,7 +262,7 @@ describe("runDevApp — session boot gate (#2027)", () => {
     const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     try {
       handle = await runDevApp({
-        features: [validFeature()],
+        features: [validFeature(), ...composeRendererStack()],
         port: 0,
         auth: { admin: ADMIN },
       });
@@ -284,6 +285,7 @@ describe("runDevApp — session boot gate (#2027)", () => {
         authFoundationFeature,
         createPersonalAccessTokensFeature({ scopes: {} }),
         createSessionsFeature(),
+        ...composeRendererStack(),
       ],
       port: 0,
       auth: { admin: ADMIN },
@@ -317,7 +319,11 @@ describe("runDevApp — default PII KMS on an ephemeral DB", () => {
   });
 
   test("configures an in-memory KMS and blind-index key while running and unsets them on stop", async () => {
-    handle = await runDevApp({ features: [validFeature()], port: 0, auth: { admin: ADMIN } });
+    handle = await runDevApp({
+      features: [validFeature(), ...composeRendererStack()],
+      port: 0,
+      auth: { admin: ADMIN },
+    });
     expect(configuredPiiSubjectKms()).toBeDefined();
     expect(configuredBlindIndexKey()).toBeDefined();
 
@@ -329,7 +335,7 @@ describe("runDevApp — default PII KMS on an ephemeral DB", () => {
 
   test("kms: false configures nothing", async () => {
     handle = await runDevApp({
-      features: [validFeature()],
+      features: [validFeature(), ...composeRendererStack()],
       port: 0,
       auth: { admin: ADMIN },
       kms: false,
@@ -339,7 +345,11 @@ describe("runDevApp — default PII KMS on an ephemeral DB", () => {
   });
 
   test("stop leaves a KMS that was configured after boot untouched", async () => {
-    handle = await runDevApp({ features: [validFeature()], port: 0, auth: { admin: ADMIN } });
+    handle = await runDevApp({
+      features: [validFeature(), ...composeRendererStack()],
+      port: 0,
+      auth: { admin: ADMIN },
+    });
     configurePiiSubjectKms(new InMemoryKmsAdapter());
     const replacement = configuredPiiSubjectKms();
 

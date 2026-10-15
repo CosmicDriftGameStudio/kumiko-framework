@@ -247,6 +247,15 @@ export async function seedNotificationTemplates(
       `Notifications declare a mail template but the "${TEMPLATE_RESOLVER_FEATURE}" feature is not mounted`,
     );
   }
+  if (hasTemplates) {
+    // Dynamic: renderer-foundation imports this feature's barrel, a static import would cycle.
+    const { collectRendererPlugins } = await import("../renderer-foundation/index.js");
+    if (!collectRendererPlugins(registry).some((plugin) => plugin.kinds.includes("mail"))) {
+      throw new Error(
+        'Notifications declare a mail template but no renderer plugin for kind "mail" is registered (mount renderer-foundation and @cosmicdrift/kumiko-renderer-mail-html)',
+      );
+    }
+  }
   for (const [slug, notification] of registry.getAllNotifications()) {
     for (const [locale, { body }] of Object.entries(notification.template ?? {})) {
       await seedSystemTemplate(db, {

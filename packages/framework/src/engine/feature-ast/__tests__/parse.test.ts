@@ -2642,7 +2642,7 @@ defineFeature("f", (r) => {
     expect(result.errors[0]?.methodName).toBe("notification");
   });
 
-  test("emits ParseError when trigger is missing", () => {
+  test("emits ParseError when recipient/data are declared without a trigger", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {
   r.notification("incidentOpened", { recipient: () => ({}), data: () => ({}) });

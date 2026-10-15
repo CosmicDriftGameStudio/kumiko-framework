@@ -2,7 +2,9 @@ import type { Registry, TranslationKeys } from "../engine/types/index.js";
 import { resolveTranslationValue } from "../ui-types/plural.js";
 
 export {
+  hasMailTranslationKey,
   hasMailTranslations,
+  listMailLocales,
   mailT,
   registerMailTranslations,
   resolveMailLocale,

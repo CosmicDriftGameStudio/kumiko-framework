@@ -317,6 +317,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/renderer-foundation",
     factory: "createRendererFoundationFeature",
   },
+  "renderer-mail-html": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-renderer-mail-html",
+    factory: "createRendererMailHtmlFeature",
+  },
   "renderer-simple": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/renderer-simple",

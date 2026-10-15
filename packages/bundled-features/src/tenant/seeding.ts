@@ -138,6 +138,7 @@ function buildSeedHookNotify(
   const scheduleAfterCommit = context.scheduleAfterCommit;
   if (!scheduleAfterCommit) return notifyInsideTransaction;
   return createDeferringNotify({
+    registry: context.registry,
     tenantId: targetTenantId,
     notifyAfterCommit: notifyFactory(scopedUser, targetTenantId),
     notifyNow: notifyInsideTransaction,

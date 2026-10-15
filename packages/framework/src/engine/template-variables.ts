@@ -1,5 +1,7 @@
 import * as z from "zod";
+import { InternalError } from "../errors/index.js";
 import type {
+  Registry,
   TemplateListVariableDef,
   TemplateScalarVariableDef,
   TemplateVariableDef,
@@ -90,4 +92,25 @@ export function templateVariablesToZod(variables: TemplateVariables): z.ZodObjec
       Object.entries(variables).map(([name, def]) => [name, withOptionality(def)]),
     ),
   );
+}
+
+// Validates only: the caller keeps passing the original data on, because
+// parsing would strip keys the delivery adds itself (unsubscribeUrl, fromName).
+export function assertNotificationVariables(
+  registry: Pick<Registry, "getAllNotifications">,
+  notificationType: string,
+  data: Readonly<Record<string, unknown>> | undefined,
+): void {
+  const definition = registry.getAllNotifications().get(notificationType);
+  if (definition?.template !== undefined && definition.variables !== undefined) {
+    const parsed = templateVariablesToZod(definition.variables).safeParse(data ?? {});
+    if (!parsed.success) {
+      const issues = parsed.error.issues
+        .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+        .join("; ");
+      throw new InternalError({
+        message: `notification "${notificationType}" has invalid variables: ${issues}`,
+      });
+    }
+  }
 }

@@ -25,6 +25,10 @@ import {
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import {
+  authMailRendererFeatures,
+  seedAuthMailTemplates,
+} from "../../auth-email-password/__tests__/auth-mail-stack.js";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
 import { authFoundationFeature } from "../../auth-foundation/index.js";
@@ -34,7 +38,6 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import {
   createSessionsFeature,
@@ -42,7 +45,6 @@ import {
   userSessionTable,
 } from "../../sessions/index.js";
 import { hashPassword } from "../../shared/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createUserFeature } from "../../user/feature.js";
 import { userEntity, userTable } from "../../user/schema/user.js";
 import { seedUser } from "../../user/seeding.js";
@@ -87,8 +89,7 @@ beforeAll(async () => {
       // sessions:write:user-session:revoke-all-for-user (best-effort lookup).
       authFoundationFeature,
       createSessionsFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -124,6 +125,7 @@ beforeAll(async () => {
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedAuthMailTemplates(stack);
 });
 
 afterAll(async () => {
@@ -1201,7 +1203,7 @@ describe("invite + accept end-to-end integration against real stack", () => {
 
     const sentMail = emailTransport.sent.find((m) => m.to.includes(inviteeEmail));
     expect(sentMail).toBeDefined();
-    const tokenMatch = sentMail?.html?.match(/token=([a-zA-Z0-9_-]+)/);
+    const tokenMatch = sentMail?.text?.match(/token=([a-zA-Z0-9_-]+)/);
     expect(tokenMatch?.[1]).toBeDefined();
     const token = tokenMatch![1];
 

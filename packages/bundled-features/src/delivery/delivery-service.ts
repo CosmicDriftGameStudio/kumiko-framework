@@ -12,7 +12,10 @@ import type {
   Registry,
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  assertNotificationVariables,
+  createSystemUser,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   assertNotifyTargetsOwnTenant,
@@ -879,6 +882,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   return {
     async notify(notificationType, options, _user, tenantId, jobDispatcher, deliveryDb) {
       assertNotifyTargetsOwnTenant(options, tenantId);
+      assertNotificationVariables(registry, notificationType, options.data);
       const { route, idempotencyKey } = options;
       const priority: NotifyPriority = options.priority ?? "normal";
       const run: NotifyRun = {

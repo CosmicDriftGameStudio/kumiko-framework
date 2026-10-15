@@ -43,6 +43,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 
 export type FileProviderKind = "inmemory" | "s3" | "s3-env";
 export type MailTransportKind = "inmemory" | "smtp";
@@ -120,6 +121,7 @@ export function composeRendererStack(): FeatureDefinition[] {
     createTemplateResolverFeature(),
     createRendererFoundationFeature(),
     createRendererSimpleFeature(),
+    createRendererMailHtmlFeature(),
   ];
 }
 

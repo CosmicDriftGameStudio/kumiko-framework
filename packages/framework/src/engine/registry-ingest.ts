@@ -111,7 +111,7 @@ export function populateConfigKeys(state: RegistryState, feature: FeatureDefinit
 // same placeholder names.
 const TEMPLATE_VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 const FORBIDDEN_TEMPLATE_VARIABLE_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
-// Mirrors SYSTEM_PLACEHOLDERS in bundled-features/template-resolver: the
+// The first four mirror SYSTEM_PLACEHOLDERS in bundled-features/template-resolver: the
 // renderer fills these itself, so a declared variable of the same name would
 // be shadowed or shadow them.
 const RESERVED_TEMPLATE_VARIABLE_NAMES = new Set([
@@ -119,6 +119,11 @@ const RESERVED_TEMPLATE_VARIABLE_NAMES = new Set([
   "signature",
   "imprint",
   "unsubscribeUrl",
+  // Handlebars helpers of the mail renderer win over context values of the
+  // same name, so a variable called like a helper would never render.
+  "link",
+  "money",
+  "date",
 ]);
 const KEBAB_NOTIFICATION_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -129,6 +134,47 @@ function isTemplateVariableName(value: string): boolean {
   );
 }
 
+function notificationLabel(featureName: string, notificationName: string): string {
+  return `Notification "${featureName}:notify:${notificationName}"`;
+}
+
+function assertTriggerGroupComplete(label: string, notifDef: NotificationDefinition): void {
+  if (notifDef.trigger !== undefined) {
+    const missing = [
+      notifDef.recipient === undefined ? "recipient" : undefined,
+      notifDef.data === undefined ? "data" : undefined,
+    ].filter((name) => name !== undefined);
+    if (missing.length > 0) {
+      throw new Error(
+        `${label} declares a trigger but no ${missing.join(" and ")}: trigger, recipient and data belong together`,
+      );
+    }
+  }
+}
+
+// localizedTemplate exists because translations are only complete once every
+// locale feature is built; the registry resolves it into the static template
+// + meta that all downstream consumers (seeding, validation) already read.
+function resolveLocalizedTemplate(
+  featureName: string,
+  notificationName: string,
+  notifDef: NotificationDefinition,
+): NotificationDefinition {
+  const { localizedTemplate, ...rest } = notifDef;
+  if (localizedTemplate === undefined) return rest;
+  if (rest.template !== undefined || rest.meta !== undefined) {
+    throw new Error(
+      `${notificationLabel(featureName, notificationName)} declares localizedTemplate together with template/meta: pick one`,
+    );
+  }
+  const byLocale = Object.entries(localizedTemplate());
+  return {
+    ...rest,
+    template: Object.fromEntries(byLocale.map(([locale, entry]) => [locale, { body: entry.body }])),
+    meta: Object.fromEntries(byLocale.map(([locale, entry]) => [locale, entry.meta])),
+  };
+}
+
 export function validateNotificationTemplate(
   featureName: string,
   notificationName: string,
@@ -136,7 +182,7 @@ export function validateNotificationTemplate(
 ): void {
   // skip: a notification without a template has nothing to validate
   if (notifDef.template === undefined) return;
-  const where = `Notification "${featureName}:notify:${notificationName}"`;
+  const where = notificationLabel(featureName, notificationName);
   if (!KEBAB_NOTIFICATION_NAME.test(notificationName)) {
     throw new Error(
       `${where} declares a template, so its name must be kebab-case (lowercase, digits, dashes): the name becomes the template slug`,
@@ -197,11 +243,13 @@ export function populateJobsAndNotifications(
   // Notifications: scope:notify:name
   for (const [name, notifDef] of Object.entries(feature.notifications ?? {})) {
     const qualifiedName = qualify(feature.name, "notify", name);
-    validateNotificationTemplate(feature.name, name, notifDef);
+    assertTriggerGroupComplete(notificationLabel(feature.name, name), notifDef);
+    const resolvedDef = resolveLocalizedTemplate(feature.name, name, notifDef);
+    validateNotificationTemplate(feature.name, name, resolvedDef);
     state.notificationMap.set(qualifiedName, {
-      ...notifDef,
+      ...resolvedDef,
       name: qualifiedName,
-      trigger: { on: notifDef.trigger.on },
+      ...(resolvedDef.trigger !== undefined ? { trigger: { on: resolvedDef.trigger.on } } : {}),
     });
     state.notificationFeatureMap.set(qualifiedName, feature.name);
   }

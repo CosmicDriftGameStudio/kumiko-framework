@@ -13,7 +13,11 @@ describe("issueSignupActivation", () => {
       incr: 1,
       expire: 1,
     });
-    const notifications: { type: string; email: string | undefined; data: unknown }[] = [];
+    const notifications: {
+      type: string;
+      email: string | undefined;
+      data: Readonly<Record<string, unknown>> | undefined;
+    }[] = [];
     const afterStore: string[] = [];
 
     const issued = await issueSignupActivation({
@@ -39,6 +43,13 @@ describe("issueSignupActivation", () => {
     expect(notifications).toHaveLength(1);
     expect(notifications[0]?.type).toBe(SIGNUP_ACTIVATION_NOTIFICATION_TYPE);
     expect(notifications[0]?.email).toBe("user@example.com");
-    expect(JSON.stringify(notifications[0]?.data)).toContain(encodeURIComponent(issued.token));
+    expect(notifications[0]?.data?.["actionUrl"]).toBe(
+      `https://app.example.com/activate?token=${encodeURIComponent(issued.token)}`,
+    );
+    expect(notifications[0]?.data).toMatchObject({
+      appName: expect.any(String),
+      validFor: expect.any(String),
+      validUntil: expect.any(String),
+    });
   });
 });

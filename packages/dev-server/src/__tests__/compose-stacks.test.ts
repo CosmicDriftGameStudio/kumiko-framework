@@ -21,11 +21,12 @@ const TEST_MFA = {
 } as const;
 
 describe("composeStacks", () => {
-  test("composeRendererStack → template-resolver, renderer-foundation, renderer-simple", () => {
+  test("composeRendererStack → template-resolver, renderer-foundation, renderer-simple, renderer-mail-html", () => {
     expect(stackFeatureNames(composeRendererStack())).toEqual([
       "template-resolver",
       "renderer-foundation",
       "renderer-simple",
+      "renderer-mail-html",
     ]);
   });
 

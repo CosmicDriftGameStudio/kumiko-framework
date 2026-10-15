@@ -20,9 +20,7 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { TenantQueries } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
@@ -31,6 +29,7 @@ import { createUserFeature } from "../../user/feature.js";
 import { userEntity } from "../../user/schema/user.js";
 import { AuthHandlers } from "../constants.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 const PARALLEL_SIGNUPS = 2;
 const NOTIFICATION_TYPE = "app:notify:signup-welcome";
@@ -88,8 +87,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelInAppFeature(),
@@ -127,6 +125,7 @@ beforeAll(async () => {
     notificationPreferencesTable,
     inAppMessagesTable,
   });
+  await seedAuthMailTemplates(stack);
 });
 
 afterAll(async () => {
@@ -139,9 +138,9 @@ beforeEach(async () => {
   if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
 });
 
-function extractTokenFromMail(html: string): string {
-  const match = html.match(/[?&]token=([^&"'<\s]+)/);
-  if (!match?.[1]) throw new Error(`No token in mail html: ${html.slice(0, 200)}`);
+function extractTokenFromMail(text: string): string {
+  const match = text.match(/[?&]token=([^&"'<\s\]]+)/);
+  if (!match?.[1]) throw new Error(`No token in mail text: ${text.slice(0, 200)}`);
   return decodeURIComponent(match[1]);
 }
 
@@ -155,7 +154,7 @@ async function requestSignupToken(email: string): Promise<string> {
   expect(res.status).toBe(200);
   const sent = emailTransport.sent.find((mail) => mail.to === email);
   if (!sent) throw new Error(`no activation mail for ${email}`);
-  return extractTokenFromMail(sent.html);
+  return extractTokenFromMail(sent.text ?? "");
 }
 
 async function confirmSignupsInParallel(emailPrefix: string): Promise<void> {

@@ -11,6 +11,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getSetCookieValue, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import {
+  authMailRendererFeatures,
+  seedAuthMailTemplates,
+} from "../../auth-email-password/__tests__/auth-mail-stack.js";
 import { AuthHandlers, AuthQueries } from "../../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
@@ -25,10 +29,8 @@ import { configValuesTable } from "../../config/table.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
@@ -59,8 +61,7 @@ export async function createWaitlistTestStack(
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -109,6 +110,7 @@ export async function createWaitlistTestStack(
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedAuthMailTemplates(stack);
   return stack;
 }
 
@@ -133,7 +135,7 @@ export function mailsTo(email: string) {
 export function tokenFromLastMailTo(email: string): string {
   const mail = mailsTo(email).at(-1);
   if (!mail) throw new Error(`no mail to ${email}`);
-  const match = mail.html.match(/[?&]token=([^&"'<\s]+)/);
+  const match = (mail.text ?? "").match(/[?&]token=([^&"'<\s\]]+)/);
   if (!match?.[1]) throw new Error(`no token in mail to ${email}`);
   return decodeURIComponent(match[1]);
 }

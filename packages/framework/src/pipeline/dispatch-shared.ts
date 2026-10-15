@@ -523,6 +523,7 @@ export async function buildHandlerContext(
     // A rolled-back write must leave no notification behind.
     if (!hasLiveCommitSink) return notifyInTransaction;
     return createDeferringNotify({
+      registry,
       tenantId: user.tenantId,
       notifyAfterCommit,
       notifyNow: notifyInTransaction,

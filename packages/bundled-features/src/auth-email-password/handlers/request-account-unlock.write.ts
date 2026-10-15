@@ -1,13 +1,11 @@
 import { AUTH_UNLOCK_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.js";
-import { renderUnlockAccountEmail } from "../email-templates.js";
+import { AuthMailNotificationTypes } from "../mail-notifications.js";
 import { signUnlockToken } from "../unlock-token.js";
 import {
   createTokenRequestHandler,
   type TokenRequestData,
   type TokenRequestOptions,
 } from "./token-request-handler.js";
-
-const UNLOCK_NOTIFICATION_TYPE = "auth-email-password:account-unlock";
 
 export type RequestAccountUnlockOptions = TokenRequestOptions;
 
@@ -32,8 +30,7 @@ export function createRequestAccountUnlockHandler(opts: RequestAccountUnlockOpti
       // locked right now. Confirming just clears the (possibly already
       // empty) lockout state — harmless no-op if they weren't locked.
       extraSilentSkip: () => false,
-      notificationType: UNLOCK_NOTIFICATION_TYPE,
-      renderContent: renderUnlockAccountEmail,
+      notificationType: AuthMailNotificationTypes.accountUnlock,
     },
     opts,
   );

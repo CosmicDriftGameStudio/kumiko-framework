@@ -704,6 +704,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@cosmicdrift/kumiko-locale-de": "workspace:*",
     "@cosmicdrift/kumiko-locale-es": "workspace:*",
+    "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
     "jsqr": "^1.4.0",
     "unpdf": "^1.8.1"
   }

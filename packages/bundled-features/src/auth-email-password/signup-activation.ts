@@ -9,15 +9,15 @@ import type { NotifyFn } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Redis } from "ioredis";
 import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "./constants.js";
-import { renderActivationEmail } from "./email-templates.js";
 import { dispatchMagicLinkMail } from "./magic-link-mail.js";
+import { AuthMailNotificationTypes } from "./mail-notifications.js";
 import {
   invalidateExistingSignupToken,
   normalizeEmail,
   storeSignupToken,
 } from "./signup-token-store.js";
 
-export const SIGNUP_ACTIVATION_NOTIFICATION_TYPE = "auth-email-password:signup-activation";
+export const SIGNUP_ACTIVATION_NOTIFICATION_TYPE = AuthMailNotificationTypes.signupActivation;
 
 export type IssueSignupActivationArgs = {
   readonly redis: Redis;
@@ -65,7 +65,6 @@ export async function issueSignupActivation(
     {
       handlerName: "signup-request",
       notificationType: SIGNUP_ACTIVATION_NOTIFICATION_TYPE,
-      renderContent: renderActivationEmail,
     },
     {
       email,

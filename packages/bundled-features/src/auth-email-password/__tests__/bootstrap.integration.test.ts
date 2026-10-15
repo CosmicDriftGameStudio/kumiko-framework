@@ -30,9 +30,7 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature, TenantQueries } from "../../tenant/index.js";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
@@ -50,6 +48,7 @@ import {
 import { AuthHandlers, AuthQueries } from "../constants.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
 import { invalidateExistingInviteToken } from "../invite-token-store.js";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";
 const ROOT_EMAIL = "root@example.com";
@@ -97,8 +96,7 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       configProbeFeature,
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -134,6 +132,7 @@ beforeAll(async () => {
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedAuthMailTemplates(stack);
 });
 
 afterAll(async () => {
@@ -185,7 +184,7 @@ function inviteOutcomes(report: BootstrapReport): Record<string, string> {
 function tokenFromLastMailTo(email: string): string {
   const mail = emailTransport.sent.filter((m) => m.to === email).at(-1);
   if (!mail) throw new Error(`no invite mail to ${email}`);
-  const match = mail.html.match(/[?&]token=([^&"'<\s]+)/);
+  const match = (mail.text ?? "").match(/[?&]token=([^&"'<\s\]]+)/);
   if (!match?.[1]) throw new Error(`no token in mail to ${email}`);
   return decodeURIComponent(match[1]);
 }

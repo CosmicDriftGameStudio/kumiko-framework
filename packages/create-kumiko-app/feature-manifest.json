@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 82,
+  "featureCount": 83,
   "features": [
     {
       "name": "admin-shell",
@@ -2073,6 +2073,28 @@
         "category": "notifications",
         "recommended": false
       }
+    },
+    {
+      "name": "renderer-mail-html",
+      "description": "A `renderer-foundation` plugin that handles `RenderRequest { kind: \"mail\" }` and returns `{ subject, html, text, previewText? }` suitable for sending via `channel-email`. The mail template (`kind: \"mail\"`, document HTML, subject in `meta`) resolves through `template-resolver`'s DB fallback, its body is compiled to Handlebars by template-resolver and rendered with escaping, then placed into an MJML layout (`kind: \"mail-layout\"`, slug `default` unless `meta.layoutSlug` says otherwise, in-code `DEFAULT_MAIL_LAYOUT_MJML` as last resort) that `mjml()` compiles to email-safe table HTML, with `html-to-text` producing the plain-text alternative. Seed an editable system layout with `seedSystemMailLayout(db)`. Requires `renderer-foundation` + `template-resolver`.",
+      "toggleableDefault": null,
+      "requires": [
+        "renderer-foundation",
+        "template-resolver"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "renderer",
+          "entityName": "mail-html"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": []
     },
     {
       "name": "renderer-pdf",

@@ -1,24 +1,24 @@
 // Shared dispatch for the magic-link mails (password-reset, email-verification,
-// signup-activation). All three follow the same delivery shape: append the
-// token to the app page, render structured content, and notify the recipient
-// email directly (route:{email} skips preferences — the recipient may not have
-// a user account yet — and critical priority keeps a security mail
-// non-unsubscribable). No r.notification is declared; buildMessage falls back
-// to the structured `data` for the renderer.
+// account-unlock, signup-activation, invite). All follow the same delivery
+// shape: append the token to the app page and notify the recipient email
+// directly (route:{email} skips preferences — the recipient may not have a user
+// account yet — and critical priority keeps a security mail non-unsubscribable).
+// Each mail type is a trigger-less r.notification whose stored template renders
+// from the variables passed here.
 
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import type { NotifyFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { resolveMailLocale } from "@cosmicdrift/kumiko-framework/i18n";
-import type { AuthMailContent, AuthMailLocale, RenderTokenContentArgs } from "./email-templates.js";
+import { mailT, resolveMailLocale } from "@cosmicdrift/kumiko-framework/i18n";
+import { type AuthMailLocale, tokenMailExpiry } from "./email-templates.js";
+import { authMailTemplateLocale } from "./mail-notifications.js";
 
-// Per-flow constants: which notification type to dispatch and how to render the
-// body. renderContent is the flow's template (renderResetPasswordEmail / … /
-// renderActivationEmail), all unified on RenderTokenContentArgs → AuthMailContent.
+// Per-flow constants: which notification type to dispatch. fallbackAppName
+// replaces the translated default when the flow has no app name of its own.
 export type MagicLinkMailSpec = {
   readonly handlerName: string;
   readonly notificationType: string;
-  readonly renderContent: (args: RenderTokenContentArgs) => AuthMailContent;
+  readonly fallbackAppName?: string;
 };
 
 // Per-request values: the recipient + the app page that receives the token, plus
@@ -36,6 +36,8 @@ export type MagicLinkMailParams = {
   readonly locale?: AuthMailLocale;
   readonly issuedAt?: string;
   readonly timeZone?: string;
+  // Invite mails name the role the recipient is invited as.
+  readonly role?: string;
 };
 
 function resolveAppUrl(appUrl: string | ((locale: string) => string), locale: string): string {
@@ -75,18 +77,24 @@ export async function dispatchMagicLinkMail(
   // mailT already root-falls-back; appUrl must use the same negotiated tag
   // or language-in-path apps 404 on e.g. /de-AT/activate.
   const urlLocale = resolveMailLocale(locale);
-  const content = spec.renderContent({
-    url: appendToken(resolveAppUrl(params.appUrl, urlLocale), params.token),
-    expiresAt: params.expiresAt,
-    ...(params.locale !== undefined && { locale: params.locale }),
-    ...(params.appName !== undefined && { appName: params.appName }),
-    ...(params.issuedAt !== undefined && { issuedAt: params.issuedAt }),
-    ...(params.timeZone !== undefined && { timeZone: params.timeZone }),
-  });
+  const { validFor, validUntil } = tokenMailExpiry(
+    {
+      expiresAt: params.expiresAt,
+      ...(params.issuedAt !== undefined && { issuedAt: params.issuedAt }),
+      ...(params.timeZone !== undefined && { timeZone: params.timeZone }),
+    },
+    locale,
+  );
   await notify(spec.notificationType, {
     route: { email: params.email },
-    data: content,
-    locale,
+    data: {
+      appName: params.appName ?? spec.fallbackAppName ?? mailT(locale, "auth.mail.appNameDefault"),
+      actionUrl: appendToken(resolveAppUrl(params.appUrl, urlLocale), params.token),
+      validFor,
+      validUntil,
+      ...(params.role !== undefined && { role: params.role }),
+    },
+    locale: authMailTemplateLocale(spec.notificationType, locale),
     priority: "critical",
   });
 }

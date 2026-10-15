@@ -27,10 +27,8 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { hashPassword } from "../../shared/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
@@ -41,6 +39,7 @@ import { userEntity, userTable } from "../../user/schema/user.js";
 import { AuthErrors, AuthHandlers, AuthQueries } from "../constants.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
 import { INITIAL_SIGNUP_ROLES, seedUser } from "../seeding.js";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 const PASSWORD = "mfa-gates-pw-1234";
 const emailTransport = createInMemoryTransport();
@@ -62,8 +61,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -115,6 +113,7 @@ beforeAll(async () => {
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedAuthMailTemplates(stack);
 });
 
 afterAll(async () => {
@@ -273,7 +272,7 @@ describe("invite-signup-complete runs the login's MFA gate", () => {
       { id: inviterId, tenantId: tenantA, roles: ["Admin"] },
     );
     const sent = emailTransport.sent.at(-1);
-    const token = sent?.html.match(/[?&]token=([^&"'<\s]+)/)?.[1];
+    const token = sent?.text?.match(/[?&]token=([^&"'<\s\]]+)/)?.[1];
     if (token === undefined) throw new Error("invite-create sent no token mail");
     return stack.http.raw("POST", "/api/auth/invite-signup-complete", {
       token: decodeURIComponent(token),
@@ -312,7 +311,7 @@ describe("signup-confirm runs the login's MFA gate", () => {
       { "x-forwarded-for": email },
     );
     expect(res.status).toBe(200);
-    const token = emailTransport.sent.at(-1)?.html.match(/[?&]token=([^&"'<\s]+)/)?.[1];
+    const token = emailTransport.sent.at(-1)?.text?.match(/[?&]token=([^&"'<\s\]]+)/)?.[1];
     if (token === undefined) throw new Error("signup-request sent no token mail");
     return decodeURIComponent(token);
   }

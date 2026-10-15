@@ -51,6 +51,7 @@ const EXPECTED_REGISTRY_ONLY = new Set([
   "cap-overview-labels", // app-local (src/app/), labels for this app's example cap-overview caps
   "metrics-system", // from ./metrics, companion of createMetricsFeature (platform-wide scope)
   "locale-de", // @cosmicdrift/kumiko-locale-de, not a bundled-features export
+  "renderer-mail-html", // @cosmicdrift/kumiko-renderer-mail-html, auto-mounted with auth by composeFeatures
 ]);
 
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,

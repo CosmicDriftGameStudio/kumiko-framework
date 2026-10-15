@@ -214,6 +214,13 @@ describe("renderer-mail-html :: injection", () => {
     expect(result.html).toContain('href="#"');
   });
 
+  test("ampersands and quotes reach subject and text verbatim, not as HTML entities", async () => {
+    const result = await renderMail(tenantId(1), { ...PLAIN_VARIABLES, name: "Müller & Bob's" });
+    expect(result.subject).toBe("Willkommen Müller & Bob's");
+    expect(result.text).toContain("Hallo Müller & Bob's");
+    expect(result.html).toContain("Müller &amp; Bob");
+  });
+
   test("a subject variable cannot add header lines", async () => {
     const result = await renderMail(tenantId(1), { ...PLAIN_VARIABLES, name: "A\r\nBcc: x@y.z" });
     expect(result.subject).not.toMatch(/[\r\n]/);

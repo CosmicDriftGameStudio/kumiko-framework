@@ -1,13 +1,11 @@
 import { AUTH_RESET_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.js";
-import { renderResetPasswordEmail } from "../email-templates.js";
+import { AuthMailNotificationTypes } from "../mail-notifications.js";
 import { signResetToken } from "../reset-token.js";
 import {
   createTokenRequestHandler,
   type TokenRequestData,
   type TokenRequestOptions,
 } from "./token-request-handler.js";
-
-const RESET_NOTIFICATION_TYPE = "auth-email-password:password-reset";
 
 export type RequestPasswordResetOptions = TokenRequestOptions;
 
@@ -31,8 +29,7 @@ export function createRequestPasswordResetHandler(opts: RequestPasswordResetOpti
       // non-deleted user can initiate a reset regardless of verification
       // state. The sessions feature handles the post-change revocation.
       extraSilentSkip: () => false,
-      notificationType: RESET_NOTIFICATION_TYPE,
-      renderContent: renderResetPasswordEmail,
+      notificationType: AuthMailNotificationTypes.passwordReset,
     },
     opts,
   );

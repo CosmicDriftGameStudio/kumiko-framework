@@ -360,8 +360,8 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
       trigger: { on: "task" },
     });
     if (n?.kind === "notification") {
-      expect(n.recipientBody.raw).toContain("event");
-      expect(n.dataBody.raw).toContain("title");
+      expect(n.recipientBody?.raw).toContain("event");
+      expect(n.dataBody?.raw).toContain("title");
       expect(n.templates?.["email"]?.raw).toContain("subject");
     }
   });
@@ -412,5 +412,33 @@ describe("Canonical Object-Form — parser akzeptiert + extrahiert", () => {
   test("systemScope: kind-only marker", () => {
     const ss = result.patterns.find((p) => p.kind === "systemScope");
     expect(ss).toMatchObject({ kind: "systemScope" });
+  });
+});
+
+describe("notification without trigger", () => {
+  const source = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+export const feature = defineFeature("mailer", (r) => {
+  r.notification("welcome-mail", {
+    variables: {},
+    localizedTemplate: () => ({}),
+  });
+});
+`;
+  const project = new Project({
+    skipAddingFilesFromTsConfig: true,
+    skipFileDependencyResolution: true,
+    useInMemoryFileSystem: true,
+  });
+  const parsed = parseSourceFile(project.createSourceFile("trigger-less.ts", source));
+
+  test("is extracted with its name and no trigger or bodies", () => {
+    const n = parsed.patterns.find((p) => p.kind === "notification");
+    expect(n).toMatchObject({ kind: "notification", notificationName: "welcome-mail" });
+    if (n?.kind === "notification") {
+      expect(n.trigger).toBeUndefined();
+      expect(n.recipientBody).toBeUndefined();
+      expect(n.dataBody).toBeUndefined();
+    }
   });
 });

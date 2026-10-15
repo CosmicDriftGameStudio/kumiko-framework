@@ -498,9 +498,9 @@ export type NotificationPattern = {
   readonly kind: "notification";
   readonly source: SourceLocation;
   readonly notificationName: string;
-  readonly trigger: { readonly on: string };
-  readonly recipientBody: SourceLocation;
-  readonly dataBody: SourceLocation;
+  readonly trigger?: { readonly on: string };
+  readonly recipientBody?: SourceLocation;
+  readonly dataBody?: SourceLocation;
   // Each template (e.g. "email", "push") carries its own closure source.
   readonly templates?: Readonly<Record<string, SourceLocation>>;
 };

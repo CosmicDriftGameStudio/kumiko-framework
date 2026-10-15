@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ChannelContext,
   ChannelMessage,
@@ -13,9 +14,9 @@ const stubRenderer: NotificationRenderer = {
   render: async () => "<p>rendered</p>",
 };
 const resolveEmail = async () => "user@example.com";
-// send() never touches ctx — only render()/resolve() would, and this test
-// passes `rendered` so render() is skipped.
-const ctx = {} as unknown as ChannelContext;
+// send() with a `rendered` message only reads ctx.registry (to look up a
+// notification template); render()/resolve() would need more.
+const ctx = { registry: createRegistry([]) } as unknown as ChannelContext;
 const rendered: RenderedMessage = { html: "<p>x</p>", subject: "Re: Wasserschaden" };
 
 function channelWith(transport: ReturnType<typeof createInMemoryTransport>) {
@@ -236,5 +237,56 @@ describe("email channel text part", () => {
     await channelWith(transport).send("user@example.com", message, ctx);
     expect(transport.sent[0]?.html).toBe("<p>rendered</p>");
     expect(transport.sent[0]).not.toHaveProperty("text");
+  });
+});
+
+describe("email channel template notifications", () => {
+  const templated = defineFeature("tpl", (r) => {
+    r.notification("welcome", {
+      template: { en: { body: "<p>Hi</p>" } },
+      meta: { en: { subject: "Hi" } },
+    });
+  });
+  const message: ChannelMessage = {
+    notificationType: "tpl:notify:welcome",
+    title: "ignored",
+    body: "ignored",
+    locale: "de",
+    data: { name: "Ada", unsubscribeUrl: "https://x.example/unsub" },
+  };
+  const templatedCtx = (renderMail?: ChannelContext["renderMail"]): ChannelContext => ({
+    ...ctx,
+    registry: createRegistry([templated]),
+    ...(renderMail && { renderMail }),
+  });
+
+  test("a declared template renders through ctx.renderMail with locale, variables and unsubscribe url", async () => {
+    const calls: unknown[] = [];
+    const renderMail: NonNullable<ChannelContext["renderMail"]> = async (payload) => {
+      calls.push(payload);
+      return { subject: "Stored subject", html: "<p>stored</p>", text: "stored text" };
+    };
+    const transport = createInMemoryTransport();
+    const channel = channelWith(transport);
+    const renderedMessage = await channel.render?.(message, templatedCtx(renderMail));
+    await channel.send("user@example.com", message, templatedCtx(renderMail), renderedMessage);
+
+    expect(calls[0]).toEqual({
+      slug: "tpl:notify:welcome",
+      locale: "de",
+      variables: message.data,
+      unsubscribeUrl: "https://x.example/unsub",
+    });
+    expect(transport.sent[0]).toMatchObject({
+      subject: "Stored subject",
+      html: "<p>stored</p>",
+      text: "stored text",
+    });
+  });
+
+  test("a declared template without ctx.renderMail fails instead of falling back to the legacy renderer", async () => {
+    await expect(
+      channelWith(createInMemoryTransport()).render?.(message, templatedCtx()),
+    ).rejects.toThrow(/renderMail/);
   });
 });

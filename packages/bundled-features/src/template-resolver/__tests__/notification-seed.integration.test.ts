@@ -12,7 +12,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import * as z from "zod";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createTemplateResolverFeature } from "../feature.js";
 import { seedNotificationTemplates } from "../seeding.js";
 import {
@@ -50,7 +52,12 @@ const bodyV1 = '<p>Hallo <span data-variable="name"></span></p>';
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [createTemplateResolverFeature(), mailerFeature(bodyV1)],
+    features: [
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
+      mailerFeature(bodyV1),
+    ],
   });
   db = stack.db;
   await unsafeCreateEntityTable(db, templateResourceEntity);
@@ -94,6 +101,8 @@ describe("seedNotificationTemplates", () => {
   test("a changed body in code updates the existing row", async () => {
     const changed = createRegistry([
       createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
       mailerFeature('<p>Servus <span data-variable="name"></span></p>'),
     ]);
     await seedNotificationTemplates(db, changed);
@@ -104,6 +113,17 @@ describe("seedNotificationTemplates", () => {
     const withoutResolver = createRegistry([mailerFeature(bodyV1)]);
     await expect(seedNotificationTemplates(db, withoutResolver)).rejects.toThrow(
       /template-resolver/,
+    );
+  });
+
+  test("templates without a mail renderer plugin fail loudly at seed time", async () => {
+    const withoutMailRenderer = createRegistry([
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      mailerFeature(bodyV1),
+    ]);
+    await expect(seedNotificationTemplates(db, withoutMailRenderer)).rejects.toThrow(
+      /renderer plugin for kind "mail"/,
     );
   });
 

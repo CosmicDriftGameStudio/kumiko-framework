@@ -27,9 +27,7 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
@@ -41,6 +39,7 @@ import {
   AUTH_SELF_REGISTRATION_FEATURE,
   createAuthSelfRegistrationToggleFeature,
 } from "../self-registration-toggle.js";
+import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.js";
 
 const APP_ACTIVATION_URL = "https://app.example.com/signup/complete";
 const emailTransport = createInMemoryTransport();
@@ -57,8 +56,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      createTemplateResolverFeature(),
-      createRendererFoundationFeature(),
+      ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createRendererSimpleFeature(),
       createChannelEmailFeature({
@@ -99,6 +97,7 @@ beforeAll(async () => {
     tenantMembershipsTable,
     notificationPreferencesTable,
   });
+  await seedAuthMailTemplates(stack);
 
   runtime = new GlobalFeatureToggleRuntime(stack.db, stack.registry);
   await runtime.initialize();
@@ -189,8 +188,7 @@ describe("auth-self-registration toggle — companion feature NOT composed", () 
         createConfigFeature(),
         createUserFeature(),
         createTenantFeature(),
-        createTemplateResolverFeature(),
-        createRendererFoundationFeature(),
+        ...authMailRendererFeatures(),
         createDeliveryFeature(),
         createRendererSimpleFeature(),
         createChannelEmailFeature({
@@ -228,6 +226,7 @@ describe("auth-self-registration toggle — companion feature NOT composed", () 
       tenantMembershipsTable,
       notificationPreferencesTable,
     });
+    await seedAuthMailTemplates(bareStack);
 
     bareRuntime = new GlobalFeatureToggleRuntime(bareStack.db, bareStack.registry);
     await bareRuntime.initialize();
