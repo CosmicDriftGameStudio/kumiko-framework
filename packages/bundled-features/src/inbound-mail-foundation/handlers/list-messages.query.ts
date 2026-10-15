@@ -49,7 +49,7 @@ export const listMessagesQuery: QueryHandlerDef = {
     if (!piiKms) return { rows };
     const decryptedRows = await Promise.all(
       rows.map((row) =>
-        decryptPiiFieldValues(row as Record<string, unknown>, INBOUND_MESSAGE_PII_FIELDS, piiKms, {
+        decryptPiiFieldValues(row, INBOUND_MESSAGE_PII_FIELDS, piiKms, {
           requestId: `inbound-mail-foundation:list-messages:${ctx.user.tenantId}`,
         }),
       ),

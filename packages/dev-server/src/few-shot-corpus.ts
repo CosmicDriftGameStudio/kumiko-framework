@@ -34,11 +34,11 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import {
   type FeaturePattern,
-  type FeaturePatternKind,
   PATTERN_LIBRARY,
   type ParseError,
   parseFeatureFile,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 // =============================================================================
 // Public types
@@ -254,18 +254,17 @@ function relativizeSources(value: unknown, repoRoot: string): unknown {
   if (Array.isArray(value)) {
     return value.map((v) => relativizeSources(v, repoRoot));
   }
-  if (value && typeof value === "object") {
-    const obj = value as Record<string, unknown>;
+  if (isPlainObject(value)) {
     if (
-      typeof obj["file"] === "string" &&
-      typeof obj["raw"] === "string" &&
-      typeof obj["start"] === "object" &&
-      typeof obj["end"] === "object"
+      typeof value["file"] === "string" &&
+      typeof value["raw"] === "string" &&
+      typeof value["start"] === "object" &&
+      typeof value["end"] === "object"
     ) {
-      return { ...obj, file: relative(repoRoot, obj["file"]) };
+      return { ...value, file: relative(repoRoot, value["file"]) };
     }
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj)) {
+    for (const [k, v] of Object.entries(value)) {
       out[k] = relativizeSources(v, repoRoot);
     }
     return out;
@@ -325,15 +324,14 @@ function findPackageJson(
     const candidate = join(dir, "package.json");
     if (existsSync(candidate)) {
       try {
-        const pkg = JSON.parse(readFileSync(candidate, "utf8")) as {
-          name?: unknown;
-          description?: unknown;
-        };
-        return {
-          relPath: relative(repoRoot, candidate),
-          name: typeof pkg.name === "string" ? pkg.name : undefined,
-          description: typeof pkg.description === "string" ? pkg.description : undefined,
-        };
+        const pkg: unknown = JSON.parse(readFileSync(candidate, "utf8"));
+        if (isPlainObject(pkg)) {
+          return {
+            relPath: relative(repoRoot, candidate),
+            name: typeof pkg["name"] === "string" ? pkg["name"] : undefined,
+            description: typeof pkg["description"] === "string" ? pkg["description"] : undefined,
+          };
+        }
       } catch {
         // Malformed package.json — keep walking up.
       }
@@ -353,7 +351,7 @@ function findPackageJson(
 function collectTags(patterns: readonly FeaturePattern[]): readonly string[] {
   const tags = new Set<string>();
   for (const p of patterns) {
-    const schema = PATTERN_LIBRARY[p.kind as FeaturePatternKind];
+    const schema = PATTERN_LIBRARY[p.kind];
     if (schema) tags.add(schema.category);
   }
   return [...tags].sort();

@@ -1,6 +1,7 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 // @runtime client
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 // Feature name
 export const BILLING_FOUNDATION_FEATURE = "billing-foundation" as const;
@@ -230,5 +231,5 @@ export const TERMINATION_SCOPES = ["tenant-host", "platform"] as const;
 export type TerminationScope = (typeof TERMINATION_SCOPES)[number];
 
 export function isTerminationScope(value: unknown): value is TerminationScope {
-  return (TERMINATION_SCOPES as readonly unknown[]).includes(value);
+  return isOneOf(TERMINATION_SCOPES, value);
 }

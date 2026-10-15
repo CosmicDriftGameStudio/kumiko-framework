@@ -45,7 +45,7 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { parseJsonOrThrow, parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 
-const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+const hasBun = typeof Bun !== "undefined";
 
 // Pakete die das Bundle zur Laufzeit weiter referenziert (`from "<pkg>"` nach
 // Tree-Shake). Native bindings (argon2), worker-thread-Loader (bullmq,
@@ -164,7 +164,7 @@ export async function buildServerBundle(
     entrypoints,
     outdir: outDir,
     target: "bun",
-    external: externals as string[],
+    external: [...externals],
     splitting: true,
     sourcemap: "none",
     naming: { entry: "[name].js", chunk: "chunk-[hash].js" },

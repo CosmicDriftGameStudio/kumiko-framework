@@ -12,6 +12,7 @@
 
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 const STATE_PURPOSE = "inbound-mail-oauth-connect";
 
@@ -91,13 +92,12 @@ export function verifyOAuthState(
 }
 
 function isOAuthStatePayload(v: unknown): v is OAuthStatePayload {
-  if (typeof v !== "object" || v === null) return false;
-  const o = v as Record<string, unknown>;
+  if (!isPlainObject(v)) return false;
   return (
-    typeof o["tenantId"] === "string" &&
-    (o["ownerUserId"] === null || typeof o["ownerUserId"] === "string") &&
-    typeof o["providerKey"] === "string" &&
-    typeof o["mailbox"] === "string" &&
-    typeof o["nonce"] === "string"
+    typeof v["tenantId"] === "string" &&
+    (v["ownerUserId"] === null || typeof v["ownerUserId"] === "string") &&
+    typeof v["providerKey"] === "string" &&
+    typeof v["mailbox"] === "string" &&
+    typeof v["nonce"] === "string"
   );
 }

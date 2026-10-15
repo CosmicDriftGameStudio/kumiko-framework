@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { E2E_TIMEOUT_MS } from "./e2e/timeouts";
 
 export const TEST_TIMEOUT_MS = {
@@ -16,7 +17,8 @@ export const BUNFIG_FILES = {
   dom: "bunfig.dom.toml",
 } as const;
 
-export type BunfigVariant = "unit" | "integration" | "real";
+const BUNFIG_VARIANTS = ["unit", "integration", "real"] as const;
+export type BunfigVariant = (typeof BUNFIG_VARIANTS)[number];
 
 export type BunfigOptions = {
   readonly dom?: boolean;
@@ -160,7 +162,7 @@ const SUPERSEDED_PRELOADS: ReadonlyMap<string, string> = new Map([
 // skip the whole suite the variant exists to run.
 const TEMPLATE_OWNED_IGNORE_PATTERNS = new Set<string>([
   ...COVERAGE_IGNORED,
-  ...(Object.keys(PRELOADS) as BunfigVariant[]).flatMap((variant) => [
+  ...BUNFIG_VARIANTS.flatMap((variant) => [
     ...ignoredPaths(variant, false),
     ...ignoredPaths(variant, true),
   ]),
@@ -179,8 +181,9 @@ function isKeepableExtra(
 }
 
 function parseTestSection(content: string): Readonly<Record<string, unknown>> {
-  const parsed = Bun.TOML.parse(content) as { test?: Record<string, unknown> };
-  return parsed.test ?? {};
+  const parsed = Bun.TOML.parse(content);
+  const test = isPlainObject(parsed) ? parsed["test"] : undefined;
+  return isPlainObject(test) ? test : {};
 }
 
 function arrayField(

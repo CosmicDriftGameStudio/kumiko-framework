@@ -62,27 +62,19 @@ async function archiveAndDeleteRows(
 export async function mailAccountTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
   const accountIds = await archiveAndDeleteRows(
     ctx,
-    mailAccountsProjectionTable as EntityTableMeta,
+    mailAccountsProjectionTable,
     MAIL_ACCOUNT_AGGREGATE_TYPE,
   );
   for (const accountId of accountIds) {
-    await ctx.db.deleteMany(syncCursorTable as EntityTableMeta, { accountId });
-    await ctx.db.deleteMany(seenMessageTable as EntityTableMeta, { accountId });
+    await ctx.db.deleteMany(syncCursorTable, { accountId });
+    await ctx.db.deleteMany(seenMessageTable, { accountId });
   }
 }
 
 export async function inboundMessageTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
-  await archiveAndDeleteRows(
-    ctx,
-    inboundMessagesProjectionTable as EntityTableMeta,
-    INBOUND_MESSAGE_AGGREGATE_TYPE,
-  );
+  await archiveAndDeleteRows(ctx, inboundMessagesProjectionTable, INBOUND_MESSAGE_AGGREGATE_TYPE);
 }
 
 export async function mailThreadTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
-  await archiveAndDeleteRows(
-    ctx,
-    mailThreadsProjectionTable as EntityTableMeta,
-    MAIL_THREAD_AGGREGATE_TYPE,
-  );
+  await archiveAndDeleteRows(ctx, mailThreadsProjectionTable, MAIL_THREAD_AGGREGATE_TYPE);
 }

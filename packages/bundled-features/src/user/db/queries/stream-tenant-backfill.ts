@@ -37,12 +37,12 @@ export type UserStreamBackfillResult = {
 export async function backfillUserStreamTenants(
   db: DbConnection,
 ): Promise<UserStreamBackfillResult> {
-  const candidates = (await unsafeReadRetrying(
+  const candidates = await unsafeReadRetrying<{ aggregate_id: string }>(
     db,
     `SELECT DISTINCT "aggregate_id" FROM "kumiko_events"
       WHERE "aggregate_type" = 'user' AND "tenant_id" <> $1::uuid`,
     [SYSTEM_TENANT_ID],
-  )) as ReadonlyArray<{ aggregate_id: string }>;
+  );
 
   let aggregatesMigrated = 0;
   let eventsMigrated = 0;
@@ -67,13 +67,13 @@ async function migrateAggregate(db: DbConnection, aggregateId: string): Promise<
     const raw = asRawClient(tx);
     // Global id order = commit-adjacent replay order; merges a split stream
     // (legacy tenant + SYSTEM) into one consistent version sequence.
-    const events = (await raw.unsafe(
+    const events = await raw.unsafe<{ id: bigint | string }>(
       `SELECT "id" FROM "kumiko_events"
         WHERE "aggregate_type" = 'user' AND "aggregate_id" = $1::uuid
         ORDER BY "id" ASC
         FOR UPDATE`,
       [aggregateId],
-    )) as ReadonlyArray<{ id: bigint | string }>;
+    );
 
     // Phase 1: negative interim versions — real versions are always >= 1, so
     // nothing can collide with events_aggregate_version_uq mid-migration.

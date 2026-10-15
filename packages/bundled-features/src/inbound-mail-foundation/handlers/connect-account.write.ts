@@ -95,7 +95,7 @@ export const connectAccountHandler: WriteHandlerDef = {
       authMethod: payload.authMethod,
       ownerUserId,
       displayName: payload.displayName,
-      address: encryptedFields["address"] as string,
+      address: encryptedFields.address,
       // active ab Connect — der Supervisor greift den Account beim
       // nächsten Tick auf und degradiert ihn bei Credential-Fehlern.
       status: InboundMailAccountStatuses.active,

@@ -4,10 +4,10 @@
 // für read_mail_accounts und read_inbound_messages (Scope-Vererbung).
 
 export function isVisibleToCaller(
-  row: unknown,
+  row: Readonly<Record<string, unknown>>,
   user: { readonly id: string; readonly roles: readonly string[] },
 ): boolean {
-  const owner = (row as Record<string, unknown>)["ownerUserId"];
+  const owner = row["ownerUserId"];
   if (owner == null || owner === "") return true;
   if (owner === user.id) return true;
   return user.roles.includes("TenantAdmin") || user.roles.includes("SystemAdmin");

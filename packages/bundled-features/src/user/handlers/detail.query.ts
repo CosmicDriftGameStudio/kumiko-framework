@@ -3,6 +3,7 @@ import {
   defineEntityDetailHandler,
   type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { userEntity } from "../schema/user.js";
 import { attachTenantLabels, dbForList } from "./list.query.js";
 
@@ -24,12 +25,9 @@ export const detailQuery = {
     ctx: HandlerContext,
   ) => {
     const result = await baseDetail.handler?.(query, ctx);
-    if (result === null || typeof result !== "object") return result;
+    if (!isPlainObject(result)) return result;
     if (!ctx.registry.features.has("tenant")) return result;
-    const [enriched] = await attachTenantLabels(
-      [result as Record<string, unknown>],
-      dbForList(ctx),
-    );
+    const [enriched] = await attachTenantLabels([result], dbForList(ctx));
     return enriched ?? result;
   },
 };

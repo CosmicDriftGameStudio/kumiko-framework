@@ -29,21 +29,21 @@ export async function selectStaleDraftsBatch(
   olderThanDays: number,
   batchSize: number,
 ): Promise<readonly StaleDraftRow[]> {
-  const rows = (await unsafeReadRetrying(
-    db,
-    `SELECT "id", "tenant_id", "owner_id", "draft_key", "draft", "inserted_at" FROM "read_form_drafts"
-     WHERE COALESCE("modified_at", "inserted_at") < now() - ($1::int * interval '1 day')
-     ORDER BY COALESCE("modified_at", "inserted_at") ASC
-     LIMIT $2`,
-    [olderThanDays, batchSize],
-  )) as readonly {
+  const rows = await unsafeReadRetrying<{
     id: string;
     tenant_id: string;
     owner_id: string;
     draft_key: string;
     draft: FormDraftBlob;
     inserted_at: Date;
-  }[];
+  }>(
+    db,
+    `SELECT "id", "tenant_id", "owner_id", "draft_key", "draft", "inserted_at" FROM "read_form_drafts"
+     WHERE COALESCE("modified_at", "inserted_at") < now() - ($1::int * interval '1 day')
+     ORDER BY COALESCE("modified_at", "inserted_at") ASC
+     LIMIT $2`,
+    [olderThanDays, batchSize],
+  );
   return rows.map((row) => ({
     id: row.id,
     tenantId: row.tenant_id as TenantId, // @cast-boundary db-row
@@ -61,7 +61,7 @@ export async function isDraftStillStale(
   id: string,
   olderThanDays: number,
 ): Promise<boolean> {
-  const rows = (await unsafeReadRetrying(
+  const rows = await unsafeReadRetrying<unknown>(
     db,
     `SELECT 1 FROM "read_form_drafts"
      WHERE "id" = $1
@@ -69,6 +69,6 @@ export async function isDraftStillStale(
        AND COALESCE("modified_at", "inserted_at") < now() - ($3::int * interval '1 day')
      LIMIT 1`,
     [id, tenantId, olderThanDays],
-  )) as readonly unknown[];
+  );
   return rows.length > 0;
 }

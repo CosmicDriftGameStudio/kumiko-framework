@@ -8,6 +8,7 @@ import {
   createClientIpResolver,
 } from "@cosmicdrift/kumiko-framework/api";
 import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-headless/apex";
+import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ASSETS_DIR } from "./build-prod-bundle.js";
 import { BUNDLED_ASSETS_DIST_DIR } from "./bundled-assets.js";
 import {
@@ -51,7 +52,7 @@ export async function readStaticFile(
     const [bytes, fileStat] = await Promise.all([readFile(filePath), stat(filePath)]);
     return { bytes, mime: mimeTypeFor(filePath), mtimeMs: fileStat.mtimeMs };
   } catch (err) {
-    const code = (err as { code?: string }).code;
+    const code = errorCodeOf(err);
     // ENOENT: no such path. EISDIR: readFile() on a directory (e.g. GET
     // /assets where "assets" is a subfolder copied verbatim from public/).
     // ENOTDIR: a path segment that isn't a directory is used as one (e.g.
@@ -166,10 +167,7 @@ export function buildStaticFallback(
     const file = await readStaticFile(path);
     if (!file) return null;
     return {
-      bytes: file.bytes.buffer.slice(
-        file.bytes.byteOffset,
-        file.bytes.byteOffset + file.bytes.byteLength,
-      ) as ArrayBuffer,
+      bytes: new Uint8Array(file.bytes).buffer,
       mime: file.mime,
       etag: computeWeakEtag(file.mtimeMs, file.bytes.byteLength),
       mtimeMs: file.mtimeMs,
@@ -237,7 +235,7 @@ export function buildStaticFallback(
     if (injected === text) return html;
     const encoded = new TextEncoder().encode(injected);
     return {
-      bytes: encoded.buffer as ArrayBuffer,
+      bytes: encoded.buffer,
       mime: html.mime,
       etag: computeStrongEtag(encoded),
     };

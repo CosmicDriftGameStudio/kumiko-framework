@@ -3,6 +3,7 @@
 
 import { type AnonymousExtraRoute, getSessionCookies } from "@cosmicdrift/kumiko-framework/api";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
 import { getCookie } from "hono/cookie";
 import {
@@ -96,10 +97,6 @@ function htmlResponse(
     }),
     { status, headers: pageHeaders() },
   );
-}
-
-function isOneOf<T extends string>(options: readonly T[], value: string): value is T {
-  return (options as readonly string[]).includes(value);
 }
 
 async function readForm(c: Context): Promise<{ step: string; values: FormValues }> {

@@ -27,7 +27,7 @@ export const listSubscriptionsQuery: QueryHandlerDef = {
     if (!piiKms) return { rows };
     const decryptedRows = await Promise.all(
       rows.map((row) =>
-        decryptPiiFieldValues(row as Record<string, unknown>, SUBSCRIPTION_PII_FIELDS, piiKms, {
+        decryptPiiFieldValues(row, SUBSCRIPTION_PII_FIELDS, piiKms, {
           requestId: `billing-foundation:list-subscriptions:${ctx.user.tenantId}`,
         }),
       ),

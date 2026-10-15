@@ -167,8 +167,8 @@ export async function appendSubscriptionEvent(
   // ---------------------------------------------------------------
   const eventPayload: SubscriptionEventPayload = {
     providerName: payload.providerName,
-    providerCustomerId: encryptedFields["providerCustomerId"] as string,
-    providerSubscriptionId: encryptedFields["providerSubscriptionId"] as string,
+    providerCustomerId: encryptedFields.providerCustomerId,
+    providerSubscriptionId: encryptedFields.providerSubscriptionId,
     status: payload.status,
     tier: payload.tier,
     currentPeriodEndIso: payload.currentPeriodEndIso,

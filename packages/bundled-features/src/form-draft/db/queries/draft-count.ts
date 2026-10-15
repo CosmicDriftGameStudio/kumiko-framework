@@ -11,11 +11,11 @@ export async function countDraftsByOwner(
   tenantId: TenantId,
   ownerId: string,
 ): Promise<number> {
-  const rows = (await unsafeReadRetrying(
+  const rows = await unsafeReadRetrying<{ count: number }>(
     db,
     `SELECT count(*)::int AS "count" FROM "read_form_drafts"
      WHERE "tenant_id" = $1 AND "owner_id" = $2`,
     [tenantId, ownerId],
-  )) as readonly { count: number }[];
+  );
   return rows[0]?.count ?? 0;
 }

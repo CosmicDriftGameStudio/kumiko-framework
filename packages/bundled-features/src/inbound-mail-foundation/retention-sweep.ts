@@ -157,12 +157,8 @@ async function purgeExpiredSeenAnchors(
   // direkt tenant-scoped, kein Account-Join. Trifft auch Anker, deren Account
   // schon disconnected/geloescht ist.
   const where = { tenantId, seenAt: { lt: cutoff } };
-  const expired = await selectMany<{ accountId: string }>(
-    db,
-    seenMessageTable as EntityTableMeta,
-    where,
-  );
+  const expired = await selectMany<{ accountId: string }>(db, seenMessageTable, where);
   if (expired.length === 0) return 0;
-  await deleteMany(db, seenMessageTable as EntityTableMeta, where);
+  await deleteMany(db, seenMessageTable, where);
   return expired.length;
 }

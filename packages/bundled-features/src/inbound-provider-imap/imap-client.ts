@@ -18,6 +18,7 @@ import {
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { legacyDateToInstant } from "@cosmicdrift/kumiko-framework/time";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { ImapFlow } from "imapflow";
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
 import type { ImapCredentialDocument } from "./credential-document.js";
@@ -97,11 +98,11 @@ export function mapImapError(err: unknown, host: string): Error {
   // imapflow-Fehler tragen die Server-Antwort in responseText, die
   // message ist nur "Command failed" — beides in den Match einbeziehen;
   // authenticationFailed ist das verlässliche Flag.
-  const carrier = err as { authenticationFailed?: unknown; responseText?: unknown };
-  const responseText = typeof carrier?.responseText === "string" ? carrier.responseText : "";
+  const carrier = isPlainObject(err) ? err : undefined;
+  const responseText = typeof carrier?.["responseText"] === "string" ? carrier["responseText"] : "";
   const msg = `${err instanceof Error ? err.message : String(err)} ${responseText}`.trim();
   if (
-    carrier?.authenticationFailed === true ||
+    carrier?.["authenticationFailed"] === true ||
     /auth(entication)? failed|invalid credentials|invalid login|LOGIN failed|AUTHENTICATIONFAILED/i.test(
       msg,
     )

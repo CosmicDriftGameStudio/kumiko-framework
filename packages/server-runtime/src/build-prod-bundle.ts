@@ -71,7 +71,7 @@ import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tail
 // (Tailwind via Bun.spawn, Client-Bundle via Bun.build, Stylesheet-
 // Resolution via Bun.resolveSync) sind Bun-only. Pro-Funktions-Inline-
 // Checks driften sonst — eine Konstante hier hält das konsistent.
-const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+const hasBun = typeof Bun !== "undefined";
 
 export type BuildProdBundleOptions = {
   /** App-Root. Default: process.cwd(). */
@@ -628,11 +628,8 @@ function resolveStylesheetEntry(
 
   if (!hasBun) return undefined;
   try {
-    const resolved = (
-      globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }
-    ).Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", cwd);
-    const bun = (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }).Bun;
-    if (!canResolveTailwindStylesheet(resolved, { bun, cwd })) {
+    const resolved = Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", cwd);
+    if (!canResolveTailwindStylesheet(resolved, { bun: Bun, cwd })) {
       return undefined;
     }
     return { path: resolved, isRendererWebFallback: true };
@@ -718,20 +715,18 @@ export async function runTailwindOnce(entry: string, cwd: string): Promise<strin
       "[kumiko build] Tailwind one-shot requires Bun (Bun.spawn) — run via `bun run …` or `bun kumiko build`.",
     );
   }
-  const bunResolver = (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } })
-    .Bun;
-  const cliPath = resolveTailwindCli({ bun: bunResolver, cwd });
+  const cliPath = resolveTailwindCli({ bun: Bun, cwd });
   if (cliPath === undefined) {
     throw new Error(
       "[kumiko build] @tailwindcss/cli nicht auflösbar — `bun install` im App-Root ausführen.",
     );
   }
-  if (!canResolveTailwindStylesheet(entry, { bun: bunResolver, cwd })) {
+  if (!canResolveTailwindStylesheet(entry, { bun: Bun, cwd })) {
     throw new Error(
       `[kumiko build] tailwindcss nicht auflösbar für ${entry} — peer dependency fehlt am Stylesheet-Ort.`,
     );
   }
-  const { compile, optimize, Scanner } = await loadTailwindEngine(cliPath, bunResolver);
+  const { compile, optimize, Scanner } = await loadTailwindEngine(cliPath, Bun);
   const input = resolve(cwd, entry);
   if (!existsSync(input)) {
     throw new Error(`[kumiko build] tailwind: stylesheet not found: ${input}`);

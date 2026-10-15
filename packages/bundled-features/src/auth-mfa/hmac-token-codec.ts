@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 function hmacSign(input: string, secret: string): string {
   return createHmac("sha256", secret).update(input).digest("base64url");
@@ -20,11 +21,10 @@ export function createHmacTokenCodec<
   function splitEncodedBody(
     value: unknown,
   ): { readonly payload: TPayload; readonly expiresAtMs: number } | null {
-    if (typeof value !== "object" || value === null) return null;
-    const v = value as Record<string, unknown>;
-    const expiresAtMs = v["expiresAtMs"];
+    if (!isPlainObject(value)) return null;
+    const expiresAtMs = value["expiresAtMs"];
     if (typeof expiresAtMs !== "number") return null;
-    const { expiresAtMs: _drop, ...rest } = v;
+    const { expiresAtMs: _drop, ...rest } = value;
     return isPayload(rest) ? { payload: rest, expiresAtMs } : null;
   }
 

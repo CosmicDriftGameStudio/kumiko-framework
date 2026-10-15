@@ -8,8 +8,8 @@ export const rolesInputSchema = z.union([
   z.string().transform((raw, ctx) => {
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.every((v) => typeof v === "string")) {
-        return parsed as string[];
+      if (Array.isArray(parsed) && parsed.every((v): v is string => typeof v === "string")) {
+        return parsed;
       }
     } catch {
       /* fall through */

@@ -71,9 +71,7 @@ export function bindAutoRevokeFromFeature(
 ): BindAutoRevokeOnPasswordChange | undefined {
   const exports = feature.exports;
   if (exports && typeof exports === "object" && "bindAutoRevokeOnPasswordChange" in exports) {
-    const { bindAutoRevokeOnPasswordChange } = exports as {
-      bindAutoRevokeOnPasswordChange: unknown;
-    };
+    const { bindAutoRevokeOnPasswordChange } = exports;
     if (typeof bindAutoRevokeOnPasswordChange === "function") {
       // @cast-boundary exports-walk — feature.exports is untyped by design
       return bindAutoRevokeOnPasswordChange as BindAutoRevokeOnPasswordChange;

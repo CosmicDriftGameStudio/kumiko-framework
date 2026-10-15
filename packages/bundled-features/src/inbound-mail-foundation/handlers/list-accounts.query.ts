@@ -34,7 +34,7 @@ export const listAccountsQuery: QueryHandlerDef = {
     if (!piiKms) return { rows };
     const decryptedRows = await Promise.all(
       rows.map((row) =>
-        decryptPiiFieldValues(row as Record<string, unknown>, MAIL_ACCOUNT_PII_FIELDS, piiKms, {
+        decryptPiiFieldValues(row, MAIL_ACCOUNT_PII_FIELDS, piiKms, {
           requestId: `inbound-mail-foundation:list-accounts:${ctx.user.tenantId}`,
         }),
       ),

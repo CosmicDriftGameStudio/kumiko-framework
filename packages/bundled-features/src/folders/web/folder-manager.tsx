@@ -74,7 +74,10 @@ const loadCollapsed = (): ReadonlySet<string> => {
   if (typeof window === "undefined") return new Set();
   try {
     const raw = window.localStorage.getItem(COLLAPSED_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(
+      Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [],
+    );
   } catch {
     return new Set();
   }
@@ -273,7 +276,7 @@ export function FolderManager({
             setDragOverKey(key);
           },
           onDragLeave: (e: DragEvent<HTMLDivElement>) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node))
+            if (!(e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)))
               setDragOverKey((cur) => (cur === key ? null : cur));
           },
           onDrop: (e: DragEvent<HTMLDivElement>) => {

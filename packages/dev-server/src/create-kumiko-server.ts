@@ -69,6 +69,7 @@ import {
   stripNoRouteMatchHeader,
   tryHonoFirst,
 } from "@cosmicdrift/kumiko-server-runtime/try-hono-first";
+import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { isPersistentDevDb } from "./is-persistent-dev-db.js";
 
 // Runtime-detection. The dev-server is meant to run under Bun (Kumiko's
@@ -76,7 +77,7 @@ import { isPersistentDevDb } from "./is-persistent-dev-db.js";
 // gate every Bun.* call so the module at least LOADS under Node, and
 // tests drive the fetch-handler directly instead of going through
 // Bun.serve + real sockets.
-const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+const hasBun = typeof Bun !== "undefined";
 
 // Bun.serve returns a parametrised Server<WebSocketData>; nothing here reads
 // the socket data, so the narrow `unknown` binding is plenty.
@@ -511,7 +512,7 @@ async function servePublicFile(
     const bytes = await readFile(real);
     return { bytes, mime: publicFileMimeType(filePath) };
   } catch (err) {
-    const code = (err as { code?: string }).code;
+    const code = errorCodeOf(err);
     if (code === "ENOENT" || code === "EISDIR" || code === "ENOTDIR" || code === "ENAMETOOLONG") {
       return undefined;
     }
@@ -575,7 +576,8 @@ async function watchDir(
     // signal.abort() wirft AbortError aus dem async-iterator; das ist
     // gewollt und kein Fehler. Andere Errors weiterreichen.
     // skip: AbortSignal fired the abort, this is expected teardown not a real error
-    if ((err as { name?: string }).name === "AbortError") return;
+    if (typeof err === "object" && err !== null && "name" in err && err.name === "AbortError")
+      return;
     throw err;
   }
 }
@@ -660,21 +662,10 @@ function expandWatchPatterns(patterns: readonly string[]): string[] {
       out.push(resolve(p));
       continue;
     }
-    // expandWatchPatterns wird nur unter Bun aufgerufen (createKumikoServer
-    // ist Bun-only); der ?.! -dance ist nötig weil TS Bun nicht im
-    // globalThis-default sieht. Wenn Bun fehlt, ist der Aufrufstapel eh
-    // schon fail-fast unten in Bun.serve.
-    const BunRef = (
-      globalThis as {
-        Bun?: {
-          Glob: new (
-            p: string,
-          ) => { scanSync: (opts: { onlyFiles: false; cwd: string }) => Iterable<string> };
-        };
-      }
-    ).Bun;
-    if (!BunRef) throw new Error("expandWatchPatterns requires Bun.Glob");
-    const glob = new BunRef.Glob(p);
+    // Only reachable under Bun (createKumikoServer is Bun-only); without Bun the
+    // call stack fails fast in Bun.serve anyway.
+    if (typeof Bun === "undefined") throw new Error("expandWatchPatterns requires Bun.Glob");
+    const glob = new Bun.Glob(p);
     const matches = Array.from(glob.scanSync({ onlyFiles: false, cwd: process.cwd() }));
     for (const m of matches) {
       const abs = resolve(m);
@@ -729,11 +720,8 @@ export function resolveStylesheet(options: CreateKumikoServerOptions): string | 
     return undefined;
   }
   try {
-    const resolved = (
-      globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }
-    ).Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", process.cwd());
-    const bun = (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }).Bun;
-    if (!canResolveTailwindStylesheet(resolved, { bun, cwd: process.cwd() })) {
+    const resolved = Bun.resolveSync("@cosmicdrift/kumiko-renderer-web/styles.css", process.cwd());
+    if (!canResolveTailwindStylesheet(resolved, { bun: Bun, cwd: process.cwd() })) {
       return undefined;
     }
     return resolved;
@@ -766,9 +754,7 @@ async function startTailwindPipeline(
   entryCss: string,
   { watch }: { readonly watch: boolean },
 ): Promise<{ outPath: string; kill: () => void } | undefined> {
-  const bunResolver = hasBun
-    ? (globalThis as { Bun: { resolveSync: (id: string, from: string) => string } }).Bun
-    : undefined;
+  const bunResolver = hasBun ? Bun : undefined;
   const cliPath = resolveTailwindCli({ bun: bunResolver, cwd: process.cwd() });
   if (cliPath === undefined) {
     logError(
@@ -1124,7 +1110,7 @@ export async function createKumikoServer(
     try {
       content = await readFile(file, "utf-8");
     } catch (error) {
-      if ((error as { code?: string }).code !== "ENOENT") throw error;
+      if (errorCodeOf(error) !== "ENOENT") throw error;
       return new Response(`hostDispatch: file not found: ${file}`, { status: 500 });
     }
     return new Response(content, {
@@ -1206,7 +1192,7 @@ export async function createKumikoServer(
           headers: { "Content-Type": "font/woff2", "Cache-Control": "public, max-age=86400" },
         });
       } catch (err) {
-        if ((err as { code?: string }).code === "ENOENT") {
+        if (errorCodeOf(err) === "ENOENT") {
           return new Response("not found", { status: 404 });
         }
         throw err;
@@ -1328,7 +1314,7 @@ export async function createKumikoServer(
   // damit Dev und Prod genau dieselben SSE-relevanten Defaults nutzen
   // (idleTimeout: 0). Spec-Test in run-prod-app-spec.test.ts pinst das.
   const server = hasBun
-    ? (globalThis as { Bun: { serve: (opts: unknown) => BunServer } }).Bun.serve(
+    ? Bun.serve(
         buildBunServeOptions(port, handleFetch, resolveDerivedMaxRequestBodySize(stack.registry), {
           upgradeFetch: async (req, env) =>
             stripNoRouteMatchHeader(await stack.app.fetch(req, env)),
@@ -1426,7 +1412,7 @@ export async function createKumikoServer(
     watcherAbort.abort();
     if (killTailwind) killTailwind();
     if (server !== undefined) {
-      (server as { stop: (closeActive?: boolean) => void }).stop(true);
+      server.stop(true);
     }
     if (stack.eventDispatcher) {
       await stack.eventDispatcher.stop();

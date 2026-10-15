@@ -1,5 +1,6 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { denyUnlessJoinRowParentVisible } from "../../shared/index.js";
 import { tagAssignmentAggregateId } from "../aggregate-id.js";
 import { DEFAULT_TAG_ACCESS } from "../constants.js";
@@ -67,7 +68,10 @@ export function createAssignTagHandler(
       // above and this restore() call, so restore() correctly refuses with
       // "not_deleted" — but the desired end state is already true. Converge
       // like the create() race below instead of surfacing a spurious error.
-      if ((restored.error.details as { reason?: string } | undefined)?.reason === "not_deleted") {
+      if (
+        isPlainObject(restored.error.details) &&
+        restored.error.details["reason"] === "not_deleted"
+      ) {
         return { isSuccess: true as const, data: { id } };
       }
       if (restored.error.code !== "not_found") return restored;

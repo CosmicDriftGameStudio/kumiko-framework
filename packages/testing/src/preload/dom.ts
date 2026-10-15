@@ -130,9 +130,8 @@ afterEach(() => {
 
   // (d) Radix-injected style tags
   for (const el of doc.head.querySelectorAll("style")) {
-    const style = el as HTMLStyleElement;
-    if (style.id?.startsWith("radix-")) {
-      style.remove();
+    if (el.id?.startsWith("radix-")) {
+      el.remove();
     }
   }
 

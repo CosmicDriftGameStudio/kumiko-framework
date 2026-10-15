@@ -27,7 +27,7 @@ function hasTenantOwned(field: unknown): field is ResolvedPiiFlags {
     typeof field === "object" &&
     field !== null &&
     "tenantOwned" in field &&
-    (field as { tenantOwned?: unknown }).tenantOwned === true
+    field.tenantOwned === true
   );
 }
 

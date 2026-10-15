@@ -3,6 +3,7 @@
 // Universal on purpose: the web editor and the server sanitizer load the same
 // extension list, so what the editor can produce is exactly what the server
 // keeps. No DOM access at module level, no happy-dom here.
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type Extensions, Node } from "@tiptap/core";
 import { Link } from "@tiptap/extension-link";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
@@ -188,8 +189,10 @@ export const DocumentTableRow = TableRow.extend({
           const each = element.getAttribute("data-each");
           return each !== null && isDocumentReferenceName(each) ? each : null;
         },
-        renderHTML: (attributes) =>
-          attributes["each"] ? { "data-each": attributes["each"] as string } : {},
+        renderHTML: (attributes) => {
+          const each: unknown = attributes["each"];
+          return typeof each === "string" && each ? { "data-each": each } : {};
+        },
       },
       repeatHeader: {
         default: false,
@@ -212,21 +215,25 @@ export const DocumentTable = Table.extend({
 // Span attributes are rendered only when they differ from the default, and
 // colwidth (an editor-resize artefact) never, so `<td><p>x</p></td>` is the
 // canonical cell.
+function plainObjectOrEmpty(value: unknown): Record<string, unknown> {
+  return isPlainObject(value) ? value : {};
+}
+
 function canonicalCellAttributes(attributes: Record<string, unknown>) {
   return {
     ...attributes,
     colspan: {
-      ...(attributes["colspan"] as object),
+      ...plainObjectOrEmpty(attributes["colspan"]),
       renderHTML: (attrs: Record<string, unknown>) =>
         attrs["colspan"] && attrs["colspan"] !== 1 ? { colspan: attrs["colspan"] } : {},
     },
     rowspan: {
-      ...(attributes["rowspan"] as object),
+      ...plainObjectOrEmpty(attributes["rowspan"]),
       renderHTML: (attrs: Record<string, unknown>) =>
         attrs["rowspan"] && attrs["rowspan"] !== 1 ? { rowspan: attrs["rowspan"] } : {},
     },
     colwidth: {
-      ...(attributes["colwidth"] as object),
+      ...plainObjectOrEmpty(attributes["colwidth"]),
       renderHTML: () => ({}),
     },
   };

@@ -5,5 +5,5 @@ import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 // Shared so retention/compliance-profile resolvers that accept either (bulk cron
 // vs. per-hook TenantDb) branch through one predicate instead of duplicating it.
 export function isTenantDb(db: DbRunner | TenantDb): db is TenantDb {
-  return typeof (db as Partial<TenantDb>).unsafeRaw === "function";
+  return "unsafeRaw" in db && typeof db.unsafeRaw === "function";
 }

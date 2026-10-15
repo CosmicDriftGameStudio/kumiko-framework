@@ -72,12 +72,13 @@ export const cancelDestructionWrite = defineWriteHandler({
       payload: { cancelledBy: event.user.id },
     });
 
+    const gracePeriodEnd: string | null = null;
     return {
       isSuccess: true as const,
       data: {
         tenantId,
         status: "active" as const,
-        gracePeriodEnd: null as string | null,
+        gracePeriodEnd,
       },
     };
   },

@@ -52,15 +52,10 @@ export function createPortalSessionHandler(options: BillingFoundationOptions): W
       }
       const piiKms = configuredPiiSubjectKms();
       const decrypted = piiKms
-        ? await decryptPiiFieldValues(
-            row as Record<string, unknown>,
-            SUBSCRIPTION_PII_FIELDS,
-            piiKms,
-            {
-              requestId: `billing-foundation:create-portal-session:${tenantId}`,
-            },
-          )
-        : (row as Record<string, unknown>);
+        ? await decryptPiiFieldValues(row, SUBSCRIPTION_PII_FIELDS, piiKms, {
+            requestId: `billing-foundation:create-portal-session:${tenantId}`,
+          })
+        : row;
       const providerName = row["providerName"] as string; // @cast-boundary db-row
       const providerCustomerId = decrypted["providerCustomerId"] as string; // @cast-boundary db-row
 
