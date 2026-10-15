@@ -662,8 +662,8 @@ function expandWatchPatterns(patterns: readonly string[]): string[] {
       out.push(resolve(p));
       continue;
     }
-    // expandWatchPatterns wird nur unter Bun aufgerufen (createKumikoServer
-    // ist Bun-only); ohne Bun scheitert der Aufrufstapel eh fail-fast in Bun.serve.
+    // Only reachable under Bun (createKumikoServer is Bun-only); without Bun the
+    // call stack fails fast in Bun.serve anyway.
     if (typeof Bun === "undefined") throw new Error("expandWatchPatterns requires Bun.Glob");
     const glob = new Bun.Glob(p);
     const matches = Array.from(glob.scanSync({ onlyFiles: false, cwd: process.cwd() }));
