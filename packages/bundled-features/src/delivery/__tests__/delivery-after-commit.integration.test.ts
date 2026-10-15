@@ -76,13 +76,14 @@ const probeFeature = defineFeature("after-commit-probe", (r) => {
         immediate: z.boolean().optional(),
         failAfterNotify: z.boolean().optional(),
         holdTransaction: z.boolean().optional(),
+        toTenant: z.string().optional(),
       }),
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       handler: async (event, ctx) => {
         if (event.payload.holdTransaction) await waitForAllWrites();
         const notify = ctx.notify as NotifyFn;
         const result = await notify(event.payload.type, {
-          to: { tenant: TENANT_ID },
+          to: { tenant: event.payload.toTenant ?? TENANT_ID },
           data: { title: event.payload.type },
           ...(event.payload.immediate && { immediate: true }),
         });
@@ -210,6 +211,41 @@ describe("ctx.notify in write handlers with an exhausted app pool", () => {
     }
     for (const user of tenantUsers) {
       expect(await inboxTitlesOf(user.id, type)).toEqual(Array(POOL_MAX).fill(type));
+    }
+  });
+});
+
+describe("ctx.notify tenant scope", () => {
+  const foreignTenant = "00000000-0000-4000-8000-0000000000ff";
+
+  test.each([
+    { mode: "deferred", immediate: false },
+    { mode: "immediate", immediate: true },
+  ])("a $mode broadcast to another tenant fails the write synchronously", async ({ immediate }) => {
+    const type = `app:notify:foreign-${immediate ? "immediate" : "deferred"}`;
+
+    const res = await stack.http.write(
+      "after-commit-probe:write:broadcast",
+      { type, immediate, toTenant: foreignTenant },
+      caller,
+    );
+
+    expect(res.status).toBe(403);
+    expect(JSON.stringify(await res.json())).toContain("notify_foreign_tenant_broadcast");
+    expect(await attemptEventsFor(type)).toHaveLength(0);
+  });
+
+  test("a broadcast to the caller's own tenant is delivered", async () => {
+    const type = "app:notify:own-tenant";
+
+    await stack.http.writeOk(
+      "after-commit-probe:write:broadcast",
+      { type, toTenant: TENANT_ID },
+      caller,
+    );
+
+    for (const user of tenantUsers) {
+      expect(await inboxTitlesOf(user.id, type)).toEqual([type]);
     }
   });
 });

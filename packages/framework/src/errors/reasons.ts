@@ -51,6 +51,9 @@ export const FrameworkReasons = {
   // AccessDeniedError: a payload carried tenantIdOverride but the caller is no SystemAdmin.
   tenantOverrideRequiresSystemAdmin: "tenant_override_requires_system_admin",
 
+  // AccessDeniedError: ctx.notify was called with `to: { tenant }` naming a tenant other than the caller's.
+  notifyForeignTenantBroadcast: "notify_foreign_tenant_broadcast",
+
   // AccessDeniedError: a handler/hook called ctx.queryProjection(..., { unsafeAllTenants: true })
   // without an r.systemScope() feature or a declared escapeHatch.
   unsafeAllTenantsDenied: "unsafe_all_tenants_denied",

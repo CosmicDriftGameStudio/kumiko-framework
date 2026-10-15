@@ -44,7 +44,10 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
-import { createLifecycleHooks } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createDeferringNotify,
+  createLifecycleHooks,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { assertAssignableMembershipRoles } from "./membership-roles.js";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.js";
@@ -124,6 +127,9 @@ function scopeSeedHookContext(
   context: AppContext,
   targetTenantId: TenantId,
   runner: DbRunner,
+  // The afterCommit sink is snapshotted when it flushes, so a hook scheduled from inside an
+  // afterCommit-phase hook would be dropped: that phase must notify inline.
+  notifyTiming: "deferUntilCommit" | "inline",
 ): AppContext {
   const db = createTenantDb(
     runner,
@@ -142,9 +148,18 @@ function scopeSeedHookContext(
     ? { ...baseUser, tenantId: targetTenantId }
     : undefined;
 
+  const notifyFactory = context._notifyFactory;
+  const scheduleAfterCommit = context.scheduleAfterCommit;
   const notify =
-    context._notifyFactory && scopedUser
-      ? context._notifyFactory(scopedUser, targetTenantId)
+    notifyFactory && scopedUser
+      ? notifyTiming === "deferUntilCommit" && scheduleAfterCommit
+        ? createDeferringNotify({
+            tenantId: targetTenantId,
+            notifyAfterCommit: notifyFactory(scopedUser, targetTenantId),
+            notifyNow: notifyFactory(scopedUser, targetTenantId),
+            scheduleAfterCommit,
+          })
+        : notifyFactory(scopedUser, targetTenantId)
       : context.notify;
 
   const features = context.effectiveFeatures as
@@ -188,10 +203,14 @@ export async function fireEntityPostSave(
   const scopedContext =
     target === undefined
       ? hooks.context
-      : scopeSeedHookContext(hooks.context, target.tenantId, target.db);
+      : scopeSeedHookContext(hooks.context, target.tenantId, target.db, "deferUntilCommit");
+  const afterCommitContext =
+    target === undefined
+      ? hooks.context
+      : scopeSeedHookContext(hooks.context, target.tenantId, target.db, "inline");
   await lifecycle.runPostSave(pseudoType, entityData, scopedContext, HookPhases.inTransaction);
   const runAfterCommit = () =>
-    lifecycle.runPostSave(pseudoType, entityData, scopedContext, HookPhases.afterCommit);
+    lifecycle.runPostSave(pseudoType, entityData, afterCommitContext, HookPhases.afterCommit);
   if (scopedContext.scheduleAfterCommit) {
     scopedContext.scheduleAfterCommit(runAfterCommit);
   } else {
