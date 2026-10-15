@@ -1,3 +1,4 @@
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 // applyEntityEvent — die EINZIGE Schreib-Logik für r.entity-Tabellen aus
 // Stored-Events. Beide Aufrufer benutzen sie:
 //
@@ -69,8 +70,7 @@ export function parseAutoVerb(event: StoredEvent): AutoVerb | null {
   const prefix = `${event.aggregateType}.`;
   if (!event.type.startsWith(prefix)) return null;
   const verb = event.type.slice(prefix.length);
-  // @cast-boundary: verb is validated against the AutoVerb list before the cast.
-  return (AUTO_VERBS as readonly string[]).includes(verb) ? (verb as AutoVerb) : null;
+  return isOneOf(AUTO_VERBS, verb) ? verb : null;
 }
 
 /** Idempotente Anwendung eines Auto-Events auf die Entity-Tabelle.

@@ -1,3 +1,5 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+
 // Resolves a caller-named set of secret slots from a Key Manager ciphertext
 // when no plaintext is set, so they need not sit in the pod env in the clear.
 // A slot's plaintext always wins over its ciphertext sibling, with no request
@@ -38,12 +40,6 @@ function isRetryableStatus(status: number): boolean {
 
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function plaintextFieldOf(body: unknown): unknown {
-  return typeof body === "object" && body !== null && "plaintext" in body
-    ? body.plaintext
-    : undefined;
 }
 
 // Scaleway's decrypt SLA is 99.5% — a bootpath that gives up on the first
@@ -101,7 +97,7 @@ async function decryptCiphertext(
         `${prefix}Key Manager decrypt for key ${keyId} returned an unparseable response`,
       );
     }
-    const plaintext = plaintextFieldOf(body);
+    const plaintext = propertyOf(body, "plaintext");
     if (typeof plaintext !== "string") {
       throw new Error(`${prefix}Key Manager decrypt for key ${keyId} returned no plaintext field`);
     }

@@ -1,3 +1,4 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Hono } from "hono";
 import type { AuthRoutesConfig } from "../api/auth-routes.js";
 import type { JwtHelper } from "../api/jwt.js";
@@ -540,11 +541,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // always-real `testRedis.redis`, independent of whatever extraContext
     // did to `appContext.redis` — an explicit `context.rateLimit` from
     // extraContext still wins (same precedence buildServer documents).
-    // @cast-boundary extraContext is declared Record<string, unknown> (late,
-    // dynamic extension point) — appContext's inferred type doesn't carry a
-    // `rateLimit` key, so reading it back needs the same relaxed boundary
-    // extraContext itself is typed with.
-    const explicitRateLimit = (appContext as { rateLimit?: unknown }).rateLimit;
+    const explicitRateLimit = propertyOf(appContext, "rateLimit");
     const needsOwnRateLimitResolver =
       explicitRateLimit === undefined &&
       (appContext.redis === undefined || options.rateLimitNowMs !== undefined);

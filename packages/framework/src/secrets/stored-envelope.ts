@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // Canonical at-rest form of an Envelope: every Buffer as base64, ready for
 // jsonb columns (secrets feature) or JSON-stringified TEXT columns
 // (EnvelopeCipher for config values / entity fields). One wire shape for
@@ -34,8 +35,8 @@ export function decodeStoredEnvelope(stored: StoredEnvelope): Envelope {
 }
 
 export function isStoredEnvelope(value: unknown): value is StoredEnvelope {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>; // @cast-boundary parse-boundary after typeof check
+  if (!isPlainObject(value)) return false;
+  const v = value;
   return (
     typeof v["ciphertext"] === "string" &&
     typeof v["iv"] === "string" &&

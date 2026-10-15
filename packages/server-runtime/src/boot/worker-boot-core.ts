@@ -1,3 +1,4 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 // Shared boot core of the HTTP-less processes (runWorkerApp, runBootstrap):
 // env fail-fast, Temporal polyfill, composeFeatures/registry, PII invariants,
 // dry-run exit, KMS health gate, connections, schema-drift gate, boot-crypto
@@ -94,7 +95,7 @@ export type WorkerBootResult =
 function isSecretsContext(value: unknown): value is SecretsContext {
   if (typeof value !== "object" || value === null) return false;
   return ["get", "has", "set", "delete"].every(
-    (method) => typeof (value as Record<string, unknown>)[method] === "function", // @cast-boundary extraContext is untyped by design
+    (method) => typeof propertyOf(value, method) === "function",
   );
 }
 

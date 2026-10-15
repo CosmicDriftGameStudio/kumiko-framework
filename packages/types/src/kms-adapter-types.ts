@@ -54,7 +54,7 @@ export function subjectIdToKey(subject: SubjectId): SubjectKey {
 export function subjectIdFromKey(key: SubjectKey): SubjectId {
   if (key.startsWith("user:")) return { kind: "user", userId: key.slice("user:".length) };
   if (key.startsWith("tenant:")) {
-    return { kind: "tenant", tenantId: key.slice("tenant:".length) as TenantId }; // @cast-boundary parse of a key this module minted
+    return { kind: "tenant", tenantId: key.slice("tenant:".length) };
   }
   if (key.startsWith("record:")) {
     const rest = key.slice("record:".length);

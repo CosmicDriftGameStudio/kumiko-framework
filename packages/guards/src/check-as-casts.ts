@@ -231,6 +231,11 @@ export const KNOWN_BOUNDARY_REASONS = [
   "projection-table", // implicit entity-projections set `table`
   // UI / Web
   "visual-tree-args", // TargetRef.args is erased to generic args shape
+  // Brands / third-party gaps
+  "phantom-brand", // TenancyBrand-style phantom marker with no runtime representation
+  "third-party-type-gap", // a library's type does not know a valid runtime value (e.g. Hono status 499)
+  "dom-event-target", // event.target narrowed to the Element the DOM guarantees
+  "feature-exports", // typeof-checked read-back of a function from untyped feature.exports
 ] as const;
 export type BoundaryReason = (typeof KNOWN_BOUNDARY_REASONS)[number];
 
@@ -342,7 +347,7 @@ export function categorize(cast: AsExpression): Category {
   return "suspect-general";
 }
 
-function collect(sf: SourceFile): Site[] {
+export function collect(sf: SourceFile): Site[] {
   const file = path.relative(ROOT, sf.getFilePath());
   const sites: Site[] = [];
   for (const cast of sf.getDescendantsOfKind(SyntaxKind.AsExpression)) {
@@ -365,7 +370,7 @@ function collect(sf: SourceFile): Site[] {
       line: cast.getStartLineNumber(),
       category,
       source: cast.getExpression().getText().slice(0, 60),
-      target: cast.getTypeNode()?.getText().slice(0, 60) ?? "",
+      target: cast.getTypeNode()?.getText().replace(/\s+/g, " ").slice(0, 60) ?? "",
       full: cast.getText().slice(0, 100),
       ...(reason ? { boundaryReason: reason } : {}),
     });
@@ -673,7 +678,7 @@ function regressionViolation(regression: CastRegression, all: readonly Site[]): 
   return {
     file: regression.file,
     line: firstNew?.line ?? 1,
-    message: `Suspect cast regression: \`as ${regression.target.replace(/\s+/g, " ")}\` baseline=${regression.baseline}, current=${regression.current}. ${CAST_OPTIONS_HINT}`,
+    message: `Suspect cast regression: \`as ${regression.target}\` baseline=${regression.baseline}, current=${regression.current}. ${CAST_OPTIONS_HINT}`,
   };
 }
 

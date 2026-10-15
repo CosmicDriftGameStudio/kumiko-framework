@@ -25,7 +25,7 @@ safeRenderer.use({
 });
 
 export function renderSafeMarkdown(markdown: string): string {
-  // @cast-boundary marked.parse return-type ist `string | Promise<string>`;
+  // @cast-boundary third-party-type-gap marked.parse return-type ist `string | Promise<string>`;
   // `{ async: false }` garantiert sync (string) — Cast nur API-Vertragsfix.
   return safeRenderer.parse(markdown, { async: false }) as string;
 }

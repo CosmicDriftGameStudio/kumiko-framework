@@ -1,3 +1,4 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { DbRow, DbTx } from "../db/connection.js";
 import { hasAccess } from "../engine/access.js";
 import { tenantOverrideDenied } from "../engine/cross-tenant.js";
@@ -81,10 +82,7 @@ async function executeQueryInner(
   // schema (and custom query schemas that opt in) carries `includeDeleted`,
   // so other handlers never see the flag. Visibility filters still apply
   // downstream (see HandlerContext.includeDeleted) — safe from raw input.
-  const includeDeleted =
-    typeof parsed.data === "object" &&
-    parsed.data !== null &&
-    (parsed.data as Record<string, unknown>)["includeDeleted"] === true; // @cast-boundary validated-payload
+  const includeDeleted = propertyOf(parsed.data, "includeDeleted") === true;
 
   // A resolved member (ctx.queryAsMember) runs in a Postgres READ ONLY transaction, not just the ctx surface below.
   return isMemberResolutionPrincipal(user)

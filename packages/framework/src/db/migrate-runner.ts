@@ -1,3 +1,4 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 // Migrate-Runner: applied checked-in SQL-Files gegen eine DB.
 // Ersatz für `drizzle-kit migrate` als Runtime-Komponente.
 //
@@ -198,11 +199,6 @@ export function readMigrationSqlTexts(dir: string): readonly string[] {
     .filter((f) => f.endsWith(".sql"))
     .sort()
     .map((file) => readFileSync(join(dir, file), "utf8"));
-}
-
-function propertyOf(value: unknown, key: string): unknown {
-  const readable = (typeof value === "object" && value !== null) || typeof value === "function";
-  return readable ? Reflect.get(value, key) : undefined;
 }
 
 // Stricter than asRawClient on purpose: a direct handle must also offer

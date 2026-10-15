@@ -1,3 +1,4 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
 import { TENANT_TEARDOWN_STATUSES } from "../engine/active-membership.js";
@@ -763,29 +764,23 @@ type RejectArgs = {
 
 const TENANT_LIFECYCLE_CANCEL_QN = "tenant-lifecycle:write:cancel-destruction";
 
-function fieldOf(value: unknown, key: "type" | "commands"): unknown {
-  return typeof value === "object" && value !== null && key in value
-    ? Reflect.get(value, key)
-    : undefined;
-}
-
 async function requestsCancelDestruction(c: Context): Promise<boolean> {
   if (c.req.method !== "POST") return false;
   try {
     const path = c.req.path;
     const body: unknown = await c.req.raw.clone().json();
     if (path === "/api/write") {
-      return fieldOf(body, "type") === TENANT_LIFECYCLE_CANCEL_QN;
+      return propertyOf(body, "type") === TENANT_LIFECYCLE_CANCEL_QN;
     }
     if (path === "/api/batch") {
-      const commands = fieldOf(body, "commands");
+      const commands = propertyOf(body, "commands");
       // every(), not some(): a batch mixing the cancel command with other
       // writes must NOT wave the whole batch through the teardown gate —
       // only a batch consisting solely of cancel-destruction is exempt.
       return (
         Array.isArray(commands) &&
         commands.length > 0 &&
-        commands.every((command) => fieldOf(command, "type") === TENANT_LIFECYCLE_CANCEL_QN)
+        commands.every((command) => propertyOf(command, "type") === TENANT_LIFECYCLE_CANCEL_QN)
       );
     }
   } catch {

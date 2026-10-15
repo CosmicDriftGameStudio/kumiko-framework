@@ -865,7 +865,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // skip: the user already typed or wizard-navigated while the lookup
         // was in flight — their input wins over the stored draft.
         if (controller.getSnapshot().isDirty || hasNavigatedRef.current) return;
-        // @cast-boundary form-draft blob: `values` round-trips through an opaque
+        // @cast-boundary form-values draft blob: `values` round-trips through an opaque
         // jsonb column and comes back untyped.
         controller.setValues(draft.values as Partial<TValues>);
         setRawStep(Math.max(draft.stepIndex, 0));

@@ -812,12 +812,11 @@ export function computeEditViewModel<
 
 // Resolves a FieldCondition against the current row values.
 // `undefined` means "not declared" — caller substitutes the default.
-function evalCondition<TValues>(
+function evalCondition<TValues extends Readonly<Record<string, unknown>>>(
   condition: FieldCondition | undefined,
   fallback: boolean,
   values: TValues,
 ): boolean {
   if (condition === undefined) return fallback;
-  // @cast-boundary view-model: TValues ist strukturell ein Record.
-  return evalFieldCondition(condition, values as Record<string, unknown>);
+  return evalFieldCondition(condition, values);
 }

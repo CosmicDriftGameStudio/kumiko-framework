@@ -4,6 +4,7 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   PAT_REVOKED_AGGREGATE_TYPE,
   PAT_REVOKED_EVENT_QN,
@@ -13,7 +14,7 @@ import { apiTokenTable } from "./schema/api-token.js";
 
 // A pool has begin(); a tx/savepoint handle does not and is already atomic.
 function canBeginTransaction(db: DbRunner): boolean {
-  return typeof (db as { begin?: unknown }).begin === "function"; // @cast-boundary driver-handle-probe
+  return typeof propertyOf(db, "begin") === "function";
 }
 
 // Cross-tenant revoke: password-change and MFA-enable/disable are account-

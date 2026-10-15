@@ -18,7 +18,7 @@ export function errorCodeOf(error: unknown): string | undefined {
 }
 
 /** Reads one property off an unknown value (object or function); undefined for primitives, null and absent keys. */
-export function propertyOf(value: unknown, key: string): unknown {
+export function propertyOf(value: unknown, key: PropertyKey): unknown {
   if ((typeof value !== "object" && typeof value !== "function") || value === null) {
     return undefined;
   }

@@ -2,6 +2,7 @@ import {
   escapeHatchGrantsProblem,
   normalizeEventPiiSubject,
 } from "@cosmicdrift/kumiko-types/handlers";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
 import { ZodObject, type ZodType } from "zod";
 import { isValidIanaTimeZone } from "../time/iana.js";
@@ -554,11 +555,10 @@ function compileEventMigration(spec: DeclarativeEventMigration): EventUpcastFn {
     renameTargets.set(to, from);
   }
   return (payload) => {
-    if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+    if (!isPlainObject(payload)) {
       throw new Error("Declarative event migration expects an object payload");
     }
-    // @cast-boundary parse — payload is guarded as a plain object above
-    const next = { ...(payload as Record<string, unknown>) };
+    const next = { ...payload };
     for (const [from, to] of Object.entries(spec.rename ?? {})) {
       if (from in next) {
         next[to] = next[from];

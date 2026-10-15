@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // createInboundMailSupervisor — der langlebige Sync-Prozess der
 // Foundation: startet pro aktivem Account `plugin.watch()` (IMAP IDLE,
 // Push in Sekunden) mit Reconnect-Backoff und fährt zusätzlich den
@@ -258,7 +259,8 @@ export function createInboundMailSupervisor(
     });
     if (!row) return null;
     try {
-      return JSON.parse(row.cursor) as SyncCursorPayload; // @cast-boundary eigene JSON-Persistenz
+      const parsed: unknown = JSON.parse(row.cursor);
+      return isPlainObject(parsed) ? parsed : null;
     } catch {
       return null; // korrupter Cursor = wie kein Cursor → Backfill, Dedup fängt Dubletten
     }

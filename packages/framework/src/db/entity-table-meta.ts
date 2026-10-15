@@ -487,7 +487,7 @@ export function defineUnmanagedTable<const T extends EntityTenancy = "tenant">(
     }),
     source: "unmanaged",
     ...(input.tenancy === "global" && { tenancy: "global" as const }),
-    // @cast-boundary type-brand — TenancyBrand<T> is a phantom marker with no runtime representation.
+    // @cast-boundary phantom-brand — TenancyBrand<T> is a phantom marker with no runtime representation.
   } as EntityTableMeta & TenancyBrand<T>;
 }
 

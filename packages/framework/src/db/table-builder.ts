@@ -527,7 +527,7 @@ export function declareGlobalTenancy<T extends SchemaTable>(table: T): T & Tenan
     ...meta,
     tenancy: "global",
   };
-  // @cast-boundary type-brand — TenancyBrand<"global"> is a phantom marker with no runtime representation.
+  // @cast-boundary phantom-brand — TenancyBrand<"global"> is a phantom marker with no runtime representation.
   return table as T & TenancyBrand<"global">;
 }
 

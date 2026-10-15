@@ -55,7 +55,7 @@ export function bindMfaRevokeAllOtherSessionsFromFeature(
   if (exports && typeof exports === "object" && "bindRevokeAllOtherSessions" in exports) {
     const { bindRevokeAllOtherSessions } = exports;
     if (typeof bindRevokeAllOtherSessions === "function") {
-      // @cast-boundary exports-walk — feature.exports is untyped by design
+      // @cast-boundary feature-exports — feature.exports is untyped by design
       return bindRevokeAllOtherSessions as BindMfaRevokeAllOtherSessions;
     }
   }
@@ -71,7 +71,7 @@ export function mfaStatusCheckerFromFeature(
   if (exports && typeof exports === "object" && "checkMfaStatus" in exports) {
     const { checkMfaStatus } = exports;
     if (typeof checkMfaStatus === "function") {
-      // @cast-boundary exports-walk — feature.exports is untyped by design
+      // @cast-boundary feature-exports — feature.exports is untyped by design
       return checkMfaStatus as MfaStatusChecker;
     }
   }
@@ -87,7 +87,7 @@ export function mfaVerifierFromFeature(feature: FeatureDefinition): MfaCodeVerif
   if (exports && typeof exports === "object" && "verifyMfaCode" in exports) {
     const { verifyMfaCode } = exports;
     if (typeof verifyMfaCode === "function") {
-      // @cast-boundary exports-walk — feature.exports is untyped by design
+      // @cast-boundary feature-exports — feature.exports is untyped by design
       return verifyMfaCode as MfaCodeVerifier;
     }
   }
@@ -107,7 +107,7 @@ export function bindRevokeAllPatTokensFromFeature(
   if (exports && typeof exports === "object" && "bindRevokeAllPatTokens" in exports) {
     const { bindRevokeAllPatTokens } = exports;
     if (typeof bindRevokeAllPatTokens === "function") {
-      // @cast-boundary exports-walk — feature.exports is untyped by design
+      // @cast-boundary feature-exports — feature.exports is untyped by design
       return bindRevokeAllPatTokens as BindRevokeAllPatTokens;
     }
   }

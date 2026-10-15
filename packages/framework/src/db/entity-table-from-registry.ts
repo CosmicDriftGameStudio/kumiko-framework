@@ -23,7 +23,7 @@ export function entityTableFromRegistry(
   for (const projection of registry.getAllProjections().values()) {
     if (!projection.isImplicit) continue;
     if (projection.source !== entityName) continue;
-    // @cast-boundary registry-projection — ProjectionDefinition.table is the
+    // @cast-boundary projection-table — ProjectionDefinition.table is the
     // untyped table object every projection registrar accepts.
     return projection.table as SchemaTable;
   }

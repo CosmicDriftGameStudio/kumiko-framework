@@ -37,9 +37,15 @@ function readRuntimeMarker(rootAbsPath: string, packageName: string): string | u
     const pkgPath = join(dir, "node_modules", packageName, "package.json");
     if (existsSync(pkgPath)) {
       try {
-        const marker = (
-          JSON.parse(readFileSync(pkgPath, "utf8")) as { kumiko?: { runtime?: unknown } }
-        ).kumiko?.runtime; // @cast-boundary package-json
+        const manifest: unknown = JSON.parse(readFileSync(pkgPath, "utf8"));
+        const kumikoBlock =
+          typeof manifest === "object" && manifest !== null && "kumiko" in manifest
+            ? manifest.kumiko
+            : undefined;
+        const marker =
+          typeof kumikoBlock === "object" && kumikoBlock !== null && "runtime" in kumikoBlock
+            ? kumikoBlock.runtime
+            : undefined;
         return typeof marker === "string" && ALL_RUNTIMES.has(marker) ? marker : undefined;
       } catch {
         return undefined;

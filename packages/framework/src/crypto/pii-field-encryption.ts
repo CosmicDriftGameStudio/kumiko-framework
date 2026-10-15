@@ -285,8 +285,8 @@ export async function decryptPiiFieldValues(
     try {
       const key = await kms.getKey(subject, kmsCtx);
       const plain = decryptValue(key, blob, subject, name, hasAad, isJson);
-      // @cast-boundary crypto-decrypt — AEAD-authenticated plaintext that this module serialized
-      out[name] = isJson ? (JSON.parse(plain) as unknown) : plain;
+      const decoded: unknown = isJson ? JSON.parse(plain) : plain;
+      out[name] = decoded;
     } catch (e) {
       // KeyNotFound deliberately propagates: ciphertext without a key row
       // means the key store is wrong (not shredded) — fail loud.

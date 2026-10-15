@@ -3,7 +3,13 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { Project, SyntaxKind } from "ts-morph";
-import { type Category, categorize, loadBaseline, reportBaseline } from "../check-as-casts";
+import {
+  type Category,
+  categorize,
+  collect,
+  loadBaseline,
+  reportBaseline,
+} from "../check-as-casts";
 
 type TestSite = Parameters<typeof reportBaseline>[0][number];
 
@@ -110,6 +116,23 @@ describe("cast baseline file", () => {
   test("fewer suspect casts than the baseline is no violation", () => {
     writeValidBaseline({ "src/a.ts": { string: 3 } });
     expect(reportBaseline([suspectSite("src/a.ts", 5)], file)).toEqual([]);
+  });
+
+  test("re-indenting a multi-line cast target does not read as a regression", () => {
+    const sourceWith = (indent: string) =>
+      `declare const x: unknown;\nexport const y = x as {\n${indent}a: string;\n${indent}b: number;\n};`;
+    const siteOf = (code: string) => {
+      const project = new Project({ useInMemoryFileSystem: true });
+      const sf = project.createSourceFile("packages/framework/src/x/cast.ts", code);
+      const [site] = collect(sf);
+      if (site === undefined) throw new Error("expected one cast site");
+      return { ...site, file: "src/a.ts" };
+    };
+    const first = siteOf(sourceWith("  "));
+    const reindented = siteOf(sourceWith("      "));
+    expect(reindented.target).toBe(first.target);
+    writeValidBaseline({ "src/a.ts": { [first.target]: 1 } });
+    expect(reportBaseline([reindented], file)).toEqual([]);
   });
 
   test("an unknown boundary reason in a repo-local file is a violation when a baseline exists", () => {

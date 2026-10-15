@@ -165,7 +165,7 @@ export const setWrite = defineWriteHandler({
       }
       // scope="system" was already rejected above — narrow accordingly.
       const subject = resolvePiiSubject(
-        scope as Exclude<typeof scope, "system">, // @cast-boundary runtime-checked above
+        scope as Exclude<typeof scope, "system">,
         tenantId,
         userId,
       );

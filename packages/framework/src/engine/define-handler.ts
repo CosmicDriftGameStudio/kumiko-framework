@@ -1,5 +1,6 @@
 import type { CursorResult } from "@cosmicdrift/kumiko-types/cursor-types";
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
 import type { ZodType } from "zod";
 import type { ContainsSecret } from "../secrets/types.js";
@@ -143,15 +144,11 @@ export function defineQueryHandler<
 export const PAGED_QUERY_HANDLER_BRAND = "__kumikoPagedQueryHandler";
 
 export function isPagedQueryHandler(def: object): boolean {
-  // @cast-boundary brand-probe — reading an internal marker key off an
-  // otherwise-typed handler definition; the property may legitimately be
-  // absent, which is exactly the case this function distinguishes.
-  return (def as Record<string, unknown>)[PAGED_QUERY_HANDLER_BRAND] === true;
+  return propertyOf(def, PAGED_QUERY_HANDLER_BRAND) === true;
 }
 
 export function isEntityConventionQueryHandler(def: object): boolean {
-  // @cast-boundary brand-probe — same shape as isPagedQueryHandler above.
-  return (def as Record<string, unknown>)[ENTITY_CONVENTION_QUERY_BRAND] === true;
+  return propertyOf(def, ENTITY_CONVENTION_QUERY_BRAND) === true;
 }
 
 export type PagedQueryHandlerDefinition<

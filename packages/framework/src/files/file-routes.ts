@@ -175,7 +175,7 @@ export function readFilesRouteOptions(
   if (exp && typeof exp === "object" && "routeOptions" in exp) {
     const ro = exp.routeOptions;
     if (ro && typeof ro === "object") {
-      // @cast-boundary feature-exports: engine-payload (unknown) → known shape
+      // @cast-boundary feature-exports — typeof-checked read-back from untyped feature.exports
       return ro as Pick<
         FileRoutesOptions,
         "accessGuard" | "privilegedRoles" | "unclaimedUploadReaders" | "maxUploadSize"

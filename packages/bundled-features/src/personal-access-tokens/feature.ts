@@ -44,7 +44,7 @@ export function bindPatAutoRevokeOnPasswordChangeFromFeature(
   if (exports && typeof exports === "object" && "bindAutoRevokeOnPasswordChange" in exports) {
     const { bindAutoRevokeOnPasswordChange } = exports;
     if (typeof bindAutoRevokeOnPasswordChange === "function") {
-      // @cast-boundary exports-walk — feature.exports is untyped by design
+      // @cast-boundary feature-exports — feature.exports is untyped by design
       return bindAutoRevokeOnPasswordChange as BindPatAutoRevokeOnPasswordChange;
     }
   }

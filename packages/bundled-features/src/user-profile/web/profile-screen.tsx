@@ -1,3 +1,4 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 // @runtime client
 // Change-password and change-email sections for the declarative `profile`
 // projectionDetail screen (fw#2312, ../feature.ts). Both keep re-auth flows
@@ -27,7 +28,7 @@ type SectionStatus =
 // Dispatcher failures carry an i18nKey only when the handler sets one —
 // boundary read with a generic fallback.
 function failureKey(error: unknown): string {
-  const key = (error as { i18nKey?: unknown } | null)?.i18nKey; // @cast-boundary dispatcher-error
+  const key = propertyOf(error, "i18nKey");
   return typeof key === "string" ? key : "profile.errors.generic";
 }
 

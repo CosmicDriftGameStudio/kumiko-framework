@@ -51,7 +51,7 @@ async function runInDiscardedReadOnlySavepoint<T>(
     await runInSavepoint(tx, async (sp) => {
       // kumiko-lint-ignore raw-sql transaction characteristic, no query helper
       await asRawClient(sp).unsafe(memberReadSessionSettingsSql(timeoutMs, bindIdleTimeout));
-      // @cast-boundary driver savepoint handle — structurally a DbTx, same shape runInSavepoint's caller relies on
+      // @cast-boundary db-runner savepoint handle — structurally a DbTx, same shape runInSavepoint's caller relies on
       settled.outcome = { value: await fn(sp as DbTx) };
       // Always discarded: RELEASE SAVEPOINT would leave the outer tx read-only too.
       throw new SavepointDiscard();
