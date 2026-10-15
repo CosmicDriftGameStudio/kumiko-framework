@@ -76,7 +76,11 @@ export const downloadByTokenQuery = defineQueryHandler({
       })
       .optional(),
   }),
-  access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
+  // public-intake: rejected attempts store the anonymous caller's IP in the audit row.
+  access: {
+    roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"],
+    personalData: "public-intake",
+  },
   agent: { expose: false },
   // Brute-Force-Schutz fuer Token-Hash-Probing. Anonymous-Endpoint mit
   // 32-byte-Random-Token = 256 Bit Search-Space, aber rate-limit als
