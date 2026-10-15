@@ -52,6 +52,7 @@ import {
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   QueryOptionLabel,
@@ -612,33 +613,34 @@ function useNavigateToCreateFor(
 // — used for a `money` field that declares `currency: { kind: "tenant" }`, so
 // its empty initial value carries the tenant's own currency instead of the
 // entity-wide default.
+function versionOf(record: Readonly<Record<string, unknown>>): number {
+  const version = record["version"];
+  return typeof version === "number" ? version : 1;
+}
+
 export function buildInitialValues(
   fields: Readonly<Record<string, unknown>>,
   defaultCurrency?: string,
   moneyCurrencyOverrides?: Readonly<Record<string, string>>,
-): Readonly<Record<string, unknown>> {
-  const out: Record<string, unknown> = {};
+): FormValues {
+  const out: FormValues = {};
   for (const [name, def] of Object.entries(fields)) {
-    const shape = def as {
-      type?: string;
-      default?: unknown;
-      multiple?: boolean;
-      required?: boolean;
-    };
-    if (shape.default !== undefined) {
-      out[name] = shape.default;
+    const type = propertyOf(def, "type");
+    const defaultValue = propertyOf(def, "default");
+    if (defaultValue !== undefined) {
+      out[name] = defaultValue;
       continue;
     }
     // An untouched optional number must not persist as a deliberate 0.
-    if (shape.type === "number" && shape.required !== true) {
+    if (type === "number" && propertyOf(def, "required") !== true) {
       out[name] = undefined;
       continue;
     }
-    if (shape.type === "embedded" && shape.multiple === true) {
+    if (type === "embedded" && propertyOf(def, "multiple") === true) {
       out[name] = [];
       continue;
     }
-    if (shape.type === "money") {
+    if (type === "money") {
       const currency = moneyCurrencyOverrides?.[name] ?? defaultCurrency;
       if (currency !== undefined) {
         out[name] = { amount: 0, currency };
@@ -646,11 +648,11 @@ export function buildInitialValues(
       }
     }
     out[name] =
-      shape.type === "boolean"
+      type === "boolean"
         ? false
-        : shape.type === "number" || shape.type === "money"
+        : type === "number" || type === "money"
           ? 0
-          : shape.type === "multiSelect"
+          : type === "multiSelect"
             ? []
             : "";
   }
@@ -668,8 +670,12 @@ export function tenantCurrencyMoneyFieldNames(
 ): readonly string[] {
   const names: string[] = [];
   for (const [name, def] of Object.entries(fields)) {
-    const shape = def as { readonly type?: string; readonly currency?: { readonly kind?: string } };
-    if (shape.type === "money" && shape.currency?.kind === "tenant") names.push(name);
+    if (
+      propertyOf(def, "type") === "money" &&
+      propertyOf(propertyOf(def, "currency"), "kind") === "tenant"
+    ) {
+      names.push(name);
+    }
   }
   return names;
 }
@@ -721,12 +727,13 @@ export function literalCurrencyOverrides(
 ): Readonly<Record<string, string>> {
   const out: Record<string, string> = {};
   for (const [name, def] of Object.entries(fields)) {
-    const shape = def as {
-      readonly type?: string;
-      readonly currency?: { readonly kind?: string; readonly code?: string };
-    };
-    const code = shape.currency?.code;
-    if (shape.type === "money" && shape.currency?.kind === "literal" && code !== undefined) {
+    const currency = propertyOf(def, "currency");
+    const code = propertyOf(currency, "code");
+    if (
+      propertyOf(def, "type") === "money" &&
+      propertyOf(currency, "kind") === "literal" &&
+      typeof code === "string"
+    ) {
       out[name] = code;
     }
   }
@@ -788,7 +795,8 @@ const CURRENCY_CODE_PATTERN = /^[A-Za-z]{3}$/;
 
 function isMoneyValue(value: unknown): value is MoneyValue {
   if (typeof value !== "object" || value === null) return false;
-  const { amount, currency } = value as Partial<MoneyValue>;
+  const amount = propertyOf(value, "amount");
+  const currency = propertyOf(value, "currency");
   return (
     typeof amount === "number" &&
     Number.isFinite(amount) &&
@@ -993,7 +1001,7 @@ function coerceEmbeddedListRows(
     }
     const cellEntries: [string, unknown][] = [];
     for (const [cellName, cell] of Object.entries(schema)) {
-      const cellValue = (candidate as Record<string, unknown>)[cellName];
+      const cellValue = propertyOf(candidate, cellName);
       if (cellValue === undefined || cellValue === null) continue;
       const coerced = coerceEmbeddedCell(cellValue, cell);
       if (coerced === undefined) {
@@ -1102,10 +1110,7 @@ export function mergeSearchParamsIntoInitial(
     handoffValues,
   } = sources;
   const urlPrefillFields = new Set(sources.urlPrefillFields ?? []);
-  const defaults = buildInitialValues(fields, defaultCurrency, moneyCurrencyOverrides) as Record<
-    string,
-    unknown
-  >;
+  const defaults = buildInitialValues(fields, defaultCurrency, moneyCurrencyOverrides);
   const merged: Record<string, unknown> = { ...defaults };
   for (const [name, fieldDef] of Object.entries(fields)) {
     if (renderableFields !== undefined && !renderableFields.has(name)) continue;
@@ -1272,7 +1277,7 @@ function EntityEditCreateBody({
         }),
         layoutEditFields(screen),
         { now: new Date(), fallbackTimeZone, user: currentUser },
-      ) as FormValues,
+      ),
     [
       entity.fields,
       nav.searchParams,
@@ -1441,7 +1446,7 @@ function EntityEditUpdateBody({
   // der ursprünglichen version sitzen — der buildPayload würde
   // weiter die stale version stampen und der Konflikt-Recovery wäre
   // kaputt.
-  const recordKey = (record as { version?: number }).version ?? 1;
+  const recordKey = versionOf(record);
   return (
     <EntityEditUpdateForm
       key={`${entityId}:${recordKey}`}
@@ -1491,7 +1496,7 @@ function EntityEditUpdateForm({
   // captured once and stamped into every update payload — if a
   // concurrent writer bumps it, the server returns a version-conflict
   // error and the user reloads.
-  const recordVersion = (record as { version?: number }).version ?? 1;
+  const recordVersion = versionOf(record);
   const entityDefaultCurrency = entity.defaultCurrency ?? "EUR";
   // A money field declaring `currency: { kind: "tenant" }` (fw#2933) resolves
   // its empty-value currency from the tenant-settings config key instead of
@@ -1525,7 +1530,7 @@ function EntityEditUpdateForm({
           moneyCurrencyOverrides,
         )[name];
     }
-    return out as FormValues;
+    return out;
   }, [entity.fields, entityDefaultCurrency, moneyCurrencyOverrides, record]);
 
   const formSchema = useMemo(
@@ -1537,9 +1542,7 @@ function EntityEditUpdateForm({
   // damit sie beim Edit den Bestand zeigen statt write-only zu sein.
   const extensionInitialValues = useMemo((): Readonly<Record<string, unknown>> | undefined => {
     const cf = record["customFields"];
-    return cf !== null && typeof cf === "object" && !Array.isArray(cf)
-      ? (cf as Record<string, unknown>)
-      : undefined;
+    return isPlainObject(cf) ? cf : undefined;
   }, [record]);
 
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "update");
@@ -2275,8 +2278,8 @@ function EntityListBody({
       buildFilterPayload(urlState.filters, (field) => {
         // entity.fields ist am Renderer-Layer schwach getypt (vom Schema
         // deserialisiert) — Boundary-Cast wie buildInitialValues.
-        const def = entity.fields[field] as { type?: string } | undefined;
-        return def?.type;
+        const type = propertyOf(entity.fields[field], "type");
+        return typeof type === "string" ? type : undefined;
       }),
     [urlState.filters, entity.fields],
   );
@@ -2350,8 +2353,8 @@ function EntityListBody({
       // auf id falls Live-Updates einen Eintrag in der nächsten Page
       // bringen die schon angehängt war.
       if (cursor === undefined) return data.rows;
-      const seen = new Set(prev.map((r) => r["id"] as string));
-      const fresh = data.rows.filter((r) => !seen.has(r["id"] as string));
+      const seen = new Set<unknown>(prev.map((r) => r["id"]));
+      const fresh = data.rows.filter((r) => !seen.has(r["id"]));
       return [...prev, ...fresh];
     });
     setHasMore(data.nextCursor !== null);
@@ -3979,7 +3982,7 @@ function ProjectionDetailBody({
         screen={renderedDetailScreen}
         entity={entity}
         featureName={schema.featureName}
-        initial={record as FormValues}
+        initial={record}
         entityId={effectiveEntityId}
         customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
         onReload={reloadDetail}
@@ -4187,9 +4190,9 @@ function overlayUpdatedProjection(
   resultData: unknown,
 ): Readonly<Record<string, unknown>> {
   if (typeof resultData !== "object" || resultData === null) return record;
-  const projection = (resultData as { readonly data?: unknown }).data;
+  const projection = propertyOf(resultData, "data");
   if (typeof projection !== "object" || projection === null) return record;
-  return { ...record, ...(projection as Record<string, unknown>) };
+  return { ...record, ...projection };
 }
 
 // Action-Form-Body — non-CRUD Write-Handler-driven Form. Re-uses
@@ -4270,7 +4273,7 @@ function ActionFormBody({
         ...(moneyCurrencyOverrides !== undefined && { moneyCurrencyOverrides }),
         ...(initialOverrides !== undefined && { drawerOverrides: initialOverrides }),
         ...(handoffValues !== undefined && { handoffValues }),
-      }) as FormValues,
+      }),
     [
       submittableFields,
       screen.urlPrefillFields,
@@ -4440,7 +4443,7 @@ type ConfigValueResponse = Readonly<
 // Unwrap back to the amount before it hits config:write:set.
 function unwrapMoneyValue(value: unknown): unknown {
   if (typeof value === "object" && value !== null && "amount" in value) {
-    const amount = (value as { amount?: unknown }).amount;
+    const amount = value.amount;
     if (typeof amount === "number") return amount;
   }
   return value;
@@ -4570,7 +4573,7 @@ function ConfigEditBody({
         out[shortName] = defaults[shortName];
         continue;
       }
-      const ftype = (fieldDef as { type?: string }).type;
+      const ftype = propertyOf(fieldDef, "type");
       // Field-Type-Coercion: config-Werte sind string|number|boolean,
       // aber der Form-State erwartet das passende Field-Native-Type.
       if (ftype === "number" || ftype === "money") {
@@ -4581,7 +4584,7 @@ function ConfigEditBody({
         out[shortName] = typeof stored === "string" ? stored : String(stored);
       }
     }
-    return out as FormValues;
+    return out;
   }, [valuesQuery.data, screen.fields, screen.configKeys, screen.scope]);
 
   // Cascade-Lookup: qualifiedKey → ConfigCascade für die

@@ -288,6 +288,11 @@ const ENFORCING: Record<string, Violating> = {
     expectedMessage: /only publishes \[dist\]/,
     execute: runTailwindPublishedSurfaceFixture,
   },
+  "As-Casts Audit": {
+    path: `${PKG}/features/x/cast.ts`,
+    code: "declare const x: unknown;\nexport const y = x as string;",
+    expectedMessage: /Suspect cast regression/,
+  },
   "test-timeouts": {
     path: `${PKG}/features/x/__tests__/x.test.ts`,
     code: "declare function sleep(ms: number): Promise<void>;\ndeclare function ready(): boolean;\nexport async function poll() { while (!ready()) { await sleep(10); } }",
@@ -314,8 +319,6 @@ const WARNING_ONLY: Record<string, string> = {
     "same baseline-ratchet pattern as Raw-Interactive-Elements Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
   "Predicate Extraction Check":
     "coding-standards.md 'Predicate Extraction' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports Fat-Predicate/Duplicate candidates via console, always returns violations: []",
-  "As-Casts Audit":
-    "coding-standards.md 'Type Assertions' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports suspect casts + baseline delta via console, always returns violations: []",
   "Table-DDL Guard":
     "documented warning-only in its own module header (unsafe* bypass calls outside the allowlist are reported via console, never blocking)",
 };
@@ -364,11 +367,6 @@ describe("every registered guard catches its own violation", () => {
         withTmpDir("fires-raw-interactive-baseline-", (baselineRoot) =>
           createRawInteractiveGuard({ baselineRoot }).run([sf]),
         ),
-    },
-    "As-Casts Audit": {
-      path: `${PKG}/features/x/cast.ts`,
-      code: "export const f = (x: unknown) => x as string;",
-      expectedMessage: /.*/,
     },
     "Table-DDL Guard": {
       path: `${PKG}/features/x/tables.ts`,

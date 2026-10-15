@@ -19,10 +19,9 @@ function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType 
     .object({})
     .passthrough()
     .superRefine((values, ctx) => {
-      const record = values as Record<string, unknown>;
       for (const field of fields) {
         if (field.readOnly || !field.visible || !field.required) continue;
-        if (isPresent(record[field.field])) continue;
+        if (isPresent(values[field.field])) continue;
         ctx.addIssue({
           code: "custom",
           path: [field.field],

@@ -9,6 +9,7 @@
 // Banner-Strings über kumikoDefaultTranslations (kumiko.version.*, de/en).
 
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/cn.js";
 
@@ -41,10 +42,7 @@ export function shouldShowUpdate(
 
 export function isKumikoBuild(v: unknown): v is Pick<KumikoBuild, "id"> {
   return (
-    typeof v === "object" &&
-    v !== null &&
-    typeof (v as Record<string, unknown>)["id"] === "string" &&
-    (v as Record<string, unknown>)["id"] !== ""
+    typeof v === "object" && v !== null && "id" in v && typeof v.id === "string" && v.id !== ""
   );
 }
 
@@ -54,7 +52,7 @@ async function fetchServerBuild(): Promise<KumikoBuild | null> {
     if (!res.ok) return null;
     const raw: unknown = await res.json();
     if (!isKumikoBuild(raw)) return null;
-    const builtAt = (raw as Partial<KumikoBuild>).builtAt;
+    const builtAt = propertyOf(raw, "builtAt");
     return { id: raw.id, builtAt: typeof builtAt === "string" ? builtAt : "" };
   } catch {
     // Netzwerkfehler / kaputtes JSON → kein Banner. Nie ein Fake-Update zeigen.

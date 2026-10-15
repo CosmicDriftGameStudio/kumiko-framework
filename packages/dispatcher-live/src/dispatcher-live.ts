@@ -13,6 +13,7 @@ import {
   type WriteOpts,
   type WriteResult,
 } from "@cosmicdrift/kumiko-headless";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf.js";
 import { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping.js";
 import { LOCALE_HEADER_NAME, readActiveLocale } from "./locale.js";
@@ -282,8 +283,12 @@ const EMPTY_PENDING_FILES: readonly PendingFile[] = Object.freeze([]);
 // Uniqueness only needs to hold per user within the server's dedup window —
 // this is an idempotency key, not a security token.
 function generateRequestId(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (typeof c?.randomUUID === "function") return c.randomUUID();
+  const webCrypto = propertyOf(globalThis, "crypto");
+  const randomUUID = propertyOf(webCrypto, "randomUUID");
+  if (typeof randomUUID === "function") {
+    const id: unknown = Reflect.apply(randomUUID, webCrypto, []);
+    if (typeof id === "string") return id;
+  }
   return `req-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
 }
 
@@ -358,10 +363,5 @@ type ServerErrorLike = {
 };
 
 function isAbortError(e: unknown): boolean {
-  return (
-    !!e &&
-    typeof e === "object" &&
-    "name" in (e as Record<string, unknown>) && // @cast-boundary error-details
-    (e as { name?: unknown }).name === "AbortError"
-  );
+  return !!e && typeof e === "object" && "name" in e && e.name === "AbortError";
 }

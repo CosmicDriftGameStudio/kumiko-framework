@@ -27,6 +27,7 @@ import {
   relevantFieldIssues,
   zodErrorToFieldIssues,
 } from "@cosmicdrift/kumiko-headless";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { RenderEditActionButton } from "./render-edit-action-button.js";
 import type { RenderEditProps } from "./render-edit-types.js";
 import { AllFieldsRequiredProvider } from "./render-field.js";
@@ -121,8 +122,12 @@ function newDraftPrefix(screenId: string): string {
 // `crypto.randomUUID` is missing in non-secure contexts and React Native/Hermes
 // without a polyfill — guard like dispatcher-live.ts's generateRequestId.
 function mintDraftId(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (typeof c?.randomUUID === "function") return c.randomUUID();
+  const webCrypto = propertyOf(globalThis, "crypto");
+  const randomUUID = propertyOf(webCrypto, "randomUUID");
+  if (typeof randomUUID === "function") {
+    const id: unknown = Reflect.apply(randomUUID, webCrypto, []);
+    if (typeof id === "string") return id;
+  }
   return `draft-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
 }
 

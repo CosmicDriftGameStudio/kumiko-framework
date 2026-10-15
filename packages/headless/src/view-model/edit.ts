@@ -798,7 +798,8 @@ export function computeEditViewModel<
     };
   });
 
-  const id = (values["id"] as string | undefined) ?? null;
+  const idValue = values["id"];
+  const id = typeof idValue === "string" ? idValue : null;
 
   return {
     screenId: screen.id,

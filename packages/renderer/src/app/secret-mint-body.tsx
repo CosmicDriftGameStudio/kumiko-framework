@@ -1,5 +1,6 @@
 import type { SecretMintScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { FormValues, SubmitResult, Translate } from "@cosmicdrift/kumiko-headless";
+import type { SubmitResult, Translate } from "@cosmicdrift/kumiko-headless";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 import { RenderEdit } from "../components/render-edit.js";
 import { useTranslation } from "../i18n.js";
@@ -30,7 +31,7 @@ export type SecretMintBodyProps = {
 function extractRevealValue(data: unknown, field: string): unknown {
   if (typeof data !== "object" || data === null) return undefined;
   if (!Object.hasOwn(data, field)) return undefined;
-  return (data as Record<string, unknown>)[field];
+  return propertyOf(data, field);
 }
 
 function extractCarriedValues(
@@ -108,7 +109,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
           moneyCurrencyOverrides: mintCurrencyOverrides,
         }),
         ...(handoffValues !== undefined && { handoffValues }),
-      }) as FormValues,
+      }),
     [
       screen.fields,
       screen.urlPrefillFields,
@@ -151,7 +152,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   const confirmInitial = useMemo(
     () =>
       confirm !== undefined
-        ? (buildInitialValues(confirm.fields, undefined, confirmCurrencyOverrides) as FormValues)
+        ? buildInitialValues(confirm.fields, undefined, confirmCurrencyOverrides)
         : undefined,
     [confirm, confirmCurrencyOverrides],
   );
@@ -332,7 +333,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
           i18nScreenId={screen.id}
           entity={confirmEntity}
           featureName={schema.featureName}
-          initial={confirmInitial ?? ({} as FormValues)}
+          initial={confirmInitial ?? {}}
           writeCommand={confirm.handler}
           payloadMode="values"
           buildPayload={(snapshot) => ({ ...snapshot.values, ...carriedRef.current })}

@@ -83,7 +83,7 @@ function templateStaticText(tpl: Node): string {
   if (tpl.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)) {
     return tpl.getLiteralText();
   }
-  const t = tpl as TemplateExpression;
+  const t = tpl.asKindOrThrow(SyntaxKind.TemplateExpression);
   return [
     t.getHead().getLiteralText(),
     ...t.getTemplateSpans().map((s) => s.getLiteral().getLiteralText()),
@@ -172,7 +172,7 @@ type LocalFunction = FunctionDeclaration | ArrowFunction | FunctionExpression;
 
 function localFunctionsOf(callee: Node, sf: SourceFile): LocalFunction[] | undefined {
   if (!callee.isKind(SyntaxKind.Identifier)) return undefined;
-  const decls = localDeclarations(callee as Identifier, sf);
+  const decls = localDeclarations(callee, sf);
   if (decls.length === 0) return undefined;
   const fns: LocalFunction[] = [];
   for (const d of decls) {

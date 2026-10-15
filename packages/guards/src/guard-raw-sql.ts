@@ -78,7 +78,7 @@ async function scanAllRepos(roots: readonly RepoRoot[]): Promise<{
     for (const hit of report.hits) {
       if (hit.allowed) continue;
       if (hit.file.includes("/__tests__/")) continue;
-      if (!(BLOCKING_SQL_KINDS as readonly string[]).includes(hit.kind)) continue;
+      if (!BLOCKING_SQL_KINDS.some((kind) => kind === hit.kind)) continue;
       if (hit.markerSuppressed) {
         // One line like `asRawClient(db).unsafe(` yields two hits for one marker.
         if (hit.markerReason !== undefined && hit.markerLine !== undefined) {

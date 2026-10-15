@@ -36,7 +36,6 @@ import {
   Project,
   type SourceFile,
   SyntaxKind,
-  type VariableDeclaration,
 } from "ts-morph";
 import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
 import { frameworkTsConfigPath } from "./_lib/roots";
@@ -62,7 +61,7 @@ export const KNOWN_WRAPPER_REASONS = [
 export type WrapperReason = (typeof KNOWN_WRAPPER_REASONS)[number];
 
 function isKnownReason(r: string): r is WrapperReason {
-  return (KNOWN_WRAPPER_REASONS as readonly string[]).includes(r);
+  return KNOWN_WRAPPER_REASONS.some((known) => known === r);
 }
 
 // ── Built-in filter ─────────────────────────────────────────────────────
@@ -222,7 +221,7 @@ function getFnName(node: FnNode): string | undefined {
   if (node.isKind(SyntaxKind.FunctionDeclaration)) return node.getName() ?? undefined;
   const parent = node.getParent();
   if (parent?.isKind(SyntaxKind.VariableDeclaration)) {
-    return (parent as VariableDeclaration).getName();
+    return parent.getName();
   }
   if (parent?.isKind(SyntaxKind.PropertyAssignment)) {
     return parent.getFirstChild()?.getText();

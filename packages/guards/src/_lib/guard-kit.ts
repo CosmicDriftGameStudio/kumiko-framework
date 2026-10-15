@@ -583,8 +583,13 @@ function guardKitVersion(): string {
   const pkgPath = resolve(import.meta.dir, "../../package.json");
   // The version only decorates the banner; it must never abort a guard run.
   try {
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { readonly version?: string };
-    return pkg.version ?? "unknown";
+    const pkg: unknown = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    return typeof pkg === "object" &&
+      pkg !== null &&
+      "version" in pkg &&
+      typeof pkg.version === "string"
+      ? pkg.version
+      : "unknown";
   } catch {
     return "unknown";
   }

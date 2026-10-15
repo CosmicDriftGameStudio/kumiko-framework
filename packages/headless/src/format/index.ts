@@ -2,6 +2,7 @@
 // Shared between renderer-web, renderer-native, and server-side tests.
 
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 function toPlainDate(raw: string): Temporal.PlainDate {
   try {
@@ -159,6 +160,32 @@ function stringifyJsonOrString(value: unknown, indent: number): string {
   }
 }
 
+const INTL_DATE_STYLES = ["full", "long", "medium", "short"] as const;
+const INTL_UNIT_DISPLAYS = ["short", "long", "narrow"] as const;
+
+function stringSpec(spec: Record<string, unknown>, key: string): string | undefined {
+  const v = spec[key];
+  return typeof v === "string" ? v : undefined;
+}
+
+function booleanSpec(spec: Record<string, unknown>, key: string): boolean | undefined {
+  const v = spec[key];
+  return typeof v === "boolean" ? v : undefined;
+}
+
+function dateStyleSpec(
+  spec: Record<string, unknown>,
+  key: string,
+): Intl.DateTimeFormatOptions["dateStyle"] {
+  const v = spec[key];
+  return isOneOf(INTL_DATE_STYLES, v) ? v : undefined;
+}
+
+function unitDisplaySpec(spec: Record<string, unknown>): Intl.NumberFormatOptions["unitDisplay"] {
+  const v = spec["unitDisplay"];
+  return isOneOf(INTL_UNIT_DISPLAYS, v) ? v : "short";
+}
+
 export function applyFormatSpec(
   spec: { format: string } & Record<string, unknown>,
   value: unknown,
@@ -172,26 +199,23 @@ export function applyFormatSpec(
     case "timestamp":
     case "date":
       return formatDateCell(value, spec.format, {
-        locale: spec["locale"] as string | undefined,
-        dateStyle: spec["dateStyle"] as Intl.DateTimeFormatOptions["dateStyle"],
-        timeStyle:
-          spec.format === "timestamp"
-            ? (spec["timeStyle"] as Intl.DateTimeFormatOptions["timeStyle"])
-            : undefined,
+        locale: stringSpec(spec, "locale"),
+        dateStyle: dateStyleSpec(spec, "dateStyle"),
+        timeStyle: spec.format === "timestamp" ? dateStyleSpec(spec, "timeStyle") : undefined,
       });
     case "boolean": {
       if (value === true) {
-        const trueLabel = spec["trueLabel"] as string | undefined;
+        const trueLabel = stringSpec(spec, "trueLabel");
         return trueLabel === undefined ? "✓" : (translate?.(trueLabel) ?? trueLabel);
       }
       if (value === false) {
-        const falseLabel = spec["falseLabel"] as string | undefined;
+        const falseLabel = stringSpec(spec, "falseLabel");
         return falseLabel === undefined ? "" : (translate?.(falseLabel) ?? falseLabel);
       }
       return "";
     }
     case "currency": {
-      const sym = (spec["symbol"] as string | undefined) ?? "";
+      const sym = stringSpec(spec, "symbol") ?? "";
       return sym.length > 0 ? `${value} ${sym}` : String(value);
     }
     case "number":
@@ -199,24 +223,24 @@ export function applyFormatSpec(
     case "bigInt":
       return formatNumberCell(
         value,
-        spec["locale"] as string | undefined,
-        (spec["grouping"] as boolean | undefined) ?? true,
+        stringSpec(spec, "locale"),
+        booleanSpec(spec, "grouping") ?? true,
       );
     case "unit":
       return formatUnitCell(
         value,
-        spec["unit"] as string | undefined,
-        spec["locale"] as string | undefined,
-        (spec["unitDisplay"] as Intl.NumberFormatOptions["unitDisplay"]) ?? "short",
+        stringSpec(spec, "unit"),
+        stringSpec(spec, "locale"),
+        unitDisplaySpec(spec),
       );
     case "priority": {
-      const emptyLabel = (spec["emptyLabel"] as string | undefined) ?? "—";
-      const prefix = (spec["prefix"] as string | undefined) ?? "";
+      const emptyLabel = stringSpec(spec, "emptyLabel") ?? "—";
+      const prefix = stringSpec(spec, "prefix") ?? "";
       if (isEmpty || value === 0) return emptyLabel;
       return `${prefix}${value}`;
     }
     case "enumOption": {
-      const keyPrefix = spec["keyPrefix"] as string | undefined;
+      const keyPrefix = stringSpec(spec, "keyPrefix");
       const labelFor = (item: unknown): string => {
         const raw = typeof item === "string" ? item : String(item);
         if (keyPrefix === undefined || translate === undefined) return raw;

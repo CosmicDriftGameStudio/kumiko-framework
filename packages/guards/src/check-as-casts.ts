@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * `as X` cast audit with a baseline regression report (WARNING, no fail).
+ * `as X` cast audit with a baseline regression gate (fails on regressions).
  *
  * Every `as X` cast is a compiler gag. This check shows all casts
  * in production code, categorized as:
@@ -27,10 +27,14 @@
  * Baseline regression report:
  *
  * `.kumiko-cast-baseline.json` in the repo root pins the expected
- * suspect-cast count per file. The audit compares against the baseline and
- * reports increases — per the project coding standards ("Type Assertions")
- * this check is "warning, no fail": it never blocks, not even on
- * unknown @cast-boundary reasons or a baseline regression.
+ * suspect-cast count per file and target type. The audit compares against the
+ * baseline and fails on:
+ *   • a regression (more suspect casts for a file:target than the baseline,
+ *     repo-local files only)
+ *   • an unknown or missing `@cast-boundary` reason in a repo-local file
+ *   • an unreadable or format-drifted baseline
+ * Without a baseline file (e.g. consumer repos) nothing fails: warnings only.
+ * Sibling checkouts (`../`) never fail.
  * Reductions (current < baseline) are allowed but do NOT update the baseline
  * automatically — run `--write-baseline` after cleanup commits.
  *
@@ -231,7 +235,7 @@ export const KNOWN_BOUNDARY_REASONS = [
 export type BoundaryReason = (typeof KNOWN_BOUNDARY_REASONS)[number];
 
 export function isKnownBoundaryReason(reason: string): reason is BoundaryReason {
-  return (KNOWN_BOUNDARY_REASONS as readonly string[]).includes(reason);
+  return KNOWN_BOUNDARY_REASONS.some((known) => known === reason);
 }
 
 export function hasBoundaryMarker(cast: AsExpression): boolean {
@@ -467,28 +471,33 @@ function reportCasts(all: readonly Site[], scanned: number): void {
   );
 }
 
-// Reason validation: every legit-boundary cast should have a known reason.
-// Unknown reasons are reported (reason drift like "engine-payload" vs
-// "enginePayload" would otherwise destroy the audit's value in the long
-// run) — extending the whitelist: add an entry to KNOWN_BOUNDARY_REASONS
-// above. Warning, no fail (see module header).
-function reportUnknownReasons(all: readonly Site[]): void {
-  const unknownReasons: Array<{ file: string; line: number; reason: string }> = [];
-  for (const s of all) {
-    if (s.category !== "legit-boundary") continue;
-    const r = s.boundaryReason ?? "";
-    if (r === "" || !isKnownBoundaryReason(r)) {
-      unknownReasons.push({ file: s.file, line: s.line, reason: r || "<missing>" });
-    }
+// Reason validation: every legit-boundary cast needs a known reason (reason
+// drift like "engine-payload" vs "enginePayload" would otherwise destroy the
+// audit's value). Extending the whitelist: add an entry to
+// KNOWN_BOUNDARY_REASONS above. Always printed; only repo-local sites fail,
+// and only once a baseline gates the repo (see reportBaseline).
+function findUnknownReasons(all: readonly Site[]): Site[] {
+  return all.filter(
+    (s) =>
+      s.category === "legit-boundary" &&
+      (s.boundaryReason === undefined ||
+        s.boundaryReason === "" ||
+        !isKnownBoundaryReason(s.boundaryReason)),
+  );
+}
+
+function reportUnknownReasons(unknown: readonly Site[]): void {
+  if (unknown.length === 0) return;
+  console.log(`\n  UNKNOWN @cast-boundary REASONS (${unknown.length}):`);
+  for (const u of unknown) {
+    console.log(`    ${u.file}:${u.line}  reason=${u.boundaryReason || "<missing>"}`);
   }
-  if (unknownReasons.length > 0) {
-    console.log(`\n  UNKNOWN @cast-boundary REASONS (${unknownReasons.length}):`);
-    for (const u of unknownReasons) {
-      console.log(`    ${u.file}:${u.line}  reason=${u.reason}`);
-    }
-    console.log(`\n  Known reasons: ${KNOWN_BOUNDARY_REASONS.join(", ")}`);
-    console.log("  New reason? Add an entry in check-as-casts.ts → KNOWN_BOUNDARY_REASONS.");
-  }
+  console.log(`\n  Known reasons: ${KNOWN_BOUNDARY_REASONS.join(", ")}`);
+  console.log("  New reason? Add an entry in check-as-casts.ts → KNOWN_BOUNDARY_REASONS.");
+}
+
+function isSiblingFile(file: string): boolean {
+  return file.startsWith("../");
 }
 
 const BASELINE_FORMAT_VERSION = 2;
@@ -557,7 +566,7 @@ function writeBaseline(all: readonly Site[]): void {
 
 // Per File:target: aktueller Count gegen baseline. Mehr → Regression.
 // A cast swap (cast A removed, cast B with a different target added) is detected
-// this way although the total stays stable. Report only — warning, no fail.
+// this way although the total stays stable.
 // Merge-conflict markers, truncated writes and hand edits all land here; the
 // file is read once at the boundary so the comparison below can trust its shape.
 function isCountsByFile(value: unknown): value is Record<string, Record<string, number>> {
@@ -635,6 +644,11 @@ function compareCastsToBaseline(
   return { regressions, reduced };
 }
 
+const CAST_OPTIONS_HINT =
+  "New casts need a justification. Options: (1) avoid the cast (TypeGuard, Discriminated Union, typing at the source); " +
+  "(2) a real system boundary: `// @cast-boundary <reason>` with a reason from KNOWN_BOUNDARY_REASONS; " +
+  "(3) re-freeze with `bun packages/guards/src/check-as-casts.ts --write-baseline`, only with a justification in the PR.";
+
 function printCastRegressions(regressions: readonly CastRegression[]): void {
   console.log(
     `\n  REGRESSION: ${regressions.length} (file, target) pair(s) have more suspect casts than the baseline:`,
@@ -644,13 +658,32 @@ function printCastRegressions(regressions: readonly CastRegression[]): void {
       `    ${r.file}: as ${r.target}  baseline=${r.baseline} current=${r.current} (+${r.current - r.baseline})`,
     );
   }
-  console.log(
-    "\n  New casts need a justification. Options:\n" +
-      "    1. Avoid the cast (TypeGuard, Discriminated Union, better typing at the source)\n" +
-      "    2. If a legit system boundary: add a `// @cast-boundary <reason>` marker\n" +
-      "    3. If a cleanup reduction in one file offsets an increase in another: " +
-      "run `bun packages/guards/src/check-as-casts.ts --write-baseline` after committing",
-  );
+  console.log(`\n${CAST_OPTIONS_HINT}`);
+}
+
+function regressionViolation(regression: CastRegression, all: readonly Site[]): GuardViolation {
+  const firstNew = all
+    .filter(
+      (s) =>
+        s.file === regression.file &&
+        s.target === regression.target &&
+        s.category.startsWith("suspect-"),
+    )
+    .sort((a, b) => a.line - b.line)[regression.baseline];
+  return {
+    file: regression.file,
+    line: firstNew?.line ?? 1,
+    message: `Suspect cast regression: \`as ${regression.target.replace(/\s+/g, " ")}\` baseline=${regression.baseline}, current=${regression.current}. ${CAST_OPTIONS_HINT}`,
+  };
+}
+
+function unknownReasonViolation(site: Site): GuardViolation {
+  const reason = site.boundaryReason || "<missing>";
+  return {
+    file: site.file,
+    line: site.line,
+    message: `Unknown @cast-boundary reason ${reason}. Use one of: ${KNOWN_BOUNDARY_REASONS.join(", ")} (or add a reason to KNOWN_BOUNDARY_REASONS in check-as-casts.ts).`,
+  };
 }
 
 export function reportBaseline(
@@ -678,19 +711,27 @@ export function reportBaseline(
     ];
   }
   if (loaded.kind === "format-drift") {
-    console.log(
-      `\n  Baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, read format=${String(loaded.format ?? "<missing>")}.`,
-    );
-    console.log("  Run `bun packages/guards/src/check-as-casts.ts --write-baseline` once.");
-    return [];
+    // A stale baseline must not silently switch the gate off.
+    return [
+      {
+        file: baselineFile,
+        line: 1,
+        message: `Cast baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, read format=${String(loaded.format ?? "<missing>")}. Regenerate it with \`bun packages/guards/src/check-as-casts.ts --write-baseline\`.`,
+      },
+    ];
   }
   const { baseline } = loaded;
 
   const { regressions, reduced } = compareCastsToBaseline(repoLocalSuspects, baseline.perFile);
   if (regressions.length > 0) {
     printCastRegressions(regressions);
-    return [];
   }
+  const unknownReasons = findUnknownReasons(all).filter((s) => !isSiblingFile(s.file));
+  const violations = [
+    ...regressions.map((r) => regressionViolation(r, all)),
+    ...unknownReasons.map(unknownReasonViolation),
+  ];
+  if (violations.length > 0) return violations;
 
   console.log(`\n  ✓ Baseline (${baseline.totalSuspect}) — current ${repoLocalTotal}`);
   if (reduced > 0) {
@@ -704,14 +745,13 @@ export function reportBaseline(
 function analyseCasts(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
   const { all, scanned } = scanCasts(files);
   reportCasts(all, scanned);
-  reportUnknownReasons(all);
+  reportUnknownReasons(findUnknownReasons(all));
   if (!compareBaseline) {
     console.log("\n  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }
-  // WARNING, no fail (coding-standards.md → "Type Assertions"): neither
-  // unknown @cast-boundary reasons nor a baseline regression block. Only
-  // an unreadable baseline fails.
+  // Fails on regressions, repo-local unknown reasons (both only with a valid
+  // baseline) and an unreadable or drifted baseline; see the module header.
   return { violations: reportBaseline(all) };
 }
 

@@ -34,7 +34,7 @@ const SUBCOMMAND_FLAGS: Record<Subcommand, readonly string[]> = {
 };
 
 function isSubcommand(value: string): value is Subcommand {
-  return (SUBCOMMANDS as readonly string[]).includes(value);
+  return SUBCOMMANDS.some((subcommand) => subcommand === value);
 }
 
 function printHelp(): void {

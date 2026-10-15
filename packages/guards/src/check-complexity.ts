@@ -145,7 +145,7 @@ export function computeComplexity(fn: Node): number {
   fn.forEachDescendant((node, traversal) => {
     // skip: decision points inside a nested function-like node belong to its
     // own Hotspot entry
-    if (node !== fn && (FUNCTION_KINDS as readonly SyntaxKind[]).includes(node.getKind())) {
+    if (node !== fn && FUNCTION_KINDS.some((kind) => kind === node.getKind())) {
       traversal.skip();
       return;
     }

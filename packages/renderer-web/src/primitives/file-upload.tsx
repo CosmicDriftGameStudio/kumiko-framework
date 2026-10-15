@@ -6,6 +6,7 @@
 
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { toAcceptAttr } from "../lib/accept-attr.js";
@@ -61,12 +62,14 @@ export function FileUploadInput({
         body: fd,
         ...(csrf !== undefined && { headers: { [CSRF_HEADER_NAME]: csrf } }),
       });
-      const json = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
-      if (!res.ok || json.id === undefined) {
-        setError(json.error ?? t("kumiko.field.file-upload.failed"));
+      const json: unknown = await res.json().catch(() => ({}));
+      const id = propertyOf(json, "id");
+      if (!res.ok || typeof id !== "string") {
+        const message = propertyOf(json, "error");
+        setError(typeof message === "string" ? message : t("kumiko.field.file-upload.failed"));
         return;
       }
-      onChange(json.id);
+      onChange(id);
     } catch {
       setError(t("kumiko.field.file-upload.failed"));
     } finally {

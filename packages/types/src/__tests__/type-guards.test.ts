@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { errorCodeOf, isOneOf, isPlainObject } from "../type-guards.js";
+import { errorCodeOf, isOneOf, isPlainObject, propertyOf } from "../type-guards.js";
 
 describe("isPlainObject", () => {
   test("accepts plain objects", () => {
@@ -51,5 +51,24 @@ describe("errorCodeOf", () => {
     expect(errorCodeOf({ code: 42 })).toBeUndefined();
     expect(errorCodeOf(null)).toBeUndefined();
     expect(errorCodeOf("ENOENT")).toBeUndefined();
+  });
+});
+
+describe("propertyOf", () => {
+  test("reads properties of objects and functions", () => {
+    expect(propertyOf({ a: 1 }, "a")).toBe(1);
+    expect(
+      propertyOf(
+        Object.assign(() => {}, { tag: "x" }),
+        "tag",
+      ),
+    ).toBe("x");
+  });
+
+  test("returns undefined for absent keys, primitives and null", () => {
+    expect(propertyOf({}, "a")).toBeUndefined();
+    expect(propertyOf("abc", "length")).toBeUndefined();
+    expect(propertyOf(null, "a")).toBeUndefined();
+    expect(propertyOf(undefined, "a")).toBeUndefined();
   });
 });

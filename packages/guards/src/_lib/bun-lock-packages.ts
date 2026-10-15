@@ -18,7 +18,7 @@ type ParsedBunLock = { readonly packages?: Record<string, unknown> };
 
 function isParsedBunLock(value: unknown): value is ParsedBunLock {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
-  const packages = (value as Record<string, unknown>)["packages"];
+  const packages = "packages" in value ? value.packages : undefined;
   return (
     packages === undefined ||
     (packages !== null && typeof packages === "object" && !Array.isArray(packages))

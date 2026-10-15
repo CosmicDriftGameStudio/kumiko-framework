@@ -3,7 +3,26 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { Project, SyntaxKind } from "ts-morph";
-import { categorize, guard, loadBaseline, reportBaseline } from "../check-as-casts";
+import { type Category, categorize, loadBaseline, reportBaseline } from "../check-as-casts";
+
+type TestSite = Parameters<typeof reportBaseline>[0][number];
+
+function suspectSite(file: string, line: number, target = "string"): TestSite {
+  return { file, line, category: "suspect-narrow", source: "x", target, full: `x as ${target}` };
+}
+
+function boundarySite(file: string, line: number, boundaryReason?: string): TestSite {
+  const category: Category = "legit-boundary";
+  return {
+    file,
+    line,
+    category,
+    source: "x",
+    target: "Foo",
+    full: "x as Foo",
+    ...(boundaryReason === undefined ? {} : { boundaryReason }),
+  };
+}
 
 function castIn(code: string) {
   const project = new Project({ useInMemoryFileSystem: true });
@@ -27,15 +46,6 @@ describe("As-Casts Audit", () => {
       "declare const result: { data: unknown };\n// @cast-boundary db-row\nexport const y = result.data as Record<string, unknown>;",
     );
     expect(categorize(cast)).toBe("legit-boundary");
-  });
-
-  test("guard.run() never returns blocking violations (coding-standards.md: Warnung, kein Fail)", () => {
-    const project = new Project({ useInMemoryFileSystem: true });
-    const sf = project.createSourceFile(
-      "packages/framework/src/x/cast.ts",
-      "declare const x: unknown;\nexport const y = x as string;",
-    );
-    expect(guard.run([sf]).violations).toEqual([]);
   });
 });
 
@@ -75,6 +85,71 @@ describe("cast baseline file", () => {
   });
 
   test("a missing baseline is still only a warning", () => {
-    expect(reportBaseline([], file)).toEqual([]);
+    expect(reportBaseline([suspectSite("a.ts", 1)], file)).toEqual([]);
+  });
+
+  function writeValidBaseline(perFile: Record<string, Record<string, number>>): void {
+    writeFileSync(file, JSON.stringify({ format: 2, generated: "x", totalSuspect: 0, perFile }));
+  }
+
+  test("more suspect casts than the baseline is a violation at the first new cast", () => {
+    writeValidBaseline({ "src/a.ts": { string: 1 } });
+    const violations = reportBaseline(
+      [suspectSite("src/a.ts", 5), suspectSite("src/a.ts", 9)],
+      file,
+    );
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe("src/a.ts");
+    expect(violations[0]?.line).toBe(9);
+    expect(violations[0]?.message).toContain("as string");
+    expect(violations[0]?.message).toContain("baseline=1, current=2");
+    expect(violations[0]?.message).toContain("@cast-boundary");
+    expect(violations[0]?.message).toContain("--write-baseline");
+  });
+
+  test("fewer suspect casts than the baseline is no violation", () => {
+    writeValidBaseline({ "src/a.ts": { string: 3 } });
+    expect(reportBaseline([suspectSite("src/a.ts", 5)], file)).toEqual([]);
+  });
+
+  test("an unknown boundary reason in a repo-local file is a violation when a baseline exists", () => {
+    writeValidBaseline({});
+    const violations = reportBaseline([boundarySite("src/a.ts", 4, "made-up")], file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.line).toBe(4);
+    expect(violations[0]?.message).toContain("made-up");
+  });
+
+  test("a missing boundary reason in a repo-local file is a violation when a baseline exists", () => {
+    writeValidBaseline({});
+    expect(reportBaseline([boundarySite("src/a.ts", 4)], file)).toHaveLength(1);
+  });
+
+  test("a known boundary reason is no violation", () => {
+    writeValidBaseline({});
+    expect(reportBaseline([boundarySite("src/a.ts", 4, "db-row")], file)).toEqual([]);
+  });
+
+  test("an unknown boundary reason under ../sibling is never a violation", () => {
+    writeValidBaseline({});
+    expect(reportBaseline([boundarySite("../sibling/src/a.ts", 4, "made-up")], file)).toEqual([]);
+  });
+
+  test("suspect casts under ../sibling never regress the baseline", () => {
+    writeValidBaseline({});
+    expect(reportBaseline([suspectSite("../sibling/src/a.ts", 4)], file)).toEqual([]);
+  });
+
+  test("an unknown boundary reason without a baseline is only a warning", () => {
+    expect(reportBaseline([boundarySite("src/a.ts", 4, "made-up")], file)).toEqual([]);
+  });
+
+  test("a baseline with an outdated format is a violation, not a silent pass", () => {
+    writeFileSync(file, JSON.stringify({ format: 1, perFile: {} }));
+    expect(loadBaseline(file).kind).toBe("format-drift");
+    const violations = reportBaseline([], file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe(file);
+    expect(violations[0]?.message).toContain("format drift");
   });
 });

@@ -1,3 +1,4 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { LocaleResolver } from "../contracts/index.js";
 
 export type LocaleRouterConfig<TPage extends string> = {
@@ -163,21 +164,19 @@ export type WrapUrlLocaleResolverOptions = {
 };
 
 function defaultBrowserPathname(): string | undefined {
-  const loc = (globalThis as { location?: { pathname?: string } }).location;
-  return typeof loc?.pathname === "string" ? loc.pathname : undefined;
+  const pathname = propertyOf(propertyOf(globalThis, "location"), "pathname");
+  return typeof pathname === "string" ? pathname : undefined;
 }
 
 function defaultSubscribePathname(listener: () => void): () => void {
-  const g = globalThis as {
-    addEventListener?: typeof addEventListener;
-    removeEventListener?: typeof removeEventListener;
-  };
-  if (typeof g.addEventListener !== "function" || typeof g.removeEventListener !== "function") {
+  const add = propertyOf(globalThis, "addEventListener");
+  const remove = propertyOf(globalThis, "removeEventListener");
+  if (typeof add !== "function" || typeof remove !== "function") {
     return () => {};
   }
-  g.addEventListener("popstate", listener);
+  Reflect.apply(add, globalThis, ["popstate", listener]);
   return () => {
-    g.removeEventListener?.("popstate", listener);
+    Reflect.apply(remove, globalThis, ["popstate", listener]);
   };
 }
 

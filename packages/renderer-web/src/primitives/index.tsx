@@ -69,6 +69,7 @@ import {
   WriteFailedError,
 } from "@cosmicdrift/kumiko-renderer";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { cva } from "class-variance-authority";
 import {
   ArrowDown,
@@ -3077,9 +3078,9 @@ function nextSortState(current: DataTableSortDir | undefined, field: string): Da
 // das brechen — der String-Key ist die SSoT.
 export function isComponentRendererRef(renderer: unknown): { readonly name: string } | undefined {
   if (renderer === null || typeof renderer !== "object") return undefined;
-  const reactBranch = (renderer as { react?: unknown }).react;
+  const reactBranch = propertyOf(renderer, "react");
   if (reactBranch === null || typeof reactBranch !== "object") return undefined;
-  const component = (reactBranch as { __component?: unknown }).__component;
+  const component = propertyOf(reactBranch, "__component");
   if (typeof component !== "string" || component.length === 0) return undefined;
   return { name: component };
 }
@@ -3095,12 +3096,13 @@ type MoneyCellValue = {
 };
 
 function isMoneyValue(value: unknown): value is MoneyCellValue {
+  const currency = propertyOf(value, "currency");
   return (
     typeof value === "object" &&
     value !== null &&
-    typeof (value as Record<string, unknown>)["amount"] === "number" &&
-    typeof (value as Record<string, unknown>)["currency"] === "string" &&
-    /^[A-Za-z]{3}$/.test((value as Record<string, unknown>)["currency"] as string)
+    typeof propertyOf(value, "amount") === "number" &&
+    typeof currency === "string" &&
+    /^[A-Za-z]{3}$/.test(currency)
   );
 }
 
