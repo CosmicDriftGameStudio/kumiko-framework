@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-15T11:31:49.377Z",
+  "generatedAt": "2026-10-15T21:16:51.744Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -291,7 +291,8 @@
       ],
       "source": "managed",
       "piiSubjectFields": [
-        "ip"
+        "ip",
+        "userAgent"
       ]
     },
     {
@@ -728,6 +729,134 @@
           "columns": [
             "tenant_id"
           ]
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_template_resources",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "slug",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "kind",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "locale",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "title",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "folder",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "content",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "content_format",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "variable_schema",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "linked_resources",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "meta",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "scope",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "parent_template_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_template_resources_tenant_id_idx",
+          "columns": [
+            "tenant_id"
+          ]
+        },
+        {
+          "name": "read_template_resources_unique",
+          "columns": [
+            "tenant_id",
+            "slug",
+            "kind",
+            "locale"
+          ],
+          "unique": true
         }
       ],
       "source": "managed"
