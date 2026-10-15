@@ -1025,12 +1025,13 @@ describe("EmbeddedListInput — read-only cells, fixed rows, segmented select", 
   ];
   const checkRows = [{ text: "Brakes", result: "", note: "" }];
 
-  test("a readOnly cell is disabled while its sibling cells stay editable", () => {
+  test("a readOnly cell is plain text while its sibling cells stay editable", () => {
     renderWithLocale(
       <EmbeddedListInput {...baseProps({ columns: checkColumns, rows: checkRows })} />,
     );
     const row = within(screen.getByTestId("lines-desktop")).getByTestId("lines-row-0");
-    expect((within(row).getByDisplayValue("Brakes") as HTMLInputElement).disabled).toBe(true);
+    expect(within(row).queryByDisplayValue("Brakes")).toBeNull();
+    expect(within(row).getByText("Brakes")).toBeTruthy();
     const note = row.querySelector('[data-cell-id="lines-0-note"]') as HTMLInputElement;
     expect(note.disabled).toBe(false);
   });
@@ -1090,11 +1091,70 @@ describe("EmbeddedListInput — read-only cells, fixed rows, segmented select", 
     expect(screen.queryByTestId("segmented-lines-0-result")).toBeNull();
   });
 
-  test("a readOnly radio cell disables its segments", () => {
+  test("a readOnly radio cell renders the option label as plain text", () => {
     const columns = checkColumns.map((c) => (c.field === "result" ? { ...c, readOnly: true } : c));
     renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: checkRows })} />);
-    expect((screen.getByTestId("segmented-lines-0-result-ok") as HTMLButtonElement).disabled).toBe(
-      true,
+    expect(screen.queryByTestId("segmented-lines-0-result-ok")).toBeNull();
+  });
+});
+
+describe("EmbeddedListInput — readOnly cells as plain text", () => {
+  const longText = "Schutzeinrichtungen auf Funktion pruefen und dokumentieren";
+  const columns: readonly EmbeddedListColumn[] = [
+    {
+      field: "label",
+      label: "Check",
+      type: "text",
+      required: false,
+      derived: false,
+      readOnly: true,
+    },
+    {
+      field: "kind",
+      label: "Kind",
+      type: "select",
+      required: false,
+      derived: false,
+      readOnly: true,
+      options: ["a", "b"],
+      optionLabels: { a: "Alpha", b: "Beta" },
+    },
+    { field: "due", label: "Due", type: "date", required: false, derived: false, readOnly: true },
+    { field: "note", label: "Note", type: "text", required: false, derived: false },
+  ];
+  const rows = [{ label: longText, kind: "b", due: "2026-04-25", note: "n1" }];
+
+  test("renders formatted text without input or disabled control; neighbor stays an input", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows })} />);
+    const row = within(within(screen.getByTestId("lines-desktop")).getByTestId("lines-row-0"));
+    const textCell = row.getByTestId("lines-cell-0-label");
+    expect(textCell.textContent).toBe(longText);
+    expect(textCell.querySelector("input, button")).toBeNull();
+    expect(row.getByTestId("lines-cell-0-kind").textContent).toBe("Beta");
+    expect(row.getByTestId("lines-cell-0-due").textContent).toContain("2026");
+    expect(row.getByTestId("lines-cell-0-due").textContent).not.toContain("2026-04-25");
+    expect((row.getByDisplayValue("n1") as HTMLInputElement).disabled).toBe(false);
+  });
+
+  test("an empty readOnly cell renders empty text", () => {
+    renderWithLocale(
+      <EmbeddedListInput {...baseProps({ columns, rows: [{ label: "", note: "x" }] })} />,
     );
+    const cell = screen.getByTestId("lines-cell-0-label");
+    expect(cell.textContent).toBe("");
+    expect(cell.querySelector("input")).toBeNull();
+  });
+
+  test("mobile card layout also renders plain text", () => {
+    const originalWidth = window.innerWidth;
+    window.innerWidth = 500;
+    try {
+      renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows })} />);
+      const mobile = within(screen.getByTestId("lines-mobile"));
+      expect(mobile.getByText(longText).tagName).toBe("DIV");
+      expect(mobile.queryByDisplayValue(longText)).toBeNull();
+    } finally {
+      window.innerWidth = originalWidth;
+    }
   });
 });

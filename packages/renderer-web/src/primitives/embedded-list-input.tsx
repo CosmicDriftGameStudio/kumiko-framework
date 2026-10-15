@@ -19,7 +19,7 @@
 // for the single-mount-per-side fix above. Upgrade: lift per-cell draft
 // state into a `draftsByCellId` map here that survives the layout swap.
 
-import type { FieldIssue } from "@cosmicdrift/kumiko-headless";
+import { applyFormatSpec, type FieldIssue } from "@cosmicdrift/kumiko-headless";
 import type {
   EmbeddedListCellType,
   EmbeddedListColumn,
@@ -199,6 +199,41 @@ function IssueMessages({
   );
 }
 
+function readOnlyCellText(
+  column: EmbeddedListColumn,
+  value: unknown,
+  currency: string,
+  locale: string,
+): string {
+  if (value === null || value === undefined || value === "") return "";
+  switch (column.type) {
+    case "boolean":
+      return value === true ? "✓" : "";
+    case "date":
+    case "timestamp":
+      return applyFormatSpec({ format: column.type, locale }, value);
+    case "number":
+    case "decimal":
+      return typeof value === "number"
+        ? applyFormatSpec({ format: column.type, locale }, value)
+        : String(value);
+    case "money":
+      return typeof value === "number" ? formatMoney(value, currency, locale) : String(value);
+    case "select":
+      return typeof value === "string" ? (column.optionLabels?.[value] ?? value) : String(value);
+    case "reference":
+      return typeof value === "string"
+        ? (column.referenceOptions?.find((o) => o.value === value)?.label ?? value)
+        : String(value);
+    case "text":
+      return String(value);
+    default: {
+      const exhaustiveCheck: never = column.type;
+      return exhaustiveCheck;
+    }
+  }
+}
+
 function renderCellControl({
   cellId,
   column,
@@ -207,6 +242,7 @@ function renderCellControl({
   disabled,
   onChange,
   currency,
+  locale,
 }: {
   readonly cellId: string;
   readonly label: string;
@@ -215,8 +251,23 @@ function renderCellControl({
   readonly disabled: boolean;
   readonly onChange: (value: unknown) => void;
   readonly currency: string;
+  readonly locale: string;
 }): ReactNode {
-  const isDisabled = disabled || column.derived || column.readOnly === true;
+  if (column.readOnly === true && !column.derived) {
+    return (
+      <div
+        data-cell-id={cellId}
+        data-readonly-cell=""
+        className={cn(
+          "min-w-0 whitespace-normal break-words py-1.5 text-sm",
+          columnAlignClass(column.type),
+        )}
+      >
+        {readOnlyCellText(column, value, currency, locale)}
+      </div>
+    );
+  }
+  const isDisabled = disabled || column.derived;
 
   switch (column.type) {
     case "text":
@@ -551,7 +602,9 @@ export function EmbeddedListInput({
   // (renderCellControl) and never receives focus/keydown, which would
   // silently kill Tab/Enter-appends-a-row whenever the table ends in a
   // derived column (e.g. a trailing "amount" total).
-  const lastEditableIndex = columns.findLastIndex((column) => !column.derived);
+  const lastEditableIndex = columns.findLastIndex(
+    (column) => !column.derived && column.readOnly !== true,
+  );
 
   // Fixed rows drop every row-mutation affordance but leave cells editable.
   const showControls = disabled !== true && fixedRows !== true;
@@ -722,6 +775,7 @@ export function EmbeddedListInput({
                                     onChange: (value) =>
                                       onCellChange(rowIndex, column.field, value),
                                     currency: effectiveCurrency,
+                                    locale: resolvedLocale,
                                   })}
                                   <IssueMessages
                                     issues={issues}
@@ -857,6 +911,7 @@ export function EmbeddedListInput({
                         disabled: disabled === true,
                         onChange: (value) => onCellChange(rowIndex, column.field, value),
                         currency: effectiveCurrency,
+                        locale: resolvedLocale,
                       })}
                       <IssueMessages
                         issues={issues}
