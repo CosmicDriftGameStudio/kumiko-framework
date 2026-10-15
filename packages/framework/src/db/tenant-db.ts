@@ -77,7 +77,7 @@ function boundRunner(
   projectionRegistry: Registry | undefined,
 ): DbRunner {
   if (!gate && !projectionRegistry) return runner;
-  const proxy = new Proxy(runner as object, {
+  const proxy = new Proxy(runner, {
     // Tagged-template calls need the real driver object as `this`.
     apply(target, _thisArg, args) {
       return Reflect.apply(target as (...callArgs: unknown[]) => unknown, target, args);
@@ -113,8 +113,7 @@ function boundRunner(
       }
       return value.bind(target);
     },
-    // @cast-boundary proxy-erasure — Proxy<object> re-tags as the wrapped DbRunner shape.
-  }) as DbRunner;
+  });
   if (gate) runnerPersonalDataGates.set(proxy, gate);
   if (projectionRegistry) bindProjectionRegistry(proxy, projectionRegistry);
   return proxy;
@@ -696,7 +695,7 @@ export function createTenantDb(
         report("global-write", globalWriteReason());
         return withDbSpan("delete", table, async () => bunDeleteMany(db, table, where));
       },
-      // @cast-boundary type-brand — GlobalWrites is only present in the type when TTable is not ExecutorOnly; the object above always carries the methods.
+      // @cast-boundary phantom-brand — GlobalWrites is only present in the type when TTable is not ExecutorOnly; the object above always carries the methods.
     } as GlobalTableDb<TTable>;
   }
 

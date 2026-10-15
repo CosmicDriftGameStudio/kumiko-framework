@@ -20,7 +20,7 @@
  */
 
 import * as path from "node:path";
-import { type CallExpression, type Identifier, type SourceFile, SyntaxKind } from "ts-morph";
+import { type CallExpression, type SourceFile, SyntaxKind } from "ts-morph";
 import { findRepoRootFor } from "./_lib/baseline-compare";
 import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
@@ -84,8 +84,8 @@ function isAllowed(relativePath: string): boolean {
 // references to the known function names.
 function getCalleeName(call: CallExpression): string | null {
   const expr = call.getExpression();
-  if (expr.getKind() === SyntaxKind.Identifier) {
-    return (expr as Identifier).getText();
+  if (expr.isKind(SyntaxKind.Identifier)) {
+    return expr.getText();
   }
   if (expr.getKind() === SyntaxKind.PropertyAccessExpression) {
     const name = expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName();

@@ -44,6 +44,7 @@
 //   - "skipped" → Event ist kein Auto-Verb (Domain-Event auf demselben
 //     Aggregate). Caller no-op.
 
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { collectLookupableFields, computeBlindIndexValues } from "../crypto/blind-index.js";
 import { deleteMany, insertOne, updateMany } from "../db/query.js";
 import type { EntityDefinition } from "../engine/types/index.js";
@@ -69,8 +70,7 @@ export function parseAutoVerb(event: StoredEvent): AutoVerb | null {
   const prefix = `${event.aggregateType}.`;
   if (!event.type.startsWith(prefix)) return null;
   const verb = event.type.slice(prefix.length);
-  // @cast-boundary: verb is validated against the AutoVerb list before the cast.
-  return (AUTO_VERBS as readonly string[]).includes(verb) ? (verb as AutoVerb) : null;
+  return isOneOf(AUTO_VERBS, verb) ? verb : null;
 }
 
 /** Idempotente Anwendung eines Auto-Events auf die Entity-Tabelle.

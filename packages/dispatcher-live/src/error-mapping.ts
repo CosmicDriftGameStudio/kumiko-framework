@@ -1,4 +1,5 @@
 import type { DispatcherError, FieldIssue } from "@cosmicdrift/kumiko-headless";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 // The server returns failure envelopes whose shape is nearly — but not
 // exactly — DispatcherError. Kumiko's error-contract (see
@@ -42,26 +43,24 @@ export function mapServerError(serverError: ServerErrorInfo): DispatcherError {
 }
 
 function normalizeDetails(details: unknown): DispatcherError["details"] {
-  if (!details || typeof details !== "object") return undefined;
-  const d = details as Record<string, unknown>; // @cast-boundary error-details — generic über alle DispatcherError-shapes
-  const fields = d["fields"];
+  if (!isPlainObject(details)) return undefined;
+  const { fields, ...otherDetails } = details;
   if (!Array.isArray(fields)) {
     // Details without fields still pass through — non-validation errors
     // (rate-limit, version-conflict, ...) carry their own structured
     // payload here.
-    return d as DispatcherError["details"];
+    return otherDetails;
   }
   const mappedFields: FieldIssue[] = [];
-  for (const f of fields) {
-    if (!f || typeof f !== "object") {
+  for (const r of fields) {
+    if (!isPlainObject(r)) {
       // Server sent a non-object entry in details.fields — contract
       // breach (ValidationFieldIssue shape is required). Warn so the
       // skip doesn't hide a broken server build.
       // biome-ignore lint/suspicious/noConsole: ops-visible warning when the server breaks the validation-error contract
-      console.warn("[dispatcher-live] dropping malformed field issue (not an object):", f);
+      console.warn("[dispatcher-live] dropping malformed field issue (not an object):", r);
       continue;
     }
-    const r = f as Record<string, unknown>; // @cast-boundary error-details
     if (
       typeof r["path"] !== "string" ||
       typeof r["code"] !== "string" ||
@@ -76,12 +75,10 @@ function normalizeDetails(details: unknown): DispatcherError["details"] {
       path: r["path"],
       code: r["code"],
       i18nKey: r["i18nKey"],
-      ...(r["params"] !== undefined && {
-        params: r["params"] as Readonly<Record<string, unknown>>,
-      }),
+      ...(isPlainObject(r["params"]) && { params: r["params"] }),
     });
   }
-  return { ...d, fields: mappedFields };
+  return { ...otherDetails, fields: mappedFields };
 }
 
 // Builds a DispatcherError for a failure that never reached the server —

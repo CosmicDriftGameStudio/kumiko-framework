@@ -13,6 +13,7 @@ import {
   usePrimitives,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { requestEmailVerification } from "../../auth-email-password/web/index.js";
@@ -27,7 +28,7 @@ type SectionStatus =
 // Dispatcher failures carry an i18nKey only when the handler sets one —
 // boundary read with a generic fallback.
 function failureKey(error: unknown): string {
-  const key = (error as { i18nKey?: unknown } | null)?.i18nKey; // @cast-boundary dispatcher-error
+  const key = propertyOf(error, "i18nKey");
   return typeof key === "string" ? key : "profile.errors.generic";
 }
 

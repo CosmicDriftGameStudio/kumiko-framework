@@ -4,6 +4,7 @@
 
 import { RendererError } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { egress } from "@cosmicdrift/kumiko-framework/http";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ClientConfig } from "./config.js";
 
 export type FetchResult = {
@@ -119,8 +120,10 @@ async function tryFetch(
 
 async function safeReadErrorJson(response: Response): Promise<string> {
   try {
-    const json = (await response.json()) as { error?: string; details?: string };
-    return [json.error, json.details].filter(Boolean).join(" — ");
+    const json: unknown = await response.json();
+    return [propertyOf(json, "error"), propertyOf(json, "details")]
+      .filter((field): field is string => typeof field === "string" && field !== "")
+      .join(" — ");
   } catch {
     return `<no parseable body>`;
   }

@@ -3,6 +3,7 @@
 // (EnvelopeCipher for config values / entity fields). One wire shape for
 // every envelope-encrypted store in the framework.
 
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Envelope } from "./types.js";
 
 export type StoredEnvelope = {
@@ -34,13 +35,12 @@ export function decodeStoredEnvelope(stored: StoredEnvelope): Envelope {
 }
 
 export function isStoredEnvelope(value: unknown): value is StoredEnvelope {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>; // @cast-boundary parse-boundary after typeof check
+  if (!isPlainObject(value)) return false;
   return (
-    typeof v["ciphertext"] === "string" &&
-    typeof v["iv"] === "string" &&
-    typeof v["authTag"] === "string" &&
-    typeof v["encryptedDek"] === "string" &&
-    typeof v["kekVersion"] === "number"
+    typeof value["ciphertext"] === "string" &&
+    typeof value["iv"] === "string" &&
+    typeof value["authTag"] === "string" &&
+    typeof value["encryptedDek"] === "string" &&
+    typeof value["kekVersion"] === "number"
   );
 }

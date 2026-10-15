@@ -47,6 +47,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/redis";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Redis } from "ioredis";
 import { composeFeatures } from "../compose-features.js";
 import { assertPiiBootInvariants } from "../pii-boot-gate.js";
@@ -94,7 +95,7 @@ export type WorkerBootResult =
 function isSecretsContext(value: unknown): value is SecretsContext {
   if (typeof value !== "object" || value === null) return false;
   return ["get", "has", "set", "delete"].every(
-    (method) => typeof (value as Record<string, unknown>)[method] === "function", // @cast-boundary extraContext is untyped by design
+    (method) => typeof propertyOf(value, method) === "function",
   );
 }
 

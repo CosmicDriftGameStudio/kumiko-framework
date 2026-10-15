@@ -18,6 +18,7 @@ import {
   CSRF_COOKIE_BASE,
   sessionCookieNameCandidates,
 } from "@cosmicdrift/kumiko-types/session-cookies";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 // Kept here as a literal rather than imported from @cosmicdrift/kumiko-framework because this
 // package must remain server-dep-free (runs in browsers and React Native).
@@ -58,6 +59,6 @@ function readDocumentCookie(): string | undefined {
   // Guard for non-browser environments. Avoid `typeof document` on the
   // left so a bundler that const-folds to "document is defined" still
   // compiles — the actual runtime check is what matters.
-  const g = globalThis as { document?: { cookie?: string } };
-  return g.document?.cookie;
+  const cookie = propertyOf(propertyOf(globalThis, "document"), "cookie");
+  return typeof cookie === "string" ? cookie : undefined;
 }

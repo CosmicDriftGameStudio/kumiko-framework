@@ -17,6 +17,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 import { asRawClient } from "../bun-db/query.js";
 import type { DbConnection, DbRunner } from "./connection.js";
@@ -198,11 +199,6 @@ export function readMigrationSqlTexts(dir: string): readonly string[] {
     .filter((f) => f.endsWith(".sql"))
     .sort()
     .map((file) => readFileSync(join(dir, file), "utf8"));
-}
-
-function propertyOf(value: unknown, key: string): unknown {
-  const readable = (typeof value === "object" && value !== null) || typeof value === "function";
-  return readable ? Reflect.get(value, key) : undefined;
 }
 
 // Stricter than asRawClient on purpose: a direct handle must also offer

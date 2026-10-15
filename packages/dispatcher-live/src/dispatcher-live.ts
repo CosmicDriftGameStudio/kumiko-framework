@@ -13,7 +13,15 @@ import {
   type WriteOpts,
   type WriteResult,
 } from "@cosmicdrift/kumiko-headless";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf.js";
+import {
+  batchEnvelopeSchema,
+  errorOnlyEnvelopeSchema,
+  queryEnvelopeSchema,
+  type ServerErrorLike,
+  writeEnvelopeSchema,
+} from "./envelopes.js";
 import { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping.js";
 import { LOCALE_HEADER_NAME, readActiveLocale } from "./locale.js";
 import { iterateSseChunks } from "./sse-stream.js";
@@ -241,9 +249,9 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
             }`,
           );
         }
-        const body = parsed as { error?: ServerErrorLike };
-        if (body?.error) {
-          throw mapServerErrorWithStatus(body.error, response.status);
+        const gateFailure = errorOnlyEnvelopeSchema.safeParse(parsed);
+        if (gateFailure.success) {
+          throw mapServerErrorWithStatus(gateFailure.data.error, response.status);
         }
         throw buildNetworkError(`unexpected non-SSE stream response (${response.status})`);
       }
@@ -282,8 +290,12 @@ const EMPTY_PENDING_FILES: readonly PendingFile[] = Object.freeze([]);
 // Uniqueness only needs to hold per user within the server's dedup window —
 // this is an idempotency key, not a security token.
 function generateRequestId(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (typeof c?.randomUUID === "function") return c.randomUUID();
+  const webCrypto = propertyOf(globalThis, "crypto");
+  const randomUUID = propertyOf(webCrypto, "randomUUID");
+  if (typeof randomUUID === "function") {
+    const id: unknown = Reflect.apply(randomUUID, webCrypto, []);
+    if (typeof id === "string") return id;
+  }
   return `req-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
 }
 
@@ -291,15 +303,30 @@ type CallOutcome =
   | { readonly ok: true; readonly body: unknown; readonly status: number }
   | { readonly ok: false; readonly networkFailure: DispatcherError };
 
+function buildUnexpectedShapeError(status: number): DispatcherError {
+  return buildNetworkError(`unexpected response shape (${status})`);
+}
+
+// Middleware gates (csrf, origin, auth, rate limits) answer write and batch
+// calls with a bare `{ error }`, without the isSuccess envelope.
+function gateOrShapeError(body: unknown, status: number): DispatcherError {
+  const gateFailure = errorOnlyEnvelopeSchema.safeParse(body);
+  return gateFailure.success
+    ? mapServerErrorWithStatus(gateFailure.data.error, status)
+    : buildUnexpectedShapeError(status);
+}
+
 // Write / Batch share the same envelope: `{ isSuccess: true, data }` on
 // success, `{ isSuccess: false, error: ServerErrorInfo, ... }` on failure.
 // Query uses a different envelope (see normalizeQueryResponse).
 function normalizeWriteResult<TData>(call: CallOutcome): WriteResult<TData> {
   if (!call.ok) return { isSuccess: false, error: call.networkFailure };
-  const body = call.body as
-    | { isSuccess: true; data: TData }
-    | { isSuccess: false; error: Parameters<typeof mapServerError>[0] };
-  if (body.isSuccess) return body;
+  const envelope = writeEnvelopeSchema.safeParse(call.body);
+  if (!envelope.success) {
+    return { isSuccess: false, error: gateOrShapeError(call.body, call.status) };
+  }
+  const body = envelope.data;
+  if (body.isSuccess) return { isSuccess: true, data: body.data as TData };
   return { isSuccess: false, error: mapServerErrorWithStatus(body.error, call.status) };
 }
 
@@ -307,20 +334,26 @@ function normalizeBatchResponse(call: CallOutcome): BatchResult {
   if (!call.ok) {
     return { isSuccess: false, error: call.networkFailure, failedIndex: -1, results: [] };
   }
-  const body = call.body as
-    | BatchResult
-    | {
-        isSuccess: false;
-        error: Parameters<typeof mapServerError>[0];
-        failedIndex: number;
-        results: readonly WriteResult[];
-      };
-  if (body.isSuccess) return body;
+  const envelope = batchEnvelopeSchema.safeParse(call.body);
+  if (!envelope.success) {
+    return {
+      isSuccess: false,
+      error: gateOrShapeError(call.body, call.status),
+      failedIndex: -1,
+      results: [],
+    };
+  }
+  const body = envelope.data;
+  const results = body.results.map((item): WriteResult => {
+    if (item.isSuccess) return { isSuccess: true, data: item.data };
+    return { isSuccess: false, error: mapServerErrorWithStatus(item.error, call.status) };
+  });
+  if (body.isSuccess) return { isSuccess: true, results };
   return {
     isSuccess: false,
     error: mapServerErrorWithStatus(body.error, call.status),
     failedIndex: body.failedIndex,
-    results: body.results,
+    results,
   };
 }
 
@@ -330,11 +363,15 @@ function normalizeBatchResponse(call: CallOutcome): BatchResult {
 // (the query route handler that emits `c.json({ data: result })`).
 function normalizeQueryResponse<TData>(call: CallOutcome): QueryResult<TData> {
   if (!call.ok) return { isSuccess: false, error: call.networkFailure };
-  const body = call.body as { data?: unknown; error?: ServerErrorLike };
-  if (body && "error" in body && body.error) {
+  const envelope = queryEnvelopeSchema.safeParse(call.body);
+  if (!envelope.success) {
+    return { isSuccess: false, error: buildUnexpectedShapeError(call.status) };
+  }
+  const body = envelope.data;
+  if (body.error) {
     return { isSuccess: false, error: mapServerErrorWithStatus(body.error, call.status) };
   }
-  return { isSuccess: true, data: body?.data as TData };
+  return { isSuccess: true, data: body.data as TData };
 }
 
 // The HTTP status carries the failure-status; the error body itself
@@ -345,23 +382,6 @@ function mapServerErrorWithStatus(error: ServerErrorLike, responseStatus: number
   return mapServerError({ ...error, httpStatus: error.httpStatus ?? responseStatus });
 }
 
-// Minimal shape check — server's serialized error has code + i18nKey +
-// message at minimum; we fill httpStatus from the Response if missing.
-type ServerErrorLike = {
-  readonly code: string;
-  readonly httpStatus?: number;
-  readonly i18nKey: string;
-  readonly message: string;
-  readonly details?: unknown;
-  readonly i18nParams?: Readonly<Record<string, unknown>>;
-  readonly requestId?: string;
-};
-
 function isAbortError(e: unknown): boolean {
-  return (
-    !!e &&
-    typeof e === "object" &&
-    "name" in (e as Record<string, unknown>) && // @cast-boundary error-details
-    (e as { name?: unknown }).name === "AbortError"
-  );
+  return !!e && typeof e === "object" && "name" in e && e.name === "AbortError";
 }

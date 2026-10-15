@@ -210,7 +210,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
       // in-flight .next(), so awaiting here would block the response until
       // that pending pull resolves (which may be never for an idle stream).
       void generator.return(undefined).catch(() => {});
-      return c.body(null, CLIENT_CLOSED_REQUEST_STATUS as ContentfulStatusCode); // @cast-boundary non-standard client-closed-request status, Hono's union doesn't include it
+      return c.body(null, CLIENT_CLOSED_REQUEST_STATUS as ContentfulStatusCode); // @cast-boundary third-party-type-gap — non-standard client-closed-request status, Hono's union doesn't include it
     }
 
     return streamSSE(c, async (stream) => {
@@ -464,7 +464,7 @@ function clientAbortResponse(c: Context, requestId: string | undefined, type?: u
   logClientWarn("request aborted by client", requestId, type, {
     status: CLIENT_CLOSED_REQUEST_STATUS,
   });
-  return c.body(null, CLIENT_CLOSED_REQUEST_STATUS as ContentfulStatusCode); // @cast-boundary non-standard client-closed-request status, Hono's union doesn't include it
+  return c.body(null, CLIENT_CLOSED_REQUEST_STATUS as ContentfulStatusCode); // @cast-boundary third-party-type-gap — non-standard client-closed-request status, Hono's union doesn't include it
 }
 
 // For /query + /command: no isSuccess on success (just { data } / {ok}), so we

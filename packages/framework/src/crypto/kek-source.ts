@@ -4,6 +4,8 @@
 // made at all. Any `*_CIPHERTEXT` in the env that names no requested slot is
 // ignored — a foreign ciphertext must never fail boot.
 
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+
 const SCALEWAY_KEY_MANAGER_API_VERSION = "v1alpha1";
 const DEFAULT_REGION = "fr-par";
 const DECRYPT_TIMEOUT_MS = 5_000;
@@ -38,12 +40,6 @@ function isRetryableStatus(status: number): boolean {
 
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function plaintextFieldOf(body: unknown): unknown {
-  return typeof body === "object" && body !== null && "plaintext" in body
-    ? body.plaintext
-    : undefined;
 }
 
 // Scaleway's decrypt SLA is 99.5% — a bootpath that gives up on the first
@@ -101,7 +97,7 @@ async function decryptCiphertext(
         `${prefix}Key Manager decrypt for key ${keyId} returned an unparseable response`,
       );
     }
-    const plaintext = plaintextFieldOf(body);
+    const plaintext = propertyOf(body, "plaintext");
     if (typeof plaintext !== "string") {
       throw new Error(`${prefix}Key Manager decrypt for key ${keyId} returned no plaintext field`);
     }

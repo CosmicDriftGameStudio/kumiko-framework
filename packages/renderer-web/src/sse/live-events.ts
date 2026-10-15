@@ -3,6 +3,7 @@ import {
   type LiveEvent,
   type LiveEventSubscriber,
 } from "@cosmicdrift/kumiko-renderer";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 // EventSource-backed Live-Events für den Web-Renderer. Der shared
 // Layer konsumiert nur das `LiveEventSubscriber`-Interface; diese Datei
@@ -116,7 +117,8 @@ export function createEventSourceLiveEvents(
     // skip: already wired for this entity
     if (wiredEntities.has(entityName)) return;
     source.addEventListener(entityName, (e) => {
-      handleEvent((e as MessageEvent).data);
+      const data = propertyOf(e, "data");
+      if (typeof data === "string") handleEvent(data);
     });
     wiredEntities.add(entityName);
   };

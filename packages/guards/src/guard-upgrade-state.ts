@@ -60,44 +60,42 @@ export function resolveInstalledVersion(json: UpgradeJson): string {
   return json.installedVersion ?? json.currentVersion;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export function isPendingEntry(value: unknown): value is PendingEntry {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
   return (
-    typeof v["version"] === "string" &&
-    typeof v["type"] === "string" &&
-    typeof v["title"] === "string"
+    typeof value["version"] === "string" &&
+    typeof value["type"] === "string" &&
+    typeof value["title"] === "string"
   );
 }
 
 export function isUpgradeJson(value: unknown): value is UpgradeJson {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
-  const installed = v["installedVersion"];
+  if (!isRecord(value)) return false;
+  const installed = value["installedVersion"];
   return (
-    typeof v["currentVersion"] === "string" &&
+    typeof value["currentVersion"] === "string" &&
     (installed === undefined || installed === null || typeof installed === "string") &&
-    Array.isArray(v["pending"]) &&
-    v["pending"].every(isPendingEntry)
+    Array.isArray(value["pending"]) &&
+    value["pending"].every(isPendingEntry)
   );
 }
 
 export function isPendingManualStep(value: unknown): value is PendingManualStep {
-  if (!value || typeof value !== "object") return false;
-  const v = value as Record<string, unknown>;
+  if (!isRecord(value)) return false;
   return (
-    typeof v["id"] === "string" &&
-    v["id"].length > 0 &&
-    typeof v["version"] === "string" &&
-    typeof v["title"] === "string"
+    typeof value["id"] === "string" &&
+    value["id"].length > 0 &&
+    typeof value["version"] === "string" &&
+    typeof value["title"] === "string"
   );
 }
 
 function readPendingManual(parsed: unknown): readonly PendingManualStep[] {
-  const raw =
-    parsed && typeof parsed === "object"
-      ? (parsed as Record<string, unknown>)["pendingManual"]
-      : undefined;
+  const raw = isRecord(parsed) ? parsed["pendingManual"] : undefined;
   return Array.isArray(raw) ? raw.filter(isPendingManualStep) : [];
 }
 
@@ -114,10 +112,7 @@ export function readMarker(root: string): UpgradeMarker | { error: string } {
   } catch {
     return { error: `${MARKER_REL} is not valid JSON — broken marker file` };
   }
-  const version =
-    parsed && typeof parsed === "object"
-      ? (parsed as Record<string, unknown>)["version"]
-      : undefined;
+  const version = isRecord(parsed) ? parsed["version"] : undefined;
   if (typeof version !== "string" || !SEMVER_RE.test(version)) {
     return {
       error: `${MARKER_REL} is missing a valid "version" field (expected semver x.y.z[-pre][+build]) — broken marker file`,

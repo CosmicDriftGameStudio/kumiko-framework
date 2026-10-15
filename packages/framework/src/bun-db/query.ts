@@ -29,7 +29,7 @@ import type {
 // Static import (not getTemporal()): coercion works without an installed
 // global and returns the same Temporal classes as the rest of the repo (#1480).
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { isOneOf, isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
   JsonTextMatch,
   SelectOptions,
@@ -85,16 +85,6 @@ type RawClient = {
   savepoint?: <T>(fn: (sp: unknown) => Promise<T>) => Promise<T>;
   release?: unknown;
 };
-
-function isObjectOrFunction(value: unknown): value is object {
-  return (typeof value === "object" && value !== null) || typeof value === "function";
-}
-
-// Reflect.get keeps the property-read semantics of `value[key]` (a throwing
-// guard Proxy still throws) without indexing an untyped handle.
-function propertyOf(value: unknown, key: string): unknown {
-  return isObjectOrFunction(value) ? Reflect.get(value, key) : undefined;
-}
 
 function isRawClient(value: unknown): value is RawClient {
   return typeof propertyOf(value, "unsafe") === "function";
@@ -158,7 +148,7 @@ export async function runInSavepointIfSupported<T>(
   fn: (sp: DbRunner) => Promise<T>,
 ): Promise<T> {
   const raw = asRawClient(db);
-  // @cast-boundary driver savepoint handle → DbRunner at the single seam
+  // @cast-boundary db-runner savepoint handle → DbRunner at the single seam
   const asRunner = (sp: unknown): DbRunner => sp as DbRunner;
   if (typeof raw.savepoint !== "function") return fn(asRunner(db));
   try {
@@ -959,8 +949,7 @@ async function unsafeLoggingClosedConnection<TRow = unknown>(
 const DEFAULT_POOL_MAX = 10;
 
 function poolMaxOf(raw: unknown): number {
-  // @cast-boundary driver pool options — both postgres-js and Bun.SQL expose options.max
-  const max = (raw as { options?: { max?: unknown } }).options?.max;
+  const max = propertyOf(propertyOf(raw, "options"), "max");
   return typeof max === "number" && Number.isInteger(max) && max > 0 ? max : DEFAULT_POOL_MAX;
 }
 

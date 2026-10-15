@@ -52,6 +52,7 @@ import {
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.js";
 import { MAIL_ACCOUNT_PII_FIELDS, syncCursorTable } from "./entities.js";
 import {
@@ -258,7 +259,8 @@ export function createInboundMailSupervisor(
     });
     if (!row) return null;
     try {
-      return JSON.parse(row.cursor) as SyncCursorPayload; // @cast-boundary eigene JSON-Persistenz
+      const parsed: unknown = JSON.parse(row.cursor);
+      return isPlainObject(parsed) ? parsed : null;
     } catch {
       return null; // korrupter Cursor = wie kein Cursor → Backfill, Dedup fängt Dubletten
     }

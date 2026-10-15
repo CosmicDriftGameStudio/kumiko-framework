@@ -426,7 +426,7 @@ export async function backfillEventPiiEncryptionBatch(
       erasedUnresolvable: 0,
     };
     const payload = structuredClone(row.payload);
-    const tenantId = row.tenant_id as TenantId; // @cast-boundary db-read — tenant_id column is the branded TenantId
+    const tenantId: TenantId = row.tenant_id;
 
     const catalogFields = eventCatalog.get(row.type);
     if (catalogFields) {

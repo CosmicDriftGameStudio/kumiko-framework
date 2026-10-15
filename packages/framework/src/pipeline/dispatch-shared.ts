@@ -641,7 +641,7 @@ export async function buildHandlerContext(
           payload,
           asUser,
           origin,
-          savepointTx as DbTx, // @cast-boundary driver savepoint handle is a transaction handle
+          savepointTx as DbTx, // @cast-boundary db-runner savepoint handle is a transaction handle
           innerAfterCommitHooks,
         );
         if (isFailedWriteResult(innerResult)) throw new NestedWriteRollback(innerResult);

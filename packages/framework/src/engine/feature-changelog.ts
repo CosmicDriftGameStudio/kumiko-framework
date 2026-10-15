@@ -1,4 +1,3 @@
-import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // Per-feature changelog — each bundled feature has a `changes.json` that
 // tracks breaking changes, improvements, and fixes per version. The CLI
 // (`kumiko upgrade`) reads these to show apps what they need to migrate.
@@ -6,6 +5,8 @@ import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 //
 // File I/O stays in the CLI (`bin/commands/upgrade.ts`) — this module is
 // pure parse/validate so engine stays off the node:fs allowlist.
+
+import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 export const CHANGELOG_TYPES = ["breaking", "improvement", "fix"] as const;
 export type ChangelogType = (typeof CHANGELOG_TYPES)[number];

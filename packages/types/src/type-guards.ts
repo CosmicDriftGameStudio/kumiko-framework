@@ -16,3 +16,11 @@ export function errorCodeOf(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
   return typeof error.code === "string" ? error.code : undefined;
 }
+
+/** Reads one property off an unknown value (object or function); undefined for primitives, null and absent keys. */
+export function propertyOf(value: unknown, key: PropertyKey): unknown {
+  if ((typeof value !== "object" && typeof value !== "function") || value === null) {
+    return undefined;
+  }
+  return Reflect.get(value, key);
+}

@@ -2,7 +2,8 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { FormValues, SubmitResult } from "@cosmicdrift/kumiko-headless";
+import type { SubmitResult } from "@cosmicdrift/kumiko-headless";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useMemo } from "react";
 import {
   buildInitialValues,
@@ -33,7 +34,7 @@ function entityWriteCommand(featureName: string, entity: string): string {
 export function extractIdField(data: unknown, field: string): string | undefined {
   if (typeof data !== "object" || data === null) return undefined;
   if (!Object.hasOwn(data, field)) return undefined;
-  const value = (data as Record<string, unknown>)[field];
+  const value = propertyOf(data, field);
   return typeof value === "string" ? value : undefined;
 }
 
@@ -77,12 +78,7 @@ export function ReferenceCreateDialog({
     entityDefaultCurrency,
   );
   const initial = useMemo(
-    () =>
-      buildInitialValues(
-        entity.fields,
-        entityDefaultCurrency,
-        moneyCurrencyOverrides,
-      ) as FormValues,
+    () => buildInitialValues(entity.fields, entityDefaultCurrency, moneyCurrencyOverrides),
     [entity.fields, entityDefaultCurrency, moneyCurrencyOverrides],
   );
   const writeCommand = entityWriteCommand(featureName, screen.entity);

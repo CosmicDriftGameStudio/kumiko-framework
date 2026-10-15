@@ -11,6 +11,7 @@ import {
   type EditFieldViewModel,
   type FieldIssue,
 } from "@cosmicdrift/kumiko-headless";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.js";
 import { useColumnRenderer } from "../app/column-renderers.js";
@@ -397,7 +398,7 @@ function ReferenceInput({
       }
       setCreatedWithoutIdWarning(false);
       if (isMultiple) {
-        const current = Array.isArray(field.value) ? (field.value as readonly string[]) : [];
+        const current = stringArrayOf(field.value);
         onChange([...current, newId]);
       } else {
         onChange(newId);
@@ -449,9 +450,7 @@ function ReferenceInput({
     </>
   );
   if (isMultiple) {
-    const arrayValue: readonly string[] = Array.isArray(field.value)
-      ? (field.value as readonly string[])
-      : [];
+    const arrayValue: readonly string[] = stringArrayOf(field.value);
     return (
       <>
         <Input
@@ -526,7 +525,7 @@ function FieldRendererOutput({
         {applyFormatSpec(
           {
             ...renderer,
-            locale: (renderer as { locale?: string }).locale ?? appLocale,
+            locale: stringPropertyOf(renderer, "locale") ?? appLocale,
           },
           field.value,
           t,
@@ -570,9 +569,7 @@ function ReadOnlyReferenceValue({
     limit: REFERENCE_COMBOBOX_LIMIT,
   });
   const ids: readonly string[] = isMultiple
-    ? Array.isArray(field.value)
-      ? (field.value as readonly string[])
-      : []
+    ? stringArrayOf(field.value)
     : typeof field.value === "string" && field.value !== ""
       ? [field.value]
       : [];
@@ -728,7 +725,7 @@ function renderInput({
         />
       );
     case "multiSelect": {
-      const arrayValue = Array.isArray(field.value) ? (field.value as readonly string[]) : [];
+      const arrayValue = stringArrayOf(field.value);
       const renderMultiSelect = (options: readonly SelectOptionEntry[]): ReactNode =>
         field.display === "checkboxes" ? (
           <MultiSelectCheckboxes
@@ -991,11 +988,20 @@ function resolveNumberUnit(
   return trimmed.length > 0 && trimmed.length <= MAX_SIBLING_UNIT_LENGTH ? trimmed : undefined;
 }
 
+function stringArrayOf(value: unknown): readonly string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : [];
+}
+
+function stringPropertyOf(value: unknown, key: string): string | undefined {
+  const property = propertyOf(value, key);
+  return typeof property === "string" ? property : undefined;
+}
+
 function moneyMinorValue(v: unknown, currency: string): number | "" {
   if (v === undefined || v === null || v === "") return "";
   if (typeof v === "number") return Math.round(v * 10 ** currencyDecimals(currency));
   if (typeof v === "object") {
-    const amount = (v as { amount?: unknown }).amount;
+    const amount = propertyOf(v, "amount");
     if (typeof amount === "number") return Math.round(amount * 10 ** currencyDecimals(currency));
   }
   return "";
@@ -1013,11 +1019,11 @@ function moneyPayload(minorUnits: number | undefined, currency: string): unknown
 // (noch nicht gesetzt) → "" als Empty-Sentinel, analog money/timestamp.
 function locatedValue(v: unknown): { at: string; tz: string; utc?: string } | "" {
   if (v !== null && typeof v === "object" && "at" in v && "tz" in v) {
-    const o = v as { at?: unknown; tz?: unknown; utc?: unknown };
+    const utc = propertyOf(v, "utc");
     return {
-      at: typeof o.at === "string" ? o.at : "",
-      tz: typeof o.tz === "string" ? o.tz : "",
-      ...(typeof o.utc === "string" && { utc: o.utc }),
+      at: typeof v.at === "string" ? v.at : "",
+      tz: typeof v.tz === "string" ? v.tz : "",
+      ...(typeof utc === "string" && { utc }),
     };
   }
   return "";

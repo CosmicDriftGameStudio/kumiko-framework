@@ -1,4 +1,3 @@
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // Sprint-8a Tier-Composition: framework-extension-point für per-tenant
 // effective-feature resolution.
 //
@@ -22,6 +21,7 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // macht nichts — `effectiveFeatures` bleibt undefined, alle features sind on.
 
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { DbConnection } from "../db/connection.js";
 import type { RegistrarExtensionRegistration } from "./types/config.js";
 import type { FeatureDefinition, Registry } from "./types/feature.js";

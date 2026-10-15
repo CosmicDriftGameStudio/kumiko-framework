@@ -1,10 +1,10 @@
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // fw#2914 — reads the { escapeHatch: { reason } } convention off a
 // `r.useExtension(...)` registration's untyped options bag. Registration-time
 // validation (feature-ui-extensions.ts's useExtension) already rejects an
 // empty reason, but options stays `Record<string, unknown>`, so orchestrators
 // re-narrow at read time instead of trusting the shape.
 
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { RegistrarExtensionRegistration } from "../types/config.js";
 
 export function extensionUsageEscapeHatchReason(

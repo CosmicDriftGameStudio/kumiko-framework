@@ -133,16 +133,17 @@ function isNonEmptyString(value: unknown): value is string {
 // Fail-closed stance gate (kumiko-framework#2921) for the two text-shaped
 // factories — runs before expandPersonalAnnotations so an untyped JS caller
 // (no compiler to stop it) can't slip an unannotated text field past the
-// type layer either. `overrides` is `unknown` here on purpose: the typed
-// signature above already rejects a missing/malformed shape at compile
-// time, this re-checks the same shape at the runtime boundary.
-function assertTextFieldStance(factoryName: TextFieldStanceFactory, overrides: unknown): void {
+// type layer either. The typed signature above already rejects a
+// missing/malformed shape at compile time; this re-checks the same shape at
+// runtime, hence the nullable parameter.
+function assertTextFieldStance(
+  factoryName: TextFieldStanceFactory,
+  overrides: PersonalOverridesInput | null | undefined,
+): void {
   if (overrides === null || typeof overrides !== "object") {
     throw missingTextFieldStanceError(factoryName);
   }
-  // @cast-boundary runtime-guard — re-validated field by field below before
-  // any value is trusted.
-  const { personal, find, reason } = overrides as PersonalOverridesInput;
+  const { personal, find, reason } = overrides;
   if (personal === undefined || personal === null) {
     throw missingTextFieldStanceError(factoryName);
   }

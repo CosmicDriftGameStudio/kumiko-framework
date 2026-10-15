@@ -158,7 +158,8 @@ function OverflowPopover({
           align="center"
           sideOffset={8}
           onClick={(event) => {
-            if ((event.target as HTMLElement).closest("button") !== null) setOpen(false);
+            if (event.target instanceof Element && event.target.closest("button") !== null)
+              setOpen(false);
           }}
           className={cn(
             "z-50 flex w-[calc(100vw-2rem)] flex-col gap-1 rounded-md border border-border bg-card p-1 shadow-md",

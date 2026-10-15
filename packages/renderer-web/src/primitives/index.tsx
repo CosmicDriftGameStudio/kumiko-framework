@@ -69,6 +69,7 @@ import {
   WriteFailedError,
 } from "@cosmicdrift/kumiko-renderer";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { cva } from "class-variance-authority";
 import {
   ArrowDown,
@@ -177,6 +178,14 @@ import { useToast } from "./toast.js";
 import { TzInput } from "./tz-input.js";
 import { useKeyboardInset } from "./use-keyboard-inset.js";
 import { useIsBelowSmViewport, useIsNarrowViewport } from "./use-narrow-viewport.js";
+
+// React passes CSS custom properties through `style` unchanged, but csstype only
+// lists standard properties, so `--name` keys need this augmentation.
+declare module "react" {
+  interface CSSProperties {
+    [customProperty: `--${string}`]: string | number | undefined;
+  }
+}
 
 // ---- Card-Chrome (eine Definition für Form/Section/Card) ----
 
@@ -3077,9 +3086,9 @@ function nextSortState(current: DataTableSortDir | undefined, field: string): Da
 // das brechen — der String-Key ist die SSoT.
 export function isComponentRendererRef(renderer: unknown): { readonly name: string } | undefined {
   if (renderer === null || typeof renderer !== "object") return undefined;
-  const reactBranch = (renderer as { react?: unknown }).react;
+  const reactBranch = propertyOf(renderer, "react");
   if (reactBranch === null || typeof reactBranch !== "object") return undefined;
-  const component = (reactBranch as { __component?: unknown }).__component;
+  const component = propertyOf(reactBranch, "__component");
   if (typeof component !== "string" || component.length === 0) return undefined;
   return { name: component };
 }
@@ -3095,12 +3104,13 @@ type MoneyCellValue = {
 };
 
 function isMoneyValue(value: unknown): value is MoneyCellValue {
+  const currency = propertyOf(value, "currency");
   return (
     typeof value === "object" &&
     value !== null &&
-    typeof (value as Record<string, unknown>)["amount"] === "number" &&
-    typeof (value as Record<string, unknown>)["currency"] === "string" &&
-    /^[A-Za-z]{3}$/.test((value as Record<string, unknown>)["currency"] as string)
+    typeof propertyOf(value, "amount") === "number" &&
+    typeof currency === "string" &&
+    /^[A-Za-z]{3}$/.test(currency)
   );
 }
 
@@ -4495,8 +4505,7 @@ function DefaultGrid({
       maxHeight: `calc(${maxRows} * var(--kumiko-grid-row-h, 2.5rem) + ${maxRows - 1} * var(--kumiko-grid-gap, 1rem))`,
       overflowY: "auto",
     }),
-    // workaround: duplicate @types/react instances break direct CSSProperties cast
-  } as unknown as CSSProperties;
+  };
   return (
     <div
       {...groupProps}
@@ -4528,8 +4537,7 @@ function DefaultGridCell({ span, width, children }: GridCellProps): ReactNode {
   const s = span !== undefined ? Math.min(span, 12) : 1;
   // Below `sm` the grid has one explicit column (see DefaultGrid); an unconditional
   // `span N` there would add implicit auto columns that squeeze the fr column.
-  // workaround: duplicate @types/react instances break direct CSSProperties cast (as in DefaultGrid)
-  const style = { "--grid-span": s } as unknown as CSSProperties;
+  const style: CSSProperties = { "--grid-span": s };
   return (
     <div className="min-w-0 sm:[grid-column:span_var(--grid-span)]" style={style}>
       {children}

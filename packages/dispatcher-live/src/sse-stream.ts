@@ -1,4 +1,5 @@
 import { type DispatcherError, StreamFrame } from "@cosmicdrift/kumiko-headless";
+import { serverErrorSchema } from "./envelopes.js";
 import { mapServerError } from "./error-mapping.js";
 
 // Parse the SSE wire format produced by Hono `streamSSE` for POST /api/stream:
@@ -115,19 +116,24 @@ function frameDataToDispatcherError(data: string): DispatcherError {
   try {
     parsed = JSON.parse(data);
   } catch {
-    return {
-      code: "stream_error",
-      httpStatus: 200,
-      i18nKey: "errors.unknown",
-      message: data.length > 0 ? data : "stream error frame",
-    };
+    return unparsableErrorFrame(data);
   }
   // Server serializeError shape — mapServerError expects the same fields
   // as /api/query failures (httpStatus may be absent; reinject 200 for
   // mid-stream gates that flush SSE headers first).
-  const err = parsed as Parameters<typeof mapServerError>[0];
+  const envelope = serverErrorSchema.safeParse(parsed);
+  if (!envelope.success) return unparsableErrorFrame(data);
   return mapServerError({
-    ...err,
-    httpStatus: err.httpStatus ?? 200,
+    ...envelope.data,
+    httpStatus: envelope.data.httpStatus ?? 200,
   });
+}
+
+function unparsableErrorFrame(data: string): DispatcherError {
+  return {
+    code: "stream_error",
+    httpStatus: 200,
+    i18nKey: "errors.unknown",
+    message: data.length > 0 ? data : "stream error frame",
+  };
 }

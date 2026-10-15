@@ -426,7 +426,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
         if (result.isSuccess) {
           // Remember intentional empty clears so post-rebase submits keep them (#1858).
           if (payload && typeof payload === "object" && !Array.isArray(payload)) {
-            for (const [k, v] of Object.entries(payload as Record<string, unknown>)) {
+            for (const [k, v] of Object.entries(payload)) {
               if (v === "") forceIncludeEmpty.add(k);
               else forceIncludeEmpty.delete(k);
             }
@@ -453,9 +453,10 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
         return { validationBlocked: false, isSuccess: false, isNoOp: false, error: result.error };
       };
 
-      submitInFlight = runWrite();
+      const writeInFlight = runWrite();
+      submitInFlight = writeInFlight;
       try {
-        return await (submitInFlight as Promise<SubmitResult<TData>>);
+        return await writeInFlight;
       } finally {
         submitInFlight = null;
       }

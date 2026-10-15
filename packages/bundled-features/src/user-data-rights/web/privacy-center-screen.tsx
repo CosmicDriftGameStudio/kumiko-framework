@@ -17,6 +17,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { postWithDownload } from "@cosmicdrift/kumiko-renderer-web";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
 import {
   EXPORT_JOB_STATUS,
@@ -49,7 +50,7 @@ type SectionStatus =
 // Dispatcher-Failures tragen i18nKey nur wenn der Handler einen setzt —
 // Boundary-Read mit generischem Fallback.
 function failureKey(error: unknown): string {
-  const key = (error as { i18nKey?: unknown } | null)?.i18nKey; // @cast-boundary dispatcher-error
+  const key = propertyOf(error, "i18nKey");
   return typeof key === "string" ? key : "userDataRights.privacyCenter.errors.generic";
 }
 

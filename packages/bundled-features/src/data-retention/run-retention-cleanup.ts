@@ -72,6 +72,7 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { runInSubTransaction } from "../shared/index.js";
 import { computeCutoff, type Instant } from "./keep-for.js";
 import type { RetentionPresetKey } from "./presets.js";
@@ -347,10 +348,9 @@ function collectSingleFileHolders(registry: Registry): readonly SingleFileHolder
     if (!entity) continue;
     const { singleFields } = planFileFields(entity.fields);
     if (singleFields.length === 0) continue;
-    const table = proj.table as Record<string, unknown>; // @cast-boundary column-presence probe
     holders.push({
       table: proj.table,
-      tableHasTenantId: table["tenantId"] !== undefined,
+      tableHasTenantId: propertyOf(proj.table, "tenantId") !== undefined,
       singleFields,
     });
   }
@@ -699,11 +699,10 @@ export async function runRetentionCleanup(
     const entity = registry.getEntity(entityName);
     if (!entity) continue;
 
-    const table = proj.table as Record<string, unknown>; // @cast-boundary column-presence probe
     const declaredReference = policy.reference ?? DEFAULT_REFERENCE_FIELD;
     const referenceField = FRAMEWORK_REFERENCE_ALIAS[declaredReference] ?? declaredReference;
 
-    if (table[referenceField] === undefined) {
+    if (propertyOf(proj.table, referenceField) === undefined) {
       skipped.push({ entityName, reason: "missing_reference_column" });
       continue;
     }
@@ -713,7 +712,7 @@ export async function runRetentionCleanup(
     // Tenant-Scope nur wenn die Tabelle eine tenantId-Spalte hat — identisch zu
     // soft-delete-cleanup. Ohne diesen Filter wuerde ein Tenant die Rows eines
     // anderen treffen.
-    if (table["tenantId"] !== undefined) {
+    if (propertyOf(proj.table, "tenantId") !== undefined) {
       where["tenantId"] = tenantId;
     }
 
@@ -762,7 +761,10 @@ export async function runRetentionCleanup(
         break;
       }
       case "softDelete": {
-        if (table["isDeleted"] === undefined || table["deletedAt"] === undefined) {
+        if (
+          propertyOf(proj.table, "isDeleted") === undefined ||
+          propertyOf(proj.table, "deletedAt") === undefined
+        ) {
           skipped.push({ entityName, reason: "missing_softdelete_columns" });
           break;
         }
