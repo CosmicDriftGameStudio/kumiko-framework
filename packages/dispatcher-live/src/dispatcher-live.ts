@@ -307,6 +307,15 @@ function buildUnexpectedShapeError(status: number): DispatcherError {
   return buildNetworkError(`unexpected response shape (${status})`);
 }
 
+// Middleware gates (csrf, origin, auth, rate limits) answer write and batch
+// calls with a bare `{ error }`, without the isSuccess envelope.
+function gateOrShapeError(body: unknown, status: number): DispatcherError {
+  const gateFailure = errorOnlyEnvelopeSchema.safeParse(body);
+  return gateFailure.success
+    ? mapServerErrorWithStatus(gateFailure.data.error, status)
+    : buildUnexpectedShapeError(status);
+}
+
 // Write / Batch share the same envelope: `{ isSuccess: true, data }` on
 // success, `{ isSuccess: false, error: ServerErrorInfo, ... }` on failure.
 // Query uses a different envelope (see normalizeQueryResponse).
@@ -314,7 +323,7 @@ function normalizeWriteResult<TData>(call: CallOutcome): WriteResult<TData> {
   if (!call.ok) return { isSuccess: false, error: call.networkFailure };
   const envelope = writeEnvelopeSchema.safeParse(call.body);
   if (!envelope.success) {
-    return { isSuccess: false, error: buildUnexpectedShapeError(call.status) };
+    return { isSuccess: false, error: gateOrShapeError(call.body, call.status) };
   }
   const body = envelope.data;
   if (body.isSuccess) return { isSuccess: true, data: body.data as TData };
@@ -329,7 +338,7 @@ function normalizeBatchResponse(call: CallOutcome): BatchResult {
   if (!envelope.success) {
     return {
       isSuccess: false,
-      error: buildUnexpectedShapeError(call.status),
+      error: gateOrShapeError(call.body, call.status),
       failedIndex: -1,
       results: [],
     };

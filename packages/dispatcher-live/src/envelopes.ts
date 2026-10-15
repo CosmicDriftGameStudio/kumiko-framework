@@ -6,7 +6,9 @@ import * as z from "zod";
 export const serverErrorSchema = z.object({
   code: z.string(),
   httpStatus: z.number().optional(),
-  i18nKey: z.string(),
+  // Some gates (bad-request helper in server.ts, pii-leak-guard) send no
+  // i18nKey; keeping their `code` beats collapsing them into network_error.
+  i18nKey: z.string().default("errors.unknown"),
   message: z.string(),
   details: z.unknown().optional(),
   i18nParams: z.record(z.string(), z.unknown()).optional(),

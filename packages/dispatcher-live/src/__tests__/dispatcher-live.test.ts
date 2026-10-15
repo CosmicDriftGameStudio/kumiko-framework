@@ -496,6 +496,76 @@ describe("createLiveDispatcher", () => {
       });
     });
 
+    test("query: serializer-shaped error with timestamp and requestId maps as before", async () => {
+      const { fetch } = makeFetch({
+        status: 409,
+        body: {
+          error: {
+            code: "version_conflict",
+            i18nKey: "errors.versionConflict",
+            message: "stale",
+            details: { reason: "stale_version" },
+            requestId: "req-1",
+            timestamp: "2026-10-15T10:00:00.000Z",
+          },
+        },
+      });
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      const result = await disp.query("x", {});
+
+      expect(result.isSuccess).toBe(false);
+      if (!result.isSuccess) {
+        expect(result.error.code).toBe("version_conflict");
+        expect(result.error.httpStatus).toBe(409);
+        expect(result.error.requestId).toBe("req-1");
+      }
+    });
+
+    test("write: gate error without i18nKey keeps its code", async () => {
+      const { fetch } = makeFetch({
+        status: 429,
+        body: { error: { code: "rate_limited", httpStatus: 429, message: "slow down" } },
+      });
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      const result = await disp.write("x", {});
+
+      expect(result).toEqual({
+        isSuccess: false,
+        error: {
+          code: "rate_limited",
+          httpStatus: 429,
+          i18nKey: "errors.unknown",
+          message: "slow down",
+        },
+      });
+    });
+
+    test("batch: bare gate error (csrf) keeps its code", async () => {
+      const { fetch } = makeFetch({
+        status: 403,
+        body: {
+          error: {
+            code: "csrf_token_mismatch",
+            httpStatus: 403,
+            i18nKey: "auth.errors.csrfTokenMismatch",
+            message: "csrf token missing or mismatch",
+          },
+        },
+      });
+      const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+      const result = await disp.batch([{ type: "x:write:a:create", payload: {} }]);
+
+      expect(result.isSuccess).toBe(false);
+      if (!result.isSuccess) {
+        expect(result.error.code).toBe("csrf_token_mismatch");
+        expect(result.error.httpStatus).toBe(403);
+        expect(result.failedIndex).toBe(-1);
+      }
+    });
+
     test("write: malformed failure envelope falls back to network_error", async () => {
       const { fetch } = makeFetch({
         status: 400,
