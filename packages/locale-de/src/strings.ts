@@ -1117,6 +1117,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Mail-Layouts erfordern das Format mjml, erhalten: „{detail}“.",
   "templateResolver.errors.collection.kindNotAllowed":
     "„{detail}“-Vorlagen werden im eigenen Editor gepflegt, nicht über eine Sammlung.",
+  "templateResolver.errors.noSystemTemplate":
+    "Es gibt keine aktive Systemvorlage, auf die zurückgesetzt werden könnte.",
   "templateResolver.errors.template.invalidMeta": "Ungültige Vorlageneinstellungen: {detail}",
   "templateResolver.errors.template.unknownPlaceholders": "Unbekannte Platzhalter: {detail}",
   "templateResolver.errors.template.missingRequiredPlaceholders":

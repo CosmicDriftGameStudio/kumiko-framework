@@ -1111,6 +1111,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Los diseños de correo requieren el formato mjml, recibido: «{detail}».",
   "templateResolver.errors.collection.kindNotAllowed":
     "Las plantillas «{detail}» se editan en su propio editor, no mediante una colección.",
+  "templateResolver.errors.noSystemTemplate":
+    "No hay una plantilla de sistema activa a la que volver.",
   "templateResolver.errors.template.invalidMeta": "Ajustes de plantilla no válidos: {detail}",
   "templateResolver.errors.template.unknownPlaceholders": "Marcadores desconocidos: {detail}",
   "templateResolver.errors.template.missingRequiredPlaceholders":

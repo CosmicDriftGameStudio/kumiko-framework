@@ -12,6 +12,7 @@
 
 import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
+  type RenderedTemplateRef,
   type RendererContext,
   RendererError,
   type RenderRequest,
@@ -130,7 +131,7 @@ async function resolveLayout(
   ctx: RendererContext,
   meta: MailTemplateMeta,
   locale: string,
-): Promise<string> {
+): Promise<{ readonly content: string; readonly ref: RenderedTemplateRef | null }> {
   try {
     const layout = await tplApi.resolveTemplate({
       tenantId: ctx.tenantId,
@@ -138,7 +139,10 @@ async function resolveLayout(
       kind: "mail-layout",
       locale,
     });
-    return layout.content;
+    return {
+      content: layout.content,
+      ref: { templateId: layout.id, templateVersion: layout.version, scope: layout.scope },
+    };
   } catch (e) {
     // Only "no layout seeded" falls back to the in-code layout. Connection or
     // schema errors must not be masked, or every mail silently loses its branding.
@@ -148,7 +152,7 @@ async function resolveLayout(
         "other",
       );
     }
-    return DEFAULT_MAIL_LAYOUT_MJML;
+    return { content: DEFAULT_MAIL_LAYOUT_MJML, ref: null };
   }
 }
 
@@ -203,7 +207,7 @@ export async function mailHtmlRender(
 
   const tplApi = createTemplateResolverApi(ctx.db);
   const { template, meta } = await resolveMailTemplate(tplApi, ctx, slug, locale);
-  const layoutMjml = await resolveLayout(tplApi, ctx, meta, locale);
+  const layout = await resolveLayout(tplApi, ctx, meta, locale);
 
   const [format, tenantName] = await Promise.all([
     readMailFormat(ctx, locale),
@@ -257,7 +261,7 @@ export async function mailHtmlRender(
   try {
     mjmlSource = compileSource(
       hbs,
-      layoutMjml,
+      layout.content,
     )({
       content: contentHtml,
       subject,
@@ -303,5 +307,11 @@ export async function mailHtmlRender(
     html: mjmlResult.html,
     text,
     ...(previewText === undefined ? {} : { previewText }),
+    template: {
+      templateId: template.id,
+      templateVersion: template.version,
+      scope: template.scope,
+    },
+    ...(layout.ref === null ? {} : { layout: layout.ref }),
   };
 }

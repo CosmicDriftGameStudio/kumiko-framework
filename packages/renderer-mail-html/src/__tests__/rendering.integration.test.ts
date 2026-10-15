@@ -18,6 +18,7 @@ import {
 import {
   createTemplateResolverApi,
   createTemplateResolverFeature,
+  SYSTEM_TENANT_ID,
   TemplateResolverHandlers,
   templateResourceEntity,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
@@ -179,6 +180,22 @@ describe("renderer-mail-html :: seeded template", () => {
     expect(result.text).toContain("Hallo Anna");
   });
 
+  test("the response names the seeded system row it was rendered from", async () => {
+    const seeded = await createTemplateResolverApi(stack.db).findExact({
+      tenantId: SYSTEM_TENANT_ID,
+      slug: SLUG,
+      kind: "mail",
+      locale: LOCALE,
+    });
+    const result = await renderMail(tenantId(1));
+    expect(seeded).not.toBeNull();
+    expect(result.template).toEqual({
+      templateId: seeded?.id,
+      templateVersion: seeded?.version,
+      scope: "system",
+    });
+  });
+
   test("an unknown slug is invalid_payload, a missing locale too", async () => {
     await expect(
       renderMail(tenantId(1), {}, { slug: "mail-demo:notify:nope" }),
@@ -275,6 +292,11 @@ describe("renderer-mail-html :: tenant override", () => {
     const result = await renderMail(tenantId(3));
     expect(result.subject).toBe("Eigener Betreff Anna");
     expect(result.html).toContain("Override Anna");
+    expect(result.template).toEqual({
+      templateId: draft.id,
+      templateVersion: expect.any(Number),
+      scope: "tenant",
+    });
   });
 });
 
@@ -283,6 +305,7 @@ describe("renderer-mail-html :: layout resolution", () => {
     const result = await renderMail(tenantId(1));
     expect(result.html).toContain("<table");
     expect(result.html).not.toContain("SYSTEM_LAYOUT_MARKER");
+    expect(result.layout).toBeUndefined();
   });
 
   test("a seeded system layout named default is used", async () => {
@@ -294,6 +317,17 @@ describe("renderer-mail-html :: layout resolution", () => {
     const result = await renderMail(tenantId(1));
     expect(result.html).toContain("SYSTEM_LAYOUT_MARKER");
     expect(result.html).toContain("Hallo Anna");
+    const systemLayout = await createTemplateResolverApi(stack.db).findExact({
+      tenantId: SYSTEM_TENANT_ID,
+      slug: "default",
+      kind: "mail-layout",
+      locale: LOCALE,
+    });
+    expect(result.layout).toEqual({
+      templateId: systemLayout?.id,
+      templateVersion: systemLayout?.version,
+      scope: "system",
+    });
   });
 
   test("a tenant layout wins over the system layout for that tenant only", async () => {
@@ -305,6 +339,7 @@ describe("renderer-mail-html :: layout resolution", () => {
     const own = await renderMail(tenantId(4));
     expect(own.html).toContain("TENANT_LAYOUT_MARKER");
     expect(own.html).not.toContain("SYSTEM_LAYOUT_MARKER");
+    expect(own.layout?.scope).toBe("tenant");
     expect(await renderMail(tenantId(1))).toMatchObject({
       html: expect.stringContaining("SYSTEM_LAYOUT_MARKER"),
     });

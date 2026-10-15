@@ -4,9 +4,8 @@ import * as z from "zod";
 import { TEMPLATE_KINDS, TEMPLATE_STATUSES } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 
-// List für Admin-UI: filterbar nach kind / locale / status. Liefert
-// system-templates + tenant's eigene zusammen — Admin-UI rendert beide
-// Spalten mit scope-marker. SystemAdmin sieht alle (auch andere Tenants).
+// ctx.db is tenant-scoped even for SystemAdmin: every caller sees its own
+// tenant's rows plus the system defaults, never another tenant's rows.
 export const listQuery = defineQueryHandler({
   name: "list",
   schema: z.object({
@@ -21,10 +20,9 @@ export const listQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     const where: Record<string, unknown> = {};
 
-    // includeSystem=false narrows to own tenant AT THE DB — for non-SystemAdmin
-    // TenantDb permits narrowing within its enforced [own, SYSTEM] scope, for
-    // SystemAdmin (system-scoped db) the where applies verbatim. Filtering at
-    // the DB keeps the limit meaningful (no post-filter starvation).
+    // includeSystem=false narrows to own tenant AT THE DB — TenantDb permits
+    // narrowing within its enforced [own, SYSTEM] scope. Filtering at the DB
+    // keeps the limit meaningful (no post-filter starvation).
     if (!query.payload.includeSystem) {
       where["tenantId"] = query.user.tenantId;
     }

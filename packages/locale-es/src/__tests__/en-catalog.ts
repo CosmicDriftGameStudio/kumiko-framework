@@ -1083,6 +1083,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Mail layouts require the mjml format, got “{detail}”.",
   "templateResolver.errors.collection.kindNotAllowed":
     "“{detail}” templates are written through their own editor, not through a collection.",
+  "templateResolver.errors.noSystemTemplate": "There is no active system template to reset to.",
   "templateResolver.errors.template.invalidMeta": "Invalid template settings: {detail}",
   "templateResolver.errors.template.unknownPlaceholders": "Unknown placeholders: {detail}",
   "templateResolver.errors.template.missingRequiredPlaceholders":

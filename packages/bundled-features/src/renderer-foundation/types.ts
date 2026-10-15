@@ -1,5 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigAccessor, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { PdfPageFormat, TemplateScope } from "../template-resolver/index.js";
 import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./constants.js";
 
 // RenderRequest — Plugins erhalten das. Resource-Mode wählt der Caller
@@ -11,7 +12,18 @@ export type RenderRequest =
   | { kind: "document-pdf"; payload: DocumentPayload; options?: PdfOptions }
   | { kind: "image-snapshot"; payload: DocumentPayload; options?: ImageOptions };
 
-export type RenderResponse =
+export type RenderedTemplateRef = {
+  readonly templateId: string;
+  readonly templateVersion: number;
+  readonly scope: TemplateScope;
+};
+
+export type RenderProvenance = {
+  readonly template?: RenderedTemplateRef;
+  readonly layout?: RenderedTemplateRef;
+};
+
+export type RenderResponse = (
   | { kind: "notification"; html: string; text?: string }
   | { kind: "mail"; subject: string; html: string; text: string; previewText?: string }
   | { kind: "document-pdf"; pdfBytes: Uint8Array; pageCount: number; sizeBytes: number }
@@ -21,7 +33,9 @@ export type RenderResponse =
       format: "png" | "jpg";
       width: number;
       height: number;
-    };
+    }
+) &
+  RenderProvenance;
 
 export type NotificationPayload = {
   readonly template?: string;
@@ -47,7 +61,7 @@ export type DocumentPayload = {
 };
 
 export type PdfOptions = {
-  readonly format?: "A4" | "Letter";
+  readonly format?: PdfPageFormat;
   readonly marginMm?: { top?: number; right?: number; bottom?: number; left?: number };
   readonly headerTemplate?: string;
   readonly footerTemplate?: string;
