@@ -232,7 +232,7 @@ export const KNOWN_BOUNDARY_REASONS = [
   // UI / Web
   "visual-tree-args", // TargetRef.args is erased to generic args shape
   // Brands / third-party gaps
-  "phantom-brand", // TenancyBrand-style phantom marker with no runtime representation
+  "phantom-brand", // TenancyBrand-style phantom marker, or a conditional type keyed on one, with no runtime representation
   "third-party-type-gap", // a library's type does not know a valid runtime value (e.g. Hono status 499)
   "dom-event-target", // event.target narrowed to the Element the DOM guarantees
   "feature-exports", // typeof-checked read-back of a function from untyped feature.exports
