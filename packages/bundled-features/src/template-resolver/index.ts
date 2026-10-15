@@ -9,6 +9,8 @@ export {
 export {
   CONTENT_FORMATS,
   type ContentFormat,
+  DOCUMENT_HTML_KINDS,
+  type DocumentHtmlKind,
   FALLBACK_LOCALE,
   NON_RENDER_KINDS,
   type NonRenderKind,
@@ -25,6 +27,16 @@ export {
   UPSERT_KINDS,
   type UpsertKind,
 } from "./constants.js";
+export {
+  type DocumentViolation,
+  type DocumentViolationCode,
+  documentViolationsToFieldIssues,
+  type SanitizeBodyResult,
+  type SanitizeHtmlResult,
+  sanitizeDocumentHtml,
+  sanitizeTemplateBody,
+} from "./document-sanitizer.js";
+export * from "./document-schema.js";
 export { createTemplateResolverFeature } from "./feature.js";
 export {
   TEMPLATE_RESOLVER_FEATURE,

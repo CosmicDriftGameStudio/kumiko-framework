@@ -15,6 +15,21 @@ export const defaultTranslations: TranslationsByLocale = {
     "template-resolver.editor.saving": "Saving…",
     "template-resolver.editor.created": "Created.",
     "template-resolver.editor.saved": "Saved.",
+    "templateResolver.errors.document.buttonHrefNotPlaceholder":
+      "The button target “{detail}” must be a placeholder.",
+    "templateResolver.errors.document.disallowedLinkHref":
+      "Link target “{detail}” is not allowed; use https, http, mailto, tel or a placeholder.",
+    "templateResolver.errors.document.documentRequiresHtmlFormat":
+      "This template kind requires the html format, got “{detail}”.",
+    "templateResolver.errors.document.eventHandlerAttribute":
+      "Inline event handler “{detail}” is not allowed.",
+    "templateResolver.errors.document.externalImageSource":
+      "Images must reference an uploaded resource; image source “{detail}” is not allowed.",
+    "templateResolver.errors.document.imageWithoutResource":
+      "Images must reference an uploaded resource.",
+    "templateResolver.errors.document.invalidReferenceName": "“{detail}” is not a valid name.",
+    "templateResolver.errors.document.scriptElement":
+      "<script> elements are not allowed in template bodies.",
     "template-resolver.editor.saveFailed": "Save failed.",
     "template-resolver.editor.networkError": "Network error while saving.",
     "template-resolver.editor.loading": "Loading current version…",
