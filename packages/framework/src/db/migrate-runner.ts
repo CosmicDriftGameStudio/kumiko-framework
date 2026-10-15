@@ -200,15 +200,39 @@ export function readMigrationSqlTexts(dir: string): readonly string[] {
     .map((file) => readFileSync(join(dir, file), "utf8"));
 }
 
+function propertyOf(value: unknown, key: string): unknown {
+  const readable = (typeof value === "object" && value !== null) || typeof value === "function";
+  return readable ? Reflect.get(value, key) : undefined;
+}
+
+// Stricter than asRawClient on purpose: a direct handle must also offer
+// begin(), because runMigrations wraps every file in a transaction. Handles
+// without it fall through to the drizzle wrappers and otherwise fail here,
+// before any SQL runs, with the migrate-runner message.
+function migrationClient(db: DbRunner): ReturnType<typeof asRawClient> {
+  const hasDirectClient =
+    typeof propertyOf(db, "unsafe") === "function" && typeof propertyOf(db, "begin") === "function";
+  if (hasDirectClient) return asRawClient(db);
+  for (const wrapped of [
+    propertyOf(db, "$client"),
+    propertyOf(propertyOf(db, "session"), "client"),
+  ]) {
+    if (typeof propertyOf(wrapped, "unsafe") === "function") return asRawClient(wrapped);
+  }
+  throw new Error(
+    "migrate-runner: db argument has no .unsafe() (need Bun.SQL or drizzle DbConnection)",
+  );
+}
+
 // Raw-SQL via postgres-js or Bun.sql .unsafe() — same shape for both.
 async function executeRaw(db: DbRunner, sqlText: string): Promise<void> {
-  await asRawClient(db).unsafe(sqlText);
+  await migrationClient(db).unsafe(sqlText);
 }
 
 export async function fetchAppliedMigrations(
   db: DbConnection,
 ): Promise<readonly AppliedMigration[]> {
-  const result = await asRawClient(db).unsafe<Record<string, unknown>>(
+  const result = await migrationClient(db).unsafe<Record<string, unknown>>(
     `SELECT id, checksum FROM "_kumiko_migrations" ORDER BY id`,
   );
   const rows = Array.isArray(result) ? result : [];
@@ -265,7 +289,7 @@ export async function runMigrations(
       // Apply file content + INSERT tracking-row in einer TX. Wenn ein
       // Statement bricht, Rollback inkl. Tracking-Row → kein partial-apply
       // stuck in den books.
-      const client = asRawClient(db);
+      const client = migrationClient(db);
       await client.begin(async (tx) => {
         for (const stmt of m.statements) {
           await tx.unsafe(stmt);
@@ -308,7 +332,7 @@ export async function baselineMigrations(
   const applied = new Set((await fetchAppliedMigrations(db)).map((a) => a.id));
   const marked: string[] = [];
   const alreadyTracked: string[] = [];
-  const client = asRawClient(db);
+  const client = migrationClient(db);
   for (const m of migrations) {
     if (applied.has(m.id)) {
       alreadyTracked.push(m.id);
