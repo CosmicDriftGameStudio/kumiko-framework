@@ -505,6 +505,7 @@ function projectEntity(entityName: string, entity: EntityDefinition): EntityDefi
     ...(typeof entity.defaultCurrency === "string" && {
       defaultCurrency: entity.defaultCurrency,
     }),
+    ...(entity.lockedWhen !== undefined && { lockedWhen: entity.lockedWhen }),
   };
 }
 
