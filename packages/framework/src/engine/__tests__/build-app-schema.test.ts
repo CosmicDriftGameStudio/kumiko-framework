@@ -824,6 +824,28 @@ describe("buildAppSchema", () => {
     expect(projected.fields["plain"]?.["grouping"]).toBeUndefined();
   });
 
+  test("entity lockedWhen survives the projection so the client can show locked records read-only", () => {
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", {
+        fields: { status: { type: "text" } },
+        lockedWhen: { field: "status", eq: "closed" },
+      } as unknown as EntityDefinition);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    expect(app.features[0]!.entities["thing"]!.lockedWhen).toEqual({
+      field: "status",
+      eq: "closed",
+    });
+  });
+
+  test("entity without lockedWhen omits the key", () => {
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", { fields: { label: { type: "text" } } } as unknown as EntityDefinition);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    expect("lockedWhen" in app.features[0]!.entities["thing"]!).toBe(false);
+  });
+
   test("entity without defaultCurrency omits the key", () => {
     const f = defineFeature("ent", (r) => {
       r.entity("thing", { fields: { label: { type: "text" } } } as unknown as EntityDefinition);
