@@ -32,6 +32,12 @@ PRIVATE.addAddress("::1", "ipv6");
 PRIVATE.addAddress("::", "ipv6");
 PRIVATE.addSubnet("fe80::", 10, "ipv6"); // link-local (fe80–febf)
 PRIVATE.addSubnet("fc00::", 7, "ipv6"); // ULA
+PRIVATE.addSubnet("240.0.0.0", 4, "ipv4"); // reserved
+// IPv6 prefixes that embed an IPv4 address and can route to it via a translator.
+PRIVATE.addSubnet("::", 96, "ipv6"); // IPv4-compatible (deprecated)
+PRIVATE.addSubnet("64:ff9b::", 96, "ipv6"); // NAT64 well-known prefix
+PRIVATE.addSubnet("64:ff9b:1::", 48, "ipv6"); // NAT64 local-use (RFC 8215)
+PRIVATE.addSubnet("2002::", 16, "ipv6"); // 6to4
 
 export function isPrivateOrLinkLocalIp(ip: string, family: 4 | 6): boolean {
   try {

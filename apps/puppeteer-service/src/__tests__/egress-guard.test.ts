@@ -42,6 +42,13 @@ describe("isPrivateOrLinkLocalIp", () => {
     expect(isPrivateOrLinkLocalIp("0:0:0:0:0:ffff:127.0.0.1", 6)).toBe(true);
     expect(isPrivateOrLinkLocalIp("0:0:0:0:0:ffff:10.0.0.1", 6)).toBe(true);
   });
+
+  test("blocks reserved 240/4 and IPv6 prefixes that embed IPv4 (IPv4-compatible, NAT64, 6to4)", () => {
+    expect(isPrivateOrLinkLocalIp("240.0.0.1", 4)).toBe(true);
+    for (const ip of ["::a00:1", "64:ff9b::a9fe:a9fe", "64:ff9b:1::1", "2002:a00:1::1"]) {
+      expect(isPrivateOrLinkLocalIp(ip, 6)).toBe(true);
+    }
+  });
 });
 
 describe("isBlockedRequestUrl", () => {
@@ -57,6 +64,10 @@ describe("isBlockedRequestUrl", () => {
   test("blocks expanded IPv4-mapped loopback URL", async () => {
     expect(await isBlockedRequestUrl("http://[0:0:0:0:0:ffff:127.0.0.1]/")).toBe(true);
     expect(await isBlockedRequestUrl("http://[::ffff:7f00:1]/")).toBe(true);
+  });
+
+  test("blocks NAT64 URL literal pointing at cloud metadata", async () => {
+    expect(await isBlockedRequestUrl("http://[64:ff9b::a9fe:a9fe]/latest/meta-data/")).toBe(true);
   });
 
   test("blocks CGNAT / benchmarking / multicast literals", async () => {
