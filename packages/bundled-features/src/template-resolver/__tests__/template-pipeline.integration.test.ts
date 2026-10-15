@@ -210,6 +210,25 @@ describe("template-resolver :: copy-locale", () => {
     );
   });
 
+  test("a system mjml mail-layout cannot be copied into a tenant and leaves no tenant row", async () => {
+    const slug = "layout-copy-source";
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      layoutPayload(slug, "mail-layout", "<mjml><mj-body>{{{content}}}</mj-body></mjml>", "mjml"),
+      systemAdmin,
+    );
+    const copy = { slug, kind: "mail-layout", fromLocale: "de", toLocale: "en" };
+    const first = await stack.http.writeErr(TemplateResolverHandlers.copyLocale, copy, tenantAdmin);
+    expect(fieldCodes(first)).toEqual(["layout_source_system_only"]);
+    // A leftover target row would turn the second attempt into target_exists.
+    const second = await stack.http.writeErr(
+      TemplateResolverHandlers.copyLocale,
+      copy,
+      tenantAdmin,
+    );
+    expect(fieldCodes(second)).toEqual(["layout_source_system_only"]);
+  });
+
   test("a missing source is not found", async () => {
     const err = await stack.http.writeErr(
       TemplateResolverHandlers.copyLocale,
@@ -217,6 +236,67 @@ describe("template-resolver :: copy-locale", () => {
       tenantAdmin,
     );
     expectErrorIncludes(err, "not_found");
+  });
+});
+
+describe("template-resolver :: set on layout kinds", () => {
+  function setLayout(slug: string, content: string) {
+    return {
+      slug,
+      locale: "de",
+      kind: "mail-layout" as const,
+      title: "Layout",
+      content,
+      contentFormat: "html" as const,
+    };
+  }
+
+  test("a tenant layout with a form or a tracking image is rejected", async () => {
+    const form = await stack.http.writeErr(
+      TemplateResolverHandlers.set,
+      setLayout(
+        "set-layout-a",
+        '<div data-header><form action="https://evil.example"><input name="x"></form></div><div data-content></div>',
+      ),
+      tenantAdmin,
+    );
+    expect(fieldCodes(form)).toContain("disallowed_link_href");
+    const tracking = await stack.http.writeErr(
+      TemplateResolverHandlers.set,
+      setLayout(
+        "set-layout-a",
+        '<div data-header><img src="https://t.example/p.gif"></div><div data-content></div>',
+      ),
+      tenantAdmin,
+    );
+    expect(fieldCodes(tracking)).toContain("external_image_source");
+  });
+
+  test("a layout without the content slot is rejected", async () => {
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.set,
+      setLayout("set-layout-b", "<div data-header><p>Brand</p></div>"),
+      tenantAdmin,
+    );
+    expect(fieldCodes(err)).toContain("layout_missing_content_slot");
+  });
+
+  test("a valid layout is stored and an mjml layout from a tenant is refused", async () => {
+    const stored = await stack.http.writeOk<{ isNew: boolean }>(
+      TemplateResolverHandlers.set,
+      setLayout("set-layout-c", "<div data-header><p>Brand</p></div><div data-content></div>"),
+      tenantAdmin,
+    );
+    expect(stored.isNew).toBe(true);
+    const mjml = await stack.http.writeErr(
+      TemplateResolverHandlers.set,
+      {
+        ...setLayout("set-layout-d", "<mjml><mj-body>{{{content}}}</mj-body></mjml>"),
+        contentFormat: "mjml" as const,
+      },
+      tenantAdmin,
+    );
+    expect(fieldCodes(mjml)).toContain("layout_source_system_only");
   });
 });
 

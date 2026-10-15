@@ -19,15 +19,13 @@ export const exportBundleQuery = defineQueryHandler({
     "Exports every locale of one template (the caller's own rows, or the active system rows) together with its linked resource files as a self-contained bundle that import-bundle can read back, for example to move a template between tenants or environments.",
   handler: async (query, ctx) => {
     const { slug, kind, scope } = query.payload;
-    // @cast-boundary db-row — selectMany returnt unknown[]; Row-Shape ist
-    // durch templateResourcesTable + buildBaseColumns garantiert.
-    const found = (await selectMany(
+    const found = await selectMany<TemplateResourceRow>(
       ctx.db,
       templateResourcesTable,
       scope === "system"
         ? { tenantId: SYSTEM_TENANT_ID, slug, kind, scope: "system", status: "active" }
         : { tenantId: query.user.tenantId, slug, kind, scope: "tenant" },
-    )) as TemplateResourceRow[];
+    );
     const rows = found
       .filter((row) => row.status !== "archived")
       .sort((a, b) => a.locale.localeCompare(b.locale));

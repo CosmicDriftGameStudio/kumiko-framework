@@ -416,6 +416,39 @@ describe("renderer-mail-html :: layout resolution", () => {
     expect(result.layout?.scope).toBe("system");
   });
 
+  test("a stored tenant html layout with disallowed markup falls back to the system layout", async () => {
+    const legacyExecutor = createEventStoreExecutor(
+      templateResourcesTable,
+      templateResourceEntity,
+      { entityName: "template-resource" },
+    );
+    const owner = tenantId(14);
+    const created = await legacyExecutor.create(
+      {
+        tenantId: owner,
+        slug: "default",
+        kind: "mail-layout",
+        locale: LOCALE,
+        content:
+          '<div data-header><form action="https://evil.example"><input name="x"></form></div><div data-content></div><div data-footer><p>UNSAFE_FOOTER_MARKER</p></div>',
+        contentFormat: "html",
+        variableSchema: "{}",
+        linkedResources: "{}",
+        scope: "tenant",
+        parentTemplateId: null,
+        status: "active",
+      },
+      createTestUser({ id: 14, roles: ["TenantAdmin"], tenantId: owner }),
+      createTenantDb(stack.db, owner, "system"),
+    );
+    expect(created.isSuccess).toBe(true);
+    const result = await renderMail(owner);
+    expect(result.html).not.toContain("evil.example");
+    expect(result.html).not.toContain("UNSAFE_FOOTER_MARKER");
+    expect(result.html).toContain("SYSTEM_LAYOUT_MARKER");
+    expect(result.layout?.scope).toBe("system");
+  });
+
   test("the layout only sees its fixed variables, not payload variables", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,

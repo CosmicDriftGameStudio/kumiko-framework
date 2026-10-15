@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
+  fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import {
   createTestUser,
@@ -14,7 +16,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTemplateResolverFeature } from "../feature.js";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { templateResourceEntity } from "../table.js";
+import { templateResourceEntity, templateResourcesTable } from "../table.js";
 
 const tenantA = createTestUser({ id: 2, roles: ["TenantAdmin"], tenantId: testTenantId(10) });
 const tenantB = createTestUser({ id: 3, roles: ["TenantAdmin"], tenantId: testTenantId(11) });
@@ -109,5 +111,34 @@ describe("template-resolver :: bundle", () => {
       { bundle: systemBundle },
       systemTenantAdmin,
     );
+  });
+
+  test("an active system import with a publish issue in a later locale writes nothing and stores no file", async () => {
+    const slug = "bundle-publish-gate";
+    const gated = {
+      ...bundle,
+      slug,
+      variableSchema: { name: { type: "text", required: true } },
+      locales: {
+        de: { body: '<p>Hallo <span data-variable="name"></span></p>' },
+        en: { body: "<p>Hello</p>" },
+      },
+    };
+    const fileRefsBefore = (await selectMany(stack.db, fileRefsTable)).length;
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.importBundleSystem,
+      { bundle: gated },
+      systemTenantAdmin,
+    );
+    const fields = (err.details as { fields: Array<{ code: string; path: string }> }).fields;
+    expect(fields.map((f) => f.code)).toEqual(["missing_required_placeholder"]);
+    expect(fields[0]?.path).toBe("locales.en.content");
+
+    const rows = await selectMany(stack.db, templateResourcesTable, {
+      tenantId: SYSTEM_TENANT_ID,
+      slug,
+    });
+    expect(rows).toHaveLength(0);
+    expect(await selectMany(stack.db, fileRefsTable)).toHaveLength(fileRefsBefore);
   });
 });
