@@ -1,6 +1,7 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type JobsOptions, Queue, UnrecoverableError, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context.js";
@@ -59,12 +60,11 @@ import { cronRepeatOptions } from "./cron-repeat-options.js";
 // run proceeds without it rather than failing over what would be a framework
 // bug, not untrusted input.
 function isJobTriggerEvent(value: unknown): value is JobTriggerEvent {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Record<string, unknown>;
-  if (typeof candidate["id"] !== "string") return false;
-  const headers = candidate["headers"];
+  if (!isPlainObject(value)) return false;
+  if (typeof value["id"] !== "string") return false;
+  const headers = value["headers"];
   if (typeof headers !== "object" || headers === null) return false;
-  return Object.values(headers as Record<string, unknown>).every(
+  return Object.values(headers).every(
     (v) => typeof v === "string" || typeof v === "number" || typeof v === "boolean",
   );
 }

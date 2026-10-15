@@ -5,7 +5,7 @@ import type {
   EscapeHatchReporter,
   EscapeHatchTarget,
 } from "@cosmicdrift/kumiko-types/handlers";
-import { KUMIKO_NAME_SYMBOL, type SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
+import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import {
   type GlobalTableDb,
@@ -45,6 +45,7 @@ import {
 } from "../observability/index.js";
 import type { DbRunner } from "./connection.js";
 import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.js";
+import { hasFieldProperty, tableNameOf } from "./table-introspection.js";
 import { bindTenantDbRunner, tenantDbRunner } from "./tenant-db-runner.js";
 
 type Table = SchemaTable;
@@ -347,11 +348,7 @@ export function castTenantRows<T>(rows: readonly Record<string, unknown>[]): rea
   return rows as unknown as readonly T[];
 }
 
-export function tableNameOf(table: Table | EntityTableMeta): string {
-  const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
-  if (typeof sym === "string") return sym;
-  return asEntityTableMeta(table)?.tableName ?? "<unknown>";
-}
+export { tableNameOf };
 
 // A grant is only real when its reason is non-empty — `{ reason: "" }` must not silently unlock it.
 function hasGrant(decl: EscapeHatchDeclaration | undefined): boolean {
@@ -370,7 +367,7 @@ function isForeignTenantId(tenantIdValue: unknown): boolean {
 export function hasTenantColumn(table: Table | EntityTableMeta): boolean {
   const meta = asEntityTableMeta(table);
   if (meta) return meta.columns.some((c) => c.name === "tenant_id");
-  return (table as Record<string, unknown>)["tenantId"] !== undefined;
+  return hasFieldProperty(table, "tenantId");
 }
 
 // Grants for TenantDb's two escape hatches: db.global()'s write methods

@@ -97,14 +97,14 @@ async function requireConsumerRowForUpdate(
   name: string,
   instanceId: string,
 ): Promise<ConsumerStateRowShape> {
-  const raw = await selectConsumerForUpdate(tx, name, instanceId);
+  const raw = await selectConsumerForUpdate<ConsumerStateRow>(tx, name, instanceId);
   if (!raw) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") has no state row — it hasn't run yet, the name is misspelled, or the instance is misspelled. ` +
         `For per-instance consumers pass the instance_id explicitly; shared consumers use the default.`,
     );
   }
-  return coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
+  return coerceRow(raw, extractTableInfo(eventConsumerStateTable));
 }
 
 async function applyConsumerStatusTransition(
@@ -113,9 +113,13 @@ async function applyConsumerStatusTransition(
   instanceId: string,
   targetStatus: "idle" | "disabled",
 ): Promise<ConsumerRecoveryState> {
-  const raw = await updateConsumerStatusReturning(db, name, instanceId, targetStatus);
-  const updated =
-    raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
+  const raw = await updateConsumerStatusReturning<ConsumerStateRow>(
+    db,
+    name,
+    instanceId,
+    targetStatus,
+  );
+  const updated = raw && coerceRow(raw, extractTableInfo(eventConsumerStateTable));
   if (!updated) {
     throw new Error(
       `Consumer "${name}" (instance_id="${instanceId}") vanished between read and write — retry.`,
@@ -213,14 +217,13 @@ export async function skipPoisonEvent(
           ? splitRangeExcludingIds(gap, [pendingPoisonId])
           : [gap],
       );
-      const raw = await removePendingGapReturning(
+      const raw = await removePendingGapReturning<ConsumerStateRow>(
         tx,
         name,
         instanceId,
         mergeContiguousGapRanges(newPendingGaps),
       );
-      const updated =
-        raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
+      const updated = raw && coerceRow(raw, extractTableInfo(eventConsumerStateTable));
       if (!updated)
         throw new Error(
           `Consumer "${name}" (instance_id="${instanceId}") vanished mid-skip — retry.`,
@@ -244,15 +247,14 @@ export async function skipPoisonEvent(
     // invisible during that pass (in-flight commits). Jumping the cursor over them
     // would lose them; keep them as a pending gap like the dispatcher's own gaps.
     const gapToAdd = await invisibleWindowGap(tx, before.lastProcessedEventId, poisonId);
-    const raw = await advanceConsumerPastEventReturning(
+    const raw = await advanceConsumerPastEventReturning<ConsumerStateRow>(
       tx,
       name,
       instanceId,
       poisonId,
       mergeContiguousGapRanges(gapToAdd ? [...pendingGaps, gapToAdd] : pendingGaps),
     );
-    const updated =
-      raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
+    const updated = raw && coerceRow(raw, extractTableInfo(eventConsumerStateTable));
     if (!updated)
       throw new Error(
         `Consumer "${name}" (instance_id="${instanceId}") vanished mid-skip — retry.`,

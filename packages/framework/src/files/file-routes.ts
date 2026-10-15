@@ -173,7 +173,7 @@ export function readFilesRouteOptions(
 > {
   const exp = registry.features.get("files")?.exports;
   if (exp && typeof exp === "object" && "routeOptions" in exp) {
-    const ro = (exp as { routeOptions?: unknown }).routeOptions;
+    const ro = exp.routeOptions;
     if (ro && typeof ro === "object") {
       // @cast-boundary feature-exports: engine-payload (unknown) → known shape
       return ro as Pick<

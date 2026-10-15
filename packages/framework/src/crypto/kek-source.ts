@@ -40,6 +40,12 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function plaintextFieldOf(body: unknown): unknown {
+  return typeof body === "object" && body !== null && "plaintext" in body
+    ? body.plaintext
+    : undefined;
+}
+
 // Scaleway's decrypt SLA is 99.5% — a bootpath that gives up on the first
 // transient 5xx or timeout trades a rare retry for a routine boot failure.
 // 4xx means the request itself is wrong (bad token, bad key id) and no
@@ -87,18 +93,19 @@ async function decryptCiphertext(
       );
     }
 
-    let body: { plaintext?: unknown };
+    let body: unknown;
     try {
-      body = (await response.json()) as { plaintext?: unknown };
+      body = await response.json();
     } catch {
       throw new Error(
         `${prefix}Key Manager decrypt for key ${keyId} returned an unparseable response`,
       );
     }
-    if (typeof body.plaintext !== "string") {
+    const plaintext = plaintextFieldOf(body);
+    if (typeof plaintext !== "string") {
       throw new Error(`${prefix}Key Manager decrypt for key ${keyId} returned no plaintext field`);
     }
-    return body.plaintext;
+    return plaintext;
   }
   throw new Error(`${prefix}Key Manager decrypt failed for key ${keyId}: retries exhausted`);
 }

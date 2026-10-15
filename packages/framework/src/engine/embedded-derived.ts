@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { EmbeddedDerivedCellDef, EmbeddedSubFieldDef } from "./types/index.js";
 
 /** Computes a derived cell from its source values. Missing/non-numeric
@@ -11,8 +12,12 @@ export function computeDerivedCellValue(
   values: readonly (number | undefined)[],
 ): number | undefined {
   if (op === "multiply") {
-    if (values.some((value) => value === undefined)) return undefined;
-    return (values as readonly number[]).reduce((product, value) => product * value, 1);
+    let product = 1;
+    for (const value of values) {
+      if (value === undefined) return undefined;
+      product *= value;
+    }
+    return product;
   }
   if (values.every((value) => value === undefined)) return undefined;
   const numeric = values.map((value) => value ?? 0);
@@ -71,9 +76,8 @@ export function withDerivedCells(
   derived: Readonly<Record<string, EmbeddedDerivedCellDef>>,
   schema: Readonly<Record<string, EmbeddedSubFieldDef>>,
 ): unknown {
-  if (typeof row !== "object" || row === null || Array.isArray(row)) return row;
-  const source = row as Readonly<Record<string, unknown>>;
-  const copy: Record<string, unknown> = { ...source };
+  if (!isPlainObject(row)) return row;
+  const copy: Record<string, unknown> = { ...row };
   for (const [cellName, def] of Object.entries(derived)) {
     const sourceValues = def.from.map((sourceField) => {
       const value = copy[sourceField];

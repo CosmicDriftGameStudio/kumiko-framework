@@ -11,9 +11,9 @@
 // rejected by boot-validation — domain mutation MUST go through
 // r.step.aggregate.*.
 
-import { KUMIKO_COLUMNS_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { extractTableName } from "../../db/index.js";
 import { executeRawQuery } from "../../db/queries/raw-sql.js";
+import { columnSqlNameOf } from "../../db/table-introspection.js";
 import { tenantDbRunner } from "../../db/tenant-db-runner.js";
 import { defineStep } from "../define-step.js";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
@@ -26,15 +26,7 @@ type UnsafeProjectionUpsertArgs = {
 };
 
 function resolveColumnName(table: unknown, field: string): string {
-  if (typeof table !== "object" || table === null) return field;
-  const cols = (table as Record<symbol, unknown>)[KUMIKO_COLUMNS_SYMBOL];
-  if (typeof cols !== "object" || cols === null) return field;
-  const col = (cols as Record<string, unknown>)[field];
-  if (typeof col === "object" && col !== null) {
-    const nameVal = (col as Record<string, unknown>)["name"];
-    if (typeof nameVal === "string") return nameVal;
-  }
-  return field;
+  return columnSqlNameOf(table, field) ?? field;
 }
 
 function quoteIdent(name: string): string {

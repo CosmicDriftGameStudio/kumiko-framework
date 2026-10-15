@@ -1,10 +1,10 @@
 import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
-import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { buildOwnershipClause, type OwnershipClause } from "../engine/ownership.js";
 import { SYSTEM_TENANT_ID, UUID_SHAPE_PATTERN } from "../engine/types/identifiers.js";
 import type { EntityDefinition, SessionUser } from "../engine/types/index.js";
 import type { Table } from "./event-store-executor-context.js";
 import { buildEntityTable, physicalColumnName } from "./table-builder.js";
+import { schemaTableName } from "./table-introspection.js";
 import type { TenantDb } from "./tenant-db.js";
 
 export type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
@@ -26,7 +26,7 @@ function candidateStaticsFor(candidateName: string, candidate: EntityDefinition)
   const cached = candidateStaticsCache.get(candidate);
   if (cached) return cached;
   const table = buildEntityTable(candidateName, candidate);
-  const tableName = String((table as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL]);
+  const tableName = String(schemaTableName(table));
   const statics: CandidateStatics = {
     table,
     tableName,

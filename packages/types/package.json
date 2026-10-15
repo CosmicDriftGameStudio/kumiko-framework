@@ -26,6 +26,10 @@
       "types": "./src/identifiers.ts",
       "default": "./src/identifiers.ts"
     },
+    "./type-guards": {
+      "types": "./src/type-guards.ts",
+      "default": "./src/type-guards.ts"
+    },
     "./session-cookies": {
       "types": "./src/session-cookies.ts",
       "default": "./src/session-cookies.ts"
@@ -296,6 +300,10 @@
       "./identifiers": {
         "types": "./dist/identifiers.d.ts",
         "default": "./dist/identifiers.js"
+      },
+      "./type-guards": {
+        "types": "./dist/type-guards.d.ts",
+        "default": "./dist/type-guards.js"
       },
       "./session-cookies": {
         "types": "./dist/session-cookies.d.ts",

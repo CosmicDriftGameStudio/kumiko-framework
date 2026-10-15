@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
 // Deterministic JSON: object keys sorted (recursively), `undefined` values
 // dropped, arrays keep their order. Two specs that are semantically equal
@@ -9,8 +10,8 @@ export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map((entry) => canonicalJson(entry)).join(",")}]`;
   }
-  if (value !== null && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
+  if (isPlainObject(value)) {
+    const entries = Object.entries(value)
       .filter(([, v]) => v !== undefined)
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
     return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(",")}}`;

@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // Workarounds for Bun v1.3.x bun:test limitations with multipart/form-data.
 //
 // Two bugs combine to break file upload tests in bun:test:
@@ -80,12 +81,11 @@ export function patchFileInstanceofForBunTest(): void {
   if ((File as unknown as { _kumikoPatched?: boolean })._kumikoPatched) return;
   Object.defineProperty(File, Symbol.hasInstance, {
     value(instance: unknown): boolean {
-      if (typeof instance !== "object" || instance === null) return false;
-      const f = instance as Record<string, unknown>;
+      if (!isPlainObject(instance)) return false;
       return (
-        typeof f["name"] === "string" &&
-        typeof f["size"] === "number" &&
-        typeof f["arrayBuffer"] === "function"
+        typeof instance["name"] === "string" &&
+        typeof instance["size"] === "number" &&
+        typeof instance["arrayBuffer"] === "function"
       );
     },
     configurable: true,

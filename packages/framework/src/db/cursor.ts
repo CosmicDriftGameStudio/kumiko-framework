@@ -1,3 +1,5 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+
 export type { CursorQueryOptions, CursorResult } from "@cosmicdrift/kumiko-types/cursor-types";
 
 // String-basiert damit UUIDs (Default seit Sprint F) + Integer-Auto-Increment
@@ -39,8 +41,8 @@ function parseKeysetPayload(decoded: string): DecodedKeysetCursor | null {
   } catch {
     return null;
   }
-  if (typeof raw !== "object" || raw === null) return null;
-  const { v, i } = raw as Record<string, unknown>;
+  if (!isPlainObject(raw)) return null;
+  const { v, i } = raw;
   if (typeof i !== "string" || i === "") return null;
   if (v !== null && typeof v !== "string") return null;
   return { id: i, sortValue: v };

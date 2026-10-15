@@ -27,7 +27,7 @@ export async function runAtomicEventWrite<T>(
   db: DbRunner,
   write: (runner: DbRunner) => Promise<T>,
 ): Promise<T> {
-  const raw = asRawClient(db) as { begin?: unknown; savepoint?: unknown };
+  const raw = asRawClient(db);
   const isPool = typeof raw.begin === "function" && typeof raw.savepoint !== "function";
   if (!isPool) return write(db);
   return runInNewTransaction(db, (tx) => write(tx));
@@ -63,12 +63,12 @@ async function indexValidity(
   client: ReturnType<typeof asRawClient>,
   indexName: string = IDEMPOTENCY_INDEX_NAME,
 ): Promise<boolean | undefined> {
-  const rows = await client.unsafe(
+  const rows = await client.unsafe<{ indisvalid?: boolean }>(
     `SELECT i.indisvalid FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid ` +
       `WHERE c.relname = $1 AND i.indrelid = '"kumiko_events"'::regclass`,
     [indexName],
   );
-  return (rows[0] as { indisvalid?: boolean } | undefined)?.indisvalid;
+  return rows[0]?.indisvalid;
 }
 
 export async function ensureIdempotencyKeyIndex(db: AnyDb): Promise<void> {
@@ -199,7 +199,7 @@ export async function insertSubsequentEventRow(
   db: AnyDb,
   params: SubsequentEventInsertParams,
 ): Promise<SubsequentEventInsertRow | undefined> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = await asRawClient(db).unsafe<SubsequentEventInsertRow>(
     `INSERT INTO "kumiko_events" (
        aggregate_id, aggregate_type, tenant_id, version,
        type, event_version, payload, metadata, created_by, created_at
@@ -227,7 +227,7 @@ export async function insertSubsequentEventRow(
       params.expectedVersion,
       params.createdAt ?? null,
     ],
-  )) as ReadonlyArray<SubsequentEventInsertRow>;
+  );
   return rows[0];
 }
 
@@ -369,12 +369,12 @@ export type PendingIdRange = { readonly from: bigint; readonly to: bigint };
 // consumer is still watching as pending gaps (ids invisible on an earlier
 // turn that may have become visible since). Raw SQL — the typed builder's
 // WhereObject is an AND of fields, it can't express this OR.
-export async function selectPendingAndNewEventRows(
+export async function selectPendingAndNewEventRows<TRow = Record<string, unknown>>(
   db: AnyDb,
   cursor: bigint,
   pendingRanges: readonly PendingIdRange[],
   batchSize: number,
-): Promise<ReadonlyArray<Record<string, unknown>>> {
+): Promise<ReadonlyArray<TRow>> {
   if (pendingRanges.length === 0) {
     return unsafeReadRetrying(
       db,

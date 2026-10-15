@@ -217,7 +217,7 @@ function readIdentitySwitchFn<
   key: "queryAs" | "writeAs" | "resolveActiveMembership" | "queryAsMember" | "queryProjection",
 ): TFn | undefined {
   if (!(key in context)) return undefined;
-  const value = (context as Record<string, unknown>)[key];
+  const value: unknown = Reflect.get(context, key);
   return typeof value === "function" ? (value as TFn) : undefined; // @cast-boundary engine-bridge — checked via typeof above
 }
 
@@ -227,7 +227,7 @@ function readDbLikeValue(
   key: "db" | "dbOutsideTransaction" | "systemDb",
 ): object | undefined {
   if (!(key in context)) return undefined;
-  const value = (context as Record<string, unknown>)[key];
+  const value: unknown = Reflect.get(context, key);
   return typeof value === "object" && value !== null ? value : undefined;
 }
 

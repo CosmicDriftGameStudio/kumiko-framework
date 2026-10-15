@@ -208,6 +208,21 @@ export interface EncryptPiiOptions {
   readonly ownerFallback?: Record<string, unknown>;
 }
 
+// String fields stay strings (ciphertext is a string); non-string fields may
+// turn into a ciphertext string (jsonb PII).
+export type PiiEncryptedRow<TRow extends Record<string, unknown>> = {
+  [K in keyof TRow]: TRow[K] extends string ? string : TRow[K] | string;
+};
+
+// Overload keeps the caller's keys; the implementation works on a plain record.
+export async function encryptPiiFieldValues<TRow extends Record<string, unknown>>(
+  row: TRow,
+  entity: EntityDefinition,
+  piiFields: readonly string[],
+  kms: LocalKeyKmsAdapter,
+  kmsCtx: KmsContext,
+  opts: EncryptPiiOptions,
+): Promise<PiiEncryptedRow<TRow>>;
 export async function encryptPiiFieldValues(
   row: Record<string, unknown>,
   entity: EntityDefinition,

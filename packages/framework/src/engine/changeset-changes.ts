@@ -1,4 +1,5 @@
-import { type ChangelogType, validateChangelog } from "./feature-changelog.js";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { CHANGELOG_TYPES, type ChangelogType, validateChangelog } from "./feature-changelog.js";
 
 export type PendingChange = {
   readonly feature: string;
@@ -12,7 +13,6 @@ export type PendingChange = {
 };
 
 const BLOCK_RE = /<!--\s*kumiko-changes\s*\n([\s\S]*?)\n\s*-->/g;
-const TYPE_VALUES = new Set<ChangelogType>(["breaking", "improvement", "fix"]);
 const KEY_RE = /^(feature|type|title|detail|migration|codemod|manualAfterCodemod):(?:\s(.*))?$/;
 
 function requiredField(fields: ReadonlyMap<string, string>, field: string, source: string): string {
@@ -124,7 +124,7 @@ function buildChange(
 ): PendingChange {
   const feature = requiredField(fields, "feature", source);
   const rawType = requiredField(fields, "type", source);
-  if (!TYPE_VALUES.has(rawType as ChangelogType)) {
+  if (!isOneOf(CHANGELOG_TYPES, rawType)) {
     throw new Error(`${source}: kumiko-changes type must be breaking, improvement, or fix`);
   }
   const { title, detail } = resolveTitleAndDetail(fields, prose, source);
@@ -133,7 +133,7 @@ function buildChange(
   const manualAfterCodemod = parseManualAfterCodemod(fields, source);
   const change: PendingChange = {
     feature,
-    type: rawType as ChangelogType,
+    type: rawType,
     title,
     ...(detail ? { detail } : {}),
     ...(migration ? { migration } : {}),

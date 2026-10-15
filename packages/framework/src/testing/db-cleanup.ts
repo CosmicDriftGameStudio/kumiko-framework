@@ -22,7 +22,7 @@ function resolveClearableTable(table: ClearableTable): unknown {
     typeof table === "object" &&
     table !== null &&
     "tableName" in table &&
-    typeof (table as { tableName?: unknown }).tableName === "string"
+    typeof table.tableName === "string"
   ) {
     return table;
   }

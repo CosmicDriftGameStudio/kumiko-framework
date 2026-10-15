@@ -9,8 +9,8 @@
 // broken": a bare column reference inside a subquery that shadows an outer
 // column, and a literal self-comparison.
 
-import { KUMIKO_COLUMNS_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { toSnakeCase } from "../db/table-builder.js";
+import { tableColumnsOf } from "../db/table-introspection.js";
 
 const IDENT_SRC = `"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_$]*`;
 const QUALIFIED_SRC = `(?:${IDENT_SRC})(?:\\.(?:${IDENT_SRC}))?`;
@@ -30,13 +30,17 @@ const QUALIFIED_PARSE_RE = new RegExp(`^(${IDENT_SRC})(?:\\.(${IDENT_SRC}))?$`);
 export function tableColumnSqlNames(table: unknown): ReadonlySet<string> {
   if (table === null || typeof table !== "object") return new Set();
 
-  const cols = (table as Record<symbol, unknown>)[KUMIKO_COLUMNS_SYMBOL];
-  if (cols && typeof cols === "object") {
+  const cols = tableColumnsOf(table);
+  if (cols) {
     const names = new Set<string>();
-    for (const col of Object.values(cols as Record<string, unknown>)) {
-      if (col && typeof col === "object") {
-        const nameVal = (col as Record<string, unknown>)["name"];
-        if (typeof nameVal === "string") names.add(nameVal.toLowerCase());
+    for (const col of Object.values(cols)) {
+      if (
+        typeof col === "object" &&
+        col !== null &&
+        "name" in col &&
+        typeof col.name === "string"
+      ) {
+        names.add(col.name.toLowerCase());
       }
     }
     return names;
@@ -46,7 +50,7 @@ export function tableColumnSqlNames(table: unknown): ReadonlySet<string> {
   // object-valued key is treated as a field and mapped to its SQL name the
   // same way columnSqlName() in ownership.ts does for hand-rolled tables.
   const names = new Set<string>();
-  for (const [key, value] of Object.entries(table as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(table)) {
     if (value && typeof value === "object") {
       names.add(toSnakeCase(key).toLowerCase());
     }

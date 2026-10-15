@@ -1,3 +1,4 @@
+import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type EnqueuedTaskPromise, ErrorStatusCode, Meilisearch, type Task } from "meilisearch";
 import type { EntityId, TenantId } from "../engine/types/identifiers.js";
 import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types.js";
@@ -35,12 +36,8 @@ const INDEX_LIST_PAGE_SIZE = 100;
 const MEILI_ALL_ATTRIBUTES = "*";
 
 function isIndexNotFound(err: unknown): boolean {
-  const cause = typeof err === "object" && err !== null ? (err as { cause?: unknown }).cause : null;
-  return (
-    typeof cause === "object" &&
-    cause !== null &&
-    (cause as { code?: unknown }).code === ErrorStatusCode.INDEX_NOT_FOUND
-  );
+  const cause = typeof err === "object" && err !== null && "cause" in err ? err.cause : null;
+  return errorCodeOf(cause) === ErrorStatusCode.INDEX_NOT_FOUND;
 }
 
 export type MeilisearchAdapterOptions = {

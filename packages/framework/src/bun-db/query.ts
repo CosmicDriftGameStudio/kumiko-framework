@@ -26,10 +26,10 @@ import type {
   AggregateSpec,
   AggregateTimeBucket,
 } from "@cosmicdrift/kumiko-types/aggregate-types";
-import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 // Static import (not getTemporal()): coercion works without an installed
 // global and returns the same Temporal classes as the rest of the repo (#1480).
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
   JsonTextMatch,
   SelectOptions,
@@ -43,6 +43,7 @@ import { SQL_EXPR_BRAND } from "../db/dialect.js";
 import type { EntityTableMeta } from "../db/entity-table-meta.js";
 import { extractPgError } from "../db/pg-error.js";
 import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder.js";
+import { asEntityTableMeta, requireEntityTableMeta } from "../db/table-introspection.js";
 import { camelCase as envCamelCase } from "../env/index.js";
 import { InternalError } from "../errors/index.js";
 import { createFallbackLogger } from "../logging/index.js";
@@ -68,36 +69,7 @@ import type { BunDbRunner } from "./connection.js";
 // would overwrite the matching meta key — reading the meta from the symbol is
 // the only collision-safe path.
 
-function isEntityTableMeta(v: unknown): v is EntityTableMeta {
-  return (
-    v !== null &&
-    typeof v === "object" &&
-    typeof (v as EntityTableMeta).tableName === "string" &&
-    Array.isArray((v as EntityTableMeta).columns) &&
-    Array.isArray((v as EntityTableMeta).indexes) &&
-    ((v as EntityTableMeta).source === "managed" || (v as EntityTableMeta).source === "unmanaged")
-  );
-}
-
-// Resolve any framework table input to its canonical EntityTableMeta:
-//  - table()/buildEntityTable outputs carry it under KUMIKO_META_SYMBOL, immune
-//    to a column-handle shadowing a meta key.
-//  - deriveEntityTableMeta / defineUnmanagedTable return a plain meta with no
-//    handle-spread, so its structural shape is itself unshadowable.
-export function asEntityTableMeta(table: unknown): EntityTableMeta | undefined {
-  if (table === null || typeof table !== "object") return undefined;
-  const fromSymbol = (table as Record<symbol, unknown>)[KUMIKO_META_SYMBOL];
-  if (isEntityTableMeta(fromSymbol)) return fromSymbol;
-  return isEntityTableMeta(table) ? table : undefined;
-}
-
-export function requireEntityTableMeta(table: unknown, tableName: string): EntityTableMeta {
-  const meta = asEntityTableMeta(table);
-  if (!meta) {
-    throw new Error(`${tableName}: table carries no EntityTableMeta — built via table()?`);
-  }
-  return meta;
-}
+export { asEntityTableMeta, requireEntityTableMeta };
 
 // `db` input accepts three shapes:
 //   1. Bun.SQL connection (BunDbRunner) — new world, native .unsafe + .begin
@@ -105,20 +77,35 @@ export function requireEntityTableMeta(table: unknown, tableName: string): Entit
 //      raw postgres-js client sits under `db.$client.unsafe / .begin`
 //   3. drizzle tx-handle — client sits under `tx.session.client`
 // The shim extracts a `{unsafe, begin}` surface in every case.
+// begin is declared required for historical callers although postgres-js
+// TransactionSql lacks it (see asRawClient); savepoint/release exist only on tx handles.
 type RawClient = {
   unsafe: <TRow = unknown>(sql: string, params?: readonly unknown[]) => Promise<readonly TRow[]>;
-  begin: <T>(fn: (tx: unknown) => Promise<T>) => Promise<T>;
+  begin: <T>(fn: (tx: BunDbRunner) => Promise<T>) => Promise<T>;
+  savepoint?: <T>(fn: (sp: unknown) => Promise<T>) => Promise<T>;
+  release?: unknown;
 };
 
+function isObjectOrFunction(value: unknown): value is object {
+  return (typeof value === "object" && value !== null) || typeof value === "function";
+}
+
+// Reflect.get keeps the property-read semantics of `value[key]` (a throwing
+// guard Proxy still throws) without indexing an untyped handle.
+function propertyOf(value: unknown, key: string): unknown {
+  return isObjectOrFunction(value) ? Reflect.get(value, key) : undefined;
+}
+
+function isRawClient(value: unknown): value is RawClient {
+  return typeof propertyOf(value, "unsafe") === "function";
+}
+
 export function asRawClient(db: unknown): RawClient {
-  const dbAny = db as Record<string, unknown>;
   // Direct: Bun.SQL / postgres-js Sql / postgres-js TransactionSql. All three
   // expose `.unsafe`; only Sql/Bun.SQL have `.begin` — TransactionSql uses
   // `.savepoint` for nested-tx. We only require `.unsafe` here; callers that
   // need `.begin` (e.g. `transaction()`) verify it themselves.
-  if (typeof dbAny["unsafe"] === "function") {
-    return dbAny as unknown as RawClient;
-  }
+  if (isRawClient(db)) return db;
   // TenantDb (ctx.db) has no unfiltered escape via asRawClient anymore — fail
   // closed instead of silently unwrapping a tenant-scoped handle.
   if (isTenantDbShape(db)) {
@@ -129,16 +116,11 @@ export function asRawClient(db: unknown): RawClient {
     );
   }
   // Drizzle DbConnection (legacy compat): $client = postgres-js Sql.
-  const $client = dbAny["$client"];
-  if ($client && typeof ($client as Record<string, unknown>)["unsafe"] === "function") {
-    return $client as unknown as RawClient;
-  }
+  const $client = propertyOf(db, "$client");
+  if (isRawClient($client)) return $client;
   // Drizzle pg-transaction (legacy compat): session.client = postgres-js Sql.
-  const session = dbAny["session"] as Record<string, unknown> | undefined;
-  const sessionClient = session?.["client"];
-  if (sessionClient && typeof (sessionClient as Record<string, unknown>)["unsafe"] === "function") {
-    return sessionClient as unknown as RawClient;
-  }
+  const sessionClient = propertyOf(propertyOf(db, "session"), "client");
+  if (isRawClient(sessionClient)) return sessionClient;
   throw new Error(
     "bun-db: db argument has no .unsafe() — pass Bun.SQL, postgres-js Sql, or a transaction handle.",
   );
@@ -150,9 +132,7 @@ export function asRawClient(db: unknown): RawClient {
 // own savepoint(), not manual SAVEPOINT statements. The callback receives
 // the savepoint-scoped tx; run every confined statement on THAT handle.
 export async function runInSavepoint<T>(tx: unknown, fn: (sp: unknown) => Promise<T>): Promise<T> {
-  const raw = asRawClient(tx) as unknown as {
-    savepoint?: <TR>(cb: (sp: unknown) => Promise<TR>) => Promise<TR>;
-  };
+  const raw = asRawClient(tx);
   if (typeof raw.savepoint !== "function") {
     throw new Error(
       "runInSavepoint: transaction handle has no savepoint() — pass the driver tx (postgres.js TransactionSql / Bun.SQL).",
@@ -177,9 +157,7 @@ export async function runInSavepointIfSupported<T>(
   db: unknown,
   fn: (sp: DbRunner) => Promise<T>,
 ): Promise<T> {
-  const raw = asRawClient(db) as unknown as {
-    savepoint?: <TR>(cb: (sp: unknown) => Promise<TR>) => Promise<TR>;
-  };
+  const raw = asRawClient(db);
   // @cast-boundary driver savepoint handle → DbRunner at the single seam
   const asRunner = (sp: unknown): DbRunner => sp as DbRunner;
   if (typeof raw.savepoint !== "function") return fn(asRunner(db));
@@ -230,15 +208,14 @@ type TenantDbDelegate = {
 // A throwing systemScope guard Proxy fails closed here too — intended, not a bug.
 function isTenantDbShape(db: unknown): boolean {
   if (typeof db !== "object" || db === null) return false;
-  const d = db as Record<string, unknown>;
-  if (typeof d["unsafe"] === "function") return false;
+  if (typeof propertyOf(db, "unsafe") === "function") return false;
   return (
-    typeof d["selectMany"] === "function" &&
-    typeof d["fetchOne"] === "function" &&
-    typeof d["insertOne"] === "function" &&
-    typeof d["updateMany"] === "function" &&
-    typeof d["deleteMany"] === "function" &&
-    "tenantId" in d
+    typeof propertyOf(db, "selectMany") === "function" &&
+    typeof propertyOf(db, "fetchOne") === "function" &&
+    typeof propertyOf(db, "insertOne") === "function" &&
+    typeof propertyOf(db, "updateMany") === "function" &&
+    typeof propertyOf(db, "deleteMany") === "function" &&
+    "tenantId" in db
   );
 }
 
@@ -280,13 +257,19 @@ type _WhereOperatorKeysExhaustive =
 const _whereOperatorKeysExhaustive: _WhereOperatorKeysExhaustive = true;
 void _whereOperatorKeysExhaustive;
 
+function isJsonTextMatchList(
+  value: JsonTextMatch | readonly JsonTextMatch[],
+): value is readonly JsonTextMatch[] {
+  return Array.isArray(value);
+}
+
 function isWhereOperator(v: unknown): v is WhereOperator {
   if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
   // Don't false-positive on Date / Temporal / other domain-objects.
   // WhereOperator is plain object literal with at most these keys.
   const keys = Object.keys(v);
   if (keys.length === 0) return false;
-  return keys.every((k) => (WHERE_OPERATOR_KEYS as readonly string[]).includes(k));
+  return keys.every((k) => isOneOf(WHERE_OPERATOR_KEYS, k));
 }
 // Accepts EITHER. Both have a tableName and field→column mapping.
 // biome-ignore lint/suspicious/noExplicitAny: legacy drizzle pgTable surface
@@ -366,12 +349,14 @@ function quoteIdent(name: string): string {
 // Symmetric on write: Temporal.Instant doesn't bind directly into postgres-js
 // params — convert to ISO string when the column pgType is timestamptz.
 
+function toStringTagOf(v: unknown): unknown {
+  return typeof v === "object" && v !== null && Symbol.toStringTag in v
+    ? v[Symbol.toStringTag]
+    : undefined;
+}
+
 function isTemporalInstant(v: unknown): v is Temporal.Instant {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    (v as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag] === "Temporal.Instant"
-  );
+  return toStringTagOf(v) === "Temporal.Instant";
 }
 
 // Postgres bigint → JS: safe integers become `number` (matches createBigIntField /
@@ -400,7 +385,7 @@ function coerceBigIntFromDriver(value: bigint | string): bigint | number {
 
 function instantFromDriver(value: unknown): Temporal.Instant | null {
   if (value === null || value === undefined) return null;
-  if (isTemporalInstant(value)) return value as Temporal.Instant;
+  if (isTemporalInstant(value)) return value;
   // Number coercion via +date — equivalent to .getTime() without a Date-API
   // method (guard-no-date-api). Date → epoch milliseconds, then to Temporal.Instant.
   if (value instanceof Date) return Temporal.Instant.fromEpochMilliseconds(+value);
@@ -416,20 +401,17 @@ function instantFromDriver(value: unknown): Temporal.Instant | null {
 }
 
 function isTemporalPlainDate(v: unknown): v is Temporal.PlainDate {
-  return (
-    typeof v === "object" &&
-    v !== null &&
-    (v as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag] === "Temporal.PlainDate"
-  );
+  return toStringTagOf(v) === "Temporal.PlainDate";
 }
 
 function isTemporalPlainDateTimeLike(v: unknown): v is { toPlainDate(): Temporal.PlainDate } {
+  const tag = toStringTagOf(v);
   return (
+    (tag === "Temporal.PlainDateTime" || tag === "Temporal.ZonedDateTime") &&
     typeof v === "object" &&
     v !== null &&
-    ((v as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag] === "Temporal.PlainDateTime" ||
-      (v as { [Symbol.toStringTag]?: unknown })[Symbol.toStringTag] === "Temporal.ZonedDateTime") &&
-    typeof (v as { toPlainDate?: unknown }).toPlainDate === "function"
+    "toPlainDate" in v &&
+    typeof v.toPlainDate === "function"
   );
 }
 
@@ -485,7 +467,8 @@ function plainDateFromDriver(value: unknown, column: string): Temporal.PlainDate
 //   - coerce timestamptz Date/string → Temporal.Instant
 //
 // Unknown columns (computed/aliased) pass through unchanged.
-export function coerceRow<T extends Record<string, unknown>>(row: T, info: TableInfo): T {
+export function coerceRow<T>(row: T, info: TableInfo): T {
+  if (!isPlainObject(row)) return row;
   const out: Record<string, unknown> = {};
   let changed = false;
   for (const key of Object.keys(row)) {
@@ -550,10 +533,7 @@ export function coerceRow<T extends Record<string, unknown>>(row: T, info: Table
   return (changed ? out : row) as T;
 }
 
-function coerceRows<T extends Record<string, unknown>>(
-  rows: readonly T[],
-  info: TableInfo,
-): readonly T[] {
+function coerceRows<T>(rows: readonly T[], info: TableInfo): readonly T[] {
   return rows.map((r) => coerceRow(r, info));
 }
 
@@ -629,7 +609,7 @@ function prepareValue(value: unknown, pgType: string | undefined): PreparedValue
     if (prepared) return prepared;
   }
   if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
-    return { kind: "param", sql: "", bound: (value as Temporal.Instant).toString() };
+    return { kind: "param", sql: "", bound: value.toString() };
   }
   if (pgType === "date") {
     const prepared = prepareDateValue(value);
@@ -711,8 +691,8 @@ function buildWhereClause(
         if (pgType !== "jsonb") {
           throw new Error(`where: jsonText requires a jsonb column, "${col}" is ${pgType}`);
         }
-        const matches = Array.isArray(value.jsonText) ? value.jsonText : [value.jsonText];
-        for (const match of matches as readonly JsonTextMatch[]) {
+        const matches = isJsonTextMatchList(value.jsonText) ? value.jsonText : [value.jsonText];
+        for (const match of matches) {
           if (
             !Array.isArray(match.keys) ||
             match.keys.length === 0 ||
@@ -746,7 +726,7 @@ function buildWhereClause(
         like: "LIKE",
       };
       for (const [opKey, opSym] of Object.entries(opMap)) {
-        const opVal = (value as Record<string, unknown>)[opKey];
+        const opVal: unknown = Reflect.get(value, opKey);
         if (opVal === undefined) continue;
         // Mirrors applyMultiSelectFilter: ordering/pattern ops have no meaning on a jsonb
         // option array (`like` would crash as `jsonb ~~ jsonb`), so match nothing.
@@ -785,7 +765,7 @@ function buildWhereClause(
           values.push(p.bound);
         }
       }
-      const inVal = (value as Record<string, unknown>)["in"];
+      const inVal: unknown = value.in;
       if (Array.isArray(inVal)) {
         if (pgType === "jsonb") {
           conditions.push(jsonbContainsAny(col, inVal));
@@ -855,12 +835,10 @@ export function isClosedConnectionError(err: unknown): boolean {
 // would run on the same dead connection, not swap in a fresh one.
 function isPooledClient(raw: unknown): boolean {
   if (raw === null || (typeof raw !== "object" && typeof raw !== "function")) return false;
-  // @cast-boundary driver handle shape — begin/savepoint/release are optional across drivers
-  const r = raw as { begin?: unknown; savepoint?: unknown; release?: unknown };
   return (
-    typeof r.begin === "function" &&
-    typeof r.savepoint !== "function" &&
-    typeof r.release !== "function"
+    typeof propertyOf(raw, "begin") === "function" &&
+    typeof propertyOf(raw, "savepoint") !== "function" &&
+    typeof propertyOf(raw, "release") !== "function"
   );
 }
 
@@ -963,15 +941,15 @@ function logClosedConnection(
 
 // Write and other non-retried paths: log when a closed-connection error leaves
 // bun-db, rethrow unchanged.
-async function unsafeLoggingClosedConnection(
+async function unsafeLoggingClosedConnection<TRow = unknown>(
   db: AnyDb,
   sqlText: string,
   params: readonly unknown[],
   context: ClosedConnectionContext,
-): Promise<readonly unknown[]> {
+): Promise<readonly TRow[]> {
   const raw = asRawClient(db);
   try {
-    return await raw.unsafe(sqlText, params);
+    return await raw.unsafe<TRow>(sqlText, params);
   } catch (err) {
     logClosedConnection(raw, err, 1, context);
     throw err;
@@ -997,7 +975,7 @@ export async function unsafeReadRetrying<TRow>(
 ): Promise<readonly TRow[]> {
   const raw = asRawClient(db);
   try {
-    return (await raw.unsafe(sqlText, params)) as readonly TRow[];
+    return await raw.unsafe<TRow>(sqlText, params);
   } catch (err) {
     if (!isPooledClient(raw) || !isClosedConnectionError(err)) {
       logClosedConnection(raw, err, 1);
@@ -1008,7 +986,7 @@ export async function unsafeReadRetrying<TRow>(
     let lastErr: unknown = err;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        return (await raw.unsafe(sqlText, params)) as readonly TRow[];
+        return await raw.unsafe<TRow>(sqlText, params);
       } catch (retryErr) {
         lastErr = retryErr;
         if (!isClosedConnectionError(retryErr)) {
@@ -1058,8 +1036,8 @@ export async function selectMany<TRow = any>(
     }
     sqlText += ` LIMIT ${options.limit}`;
   }
-  const raw = (await unsafeReadRetrying(db, sqlText, values)) as readonly Record<string, unknown>[];
-  return coerceRows(raw, info) as readonly TRow[];
+  const raw = await unsafeReadRetrying<TRow>(db, sqlText, values);
+  return coerceRows(raw, info);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -1162,7 +1140,7 @@ export async function selectInnerJoin<
   if (conditions.length > 0) sqlText += ` WHERE ${conditions.join(" AND ")}`;
   if (spec.limit !== undefined) sqlText += ` LIMIT ${spec.limit}`;
 
-  const raw = (await unsafeReadRetrying(db, sqlText, values)) as readonly Record<string, unknown>[];
+  const raw = await unsafeReadRetrying<Record<string, unknown>>(db, sqlText, values);
   return raw.map((row) => {
     const leftRow: Record<string, unknown> = {};
     const rightRow: Record<string, unknown> = {};
@@ -1213,11 +1191,11 @@ export async function insertMany<TRow = any>(
     valuesClauses.push(`(${placeholders.join(", ")})`);
   }
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES ${valuesClauses.join(", ")} RETURNING *`;
-  const raw = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+  const raw = await unsafeLoggingClosedConnection<TRow>(db, sqlText, params, {
     operation: "insertMany",
     table: info.name,
-  })) as readonly Record<string, unknown>[];
-  return coerceRows(raw, info) as readonly TRow[];
+  });
+  return coerceRows(raw, info);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -1249,13 +1227,13 @@ export async function insertOne<TRow = any>(
     })
     .join(", ");
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES (${placeholders}) RETURNING *`;
-  const rows = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+  const rows = await unsafeLoggingClosedConnection<TRow>(db, sqlText, params, {
     operation: "insertOne",
     table: info.name,
-  })) as readonly Record<string, unknown>[];
+  });
   const first = rows[0];
   if (!first) return undefined;
-  return coerceRow(first, info) as TRow;
+  return coerceRow(first, info);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -1294,11 +1272,11 @@ export async function updateMany<TRow = any>(
     for (const v of w.values) values.push(v);
   }
   sqlText += " RETURNING *";
-  const raw = (await unsafeLoggingClosedConnection(db, sqlText, values, {
+  const raw = await unsafeLoggingClosedConnection<TRow>(db, sqlText, values, {
     operation: "updateMany",
     table: info.name,
-  })) as readonly Record<string, unknown>[];
-  return coerceRows(raw, info) as readonly TRow[];
+  });
+  return coerceRows(raw, info);
 }
 
 export async function deleteMany(
@@ -1405,7 +1383,7 @@ export async function countWhere(
     sqlText += ` WHERE ${w.sqlText}`;
     values = w.values;
   }
-  const rows = (await unsafeReadRetrying(db, sqlText, values)) as readonly { count: number }[];
+  const rows = await unsafeReadRetrying<{ count: number }>(db, sqlText, values);
   return rows[0]?.count ?? 0;
 }
 
@@ -1442,9 +1420,7 @@ function aggregateMeasureSql(info: TableInfo, measure: AggregateSpec["measure"])
     case "avg":
       return `AVG(${requireAggregateColumn(info, measure.field, "measure field")})`;
     default:
-      throw new Error(
-        `aggregateWhere: unknown measure fn "${String((measure as { fn: unknown }).fn)}"`,
-      );
+      throw new Error(`aggregateWhere: unknown measure fn "${String(Reflect.get(measure, "fn"))}"`);
   }
 }
 
@@ -1523,7 +1499,7 @@ export async function aggregateWhere(
   }
   sqlText += aggregateGroupOrderLimitSql(spec, dimensions.length);
 
-  const raw = (await unsafeReadRetrying(db, sqlText, params)) as readonly Record<string, unknown>[];
+  const raw = await unsafeReadRetrying<Record<string, unknown>>(db, sqlText, params);
   return raw.map((row) => {
     const value = row["value"];
     return {
@@ -1574,13 +1550,13 @@ export async function upsertOnConflict<TRow = any>(
 
   const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
   const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO UPDATE SET ${updateParts.join(", ")} RETURNING *`;
-  const rows = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+  const rows = await unsafeLoggingClosedConnection<TRow>(db, sqlText, params, {
     operation: "upsertOnConflict",
     table: info.name,
-  })) as readonly Record<string, unknown>[];
+  });
   const first = rows[0];
   if (!first) return undefined;
-  return coerceRow(first, info) as TRow;
+  return coerceRow(first, info);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -1615,13 +1591,13 @@ export async function insertOnConflictDoNothing<TRow = any>(
   const { sqlPrefix, params } = buildInsertSql(info, entries);
   const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
   const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO NOTHING RETURNING *`;
-  const rows = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+  const rows = await unsafeLoggingClosedConnection<TRow>(db, sqlText, params, {
     operation: "insertOnConflictDoNothing",
     table: info.name,
-  })) as readonly Record<string, unknown>[];
+  });
   const first = rows[0];
   if (!first) return undefined;
-  return coerceRow(first, info) as TRow;
+  return coerceRow(first, info);
 }
 
 export type IncrementCounterOptions = {
@@ -1681,13 +1657,13 @@ export async function incrementCounter<TRow = any>(
 
   const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
   const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO UPDATE SET ${updateParts.join(", ")} RETURNING *`;
-  const rows = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+  const rows = await unsafeLoggingClosedConnection<TRow>(db, sqlText, params, {
     operation: "incrementCounter",
     table: info.name,
-  })) as readonly Record<string, unknown>[];
+  });
   const first = rows[0];
   if (!first) return undefined;
-  return coerceRow(first, info) as TRow;
+  return coerceRow(first, info);
 }
 
 export async function deleteManyBatched(
@@ -1720,10 +1696,10 @@ export async function deleteManyBatched(
     const sqlText = `DELETE FROM ${tableQ} WHERE ${idQ} IN (
       SELECT ${idQ} FROM ${tableQ} WHERE ${w.sqlText} LIMIT $${limitIdx}
     ) RETURNING ${idQ}`;
-    const rows = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+    const rows = await unsafeLoggingClosedConnection(db, sqlText, params, {
       operation: "deleteManyBatched",
       table: info.name,
-    })) as readonly unknown[];
+    });
     batches++;
     deleted += rows.length;
     if (rows.length < limit) break;
@@ -1733,7 +1709,7 @@ export async function deleteManyBatched(
 }
 
 export async function transaction<T>(db: AnyDb, fn: (tx: BunDbRunner) => Promise<T>): Promise<T> {
-  return (await asRawClient(db).begin(async (tx) => fn(tx as BunDbRunner))) as T;
+  return asRawClient(db).begin(fn);
 }
 
 // A tx/savepoint handle has no begin(); fail closed instead of nesting silently or TypeError-ing.
@@ -1741,15 +1717,12 @@ export async function runInNewTransaction<T>(
   db: unknown,
   fn: (tx: DbRunner) => Promise<T>,
 ): Promise<T> {
-  const raw = asRawClient(db) as unknown as {
-    begin?: <TResult>(cb: (tx: unknown) => Promise<TResult>) => Promise<TResult>;
-  };
+  const raw = asRawClient(db);
   if (typeof raw.begin !== "function") {
     throw new InternalError({
       message:
         "runInNewTransaction: runner has no begin() — already inside a transaction or savepoint.",
     });
   }
-  // @cast-boundary driver tx handle → DbRunner at the single seam
-  return raw.begin((tx) => fn(tx as DbRunner));
+  return raw.begin(fn);
 }

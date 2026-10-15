@@ -1,3 +1,4 @@
+import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 // Per-feature changelog — each bundled feature has a `changes.json` that
 // tracks breaking changes, improvements, and fixes per version. The CLI
 // (`kumiko upgrade`) reads these to show apps what they need to migrate.
@@ -6,7 +7,8 @@
 // File I/O stays in the CLI (`bin/commands/upgrade.ts`) — this module is
 // pure parse/validate so engine stays off the node:fs allowlist.
 
-export type ChangelogType = "breaking" | "improvement" | "fix";
+export const CHANGELOG_TYPES = ["breaking", "improvement", "fix"] as const;
+export type ChangelogType = (typeof CHANGELOG_TYPES)[number];
 
 export type ChangelogEntry = {
   readonly version: string;
@@ -29,7 +31,7 @@ export type FeatureChangelog = {
 /** Parse a changes.json body. Callers own file I/O. */
 export function parseFeatureChangelog(raw: string, featureName: string): FeatureChangelog | null {
   try {
-    const entries = JSON.parse(raw) as unknown;
+    const entries: unknown = JSON.parse(raw);
     if (!Array.isArray(entries)) return null;
 
     const validated: ChangelogEntry[] = [];
@@ -45,12 +47,14 @@ export function parseFeatureChangelog(raw: string, featureName: string): Feature
 }
 
 function isChangelogEntry(value: unknown): value is ChangelogEntry {
-  if (typeof value !== "object" || value === null) return false;
-  const obj = value as Record<string, unknown>;
-  if (typeof obj["version"] !== "string") return false;
-  if (!["breaking", "improvement", "fix"].includes(obj["type"] as string)) return false;
-  if (typeof obj["title"] !== "string") return false;
-  if (obj["manualAfterCodemod"] !== undefined && typeof obj["manualAfterCodemod"] !== "boolean") {
+  if (!isPlainObject(value)) return false;
+  if (typeof value["version"] !== "string") return false;
+  if (!isOneOf(CHANGELOG_TYPES, value["type"])) return false;
+  if (typeof value["title"] !== "string") return false;
+  if (
+    value["manualAfterCodemod"] !== undefined &&
+    typeof value["manualAfterCodemod"] !== "boolean"
+  ) {
     return false;
   }
   return true;

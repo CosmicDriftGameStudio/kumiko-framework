@@ -80,6 +80,22 @@ describe("encryptPiiFieldValues / decryptPiiFieldValues", () => {
     expect(read["email"]).toBe("marc@example.com");
   });
 
+  test("keeps the row's keys: typed property access yields ciphertext string and untouched plain field", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const stored = await encryptPiiFieldValues(
+      { id: UUID_A, email: "typed@example.com", role: "admin" },
+      userLikeEntity,
+      ["email"],
+      kms,
+      KMS_CTX,
+      { entityName: ENTITY_NAME },
+    );
+    const email: string = stored.email;
+    const role: string = stored.role;
+    expect(isPiiCiphertext(email)).toBe(true);
+    expect(role).toBe("admin");
+  });
+
   test("first write auto-creates the subject key", async () => {
     const kms = new InMemoryKmsAdapter();
     await expect(kms.getKey({ kind: "user", userId: UUID_A })).rejects.toBeInstanceOf(

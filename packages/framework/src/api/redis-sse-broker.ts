@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   type RedisClientOptions,
   redisChannelPrefixFromEnv,
@@ -73,9 +74,11 @@ function isSseEvent(value: unknown): value is SseEvent {
   return (
     typeof value === "object" &&
     value !== null &&
-    typeof (value as { type?: unknown }).type === "string" &&
-    typeof (value as { data?: unknown }).data === "object" &&
-    (value as { data?: unknown }).data !== null
+    "type" in value &&
+    typeof value.type === "string" &&
+    "data" in value &&
+    typeof value.data === "object" &&
+    value.data !== null
   );
 }
 
@@ -88,24 +91,23 @@ function isSseEvent(value: unknown): value is SseEvent {
 // sparing something it doesn't understand: fail-closed on a mixed rolling
 // deploy. Anything malformed also falls back to userwide.
 function parseInvalidationScope(payload: unknown): AccessInvalidationScope {
-  if (typeof payload !== "object" || payload === null) return { kind: "user" };
-  const record = payload as Record<string, unknown>;
+  if (!isPlainObject(payload)) return { kind: "user" };
 
-  if ("scope" in record) {
-    const { scope } = record;
+  if ("scope" in payload) {
+    const { scope } = payload;
     if (scope === "sessions") {
-      const sessionIds = readNonEmptyStringArray(record["sessionIds"]);
+      const sessionIds = readNonEmptyStringArray(payload["sessionIds"]);
       if (sessionIds) return { kind: "sessions", sessionIds };
     }
     if (scope === "pat-tokens") {
-      const tokenIds = readNonEmptyStringArray(record["tokenIds"]);
+      const tokenIds = readNonEmptyStringArray(payload["tokenIds"]);
       if (tokenIds) return { kind: "pat-tokens", tokenIds };
     }
     return { kind: "user" };
   }
 
-  if ("keptSessionId" in record) {
-    const { keptSessionId } = record;
+  if ("keptSessionId" in payload) {
+    const { keptSessionId } = payload;
     if (typeof keptSessionId === "string" && keptSessionId.length > 0) {
       return { kind: "all-except-session", keptSessionId };
     }

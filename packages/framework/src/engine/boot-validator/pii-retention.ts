@@ -71,7 +71,7 @@ function validateWriteOnlyField(
   const where = `[Feature ${featureName}] Field "${fieldName}" on entity "${entityName}"`;
   if (field.type === "embedded") {
     for (const [subName, subField] of Object.entries(field.schema)) {
-      if ((subField as { writeOnly?: unknown }).writeOnly === true) {
+      if ("writeOnly" in subField && subField.writeOnly === true) {
         // @cast-boundary schema-walk
         throw new Error(
           `${where} declares writeOnly on embedded sub-field "${subName}" — writeOnly is only supported on top-level text fields.`,

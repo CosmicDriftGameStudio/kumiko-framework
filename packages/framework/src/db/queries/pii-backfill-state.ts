@@ -12,12 +12,12 @@ export async function readPiiBackfillState(
   db: AnyDb,
   fingerprint: string,
 ): Promise<PiiBackfillStateRow | null> {
-  const rows = (await asRawClient(db).unsafe(
+  const rows = await asRawClient(db).unsafe<PiiBackfillStateRow>(
     `SELECT "cursor_event_id"::text AS "cursor", "completed_at" IS NOT NULL AS "completed",
             "failed_event_ids"::text[] AS "failedEventIds"
        FROM "kumiko_pii_backfill_state" WHERE "fingerprint" = $1`,
     [fingerprint],
-  )) as ReadonlyArray<PiiBackfillStateRow>;
+  );
   return rows[0] ?? null;
 }
 

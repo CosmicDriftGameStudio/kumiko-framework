@@ -13,6 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-types/fields";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { rowMetaFieldNames } from "../../db/table-builder.js";
 import { REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.js";
 import { isEncryptedAtRest } from "../config-helpers.js";
@@ -427,7 +428,7 @@ function validateWizardLayout(
 // for an unregistered key instead of crashing — this check makes the same
 // gap fail loudly at boot instead of silently at render.
 function isRegisteredIcon(icon: IconKey): boolean {
-  return (NAV_ICON_KEYS as readonly string[]).includes(icon);
+  return isOneOf(NAV_ICON_KEYS, icon);
 }
 
 export function validateActionHasIcon(

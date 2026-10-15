@@ -18,32 +18,8 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { asRawClient } from "../bun-db/query.js";
 import type { DbConnection, DbRunner } from "./connection.js";
-
-// Adapter: extract raw postgres-js client from drizzle DbConnection,
-// or use Bun.sql instance directly. Either way `.unsafe()` is the
-// runtime call.
-function rawClient(db: DbRunner): {
-  unsafe: (sql: string, params?: readonly unknown[]) => Promise<readonly Record<string, unknown>[]>;
-  begin: <T>(fn: (tx: unknown) => Promise<T>) => Promise<T>;
-} {
-  const dbAny = db as unknown as Record<string, unknown>;
-  if (typeof dbAny["unsafe"] === "function" && typeof dbAny["begin"] === "function") {
-    return dbAny as never;
-  }
-  const $client = dbAny["$client"];
-  if ($client && typeof ($client as Record<string, unknown>)["unsafe"] === "function") {
-    return $client as never;
-  }
-  const session = dbAny["session"] as Record<string, unknown> | undefined;
-  const sessionClient = session?.["client"];
-  if (sessionClient && typeof (sessionClient as Record<string, unknown>)["unsafe"] === "function") {
-    return sessionClient as never;
-  }
-  throw new Error(
-    "migrate-runner: db argument has no .unsafe() (need Bun.SQL or drizzle DbConnection)",
-  );
-}
 
 export type Migration = {
   readonly id: string; // filename ohne .sql
@@ -224,31 +200,46 @@ export function readMigrationSqlTexts(dir: string): readonly string[] {
     .map((file) => readFileSync(join(dir, file), "utf8"));
 }
 
+function propertyOf(value: unknown, key: string): unknown {
+  const readable = (typeof value === "object" && value !== null) || typeof value === "function";
+  return readable ? Reflect.get(value, key) : undefined;
+}
+
+// Stricter than asRawClient on purpose: a direct handle must also offer
+// begin(), because runMigrations wraps every file in a transaction. Handles
+// without it fall through to the drizzle wrappers and otherwise fail here,
+// before any SQL runs, with the migrate-runner message.
+function migrationClient(db: DbRunner): ReturnType<typeof asRawClient> {
+  const hasDirectClient =
+    typeof propertyOf(db, "unsafe") === "function" && typeof propertyOf(db, "begin") === "function";
+  if (hasDirectClient) return asRawClient(db);
+  for (const wrapped of [
+    propertyOf(db, "$client"),
+    propertyOf(propertyOf(db, "session"), "client"),
+  ]) {
+    if (typeof propertyOf(wrapped, "unsafe") === "function") return asRawClient(wrapped);
+  }
+  throw new Error(
+    "migrate-runner: db argument has no .unsafe() (need Bun.SQL or drizzle DbConnection)",
+  );
+}
+
 // Raw-SQL via postgres-js or Bun.sql .unsafe() — same shape for both.
 async function executeRaw(db: DbRunner, sqlText: string): Promise<void> {
-  await rawClient(db).unsafe(sqlText);
+  await migrationClient(db).unsafe(sqlText);
 }
 
 export async function fetchAppliedMigrations(
   db: DbConnection,
 ): Promise<readonly AppliedMigration[]> {
-  const result = await rawClient(db).unsafe(
+  const result = await migrationClient(db).unsafe<Record<string, unknown>>(
     `SELECT id, checksum FROM "_kumiko_migrations" ORDER BY id`,
   );
   const rows = Array.isArray(result) ? result : [];
   const applied: AppliedMigration[] = [];
   for (const row of rows) {
-    if (
-      typeof row === "object" &&
-      row !== null &&
-      typeof (row as { id?: unknown }).id === "string" &&
-      typeof (row as { checksum?: unknown }).checksum === "string"
-    ) {
-      applied.push({
-        id: (row as { id: string }).id,
-        checksum: (row as { checksum: string }).checksum,
-      });
-    }
+    const { id, checksum } = row;
+    if (typeof id === "string" && typeof checksum === "string") applied.push({ id, checksum });
   }
   return applied;
 }
@@ -298,16 +289,15 @@ export async function runMigrations(
       // Apply file content + INSERT tracking-row in einer TX. Wenn ein
       // Statement bricht, Rollback inkl. Tracking-Row → kein partial-apply
       // stuck in den books.
-      const client = rawClient(db);
+      const client = migrationClient(db);
       await client.begin(async (tx) => {
-        const txClient = tx as { unsafe: (s: string, p?: readonly unknown[]) => Promise<unknown> };
         for (const stmt of m.statements) {
-          await txClient.unsafe(stmt);
+          await tx.unsafe(stmt);
         }
-        await txClient.unsafe(
-          `INSERT INTO "_kumiko_migrations" ("id", "checksum") VALUES ($1, $2)`,
-          [m.id, m.checksum],
-        );
+        await tx.unsafe(`INSERT INTO "_kumiko_migrations" ("id", "checksum") VALUES ($1, $2)`, [
+          m.id,
+          m.checksum,
+        ]);
       });
       appliedIds.push(m.id);
     }
@@ -342,7 +332,7 @@ export async function baselineMigrations(
   const applied = new Set((await fetchAppliedMigrations(db)).map((a) => a.id));
   const marked: string[] = [];
   const alreadyTracked: string[] = [];
-  const client = rawClient(db);
+  const client = migrationClient(db);
   for (const m of migrations) {
     if (applied.has(m.id)) {
       alreadyTracked.push(m.id);

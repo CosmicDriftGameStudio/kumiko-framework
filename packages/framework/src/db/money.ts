@@ -64,7 +64,7 @@ function toMajorUnits(amountScaled: number): number {
 export function moneyPayloadToMinorUnits(raw: unknown): number | undefined {
   if (typeof raw === "number") return toMinorUnits(raw);
   if (typeof raw === "object" && raw !== null && "amount" in raw) {
-    const amount = (raw as { amount: unknown }).amount;
+    const amount = raw.amount;
     if (typeof amount === "number") return toMinorUnits(amount);
   }
   return undefined;
