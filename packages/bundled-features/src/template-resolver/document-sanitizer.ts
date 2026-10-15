@@ -20,6 +20,8 @@ export type DocumentViolationCode =
   | "external_image_source"
   | "image_without_resource"
   | "invalid_reference_name"
+  | "embedded_content"
+  | "unsafe_attribute_value"
   | "button_href_not_placeholder"
   | "document_requires_html_format";
 
@@ -148,8 +150,72 @@ function scanReferences(tag: string, element: ScanElement, out: DocumentViolatio
   }
 }
 
+const EMBEDDING_TAGS: ReadonlySet<string> = new Set([
+  "iframe",
+  "frame",
+  "frameset",
+  "object",
+  "embed",
+  "applet",
+  "portal",
+]);
+const SVG_IMAGE_TAGS: ReadonlySet<string> = new Set(["image", "feimage", "use"]);
+const URL_ATTRIBUTES = ["href", "xlink:href", "action", "formaction"] as const;
+
+function scanEmbedding(tag: string, out: DocumentViolation[]): void {
+  if (EMBEDDING_TAGS.has(tag)) {
+    out.push(
+      violation("embedded_content", tag, `<${tag}> elements are not allowed in template bodies`),
+    );
+  }
+}
+
+// html <a href> has its own rules in scanAnchor; everywhere else (svg, base,
+// form controls) a URL attribute has no business in a template body.
+function scanUrlAttributes(tag: string, element: ScanElement, out: DocumentViolation[]): void {
+  for (const name of URL_ATTRIBUTES) {
+    const value = element.getAttribute(name);
+    if (value === null || (tag === "a" && name === "href")) continue;
+    if (SVG_IMAGE_TAGS.has(tag) && name.endsWith("href")) {
+      out.push(
+        violation(
+          "external_image_source",
+          value,
+          `Images must reference an uploaded resource via data-resource; image source "${value}" is not allowed`,
+        ),
+      );
+    } else if (tag === "base" || !isAllowedDocumentLinkHref(value)) {
+      out.push(
+        violation(
+          "disallowed_link_href",
+          value,
+          `Link target "${value}" is not allowed; use https, http, mailto, tel or a {{placeholder}}`,
+        ),
+      );
+    }
+  }
+}
+
+// happy-dom serializes < and > inside attribute values unescaped, so a later
+// parser (MJML) could read them as markup.
+function scanAltText(element: ScanElement, out: DocumentViolation[]): void {
+  const alt = element.getAttribute("alt");
+  if (alt !== null && /[<>]/.test(alt)) {
+    out.push(
+      violation(
+        "unsafe_attribute_value",
+        alt,
+        `Attribute alt must not contain "<" or ">": "${alt}"`,
+      ),
+    );
+  }
+}
+
 function scanElement(element: ScanElement, out: DocumentViolation[]): void {
   const tag = element.tagName.toLowerCase();
+  scanEmbedding(tag, out);
+  scanUrlAttributes(tag, element, out);
+  scanAltText(element, out);
   scanScriptAndHandlers(tag, element, out);
   if (tag === "a") scanAnchor(element, out);
   if (tag === "img") scanImage(element, out);
@@ -221,6 +287,8 @@ const VIOLATION_I18N_KEYS: Readonly<Record<DocumentViolationCode, string>> = {
   external_image_source: "templateResolver.errors.document.externalImageSource",
   image_without_resource: "templateResolver.errors.document.imageWithoutResource",
   invalid_reference_name: "templateResolver.errors.document.invalidReferenceName",
+  embedded_content: "templateResolver.errors.document.embeddedContent",
+  unsafe_attribute_value: "templateResolver.errors.document.unsafeAttributeValue",
   button_href_not_placeholder: "templateResolver.errors.document.buttonHrefNotPlaceholder",
   document_requires_html_format: "templateResolver.errors.document.documentRequiresHtmlFormat",
 };

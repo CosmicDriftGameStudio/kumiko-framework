@@ -36,7 +36,25 @@ export {
   sanitizeDocumentHtml,
   sanitizeTemplateBody,
 } from "./document-sanitizer.js";
-export * from "./document-schema.js";
+export {
+  DOCUMENT_NODE_NAMES,
+  DocumentButton,
+  DocumentDivider,
+  DocumentLink,
+  DocumentPageBreak,
+  DocumentRepeatRow,
+  DocumentResource,
+  DocumentTable,
+  DocumentTableCell,
+  DocumentTableHeader,
+  DocumentTableRow,
+  DocumentVariable,
+  documentExtensions,
+  isAllowedDocumentLinkHref,
+  isDocumentPlaceholderHref,
+  isDocumentReferenceName,
+  isDocumentResourceKey,
+} from "./document-schema.js";
 export { createTemplateResolverFeature } from "./feature.js";
 export {
   TEMPLATE_RESOLVER_FEATURE,

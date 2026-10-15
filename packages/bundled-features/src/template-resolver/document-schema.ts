@@ -4,6 +4,7 @@
 // extension list, so what the editor can produce is exactly what the server
 // keeps. No DOM access at module level, no happy-dom here.
 import { type Extensions, Node } from "@tiptap/core";
+import { Link } from "@tiptap/extension-link";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import StarterKit from "@tiptap/starter-kit";
 
@@ -16,17 +17,46 @@ export function isDocumentPlaceholderHref(href: string): boolean {
   return PLACEHOLDER_HREF.test(href);
 }
 
-// Exact lowercase prefix on the unchanged value: no trim, no case folding, so
-// "JaVaScRiPt:" or a leading tab can never slip through as a scheme variant.
-export function isAllowedDocumentLinkHref(href: string): boolean {
-  return (
-    ALLOWED_LINK_SCHEMES.some((scheme) => href.startsWith(scheme)) ||
-    isDocumentPlaceholderHref(href)
-  );
+const UNSAFE_URL_CHARACTERS = new Set(["<", ">", '"']);
+const FORBIDDEN_REFERENCE_SEGMENTS = new Set(["__proto__", "prototype", "constructor"]);
+
+function hasUnsafeUrlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const code = character.charCodeAt(0);
+    return UNSAFE_URL_CHARACTERS.has(character) || code <= 0x1f || code === 0x7f;
+  });
 }
 
+function isParsableWebUrl(href: string, protocol: "https:" | "http:"): boolean {
+  try {
+    return new URL(href).protocol === protocol;
+  } catch {
+    return false;
+  }
+}
+
+function hasAllowedLinkScheme(href: string): boolean {
+  if (href.startsWith("https://")) return isParsableWebUrl(href, "https:");
+  if (href.startsWith("http://")) return isParsableWebUrl(href, "http:");
+  return ALLOWED_LINK_SCHEMES.some((scheme) => href.startsWith(scheme));
+}
+
+// Exact lowercase prefix on the unchanged value: no trim, no case folding, so
+// "JaVaScRiPt:", "HTTPS://" or a leading tab can never slip through as a
+// scheme variant. Markup and control characters are refused outright because
+// downstream parsers (MJML, PDF renderer) re-read the serialized attribute.
+export function isAllowedDocumentLinkHref(href: string): boolean {
+  if (hasUnsafeUrlCharacter(href)) return false;
+  return hasAllowedLinkScheme(href) || isDocumentPlaceholderHref(href);
+}
+
+// Segments that hit the prototype chain are refused: the renderer later walks
+// the dotted path into a data object.
 export function isDocumentReferenceName(value: string): boolean {
-  return REFERENCE_NAME.test(value);
+  return (
+    REFERENCE_NAME.test(value) &&
+    !value.split(".").some((segment) => FORBIDDEN_REFERENCE_SEGMENTS.has(segment))
+  );
 }
 
 export function isDocumentResourceKey(value: string): boolean {
@@ -214,6 +244,14 @@ export const DocumentTableHeader = TableHeader.extend({
   },
 });
 
+// Only href survives a parse: target, rel, class and title from the input would
+// otherwise be kept verbatim, and the renderer decides those itself.
+export const DocumentLink = Link.extend({
+  addAttributes() {
+    return { href: { default: null, parseHTML: (element) => element.getAttribute("href") } };
+  },
+});
+
 export const documentExtensions: Extensions = [
   StarterKit.configure({
     blockquote: false,
@@ -228,13 +266,14 @@ export const documentExtensions: Extensions = [
     trailingNode: false,
     listKeymap: false,
     heading: { levels: [1, 2, 3] },
-    link: {
-      openOnClick: false,
-      autolink: false,
-      linkOnPaste: false,
-      HTMLAttributes: { target: null, rel: null, class: null },
-      isAllowedUri: (url) => isAllowedDocumentLinkHref(url),
-    },
+    link: false,
+  }),
+  DocumentLink.configure({
+    openOnClick: false,
+    autolink: false,
+    linkOnPaste: false,
+    HTMLAttributes: { target: null, rel: null, class: null },
+    isAllowedUri: (url) => isAllowedDocumentLinkHref(url),
   }),
   DocumentTable,
   DocumentTableRow,

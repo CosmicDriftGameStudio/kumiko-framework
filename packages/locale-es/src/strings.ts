@@ -1078,6 +1078,10 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "El destino del enlace «{detail}» no está permitido; usa https, http, mailto, tel o un marcador.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Este tipo de plantilla requiere el formato html, recibido: «{detail}».",
+  "templateResolver.errors.document.embeddedContent":
+    "Los elementos <{detail}> no están permitidos en los textos de plantilla.",
+  "templateResolver.errors.document.unsafeAttributeValue":
+    "El valor de atributo «{detail}» no debe contener < ni >.",
   "templateResolver.errors.document.eventHandlerAttribute":
     "El atributo de evento en línea «{detail}» no está permitido.",
   "templateResolver.errors.document.externalImageSource":

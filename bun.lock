@@ -53,6 +53,7 @@
         "@mollie/api-client": "^4.5.0",
         "@node-rs/argon2": "^2.0.2",
         "@tiptap/core": "3.31.3",
+        "@tiptap/extension-link": "3.31.3",
         "@tiptap/extension-table": "3.31.3",
         "@tiptap/html": "3.31.3",
         "@tiptap/pm": "3.31.3",
