@@ -12,6 +12,7 @@ import {
   VariableChips,
 } from "@cosmicdrift/kumiko-renderer";
 import { cn } from "@cosmicdrift/kumiko-renderer-web";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import {
@@ -56,7 +57,7 @@ type ParagraphStyle = (typeof PARAGRAPH_STYLES)[number];
 const HEADING_LEVELS = { "1": 1, "2": 2, "3": 3 } as const;
 
 function isParagraphStyle(value: string): value is ParagraphStyle {
-  return (PARAGRAPH_STYLES as readonly string[]).includes(value);
+  return isOneOf(PARAGRAPH_STYLES, value);
 }
 
 function emptyParagraph(): JSONContent {
