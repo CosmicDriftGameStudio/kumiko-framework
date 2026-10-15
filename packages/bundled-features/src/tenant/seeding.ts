@@ -121,6 +121,30 @@ export type SeedTenantHooks = {
 // dispatcher's sink and flush post-commit. Without a sink (fixture / plain
 // Connection) they still fire immediately — there is no outer TX to wait for.
 //
+function buildSeedHookNotify(
+  context: AppContext,
+  scopedUser: SessionUser,
+  targetTenantId: TenantId,
+  notifyTiming: "deferUntilCommit" | "inline",
+): AppContext["notify"] {
+  const notifyFactory = context._notifyFactory;
+  if (!notifyFactory) return context.notify;
+  if (notifyTiming === "inline") return notifyFactory(scopedUser, targetTenantId);
+  // Still inside the caller's write tx: delivery DB work must not wait for an app-pool slot.
+  const notifyInsideTransaction = (context._notifyInTransactionFactory ?? notifyFactory)(
+    scopedUser,
+    targetTenantId,
+  );
+  const scheduleAfterCommit = context.scheduleAfterCommit;
+  if (!scheduleAfterCommit) return notifyInsideTransaction;
+  return createDeferringNotify({
+    tenantId: targetTenantId,
+    notifyAfterCommit: notifyFactory(scopedUser, targetTenantId),
+    notifyNow: notifyInsideTransaction,
+    scheduleAfterCommit,
+  });
+}
+
 // `runner` comes from the caller, which already holds a declared DbRunner —
 // a TenantDb exposes no runner back out to feature code.
 function scopeSeedHookContext(
@@ -148,24 +172,9 @@ function scopeSeedHookContext(
     ? { ...baseUser, tenantId: targetTenantId }
     : undefined;
 
-  const notifyFactory = context._notifyFactory;
-  const scheduleAfterCommit = context.scheduleAfterCommit;
-  // Still inside the caller's write tx: delivery DB work must not wait for an app-pool slot.
-  const notifyInsideTransaction =
-    notifyTiming === "deferUntilCommit"
-      ? (context._notifyInTransactionFactory ?? notifyFactory)
-      : notifyFactory;
-  const notify =
-    notifyFactory && notifyInsideTransaction && scopedUser
-      ? notifyTiming === "deferUntilCommit" && scheduleAfterCommit
-        ? createDeferringNotify({
-            tenantId: targetTenantId,
-            notifyAfterCommit: notifyFactory(scopedUser, targetTenantId),
-            notifyNow: notifyInsideTransaction(scopedUser, targetTenantId),
-            scheduleAfterCommit,
-          })
-        : notifyInsideTransaction(scopedUser, targetTenantId)
-      : context.notify;
+  const notify = scopedUser
+    ? buildSeedHookNotify(context, scopedUser, targetTenantId, notifyTiming)
+    : context.notify;
 
   const features = context.effectiveFeatures as
     | (((tenantId: TenantId) => ReadonlySet<string>) & {
