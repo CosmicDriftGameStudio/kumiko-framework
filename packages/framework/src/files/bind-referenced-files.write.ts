@@ -81,6 +81,7 @@ export const bindReferencedFilesWrite = defineWriteHandler({
           const row = await executor.detail({ id: fileRefId }, event.user, ctx.db);
           const bindable =
             row !== null &&
+            typeof row["insertedById"] === "string" &&
             (row["insertedById"] === record["insertedById"] ||
               row["insertedById"] === SYSTEM_USER_ID) &&
             row["tenantId"] === event.user.tenantId &&
