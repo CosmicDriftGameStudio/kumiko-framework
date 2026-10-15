@@ -492,6 +492,7 @@ function findUnknownReasons(all: readonly Site[]): Site[] {
 }
 
 function reportUnknownReasons(unknown: readonly Site[]): void {
+  // skip: every reason is known, nothing to report
   if (unknown.length === 0) return;
   console.log(`\n  UNKNOWN @cast-boundary REASONS (${unknown.length}):`);
   for (const u of unknown) {

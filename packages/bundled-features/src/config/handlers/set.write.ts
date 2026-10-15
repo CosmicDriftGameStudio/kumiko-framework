@@ -164,11 +164,7 @@ export const setWrite = defineWriteHandler({
         });
       }
       // scope="system" was already rejected above — narrow accordingly.
-      const subject = resolvePiiSubject(
-        scope as Exclude<typeof scope, "system">,
-        tenantId,
-        userId,
-      );
+      const subject = resolvePiiSubject(scope as Exclude<typeof scope, "system">, tenantId, userId);
       const kmsCtx: KmsContext = {
         requestId: requestContext.get()?.requestId ?? "config:write:set",
         tenantId,
