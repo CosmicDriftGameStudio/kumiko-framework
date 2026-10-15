@@ -21,6 +21,15 @@ export type RecordWriteCheck = (args: {
   readonly user: SessionUser;
 }) => Promise<RecordWriteDecision>;
 
+export function findImplicitEntityTable(registry: Registry, entityType: string) {
+  for (const projection of registry.getAllProjections().values()) {
+    if (projection.isImplicit === true && projection.source === entityType) {
+      return projection.table;
+    }
+  }
+  return undefined;
+}
+
 function isEntityUpdateWrite(qn: string, entityName: string): boolean {
   return qn.endsWith(`:write:${toKebab(entityName)}:update`);
 }
@@ -45,21 +54,12 @@ export function createRecordWriteCheck(args: {
     return undefined;
   }
 
-  function findEntityTable(entityType: string) {
-    for (const projection of registry.getAllProjections().values()) {
-      if (projection.isImplicit === true && projection.source === entityType) {
-        return projection.table;
-      }
-    }
-    return undefined;
-  }
-
   return async ({ entityType, entityId, fieldName, user }) => {
     if (!(await canReadRecord({ entityType, entityId, user }))) {
       return RecordWriteDecisions.notFound;
     }
     const entity = registry.getEntity(entityType);
-    const table = findEntityTable(entityType);
+    const table = findImplicitEntityTable(registry, entityType);
     if (!entity || !table) return RecordWriteDecisions.notFound;
 
     // The stored row, not the detail output: the detail query can hide ownership fields.

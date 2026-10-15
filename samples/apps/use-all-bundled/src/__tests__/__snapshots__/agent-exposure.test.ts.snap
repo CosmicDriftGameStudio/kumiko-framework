@@ -83,6 +83,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "feature-toggles:query:registered expose=true risk=low",
   "feature-toggles:write:set expose=true risk=mid",
   "file-derivatives:query:public-variant expose=false risk=low",
+  "files:write:bindReferencedFiles expose=false risk=mid",
   "folders:query:folder-assignment:list expose=true risk=low",
   "folders:query:folder:detail expose=true risk=low",
   "folders:query:folder:list expose=true risk=low",

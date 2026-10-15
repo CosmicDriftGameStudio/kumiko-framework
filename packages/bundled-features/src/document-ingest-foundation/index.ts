@@ -1,5 +1,6 @@
 // Public API of the document-ingest-foundation bundled-feature.
 
+export { documentIngestAggregateId } from "./aggregate-id.js";
 export {
   type DocumentExtractMeta,
   documentExtractEntity,

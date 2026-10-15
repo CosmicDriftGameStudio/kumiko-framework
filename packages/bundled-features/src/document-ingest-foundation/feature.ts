@@ -14,6 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { normalizeMimeType } from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
+import { documentIngestAggregateId } from "./aggregate-id.js";
 import { validateDocumentIngestProviderWiring } from "./boot-checks.js";
 import { documentExtractEntity } from "./entity.js";
 import {
@@ -66,13 +67,14 @@ type FileRefIngestFields = z.infer<typeof fileRefIngestFieldsSchema>;
 // delete→restore round-trip re-requests ingest instead of leaving the file
 // without an extract.
 async function requestIngestForFileRef(
-  event: { readonly aggregateId: string },
+  event: { readonly aggregateId: string; readonly tenantId: string },
   fileRef: FileRefIngestFields,
   ctx: MspApplyContext,
 ): Promise<void> {
+  const ingestAggregateId = documentIngestAggregateId(event.tenantId, event.aggregateId);
   const skip = (reason: "file-too-large" | "unsupported-mime-type") =>
     ctx.unsafeAppendEvent({
-      aggregateId: event.aggregateId,
+      aggregateId: ingestAggregateId,
       aggregateType: DOCUMENT_INGEST_AGGREGATE_TYPE,
       type: DOCUMENT_INGEST_SKIPPED_EVENT_QN,
       payload: {
@@ -105,7 +107,7 @@ async function requestIngestForFileRef(
   }
 
   await ctx.unsafeAppendEvent({
-    aggregateId: event.aggregateId,
+    aggregateId: ingestAggregateId,
     aggregateType: DOCUMENT_INGEST_AGGREGATE_TYPE,
     type: DOCUMENT_INGEST_REQUESTED_EVENT_QN,
     payload: {

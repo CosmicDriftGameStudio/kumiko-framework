@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cardColumnRoles } from "../card-column-roles.js";
+import { cardColumnRoles, cardFileDisplayKind } from "../card-column-roles.js";
 
 describe("cardColumnRoles", () => {
   test("the first column is the title when none is highlighted", () => {
@@ -40,6 +40,31 @@ describe("cardColumnRoles", () => {
   test("hideOnNarrow columns are left out of meta; empty input has no roles", () => {
     const roles = cardColumnRoles([{ field: "a" }, { field: "b", hideOnNarrow: true }]);
     expect(roles.meta).toEqual([]);
-    expect(cardColumnRoles([])).toEqual({ title: undefined, status: undefined, meta: [] });
+    expect(cardColumnRoles([])).toEqual({
+      image: undefined,
+      title: undefined,
+      status: undefined,
+      meta: [],
+    });
+  });
+
+  test("the first image column is neither title nor meta; later ones stay meta", () => {
+    const roles = cardColumnRoles([
+      { field: "photo", fileDisplay: { kind: "image" } },
+      { field: "name" },
+      { field: "logo", fileDisplay: { kind: "image" } },
+      { field: "doc", fileDisplay: { kind: "file" } },
+    ]);
+    expect(roles.image?.field).toBe("photo");
+    expect(roles.title?.field).toBe("name");
+    expect(roles.meta.map((c) => c.field)).toEqual(["logo", "doc"]);
+  });
+
+  test("cardFileDisplayKind: a format renderer wins over the field type", () => {
+    expect(cardFileDisplayKind("image", undefined)).toBe("image");
+    expect(cardFileDisplayKind("files", undefined)).toBe("file");
+    expect(cardFileDisplayKind("text", { format: "image" })).toBe("image");
+    expect(cardFileDisplayKind("image", { format: "file" })).toBe("file");
+    expect(cardFileDisplayKind("text", undefined)).toBeUndefined();
   });
 });

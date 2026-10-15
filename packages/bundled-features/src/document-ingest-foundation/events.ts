@@ -1,7 +1,9 @@
 import * as z from "zod";
 
 // documentIngest — own aggregate-type for the ingest-request stream, one
-// stream per fileRef (aggregateId = fileRefId). Not backed by an r.entity;
+// stream per fileRef with aggregateId derived from the fileRefId
+// (documentIngestAggregateId), never the fileRefId itself: foreign events on
+// the fileRef stream would break the fileRef's optimistic lock. Not backed by an r.entity;
 // this is a pure saga-anchor event (kumiko-framework#1497) that the Phase-2
 // worker job (kumiko-enterprise LiteParse provider) subscribes to.
 export const DOCUMENT_INGEST_AGGREGATE_TYPE = "document-ingest";

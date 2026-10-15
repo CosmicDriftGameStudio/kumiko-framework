@@ -22,16 +22,27 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
+  createEntity,
+  createFileField,
   createSystemUser,
+  createTextField,
+  defineEntityCreateHandler,
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { append, eventsTable, getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  createFilesFeature,
   createInMemoryFileProvider,
   fileRefEntity,
   fileRefsTable,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createProjectionStateTable,
+  rebuildMultiStreamProjection,
+  rebuildProjection,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   setupTestStack,
   type TestStack,
@@ -46,8 +57,13 @@ import { createConfigFeature } from "../../config/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { documentIngestAggregateId } from "../aggregate-id.js";
 import { documentExtractEntity, documentExtractsTable } from "../entity.js";
-import { documentIngestRequestedPayloadSchema } from "../events.js";
+import {
+  DOCUMENT_INGEST_AGGREGATE_TYPE,
+  DOCUMENT_INGEST_REQUESTED_EVENT_QN,
+  documentIngestRequestedPayloadSchema,
+} from "../events.js";
 import { documentIngestFoundationFeature } from "../feature.js";
 import { writeIngestPages } from "../pages.js";
 import { documentIngestProviderTrigger, EXT_DOCUMENT_INGEST_PROVIDER } from "../providers.js";
@@ -127,6 +143,25 @@ const testProviderXmlFeature = defineFeature("test-document-ingest-provider-xml"
   );
 });
 
+const attachmentNoteEntity = createEntity({
+  table: "ingest_attachment_notes",
+  fields: {
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    attachment: createFileField(),
+  },
+});
+
+const attachmentNoteFeature = defineFeature("ingest-attachment-notes", (r) => {
+  r.entity("note", attachmentNoteEntity);
+  r.writeHandler(
+    defineEntityCreateHandler("note", attachmentNoteEntity, {
+      access: { roles: ["Admin", "User", "SystemAdmin"] },
+    }),
+  );
+});
+
+const ATTACHMENT_NOTE_CREATE = "ingest-attachment-notes:write:note:create";
+
 let stack: TestStack;
 let provider: InMemoryFileProvider;
 
@@ -187,6 +222,7 @@ beforeAll(async () => {
   provider = createInMemoryFileProvider();
   stack = await setupTestStack({
     features: [
+      createFilesFeature(),
       createConfigFeature(),
       createTenantFeature(),
       createComplianceProfilesFeature(),
@@ -196,6 +232,7 @@ beforeAll(async () => {
       testProviderBFeature,
       testProviderXmlFeature,
       agentDeleteFileRefFeature,
+      attachmentNoteFeature,
     ],
     files: { storageProvider: provider },
     // Distinct prefix: avoids sharing a BullMQ queue namespace with any other
@@ -203,6 +240,7 @@ beforeAll(async () => {
     jobs: { consumerLane: "worker", queueNamePrefix: `document-ingest-foundation-${generateId()}` },
   });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, attachmentNoteEntity);
 });
 
 afterAll(async () => {
@@ -406,6 +444,118 @@ describe("fileRef.created → documentIngest.requested", () => {
       size: oversizedPdfBytes.length,
       reason: "file-too-large",
     });
+  });
+});
+
+describe("ingest events live on their own stream", () => {
+  async function uploadPending(
+    fileName: string,
+    content: Uint8Array,
+    mimeType: string,
+  ): Promise<string> {
+    const token = await stack.jwt.sign(admin);
+    const formData = new FormData();
+    formData.append("entityType", "note");
+    formData.append("fieldName", "attachment");
+    formData.append("file", new File([Buffer.from(content)], fileName, { type: mimeType }));
+    const res = await stack.app.request("/api/files", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    expect(res.status).toBe(201);
+    return ((await res.json()) as { id: string }).id;
+  }
+
+  test("a claimed pending upload keeps the fileRef stream free of foreign events and binds on save", async () => {
+    const id = await uploadPending("scan.png", pngBytes, "image/png");
+
+    await stack.eventDispatcher?.runOnce();
+
+    const onFileRefStream = await selectMany(stack.db, eventsTable, { aggregateId: id });
+    expect([...new Set(onFileRefStream.map((row) => row.aggregateType))]).toEqual(["fileRef"]);
+
+    const requested = (
+      await selectMany(stack.db, eventsTable, {
+        type: "document-ingest-foundation:event:document-ingest-requested",
+      })
+    ).filter((row) => row.payload["fileRefId"] === id);
+    expect(requested.map((row) => row.aggregateId)).toEqual([
+      documentIngestAggregateId(admin.tenantId, id),
+    ]);
+
+    const created = await stack.http.writeOk<{ id: string }>(
+      ATTACHMENT_NOTE_CREATE,
+      { title: "With scan", attachment: id },
+      admin,
+    );
+    await stack.eventDispatcher?.runOnce();
+    const [fileRefRow] = await selectMany(stack.db, fileRefsTable, { id });
+    expect(fileRefRow?.["entityType"]).toBe("note");
+    expect(fileRefRow?.["entityId"]).toBe(created.id);
+  });
+
+  test("legacy ingest events on the fileRef stream are harmless to rebuild, retrigger and binding", async () => {
+    const id = await uploadPending("legacy.png", pngBytes, "image/png");
+    await stack.eventDispatcher?.runOnce();
+
+    const requestedFor = async (fileRefId: string) =>
+      (
+        await selectMany(stack.db, eventsTable, { type: DOCUMENT_INGEST_REQUESTED_EVENT_QN })
+      ).filter((row) => row.payload["fileRefId"] === fileRefId);
+
+    const [derived] = await requestedFor(id);
+    if (derived === undefined) throw new Error("expected the derived requested event");
+
+    // The shape the old code wrote: the requested event on the fileRef's own stream.
+    await append(stack.db, {
+      aggregateId: id,
+      aggregateType: DOCUMENT_INGEST_AGGREGATE_TYPE,
+      tenantId: admin.tenantId,
+      expectedVersion: await getStreamVersion(stack.db, id, admin.tenantId),
+      type: DOCUMENT_INGEST_REQUESTED_EVENT_QN,
+      eventVersion: derived.eventVersion,
+      payload: derived.payload,
+      metadata: derived.metadata,
+    });
+    expect(await requestedFor(id)).toHaveLength(2);
+
+    // (a) the fileRef projection replays to the same row
+    const [before] = await selectMany(stack.db, fileRefsTable, { id });
+    await createProjectionStateTable(stack.db);
+    const fileRefProjection = "files:projection:file-ref-entity";
+    await rebuildProjection(fileRefProjection, { db: stack.db, registry: stack.registry });
+    const [after] = await selectMany(stack.db, fileRefsTable, { id });
+    expect(after).toEqual(before);
+
+    // (b) the side-effect-only request-ingest consumer cannot be rebuilt
+    await expect(
+      rebuildMultiStreamProjection("document-ingest-foundation:projection:request-ingest", {
+        db: stack.db,
+        registry: stack.registry,
+      }),
+    ).rejects.toThrow(/pure side-effect consumer/);
+
+    // (c) a further dispatcher turn requests nothing new for this file
+    await stack.eventDispatcher?.runOnce();
+    expect(await requestedFor(id)).toHaveLength(2);
+
+    // (d) the save still binds although the fileRef stream carries the legacy event
+    const created = await stack.http.writeOk<{ id: string }>(
+      ATTACHMENT_NOTE_CREATE,
+      { title: "Legacy scan", attachment: id },
+      admin,
+    );
+    const [bound] = await selectMany(stack.db, fileRefsTable, { id });
+    expect(bound?.["entityId"]).toBe(created.id);
+
+    // (e) a fresh upload gets exactly one requested event, on the derived stream
+    const freshId = await uploadPending("fresh.png", pngBytes, "image/png");
+    await stack.eventDispatcher?.runOnce();
+    const fresh = await requestedFor(freshId);
+    expect(fresh.map((row) => row.aggregateId)).toEqual([
+      documentIngestAggregateId(admin.tenantId, freshId),
+    ]);
   });
 });
 

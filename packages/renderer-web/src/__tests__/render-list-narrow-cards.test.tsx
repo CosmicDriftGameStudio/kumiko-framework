@@ -539,3 +539,36 @@ describe("DataTable — card-mode row menu and hideOnNarrow", () => {
     });
   });
 });
+
+describe("DataTable card with an image column", () => {
+  const FILE_ID = "11111111-2222-4333-8444-555555555555";
+  const COLUMNS_WITH_IMAGE = [
+    {
+      field: "photo",
+      label: "Photo",
+      type: "file",
+      sortable: false,
+      fileDisplay: { kind: "image" },
+    },
+    { field: "name", label: "Name", type: "string", sortable: true },
+    { field: "role", label: "Role", type: "string", sortable: false },
+  ] as const;
+
+  test("the image leads the card and the title is the first text column", () => {
+    withViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={COLUMNS_WITH_IMAGE}
+          rows={[{ id: "p1", values: { photo: FILE_ID, name: "Anna", role: "Admin" } }]}
+          testId="t"
+        />,
+      );
+      const card = within(screen.getByTestId("t-cards")).getByTestId("row-p1");
+      const img = within(card).getByTestId("card-image-p1").querySelector("img");
+      expect(img?.className).toContain("size-14");
+      expect(card.querySelector(".font-semibold")?.textContent).toBe("Anna");
+      expect(within(card).queryByTestId("cell-p1-photo")).toBeNull();
+      expect(within(card).getByTestId("cell-p1-role").textContent).toBe("Admin");
+    });
+  });
+});

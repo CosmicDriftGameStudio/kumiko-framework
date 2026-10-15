@@ -71,6 +71,10 @@ test("profile image display", async ({ page }) => {
   await page.goto("/profile-list");
   await expect(page.getByText("Wide Picture")).toBeVisible();
   await captureScreenshot(page, "profile-list-desktop");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByText("Wide Picture")).toBeVisible();
+  await captureScreenshot(page, "profile-list-mobile");
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   await page.getByText("Wide Picture").click();
   await page.waitForURL(/profile-view\/[0-9a-f-]{36}/);

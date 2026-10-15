@@ -35,18 +35,22 @@ describe("primaryHeaderAction", () => {
 });
 
 describe("compactHeaderPrimary", () => {
-  test("a declared confirm-gated action stays the button, labelled instead of a bare icon", () => {
+  test("a declared confirm-gated action with an icon is icon-only", () => {
     const result = compactHeaderPrimary([edit, activate], "activate");
     expect(result?.action.id).toBe("activate");
-    expect(result?.iconOnly).toBe(false);
+    expect(result?.iconOnly).toBe(true);
   });
 
-  test("a declared danger action is labelled too", () => {
-    const withDanger = [edit, terminate];
-    expect(compactHeaderPrimary(withDanger, "terminate")).toEqual({
+  test("a declared danger action with an icon is icon-only too", () => {
+    expect(compactHeaderPrimary([edit, terminate], "terminate")).toEqual({
       action: terminate,
-      iconOnly: false,
+      iconOnly: true,
     });
+  });
+
+  test("a declared action without an icon stays a text button", () => {
+    const sync = action("sync", { confirm: "sure?" });
+    expect(compactHeaderPrimary([edit, sync], "sync")).toEqual({ action: sync, iconOnly: false });
   });
 
   test("a declared plain icon action is icon-only", () => {

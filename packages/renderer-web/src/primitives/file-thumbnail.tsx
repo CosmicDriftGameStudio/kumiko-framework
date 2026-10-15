@@ -137,14 +137,43 @@ function fileIdsOf(value: unknown): readonly string[] {
   return value.filter((entry): entry is string => typeof entry === "string" && entry !== "");
 }
 
+// Height-bound, width follows the aspect ratio within a clamp, so a portrait and
+// a landscape photo both read as a preview without stretching the column.
+const TABLE_THUMBNAIL_CLASS = "h-16 min-w-16 max-w-24 object-cover";
+// A card's meta line is one text line (h-5) tall.
+const CARD_THUMBNAIL_CLASS = "size-5 rounded-sm object-cover";
+
+const CARD_LEADING_CLASS = "size-14 shrink-0 rounded-md object-cover";
+
+// Leading preview of a narrow list card: the card's own image, not a meta chip.
+export function CardLeadingImage({
+  value,
+  display,
+}: {
+  readonly value: unknown;
+  readonly display: ListColumnFileDisplay;
+}): ReactNode {
+  const [first] = fileIdsOf(value);
+  if (first === undefined || display.kind !== "image") return null;
+  return (
+    <FileThumbnail
+      fileId={first}
+      className={CARD_LEADING_CLASS}
+      {...(display.variant !== undefined && { variant: display.variant })}
+    />
+  );
+}
+
 export function FileDisplayCell({
   value,
   display,
   fallbackLabel,
+  compact = false,
 }: {
   readonly value: unknown;
   readonly display: ListColumnFileDisplay;
   readonly fallbackLabel: string;
+  readonly compact?: boolean;
 }): ReactNode {
   const [first, ...rest] = fileIdsOf(value);
   if (first === undefined) return null;
@@ -153,7 +182,7 @@ export function FileDisplayCell({
       {display.kind === "image" ? (
         <FileThumbnail
           fileId={first}
-          className="size-10"
+          className={compact ? CARD_THUMBNAIL_CLASS : TABLE_THUMBNAIL_CLASS}
           {...(display.variant !== undefined && { variant: display.variant })}
         />
       ) : (
