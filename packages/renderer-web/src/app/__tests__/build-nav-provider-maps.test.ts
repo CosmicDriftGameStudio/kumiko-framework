@@ -38,7 +38,7 @@ describe("buildNavProviderMaps", () => {
 
     const { navProviders, navEntities } = buildNavProviderMaps(
       [feature],
-      [collection("templates", "mail-html"), collection("prompts", "ai-prompt")],
+      [collection("templates", "mail"), collection("prompts", "ai-prompt")],
     );
     expect([...navProviders.keys()].sort()).toEqual(["mail:nav:prompts", "mail:nav:templates"]);
     expect(navEntities.get("mail:nav:prompts")).toEqual(["template-resource"]);
@@ -63,7 +63,7 @@ describe("buildNavProviderMaps", () => {
     try {
       const { navProviders } = buildNavProviderMaps(
         [derivedFeature, appFeature],
-        [collection("templates", "mail-html")],
+        [collection("templates", "mail")],
       );
       expect(navProviders.get("mail:nav:templates")).toBe(explicitProvider);
       // Overriding a derived provider is the documented escape hatch, not a
@@ -93,10 +93,7 @@ describe("buildNavProviderMaps", () => {
 
   test("Feature ohne Collections-Factory bleibt unberührt von deklarierten Collections", () => {
     const feature: ClientFeatureDefinition = { name: "cms", navProviders: { content: provider() } };
-    const { navProviders } = buildNavProviderMaps(
-      [feature],
-      [collection("templates", "mail-html")],
-    );
+    const { navProviders } = buildNavProviderMaps([feature], [collection("templates", "mail")]);
     expect([...navProviders.keys()]).toEqual(["cms:nav:content"]);
   });
 });

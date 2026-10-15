@@ -79,7 +79,7 @@ export async function assertConsumerHandlesNotFound(
     await consumer.resolve({
       tenantId,
       slug,
-      kind: "mail-html",
+      kind: "mail",
       locale: "de",
     });
   } catch (e) {
@@ -143,7 +143,7 @@ export async function assertConsumerHandlesMissingResourceKeys(
   await seedTemplate(db, {
     tenantId: SYSTEM_TENANT_ID,
     slug,
-    kind: "mail-html",
+    kind: "mail",
     locale: "de",
     scope: "system",
     linkedResources: { logo: "file_missing" },
@@ -151,7 +151,7 @@ export async function assertConsumerHandlesMissingResourceKeys(
   const template = await consumer.resolve({
     tenantId,
     slug,
-    kind: "mail-html",
+    kind: "mail",
     locale: "de",
   });
 

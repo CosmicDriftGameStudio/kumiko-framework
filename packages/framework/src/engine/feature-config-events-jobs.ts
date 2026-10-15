@@ -29,12 +29,15 @@ import type {
   NameOrRef,
   NotificationDataFn,
   NotificationRecipientFn,
+  NotificationTemplateBody,
   NotificationTemplateFn,
+  NotificationTemplateMeta,
   QualifiedEventName,
   SecretKeyHandle,
   SecretNamespaceHandle,
   SecretNamespaceOptions,
   SecretOptions,
+  TemplateVariables,
   TranslationsDef,
 } from "./types/index.js";
 
@@ -312,12 +315,18 @@ export function buildConfigEventsJobsMethods<TName extends string>(
             readonly recipient: NotificationRecipientFn;
             readonly data: NotificationDataFn;
             readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
+            readonly variables?: TemplateVariables;
+            readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
+            readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
           }),
       definition?: {
         readonly trigger: { readonly on: NameOrRef };
         readonly recipient: NotificationRecipientFn;
         readonly data: NotificationDataFn;
         readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
+        readonly variables?: TemplateVariables;
+        readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
+        readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
       },
     ): void {
       const [notificationName, resolvedDefinition] =
@@ -330,6 +339,13 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         recipient: resolvedDefinition.recipient,
         data: resolvedDefinition.data,
         templates: resolvedDefinition.templates,
+        ...(resolvedDefinition.variables !== undefined
+          ? { variables: resolvedDefinition.variables }
+          : {}),
+        ...(resolvedDefinition.template !== undefined
+          ? { template: resolvedDefinition.template }
+          : {}),
+        ...(resolvedDefinition.meta !== undefined ? { meta: resolvedDefinition.meta } : {}),
       };
     },
     translations(def: TranslationsDef): void {

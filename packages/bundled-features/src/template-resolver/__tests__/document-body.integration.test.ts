@@ -32,7 +32,7 @@ const feature = createTemplateResolverFeature({
   collections: [
     {
       id: "reply-snippets",
-      kind: "mail-html",
+      kind: "document-pdf",
       access: { roles: ["Agent"] },
       nav: { label: "mail:nav.snippets" },
     },
@@ -123,7 +123,7 @@ describe("template-resolver :: document body sanitizing", () => {
     expect(fields.map((field) => field.code)).toEqual(["disallowed_link_href"]);
   });
 
-  test("collection-set sanitizes an html body of a mail-html collection", async () => {
+  test("collection-set sanitizes an html body of a mail collection", async () => {
     await stack.http.writeOk(
       SNIPPETS_SET,
       {
@@ -138,7 +138,7 @@ describe("template-resolver :: document body sanitizing", () => {
     const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
       tenantId: agent.tenantId,
       slug: "snippet",
-      kind: "mail-html",
+      kind: "document-pdf",
       locale: "de",
     });
     expect(row?.content).toBe("<p>Hi</p>");

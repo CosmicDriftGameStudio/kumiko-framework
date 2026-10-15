@@ -1,5 +1,5 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { ConfigAccessor, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./constants.js";
 
 // RenderRequest — Plugins erhalten das. Resource-Mode wählt der Caller
@@ -7,13 +7,13 @@ import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./const
 // entscheidet nicht — es bekommt eine schon aufgelöste Form.
 export type RenderRequest =
   | { kind: "notification"; payload: NotificationPayload }
-  | { kind: "mail-html"; payload: MailHtmlPayload }
+  | { kind: "mail"; payload: MailPayload }
   | { kind: "document-pdf"; payload: DocumentPayload; options?: PdfOptions }
   | { kind: "image-snapshot"; payload: DocumentPayload; options?: ImageOptions };
 
 export type RenderResponse =
   | { kind: "notification"; html: string; text?: string }
-  | { kind: "mail-html"; html: string; text: string }
+  | { kind: "mail"; subject: string; html: string; text: string; previewText?: string }
   | { kind: "document-pdf"; pdfBytes: Uint8Array; pageCount: number; sizeBytes: number }
   | {
       kind: "image-snapshot";
@@ -31,13 +31,11 @@ export type NotificationPayload = {
   readonly locale?: string;
 };
 
-export type MailHtmlPayload = {
-  readonly template?: string;
-  readonly content?: string;
-  readonly contentFormat?: ContentFormat;
-  readonly variables?: Readonly<Record<string, unknown>>;
-  readonly locale?: string;
-  readonly subject?: string;
+export type MailPayload = {
+  readonly slug: string;
+  readonly locale: string;
+  readonly variables: Readonly<Record<string, unknown>>;
+  readonly unsubscribeUrl?: string;
 };
 
 export type DocumentPayload = {
@@ -78,6 +76,9 @@ export type RendererContext = {
   readonly db: DbConnection;
   readonly registry: Registry;
   readonly tenantId: TenantId;
+  /** Tenant-scoped config for plugins that format by tenant locale/currency
+   *  or read branding; plugins fall back to request defaults when absent. */
+  readonly config?: ConfigAccessor;
 };
 
 // RendererPlugin-Contract — pro Plugin (renderer-simple, renderer-mail-html,

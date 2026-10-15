@@ -9,3 +9,36 @@ export function currencyDecimals(code: string): number {
     return 3;
   return 2;
 }
+
+const FALLBACK_MONEY_LOCALE = "en-US";
+
+// An invalid tag makes Intl constructors throw a RangeError; canonicalizing up
+// front keeps server renders and client cells safe. No navigator lookup, so it
+// behaves the same on the server.
+export function resolveSafeMoneyLocale(locale: string | undefined): string {
+  try {
+    return Intl.getCanonicalLocales(locale ?? FALLBACK_MONEY_LOCALE)[0] ?? FALLBACK_MONEY_LOCALE;
+  } catch {
+    return FALLBACK_MONEY_LOCALE;
+  }
+}
+
+// currency is validated against the 3-letter-alpha shape Intl.NumberFormat
+// requires: a non-conforming value (e.g. from a JSONB custom field) would throw
+// a RangeError and take down the whole render instead of just this value.
+export function formatMoney(
+  amountMinor: number,
+  currency: string,
+  locale?: string,
+  fractionDigits?: number,
+): string {
+  if (!/^[A-Za-z]{3}$/.test(currency)) return String(amountMinor);
+  const decimals = currencyDecimals(currency);
+  const displayDigits = fractionDigits ?? decimals;
+  return new Intl.NumberFormat(resolveSafeMoneyLocale(locale), {
+    style: "currency",
+    currency,
+    minimumFractionDigits: displayDigits,
+    maximumFractionDigits: displayDigits,
+  }).format(amountMinor / 10 ** decimals);
+}

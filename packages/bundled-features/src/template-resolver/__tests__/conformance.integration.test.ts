@@ -90,7 +90,7 @@ describe("template-resolver :: conformance harness", () => {
       apiConsumer.resolve({
         tenantId: TENANT_A,
         slug: "conformance-not-found-slug",
-        kind: "mail-html",
+        kind: "mail",
         locale: "de",
       }),
     ).rejects.toBeInstanceOf(TemplateNotFoundError);

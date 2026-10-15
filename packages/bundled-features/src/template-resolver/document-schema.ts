@@ -1,5 +1,5 @@
 // @runtime client
-// Canonical document model for template bodies (kinds mail-html, document-pdf).
+// Canonical document model for template bodies (kinds mail, document-pdf).
 // Universal on purpose: the web editor and the server sanitizer load the same
 // extension list, so what the editor can produce is exactly what the server
 // keeps. No DOM access at module level, no happy-dom here.

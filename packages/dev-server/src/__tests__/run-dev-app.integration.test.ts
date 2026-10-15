@@ -192,6 +192,7 @@ describe("runDevApp — extraContext merge order: app values win over boot defau
         content: "",
         contentFormat: "markdown",
         variableSchema: {},
+        meta: null,
         linkedResources: {},
         scope: "system",
         parentTemplateId: null,

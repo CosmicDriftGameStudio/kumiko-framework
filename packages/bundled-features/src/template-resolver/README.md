@@ -1,6 +1,6 @@
 # template-resolver
 
-Strukturierter Content-Storage mit Tenant-Override-Hierarchie, Locale-Fallback und Resource-Linking via `file-foundation`. Eine Entity (`template-resource`) für alle Content-Arten — Render-Templates (`mail-html`, `document-pdf`, `notification`, `image-snapshot`), Markdown-Textblöcke (`text-block`, ex `text-content`-Feature) und AI-Prompts (`ai-prompt`).
+Strukturierter Content-Storage mit Tenant-Override-Hierarchie, Locale-Fallback und Resource-Linking via `file-foundation`. Eine Entity (`template-resource`) für alle Content-Arten — Render-Templates (`mail`, `document-pdf`, `notification`, `image-snapshot`), Rahmen (`mail-layout`, `pdf-layout`), Markdown-Textblöcke (`text-block`, ex `text-content`-Feature) und AI-Prompts (`ai-prompt`).
 
 **Plan-Doc:** [`kumiko-platform/docs/plans/features/template-resolver.md`](../../../../../../kumiko-platform/docs/plans/features/template-resolver.md)
 
@@ -38,13 +38,50 @@ async function someHandler(ctx) {
   const template = await templateResolver.resolveTemplate({
     tenantId: ctx.user.tenantId,
     slug: "nka-versand",
-    kind: "mail-html",
+    kind: "mail",
     locale: "de",
   });
-  // template.content + template.variableSchema + template.linkedResources verwenden
+  // template.content + template.meta + template.variableSchema + template.linkedResources verwenden
   // ...
 }
 ```
+
+## Kinds, Format und Meta
+
+| kind | contentFormat | meta |
+|---|---|---|
+| `mail` | `html` (Dokument-Schema, wird serverseitig neu aufgebaut) | Pflicht: `subject`; optional `previewText`, `layoutSlug`, `category` (`transactional`/`marketing`), `sender` |
+| `mail-layout` | `mjml` | leer (`{}`) oder fehlend |
+| `pdf-layout` | `html` | leer (`{}`) oder fehlend |
+| `document-pdf` | `html` | fehlt |
+| übrige | frei | fehlt |
+
+`meta` liegt als JSON in der Spalte `meta` und wird beim Schreiben pro kind gegen
+`template-meta.ts` geprüft (Fehler als Field-Issues auf `meta.*`). Subject und
+Preview-Text erlauben nur einfache Platzhalter (`{{name}}`, `{{name.feld}}`), keine
+Zeilenumbrüche.
+
+Slugs sind kebab-Segmente, mit `:` verbunden (`templateSlugSchema`); Notification-Templates
+liegen unter ihrem qualifizierten Namen `feature:notify:name`.
+
+## Platzhalter-Validierung (kind `mail`)
+
+Die Variablen kommen aus der Notification mit gleichem qualifiziertem Namen
+(`r.notification({ variables })`), sonst aus `variableSchema` der Zeile. Systemplatzhalter
+(`tenantName`, `signature`, `imprint`, `unsubscribeUrl`) und der Resource-Key `logo` sind immer erlaubt.
+
+- `upsertSystem` und `upsertTenant` lehnen unbekannte Platzhalter ab (Field-Issue auf `content`).
+- `upsertSystem` und `upsertTenant` mit `status: "active"` verlangen zusätzlich, dass jede `required`-Variable benutzt wird. Ein Tenant-Draft darf unvollständig sein und liefert `validation` zurück.
+- `publish` prüft die gespeicherte Zeile erneut.
+- `seedSystemTemplate` wirft bei beiden Problemen.
+
+## Notification-Templates seeden
+
+`r.notification({ variables, template, meta })` bringt Text und Meta mit dem Code mit.
+`seedNotificationTemplates(db, registry)` (aus `.../template-resolver/seeding`) schreibt sie
+pro Locale als System-Template; `applyBootSeeds` ruft das beim Boot auf. Der Code ist
+maßgeblich: geänderte Texte aktualisieren die Zeile, unveränderte erzeugen kein Event.
+Tenant-Overrides bleiben unberührt.
 
 ## Resolver-Reihenfolge (4-Stufen-Fallback)
 
@@ -162,7 +199,7 @@ createTemplateResolverFeature({
   collections: [
     {
       id: "reply-snippets",
-      kind: "mail-html",
+      kind: "mail",
       access: { roles: ["Agent", "TenantAdmin"] },
       nav: { label: "mail:nav.snippets", parent: "mail:nav:root" },
     },

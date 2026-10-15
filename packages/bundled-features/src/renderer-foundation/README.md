@@ -38,15 +38,15 @@ import { requireRendererFoundation } from "@cosmicdrift/kumiko-bundled-features/
 
 async function sendMail(ctx, tenantId) {
   const foundation = requireRendererFoundation(ctx, "sendMail");
-  const renderer = foundation.createRendererForTenant({ tenantId, kind: "mail-html" });
+  const renderer = foundation.createRendererForTenant({ tenantId, kind: "mail" });
   const result = await renderer.render(
     {
-      kind: "mail-html",
-      payload: { content: "Hello {{name}}", contentFormat: "markdown", variables: { name: "Frau Schmidt" } },
+      kind: "mail",
+      payload: { slug: "billing:notify:invoice-ready", locale: "de", variables: { name: "Frau Schmidt" } },
     },
-    { db: ctx.db, registry: ctx.registry, tenantId },
+    { db: ctx.db, registry: ctx.registry, tenantId, config: ctx.config },
   );
-  // result.html, result.text
+  // result.subject, result.html, result.text, result.previewText
 }
 ```
 
@@ -54,7 +54,7 @@ Plugins ohne Service-Deps (`renderer-simple`) ignorieren den zweiten `ctx`-Param
 
 ## Plugin-Auswahl-Reihenfolge
 
-1. Tenant-Override (Config-Key `rendererPluginByKind`, z.B. `{ "mail-html": "mail-html" }`)
+1. Tenant-Override (Config-Key `rendererPluginByKind`, z.B. `{ "mail": "mail-html" }`)
 2. `DEFAULT_PLUGIN_BY_KIND` aus constants
 3. Erstes Plugin im Pool das das kind bedient
 4. `RendererError("no_plugin_for_kind")` wenn nichts passt

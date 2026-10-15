@@ -495,12 +495,52 @@ export type NotificationDataFn = (
 // Example: inApp gets { title, body }, email gets { subject, sections }.
 export type NotificationTemplateFn = (data: Record<string, unknown>) => Record<string, unknown>;
 
+// Declared placeholder of a template body. `required` defaults to false.
+type TemplateVariableCommon = {
+  readonly label?: string;
+  readonly required?: boolean;
+};
+
+export type TemplateScalarVariableDef =
+  | (TemplateVariableCommon & { readonly type: "text"; readonly example?: string })
+  | (TemplateVariableCommon & { readonly type: "link"; readonly example?: string })
+  | (TemplateVariableCommon & {
+      readonly type: "money";
+      readonly example?: number | { readonly amount: number; readonly currency: string };
+    })
+  | (TemplateVariableCommon & { readonly type: "date"; readonly example?: string });
+
+export type TemplateListVariableDef = TemplateVariableCommon & {
+  readonly type: "list";
+  readonly item: Readonly<Record<string, TemplateScalarVariableDef>>;
+  readonly example?: readonly Readonly<Record<string, unknown>>[];
+};
+
+export type TemplateVariableDef = TemplateScalarVariableDef | TemplateListVariableDef;
+
+export type TemplateVariables = Readonly<Record<string, TemplateVariableDef>>;
+
+// Per-locale mail metadata of a notification template; mirrors the `mail`
+// template meta in template-resolver.
+export type NotificationTemplateMeta = {
+  readonly subject: string;
+  readonly previewText?: string;
+  readonly layoutSlug?: string;
+  readonly category?: "transactional" | "marketing";
+  readonly sender?: string;
+};
+
+export type NotificationTemplateBody = { readonly body: string };
+
 export type NotificationDefinition = {
   readonly name: string;
   readonly trigger: { readonly on: string };
   readonly recipient: NotificationRecipientFn;
   readonly data: NotificationDataFn;
   readonly templates: Readonly<Record<string, NotificationTemplateFn>> | undefined;
+  readonly variables?: TemplateVariables;
+  readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
+  readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
 };
 
 // --- Translations ---

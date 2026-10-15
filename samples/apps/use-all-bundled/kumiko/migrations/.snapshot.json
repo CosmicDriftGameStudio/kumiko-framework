@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-15T11:31:53.935Z",
+  "generatedAt": "2026-10-15T18:56:34.865Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -591,7 +591,7 @@
         }
       ],
       "source": "managed",
-      "piiSubjectFields": ["ip"]
+      "piiSubjectFields": ["ip", "userAgent"]
     },
     {
       "tableName": "read_export_download_tokens",
@@ -2333,6 +2333,11 @@
         },
         {
           "name": "linked_resources",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "meta",
           "pgType": "text",
           "notNull": false
         },

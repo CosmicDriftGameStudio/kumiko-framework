@@ -10,6 +10,7 @@ import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { ContentFormat, TemplateKind } from "./constants.js";
 import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
+import { parseTemplateMeta, type TemplateMeta } from "./template-meta.js";
 
 // Public TemplateResource: what consumers see. Hides DB-internal columns
 // (insertedById, internal id-type) but keeps the fields needed for rendering.
@@ -26,6 +27,9 @@ export type TemplateResource = {
   readonly contentFormat: ContentFormat;
   readonly variableSchema: Record<string, unknown>;
   readonly linkedResources: Record<string, string>;
+  /** Parsed per kind; null when absent or when the stored JSON no longer
+   *  matches the kind's schema (the renderer then fails with a clear error). */
+  readonly meta: TemplateMeta | null;
   readonly scope: "system" | "tenant";
   readonly parentTemplateId: string | null;
   readonly status: "draft" | "active" | "archived";
@@ -151,11 +155,22 @@ function toPublic(row: TemplateResourceRow): TemplateResource {
     contentFormat,
     variableSchema: parseJson(row.variableSchema),
     linkedResources,
+    meta: parseStoredMeta(kind, row.meta),
     scope,
     parentTemplateId: row.parentTemplateId,
     status,
     modifiedAt: row.modifiedAt,
   };
+}
+
+function parseStoredMeta(kind: TemplateKind, raw: string | null): TemplateMeta | null {
+  if (!raw) return null;
+  try {
+    const result = parseTemplateMeta(kind, JSON.parse(raw));
+    return result.ok ? result.meta : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseJson(raw: string | null): Record<string, unknown> {

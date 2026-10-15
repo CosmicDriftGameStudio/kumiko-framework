@@ -1,27 +1,29 @@
 # renderer-mail-html
 
-Plugin für `renderer-foundation`. Rendert `RenderRequest { kind: "mail-html" }` zu Email-safe HTML + plain-text via **MJML-Layout + Markdown-Content + Handlebars + html-to-text**.
-
-**Plan-Doc:** [`kumiko-platform/docs/plans/features/renderer-mail-html.md`](https://github.com/CosmicDriftGameStudio/kumiko-platform/blob/main/docs/plans/features/renderer-mail-html.md)
+Plugin für `renderer-foundation`. Rendert `RenderRequest { kind: "mail" }` zu Betreff + Email-safe HTML + plain-text: **Mail-Template (Dokument-HTML + `meta.subject`) -> isolierter Handlebars -> MJML-Layout -> html-to-text**.
 
 ## Pipeline
 
 ```
-RenderRequest { kind: "mail-html", payload: { content, variables, locale? } }
+RenderRequest { kind: "mail", payload: { slug, locale, variables, unsubscribeUrl? } }
                             ↓
-   1. Resolve Layout      (template-resolver, 4-stage fallback)
-        tenant×"mail-layout" → system×"mail-layout"
-        → in-code DEFAULT_MAIL_LAYOUT_MJML (wenn nichts in DB)
+   1. Template laden      resolveTemplate(slug, kind "mail", locale), nur contentFormat html,
+                          meta.subject Pflicht
+   2. Layout laden        meta.layoutSlug ?? "default", kind "mail-layout";
+                          tenant -> system -> in-code DEFAULT_MAIL_LAYOUT_MJML
+   3. Body kompilieren    compileDocumentBodyToHandlebars (template-resolver): span[data-variable],
+                          Links, Listenzeilen -> Handlebars-Quelle; Autoren-Klammern sind inert
+   4. Rendern             Handlebars.create() mit Helfern money/date/link, HTML-Escaping an;
+                          Betreff + Preview-Text ohne Escaping, CR/LF entfernt
+   5. Layout              Body als Datum (`{{{content}}}`), nie in die Layout-Quelle konkateniert;
+                          Layout-Kontext nur: content, subject, previewText, tenantName,
+                          signature, imprint, unsubscribeUrl
+   6. mjml + html-to-text
                             ↓
-   2. Handlebars(content, variables)    → Markdown mit ersetzten {{vars}}
-   3. marked(markdown)                  → Content-HTML (p/h1/a/ul/...)
-   4. Handlebars(layout, { ...vars, content: contentHtml })
-                                         → MJML mit Content im {{{content}}}-Slot
-   5. mjml(...)                         → Email-safe HTML (tables, inline-CSS)
-   6. html-to-text(html)                → text/plain-Alternative
-                            ↓
-   RenderResponse { kind: "mail-html", html, text }
+   RenderResponse { kind: "mail", subject, html, text, previewText? }
 ```
+
+`ctx.config` (optional) liefert Tenant-Locale, Währung (tenant-settings) und `tenantName` (Branding-Titel); ohne Config gelten `payload.locale`, `EUR` und `""`.
 
 ## Mount
 
@@ -35,104 +37,48 @@ const features = [
   createRendererFoundationFeature(),  // Vorausgesetzt
   createRendererMailHtmlFeature(),    // Dieses Plugin
 ];
-
-const app = createKumikoApp({
-  features,
-  extraContext: ({ db, registry }) => ({
-    rendererFoundation: createRendererFoundationApi(collectRendererPlugins(registry)),
-  }),
-});
 ```
+
+Mail-Texte kommen aus `r.notification({ variables, template, meta })`; `applyBootSeeds` legt sie als System-Templates an.
 
 ## Caller-Pattern
 
 ```typescript
-import { requireRendererFoundation } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+const foundation = requireRendererFoundation(ctx, "sendWelcomeMail");
+const renderer = foundation.createRendererForTenant({ tenantId, kind: "mail" });
 
-async function sendWelcomeMail(ctx, tenantId, user) {
-  // 1. Foundation findet Plugin
-  const foundation = requireRendererFoundation(ctx, "sendWelcomeMail");
-  const renderer = foundation.createRendererForTenant({ tenantId, kind: "mail-html" });
-
-  // 2. Caller löst Content-Template VORHER auf (Plugin macht das NICHT)
-  const contentTpl = await ctx.templateResolver.resolveTemplate({
-    tenantId,
-    slug: "notification.welcome",
-    kind: "mail-html",
-    locale: "en",
-  });
-
-  // 3. Render
-  const result = await renderer.render(
-    {
-      kind: "mail-html",
-      payload: {
-        content: contentTpl.content,
-        contentFormat: contentTpl.contentFormat,
-        variables: { name: user.name, verifyUrl: "...", appName: "MyApp" },
-        locale: "en",
-      },
+const result = await renderer.render(
+  {
+    kind: "mail",
+    payload: {
+      slug: "my-feature:notify:welcome",
+      locale: "de",
+      variables: { name: user.name, verifyUrl: "https://..." },
     },
-    { db: ctx.db, registry: ctx.registry, tenantId },
-  );
+  },
+  { db: ctx.db, registry: ctx.registry, tenantId, config: ctx.config },
+);
 
-  // 4. result.html + result.text → mail-transport
-  await ctx.mailTransport.send({
-    to: user.email,
-    subject: "Willkommen!",
-    html: result.html,
-    text: result.text,
-  });
-}
+await ctx.mailTransport.send({ to: user.email, subject: result.subject, html: result.html, text: result.text });
 ```
 
 ## Tenant-Branding
 
-Tenant kann ein eigenes `"mail-layout"`-Template anlegen (kind=mail-html, format=mjml). 4-stage-fallback bevorzugt das gegenüber System + in-code Default:
-
-```typescript
-// Via template-resolver-Dispatcher (z.B. Admin-UI):
-await ctx.dispatch("template-resolver:upsertTenantTemplate", {
-  slug: "mail-layout",
-  kind: "mail-html",
-  locale: "en",
-  content: `<mjml>
-    <mj-body bg-color="{{brandColor}}">
-      ...
-      <mj-raw>{{{content}}}</mj-raw>
-      ...
-    </mj-body>
-  </mjml>`,
-  contentFormat: "mjml",
-});
-```
-
-## Default-Layout-Variablen
-
-| Variable | Zweck | Pflicht |
-|---|---|---|
-| `appName` | Header + Footer-Text | empfohlen |
-| `content` | Auto-injected vom Plugin (Content-HTML) | nein (intern) |
-| `unsubscribeUrl` | Footer-Link, nur wenn gesetzt | optional |
-
-Per-Content-Vars (z.B. `name`, `verifyUrl`) kommen aus `payload.variables` und sind sowohl im Content als auch im Layout zugänglich.
+Ein Tenant legt ein eigenes Layout als Template `kind: "mail-layout"`, `contentFormat: "mjml"`, Slug `default` (oder den Slug aus `meta.layoutSlug`) an. Es gewinnt gegen System-Layout und in-code Default. Das Layout sieht nur die oben genannten Variablen; den Body setzt es mit `{{{content}}}` ein.
 
 ## Optionales Seeding
-
-Bundle exportiert `seedSystemMailLayout(db)` für App-Authors, die das Default-Layout im Admin-UI editierbar machen wollen:
 
 ```typescript
 import { seedSystemMailLayout } from "@cosmicdrift/kumiko-renderer-mail-html/seeding";
 
-// Beim App-Setup, einmalig:
-await seedSystemMailLayout(stack.db);
+await seedSystemMailLayout(db); // idempotent
 ```
 
-Ohne Seeding läuft Plugin trotzdem — fällt auf in-code `DEFAULT_MAIL_LAYOUT_MJML`-Constant zurück.
+Ohne Seeding läuft das Plugin trotzdem und fällt auf `DEFAULT_MAIL_LAYOUT_MJML` zurück.
 
 ## Out-of-Scope
 
-- Visual-Editor für Layouts → kommt mit `designer`-Bundle
-- Inline-Image-Embedding (CID-Attachments) → vermutlich am `delivery`-Layer
-- PDF/Image → andere Plugins (`renderer-puppeteer-client`)
-- Mail-Versand → `delivery` + `channel-email` + `mail-transport-*`
+- Visual-Editor für Layouts
+- Inline-Image-Embedding (CID-Attachments)
+- PDF/Image -> andere Plugins (`renderer-puppeteer-client`)
+- Mail-Versand -> `delivery` + `channel-email` + `mail-transport-*`

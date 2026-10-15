@@ -19,7 +19,7 @@ import {
 
 const FEATURES_DIRS = [
   "packages/bundled-features/src",  // framework
-  "packages",                        // enterprise (packages/<name>/src/)
+  "packages",                        // standalone packages (packages/<name>/src/)
 ];
 const CORE_FILE = "packages/framework/src/changes.json"; // framework core — belongs to no feature
 const DEFAULT_OUT = "docs/reference/migration-guide.md";
@@ -33,6 +33,23 @@ function readEntries(filePath: string, fromVersion?: string): readonly Changelog
     // Skip malformed files
     return [];
   }
+}
+
+// Label for a standalone package: its npm name, so the guide never claims a
+// framework package belongs to the enterprise repo.
+function packageLabel(packagesDir: string, dirName: string): string {
+  const manifestPath = join(packagesDir, dirName, "package.json");
+  if (existsSync(manifestPath)) {
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(manifestPath, "utf-8"));
+      if (typeof parsed === "object" && parsed !== null && "name" in parsed) {
+        if (typeof parsed.name === "string") return parsed.name;
+      }
+    } catch {
+      // fall through to the directory label
+    }
+  }
+  return `packages/${dirName}`;
 }
 
 // baseDir defaults to cwd (the real CLI invocation) — parameterized so
@@ -72,7 +89,7 @@ export function collectChangelogs(
 
       const entries = readEntries(filePath, fromVersion);
       if (entries.length > 0) {
-        const featureKey = isEnterprisePkg ? `enterprise:${name}` : name;
+        const featureKey = isEnterprisePkg ? packageLabel(featuresDir, name) : name;
         result.set(featureKey, entries);
       }
     }

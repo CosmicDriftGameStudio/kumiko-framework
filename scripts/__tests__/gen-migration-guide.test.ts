@@ -51,7 +51,7 @@ describe("collectChangelogs", () => {
       const changelogs = collectChangelogs(undefined, baseDir);
       expect(changelogs.has("framework-core")).toBe(true);
       expect(changelogs.get("framework-core")).toHaveLength(2);
-      expect(changelogs.has("enterprise:framework")).toBe(false);
+      expect(changelogs.has("packages/framework")).toBe(false);
     } finally {
       rmSync(baseDir, { recursive: true, force: true });
     }
@@ -62,7 +62,7 @@ describe("collectChangelogs", () => {
     try {
       const changelogs = collectChangelogs(undefined, baseDir);
       expect(changelogs.get("auth-email-password")).toHaveLength(1);
-      expect(changelogs.get("enterprise:enterprise-widget")).toHaveLength(1);
+      expect(changelogs.get("packages/enterprise-widget")).toHaveLength(1);
     } finally {
       rmSync(baseDir, { recursive: true, force: true });
     }

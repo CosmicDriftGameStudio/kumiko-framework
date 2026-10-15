@@ -1,13 +1,13 @@
-// Boot-/Seed-Helper für App-Authors. Schreibt System-Templates (tenantId=
-// SYSTEM_TENANT_ID, scope=system, status=active) idempotent in die DB —
-// gleicher Projection-Pfad wie upsertSystem-Handler, ohne Access-Check.
+// Boot/seed helper for app authors. Writes system templates (tenantId=
+// SYSTEM_TENANT_ID, scope=system, status=active) idempotently — same projection
+// path as the upsertSystem handler, without the access check.
 //
-// **Wann nutzen?** runProdApp-seeds / TenantCreated-Hooks die Welcome-,
-// Incident- oder Feature-Mail-Slugs installieren, damit renderer-simple
-// (oder mail-html) sie per template-resolver auflösen kann.
+// Use it from runProdApp seeds or TenantCreated hooks that install the welcome,
+// incident or feature mail slugs, so renderer-simple (or mail) can resolve them
+// through the template-resolver.
 //
-// Default ifExists="skip". `createSystemUser(SYSTEM_TENANT_ID)` als Actor —
-// bewusst nicht TestUsers (Prod-Seeds ≠ Test-Utilities).
+// Default ifExists="skip". The actor is `createSystemUser(SYSTEM_TENANT_ID)`,
+// deliberately not TestUsers (prod seeds are not test utilities).
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
@@ -19,6 +19,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
+  type Registry,
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
@@ -31,7 +32,14 @@ import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framew
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants.js";
 import { sanitizeTemplateBody } from "./document-sanitizer.js";
 import { executor } from "./handlers/shared.js";
+import { TEMPLATE_RESOLVER_FEATURE } from "./qualified-names.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
+import { parseTemplateMeta, templateSlugSchema } from "./template-meta.js";
+import {
+  hasPlaceholderProblems,
+  validateTemplatePlaceholders,
+  variablesFromSchema,
+} from "./template-validation.js";
 
 /** Drop projection orphans (no events anywhere) so boot seeds can recreate. */
 async function resolveExistingForEventStoreSeed(
@@ -67,6 +75,7 @@ export type SeedSystemTemplateOptions = {
   readonly contentFormat: ContentFormat;
   readonly variableSchema?: Record<string, unknown>;
   readonly linkedResources?: Record<string, string>;
+  readonly meta?: unknown;
   readonly parentTemplateId?: string | null;
   readonly by?: SessionUser;
   readonly ifExists?: SeedIfExists;
@@ -92,6 +101,28 @@ export async function seedSystemTemplate(
     );
   }
 
+  const label = `seedSystemTemplate ${opts.slug}/${opts.kind}/${opts.locale}`;
+  const slug = templateSlugSchema.safeParse(opts.slug);
+  if (!slug.success) throw new Error(`${label} rejected: ${slug.error.issues[0]?.message}`);
+  const parsedMeta = parseTemplateMeta(opts.kind, opts.meta);
+  if (!parsedMeta.ok) {
+    throw new Error(
+      `${label} rejected: ${parsedMeta.issues.map((i) => `${i.path} ${i.message}`).join("; ")}`,
+    );
+  }
+  if (opts.kind === "mail") {
+    const validation = validateTemplatePlaceholders({
+      body: body.content ?? "",
+      meta: parsedMeta.meta,
+      variables: variablesFromSchema(opts.variableSchema ?? {}),
+    });
+    if (hasPlaceholderProblems(validation)) {
+      throw new Error(
+        `${label} rejected: unknown placeholders [${validation.unknown.join(", ")}], unused required variables [${validation.missingRequired.join(", ")}]`,
+      );
+    }
+  }
+
   const existingRow = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
     tenantId,
     slug: opts.slug,
@@ -106,6 +137,7 @@ export async function seedSystemTemplate(
   );
 
   const variableSchema = JSON.stringify(opts.variableSchema ?? {});
+  const meta = parsedMeta.meta === null ? null : JSON.stringify(parsedMeta.meta);
   const linkedResources = JSON.stringify(opts.linkedResources ?? {});
   const parentTemplateId = opts.parentTemplateId ?? null;
 
@@ -117,6 +149,7 @@ export async function seedSystemTemplate(
     contentFormat: opts.contentFormat,
     variableSchema,
     linkedResources,
+    meta,
     title: null,
     folder: null,
     scope: "system" as const,
@@ -124,7 +157,22 @@ export async function seedSystemTemplate(
     status: "active" as const,
   };
 
-  const applyUpdate = async (row: { id: string; version: number }): Promise<{ id: string }> => {
+  const applyUpdate = async (
+    row: { id: string; version: number },
+    current: TemplateResourceRow | null | undefined,
+  ): Promise<{ id: string }> => {
+    // Skip no-op updates so re-seeding on every pod boot does not bump
+    // version/modifiedAt or grow the event store.
+    if (
+      current?.content === rowFields.content &&
+      current?.contentFormat === rowFields.contentFormat &&
+      current?.title === rowFields.title &&
+      current?.variableSchema === rowFields.variableSchema &&
+      current?.meta === rowFields.meta &&
+      current?.linkedResources === rowFields.linkedResources
+    ) {
+      return { id: String(row.id) };
+    }
     const result = await executor.update(
       { id: row.id, version: row.version, changes: rowFields },
       by,
@@ -165,7 +213,7 @@ export async function seedSystemTemplate(
             existing: resolved,
             ifExists: opts.ifExists,
             create: () => Promise.reject(new Error("seedSystemTemplate: unreachable create")),
-            update: applyUpdate,
+            update: (row) => applyUpdate(row, again),
           });
         }
         throw new Error(`seedSystemTemplate create failed: ${JSON.stringify(result)}`);
@@ -176,8 +224,43 @@ export async function seedSystemTemplate(
       }
       return { id: String(data.id) };
     },
-    update: applyUpdate,
+    update: (row) => applyUpdate(row, existingRow),
   });
+}
+
+export function hasNotificationTemplates(registry: Registry): boolean {
+  return Array.from(registry.getAllNotifications().values()).some(
+    (notification) => notification.template !== undefined,
+  );
+}
+
+// Boot seed for notifications that ship their mail text with the code
+// (`r.notification({ template, meta, variables })`). The code is authoritative,
+// so existing system rows are updated; tenant overrides are untouched.
+export async function seedNotificationTemplates(
+  db: DbConnection,
+  registry: Registry,
+): Promise<void> {
+  const hasTemplates = hasNotificationTemplates(registry);
+  if (hasTemplates && registry.getFeature(TEMPLATE_RESOLVER_FEATURE) === undefined) {
+    throw new Error(
+      `Notifications declare a mail template but the "${TEMPLATE_RESOLVER_FEATURE}" feature is not mounted`,
+    );
+  }
+  for (const [slug, notification] of registry.getAllNotifications()) {
+    for (const [locale, { body }] of Object.entries(notification.template ?? {})) {
+      await seedSystemTemplate(db, {
+        slug,
+        kind: "mail",
+        locale,
+        content: body,
+        contentFormat: "html",
+        meta: notification.meta?.[locale],
+        variableSchema: notification.variables,
+        ifExists: "update",
+      });
+    }
+  }
 }
 
 export type SeedTextBlockOptions = {

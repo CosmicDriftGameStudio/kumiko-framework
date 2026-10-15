@@ -1107,6 +1107,14 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "El destino del enlace «{detail}» no está permitido; usa https, http, mailto, tel o un marcador.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Este tipo de plantilla requiere el formato html, recibido: «{detail}».",
+  "templateResolver.errors.document.layoutRequiresMjmlFormat":
+    "Los diseños de correo requieren el formato mjml, recibido: «{detail}».",
+  "templateResolver.errors.collection.kindNotAllowed":
+    "Las plantillas «{detail}» se editan en su propio editor, no mediante una colección.",
+  "templateResolver.errors.template.invalidMeta": "Ajustes de plantilla no válidos: {detail}",
+  "templateResolver.errors.template.unknownPlaceholders": "Marcadores desconocidos: {detail}",
+  "templateResolver.errors.template.missingRequiredPlaceholders":
+    "No se usan los marcadores obligatorios: {detail}",
   "templateResolver.errors.document.embeddedContent":
     "Los elementos <{detail}> no están permitidos en los textos de plantilla.",
   "templateResolver.errors.document.unsafeAttributeValue":

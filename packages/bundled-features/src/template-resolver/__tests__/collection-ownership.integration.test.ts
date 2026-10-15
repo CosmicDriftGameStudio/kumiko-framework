@@ -52,14 +52,14 @@ const feature = createTemplateResolverFeature({
   collections: [
     {
       id: "signatures",
-      kind: "mail-html",
+      kind: "document-pdf",
       ownership: "user",
       access: { roles: ["Agent", "TenantAdmin"] },
       nav: { label: "mail:nav.signatures" },
     },
     {
       id: "reply-snippets",
-      kind: "mail-html",
+      kind: "document-pdf",
       access: { roles: ["Agent", "TenantAdmin"] },
       nav: { label: "mail:nav.snippets" },
     },
@@ -218,7 +218,7 @@ describe("ownership 'tenant' :: one set everyone shares", () => {
   });
 
   test("the two collections share a kind and stay separate stores", async () => {
-    // Same kind (mail-html), same slug, same tenant — one is per-user, one is
+    // Same kind (mail), same slug, same tenant — one is per-user, one is
     // shared. A single table with a nullable owner column would have to make
     // these collide.
     const snippets = await stack.http.queryOk<{ blocks: readonly { title: string }[] }>(

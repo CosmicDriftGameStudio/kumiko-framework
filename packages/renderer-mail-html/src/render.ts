@@ -1,20 +1,16 @@
-// renderer-mail-html pipeline:
-//   1. Resolve layout via template-resolver (tenant×"mail-layout" →
-//      system×"mail-layout" → fallback DEFAULT_MAIL_LAYOUT_MJML)
-//   2. Handlebars(content-markdown, variables) — substitute vars in content
-//   3. renderSafeMarkdown(markdown) — Markdown → content HTML (raw HTML
-//      escaped, unsafe hrefs neutralised — templates are tenant-authored)
-//   4. Handlebars(layout-mjml, { ...variables, content: contentHtml }) —
-//      put the content HTML into the layout slot
-//   5. mjml(layout-mjml-with-content) — MJML → email-safe HTML
-//   6. html-to-text(html) — text/plain alternative
-//
-// The plugin gets `templateResolverApi` via a direct bundle import + `ctx.db`.
-// NO extraContext pass-through — Kumiko style (see the RendererContext
-// type comment in renderer-foundation/types.ts).
-// Type-Comment in renderer-foundation/types.ts).
+// renderer-mail-html pipeline for kind "mail":
+//   1. Resolve the mail template (tenant -> system) and its layout
+//      (meta.layoutSlug ?? "default", kind mail-layout, fallback to the in-code
+//      DEFAULT_MAIL_LAYOUT_MJML).
+//   2. compileDocumentBodyToHandlebars turns the sanitized document body into
+//      Handlebars source; every author brace is neutralized there, so the only
+//      expressions are the ones template-resolver wrote.
+//   3. The body renders with HTML escaping on. The result is handed to the
+//      layout as data (`{{{content}}}`), never concatenated into layout source.
+//   4. mjml -> email HTML, html-to-text -> plain-text alternative.
+// Handlebars runs in an isolated instance with a fixed helper set.
 
-import { renderSafeMarkdown } from "@cosmicdrift/kumiko-bundled-features/page-render";
+import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
   type RendererContext,
   RendererError,
@@ -22,96 +18,264 @@ import {
   type RenderResponse,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
+  compileDocumentBodyToHandlebars,
   createTemplateResolverApi,
+  isMailTemplateMeta,
+  type MailTemplateMeta,
+  resolveTemplateVariables,
   TemplateNotFoundError,
+  type TemplateResource,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { TenantSettingsConfig } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
+import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/engine";
+import { formatMoney, resolveSafeMoneyLocale } from "@cosmicdrift/kumiko-headless";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import Handlebars from "handlebars";
 import { convert as htmlToText } from "html-to-text";
 import mjml2html from "mjml";
-import { DEFAULT_MAIL_LAYOUT_MJML } from "./default-layout.js";
+import { DEFAULT_MAIL_LAYOUT_MJML, DEFAULT_MAIL_LAYOUT_SLUG } from "./default-layout.js";
 
-const LAYOUT_SLUG = "mail-layout";
-const DEFAULT_LOCALE = "en";
+const FALLBACK_CURRENCY = "EUR";
+const SAFE_LINK_PROTOCOL = /^(https?:|mailto:)/i;
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const LINE_BREAKS = /[\r\n]+/g;
 
-export async function mailHtmlRender(
-  req: RenderRequest,
+type MailFormat = { readonly locale: string; readonly currency: string };
+
+function describe(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function createMailHandlebars(format: MailFormat): typeof Handlebars {
+  const hbs = Handlebars.create();
+  hbs.registerHelper("money", (value: unknown): string => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return formatMoney(value, format.currency, format.locale);
+    }
+    if (isPlainRecord(value)) {
+      const { amount, currency } = value;
+      if (typeof amount === "number" && Number.isFinite(amount) && typeof currency === "string") {
+        return formatMoney(amount, currency, format.locale);
+      }
+    }
+    return value === undefined || value === null ? "" : String(value);
+  });
+  hbs.registerHelper("date", (value: unknown): string => {
+    if (typeof value !== "string" && typeof value !== "number") {
+      return value === undefined || value === null ? "" : String(value);
+    }
+    const locale = resolveSafeMoneyLocale(format.locale);
+    try {
+      // A date-only string has no zone; going through an instant would show the
+      // previous day west of UTC.
+      if (typeof value === "string" && DATE_ONLY.test(value)) {
+        return Temporal.PlainDate.from(value).toLocaleString(locale, { dateStyle: "medium" });
+      }
+      const instant =
+        typeof value === "number"
+          ? Temporal.Instant.fromEpochMilliseconds(value)
+          : Temporal.Instant.from(value);
+      return instant.toLocaleString(locale, { dateStyle: "medium", timeZone: "UTC" });
+    } catch {
+      return String(value);
+    }
+  });
+  hbs.registerHelper("link", (value: unknown): string =>
+    typeof value === "string" && SAFE_LINK_PROTOCOL.test(value.trim()) ? value : "#",
+  );
+  return hbs;
+}
+
+const KNOWN_HELPERS = { each: true, if: true, money: true, date: true, link: true } as const;
+
+function compileSource(
+  hbs: typeof Handlebars,
+  source: string,
+  options: { readonly noEscape?: boolean } = {},
+): HandlebarsTemplateDelegate {
+  return hbs.compile(source, {
+    knownHelpers: KNOWN_HELPERS,
+    knownHelpersOnly: true,
+    strict: false,
+    ...options,
+  });
+}
+
+// A key only exists in the registry when its feature is mounted; reading an
+// unregistered key through the accessor would throw instead of falling back.
+async function readConfigText(ctx: RendererContext, key: string): Promise<string | undefined> {
+  if (ctx.config === undefined || ctx.registry.getConfigKey(key) === undefined) return undefined;
+  const value = await ctx.config(key);
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+async function readMailFormat(ctx: RendererContext, payloadLocale: string): Promise<MailFormat> {
+  const [locale, currency] = await Promise.all([
+    readConfigText(ctx, TenantSettingsConfig.locale),
+    readConfigText(ctx, TENANT_CURRENCY_CONFIG_KEY),
+  ]);
+  return { locale: locale ?? payloadLocale, currency: currency ?? FALLBACK_CURRENCY };
+}
+
+async function readTenantName(ctx: RendererContext): Promise<string> {
+  return (await readConfigText(ctx, BRANDING_QN.title)) ?? "";
+}
+
+async function resolveLayout(
+  tplApi: ReturnType<typeof createTemplateResolverApi>,
   ctx: RendererContext,
-): Promise<RenderResponse> {
-  if (req.kind !== "mail-html") {
-    // Foundation selects plugins only for matching kinds; defensive guard.
-    throw new RendererError(
-      `renderer-mail-html supports only kind="mail-html", got "${req.kind}"`,
-      "invalid_payload",
-    );
-  }
-
-  const { content, variables = {}, locale = DEFAULT_LOCALE } = req.payload;
-  if (!content) {
-    throw new RendererError(
-      `renderer-mail-html: payload.content is required (got empty/undefined)`,
-      "invalid_payload",
-    );
-  }
-
-  // Step 1: Resolve Layout (tenant → system → default-constant fallback)
-  const tplApi = createTemplateResolverApi(ctx.db);
-  let layoutMjml: string;
+  meta: MailTemplateMeta,
+  locale: string,
+): Promise<string> {
   try {
-    const layoutTpl = await tplApi.resolveTemplate({
+    const layout = await tplApi.resolveTemplate({
       tenantId: ctx.tenantId,
-      slug: LAYOUT_SLUG,
-      kind: "mail-html",
+      slug: meta.layoutSlug ?? DEFAULT_MAIL_LAYOUT_SLUG,
+      kind: "mail-layout",
       locale,
     });
-    layoutMjml = layoutTpl.content;
+    return layout.content;
   } catch (e) {
-    // Only "no layout seeded" falls back to the in-code DEFAULT_MAIL_LAYOUT_MJML.
-    // Connection/schema/parse errors must NOT be masked silently — otherwise
-    // every mail renders without tenant branding when the DB has problems.
+    // Only "no layout seeded" falls back to the in-code layout. Connection or
+    // schema errors must not be masked, or every mail silently loses its branding.
     if (!(e instanceof TemplateNotFoundError)) {
       throw new RendererError(
         `renderer-mail-html: layout resolution failed — ${describe(e)}`,
         "other",
       );
     }
-    layoutMjml = DEFAULT_MAIL_LAYOUT_MJML;
+    return DEFAULT_MAIL_LAYOUT_MJML;
   }
+}
 
-  // Step 2: Handlebars-Substitution im Markdown-Content
-  let renderedMarkdown: string;
+async function resolveMailTemplate(
+  tplApi: ReturnType<typeof createTemplateResolverApi>,
+  ctx: RendererContext,
+  slug: string,
+  locale: string,
+): Promise<{ readonly template: TemplateResource; readonly meta: MailTemplateMeta }> {
+  let template: TemplateResource;
   try {
-    const contentTpl = Handlebars.compile(content, { strict: false });
-    renderedMarkdown = contentTpl(variables);
+    template = await tplApi.resolveTemplate({ tenantId: ctx.tenantId, slug, kind: "mail", locale });
   } catch (e) {
+    if (e instanceof TemplateNotFoundError) {
+      throw new RendererError(
+        `renderer-mail-html: no mail template "${slug}" for locale "${locale}"`,
+        "invalid_payload",
+      );
+    }
     throw new RendererError(
-      `renderer-mail-html: Handlebars compile failed for content — ${describe(e)}`,
+      `renderer-mail-html: template resolution failed — ${describe(e)}`,
+      "other",
+    );
+  }
+  if (template.contentFormat !== "html") {
+    throw new RendererError(
+      `renderer-mail-html: template "${slug}" has contentFormat "${template.contentFormat}", only html is supported`,
+      "other",
+    );
+  }
+  if (!isMailTemplateMeta(template.meta)) {
+    throw new RendererError(
+      `renderer-mail-html: template "${slug}" has no valid mail meta (subject is required)`,
+      "other",
+    );
+  }
+  return { template, meta: template.meta };
+}
+
+export async function mailHtmlRender(
+  req: RenderRequest,
+  ctx: RendererContext,
+): Promise<RenderResponse> {
+  if (req.kind !== "mail") {
+    // Foundation selects plugins only for matching kinds; defensive guard.
+    throw new RendererError(
+      `renderer-mail-html supports only kind="mail", got "${req.kind}"`,
       "invalid_payload",
     );
   }
+  const { slug, locale, variables, unsubscribeUrl } = req.payload;
 
-  // Step 3: Markdown → HTML. renderSafeMarkdown (statt vanilla marked):
-  // Templates are tenant-authored — raw HTML tokens are escaped,
-  // javascript:/data: hrefs neutralised (same core as legal-pages).
-  // gfm:false (framework default): no auto-link for bare URLs, no
-  // tables/strikethrough — deliberate tradeoff, no mail template uses them.
-  const contentHtml = renderSafeMarkdown(renderedMarkdown);
+  const tplApi = createTemplateResolverApi(ctx.db);
+  const { template, meta } = await resolveMailTemplate(tplApi, ctx, slug, locale);
+  const layoutMjml = await resolveLayout(tplApi, ctx, meta, locale);
 
-  // Step 4: Handlebars-Substitution im MJML-Layout, content-HTML als Slot
+  const [format, tenantName] = await Promise.all([
+    readMailFormat(ctx, locale),
+    readTenantName(ctx),
+  ]);
+  const hbs = createMailHandlebars(format);
+  const context = {
+    ...variables,
+    tenantName,
+    signature: "",
+    imprint: "",
+    unsubscribeUrl: unsubscribeUrl ?? "",
+  };
+
+  let contentHtml: string;
+  try {
+    const handlebarsSource = compileDocumentBodyToHandlebars(
+      template.content,
+      resolveTemplateVariables(ctx.registry, slug, template.variableSchema),
+    );
+    contentHtml = compileSource(hbs, handlebarsSource)(context);
+  } catch (e) {
+    throw new RendererError(
+      `renderer-mail-html: rendering the body of "${slug}" failed — ${describe(e)}`,
+      "other",
+    );
+  }
+
+  let subject: string;
+  let previewText: string | undefined;
+  try {
+    subject = compileSource(hbs, meta.subject, { noEscape: true })(context).replace(
+      LINE_BREAKS,
+      "",
+    );
+    previewText =
+      meta.previewText === undefined
+        ? undefined
+        : compileSource(hbs, meta.previewText, { noEscape: true })(context).replace(
+            LINE_BREAKS,
+            "",
+          );
+  } catch (e) {
+    throw new RendererError(
+      `renderer-mail-html: rendering subject or preview text of "${slug}" failed — ${describe(e)}`,
+      "other",
+    );
+  }
+
   let mjmlSource: string;
   try {
-    const layoutTpl = Handlebars.compile(layoutMjml, { strict: false });
-    mjmlSource = layoutTpl({ ...variables, content: contentHtml });
+    mjmlSource = compileSource(
+      hbs,
+      layoutMjml,
+    )({
+      content: contentHtml,
+      subject,
+      previewText: previewText ?? "",
+      tenantName,
+      signature: "",
+      imprint: "",
+      unsubscribeUrl: unsubscribeUrl ?? "",
+    });
   } catch (e) {
-    // "other", not "invalid_payload": the caller's payload is fine — the
-    // tenant/system layout template is broken. Misclassifying as invalid_payload
-    // tells the caller "fix your content" (no-retry) instead of "fix the template".
+    // "other": the caller's payload is fine, the layout template is broken.
     throw new RendererError(
       `renderer-mail-html: Handlebars compile failed for layout — ${describe(e)}`,
       "other",
     );
   }
 
-  // Step 5: MJML compile → Email-safe HTML (mjml@5 ist async)
+  // mjml@5 is async
   const mjmlResult = await mjml2html(mjmlSource, { validationLevel: "soft" });
   const errors = mjmlResult.errors ?? [];
   if (errors.length > 0) {
@@ -119,15 +283,12 @@ export async function mailHtmlRender(
       .slice(0, 3)
       .map((e) => `line ${e.line}: ${e.message}`)
       .join("; ");
-    // "other", not "invalid_payload": MJML errors come from the layout
-    // template's markup, not the caller's payload (see Step 4 rationale).
     throw new RendererError(
       `renderer-mail-html: MJML compile produced ${errors.length} error(s) — ${firstErrors}`,
       "other",
     );
   }
 
-  // Step 6: text/plain-Alternative via html-to-text
   const text = htmlToText(mjmlResult.html, {
     wordwrap: 80,
     selectors: [
@@ -136,9 +297,11 @@ export async function mailHtmlRender(
     ],
   });
 
-  return { kind: "mail-html", html: mjmlResult.html, text };
-}
-
-function describe(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
+  return {
+    kind: "mail",
+    subject,
+    html: mjmlResult.html,
+    text,
+    ...(previewText === undefined ? {} : { previewText }),
+  };
 }

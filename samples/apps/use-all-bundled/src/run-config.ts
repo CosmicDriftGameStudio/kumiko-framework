@@ -297,7 +297,7 @@ export const APP_FEATURES = [
     collections: [
       {
         id: "reply-snippets",
-        kind: "mail-html",
+        kind: "text-block",
         access: { roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] },
         // Without an explicit workspace the node lands in none of the three
         // shells and the collection is unreachable in the UI.
@@ -317,7 +317,7 @@ export const APP_FEATURES = [
       },
       {
         id: "signatures",
-        kind: "mail-html",
+        kind: "text-block",
         ownership: "user",
         access: { roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] },
         nav: {

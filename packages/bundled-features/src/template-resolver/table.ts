@@ -5,6 +5,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { EntityEventMigration } from "@cosmicdrift/kumiko-types/fields";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   CONTENT_FORMATS,
@@ -12,6 +13,13 @@ import {
   TEMPLATE_SCOPES,
   TEMPLATE_STATUSES,
 } from "./constants.js";
+
+// Stored v1 events name the kind "mail-html", which is now "mail".
+const renameMailHtmlKind: EntityEventMigration = {
+  fromVersion: 1,
+  toVersion: 2,
+  transform: (fields) => (fields["kind"] === "mail-html" ? { ...fields, kind: "mail" } : fields),
+};
 
 // TemplateResource — strukturierte Template-Definition mit Tenant-
 // Override-Hierarchie, Locale-Fallback und Resource-Linking via
@@ -44,6 +52,9 @@ export const templateResourceEntity = createEntity({
     contentFormat: createSelectField({ required: true, options: [...CONTENT_FORMATS] }),
     variableSchema: createLongTextField({ personal: false, reason: "technical_reference" }),
     linkedResources: createLongTextField({ personal: false, reason: "technical_reference" }),
+    // Per-kind JSON (mail: subject, preview text, layout slug, ...), validated
+    // against template-meta.ts on write. Authored by TenantAdmin/Operator.
+    meta: createLongTextField({ personal: false, reason: "is_business_data" }),
     scope: createSelectField({ required: true, options: [...TEMPLATE_SCOPES] }),
     parentTemplateId: createTextField({ personal: false, reason: "technical_reference" }),
     status: createSelectField({ required: true, options: [...TEMPLATE_STATUSES] }),
@@ -55,6 +66,8 @@ export const templateResourceEntity = createEntity({
       name: "read_template_resources_unique",
     },
   ],
+  eventVersion: 2,
+  eventMigrations: [renameMailHtmlKind],
 });
 
 export const templateResourcesTable = buildEntityTable("template-resource", templateResourceEntity);
@@ -84,6 +97,7 @@ export type TemplateResourceRow = {
   readonly contentFormat: string;
   readonly variableSchema: string | null;
   readonly linkedResources: string | null;
+  readonly meta: string | null;
   readonly scope: string;
   readonly parentTemplateId: string | null;
   readonly status: string;

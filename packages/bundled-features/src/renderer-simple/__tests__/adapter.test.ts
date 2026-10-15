@@ -60,8 +60,8 @@ describe("renderer-simple :: adaptToFoundation", () => {
     await expect(
       adaptToFoundation(
         {
-          kind: "mail-html",
-          payload: { content: "test", contentFormat: "markdown" },
+          kind: "mail",
+          payload: { slug: "test", locale: "de", variables: {} },
         },
         STUB_CTX,
       ),

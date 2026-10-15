@@ -1,14 +1,25 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { defineWriteHandler, type Registry } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type FieldIssue,
+  NotFoundError,
+  ValidationError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import type { TemplateResourceRow } from "../table.js";
 import { templateResourcesTable } from "../table.js";
 import { executor } from "./shared.js";
+import { publishGateIssues } from "./template-gates.js";
 
 type TemplateStatus = "active" | "archived";
 
-function createStatusUpdateHandler(name: string, status: TemplateStatus, description: string) {
+function createStatusUpdateHandler(
+  name: string,
+  status: TemplateStatus,
+  description: string,
+  gate?: (registry: Registry, row: TemplateResourceRow) => readonly FieldIssue[],
+) {
   return defineWriteHandler({
     name,
     schema: z.object({ id: z.string().min(1) }),
@@ -23,6 +34,8 @@ function createStatusUpdateHandler(name: string, status: TemplateStatus, descrip
       if (!existing) {
         return writeFailure(new NotFoundError("template-resource", event.payload.id));
       }
+      const issues = gate?.(ctx.registry, existing) ?? [];
+      if (issues.length > 0) return writeFailure(new ValidationError({ fields: [...issues] }));
       const result = await executor.update(
         { id: existing.id, version: existing.version, changes: { status } },
         event.user,
@@ -42,5 +55,6 @@ export const archiveWrite = createStatusUpdateHandler(
 export const publishWrite = createStatusUpdateHandler(
   "publish",
   "active",
-  "Sets one template resource of the caller's tenant to active so the resolver starts serving it; use it to release a draft written by upsert-tenant, or to bring an archived template back.",
+  "Sets one template resource of the caller's tenant to active so the resolver starts serving it; use it to release a draft written by upsert-tenant, or to bring an archived template back; a mail template with unknown placeholders or unused required variables is refused.",
+  publishGateIssues,
 );

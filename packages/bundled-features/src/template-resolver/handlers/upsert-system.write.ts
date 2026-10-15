@@ -10,6 +10,7 @@ import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../docume
 import type { TemplateResourceRow } from "../table.js";
 import { templateResourcesTable } from "../table.js";
 import { executor, upsertPayloadSchema } from "./shared.js";
+import { runTemplateGates } from "./template-gates.js";
 
 // System-Template anlegen/updaten. Liegt unter SYSTEM_TENANT_ID,
 // scope='system'. Nur SystemAdmin (globale Rolle). TenantAdmin kann
@@ -38,6 +39,17 @@ export const upsertSystemWrite = defineWriteHandler({
       );
     }
 
+    const gates = runTemplateGates({
+      registry: ctx.registry,
+      slug: event.payload.slug,
+      kind: event.payload.kind,
+      content: body.content,
+      rawMeta: event.payload.meta,
+      variableSchema: event.payload.variableSchema,
+      requireAllRequired: true,
+    });
+    if (!gates.ok) return writeFailure(new ValidationError({ fields: [...gates.issues] }));
+
     const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
       tenantId,
       slug: event.payload.slug,
@@ -53,6 +65,7 @@ export const upsertSystemWrite = defineWriteHandler({
       contentFormat: event.payload.contentFormat,
       variableSchema: JSON.stringify(event.payload.variableSchema),
       linkedResources: JSON.stringify(event.payload.linkedResources),
+      meta: gates.metaJson,
       title: event.payload.title ?? null,
       folder: event.payload.folder ?? null,
       scope: "system" as const,

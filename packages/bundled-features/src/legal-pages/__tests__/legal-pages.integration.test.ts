@@ -521,6 +521,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
         contentFormat: "markdown",
         variableSchema: {},
         linkedResources: {},
+        meta: null,
         scope: "system",
         parentTemplateId: null,
         status: "active",

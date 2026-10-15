@@ -7,6 +7,7 @@ import {
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.js";
+import { COLLECTION_REFUSED_KINDS } from "../constants.js";
 import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.js";
 import {
   type CollectionEntryRow,
@@ -42,6 +43,20 @@ export function makeCollectionSetWrite(collection: ContentCollectionDefinition) 
         ? `Creates or overwrites the caller's own "${collection.id}" entry at a slug and locale, live on save with no draft stage; it always writes the acting user's entry, never another user's.`
         : `Creates or overwrites the tenant-wide "${collection.id}" entry at a slug and locale, live on save with no draft stage; the change is visible to everyone who may reach this shared collection.`,
     handler: async (event, ctx) => {
+      if (COLLECTION_REFUSED_KINDS.includes(collection.kind)) {
+        return writeFailure(
+          new ValidationError({
+            fields: [
+              {
+                path: "kind",
+                code: "kind_not_allowed",
+                i18nKey: "templateResolver.errors.collection.kindNotAllowed",
+                params: { detail: collection.kind },
+              },
+            ],
+          }),
+        );
+      }
       const override = event.payload.tenantIdOverride;
       // @cast-boundary engine-payload — override is a zod-validated string, the
       // user's own tenantId is already TenantId-branded.
