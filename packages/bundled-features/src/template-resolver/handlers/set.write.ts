@@ -85,7 +85,6 @@ export const setWrite = defineWriteHandler({
             event.payload.slug,
             storedRecord(existing?.variableSchema ?? null),
           ),
-          resourceKeys: Object.keys(storedRecord(existing?.linkedResources ?? null)),
         },
         "active",
       );

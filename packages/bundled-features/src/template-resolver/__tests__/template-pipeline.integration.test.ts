@@ -340,4 +340,35 @@ describe("template-resolver :: document placeholders", () => {
     );
     expect(mail.unknown).toContain("page");
   });
+
+  test("an image without an uploaded file warns but blocks neither saving nor publishing", async () => {
+    const withBanner = `${body}<img data-resource="banner" alt="Banner">`;
+    const result = await stack.http.queryOk<{
+      canSave: boolean;
+      canPublish: boolean;
+      unknown: string[];
+      warnings: Array<{ code: string; detail: string; i18nKey: string }>;
+    }>(TemplateResolverQueries.validate, mailPayload(withBanner), tenantAdmin);
+    expect(result.canSave).toBe(true);
+    expect(result.canPublish).toBe(true);
+    expect(result.unknown).toEqual([]);
+    expect(result.warnings).toEqual([
+      {
+        code: "resource_not_uploaded",
+        detail: "banner",
+        i18nKey: "templateResolver.warnings.resourceNotUploaded",
+      },
+    ]);
+  });
+
+  test("upsert-tenant accepts an unknown data-resource key", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      mailPayload(`${body}<img data-resource="banner" alt="Banner">`, {
+        locale: "nl",
+        status: "active",
+      }),
+      tenantAdmin,
+    );
+  });
 });

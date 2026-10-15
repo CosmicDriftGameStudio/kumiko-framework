@@ -14,7 +14,7 @@ import { requireForTenant } from "../../shared/index.js";
 import type { TemplateWriteScope } from "../layout-regions.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import type { TemplateBundle } from "../template-bundle.js";
-import { storeTemplateResource } from "../template-resources.js";
+import { attachTemplateResources, storeTemplateResource } from "../template-resources.js";
 import { resolveTemplateVariables } from "../template-validation.js";
 import { evaluateTemplateWrite } from "./template-gates.js";
 import {
@@ -63,7 +63,6 @@ async function collectBundleIssues(
       content: entry.body,
       rawMeta: entry.meta,
       variables,
-      resourceKeys: Object.keys(bundle.resources),
     });
     const found = evaluated.ok
       ? status === "active"
@@ -127,7 +126,6 @@ export async function importTemplateBundle(
       content: entry.body,
       contentFormat: args.bundle.contentFormat,
       variableSchema,
-      linkedResources: linked.data,
       meta: entry.meta,
     };
     const written = await writeTemplateRow({
@@ -140,6 +138,13 @@ export async function importTemplateBundle(
       payload,
     });
     if (!written.isSuccess) return written;
+    const attached = await attachTemplateResources(args.ctx, {
+      user: args.user,
+      tenantId: args.tenantId,
+      templateId: written.data.id,
+      resources: linked.data,
+    });
+    if (!attached.isSuccess) return attached;
     ids[locale] = written.data.id;
   }
   return { isSuccess: true, data: { ids } };

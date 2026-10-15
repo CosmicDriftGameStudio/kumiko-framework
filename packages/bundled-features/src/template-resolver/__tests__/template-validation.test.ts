@@ -17,14 +17,31 @@ describe("validateTemplatePlaceholders", () => {
     const result = validate(
       '<p><span data-variable="name"></span> <span data-variable="tenantName"></span></p><img data-resource="logo" src="x">',
     );
-    expect(result).toEqual({ unknown: [], missingRequired: [], used: ["name"] });
+    expect(result).toEqual({
+      unknown: [],
+      missingRequired: [],
+      used: ["name"],
+      unknownResources: [],
+    });
   });
 
-  test("unknown variables, link placeholders and resources are reported", () => {
-    const result = validate(
-      '<span data-variable="nope"></span><a href="{{gone}}">x</a><img data-resource="other">',
-    );
-    expect(result.unknown).toEqual(["gone", "nope", "other"]);
+  test("unknown variables and link placeholders are reported", () => {
+    const result = validate('<span data-variable="nope"></span><a href="{{gone}}">x</a>');
+    expect(result.unknown).toEqual(["gone", "nope"]);
+  });
+
+  test("a resource key without an uploaded file is a separate warning, not an unknown", () => {
+    const result = validate('<img data-resource="other"><img data-resource="logo">');
+    expect(result.unknown).toEqual([]);
+    expect(result.unknownResources).toEqual(["other"]);
+    const known = validateTemplatePlaceholders({
+      kind: "mail",
+      body: '<img data-resource="other">',
+      meta: null,
+      variables,
+      resourceKeys: ["other"],
+    });
+    expect(known.unknownResources).toEqual([]);
   });
 
   test("missing required variables are listed", () => {

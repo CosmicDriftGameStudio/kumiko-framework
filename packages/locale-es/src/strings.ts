@@ -1117,6 +1117,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Solo los diseños del sistema pueden usar código {detail}; usa el diseño html estructurado.",
   "templateResolver.errors.template.targetExists":
     "Ya existe una plantilla para el idioma «{detail}»; sobrescríbela de forma explícita para reemplazarla.",
+  "templateResolver.warnings.resourceNotUploaded": "Imagen no subida: {detail}",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Los archivos de recursos solo los puede importar como plantillas del sistema un usuario del inquilino del sistema.",
   "templateResolver.errors.collection.kindNotAllowed":

@@ -32,6 +32,8 @@ export type TemplateValidation = {
   readonly unknown: readonly string[];
   readonly missingRequired: readonly string[];
   readonly used: readonly string[];
+  /** data-resource keys with no uploaded file; a warning, never a blocker. */
+  readonly unknownResources: readonly string[];
 };
 
 const SCALAR_TYPES = ["text", "link", "money", "date"] as const;
@@ -91,6 +93,7 @@ type PlaceholderScope = {
   readonly resourceKeys: ReadonlySet<string>;
   readonly used: Set<string>;
   readonly unknown: Set<string>;
+  readonly unknownResources: Set<string>;
 };
 
 function listItemFields(
@@ -152,7 +155,7 @@ function scanBodyPlaceholders(body: string, scope: PlaceholderScope): void {
         if (isDocumentPlaceholderHref(href)) recordName(href.slice(2, -2), itemFields, scope);
       } else {
         const key = element.getAttribute("data-resource") ?? "";
-        if (!scope.resourceKeys.has(key)) scope.unknown.add(key);
+        if (!scope.resourceKeys.has(key)) scope.unknownResources.add(key);
       }
     }
   });
@@ -182,7 +185,7 @@ export function validateTemplatePlaceholders(input: {
   readonly body: string;
   readonly meta: TemplateMeta | null;
   readonly variables: TemplateVariables;
-  /** data-resource keys the template may use besides the built-in `logo`. */
+  /** data-resource keys with an uploaded file besides the built-in `logo`. */
   readonly resourceKeys?: readonly string[];
 }): TemplateValidation {
   const scope: PlaceholderScope = {
@@ -191,6 +194,7 @@ export function validateTemplatePlaceholders(input: {
     resourceKeys: new Set([...BASE_RESOURCE_KEYS, ...(input.resourceKeys ?? [])]),
     used: new Set(),
     unknown: new Set(),
+    unknownResources: new Set(),
   };
   scanBodyPlaceholders(input.body, scope);
   for (const text of metaTexts(input.meta)) scanMetaPlaceholders(text, scope);
@@ -201,6 +205,7 @@ export function validateTemplatePlaceholders(input: {
     unknown: [...scope.unknown].sort(),
     missingRequired: missingRequired.sort(),
     used: [...scope.used].sort(),
+    unknownResources: [...scope.unknownResources].sort(),
   };
 }
 

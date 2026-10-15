@@ -32,7 +32,6 @@ export type TemplateRowPayload = {
   readonly content: string | null;
   readonly contentFormat: ContentFormat;
   readonly variableSchema: Readonly<Record<string, unknown>>;
-  readonly linkedResources: Readonly<Record<string, string>>;
   readonly meta?: unknown;
   readonly title?: string | null | undefined;
   readonly folder?: string | null | undefined;
@@ -99,7 +98,8 @@ export function gateTemplateWrite(
 
 // Shared by every template write: validate through the one pipeline, then
 // create or update the (tenant, slug, kind, locale) row via the event-store
-// executor.
+// executor. linkedResources is never part of an update; resources are attached
+// separately.
 export async function writeTemplateRow(
   args: TemplateRowWrite,
 ): Promise<WriteResult<WrittenTemplateRow>> {
@@ -116,7 +116,6 @@ export async function writeTemplateRow(
       content: payload.content,
       rawMeta: payload.meta,
       variables: args.variables,
-      resourceKeys: Object.keys(payload.linkedResources),
     },
     status,
   );
@@ -137,7 +136,6 @@ export async function writeTemplateRow(
     content: evaluated.content,
     contentFormat: payload.contentFormat,
     variableSchema: JSON.stringify(payload.variableSchema),
-    linkedResources: JSON.stringify(payload.linkedResources),
     meta: evaluated.metaJson,
     title: payload.title ?? null,
     folder: payload.folder ?? null,
@@ -165,7 +163,9 @@ export async function writeTemplateRow(
     };
   }
 
-  const result = await executor.create({ ...fields, tenantId }, user, db, { streamTenantId });
+  const result = await executor.create({ ...fields, linkedResources: "{}", tenantId }, user, db, {
+    streamTenantId,
+  });
   if (!result.isSuccess) return result;
   // @cast-boundary db-row — executor.create returnt Record-row aus
   // INSERT RETURNING; shape { id } ist garantiert weil PK in der

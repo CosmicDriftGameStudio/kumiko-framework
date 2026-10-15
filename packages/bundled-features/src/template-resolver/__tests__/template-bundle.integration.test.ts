@@ -141,4 +141,22 @@ describe("template-resolver :: bundle", () => {
     expect(rows).toHaveLength(0);
     expect(await selectMany(stack.db, fileRefsTable)).toHaveLength(fileRefsBefore);
   });
+
+  test("import-bundle is refused for a user without TenantAdmin", async () => {
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.importBundle,
+      { bundle: { ...bundle, slug: "bundle-denied" } },
+      createTestUser({ id: 5 }),
+    );
+    expect(err.code).toBe("access_denied");
+  });
+
+  test("import-bundle-system is refused for a TenantAdmin", async () => {
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.importBundleSystem,
+      { bundle: { ...bundle, slug: "bundle-denied" } },
+      tenantA,
+    );
+    expect(err.code).toBe("access_denied");
+  });
 });
