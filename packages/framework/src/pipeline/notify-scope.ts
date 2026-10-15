@@ -14,11 +14,12 @@ function isTenantBroadcast(to: NotifyOptions["to"]): to is { readonly tenant: Te
 
 export function assertNotifyTargetsOwnTenant(options: NotifyOptions, tenantId: TenantId): void {
   const { to } = options;
-  if (!isTenantBroadcast(to) || to.tenant === tenantId) return;
-  throw new AccessDeniedError({
-    message: "ctx.notify can only broadcast to the caller's own tenant",
-    details: { reason: FrameworkReasons.notifyForeignTenantBroadcast },
-  });
+  if (isTenantBroadcast(to) && to.tenant !== tenantId) {
+    throw new AccessDeniedError({
+      message: "ctx.notify can only broadcast to the caller's own tenant",
+      details: { reason: FrameworkReasons.notifyForeignTenantBroadcast },
+    });
+  }
 }
 
 type DeferringNotifyDeps = {
