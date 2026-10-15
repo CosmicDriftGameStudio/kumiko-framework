@@ -83,7 +83,16 @@ describe("template-resolver :: document body sanitizing", () => {
   test("upsertSystem stores a canonical body unchanged", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
-      { ...pdfPayload, slug: "canonical", content: documentBodyFixture },
+      {
+        ...pdfPayload,
+        slug: "canonical",
+        content: documentBodyFixture,
+        variableSchema: {
+          customer: { type: "text" },
+          confirmUrl: { type: "link" },
+          items: { type: "list", item: { name: { type: "text" } } },
+        },
+      },
       systemAdmin,
     );
     expect((await storedSystemRow("canonical"))?.content).toBe(documentBodyFixture);
