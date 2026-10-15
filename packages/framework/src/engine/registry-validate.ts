@@ -666,6 +666,34 @@ export function validateRequiredFeatures(
   }
 }
 
+// The record mapping feeds template variables from an entity row, so every part
+// of it is checked against the finished registry: entity, variables, field roots.
+export function validateNotificationRecordMappings(state: RegistryState): void {
+  for (const [qualifiedName, notifDef] of state.notificationMap) {
+    const { record, variables } = notifDef;
+    if (record === undefined) continue;
+    const where = `Notification "${qualifiedName}" record mapping`;
+    const entity = state.entityMap.get(record.entity);
+    if (entity === undefined) {
+      throw new Error(`${where}: entity "${record.entity}" is not registered`);
+    }
+    if (variables === undefined) {
+      throw new Error(`${where} needs declared variables to map onto`);
+    }
+    for (const [variable, path] of Object.entries(record.map)) {
+      if (!Object.hasOwn(variables, variable)) {
+        throw new Error(`${where}: "${variable}" is not a declared variable`);
+      }
+      const root = path.split(".")[0] ?? "";
+      if (root !== "id" && !Object.hasOwn(entity.fields, root)) {
+        throw new Error(
+          `${where}: path "${path}" for variable "${variable}" does not start with a field of entity "${record.entity}"`,
+        );
+      }
+    }
+  }
+}
+
 export function resolveNotificationTriggersAndRegisterHooks(state: RegistryState): void {
   // Resolve notification triggers and register postSave hooks
   // Done after all features are registered so cross-feature triggers work

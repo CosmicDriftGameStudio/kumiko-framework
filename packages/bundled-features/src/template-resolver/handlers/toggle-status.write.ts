@@ -23,7 +23,7 @@ type StatusTarget = "own" | "system";
 function isRowOfTarget(row: TemplateResourceRow, target: StatusTarget, callerTenantId: string) {
   return target === "system"
     ? row.tenantId === SYSTEM_TENANT_ID && row.scope === "system"
-    : row.tenantId === callerTenantId;
+    : row.tenantId === callerTenantId && row.scope === "tenant";
 }
 
 function createStatusUpdateHandler(

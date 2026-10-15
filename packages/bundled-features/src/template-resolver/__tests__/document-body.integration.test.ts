@@ -169,7 +169,7 @@ describe("template-resolver :: document body sanitizing", () => {
         contentFormat: "html",
       }),
     ).rejects.toThrow(
-      "seedSystemTemplate seed-evil/document-pdf/de rejected: <script> elements are not allowed in template bodies",
+      "seedSystemTemplate seed-evil/document-pdf/de rejected: script_element (script)",
     );
   });
 });

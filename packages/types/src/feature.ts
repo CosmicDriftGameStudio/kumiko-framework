@@ -13,6 +13,7 @@ import type {
   NotificationDefinition,
   NotificationLocalizedTemplate,
   NotificationRecipientFn,
+  NotificationRecordMapping,
   NotificationTemplateBody,
   NotificationTemplateFn,
   NotificationTemplateMeta,
@@ -637,6 +638,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
       readonly data?: NotificationDataFn;
       readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
       readonly variables?: TemplateVariables;
+      readonly record?: NotificationRecordMapping;
       readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
       readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
       readonly localizedTemplate?: () => NotificationLocalizedTemplate;
@@ -649,6 +651,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     readonly data?: NotificationDataFn;
     readonly templates?: Readonly<Record<string, NotificationTemplateFn>>;
     readonly variables?: TemplateVariables;
+    readonly record?: NotificationRecordMapping;
     readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
     readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
     readonly localizedTemplate?: () => NotificationLocalizedTemplate;

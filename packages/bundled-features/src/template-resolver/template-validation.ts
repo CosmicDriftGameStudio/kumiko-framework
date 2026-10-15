@@ -17,7 +17,16 @@ export const SYSTEM_PLACEHOLDERS: ReadonlySet<string> = new Set([
   "unsubscribeUrl",
 ]);
 
-const ALLOWED_RESOURCE_KEYS: ReadonlySet<string> = new Set(["logo"]);
+const PAGE_PLACEHOLDERS = ["page", "pages"] as const;
+const PAGED_KINDS: ReadonlySet<string> = new Set(["document-pdf", "pdf-layout"]);
+
+export function systemPlaceholdersFor(kind: string): ReadonlySet<string> {
+  return PAGED_KINDS.has(kind)
+    ? new Set([...SYSTEM_PLACEHOLDERS, ...PAGE_PLACEHOLDERS])
+    : SYSTEM_PLACEHOLDERS;
+}
+
+const BASE_RESOURCE_KEYS = ["logo"] as const;
 
 export type TemplateValidation = {
   readonly unknown: readonly string[];
@@ -78,6 +87,8 @@ function rootName(name: string): string {
 
 type PlaceholderScope = {
   readonly variables: TemplateVariables;
+  readonly systemPlaceholders: ReadonlySet<string>;
+  readonly resourceKeys: ReadonlySet<string>;
   readonly used: Set<string>;
   readonly unknown: Set<string>;
 };
@@ -93,14 +104,15 @@ function listItemFields(
 
 function isKnownName(
   name: string,
-  variables: TemplateVariables,
+  scope: PlaceholderScope,
   itemFields: Readonly<Record<string, unknown>>,
 ): Resolution {
+  const { variables } = scope;
   const root = rootName(name);
   if (Object.hasOwn(itemFields, name) || Object.hasOwn(itemFields, root)) {
     return { known: true, used: "" };
   }
-  if (SYSTEM_PLACEHOLDERS.has(root)) return { known: true, used: "" };
+  if (scope.systemPlaceholders.has(root)) return { known: true, used: "" };
   if (Object.hasOwn(variables, name)) return { known: true, used: name };
   if (Object.hasOwn(variables, root)) return { known: true, used: root };
   return { known: false, used: "" };
@@ -111,7 +123,7 @@ function recordName(
   itemFields: Readonly<Record<string, unknown>>,
   scope: PlaceholderScope,
 ) {
-  const resolution = isKnownName(name, scope.variables, itemFields);
+  const resolution = isKnownName(name, scope, itemFields);
   if (!resolution.known) scope.unknown.add(name);
   else if (resolution.used !== "") scope.used.add(resolution.used);
 }
@@ -140,7 +152,7 @@ function scanBodyPlaceholders(body: string, scope: PlaceholderScope): void {
         if (isDocumentPlaceholderHref(href)) recordName(href.slice(2, -2), itemFields, scope);
       } else {
         const key = element.getAttribute("data-resource") ?? "";
-        if (!ALLOWED_RESOURCE_KEYS.has(key)) scope.unknown.add(key);
+        if (!scope.resourceKeys.has(key)) scope.unknown.add(key);
       }
     }
   });
@@ -166,12 +178,17 @@ function metaTexts(meta: TemplateMeta | null): readonly string[] {
 }
 
 export function validateTemplatePlaceholders(input: {
+  readonly kind: string;
   readonly body: string;
   readonly meta: TemplateMeta | null;
   readonly variables: TemplateVariables;
+  /** data-resource keys the template may use besides the built-in `logo`. */
+  readonly resourceKeys?: readonly string[];
 }): TemplateValidation {
   const scope: PlaceholderScope = {
     variables: input.variables,
+    systemPlaceholders: systemPlaceholdersFor(input.kind),
+    resourceKeys: new Set([...BASE_RESOURCE_KEYS, ...(input.resourceKeys ?? [])]),
     used: new Set(),
     unknown: new Set(),
   };

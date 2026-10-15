@@ -7,8 +7,12 @@ import { byTenantQuery } from "./handlers/by-tenant.query.js";
 import { makeCollectionItemQuery } from "./handlers/collection-item.query.js";
 import { makeCollectionListQuery } from "./handlers/collection-list.query.js";
 import { makeCollectionSetWrite } from "./handlers/collection-set.write.js";
+import { copyLocaleWrite } from "./handlers/copy-locale.write.js";
 import { diffToSystemQuery } from "./handlers/diff-to-system.query.js";
+import { exportBundleQuery } from "./handlers/export-bundle.query.js";
 import { findByIdQuery } from "./handlers/find-by-id.query.js";
+import { importBundleWrite } from "./handlers/import-bundle.write.js";
+import { importBundleSystemWrite } from "./handlers/import-bundle-system.write.js";
 import { listQuery } from "./handlers/list.query.js";
 import { resetToSystemWrite } from "./handlers/reset-to-system.write.js";
 import { setWrite } from "./handlers/set.write.js";
@@ -22,6 +26,7 @@ import {
 import { upsertSystemWrite } from "./handlers/upsert-system.write.js";
 import { upsertTenantWrite } from "./handlers/upsert-tenant.write.js";
 import { usageQuery } from "./handlers/usage.query.js";
+import { validateQuery } from "./handlers/validate.query.js";
 import { templateResourceEntity } from "./table.js";
 import { userContentEntryEntity } from "./user-content-table.js";
 
@@ -57,6 +62,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
         "Text an editor should be able to change belongs in a collection, declared at mount: `createTemplateResolverFeature({ collections: [{ id, kind, access: { roles }, nav }] })`. It appears in the navigation, and `access` is part of the mount because a bundled feature cannot know the host's roles. Each collection gets its own `<id>-list` / `<id>-item` / `<id>-set` handlers, so the dispatcher enforces the separation.",
         "How a collection is edited follows from `contentFormat`: `plain` gives a text area, `rich` a small WYSIWYG (bold, italic, headings, lists, links), `markdown` a text area that stores markdown text (same insertable chips as `plain`). All three offer the collection's `variableSchema` as insertable chips and a preview rendered with sample data — an editor sees what `{{firstName}}` becomes without sending a mail. An app can register its own editor for a format; the last `clientFeature` that registers a format wins (a conflict logs a warning).",
         'A collection is tenant-wide by default. With `ownership: "user"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one also requires the `template-resolver-user-data` feature and a migration on the app side.',
+        "`validate` dry-runs the write pipeline for a draft (sanitizer, layout rules, placeholders) and reports what the template uses and misses. `export-bundle` / `import-bundle` (and `import-bundle-system`) move one template with all locales and resource files between tenants or environments; `copy-locale` starts a translation from an existing locale. Layouts are structured: a mail or PDF layout is `data-header` / `data-content` / `data-signature` / `data-footer` regions, and mjml layout source is system-only.",
         "Replaces the former `text-content` feature; its blocks now live here as kind `text-block`.",
       ].join("\n\n"),
     );
@@ -81,6 +87,9 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       archiveSystem: r.writeHandler(archiveSystemWrite),
       resetToSystem: r.writeHandler(resetToSystemWrite),
       set: r.writeHandler(setWrite),
+      importBundle: r.writeHandler(importBundleWrite),
+      importBundleSystem: r.writeHandler(importBundleSystemWrite),
+      copyLocale: r.writeHandler(copyLocaleWrite),
     };
 
     const queries = {
@@ -91,6 +100,8 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       usage: r.queryHandler(usageQuery),
       tenantOverrides: r.queryHandler(tenantOverridesQuery),
       diffToSystem: r.queryHandler(diffToSystemQuery),
+      validate: r.queryHandler(validateQuery),
+      exportBundle: r.queryHandler(exportBundleQuery),
     };
 
     for (const collection of collections) {

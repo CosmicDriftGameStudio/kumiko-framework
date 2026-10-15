@@ -11,6 +11,9 @@ export const TemplateResolverHandlers = {
   archiveSystem: "template-resolver:write:archive-system",
   resetToSystem: "template-resolver:write:reset-to-system",
   set: "template-resolver:write:set",
+  importBundle: "template-resolver:write:import-bundle",
+  importBundleSystem: "template-resolver:write:import-bundle-system",
+  copyLocale: "template-resolver:write:copy-locale",
 } as const;
 
 export const TemplateResolverQueries = {
@@ -19,6 +22,8 @@ export const TemplateResolverQueries = {
   usage: "template-resolver:query:usage",
   tenantOverrides: "template-resolver:query:tenant-overrides",
   diffToSystem: "template-resolver:query:diff-to-system",
+  validate: "template-resolver:query:validate",
+  exportBundle: "template-resolver:query:export-bundle",
   // Public pair — anonymous-reachable, kind pinned to text-block.
   bySlug: "template-resolver:query:by-slug",
   byTenant: "template-resolver:query:by-tenant",
@@ -43,4 +48,6 @@ export const TemplateResolverErrors = {
   systemAdminRequired: "system_admin_required",
   alreadyActive: "template_already_active",
   alreadyArchived: "template_already_archived",
+  targetExists: "target_exists",
+  systemResourcesNeedSystemTenant: "system_resources_need_system_tenant",
 } as const;

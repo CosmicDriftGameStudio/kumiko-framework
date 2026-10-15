@@ -21,8 +21,10 @@ import {
   SYSTEM_TENANT_ID,
   TemplateResolverHandlers,
   templateResourceEntity,
+  templateResourcesTable,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   type TenantId,
@@ -143,6 +145,20 @@ function layoutPayload(marker: string, extra: Record<string, unknown> = {}) {
     locale: LOCALE,
     content: `<mjml><mj-body><mj-section><mj-column><mj-text>${marker}</mj-text><mj-raw>{{{content}}}</mj-raw></mj-column></mj-section></mj-body></mjml>`,
     contentFormat: "mjml" as const,
+    meta: {},
+    variableSchema: {},
+    linkedResources: {},
+    ...extra,
+  };
+}
+
+function tenantLayoutPayload(marker: string, extra: Record<string, unknown> = {}) {
+  return {
+    slug: "default",
+    kind: "mail-layout" as const,
+    locale: LOCALE,
+    content: `<div data-header><p>${marker}</p></div><div data-content></div><div data-footer><p>FOOTER_${marker}</p></div>`,
+    contentFormat: "html" as const,
     meta: {},
     variableSchema: {},
     linkedResources: {},
@@ -333,11 +349,13 @@ describe("renderer-mail-html :: layout resolution", () => {
   test("a tenant layout wins over the system layout for that tenant only", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      layoutPayload("TENANT_LAYOUT_MARKER", { status: "active" }),
+      tenantLayoutPayload("TENANT_LAYOUT_MARKER", { status: "active" }),
       tenantAdmin(4),
     );
     const own = await renderMail(tenantId(4));
     expect(own.html).toContain("TENANT_LAYOUT_MARKER");
+    expect(own.html).toContain("FOOTER_TENANT_LAYOUT_MARKER");
+    expect(own.html).toContain("Hallo Anna");
     expect(own.html).not.toContain("SYSTEM_LAYOUT_MARKER");
     expect(own.layout?.scope).toBe("tenant");
     expect(await renderMail(tenantId(1))).toMatchObject({
@@ -345,11 +363,64 @@ describe("renderer-mail-html :: layout resolution", () => {
     });
   });
 
-  test("the layout only sees its fixed variables, not payload variables", async () => {
+  test("a tenant layout region renders its placeholders from the layout context", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      layoutPayload("N[{{name}}]|{{subject}}|", { status: "active" }),
-      tenantAdmin(5),
+      tenantLayoutPayload("x", {
+        content:
+          '<div data-header><p><span data-variable="tenantName"></span></p></div><div data-content></div><div data-footer><p><a href="{{unsubscribeUrl}}">Abmelden</a></p></div>',
+        status: "active",
+      }),
+      tenantAdmin(11),
+    );
+    const result = await renderMail(tenantId(11), PLAIN_VARIABLES, {
+      unsubscribeUrl: "https://example.com/unsub",
+    });
+    expect(result.html).toContain('href="https://example.com/unsub"');
+    expect(result.html).toContain("Abmelden");
+  });
+
+  test("a leftover tenant mjml layout is ignored in favour of the system layout", async () => {
+    const legacyExecutor = createEventStoreExecutor(
+      templateResourcesTable,
+      templateResourceEntity,
+      {
+        entityName: "template-resource",
+      },
+    );
+    const owner = tenantId(12);
+    const created = await legacyExecutor.create(
+      {
+        tenantId: owner,
+        slug: "default",
+        kind: "mail-layout",
+        locale: LOCALE,
+        content: layoutPayload("LEGACY_TENANT_MJML_MARKER").content,
+        contentFormat: "mjml",
+        variableSchema: "{}",
+        linkedResources: "{}",
+        meta: null,
+        title: null,
+        folder: null,
+        scope: "tenant",
+        parentTemplateId: null,
+        status: "active",
+      },
+      createTestUser({ id: 12, roles: ["TenantAdmin"], tenantId: owner }),
+      createTenantDb(stack.db, owner, "system"),
+    );
+    expect(created.isSuccess).toBe(true);
+    const result = await renderMail(owner);
+    expect(result.html).not.toContain("LEGACY_TENANT_MJML_MARKER");
+    expect(result.html).toContain("SYSTEM_LAYOUT_MARKER");
+    expect(result.layout?.scope).toBe("system");
+  });
+
+  test("the layout only sees its fixed variables, not payload variables", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      layoutPayload("N[{{name}}]|{{subject}}|"),
+      TestUsers.systemAdmin,
     );
     const result = await renderMail(tenantId(5));
     expect(result.html).toContain("N[]|Willkommen Anna|");
@@ -372,30 +443,43 @@ describe("renderer-mail-html :: layout resolution", () => {
 describe("renderer-mail-html :: broken layouts", () => {
   test("an invalid MJML layout is an error with code other, not invalid_payload", async () => {
     await stack.http.writeOk(
-      TemplateResolverHandlers.upsertTenant,
+      TemplateResolverHandlers.upsertSystem,
       layoutPayload("x", {
         content: "<mjml><mj-body><mj-bogus>{{{content}}}</mj-bogus></mj-body></mjml>",
-        status: "active",
       }),
-      tenantAdmin(6),
+      TestUsers.systemAdmin,
     );
     await expect(renderMail(tenantId(6))).rejects.toMatchObject({ code: "other" });
   });
 
   test("a layout with broken Handlebars is an error with code other", async () => {
     await stack.http.writeOk(
-      TemplateResolverHandlers.upsertTenant,
+      TemplateResolverHandlers.upsertSystem,
       layoutPayload("x", {
-        content: "<mjml><mj-body>{{#if}}</mj-body></mjml>",
-        status: "active",
+        content: "<mjml><mj-body>{{#if}}{{{content}}}</mj-body></mjml>",
       }),
-      tenantAdmin(7),
+      TestUsers.systemAdmin,
     );
     await expect(renderMail(tenantId(7))).rejects.toMatchObject({ code: "other" });
   });
 });
 
 describe("renderer-mail-html :: write gates", () => {
+  test("a tenant mjml layout and an mjml layout without the content slot are rejected", async () => {
+    const tenantMjml = await stack.http.writeErr(
+      TemplateResolverHandlers.upsertTenant,
+      layoutPayload("x"),
+      tenantAdmin(13),
+    );
+    expect(JSON.stringify(tenantMjml.details)).toContain("layout_source_system_only");
+    const noSlot = await stack.http.writeErr(
+      TemplateResolverHandlers.upsertSystem,
+      layoutPayload("x", { content: "<mjml><mj-body></mj-body></mjml>" }),
+      TestUsers.systemAdmin,
+    );
+    expect(JSON.stringify(noSlot.details)).toContain("layout_missing_content_slot");
+  });
+
   test("upsert with an unknown placeholder is rejected and names it", async () => {
     const err = await stack.http.writeErr(
       TemplateResolverHandlers.upsertTenant,

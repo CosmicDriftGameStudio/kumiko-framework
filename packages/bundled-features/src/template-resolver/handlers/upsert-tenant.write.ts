@@ -1,21 +1,8 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  defineWriteHandler,
-  SYSTEM_TENANT_ID,
-  type TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
-import {
-  AccessDeniedError,
-  ValidationError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireForTenant } from "../../shared/index.js";
-import { documentViolationsToFieldIssues, sanitizeTemplateBody } from "../document-sanitizer.js";
-import type { TemplateResourceRow } from "../table.js";
-import { templateResourcesTable } from "../table.js";
-import { executor, upsertPayloadSchema } from "./shared.js";
-import { runTemplateGates } from "./template-gates.js";
+import { resolveTemplateVariables } from "../template-validation.js";
+import { upsertPayloadSchema } from "./shared.js";
+import { writeTemplateRow } from "./template-write.js";
 
 // Tenant-Override anlegen/updaten. Liegt unter event.user.tenantId,
 // scope='tenant'. Default-Status='draft' — User publisht explizit
@@ -32,105 +19,22 @@ export const upsertTenantWrite = defineWriteHandler({
   description:
     "Creates or overwrites a tenant-scoped template override with its variable schema, landing as a draft that only publish makes live; it refuses a system-tenant target, which is what upsert-system is for.",
   handler: async (event, ctx) => {
-    const override = event.payload.tenantIdOverride;
-    // upsertTenant erzeugt scope='tenant'. SYSTEM_TENANT_ID-Override würde
-    // scope='tenant' unter SYSTEM_TENANT_ID schreiben → inkonsistenter Zustand
-    // (Resolver-Logik trennt sauber zwischen system+tenant). SystemAdmin muss
-    // upsertSystem für System-Defaults nutzen.
-    if (override === SYSTEM_TENANT_ID) {
-      return writeFailure(
-        new AccessDeniedError({
-          i18nKey: "templateResolver.errors.useUpsertSystemForSystemTenant",
-          details: { reason: "system_tenant_override_not_allowed_use_upsert_system" },
-        }),
-      );
-    }
     // @cast-boundary engine-payload — override aus Zod-parsed string,
     // event.user.tenantId schon TenantId-branded; union als TenantId casten
     // ist legit (override ist UUID-Format-validiert in schema).
-    const tenantId = (override ?? event.user.tenantId) as TenantId;
-    const { db, streamTenantId } = requireForTenant(ctx, tenantId);
-
-    const body = sanitizeTemplateBody({
-      kind: event.payload.kind,
-      contentFormat: event.payload.contentFormat,
-      content: event.payload.content,
-    });
-    if (!body.ok) {
-      return writeFailure(
-        new ValidationError({ fields: documentViolationsToFieldIssues(body.violations) }),
-      );
-    }
-
-    const gates = runTemplateGates({
-      registry: ctx.registry,
-      slug: event.payload.slug,
-      kind: event.payload.kind,
-      content: body.content,
-      rawMeta: event.payload.meta,
-      variableSchema: event.payload.variableSchema,
-      requireAllRequired: event.payload.status === "active",
-    });
-    if (!gates.ok) return writeFailure(new ValidationError({ fields: [...gates.issues] }));
-
-    const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+    const tenantId = (event.payload.tenantIdOverride ?? event.user.tenantId) as TenantId;
+    return writeTemplateRow({
+      ctx,
+      user: event.user,
       tenantId,
-      slug: event.payload.slug,
-      kind: event.payload.kind,
-      locale: event.payload.locale,
-    });
-
-    const fields = {
-      slug: event.payload.slug,
-      kind: event.payload.kind,
-      locale: event.payload.locale,
-      content: body.content,
-      contentFormat: event.payload.contentFormat,
-      variableSchema: JSON.stringify(event.payload.variableSchema),
-      linkedResources: JSON.stringify(event.payload.linkedResources),
-      meta: gates.metaJson,
-      title: event.payload.title ?? null,
-      folder: event.payload.folder ?? null,
-      scope: "tenant" as const,
-      parentTemplateId: event.payload.parentTemplateId ?? null,
+      scope: "tenant",
       status: event.payload.status,
-    };
-
-    if (existing) {
-      const result = await executor.update(
-        { id: existing.id, version: existing.version, changes: fields },
-        event.user,
-        db,
-        { streamTenantId },
-      );
-      if (!result.isSuccess) return result;
-      return {
-        isSuccess: true as const,
-        data: {
-          id: String(existing.id),
-          slug: event.payload.slug,
-          isNew: false,
-          validation: gates.validation,
-        },
-      };
-    }
-
-    const result = await executor.create({ ...fields, tenantId }, event.user, db, {
-      streamTenantId,
+      variables: resolveTemplateVariables(
+        ctx.registry,
+        event.payload.slug,
+        event.payload.variableSchema,
+      ),
+      payload: event.payload,
     });
-    if (!result.isSuccess) return result;
-    // @cast-boundary db-row — executor.create returnt Record-row aus
-    // INSERT RETURNING; shape { id } ist garantiert weil PK in der
-    // Returning-Klausel ist.
-    const createdRow = result.data as { id: string | number };
-    return {
-      isSuccess: true as const,
-      data: {
-        id: String(createdRow.id),
-        slug: event.payload.slug,
-        isNew: true,
-        validation: gates.validation,
-      },
-    };
   },
 });

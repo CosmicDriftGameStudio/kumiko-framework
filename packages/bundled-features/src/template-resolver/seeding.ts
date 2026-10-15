@@ -30,16 +30,13 @@ import {
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants.js";
-import { sanitizeTemplateBody } from "./document-sanitizer.js";
 import { executor } from "./handlers/shared.js";
+import { evaluateTemplateWrite } from "./handlers/template-gates.js";
 import { TEMPLATE_RESOLVER_FEATURE } from "./qualified-names.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
-import { parseTemplateMeta, templateSlugSchema } from "./template-meta.js";
-import {
-  hasPlaceholderProblems,
-  validateTemplatePlaceholders,
-  variablesFromSchema,
-} from "./template-validation.js";
+import type { TemplateBundle } from "./template-bundle.js";
+import { templateSlugSchema } from "./template-meta.js";
+import { variablesFromSchema } from "./template-validation.js";
 
 /** Drop projection orphans (no events anywhere) so boot seeds can recreate. */
 async function resolveExistingForEventStoreSeed(
@@ -89,38 +86,23 @@ export async function seedSystemTemplate(
   const by = opts.by ?? createSystemUser(tenantId);
   const tdb = createTenantDb(db, tenantId, "system");
 
-  const body = sanitizeTemplateBody({
-    kind: opts.kind,
-    contentFormat: opts.contentFormat,
-    content: opts.content,
-  });
-  if (!body.ok) {
-    const messages = body.violations.map((item) => item.message);
-    throw new Error(
-      `seedSystemTemplate ${opts.slug}/${opts.kind}/${opts.locale} rejected: ${messages.join("; ")}`,
-    );
-  }
-
   const label = `seedSystemTemplate ${opts.slug}/${opts.kind}/${opts.locale}`;
   const slug = templateSlugSchema.safeParse(opts.slug);
   if (!slug.success) throw new Error(`${label} rejected: ${slug.error.issues[0]?.message}`);
-  const parsedMeta = parseTemplateMeta(opts.kind, opts.meta);
-  if (!parsedMeta.ok) {
+  const evaluated = evaluateTemplateWrite({
+    kind: opts.kind,
+    scope: "system",
+    contentFormat: opts.contentFormat,
+    content: opts.content,
+    rawMeta: opts.meta,
+    variables: variablesFromSchema(opts.variableSchema ?? {}),
+    resourceKeys: Object.keys(opts.linkedResources ?? {}),
+  });
+  const issues = evaluated.ok ? evaluated.publishIssues : evaluated.issues;
+  if (!evaluated.ok || issues.length > 0) {
     throw new Error(
-      `${label} rejected: ${parsedMeta.issues.map((i) => `${i.path} ${i.message}`).join("; ")}`,
+      `${label} rejected: ${issues.map((issue) => `${issue.code} (${issue.params?.["detail"] ?? issue.path})`).join("; ")}`,
     );
-  }
-  if (opts.kind === "mail") {
-    const validation = validateTemplatePlaceholders({
-      body: body.content ?? "",
-      meta: parsedMeta.meta,
-      variables: variablesFromSchema(opts.variableSchema ?? {}),
-    });
-    if (hasPlaceholderProblems(validation)) {
-      throw new Error(
-        `${label} rejected: unknown placeholders [${validation.unknown.join(", ")}], unused required variables [${validation.missingRequired.join(", ")}]`,
-      );
-    }
   }
 
   const existingRow = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
@@ -137,7 +119,7 @@ export async function seedSystemTemplate(
   );
 
   const variableSchema = JSON.stringify(opts.variableSchema ?? {});
-  const meta = parsedMeta.meta === null ? null : JSON.stringify(parsedMeta.meta);
+  const meta = evaluated.metaJson;
   const linkedResources = JSON.stringify(opts.linkedResources ?? {});
   const parentTemplateId = opts.parentTemplateId ?? null;
 
@@ -145,7 +127,7 @@ export async function seedSystemTemplate(
     slug: opts.slug,
     kind: opts.kind,
     locale: opts.locale,
-    content: body.content,
+    content: evaluated.content,
     contentFormat: opts.contentFormat,
     variableSchema,
     linkedResources,
@@ -226,6 +208,42 @@ export async function seedSystemTemplate(
     },
     update: (row) => applyUpdate(row, existingRow),
   });
+}
+
+export type SeedSystemTemplateBundleOptions = {
+  readonly by?: SessionUser;
+  readonly ifExists?: SeedIfExists;
+};
+
+// Seeds one system row per bundle locale. Bundled resources need a file
+// provider and the system tenant's file space, which a boot seed does not
+// have, so those go through the import-bundle-system write instead.
+export async function seedSystemTemplateBundle(
+  db: DbConnection,
+  bundle: TemplateBundle,
+  opts: SeedSystemTemplateBundleOptions = {},
+): Promise<{ ids: Record<string, string> }> {
+  if (Object.keys(bundle.resources).length > 0) {
+    throw new Error(
+      `seedSystemTemplateBundle ${bundle.slug}/${bundle.kind}: bundles with resources cannot be seeded; use the import-bundle-system write`,
+    );
+  }
+  const ids: Record<string, string> = {};
+  for (const [locale, entry] of Object.entries(bundle.locales)) {
+    const seeded = await seedSystemTemplate(db, {
+      slug: bundle.slug,
+      kind: bundle.kind,
+      locale,
+      content: entry.body,
+      contentFormat: bundle.contentFormat,
+      variableSchema: bundle.variableSchema ?? {},
+      meta: entry.meta,
+      ...(opts.by !== undefined ? { by: opts.by } : {}),
+      ...(opts.ifExists !== undefined ? { ifExists: opts.ifExists } : {}),
+    });
+    ids[locale] = seeded.id;
+  }
+  return { ids };
 }
 
 export function hasNotificationTemplates(registry: Registry): boolean {

@@ -1,20 +1,27 @@
-import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
+import type { Registry, TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
 import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { TEMPLATE_KINDS, type TemplateKind } from "../constants.js";
+import {
+  CONTENT_FORMATS,
+  type ContentFormat,
+  TEMPLATE_KINDS,
+  type TemplateKind,
+} from "../constants.js";
+import { documentViolationsToFieldIssues } from "../document-sanitizer.js";
+import { sanitizeTemplateWriteBody, type TemplateWriteScope } from "../layout-regions.js";
 import type { TemplateResourceRow } from "../table.js";
-import { parseTemplateMeta, type TemplateMeta, type TemplateMetaIssue } from "../template-meta.js";
+import { parseTemplateMeta, type TemplateMetaIssue } from "../template-meta.js";
 import {
   resolveTemplateVariables,
   type TemplateValidation,
   validateTemplatePlaceholders,
 } from "../template-validation.js";
 
-const PLACEHOLDER_VALIDATED_KINDS: ReadonlySet<TemplateKind> = new Set(["mail"]);
-
-export function isPlaceholderValidatedKind(kind: TemplateKind): boolean {
-  return PLACEHOLDER_VALIDATED_KINDS.has(kind);
-}
+const PLACEHOLDER_VALIDATED_KINDS: ReadonlySet<TemplateKind> = new Set([
+  "mail",
+  "document-pdf",
+  "pdf-layout",
+]);
 
 function metaIssueToFieldIssue(issue: TemplateMetaIssue): FieldIssue {
   return {
@@ -49,62 +56,94 @@ export function placeholderIssues(
   return issues;
 }
 
-export type TemplateGateInput = {
-  readonly registry: Registry;
-  readonly slug: string;
+export type TemplateWriteInput = {
   readonly kind: TemplateKind;
+  readonly scope: TemplateWriteScope;
+  readonly contentFormat: ContentFormat;
   readonly content: string | null;
   readonly rawMeta: unknown;
-  readonly variableSchema: Readonly<Record<string, unknown>>;
-  /** upsert-system and active tenant writes need every required variable used;
-   *  a tenant draft may still be incomplete. */
-  readonly requireAllRequired: boolean;
+  readonly variables: TemplateVariables;
+  /** data-resource keys the template may reference besides the built-in `logo`. */
+  readonly resourceKeys: readonly string[];
 };
 
-export type TemplateGateResult =
+export type TemplateWriteResult =
   | {
       readonly ok: true;
+      readonly content: string | null;
       readonly metaJson: string | null;
       readonly validation: TemplateValidation | null;
+      /** Problems that still allow a draft but block publishing. */
+      readonly publishIssues: readonly FieldIssue[];
     }
-  | { readonly ok: false; readonly issues: readonly FieldIssue[] };
+  | {
+      readonly ok: false;
+      readonly issues: readonly FieldIssue[];
+      /** Set when the placeholder scan ran, so callers can still list what it found. */
+      readonly validation: TemplateValidation | null;
+    };
 
-export function runTemplateGates(input: TemplateGateInput): TemplateGateResult {
-  const parsedMeta = parseTemplateMeta(input.kind, input.rawMeta);
-  if (!parsedMeta.ok) return { ok: false, issues: parsedMeta.issues.map(metaIssueToFieldIssue) };
-  const metaJson = parsedMeta.meta === null ? null : JSON.stringify(parsedMeta.meta);
-  if (!isPlaceholderValidatedKind(input.kind)) return { ok: true, metaJson, validation: null };
+const NO_PUBLISH_ISSUES: readonly FieldIssue[] = [];
 
-  const validation = validatePlaceholders({
-    registry: input.registry,
-    slug: input.slug,
-    content: input.content,
-    meta: parsedMeta.meta,
-    variableSchema: input.variableSchema,
-  });
-  const issues = placeholderIssues(validation, { requireAllRequired: input.requireAllRequired });
-  return issues.length > 0 ? { ok: false, issues } : { ok: true, metaJson, validation };
+function isPlaceholderValidated(kind: TemplateKind, contentFormat: ContentFormat): boolean {
+  if (kind === "mail-layout") return contentFormat === "html";
+  return PLACEHOLDER_VALIDATED_KINDS.has(kind);
 }
 
-export function validatePlaceholders(input: {
-  readonly registry: Registry;
-  readonly slug: string;
-  readonly content: string | null;
-  readonly meta: TemplateMeta | null;
-  readonly variableSchema: Readonly<Record<string, unknown>>;
-}): TemplateValidation {
-  return validateTemplatePlaceholders({
-    body: input.content ?? "",
-    meta: input.meta,
-    variables: resolveTemplateVariables(input.registry, input.slug, input.variableSchema),
+// The single validation pipeline of every template write: sanitize and layout
+// rules, then meta, then placeholders.
+export function evaluateTemplateWrite(input: TemplateWriteInput): TemplateWriteResult {
+  const body = sanitizeTemplateWriteBody({
+    kind: input.kind,
+    scope: input.scope,
+    contentFormat: input.contentFormat,
+    content: input.content,
   });
+  if (!body.ok)
+    return {
+      ok: false,
+      issues: documentViolationsToFieldIssues(body.violations),
+      validation: null,
+    };
+
+  const parsedMeta = parseTemplateMeta(input.kind, input.rawMeta);
+  if (!parsedMeta.ok) {
+    return { ok: false, issues: parsedMeta.issues.map(metaIssueToFieldIssue), validation: null };
+  }
+  const metaJson = parsedMeta.meta === null ? null : JSON.stringify(parsedMeta.meta);
+  if (!isPlaceholderValidated(input.kind, input.contentFormat)) {
+    return {
+      ok: true,
+      content: body.content,
+      metaJson,
+      validation: null,
+      publishIssues: NO_PUBLISH_ISSUES,
+    };
+  }
+
+  const validation = validateTemplatePlaceholders({
+    kind: input.kind,
+    body: body.content ?? "",
+    meta: parsedMeta.meta,
+    variables: input.variables,
+    resourceKeys: input.resourceKeys,
+  });
+  const issues = placeholderIssues(validation, { requireAllRequired: false });
+  if (issues.length > 0) return { ok: false, issues, validation };
+  return {
+    ok: true,
+    content: body.content,
+    metaJson,
+    validation,
+    publishIssues: placeholderIssues(validation, { requireAllRequired: true }),
+  };
 }
 
 function isTemplateKind(kind: string): kind is TemplateKind {
   return isOneOf(TEMPLATE_KINDS, kind);
 }
 
-function parseStoredJson(raw: string | null): unknown {
+export function parseStoredJson(raw: string | null): unknown {
   if (!raw) return undefined;
   try {
     return JSON.parse(raw);
@@ -113,27 +152,32 @@ function parseStoredJson(raw: string | null): unknown {
   }
 }
 
-// Publishing makes a row servable, so a stored mail row must be as complete as
-// an active write would have required.
+function isGatedKind(kind: string): kind is TemplateKind {
+  return isTemplateKind(kind) && (kind === "mail-layout" || PLACEHOLDER_VALIDATED_KINDS.has(kind));
+}
+
+export function storedRecord(raw: string | null): Readonly<Record<string, unknown>> {
+  const parsed = parseStoredJson(raw);
+  return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+    ? Object.fromEntries(Object.entries(parsed))
+    : {};
+}
+
+// Publishing makes a row servable, so a stored row must pass the same pipeline
+// as an active write would have.
 export function publishGateIssues(
   registry: Registry,
   row: TemplateResourceRow,
 ): readonly FieldIssue[] {
-  if (!isTemplateKind(row.kind) || !isPlaceholderValidatedKind(row.kind)) return [];
-  const parsedMeta = parseTemplateMeta(row.kind, parseStoredJson(row.meta));
-  if (!parsedMeta.ok) return parsedMeta.issues.map(metaIssueToFieldIssue);
-  const variableSchema = parseStoredJson(row.variableSchema);
-  const validation = validatePlaceholders({
-    registry,
-    slug: row.slug,
+  if (!isGatedKind(row.kind) || !isOneOf(CONTENT_FORMATS, row.contentFormat)) return [];
+  const result = evaluateTemplateWrite({
+    kind: row.kind,
+    scope: row.scope === "system" ? "system" : "tenant",
+    contentFormat: row.contentFormat,
     content: row.content,
-    meta: parsedMeta.meta,
-    variableSchema:
-      typeof variableSchema === "object" &&
-      variableSchema !== null &&
-      !Array.isArray(variableSchema)
-        ? Object.fromEntries(Object.entries(variableSchema))
-        : {},
+    rawMeta: parseStoredJson(row.meta),
+    variables: resolveTemplateVariables(registry, row.slug, storedRecord(row.variableSchema)),
+    resourceKeys: Object.keys(storedRecord(row.linkedResources)),
   });
-  return placeholderIssues(validation, { requireAllRequired: true });
+  return result.ok ? result.publishIssues : result.issues;
 }

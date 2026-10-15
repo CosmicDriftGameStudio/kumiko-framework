@@ -40,6 +40,7 @@ import {
   validateJobBackoff,
   validateLifecycleHookTargets,
   validateLiveEntities,
+  validateNotificationRecordMappings,
   validateProjectionApplyKeys,
   validateRelationTargetsExist,
   validateRequiredFeatures,
@@ -85,6 +86,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   validateProjectionApplyKeys(state);
   validateRequiredFeatures(state, features);
   resolveNotificationTriggersAndRegisterHooks(state);
+  validateNotificationRecordMappings(state);
   validateLifecycleHookTargets(state);
   validateEntityHookTargets(state, features);
   resolveJobTriggers(state);

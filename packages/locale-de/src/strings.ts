@@ -1115,6 +1115,16 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Diese Vorlagenart erfordert das Format html, erhalten: „{detail}“.",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":
     "Mail-Layouts erfordern das Format mjml, erhalten: „{detail}“.",
+  "templateResolver.errors.document.layoutInvalidStructure":
+    "Das Layout darf nur die Bereiche Kopf, Inhalt, Signatur und Fuß enthalten: {detail}.",
+  "templateResolver.errors.document.layoutMissingContentSlot":
+    "Das Layout braucht seinen Inhaltsplatz: {detail}.",
+  "templateResolver.errors.document.layoutSourceSystemOnly":
+    "Nur System-Layouts dürfen {detail}-Quelltext verwenden; nutze das strukturierte html-Layout.",
+  "templateResolver.errors.template.targetExists":
+    "Für die Sprache „{detail}“ gibt es schon eine Vorlage; überschreibe sie ausdrücklich, um sie zu ersetzen.",
+  "templateResolver.errors.template.systemResourcesNeedSystemTenant":
+    "Ressourcendateien lassen sich nur von einem Benutzer des System-Mandanten als Systemvorlagen importieren.",
   "templateResolver.errors.collection.kindNotAllowed":
     "„{detail}“-Vorlagen werden im eigenen Editor gepflegt, nicht über eine Sammlung.",
   "templateResolver.errors.noSystemTemplate":

@@ -9,7 +9,7 @@ type UsageEntry = {
   readonly qualifiedName: string;
   readonly feature: string;
   readonly notification: string;
-  readonly trigger: string;
+  readonly trigger: string | null;
   readonly role: UsageRole;
 };
 
@@ -43,7 +43,7 @@ export const usageQuery = defineQueryHandler({
           qualifiedName,
           feature: parsed.scope,
           notification: parsed.name,
-          trigger: notification.trigger.on,
+          trigger: notification.trigger?.on ?? null,
           role,
         });
       }
