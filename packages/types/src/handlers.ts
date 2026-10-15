@@ -575,6 +575,10 @@ type SharedContextFields = {
   readonly entityCache?: EntityCache;
   readonly notify?: NotifyFn;
   readonly _notifyFactory?: NotifyFactory;
+  // Set by the dispatcher inside a write transaction: _notifyFactory bound to the calling job
+  // runner and the outside-tx pool, for code that builds a notify for another user or tenant
+  // (seed hooks) without holding a raw outside-tx connection.
+  readonly _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
   // Wired at boot when the `audit` feature is mounted; absent → structured warn log.
   readonly _escapeHatchAuditSink?: EscapeHatchAuditSink;
   // Tenant-scoped secrets accessor. Present when the app wired a
