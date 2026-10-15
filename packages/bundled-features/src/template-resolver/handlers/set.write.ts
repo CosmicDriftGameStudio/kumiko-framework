@@ -4,11 +4,15 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.js";
-import { TEMPLATE_KINDS, TEXT_BLOCK_KIND } from "../constants.js";
+import { TEMPLATE_KINDS, TEXT_BLOCK_KIND, UPSERT_KINDS } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { resolveTemplateVariables } from "../template-validation.js";
 import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared.js";
+import { parseStoredJson, storedRecord } from "./template-gates.js";
+import { gateTemplateWrite } from "./template-write.js";
 
 // Upsert of a single resource, one operation per (tenantId, slug, kind,
 // locale). This is the content-tree authoring path: unlike upsertTenant it
@@ -26,6 +30,9 @@ import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema }
 // upsertTenant → publish draft stage. That is the deliberate split between
 // the two authoring routes — use upsertSystem/upsertTenant when a template
 // needs a draft or a variable schema.
+//
+// Kinds that upsertSystem/upsertTenant also write run the same validation
+// pipeline here, and because saving publishes, publish issues reject too.
 export const setWrite = defineWriteHandler({
   name: "set",
   schema: z.object({
@@ -63,17 +70,40 @@ export const setWrite = defineWriteHandler({
       locale: event.payload.locale,
     });
 
+    const scope = tenantId === SYSTEM_TENANT_ID ? ("system" as const) : ("tenant" as const);
+    let content = event.payload.content;
+    if (isOneOf(UPSERT_KINDS, kind)) {
+      const gated = gateTemplateWrite(
+        {
+          kind,
+          scope,
+          contentFormat: event.payload.contentFormat,
+          content,
+          rawMeta: parseStoredJson(existing?.meta ?? null),
+          variables: resolveTemplateVariables(
+            ctx.registry,
+            event.payload.slug,
+            storedRecord(existing?.variableSchema ?? null),
+          ),
+          resourceKeys: Object.keys(storedRecord(existing?.linkedResources ?? null)),
+        },
+        "active",
+      );
+      if (!gated.ok) return gated.failure;
+      content = gated.evaluated.content;
+    }
+
     const fields = {
       slug: event.payload.slug,
       kind,
       locale: event.payload.locale,
       title: event.payload.title,
-      content: event.payload.content,
+      content,
       contentFormat: event.payload.contentFormat,
       folder: event.payload.folder ?? null,
       variableSchema: "{}",
       linkedResources: "{}",
-      scope: tenantId === SYSTEM_TENANT_ID ? ("system" as const) : ("tenant" as const),
+      scope,
       parentTemplateId: null,
       // Text blocks have no draft stage — saving publishes, so resolveTemplate
       // (which only returns active rows) finds them.

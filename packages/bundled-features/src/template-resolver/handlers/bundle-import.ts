@@ -41,7 +41,12 @@ type BundleImport = {
   readonly overwrite: boolean;
 };
 
-async function collectBundleIssues(args: BundleImport): Promise<readonly FieldIssue[]> {
+type BundleImportStatus = "draft" | "active";
+
+async function collectBundleIssues(
+  args: BundleImport,
+  status: BundleImportStatus,
+): Promise<readonly FieldIssue[]> {
   const { ctx, tenantId, scope, bundle, overwrite } = args;
   const { db } = requireForTenant(ctx, tenantId);
   const variables = resolveTemplateVariables(
@@ -60,11 +65,12 @@ async function collectBundleIssues(args: BundleImport): Promise<readonly FieldIs
       variables,
       resourceKeys: Object.keys(bundle.resources),
     });
-    if (!evaluated.ok) {
-      issues.push(
-        ...evaluated.issues.map((issue) => ({ ...issue, path: `locales.${locale}.${issue.path}` })),
-      );
-    }
+    const found = evaluated.ok
+      ? status === "active"
+        ? evaluated.publishIssues
+        : []
+      : evaluated.issues;
+    issues.push(...found.map((issue) => ({ ...issue, path: `locales.${locale}.${issue.path}` })));
     if (!overwrite) {
       const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
         tenantId,
@@ -100,11 +106,11 @@ async function storeBundleResources(
 // Validates every locale first, stores the resource files, then writes one row
 // per locale, so a bad locale never leaves files or half a bundle behind.
 export async function importTemplateBundle(
-  args: BundleImport & { readonly status: "draft" | "active" },
+  args: BundleImport & { readonly status: BundleImportStatus },
 ): Promise<WriteResult<{ ids: Record<string, string> }>> {
   const refused = refuseTenantScopeUnderSystemTenant(args.scope, args.tenantId);
   if (refused !== null) return refused;
-  const issues = await collectBundleIssues(args);
+  const issues = await collectBundleIssues(args, args.status);
   if (issues.length > 0) return writeFailure(new ValidationError({ fields: [...issues] }));
 
   const linked = await storeBundleResources(args);

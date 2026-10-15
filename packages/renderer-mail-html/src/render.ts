@@ -25,6 +25,7 @@ import {
   type MailTemplateMeta,
   resolveTemplateVariables,
   SYSTEM_TENANT_ID,
+  sanitizeLayoutHtml,
   TemplateNotFoundError,
   type TemplateResource,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
@@ -140,8 +141,9 @@ const IN_CODE_LAYOUT: ResolvedLayout = {
   ref: null,
 };
 
-// MJML source is only trusted from system layouts; a tenant mjml row left over
-// from before that rule is replaced by the system layout of the same slug.
+// Only system layouts are trusted as written: a tenant mjml row left over from
+// before that rule, or a tenant html row failing the layout sanitizer, is
+// replaced by the system layout of the same slug.
 async function resolveLayout(
   tplApi: ReturnType<typeof createTemplateResolverApi>,
   ctx: RendererContext,
@@ -156,16 +158,30 @@ async function resolveLayout(
       kind: "mail-layout",
       locale,
     });
-    if (layout.contentFormat === "mjml" && layout.scope !== "system") {
+    let content = layout.content;
+    let useSystemLayout = false;
+    if (layout.scope !== "system") {
+      if (layout.contentFormat === "html") {
+        // Re-checked on every render: rows written before the write gate existed
+        // or through another path must not reach the mail unsanitized.
+        const sanitized = sanitizeLayoutHtml(content);
+        if (sanitized.ok) content = sanitized.html;
+        else useSystemLayout = true;
+      } else {
+        useSystemLayout = layout.contentFormat === "mjml";
+      }
+    }
+    if (useSystemLayout) {
       layout = await tplApi.resolveTemplate({
         tenantId: SYSTEM_TENANT_ID,
         slug,
         kind: "mail-layout",
         locale,
       });
+      content = layout.content;
     }
     return {
-      content: layout.content,
+      content,
       format: layout.contentFormat === "html" ? "html" : "mjml",
       ref: { templateId: layout.id, templateVersion: layout.version, scope: layout.scope },
     };

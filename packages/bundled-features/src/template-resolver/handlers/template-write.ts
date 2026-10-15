@@ -10,6 +10,7 @@ import {
 import {
   AccessDeniedError,
   ValidationError,
+  type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { requireForTenant } from "../../shared/index.js";
@@ -18,7 +19,11 @@ import type { TemplateWriteScope } from "../layout-regions.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import type { TemplateValidation } from "../template-validation.js";
 import { executor } from "./shared.js";
-import { evaluateTemplateWrite } from "./template-gates.js";
+import {
+  evaluateTemplateWrite,
+  type TemplateWriteInput,
+  type TemplateWriteResult,
+} from "./template-gates.js";
 
 export type TemplateRowPayload = {
   readonly slug: string;
@@ -66,6 +71,32 @@ export function refuseTenantScopeUnderSystemTenant(
   );
 }
 
+export type GatedTemplateWrite =
+  | { readonly ok: true; readonly evaluated: Extract<TemplateWriteResult, { ok: true }> }
+  | { readonly ok: false; readonly failure: WriteFailure };
+
+// Evaluation plus the publish rule: a row that goes active must not carry
+// publish issues, a draft may.
+export function gateTemplateWrite(
+  input: TemplateWriteInput,
+  status: "draft" | "active",
+): GatedTemplateWrite {
+  const evaluated = evaluateTemplateWrite(input);
+  if (!evaluated.ok) {
+    return {
+      ok: false,
+      failure: writeFailure(new ValidationError({ fields: [...evaluated.issues] })),
+    };
+  }
+  if (status === "active" && evaluated.publishIssues.length > 0) {
+    return {
+      ok: false,
+      failure: writeFailure(new ValidationError({ fields: [...evaluated.publishIssues] })),
+    };
+  }
+  return { ok: true, evaluated };
+}
+
 // Shared by every template write: validate through the one pipeline, then
 // create or update the (tenant, slug, kind, locale) row via the event-store
 // executor.
@@ -77,19 +108,20 @@ export async function writeTemplateRow(
   if (refused !== null) return refused;
   const { db, streamTenantId } = requireForTenant(ctx, tenantId);
 
-  const evaluated = evaluateTemplateWrite({
-    kind: payload.kind,
-    scope,
-    contentFormat: payload.contentFormat,
-    content: payload.content,
-    rawMeta: payload.meta,
-    variables: args.variables,
-    resourceKeys: Object.keys(payload.linkedResources),
-  });
-  if (!evaluated.ok) return writeFailure(new ValidationError({ fields: [...evaluated.issues] }));
-  if (status === "active" && evaluated.publishIssues.length > 0) {
-    return writeFailure(new ValidationError({ fields: [...evaluated.publishIssues] }));
-  }
+  const gated = gateTemplateWrite(
+    {
+      kind: payload.kind,
+      scope,
+      contentFormat: payload.contentFormat,
+      content: payload.content,
+      rawMeta: payload.meta,
+      variables: args.variables,
+      resourceKeys: Object.keys(payload.linkedResources),
+    },
+    status,
+  );
+  if (!gated.ok) return gated.failure;
+  const { evaluated } = gated;
 
   const existing = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
     tenantId,
