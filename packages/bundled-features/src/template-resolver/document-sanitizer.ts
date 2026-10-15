@@ -264,8 +264,9 @@ export function sanitizeDocumentHtml(html: string): SanitizeHtmlResult {
   };
 }
 
-function isDocumentHtmlKind(kind: string): boolean {
-  return isOneOf(DOCUMENT_HTML_KINDS, kind);
+// Snippets accept any format, but their html is as untrusted as a mail body.
+function isSanitizedHtmlKind(kind: string): boolean {
+  return kind === "snippet" || isOneOf(DOCUMENT_HTML_KINDS, kind);
 }
 
 const HTML_ONLY_KINDS: ReadonlySet<string> = new Set([...DOCUMENT_HTML_KINDS, "pdf-layout"]);
@@ -298,7 +299,11 @@ export function sanitizeTemplateBody(input: {
 }): SanitizeBodyResult {
   const formatViolation = requiredFormatViolation(input.kind, input.contentFormat);
   if (formatViolation !== null) return { ok: false, violations: [formatViolation] };
-  if (!isDocumentHtmlKind(input.kind) || input.contentFormat !== "html" || input.content === null) {
+  if (
+    !isSanitizedHtmlKind(input.kind) ||
+    input.contentFormat !== "html" ||
+    input.content === null
+  ) {
     return { ok: true, content: input.content };
   }
   const result = sanitizeDocumentHtml(input.content);

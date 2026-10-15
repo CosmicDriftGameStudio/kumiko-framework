@@ -15,11 +15,19 @@ export const DOCUMENT_HTML_KINDS = ["mail", "document-pdf"] as const;
 export type DocumentHtmlKind = (typeof DOCUMENT_HTML_KINDS)[number];
 
 // Kinds without a renderer plugin: `text-block` is the Markdown text store
-// (ex text-content feature), `ai-prompt` holds LLM prompts, `mail-layout` and
+// (ex text-content feature), `snippet` is the content of app collections such
+// as reply snippets and signatures (own kind so they stay out of the text-block
+// content tree), `ai-prompt` holds LLM prompts, `mail-layout` and
 // `pdf-layout` hold the frame a mail/pdf body is rendered into. All are read,
 // not rendered on their own — keeping them out of RENDER_KINDS is what stops
 // DEFAULT_PLUGIN_BY_KIND from demanding a plugin for them.
-export const NON_RENDER_KINDS = ["text-block", "ai-prompt", "mail-layout", "pdf-layout"] as const;
+export const NON_RENDER_KINDS = [
+  "text-block",
+  "snippet",
+  "ai-prompt",
+  "mail-layout",
+  "pdf-layout",
+] as const;
 export type NonRenderKind = (typeof NON_RENDER_KINDS)[number];
 
 // Full kind domain of the entity; RENDER_KINDS is the renderer-foundation subset.

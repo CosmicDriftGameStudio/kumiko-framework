@@ -95,6 +95,24 @@ describe("sanitizeTemplateBody", () => {
     if (!result.ok) expect(result.violations[0]?.code).toBe("document_requires_html_format");
   });
 
+  test("snippet html is sanitized like document html, other formats pass untouched", () => {
+    const html = sanitizeTemplateBody({
+      kind: "snippet",
+      contentFormat: "html",
+      content: '<p style="color:red">Hi</p>',
+    });
+    expect(html).toEqual({ ok: true, content: "<p>Hi</p>" });
+    const hostile = sanitizeTemplateBody({
+      kind: "snippet",
+      contentFormat: "html",
+      content: '<p onclick="x()">Hi</p>',
+    });
+    expect(hostile.ok).toBe(false);
+    expect(
+      sanitizeTemplateBody({ kind: "snippet", contentFormat: "markdown", content: "# Hi" }),
+    ).toEqual({ ok: true, content: "# Hi" });
+  });
+
   test("rejects mail with a non-html format and names the kind", () => {
     const result = sanitizeTemplateBody({ kind: "mail", contentFormat: "markdown", content: "x" });
     expect(result.ok).toBe(false);
