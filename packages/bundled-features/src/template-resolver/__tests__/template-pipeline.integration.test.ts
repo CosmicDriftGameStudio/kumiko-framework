@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   defineFeature,
   SYSTEM_TENANT_ID,
@@ -16,7 +17,11 @@ import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
 import { createTemplateResolverFeature } from "../feature.js";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { templateResourceEntity } from "../table.js";
+import {
+  type TemplateResourceRow,
+  templateResourceEntity,
+  templateResourcesTable,
+} from "../table.js";
 
 const mailer = defineFeature("pipe-mailer", (r) => {
   r.writeHandler({
@@ -120,7 +125,11 @@ describe("template-resolver :: validate query", () => {
       canSave: boolean;
       canPublish: boolean;
       missingRequired: string[];
-    }>(TemplateResolverQueries.validate, mailPayload("<p>nothing</p>"), tenantAdmin);
+    }>(
+      TemplateResolverQueries.validate,
+      mailPayload("<p>nothing</p>", { meta: { subject: "Hallo" } }),
+      tenantAdmin,
+    );
     expect(result.canSave).toBe(true);
     expect(result.canPublish).toBe(false);
     expect(result.missingRequired).toEqual(["name"]);
@@ -251,12 +260,38 @@ describe("template-resolver :: set on layout kinds", () => {
     };
   }
 
-  test("a tenant layout with a form or a tracking image is rejected", async () => {
-    const form = await stack.http.writeErr(
+  test("a form is stripped on save, a javascript url or a tracking image is rejected", async () => {
+    await stack.http.writeOk(
       TemplateResolverHandlers.set,
       setLayout(
         "set-layout-a",
-        '<div data-header><form action="https://evil.example"><input name="x"></form></div><div data-content></div>',
+        '<div data-header><form action="https://evil.example"><input name="x"></form><p>Brand</p></div><div data-content></div>',
+      ),
+      tenantAdmin,
+    );
+    const stored = await fetchOne<TemplateResourceRow>(stack.db, templateResourcesTable, {
+      tenantId: tenantAdmin.tenantId,
+      slug: "set-layout-a",
+      kind: "mail-layout",
+      locale: "de",
+    });
+    expect(stored?.content).toContain("Brand");
+    expect(stored?.content).not.toContain("<form");
+    expect(stored?.content).not.toContain("evil.example");
+    const link = await stack.http.writeErr(
+      TemplateResolverHandlers.set,
+      setLayout(
+        "set-layout-e",
+        '<div data-header><a href="javascript:alert(1)">x</a></div><div data-content></div>',
+      ),
+      tenantAdmin,
+    );
+    expect(fieldCodes(link)).toContain("disallowed_link_href");
+    const form = await stack.http.writeErr(
+      TemplateResolverHandlers.set,
+      setLayout(
+        "set-layout-e",
+        '<div data-header><form action="javascript:alert(1)"><input name="x"></form></div><div data-content></div>',
       ),
       tenantAdmin,
     );

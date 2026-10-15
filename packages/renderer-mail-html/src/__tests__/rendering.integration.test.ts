@@ -416,21 +416,23 @@ describe("renderer-mail-html :: layout resolution", () => {
     expect(result.layout?.scope).toBe("system");
   });
 
-  test("a stored tenant html layout with disallowed markup falls back to the system layout", async () => {
+  async function storeTenantHtmlLayout(
+    owner: ReturnType<typeof tenantId>,
+    userId: number,
+    content: string,
+  ) {
     const legacyExecutor = createEventStoreExecutor(
       templateResourcesTable,
       templateResourceEntity,
       { entityName: "template-resource" },
     );
-    const owner = tenantId(14);
     const created = await legacyExecutor.create(
       {
         tenantId: owner,
         slug: "default",
         kind: "mail-layout",
         locale: LOCALE,
-        content:
-          '<div data-header><form action="https://evil.example"><input name="x"></form></div><div data-content></div><div data-footer><p>UNSAFE_FOOTER_MARKER</p></div>',
+        content,
         contentFormat: "html",
         variableSchema: "{}",
         linkedResources: "{}",
@@ -438,13 +440,36 @@ describe("renderer-mail-html :: layout resolution", () => {
         parentTemplateId: null,
         status: "active",
       },
-      createTestUser({ id: 14, roles: ["TenantAdmin"], tenantId: owner }),
+      createTestUser({ id: userId, roles: ["TenantAdmin"], tenantId: owner }),
       createTenantDb(stack.db, owner, "system"),
     );
     expect(created.isSuccess).toBe(true);
+  }
+
+  test("a stored tenant html layout with a form is rendered with the form stripped", async () => {
+    const owner = tenantId(14);
+    await storeTenantHtmlLayout(
+      owner,
+      14,
+      '<div data-header><form action="https://evil.example"><input name="x"></form></div><div data-content></div><div data-footer><p>TENANT_FOOTER_MARKER</p></div>',
+    );
     const result = await renderMail(owner);
     expect(result.html).not.toContain("evil.example");
-    expect(result.html).not.toContain("UNSAFE_FOOTER_MARKER");
+    expect(result.html).not.toContain("<form");
+    expect(result.html).toContain("TENANT_FOOTER_MARKER");
+    expect(result.layout?.scope).toBe("tenant");
+  });
+
+  test("a stored tenant html layout failing the sanitizer falls back to the system layout", async () => {
+    const owner = tenantId(15);
+    await storeTenantHtmlLayout(
+      owner,
+      15,
+      '<div data-header><a href="javascript:alert(1)">x</a></div><div data-content></div><div data-footer><p>TENANT_FOOTER_MARKER</p></div>',
+    );
+    const result = await renderMail(owner);
+    expect(result.html).not.toContain("javascript:");
+    expect(result.html).not.toContain("TENANT_FOOTER_MARKER");
     expect(result.html).toContain("SYSTEM_LAYOUT_MARKER");
     expect(result.layout?.scope).toBe("system");
   });
