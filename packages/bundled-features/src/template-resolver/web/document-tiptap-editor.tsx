@@ -83,7 +83,7 @@ function repeatTableContent(listName: string): JSONContent {
 }
 
 function Separator(): ReactNode {
-  return <span aria-hidden="true" className="mx-1 w-px self-stretch bg-border" />;
+  return <span aria-hidden="true" className="mx-2 h-5 w-px bg-border" />;
 }
 
 function PanelActions({
@@ -376,12 +376,14 @@ export default function DocumentTiptapEditor({
 
   // The entry loads asynchronously, so `value` arrives after useEditor read
   // its initial content; the guard keeps in-flight typing from being clobbered.
+  // kumiko-lint-ignore no-raw-hooks DOM integration: syncs the controlled value into the imperative tiptap editor
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
       editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
 
+  // kumiko-lint-ignore no-raw-hooks DOM integration: tiptap exposes editability only imperatively via setEditable
   useEffect(() => {
     editor?.setEditable(!readOnly);
   }, [readOnly, editor]);
