@@ -168,6 +168,29 @@ describe("list file columns", () => {
     expect(container.textContent).not.toContain(FILE_ID);
   });
 
+  test("an image column shrinks to its preview and the preview is a cropped 64px-high thumbnail", async () => {
+    const { container } = render(
+      <RenderList
+        screen={{ id: "l", type: "entityList", entity: "unit", columns: ["name", "photo"] }}
+        entity={entity}
+        rows={[{ id: "r1", name: "Flat", photo: FILE_ID }]}
+        featureName="rental"
+      />,
+    );
+    await waitFor(() => expect(container.querySelector("img")).not.toBeNull());
+    const photoClasses = (testId: string) =>
+      container.querySelector(`[data-testid="${testId}"]`)?.className ?? "";
+    expect(photoClasses("column-photo")).toContain("w-px");
+    expect(photoClasses("cell-r1-photo")).toContain("w-px");
+    expect(photoClasses("column-name")).not.toContain("w-px");
+    expect(photoClasses("cell-r1-name")).not.toContain("w-px");
+    const imgClasses = container.querySelector("img")?.className ?? "";
+    expect(imgClasses).toContain("h-16");
+    expect(imgClasses).toContain("max-w-24");
+    expect(imgClasses).toContain("object-cover");
+    expect(imgClasses).not.toContain("object-contain");
+  });
+
   test("a { format: 'file' } column renders the file name", async () => {
     const { findByText } = render(
       <RenderList

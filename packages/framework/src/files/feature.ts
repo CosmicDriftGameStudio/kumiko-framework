@@ -1,4 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "../engine/index.js";
+import { bindReferencedFilesWrite } from "./bind-referenced-files.write.js";
 import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.js";
 import type { FileAccessGuard } from "./file-routes.js";
 
@@ -39,6 +40,7 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
       recommended: false,
     });
     r.entity(FILE_REF_ENTITY_NAME, fileRefEntity);
+    r.writeHandler(bindReferencedFilesWrite);
     return { routeOptions: options };
   });
 }

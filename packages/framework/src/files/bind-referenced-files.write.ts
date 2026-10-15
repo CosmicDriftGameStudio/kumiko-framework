@@ -1,0 +1,109 @@
+import * as z from "zod";
+import { defineWriteHandler, SYSTEM_ROLE } from "../engine/index.js";
+import { isFileField } from "../engine/types/index.js";
+import { ValidationError } from "../errors/index.js";
+import { fileRefIdsOf } from "./bind-pending-file-refs.js";
+import { getFileRefExecutor } from "./create-file-ref.js";
+import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.js";
+import { findImplicitEntityTable } from "./record-write-check.js";
+
+const MAX_PAGE_SIZE = 500;
+const DEFAULT_PAGE_SIZE = 200;
+
+const payloadSchema = z.object({
+  entityType: z.string().min(1),
+  entityIds: z.array(z.uuid()).min(1).max(MAX_PAGE_SIZE).optional(),
+  afterId: z.uuid().optional(),
+  limit: z.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
+});
+
+export type BindReferencedFilesResult = {
+  readonly bound: number;
+  readonly skipped: number;
+  readonly nextAfterId: string | null;
+};
+
+function invalidEntityType(): ValidationError {
+  return new ValidationError({
+    fields: [
+      {
+        path: "entityType",
+        code: "invalid_value",
+        i18nKey: "errors.validation.invalid_value",
+      },
+    ],
+  });
+}
+
+// The binding follows only the record's declared file fields; the caller names
+// no file ids, so it cannot pull a file into a record that does not reference it.
+export const bindReferencedFilesWrite = defineWriteHandler({
+  name: "bindReferencedFiles",
+  schema: payloadSchema,
+  access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
+  description:
+    "Binds the files a record references through its declared file fields to that record, so readers of the record see them through record access. Covers files uploaded before pending-upload binding existed (entityId null) and records created without a save lifecycle (custom handlers, system jobs). Skips files already bound elsewhere, of another tenant or missing; never rebinds.",
+  handler: async (event, ctx) => {
+    const { entityType, entityIds, afterId, limit } = event.payload;
+    const entity = ctx.registry.getEntity(entityType);
+    const table = findImplicitEntityTable(ctx.registry, entityType);
+    const fileFieldNames = Object.entries(entity?.fields ?? {})
+      .filter(([, fieldDef]) => isFileField(fieldDef))
+      .map(([fieldName]) => fieldName);
+    if (
+      entity === undefined ||
+      table === undefined ||
+      fileFieldNames.length === 0 ||
+      ctx.registry.getEntity(FILE_REF_ENTITY_NAME) === undefined
+    ) {
+      throw invalidEntityType();
+    }
+
+    const records = await ctx.db.selectMany<Record<string, unknown> & { id: string }>(
+      table,
+      {
+        ...(entity.softDelete === true && { isDeleted: false }),
+        ...(entityIds !== undefined
+          ? { id: entityIds }
+          : afterId !== undefined && { id: { gt: afterId } }),
+      },
+      { orderBy: { col: "id", direction: "asc" }, ...(entityIds === undefined && { limit }) },
+    );
+
+    const executor = getFileRefExecutor();
+    let bound = 0;
+    let skipped = 0;
+    for (const record of records) {
+      for (const fieldName of fileFieldNames) {
+        for (const fileRefId of fileRefIdsOf(record[fieldName])) {
+          const row = await executor.detail({ id: fileRefId }, event.user, ctx.db);
+          const bindable =
+            row !== null &&
+            row["tenantId"] === event.user.tenantId &&
+            row["entityId"] === null &&
+            (row["entityType"] === null ||
+              (row["entityType"] === entityType && row["fieldName"] === fieldName));
+          if (!bindable) {
+            skipped += 1;
+            continue;
+          }
+          const version = typeof row["version"] === "number" ? row["version"] : undefined;
+          const result = await executor.update(
+            { id: fileRefId, version, changes: { entityType, entityId: record.id, fieldName } },
+            event.user,
+            ctx.db,
+          );
+          if (!result.isSuccess) return result;
+          bound += 1;
+        }
+      }
+    }
+
+    const lastRecord = records[records.length - 1];
+    const nextAfterId =
+      entityIds === undefined && records.length === limit && lastRecord !== undefined
+        ? lastRecord.id
+        : null;
+    return { isSuccess: true, data: { bound, skipped, nextAfterId } };
+  },
+});

@@ -467,7 +467,7 @@ export const leaseDetailGapsScreen: ProjectionDetailScreenDefinition = {
     {
       kind: "writeHandler",
       id: "terminate",
-      icon: "x",
+      icon: "circle-stop",
       label: "rental.action.terminate",
       handler: RENTAL_WRITES.leaseTerminate,
       payload: { pick: ["id"] },

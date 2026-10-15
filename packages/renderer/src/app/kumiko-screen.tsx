@@ -619,9 +619,19 @@ export function buildInitialValues(
 ): Readonly<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
   for (const [name, def] of Object.entries(fields)) {
-    const shape = def as { type?: string; default?: unknown; multiple?: boolean };
+    const shape = def as {
+      type?: string;
+      default?: unknown;
+      multiple?: boolean;
+      required?: boolean;
+    };
     if (shape.default !== undefined) {
       out[name] = shape.default;
+      continue;
+    }
+    // An untouched optional number must not persist as a deliberate 0.
+    if (shape.type === "number" && shape.required !== true) {
+      out[name] = undefined;
       continue;
     }
     if (shape.type === "embedded" && shape.multiple === true) {
@@ -4482,8 +4492,9 @@ function mapFailedConfigCommandIssuesToField(
   };
 }
 
-// A number/money field without a declared default starts empty: buildInitialValues
-// maps it to 0, which a save would persist as a deliberate "0" override.
+// A money field without a declared default starts empty too (buildInitialValues
+// maps it to 0, which a save would persist as a deliberate "0" override); numbers
+// are handled there, except a required one, which config fields never are.
 function buildConfigEditDefaults(
   fields: ConfigEditScreenDefinition["fields"],
 ): Record<string, unknown> {

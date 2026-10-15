@@ -18,8 +18,8 @@ export function primaryHeaderAction(
   );
 }
 
-// A bare icon for a destructive or confirm-gated action (e.g. "x" for
-// terminate) reads as "close", so only plain icon actions may stand alone.
+// The undeclared fallback picks an action nobody chose for the header, so a
+// destructive or confirm-gated one (a bare "x" reads as "close") may not stand alone.
 function canStandAsIconButton(action: RenderEditAction | undefined): action is RenderEditAction {
   return action?.icon !== undefined && action.style !== "danger" && !needsActionConfirm(action);
 }
@@ -29,17 +29,17 @@ export type CompactHeaderPrimary = {
   readonly iconOnly: boolean;
 };
 
-// A declared, visible `primaryAction` is always the phone header's button
-// (labelled when a bare icon would mislead), so it matches the desktop header
-// and `edit` moves into the menu. Without one the pencil-style icon action
-// stays visible, falling back to the precedence-only primary.
+// A declared, visible `primaryAction` is always the phone header's button, icon
+// only when it has an icon (the author chose the icon, the label is its aria-label),
+// so it matches the desktop header and `edit` moves into the menu. Without one the
+// pencil-style icon action stays visible, falling back to the precedence-only primary.
 export function compactHeaderPrimary(
   actions: readonly RenderEditAction[],
   preferredId?: string,
 ): CompactHeaderPrimary | undefined {
   const declared =
     preferredId !== undefined ? actions.find((a) => a.id === preferredId) : undefined;
-  if (declared !== undefined) return { action: declared, iconOnly: canStandAsIconButton(declared) };
+  if (declared !== undefined) return { action: declared, iconOnly: declared.icon !== undefined };
   const iconAction = primaryHeaderAction(actions);
   return canStandAsIconButton(iconAction) ? { action: iconAction, iconOnly: true } : undefined;
 }

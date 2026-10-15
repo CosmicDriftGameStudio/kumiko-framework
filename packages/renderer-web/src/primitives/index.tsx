@@ -1649,6 +1649,7 @@ function DefaultDataTable({
                   sortable={col.sortable === true}
                   highlighted={col.highlighted === true}
                   numeric={NUMERIC_COLUMN_TYPES.has(col.type)}
+                  fitContent={col.fileDisplay !== undefined}
                   {...(sort !== undefined && sort !== null && { sort })}
                   {...(onSortChange !== undefined && { onSortChange })}
                 />
@@ -1723,7 +1724,9 @@ function DefaultDataTable({
                         // bound; the table container scrolls horizontally
                         // if the sum of the columns gets too wide.
                         className={cn(
-                          "max-w-xs truncate",
+                          col.fileDisplay === undefined
+                            ? "max-w-xs truncate"
+                            : FIT_CONTENT_CELL_CLASS,
                           colIndex === 0
                             ? "font-medium text-foreground"
                             : "text-foreground-secondary",
@@ -1846,7 +1849,7 @@ function DefaultDataTable({
         {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
         {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
         {...(col.grouping !== undefined && { grouping: col.grouping })}
-        {...(col.fileDisplay !== undefined && { fileDisplay: col.fileDisplay })}
+        {...(col.fileDisplay !== undefined && { fileDisplay: col.fileDisplay, compactFile: true })}
         {...(onCellChange !== undefined && {
           onChange: (value: unknown) => onCellChange(row.id, col.field, value),
         })}
@@ -2962,12 +2965,17 @@ function PagerButton({
 //   (c) sortable=true im Schema, aber keine onSortChange-Prop → still
 //       label-only, aber data-sortable=true bleibt damit Tests die
 //       Schema-Sicht kennen.
+// w-px on an auto-layout table cell shrinks the column to its content (the
+// actions column relies on the same behaviour).
+const FIT_CONTENT_CELL_CLASS = "w-px";
+
 function SortableHeader({
   field,
   label,
   sortable,
   highlighted,
   numeric,
+  fitContent,
   sort,
   onSortChange,
 }: {
@@ -2976,6 +2984,7 @@ function SortableHeader({
   readonly sortable: boolean;
   readonly highlighted?: boolean;
   readonly numeric?: boolean;
+  readonly fitContent?: boolean;
   readonly sort?: DataTableSort;
   readonly onSortChange?: (next: DataTableSort | null) => void;
 }): ReactNode {
@@ -2992,6 +3001,7 @@ function SortableHeader({
         className={cn(
           "font-medium text-muted-foreground",
           numeric === true && "text-right",
+          fitContent === true && FIT_CONTENT_CELL_CLASS,
           highlighted === true && "bg-accent/40",
         )}
       >
@@ -3014,6 +3024,7 @@ function SortableHeader({
           ? "font-semibold text-foreground"
           : "font-medium text-muted-foreground",
         numeric === true && "text-right",
+        fitContent === true && FIT_CONTENT_CELL_CLASS,
         highlighted === true && "bg-accent/40",
       )}
     >
@@ -3222,6 +3233,7 @@ type DataTableCellProps = {
   readonly locale?: string;
   readonly grouping?: boolean;
   readonly fileDisplay?: ListColumnFileDisplay;
+  readonly compactFile?: boolean;
 };
 
 const EMPTY_CELL_PLACEHOLDER = "–";
@@ -3301,6 +3313,7 @@ function DataTableCell({
   locale,
   grouping = true,
   fileDisplay,
+  compactFile = false,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
@@ -3330,6 +3343,7 @@ function DataTableCell({
       <FileDisplayCell
         value={value}
         display={fileDisplay}
+        compact={compactFile}
         fallbackLabel={translate?.("kumiko.field.file-upload.attached") ?? "File attached"}
       />
     );

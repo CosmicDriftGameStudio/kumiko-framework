@@ -262,7 +262,7 @@ describe("compact shell header with a projection detail", () => {
     },
   );
 
-  test("a confirm-gated primaryAction is the labelled header button and edit moves into the menu", async () => {
+  test("a confirm-gated primaryAction is an icon button named by its label and edit moves into the menu", async () => {
     setViewportWidth(PHONE);
     renderDetail({
       ...schema,
@@ -287,13 +287,13 @@ describe("compact shell header with a projection detail", () => {
     });
     await waitFor(() => screen.getByTestId("render-edit-action-activate"));
 
-    expect(screen.getByTestId("render-edit-action-activate").textContent).toContain(
-      "actions.activate",
-    );
+    const iconButton = screen.getByRole("button", { name: "actions.activate" });
+    expect(iconButton).toBe(screen.getByTestId("render-edit-action-activate"));
+    expect(iconButton.textContent).toBe("");
     expect(screen.queryByTestId("render-edit-action-edit")).toBeNull();
     fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
     expect(screen.getByTestId("shell-header-overflow-item-edit")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("render-edit-action-activate"));
+    fireEvent.click(iconButton);
     await waitFor(() => screen.getByRole("dialog"));
   });
 

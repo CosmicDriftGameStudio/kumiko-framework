@@ -132,6 +132,37 @@ slot yet. No feature currently calls `useExtension(EXT_DERIVATIVE_RENDERER,
 "application/pdf", ...)` — a PDF `FileRef` today simply has no matching
 renderer, exact or wildcard, so a variant request for it fails.
 
+## Who sees a file: unbound uploads and binding
+
+A `fileRef` is readable by its uploader and by privileged roles (`Admin`,
+`SystemAdmin`). Everyone else sees it only once it is **bound** to a record
+(`entityType` + `entityId`) and they may read that record. An upload without
+`entityType`, or a pending upload (`entityType` + `fieldName`, no `entityId`),
+stays private to its uploader until a save binds it.
+
+Apps make files visible to record readers by declaring the reference as a file
+field (`createFileField` / `createFilesField`); the save then binds the
+caller's own pending uploads for exactly that field. Two cases never go
+through that save: files uploaded before binding existed (`entityId` null) and
+records created by a custom handler or system job. Bind those with the
+system-only handler `files:write:bind-referenced-files`, for example from an
+es-ops seed:
+
+```ts
+await ctx.systemWriteAs(
+  "files:write:bind-referenced-files",
+  { entityType: "dossier", limit: 200, afterId },
+  tenantId,
+);
+```
+
+It walks the records of one entity in the caller's tenant (or the given
+`entityIds`), follows only the declared file fields, and binds files that are
+unbound and either untyped or pending for that very field. Files bound
+elsewhere, of another tenant, or missing are skipped, never rebound. The
+result is `{ bound, skipped, nextAfterId }`; repeat with `afterId` until
+`nextAfterId` is `null`.
+
 ## Signed-URL default expiry
 
 The framework-native file-download route signs URLs with a 15-minute default

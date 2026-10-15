@@ -22,11 +22,16 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
+  createEntity,
+  createFileField,
   createSystemUser,
+  createTextField,
+  defineEntityCreateHandler,
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  createFilesFeature,
   createInMemoryFileProvider,
   fileRefEntity,
   fileRefsTable,
@@ -46,6 +51,7 @@ import { createConfigFeature } from "../../config/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { documentIngestAggregateId } from "../aggregate-id.js";
 import { documentExtractEntity, documentExtractsTable } from "../entity.js";
 import { documentIngestRequestedPayloadSchema } from "../events.js";
 import { documentIngestFoundationFeature } from "../feature.js";
@@ -127,6 +133,25 @@ const testProviderXmlFeature = defineFeature("test-document-ingest-provider-xml"
   );
 });
 
+const attachmentNoteEntity = createEntity({
+  table: "ingest_attachment_notes",
+  fields: {
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    attachment: createFileField(),
+  },
+});
+
+const attachmentNoteFeature = defineFeature("ingest-attachment-notes", (r) => {
+  r.entity("note", attachmentNoteEntity);
+  r.writeHandler(
+    defineEntityCreateHandler("note", attachmentNoteEntity, {
+      access: { roles: ["Admin", "User", "SystemAdmin"] },
+    }),
+  );
+});
+
+const ATTACHMENT_NOTE_CREATE = "ingest-attachment-notes:write:note:create";
+
 let stack: TestStack;
 let provider: InMemoryFileProvider;
 
@@ -187,6 +212,7 @@ beforeAll(async () => {
   provider = createInMemoryFileProvider();
   stack = await setupTestStack({
     features: [
+      createFilesFeature(),
       createConfigFeature(),
       createTenantFeature(),
       createComplianceProfilesFeature(),
@@ -196,6 +222,7 @@ beforeAll(async () => {
       testProviderBFeature,
       testProviderXmlFeature,
       agentDeleteFileRefFeature,
+      attachmentNoteFeature,
     ],
     files: { storageProvider: provider },
     // Distinct prefix: avoids sharing a BullMQ queue namespace with any other
@@ -203,6 +230,7 @@ beforeAll(async () => {
     jobs: { consumerLane: "worker", queueNamePrefix: `document-ingest-foundation-${generateId()}` },
   });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, attachmentNoteEntity);
 });
 
 afterAll(async () => {
@@ -406,6 +434,57 @@ describe("fileRef.created → documentIngest.requested", () => {
       size: oversizedPdfBytes.length,
       reason: "file-too-large",
     });
+  });
+});
+
+describe("ingest events live on their own stream", () => {
+  async function uploadPending(
+    fileName: string,
+    content: Uint8Array,
+    mimeType: string,
+  ): Promise<string> {
+    const token = await stack.jwt.sign(admin);
+    const formData = new FormData();
+    formData.append("entityType", "note");
+    formData.append("fieldName", "attachment");
+    formData.append("file", new File([Buffer.from(content)], fileName, { type: mimeType }));
+    const res = await stack.app.request("/api/files", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    expect(res.status).toBe(201);
+    return ((await res.json()) as { id: string }).id;
+  }
+
+  test("a claimed pending upload keeps the fileRef stream free of foreign events and binds on save", async () => {
+    const id = await uploadPending("scan.png", pngBytes, "image/png");
+
+    await stack.eventDispatcher?.runOnce();
+
+    const onFileRefStream = (await asRawClient(stack.db).unsafe(
+      `SELECT DISTINCT aggregate_type FROM kumiko_events WHERE aggregate_id = $1`,
+      [id],
+    )) as { aggregate_type: string }[];
+    expect(onFileRefStream.map((row) => row.aggregate_type)).toEqual(["fileRef"]);
+
+    const requested = (await asRawClient(stack.db).unsafe(
+      `SELECT aggregate_id FROM kumiko_events WHERE type = $1 AND payload->>'fileRefId' = $2`,
+      ["document-ingest-foundation:event:document-ingest-requested", id],
+    )) as { aggregate_id: string }[];
+    expect(requested.map((row) => row.aggregate_id)).toEqual([
+      documentIngestAggregateId(admin.tenantId, id),
+    ]);
+
+    const created = await stack.http.writeOk<{ id: string }>(
+      ATTACHMENT_NOTE_CREATE,
+      { title: "With scan", attachment: id },
+      admin,
+    );
+    await stack.eventDispatcher?.runOnce();
+    const [fileRefRow] = await selectMany(stack.db, fileRefsTable, { id });
+    expect(fileRefRow?.["entityType"]).toBe("note");
+    expect(fileRefRow?.["entityId"]).toBe(created.id);
   });
 });
 
