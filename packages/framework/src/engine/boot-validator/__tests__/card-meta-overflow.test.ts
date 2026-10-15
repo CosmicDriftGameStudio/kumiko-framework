@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { defineFeature } from "../../define-feature.js";
-import { createEntity, createSelectField, createTextField } from "../../factories.js";
+import {
+  createEntity,
+  createImageField,
+  createSelectField,
+  createTextField,
+} from "../../factories.js";
 import type { EditRelatedListSection, ListColumnSpec } from "../../types/index.js";
 import { collectCardMetaOverflow, validateCardMetaOverflow } from "../card-meta-overflow.js";
 
@@ -12,6 +17,7 @@ const entity = createEntity({
     b: text(),
     c: text(),
     d: text(),
+    photo: createImageField(),
     state: createSelectField({ options: ["open", "done"], required: true }),
   },
 });
@@ -36,6 +42,17 @@ function relatedSection(columns: readonly ListColumnSpec[]): EditRelatedListSect
 describe("collectCardMetaOverflow", () => {
   test("title plus 4 meta columns is reported with feature, screen, count and fields", () => {
     const found = collectCardMetaOverflow([listFeature(["name", "a", "b", "c", "d"])]);
+    expect(found).toEqual([
+      { feature: "cards", screen: "item-list", count: 4, fields: ["a", "b", "c", "d"] },
+    ]);
+  });
+
+  test("an image column is the card preview: image + title + 3 meta passes", () => {
+    expect(collectCardMetaOverflow([listFeature(["photo", "name", "a", "b", "c"])])).toEqual([]);
+  });
+
+  test("image + title + 4 meta overflows without the image field", () => {
+    const found = collectCardMetaOverflow([listFeature(["name", "photo", "a", "b", "c", "d"])]);
     expect(found).toEqual([
       { feature: "cards", screen: "item-list", count: 4, fields: ["a", "b", "c", "d"] },
     ]);

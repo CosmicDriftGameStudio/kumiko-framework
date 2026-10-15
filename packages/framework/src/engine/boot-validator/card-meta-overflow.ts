@@ -1,4 +1,8 @@
-import { CARD_META_MAX, cardColumnRoles } from "../../ui-types/card-column-roles.js";
+import {
+  CARD_META_MAX,
+  cardColumnRoles,
+  cardFileDisplayKind,
+} from "../../ui-types/card-column-roles.js";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.js";
 import { parseRefTarget } from "../parse-ref-target.js";
 import { normalizeListColumn } from "../screen-helpers.js";
@@ -44,11 +48,14 @@ function countOverflow(
 ): CardMetaOverflow | undefined {
   const cardColumns = columns.map((spec) => {
     const col = normalizeListColumn(spec);
+    const type = resolveColumnType(spec, storedTypeOf(col.field), entity);
+    const fileKind = cardFileDisplayKind(type, col.renderer);
     return {
       field: col.field,
-      type: resolveColumnType(spec, storedTypeOf(col.field), entity),
+      type,
       renderer: col.renderer,
       hideOnNarrow: col.hideOnNarrow,
+      ...(fileKind !== undefined && { fileDisplay: { kind: fileKind } }),
     };
   });
   const { meta } = cardColumnRoles(cardColumns);

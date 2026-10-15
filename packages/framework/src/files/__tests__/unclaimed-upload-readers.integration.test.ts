@@ -5,10 +5,13 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { selectMany } from "../../bun-db/index.js";
 import {
   createEntity,
   createFileField,
   createTextField,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
   defineFeature,
 } from "../../engine/index.js";
 import {
@@ -20,6 +23,7 @@ import {
 } from "../../stack/index.js";
 import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
 import { createFilesFeature, type FilesFeatureOptions } from "../feature.js";
+import { fileRefsTable } from "../file-ref-table.js";
 import { createLocalProvider } from "../local-provider.js";
 
 const noteEntity = createEntity({
@@ -32,7 +36,20 @@ const noteEntity = createEntity({
 
 const noteFeature = defineFeature("unclaimed-notes", (r) => {
   r.entity("note", noteEntity);
+  // Clerk may create notes but not read other people's: the record rule must not leak files.
+  r.writeHandler(
+    defineEntityCreateHandler("note", noteEntity, {
+      access: { roles: ["Admin", "User", "Clerk", "SystemAdmin"] },
+    }),
+  );
+  r.queryHandler(
+    defineEntityDetailHandler("note", noteEntity, {
+      access: { roles: ["Admin", "User", "SystemAdmin"] },
+    }),
+  );
 });
+
+const NOTE_CREATE = "unclaimed-notes:write:note:create";
 
 const tenant = testTenantId(1);
 const uploader = createTestUser({ id: 1, tenantId: tenant, roles: ["User"] });
@@ -48,7 +65,12 @@ const stacks: TestStack[] = [];
 async function startStack(options: FilesFeatureOptions): Promise<TestStack> {
   const stack = await setupTestStack({
     features: [createFilesFeature(options), noteFeature],
-    files: { storageProvider: createLocalProvider(storagePath) },
+    files: {
+      storageProvider: {
+        ...createLocalProvider(storagePath),
+        getSignedUrl: async (storageKey) => `https://files.example.test/${storageKey}`,
+      },
+    },
   });
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
   stacks.push(stack);
@@ -110,6 +132,42 @@ describe("unclaimedUploadReaders", () => {
 
     expect(await request(stack, clerk, fileRefId)).toBe(200);
     expect(await request(stack, clerk, fileRefId, "/meta")).toBe(200);
+    expect(await request(stack, clerk, fileRefId, "", "DELETE")).toBe(404);
+    expect(await request(stack, uploader, fileRefId)).toBe(200);
+  });
+
+  test("download-url and meta follow the same rule: reader role 200, other tenant 404", async () => {
+    const fileRefId = await upload(stack, uploader);
+
+    expect(await request(stack, clerk, fileRefId, "/download-url")).toBe(200);
+    expect(await request(stack, clerk, fileRefId, "/meta")).toBe(200);
+    expect(await request(stack, otherTenantClerk, fileRefId, "/download-url")).toBe(404);
+    expect(await request(stack, otherTenantClerk, fileRefId, "/meta")).toBe(404);
+  });
+
+  test("a bound file follows its record's rule, not the role", async () => {
+    const fileRefId = await upload(stack, uploader, {
+      entityType: "note",
+      fieldName: "attachment",
+    });
+    await stack.http.writeOk(NOTE_CREATE, { title: "Private", attachment: fileRefId }, uploader);
+
+    expect(await request(stack, clerk, fileRefId)).toBe(404);
+    expect(await request(stack, uploader, fileRefId)).toBe(200);
+  });
+
+  test("a reference from another record does not rebind an unclaimed upload", async () => {
+    const fileRefId = await upload(stack, uploader);
+    await stack.http.writeOk(NOTE_CREATE, { title: "Clerk note", attachment: fileRefId }, clerk);
+
+    const [row] = await selectMany(stack.db, fileRefsTable, { id: fileRefId });
+    expect(row?.["entityId"]).toBeNull();
+    expect(await request(stack, uploader, fileRefId)).toBe(200);
+  });
+
+  test("a delete by a reader role is refused and the file stays readable for its uploader", async () => {
+    const fileRefId = await upload(stack, uploader);
+
     expect(await request(stack, clerk, fileRefId, "", "DELETE")).toBe(404);
     expect(await request(stack, uploader, fileRefId)).toBe(200);
   });

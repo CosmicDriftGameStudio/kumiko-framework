@@ -30,7 +30,7 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { append, eventsTable, getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -38,6 +38,11 @@ import {
   fileRefsTable,
   type InMemoryFileProvider,
 } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createProjectionStateTable,
+  rebuildMultiStreamProjection,
+  rebuildProjection,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   setupTestStack,
   type TestStack,
@@ -54,7 +59,11 @@ import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import { documentIngestAggregateId } from "../aggregate-id.js";
 import { documentExtractEntity, documentExtractsTable } from "../entity.js";
-import { documentIngestRequestedPayloadSchema } from "../events.js";
+import {
+  DOCUMENT_INGEST_AGGREGATE_TYPE,
+  DOCUMENT_INGEST_REQUESTED_EVENT_QN,
+  documentIngestRequestedPayloadSchema,
+} from "../events.js";
 import { documentIngestFoundationFeature } from "../feature.js";
 import { writeIngestPages } from "../pages.js";
 import { documentIngestProviderTrigger, EXT_DOCUMENT_INGEST_PROVIDER } from "../providers.js";
@@ -484,6 +493,69 @@ describe("ingest events live on their own stream", () => {
     const [fileRefRow] = await selectMany(stack.db, fileRefsTable, { id });
     expect(fileRefRow?.["entityType"]).toBe("note");
     expect(fileRefRow?.["entityId"]).toBe(created.id);
+  });
+
+  test("legacy ingest events on the fileRef stream are harmless to rebuild, retrigger and binding", async () => {
+    const id = await uploadPending("legacy.png", pngBytes, "image/png");
+    await stack.eventDispatcher?.runOnce();
+
+    const requestedFor = async (fileRefId: string) =>
+      (
+        await selectMany(stack.db, eventsTable, { type: DOCUMENT_INGEST_REQUESTED_EVENT_QN })
+      ).filter((row) => row.payload["fileRefId"] === fileRefId);
+
+    const [derived] = await requestedFor(id);
+    if (derived === undefined) throw new Error("expected the derived requested event");
+
+    // The shape the old code wrote: the requested event on the fileRef's own stream.
+    await append(stack.db, {
+      aggregateId: id,
+      aggregateType: DOCUMENT_INGEST_AGGREGATE_TYPE,
+      tenantId: admin.tenantId,
+      expectedVersion: await getStreamVersion(stack.db, id, admin.tenantId),
+      type: DOCUMENT_INGEST_REQUESTED_EVENT_QN,
+      eventVersion: derived.eventVersion,
+      payload: derived.payload,
+      metadata: derived.metadata,
+    });
+    expect(await requestedFor(id)).toHaveLength(2);
+
+    // (a) the fileRef projection replays to the same row
+    const [before] = await selectMany(stack.db, fileRefsTable, { id });
+    await createProjectionStateTable(stack.db);
+    const fileRefProjection = "files:projection:file-ref-entity";
+    await rebuildProjection(fileRefProjection, { db: stack.db, registry: stack.registry });
+    const [after] = await selectMany(stack.db, fileRefsTable, { id });
+    expect(after).toEqual(before);
+
+    // (b) the side-effect-only request-ingest consumer cannot be rebuilt
+    await expect(
+      rebuildMultiStreamProjection("document-ingest-foundation:projection:request-ingest", {
+        db: stack.db,
+        registry: stack.registry,
+      }),
+    ).rejects.toThrow(/pure side-effect consumer/);
+
+    // (c) a further dispatcher turn requests nothing new for this file
+    await stack.eventDispatcher?.runOnce();
+    expect(await requestedFor(id)).toHaveLength(2);
+
+    // (d) the save still binds although the fileRef stream carries the legacy event
+    const created = await stack.http.writeOk<{ id: string }>(
+      ATTACHMENT_NOTE_CREATE,
+      { title: "Legacy scan", attachment: id },
+      admin,
+    );
+    const [bound] = await selectMany(stack.db, fileRefsTable, { id });
+    expect(bound?.["entityId"]).toBe(created.id);
+
+    // (e) a fresh upload gets exactly one requested event, on the derived stream
+    const freshId = await uploadPending("fresh.png", pngBytes, "image/png");
+    await stack.eventDispatcher?.runOnce();
+    const fresh = await requestedFor(freshId);
+    expect(fresh.map((row) => row.aggregateId)).toEqual([
+      documentIngestAggregateId(admin.tenantId, freshId),
+    ]);
   });
 });
 

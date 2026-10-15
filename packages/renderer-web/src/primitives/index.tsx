@@ -1828,14 +1828,12 @@ function DefaultDataTable({
     { value: `${col.field}:desc`, field: col.field, dir: "desc", label: `${col.label} ↓` },
   ]);
 
-  // The first image column is the card's leading preview; it is neither title nor
-  // meta, so the title stays the first text column.
-  const cardImageColumn = columns.find((col) => col.fileDisplay?.kind === "image");
   const {
+    image: cardImageColumn,
     title: cardTitleColumn,
     status: cardStatusColumn,
     meta: cardMetaColumns,
-  } = cardColumnRoles(columns.filter((col) => col !== cardImageColumn));
+  } = cardColumnRoles(columns);
 
   function cardCell(row: ListRowViewModel, col: (typeof columns)[number]): ReactNode {
     // A bare check mark in the subtitle line says nothing without its column.

@@ -185,7 +185,7 @@ export type {
   WorkspaceSchema,
 } from "./app-schema.js";
 export type { CardColumnRoles, CardRoleColumn } from "./card-column-roles.js";
-export { CARD_META_MAX, cardColumnRoles } from "./card-column-roles.js";
+export { CARD_META_MAX, cardColumnRoles, cardFileDisplayKind } from "./card-column-roles.js";
 export { type Formality, formalLocaleTag } from "./formality.js";
 export type {
   ListRowMetaColumnType,
