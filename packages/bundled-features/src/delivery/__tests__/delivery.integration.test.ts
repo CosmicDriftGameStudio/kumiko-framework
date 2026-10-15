@@ -19,6 +19,7 @@ import {
   qn,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {
   createTestUser,
@@ -1651,12 +1652,35 @@ describe("flow 15b: escape-hatch audit for tenant broadcast", () => {
       "app:notify:tenant-alert",
       { to: { tenant: auditTenantId }, data: { title: "X", body: "X" } },
       admin,
-      admin.tenantId,
+      auditTenantId,
     );
 
     const event = recorded.find((e) => e.kind === "acknowledge-cross-tenant");
     expect(event?.handler).toBe(TenantQueries.resolveUserIds);
     expect(event?.tenantId).toBe(auditTenantId);
+  });
+
+  test("a broadcast to another tenant than the caller's throws and leaves no attempt", async () => {
+    const callerTenantId = testTenantId(915502);
+    const foreignTenantId = testTenantId(915503);
+    const service = createDeliveryService({
+      db,
+      registry: stack.registry,
+      channels: collectChannels(stack.registry),
+      tenantUserIdsQuery: TenantQueries.resolveUserIds,
+    });
+
+    await expect(
+      service.notify(
+        "app:notify:tenant-alert",
+        { to: { tenant: foreignTenantId }, data: { title: "X", body: "X" } },
+        admin,
+        callerTenantId,
+      ),
+    ).rejects.toMatchObject({ details: { reason: FrameworkReasons.notifyForeignTenantBroadcast } });
+
+    const attempts = await selectMany(db, deliveryAttemptsTable, { tenantId: foreignTenantId });
+    expect(attempts).toHaveLength(0);
   });
 });
 

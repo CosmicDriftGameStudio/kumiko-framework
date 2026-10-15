@@ -30,11 +30,8 @@ import type {
   HandlerContext,
   JobRunnerRef,
   MemberReader,
-  NotifyDispatched,
   NotifyFn,
   NotifyJobDispatcher,
-  NotifyOptions,
-  NotifyResult,
   PayloadRateLimitOption,
   RateLimitDeclaration,
   RateLimitOption,
@@ -116,6 +113,7 @@ import {
 import type { IdempotencyGuard } from "./idempotency.js";
 import type { LifecycleHooks } from "./lifecycle-pipeline.js";
 import { createMemberReaderFn } from "./member-reader.js";
+import { createDeferringNotify } from "./notify-scope.js";
 import {
   createGatedIdentitySwitch,
   createGatedMemberReader,
@@ -502,6 +500,8 @@ export async function buildHandlerContext(
   // Cross-feature bridge: ctx.query/write share the current tx + afterCommitHooks sink.
   // queryAs/writeAs to anyone but the caller itself needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
   const bridgeSink = afterCommitHooks ?? [];
+  // Query bridges and post-commit contexts get a throwaway sink: hooks pushed there never run.
+  const hasLiveCommitSink = afterCommitHooks !== undefined && isPostCommit !== true;
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     bridgeSink.push(hook);
   };
@@ -515,29 +515,14 @@ export async function buildHandlerContext(
     // Inside the write tx the app pool's slots can all be held by waiting write txs, so the
     // delivery's own DB work (broadcast lookup, attempt log, channel sends) runs on the outside-tx pool.
     const notifyInTransaction = factory(user, user.tenantId, notifyJobDispatcher, outsideTxSource);
-    // A rolled-back write must leave no notification behind; query bridges and post-commit
-    // contexts have no sink to defer to.
-    const deferrable = afterCommitHooks !== undefined && isPostCommit !== true;
-    if (!deferrable) return notifyInTransaction;
-    async function notifyDeferringUntilCommit(
-      notificationType: string,
-      options: NotifyOptions & { readonly immediate: true },
-    ): Promise<NotifyDispatched>;
-    async function notifyDeferringUntilCommit(
-      notificationType: string,
-      options: NotifyOptions,
-    ): Promise<NotifyResult>;
-    async function notifyDeferringUntilCommit(
-      notificationType: string,
-      options: NotifyOptions,
-    ): Promise<NotifyResult> {
-      if (options.immediate === true) return notifyInTransaction(notificationType, options);
-      scheduleAfterCommit(async () => {
-        await notifyAfterCommit(notificationType, options);
-      });
-      return { kind: "deferred" };
-    }
-    return notifyDeferringUntilCommit;
+    // A rolled-back write must leave no notification behind.
+    if (!hasLiveCommitSink) return notifyInTransaction;
+    return createDeferringNotify({
+      tenantId: user.tenantId,
+      notifyAfterCommit,
+      notifyNow: notifyInTransaction,
+      scheduleAfterCommit,
+    });
   }
   // Mirror notify: only built when the config feature wired its factory.
   const config =
@@ -1138,7 +1123,7 @@ export async function buildHandlerContext(
     _userId: user.id,
     _tenantId: user.tenantId,
     _handlerType: type,
-    scheduleAfterCommit,
+    ...(hasLiveCommitSink && { scheduleAfterCommit }),
     ...(includeDeleted && { includeDeleted: true }),
     ...bridge,
   } as HandlerContext; // @cast-boundary engine-bridge

@@ -55,7 +55,6 @@ import { createDeliveryTestContext } from "../testing.js";
 
 const emailTransport = createInMemoryTransport();
 const BIDX_KEY = Buffer.alloc(32, 9).toString("base64");
-const admin = createTestUser({ roles: ["Admin"] });
 
 const appFeature = defineFeature("app", (r) => {
   r.requires("delivery");
@@ -177,7 +176,7 @@ afterEach(() => {
 });
 
 async function ping(kind: "user" | "users" | "tenant"): Promise<void> {
-  await stack.http.writeOk(qn("app", "write", "ping"), { kind, userIds, tenantId }, admin);
+  await stack.http.writeOk(qn("app", "write", "ping"), { kind, userIds, tenantId }, tenantAdmin());
 }
 
 describe("notify recipient address under KMS", () => {
@@ -208,3 +207,7 @@ describe("notify recipient address under KMS", () => {
     expect(emailTransport.sent.map((m) => m.to)).toEqual(plainEmails.slice(1));
   });
 });
+
+function tenantAdmin() {
+  return createTestUser({ roles: ["Admin"], tenantId });
+}

@@ -14,7 +14,10 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
-import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  assertNotifyTargetsOwnTenant,
+  createEscapeHatchReporter,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
@@ -875,6 +878,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
 
   return {
     async notify(notificationType, options, _user, tenantId, jobDispatcher, deliveryDb) {
+      assertNotifyTargetsOwnTenant(options, tenantId);
       const { route, idempotencyKey } = options;
       const priority: NotifyPriority = options.priority ?? "normal";
       const run: NotifyRun = {
