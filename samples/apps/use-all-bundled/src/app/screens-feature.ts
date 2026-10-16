@@ -40,6 +40,7 @@ export const appScreensFeature: FeatureDefinition = defineFeature("app-screens",
     type: "custom",
     renderer: { react: { __component: PDF_TEMPLATE_EDITOR_SCREEN_ID } },
     access: { roles: ["SystemAdmin", "TenantAdmin"] },
+    dormant: true,
   });
   r.translations({
     keys: {

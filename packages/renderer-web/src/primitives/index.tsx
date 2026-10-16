@@ -1,3 +1,4 @@
+/// <reference path="../qrcode-browser.d.ts" />
 // shadcn+Tailwind Default-Primitives für den Web-Renderer.
 // Konsumieren den Primitives-Contract aus `@cosmicdrift/kumiko-renderer`. Keine
 // useTokens()-Aufrufe — die Farben kommen aus den Tailwind-Klassen
