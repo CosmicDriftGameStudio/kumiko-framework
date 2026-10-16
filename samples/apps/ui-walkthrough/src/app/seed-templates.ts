@@ -21,11 +21,13 @@ import {
   TENANT_ADMIN_PASSWORD,
 } from "./auth-constants";
 import {
+  INVOICE_CORRECTED_DRAFT,
   INVOICE_ISSUED_DRAFT_VERSIONS,
   PAYMENT_REMINDER_TEMPLATES,
   type SeedTemplate,
   SYSTEM_AUTH_MAILS,
   SYSTEM_INVOICE_DOCUMENTS,
+  SYSTEM_INVOICE_ISSUED,
   SYSTEM_PDF_LAYOUT,
   SYSTEM_TENANCY_CERTIFICATE,
   TENANT_MAIL_LAYOUT_VERSIONS,
@@ -125,6 +127,7 @@ export const seedTemplates: SeedFn = async (stack) => {
   );
   await upsertSystem(SYSTEM_PDF_LAYOUT);
   for (const mail of SYSTEM_AUTH_MAILS) await upsertSystem(mail);
+  await upsertSystem(SYSTEM_INVOICE_ISSUED);
   for (const document of SYSTEM_INVOICE_DOCUMENTS) await upsertSystem(document);
   const certificate = await upsertSystem(SYSTEM_TENANCY_CERTIFICATE);
   await stack.http.writeOk(
@@ -145,6 +148,7 @@ export const seedTemplates: SeedFn = async (stack) => {
     );
   }
   for (const draft of INVOICE_ISSUED_DRAFT_VERSIONS) await upsertTenant(draft, "draft");
+  await upsertTenant(INVOICE_CORRECTED_DRAFT, "draft");
   for (const reminder of PAYMENT_REMINDER_TEMPLATES) await upsertTenant(reminder, "active");
   await upsertTenant(TENANT_UTILITY_STATEMENT, "active");
 };

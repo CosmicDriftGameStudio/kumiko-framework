@@ -16,6 +16,7 @@ export type OverviewRowView = {
   readonly locales: readonly string[];
   readonly status: "draft" | "active" | "archived";
   readonly version: number;
+  readonly systemVersion: number | null;
   readonly modifiedAt: string;
   readonly usedBy: readonly OverviewUsageView[];
   readonly usedByCount: number;
@@ -46,6 +47,12 @@ function usageViewOf(value: unknown): OverviewUsageView | null {
     : null;
 }
 
+const stringOr = (value: unknown, fallback: string): string =>
+  typeof value === "string" ? value : fallback;
+
+const numberOr = <T extends number | null>(value: unknown, fallback: T): number | T =>
+  typeof value === "number" ? value : fallback;
+
 export function parseOverviewRow(row: Readonly<Record<string, unknown>>): OverviewRowView | null {
   const {
     id,
@@ -57,6 +64,7 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
     locales,
     status,
     version,
+    systemVersion,
     modifiedAt,
     usedBy,
     usedByCount,
@@ -65,8 +73,8 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
   if (origin !== "tenant" && origin !== "system") return null;
   const usages = Array.isArray(usedBy) ? usedBy.flatMap((u) => usageViewOf(u) ?? []) : [];
   return {
-    id: typeof id === "string" ? id : `${kind}|${slug}`,
-    title: typeof title === "string" ? title : slug,
+    id: stringOr(id, `${kind}|${slug}`),
+    title: stringOr(title, slug),
     layoutSlug: typeof layoutSlug === "string" ? layoutSlug : null,
     slug,
     kind,
@@ -75,9 +83,10 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
       ? locales.filter((l): l is string => typeof l === "string")
       : [],
     status,
-    version: typeof version === "number" ? version : 0,
-    modifiedAt: typeof modifiedAt === "string" ? modifiedAt : "",
+    version: numberOr(version, 0),
+    systemVersion: numberOr(systemVersion, null),
+    modifiedAt: stringOr(modifiedAt, ""),
     usedBy: usages,
-    usedByCount: typeof usedByCount === "number" ? usedByCount : usages.length,
+    usedByCount: numberOr(usedByCount, usages.length),
   };
 }

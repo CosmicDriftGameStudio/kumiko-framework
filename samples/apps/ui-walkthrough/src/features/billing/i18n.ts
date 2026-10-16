@@ -6,11 +6,13 @@ export const billingTranslations: TranslationsByLocale = {
   de: {
     "billing:feature.label": "Rechnungen",
     "billing:notify.invoice-issued.label": "Rechnung gestellt",
+    "billing:notify.invoice-corrected.label": "Rechnung korrigiert",
     "billing:notify.payment-reminder.label": "Mahnlauf",
   },
   en: {
     "billing:feature.label": "Invoices",
     "billing:notify.invoice-issued.label": "Invoice issued",
+    "billing:notify.invoice-corrected.label": "Invoice corrected",
     "billing:notify.payment-reminder.label": "Dunning run",
   },
 };

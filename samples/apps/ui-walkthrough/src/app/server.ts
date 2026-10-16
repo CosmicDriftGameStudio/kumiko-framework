@@ -11,6 +11,7 @@
 
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { APP_FEATURES } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { seedTasks } from "./seed";
@@ -30,6 +31,8 @@ await runDevApp({
   // PORT env-var override für Playwright-e2e-Runs (config zeigt auf 4174);
   // sonst lokal-Default 4173.
   port: Number.parseInt(process.env["PORT"] ?? "4173", 10),
+  // Logo and attachment uploads of the mail editor need a file store.
+  files: { storageProvider: createInMemoryFileProvider() },
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src", "../../../packages/*/src"],

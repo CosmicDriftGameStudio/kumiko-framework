@@ -37,7 +37,11 @@ export type TemplateDiff = {
     readonly change: "same" | "added" | "removed";
     readonly content: string;
   }[];
-  readonly meta: readonly { readonly key: string }[];
+  readonly meta: readonly {
+    readonly key: string;
+    readonly tenant?: unknown;
+    readonly system?: unknown;
+  }[];
 };
 
 export type UpsertResponse = { readonly id: string };
