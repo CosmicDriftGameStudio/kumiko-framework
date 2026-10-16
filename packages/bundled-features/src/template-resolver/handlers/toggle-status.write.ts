@@ -57,7 +57,7 @@ function planStatusChange(
   status: TemplateStatus,
 ): StatusPlan {
   if (status === "archived") return { ok: true, changes: { status } };
-  const issues = publishGateIssues(ctx.registry, toWorkingRow(row));
+  const issues = publishGateIssues(ctx.registry, toWorkingRow(row, row.tenantId));
   if (issues.length > 0) {
     return { ok: false, failure: writeFailure(new ValidationError({ fields: [...issues] })) };
   }

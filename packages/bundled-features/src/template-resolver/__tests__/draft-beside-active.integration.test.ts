@@ -15,18 +15,29 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { createTemplateResolverApi } from "../api.js";
 import { createTemplateResolverFeature } from "../feature.js";
 import type { LayoutSourceResponse, OverviewResponse } from "../index.js";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
+import { seedSystemTemplate } from "../seeding.js";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.js";
 
-const PLAIN_NAMES = ["lifecycle", "gate-free", "copy", "counted", "snap", "legacy", "system"];
+const PLAIN_NAMES = [
+  "lifecycle",
+  "gate-free",
+  "copy",
+  "counted",
+  "snap",
+  "legacy",
+  "system",
+  "sysdraft",
+];
 const slugOf = (name: string) => `dd-mailer:notify:${name}`;
 
 const mailer = defineFeature("dd-mailer", (r) => {
@@ -113,7 +124,12 @@ async function servedContent(name: string, locale = "de"): Promise<string> {
 }
 
 function validationCodes(err: { details?: unknown }): string[] {
-  return (err.details as { fields: Array<{ code: string }> }).fields.map((field) => field.code);
+  const fields = propertyOf(err.details, "fields");
+  if (!Array.isArray(fields)) return [];
+  return fields.flatMap((field) => {
+    const code = isPlainObject(field) ? field["code"] : undefined;
+    return typeof code === "string" ? [code] : [];
+  });
 }
 
 beforeAll(async () => {
@@ -416,6 +432,127 @@ describe("template-resolver :: draft beside the active version", () => {
       systemAdmin,
     );
     expect(validationCodes(again)).toEqual(["no_draft"]);
+  });
+
+  test("a system draft never reaches a tenant, a SystemAdmin works on it", async () => {
+    const copyToSystem = (fromLocale: string, toLocale: string) =>
+      stack.http.writeOk(
+        TemplateResolverHandlers.copyLocale,
+        {
+          slug: slugOf("sysdraft"),
+          kind: "mail",
+          fromLocale,
+          toLocale,
+          overwrite: true,
+          scope: "system",
+        },
+        systemAdmin,
+      );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      mailPayload("sysdraft", "Quelle EN", { locale: "en" }),
+      systemAdmin,
+    );
+    const { id: systemId } = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertSystem,
+      mailPayload("sysdraft", "Aktiv DE"),
+      systemAdmin,
+    );
+    await copyToSystem("en", "de");
+    expect((await findWorking(systemId, systemAdmin)).content).toContain("Quelle EN");
+
+    const { rows } = await stack.http.queryOk<OverviewResponse>(
+      TemplateResolverQueries.overview,
+      {},
+      admin,
+    );
+    expect(rows.find((row) => row.id === `mail|${slugOf("sysdraft")}`)).toMatchObject({
+      origin: "system",
+      status: "active",
+      draftVersion: null,
+    });
+
+    const copied = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.copyLocale,
+      { slug: slugOf("sysdraft"), kind: "mail", fromLocale: "de", toLocale: "fr" },
+      admin,
+    );
+    expect((await findWorking(copied.id)).content).toContain("Aktiv DE");
+
+    const seenByTenant = await findWorking(systemId);
+    expect(seenByTenant.status).toBe("active");
+    expect(seenByTenant.content).toContain("Aktiv DE");
+    expect(seenByTenant.content).not.toContain("Quelle EN");
+    expect(seenByTenant.meta).not.toContain("Quelle EN");
+  });
+
+  test("a system layout draft is shown to the SystemAdmin only", async () => {
+    const layout = {
+      slug: "dd-system-layout",
+      kind: "mail-layout" as const,
+      contentFormat: "html" as const,
+      variableSchema: {},
+      meta: {},
+    };
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      { ...layout, locale: "en", content: LAYOUT_ACTIVE },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      { ...layout, locale: "de", content: LAYOUT_DRAFT },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.copyLocale,
+      {
+        slug: layout.slug,
+        kind: layout.kind,
+        fromLocale: "de",
+        toLocale: "en",
+        overwrite: true,
+        scope: "system",
+      },
+      systemAdmin,
+    );
+
+    const sourceFor = (user: typeof admin) =>
+      stack.http.queryOk<LayoutSourceResponse>(
+        TemplateResolverQueries.layoutSource,
+        { kind: layout.kind, slug: layout.slug, locale: "en" },
+        user,
+      );
+    const forTenant = await sourceFor(admin);
+    expect(forTenant.tenant).toBeNull();
+    expect(forTenant.system?.status).toBe("active");
+    expect(forTenant.regions.header).toContain("Aktiver Kopf");
+    const forSystemAdmin = await sourceFor(systemAdmin);
+    expect(forSystemAdmin.system?.status).toBe("draft");
+    expect(forSystemAdmin.regions.header).toContain("Entwurf Kopf");
+  });
+
+  test("re-seeding a system template keeps the recorded served version in step", async () => {
+    const seed = (content: string) =>
+      seedSystemTemplate(stack.db, {
+        slug: "dd-seeded",
+        kind: "ai-prompt",
+        locale: "de",
+        content,
+        contentFormat: "plain",
+        ifExists: "update",
+      });
+    const { id } = await seed("v1");
+    await seed("v2");
+
+    const working = await findWorking(id, systemAdmin);
+    expect(working.content).toBe("v2");
+    expect(working.version).toBeGreaterThan(1);
+    expect(working.active?.version).toBe(working.version);
+    const [stored] = await selectMany<TemplateResourceRow>(stack.db, templateResourcesTable, {
+      id,
+    });
+    expect(stored?.activeVersion).toBe(stored?.version ?? -1);
   });
 
   test("rebuilding the projection reproduces rows with drafts and served versions", async () => {

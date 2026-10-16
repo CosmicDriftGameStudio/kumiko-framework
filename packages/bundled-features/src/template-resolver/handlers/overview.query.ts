@@ -3,7 +3,12 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { DEFAULT_MAIL_LAYOUT_SLUG, FALLBACK_LOCALE, type TemplateStatus } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { activeSinceOf, activeVersionOf, parseTemplateDraft } from "../template-draft.js";
+import {
+  activeSinceOf,
+  activeVersionOf,
+  draftViewerTenantId,
+  parseTemplateDraft,
+} from "../template-draft.js";
 import { collectTemplateUsage } from "../template-usage.js";
 import { storedRecord } from "./template-gates.js";
 
@@ -129,7 +134,10 @@ function groupBySlugAndKind(
   return groups;
 }
 
-function buildDrafts(groups: ReadonlyMap<string, readonly TemplateResourceRow[]>): {
+function buildDrafts(
+  groups: ReadonlyMap<string, readonly TemplateResourceRow[]>,
+  user: { readonly tenantId: string; readonly roles: readonly string[] },
+): {
   readonly drafts: OverviewDraft[];
   readonly layoutSlugByDocument: Map<string, string>;
 } {
@@ -159,7 +167,11 @@ function buildDrafts(groups: ReadonlyMap<string, readonly TemplateResourceRow[]>
       locales: [...new Set(effective.rows.map((row) => row.locale))].sort(),
       status: preferred.status,
       version: isActive ? activeVersionOf(preferred) : preferred.version,
-      draftVersion: parseTemplateDraft(preferred.draft) === null ? null : preferred.version,
+      draftVersion:
+        preferred.tenantId === draftViewerTenantId(user, preferred) &&
+        parseTemplateDraft(preferred.draft) !== null
+          ? preferred.version
+          : null,
       activeSince: isActive ? activeSinceOf(preferred).toString() : null,
       systemVersion: systemSameLocale === undefined ? null : activeVersionOf(systemSameLocale),
       layoutSlug,
@@ -235,7 +247,7 @@ export const overviewQuery = defineQueryHandler({
       { limit: OVERVIEW_ROW_LIMIT },
     );
 
-    const { drafts, layoutSlugByDocument } = buildDrafts(groupBySlugAndKind(rows));
+    const { drafts, layoutSlugByDocument } = buildDrafts(groupBySlugAndKind(rows), query.user);
     const overviewRows = drafts.map((draft) =>
       withUsage(draft, layoutSlugByDocument, ctx.registry),
     );

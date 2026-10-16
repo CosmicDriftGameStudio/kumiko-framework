@@ -97,7 +97,7 @@ export const copyLocaleWrite = defineWriteHandler({
       kind,
       locale: fromLocale,
     });
-    const source = storedSource && toWorkingRow(storedSource);
+    const source = storedSource && toWorkingRow(storedSource, tenantId);
     if (!source || !isOneOf(CONTENT_FORMATS, source.contentFormat)) {
       return writeFailure(new NotFoundError("template-resource", `${slug}/${fromLocale}`));
     }

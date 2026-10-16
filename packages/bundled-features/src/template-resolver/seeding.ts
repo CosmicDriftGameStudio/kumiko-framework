@@ -35,6 +35,7 @@ import { evaluateTemplateWrite } from "./handlers/template-gates.js";
 import { TEMPLATE_RESOLVER_FEATURE } from "./qualified-names.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 import type { TemplateBundle } from "./template-bundle.js";
+import { activeStampChanges } from "./template-draft.js";
 import { templateSlugSchema } from "./template-meta.js";
 import { variablesFromSchema } from "./template-validation.js";
 
@@ -159,7 +160,11 @@ export async function seedSystemTemplate(
       return { id: String(row.id) };
     }
     const result = await executor.update(
-      { id: row.id, version: row.version, changes: rowFields },
+      {
+        id: row.id,
+        version: row.version,
+        changes: { ...rowFields, ...activeStampChanges(row) },
+      },
       by,
       tdb,
     );
@@ -174,7 +179,13 @@ export async function seedSystemTemplate(
     ifExists: opts.ifExists,
     create: async () => {
       const result = await executor.create(
-        { ...rowFields, linkedResources: linkedResources ?? "{}", tenantId },
+        {
+          ...rowFields,
+          ...activeStampChanges(null),
+          draft: null,
+          linkedResources: linkedResources ?? "{}",
+          tenantId,
+        },
         by,
         tdb,
       );
@@ -366,7 +377,12 @@ export async function seedTextBlock(
       {
         id: row.id,
         version: row.version,
-        changes: { title: fields.title, content: fields.content, folder: fields.folder },
+        changes: {
+          title: fields.title,
+          content: fields.content,
+          folder: fields.folder,
+          ...activeStampChanges(row),
+        },
       },
       by,
       tdb,
@@ -381,7 +397,11 @@ export async function seedTextBlock(
     existing,
     ifExists: opts.ifExists,
     create: async () => {
-      const result = await executor.create({ ...fields, tenantId: opts.tenantId }, by, tdb);
+      const result = await executor.create(
+        { ...fields, ...activeStampChanges(null), draft: null, tenantId: opts.tenantId },
+        by,
+        tdb,
+      );
       if (!result.isSuccess) {
         if (result.error?.code === "unique_violation") {
           const again = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {

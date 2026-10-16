@@ -2,7 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { toWorkingRow } from "../template-draft.js";
+import { draftViewerTenantId, toWorkingRow } from "../template-draft.js";
 
 // Admin-Lookup für UI-Edit-Flow. Returnt das raw Template inkl. draft/
 // archived Status. Tenant-Isolation: User sieht nur Templates des
@@ -20,7 +20,7 @@ export const findByIdQuery = defineQueryHandler({
       id: query.payload.id,
     });
     if (!stored) return null;
-    const row = toWorkingRow(stored);
+    const row = toWorkingRow(stored, draftViewerTenantId(query.user, stored));
     const isOwnTenant = row.tenantId === query.user.tenantId;
     const isSystemTemplate = row.scope === "system";
     if (!isOwnTenant && !isSystemTemplate) return null;

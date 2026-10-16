@@ -51,11 +51,22 @@ export type ActiveInfo = { readonly version: number; readonly since: Temporal.In
 
 export type WorkingRow = TemplateResourceRow & { readonly active: ActiveInfo | null };
 
+// A SystemAdmin edits system rows, so for them those rows count as their own.
+export function draftViewerTenantId(
+  user: { readonly tenantId: string; readonly roles: readonly string[] },
+  row: TemplateResourceRow,
+): string {
+  return row.scope === "system" && user.roles.includes("SystemAdmin")
+    ? row.tenantId
+    : user.tenantId;
+}
+
 // The version an editor works on: the open draft if there is one, else the stored row.
-export function toWorkingRow(row: TemplateResourceRow): WorkingRow {
+// A draft is only shown to the tenant that owns the row, never through a system row.
+export function toWorkingRow(row: TemplateResourceRow, viewerTenantId: string): WorkingRow {
   const active =
     row.status === "active" ? { version: activeVersionOf(row), since: activeSinceOf(row) } : null;
-  const draft = parseTemplateDraft(row.draft);
+  const draft = row.tenantId === viewerTenantId ? parseTemplateDraft(row.draft) : null;
   // Saves and discards of drafts raise row.version; an editor without a draft shows the served number.
   if (draft === null) return { ...row, version: active?.version ?? row.version, active };
   return { ...row, ...draft, status: "draft", active };
@@ -63,11 +74,15 @@ export function toWorkingRow(row: TemplateResourceRow): WorkingRow {
 
 // Event changes that turn a row into a served one. Every value is explicit so a
 // rebuild reproduces the row without deriving anything.
-export function activationChanges(row: TemplateResourceRow | null) {
+export function activeStampChanges(row: { readonly version: number } | null) {
   return {
     status: "active",
-    draft: null,
     activeVersion: row === null ? 1 : row.version + 1,
     activeSince: Temporal.Now.instant(),
   };
+}
+
+// Publishing also consumes the open draft.
+export function activationChanges(row: TemplateResourceRow | null) {
+  return { ...activeStampChanges(row), draft: null };
 }

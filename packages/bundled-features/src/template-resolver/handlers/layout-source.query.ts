@@ -4,7 +4,12 @@ import * as z from "zod";
 import { FALLBACK_LOCALE } from "../constants.js";
 import { type LayoutRegions, readLayoutRegions } from "../layout-regions.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { type ActiveInfo, toWorkingRow, type WorkingRow } from "../template-draft.js";
+import {
+  type ActiveInfo,
+  draftViewerTenantId,
+  toWorkingRow,
+  type WorkingRow,
+} from "../template-draft.js";
 import { type MailLayoutMeta, readMailLayoutMeta } from "../template-meta.js";
 import { localeSchema, templateSlugSchema } from "./shared.js";
 import { parseStoredJson } from "./template-gates.js";
@@ -139,8 +144,11 @@ export const layoutSourceQuery = defineQueryHandler({
       slug,
     });
     const picked = pickEditedRows(rows, isSystemAdmin, locale);
-    const tenantRow = picked.tenantRow && toWorkingRow(picked.tenantRow);
-    const systemRow = picked.systemRow && toWorkingRow(picked.systemRow);
+    const tenantRow = picked.tenantRow && toWorkingRow(picked.tenantRow, query.user.tenantId);
+    // Only a SystemAdmin works on the system draft; a tenant sees the served system version.
+    const systemRow =
+      picked.systemRow &&
+      toWorkingRow(picked.systemRow, draftViewerTenantId(query.user, picked.systemRow));
     return buildLayoutSource({ kind, locale, isSystemAdmin, tenantRow, systemRow });
   },
 });
