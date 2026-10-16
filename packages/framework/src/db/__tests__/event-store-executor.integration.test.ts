@@ -19,6 +19,7 @@ import { createTestEnvelopeCipher } from "../../testing/index.js";
 import { applyEntityEvent } from "../apply-entity-event.js";
 import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encryption.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
+import { buildExecutorContext } from "../event-store-executor-context.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
@@ -954,5 +955,120 @@ describe("event-store-executor — pii subject encryption", () => {
       `SELECT email FROM read_es_exec_pii LIMIT 1`,
     )) as Array<{ email: string }>;
     expect(rawRows[0]!.email).toBe("off@test.de");
+  });
+});
+
+const piiSoftEntity = createEntity({
+  table: "read_es_exec_pii_soft",
+  fields: {
+    email: createTextField({ required: true, personal: "self", find: "none" }),
+    secretNote: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
+    ownerId: createTextField({ personal: false, reason: "test_fixture" }),
+    ownerSecret: createTextField({ encrypted: true, personal: { of: "ownerId" }, find: "none" }),
+  },
+  softDelete: true,
+});
+const piiSoftTable = buildEntityTable("esExecPiiSoft", piiSoftEntity);
+
+describe("event-store-executor — restore re-encrypts pii in previous", () => {
+  const encryption = createTestEnvelopeCipher(ENCRYPTION_TEST_KEY);
+  const kms = new InMemoryKmsAdapter();
+  const plainCrud = createEventStoreExecutor(piiSoftTable, piiSoftEntity, {
+    entityName: "esExecPiiSoft",
+    encryption,
+  });
+  const kmsCrud = createEventStoreExecutor(piiSoftTable, piiSoftEntity, {
+    entityName: "esExecPiiSoft",
+    encryption,
+    kms,
+  });
+  const readContext = buildExecutorContext(piiSoftTable, piiSoftEntity, {
+    entityName: "esExecPiiSoft",
+    encryption,
+    kms,
+  });
+
+  beforeAll(async () => {
+    resetEntityFieldEncryptionCacheForTests();
+    await unsafeCreateEntityTable(testDb.db, piiSoftEntity, "esExecPiiSoft");
+  });
+
+  beforeEach(async () => {
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_exec_pii_soft RESTART IDENTITY CASCADE`,
+    );
+  });
+
+  async function loadStoredRestoredPrevious(): Promise<Record<string, unknown>> {
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT payload FROM kumiko_events WHERE type = 'esExecPiiSoft.restored' ORDER BY id DESC LIMIT 1`,
+    )) as Array<{ payload: { previous: Record<string, unknown> } }>;
+    const payload = rows[0]?.payload;
+    if (!payload) throw new Error("no restored event stored");
+    const serialized = JSON.stringify(payload);
+    for (const leaked of ["prekms@test.de", "prekms-note", "prekms-owner-secret"]) {
+      expect(serialized).not.toContain(leaked);
+    }
+    for (const leaked of ["kms@test.de", "kms-note", "kms-owner-secret"]) {
+      expect(serialized).not.toContain(leaked);
+    }
+    return payload.previous;
+  }
+
+  test("pre-KMS row: restored event previous carries ciphertext", async () => {
+    const created = await plainCrud.create(
+      {
+        email: "prekms@test.de",
+        secretNote: "prekms-note",
+        ownerId: adminUser.id,
+        ownerSecret: "prekms-owner-secret",
+      },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const deleted = await plainCrud.delete({ id: created.data.id }, adminUser, tdb);
+    if (!deleted.isSuccess) throw new Error("delete failed");
+
+    const restored = await kmsCrud.restore({ id: created.data.id }, adminUser, tdb);
+    if (!restored.isSuccess) throw new Error("restore failed");
+    expect(restored.data.data["email"]).toBe("prekms@test.de");
+    expect(restored.data.previous?.["email"]).toBe("prekms@test.de");
+    expect(restored.data.previous?.["secretNote"]).toBe("prekms-note");
+
+    const storedPrevious = await loadStoredRestoredPrevious();
+    expect(String(storedPrevious["email"])).toStartWith(PII_CIPHERTEXT_PREFIX);
+    expect(String(storedPrevious["ownerSecret"])).toStartWith(PII_CIPHERTEXT_PREFIX);
+
+    const decrypted = await readContext.decryptForRead(storedPrevious);
+    expect(decrypted["email"]).toBe("prekms@test.de");
+    expect(decrypted["secretNote"]).toBe("prekms-note");
+    expect(decrypted["ownerSecret"]).toBe("prekms-owner-secret");
+  });
+
+  test("KMS row: restored previous decrypts back without double-wrapping", async () => {
+    const created = await kmsCrud.create(
+      {
+        email: "kms@test.de",
+        secretNote: "kms-note",
+        ownerId: adminUser.id,
+        ownerSecret: "kms-owner-secret",
+      },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const deleted = await kmsCrud.delete({ id: created.data.id }, adminUser, tdb);
+    if (!deleted.isSuccess) throw new Error("delete failed");
+    const restored = await kmsCrud.restore({ id: created.data.id }, adminUser, tdb);
+    if (!restored.isSuccess) throw new Error("restore failed");
+
+    const storedPrevious = await loadStoredRestoredPrevious();
+    expect(String(storedPrevious["email"])).toStartWith(PII_CIPHERTEXT_PREFIX);
+
+    const decrypted = await readContext.decryptForRead(storedPrevious);
+    expect(decrypted["email"]).toBe("kms@test.de");
+    expect(decrypted["secretNote"]).toBe("kms-note");
+    expect(decrypted["ownerSecret"]).toBe("kms-owner-secret");
   });
 });
