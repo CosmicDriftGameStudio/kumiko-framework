@@ -91,12 +91,18 @@ test("platform overview fits 1280 px without horizontal scrolling", async ({ pag
   await expectNoHorizontalOverflow(page, ["Geändert", "Angepasst von"]);
 });
 
-test("PDF rows open the PDF editor and mail rows have no edit action", async ({ page }) => {
+test("mail rows open the mail editor and PDF rows the PDF editor", async ({ page }) => {
   await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
   await page.goto("/templates");
 
   const mailRow = await rowOf(page, "Passwort zurücksetzen");
-  await expect(mailRow.getByRole("button", { name: "Bearbeiten" })).toHaveCount(0);
+  await mailRow.getByRole("button", { name: "Bearbeiten" }).click();
+  await expect(page).toHaveURL(/mail-editor/);
+  await expect(page.getByTestId("document-designer-editor-title")).toContainText(
+    "Passwort zurücksetzen",
+  );
+
+  await page.goto("/templates");
 
   const pdfRow = page
     .getByRole("row")
