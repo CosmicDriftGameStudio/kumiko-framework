@@ -7,6 +7,7 @@ import {
   activeSinceOf,
   activeVersionOf,
   draftViewerTenantId,
+  isHiddenSystemDraft,
   parseTemplateDraft,
 } from "../template-draft.js";
 import { collectTemplateUsage } from "../template-usage.js";
@@ -247,7 +248,11 @@ export const overviewQuery = defineQueryHandler({
       { limit: OVERVIEW_ROW_LIMIT },
     );
 
-    const { drafts, layoutSlugByDocument } = buildDrafts(groupBySlugAndKind(rows), query.user);
+    const visibleRows = rows.filter((row) => !isHiddenSystemDraft(query.user, row));
+    const { drafts, layoutSlugByDocument } = buildDrafts(
+      groupBySlugAndKind(visibleRows),
+      query.user,
+    );
     const overviewRows = drafts.map((draft) =>
       withUsage(draft, layoutSlugByDocument, ctx.registry),
     );

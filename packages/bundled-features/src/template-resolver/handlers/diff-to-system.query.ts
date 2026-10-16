@@ -3,6 +3,7 @@ import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framew
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { isHiddenSystemDraft } from "../template-draft.js";
 import { buildOverrideDiff } from "./override-diff.js";
 
 export const diffToSystemQuery = defineQueryHandler({
@@ -24,7 +25,8 @@ export const diffToSystemQuery = defineQueryHandler({
       kind: tenantRow.kind,
       locale: tenantRow.locale,
     });
-    if (!systemRow) throw new NotFoundError("template-resource", tenantRow.slug);
+    if (!systemRow || isHiddenSystemDraft(query.user, systemRow))
+      throw new NotFoundError("template-resource", tenantRow.slug);
 
     return buildOverrideDiff(tenantRow, systemRow);
   },

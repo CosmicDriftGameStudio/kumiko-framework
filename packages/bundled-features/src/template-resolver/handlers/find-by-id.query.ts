@@ -14,7 +14,7 @@ export const findByIdQuery = defineQueryHandler({
   schema: z.object({ id: z.string().min(1) }),
   access: { roles: ["TenantAdmin", "SystemAdmin", "User"] },
   description:
-    "Reads the version of one template resource an editor works on, by row id: the open draft if there is one (status draft), else the stored version, with content, variable schema and scope, but only when it belongs to the caller's tenant or is a system default; `active` is the version number and since-time the resolver serves, null when none is served. Use it to load a template into the admin editor.",
+    "Reads the version of one template resource an editor works on, by row id: the open draft if there is one (status draft), else the stored version, with content, variable schema and scope, but only when it belongs to the caller's tenant or is a served system default (a never-served system draft is visible to a SystemAdmin only); `active` is the version number and since-time the resolver serves, null when none is served. Use it to load a template into the admin editor.",
   handler: async (query, ctx) => {
     const stored = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
       id: query.payload.id,

@@ -460,6 +460,8 @@ describe("template-resolver :: draft beside the active version", () => {
     );
     await copyToSystem("en", "de");
     expect((await findWorking(systemId, systemAdmin)).content).toContain("Quelle EN");
+    const { id: neverServedId } = await copyToSystem("en", "fr");
+    expect((await findWorking(neverServedId, systemAdmin)).status).toBe("draft");
 
     const { rows } = await stack.http.queryOk<OverviewResponse>(
       TemplateResolverQueries.overview,
@@ -470,6 +472,7 @@ describe("template-resolver :: draft beside the active version", () => {
       origin: "system",
       status: "active",
       draftVersion: null,
+      locales: ["de", "en"],
     });
 
     const copied = await stack.http.writeOk<{ id: string }>(
@@ -485,9 +488,13 @@ describe("template-resolver :: draft beside the active version", () => {
     expect(seenByTenant.content).not.toContain("Quelle EN");
     expect(seenByTenant.meta).not.toContain("Quelle EN");
 
-    const { id: neverServedId } = await copyToSystem("en", "fr");
-    expect((await findWorking(neverServedId, systemAdmin)).status).toBe("draft");
     expect(await findWorking(neverServedId)).toBeNull();
+    const diffError = await stack.http.queryErr(
+      TemplateResolverQueries.diffToSystem,
+      { id: copied.id },
+      admin,
+    );
+    expect(diffError.code).toBe("not_found");
   });
 
   test("a system layout draft is shown to the SystemAdmin only", async () => {
