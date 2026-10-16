@@ -164,8 +164,10 @@ function repeatTableContent(listName: string): JSONContent {
   return { type: "table", content: [headerRow, repeatRow] };
 }
 
-function Separator(): ReactNode {
-  return <span aria-hidden="true" className="mx-2 h-5 w-px bg-border" />;
+function Separator({ compact = false }: { readonly compact?: boolean }): ReactNode {
+  return (
+    <span aria-hidden="true" className={cn("h-5 w-px bg-border", compact ? "mx-0.5" : "mx-2")} />
+  );
 }
 
 function PanelActions({
@@ -671,7 +673,7 @@ export default function DocumentTiptapEditor({
       className={cn("rounded-md border border-input", canvas ? "bg-background" : "bg-transparent")}
     >
       <div className="flex flex-wrap items-center gap-1 border-b border-input p-1">
-        <div className={compact ? "w-28" : "w-40"}>
+        <div className={compact ? "w-24" : "w-40"}>
           <Field id={`${id}-paragraph-style`} label={paragraphStyleLabel} hideLabel>
             <Input
               kind="select"
@@ -685,7 +687,7 @@ export default function DocumentTiptapEditor({
             />
           </Field>
         </div>
-        <Separator />
+        <Separator compact={compact} />
         {iconButton(
           t("kumiko.contentEditor.bold"),
           markContent("B", <BoldIcon size={16} />, "font-bold"),
@@ -704,7 +706,7 @@ export default function DocumentTiptapEditor({
           activeState?.underline ?? false,
           () => editor.chain().focus().toggleUnderline().run(),
         )}
-        <Separator />
+        <Separator compact={compact} />
         {iconButton(
           t("kumiko.contentEditor.bulletList"),
           <List size={16} />,
@@ -723,7 +725,7 @@ export default function DocumentTiptapEditor({
           activeState?.link ?? false,
           () => togglePanel("link"),
         )}
-        <Separator />
+        <Separator compact={compact} />
         {labelledButton({
           label: t("template-resolver.documentEditor.insertPlaceholder"),
           icon: <Braces size={16} />,
@@ -731,7 +733,7 @@ export default function DocumentTiptapEditor({
           expanded: openPanel === "placeholder",
           onClick: () => togglePanel("placeholder"),
         })}
-        {blocks.length > 0 && <Separator />}
+        {blocks.length > 0 && <Separator compact={compact} />}
         {blocks.map((block) =>
           labelledButton({
             key: block,
