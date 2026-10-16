@@ -16,12 +16,12 @@ detail: New write template-resolver:write:resource-link-pdf takes templateId, ke
 feature: template-resolver
 type: improvement
 title: Preview and test mail use the images and attachments of the edited row, also while it is a draft
-detail: When preview or send-test get content, the caller's own row for (slug, kind, locale) supplies linkedResources whatever its status, so a tenant whose customization is saved as a draft sees its logo and attachments. MailDraft has an optional linkedResources; without it the stored active template's resources are used as before. PreviewAttachment gains the variant { kind "rendered-pdf", name, templateSlug } without sizeBytes, because the PDF is not rendered in the preview; size_under_cap does not count it.
+detail: When preview or send-test get content and the caller has a row for (slug, kind, locale), that row supplies linkedResources whatever its status (also when it has none, so nothing is borrowed from the system template), so a tenant whose customization is saved as a draft sees its logo and attachments. MailDraft has an optional linkedResources; without it the stored active template's resources are used as before. PreviewAttachment gains the variant { kind "rendered-pdf", name, templateSlug } without sizeBytes, because the PDF is not rendered in the preview; size_under_cap does not count it.
 -->
 
 <!-- kumiko-changes
 feature: renderer-mail-html
 type: improvement
 title: Mail renderer attaches linked PDF templates as rendered-pdf attachments
-detail: The renderer builds a RenderedPdfAttachmentRef per linked PDF with the mail's render variables, the mail locale and the file name pattern rendered like the subject and sanitized like the PDF renderer does. Order is inline images, files, rendered PDFs, all within MAX_EMAIL_ATTACHMENTS; variables above MAX_RENDERED_PDF_VARIABLES_BYTES fail the render with the mail slug. RenderedPdfAttachmentRef now lives in renderer-foundation (still exported from delivery) and RenderResponse and RenderedMail allow it.
+detail: The renderer builds a RenderedPdfAttachmentRef per linked PDF with the mail's render variables, the mail locale and the file name pattern rendered like the subject and cleaned by sanitizePdfAttachmentFileName, now exported from @cosmicdrift/kumiko-bundled-features/delivery (control characters and / \ " ; .. removed, at most 200 characters including .pdf, empty falls back to the last slug segment). Order is inline images, files, rendered PDFs, all within MAX_EMAIL_ATTACHMENTS; variables above MAX_RENDERED_PDF_VARIABLES_BYTES fail the render with the mail slug. RenderedPdfAttachmentRef now lives in renderer-foundation (still exported from delivery) and RenderResponse and RenderedMail allow it.
 -->

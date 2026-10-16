@@ -1,6 +1,7 @@
 import {
   MAX_EMAIL_ATTACHMENTS,
   MAX_RENDERED_PDF_VARIABLES_BYTES,
+  sanitizePdfAttachmentFileName,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   type FileAttachmentRef,
@@ -10,33 +11,6 @@ import {
   RendererError,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import type { TemplatePdfAttachmentLink } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-
-const MAX_FILE_NAME_LENGTH = 200;
-const PDF_EXTENSION = ".pdf";
-
-function stripControlCharacters(value: string): string {
-  return value
-    .split("")
-    .filter((char) => {
-      const code = char.charCodeAt(0);
-      return code > 0x1f && code !== 0x7f;
-    })
-    .join("");
-}
-
-// Same rules as the PDF renderer applies to the name of a document it prints, so a linked PDF is
-// named like the one a download of the same template would get.
-export function sanitizePdfAttachmentFileName(raw: string, templateSlug: string): string {
-  const cleaned = stripControlCharacters(raw)
-    .replace(/[/\\";]/g, "-")
-    .replaceAll("..", "-")
-    .trim()
-    .slice(0, MAX_FILE_NAME_LENGTH - PDF_EXTENSION.length)
-    .trim();
-  const lastSegment = templateSlug.split(":").pop() ?? templateSlug;
-  if (cleaned === "") return `${lastSegment}${PDF_EXTENSION}`;
-  return cleaned.toLowerCase().endsWith(PDF_EXTENSION) ? cleaned : `${cleaned}${PDF_EXTENSION}`;
-}
 
 export function buildRenderedPdfAttachments(args: {
   readonly slug: string;

@@ -228,8 +228,8 @@ async function loadEditedRowResources(
     { tenantId: user.tenantId, slug: input.slug, kind: "mail", locale: input.locale },
     { limit: 1 },
   );
-  const entries = parseLinkedResourceEntries(rows[0]?.linkedResources ?? null);
-  return Object.keys(entries).length === 0 ? undefined : entries;
+  const row = rows[0];
+  return row === undefined ? undefined : parseLinkedResourceEntries(row.linkedResources);
 }
 
 async function resolvePdfLayout(

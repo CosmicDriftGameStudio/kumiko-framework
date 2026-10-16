@@ -1,3 +1,4 @@
+export { sanitizePdfAttachmentFileName } from "../shared/index.js";
 export { hashUnsubscribeAddress } from "./address-opt-out.js";
 export {
   type EmailAttachmentRef,

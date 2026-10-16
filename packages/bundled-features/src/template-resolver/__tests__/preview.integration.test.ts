@@ -35,6 +35,7 @@ import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createUserFeature } from "../../user/feature.js";
 import { userEntity } from "../../user/schema/user.js";
+import { SYSTEM_TENANT_ID } from "../constants.js";
 import { createTemplateResolverFeature } from "../feature.js";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
 import { seedNotificationTemplates } from "../seeding.js";
@@ -600,5 +601,83 @@ describe("template-resolver :: preview with a linked PDF template", () => {
       },
     ]);
     expect(checkOf(preview, "size_under_cap")?.ok).toBe(true);
+  });
+});
+
+describe("template-resolver :: preview resources of an edited row without resources", () => {
+  const FALLBACK_SLUG = "preview:system-logo-only";
+  const LOGO_BODY = '<p><img data-resource="logo" alt="Logo"></p><p>Hallo</p>';
+  const draftOf = (content: string) => ({
+    slug: FALLBACK_SLUG,
+    kind: "mail" as const,
+    locale: LOCALE,
+    content,
+    meta: { subject: "Hallo" },
+  });
+
+  beforeAll(async () => {
+    const systemRow = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug: FALLBACK_SLUG,
+        kind: "mail",
+        locale: LOCALE,
+        content: LOGO_BODY,
+        contentFormat: "html",
+        meta: { subject: "Hallo" },
+        variableSchema: {},
+      },
+      TestUsers.systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceUpload,
+      {
+        sourceFileRefId: await uploadFile(
+          TestUsers.systemAdmin,
+          Buffer.from(PNG_BASE64, "base64"),
+          { name: "logo.png", type: "image/png" },
+        ),
+        templateId: systemRow.id,
+        key: "logo",
+        tenantIdOverride: SYSTEM_TENANT_ID,
+      },
+      TestUsers.systemAdmin,
+    );
+  });
+
+  test("without a tenant row the system template's logo resolves", async () => {
+    const preview = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      draftOf(LOGO_BODY),
+      adminOf(48),
+    );
+    expect(preview.html).toContain("cid:logo");
+    expect(checkOf(preview, "resources_resolved")?.ok).toBe(true);
+  });
+
+  test("a tenant draft without resources does not borrow the system logo", async () => {
+    const admin = adminOf(49);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: FALLBACK_SLUG,
+        kind: "mail",
+        locale: LOCALE,
+        content: "<p>Hallo</p>",
+        contentFormat: "html",
+        meta: { subject: "Hallo" },
+        variableSchema: {},
+        status: "draft",
+      },
+      admin,
+    );
+    const preview = await stack.http.queryOk<Preview & { attachments: unknown[] }>(
+      TemplateResolverQueries.preview,
+      draftOf(LOGO_BODY),
+      admin,
+    );
+    expect(preview.html).not.toContain("cid:logo");
+    expect(preview.attachments).toEqual([]);
+    expect(checkOf(preview, "resources_resolved")?.ok).toBe(false);
   });
 });

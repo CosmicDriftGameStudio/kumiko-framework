@@ -2,13 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
   MAX_EMAIL_ATTACHMENTS,
   MAX_RENDERED_PDF_VARIABLES_BYTES,
+  sanitizePdfAttachmentFileName,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { RendererError } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
-import {
-  buildRenderedPdfAttachments,
-  combineMailAttachments,
-  sanitizePdfAttachmentFileName,
-} from "../mail-attachments";
+import { buildRenderedPdfAttachments, combineMailAttachments } from "../mail-attachments";
 
 const inlineRef = (index: number) => ({
   kind: "inline" as const,
