@@ -20,18 +20,28 @@
 // Logik braucht, kann die Function nach `auth-email-password/testing`
 // migrieren.
 
-import type { Page } from "@playwright/test";
+import type { Cookie, Page } from "@playwright/test";
 // Direkt aus auth-constants — NIEMALS via seed.ts oder bundled-features.
 // Diese ziehen `vitest` als transitive dep (framework/testing → vitest)
 // und kollidieren mit Playwrights expect über das Object.prototype-
 // Symbol $$jest-matchers-object.
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../../src/app/auth-constants";
 
+// The login route allows 20 requests per minute and IP. One login per user and worker keeps
+// the suite under that limit; later tests get the same session cookies.
+const sessionCookiesByEmail = new Map<string, readonly Cookie[]>();
+
 export async function loginAs(page: Page, email: string, password: string): Promise<void> {
+  const cachedCookies = sessionCookiesByEmail.get(email);
+  if (cachedCookies !== undefined) {
+    await page.context().addCookies([...cachedCookies]);
+    return;
+  }
   const res = await page.request.post("/api/auth/login", { data: { email, password } });
   if (!res.ok()) {
     throw new Error(`loginAs: POST /api/auth/login → ${res.status()} ${await res.text()}`);
   }
+  sessionCookiesByEmail.set(email, await page.context().cookies());
 }
 
 export const loginAsAdmin = (page: Page): Promise<void> =>
