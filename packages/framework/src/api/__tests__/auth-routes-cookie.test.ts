@@ -403,8 +403,11 @@ describe("auth-routes __Host- cookie prefix", () => {
     const cookies = getSetCookies(await login(app));
     expect(cookies.get(AUTH_COOKIE_BASE)?.raw).toMatch(/Domain=example\.eu/i);
     expect(cookies.get(CSRF_COOKIE_BASE)?.raw).toMatch(/Domain=example\.eu/i);
-    expect(cookies.get(PREFIXED_AUTH)).toBeUndefined();
-    expect(cookies.get(PREFIXED_CSRF)).toBeUndefined();
+    // Only the expiry of a __Host- leftover from an earlier config may carry the prefixed names.
+    for (const name of [PREFIXED_AUTH, PREFIXED_CSRF]) {
+      expect(cookies.get(name)?.value).toBe("");
+      expect(cookies.get(name)?.raw).toMatch(/Max-Age=0/i);
+    }
   });
 
   test("without Secure the names stay unprefixed", async () => {
