@@ -148,11 +148,12 @@ async function renderInvoice(tenantId: TenantId) {
 }
 
 describe("renderer-mail-html :: ctx.config", () => {
-  test("money, date and tenant name follow the tenant's configured currency, locale and branding", async () => {
+  test("currency and tenant name come from the tenant config, date and number format from the German template, not the tenant's English locale", async () => {
     const html = await renderInvoice(configuredAdmin.tenantId);
     expect(html).toContain("CHF");
-    expect(html).toContain("1,234.56");
-    expect(html).toContain("Mar 5, 2026");
+    expect(html).toContain("1.234,56");
+    expect(html).toContain("5. März 2026");
+    expect(html).not.toContain("Mar 5, 2026");
     expect(html).toContain("Muster AG");
   });
 
@@ -160,6 +161,6 @@ describe("renderer-mail-html :: ctx.config", () => {
     const html = await renderInvoice(untouchedTenant);
     expect(html).not.toContain("CHF");
     expect(html).not.toContain("Muster AG");
-    expect(html).toContain("€1,234.56");
+    expect(html).toContain("1.234,56 €");
   });
 });

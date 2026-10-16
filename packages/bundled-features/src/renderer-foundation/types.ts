@@ -169,8 +169,8 @@ export type RendererContext = {
   readonly db: DbRunner | TenantDb;
   readonly registry: Registry;
   readonly tenantId: TenantId;
-  /** Tenant-scoped config for plugins that format by tenant locale/currency
-   *  or read branding; plugins fall back to request defaults when absent. */
+  /** Tenant-scoped config for plugins that read the tenant currency or
+   *  branding; plugins fall back to request defaults when absent. */
   readonly config?: ConfigAccessor;
   /** Only plugins that embed resource bytes (PDF) need it; without it images are dropped. */
   readonly filesForTenant?: (tenantId: string) => FileContext | undefined;

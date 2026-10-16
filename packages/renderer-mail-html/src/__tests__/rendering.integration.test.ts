@@ -190,7 +190,7 @@ describe("renderer-mail-html :: seeded template", () => {
     expect(result.html).toContain("Hallo Anna");
     expect(result.html).toContain('href="https://example.com/confirm"');
     expect(result.html).toContain("1.234,56");
-    expect(result.html).toContain("05.03.2026");
+    expect(result.html).toContain("5. März 2026");
     expect(result.html).toContain("Posten A");
     expect(result.html).toContain("<table");
     expect(result.text).toContain("Hallo Anna");

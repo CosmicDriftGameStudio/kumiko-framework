@@ -10,7 +10,7 @@ import { mailHtmlRender } from "./render.js";
 // `plugin.render({ kind: "mail", payload: { slug, locale, variables } }, ctx)`.
 // The plugin resolves the mail template and its layout itself through
 // template-resolver (tenant -> system), so ctx needs `db`, `registry`, `tenantId`
-// and optionally `config` for tenant locale, currency and branding.
+// and optionally `config` for the tenant's currency and branding.
 //
 // **Layout:** meta.layoutSlug ?? "default", kind "mail-layout". Without a seeded
 // layout the in-code DEFAULT_MAIL_LAYOUT_MJML is used, so mail works from day 1.

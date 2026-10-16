@@ -7,7 +7,6 @@ import {
   type TemplateResolverApi,
   type TemplateResource,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { TenantSettingsConfig } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   isUuid,
@@ -55,13 +54,13 @@ export function createDocumentHandlebars(format: DocumentFormat): typeof Handleb
       // A date-only string has no zone; going through an instant would show the
       // previous day west of UTC.
       if (typeof value === "string" && DATE_ONLY.test(value)) {
-        return Temporal.PlainDate.from(value).toLocaleString(locale, { dateStyle: "medium" });
+        return Temporal.PlainDate.from(value).toLocaleString(locale, { dateStyle: "long" });
       }
       const instant =
         typeof value === "number"
           ? Temporal.Instant.fromEpochMilliseconds(value)
           : Temporal.Instant.from(value);
-      return instant.toLocaleString(locale, { dateStyle: "medium", timeZone: "UTC" });
+      return instant.toLocaleString(locale, { dateStyle: "long", timeZone: "UTC" });
     } catch {
       return String(value);
     }
@@ -95,15 +94,15 @@ async function readConfigText(ctx: RendererContext, key: string): Promise<string
   return typeof value === "string" && value !== "" ? value : undefined;
 }
 
+// Dates and numbers follow the template locale, the language the document is
+// read in; the tenant's locale setting must not turn a German invoice into
+// "Oct 1, 2026". The currency is a tenant fact and still comes from its settings.
 export async function readDocumentFormat(
   ctx: RendererContext,
-  payloadLocale: string,
+  templateLocale: string,
 ): Promise<DocumentFormat> {
-  const [locale, currency] = await Promise.all([
-    readConfigText(ctx, TenantSettingsConfig.locale),
-    readConfigText(ctx, TENANT_CURRENCY_CONFIG_KEY),
-  ]);
-  return { locale: locale ?? payloadLocale, currency: currency ?? FALLBACK_CURRENCY };
+  const currency = await readConfigText(ctx, TENANT_CURRENCY_CONFIG_KEY);
+  return { locale: templateLocale, currency: currency ?? FALLBACK_CURRENCY };
 }
 
 export async function readTenantName(ctx: RendererContext): Promise<string> {
