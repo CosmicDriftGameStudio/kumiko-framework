@@ -1,0 +1,389 @@
+// Preview and test mail run the real write gates and the real mail renderer; nothing is stored.
+// The stack mirrors a production mail setup: delivery + channel-email with an in-memory transport.
+
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { defineFeature, templateVariable } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createTestUser,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  testTenantId,
+  unsafeCreateEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-framework/stack";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import * as z from "zod";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.js";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity } from "../../user/schema/user.js";
+import { createTemplateResolverFeature } from "../feature.js";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
+import { seedNotificationTemplates } from "../seeding.js";
+import { templateResourceEntity, templateResourcesTable } from "../table.js";
+
+const LOCALE = "de";
+const SLUG = "inv-mailer:notify:invoice";
+const emailTransport = createInMemoryTransport();
+const addressOf = (userId: string): string => `${userId}@preview.test`;
+
+const invMailer = defineFeature("inv-mailer", (r) => {
+  r.writeHandler({
+    name: "create",
+    schema: z.object({}),
+    access: { roles: ["TenantAdmin"] },
+    handler: async () => ({ isSuccess: true as const, data: {} }),
+  });
+  r.notification("invoice", {
+    trigger: { on: "create" },
+    recipient: () => null,
+    data: () => ({}),
+    variables: {
+      invoiceNumber: templateVariable.text({ required: true, example: "RE-2026-001" }),
+      dueDate: templateVariable.date({ example: "2026-03-15" }),
+      total: templateVariable.money({ example: { amount: 11900, currency: "EUR" } }),
+      positions: templateVariable.list(
+        { label: templateVariable.text(), price: templateVariable.money() },
+        {
+          example: [
+            { label: "Beratung", price: 10000 },
+            { label: "Lizenz", price: 1900 },
+            { label: "Dritte Zeile", price: 1 },
+          ],
+        },
+      ),
+    },
+    template: {
+      de: {
+        body: [
+          '<p>Rechnung <span data-variable="invoiceNumber"></span>, fällig <span data-variable="dueDate"></span></p>',
+          '<p>Summe <span data-variable="total"></span></p>',
+          '<table><tbody><tr data-each="positions"><td><p><span data-variable="label"></span></p></td><td><p><span data-variable="price"></span></p></td></tr></tbody></table>',
+        ].join(""),
+      },
+    },
+    meta: { de: { subject: "Rechnung {{invoiceNumber}}" } },
+  });
+});
+
+const adminOf = (id: number) =>
+  createTestUser({ id, roles: ["TenantAdmin"], tenantId: testTenantId(id) });
+
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupTestStack({
+    features: [
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
+      createDeliveryFeature(),
+      createRendererSimpleFeature(),
+      createChannelEmailFeature({
+        transport: emailTransport,
+        renderer: simpleRenderer,
+        resolveEmail: async (userId) => addressOf(userId),
+      }),
+      invMailer,
+    ],
+    extraContext: (deps) => ({
+      ...createDeliveryTestContext(deps),
+      configResolver: createConfigResolver(),
+    }),
+  });
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafeCreateEntityTable(stack.db, templateResourceEntity);
+  await unsafePushTables(stack.db, {
+    configValuesTable,
+    tenantMembershipsTable,
+    notificationPreferencesTable,
+    deliveryAttemptsTable,
+  });
+  await seedNotificationTemplates(stack.db, stack.registry);
+  await stack.http.writeOk(
+    TemplateResolverHandlers.upsertSystem,
+    {
+      slug: "default",
+      kind: "mail-layout",
+      locale: LOCALE,
+      content:
+        "<mjml><mj-body><mj-section><mj-column><mj-text>SYSTEM_LAYOUT_MARKER</mj-text><mj-raw>{{{content}}}</mj-raw></mj-column></mj-section></mj-body></mjml>",
+      contentFormat: "mjml",
+      meta: {},
+      variableSchema: {},
+      linkedResources: {},
+    },
+    TestUsers.systemAdmin,
+  );
+  await stack.http.writeOk(
+    TemplateResolverHandlers.upsertSystem,
+    {
+      slug: "contract-frame",
+      kind: "pdf-layout",
+      locale: LOCALE,
+      content:
+        "<div data-header><p>PDF_HEADER</p></div><div data-content></div><div data-footer><p>PDF_FOOTER</p></div>",
+      contentFormat: "html",
+      variableSchema: {},
+      linkedResources: {},
+    },
+    TestUsers.systemAdmin,
+  );
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+beforeEach(async () => {
+  emailTransport.sent.length = 0;
+  await stack.redis.flushNamespace();
+});
+
+type Check = { code: string; ok: boolean; params?: { missing?: string[] } };
+type Preview = {
+  kind: string;
+  subject: string | null;
+  html: string;
+  text: string | null;
+  checks: Check[];
+  layout: { slug: string; scope: string; regions: { header: string; footer: string } } | null;
+};
+
+const checkOf = (preview: Preview, code: string): Check | undefined =>
+  preview.checks.find((check) => check.code === code);
+
+const mailDraft = (content: string, extra: Record<string, unknown> = {}) => ({
+  slug: SLUG,
+  kind: "mail" as const,
+  locale: LOCALE,
+  content,
+  meta: { subject: "Entwurf {{invoiceNumber}}" },
+  ...extra,
+});
+
+describe("template-resolver :: preview query", () => {
+  test("a stored system-only template renders with sample values and two list rows", async () => {
+    const preview = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      { slug: SLUG, kind: "mail", locale: LOCALE },
+      adminOf(21),
+    );
+    expect(preview.subject).toBe("Rechnung RE-2026-001");
+    expect(preview.html).toContain("RE-2026-001");
+    expect(preview.html).toContain("15.03.2026");
+    expect(preview.html).toContain("Beratung");
+    expect(preview.html).toContain("Lizenz");
+    expect(preview.html).not.toContain("Dritte Zeile");
+    expect(preview.checks.every((check) => check.ok)).toBe(true);
+  });
+
+  test("a draft body replaces the stored one and nothing is saved", async () => {
+    const admin = adminOf(22);
+    const preview = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      mailDraft('<p>ENTWURF <span data-variable="invoiceNumber"></span></p>'),
+      admin,
+    );
+    expect(preview.subject).toBe("Entwurf RE-2026-001");
+    expect(preview.html).toContain("ENTWURF RE-2026-001");
+    expect(preview.html).not.toContain("Beratung");
+
+    const stored = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      { slug: SLUG, kind: "mail", locale: LOCALE },
+      admin,
+    );
+    expect(stored.html).toContain("Beratung");
+  });
+
+  test("a script element in the draft is a validation error", async () => {
+    const err = await stack.http.queryErr(
+      TemplateResolverQueries.preview,
+      mailDraft('<p><span data-variable="invoiceNumber"></span></p><script>alert(1)</script>'),
+      adminOf(23),
+    );
+    expect(err.code).toBe("validation_error");
+  });
+
+  test("an image without a linked resource fails the resources check", async () => {
+    const preview = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      mailDraft(
+        '<p><span data-variable="invoiceNumber"></span></p><img data-resource="missing-logo">',
+      ),
+      adminOf(24),
+    );
+    const check = checkOf(preview, "resources_resolved");
+    expect(check?.ok).toBe(false);
+    expect(check?.params?.missing).toEqual(["missing-logo"]);
+  });
+
+  test("a draft without the required placeholder fails the required check", async () => {
+    const preview = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      mailDraft("<p>ohne Nummer</p>", { meta: { subject: "Ohne" } }),
+      adminOf(25),
+    );
+    const check = checkOf(preview, "required_placeholders");
+    expect(check?.ok).toBe(false);
+    expect(check?.params?.missing).toEqual(["invoiceNumber"]);
+  });
+
+  test("a stored tenant layout that fails the sanitizer renders with the system layout", async () => {
+    const owner = testTenantId(26);
+    const executor = createEventStoreExecutor(templateResourcesTable, templateResourceEntity, {
+      entityName: "template-resource",
+    });
+    // Seeded past the write gate, like a row that predates the current layout rules.
+    const created = await executor.create(
+      {
+        tenantId: owner,
+        slug: "default",
+        kind: "mail-layout",
+        locale: LOCALE,
+        content:
+          '<div data-header><a href="javascript:alert(1)">x</a></div><div data-content></div><div data-footer><p>TENANT_FOOTER_MARKER</p></div>',
+        contentFormat: "html",
+        variableSchema: "{}",
+        linkedResources: "{}",
+        scope: "tenant",
+        parentTemplateId: null,
+        status: "active",
+      },
+      adminOf(26),
+      createTenantDb(stack.db, owner, "system"),
+    );
+    expect(created.isSuccess).toBe(true);
+    const preview = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      { slug: SLUG, kind: "mail", locale: LOCALE },
+      adminOf(26),
+    );
+    expect(preview.html).toContain("SYSTEM_LAYOUT_MARKER");
+    expect(preview.html).not.toContain("TENANT_FOOTER_MARKER");
+    expect(preview.html).not.toContain("javascript:");
+  });
+
+  test("a document-pdf draft returns its body and the layout regions", async () => {
+    const preview = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      {
+        slug: "contract",
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: "<p>Vertragstext</p>",
+        meta: { layoutSlug: "contract-frame" },
+      },
+      adminOf(27),
+    );
+    expect(preview.kind).toBe("document-pdf");
+    expect(preview.html).toContain("Vertragstext");
+    expect(preview.subject).toBeNull();
+    expect(preview.layout?.slug).toBe("contract-frame");
+    expect(preview.layout?.regions.header).toContain("PDF_HEADER");
+    expect(preview.layout?.regions.footer).toContain("PDF_FOOTER");
+  });
+
+  test("the role User is refused", async () => {
+    const user = createTestUser({ id: 28, roles: ["User"], tenantId: testTenantId(28) });
+    const res = await stack.http.query(
+      TemplateResolverQueries.preview,
+      { slug: SLUG, kind: "mail", locale: LOCALE },
+      user,
+    );
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("template-resolver :: send-test write", () => {
+  test("mails the rendered draft to the caller's own address with the test prefix", async () => {
+    const admin = adminOf(31);
+    const result = await stack.http.writeOk<{ subject: string; checks: Check[] }>(
+      TemplateResolverHandlers.sendTest,
+      mailDraft('<p>ENTWURF <span data-variable="invoiceNumber"></span></p>'),
+      admin,
+    );
+    expect(result.subject).toBe("[TEST] Entwurf RE-2026-001");
+    expect(emailTransport.sent).toHaveLength(1);
+    const [message] = emailTransport.sent;
+    expect(message?.to).toBe(addressOf(admin.id));
+    expect(message?.subject).toBe("[TEST] Entwurf RE-2026-001");
+    expect(message?.html).toContain("ENTWURF RE-2026-001");
+  });
+
+  test("an extra recipient field in the payload changes nothing", async () => {
+    const admin = adminOf(32);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.sendTest,
+      mailDraft('<p><span data-variable="invoiceNumber"></span></p>', { to: "x@evil.test" }),
+      admin,
+    );
+    expect(emailTransport.sent.map((message) => message.to)).toEqual([addressOf(admin.id)]);
+  });
+
+  test("a stored system-only template can be test-mailed without content", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.sendTest,
+      { slug: SLUG, locale: LOCALE },
+      adminOf(33),
+    );
+    expect(emailTransport.sent).toHaveLength(1);
+    expect(emailTransport.sent[0]?.subject).toBe("[TEST] Rechnung RE-2026-001");
+  });
+
+  test("a draft failing the write rules sends nothing", async () => {
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.sendTest,
+      mailDraft("<p>x</p><script>alert(1)</script>"),
+      adminOf(34),
+    );
+    expect(err.code).toBe("validation_error");
+    expect(emailTransport.sent).toHaveLength(0);
+  });
+
+  test("the 11th test mail within the hour is rate limited", async () => {
+    const admin = adminOf(35);
+    for (let i = 0; i < 10; i++) {
+      const res = await stack.http.write(
+        TemplateResolverHandlers.sendTest,
+        { slug: SLUG, locale: LOCALE },
+        admin,
+      );
+      expect(res.status).toBe(200);
+    }
+    const blocked = await stack.http.write(
+      TemplateResolverHandlers.sendTest,
+      { slug: SLUG, locale: LOCALE },
+      admin,
+    );
+    expect(blocked.status).toBe(429);
+    expect(emailTransport.sent).toHaveLength(10);
+  });
+
+  test("the role User is refused", async () => {
+    const user = createTestUser({ id: 36, roles: ["User"], tenantId: testTenantId(36) });
+    const res = await stack.http.write(
+      TemplateResolverHandlers.sendTest,
+      { slug: SLUG, locale: LOCALE },
+      user,
+    );
+    expect(res.status).toBe(403);
+    expect(emailTransport.sent).toHaveLength(0);
+  });
+});

@@ -1090,6 +1090,16 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.template.targetExists":
     "A template for locale “{detail}” already exists; overwrite it explicitly to replace it.",
   "templateResolver.warnings.resourceNotUploaded": "Image not uploaded: {detail}",
+  "templateResolver.checks.resourcesResolved": "All images are available",
+  "templateResolver.checks.textPresent": "A plain-text version is present",
+  "templateResolver.checks.sizeUnderCap": "The mail is within the 10 MiB size limit",
+  "templateResolver.checks.requiredPlaceholders": "All required placeholders are used",
+  "templateResolver.errors.preview.renderFailed": "The preview could not be rendered.",
+  "templateResolver.errors.testMail.noChannel":
+    "No email channel is set up, so no test mail can be sent.",
+  "templateResolver.errors.testMail.noAddress":
+    "Your account has no email address to send the test mail to.",
+  "templateResolver.errors.testMail.failed": "The test mail could not be sent.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Resource files can only be imported as system templates by a user of the system tenant.",
   "templateResolver.errors.collection.kindNotAllowed":

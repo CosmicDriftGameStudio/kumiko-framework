@@ -1118,6 +1118,16 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.template.targetExists":
     "Ya existe una plantilla para el idioma «{detail}»; sobrescríbela de forma explícita para reemplazarla.",
   "templateResolver.warnings.resourceNotUploaded": "Imagen no subida: {detail}",
+  "templateResolver.checks.resourcesResolved": "Todas las imágenes están disponibles",
+  "templateResolver.checks.textPresent": "Hay una versión en texto plano",
+  "templateResolver.checks.sizeUnderCap": "El correo está dentro del límite de 10 MiB",
+  "templateResolver.checks.requiredPlaceholders": "Se usan todos los marcadores obligatorios",
+  "templateResolver.errors.preview.renderFailed": "No se pudo generar la vista previa.",
+  "templateResolver.errors.testMail.noChannel":
+    "No hay un canal de correo configurado, por lo que no se puede enviar un correo de prueba.",
+  "templateResolver.errors.testMail.noAddress":
+    "Tu cuenta no tiene una dirección de correo a la que enviar el correo de prueba.",
+  "templateResolver.errors.testMail.failed": "No se pudo enviar el correo de prueba.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Los archivos de recursos solo los puede importar como plantillas del sistema un usuario del inquilino del sistema.",
   "templateResolver.errors.collection.kindNotAllowed":

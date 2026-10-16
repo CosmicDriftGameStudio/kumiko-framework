@@ -6,6 +6,8 @@ import { DELIVERY_FEATURE, DeliveryJobNames } from "./public-names.js";
 // channel-in-app, channel-push, ...).
 export const DELIVERY_CHANNEL_EXTENSION = "deliveryChannel" as const;
 
+export const EMAIL_CHANNEL_NAME = "email" as const;
+
 export {
   DELIVERY_ATTEMPT_ADDRESS_ERASED_EVENT,
   DELIVERY_ATTEMPT_EVENT,

@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "generated": "2026-10-15",
+  "generated": "2026-10-16",
   "asOfVersion": "0.362.0",
   "packages": {
     "framework": {
@@ -3345,9 +3345,14 @@
       "./file-foundation": [
         "FileProviderContext",
         "FileProviderPlugin",
+        "FileRefContent",
+        "FileRefTooLargeError",
         "createFileProviderForTenant",
+        "fileContextForTenant",
+        "fileContextFromResolver",
         "fileFoundationFeature",
-        "isFileProviderPlugin"
+        "isFileProviderPlugin",
+        "readFileRefContent"
       ],
       "./file-provider-s3": [
         "S3_SECRET_ACCESS_KEY",
@@ -3852,7 +3857,12 @@
         "DeliveryServiceOptions",
         "DeliveryStatus",
         "DeliveryStatusValue",
+        "EMAIL_CHANNEL_NAME",
+        "EmailAttachmentRef",
+        "FileAttachmentRef",
+        "InlineAttachmentRef",
         "KillSwitchResolver",
+        "MAX_EMAIL_ATTACHMENTS",
         "NotificationRenderer",
         "RateLimitConfig",
         "RenderedMessage",
@@ -3869,9 +3879,14 @@
         "createDeliveryNotifyFactory",
         "createDeliveryService",
         "createDeliveryTestContext",
+        "createEmailAttachmentReader",
+        "createTemplateMailRenderer",
         "createUnsubscribeRoutes",
         "deliveryAttemptsTable",
+        "emailAttachmentRefSchema",
+        "fileAttachmentRefSchema",
         "hashUnsubscribeAddress",
+        "inlineAttachmentRefSchema",
         "isDeliveryChannelPlugin",
         "notificationAddressOptOutEntity",
         "notificationAddressOptOutsTable",
@@ -3882,6 +3897,7 @@
         "runAttemptLogRetention",
         "signAddressUnsubscribeToken",
         "signUnsubscribeToken",
+        "toAttachmentRef",
         "toChannelResult",
         "truncateChars"
       ],
@@ -3899,6 +3915,8 @@
         "inAppMessagesTable"
       ],
       "./channel-email": [
+        "EmailAttachment",
+        "EmailAttachmentRef",
         "EmailChannelOptions",
         "EmailMessage",
         "EmailTransport",
@@ -4157,6 +4175,7 @@
       ],
       "./template-resolver": [
         "CONTENT_FORMATS",
+        "CompileDocumentBodyOptions",
         "ContentFormat",
         "DEFAULT_MAIL_LAYOUT_SLUG",
         "DOCUMENT_HTML_KINDS",
@@ -4194,6 +4213,7 @@
         "SanitizeBodyResult",
         "SanitizeHtmlResult",
         "SanitizeLayoutResult",
+        "StoredTemplateResource",
         "TEMPLATE_KINDS",
         "TEMPLATE_RESOLVER_FEATURE",
         "TEMPLATE_SCOPES",
@@ -4218,6 +4238,7 @@
         "UPSERT_KINDS",
         "UpsertKind",
         "UserContentEntryRow",
+        "collectDocumentResourceKeys",
         "compileDocumentBodyToHandlebars",
         "createTemplateResolverApi",
         "createTemplateResolverFeature",
@@ -4234,6 +4255,7 @@
         "readLayoutRegions",
         "readPdfTemplateMeta",
         "readTemplateResource",
+        "readTemplateResourceMaxBytes",
         "requireTemplateResolver",
         "resolveTemplateVariables",
         "sanitizeDocumentHtml",
@@ -4245,6 +4267,7 @@
         "templateResourceEntity",
         "templateResourcesTable",
         "templateSlugSchema",
+        "toResourceDataUri",
         "userContentEntriesTable",
         "userContentEntryEntity",
         "validateTemplatePlaceholders"
@@ -4304,6 +4327,8 @@
         "DEFAULT_PLUGIN_BY_KIND",
         "DocumentPayload",
         "ImageOptions",
+        "InlineAttachmentRef",
+        "MailDraft",
         "MailPayload",
         "NotificationPayload",
         "PdfOptions",

@@ -16,6 +16,7 @@ export const TemplateResolverHandlers = {
   copyLocale: "template-resolver:write:copy-locale",
   resourceUpload: "template-resolver:write:resource-upload",
   resourceRemove: "template-resolver:write:resource-remove",
+  sendTest: "template-resolver:write:send-test",
 } as const;
 
 export const TemplateResolverQueries = {
@@ -25,6 +26,7 @@ export const TemplateResolverQueries = {
   tenantOverrides: "template-resolver:query:tenant-overrides",
   diffToSystem: "template-resolver:query:diff-to-system",
   validate: "template-resolver:query:validate",
+  preview: "template-resolver:query:preview",
   exportBundle: "template-resolver:query:export-bundle",
   // Public pair — anonymous-reachable, kind pinned to text-block.
   bySlug: "template-resolver:query:by-slug",
@@ -54,4 +56,8 @@ export const TemplateResolverErrors = {
   systemResourcesNeedSystemTenant: "system_resources_need_system_tenant",
   resourceTooLarge: "template_resource_too_large",
   resourceUnsupportedImage: "template_resource_unsupported_image",
+  previewRenderFailed: "template_preview_render_failed",
+  testMailNoChannel: "template_test_mail_no_channel",
+  testMailNoAddress: "template_test_mail_no_address",
+  testMailFailed: "template_test_mail_failed",
 } as const;

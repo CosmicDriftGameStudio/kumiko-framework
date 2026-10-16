@@ -35,8 +35,7 @@ export type ChannelContext = {
   // Chat channels read their per-tenant webhook URL / bot token from it.
   // Absent when no secrets feature/KEK is wired.
   readonly secrets?: SecretsContext | undefined;
-  // Renders a stored mail template. Lives on the context instead of going through
-  // `db` because the tenant-bound TenantDb cannot see system-owned templates.
+  // Renders a stored mail template, the tenant's own or the system fallback.
   readonly renderMail?: (payload: MailPayload) => Promise<RenderedMail>;
   // Reads the bytes behind an attachment ref at send time. Absent when no file storage is wired.
   readonly readAttachment?: (

@@ -1,6 +1,6 @@
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigAccessor, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import type { PdfPageFormat, TemplateScope } from "../template-resolver/index.js";
+import type { MailTemplateMeta, PdfPageFormat, TemplateScope } from "../template-resolver/index.js";
 import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./constants.js";
 
 // RenderRequest — Plugins erhalten das. Resource-Mode wählt der Caller
@@ -59,11 +59,19 @@ export type NotificationPayload = {
   readonly locale?: string;
 };
 
+// An unsaved version of the mail template; rendering it never reads its stored body or subject.
+export type MailDraft = {
+  readonly content: string;
+  readonly meta: MailTemplateMeta;
+  readonly variableSchema?: Readonly<Record<string, unknown>>;
+};
+
 export type MailPayload = {
   readonly slug: string;
   readonly locale: string;
   readonly variables: Readonly<Record<string, unknown>>;
   readonly unsubscribeUrl?: string;
+  readonly draft?: MailDraft;
 };
 
 export type DocumentPayload = {
@@ -101,7 +109,7 @@ export type ImageOptions = {
 //   const tplApi = createTemplateResolverApi(ctx.db);
 //   const layout = await tplApi.resolveTemplate({ tenantId: ctx.tenantId, slug, kind });
 export type RendererContext = {
-  readonly db: DbConnection;
+  readonly db: DbRunner | TenantDb;
   readonly registry: Registry;
   readonly tenantId: TenantId;
   /** Tenant-scoped config for plugins that format by tenant locale/currency
