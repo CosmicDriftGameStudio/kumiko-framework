@@ -267,6 +267,7 @@ export const TENANT_UTILITY_STATEMENT: SeedTemplate = {
   title: "Nebenkostenabrechnung",
   content: [
     `<h1>Nebenkostenabrechnung ${v("invoiceNumber")}</h1>`,
+    `<p>Abrechnungsdatum: ${v("invoiceDate")}</p>`,
     `<p>Guten Tag ${v("customerName")},</p>`,
     "<p>nachfolgend erhalten Sie die Abrechnung der Betriebskosten für den Abrechnungszeitraum.</p>",
     INVOICE_DOCUMENT_ROWS,

@@ -136,6 +136,7 @@ beforeAll(async () => {
     base(REMINDER_SLUG, "mail", {
       meta: { subject: "Erinnerung" },
       content: "<p>Erinnerung</p>",
+      title: "Zahlungserinnerung",
       status: "active",
     }),
     adminA,
