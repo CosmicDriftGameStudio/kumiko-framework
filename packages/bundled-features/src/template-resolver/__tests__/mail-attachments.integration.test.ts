@@ -158,8 +158,8 @@ describe("template-resolver :: mail attachments", () => {
   test("a file that is not a PDF, PNG or JPEG is refused by its content", async () => {
     const templateId = await createTemplate(tenantA, "att-type");
     const sourceFileRefId = await upload(tenantA, new TextEncoder().encode("plain text"), {
-      name: "offer.pdf",
-      type: "application/pdf",
+      name: "offer.txt",
+      type: "text/plain",
     });
     const err = await stack.http.writeErr(
       TemplateResolverHandlers.resourceUpload,

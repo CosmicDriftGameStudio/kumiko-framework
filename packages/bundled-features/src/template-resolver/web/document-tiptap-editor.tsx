@@ -537,7 +537,9 @@ export default function DocumentTiptapEditor({
   const flatVariant = canvas ? "ghost" : "secondary";
 
   return (
-    <div className={cn("rounded-md border border-input", canvas ? "bg-card" : "bg-transparent")}>
+    <div
+      className={cn("rounded-md border border-input", canvas ? "bg-background" : "bg-transparent")}
+    >
       <div className="flex flex-wrap items-center gap-1 border-b border-input p-1">
         <div className="w-40">
           <Field id={`${id}-paragraph-style`} label={paragraphStyleLabel} hideLabel>
@@ -673,12 +675,12 @@ export default function DocumentTiptapEditor({
           onClose={() => setOpenPanel(null)}
         />
       )}
-      <div className={cn(canvas && "bg-muted p-6")}>
+      <div className={cn(canvas && "flex justify-center bg-muted p-6")}>
         <EditorContent
           editor={editor}
           className={cn(
             canvas
-              ? "mx-auto w-[600px] max-w-full bg-card px-10 py-7 text-sm border border-input"
+              ? "w-[600px] max-w-full bg-background px-10 py-7 text-sm border border-input"
               : "min-h-40 px-3 py-2 text-base outline-none md:text-sm",
             "[&_.ProseMirror-selectednode]:ring-2 [&_.ProseMirror-selectednode]:ring-primary",
             "[&_.ProseMirror]:min-h-40 [&_.ProseMirror]:outline-none",

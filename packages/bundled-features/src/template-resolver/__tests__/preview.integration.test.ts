@@ -431,6 +431,7 @@ describe("template-resolver :: preview with a logo and a file attachment", () =>
         contentFormat: "html",
         meta: { subject: "Rechnung {{invoiceNumber}}" },
         variableSchema: {},
+        status: "active",
       },
       admin,
     );
