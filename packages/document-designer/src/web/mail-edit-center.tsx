@@ -11,6 +11,10 @@ import type { MailMetaField } from "./mail-footer.js";
 import type { MailDraft } from "./mail-types.js";
 import type { InsertTargets } from "./use-insert-targets.js";
 
+const renderMailPaper = (editable: ReactNode): ReactNode => (
+  <div className="mx-auto w-full max-w-[600px] bg-card px-10 py-7 shadow-md">{editable}</div>
+);
+
 export type EditorVocabulary = {
   readonly names: readonly string[];
   readonly labels: Readonly<Record<string, string>>;
@@ -121,6 +125,7 @@ export function MailEditCenter({
           systemVariables={vocabulary.system}
           resourcePreviews={resourcePreviews}
           chrome="canvas"
+          renderPaper={renderMailPaper}
           onEditorReady={insert.register("body")}
         />
       </div>

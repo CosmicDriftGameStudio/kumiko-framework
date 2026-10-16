@@ -11,7 +11,6 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { buildMultipartBody } from "@cosmicdrift/kumiko-framework/testing";
 import { DEFAULT_MAIL_LAYOUT_MJML } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { readBundledAsset } from "@cosmicdrift/kumiko-server-runtime";
 import {
@@ -125,14 +124,12 @@ export const seedTemplates: SeedFn = async (stack) => {
       "file",
       new File([new Uint8Array(logoPng)], LOGO_RESOURCE_KEY, { type: "image/png" }),
     );
-    const { body, contentType } = await buildMultipartBody(form);
     const response = await stack.app.request("/api/files", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${await stack.jwt.sign(user)}`,
-        "Content-Type": contentType,
       },
-      body,
+      body: form,
     });
     if (response.status !== 201) throw new Error(`logo upload failed: HTTP ${response.status}`);
     return ((await response.json()) as { id: string }).id;

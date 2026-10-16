@@ -170,7 +170,7 @@ function mountKeyOf(editor: Editor): number {
 // Board .hb: a small bar that straddles the block's top frame line on the right; above a table it sits fully
 // outside so the header row stays readable.
 const BUBBLE_BAR_CLASS =
-  "flex w-max items-center gap-1 rounded border border-input bg-card p-px text-xs [&_button]:h-5 [&_button]:px-1.5 [&_button]:text-[10px]";
+  "flex w-max items-center gap-1 rounded border border-input bg-popover p-px text-xs [&_button]:h-5 [&_button]:px-1.5 [&_button]:text-[10px]";
 
 function bubbleOffset(editor: Editor): (args: { rects: { floating: { height: number } } }) => {
   mainAxis: number;
@@ -758,11 +758,7 @@ export default function DocumentTiptapEditor({
     <EditorContent
       editor={editor}
       className={cn(
-        canvas
-          ? renderPaper === undefined &&
-              !hosted &&
-              "mx-auto w-full max-w-[600px] bg-card px-10 py-7 shadow-md"
-          : "min-h-40 px-3 py-2 text-base outline-none md:text-sm",
+        !canvas && "min-h-40 px-3 py-2 text-base outline-none md:text-sm",
         canvas && "text-sm",
         "[&_.ProseMirror-focused_.ProseMirror-selectednode]:ring-2 [&_.ProseMirror-focused_.ProseMirror-selectednode]:ring-primary",
         hosted
@@ -822,6 +818,7 @@ export default function DocumentTiptapEditor({
       )}
     >
       <div
+        // kumiko-lint-ignore raw-classname the toolbar paragraph select sits flush in the editor toolbar; ComboboxInput has no flat trigger variant
         className={cn(
           !canvas && (compact ? "w-24" : "w-40"),
           canvas &&
