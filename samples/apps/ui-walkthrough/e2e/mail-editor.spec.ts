@@ -72,6 +72,9 @@ test("tenant admin edits the invoice mail, attaches files, previews, sends a tes
   const frame = page.getByTestId("mail-preview-iframe");
   await expect(frame).toBeVisible();
   await expect(frame).toHaveAttribute("sandbox", "");
+  await expect(
+    page.frameLocator('[data-testid="mail-preview-iframe"]').getByText("Ihre Rechnung ist da"),
+  ).toBeVisible();
   await expect(page.getByTestId("mail-preview-attachments")).toContainText("hausordnung.pdf");
   await expect(page.getByTestId("mail-preview-checks")).toBeVisible();
   await page.getByTestId("mail-test-send").click();
