@@ -92,6 +92,7 @@ export function toWriteErrorInfo(err: KumikoError): WriteErrorInfo {
     message: err.message,
     ...(err.i18nParams && { i18nParams: err.i18nParams }),
     ...(effectiveDetails !== undefined && { details: effectiveDetails }),
+    ...(err.retryAfterSeconds !== undefined && { retryAfterSeconds: err.retryAfterSeconds }),
   };
   if (err.cause instanceof Error) causeByWriteErrorInfo.set(info, err.cause);
   return info;
@@ -116,6 +117,7 @@ class ReraisedError extends KumikoError {
       i18nKey: info.i18nKey,
       ...(info.i18nParams && { i18nParams: info.i18nParams }),
       ...(info.details !== undefined && { details: info.details }),
+      ...(info.retryAfterSeconds !== undefined && { retryAfterSeconds: info.retryAfterSeconds }),
       ...(cause && { cause }),
     });
     this.code = info.code;

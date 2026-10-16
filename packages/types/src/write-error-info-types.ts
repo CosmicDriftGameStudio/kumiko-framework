@@ -10,6 +10,7 @@ export type WriteErrorInfo = {
   readonly i18nParams?: Readonly<Record<string, unknown>>;
   readonly message: string;
   readonly details?: unknown;
+  readonly retryAfterSeconds?: number;
 };
 
 // The failure half of WriteResult — `{ isSuccess: false } + error`. Not

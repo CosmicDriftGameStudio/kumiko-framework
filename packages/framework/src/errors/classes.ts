@@ -350,6 +350,7 @@ export class RateLimitError extends KumikoError {
       message: `rate limited: ${details.bucket} (limit ${details.limit} per ${details.windowSeconds}s)`,
       i18nKey: opts?.i18nKey ?? "errors.rate_limited",
       details,
+      retryAfterSeconds: details.retryAfterSeconds,
       ...(opts?.cause && { cause: opts.cause }),
     });
     this.details = details;

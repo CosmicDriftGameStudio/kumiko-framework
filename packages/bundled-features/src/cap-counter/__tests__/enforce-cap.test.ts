@@ -7,10 +7,13 @@ import { describe, expect, mock, test } from "bun:test";
 // Temporal: rely on the global ambient declaration from temporal-spec.
 // The framework polyfill is loaded by setupTestStack, but pure unit
 // tests (no stack) need a manual polyfill — vitest.setup.ts does that.
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { ROLLING_INCREMENTED_EVENT_QN } from "../constants.js";
 import {
+  assertBelowHardCap,
   CAP_TOLERANCES,
   CapExceededError,
+  calendarMonthPeriodEndIso,
   currentCalendarMonthStartIso,
   enforceCap,
   enforceCapAndMaybeNotify,
@@ -431,5 +434,78 @@ describe("aggregate-id namespaces — drift-pin", () => {
     const calendarId = capCounterAggregateId("tenant-1", "ai-tokens-7d", "1970-01-01T00:00:00Z");
     const rollingId = rollingCapAggregateId("tenant-1", "ai-tokens-7d");
     expect(calendarId).not.toBe(rollingId);
+  });
+});
+
+describe("calendarMonthPeriodEndIso", () => {
+  test("adds one calendar month in UTC", () => {
+    expect(calendarMonthPeriodEndIso("2026-07-01T00:00:00Z")).toBe("2026-08-01T00:00:00Z");
+  });
+
+  test("rolls December over into January of the next year", () => {
+    expect(calendarMonthPeriodEndIso("2026-12-01T00:00:00Z")).toBe("2027-01-01T00:00:00Z");
+  });
+});
+
+describe("CapExceededError reset info", () => {
+  const now = Temporal.Instant.from("2026-07-10T00:00:00Z");
+  const tolerance = CAP_TOLERANCES.hardSlot;
+
+  test("resetAt and retryAfterSeconds are derived from the period end", () => {
+    const err = new CapExceededError("c", 1, 1, tolerance, {
+      resetAt: "2026-08-01T00:00:00Z",
+      now,
+    });
+    expect(err.resetAt).toBe("2026-08-01T00:00:00Z");
+    expect(err.retryAfterSeconds).toBe(22 * 24 * 3600);
+    expect(err.details).toMatchObject({
+      resetAt: "2026-08-01T00:00:00Z",
+      retryAfterSeconds: 22 * 24 * 3600,
+    });
+    expect(err.i18nParams?.["resetAt"]).toBe("2026-08-01T00:00:00Z");
+    expect(err.message).toContain("Resets at 2026-08-01T00:00:00Z");
+    expect(err.i18nKey).toBe("errors.cap.exceeded");
+  });
+
+  test("retryAfterSeconds rounds up and never goes negative", () => {
+    const soon = new CapExceededError("c", 1, 1, tolerance, {
+      resetAt: "2026-07-10T00:00:00.500Z",
+      now,
+    });
+    expect(soon.retryAfterSeconds).toBe(1);
+    const past = new CapExceededError("c", 1, 1, tolerance, {
+      resetAt: "2026-07-01T00:00:00Z",
+      now,
+    });
+    expect(past.retryAfterSeconds).toBe(0);
+  });
+
+  test("custom i18nKey replaces the default", () => {
+    const err = new CapExceededError("c", 1, 1, tolerance, { i18nKey: "x:errors.cap" });
+    expect(err.i18nKey).toBe("x:errors.cap");
+  });
+
+  test("without resetAt (rolling cap) there is no retry info", () => {
+    const err = new CapExceededError("c", 1, 1, tolerance);
+    expect(err.resetAt).toBeUndefined();
+    expect(err.retryAfterSeconds).toBeUndefined();
+  });
+
+  test("assertBelowHardCap defaults to the month end, honors periodEndIso, rejects an end before the start", () => {
+    const cap = {
+      capName: "c",
+      limit: 1,
+      profile: "hardSlot" as const,
+      periodStartIso: "2026-07-01T00:00:00Z",
+    };
+    expect(() => assertBelowHardCap(1, cap)).toThrow(
+      expect.objectContaining({ resetAt: "2026-08-01T00:00:00Z" }),
+    );
+    expect(() => assertBelowHardCap(1, { ...cap, periodEndIso: "2026-07-15T00:00:00Z" })).toThrow(
+      expect.objectContaining({ resetAt: "2026-07-15T00:00:00Z" }),
+    );
+    expect(() => assertBelowHardCap(1, { ...cap, periodEndIso: "2026-07-01T00:00:00Z" })).toThrow(
+      /must be after periodStartIso/,
+    );
   });
 });

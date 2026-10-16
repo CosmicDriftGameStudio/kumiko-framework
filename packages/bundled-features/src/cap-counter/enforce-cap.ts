@@ -66,12 +66,36 @@ export function assertBelowHardCap(
     readonly capName: string;
     readonly limit: number;
     readonly profile: CapToleranceProfileName;
+    // Rolling caps have no fixed period, so they pass neither period field.
+    readonly periodStartIso?: string;
+    readonly periodEndIso?: string;
+    readonly i18nKey?: string;
   },
 ): void {
   const tolerance = CAP_TOLERANCES[cap.profile];
   if (valueSeenByLastUnit >= cap.limit * tolerance.hard) {
-    throw new CapExceededError(cap.capName, cap.limit, valueSeenByLastUnit, tolerance);
+    const resetAt = resolvePeriodEndIso(cap.periodStartIso, cap.periodEndIso);
+    throw new CapExceededError(cap.capName, cap.limit, valueSeenByLastUnit, tolerance, {
+      ...(resetAt !== undefined && { resetAt }),
+      ...(cap.i18nKey !== undefined && { i18nKey: cap.i18nKey }),
+    });
   }
+}
+
+function resolvePeriodEndIso(
+  periodStartIso: string | undefined,
+  periodEndIso: string | undefined,
+): string | undefined {
+  if (periodStartIso === undefined) return periodEndIso;
+  if (periodEndIso === undefined) return calendarMonthPeriodEndIso(periodStartIso);
+  const start = Temporal.Instant.from(periodStartIso);
+  const end = Temporal.Instant.from(periodEndIso);
+  if (Temporal.Instant.compare(end, start) <= 0) {
+    throw new Error(
+      `cap-counter: periodEndIso (${periodEndIso}) must be after periodStartIso (${periodStartIso})`,
+    );
+  }
+  return end.toString();
 }
 
 // =============================================================================
@@ -109,6 +133,9 @@ export async function enforceCap(
     // Units the caller is about to book in one go (default 1), checked with
     // the same outcome as booking them one by one.
     readonly amount?: number;
+    // Default: end of the calendar month that starts at periodStartIso.
+    readonly periodEndIso?: string;
+    readonly i18nKey?: string;
   },
 ): Promise<EnforceCapResult> {
   const { user, readDb } = resolveCapCounterScope(ctx, false);
@@ -211,23 +238,54 @@ export async function enforceRollingCap(
  * Thrown by enforceCap/enforceRollingCap when value ≥ hard-threshold.
  * Extends `KumikoError` — the dispatcher auto-maps this to HTTP 429
  * with `code: "cap_exceeded"`, no caller-side catch needed.
+ *
+ * Calendar caps carry `resetAt` (end of the period) and `retryAfterSeconds`, which the API
+ * answers as Retry-After. Rolling caps have no fixed reset instant, so both stay undefined.
  */
 export class CapExceededError extends KumikoError {
   readonly code = "cap_exceeded" as const;
   readonly httpStatus = 429;
+  readonly resetAt: string | undefined;
 
   constructor(
     readonly capName: string,
     readonly limit: number,
     readonly currentValue: number,
     readonly tolerance: CapToleranceProfile,
+    options?: {
+      readonly resetAt?: string;
+      readonly i18nKey?: string;
+      readonly cause?: Error;
+      // Deterministic tests only.
+      readonly now?: Temporal.Instant;
+    },
   ) {
+    const resetAt = options?.resetAt;
+    const retryAfterSeconds =
+      resetAt === undefined
+        ? undefined
+        : Math.max(
+            0,
+            Math.ceil(
+              Temporal.Instant.from(resetAt).epochMilliseconds / 1000 -
+                (options?.now ?? Temporal.Now.instant()).epochMilliseconds / 1000,
+            ),
+          );
     super({
-      message: `Cap "${capName}" exceeded: current=${currentValue}, limit=${limit}, hard-threshold=${limit * tolerance.hard}. Upgrade tier or wait for next period reset.`,
-      i18nKey: "errors.cap.exceeded",
-      i18nParams: { capName, limit, currentValue },
-      details: { capName, limit, currentValue, tolerance },
+      message: `Cap "${capName}" exceeded: current=${currentValue}, limit=${limit}, hard-threshold=${limit * tolerance.hard}. Upgrade tier or wait for next period reset.${resetAt === undefined ? "" : ` Resets at ${resetAt}.`}`,
+      i18nKey: options?.i18nKey ?? "errors.cap.exceeded",
+      i18nParams: { capName, limit, currentValue, ...(resetAt !== undefined && { resetAt }) },
+      details: {
+        capName,
+        limit,
+        currentValue,
+        tolerance,
+        ...(resetAt !== undefined && { resetAt, retryAfterSeconds }),
+      },
+      ...(retryAfterSeconds !== undefined && { retryAfterSeconds }),
+      ...(options?.cause && { cause: options.cause }),
     });
+    this.resetAt = resetAt;
   }
 }
 
@@ -255,6 +313,14 @@ export function currentCalendarMonthStartIso(
     nanosecond: 0,
   });
   return start.toInstant().toString();
+}
+
+export function calendarMonthPeriodEndIso(periodStartIso: string): string {
+  return Temporal.Instant.from(periodStartIso)
+    .toZonedDateTimeISO("UTC")
+    .add({ months: 1 })
+    .toInstant()
+    .toString();
 }
 
 // =============================================================================
@@ -299,6 +365,8 @@ export async function enforceCapAndMaybeNotify(
     readonly profile: CapToleranceProfileName;
     readonly notify: SoftHitNotifier;
     readonly amount?: number;
+    readonly periodEndIso?: string;
+    readonly i18nKey?: string;
     readonly markSoftWarnedOutsideTransaction?: boolean;
   },
 ): Promise<EnforceCapResult> {
@@ -308,6 +376,8 @@ export async function enforceCapAndMaybeNotify(
     limit: options.limit,
     profile: options.profile,
     ...(options.amount !== undefined && { amount: options.amount }),
+    ...(options.periodEndIso !== undefined && { periodEndIso: options.periodEndIso }),
+    ...(options.i18nKey !== undefined && { i18nKey: options.i18nKey }),
   });
 
   if (result.state === "soft-hit" && result.crossed) {

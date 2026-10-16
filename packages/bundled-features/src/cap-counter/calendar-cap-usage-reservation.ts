@@ -44,6 +44,8 @@ export async function reserveEnforcedCalendarCap(
       profile: cap.profile,
       notify: cap.notify,
       amount: cap.amount,
+      ...(cap.periodEndIso !== undefined && { periodEndIso: cap.periodEndIso }),
+      ...(cap.i18nKey !== undefined && { i18nKey: cap.i18nKey }),
       markSoftWarnedOutsideTransaction: outsideTransaction,
     });
   }
