@@ -1,5 +1,6 @@
 ---
 "@cosmicdrift/kumiko-types": patch
+"@cosmicdrift/kumiko-framework": patch
 ---
 
 ListFacetSpec docs state that reference facets are exempt from the declared-column rule
