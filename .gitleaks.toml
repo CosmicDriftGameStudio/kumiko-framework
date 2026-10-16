@@ -1,0 +1,15 @@
+title = "kumiko-framework gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Lockfiles carry integrity hashes that look like high-entropy secrets"
+paths = ['''\.lock$''']
+
+[[allowlists]]
+description = "Test fixtures and e2e screenshots hold deliberately fake credentials"
+paths = [
+  '''(^|/)__tests__/(.+/)?fixtures/''',
+  '''(^|/)e2e/screenshots/''',
+]

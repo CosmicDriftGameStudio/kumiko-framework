@@ -18,6 +18,9 @@
 #      sub-repo's own package.json `test` script — refuses the push if that
 #      script is missing.
 #
+# Before the checks below, the hook runs a gitleaks scan of origin/main..HEAD
+# when the binary is installed.
+#
 # Extension point: a tracked, executable scripts/pre-push-extra.sh runs
 # before the main check in every branch above, with KUMIKO_PUSH_REPO_ROOT
 # and KUMIKO_PUSH_PARENT_DIR available inline (never exported).
@@ -114,6 +117,22 @@ if [ -f "$REPO_ROOT/.kumiko/upgrade-state.json" ]; then
   echo "[pre-push] .kumiko/upgrade-state.json present — running upgrade-state guard…"
   if ! (cd "$REPO_ROOT" && bun "$GUARD_UPGRADE_STATE"); then
     echo "[pre-push] upgrade-state guard failed — refusing push" >&2
+    exit 1
+  fi
+fi
+
+# Secret scan: runs before check-wt.sh/bun check so a leaked credential is
+# caught in seconds, not after the long checks. A missing binary or a missing
+# origin/main only warns, so a machine without gitleaks is not locked out.
+# No --config: gitleaks reads a .gitleaks.toml in the repo root itself.
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "[pre-push] gitleaks not installed — secret scan skipped. Install: brew install gitleaks" >&2
+elif ! git -C "$REPO_ROOT" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
+  echo "[pre-push] origin/main not found — secret scan skipped" >&2
+else
+  echo "[pre-push] gitleaks git origin/main..HEAD"
+  if ! (cd "$REPO_ROOT" && gitleaks git --no-banner --redact --log-opts="origin/main..HEAD" .); then
+    echo "[pre-push] gitleaks found secrets — refusing push" >&2
     exit 1
   fi
 fi

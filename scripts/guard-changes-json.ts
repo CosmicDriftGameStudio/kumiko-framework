@@ -25,6 +25,41 @@ import { parseChangesetChanges } from "../packages/framework/src/engine/changese
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
+// changes.json ships to npm via packages/framework `files`; paths into and links to private repos must not.
+// Bare repo names ("affects solon") are fine, only `<repo>/<path>` and github.com links are leaks.
+const PRIVATE_REPOS = [
+  "kumiko-enterprise",
+  "kumiko-platform",
+  "kumiko-studio",
+  "publicstatus",
+  "solon",
+  "money-horse",
+  "offlot-app",
+  "offlot",
+  "phronexsis",
+  "infra",
+  "mfg-hausverwaltung",
+  "offlot-web",
+  "space-conquest",
+  "website",
+] as const;
+const PRIVATE_REPO_ALTERNATION = PRIVATE_REPOS.join("|");
+// Second alternative: repo name, then "/" and a path, or whitespace and a token that contains a slash. The lookbehind
+// admits "." and "/" ("../infra/x", "apps/solon/x") but not word chars, "@" or "-", so "kumiko-guards/infra",
+// "@cosmicdrift/solon-x" and "offlot-web" do not match through a shorter repo name.
+const PRIVATE_REPO_REFERENCE_RE = new RegExp(
+  `(?:github\\.com/CosmicDriftGameStudio/(?:${PRIVATE_REPO_ALTERNATION})/|(?<![\\w@-])(?:${PRIVATE_REPO_ALTERNATION})(?:/[\\w.@-]|\\s+[\\w.@-]*/)[\\w.@/-]*)`,
+  "gi",
+);
+
+export function findPrivateRepoReferences(text: string): string[] {
+  return Array.from(text.matchAll(PRIVATE_REPO_REFERENCE_RE), (match) => match[0]);
+}
+
+function privateRepoDetail(location: string, field: string, references: readonly string[]): string {
+  return `${location} field "${field}" references a private repo (${references.join(", ")}); changes.json is published to npm, name the repo without paths or links`;
+}
+
 export type ChangelogViolation = { readonly file: string; readonly detail: string };
 
 const ZERO_SHA_RE = /^0+$/;
@@ -102,6 +137,38 @@ function isForkPullRequest(env: Readonly<Record<string, string | undefined>>): b
   }
 }
 
+function parseEntryArray(raw: string): Record<string, unknown>[] | undefined {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return undefined;
+    return parsed.every(isRecord) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Entries have no id field, so identity is the position: same length, and per position every field
+// except the prose fields (title, detail, migration) must be identical. A changed version, type,
+// codemod or any other field is not text maintenance.
+const EDITABLE_TEXT_FIELDS: ReadonlySet<string> = new Set(["title", "detail", "migration"]);
+
+export function isTextOnlyChangesEdit(repoRoot: string, file: string): boolean {
+  const base = Bun.spawnSync(["git", "show", `origin/main:${file}`], { cwd: repoRoot, env: gitEnv() });
+  if (base.exitCode !== 0) return false;
+  const before = parseEntryArray(new TextDecoder().decode(base.stdout));
+  const after = existsSync(join(repoRoot, file)) ? parseEntryArray(readFileSync(join(repoRoot, file), "utf-8")) : undefined;
+  if (!before || !after || before.length !== after.length) return false;
+  return before.every((entry, index) => {
+    const next = after[index];
+    if (!next) return false;
+    const keys = Object.keys(entry).sort();
+    if (JSON.stringify(keys) !== JSON.stringify(Object.keys(next).sort())) return false;
+    return keys.every(
+      (key) => EDITABLE_TEXT_FIELDS.has(key) || JSON.stringify(entry[key]) === JSON.stringify(next[key]),
+    );
+  });
+}
+
 export function isReleaseBranch(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
   if ((env["GITHUB_HEAD_REF"] ?? "").startsWith("changeset-release/")) {
     return env["GITHUB_EVENT_NAME"] === "pull_request" && !isForkPullRequest(env);
@@ -147,6 +214,14 @@ export function findChangesetViolations(
           violations.push({ file, detail: "missing kumiko-changes metadata block" });
         }
         const frontmatter = /^\s*---\n([\s\S]*?)\n---/.exec(raw)?.[1] ?? "";
+        parsed.forEach((change, index) => {
+          for (const field of ["title", "detail", "migration"] as const) {
+            const references = findPrivateRepoReferences(change[field] ?? "");
+            if (references.length > 0) {
+              violations.push({ file, detail: privateRepoDetail(`kumiko-changes block #${index}`, field, references) });
+            }
+          }
+        });
         for (const change of parsed) {
           const target = resolveFeatureTarget(repoRoot, change.feature);
           if (!target) {
@@ -164,9 +239,11 @@ export function findChangesetViolations(
     }
   }
 
+  // Text-only edits of existing entries (e.g. removing private paths) are allowed; adding, dropping or re-versioning is not.
   // A push run follows the PR run that already enforced this; the post-merge release commit legitimately rewrites changes.json.
   if (!isReleaseBranch(env) && env["GITHUB_EVENT_NAME"] !== "push") {
     for (const file of changedFilesToCheck.filter((path) => /^packages\/.*\/changes\.json$/.test(path))) {
+      if (isTextOnlyChangesEdit(repoRoot, file)) continue;
       violations.push({ file, detail: "direct changes.json edits are forbidden; add structured metadata to a Changeset instead" });
     }
   }
@@ -213,6 +290,20 @@ export function findChangelogViolations(
       violations.push({ file: rel, detail: "root must be an array" });
       continue;
     }
+
+    rawArray.forEach((rawEntry, index) => {
+      if (typeof rawEntry !== "object" || rawEntry === null) return;
+      for (const [field, value] of Object.entries(rawEntry)) {
+        if (typeof value !== "string") continue;
+        const references = findPrivateRepoReferences(value);
+        if (references.length > 0) {
+          violations.push({
+            file: rel,
+            detail: privateRepoDetail(`entry #${index}`, field, references),
+          });
+        }
+      }
+    });
 
     const parsed = parseFeatureChangelog(raw, rel);
     if (!parsed) {

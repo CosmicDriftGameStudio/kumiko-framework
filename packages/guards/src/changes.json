@@ -321,7 +321,7 @@
     "version": "0.282.0",
     "type": "improvement",
     "title": "Port the upgrade-state and runtime-isolation guards",
-    "detail": "guard-upgrade-state and check-runtime-isolation ported from the private infra/guards package into the public @cosmicdrift/kumiko-guards package, rebuilt onto the public RepoCheck pattern with single-repo root resolution. guard-app-dockerfile, guard-doc-status, check-licenses, and check-security stay in infra/guards as CDGS-specific house rules (private registry scope, CDGS doc taxonomy, and CDGS license/security exception files with no equivalent consumer-facing mechanism in the public package) — they were deliberately not ported, not forgotten."
+    "detail": "guard-upgrade-state and check-runtime-isolation ported from the private infra guards package into the public @cosmicdrift/kumiko-guards package, rebuilt onto the public RepoCheck pattern with single-repo root resolution. guard-app-dockerfile, guard-doc-status, check-licenses, and check-security stay in infra guards as CDGS-specific house rules (private registry scope, CDGS doc taxonomy, and CDGS license/security exception files with no equivalent consumer-facing mechanism in the public package) — they were deliberately not ported, not forgotten."
   },
   {
     "version": "0.3.0",
@@ -337,8 +337,8 @@
   {
     "version": "0.3.0",
     "type": "improvement",
-    "title": "Port the last five infra/guards guards",
-    "detail": "app-feature-structure, lib-test-coverage, i18n-locale-terminology, feature-integration-tests, and test-stack-drift ported from the private infra/guards package into the public @cosmicdrift/kumiko-guards package. The latter two were rebuilt from ad-hoc infra scripts onto the public RepoCheck pattern; the other three are literal AstGuard ports."
+    "title": "Port the last five infra guards guards",
+    "detail": "app-feature-structure, lib-test-coverage, i18n-locale-terminology, feature-integration-tests, and test-stack-drift ported from the private infra guards package into the public @cosmicdrift/kumiko-guards package. The latter two were rebuilt from ad-hoc infra scripts onto the public RepoCheck pattern; the other three are literal AstGuard ports."
   },
   {
     "version": "0.3.0",
@@ -348,12 +348,12 @@
   {
     "version": "0.2.0",
     "type": "improvement",
-    "title": "Migrate remaining framework-semantic guards out of infra/guards"
+    "title": "Migrate remaining framework-semantic guards out of infra guards"
   },
   {
     "version": "0.2.0",
     "type": "improvement",
-    "title": "Add runner parity with the private infra/guards package"
+    "title": "Add runner parity with the private infra guards package"
   },
   {
     "version": "0.1.1",
