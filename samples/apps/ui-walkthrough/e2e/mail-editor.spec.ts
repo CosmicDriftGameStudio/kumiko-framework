@@ -3,6 +3,8 @@
 // draft "Korrigierte Rechnung". Serial because every step builds on the saved
 // state of the previous one and the server and database are shared.
 
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import { TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD } from "../src/app/auth-constants";
 import { loginAs } from "./_helpers/login";
@@ -10,8 +12,10 @@ import { loginAs } from "./_helpers/login";
 test.use({ locale: "de-DE", viewport: { width: 1280, height: 820 } });
 test.describe.configure({ mode: "serial" });
 
-const LOGO = "e2e/fixtures/logo-nordlicht.png";
-const PDF = "e2e/fixtures/hausordnung.pdf";
+// CI starts Playwright from the repo root, so fixture paths cannot be cwd-relative.
+const here = dirname(fileURLToPath(import.meta.url));
+const LOGO = resolve(here, "fixtures/logo-nordlicht.png");
+const PDF = resolve(here, "fixtures/hausordnung.pdf");
 
 test("tenant admin edits the invoice mail, attaches files, previews, sends a test mail and publishes", async ({
   page,

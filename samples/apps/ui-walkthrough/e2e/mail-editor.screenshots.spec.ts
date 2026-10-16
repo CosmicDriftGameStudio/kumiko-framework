@@ -4,10 +4,15 @@
 // mail-editor.spec.ts walks its own draft "Korrigierte Rechnung", so nothing
 // here depends on spec order. No test mail is sent from this spec.
 
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
 import { expect, type Page, test } from "@playwright/test";
 import { TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD } from "../src/app/auth-constants";
 import { loginAs } from "./_helpers/login";
+
+// CI starts Playwright from the repo root, so the fixture path cannot be cwd-relative.
+const LOGO = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures/logo-nordlicht.png");
 
 test.use({ locale: "de-DE", viewport: { width: 1280, height: 820 } });
 test.describe.configure({ mode: "serial" });
@@ -32,7 +37,7 @@ async function openEditor(page: Page): Promise<void> {
 test("mail-editor-edit", async ({ page }) => {
   await openEditor(page);
   await page.getByTestId("mail-resource-upload-open").click();
-  await page.setInputFiles("#mail-upload-image", "e2e/fixtures/logo-nordlicht.png");
+  await page.setInputFiles("#mail-upload-image", LOGO);
   await expect(page.getByTestId("mail-resource-row")).toHaveCount(1);
   await shot(page, "mail-editor-edit");
 });

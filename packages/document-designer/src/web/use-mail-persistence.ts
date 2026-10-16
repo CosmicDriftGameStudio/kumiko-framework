@@ -1,7 +1,8 @@
 // @runtime client
 import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { dispatcherErrorText, useMutation, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { useMutation, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { useState } from "react";
+import { errorTextWithFieldIssues } from "./field-issue-text.js";
 import { buildMeta, parseJsonRecord } from "./mail-draft.js";
 import type { MailDraft, TemplateRowView, UpsertResponse } from "./mail-types.js";
 
@@ -44,13 +45,13 @@ export function useMailPersistence(args: {
       ? await upsertSystem.mutate(base)
       : await upsertTenant.mutate({ ...base, status: publish ? "active" : "draft" });
     if (!saved.isSuccess) {
-      setError(dispatcherErrorText(saved.error, t));
+      setError(errorTextWithFieldIssues(saved.error, t));
       return false;
     }
     if (args.isSystemAdmin && publish) {
       const published = await publishSystem.mutate({ id: saved.data.id });
       if (!published.isSuccess) {
-        setError(dispatcherErrorText(published.error, t));
+        setError(errorTextWithFieldIssues(published.error, t));
         return false;
       }
     }
