@@ -13,6 +13,7 @@ import {
   ValidationError,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { escapeHtml } from "@cosmicdrift/kumiko-headless";
 import { createEmailAttachmentReader, createTemplateMailRenderer } from "../delivery/index.js";
 import { fileContextForTenant } from "../file-foundation/index.js";
 import {
@@ -51,7 +52,7 @@ function sampleScalar(name: string, def: TemplateScalarVariableDef): unknown {
     case "text":
       return `[${def.label ?? name}]`;
     case "richText":
-      return `<p>[${def.label ?? name}]</p>`;
+      return `<p>[${escapeHtml(def.label ?? name)}]</p>`;
     case "link":
       return SAMPLE_LINK;
     case "money":
