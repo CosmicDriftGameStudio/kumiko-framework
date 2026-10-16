@@ -47,6 +47,7 @@ const textLikeExample = z.string().optional();
 const scalarVariableSchema = z.discriminatedUnion("type", [
   z.object({ ...variableCommon, type: z.literal("text"), example: textLikeExample }),
   z.object({ ...variableCommon, type: z.literal("link"), example: textLikeExample }),
+  z.object({ ...variableCommon, type: z.literal("richText"), example: textLikeExample }),
   z.object({
     ...variableCommon,
     type: z.literal("money"),

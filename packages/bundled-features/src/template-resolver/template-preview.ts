@@ -50,6 +50,8 @@ function sampleScalar(name: string, def: TemplateScalarVariableDef): unknown {
   switch (def.type) {
     case "text":
       return `[${def.label ?? name}]`;
+    case "richText":
+      return `<p>[${def.label ?? name}]</p>`;
     case "link":
       return SAMPLE_LINK;
     case "money":
