@@ -395,9 +395,9 @@ function denyBeforeTransaction(surface: string): () => never {
   };
 }
 
-// Fail-closed context for a handler's beforeTransaction phase: no transaction is open, so every
-// write or side-effect surface that would commit on its own or outlive a rollback throws.
-export function applyBeforeTransactionReadOnly(handlerContext: HandlerContext): HandlerContext {
+// Reservations write on purpose through the outside-transaction handles, so they keep those but
+// lose every surface bound to the not-yet-open transaction.
+export function denyTransactionBoundSurfaces(handlerContext: HandlerContext): HandlerContext {
   return {
     ...handlerContext,
     write: denyBeforeTransaction("write"),
@@ -410,13 +410,20 @@ export function applyBeforeTransactionReadOnly(handlerContext: HandlerContext): 
     restoreStream: denyBeforeTransaction("restoreStream"),
     snapshotAggregate: denyBeforeTransaction("snapshotAggregate"),
     scheduleAfterCommit: denyBeforeTransaction("scheduleAfterCommit"),
-    dbOutsideTransaction: undefined,
-    outsideTransaction: undefined,
-    forTenant: undefined,
     ...(handlerContext.notify && { notify: denyBeforeTransaction("notify") }),
     ...(handlerContext.jobRunner && {
       jobRunner: denyingJobRunnerProxy(() => beforeTransactionDenied("jobRunner")),
     }),
+  };
+}
+
+// The beforeTransaction phase has no write need at all, so it also loses the outside-transaction handles.
+export function applyBeforeTransactionReadOnly(handlerContext: HandlerContext): HandlerContext {
+  return {
+    ...denyTransactionBoundSurfaces(handlerContext),
+    dbOutsideTransaction: undefined,
+    outsideTransaction: undefined,
+    forTenant: undefined,
   };
 }
 

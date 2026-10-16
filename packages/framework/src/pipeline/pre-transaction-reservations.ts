@@ -7,6 +7,7 @@ import type { BatchCommand, DispatchContext } from "./dispatch-shared.js";
 import {
   applyBeforeTransactionReadOnly,
   buildHandlerContext,
+  denyTransactionBoundSurfaces,
   isMemberResolutionPrincipal,
 } from "./dispatch-shared.js";
 import { wrapToKumiko } from "./dispatcher-utils.js";
@@ -120,7 +121,10 @@ export async function reserveBeforeTransaction(
       let confirmInTransaction: ReservationConfirm | undefined;
       if (handler.reserveBeforeTransaction) {
         const handle = toReservationHandle(
-          await handler.reserveBeforeTransaction(event, handlerContext),
+          await handler.reserveBeforeTransaction(
+            event,
+            denyTransactionBoundSurfaces(handlerContext),
+          ),
         );
         if (handle) releases.push(handle.release);
         confirmInTransaction = handle?.confirmInTransaction;

@@ -36,11 +36,16 @@ const PREPARE_OK = `${FEATURE}:write:prepare-ok`;
 const PREPARE_REJECTED = `${FEATURE}:write:prepare-rejected`;
 const PREPARE_GUARDED = `${FEATURE}:write:prepare-guarded`;
 const PREPARE_WRITES = `${FEATURE}:write:prepare-writes`;
+const RESERVE_WRITES = `${FEATURE}:write:reserve-writes`;
+const RESERVE_APPENDS = `${FEATURE}:write:reserve-appends`;
+const RESERVE_OUTSIDE = `${FEATURE}:write:reserve-outside`;
 const NESTED_OUTER = `${FEATURE}:write:nested-outer`;
 
 const beforeCalls: string[] = [];
 const handlerCalls: string[] = [];
 const releaseCalls: string[] = [];
+const reservationOutsideHandles: boolean[] = [];
+const reservationOutsideReads: number[] = [];
 
 const titlePayload = z.object({ title: z.string(), failInHandler: z.boolean().optional() });
 
@@ -134,6 +139,66 @@ const beforeTxFeature = defineFeature(FEATURE, (r) => {
 
   r.writeHandler(
     defineWriteHandler({
+      name: "reserve-writes",
+      schema: titlePayload,
+      access: { roles: ["Admin"] },
+      reserveBeforeTransaction: async (_event, ctx) => {
+        await ctx.write(`${FEATURE}:write:plain-create`, { title: "sneaky" });
+        return undefined;
+      },
+      handler: async () => {
+        handlerCalls.push("reserve-writes");
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "reserve-appends",
+      schema: titlePayload,
+      access: { roles: ["Admin"] },
+      reserveBeforeTransaction: async (_event, ctx) => {
+        await ctx.unsafeAppendEvent({
+          aggregateId: "00000000-0000-4000-8000-000000000001",
+          aggregateType: "note",
+          type: "note.created",
+          payload: { title: "sneaky" },
+        });
+        return undefined;
+      },
+      handler: async () => {
+        handlerCalls.push("reserve-appends");
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "reserve-outside",
+      schema: titlePayload,
+      access: { roles: ["Admin"] },
+      reserveBeforeTransaction: async (_event, ctx) => {
+        reservationOutsideHandles.push(
+          ctx.dbOutsideTransaction !== undefined,
+          ctx.outsideTransaction !== undefined,
+        );
+        const rows = await ctx.outsideTransaction?.((txDb) =>
+          selectMany<{ title: string }>(txDb, noteTable, {}),
+        );
+        reservationOutsideReads.push(rows?.length ?? -1);
+        return undefined;
+      },
+      handler: async () => {
+        handlerCalls.push("reserve-outside");
+        return { isSuccess: true as const, data: {} };
+      },
+    }),
+  );
+
+  r.writeHandler(
+    defineWriteHandler({
       name: "nested-outer",
       schema: titlePayload,
       access: { roles: ["Admin"] },
@@ -164,6 +229,8 @@ beforeEach(async () => {
   beforeCalls.length = 0;
   handlerCalls.length = 0;
   releaseCalls.length = 0;
+  reservationOutsideHandles.length = 0;
+  reservationOutsideReads.length = 0;
 });
 
 async function noteTitles(): Promise<string[]> {
@@ -235,5 +302,33 @@ describe("beforeTransaction", () => {
     expect(error.message).toContain("ctx.write is not available before the transaction");
     expect(handlerCalls).toEqual([]);
     expect(await noteTitles()).toEqual([]);
+  });
+
+  test("ctx.write inside a reservation throws before either handler runs", async () => {
+    const error = await stack.http.writeErr(RESERVE_WRITES, { title: "sneaky" }, admin);
+
+    expect(error.httpStatus).toBe(500);
+    expect(error.message).toContain("ctx.write is not available before the transaction");
+    expect(handlerCalls).toEqual([]);
+    expect(await noteTitles()).toEqual([]);
+  });
+
+  test("ctx.unsafeAppendEvent inside a reservation throws and persists no event", async () => {
+    const error = await stack.http.writeErr(RESERVE_APPENDS, { title: "sneaky" }, admin);
+
+    expect(error.httpStatus).toBe(500);
+    expect(error.message).toContain(
+      "ctx.unsafeAppendEvent is not available before the transaction",
+    );
+    expect(handlerCalls).toEqual([]);
+    expect(await selectMany(stack.db, eventsTable, {})).toEqual([]);
+  });
+
+  test("a reservation keeps the outside-transaction handles and can read through them", async () => {
+    await stack.http.writeOk(RESERVE_OUTSIDE, { title: "ok" }, admin);
+
+    expect(reservationOutsideHandles).toEqual([true, true]);
+    expect(reservationOutsideReads).toEqual([0]);
+    expect(handlerCalls).toEqual(["reserve-outside"]);
   });
 });
