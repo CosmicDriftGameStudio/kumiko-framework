@@ -5,6 +5,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, templateVariable } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
+import {
   createTestUser,
   setupTestStack,
   type TestStack,
@@ -13,6 +17,10 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  buildMultipartBody,
+  patchFileInstanceofForBunTest,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import * as z from "zod";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
@@ -82,8 +90,11 @@ const adminOf = (id: number) =>
 let stack: TestStack;
 
 beforeAll(async () => {
+  patchFileInstanceofForBunTest();
   stack = await setupTestStack({
+    files: { storageProvider: createInMemoryFileProvider() },
     features: [
+      createFilesFeature(),
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
@@ -382,5 +393,107 @@ describe("template-resolver :: send-test write", () => {
     );
     expect(res.status).toBe(403);
     expect(emailTransport.sent).toHaveLength(0);
+  });
+});
+
+const PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+const PDF_BYTES = new TextEncoder().encode("%PDF-1.4\n1 0 obj<<>>endobj\n%%EOF\n");
+
+async function uploadFile(
+  as: ReturnType<typeof adminOf>,
+  bytes: Uint8Array,
+  file: { name: string; type: string },
+): Promise<string> {
+  const token = await stack.jwt.sign(as);
+  const fd = new FormData();
+  fd.append("file", new File([Buffer.from(bytes)], file.name, { type: file.type }));
+  const { body, contentType } = await buildMultipartBody(fd);
+  const res = await stack.app.request("/api/files", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    body,
+  });
+  expect(res.status).toBe(201);
+  return ((await res.json()) as { id: string }).id;
+}
+
+describe("template-resolver :: preview with a logo and a file attachment", () => {
+  async function storeTemplateWithResources(admin: ReturnType<typeof adminOf>) {
+    const created = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: SLUG,
+        kind: "mail",
+        locale: LOCALE,
+        content:
+          '<p><img data-resource="logo" alt="Logo"></p><p>Rechnung <span data-variable="invoiceNumber"></span></p>',
+        contentFormat: "html",
+        meta: { subject: "Rechnung {{invoiceNumber}}" },
+        variableSchema: {},
+      },
+      admin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceUpload,
+      {
+        sourceFileRefId: await uploadFile(admin, Buffer.from(PNG_BASE64, "base64"), {
+          name: "logo.png",
+          type: "image/png",
+        }),
+        templateId: created.id,
+        key: "logo",
+      },
+      admin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceUpload,
+      {
+        sourceFileRefId: await uploadFile(admin, PDF_BYTES, {
+          name: "offer.pdf",
+          type: "application/pdf",
+        }),
+        templateId: created.id,
+        key: "offer",
+        purpose: "attachment",
+        fileName: "offer.pdf",
+      },
+      admin,
+    );
+  }
+
+  test("displayHtml shows the logo as a data URI while html keeps the cid", async () => {
+    const admin = adminOf(41);
+    await storeTemplateWithResources(admin);
+    const preview = await stack.http.queryOk<
+      Preview & {
+        displayHtml: string;
+        attachments: Array<{ kind: string; name: string; sizeBytes: number }>;
+      }
+    >(TemplateResolverQueries.preview, { slug: SLUG, kind: "mail", locale: LOCALE }, admin);
+    expect(preview.html).toContain("cid:logo");
+    expect(preview.displayHtml).toContain("data:image/");
+    expect(preview.displayHtml).not.toContain("cid:logo");
+    expect(preview.attachments).toContainEqual({
+      kind: "file",
+      name: "offer.pdf",
+      sizeBytes: PDF_BYTES.length,
+    });
+    expect(preview.attachments).toContainEqual(
+      expect.objectContaining({ kind: "inline", name: "logo" }),
+    );
+  });
+
+  test("a test mail carries the file attachment bytes", async () => {
+    const admin = adminOf(42);
+    await storeTemplateWithResources(admin);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.sendTest,
+      { slug: SLUG, locale: LOCALE },
+      admin,
+    );
+    const file = emailTransport.sent[0]?.attachments?.find((a) => a.kind === "file");
+    expect(file).toMatchObject({ kind: "file", fileName: "offer.pdf" });
+    expect(Buffer.from(file?.content ?? [])).toEqual(Buffer.from(PDF_BYTES));
   });
 });

@@ -4294,10 +4294,15 @@
       ],
       "./template-resolver/web": [
         "DocumentContentEditor",
+        "DocumentEditorChrome",
+        "DocumentEditorHandle",
         "DocumentEditorProps",
+        "DocumentResourcePreview",
         "DocumentToolbarBlock",
         "MAIL_DOCUMENT_BLOCKS",
         "PDF_DOCUMENT_BLOCKS",
+        "PlaceholderLineEditor",
+        "PlaceholderLineEditorProps",
         "textBlocksClient"
       ],
       "./renderer-foundation": [
@@ -4309,6 +4314,7 @@
         "DocumentPdfPayload",
         "DocumentPreview",
         "DocumentPreviewRequest",
+        "FileAttachmentRef",
         "ImageOptions",
         "InlineAttachmentRef",
         "MailDraft",
@@ -4326,6 +4332,7 @@
         "RendererFoundationApi",
         "RendererPlugin",
         "RendererRegistrationPlugin",
+        "attachmentFileNameSchema",
         "collectRendererPlugins",
         "createRendererFoundationApi",
         "createRendererFoundationFeature",

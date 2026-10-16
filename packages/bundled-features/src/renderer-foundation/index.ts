@@ -1,3 +1,4 @@
+export { attachmentFileNameSchema } from "../shared/index.js";
 export {
   createRendererFoundationApi,
   type RendererFoundationApi,
@@ -18,6 +19,7 @@ export {
   type DocumentPdfPayload,
   type DocumentPreview,
   type DocumentPreviewRequest,
+  type FileAttachmentRef,
   type ImageOptions,
   type InlineAttachmentRef,
   isRendererRegistrationPlugin,

@@ -70,6 +70,7 @@ export {
 } from "./tables.js";
 export { type CreateDeliveryTestContextOptions, createDeliveryTestContext } from "./testing.js";
 export {
+  type AttachmentOrigin,
   type ChannelContext,
   type ChannelMessage,
   type ChannelResult,

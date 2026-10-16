@@ -7,8 +7,10 @@ import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import type { FileAttachmentRef } from "../renderer-foundation/index.js";
 import type { ContentFormat, TemplateKind } from "./constants.js";
 import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants.js";
+import { fileAttachmentsOf, imageLinksOf, parseLinkedResourceEntries } from "./linked-resources.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 import { parseTemplateMeta, type TemplateMeta } from "./template-meta.js";
 
@@ -26,7 +28,10 @@ export type TemplateResource = {
   readonly content: string;
   readonly contentFormat: ContentFormat;
   readonly variableSchema: Record<string, unknown>;
+  /** Embeddable images: resource key -> fileRef id. */
   readonly linkedResources: Record<string, string>;
+  /** Files attached to every mail rendered from this template, ordered by key. */
+  readonly fileAttachments?: readonly FileAttachmentRef[];
   /** Parsed per kind; null when absent or when the stored JSON no longer
    *  matches the kind's schema (the renderer then fails with a clear error). */
   readonly meta: TemplateMeta | null;
@@ -131,7 +136,6 @@ function toPublic(row: TemplateResourceRow): TemplateResource {
   // @cast-boundary db-row — Drizzle-Schema typisiert kind/contentFormat/
   // scope/status als generic text. CHECK-Constraints in der DB schränken
   // sie auf die Union-Types ein; Cast assertet das Schema-Wissen.
-  // linkedResources ist ein text-column mit JSON-payload (string→string map).
   const kind = row.kind as TemplateKind;
   // @cast-boundary db-row — siehe kind.
   const contentFormat = row.contentFormat as ContentFormat;
@@ -139,9 +143,7 @@ function toPublic(row: TemplateResourceRow): TemplateResource {
   const scope = row.scope as "system" | "tenant";
   // @cast-boundary db-row — siehe kind.
   const status = row.status as "draft" | "active" | "archived";
-  // @cast-boundary db-row — parseJson returnt Record<string, unknown>;
-  // linkedResources-Spalte enthält per Schema {key: signedUrl}-Map.
-  const linkedResources = parseJson(row.linkedResources) as Record<string, string>;
+  const linkedEntries = parseLinkedResourceEntries(row.linkedResources);
   return {
     id: String(row.id),
     version: row.version,
@@ -154,7 +156,8 @@ function toPublic(row: TemplateResourceRow): TemplateResource {
     content: row.content ?? "",
     contentFormat,
     variableSchema: parseJson(row.variableSchema),
-    linkedResources,
+    linkedResources: imageLinksOf(linkedEntries),
+    fileAttachments: fileAttachmentsOf(linkedEntries),
     meta: parseStoredMeta(kind, row.meta),
     scope,
     parentTemplateId: row.parentTemplateId,

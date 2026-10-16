@@ -47,6 +47,7 @@ import {
   readTenantName,
   resolveResourceFileRefs,
 } from "./document-kit.js";
+import { combineMailAttachments } from "./mail-attachments.js";
 import { renderStructuredLayoutMjml } from "./structured-layout.js";
 
 const LINE_BREAKS = /[\r\n]+/g;
@@ -347,8 +348,13 @@ export async function mailHtmlRender(
   const { contentHtml } = body;
   const layoutFileRefs = await resolveLayoutFileRefs(tplApi, ctx, layout);
   const resourceFileRefs = mergeResourceFileRefs(body.resourceFileRefs, layoutFileRefs);
-  const attachments: readonly InlineAttachmentRef[] = [...resourceFileRefs].map(
+  const inlineAttachments: readonly InlineAttachmentRef[] = [...resourceFileRefs].map(
     ([cid, fileRefId]) => ({ kind: "inline", cid, fileRefId }),
+  );
+  const attachments = combineMailAttachments(
+    slug,
+    inlineAttachments,
+    template.fileAttachments ?? [],
   );
   const { subject, previewText } = renderSubjectLines(hbs, meta, slug, context);
 

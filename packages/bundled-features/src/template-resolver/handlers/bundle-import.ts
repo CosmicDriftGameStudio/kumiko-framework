@@ -12,11 +12,19 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { requireForTenant } from "../../shared/index.js";
 import type { TemplateWriteScope } from "../layout-regions.js";
-import { readTemplateResourceMaxBytes, storeTemplateResource } from "../store-template-resource.js";
+import type { LinkedResourceEntry } from "../linked-resources.js";
+import {
+  attachmentLimitFailure,
+  attachmentNeedsMailTemplate,
+  readTemplateResourceMaxBytes,
+  storeBundleAttachment,
+  storeTemplateResource,
+} from "../store-template-resource.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import type { TemplateBundle } from "../template-bundle.js";
 import { attachTemplateResources } from "../template-resources.js";
 import { resolveTemplateVariables } from "../template-validation.js";
+import { MAX_FILE_ATTACHMENTS_PER_TEMPLATE } from "./resource-shared.js";
 import { evaluateTemplateWrite } from "./template-gates.js";
 import {
   refuseTenantScopeUnderSystemTenant,
@@ -86,17 +94,37 @@ async function collectBundleIssues(
 
 async function storeBundleResources(
   args: BundleImport,
-): Promise<WriteResult<Record<string, string>>> {
-  const linked: Record<string, string> = {};
+): Promise<WriteResult<Record<string, LinkedResourceEntry>>> {
+  const linked: Record<string, LinkedResourceEntry> = {};
+  const attachmentCount = Object.values(args.bundle.resources).filter(
+    (resource) => resource.purpose === "attachment",
+  ).length;
+  if (attachmentCount > 0 && args.bundle.kind !== "mail") return attachmentNeedsMailTemplate();
+  if (attachmentCount > MAX_FILE_ATTACHMENTS_PER_TEMPLATE) return attachmentLimitFailure();
   const maxBytes = await readTemplateResourceMaxBytes(args.ctx.config, args.ctx.registry);
   // A bundle is untrusted input like an upload: the same re-encoding decides the stored
   // content type, so a declared image/png can't smuggle SVG or HTML into a mail or PDF.
   for (const [key, resource] of Object.entries(args.bundle.resources)) {
+    const bytes = Uint8Array.from(Buffer.from(resource.base64, "base64"));
+    if (resource.purpose === "attachment") {
+      const attachment = await storeBundleAttachment({
+        ctx: args.ctx,
+        user: args.user,
+        tenantId: args.tenantId,
+        bytes,
+        maxBytes,
+        key,
+        fileName: resource.fileName,
+      });
+      if (!attachment.isSuccess) return attachment;
+      linked[key] = attachment.data;
+      continue;
+    }
     const stored = await storeTemplateResource({
       ctx: args.ctx,
       user: args.user,
       tenantId: args.tenantId,
-      bytes: Uint8Array.from(Buffer.from(resource.base64, "base64")),
+      bytes,
       maxBytes,
       key,
     });

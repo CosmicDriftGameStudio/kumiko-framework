@@ -2,6 +2,7 @@ import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import {
+  type AttachmentOrigin,
   type ChannelContext,
   type ChannelMessage,
   DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
@@ -116,19 +117,21 @@ const INLINE_EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = {
   "image/webp": "webp",
 };
 
+type AttachmentSource = { readonly ref: EmailAttachmentRef; readonly origin: AttachmentOrigin };
+
 async function resolveAttachments(
-  refs: readonly EmailAttachmentRef[],
+  sources: readonly AttachmentSource[],
   ctx: ChannelContext,
 ): Promise<readonly EmailAttachment[]> {
-  if (refs.length === 0) return [];
+  if (sources.length === 0) return [];
   if (ctx.readAttachment === undefined) {
     throw new Error(
       "email channel: the message has attachments but the channel context cannot read files",
     );
   }
   const resolved: EmailAttachment[] = [];
-  for (const ref of refs) {
-    const found = await ctx.readAttachment(ref);
+  for (const { ref, origin } of sources) {
+    const found = await ctx.readAttachment(ref, origin);
     if (ref.kind === "rendered-pdf") {
       if (found === null) {
         throw new Error(`email channel: rendering attachment "${ref.fileName}" returned nothing`);
@@ -217,7 +220,12 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
       const { html, subject, text, attachments } = rendered ?? (await renderMessage(message, ctx));
       const envelope = emailEnvelopeFrom(message.data);
       const resolvedAttachments = await resolveAttachments(
-        [...(attachments ?? []), ...fileAttachmentsFrom(message.data, message.locale)],
+        [
+          ...(attachments ?? []).map((ref): AttachmentSource => ({ ref, origin: "template" })),
+          ...fileAttachmentsFrom(message.data, message.locale).map(
+            (ref): AttachmentSource => ({ ref, origin: "message" }),
+          ),
+        ],
         ctx,
       );
       await transport.send(

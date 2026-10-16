@@ -35,6 +35,13 @@ export type InlineAttachmentRef = {
   readonly fileRefId: string;
 };
 
+// A stored file attached as-is; the send job reads the bytes.
+export type FileAttachmentRef = {
+  readonly kind: "file";
+  readonly fileRefId: string;
+  readonly fileName: string;
+};
+
 export type RenderResponse = (
   | {
       kind: "mail";
@@ -42,7 +49,7 @@ export type RenderResponse = (
       html: string;
       text: string;
       previewText?: string;
-      attachments?: readonly InlineAttachmentRef[];
+      attachments?: readonly (InlineAttachmentRef | FileAttachmentRef)[];
     }
   | {
       kind: "document-pdf";

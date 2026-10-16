@@ -2,7 +2,13 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import {
+  isFileAttachmentEntry,
+  type LinkedResourceEntry,
+  parseLinkedResourceEntries,
+} from "../linked-resources.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import type { TemplateBundle } from "../template-bundle.js";
 import { readTemplateResource } from "../template-resources.js";
 import { kindSchema, templateSlugSchema } from "./shared.js";
 import { parseStoredJson, storedRecord } from "./template-gates.js";
@@ -33,28 +39,28 @@ export const exportBundleQuery = defineQueryHandler({
     if (!first) throw new NotFoundError("template-resource", slug);
 
     const locales: Record<string, { body: string; meta?: unknown }> = {};
-    const fileRefIdByKey = new Map<string, string>();
+    const entryByKey = new Map<string, LinkedResourceEntry>();
     for (const row of rows) {
       const meta = parseStoredJson(row.meta);
       locales[row.locale] = { body: row.content ?? "", ...(meta === undefined ? {} : { meta }) };
-      for (const [key, fileRefId] of Object.entries(storedRecord(row.linkedResources))) {
-        if (typeof fileRefId === "string" && !fileRefIdByKey.has(key)) {
-          fileRefIdByKey.set(key, fileRefId);
-        }
+      for (const [key, entry] of Object.entries(parseLinkedResourceEntries(row.linkedResources))) {
+        if (!entryByKey.has(key)) entryByKey.set(key, entry);
       }
     }
 
-    const resources: Record<string, { fileName: string; contentType: string; base64: string }> = {};
-    for (const [key, fileRefId] of fileRefIdByKey) {
+    const resources: TemplateBundle["resources"] = {};
+    for (const [key, entry] of entryByKey) {
+      const attachment = isFileAttachmentEntry(entry);
       const file = await readTemplateResource(
         { db: ctx.db, files: ctx.files, user: query.user },
-        fileRefId,
+        attachment ? entry.fileRefId : entry,
       );
       if (!file) throw new NotFoundError("template-resource-file", key);
       resources[key] = {
-        fileName: file.fileName,
+        fileName: attachment ? entry.fileName : file.fileName,
         contentType: file.contentType,
         base64: Buffer.from(file.bytes).toString("base64"),
+        ...(attachment && { purpose: "attachment" as const }),
       };
     }
 

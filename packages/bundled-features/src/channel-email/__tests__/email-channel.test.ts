@@ -285,6 +285,25 @@ describe("email channel attachments", () => {
     ]);
   });
 
+  test("notify-data file refs are read with origin message, template file refs with origin template", async () => {
+    const origins: Record<string, string | undefined> = {};
+    const templateRef = {
+      kind: "file" as const,
+      fileRefId: "0190c000-0000-7000-8000-000000000002",
+      fileName: "agb.pdf",
+    };
+    await channelWith(createInMemoryTransport()).send(
+      "u@example.com",
+      baseMessage,
+      withReader(async (ref, origin) => {
+        if (ref.kind === "file") origins[ref.fileName] = origin;
+        return { content: bytes, contentType: "application/pdf" };
+      }),
+      { ...rendered, attachments: [templateRef] },
+    );
+    expect(origins).toEqual({ "agb.pdf": "template", "rechnung.pdf": "message" });
+  });
+
   test("an inline ref from the renderer is named after its cid and content type", async () => {
     const transport = createInMemoryTransport();
     await channelWith(transport).send(

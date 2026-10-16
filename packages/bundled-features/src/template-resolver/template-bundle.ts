@@ -30,6 +30,8 @@ const bundleResourceSchema = z
     fileName: bundleFileNameSchema,
     contentType: z.string().max(100).regex(CONTENT_TYPE, "content type must be type/subtype"),
     base64: z.string().max(MAX_BASE64_LENGTH).regex(STRICT_BASE64, "base64 is not valid"),
+    // Absent means an image the body embeds; "attachment" is a file attached to the mail.
+    purpose: z.enum(["attachment"]).optional(),
   })
   .strict();
 

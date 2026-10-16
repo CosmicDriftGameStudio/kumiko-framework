@@ -265,7 +265,6 @@ export const documentExtensions: Extensions = [
     code: false,
     codeBlock: false,
     strike: false,
-    underline: false,
     horizontalRule: false,
     dropcursor: false,
     gapcursor: false,

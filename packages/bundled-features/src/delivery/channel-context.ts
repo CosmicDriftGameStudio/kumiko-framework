@@ -13,7 +13,7 @@ import {
 } from "../renderer-foundation/index.js";
 import { FALLBACK_LOCALE } from "../template-resolver/index.js";
 import type { EmailAttachmentRef, RenderedPdfAttachmentRef } from "./attachment-ref.js";
-import type { ChannelContext, RenderedMail } from "./types.js";
+import type { AttachmentOrigin, ChannelContext, RenderedMail } from "./types.js";
 
 export function createTemplateMailRenderer(
   db: DbConnection | TenantDb,
@@ -82,9 +82,10 @@ function createPdfRenderer(
   };
 }
 
-// Inline images may come from the system tenant (system template or tenant override of
-// one); file attachments only from the job's own tenant. Inline content that is not an
-// image is dropped, so a swapped fileRef id cannot smuggle a document into the mail body.
+// Inline images and file attachments the renderer took from a template may come from the system
+// tenant (system template or tenant override of one). A file ref from notify data stays limited to
+// the job's own tenant, since a caller picks it. Inline content that is not an image is dropped, so
+// a swapped fileRef id cannot smuggle a document into the mail body.
 export function createEmailAttachmentReader(
   db: DbConnection | TenantDb,
   registry: Registry,
@@ -93,13 +94,14 @@ export function createEmailAttachmentReader(
   filesForTenant: (tenantId: string) => FileContext | undefined,
 ): NonNullable<ChannelContext["readAttachment"]> {
   const renderPdf = createPdfRenderer(db, registry, tenantId, config, filesForTenant);
-  return async (ref: EmailAttachmentRef) => {
+  return async (ref: EmailAttachmentRef, origin: AttachmentOrigin = "message") => {
     if (ref.kind === "rendered-pdf") return renderPdf(ref);
     const found = await readFileRefContent({
       db,
       filesForTenant,
       fileRefId: ref.fileRefId,
-      allowedTenantIds: ref.kind === "inline" ? [tenantId, SYSTEM_TENANT_ID] : [tenantId],
+      allowedTenantIds:
+        ref.kind === "file" && origin === "message" ? [tenantId] : [tenantId, SYSTEM_TENANT_ID],
     });
     if (found === null) return null;
     if (ref.kind === "inline" && !found.contentType.startsWith(INLINE_IMAGE_CONTENT_TYPE_PREFIX)) {

@@ -3,8 +3,9 @@ import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.js";
+import { parseLinkedResourceEntries } from "../linked-resources.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { parseLinkedResources, resourceKeySchema } from "./resource-shared.js";
+import { resourceKeySchema } from "./resource-shared.js";
 import { executor } from "./shared.js";
 
 // The FileRef itself stays: copy-locale and tenant overrides can share ids and there is
@@ -19,7 +20,7 @@ export const resourceRemoveWrite = defineWriteHandler({
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Unlinks an image resource key from a template; removing a key the template does not have succeeds without a change.",
+    "Unlinks a resource key from a template, whether it holds an image or an attached file; removing a key the template does not have succeeds without a change.",
   handler: async (event, ctx) => {
     const { templateId, key } = event.payload;
     // @cast-boundary engine-payload — override is a zod-validated string; forTenant
@@ -32,7 +33,7 @@ export const resourceRemoveWrite = defineWriteHandler({
     });
     if (row === undefined) return writeFailure(new NotFoundError("template-resource", templateId));
 
-    const { [key]: removed, ...remaining } = parseLinkedResources(row.linkedResources);
+    const { [key]: removed, ...remaining } = parseLinkedResourceEntries(row.linkedResources);
     if (removed === undefined) return { isSuccess: true as const, data: { key, removed: false } };
 
     const updated = await executor.update(
