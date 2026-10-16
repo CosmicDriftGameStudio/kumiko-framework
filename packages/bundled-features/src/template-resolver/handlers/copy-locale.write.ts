@@ -17,6 +17,7 @@ import { CONTENT_FORMATS } from "../constants.js";
 import { parseLinkedResourceEntries } from "../linked-resources.js";
 import { TemplateResolverErrors } from "../qualified-names.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { toWorkingRow } from "../template-draft.js";
 import { attachTemplateResources } from "../template-resources.js";
 import { resolveTemplateVariables } from "../template-validation.js";
 import { targetExistsIssue } from "./bundle-import.js";
@@ -89,7 +90,14 @@ export const copyLocaleWrite = defineWriteHandler({
     if (refused !== null) return refused;
 
     const readDb = readDbFor(ctx, scope);
-    const source = await findCopySource(ctx, { scope, tenantId, slug, kind, locale: fromLocale });
+    const storedSource = await findCopySource(ctx, {
+      scope,
+      tenantId,
+      slug,
+      kind,
+      locale: fromLocale,
+    });
+    const source = storedSource && toWorkingRow(storedSource);
     if (!source || !isOneOf(CONTENT_FORMATS, source.contentFormat)) {
       return writeFailure(new NotFoundError("template-resource", `${slug}/${fromLocale}`));
     }

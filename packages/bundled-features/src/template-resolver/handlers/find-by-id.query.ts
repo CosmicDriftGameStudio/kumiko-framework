@@ -2,6 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { toWorkingRow } from "../template-draft.js";
 
 // Admin-Lookup für UI-Edit-Flow. Returnt das raw Template inkl. draft/
 // archived Status. Tenant-Isolation: User sieht nur Templates des
@@ -13,12 +14,13 @@ export const findByIdQuery = defineQueryHandler({
   schema: z.object({ id: z.string().min(1) }),
   access: { roles: ["TenantAdmin", "SystemAdmin", "User"] },
   description:
-    "Reads one template resource by row id with its content, variable schema, scope and draft/archived status, but only when it belongs to the caller's tenant or is a system default; use it to load a template into the admin editor.",
+    "Reads the version of one template resource an editor works on, by row id: the open draft if there is one (status draft), else the stored version, with content, variable schema and scope, but only when it belongs to the caller's tenant or is a system default; `active` is the version number and since-time the resolver serves, null when none is served. Use it to load a template into the admin editor.",
   handler: async (query, ctx) => {
-    const row = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
+    const stored = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
       id: query.payload.id,
     });
-    if (!row) return null;
+    if (!stored) return null;
+    const row = toWorkingRow(stored);
     const isOwnTenant = row.tenantId === query.user.tenantId;
     const isSystemTemplate = row.scope === "system";
     if (!isOwnTenant && !isSystemTemplate) return null;
@@ -39,6 +41,7 @@ export const findByIdQuery = defineQueryHandler({
       parentTemplateId: row.parentTemplateId,
       status: row.status,
       modifiedAt: row.modifiedAt,
+      active: row.active,
     };
   },
 });

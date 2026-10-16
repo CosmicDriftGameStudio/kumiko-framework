@@ -137,10 +137,12 @@ upsertSystem  ──┐
                 ├──► status: "active" (System-Default sofort aktiv)
 upsertTenant  ──┴──► status: "draft" (Default) | "active" (explizit)
 
-publish ───────► status: "active"
+publish ───────► status: "active" (übernimmt einen offenen Entwurf)
 archive ───────► status: "archived"
+discardDraft ──► verwirft den Entwurf neben der aktiven Fassung
 ```
 
+Ein Entwurf über einer aktiven Zeile (`upsertTenant` ohne `status`, `copy-locale`, `import-bundle`) liegt als JSON in `draft` neben der Zeile; die Hauptfelder bleiben die ausgelieferte Fassung. `find-by-id` und `layout-source` liefern die Arbeitsfassung (Entwurf, sonst gespeichert) mit `active { version, since }`.
 Resolver returnt **nur** Templates mit `status: "active"`. draft/archived werden ignoriert.
 
 ## Consumer Conformance

@@ -2355,6 +2355,21 @@
           "name": "status",
           "pgType": "text",
           "notNull": true
+        },
+        {
+          "name": "draft",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "active_version",
+          "pgType": "integer",
+          "notNull": false
+        },
+        {
+          "name": "active_since",
+          "pgType": "timestamptz",
+          "notNull": false
         }
       ],
       "indexes": [

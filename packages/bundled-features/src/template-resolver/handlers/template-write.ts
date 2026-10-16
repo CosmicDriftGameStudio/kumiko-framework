@@ -17,6 +17,7 @@ import { requireForTenant } from "../../shared/index.js";
 import type { ContentFormat, TemplateKind } from "../constants.js";
 import type { TemplateWriteScope } from "../layout-regions.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { activationChanges, serializeTemplateDraft } from "../template-draft.js";
 import type { TemplateValidation } from "../template-validation.js";
 import { executor } from "./shared.js";
 import {
@@ -96,6 +97,42 @@ export function gateTemplateWrite(
   return { ok: true, evaluated };
 }
 
+type TemplateRowFields = {
+  readonly content: string | null;
+  readonly contentFormat: ContentFormat;
+  readonly variableSchema: string;
+  readonly meta: string | null;
+  readonly title: string | null;
+  readonly folder: string | null;
+  readonly parentTemplateId: string | null;
+};
+
+// A draft over an active row is stored beside it; every other write replaces the main fields.
+function updateChanges(
+  existing: TemplateResourceRow,
+  status: "draft" | "active",
+  fields: TemplateRowFields,
+): Record<string, unknown> {
+  if (status === "active") return { ...fields, ...activationChanges(existing) };
+  if (existing.status !== "active") return { ...fields, status, draft: null };
+  const draft = serializeTemplateDraft({
+    content: fields.content,
+    contentFormat: fields.contentFormat,
+    variableSchema: fields.variableSchema,
+    meta: fields.meta,
+    title: fields.title,
+    folder: fields.folder,
+    parentTemplateId: fields.parentTemplateId,
+  });
+  return existing.activeVersion === null
+    ? {
+        draft,
+        activeVersion: existing.version,
+        activeSince: existing.modifiedAt ?? existing.insertedAt,
+      }
+    : { draft };
+}
+
 // Shared by every template write: validate through the one pipeline, then
 // create or update the (tenant, slug, kind, locale) row via the event-store
 // executor. linkedResources is never part of an update; resources are attached
@@ -146,7 +183,11 @@ export async function writeTemplateRow(
 
   if (existing) {
     const result = await executor.update(
-      { id: existing.id, version: existing.version, changes: fields },
+      {
+        id: existing.id,
+        version: existing.version,
+        changes: updateChanges(existing, status, fields),
+      },
       user,
       db,
       { streamTenantId },
@@ -163,9 +204,18 @@ export async function writeTemplateRow(
     };
   }
 
-  const result = await executor.create({ ...fields, linkedResources: "{}", tenantId }, user, db, {
-    streamTenantId,
-  });
+  const result = await executor.create(
+    {
+      ...fields,
+      linkedResources: "{}",
+      tenantId,
+      draft: null,
+      ...(status === "active" ? activationChanges(null) : {}),
+    },
+    user,
+    db,
+    { streamTenantId },
+  );
   if (!result.isSuccess) return result;
   // @cast-boundary db-row — executor.create returnt Record-row aus
   // INSERT RETURNING; shape { id } ist garantiert weil PK in der

@@ -3,6 +3,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { DEFAULT_MAIL_LAYOUT_SLUG, FALLBACK_LOCALE, type TemplateStatus } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { activeSinceOf, activeVersionOf, parseTemplateDraft } from "../template-draft.js";
 import { collectTemplateUsage } from "../template-usage.js";
 import { storedRecord } from "./template-gates.js";
 
@@ -31,6 +32,8 @@ export type OverviewRow = {
   readonly locales: readonly string[];
   readonly status: TemplateStatus;
   readonly version: number;
+  readonly draftVersion: number | null;
+  readonly activeSince: string | null;
   readonly systemVersion: number | null;
   readonly layoutSlug: string | null;
   readonly modifiedAt: string;
@@ -140,6 +143,7 @@ function buildDrafts(groups: ReadonlyMap<string, readonly TemplateResourceRow[]>
     const systemSameLocale = groupRows.find(
       (row) => row.scope === "system" && row.locale === preferred.locale,
     );
+    const isActive = preferred.status === "active";
     const isDocument = preferred.kind === "mail" || preferred.kind === "document-pdf";
     const layoutSlug = isDocument ? layoutSlugOf(preferred) : null;
     if (layoutSlug !== null && preferred.kind === "document-pdf") {
@@ -154,8 +158,10 @@ function buildDrafts(groups: ReadonlyMap<string, readonly TemplateResourceRow[]>
       origin: effective.origin,
       locales: [...new Set(effective.rows.map((row) => row.locale))].sort(),
       status: preferred.status,
-      version: preferred.version,
-      systemVersion: systemSameLocale?.version ?? null,
+      version: isActive ? activeVersionOf(preferred) : preferred.version,
+      draftVersion: parseTemplateDraft(preferred.draft) === null ? null : preferred.version,
+      activeSince: isActive ? activeSinceOf(preferred).toString() : null,
+      systemVersion: systemSameLocale === undefined ? null : activeVersionOf(systemSameLocale),
       layoutSlug,
       modifiedAt: modifiedAtOf(preferred),
     });
@@ -219,7 +225,7 @@ export const overviewQuery = defineQueryHandler({
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant: where the effective version comes from (own override or system), its locales, status and version, the system version it overrides, the layout it uses and which notifications or templates use it; use it to browse and filter all templates at a glance.",
+    "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant: where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; use it to browse and filter all templates at a glance.",
   handler: async (query, ctx) => {
     const payload = query.payload;
     const rows = await selectMany<TemplateResourceRow>(

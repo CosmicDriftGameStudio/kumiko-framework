@@ -86,6 +86,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.errors.collection.kindNotAllowed":
       "“{detail}” templates are written through their own editor, not through a collection.",
     "templateResolver.errors.noSystemTemplate": "There is no active system template to reset to.",
+    "templateResolver.errors.noDraft": "There is no draft to discard.",
     "templateResolver.errors.template.invalidMeta": "The template settings are invalid.",
     "templateResolver.errors.template.meta.subject.required": "The subject is missing.",
     "templateResolver.errors.template.meta.subject.invalid":

@@ -18,6 +18,7 @@ import {
   type TemplatePdfAttachmentLink,
 } from "./linked-resources.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
+import { activeVersionOf } from "./template-draft.js";
 import { parseTemplateMeta, type TemplateMeta } from "./template-meta.js";
 
 // Public TemplateResource: what consumers see. Hides DB-internal columns
@@ -161,7 +162,7 @@ function pickActiveLayoutRow(
 ): TemplateResourceRow | null {
   const active = rows
     .filter((row) => row.status === "active")
-    .sort((a, b) => b.version - a.version || a.locale.localeCompare(b.locale));
+    .sort((a, b) => activeVersionOf(b) - activeVersionOf(a) || a.locale.localeCompare(b.locale));
   return (
     active.find((row) => row.locale === locale) ??
     active.find((row) => row.locale === FALLBACK_LOCALE) ??

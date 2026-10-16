@@ -1148,6 +1148,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Las plantillas «{detail}» se editan en su propio editor, no mediante una colección.",
   "templateResolver.errors.noSystemTemplate":
     "No hay una plantilla de sistema activa a la que volver.",
+  "templateResolver.errors.noDraft": "No hay ningún borrador que descartar.",
   "templateResolver.errors.template.invalidMeta": "Los ajustes de la plantilla no son válidos.",
   "templateResolver.errors.template.meta.subject.required": "Falta el asunto.",
   "templateResolver.errors.template.meta.subject.invalid":

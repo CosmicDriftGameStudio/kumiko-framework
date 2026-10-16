@@ -1154,6 +1154,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "„{detail}“-Vorlagen werden im eigenen Editor gepflegt, nicht über eine Sammlung.",
   "templateResolver.errors.noSystemTemplate":
     "Es gibt keine aktive Systemvorlage, auf die zurückgesetzt werden könnte.",
+  "templateResolver.errors.noDraft": "Es gibt keinen Entwurf, der verworfen werden könnte.",
   "templateResolver.errors.template.invalidMeta": "Die Vorlageneinstellungen sind ungültig.",
   "templateResolver.errors.template.meta.subject.required": "Der Betreff fehlt.",
   "templateResolver.errors.template.meta.subject.invalid":
