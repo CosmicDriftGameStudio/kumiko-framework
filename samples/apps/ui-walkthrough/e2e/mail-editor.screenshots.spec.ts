@@ -54,5 +54,16 @@ test("mail-editor-edit-en-missing", async ({ page }) => {
   await openEditor(page);
   await page.getByTestId("mail-locale-switch").getByText("en", { exact: true }).click();
   await expect(page.getByTestId("mail-origin-bar")).toHaveAttribute("data-variant", "warn");
+  // Without status badges the actions must still sit on their own row, unwrapped.
+  const title = await page.getByTestId("document-designer-editor-title").boundingBox();
+  const testMail = await page.getByTestId("mail-test-mail-header").boundingBox();
+  const publish = await page.getByTestId("mail-header-publish").boundingBox();
+  expect(title).not.toBeNull();
+  expect(testMail).not.toBeNull();
+  expect(publish).not.toBeNull();
+  if (title !== null && testMail !== null && publish !== null) {
+    expect(testMail.y).toBeGreaterThanOrEqual(title.y + title.height);
+    expect(publish.y).toBe(testMail.y);
+  }
   await shot(page, "mail-editor-edit-en-missing");
 });

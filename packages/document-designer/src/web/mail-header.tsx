@@ -44,74 +44,78 @@ export function MailHeader({
   const { Button, Heading, Link, Text } = usePrimitives();
   const status = row === null ? null : asRowStatus(row.status);
   return (
-    <div className="flex flex-wrap items-center gap-3" data-testid="mail-editor-header">
-      <Link href="#" onPress={onBack} testId="document-designer-back">
-        {t("documentDesigner.editor.crumb")}
-      </Link>
-      <Text variant="muted">›</Text>
-      <Heading variant="page" testId="document-designer-editor-title">
-        {title}
-      </Heading>
-      {row !== null && status !== null && (
-        <>
-          <StatusBadge tone={statusTone(status)} testId="document-designer-editor-status">
-            {statusLabel(t, status, row.version)}
-          </StatusBadge>
-          <StatusBadge
-            tone={row.scope === "tenant" ? "accent" : "muted"}
-            testId="document-designer-editor-origin"
-          >
-            {t(
-              row.scope === "tenant"
-                ? "documentDesigner.origin.tenant"
-                : "documentDesigner.origin.system",
-            )}
-          </StatusBadge>
-        </>
-      )}
-      <div className="grow" />
-      <ModeSwitch<string>
-        value={locale}
-        onChange={onLocale}
-        ariaLabel={t("documentDesigner.mail.header.localeSwitch")}
-        testId="mail-locale-switch"
-        options={locales.map((code) => ({ value: code, label: code }))}
-      />
-      <ModeSwitch<EditorMode>
-        value={mode}
-        onChange={onMode}
-        ariaLabel={t("documentDesigner.mail.header.modeSwitch")}
-        testId="mail-mode-switch"
-        options={[
-          { value: "edit", label: t("documentDesigner.mail.header.edit") },
-          { value: "preview", label: t("documentDesigner.mail.header.preview") },
-        ]}
-      />
-      <Button
-        variant="secondary"
-        disabled={testPending}
-        loading={testPending}
-        onClick={onTestMail}
-        testId="mail-test-mail-header"
-      >
-        {t("documentDesigner.mail.header.testMail")}
-      </Button>
-      <Button
-        variant="secondary"
-        disabled={!actions.canSave}
-        loading={actions.busy}
-        onClick={actions.onSave}
-        testId="mail-header-save"
-      >
-        {t("documentDesigner.editor.save")}
-      </Button>
-      <Button
-        disabled={!actions.canPublish}
-        onClick={actions.onPublish}
-        testId="mail-header-publish"
-      >
-        {t("documentDesigner.editor.publish")}
-      </Button>
+    <div className="flex flex-col gap-3" data-testid="mail-editor-header">
+      <div className="flex flex-wrap items-center gap-3">
+        <Link href="#" onPress={onBack} testId="document-designer-back">
+          {t("documentDesigner.editor.crumb")}
+        </Link>
+        <Text variant="muted">›</Text>
+        <Heading variant="page" testId="document-designer-editor-title">
+          {title}
+        </Heading>
+        {row !== null && status !== null && (
+          <>
+            <StatusBadge tone={statusTone(status)} testId="document-designer-editor-status">
+              {statusLabel(t, status, row.version)}
+            </StatusBadge>
+            <StatusBadge
+              tone={row.scope === "tenant" ? "accent" : "muted"}
+              testId="document-designer-editor-origin"
+            >
+              {t(
+                row.scope === "tenant"
+                  ? "documentDesigner.origin.tenant"
+                  : "documentDesigner.origin.system",
+              )}
+            </StatusBadge>
+          </>
+        )}
+        <div className="grow" />
+        <ModeSwitch<string>
+          value={locale}
+          onChange={onLocale}
+          ariaLabel={t("documentDesigner.mail.header.localeSwitch")}
+          testId="mail-locale-switch"
+          options={locales.map((code) => ({ value: code, label: code }))}
+        />
+        <ModeSwitch<EditorMode>
+          value={mode}
+          onChange={onMode}
+          ariaLabel={t("documentDesigner.mail.header.modeSwitch")}
+          testId="mail-mode-switch"
+          options={[
+            { value: "edit", label: t("documentDesigner.mail.header.edit") },
+            { value: "preview", label: t("documentDesigner.mail.header.preview") },
+          ]}
+        />
+      </div>
+      <div className="flex items-center gap-3" data-testid="mail-editor-header-actions">
+        <Button
+          variant="secondary"
+          disabled={testPending}
+          loading={testPending}
+          onClick={onTestMail}
+          testId="mail-test-mail-header"
+        >
+          {t("documentDesigner.mail.header.testMail")}
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={!actions.canSave}
+          loading={actions.busy}
+          onClick={actions.onSave}
+          testId="mail-header-save"
+        >
+          {t("documentDesigner.editor.save")}
+        </Button>
+        <Button
+          disabled={!actions.canPublish}
+          onClick={actions.onPublish}
+          testId="mail-header-publish"
+        >
+          {t("documentDesigner.editor.publish")}
+        </Button>
+      </div>
     </div>
   );
 }
