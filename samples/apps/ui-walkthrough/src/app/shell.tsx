@@ -5,6 +5,7 @@
 import {
   TenantMenuItems,
   UserMenu,
+  useSession,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import {
   type AppSchema,
@@ -47,10 +48,14 @@ export function AppShell({
   readonly schema: AppSchema;
 }): ReactNode {
   const t = useTranslation();
+  const session = useSession();
+  // Without the user the shell hides role-gated navs and KumikoScreen denies role-gated screens.
+  const user = session.user !== null ? { id: session.user.id, roles: session.roles } : undefined;
   return (
     <DefaultAppShell
       brand={<SidebarBrand name={APP_NAME} plan={t("tasks.shell.tagline")} />}
       schema={schema}
+      {...(user !== undefined && { user })}
       headerActions={
         <>
           <AssistantAction />
