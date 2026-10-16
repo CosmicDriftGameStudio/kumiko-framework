@@ -5,16 +5,25 @@ export type LatestRelease = {
   readonly publishedAt: string;
 };
 
+export type DeprecationLookup =
+  | { readonly kind: "deprecated"; readonly message: string }
+  | { readonly kind: "current" }
+  | { readonly kind: "unknown"; readonly reason: string };
+
 export type RegistryClient = {
-  /** Deprecation message for one exact version; `null` when not deprecated or the registry could not answer. */
-  deprecatedMessage(name: string, version: string): Promise<string | null>;
+  /** Deprecation status of one exact version; `unknown` when the registry could not answer. */
+  deprecation(name: string, version: string): Promise<DeprecationLookup>;
   /** Latest dist-tag with its publish date; `null` when unknown. */
   latestRelease(name: string): Promise<LatestRelease | null>;
 };
 
 const BUN_INFO_TIMEOUT_MS = 30_000;
 
-async function bunInfoJson(cwd: string, args: readonly string[]): Promise<unknown> {
+export type BunInfoResult =
+  | { readonly ok: true; readonly exitCode: number; readonly value: unknown }
+  | { readonly ok: false; readonly reason: string };
+
+async function bunInfoJson(cwd: string, args: readonly string[]): Promise<BunInfoResult> {
   try {
     const proc = Bun.spawn(["bun", "info", ...args, "--json"], {
       cwd,
@@ -22,12 +31,18 @@ async function bunInfoJson(cwd: string, args: readonly string[]): Promise<unknow
       stderr: "pipe",
       timeout: BUN_INFO_TIMEOUT_MS,
     });
-    const [out, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-    if (exitCode !== 0 || out.trim() === "") return null;
-    return JSON.parse(out);
-  } catch {
-    // Unreachable registry or unparsable output means "unknown" — never a false finding.
-    return null;
+    const [out, err, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+    if (out.trim() === "") {
+      const firstErrorLine = err.trim().split("\n")[0];
+      return { ok: false, reason: firstErrorLine || `bun info exited ${exitCode} without output` };
+    }
+    return { ok: true, exitCode, value: JSON.parse(out) };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -35,34 +50,51 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+// `bun info <pkg>@<v> deprecated` answers a version without the field with exit 1 and {"error":"Property not found"}.
+function isPropertyNotFound(value: unknown): boolean {
+  return isRecord(value) && value["error"] === "Property not found";
+}
+
+export function interpretDeprecationLookup(result: BunInfoResult): DeprecationLookup {
+  if (!result.ok) return { kind: "unknown", reason: result.reason };
+  if (isPropertyNotFound(result.value)) return { kind: "current" };
+  if (result.exitCode === 0 && typeof result.value === "string") {
+    return result.value === ""
+      ? { kind: "current" }
+      : { kind: "deprecated", message: result.value };
+  }
+  return { kind: "unknown", reason: `unexpected bun info answer (exit ${result.exitCode})` };
+}
+
 /** `cwd` must contain a package.json — `bun info` refuses to run without one. */
 export function createBunInfoClient(cwd: string): RegistryClient {
   return {
-    async deprecatedMessage(name, version) {
-      const value = await bunInfoJson(cwd, [`${name}@${version}`, "deprecated"]);
-      return typeof value === "string" && value !== "" ? value : null;
+    async deprecation(name, version) {
+      return interpretDeprecationLookup(
+        await bunInfoJson(cwd, [`${name}@${version}`, "deprecated"]),
+      );
     },
     async latestRelease(name) {
       const version = await bunInfoJson(cwd, [name, "dist-tags.latest"]);
-      if (typeof version !== "string") return null;
+      if (!version.ok || version.exitCode !== 0 || typeof version.value !== "string") return null;
       const time = await bunInfoJson(cwd, [name, "time"]);
-      const publishedAt = isRecord(time) ? time[version] : undefined;
-      return typeof publishedAt === "string" ? { version, publishedAt } : null;
+      const publishedAt = time.ok && isRecord(time.value) ? time.value[version.value] : undefined;
+      return typeof publishedAt === "string" ? { version: version.value, publishedAt } : null;
     },
   };
 }
 
 /** Memoizes per call key, so a package listed twice costs one lookup. */
 export function memoizeRegistryClient(client: RegistryClient): RegistryClient {
-  const deprecated = new Map<string, Promise<string | null>>();
+  const deprecation = new Map<string, Promise<DeprecationLookup>>();
   const latest = new Map<string, Promise<LatestRelease | null>>();
   return {
-    deprecatedMessage(name, version) {
+    deprecation(name, version) {
       const key = `${name}@${version}`;
-      const cached = deprecated.get(key);
+      const cached = deprecation.get(key);
       if (cached) return cached;
-      const pending = client.deprecatedMessage(name, version);
-      deprecated.set(key, pending);
+      const pending = client.deprecation(name, version);
+      deprecation.set(key, pending);
       return pending;
     },
     latestRelease(name) {

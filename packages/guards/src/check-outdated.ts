@@ -26,16 +26,43 @@ type NameAndVersion = { readonly name: string; readonly version: string };
 
 export type DeprecatedPackage = NameAndVersion & { readonly message: string };
 
+export type UnresolvedPackage = NameAndVersion & { readonly reason: string };
+
+export type DeprecationScan = {
+  readonly deprecated: DeprecatedPackage[];
+  readonly unresolved: UnresolvedPackage[];
+};
+
 export async function findDeprecatedPackages(
   packages: readonly NameAndVersion[],
   registry: RegistryClient,
-): Promise<DeprecatedPackage[]> {
+): Promise<DeprecationScan> {
   const unique = [...new Map(packages.map((pkg) => [`${pkg.name}@${pkg.version}`, pkg])).values()];
-  const results = await mapWithConcurrency(unique, REGISTRY_CONCURRENCY, async (pkg) => {
-    const message = await registry.deprecatedMessage(pkg.name, pkg.version);
-    return message ? { name: pkg.name, version: pkg.version, message } : null;
-  });
-  return results.filter((r): r is DeprecatedPackage => r !== null);
+  const lookups = await mapWithConcurrency(unique, REGISTRY_CONCURRENCY, async (pkg) => ({
+    pkg,
+    lookup: await registry.deprecation(pkg.name, pkg.version),
+  }));
+  const deprecated: DeprecatedPackage[] = [];
+  const unresolved: UnresolvedPackage[] = [];
+  for (const { pkg, lookup } of lookups) {
+    if (lookup.kind === "deprecated") deprecated.push({ ...pkg, message: lookup.message });
+    else if (lookup.kind === "unknown") unresolved.push({ ...pkg, reason: lookup.reason });
+  }
+  return { deprecated, unresolved };
+}
+
+function printUnresolved(
+  scope: string,
+  unresolved: readonly UnresolvedPackage[],
+  total: number,
+): void {
+  console.error(
+    `\n  WARNING: deprecation status UNKNOWN for ${unresolved.length} of ${total} ${scope} — the registry did not answer, so these were NOT checked:`,
+  );
+  for (const pkg of unresolved.slice(0, 10)) {
+    console.error(`    ${pkg.name}@${pkg.version}  — ${pkg.reason}`);
+  }
+  if (unresolved.length > 10) console.error(`    … and ${unresolved.length - 10} more`);
 }
 
 // A spec that is not a plain semver range (workspace:, catalog:, a git URL, "latest") has nothing to compare against; matching it by name alone can only over-report, never hide a deprecated package.
@@ -109,6 +136,48 @@ async function printMajorLagReport(
   }
 }
 
+/** Prints the direct-dependency verdict; returns true when it must fail the run. */
+function reportDirectScan(scan: DeprecationScan, directChecked: number): boolean {
+  if (scan.deprecated.length > 0) {
+    console.error("\n  DEPRECATED direct dependencies (blocking):\n");
+    for (const dep of scan.deprecated) {
+      console.error(`    ${dep.name}@${dep.version}  — ${dep.message}`);
+    }
+  } else if (scan.unresolved.length === 0) {
+    console.log("  No deprecated direct dependencies found.");
+  }
+  if (scan.unresolved.length > 0) {
+    printUnresolved("direct dependencies", scan.unresolved, directChecked);
+  }
+  // Partial registry gaps stay a warning (npm answers 503 under load); a run that checked nothing must not pass.
+  const nothingChecked = directChecked > 0 && scan.unresolved.length === directChecked;
+  if (nothingChecked) {
+    console.error("  outdated: nothing checked — no direct dependency got a registry answer.");
+  }
+  return scan.deprecated.length > 0 || nothingChecked;
+}
+
+async function printTransitiveReport(
+  installed: readonly InstalledPackage[],
+  directScan: DeprecationScan,
+  registry: RegistryClient,
+): Promise<void> {
+  const allScan = await findDeprecatedPackages(installed, registry);
+  if (allScan.unresolved.length > directScan.unresolved.length) {
+    printUnresolved("installed packages", allScan.unresolved, countUnique(installed));
+  }
+  const transitive = allScan.deprecated.filter(
+    (dep) => !directScan.deprecated.some((d) => d.name === dep.name && d.version === dep.version),
+  );
+  if (transitive.length > 0) {
+    console.log(`\n  WARN: ${transitive.length} deprecated transitive package(s) (Renovate):`);
+    for (const dep of transitive.slice(0, 15)) {
+      console.log(`    ${dep.name}@${dep.version}  — ${dep.message}`);
+    }
+    if (transitive.length > 15) console.log(`    … and ${transitive.length - 15} more`);
+  }
+}
+
 export async function runOutdatedCheck(options: {
   readonly repoRoot: string;
   readonly reportMode: boolean;
@@ -134,32 +203,19 @@ export async function runOutdatedCheck(options: {
     `Outdated check: ${directInstalled.length} direct dependencies (${installed.length} installed total).`,
   );
 
-  const deprecatedDirect = await findDeprecatedPackages(directInstalled, registry);
-  if (deprecatedDirect.length > 0) {
-    console.error("\n  DEPRECATED direct dependencies (blocking):\n");
-    for (const dep of deprecatedDirect) {
-      console.error(`    ${dep.name}@${dep.version}  — ${dep.message}`);
-    }
-  } else {
-    console.log("  No deprecated direct dependencies found.");
-  }
+  const directScan = await findDeprecatedPackages(directInstalled, registry);
+  const blocking = reportDirectScan(directScan, countUnique(directInstalled));
 
   if (options.reportMode) {
-    const deprecatedAll = await findDeprecatedPackages(installed, registry);
-    const transitive = deprecatedAll.filter(
-      (dep) => !deprecatedDirect.some((d) => d.name === dep.name && d.version === dep.version),
-    );
-    if (transitive.length > 0) {
-      console.log(`\n  WARN: ${transitive.length} deprecated transitive package(s) (Renovate):`);
-      for (const dep of transitive.slice(0, 15)) {
-        console.log(`    ${dep.name}@${dep.version}  — ${dep.message}`);
-      }
-      if (transitive.length > 15) console.log(`    … and ${transitive.length - 15} more`);
-    }
+    await printTransitiveReport(installed, directScan, registry);
     await printMajorLagReport(options.repoRoot, registry, options.nowMs ?? Date.now());
   }
 
-  return deprecatedDirect.length > 0 ? 1 : 0;
+  return blocking ? 1 : 0;
+}
+
+function countUnique(packages: readonly NameAndVersion[]): number {
+  return new Set(packages.map((pkg) => `${pkg.name}@${pkg.version}`)).size;
 }
 
 export async function runOutdatedCli(

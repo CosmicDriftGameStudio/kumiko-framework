@@ -21,7 +21,8 @@ Three subcommands check the dependencies of the repo `cwd` sits in. They call
 the npm registry or `bun audit`, so they are not part of the default run and
 not part of `checks`; each takes `--report` (print only, exit 0; for `outdated`
 it adds transitive and major-lag sections and a deprecated direct dependency
-still exits 1).
+still exits 1). `outdated` lists every package the registry did not answer
+as UNKNOWN with the reason and fails when no direct dependency got an answer.
 
 ```
 bunx kumiko-guards licenses   # licence allow/gray/deny classification of installed packages

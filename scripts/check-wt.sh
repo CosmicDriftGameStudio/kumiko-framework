@@ -105,9 +105,9 @@ fi
 
 echo
 if [ "$fail" = 0 ] && [ "$ran_test_dom" = 1 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + feature-changelog check + comment-lang --touched + unit tests + component tests."
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + comment-lang --touched + unit tests + component tests."
 elif [ "$fail" = 0 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + feature-changelog check + comment-lang --touched + unit tests."
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + comment-lang --touched + unit tests."
 else
   echo "✗ Worktree check red — see above. Do not commit until green."
 fi
