@@ -1,13 +1,9 @@
 import * as z from "zod";
-import type { InlineAttachmentRef } from "../renderer-foundation/index.js";
+import type { FileAttachmentRef, InlineAttachmentRef } from "../renderer-foundation/index.js";
+import { attachmentFileNameSchema } from "../shared/index.js";
 import { isDocumentResourceKey, templateSlugSchema } from "../template-resolver/index.js";
 
-export type { InlineAttachmentRef };
-export type FileAttachmentRef = {
-  readonly kind: "file";
-  readonly fileRefId: string;
-  readonly fileName: string;
-};
+export type { FileAttachmentRef, InlineAttachmentRef };
 // A PDF rendered from a stored document template when the mail is sent, so the job
 // payload carries the variables instead of the bytes.
 export type RenderedPdfAttachmentRef = {
@@ -24,24 +20,8 @@ export const MAX_EMAIL_ATTACHMENTS = 20;
 export const MAX_RENDERED_PDF_VARIABLES_BYTES = 64_000;
 
 const MAX_ID_LENGTH = 64;
-const MAX_FILE_NAME_LENGTH = 255;
-
-function hasControlCharacter(value: string): boolean {
-  return value.split("").some((char) => {
-    const code = char.charCodeAt(0);
-    return code <= 0x1f || code === 0x7f;
-  });
-}
 
 const fileRefIdSchema = z.string().min(1).max(MAX_ID_LENGTH);
-
-const attachmentFileNameSchema = z
-  .string()
-  .min(1)
-  .max(MAX_FILE_NAME_LENGTH)
-  .refine((name) => !name.includes("/") && !name.includes("\\") && !hasControlCharacter(name), {
-    message: "file name must not contain path separators or control characters",
-  });
 
 export const inlineAttachmentRefSchema = z
   .object({

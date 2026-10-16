@@ -28,6 +28,7 @@ import {
   Repeat,
   Scissors,
   Table as TableIcon,
+  Underline as UnderlineIcon,
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
@@ -39,9 +40,22 @@ import {
 import { createDocumentEditorExtensions } from "./document-editor-extensions.js";
 import {
   type DocumentEditorProps,
+  type DocumentResourcePreview,
   type DocumentToolbarBlock,
   MAIL_DOCUMENT_BLOCKS,
 } from "./document-toolbar-blocks.js";
+import { createEditorHandle } from "./editor-handle.js";
+import { useStableByKey } from "./use-stable-by-key.js";
+
+const NO_LABELS: Readonly<Record<string, string>> = {};
+const NO_NAMES: readonly string[] = [];
+const NO_PREVIEWS: Readonly<Record<string, DocumentResourcePreview>> = {};
+
+function previewsKey(previews: Readonly<Record<string, DocumentResourcePreview>>): string {
+  return Object.entries(previews)
+    .map(([key, { src, caption }]) => `${key}|${src.length}|${src.slice(-24)}|${caption ?? ""}`)
+    .join("\n");
+}
 
 type PanelKind = "link" | "placeholder" | "image" | "button" | "repeat";
 
@@ -322,35 +336,66 @@ export default function DocumentTiptapEditor({
   variables,
   readOnly,
   blocks = MAIL_DOCUMENT_BLOCKS,
+  variableLabels = NO_LABELS,
+  systemVariables = NO_NAMES,
+  resourcePreviews = NO_PREVIEWS,
+  chrome = "default",
+  onEditorReady,
 }: DocumentEditorProps): ReactNode {
   const t = useTranslation();
   const { Button, Field, Input } = usePrimitives();
   const [openPanel, setOpenPanel] = useState<PanelKind | null>(null);
+  const [showHtml, setShowHtml] = useState(false);
+  const canvas = chrome === "canvas";
 
   const placeholderLabel = t("template-resolver.documentEditor.placeholder");
   const imageLabel = t("template-resolver.documentEditor.image");
   const pageBreakLabel = t("template-resolver.documentEditor.pageBreak");
+  const buttonLabel = t("template-resolver.documentEditor.button");
+  const stableLabels = useStableByKey(variableLabels, JSON.stringify(variableLabels));
+  const stableSystem = useStableByKey(systemVariables, systemVariables.join("\n"));
+  const stablePreviews = useStableByKey(resourcePreviews, previewsKey(resourcePreviews));
   const extensions = useMemo(
     () =>
       createDocumentEditorExtensions({
         placeholder: placeholderLabel,
         image: imageLabel,
         pageBreak: pageBreakLabel,
+        button: buttonLabel,
+        variableLabels: stableLabels,
+        systemVariables: stableSystem,
+        resourcePreviews: stablePreviews,
+        blockLabels: canvas,
       }),
-    [placeholderLabel, imageLabel, pageBreakLabel],
+    [
+      placeholderLabel,
+      imageLabel,
+      pageBreakLabel,
+      buttonLabel,
+      stableLabels,
+      stableSystem,
+      stablePreviews,
+      canvas,
+    ],
   );
 
-  const editor = useEditor({
-    extensions,
-    content: value,
-    editable: !readOnly,
-    // Suspense (DocumentContentEditor's lazy boundary) speculatively mounts
-    // this component before committing it; immediate render would create an
-    // editor instance during that throwaway pass.
-    immediatelyRender: false,
-    editorProps: { attributes: { id } },
-    onUpdate: ({ editor: e }) => onChange(e.getHTML()),
-  });
+  // The node views are built from labels and previews, so a changed set
+  // rebuilds the editor; its content is re-read from `value`.
+  const editor = useEditor(
+    {
+      extensions,
+      content: value,
+      editable: !readOnly,
+      // Suspense (DocumentContentEditor's lazy boundary) speculatively mounts
+      // this component before committing it; immediate render would create an
+      // editor instance during that throwaway pass.
+      immediatelyRender: false,
+      editorProps: { attributes: { id } },
+      onCreate: ({ editor: created }) => onEditorReady?.(createEditorHandle(created)),
+      onUpdate: ({ editor: e }) => onChange(e.getHTML()),
+    },
+    [extensions],
+  );
 
   // @tiptap/react v3 does not re-render on selection-only transactions, so
   // active states must come from a subscription.
@@ -369,6 +414,16 @@ export default function DocumentTiptapEditor({
                   : "paragraph",
             bold: e.isActive("bold"),
             italic: e.isActive("italic"),
+            underline: e.isActive("underline"),
+            selectedBlock: e.isActive("resource")
+              ? {
+                  type: "resource" as const,
+                  detail: String(e.getAttributes("resource")["resource"]),
+                }
+              : e.isActive("button")
+                ? { type: "button" as const, detail: String(e.getAttributes("button")["href"]) }
+                : null,
+            html: showHtml ? e.getHTML() : "",
             bulletList: e.isActive("bulletList"),
             orderedList: e.isActive("orderedList"),
             link: e.isActive("link"),
@@ -442,27 +497,49 @@ export default function DocumentTiptapEditor({
     { value: "3", label: t("template-resolver.documentEditor.heading3") },
   ];
 
+  // Canvas chrome shows plain text buttons instead of icons.
   const iconButton = (
     label: string,
     icon: ReactNode,
     isActive: boolean,
     onClick: () => void,
-  ): ReactNode => (
-    <Button
-      type="button"
-      variant={isActive ? "primary" : "secondary"}
-      size="icon"
-      pressed={isActive}
-      disabled={readOnly}
-      onClick={onClick}
-      ariaLabel={label}
-    >
-      {icon}
-    </Button>
-  );
+  ): ReactNode =>
+    canvas ? (
+      <Button
+        type="button"
+        variant={isActive ? "secondary" : "ghost"}
+        size="sm"
+        pressed={isActive}
+        disabled={readOnly}
+        onClick={onClick}
+        ariaLabel={label}
+      >
+        {icon}
+      </Button>
+    ) : (
+      <Button
+        type="button"
+        variant={isActive ? "primary" : "secondary"}
+        size="icon"
+        pressed={isActive}
+        disabled={readOnly}
+        onClick={onClick}
+        ariaLabel={label}
+      >
+        {icon}
+      </Button>
+    );
+
+  const markContent = (letter: string, icon: ReactNode, className: string): ReactNode =>
+    canvas ? <span className={className}>{letter}</span> : icon;
+  const selectedBlock = activeState?.selectedBlock ?? null;
+
+  const flatVariant = canvas ? "ghost" : "secondary";
 
   return (
-    <div className="rounded-md border border-input bg-transparent">
+    <div
+      className={cn("rounded-md border border-input", canvas ? "bg-background" : "bg-transparent")}
+    >
       <div className="flex flex-wrap items-center gap-1 border-b border-input p-1">
         <div className="w-40">
           <Field id={`${id}-paragraph-style`} label={paragraphStyleLabel} hideLabel>
@@ -481,15 +558,21 @@ export default function DocumentTiptapEditor({
         <Separator />
         {iconButton(
           t("kumiko.contentEditor.bold"),
-          <BoldIcon size={16} />,
+          markContent("B", <BoldIcon size={16} />, "font-bold"),
           activeState?.bold ?? false,
           () => editor.chain().focus().toggleBold().run(),
         )}
         {iconButton(
           t("kumiko.contentEditor.italic"),
-          <ItalicIcon size={16} />,
+          markContent("I", <ItalicIcon size={16} />, "italic"),
           activeState?.italic ?? false,
           () => editor.chain().focus().toggleItalic().run(),
+        )}
+        {iconButton(
+          t("template-resolver.documentEditor.underline"),
+          markContent("U", <UnderlineIcon size={16} />, "underline"),
+          activeState?.underline ?? false,
+          () => editor.chain().focus().toggleUnderline().run(),
         )}
         <Separator />
         {iconButton(
@@ -513,7 +596,7 @@ export default function DocumentTiptapEditor({
         <Separator />
         <Button
           type="button"
-          variant="secondary"
+          variant={flatVariant}
           size="sm"
           expanded={openPanel === "placeholder"}
           disabled={readOnly}
@@ -527,16 +610,61 @@ export default function DocumentTiptapEditor({
           <Button
             key={block}
             type="button"
-            variant="secondary"
+            variant={flatVariant}
             size="sm"
             disabled={readOnly}
             onClick={() => runBlock(block)}
           >
-            {blockButtons[block].icon}
+            {!canvas && blockButtons[block].icon}
             {blockButtons[block].label}
           </Button>
         ))}
+        {canvas && (
+          <>
+            <span className="flex-1" />
+            <Button
+              type="button"
+              variant={flatVariant}
+              size="sm"
+              expanded={showHtml}
+              onClick={() => {
+                setShowHtml((current) => !current);
+              }}
+            >
+              {t("template-resolver.documentEditor.showHtml")}
+            </Button>
+          </>
+        )}
       </div>
+      {canvas && selectedBlock !== null && !readOnly && (
+        <div className="flex items-center gap-2 border-b border-input bg-muted/40 px-2 py-1 text-sm">
+          <span className="text-muted-foreground">
+            {t("template-resolver.documentEditor.selectedBlock")}
+          </span>
+          <span className="font-medium">
+            {selectedBlock.type === "resource" ? imageLabel : buttonLabel}
+          </span>
+          <code className="text-xs text-muted-foreground">{selectedBlock.detail}</code>
+          <span className="flex-1" />
+          <Button
+            type="button"
+            size="sm"
+            variant="danger-ghost"
+            onClick={() => {
+              editor.chain().focus().deleteNode(selectedBlock.type).run();
+            }}
+          >
+            {t("template-resolver.documentEditor.removeBlock")}
+          </Button>
+        </div>
+      )}
+      {canvas && showHtml && (
+        <section aria-label={t("template-resolver.documentEditor.htmlSource")}>
+          <pre className="h-40 overflow-auto whitespace-pre-wrap break-all border-b border-input bg-muted p-2 font-mono text-xs">
+            {activeState?.html ?? ""}
+          </pre>
+        </section>
+      )}
       {openPanel !== null && !readOnly && (
         <InsertPanel
           key={openPanel}
@@ -547,23 +675,28 @@ export default function DocumentTiptapEditor({
           onClose={() => setOpenPanel(null)}
         />
       )}
-      <EditorContent
-        editor={editor}
-        className={cn(
-          "min-h-40 px-3 py-2 text-base outline-none md:text-sm",
-          "[&_.ProseMirror]:min-h-40 [&_.ProseMirror]:outline-none",
-          "[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6",
-          "[&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-base [&_h3]:font-bold",
-          "[&_a]:underline [&_a]:text-primary",
-          "[&_strong]:font-bold [&_em]:italic",
-          "[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse",
-          "[&_td]:border [&_td]:border-input [&_td]:p-1 [&_th]:border [&_th]:border-input [&_th]:bg-muted [&_th]:p-1 [&_th]:text-left",
-          "[&_tr[data-each]]:bg-muted",
-          "[&_a[data-button]]:inline-block [&_a[data-button]]:rounded-full [&_a[data-button]]:bg-primary [&_a[data-button]]:px-4 [&_a[data-button]]:py-1.5 [&_a[data-button]]:text-primary-foreground [&_a[data-button]]:no-underline",
-          "[&_hr]:my-3 [&_hr]:border-input",
-          "[&_.is-editor-empty]:before:pointer-events-none [&_.is-editor-empty]:before:float-left [&_.is-editor-empty]:before:h-0 [&_.is-editor-empty]:before:text-muted-foreground [&_.is-editor-empty]:before:content-[attr(data-placeholder)]",
-        )}
-      />
+      <div className={cn(canvas && "flex justify-center bg-muted p-6")}>
+        <EditorContent
+          editor={editor}
+          className={cn(
+            canvas
+              ? "w-[600px] max-w-full bg-background px-10 py-7 text-sm border border-input"
+              : "min-h-40 px-3 py-2 text-base outline-none md:text-sm",
+            "[&_.ProseMirror-selectednode]:ring-2 [&_.ProseMirror-selectednode]:ring-primary",
+            "[&_.ProseMirror]:min-h-40 [&_.ProseMirror]:outline-none",
+            "[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6",
+            "[&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-base [&_h3]:font-bold",
+            "[&_a]:underline [&_a]:text-primary",
+            "[&_strong]:font-bold [&_em]:italic [&_u]:underline",
+            "[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse",
+            "[&_td]:border [&_td]:border-input [&_td]:p-1 [&_th]:border [&_th]:border-input [&_th]:bg-muted [&_th]:p-1 [&_th]:text-left",
+            "[&_tr[data-each]]:bg-muted",
+            "[&_a[data-button]]:inline-block [&_a[data-button]]:rounded-full [&_a[data-button]]:bg-primary [&_a[data-button]]:px-4 [&_a[data-button]]:py-1.5 [&_a[data-button]]:text-primary-foreground [&_a[data-button]]:no-underline",
+            "[&_hr]:my-3 [&_hr]:border-input",
+            "[&_.is-editor-empty]:before:pointer-events-none [&_.is-editor-empty]:before:float-left [&_.is-editor-empty]:before:h-0 [&_.is-editor-empty]:before:text-muted-foreground [&_.is-editor-empty]:before:content-[attr(data-placeholder)]",
+          )}
+        />
+      </div>
     </div>
   );
 }

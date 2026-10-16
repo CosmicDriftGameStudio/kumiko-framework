@@ -288,3 +288,13 @@ describe("document schema alone (second line of defence)", () => {
     ).not.toContain("data-each");
   });
 });
+
+describe("underline", () => {
+  test("keeps <u> and drops attributes on it", () => {
+    expect(sanitizeDocumentHtml("<p><u>x</u></p>")).toEqual({ ok: true, html: "<p><u>x</u></p>" });
+    expect(sanitizeDocumentHtml('<p><u class="a" style="color:red">x</u></p>')).toEqual({
+      ok: true,
+      html: "<p><u>x</u></p>",
+    });
+  });
+});

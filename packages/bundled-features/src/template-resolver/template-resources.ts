@@ -9,6 +9,7 @@ import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { requireForTenant } from "../shared/index.js";
 import { executor } from "./handlers/shared.js";
+import type { LinkedResourceEntry } from "./linked-resources.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 
 export type TemplateResourceFile = {
@@ -49,8 +50,7 @@ export async function attachTemplateResources(
     readonly user: SessionUser;
     readonly tenantId: TenantId;
     readonly templateId: string;
-    /** resource key -> fileRef id */
-    readonly resources: Readonly<Record<string, string>>;
+    readonly resources: Readonly<Record<string, LinkedResourceEntry>>;
   },
 ): Promise<WriteResult<null>> {
   if (Object.keys(args.resources).length === 0) return { isSuccess: true, data: null };

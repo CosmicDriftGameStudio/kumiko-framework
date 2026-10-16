@@ -3,16 +3,24 @@ import type { Extensions, NodeViewRenderer } from "@tiptap/core";
 import { ListKeymap } from "@tiptap/extension-list";
 import { Dropcursor, Gapcursor, Placeholder, UndoRedo } from "@tiptap/extensions";
 import {
+  DocumentButton,
   DocumentPageBreak,
   DocumentResource,
   DocumentVariable,
   documentExtensions,
 } from "../document-schema.js";
+import type { DocumentResourcePreview } from "./document-toolbar-blocks.js";
 
 export type DocumentEditorLabels = {
   readonly placeholder: string;
   readonly image: string;
   readonly pageBreak: string;
+  readonly button?: string;
+  readonly variableLabels?: Readonly<Record<string, string>>;
+  readonly systemVariables?: readonly string[];
+  readonly resourcePreviews?: Readonly<Record<string, DocumentResourcePreview>>;
+  /** Canvas chrome labels every block with its type. */
+  readonly blockLabels?: boolean;
 };
 
 function createElementWithClass<K extends keyof HTMLElementTagNameMap>(
@@ -26,28 +34,83 @@ function createElementWithClass<K extends keyof HTMLElementTagNameMap>(
   return element;
 }
 
-const variableView: NodeViewRenderer = ({ node }) => {
-  const dom = createElementWithClass(
-    "span",
-    "mx-0.5 inline-block rounded border border-input bg-muted px-1.5 py-0.5 text-xs text-muted-foreground",
-    String(node.attrs["name"]),
-  );
-  dom.contentEditable = "false";
-  return { dom };
-};
+const CHIP_CLASS = "mx-0.5 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs";
+const USER_CHIP_CLASS = `${CHIP_CLASS} border-primary/30 bg-primary/10 text-primary`;
+const SYSTEM_CHIP_CLASS = `${CHIP_CLASS} border-input bg-muted text-muted-foreground`;
 
-function createResourceView(imageLabel: string): NodeViewRenderer {
+// The chip is display only: the stored node carries just the name, so a
+// label never reaches the document.
+export function createVariableView(
+  variableLabels: Readonly<Record<string, string>>,
+  systemVariables: readonly string[],
+): NodeViewRenderer {
   return ({ node }) => {
+    const name = String(node.attrs["name"]);
+    const label = Object.hasOwn(variableLabels, name) ? variableLabels[name] : undefined;
     const dom = createElementWithClass(
-      "div",
-      "my-2 flex items-center gap-2 rounded border border-input bg-muted px-3 py-2 text-sm text-muted-foreground",
+      "span",
+      systemVariables.includes(name) ? SYSTEM_CHIP_CLASS : USER_CHIP_CLASS,
     );
     dom.contentEditable = "false";
-    dom.append(
-      createElementWithClass("span", "font-medium", imageLabel),
-      createElementWithClass("code", "text-xs", String(node.attrs["resource"])),
-    );
+    dom.append(document.createTextNode(label !== undefined && label !== "" ? label : name));
+    if (label !== undefined && label !== "" && label !== name) {
+      dom.append(createElementWithClass("small", "font-mono text-[10px] opacity-75", name));
+    }
     return { dom };
+  };
+}
+
+// Same rule the sanitizer's image handling follows: previews never carry a
+// scriptable scheme.
+const PREVIEW_SRC = /^(data:image\/(png|jpeg|gif|webp);|blob:|https:\/\/|\/)/;
+
+function createBlockLabel(text: string): HTMLSpanElement {
+  const label = createElementWithClass(
+    "span",
+    "absolute -top-2 left-2 bg-card px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground",
+    text,
+  );
+  label.contentEditable = "false";
+  return label;
+}
+
+function createResourceView(labels: DocumentEditorLabels): NodeViewRenderer {
+  return ({ node }) => {
+    const key = String(node.attrs["resource"]);
+    const previews = labels.resourcePreviews ?? {};
+    const preview = Object.hasOwn(previews, key) ? previews[key] : undefined;
+    const dom = createElementWithClass(
+      "div",
+      "relative my-3 flex items-center gap-3 rounded border border-dashed border-input px-3 py-3 text-sm text-muted-foreground",
+    );
+    dom.contentEditable = "false";
+    if (labels.blockLabels) dom.append(createBlockLabel(labels.image));
+    if (preview !== undefined && PREVIEW_SRC.test(preview.src)) {
+      const image = createElementWithClass("img", "max-h-16 max-w-48 rounded");
+      image.src = preview.src;
+      image.alt = typeof node.attrs["alt"] === "string" ? node.attrs["alt"] : key;
+      dom.append(image);
+      dom.append(createElementWithClass("span", "text-xs", preview.caption ?? key));
+    } else {
+      dom.append(
+        createElementWithClass("span", "font-medium", labels.image),
+        createElementWithClass("code", "text-xs", key),
+      );
+    }
+    return { dom };
+  };
+}
+
+function createButtonView(buttonLabel: string): NodeViewRenderer {
+  return () => {
+    const dom = createElementWithClass(
+      "div",
+      "relative my-3 rounded border border-dashed border-input p-3",
+    );
+    const button = document.createElement("a");
+    button.setAttribute("data-button", "");
+    dom.append(createBlockLabel(buttonLabel), button);
+    return { dom, contentDOM: button };
   };
 }
 
@@ -69,9 +132,16 @@ export function createDocumentEditorExtensions(labels: DocumentEditorLabels): Ex
   const base = documentExtensions.map((extension) => {
     switch (extension.name) {
       case DocumentVariable.name:
-        return DocumentVariable.extend({ addNodeView: () => variableView });
+        return DocumentVariable.extend({
+          addNodeView: () =>
+            createVariableView(labels.variableLabels ?? {}, labels.systemVariables ?? []),
+        });
       case DocumentResource.name:
-        return DocumentResource.extend({ addNodeView: () => createResourceView(labels.image) });
+        return DocumentResource.extend({ addNodeView: () => createResourceView(labels) });
+      case DocumentButton.name:
+        return labels.blockLabels
+          ? DocumentButton.extend({ addNodeView: () => createButtonView(labels.button ?? "") })
+          : extension;
       case DocumentPageBreak.name:
         return DocumentPageBreak.extend({
           addNodeView: () => createPageBreakView(labels.pageBreak),

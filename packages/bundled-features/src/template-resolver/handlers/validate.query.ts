@@ -8,10 +8,11 @@ import {
 import * as z from "zod";
 import type { ContentFormat, UpsertKind } from "../constants.js";
 import type { TemplateWriteScope } from "../layout-regions.js";
+import { imageResourceKeysOf } from "../linked-resources.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import { resolveTemplateVariables, systemPlaceholdersFor } from "../template-validation.js";
 import { contentFormatSchema, kindSchema, localeSchema, templateSlugSchema } from "./shared.js";
-import { evaluateTemplateWrite, storedRecord } from "./template-gates.js";
+import { evaluateTemplateWrite } from "./template-gates.js";
 
 async function knownResourceKeys(
   db: Parameters<typeof selectMany>[0],
@@ -31,7 +32,7 @@ async function knownResourceKeys(
     ...(where.locale === undefined ? {} : { locale: where.locale }),
     ...(where.scope === "system" ? { status: "active" } : {}),
   });
-  return rows.flatMap((row) => Object.keys(storedRecord(row.linkedResources)));
+  return rows.flatMap((row) => imageResourceKeysOf(row.linkedResources));
 }
 
 type TemplateDraftInput = {

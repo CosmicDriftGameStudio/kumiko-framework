@@ -8,17 +8,7 @@ export const resourceKeySchema = z.string().min(1).max(64).refine(isDocumentReso
   message: "resource key must be letters, digits, dot, dash or underscore",
 });
 
-export function parseLinkedResources(raw: string | null): Record<string, string> {
-  if (!raw) return {};
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
-    return Object.fromEntries(
-      Object.entries(parsed).filter(
-        (entry): entry is [string, string] => typeof entry[1] === "string",
-      ),
-    );
-  } catch {
-    return {};
-  }
-}
+export const RESOURCE_PURPOSES = ["image", "attachment"] as const;
+export type ResourcePurpose = (typeof RESOURCE_PURPOSES)[number];
+
+export const MAX_FILE_ATTACHMENTS_PER_TEMPLATE = 10;

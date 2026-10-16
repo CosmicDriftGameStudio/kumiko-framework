@@ -14,7 +14,11 @@ import type {
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { MailPayload } from "../renderer-foundation/index.js";
-import type { EmailAttachmentRef, InlineAttachmentRef } from "./attachment-ref.js";
+import type {
+  EmailAttachmentRef,
+  FileAttachmentRef,
+  InlineAttachmentRef,
+} from "./attachment-ref.js";
 import { DELIVERY_CHANNEL_EXTENSION } from "./constants.js";
 
 // --- Channel Interface ---
@@ -24,7 +28,7 @@ export type RenderedMail = {
   readonly html: string;
   readonly text: string;
   readonly previewText?: string;
-  readonly attachments?: readonly InlineAttachmentRef[];
+  readonly attachments?: readonly (InlineAttachmentRef | FileAttachmentRef)[];
 };
 
 export type ChannelContext = {
@@ -40,8 +44,13 @@ export type ChannelContext = {
   // Reads the bytes behind an attachment ref at send time. Absent when no file storage is wired.
   readonly readAttachment?: (
     ref: EmailAttachmentRef,
+    origin?: AttachmentOrigin,
   ) => Promise<{ readonly content: Uint8Array; readonly contentType: string } | null>;
 };
+
+// "template": the renderer returned the ref from the stored template (own or system). "message":
+// the ref came from notify data, so a caller chose it. Unset means "message".
+export type AttachmentOrigin = "template" | "message";
 
 export type ChannelMessage = {
   readonly notificationType: string;

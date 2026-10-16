@@ -71,6 +71,7 @@ const INHERIT = qn(FEATURE, QnTypes.notify, "inherit");
 const IMMEDIATE = qn(FEATURE, QnTypes.notify, "immediate");
 const BRANDED = qn(FEATURE, QnTypes.notify, "branded");
 const PLAIN = qn(FEATURE, QnTypes.notify, "plain");
+const SYSTEM_FILE = qn(FEATURE, QnTypes.notify, "system-file");
 const SEND = qn(FEATURE, QnTypes.write, "send");
 
 const LOGO_BODY = '<p>Your invoice</p><p><img data-resource="logo" alt="Logo"></p>';
@@ -98,6 +99,7 @@ const invoiceFeature = defineFeature(FEATURE, (r) => {
   r.notification("inherit", mailNotification("Inherited"));
   r.notification("immediate", mailNotification("Immediate"));
   r.notification("branded", mailNotification("Branded"));
+  r.notification("system-file", mailNotification("System file"));
   r.notification("plain", {
     variables: {},
     localizedTemplate: () => ({
@@ -139,6 +141,8 @@ const adminTenantD = tenantAdmin(34);
 const adminTenantE = tenantAdmin(35);
 const adminTenantF = tenantAdmin(36);
 const adminTenantG = tenantAdmin(37);
+const adminTenantH = tenantAdmin(38);
+const adminTenantI = tenantAdmin(39);
 
 // Job failures only surface as a bare error code; the job's error log names the failing step.
 const loggedErrors: string[] = [];
@@ -225,6 +229,28 @@ async function uploadResource(
     as,
   );
   return result.fileRefId;
+}
+
+async function attachTemplateFile(
+  as: typeof adminTenantA,
+  templateId: string,
+  key: string,
+  fileName: string,
+  tenantIdOverride?: string,
+): Promise<void> {
+  const sourceFileRefId = await upload(as, PDF_BYTES, { name: fileName, type: "application/pdf" });
+  await stack.http.writeOk(
+    TemplateResolverHandlers.resourceUpload,
+    {
+      sourceFileRefId,
+      templateId,
+      key,
+      purpose: "attachment",
+      fileName,
+      ...(tenantIdOverride !== undefined && { tenantIdOverride }),
+    },
+    as,
+  );
 }
 
 async function storedBytes(fileRefId: string): Promise<Uint8Array> {
@@ -367,6 +393,42 @@ describe("mail attachments: inline logo and file attachment", () => {
     expect(Buffer.from(mail.attachments?.[0]?.content ?? [])).toEqual(
       Buffer.from(await storedBytes(logoFileRefId)),
     );
+  });
+
+  test("a template's own file attachment follows the inline logo, before the notify-time file", async () => {
+    const templateId = await publishTenantOverride(adminTenantH, INVOICE);
+    await uploadResource(adminTenantH, { templateId });
+    await attachTemplateFile(adminTenantH, templateId, "terms", "terms.pdf");
+    const pdfFileRefId = await upload(adminTenantH, PDF_BYTES, {
+      name: "scan.pdf",
+      type: "application/pdf",
+    });
+
+    const mail = await sendMail(adminTenantH, INVOICE, pdfFileRefId);
+
+    expect(mail.attachments?.map((a) => [a.kind, a.fileName])).toEqual([
+      ["inline", expect.any(String)],
+      ["file", "terms.pdf"],
+      ["file", "rechnung.pdf"],
+    ]);
+    expect(Buffer.from(mail.attachments?.[1]?.content ?? [])).toEqual(Buffer.from(PDF_BYTES));
+  });
+
+  test("a system template's file attachment reaches a tenant that has no override", async () => {
+    const systemId = await systemTemplateId(SYSTEM_FILE);
+    await attachTemplateFile(
+      TestUsers.systemAdmin,
+      systemId,
+      "terms",
+      "terms.pdf",
+      SYSTEM_TENANT_ID,
+    );
+
+    const mail = await sendMail(adminTenantI, SYSTEM_FILE);
+
+    expect(mail.attachments).toHaveLength(1);
+    expect(mail.attachments?.[0]).toMatchObject({ kind: "file", fileName: "terms.pdf" });
+    expect(Buffer.from(mail.attachments?.[0]?.content ?? [])).toEqual(Buffer.from(PDF_BYTES));
   });
 
   test("a branding logo token pointing at another tenant's file is dropped", async () => {

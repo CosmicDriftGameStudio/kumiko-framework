@@ -9,6 +9,7 @@ import {
 } from "../constants.js";
 import { documentViolationsToFieldIssues } from "../document-sanitizer.js";
 import { sanitizeTemplateWriteBody, type TemplateWriteScope } from "../layout-regions.js";
+import { imageResourceKeysOf } from "../linked-resources.js";
 import type { TemplateResourceRow } from "../table.js";
 import { parseTemplateMeta, type TemplateMetaIssue } from "../template-meta.js";
 import {
@@ -177,7 +178,7 @@ export function publishGateIssues(
     content: row.content,
     rawMeta: parseStoredJson(row.meta),
     variables: resolveTemplateVariables(registry, row.slug, storedRecord(row.variableSchema)),
-    resourceKeys: Object.keys(storedRecord(row.linkedResources)),
+    resourceKeys: imageResourceKeysOf(row.linkedResources),
   });
   return result.ok ? result.publishIssues : result.issues;
 }

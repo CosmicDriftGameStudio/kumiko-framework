@@ -13,11 +13,12 @@ import {
   ValidationError,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { createTemplateMailRenderer } from "../delivery/index.js";
+import { createEmailAttachmentReader, createTemplateMailRenderer } from "../delivery/index.js";
 import { fileContextForTenant } from "../file-foundation/index.js";
 import {
   collectRendererPlugins,
   createRendererFoundationApi,
+  type FileAttachmentRef,
   type InlineAttachmentRef,
   RendererError,
   type RendererPlugin,
@@ -28,6 +29,7 @@ import { MAIL_PREVIEW_MAX_BYTES, SYSTEM_TENANT_ID, type TemplateScope } from "./
 import { parseStoredJson } from "./handlers/template-gates.js";
 import { validateTemplateDraft } from "./handlers/validate.query.js";
 import { type LayoutRegions, readLayoutRegions, sanitizeLayoutHtml } from "./layout-regions.js";
+import { buildDisplayHtml } from "./preview-display-html.js";
 import { TemplateResolverErrors } from "./qualified-names.js";
 import {
   isMailTemplateMeta,
@@ -94,11 +96,14 @@ export type PreviewCheck = {
   readonly params?: Readonly<Record<string, unknown>>;
 };
 
-export type PreviewAttachment = {
-  readonly cid: string;
-  readonly name: string;
-  readonly sizeBytes: number;
-};
+export type PreviewAttachment =
+  | {
+      readonly kind: "inline";
+      readonly cid: string;
+      readonly name: string;
+      readonly sizeBytes: number;
+    }
+  | { readonly kind: "file"; readonly name: string; readonly sizeBytes: number };
 
 export type PreviewLayout = {
   readonly slug: string;
@@ -123,6 +128,8 @@ export type TemplatePreview = {
   readonly subject: string | null;
   readonly previewText: string | null;
   readonly html: string;
+  /** Mail only: `html` with resolved inline images as data URIs, for showing in a browser. */
+  readonly displayHtml?: string;
   readonly text: string | null;
   readonly attachments: readonly PreviewAttachment[];
   readonly layout: PreviewLayout | null;
@@ -136,7 +143,7 @@ export type TemplatePreviewOutcome =
       readonly ok: true;
       readonly preview: TemplatePreview;
       /** What the send path needs to attach; kept out of the response shown to the editor. */
-      readonly inlineAttachments: readonly InlineAttachmentRef[];
+      readonly mailAttachments: readonly (InlineAttachmentRef | FileAttachmentRef)[];
     }
   | { readonly ok: false; readonly error: KumikoError };
 
@@ -164,21 +171,22 @@ async function loadStoredDraft(
 
 async function describeAttachments(
   ctx: HandlerContext,
-  inline: readonly { readonly cid: string; readonly fileRefId: string }[],
+  refs: readonly (InlineAttachmentRef | FileAttachmentRef)[],
 ): Promise<PreviewAttachment[]> {
-  if (inline.length === 0) return [];
+  if (refs.length === 0) return [];
   const rows = await selectMany<{ id: string; size: number | bigint | string }>(
     ctx.db,
     fileRefsTable,
-    { id: inline.map((ref) => ref.fileRefId) },
+    { id: refs.map((ref) => ref.fileRefId) },
   );
   const sizeById = new Map(rows.map((row) => [row.id, Number(row.size)]));
-  // The stored file name is personal data and may be ciphertext, so the content id names the attachment.
-  return inline.map((ref) => ({
-    cid: ref.cid,
-    name: ref.cid,
-    sizeBytes: sizeById.get(ref.fileRefId) ?? 0,
-  }));
+  // An inline image is named by its content id because the stored file name is personal data and
+  // may be ciphertext; a file attachment carries the name the admin gave it.
+  return refs.map((ref) =>
+    ref.kind === "inline"
+      ? { kind: "inline", cid: ref.cid, name: ref.cid, sizeBytes: sizeById.get(ref.fileRefId) ?? 0 }
+      : { kind: "file", name: ref.fileName, sizeBytes: sizeById.get(ref.fileRefId) ?? 0 },
+  );
 }
 
 async function resolvePdfLayout(
@@ -275,7 +283,7 @@ async function renderDocumentPreview(
   if (plugin?.previewDocument === undefined) {
     return {
       ok: true,
-      inlineAttachments: [],
+      mailAttachments: [],
       preview: {
         kind: "document-pdf",
         subject: null,
@@ -319,7 +327,7 @@ async function renderDocumentPreview(
   const layout = document.layout;
   return {
     ok: true,
-    inlineAttachments: [],
+    mailAttachments: [],
     preview: {
       kind: "document-pdf",
       subject: null,
@@ -418,8 +426,16 @@ export async function renderTemplatePreview(
     return toRenderFailure(e);
   }
 
-  const inline = rendered.attachments ?? [];
-  const attachments = await describeAttachments(ctx, inline);
+  const mailAttachments = rendered.attachments ?? [];
+  const inline = mailAttachments.filter((ref) => ref.kind === "inline");
+  const attachments = await describeAttachments(ctx, mailAttachments);
+  const displayHtml = await buildDisplayHtml(
+    rendered.html,
+    inline,
+    createEmailAttachmentReader(ctx.db, ctx.registry, user.tenantId, ctx.config, (tenantId) =>
+      fileContextForTenant(ctx, tenantId),
+    ),
+  );
   const resolvedCids = new Set(inline.map((ref) => ref.cid));
   const unresolved = collectDocumentResourceKeys(content).filter((key) => !resolvedCids.has(key));
   const totalBytes =
@@ -428,12 +444,13 @@ export async function renderTemplatePreview(
     attachments.reduce((sum, attachment) => sum + attachment.sizeBytes, 0);
   return {
     ok: true,
-    inlineAttachments: inline,
+    mailAttachments,
     preview: {
       kind: "mail",
       subject: rendered.subject,
       previewText: rendered.previewText ?? null,
       html: rendered.html,
+      displayHtml,
       text: rendered.text,
       attachments,
       layout: null,

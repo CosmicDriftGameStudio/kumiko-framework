@@ -1,4 +1,8 @@
-import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineWriteHandler,
+  type TenantId,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   NotFoundError,
   UnprocessableError,
@@ -10,12 +14,37 @@ import {
   fileContextForTenant,
   readFileRefContent,
 } from "../../file-foundation/index.js";
+import { attachmentFileNameSchema } from "../../shared/index.js";
 import { TemplateResolverErrors } from "../qualified-names.js";
-import { readTemplateResourceMaxBytes, storeTemplateResource } from "../store-template-resource.js";
-import { resourceKeySchema } from "./resource-shared.js";
+import {
+  readTemplateResourceMaxBytes,
+  type StoredTemplateAttachment,
+  type StoredTemplateResource,
+  storeTemplateAttachment,
+  storeTemplateResource,
+} from "../store-template-resource.js";
+import { RESOURCE_PURPOSES, resourceKeySchema } from "./resource-shared.js";
 
-// Stores an image as a FileRef and, with templateId + key, links it into the template.
-// Without templateId it only creates the FileRef (the branding logo upload path).
+type AttachmentTarget = {
+  readonly templateId: string;
+  readonly key: string;
+  readonly fileName: string;
+};
+
+function attachmentTargetOf(input: {
+  readonly templateId: string | undefined;
+  readonly key: string | undefined;
+  readonly fileName: string | undefined;
+}): AttachmentTarget | null {
+  const { templateId, key, fileName } = input;
+  if (templateId === undefined || key === undefined || fileName === undefined) return null;
+  const parsedName = attachmentFileNameSchema.safeParse(fileName);
+  return parsedName.success ? { templateId, key, fileName: parsedName.data } : null;
+}
+
+// Purpose "image": stores a re-encoded image as a FileRef and, with templateId + key, links it into
+// the template; without templateId it only creates the FileRef (the branding logo upload path).
+// Purpose "attachment": stores the file as uploaded and links it as a mail attachment.
 export const resourceUploadWrite = defineWriteHandler({
   name: "resource-upload",
   schema: z
@@ -26,16 +55,36 @@ export const resourceUploadWrite = defineWriteHandler({
       sourceFileRefId: z.uuid(),
       /** Cross-tenant target — SystemAdmin only. */
       tenantIdOverride: z.string().min(1).optional(),
+      /** "attachment" links a PDF/PNG/JPEG as a file attached to every mail of the template. */
+      purpose: z.enum(RESOURCE_PURPOSES).default("image"),
+      /** Name the recipient sees; required for purpose "attachment". */
+      fileName: z.string().optional(),
     })
-    .refine((p) => (p.templateId === undefined) === (p.key === undefined), {
-      message: "templateId and key must be given together",
-      path: ["key"],
-    }),
+    .refine(
+      (p) => p.purpose === "attachment" || (p.templateId === undefined) === (p.key === undefined),
+      {
+        message: "templateId and key must be given together",
+        path: ["key"],
+      },
+    ),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Turns an image uploaded via POST /api/files (multipart, no entityType) into a template resource: the upload is checked against the resource-max-bytes cap, re-encoded to a supported format and stored as a new file; with templateId and key the new file is linked into that template under the key, without them only the file is created. A cap above the files route's maxUploadSize has no effect.",
-  handler: async (event, ctx) => {
-    const { templateId, key, sourceFileRefId } = event.payload;
+    "Turns a file uploaded via POST /api/files (multipart, no entityType) into a template resource. With purpose image (default) the upload is checked against the resource-max-bytes cap, re-encoded to a supported image format and stored as a new file; with templateId and key it is linked into that template under the key, without them only the file is created. With purpose attachment, templateId, key and fileName are required: a PDF, PNG or JPEG is stored unchanged and linked into a mail template as a file attached to every mail sent from it, at most 10 per template. A cap above the files route's maxUploadSize has no effect.",
+  handler: async (
+    event,
+    ctx,
+  ): Promise<WriteResult<StoredTemplateResource | StoredTemplateAttachment>> => {
+    const { templateId, key, sourceFileRefId, purpose, fileName } = event.payload;
+    const attachmentTarget =
+      purpose === "attachment" ? attachmentTargetOf({ templateId, key, fileName }) : null;
+    if (purpose === "attachment" && attachmentTarget === null) {
+      return writeFailure(
+        new UnprocessableError(TemplateResolverErrors.attachmentInvalid, {
+          i18nKey: "templateResolver.errors.attachment.invalid",
+          details: { code: "target_required" },
+        }),
+      );
+    }
     const maxBytes = await readTemplateResourceMaxBytes(ctx.config, ctx.registry);
 
     // The source is read from the session tenant only: with tenantIdOverride the upload
@@ -68,6 +117,16 @@ export const resourceUploadWrite = defineWriteHandler({
     // @cast-boundary engine-payload — override is a zod-validated string; forTenant
     // rejects it for non-SystemAdmins.
     const tenantId = (event.payload.tenantIdOverride ?? event.user.tenantId) as TenantId;
+    if (attachmentTarget !== null) {
+      return storeTemplateAttachment({
+        ctx,
+        user: event.user,
+        tenantId,
+        bytes: source.content,
+        maxBytes,
+        ...attachmentTarget,
+      });
+    }
     return storeTemplateResource({
       ctx,
       user: event.user,

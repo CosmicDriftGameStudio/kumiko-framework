@@ -1124,6 +1124,16 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.document.invalidReferenceName": "“{detail}” is not a valid name.",
   "templateResolver.errors.document.scriptElement":
     "<script> elements are not allowed in template bodies.",
+  "templateResolver.errors.attachment.unsupportedType":
+    "Attachments must be a PDF, PNG or JPEG file.",
+  "templateResolver.errors.attachment.limit": "A template can have at most {max} attachments.",
+  "templateResolver.errors.attachment.invalid":
+    "The attachment needs a template, a key and a valid file name.",
+  "template-resolver.documentEditor.htmlSource": "HTML source",
+  "template-resolver.documentEditor.removeBlock": "Remove block",
+  "template-resolver.documentEditor.selectedBlock": "Selected block",
+  "template-resolver.documentEditor.showHtml": "HTML",
+  "template-resolver.documentEditor.underline": "Underline",
   "tenant-settings.currency": "Default currency",
   "tenant-settings.locale": "Default locale",
   "tenant-settings.settings": "Tenant settings",

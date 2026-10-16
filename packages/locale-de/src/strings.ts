@@ -1159,6 +1159,16 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.document.invalidReferenceName": "„{detail}“ ist kein gültiger Name.",
   "templateResolver.errors.document.scriptElement":
     "<script>-Elemente sind in Vorlagentexten nicht erlaubt.",
+  "templateResolver.errors.attachment.unsupportedType":
+    "Anhänge müssen eine PDF-, PNG- oder JPEG-Datei sein.",
+  "templateResolver.errors.attachment.limit": "Eine Vorlage kann höchstens {max} Anhänge haben.",
+  "templateResolver.errors.attachment.invalid":
+    "Der Anhang braucht eine Vorlage, einen Schlüssel und einen gültigen Dateinamen.",
+  "template-resolver.documentEditor.htmlSource": "HTML-Quelltext",
+  "template-resolver.documentEditor.removeBlock": "Block entfernen",
+  "template-resolver.documentEditor.selectedBlock": "Ausgewählter Block",
+  "template-resolver.documentEditor.showHtml": "HTML",
+  "template-resolver.documentEditor.underline": "Unterstrichen",
   "tenant-settings.currency": "Standard-Währung",
   "tenant-settings.locale": "Standard-Sprache",
   "tenant-settings.settings": "Mandanten-Einstellungen",

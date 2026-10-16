@@ -23,6 +23,10 @@ function compile(html: string): string {
 }
 
 describe("compileDocumentBodyToHandlebars", () => {
+  test("underlined text keeps its <u> element", () => {
+    expect(compile("<p>a <u>b</u></p>")).toContain("<u>b</u>");
+  });
+
   test("variables become escaped expressions, money and date use their helper", () => {
     const out = compile(
       '<p><span data-variable="name"></span> <span data-variable="total"></span> <span data-variable="due"></span></p>',

@@ -41,14 +41,14 @@ export const sendTestWrite = defineWriteHandler({
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   rateLimit: { per: "user+handler", ...TEST_MAIL_RATE_LIMIT },
   description:
-    "Sends the rendered preview of a mail template draft, or of the stored template when no content is given, to the calling user's own address with the subject prefixed by [TEST]; there is no recipient input, the sample values come from the declared variable examples, and a draft that fails the write rules is rejected without sending.",
+    "Sends the rendered preview of a mail template draft, or of the stored template when no content is given, to the calling user's own address with the subject prefixed by [TEST], carrying the inline images and the files attached to the template; there is no recipient input, the sample values come from the declared variable examples, and a draft that fails the write rules is rejected without sending.",
   handler: async (event, ctx) => {
     const outcome = await renderTemplatePreview(ctx, event.user, {
       ...event.payload,
       kind: "mail",
     });
     if (!outcome.ok) return writeFailure(outcome.error);
-    const { preview, inlineAttachments } = outcome;
+    const { preview, mailAttachments } = outcome;
 
     const channel = emailChannelOf(ctx.registry);
     if (channel === undefined) {
@@ -94,7 +94,7 @@ export const sendTestWrite = defineWriteHandler({
           locale: event.payload.locale,
         },
         channelContext,
-        { subject, html: preview.html, text: preview.text ?? "", attachments: inlineAttachments },
+        { subject, html: preview.html, text: preview.text ?? "", attachments: mailAttachments },
       );
       sent = result.status === "sent";
     } catch {

@@ -1153,6 +1153,17 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.document.invalidReferenceName": "«{detail}» no es un nombre válido.",
   "templateResolver.errors.document.scriptElement":
     "Los elementos <script> no están permitidos en los textos de plantilla.",
+  "templateResolver.errors.attachment.unsupportedType":
+    "Los archivos adjuntos deben ser PDF, PNG o JPEG.",
+  "templateResolver.errors.attachment.limit":
+    "Una plantilla puede tener como máximo {max} archivos adjuntos.",
+  "templateResolver.errors.attachment.invalid":
+    "El archivo adjunto necesita una plantilla, una clave y un nombre de archivo válido.",
+  "template-resolver.documentEditor.htmlSource": "Código HTML",
+  "template-resolver.documentEditor.removeBlock": "Quitar bloque",
+  "template-resolver.documentEditor.selectedBlock": "Bloque seleccionado",
+  "template-resolver.documentEditor.showHtml": "HTML",
+  "template-resolver.documentEditor.underline": "Subrayado",
   "tenant-settings.currency": "Moneda predeterminada",
   "tenant-settings.locale": "Idioma predeterminado",
   "tenant-settings.settings": "Ajustes de la organización",
