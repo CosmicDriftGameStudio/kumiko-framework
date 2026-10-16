@@ -77,6 +77,10 @@ test("tenant admin edits the invoice mail, attaches files, previews, sends a tes
   ).toBeVisible();
   await expect(page.getByTestId("mail-preview-attachments")).toContainText("hausordnung.pdf");
   await expect(page.getByTestId("mail-preview-checks")).toBeVisible();
+  // A long sample value must not squeeze its label out of the rail.
+  await expect(
+    page.getByTestId("mail-sample-invoiceUrl").getByText("Link zur Rechnung"),
+  ).toBeVisible();
   await page.getByTestId("mail-test-send").click();
   await expect(page.getByTestId("mail-test-sent")).toBeVisible();
 

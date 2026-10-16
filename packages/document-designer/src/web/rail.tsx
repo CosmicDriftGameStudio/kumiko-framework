@@ -70,7 +70,12 @@ export function RailRow({
         )}
       </span>
       {trailing !== undefined && (
-        <span className="shrink-0 text-xs text-muted-foreground">{trailing}</span>
+        <span
+          className="min-w-0 max-w-[60%] truncate text-right text-xs text-muted-foreground"
+          title={typeof trailing === "string" ? trailing : undefined}
+        >
+          {trailing}
+        </span>
       )}
     </div>
   );
