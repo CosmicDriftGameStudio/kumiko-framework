@@ -1082,9 +1082,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // it lazily, entities without encrypted fields never touch it.
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
   // Subject-key KMS for pii-annotated fields (crypto-shredding, #724).
-  // No adapter = engine off, plaintext as before — the warning keeps the gap
-  // visible until the prod-grade PgKmsAdapter (phase E) makes a hard boot
-  // gate viable (InMemory in prod would lose every DEK on restart).
+  // No adapter only gets this far when assertPiiBootInvariants above let it
+  // through: no PII carriers, or an explicit allowPlaintextPii opt-out. The
+  // engine then stays off and those fields are stored in plaintext.
   configurePiiSubjectKms(options.kms);
   // Blind-Index-Key (#818) — Boot-Gate: mit aktivem KMS würden lookupable-
   // Felder als Ciphertext gespeichert, ohne Key gäbe es keinen bidx-Arm und
