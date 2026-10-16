@@ -499,6 +499,15 @@ describe("renderer-mail-html :: layout resolution", () => {
 });
 
 describe("renderer-mail-html :: broken layouts", () => {
+  // The system layout is shared by every tenant, so later describes must not inherit the broken one.
+  afterAll(async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      layoutPayload("x", { content: DEFAULT_MAIL_LAYOUT_MJML }),
+      TestUsers.systemAdmin,
+    );
+  });
+
   test("an invalid MJML layout is an error with code other, not invalid_payload", async () => {
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
