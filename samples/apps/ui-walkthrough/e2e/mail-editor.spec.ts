@@ -1,6 +1,6 @@
 // @runtime test
 // Mail editor as the Nordlicht tenant admin: one walk-through on the seeded
-// draft "Rechnung versendet". Serial because every step builds on the saved
+// draft "Korrigierte Rechnung". Serial because every step builds on the saved
 // state of the previous one and the server and database are shared.
 
 import { expect, test } from "@playwright/test";
@@ -18,12 +18,12 @@ test("tenant admin edits the invoice mail, attaches files, previews, sends a tes
 }) => {
   await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
   await page.goto("/templates");
-  const row = page.getByRole("row").filter({ hasText: "Rechnung versendet" });
+  const row = page.getByRole("row").filter({ hasText: "Korrigierte Rechnung" });
   await expect(row).toHaveCount(1);
   await row.getByRole("button", { name: "Bearbeiten" }).click();
 
   await expect(page.getByTestId("document-designer-editor-title")).toContainText(
-    "Rechnung versendet",
+    "Korrigierte Rechnung",
   );
   await expect(page.getByTestId("document-designer-editor-status")).toContainText("Entwurf");
 
@@ -34,11 +34,11 @@ test("tenant admin edits the invoice mail, attaches files, previews, sends a tes
   await expect(page.getByTestId("document-designer-publish")).toBeDisabled();
 
   // Save is only enabled for a changed draft: edit the subject, then save a new version.
-  await expect(page.getByTestId("document-designer-editor-status")).toContainText("v2");
+  await expect(page.getByTestId("document-designer-editor-status")).toContainText("v1");
   await page.locator("#mail-subject").click();
   await page.keyboard.type(" (Oktober)");
   await page.getByTestId("document-designer-save").click();
-  await expect(page.getByTestId("document-designer-editor-status")).toContainText("v3");
+  await expect(page.getByTestId("document-designer-editor-status")).toContainText("v2");
   await expect(page.getByTestId("document-designer-editor-status")).toContainText("Entwurf");
 
   // Logo as inline image, PDF as attachment.
@@ -82,7 +82,7 @@ test("switching the language with unsaved changes asks first and keeps the input
 }) => {
   await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
   await page.goto("/templates");
-  const row = page.getByRole("row").filter({ hasText: "Rechnung versendet" });
+  const row = page.getByRole("row").filter({ hasText: "Korrigierte Rechnung" });
   await row.getByRole("button", { name: "Bearbeiten" }).click();
   await expect(page.getByTestId("document-designer-editor-title")).toBeVisible();
 
