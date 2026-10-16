@@ -20,6 +20,9 @@ export const templateVariable = {
     type: "link",
     ...opts,
   }),
+  richText: (
+    opts: CommonOptions & { readonly example?: string } = {},
+  ): TemplateScalarVariableDef => ({ type: "richText", ...opts }),
   money: (
     opts: CommonOptions & {
       readonly example?: number | { readonly amount: number; readonly currency: string };
@@ -60,6 +63,8 @@ const dateSchema = z.union([z.iso.date(), z.iso.datetime({ offset: true })]);
 function scalarToZod(def: TemplateScalarVariableDef): z.ZodType {
   switch (def.type) {
     case "text":
+      return z.string();
+    case "richText":
       return z.string();
     case "link":
       return linkSchema;

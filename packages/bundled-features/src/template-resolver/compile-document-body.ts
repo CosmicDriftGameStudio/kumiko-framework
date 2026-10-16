@@ -60,6 +60,7 @@ function resolveReference(
 function valueExpression(path: string, def: TemplateVariableDef | undefined): string {
   if (def?.type === "money") return `{{money ${path}}}`;
   if (def?.type === "date") return `{{date ${path}}}`;
+  if (def?.type === "richText") return `{{richText ${path}}}`;
   return `{{${path}}}`;
 }
 

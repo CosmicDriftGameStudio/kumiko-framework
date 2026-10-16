@@ -125,3 +125,14 @@ describe("document resources", () => {
     expect(() => toResourceDataUri("image/svg+xml", new Uint8Array([1]))).toThrow();
   });
 });
+
+describe("compileDocumentBodyToHandlebars :: richText", () => {
+  test("a richText variable becomes the richText helper, a text variable stays escaped", () => {
+    const out = compileDocumentBodyToHandlebars(
+      '<p><span data-variable="note"></span> <span data-variable="name"></span></p>',
+      { note: templateVariable.richText(), name: templateVariable.text() },
+    );
+    expect(out).toContain("{{richText note}}");
+    expect(out).toContain("{{name}}");
+  });
+});

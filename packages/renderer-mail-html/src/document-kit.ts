@@ -3,6 +3,7 @@ import type { RendererContext } from "@cosmicdrift/kumiko-bundled-features/rende
 import {
   collectDocumentResourceKeys,
   type LayoutRegions,
+  sanitizeDocumentHtml,
   TemplateNotFoundError,
   type TemplateResolverApi,
   type TemplateResource,
@@ -14,6 +15,7 @@ import {
   TENANT_CURRENCY_CONFIG_KEY,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { formatMoney, resolveSafeMoneyLocale } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import Handlebars from "handlebars";
@@ -21,6 +23,7 @@ import Handlebars from "handlebars";
 // Handlebars instance, template resolution and resource lookup shared by the
 // mail and PDF renderers, so both format money/dates and find images the same way.
 
+const documentKitLogger = createFallbackLogger("renderer-mail-html");
 const FALLBACK_CURRENCY = "EUR";
 const SAFE_LINK_PROTOCOL = /^(https?:|mailto:)/i;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -65,13 +68,30 @@ export function createDocumentHandlebars(format: DocumentFormat): typeof Handleb
       return String(value);
     }
   });
+  hbs.registerHelper("richText", (value: unknown): Handlebars.SafeString | string => {
+    if (typeof value !== "string") return "";
+    const sanitized = sanitizeDocumentHtml(value);
+    if (sanitized.ok) return new hbs.SafeString(sanitized.html);
+    // Rejected markup renders as visible text (escaped by Handlebars) instead of vanishing.
+    documentKitLogger.warn("richText value rejected by sanitizer, rendered as escaped text", {
+      violations: sanitized.violations.map((item) => item.code),
+    });
+    return value;
+  });
   hbs.registerHelper("link", (value: unknown): string =>
     typeof value === "string" && SAFE_LINK_PROTOCOL.test(value.trim()) ? value : "#",
   );
   return hbs;
 }
 
-const KNOWN_HELPERS = { each: true, if: true, money: true, date: true, link: true } as const;
+const KNOWN_HELPERS = {
+  each: true,
+  if: true,
+  money: true,
+  date: true,
+  link: true,
+  richText: true,
+} as const;
 
 export function compileDocumentSource(
   hbs: typeof Handlebars,

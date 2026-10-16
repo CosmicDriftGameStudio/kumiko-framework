@@ -504,6 +504,7 @@ type TemplateVariableCommon = {
 export type TemplateScalarVariableDef =
   | (TemplateVariableCommon & { readonly type: "text"; readonly example?: string })
   | (TemplateVariableCommon & { readonly type: "link"; readonly example?: string })
+  | (TemplateVariableCommon & { readonly type: "richText"; readonly example?: string })
   | (TemplateVariableCommon & {
       readonly type: "money";
       readonly example?: number | { readonly amount: number; readonly currency: string };
