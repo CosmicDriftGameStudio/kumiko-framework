@@ -483,19 +483,25 @@ export function PdfTemplateEditor({
       </header>
 
       {showOrigin && detail.scope === "system" && (
-        <Banner variant="info">
+        <Banner
+          variant="info"
+          actions={
+            <div className="flex flex-wrap items-center gap-4">
+              <Button variant="link" onClick={() => void exportBundle()}>
+                {t("documentDesigner.originBar.export")}
+              </Button>
+              <Button variant="link" onClick={() => setOverridesOpen(true)}>
+                {t("documentDesigner.originBar.showOverrides")}
+              </Button>
+            </div>
+          }
+        >
           {overridesQuery.data?.totalTenants == null
             ? t("documentDesigner.originBar.noTotal", { count: overrideCount })
             : t("documentDesigner.originBar.withTotal", {
                 count: overrideCount,
                 total: overridesQuery.data.totalTenants,
-              })}{" "}
-          <Button variant="link" onClick={() => void exportBundle()}>
-            {t("documentDesigner.originBar.export")}
-          </Button>{" "}
-          <Button variant="link" onClick={() => setOverridesOpen(true)}>
-            {t("documentDesigner.originBar.showOverrides")}
-          </Button>
+              })}
         </Banner>
       )}
       <OverridesDrawer

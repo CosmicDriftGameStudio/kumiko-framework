@@ -53,12 +53,13 @@ const INVOICE_VARIABLES = {
       description: { type: "text", label: "Beschreibung" },
       amount: { type: "money", label: "Betrag" },
     },
+    // Money examples are minor units (cents), like stored amounts.
     example: [
-      { description: "Kaltmiete Oktober 2026, Wohnung 3. OG links", amount: 780 },
-      { description: "Nebenkostenvorauszahlung Oktober 2026", amount: 185 },
+      { description: "Kaltmiete Oktober 2026, Wohnung 3. OG links", amount: 78000 },
+      { description: "Nebenkostenvorauszahlung Oktober 2026", amount: 18500 },
     ],
   },
-  total: { type: "money", label: "Gesamtbetrag", example: 965 },
+  total: { type: "money", label: "Gesamtbetrag", example: 96500 },
 } as const;
 
 const INVOICE_META = {
