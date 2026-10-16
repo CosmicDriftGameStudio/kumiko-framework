@@ -1,6 +1,7 @@
 // @runtime client
 
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import { toInstant } from "@cosmicdrift/kumiko-headless";
 import {
   type ColumnRendererComponent,
   type ColumnRendererProps,
@@ -30,7 +31,7 @@ export function TitleCell({ row }: ColumnRendererProps): ReactNode {
       <div className="font-medium">{r.title}</div>
       {/* Qualified notification slugs are long; capped so status, usage and date stay in view. */}
       <span
-        className="block max-w-52 truncate font-mono text-xs text-muted-foreground"
+        className="block max-w-40 truncate font-mono text-xs text-muted-foreground"
         title={r.slug}
       >
         {r.slug}
@@ -107,11 +108,21 @@ export function UsedByCell({ row }: ColumnRendererProps): ReactNode {
   return withRow(row, (r) => {
     const label = usedByLabel(t, r);
     return (
-      <span className="block max-w-36 truncate" title={label}>
+      <span className="block max-w-28 truncate" title={label}>
         {label}
       </span>
     );
   });
+}
+
+// Date only keeps the column narrow enough for the overview to fit without
+// horizontal scroll; the full timestamp stays reachable via the tooltip.
+function formatModifiedDate(value: string): string {
+  try {
+    return toInstant(value).toLocaleString(undefined, { dateStyle: "medium" });
+  } catch {
+    return value;
+  }
 }
 
 export function ModifiedCell({ row }: ColumnRendererProps): ReactNode {
@@ -119,7 +130,9 @@ export function ModifiedCell({ row }: ColumnRendererProps): ReactNode {
     r.modifiedAt === "" ? (
       EMPTY_MARK
     ) : (
-      <span className="whitespace-nowrap">{formatWhen(r.modifiedAt)}</span>
+      <span className="whitespace-nowrap" title={formatWhen(r.modifiedAt)}>
+        {formatModifiedDate(r.modifiedAt)}
+      </span>
     ),
   );
 }

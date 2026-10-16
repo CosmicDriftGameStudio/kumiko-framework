@@ -29,9 +29,7 @@ test("tenant admin sees the own mail template and edits the mail layout without 
   await page.goto("/templates");
 
   const invoiceRow = await rowOf(page, "Rechnung versendet");
-  await expect(invoiceRow.getByTestId("document-designer-origin")).toContainText(
-    "Mandanten-Anpassung",
-  );
+  await expect(invoiceRow.getByTestId("document-designer-origin")).toContainText("Mandant");
 
   const layoutRow = await rowOf(page, "Mail-Layout");
   await layoutRow.getByRole("button", { name: "Bearbeiten" }).click();

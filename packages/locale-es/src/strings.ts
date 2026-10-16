@@ -1398,7 +1398,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.kind.pdf": "PDF",
   "documentDesigner.kind.layout": "Diseño",
   "documentDesigner.source.system": "Sistema",
-  "documentDesigner.source.tenant": "Personalización de la organización",
+  "documentDesigner.source.tenant": "Organización",
   "documentDesigner.status.active": "Activa",
   "documentDesigner.status.draft": "Borrador",
   "documentDesigner.status.archived": "Archivada",

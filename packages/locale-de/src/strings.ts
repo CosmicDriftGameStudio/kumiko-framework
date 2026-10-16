@@ -1401,7 +1401,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.kind.pdf": "PDF",
   "documentDesigner.kind.layout": "Layout",
   "documentDesigner.source.system": "System",
-  "documentDesigner.source.tenant": "Mandanten-Anpassung",
+  "documentDesigner.source.tenant": "Mandant",
   "documentDesigner.status.active": "Aktiv",
   "documentDesigner.status.draft": "Entwurf",
   "documentDesigner.status.archived": "Archiviert",

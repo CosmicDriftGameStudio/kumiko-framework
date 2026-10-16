@@ -1362,7 +1362,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.kind.pdf": "PDF",
   "documentDesigner.kind.layout": "Layout",
   "documentDesigner.source.system": "System",
-  "documentDesigner.source.tenant": "Tenant customisation",
+  "documentDesigner.source.tenant": "Tenant",
   "documentDesigner.status.active": "Active",
   "documentDesigner.status.draft": "Draft",
   "documentDesigner.status.archived": "Archived",
