@@ -93,6 +93,7 @@ export function expireLegacySessionCookieVariants(
   if (isHostPrefixedCookieName(cookies.names.auth)) {
     deleteCookie(c, AUTH_COOKIE_BASE, { path: "/" });
     deleteCookie(c, CSRF_COOKIE_BASE, { path: "/" });
+    // skip: the unprefixed names are the only legacy variant when the config writes __Host- names.
     return;
   }
   if (cookies.secure) {

@@ -154,6 +154,7 @@ export async function rewriteSeededUserEmail(
       id,
       emailBidx: computeBlindIndex(blindIndexKey, email),
     });
+    // skip: the stored blind index already matches, a rewrite would only append a no-op event.
     if (indexed) return;
   }
   const tdb = createTenantDb(db, by.tenantId, "system");

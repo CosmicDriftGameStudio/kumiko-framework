@@ -357,6 +357,7 @@ async function closeUserLoginDoor(
   handlerTxRunner: DbRunner,
 ): Promise<void> {
   const userRow = await fetchOne(handlerTxRunner, userTable, { id: userId });
+  // skip: no user row for this subject key (e.g. email subscribers); there is no door to close.
   if (!userRow) return;
 
   const closeDoor = async (runner: DbRunner): Promise<void> => {

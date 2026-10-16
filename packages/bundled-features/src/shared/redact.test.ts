@@ -3,9 +3,7 @@ import { redactBotTokens, redactEmailAddresses, redactErrorText, redactUrls } fr
 
 describe("redactUrls", () => {
   test("hides a Telegram bot token in the path", () => {
-    const out = redactUrls(
-      "fetch failed: https://api.telegram.org/botFAKE-TOKEN/sendMessage",
-    );
+    const out = redactUrls("fetch failed: https://api.telegram.org/botFAKE-TOKEN/sendMessage");
     expect(out).toBe("fetch failed: https://api.telegram.org/[redacted]");
   });
 
@@ -56,9 +54,7 @@ describe("redactBotTokens", () => {
   test("hides a bare bot token in running text", () => {
     const out = redactErrorText(`bad token ${fakeBotToken} rejected`);
     expect(out).toBe("bad token [redacted-token] rejected");
-    expect(redactBotTokens(`x ${fakeBotToken}`)).toContain(
-      "[redacted-token]",
-    );
+    expect(redactBotTokens(`x ${fakeBotToken}`)).toContain("[redacted-token]");
   });
 
   test("leaves harmless text with a time alone", () => {

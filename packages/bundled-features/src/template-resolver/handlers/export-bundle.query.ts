@@ -14,6 +14,31 @@ import { readTemplateResource } from "../template-resources.js";
 import { kindSchema, templateSlugSchema } from "./shared.js";
 import { parseStoredJson, storedRecord } from "./template-gates.js";
 
+// The files live in the system tenant's key space; readTemplateResource only
+// serves the caller's own tenant, so anyone else would end in a misleading NotFound.
+function assertSystemFilesReadable(
+  scope: "tenant" | "system",
+  entries: Iterable<LinkedResourceEntry>,
+  callerTenantId: string,
+): void {
+  // skip: tenant exports read the caller's own files.
+  if (scope === "tenant") return;
+  // skip: the system tenant reads its own key space.
+  if (callerTenantId === SYSTEM_TENANT_ID) return;
+  const hasFileResources = [...entries].some((entry) => !isPdfAttachmentLink(entry));
+  // skip: PDF attachment links carry no file to read.
+  if (!hasFileResources) return;
+  throw new ValidationError({
+    fields: [
+      {
+        path: "scope",
+        code: "system_resources_need_system_tenant",
+        i18nKey: "templateResolver.errors.template.systemResourcesNeedSystemTenant",
+      },
+    ],
+  });
+}
+
 export const exportBundleQuery = defineQueryHandler({
   name: "export-bundle",
   schema: z.object({
@@ -49,20 +74,7 @@ export const exportBundleQuery = defineQueryHandler({
       }
     }
 
-    // The files live in the system tenant's key space; readTemplateResource only
-    // serves the caller's own tenant, so anyone else would end in a misleading NotFound.
-    const hasFileResources = [...entryByKey.values()].some((entry) => !isPdfAttachmentLink(entry));
-    if (scope === "system" && hasFileResources && query.user.tenantId !== SYSTEM_TENANT_ID) {
-      throw new ValidationError({
-        fields: [
-          {
-            path: "scope",
-            code: "system_resources_need_system_tenant",
-            i18nKey: "templateResolver.errors.template.systemResourcesNeedSystemTenant",
-          },
-        ],
-      });
-    }
+    assertSystemFilesReadable(scope, entryByKey.values(), query.user.tenantId);
 
     const resources: TemplateBundle["resources"] = {};
     const pdfAttachments: TemplateBundle["pdfAttachments"] = {};
