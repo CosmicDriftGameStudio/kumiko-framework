@@ -1051,8 +1051,13 @@ export function createWriteVerbs(
       // Restore carries the soft-deleted snapshot as `previous` — mirror of
       // delete for symmetry. Projections that decremented on delete use
       // `previous` to re-increment on restore without re-querying the entity
-      // table. `data` is the raw stored row — pii/encrypted fields are
-      // already ciphertext, no re-encrypt needed.
+      // table. Rows predating the subject-KMS rollout may still hold plaintext
+      // pii, and envelope encryption is not idempotent: decrypt, then
+      // re-encrypt as delete does.
+      const previousPlain = await decryptForRead(data);
+      const previousForStorage = await encryptForStorage(previousPlain, user, {
+        keyTenantId: streamTenantId,
+      });
       let event: Awaited<ReturnType<typeof append>>;
       try {
         event = await runInSavepointIfSupported(runner, (sp) =>
@@ -1063,7 +1068,7 @@ export function createWriteVerbs(
             expectedVersion: currentVersion,
             type: entityEventName(entityName, "restored"),
             eventVersion,
-            payload: { previous: data },
+            payload: { previous: previousForStorage },
             metadata: buildEventMetadata(user),
           }),
         );
@@ -1115,7 +1120,6 @@ export function createWriteVerbs(
         rehydrateCompoundTypes(restored as DbRow, entity) as DbRow,
       );
 
-      const previousPlain = await decryptForRead(data);
       const echoEvent = { ...event, payload: { previous: stripSensitive(previousPlain) } };
       await projectEntityEvent(db, runner, echoEvent);
       return {
