@@ -37,6 +37,8 @@ describe("renderer-pdf :: mounted next to renderer-foundation", () => {
       {
         kind: "document-pdf",
         payload: {
+          slug: "table",
+          locale: "de",
           variables: {
             title: "Stack-Test",
             columns: [{ header: "Name" }],

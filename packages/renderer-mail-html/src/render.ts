@@ -10,7 +10,6 @@
 //   4. mjml -> email HTML, html-to-text -> plain-text alternative.
 // Handlebars runs in an isolated instance with a fixed helper set.
 
-import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
   type InlineAttachmentRef,
   type MailDraft,
@@ -27,190 +26,54 @@ import {
   isMailTemplateMeta,
   type MailTemplateMeta,
   parseTemplateMeta,
+  readLayoutRegions,
   resolveTemplateVariables,
   sanitizeDocumentHtml,
   sanitizeLayoutHtml,
   TemplateNotFoundError,
+  type TemplateResolverApi,
   type TemplateResource,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { TenantSettingsConfig } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  isUuid,
-  SYSTEM_TENANT_ID,
-  TENANT_CURRENCY_CONFIG_KEY,
-} from "@cosmicdrift/kumiko-framework/engine";
-import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { formatMoney, resolveSafeMoneyLocale } from "@cosmicdrift/kumiko-headless";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import Handlebars from "handlebars";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { convert as htmlToText } from "html-to-text";
 import mjml2html from "mjml";
 import { DEFAULT_MAIL_LAYOUT_MJML, DEFAULT_MAIL_LAYOUT_SLUG } from "./default-layout.js";
+import {
+  collectRegionResourceKeys,
+  compileDocumentSource,
+  createDocumentHandlebars,
+  mergeResourceFileRefs,
+  readDocumentFormat,
+  readTenantName,
+  resolveResourceFileRefs,
+} from "./document-kit.js";
 import { renderStructuredLayoutMjml } from "./structured-layout.js";
 
-const FALLBACK_CURRENCY = "EUR";
-const SAFE_LINK_PROTOCOL = /^(https?:|mailto:)/i;
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const LINE_BREAKS = /[\r\n]+/g;
-
-type MailFormat = { readonly locale: string; readonly currency: string };
 
 function describe(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
-}
-
-function isPlainRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function createMailHandlebars(format: MailFormat): typeof Handlebars {
-  const hbs = Handlebars.create();
-  hbs.registerHelper("money", (value: unknown): string => {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return formatMoney(value, format.currency, format.locale);
-    }
-    if (isPlainRecord(value)) {
-      const { amount, currency } = value;
-      if (typeof amount === "number" && Number.isFinite(amount) && typeof currency === "string") {
-        return formatMoney(amount, currency, format.locale);
-      }
-    }
-    return value === undefined || value === null ? "" : String(value);
-  });
-  hbs.registerHelper("date", (value: unknown): string => {
-    if (typeof value !== "string" && typeof value !== "number") {
-      return value === undefined || value === null ? "" : String(value);
-    }
-    const locale = resolveSafeMoneyLocale(format.locale);
-    try {
-      // A date-only string has no zone; going through an instant would show the
-      // previous day west of UTC.
-      if (typeof value === "string" && DATE_ONLY.test(value)) {
-        return Temporal.PlainDate.from(value).toLocaleString(locale, { dateStyle: "medium" });
-      }
-      const instant =
-        typeof value === "number"
-          ? Temporal.Instant.fromEpochMilliseconds(value)
-          : Temporal.Instant.from(value);
-      return instant.toLocaleString(locale, { dateStyle: "medium", timeZone: "UTC" });
-    } catch {
-      return String(value);
-    }
-  });
-  hbs.registerHelper("link", (value: unknown): string =>
-    typeof value === "string" && SAFE_LINK_PROTOCOL.test(value.trim()) ? value : "#",
-  );
-  return hbs;
-}
-
-const KNOWN_HELPERS = { each: true, if: true, money: true, date: true, link: true } as const;
-
-function compileSource(
-  hbs: typeof Handlebars,
-  source: string,
-  options: { readonly noEscape?: boolean } = {},
-): HandlebarsTemplateDelegate {
-  return hbs.compile(source, {
-    knownHelpers: KNOWN_HELPERS,
-    knownHelpersOnly: true,
-    strict: false,
-    ...options,
-  });
-}
-
-// A key only exists in the registry when its feature is mounted; reading an
-// unregistered key through the accessor would throw instead of falling back.
-async function readConfigText(ctx: RendererContext, key: string): Promise<string | undefined> {
-  if (ctx.config === undefined || ctx.registry.getConfigKey(key) === undefined) return undefined;
-  const value = await ctx.config(key);
-  return typeof value === "string" && value !== "" ? value : undefined;
-}
-
-async function readMailFormat(ctx: RendererContext, payloadLocale: string): Promise<MailFormat> {
-  const [locale, currency] = await Promise.all([
-    readConfigText(ctx, TenantSettingsConfig.locale),
-    readConfigText(ctx, TENANT_CURRENCY_CONFIG_KEY),
-  ]);
-  return { locale: locale ?? payloadLocale, currency: currency ?? FALLBACK_CURRENCY };
-}
-
-async function readTenantName(ctx: RendererContext): Promise<string> {
-  return (await readConfigText(ctx, BRANDING_QN.title)) ?? "";
-}
-
-const LOGO_RESOURCE_KEY = "logo";
-
-// Lookup order: the template's own link, the system template it overrides, and for
-// "logo" the tenant's branding logo. The system lookup is skipped for system templates.
-async function resolveResourceFileRefs(
-  tplApi: ReturnType<typeof createTemplateResolverApi>,
-  ctx: RendererContext,
-  template: TemplateResource,
-  keys: readonly string[],
-): Promise<ReadonlyMap<string, string>> {
-  if (keys.length === 0) return new Map();
-  let systemLinks: Readonly<Record<string, string>> = {};
-  if (template.scope === "tenant") {
-    try {
-      systemLinks = (
-        await tplApi.resolveTemplate({
-          tenantId: SYSTEM_TENANT_ID,
-          slug: template.slug,
-          kind: template.kind,
-          locale: template.locale,
-        })
-      ).linkedResources;
-    } catch (e) {
-      if (!(e instanceof TemplateNotFoundError)) throw e;
-    }
-  }
-  const brandingLogo = keys.includes(LOGO_RESOURCE_KEY) ? await readBrandingLogo(ctx) : undefined;
-  const fileRefIds = new Map<string, string>();
-  for (const key of keys) {
-    const fileRefId =
-      ownLink(template.linkedResources, key) ??
-      ownLink(systemLinks, key) ??
-      (key === LOGO_RESOURCE_KEY ? brandingLogo : undefined);
-    if (fileRefId !== undefined) fileRefIds.set(key, fileRefId);
-  }
-  return fileRefIds;
-}
-
-// The token is a free field of the tenant admin and the send reader also reaches the system
-// tenant's files, so only a file of the rendering tenant itself counts.
-async function readBrandingLogo(ctx: RendererContext): Promise<string | undefined> {
-  const fileRefId = await readConfigText(ctx, BRANDING_QN.logoFile);
-  if (fileRefId === undefined || !isUuid(fileRefId)) return undefined;
-  const [row] = await selectMany<{ id: string }>(ctx.db, fileRefsTable, {
-    id: fileRefId,
-    tenantId: ctx.tenantId,
-    isDeleted: false,
-  });
-  return row === undefined ? undefined : fileRefId;
-}
-
-function ownLink(links: Readonly<Record<string, string>>, key: string): string | undefined {
-  return Object.hasOwn(links, key) && links[key] !== "" ? links[key] : undefined;
 }
 
 type ResolvedLayout = {
   readonly content: string;
   readonly format: "mjml" | "html";
   readonly ref: RenderedTemplateRef | null;
+  readonly template: TemplateResource | null;
 };
 
 const IN_CODE_LAYOUT: ResolvedLayout = {
   content: DEFAULT_MAIL_LAYOUT_MJML,
   format: "mjml",
   ref: null,
+  template: null,
 };
 
 // Only system layouts are trusted as written: a tenant mjml row left over from
 // before that rule, or a tenant html row failing the layout sanitizer, is
 // replaced by the system layout of the same slug.
 async function resolveLayout(
-  tplApi: ReturnType<typeof createTemplateResolverApi>,
+  tplApi: TemplateResolverApi,
   ctx: RendererContext,
   meta: MailTemplateMeta,
   locale: string,
@@ -249,6 +112,7 @@ async function resolveLayout(
       content,
       format: layout.contentFormat === "html" ? "html" : "mjml",
       ref: { templateId: layout.id, templateVersion: layout.version, scope: layout.scope },
+      template: layout,
     };
   } catch (e) {
     // Only "no layout seeded" falls back to the in-code layout. Connection or
@@ -275,6 +139,27 @@ async function findStoredMailTemplate(
     if (e instanceof TemplateNotFoundError) return null;
     throw new RendererError(
       `renderer-mail-html: template resolution failed — ${describe(e)}`,
+      "other",
+    );
+  }
+}
+
+async function resolveLayoutFileRefs(
+  tplApi: TemplateResolverApi,
+  ctx: RendererContext,
+  layout: ResolvedLayout,
+): Promise<ReadonlyMap<string, string>> {
+  if (layout.format !== "html" || layout.template === null) return new Map();
+  try {
+    return await resolveResourceFileRefs(
+      tplApi,
+      ctx,
+      layout.template,
+      collectRegionResourceKeys(readLayoutRegions(layout.content)),
+    );
+  } catch (e) {
+    throw new RendererError(
+      `renderer-mail-html: resolving the layout images failed — ${describe(e)}`,
       "other",
     );
   }
@@ -331,7 +216,7 @@ function applyMailDraft(
 }
 
 async function resolveMailTemplate(
-  tplApi: ReturnType<typeof createTemplateResolverApi>,
+  tplApi: TemplateResolverApi,
   ctx: RendererContext,
   slug: string,
   locale: string,
@@ -362,13 +247,13 @@ async function resolveMailTemplate(
 
 type MailBody = {
   readonly contentHtml: string;
-  readonly attachments: readonly InlineAttachmentRef[];
+  readonly resourceFileRefs: ReadonlyMap<string, string>;
 };
 
-// Each data-resource image becomes an inline attachment referenced by cid; the bytes
-// are read at send time, so the render result carries only file ref ids.
+// Each data-resource image is referenced by cid; the bytes are read at send time, so
+// the render result carries only file ref ids.
 async function renderMailBody(
-  tplApi: ReturnType<typeof createTemplateResolverApi>,
+  tplApi: TemplateResolverApi,
   ctx: RendererContext,
   template: TemplateResource,
   hbs: typeof Handlebars,
@@ -387,12 +272,8 @@ async function renderMailBody(
       { resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined) },
     );
     return {
-      contentHtml: compileSource(hbs, handlebarsSource)(context),
-      attachments: [...resourceFileRefs].map(([cid, fileRefId]) => ({
-        kind: "inline" as const,
-        cid,
-        fileRefId,
-      })),
+      contentHtml: compileDocumentSource(hbs, handlebarsSource)(context),
+      resourceFileRefs,
     };
   } catch (e) {
     throw new RendererError(
@@ -407,7 +288,7 @@ function renderSubjectLine(
   source: string,
   context: Readonly<Record<string, unknown>>,
 ): string {
-  return compileSource(hbs, source, { noEscape: true })(context).replace(LINE_BREAKS, "");
+  return compileDocumentSource(hbs, source, { noEscape: true })(context).replace(LINE_BREAKS, "");
 }
 
 function renderSubjectLines(
@@ -450,10 +331,10 @@ export async function mailHtmlRender(
   const layout = await resolveLayout(tplApi, ctx, meta, locale);
 
   const [format, tenantName] = await Promise.all([
-    readMailFormat(ctx, locale),
+    readDocumentFormat(ctx, locale),
     readTenantName(ctx),
   ]);
-  const hbs = createMailHandlebars(format);
+  const hbs = createDocumentHandlebars(format);
   const context = {
     ...variables,
     tenantName,
@@ -462,7 +343,13 @@ export async function mailHtmlRender(
     unsubscribeUrl: unsubscribeUrl ?? "",
   };
 
-  const { contentHtml, attachments } = await renderMailBody(tplApi, ctx, template, hbs, context);
+  const body = await renderMailBody(tplApi, ctx, template, hbs, context);
+  const { contentHtml } = body;
+  const layoutFileRefs = await resolveLayoutFileRefs(tplApi, ctx, layout);
+  const resourceFileRefs = mergeResourceFileRefs(body.resourceFileRefs, layoutFileRefs);
+  const attachments: readonly InlineAttachmentRef[] = [...resourceFileRefs].map(
+    ([cid, fileRefId]) => ({ kind: "inline", cid, fileRefId }),
+  );
   const { subject, previewText } = renderSubjectLines(hbs, meta, slug, context);
 
   let mjmlSource: string;
@@ -481,9 +368,10 @@ export async function mailHtmlRender(
             layoutHtml: layout.content,
             contentHtml,
             context: layoutContext,
-            compile: (source) => compileSource(hbs, source),
+            compile: (source) => compileDocumentSource(hbs, source),
+            resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined),
           })
-        : compileSource(hbs, layout.content)({ ...layoutContext, content: contentHtml });
+        : compileDocumentSource(hbs, layout.content)({ ...layoutContext, content: contentHtml });
   } catch (e) {
     // "other": the caller's payload is fine, the layout template is broken.
     throw new RendererError(

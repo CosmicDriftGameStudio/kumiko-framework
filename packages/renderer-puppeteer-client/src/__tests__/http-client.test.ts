@@ -116,7 +116,7 @@ describe("postRender :: 5xx (mit Retry)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  test("3x 500 → alle Retries erschöpft, RendererError code=other", async () => {
+  test("3x 500 → alle Retries erschöpft, RendererError code=unavailable", async () => {
     const fetchMock = mock().mockResolvedValue(mockResponse(500, { error: "render_failed" }));
     installFetchMock(fetchMock);
     try {
@@ -124,8 +124,10 @@ describe("postRender :: 5xx (mit Retry)", () => {
       expect.unreachable("expected throw");
     } catch (e) {
       expect(e).toBeInstanceOf(RendererError);
-      expect((e as RendererError).code).toBe("other");
-      expect((e as RendererError).message).toMatch(/all 3 attempts failed/);
+      expect((e as RendererError).code).toBe("unavailable");
+      expect((e as RendererError).message).toMatch(
+        /puppeteer-service is not reachable at .*: puppeteer-service 500/,
+      );
     }
     expect(fetchMock).toHaveBeenCalledTimes(3); // maxRetries=2 → 1 initial + 2 retries
   });

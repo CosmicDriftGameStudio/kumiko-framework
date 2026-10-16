@@ -11,7 +11,8 @@ import {
   type MailPayload,
   RendererError,
 } from "../renderer-foundation/index.js";
-import type { EmailAttachmentRef } from "./attachment-ref.js";
+import { FALLBACK_LOCALE } from "../template-resolver/index.js";
+import type { EmailAttachmentRef, RenderedPdfAttachmentRef } from "./attachment-ref.js";
 import type { ChannelContext, RenderedMail } from "./types.js";
 
 export function createTemplateMailRenderer(
@@ -45,16 +46,55 @@ export function createTemplateMailRenderer(
 }
 
 const INLINE_IMAGE_CONTENT_TYPE_PREFIX = "image/";
+const PDF_CONTENT_TYPE = "application/pdf";
+
+// Renders at send time so the job payload carries variables, not bytes. A failure throws:
+// the send job retries instead of mailing without the document the recipient expects.
+function createPdfRenderer(
+  db: DbConnection | TenantDb,
+  registry: Registry,
+  tenantId: TenantId,
+  config: ConfigAccessor | undefined,
+  filesForTenant: (tenantId: string) => FileContext | undefined,
+) {
+  return async (ref: RenderedPdfAttachmentRef) => {
+    const plugin = createRendererFoundationApi(
+      collectRendererPlugins(registry),
+    ).createRendererForTenant({ tenantId, kind: "document-pdf" });
+    const response = await plugin.render(
+      {
+        kind: "document-pdf",
+        payload: {
+          slug: ref.templateSlug,
+          locale: ref.locale ?? FALLBACK_LOCALE,
+          variables: ref.variables,
+        },
+      },
+      { db, registry, tenantId, filesForTenant, ...(config !== undefined && { config }) },
+    );
+    if (response.kind !== "document-pdf") {
+      throw new RendererError(
+        `[delivery] renderer "${plugin.name}" answered a document-pdf request with kind "${response.kind}"`,
+        "other",
+      );
+    }
+    return { content: response.pdfBytes, contentType: PDF_CONTENT_TYPE };
+  };
+}
 
 // Inline images may come from the system tenant (system template or tenant override of
 // one); file attachments only from the job's own tenant. Inline content that is not an
 // image is dropped, so a swapped fileRef id cannot smuggle a document into the mail body.
 export function createEmailAttachmentReader(
   db: DbConnection | TenantDb,
+  registry: Registry,
   tenantId: TenantId,
+  config: ConfigAccessor | undefined,
   filesForTenant: (tenantId: string) => FileContext | undefined,
 ): NonNullable<ChannelContext["readAttachment"]> {
+  const renderPdf = createPdfRenderer(db, registry, tenantId, config, filesForTenant);
   return async (ref: EmailAttachmentRef) => {
+    if (ref.kind === "rendered-pdf") return renderPdf(ref);
     const found = await readFileRefContent({
       db,
       filesForTenant,
@@ -90,7 +130,13 @@ export function buildChannelContext(
     secrets,
     renderMail: createTemplateMailRenderer(db, registry, tenantId, tenantConfig),
     ...(filesForTenant !== undefined && {
-      readAttachment: createEmailAttachmentReader(db, tenantId, filesForTenant),
+      readAttachment: createEmailAttachmentReader(
+        db,
+        registry,
+        tenantId,
+        tenantConfig,
+        filesForTenant,
+      ),
     }),
   };
 }

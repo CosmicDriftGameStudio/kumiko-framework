@@ -36,19 +36,34 @@ export type TemplateValidation = {
   readonly unknownResources: readonly string[];
 };
 
-const SCALAR_TYPES = ["text", "link", "money", "date"] as const;
-
-const scalarVariableSchema = z.object({
-  type: z.enum(SCALAR_TYPES),
+// Mirrors TemplateVariableDef: a stored or draft schema keeps its label and example, which the
+// preview uses as sample values.
+const variableCommon = {
+  label: z.string().optional(),
   required: z.boolean().optional(),
-});
+};
+const textLikeExample = z.string().optional();
+
+const scalarVariableSchema = z.discriminatedUnion("type", [
+  z.object({ ...variableCommon, type: z.literal("text"), example: textLikeExample }),
+  z.object({ ...variableCommon, type: z.literal("link"), example: textLikeExample }),
+  z.object({
+    ...variableCommon,
+    type: z.literal("money"),
+    example: z
+      .union([z.number(), z.object({ amount: z.number(), currency: z.string() })])
+      .optional(),
+  }),
+  z.object({ ...variableCommon, type: z.literal("date"), example: textLikeExample }),
+]);
 
 const variableDefSchema = z.union([
   scalarVariableSchema,
   z.object({
+    ...variableCommon,
     type: z.literal("list"),
-    required: z.boolean().optional(),
     item: z.record(z.string(), scalarVariableSchema),
+    example: z.array(z.record(z.string(), z.unknown())).optional(),
   }),
 ]);
 

@@ -37,6 +37,7 @@ function makePlugin(name: string, kinds: RendererPlugin["kinds"]): RendererPlugi
             pdfBytes: new Uint8Array([1, 2, 3]),
             pageCount: 1,
             sizeBytes: 3,
+            fileName: "x.pdf",
           };
         case "image-snapshot":
           return {

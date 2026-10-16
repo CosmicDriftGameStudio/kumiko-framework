@@ -14,6 +14,10 @@ export {
 export { collectRendererPlugins, createRendererFoundationFeature } from "./feature.js";
 export {
   type DocumentPayload,
+  type DocumentPdfDraft,
+  type DocumentPdfPayload,
+  type DocumentPreview,
+  type DocumentPreviewRequest,
   type ImageOptions,
   type InlineAttachmentRef,
   isRendererRegistrationPlugin,

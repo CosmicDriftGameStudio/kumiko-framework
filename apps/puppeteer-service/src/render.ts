@@ -34,10 +34,10 @@ export type RenderOptions = {
 };
 
 const pdfMarginsSchema = z.object({
-  top: z.number().positive().optional(),
-  right: z.number().positive().optional(),
-  bottom: z.number().positive().optional(),
-  left: z.number().positive().optional(),
+  top: z.number().min(0).max(100).optional(),
+  right: z.number().min(0).max(100).optional(),
+  bottom: z.number().min(0).max(100).optional(),
+  left: z.number().min(0).max(100).optional(),
 });
 
 const pdfOptionsSchema = z.object({
@@ -95,18 +95,16 @@ export type EgressGuardPage = {
   ): void;
 };
 
-// Egress-Guard (enterprise#267): rendered HTML can trigger <img>/<link>/@import
-// fetches from the render pod. Without this filter → SSRF against private IPs /
-// cloud metadata (169.254.169.254). Extracted so CI can assert the wiring
-// without launching Chromium (render.integration.test.ts skips in CI).
+// Egress-Guard (enterprise#267): see egress-guard.ts. Extracted so CI can assert the
+// wiring without launching Chromium (render.integration.test.ts skips in CI).
 export async function attachEgressRequestGuard(page: EgressGuardPage): Promise<void> {
   await page.setRequestInterception(true);
   page.on("request", (interceptedRequest) => {
-    void isBlockedRequestUrl(interceptedRequest.url()).then(
-      (blocked) =>
-        blocked ? interceptedRequest.abort("blockedbyclient") : interceptedRequest.continue(),
-      () => interceptedRequest.abort("blockedbyclient"),
-    );
+    if (isBlockedRequestUrl(interceptedRequest.url())) {
+      void interceptedRequest.abort("blockedbyclient");
+    } else {
+      void interceptedRequest.continue();
+    }
   });
 }
 

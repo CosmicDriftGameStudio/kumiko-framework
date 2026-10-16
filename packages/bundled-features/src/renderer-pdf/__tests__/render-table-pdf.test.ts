@@ -162,6 +162,8 @@ describe("renderer-pdf plugin", () => {
       {
         kind: "document-pdf",
         payload: {
+          slug: "table",
+          locale: "de",
           variables: { ...manyRowsDocument({ rows: [["01.02.2026", "Müller", "1 €"]] }) },
         },
         options: { format: "Letter" },
@@ -173,6 +175,7 @@ describe("renderer-pdf plugin", () => {
     expect(renderer.name).toBe("pdf");
     expect(response.pageCount).toBe(1);
     expect(response.sizeBytes).toBe(response.pdfBytes.byteLength);
+    expect(response.fileName).toBe("table.pdf");
     const [page = ""] = await readPages(response.pdfBytes);
     expect(page).toContain("Prüfprotokoll Kessel");
   });
@@ -181,7 +184,7 @@ describe("renderer-pdf plugin", () => {
     const renderer = api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" });
 
     const attempt = renderer.render(
-      { kind: "document-pdf", payload: { variables: { title: 5 } } },
+      { kind: "document-pdf", payload: { slug: "table", locale: "de", variables: { title: 5 } } },
       ctx,
     );
 

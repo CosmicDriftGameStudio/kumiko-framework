@@ -1,5 +1,5 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { isUuid, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFileContext,
@@ -52,7 +52,7 @@ export class FileRefTooLargeError extends Error {
 
 // fileName of the row is never used: it is personal data and may be a PII ciphertext.
 export async function readFileRefContent(args: {
-  readonly db: DbConnection | TenantDb;
+  readonly db: DbRunner | TenantDb;
   readonly filesForTenant: (tenantId: string) => FileContext | undefined;
   readonly fileRefId: string;
   readonly allowedTenantIds: readonly string[];

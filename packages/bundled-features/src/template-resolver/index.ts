@@ -71,6 +71,7 @@ export {
   type SanitizeLayoutResult,
   sanitizeLayoutHtml,
 } from "./layout-regions.js";
+export { prepareDocumentForPrint } from "./print-document.js";
 export {
   TEMPLATE_RESOLVER_FEATURE,
   TemplateResolverErrors,

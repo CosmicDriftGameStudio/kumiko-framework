@@ -52,6 +52,8 @@ export type StructuredLayoutInput = {
   readonly context: Readonly<Record<string, unknown>>;
   /** Compiles Handlebars source with the renderer's isolated instance and helper set. */
   readonly compile: (source: string) => (context: Readonly<Record<string, unknown>>) => string;
+  /** src for `img[data-resource]` in the regions; without it layout images are dropped. */
+  readonly resourceSrc?: (key: string) => string | undefined;
 };
 
 export function renderStructuredLayoutMjml(input: StructuredLayoutInput): string {
@@ -59,7 +61,13 @@ export function renderStructuredLayoutMjml(input: StructuredLayoutInput): string
   const renderRegion = (region: string): string =>
     region.trim() === ""
       ? ""
-      : input.compile(compileDocumentBodyToHandlebars(region, {}))(input.context);
+      : input.compile(
+          compileDocumentBodyToHandlebars(
+            region,
+            {},
+            input.resourceSrc && { resourceSrc: input.resourceSrc },
+          ),
+        )(input.context);
   return input.compile(STRUCTURED_LAYOUT_FRAME)({
     ...input.context,
     content: input.contentHtml,

@@ -1,9 +1,19 @@
-import type { EmailAttachmentRef } from "../delivery/index.js";
+import type {
+  EmailAttachmentRef,
+  FileAttachmentRef,
+  InlineAttachmentRef,
+  RenderedPdfAttachmentRef,
+} from "../delivery/index.js";
 
 export type { EmailAttachmentRef };
 
-// What a transport receives: the reference plus the bytes the send job read.
-export type EmailAttachment = EmailAttachmentRef & {
+// What a transport receives: the reference plus the bytes the send job read. A rendered
+// PDF keeps no variables here, they may be personal data and the transport has no use for them.
+export type EmailAttachment = (
+  | InlineAttachmentRef
+  | FileAttachmentRef
+  | Pick<RenderedPdfAttachmentRef, "kind" | "templateSlug">
+) & {
   readonly content: Uint8Array;
   readonly contentType: string;
   readonly fileName: string;
