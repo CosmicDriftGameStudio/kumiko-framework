@@ -11,6 +11,7 @@ import type * as z from "zod";
 export type ZodDef = {
   readonly innerType?: z.ZodType;
   readonly in?: z.ZodType;
+  readonly element?: z.ZodType;
   readonly defaultValue?: unknown;
 };
 

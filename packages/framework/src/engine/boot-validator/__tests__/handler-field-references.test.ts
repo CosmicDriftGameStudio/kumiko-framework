@@ -53,4 +53,58 @@ describe("validateBoot — handler field references meta", () => {
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
+
+  function keyedConsumer(references: unknown, wrap: (field: z.ZodString) => z.ZodType = (f) => f) {
+    return defineFeature("planner", (r) => {
+      r.writeHandler(
+        "plan",
+        z.object({ channelKeys: wrap(z.string().meta({ references })) }),
+        noopHandler,
+        { access: OPEN_ACCESS },
+      );
+    });
+  }
+
+  function channelFeature() {
+    return defineFeature("channels", (r) => {
+      r.entity("channel", { fields: { key: { type: "text", required: true } } });
+    });
+  }
+
+  test("accepts by on an existing target field", () => {
+    expect(() =>
+      validateBoot([channelFeature(), keyedConsumer({ entity: "channels:channel", by: "key" })]),
+    ).not.toThrow();
+  });
+
+  test("accepts an array field with by and a cross-feature entity", () => {
+    const feature = defineFeature("planner", (r) => {
+      r.writeHandler(
+        "plan",
+        z.object({
+          channelKeys: z.array(z.string()).meta({
+            references: { entity: "channels:channel", by: "key" },
+          }),
+        }),
+        noopHandler,
+        { access: OPEN_ACCESS },
+      );
+    });
+    expect(() => validateBoot([channelFeature(), feature])).not.toThrow();
+  });
+
+  test("rejects by naming a field the target entity does not have", () => {
+    expect(() =>
+      validateBoot([channelFeature(), keyedConsumer({ entity: "channels:channel", by: "slug" })]),
+    ).toThrow(/channelKeys.*"plan".*"channels:channel" by "slug".*no field "slug"/s);
+  });
+
+  test("rejects an invalid references meta", () => {
+    expect(() => validateBoot([channelFeature(), keyedConsumer({ by: "key" })])).toThrow(
+      /channelKeys.*invalid meta references/s,
+    );
+    expect(() => validateBoot([channelFeature(), keyedConsumer(42)])).toThrow(
+      /channelKeys.*invalid meta references/s,
+    );
+  });
 });
