@@ -330,6 +330,7 @@ export function LayoutEditorBody({
                     variables={placeholders}
                     readOnly={false}
                     blocks={isMail ? MAIL_DOCUMENT_BLOCKS : PDF_DOCUMENT_BLOCKS}
+                    toolbar="compact"
                   />
                 </PaperRegion>
                 <PaperRegion
@@ -356,6 +357,7 @@ export function LayoutEditorBody({
                       variables={placeholders}
                       readOnly={false}
                       blocks={MAIL_DOCUMENT_BLOCKS}
+                      toolbar="compact"
                     />
                   </PaperRegion>
                 )}
@@ -370,6 +372,7 @@ export function LayoutEditorBody({
                     variables={placeholders}
                     readOnly={false}
                     blocks={isMail ? MAIL_DOCUMENT_BLOCKS : PDF_DOCUMENT_BLOCKS}
+                    toolbar="compact"
                   />
                 </PaperRegion>
               </div>
@@ -379,7 +382,7 @@ export function LayoutEditorBody({
 
         <div className="flex flex-col gap-4">
           <AppearanceRail kind={kind} />
-          {showMjmlTab && source.mjmlSource !== null && (
+          {showMjmlTab && !mjmlMode && source.mjmlSource !== null && (
             <MjmlPreviewRail mjmlSource={source.mjmlSource} />
           )}
           <UsedByRail layoutSlug={slug} kind={kind} rows={overviewRows} />

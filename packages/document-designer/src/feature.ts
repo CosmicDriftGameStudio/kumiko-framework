@@ -7,6 +7,7 @@ import {
 import {
   DOCUMENT_DESIGNER_FEATURE,
   LAYOUT_EDITOR_SCREEN_ID,
+  PDF_TEMPLATE_EDITOR_SCREEN_ID,
   PLATFORM_TEMPLATES_NAV_ID,
   PLATFORM_TEMPLATES_SCREEN_ID,
   TEMPLATES_NAV_ID,
@@ -76,12 +77,21 @@ export function createDocumentDesignerFeature(): FeatureDefinition {
       order: 15,
     });
 
-    // kumiko-lint-ignore app-feature-structure Board-5 layout editor (region editors, branding rail, MJML tab) has no declarative screen type
     r.screen({
       id: LAYOUT_EDITOR_SCREEN_ID,
       type: "custom",
       renderer: { react: { __component: LAYOUT_EDITOR_SCREEN_ID } },
       description: "documentDesigner.screen.layoutEditor.description",
+      dormant: true,
+      access: { roles: access.roles(...TENANT_ROLES) },
+    });
+
+    r.screen({
+      id: PDF_TEMPLATE_EDITOR_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: PDF_TEMPLATE_EDITOR_SCREEN_ID } },
+      description:
+        "Editor for one PDF template: edit the body, print a preview through the print service, review tenant customisations and export the template as a bundle.",
       dormant: true,
       access: { roles: access.roles(...TENANT_ROLES) },
     });

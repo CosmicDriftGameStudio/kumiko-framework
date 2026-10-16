@@ -30,5 +30,5 @@ detail: With includeDocumentDesigner, the tenant workspace shows document-design
 feature: document-designer
 type: improvement
 title: Template overview, layout editor and an options object for documentDesignerClient
-detail: The package gains the server feature createDocumentDesignerFeature with the templates and platform-templates overviews and the layout-editor screen. documentDesignerClient now takes an options object instead of a screen id; the PDF template editor is registered with documentDesignerClient({ pdfEditorScreenId: "<screen id>" }) and appLocales sets the languages column of the overview.
+detail: The package gains the server feature createDocumentDesignerFeature with the templates and platform-templates overviews and the layout-editor screen. documentDesignerClient now takes an options object instead of a screen id, and appLocales sets the languages column of the overview. The feature declares the pdf-template-editor screen (PDF_TEMPLATE_EDITOR_SCREEN_ID) and PDF rows open the PDF editor.
 -->

@@ -37,6 +37,8 @@ export type DocumentEditorProps = ContentEditorProps & {
   /** Image previews by resource key; resources without one show a key placeholder. */
   readonly resourcePreviews?: Readonly<Record<string, DocumentResourcePreview>>;
   readonly chrome?: DocumentEditorChrome;
+  /** "compact" renders the placeholder and block buttons icon-only with a tooltip, for narrow columns. Default "full". */
+  readonly toolbar?: "full" | "compact";
   /** Called with the handle once the editor exists and with null when it is destroyed. */
   readonly onEditorReady?: (handle: DocumentEditorHandle) => void;
 };

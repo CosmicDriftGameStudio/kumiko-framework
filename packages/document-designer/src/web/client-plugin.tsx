@@ -12,6 +12,7 @@ import {
   DOCUMENT_DESIGNER_FEATURE,
   DocumentDesignerCells,
   LAYOUT_EDITOR_SCREEN_ID,
+  PDF_TEMPLATE_EDITOR_SCREEN_ID,
 } from "../constants.js";
 import { DOCUMENT_DESIGNER_I18N } from "../i18n.js";
 import {
@@ -20,8 +21,8 @@ import {
   ModifiedCell,
   OriginCell,
   OverriddenByCell,
-  SlugCell,
   StatusCell,
+  TitleCell,
   UsedByCell,
 } from "./cells.js";
 import { documentDesignerTranslations } from "./i18n.js";
@@ -48,8 +49,6 @@ export function PdfTemplateEditorScreen(): ReactNode {
 export type DocumentDesignerClientOptions = {
   /** Locales shown as boxes in the overview's languages column; templates in other locales are appended. */
   readonly appLocales?: readonly string[];
-  /** Custom screen id the app declared for the PDF template editor; without it the editor is not registered. */
-  readonly pdfEditorScreenId?: string;
 };
 
 export function documentDesignerClient(
@@ -58,7 +57,7 @@ export function documentDesignerClient(
   return {
     name: DOCUMENT_DESIGNER_FEATURE,
     columnRenderers: {
-      [DocumentDesignerCells.slug]: SlugCell,
+      [DocumentDesignerCells.title]: TitleCell,
       [DocumentDesignerCells.kind]: KindCell,
       [DocumentDesignerCells.origin]: OriginCell,
       [DocumentDesignerCells.locales]: createLocalesCell(
@@ -71,9 +70,7 @@ export function documentDesignerClient(
     },
     components: {
       [LAYOUT_EDITOR_SCREEN_ID]: LayoutEditor,
-      ...(options.pdfEditorScreenId !== undefined && {
-        [options.pdfEditorScreenId]: PdfTemplateEditorScreen,
-      }),
+      [PDF_TEMPLATE_EDITOR_SCREEN_ID]: PdfTemplateEditorScreen,
     },
     translations: mergeTranslations(
       mergeTranslations(textBlocksClient().translations ?? {}, documentDesignerTranslations),

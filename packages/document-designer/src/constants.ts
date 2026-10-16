@@ -5,6 +5,7 @@ export const DOCUMENT_DESIGNER_FEATURE = "document-designer" as const;
 export const TEMPLATES_SCREEN_ID = "templates" as const;
 export const PLATFORM_TEMPLATES_SCREEN_ID = "platform-templates" as const;
 export const LAYOUT_EDITOR_SCREEN_ID = "layout-editor" as const;
+export const PDF_TEMPLATE_EDITOR_SCREEN_ID = "pdf-template-editor" as const;
 
 export const TEMPLATES_NAV_ID = "templates" as const;
 export const PLATFORM_TEMPLATES_NAV_ID = "platform-templates" as const;
@@ -16,15 +17,17 @@ export const DEFAULT_LAYOUT_SLUG = "default" as const;
 
 export type TemplateEditorKind = "mail" | "document-pdf" | "mail-layout" | "pdf-layout";
 
-// Short screen id per template kind. Later editors (mail, PDF document) add their
-// kind here and get an "Edit" row action without touching the list definition.
+// Short screen id per template kind. A kind without an entry gets no "Edit" row action.
+// The mail editor adds `mail` here and declares its screen in this feature, because the
+// boot validator only accepts navigate targets in the same feature.
 export const TEMPLATE_EDITOR_SCREENS: Partial<Record<TemplateEditorKind, string>> = {
+  "document-pdf": PDF_TEMPLATE_EDITOR_SCREEN_ID,
   "mail-layout": LAYOUT_EDITOR_SCREEN_ID,
   "pdf-layout": LAYOUT_EDITOR_SCREEN_ID,
 };
 
 export const DocumentDesignerCells = {
-  slug: "document-designer-slug-cell",
+  title: "document-designer-title-cell",
   kind: "document-designer-kind-cell",
   origin: "document-designer-origin-cell",
   locales: "document-designer-locales-cell",

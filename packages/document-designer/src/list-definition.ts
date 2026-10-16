@@ -15,12 +15,10 @@ function cell(component: string): { readonly react: { readonly __component: stri
 }
 
 const BASE_COLUMNS: readonly ListColumnSpec[] = [
-  { field: "title", label: i18nKey("documentDesigner.col.template") },
   {
-    field: "slug",
-    label: i18nKey("documentDesigner.col.slug"),
-    hideOnNarrow: true,
-    renderer: cell(DocumentDesignerCells.slug),
+    field: "title",
+    label: i18nKey("documentDesigner.col.template"),
+    renderer: cell(DocumentDesignerCells.title),
   },
   {
     field: "kindGroup",

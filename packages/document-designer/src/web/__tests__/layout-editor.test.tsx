@@ -13,7 +13,7 @@ import {
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.js";
 import { LayoutEditor } from "../layout-editor.js";
 import type { LayoutSourceView } from "../layout-types.js";
@@ -165,6 +165,18 @@ describe("LayoutEditor", () => {
       contentFormat: "mjml",
       content: `${MJML}<!-- edited -->`,
     });
+  });
+
+  test("the MJML preview rail is hidden in the MJML tab and shown in the draft tab", async () => {
+    renderEditor(["SystemAdmin"], systemSource, []);
+    await screen.findByTestId("document-designer-mjml-source");
+    expect(screen.queryByTestId("document-designer-mjml-preview")).toBeNull();
+
+    fireEvent.click(
+      within(screen.getByTestId("layout-mjml-tab")).getByRole("button", { name: "Draft" }),
+    );
+    await screen.findByTestId("document-designer-paper");
+    expect(screen.getByTestId("document-designer-mjml-preview")).toBeDefined();
   });
 
   test("publishing as platform admin saves and then publishes the saved version", async () => {

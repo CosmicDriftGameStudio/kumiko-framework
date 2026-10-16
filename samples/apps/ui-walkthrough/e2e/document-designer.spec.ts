@@ -60,3 +60,51 @@ test("platform admin sees who customised each template and the MJML source of th
   await page.goto(MAIL_LAYOUT_URL);
   await expect(page.getByTestId("layout-mjml-tab")).toBeVisible();
 });
+
+async function expectNoHorizontalOverflow(page: Page, lastColumnHeaders: readonly string[]) {
+  const table = page.getByTestId("render-list-table");
+  await expect(table).toBeVisible();
+  const scrollContainer = table.locator("xpath=ancestor::*[@data-slot='table-container'][1]");
+  const { scrollWidth, clientWidth } = await scrollContainer.evaluate((el) => ({
+    scrollWidth: el.scrollWidth,
+    clientWidth: el.clientWidth,
+  }));
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+
+  const viewportWidth = page.viewportSize()?.width ?? 0;
+  for (const name of lastColumnHeaders) {
+    const box = await page.getByRole("columnheader", { name }).boundingBox();
+    expect(box).not.toBeNull();
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(viewportWidth);
+  }
+}
+
+test("tenant overview fits 1280 px without horizontal scrolling", async ({ page }) => {
+  await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  await page.goto("/templates");
+  await expectNoHorizontalOverflow(page, ["Geändert"]);
+});
+
+test("platform overview fits 1280 px without horizontal scrolling", async ({ page }) => {
+  await loginAs(page, PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD);
+  await page.goto("/platform-templates");
+  await expectNoHorizontalOverflow(page, ["Geändert", "Angepasst von"]);
+});
+
+test("PDF rows open the PDF editor and mail rows have no edit action", async ({ page }) => {
+  await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  await page.goto("/templates");
+
+  const mailRow = await rowOf(page, "Passwort zurücksetzen");
+  await expect(mailRow.getByRole("button", { name: "Bearbeiten" })).toHaveCount(0);
+
+  const pdfRow = page
+    .getByRole("row")
+    .filter({ has: page.getByText("billing:invoice", { exact: true }) });
+  await expect(pdfRow).toHaveCount(1);
+  await pdfRow.getByRole("button", { name: "Bearbeiten" }).click();
+
+  await expect(page).toHaveURL(/pdf-template-editor/);
+  await expect(page).toHaveURL(/slug=billing(%3A|:)invoice/);
+  await expect(page.getByTestId("pdf-template-editor")).toBeVisible();
+});

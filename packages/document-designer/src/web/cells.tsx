@@ -24,15 +24,18 @@ function withRow(
   return parsed === null ? EMPTY_MARK : render(parsed);
 }
 
-export function SlugCell({ row }: ColumnRendererProps): ReactNode {
+export function TitleCell({ row }: ColumnRendererProps): ReactNode {
   return withRow(row, (r) => (
-    // Qualified notification slugs are long; capped so status, usage and date stay in view.
-    <span
-      className="block max-w-44 truncate font-mono text-xs text-muted-foreground"
-      title={r.slug}
-    >
-      {r.slug}
-    </span>
+    <div>
+      <div className="font-medium">{r.title}</div>
+      {/* Qualified notification slugs are long; capped so status, usage and date stay in view. */}
+      <span
+        className="block max-w-52 truncate font-mono text-xs text-muted-foreground"
+        title={r.slug}
+      >
+        {r.slug}
+      </span>
+    </div>
   ));
 }
 
@@ -101,11 +104,24 @@ export function StatusCell({ row }: ColumnRendererProps): ReactNode {
 
 export function UsedByCell({ row }: ColumnRendererProps): ReactNode {
   const t = useTranslation();
-  return withRow(row, (r) => usedByLabel(t, r));
+  return withRow(row, (r) => {
+    const label = usedByLabel(t, r);
+    return (
+      <span className="block max-w-36 truncate" title={label}>
+        {label}
+      </span>
+    );
+  });
 }
 
 export function ModifiedCell({ row }: ColumnRendererProps): ReactNode {
-  return withRow(row, (r) => (r.modifiedAt === "" ? EMPTY_MARK : formatWhen(r.modifiedAt)));
+  return withRow(row, (r) =>
+    r.modifiedAt === "" ? (
+      EMPTY_MARK
+    ) : (
+      <span className="whitespace-nowrap">{formatWhen(r.modifiedAt)}</span>
+    ),
+  );
 }
 
 type TenantOverrides = {
@@ -127,12 +143,14 @@ function OverriddenByCount({
     kind,
   });
   if (data === null) return EMPTY_MARK;
-  return data.totalTenants === null
-    ? t("documentDesigner.overriddenBy.tenants", { active: data.activeOverrides })
-    : t("documentDesigner.overriddenBy.ofTotal", {
-        active: data.activeOverrides,
-        total: data.totalTenants,
-      });
+  const label =
+    data.totalTenants === null
+      ? t("documentDesigner.overriddenBy.tenants", { active: data.activeOverrides })
+      : t("documentDesigner.overriddenBy.ofTotal", {
+          active: data.activeOverrides,
+          total: data.totalTenants,
+        });
+  return <span className="whitespace-nowrap">{label}</span>;
 }
 
 export function OverriddenByCell({ row }: ColumnRendererProps): ReactNode {

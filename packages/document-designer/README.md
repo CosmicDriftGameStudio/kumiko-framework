@@ -13,7 +13,7 @@ createDocumentDesignerFeature();
 
 createKumikoApp({
   clientFeatures: [
-    documentDesignerClient({ appLocales: ["de", "en"], pdfEditorScreenId: "pdf-template-editor" }),
+    documentDesignerClient({ appLocales: ["de", "en"] }),
   ],
 });
 ```
@@ -29,7 +29,7 @@ Mount `createDocumentDesignerFeature()` after `template-resolver` (and `managed-
 
 ## PDF template editor
 
-`documentDesignerClient({ pdfEditorScreenId })` registers the editor as the custom screen the app declared under that id. The screen reads the template from the URL: `?slug=invoice&locale=de`.
+The feature declares the `pdf-template-editor` screen (`PDF_TEMPLATE_EDITOR_SCREEN_ID`) and `documentDesignerClient()` registers its component; the "Edit" row action of PDF rows opens it. The screen reads the template from the URL: `?slug=invoice&locale=de`.
 `PdfTemplateEditor` (props `slug`, `locale`, `onLocaleChange`) can also be mounted directly.
 
 Requirements: the `template-resolver` and `renderer-puppeteer-client` features on the server.
