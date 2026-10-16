@@ -1,0 +1,4 @@
+{
+  "$schema": "Exceptions file for check-security.ts. Each exception needs reason, reviewer, and expiry (max ~30 days).",
+  "exceptions": []
+}

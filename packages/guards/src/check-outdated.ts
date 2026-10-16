@@ -1,0 +1,229 @@
+// Deprecated-dependency check over ONE repo.
+//
+// Default: fails on any installed direct dependency whose npm registry metadata marks the
+// installed version `deprecated`. General outdated listing is Renovate's job; `--report`
+// adds deprecated transitive packages and a major-lag warning list (never blocking).
+// Single-repo by design: declared dependencies are the scanned repo's root and workspace
+// members; installed packages come from node_modules of the repo, its members and ancestors.
+import { parseDependencyCli } from "./_lib/dependency-cli";
+import {
+  collectDeclaredSpecsByName,
+  collectDirectDependencies,
+  collectRootOverrides,
+} from "./_lib/direct-dependencies";
+import { collectInstalledPackages, type InstalledPackage } from "./_lib/installed-packages";
+import {
+  createBunInfoClient,
+  findMajorLagWarning,
+  mapWithConcurrency,
+  memoizeRegistryClient,
+  type RegistryClient,
+} from "./_lib/npm-registry";
+
+const REGISTRY_CONCURRENCY = 10;
+
+type NameAndVersion = { readonly name: string; readonly version: string };
+
+export type DeprecatedPackage = NameAndVersion & { readonly message: string };
+
+export type UnresolvedPackage = NameAndVersion & { readonly reason: string };
+
+export type DeprecationScan = {
+  readonly deprecated: DeprecatedPackage[];
+  readonly unresolved: UnresolvedPackage[];
+};
+
+export async function findDeprecatedPackages(
+  packages: readonly NameAndVersion[],
+  registry: RegistryClient,
+): Promise<DeprecationScan> {
+  const unique = [...new Map(packages.map((pkg) => [`${pkg.name}@${pkg.version}`, pkg])).values()];
+  const lookups = await mapWithConcurrency(unique, REGISTRY_CONCURRENCY, async (pkg) => ({
+    pkg,
+    lookup: await registry.deprecation(pkg.name, pkg.version),
+  }));
+  const deprecated: DeprecatedPackage[] = [];
+  const unresolved: UnresolvedPackage[] = [];
+  for (const { pkg, lookup } of lookups) {
+    if (lookup.kind === "deprecated") deprecated.push({ ...pkg, message: lookup.message });
+    else if (lookup.kind === "unknown") unresolved.push({ ...pkg, reason: lookup.reason });
+  }
+  return { deprecated, unresolved };
+}
+
+function printUnresolved(
+  scope: string,
+  unresolved: readonly UnresolvedPackage[],
+  total: number,
+): void {
+  console.error(
+    `\n  WARNING: deprecation status UNKNOWN for ${unresolved.length} of ${total} ${scope} — the registry did not answer, so these were NOT checked:`,
+  );
+  for (const pkg of unresolved.slice(0, 10)) {
+    console.error(`    ${pkg.name}@${pkg.version}  — ${pkg.reason}`);
+  }
+  if (unresolved.length > 10) console.error(`    … and ${unresolved.length - 10} more`);
+}
+
+// A spec that is not a plain semver range (workspace:, catalog:, a git URL, "latest") has nothing to compare against; matching it by name alone can only over-report, never hide a deprecated package.
+function isComparableRange(spec: string): boolean {
+  return /^[\d~^><=]/.test(spec.trim());
+}
+
+export function isDeclaredInstall(installedVersion: string, declaredSpec: string): boolean {
+  if (!isComparableRange(declaredSpec)) return true;
+  return Bun.semver.satisfies(installedVersion, declaredSpec);
+}
+
+export function selectDirectInstalledPackages<T extends NameAndVersion>(
+  installed: readonly T[],
+  declaredSpecs: ReadonlyMap<string, readonly string[]>,
+  overrides: ReadonlyMap<string, string> = new Map(),
+): T[] {
+  const byName = new Map<string, T[]>();
+  for (const pkg of installed) {
+    if (!declaredSpecs.has(pkg.name)) continue;
+    const group = byName.get(pkg.name);
+    if (group) group.push(pkg);
+    else byName.set(pkg.name, [pkg]);
+  }
+
+  const keep = new Set<T>();
+  for (const [name, group] of byName) {
+    const specs = declaredSpecs.get(name) ?? [];
+    const matching = group.filter((pkg) =>
+      specs.some((spec) => isDeclaredInstall(pkg.version, spec)),
+    );
+    if (matching.length > 0) {
+      for (const pkg of matching) keep.add(pkg);
+      continue;
+    }
+    // A root `overrides` block can pin a direct dependency outside its declared range; keep the instances matching the pin, or all of them (fail-safe) if there is no pin or nothing satisfies it.
+    const override = overrides.get(name);
+    const pinned =
+      override === undefined ? [] : group.filter((pkg) => isDeclaredInstall(pkg.version, override));
+    for (const pkg of pinned.length > 0 ? pinned : group) keep.add(pkg);
+  }
+
+  return installed.filter((pkg) => keep.has(pkg));
+}
+
+async function printMajorLagReport(
+  repoRoot: string,
+  registry: RegistryClient,
+  nowMs: number,
+): Promise<void> {
+  const direct = collectDirectDependencies(repoRoot);
+  console.log(`\n  Major-lag report (${direct.length} direct dependencies):`);
+
+  const warnings = await mapWithConcurrency(direct, REGISTRY_CONCURRENCY, async (dep) => {
+    const release = await registry.latestRelease(dep.name);
+    if (!release) return null;
+    const current = dep.version.replace(/^[\^~>=<]+/, "");
+    return findMajorLagWarning(dep.name, current, release, 12, nowMs);
+  });
+
+  const hits = warnings.filter((w) => w !== null);
+  if (hits.length === 0) {
+    console.log("    No direct dependencies with major lag >12 months.");
+  } else {
+    console.log("\n  WARN: major version lag >12 months (not blocking):");
+    for (const hit of hits) {
+      console.log(
+        `    ${hit.name}  ${hit.current} → latest ${hit.latest} (since ${hit.latestPublished})`,
+      );
+    }
+  }
+}
+
+/** Prints the direct-dependency verdict; returns true when it must fail the run. */
+function reportDirectScan(scan: DeprecationScan, directChecked: number): boolean {
+  if (scan.deprecated.length > 0) {
+    console.error("\n  DEPRECATED direct dependencies (blocking):\n");
+    for (const dep of scan.deprecated) {
+      console.error(`    ${dep.name}@${dep.version}  — ${dep.message}`);
+    }
+  } else if (scan.unresolved.length === 0) {
+    console.log("  No deprecated direct dependencies found.");
+  }
+  if (scan.unresolved.length > 0) {
+    printUnresolved("direct dependencies", scan.unresolved, directChecked);
+  }
+  // Partial registry gaps stay a warning (npm answers 503 under load); a run that checked nothing must not pass.
+  const nothingChecked = directChecked > 0 && scan.unresolved.length === directChecked;
+  if (nothingChecked) {
+    console.error("  outdated: nothing checked — no direct dependency got a registry answer.");
+  }
+  return scan.deprecated.length > 0 || nothingChecked;
+}
+
+async function printTransitiveReport(
+  installed: readonly InstalledPackage[],
+  directScan: DeprecationScan,
+  registry: RegistryClient,
+): Promise<void> {
+  const allScan = await findDeprecatedPackages(installed, registry);
+  if (allScan.unresolved.length > directScan.unresolved.length) {
+    printUnresolved("installed packages", allScan.unresolved, countUnique(installed));
+  }
+  const transitive = allScan.deprecated.filter(
+    (dep) => !directScan.deprecated.some((d) => d.name === dep.name && d.version === dep.version),
+  );
+  if (transitive.length > 0) {
+    console.log(`\n  WARN: ${transitive.length} deprecated transitive package(s) (Renovate):`);
+    for (const dep of transitive.slice(0, 15)) {
+      console.log(`    ${dep.name}@${dep.version}  — ${dep.message}`);
+    }
+    if (transitive.length > 15) console.log(`    … and ${transitive.length - 15} more`);
+  }
+}
+
+export async function runOutdatedCheck(options: {
+  readonly repoRoot: string;
+  readonly reportMode: boolean;
+  readonly installed?: readonly InstalledPackage[];
+  readonly registry?: RegistryClient;
+  readonly nowMs?: number;
+}): Promise<number> {
+  const installed = options.installed ?? collectInstalledPackages(options.repoRoot);
+  if (installed.length === 0) {
+    console.error(
+      `  outdated: nothing scanned — no installed packages found for ${options.repoRoot} (run \`bun install\`).`,
+    );
+    return 1;
+  }
+  const registry = memoizeRegistryClient(options.registry ?? createBunInfoClient(options.repoRoot));
+  const directInstalled = selectDirectInstalledPackages(
+    installed,
+    collectDeclaredSpecsByName(options.repoRoot),
+    collectRootOverrides(options.repoRoot),
+  );
+
+  console.log(
+    `Outdated check: ${directInstalled.length} direct dependencies (${installed.length} installed total).`,
+  );
+
+  const directScan = await findDeprecatedPackages(directInstalled, registry);
+  const blocking = reportDirectScan(directScan, countUnique(directInstalled));
+
+  if (options.reportMode) {
+    await printTransitiveReport(installed, directScan, registry);
+    await printMajorLagReport(options.repoRoot, registry, options.nowMs ?? Date.now());
+  }
+
+  return blocking ? 1 : 0;
+}
+
+function countUnique(packages: readonly NameAndVersion[]): number {
+  return new Set(packages.map((pkg) => `${pkg.name}@${pkg.version}`)).size;
+}
+
+export async function runOutdatedCli(
+  argv: readonly string[],
+  cwd: string = process.cwd(),
+): Promise<number> {
+  const invocation = parseDependencyCli("outdated", argv, cwd);
+  if (!invocation.ok) return invocation.exitCode;
+  // Unlike licenses/security, `--report` only adds sections: a deprecated direct dependency still exits 1.
+  return runOutdatedCheck({ repoRoot: invocation.repoRoot, reportMode: invocation.reportOnly });
+}

@@ -59,7 +59,9 @@ describe("AppSchemaFetchBoot session-ended signal", () => {
   test("401 notifies the signal and still renders the unauthorized banner as fallback", async () => {
     const listener = mountBoot(401);
     await waitFor(() => expect(screen.getByText("You need to sign in to see this.")).toBeTruthy());
-    expect(listener).toHaveBeenCalledTimes(1);
+    // notify() runs in a passive effect after the banner commit, so the
+    // banner can be visible before the listener fires.
+    await waitFor(() => expect(listener).toHaveBeenCalledTimes(1));
   });
 
   test("403 does not notify the signal", async () => {

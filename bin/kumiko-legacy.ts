@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun";
-import { createWriteStream, existsSync, writeFileSync } from "node:fs";
+import { createWriteStream, existsSync, readdirSync, writeFileSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 import {
@@ -252,45 +252,36 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
       cmd: `bun "${composeStacksParityGuard}"`,
     });
   }
-  steps.push({ name: "Runtime-Isolation Guard", cmd: "bunx kumiko-check-runtime-isolation" });
-  // Doc-Status braucht das Multi-Repo-Parent (STATUS.md lebt in
-  // kumiko-platform) — im standalone CI-Checkout existiert das nicht.
-  // LAUT überspringen statt silent-skip; der Drift-Check läuft im lokalen
-  // Parent-Kontext, wo bun run check vor jedem Push Pflicht ist.
+  // Runtime-isolation runs inside the `kumiko check` step above (checks bundle).
+  // Guards living in the parent workspace's infra/ are optional: without the file
+  // (standalone CI checkout) the step is skipped loudly, never through a bunx fallback
+  // that could resolve a same-named foreign package from the public registry.
+  const pushInfraGuardStep = (name: string, file: string, args = ""): void => {
+    const guardPath = join(REPO_ROOT, "infra/guards", file);
+    if (existsSync(guardPath)) {
+      steps.push({ name, cmd: `bun "${guardPath}"${args}` });
+    } else {
+      console.log(`${name} skipped: infra/guards/${file} not in workspace (CI-standalone).`);
+    }
+  };
+  // Doc-Status needs the multi-repo parent (STATUS.md lives in kumiko-platform), which
+  // a standalone CI checkout lacks. Skip loudly; the drift check runs in the local
+  // parent context, where `bun run check` is mandatory before every push.
   if (existsSync(join(REPO_ROOT, "kumiko-platform"))) {
-    steps.push({ name: "Doc-Status Guard", cmd: "bunx kumiko-guard-doc-status" });
-    steps.push({ name: "Doc-Status-Index Drift", cmd: "bunx kumiko-docs-status-index" });
-    // Konzept-Seiten muessen mit "## In plain words" beginnen (Doku-Standard,
-    // kumiko-platform docs/reference/doku-standard.md). --strict seit alle
-    // 11 concepts-Seiten migriert sind (platform#341).
-    steps.push({
-      name: "Docs-Plain-Words Guard",
-      cmd: "bunx kumiko-guard-docs-plain-words --strict",
-    });
+    pushInfraGuardStep("Doc-Status Guard", "guard-doc-status.ts");
+    pushInfraGuardStep("Doc-Status-Index Drift", "docs-status-index.ts");
+    // Concept pages must start with "## In plain words" (docs standard,
+    // kumiko-platform docs/reference/doku-standard.md).
+    pushInfraGuardStep("Docs-Plain-Words Guard", "guard-docs-plain-words.ts", " --strict");
     // Needs the legal-templates source (kumiko-platform/tools/legal-templates)
     // to verify committed app JSONs against a fresh compilation.
-    const legalTemplateGuard = join(REPO_ROOT, "infra/guards/guard-legal-template-drift.ts");
-    steps.push({
-      name: "Legal-Template-Drift Guard",
-      cmd: existsSync(legalTemplateGuard) ? `bun "${legalTemplateGuard}"` : "bunx kumiko-guard-legal-template-drift",
-    });
+    pushInfraGuardStep("Legal-Template-Drift Guard", "guard-legal-template-drift.ts");
   } else {
-    console.log("Doc-Status-Steps übersprungen: kumiko-platform nicht im Workspace (CI-standalone).");
+    console.log("Doc-Status steps skipped: kumiko-platform not in workspace (CI-standalone).");
   }
   // TODO(2026-07-03): re-enable as-Cast Audit — coverage extended to all repos
   // (enterprise, platform, solon, .tsx) in check-as-casts.ts; baseline must be
   // regenerated with `--write-baseline` from framework repo after validation.
-  // steps.push({ name: "as-Cast Audit", cmd: "bunx kumiko-check-as-casts" });
-  // Feature-CHANGELOG guard: breaking changes must have migration field.
-  // Scans this repo's own packages/bundled-features, so the published binary
-  // from @cosmicdriftgamestudio/kumiko-guards covers the standalone checkout.
-  const featureChangelogGuard = join(REPO_ROOT, "infra/guards/guard-feature-changelog.ts");
-  steps.push({
-    name: "Feature-Changelog Guard",
-    cmd: existsSync(featureChangelogGuard)
-      ? `bun "${featureChangelogGuard}"`
-      : "bunx kumiko-guard-feature-changelog",
-  });
   // App-Dockerfile Guard needs the app-repo siblings in the parent workspace,
   // hence loud-skip in a standalone checkout (infra#514).
   const appDockerfileGuard = join(REPO_ROOT, "infra/guards/guard-app-dockerfile.ts");
@@ -306,9 +297,35 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     name: "Public-Exports-Changelog Guard",
     cmd: "bunx kumiko-guards public-exports-changelog",
   });
-  // Agent-Manifest Guard (infra#702): scans this repo's own kumiko.config.ts
-  // files, so no existsSync skip; standalone CI is where it must run.
-  steps.push({ name: "Agent-Manifest Guard", cmd: "bunx kumiko-guard-agent-manifest" });
+  // Agent-Manifest Guard (infra#702). The parent workspace's cross-repo guard also
+  // flags apps without a kumiko.config.ts. A standalone checkout lints this repo's own
+  // sample configs with `kumiko agent lint` (same findAgentDocGaps rule); finding none
+  // fails instead of passing vacuously.
+  const agentManifestGuard = join(REPO_ROOT, "infra/guards/guard-agent-manifest.ts");
+  if (existsSync(agentManifestGuard)) {
+    steps.push({ name: "Agent-Manifest Guard", cmd: `bun "${agentManifestGuard}"` });
+  } else {
+    const sampleConfigDirs = ["samples/apps", "samples/recipes"].flatMap((sampleRoot) => {
+      const samplesDir = join(FRAMEWORK_REPO_ROOT, sampleRoot);
+      if (!existsSync(samplesDir)) return [];
+      return readdirSync(samplesDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => join(samplesDir, entry.name))
+        .filter((dir) => existsSync(join(dir, "kumiko.config.ts")));
+    });
+    if (sampleConfigDirs.length === 0) {
+      steps.push({
+        name: "Agent-Manifest Guard",
+        cmd: `echo "Agent-Manifest Guard: no samples/apps/*/kumiko.config.ts or samples/recipes/*/kumiko.config.ts found under ${FRAMEWORK_REPO_ROOT}, nothing to lint." >&2 && exit 1`,
+      });
+    }
+    for (const dir of sampleConfigDirs.sort()) {
+      steps.push({
+        name: `Agent-Manifest Guard (${dir.slice(FRAMEWORK_REPO_ROOT.length + 1)})`,
+        cmd: `cd "${dir}" && bun "${KUMIKO_CLI}" agent lint`,
+      });
+    }
+  }
   // Baseline-Regression-Guard (infra#440): failt nur bei NEUEN strukturellen
   // Duplikaten (cross-module/cross-file), Altbestand via
   // .kumiko-semantic-duplicates-baseline.json eingefroren. Cross-repo scan
@@ -328,7 +345,8 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     cmd: `bun ${join(FRAMEWORK_REPO_ROOT, "scripts/guard-no-major-gt-zero.ts")}`,
   });
   // Uses the framework's own parseFeatureChangelog/validateChangelog/compareVersions
-  // so the rules cannot drift from the runtime parser.
+  // so the rules cannot drift from the runtime parser; also owns the kumiko-changes-block
+  // and direct-edit rules that the former private feature-changelog guard enforced.
   steps.push({
     name: "Changes-JSON Guard",
     cmd: `bun "${join(FRAMEWORK_REPO_ROOT, "scripts/guard-changes-json.ts")}"`,
@@ -346,8 +364,8 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   } else {
     console.log('Raw-SQL Guard übersprungen: bereits über "kumiko check" abgedeckt.');
   }
-  steps.push({ name: "License Check", cmd: "bunx kumiko-check-licenses" });
-  steps.push({ name: "Security Audit", cmd: "bunx kumiko-check-security" });
+  steps.push({ name: "License Check", cmd: "bunx kumiko-guards licenses" });
+  steps.push({ name: "Security Audit", cmd: "bunx kumiko-guards security" });
   // Cross-repo scan: gates on the guard file (parent workspace) and LAUT-skips
   // standalone — no bunx fallback, the pinned guards version doesn't ship this bin.
   const secretLiteralGuard = join(REPO_ROOT, "infra/guards/check-secret-literals.ts");
@@ -389,7 +407,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   } else {
     console.log("Workspace-Drift Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).");
   }
-  steps.push({ name: "Deprecated Deps", cmd: "bunx kumiko-check-outdated" });
+  steps.push({ name: "Deprecated Deps", cmd: "bunx kumiko-guards outdated" });
 
   return steps;
 })();
