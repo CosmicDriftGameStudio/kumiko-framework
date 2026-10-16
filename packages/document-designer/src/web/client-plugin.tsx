@@ -12,8 +12,8 @@ import {
   DOCUMENT_DESIGNER_FEATURE,
   DocumentDesignerCells,
   LAYOUT_EDITOR_SCREEN_ID,
-  PDF_TEMPLATE_EDITOR_SCREEN_ID,
   MAIL_EDITOR_SCREEN_ID,
+  PDF_TEMPLATE_EDITOR_SCREEN_ID,
 } from "../constants.js";
 import { DOCUMENT_DESIGNER_I18N } from "../i18n.js";
 import {
