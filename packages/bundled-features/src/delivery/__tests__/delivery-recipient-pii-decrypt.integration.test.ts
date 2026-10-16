@@ -35,13 +35,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
 import { seedUser } from "../../auth-email-password/seeding.js";
-import { createChannelEmailFeature } from "../../channel-email/feature.js";
 import { createInMemoryTransport } from "../../channel-email/types.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { configValuesTable } from "../../config/table.js";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createRendererSimpleFeature } from "../../renderer-simple/feature.js";
-import { simpleRenderer } from "../../renderer-simple/simple-renderer.js";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { TenantHandlers, TenantQueries } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
@@ -52,6 +49,7 @@ import { userEntity, userTable } from "../../user/schema/user.js";
 import { createDeliveryFeature } from "../feature.js";
 import { notificationPreferencesTable } from "../tables.js";
 import { createDeliveryTestContext } from "../testing.js";
+import { createPlainFallbackEmailFeature } from "./plain-email-channel.js";
 
 const emailTransport = createInMemoryTransport();
 const BIDX_KEY = Buffer.alloc(32, 9).toString("base64");
@@ -104,10 +102,8 @@ beforeAll(async () => {
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
-      createChannelEmailFeature({
+      createPlainFallbackEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         // Raw stored column, exactly like an app that reads user.email directly.
         resolveEmail: async (userId, ctx) => {
           const row = await fetchOne<{ email: string }>(ctx.db as typeof stack.db, userTable, {

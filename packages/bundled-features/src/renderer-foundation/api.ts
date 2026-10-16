@@ -24,7 +24,7 @@ export type RendererFoundationApi = {
    * `@cosmicdrift/kumiko-renderer-mail-html` for layout resolution via `template-resolver`)
    * receive `RendererContext` as the second argument to `render()` —
    * matches the pattern of `DeliveryChannel.send(addr, msg, ctx)`.
-   * Plugins without service deps (e.g. `renderer-simple`) ignore ctx.
+   * Plugins without service deps ignore ctx.
    */
   readonly createRendererForTenant: (args: {
     readonly tenantId: TenantId;
@@ -66,7 +66,7 @@ export function createRendererFoundationApi(
 
       // 4. Kein Plugin → Error
       throw new RendererError(
-        `[renderer-foundation] no plugin registered for kind="${kind}". Mount at least one plugin (renderer-simple, renderer-mail-html, renderer-puppeteer-client) for this kind.`,
+        `[renderer-foundation] no plugin registered for kind="${kind}". Mount at least one plugin (renderer-mail-html, renderer-puppeteer-client) for this kind.`,
         "no_plugin_for_kind",
       );
     },

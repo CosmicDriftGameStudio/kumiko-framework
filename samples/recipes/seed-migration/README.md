@@ -40,7 +40,7 @@ Bei typo / drift fail-t mit klarer message + exit-code 1 — CI nutzt es als pr�
 `findTemplateResources({ slug?, kind?, status?, locale?, tenantId? })` replaces a raw `SELECT … FROM read_template_resources`. It defaults to the system tenant and returns `[]` when template-resolver is not mounted:
 
 ```ts
-for (const t of await ctx.findTemplateResources({ kind: "notification", status: "active" })) {
+for (const t of await ctx.findTemplateResources({ kind: "mail", status: "active" })) {
   await ctx.systemWriteAs("template-resolver:write:archive", { id: t.id }, SYSTEM_TENANT_ID, [
     "SystemAdmin",
   ]);

@@ -6,7 +6,7 @@
 // Plugin-Renderer in `renderer-foundation` matchen auf kind; der
 // Resolver hier ist kind-agnostisch — er lädt nur, das Content-Format
 // (markdown/mjml/html) entscheidet wer's rendert.
-export const RENDER_KINDS = ["notification", "mail", "document-pdf", "image-snapshot"] as const;
+export const RENDER_KINDS = ["mail", "document-pdf", "image-snapshot"] as const;
 export type RenderKind = (typeof RENDER_KINDS)[number];
 
 // Kinds whose html body is a rich document: the server rebuilds it through the
@@ -14,7 +14,9 @@ export type RenderKind = (typeof RENDER_KINDS)[number];
 export const DOCUMENT_HTML_KINDS = ["mail", "document-pdf"] as const;
 export type DocumentHtmlKind = (typeof DOCUMENT_HTML_KINDS)[number];
 
-// Kinds without a renderer plugin: `text-block` is the Markdown text store
+// Kinds without a renderer plugin: `notification` is the retired sections-JSON
+// notification kind, kept so rows stored before mails moved to `mail` stay
+// valid on replay; nothing writes or renders it any more. `text-block` is the Markdown text store
 // (ex text-content feature), `snippet` is the content of app collections such
 // as reply snippets and signatures (own kind so they stay out of the text-block
 // content tree), `ai-prompt` holds LLM prompts, `mail-layout` and
@@ -22,6 +24,7 @@ export type DocumentHtmlKind = (typeof DOCUMENT_HTML_KINDS)[number];
 // not rendered on their own — keeping them out of RENDER_KINDS is what stops
 // DEFAULT_PLUGIN_BY_KIND from demanding a plugin for them.
 export const NON_RENDER_KINDS = [
+  "notification",
   "text-block",
   "snippet",
   "ai-prompt",

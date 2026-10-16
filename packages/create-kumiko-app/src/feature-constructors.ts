@@ -152,12 +152,6 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
     exportName: "createRendererFoundationFeature",
     callExpression: "createRendererFoundationFeature()",
   },
-  "renderer-simple": {
-    name: "renderer-simple",
-    importPath: "@cosmicdrift/kumiko-bundled-features/renderer-simple",
-    exportName: "createRendererSimpleFeature",
-    callExpression: "createRendererSimpleFeature()",
-  },
   "template-resolver": {
     name: "template-resolver",
     importPath: "@cosmicdrift/kumiko-bundled-features/template-resolver",

@@ -39,13 +39,15 @@ import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/
 import { TENANT_FEATURE, TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import type {
-  ConfigResolver,
-  EscapeHatchAuditSink,
-  FeatureDefinition,
-  NotifyFactory,
-  Registry,
+import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import {
+  type ConfigResolver,
+  createSystemUser,
+  type EscapeHatchAuditSink,
+  type FeatureDefinition,
+  type NotifyFactory,
+  type Registry,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -108,8 +110,11 @@ function buildDeliveryNotifyFactory(opts: {
   readonly log?: Logger;
   readonly redis?: Redis;
   readonly tenantUserIdsQuery?: string;
+  readonly configResolver: ConfigResolver | undefined;
   readonly deliverQueuedInline: boolean | undefined;
 }): NotifyFactory {
+  const configAccessorFactory =
+    opts.configResolver && createConfigAccessorFactory(opts.registry, opts.configResolver);
   const deliveryService = createDeliveryService({
     db: opts.db,
     registry: opts.registry,
@@ -120,6 +125,16 @@ function buildDeliveryNotifyFactory(opts: {
     ...(opts.escapeHatchAuditSink && { escapeHatchAuditSink: opts.escapeHatchAuditSink }),
     ...(opts.log && { log: opts.log }),
     ...(opts.tenantUserIdsQuery && { tenantUserIdsQuery: opts.tenantUserIdsQuery }),
+    ...(configAccessorFactory && {
+      tenantConfigFor: (tenantId: TenantId) => {
+        const systemUser = createSystemUser(tenantId);
+        return configAccessorFactory({
+          user: { id: systemUser.id, tenantId },
+          db: createTenantDb(opts.db, tenantId),
+          ...(opts.secrets && { secrets: opts.secrets }),
+        });
+      },
+    }),
   });
   return createDeliveryNotifyFactory(deliveryService, {
     deliverQueuedInline: opts.deliverQueuedInline === true,
@@ -173,6 +188,17 @@ function bootCryptoContext(crypto: BootCrypto): Record<string, unknown> {
   };
 }
 
+function createBootConfigResolver(
+  registry: Registry,
+  envSource: Record<string, string | undefined>,
+  crypto: BootCrypto,
+) {
+  return createConfigResolver({
+    appOverrides: buildEnvConfigOverrides(registry, envSource),
+    ...(crypto.configCipher && { cipher: crypto.configCipher }),
+  });
+}
+
 export function buildBootExtraContext(opts: {
   readonly db: DbConnection;
   readonly features: readonly FeatureDefinition[];
@@ -199,6 +225,9 @@ export function buildBootExtraContext(opts: {
   const hasTenantFeature = opts.features.some((f) => f.name === TENANT_FEATURE);
   const escapeHatchAuditSink = resolveEscapeHatchAuditSink(opts.features, opts.db);
   const secrets = resolveBootSecrets(opts.db, opts.features, crypto, opts.registry);
+  const configResolver = opts.hasAuth
+    ? createBootConfigResolver(opts.registry, opts.envSource, crypto)
+    : undefined;
   return {
     templateResolver: createTemplateResolverApi(opts.db),
     ...(opts.kms && { kms: opts.kms }),
@@ -213,6 +242,7 @@ export function buildBootExtraContext(opts: {
         ...(escapeHatchAuditSink && { escapeHatchAuditSink }),
         ...(opts.log && { log: opts.log }),
         ...(hasTenantFeature && { tenantUserIdsQuery: TenantQueries.resolveUserIds }),
+        configResolver,
         deliverQueuedInline: opts.deliverQueuedInline,
       }),
     }),
@@ -220,12 +250,7 @@ export function buildBootExtraContext(opts: {
     // reach it via ctx — previously only test-stack wired it.
     ...bootCryptoContext(crypto),
     ...(secrets && { secrets }),
-    ...(opts.hasAuth && {
-      configResolver: createConfigResolver({
-        appOverrides: buildEnvConfigOverrides(opts.registry, opts.envSource),
-        ...(crypto.configCipher && { cipher: crypto.configCipher }),
-      }),
-    }),
+    ...(configResolver && { configResolver }),
   };
 }
 

@@ -16,7 +16,6 @@ import {
   createChannelEmailFeature,
   createInMemoryTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import { simpleRenderer } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -93,7 +92,6 @@ export function createGalleryBillingFeature(baseUrl: string): FeatureDefinition 
 export function createGalleryEmailFeature(): FeatureDefinition {
   return createChannelEmailFeature({
     transport: galleryMailTransport,
-    renderer: simpleRenderer,
     resolveEmail: async () => "unused@gallery.example",
   });
 }

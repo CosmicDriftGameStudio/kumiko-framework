@@ -100,10 +100,10 @@ import { seedSystemTemplate } from "@cosmicdrift/kumiko-bundled-features/templat
 // runProdApp seeds — idempotent, default skip if slug exists
 await seedSystemTemplate(db, {
   slug: "welcome-email",
-  kind: "notification",
+  kind: "mail",
   locale: "de",
-  content: JSON.stringify({ header: "Willkommen", sections: [{ text: "…" }] }),
-  contentFormat: "plain",
+  content: '<p>Willkommen, <span data-variable="name"></span></p>',
+  contentFormat: "html",
 });
 ```
 

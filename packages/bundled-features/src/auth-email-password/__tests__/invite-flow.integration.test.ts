@@ -39,7 +39,6 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { hashPassword } from "../../shared/index.js";
 import {
   collectAssignableAppRoles,
@@ -114,10 +113,8 @@ beforeAll(async () => {
       }),
       ...authMailRendererFeatures(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         // route:{email} delivers directly — resolveEmail (userId→address) is
         // never hit by the invite flow, but the channel requires it.
         resolveEmail: async () => "unused@test.local",
@@ -1284,10 +1281,8 @@ describe("invite-create role-hierarchy gate (opt-in canAssignRole)", () => {
         createTenantFeature(),
         ...authMailRendererFeatures(),
         createDeliveryFeature(),
-        createRendererSimpleFeature(),
         createChannelEmailFeature({
           transport: gateTransport,
-          renderer: simpleRenderer,
           resolveEmail: async () => "unused@test.local",
         }),
         createAuthEmailPasswordFeature({

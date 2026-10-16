@@ -1,0 +1,25 @@
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
+
+const SLOT_PATTERN = /\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+
+// Author text uses `{name}` slots. The text is escaped first and the slots are
+// swapped for variable nodes afterwards, so a slot can never smuggle markup.
+export function mailTextWithSlotsHtml(text: string): string {
+  return escapeHtml(text).replace(
+    SLOT_PATTERN,
+    (_, name: string) => `<span data-variable="${escapeHtmlAttr(name)}"></span>`,
+  );
+}
+
+export function mailParagraph(text: string): string {
+  return `<p>${mailTextWithSlotsHtml(text)}</p>`;
+}
+
+export function mailHeading(text: string): string {
+  return `<h2>${mailTextWithSlotsHtml(text)}</h2>`;
+}
+
+// One table row per list entry; the cell shows the entry's `field`.
+export function mailRepeatedRows(listName: string, field: string): string {
+  return `<table><tbody><tr data-each="${escapeHtmlAttr(listName)}"><td><p><span data-variable="${escapeHtmlAttr(field)}"></span></p></td></tr></tbody></table>`;
+}

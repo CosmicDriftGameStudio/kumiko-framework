@@ -21,7 +21,6 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { createSessionsFeature, userSessionTable } from "../../sessions/index.js";
 import { hashPassword, verifyPassword } from "../../shared/index.js";
 import { createTenantFeature } from "../../tenant/index.js";
@@ -65,10 +64,8 @@ beforeAll(async () => {
       createTenantFeature(),
       ...authMailRendererFeatures(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         // route:{email} delivers directly — resolveEmail (userId→address) is
         // never hit by the reset flow, but the channel requires it.
         resolveEmail: async () => "unused@test.local",

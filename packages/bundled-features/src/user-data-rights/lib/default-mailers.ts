@@ -1,27 +1,38 @@
-// Default send*Email-Callbacks fuer die GDPR-Notifications, backed by einem
-// mail-transport (mail-foundation). Damit muss eine App keinen Callback-Code
-// schreiben: sie mountet mail-foundation + einen mail-transport-* und setzt
-// fuer Export-Mails appExportDownloadUrl — fertig. Uebergibt sie eigene
-// send*Email-Opts, greifen diese Defaults nicht (Opt-Override im feature.ts).
+// Default send*Email callbacks for the GDPR notifications. The app writes no
+// callback code: it mounts delivery + channel-email (+ the template stack) and
+// sets appExportDownloadUrl for export mails. Own send*Email options win over
+// these defaults (opt-override in feature.ts).
 //
-// Jeder Callback rendert das Template (email-templates.ts) und versendet ueber
-// den per-Tenant aufgeloesten EmailTransport. `resolveTransport` kommt im Job-
-// Lane aus makeTenantMailTransportResolver, im Request-Lane direkt aus
-// createTransportForTenant(ctx, ...).
+// Export-ready/-failed and deletion-requested go through ctx.notify addressed
+// to the user, so delivery resolves the address and the attempt row carries
+// the recipientId the forget path erases. Deletion-executed cannot: the user
+// is gone by then, and an attempt row written after the erasure would be new
+// personal data. It renders the seeded template and sends over the tenant's
+// mail transport, with no delivery log.
 
 import type { EmailTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import { MAIL_TRANSPORT_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
-import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { hasMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
+import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type {
+  ConfigAccessor,
+  NotifyFn,
+  NotifyOptions,
+  Registry,
+  TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { hasMailTranslations, mailT } from "@cosmicdrift/kumiko-framework/i18n";
+import { DELIVERY_CHANNEL_EXTENSION } from "../../delivery/index.js";
 import {
+  collectRendererPlugins,
+  createRendererFoundationApi,
+} from "../../renderer-foundation/index.js";
+import {
+  formatGdprMailTimestamp,
   type GdprMailLocale,
   normalizeGdprMailLocale,
-  renderDeletionExecutedEmail,
-  renderDeletionRequestedEmail,
-  renderExportFailedEmail,
-  renderExportReadyEmail,
 } from "../email-templates.js";
 import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write.js";
+import { GdprMailNotificationTypes, gdprMailTemplateLocale } from "../mail-notifications.js";
 import type { SendExportFailedEmailFn, SendExportReadyEmailFn } from "../run-export-jobs.js";
 import type { SendDeletionExecutedEmailFn } from "../run-forget-cleanup.js";
 
@@ -30,74 +41,116 @@ export type GdprMailDefaults = {
   readonly appName?: string;
 };
 
-// mail-foundation ist eine Soft-Dep von user-data-rights. Die Default-Mailer
-// greifen nur wenn mindestens ein mail-transport-* registriert ist — sonst
-// kann ohnehin nichts versendet werden und die App bleibt beim bisherigen
-// "kein Callback → keine Email"-Verhalten.
+// The notify-based defaults need the delivery pipeline with an email channel.
+export function isGdprMailDeliveryAvailable(registry: Registry): boolean {
+  return registry
+    .getExtensionUsages(DELIVERY_CHANNEL_EXTENSION)
+    .some((usage) => usage.entityName === "email");
+}
+
 export function isMailTransportAvailable(registry: Registry): boolean {
   return registry.getExtensionUsages(MAIL_TRANSPORT_EXTENSION).length > 0;
 }
 
-type TransportResolver = (tenantId: string) => Promise<EmailTransport>;
+export function isMailRendererAvailable(registry: Registry): boolean {
+  return collectRendererPlugins(registry).some((plugin) => plugin.kinds.includes("mail"));
+}
+
+export type NotifyForTenant = (tenantId: TenantId) => NotifyFn;
 
 // Per-recipient locale wins (user.locale); mailDefaults.locale is the fallback
-// for unknown/unsupported user.locale values; the template itself defaults to en.
-function localeFor(
+// for unknown/unsupported user.locale values; a locale without a template for
+// this notification falls back to en.
+function mailLocaleFor(
+  notificationType: string,
   userLocale: string | null,
   defaults: GdprMailDefaults,
-): GdprMailLocale | undefined {
+): string {
   const user = normalizeGdprMailLocale(userLocale);
-  if (user !== undefined && hasMailTranslations(user)) return user;
-  return defaults.locale;
+  const preferred = user !== undefined && hasMailTranslations(user) ? user : defaults.locale;
+  return gdprMailTemplateLocale(notificationType, preferred ?? "en");
+}
+
+function appNameFor(locale: string, defaults: GdprMailDefaults): string {
+  return defaults.appName ?? mailT(locale, "gdpr.mail.appNameDefault");
+}
+
+// Delivery failures come back as results, not throws; the callers' best-effort
+// handling only sees them if they throw.
+async function notifyImmediately(
+  notify: NotifyFn,
+  notificationType: string,
+  options: NotifyOptions,
+): Promise<void> {
+  const result = await notify(notificationType, { ...options, immediate: true });
+  const failed = result.deliveries.find((delivery) => delivery.status === "failed");
+  if (failed) {
+    throw new Error(`${notificationType} delivery failed: ${failed.error ?? "unknown"}`);
+  }
 }
 
 export function makeDefaultExportReadyEmail(
-  resolveTransport: TransportResolver,
+  notifyFor: NotifyForTenant,
   defaults: GdprMailDefaults = {},
 ): SendExportReadyEmailFn {
   return async (args) => {
-    const transport = await resolveTransport(args.tenantId);
-    const { subject, html, text } = renderExportReadyEmail({
-      downloadUrl: args.downloadUrl,
-      expiresAt: args.expiresAt,
-      locale: localeFor(args.userLocale, defaults),
-      appName: defaults.appName,
+    const type = GdprMailNotificationTypes.exportReady;
+    const locale = mailLocaleFor(type, args.userLocale, defaults);
+    // immediate: the plain magic-link token must not land in a delivery job payload.
+    await notifyImmediately(notifyFor(args.tenantId), type, {
+      to: args.userId,
+      locale,
+      data: {
+        appName: appNameFor(locale, defaults),
+        actionUrl: args.downloadUrl,
+        validUntil: formatGdprMailTimestamp(args.expiresAt),
+      },
     });
-    await transport.send({ to: args.userEmail, subject, html, text });
   };
 }
 
 export function makeDefaultExportFailedEmail(
-  resolveTransport: TransportResolver,
+  notifyFor: NotifyForTenant,
   defaults: GdprMailDefaults = {},
 ): SendExportFailedEmailFn {
   return async (args) => {
-    const transport = await resolveTransport(args.tenantId);
-    const { subject, html, text } = renderExportFailedEmail({
-      locale: localeFor(args.userLocale, defaults),
-      appName: defaults.appName,
+    const type = GdprMailNotificationTypes.exportFailed;
+    const locale = mailLocaleFor(type, args.userLocale, defaults);
+    await notifyImmediately(notifyFor(args.tenantId), type, {
+      to: args.userId,
+      locale,
+      data: { appName: appNameFor(locale, defaults) },
     });
-    await transport.send({ to: args.userEmail, subject, html, text });
   };
 }
 
 export function makeDefaultDeletionRequestedEmail(
-  resolveTransport: TransportResolver,
+  notify: NotifyFn,
   defaults: GdprMailDefaults = {},
 ): SendDeletionRequestedEmailFn {
   return async (args) => {
-    const transport = await resolveTransport(args.tenantId);
-    const { subject, html, text } = renderDeletionRequestedEmail({
-      gracePeriodEnd: args.gracePeriodEnd,
-      locale: localeFor(args.userLocale, defaults),
-      appName: defaults.appName,
+    const type = GdprMailNotificationTypes.deletionRequested;
+    const locale = mailLocaleFor(type, args.userLocale, defaults);
+    await notify(type, {
+      to: args.userId,
+      locale,
+      data: {
+        appName: appNameFor(locale, defaults),
+        deletionDate: formatGdprMailTimestamp(args.gracePeriodEnd),
+      },
     });
-    await transport.send({ to: args.userEmail, subject, html, text });
   };
 }
 
+export type DeletionExecutedMailDeps = {
+  readonly registry: Registry;
+  readonly db: DbConnection;
+  readonly resolveTransport: (tenantId: string) => Promise<EmailTransport>;
+  readonly configFor: (tenantId: TenantId) => ConfigAccessor | undefined;
+};
+
 export function makeDefaultDeletionExecutedEmail(
-  resolveTransport: TransportResolver,
+  deps: DeletionExecutedMailDeps,
   defaults: GdprMailDefaults = {},
 ): SendDeletionExecutedEmailFn {
   return async (args) => {
@@ -109,12 +162,40 @@ export function makeDefaultDeletionExecutedEmail(
       // skip: orphan user has no tenant whose transport could send the mail
       return;
     }
-    const transport = await resolveTransport(tenantId);
-    const { subject, html, text } = renderDeletionExecutedEmail({
-      executedAt: args.executedAt,
-      locale: localeFor(args.userLocale, defaults),
-      appName: defaults.appName,
+    const type = GdprMailNotificationTypes.deletionExecuted;
+    const locale = mailLocaleFor(type, args.userLocale, defaults);
+    const plugin = createRendererFoundationApi(
+      collectRendererPlugins(deps.registry),
+    ).createRendererForTenant({ tenantId, kind: "mail" });
+    const config = deps.configFor(tenantId);
+    const rendered = await plugin.render(
+      {
+        kind: "mail",
+        payload: {
+          slug: type,
+          locale,
+          variables: {
+            appName: appNameFor(locale, defaults),
+            executedAt: formatGdprMailTimestamp(args.executedAt),
+          },
+        },
+      },
+      {
+        db: deps.db,
+        registry: deps.registry,
+        tenantId,
+        ...(config !== undefined && { config }),
+      },
+    );
+    if (rendered.kind !== "mail") {
+      throw new Error(`deletion-executed mail: renderer answered with kind "${rendered.kind}"`);
+    }
+    const transport = await deps.resolveTransport(tenantId);
+    await transport.send({
+      to: args.userEmail,
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
     });
-    await transport.send({ to: args.userEmail, subject, html, text });
   };
 }

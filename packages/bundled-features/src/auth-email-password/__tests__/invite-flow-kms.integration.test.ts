@@ -32,7 +32,6 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { decryptStoredPii, hashPassword } from "../../shared/index.js";
 import { createTenantFeature, TenantHandlers } from "../../tenant/index.js";
 import {
@@ -84,10 +83,8 @@ beforeAll(async () => {
       createTenantFeature(),
       ...authMailRendererFeatures(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
       createAuthEmailPasswordFeature({

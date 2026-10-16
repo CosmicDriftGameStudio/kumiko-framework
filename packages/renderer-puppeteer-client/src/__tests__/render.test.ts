@@ -105,11 +105,11 @@ describe("puppeteerRender — image-snapshot", () => {
 });
 
 describe("puppeteerRender — Validation", () => {
-  test("wrong kind (notification) → RendererError invalid_payload", async () => {
-    const req = {
-      kind: "notification" as const,
-      payload: { content: "x" },
-    } as unknown as RenderRequest;
+  test("wrong kind (mail) → RendererError invalid_payload", async () => {
+    const req: RenderRequest = {
+      kind: "mail",
+      payload: { slug: "x", locale: "en", variables: {} },
+    };
     await expect(puppeteerRender(req, STUB_CTX)).rejects.toThrow(RendererError);
   });
 

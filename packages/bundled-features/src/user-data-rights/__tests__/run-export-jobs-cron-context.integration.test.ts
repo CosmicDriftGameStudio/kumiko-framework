@@ -18,6 +18,7 @@ import {
   type JobContext,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import {
   setupTestStack,
@@ -29,6 +30,12 @@ import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
+  authMailRendererFeatures,
+  seedAuthMailTemplates,
+} from "../../auth-email-password/__tests__/auth-mail-stack.js";
+import { createChannelEmailFeature } from "../../channel-email/feature.js";
+import { createInMemoryTransport } from "../../channel-email/types.js";
+import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles/index.js";
@@ -38,15 +45,12 @@ import {
   createConfigResolver,
 } from "../../config/index.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.js";
 import { fileFoundationFeature } from "../../file-foundation/index.js";
 import { fileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
-import { mailFoundationFeature } from "../../mail-foundation/index.js";
-import {
-  clearInbox,
-  getInbox,
-  mailTransportInMemoryFeature,
-} from "../../mail-transport-inmemory/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import { exportDownloadTokenEntity } from "../schema/download-token.js";
@@ -59,35 +63,47 @@ const JOB_QN = "user-data-rights:job:run-export-jobs";
 // App-weiter Override wie money-horse's cashColtConfigResolver — provider=inmemory
 // ohne per-Tenant-config-Row. Der Job-Kontext trägt DIESEN resolver, kein config.
 const configResolver = createConfigResolver({
-  appOverrides: new Map([
-    ["file-foundation:config:provider", "inmemory"],
-    ["mail-foundation:config:provider", "inmemory"],
-  ]),
+  appOverrides: new Map([["file-foundation:config:provider", "inmemory"]]),
 });
 
 const EXPORT_DOWNLOAD_URL = "https://app.test/user-export/by-token";
 
+const emailTransport = createInMemoryTransport();
+const RECIPIENT_EMAIL = "export-cron@example.test";
+
 let stack: TestStack;
+let notifyFactory: unknown;
 
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
+      createTenantFeature(),
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
       fileFoundationFeature,
       fileProviderInMemoryFeature,
-      mailFoundationFeature,
-      mailTransportInMemoryFeature,
+      ...authMailRendererFeatures(),
+      createDeliveryFeature(),
+      createChannelEmailFeature({
+        transport: emailTransport,
+        resolveEmail: async () => RECIPIENT_EMAIL,
+      }),
       authFoundationFeature,
       createSessionsFeature(),
       // appExportDownloadUrl set → the default export-ready mail is enabled, so
       // this also proves the export cron's mail bridge end-to-end (C6).
       createUserDataRightsFeature({ appExportDownloadUrl: EXPORT_DOWNLOAD_URL }),
     ],
+    extraContext: (deps) => {
+      const delivery = createDeliveryTestContext(deps);
+      notifyFactory = delivery["_notifyFactory"];
+      return delivery;
+    },
   });
-  await unsafePushTables(stack.db, { configValuesTable });
+  await unsafePushTables(stack.db, { configValuesTable, notificationPreferencesTable });
+  await seedAuthMailTemplates(stack);
   await unsafeCreateEntityTable(stack.db, exportJobEntity);
   await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
@@ -123,7 +139,7 @@ beforeEach(async () => {
   await seedRow(stack.db, userTable, {
     id: USER_ID,
     tenantId: TENANT,
-    email: "export-cron@example.test",
+    email: RECIPIENT_EMAIL,
     passwordHash: "hashed",
     displayName: "Cron Export",
     locale: "de",
@@ -134,7 +150,7 @@ beforeEach(async () => {
   await raw.unsafe(
     `INSERT INTO read_tenant_memberships (tenant_id, user_id, roles) VALUES ('${TENANT}', '${USER_ID}', '["Member"]')`,
   );
-  clearInbox(TENANT);
+  emailTransport.sent.length = 0;
 });
 
 // Seedet einen pending Export-Job über den echten request-export-Handler.
@@ -149,6 +165,18 @@ async function seedPendingJob(): Promise<string> {
 
 registerMailTranslations("de", localeDeBundle);
 
+// Serialized rows of the stores a mail send could leak into: the event store
+// and the delivery attempt log (no job row is written on the immediate path).
+async function persistedDeliveryTraces(): Promise<string> {
+  const rows = [
+    ...(await selectMany(stack.db, eventsTable, {})),
+    ...(await selectMany(stack.db, deliveryAttemptsTable, {})),
+  ];
+  return JSON.stringify(rows, (_key, value) =>
+    typeof value === "bigint" ? value.toString() : value,
+  );
+}
+
 describe("run-export-jobs cron-context", () => {
   test("Cron-Job-Kontext (configResolver, KEIN config) → Export läuft durch, bytesWritten > 0", async () => {
     const jobId = await seedPendingJob();
@@ -162,6 +190,7 @@ describe("run-export-jobs cron-context", () => {
       }),
       registry: stack.registry,
       configResolver,
+      _notifyFactory: notifyFactory,
       _userId: SYSTEM_USER_ID,
       systemUser: createSystemUser(TENANT),
       now: getTemporal().Now.instant(),
@@ -181,13 +210,21 @@ describe("run-export-jobs cron-context", () => {
     expect(row?.status).toBe(EXPORT_JOB_STATUS.Done);
     expect(row?.bytesWritten ?? 0).toBeGreaterThan(0);
 
-    // C6 — der echte Export-Cron versendet die Default-Export-ready-Mail ueber
-    // den aus configResolver gebauten inmemory-Transport (kein App-Callback).
-    // user.locale="de" → deutsches Subject; downloadUrl traegt den Magic-Link.
-    const inbox = getInbox(TENANT);
-    expect(inbox).toHaveLength(1);
-    expect(inbox[0]?.to).toBe("export-cron@example.test");
-    expect(inbox[0]?.subject).toContain("Dein Datenexport ist bereit");
-    expect(inbox[0]?.html).toContain(EXPORT_DOWNLOAD_URL);
+    // The real export cron sends the default export-ready mail through
+    // ctx._notifyFactory and delivery, without an app callback.
+    // user.locale="de" gives the German subject; downloadUrl carries the magic link.
+    expect(emailTransport.sent).toHaveLength(1);
+    expect(emailTransport.sent[0]?.to).toBe(RECIPIENT_EMAIL);
+    expect(emailTransport.sent[0]?.subject).toContain("Dein Datenexport ist bereit");
+    expect(emailTransport.sent[0]?.html).toContain(EXPORT_DOWNLOAD_URL);
+
+    // The plain magic-link token and the plain address stay out of events
+    // and delivery attempts.
+    // The mail renderer HTML-escapes "=" in the link as "&#x3D;".
+    const token = /#token(?:=|&#x3D;)([^&"'\s<]+)/.exec(emailTransport.sent[0]?.html ?? "")?.[1];
+    expect(token).toBeDefined();
+    const traces = await persistedDeliveryTraces();
+    expect(traces).not.toContain(token ?? "");
+    expect(traces).not.toContain(RECIPIENT_EMAIL);
   });
 });

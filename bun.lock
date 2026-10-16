@@ -693,6 +693,7 @@
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
       },
     },
     "samples/recipes/designer-demo": {

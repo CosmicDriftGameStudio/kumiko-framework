@@ -30,7 +30,6 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createDeliveryTestContext } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { notificationPreferencesTable } from "@cosmicdrift/kumiko-bundled-features/delivery/tables";
-import { simpleRenderer } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import {
   createSessionCallbacks,
   type SessionCallbacks,
@@ -123,7 +122,6 @@ beforeAll(async () => {
       ...composeRendererStack(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
     ],

@@ -18,6 +18,7 @@ export { isWithinGracePeriod } from "./grace-period.js";
 export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash.js";
 export { isTenantDb } from "./is-tenant-db.js";
 export { createLockoutCounter, type LockoutCounterState } from "./lockout-counter.js";
+export { mailHeading, mailParagraph, mailRepeatedRows } from "./mail-template-body.js";
 export { mapWithConcurrency } from "./map-with-concurrency.js";
 export {
   denyUnlessJoinRowParentVisible,

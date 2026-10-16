@@ -13,6 +13,7 @@ import {
 } from "../events.js";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
 import { createIssueContractConfirmationHandler } from "./issue-confirmation.js";
+import { registerConsumerProtectionMails } from "./mail-notifications.js";
 import { registerContractTermination } from "./register-termination.js";
 
 type ConfirmationTrigger = {
@@ -46,6 +47,7 @@ export function registerConsumerProtection(
   consumerProtection: ConsumerProtectionOptions,
 ): void {
   r.requires("template-resolver", "delivery", "user", "tenant");
+  registerConsumerProtectionMails(r);
   registerContractTermination(r, options, consumerProtection);
   r.defineEvent(CHECKOUT_CONSENT_RECORDED_EVENT_SHORT, checkoutConsentRecordedPayloadSchema, {
     piiFields: "none",

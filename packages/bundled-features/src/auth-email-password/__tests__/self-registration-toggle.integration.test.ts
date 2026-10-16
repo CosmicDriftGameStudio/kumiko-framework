@@ -27,7 +27,6 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
@@ -58,10 +57,8 @@ beforeAll(async () => {
       createTenantFeature(),
       ...authMailRendererFeatures(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
       createAuthEmailPasswordFeature({
@@ -190,10 +187,8 @@ describe("auth-self-registration toggle — companion feature NOT composed", () 
         createTenantFeature(),
         ...authMailRendererFeatures(),
         createDeliveryFeature(),
-        createRendererSimpleFeature(),
         createChannelEmailFeature({
           transport: bareEmailTransport,
-          renderer: simpleRenderer,
           resolveEmail: async () => "unused@test.local",
         }),
         createAuthEmailPasswordFeature({

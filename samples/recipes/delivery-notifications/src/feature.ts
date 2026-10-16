@@ -1,17 +1,21 @@
 // Delivery Notifications Sample
 //
-// Shows how a feature sends notifications via multiple channels (inApp + email + push).
-// Uses r.notification() for declarative notifications with per-channel templates.
-//
-// Flow: Admin assigns a support ticket to a user → the user gets notified
-//   - InApp: toast + badge in the app
-//   - Email: full HTML with rendered content
-//   - Push: native notification
+// A support ticket is created and its assignee is notified via inApp, email
+// and push. The mail is a stored template: `r.notification` declares the
+// variables, the default text and the subject, the boot seed writes the text
+// into the template store, and a tenant can override it there.
 //
 // The feature code only declares WHAT to notify. HOW is handled by Delivery.
 
 import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  QnTypes,
+  qn,
+  templateVariable,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // --- Entity ---
@@ -40,13 +44,42 @@ function ticketExecutor() {
 
 // --- Feature ---
 
+export const TICKET_ASSIGNED = qn("support", QnTypes.notify, "ticket-assigned");
+
 export const supportFeature = defineFeature("support", (r) => {
   r.requires("delivery");
 
   r.entity("ticket", ticketEntity);
 
-  // Real CRUD handler (not stub) — returns SaveContext for lifecycle hooks
-  const createHandler = r.writeHandler(
+  r.notification("ticket-assigned", {
+    variables: {
+      ticketId: templateVariable.text({ required: true }),
+      title: templateVariable.text({ required: true }),
+      description: templateVariable.text({ required: true }),
+      priority: templateVariable.text({ required: true }),
+      url: templateVariable.link({ required: true }),
+    },
+    template: {
+      en: {
+        body: '<h1>New ticket: <span data-variable="title"></span></h1><p><span data-variable="description"></span></p><p>Priority: <span data-variable="priority"></span></p><p><a data-button href="{{url}}">Open ticket</a></p>',
+      },
+    },
+    meta: { en: { subject: "Support ticket #{{ticketId}} ({{priority}})" } },
+    // inApp and push build their own short text; email renders the stored
+    // template with the notify data as variables.
+    templates: {
+      inApp: (data) => ({
+        title: `New ticket: ${data["title"]}`,
+        body: (data["description"] as string) || "A ticket was assigned to you.",
+      }),
+      push: (data) => ({
+        title: "New ticket",
+        body: `${data["title"]} (${data["priority"]})`,
+      }),
+    },
+  });
+
+  r.writeHandler(
     "ticket:create",
     z.object({
       title: z.string().min(1),
@@ -55,54 +88,27 @@ export const supportFeature = defineFeature("support", (r) => {
       priority: z.enum(["low", "normal", "critical"]),
       status: z.string().default("open"),
     }),
-    async (event, ctx) => ticketExecutor().create(event.payload, event.user, ctx.db),
+    async (event, ctx) => {
+      const created = await ticketExecutor().create(event.payload, event.user, ctx.db);
+      const assigneeId = event.payload.assigneeId;
+      // No assignee, no notification.
+      if (!created.isSuccess || assigneeId === undefined) return created;
+      if (ctx.notify === undefined) {
+        throw new Error("ticket:create needs ctx.notify, mount the delivery feature");
+      }
+      const ticketId = created.data.id;
+      await ctx.notify(TICKET_ASSIGNED, {
+        to: assigneeId,
+        data: {
+          ticketId,
+          title: event.payload.title,
+          description: event.payload.description ?? "",
+          priority: event.payload.priority,
+          url: `https://app.example.com/support/tickets/${ticketId}`,
+        },
+      });
+      return created;
+    },
     { access: { roles: ["Admin", "Support"] } },
   );
-
-  // Declarative notification: fires automatically after ticket.create postSave.
-  //
-  // - recipient: returns assignee ID, or null to skip (no assignee = no notification)
-  // - data: extracts raw fields from the save result
-  // - templates: per-channel transformations
-  //     inApp → short title/body for toast
-  //     email → structured template (header, sections, button) for renderer
-  //     push → short title/body for native notification
-  r.notification("ticket-assigned", {
-    trigger: { on: createHandler },
-    recipient: (result) => {
-      const assigneeId = result.data["assigneeId"] as string | undefined;
-      return assigneeId ?? null;
-    },
-    data: (result) => ({
-      ticketId: result.id,
-      title: result.data["title"] as string,
-      description: (result.data["description"] as string) ?? "",
-      priority: result.data["priority"] as string,
-    }),
-    templates: {
-      inApp: (data) => ({
-        title: `Neues Ticket: ${data["title"]}`,
-        body: (data["description"] as string) || "Dir wurde ein Ticket zugewiesen.",
-      }),
-      email: (data) => ({
-        subject: `Support-Ticket #${data["ticketId"]} (${data["priority"]})`,
-        header: `Neues Ticket: ${data["title"]}`,
-        sections: [
-          { text: (data["description"] as string) || "Kein Beschreibungstext." },
-          { text: `Prioritaet: ${data["priority"]}` },
-          {
-            button: {
-              label: "Ticket oeffnen",
-              url: `/support/tickets/${data["ticketId"]}`,
-            },
-          },
-        ],
-        footer: "Automatische Benachrichtigung — nicht antworten.",
-      }),
-      push: (data) => ({
-        title: "Neues Ticket",
-        body: `${data["title"]} (${data["priority"]})`,
-      }),
-    },
-  });
 });

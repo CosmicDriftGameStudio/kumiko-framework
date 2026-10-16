@@ -26,10 +26,11 @@ let stack: TestStack;
 function payload(extra: Record<string, unknown> = {}) {
   return {
     slug: SLUG,
-    kind: "notification" as const,
+    kind: "mail" as const,
+    meta: { subject: "Hallo" },
     locale: "de",
-    content: "Hallo",
-    contentFormat: "markdown" as const,
+    content: "<p>Hallo</p>",
+    contentFormat: "html" as const,
     variableSchema: {},
     linkedResources: {},
     ...extra,
@@ -81,7 +82,7 @@ describe("template-resolver :: tenant-overrides with the tenant feature", () => 
   test("counts enabled tenants only and never exceeds the total", async () => {
     const counts = await stack.http.queryOk(
       TemplateResolverQueries.tenantOverrides,
-      { slug: SLUG, kind: "notification" },
+      { slug: SLUG, kind: "mail" },
       systemAdmin,
     );
     expect(counts).toEqual({ activeOverrides: 2, draftOverrides: 1, totalTenants: 3 });
@@ -90,7 +91,7 @@ describe("template-resolver :: tenant-overrides with the tenant feature", () => 
   test("the locale filter narrows the rows counted", async () => {
     const counts = await stack.http.queryOk(
       TemplateResolverQueries.tenantOverrides,
-      { slug: SLUG, kind: "notification", locale: "en" },
+      { slug: SLUG, kind: "mail", locale: "en" },
       systemAdmin,
     );
     expect(counts).toEqual({ activeOverrides: 0, draftOverrides: 1, totalTenants: 3 });
@@ -99,7 +100,7 @@ describe("template-resolver :: tenant-overrides with the tenant feature", () => 
   test("a TenantAdmin is denied", async () => {
     const err = await stack.http.queryErr(
       TemplateResolverQueries.tenantOverrides,
-      { slug: SLUG, kind: "notification" },
+      { slug: SLUG, kind: "mail" },
       adminOf(1),
     );
     expect(err.httpStatus).toBe(403);

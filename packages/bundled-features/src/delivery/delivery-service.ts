@@ -2,6 +2,7 @@ import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection, DbRow } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  ConfigAccessor,
   DeliveryErrorCode,
   EscapeHatchAuditSink,
   NotifyDelivery,
@@ -88,6 +89,9 @@ export type DeliveryServiceOptions = {
   readonly secrets?: SecretsContext;
   // File storage for inline-delivered mails with attachments; jobs use their own ctx instead.
   readonly filesForTenant?: (tenantId: string) => FileContext | undefined;
+  // Tenant config for inline rendering (mail layout reads tenant name, locale);
+  // job-delivered mails get the same accessor from the job context's configFor.
+  readonly tenantConfigFor?: (tenantId: TenantId) => ConfigAccessor;
   // Attributed escape-hatch audit for resolveUserIdsForTenant's ctx.systemDb —
   // absent means an unattributed warn log (see fallbackEscapeHatchReporter).
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
@@ -107,11 +111,6 @@ export function collectChannels(registry: Registry): DeliveryChannel[] {
   });
 }
 
-// `collectRenderers` entfernt 2026-05-19: notificationRenderer-Extension-Point
-// wurde nie konsumiert (channel-email nimmt renderer als Konstruktor-Option,
-// nicht aus Extension-Usages). Multi-Kind-Plugin-Pool lebt jetzt im
-// `renderer-foundation`-Bundle via `collectRendererPlugins`.
-
 export function createDeliveryService(options: DeliveryServiceOptions): DeliveryService {
   const {
     db,
@@ -125,6 +124,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     jobRunner,
     secrets,
     filesForTenant,
+    tenantConfigFor,
     escapeHatchAuditSink,
     log,
   } = options;
@@ -537,7 +537,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       sseBroker,
       tenantId,
       secrets,
-      undefined,
+      tenantConfigFor?.(tenantId),
       run.filesForTenant,
     );
     for (const userId of userIds) {
@@ -614,7 +614,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       sseBroker,
       tenantId,
       secrets,
-      undefined,
+      tenantConfigFor?.(tenantId),
       run.filesForTenant,
     );
 
@@ -762,7 +762,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       sseBroker,
       tenantId,
       secrets,
-      undefined,
+      tenantConfigFor?.(tenantId),
       run.filesForTenant,
     );
     const suppressed = await loadSuppressedAddresses(

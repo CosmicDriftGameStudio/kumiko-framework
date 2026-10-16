@@ -39,7 +39,6 @@ import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { complianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops";
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
-import type { NotificationRenderer } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { derivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
 import { documentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
@@ -77,7 +76,6 @@ import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/p
 import { readinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createRendererPdfFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
-import { createRendererSimpleFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
@@ -113,10 +111,6 @@ const stubPushTransport: PushTransport = {
   send: async () => {
     /* smoke-only */
   },
-};
-const stubRenderer: NotificationRenderer = {
-  name: "smoke",
-  render: async () => "<smoke/>",
 };
 
 // Fixed dev-only signing key for the reset/verify/unlock magic-links (and,
@@ -170,7 +164,6 @@ export const APP_FEATURES = [
   createChannelInAppFeature(),
   createChannelEmailFeature({
     transport: stubEmailTransport,
-    renderer: stubRenderer,
     resolveEmail: async () => "smoke@use-all-bundled.local",
   }),
   createChannelPushFeature({
@@ -336,7 +329,6 @@ export const APP_FEATURES = [
   // collection-labels: the app-side nav labels for the two collections above.
   collectionLabelsFeature,
   createRendererFoundationFeature(),
-  createRendererSimpleFeature(),
   createRendererPdfFeature(),
 
   // managed-pages: requires config (auto-bundled). Smoke resolver never serves

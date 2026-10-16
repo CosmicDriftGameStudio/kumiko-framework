@@ -7,11 +7,22 @@ import type {
 import type { ConsentLocale } from "./consent-text.js";
 import { type OperatorNoticeReason, TERMINATION_TEXTS } from "./termination-texts.js";
 
-export type TerminationMailContent = {
+type TextRow = { readonly text: string };
+
+/** Variables of the termination receipt template. */
+export type TerminationReceiptVariables = {
   readonly subject: string;
-  readonly header: string;
-  readonly sections: readonly { readonly text: string }[];
-  readonly footer: string;
+  readonly receivedAt: string;
+  readonly requestId: string;
+  readonly details: readonly TextRow[];
+  readonly operatorEmail: string;
+};
+
+/** Variables of the operator notice template. */
+export type OperatorNoticeVariables = {
+  readonly subject: string;
+  readonly lines: readonly TextRow[];
+  readonly operatorEmail: string;
 };
 
 /** What the declarant entered; the only input of the receipt. */
@@ -53,7 +64,7 @@ export function formatReceivedAt(iso: string, locale: ConsentLocale): string {
 function declarationLines(
   declaration: OperatorNoticeDeclaration,
   locale: ConsentLocale,
-): readonly { readonly text: string }[] {
+): readonly TextRow[] {
   const texts = TERMINATION_TEXTS[locale];
   const lines = [
     `${texts.declarationType}: ${texts.declarationTypeLabel[declaration.declarationType]}`,
@@ -68,7 +79,7 @@ function declarationLines(
   return lines.map((text) => ({ text }));
 }
 
-export type RenderTerminationReceiptArgs = {
+export type TerminationReceiptArgs = {
   readonly locale: ConsentLocale;
   readonly requestId: string;
   readonly receivedAtIso: string;
@@ -78,28 +89,20 @@ export type RenderTerminationReceiptArgs = {
 
 /** Built from the declarant's own input only: the content must not depend on
  *  whether (or how) the declaration matched a contract. */
-export function renderTerminationReceipt(
-  args: RenderTerminationReceiptArgs,
-): TerminationMailContent {
+export function terminationReceiptVariables(
+  args: TerminationReceiptArgs,
+): TerminationReceiptVariables {
   const texts = TERMINATION_TEXTS[args.locale];
-  const subject = texts.receiptSubject[args.declaration.declarationType];
   return {
-    subject,
-    header: subject,
-    sections: [
-      { text: texts.receiptGreeting },
-      { text: texts.receiptIntro },
-      { text: `${texts.receivedAt}: ${formatReceivedAt(args.receivedAtIso, args.locale)}` },
-      { text: `${texts.requestId}: ${args.requestId}` },
-      ...declarationLines(args.declaration, args.locale),
-      { text: texts.receiptNextSteps },
-      { text: texts.receiptRevoke(args.operatorEmail) },
-    ],
-    footer: `${texts.contact} ${args.operatorEmail}`,
+    subject: texts.receiptSubject[args.declaration.declarationType],
+    receivedAt: formatReceivedAt(args.receivedAtIso, args.locale),
+    requestId: args.requestId,
+    details: declarationLines(args.declaration, args.locale),
+    operatorEmail: args.operatorEmail,
   };
 }
 
-export type RenderOperatorNoticeArgs = {
+export type OperatorNoticeArgs = {
   readonly locale: ConsentLocale;
   readonly requestId: string;
   readonly receivedAtIso: string;
@@ -111,14 +114,11 @@ export type RenderOperatorNoticeArgs = {
   readonly operatorEmail: string;
 };
 
-export function renderOperatorNotice(args: RenderOperatorNoticeArgs): TerminationMailContent {
+export function operatorNoticeVariables(args: OperatorNoticeArgs): OperatorNoticeVariables {
   const texts = TERMINATION_TEXTS[args.locale];
-  const subject = texts.operatorSubject[args.declaration.declarationType];
   return {
-    subject,
-    header: subject,
-    sections: [
-      { text: texts.operatorIntro },
+    subject: texts.operatorSubject[args.declaration.declarationType],
+    lines: [
       ...args.reasons.map((reason) => ({
         text: `${texts.noticeReasons}: ${texts.operatorReasons[reason]}`,
       })),
@@ -131,6 +131,6 @@ export function renderOperatorNotice(args: RenderOperatorNoticeArgs): Terminatio
         : []),
       ...declarationLines(args.declaration, args.locale),
     ],
-    footer: args.operatorEmail,
+    operatorEmail: args.operatorEmail,
   };
 }

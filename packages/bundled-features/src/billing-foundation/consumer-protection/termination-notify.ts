@@ -4,7 +4,7 @@ import { CONTRACT_TERMINATION_OPERATOR_NOTIFICATION_TYPE } from "../constants.js
 import type { ProviderCancelOutcome } from "../events.js";
 import type { ConsumerProtectionOptions } from "../types.js";
 import type { ConsentLocale } from "./consent-text.js";
-import { type OperatorNoticeDeclaration, renderOperatorNotice } from "./termination-mail.js";
+import { type OperatorNoticeDeclaration, operatorNoticeVariables } from "./termination-mail.js";
 import type { OperatorNoticeReason } from "./termination-texts.js";
 
 export type OperatorNoticePlan = {
@@ -35,7 +35,7 @@ export async function notifyOperator(
 ): Promise<void> {
   await requireNotify(ctx)(CONTRACT_TERMINATION_OPERATOR_NOTIFICATION_TYPE, {
     route: { email: consumerProtection.operatorEmail },
-    data: renderOperatorNotice({
+    data: operatorNoticeVariables({
       ...plan,
       operatorEmail: consumerProtection.operatorEmail,
     }),

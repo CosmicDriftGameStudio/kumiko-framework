@@ -112,14 +112,14 @@ describe("template-resolver :: findExact", () => {
     await seedTemplate({
       tenantId: SYSTEM_TENANT_ID,
       slug: "exact-system",
-      kind: "notification",
+      kind: "document-pdf",
       locale: "de",
       scope: "system",
     });
     const result = await api.findExact({
       tenantId: TENANT_A,
       slug: "exact-system",
-      kind: "notification",
+      kind: "document-pdf",
       locale: "de",
       scope: "system",
     });
@@ -523,14 +523,14 @@ describe("template-resolver :: JSON-Parsing", () => {
     await seedTemplate({
       tenantId: TENANT_A,
       slug: "json-empty",
-      kind: "notification",
+      kind: "document-pdf",
       locale: "de",
       scope: "tenant",
     });
     const result = await api.resolveTemplate({
       tenantId: TENANT_A,
       slug: "json-empty",
-      kind: "notification",
+      kind: "document-pdf",
       locale: "de",
     });
     expect(result.variableSchema).toEqual({});

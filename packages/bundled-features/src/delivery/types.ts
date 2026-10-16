@@ -94,21 +94,6 @@ export type DeliveryChannel = {
   ): Promise<ChannelResult>;
 };
 
-// --- Notification Renderer ---
-
-export type RendererInput = {
-  readonly template: string;
-  readonly variables: Readonly<Record<string, unknown>>;
-  readonly locale?: string | undefined;
-};
-
-export type NotificationRenderer = {
-  readonly name: string;
-  render(input: RendererInput): Promise<string>;
-  /** Plain-text version of the same mail; the email channel sends it as the text part of a multipart/alternative mail. */
-  renderText?(input: RendererInput): Promise<string>;
-};
-
 // --- Delivery Log Entry ---
 
 export type DeliveryLogEntry = {

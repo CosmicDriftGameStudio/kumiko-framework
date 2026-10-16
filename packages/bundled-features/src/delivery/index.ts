@@ -76,9 +76,7 @@ export {
   type DeliveryLogEntry,
   type DeliveryService,
   isDeliveryChannelPlugin,
-  type NotificationRenderer,
   type RenderedMessage,
-  type RendererInput,
 } from "./types.js";
 export {
   type AddressUnsubscribeTokenPayload,

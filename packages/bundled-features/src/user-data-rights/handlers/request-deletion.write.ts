@@ -1,11 +1,10 @@
-import { createTransportForTenant } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { USER_STATUS } from "../../user/index.js";
 import {
   type GdprMailDefaults,
-  isMailTransportAvailable,
+  isGdprMailDeliveryAvailable,
   makeDefaultDeletionRequestedEmail,
 } from "../lib/default-mailers.js";
 import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.js";
@@ -71,17 +70,12 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
       if (!res.ok) return writeFailure(res.error);
       const { gracePeriodEnd, userEmail, userLocale } = res;
 
-      // App-Callback hat Vorrang; sonst greift die mail-foundation-Default-Mail
-      // (Request-Lane → ctx.config vorhanden, createTransportForTenant direkt).
-      // Ohne gemounteten mail-transport bleibt send undefined → keine Mail.
+      // The app callback wins; otherwise the default mail goes through ctx.notify after
+      // the commit. Without delivery and an email channel there is no sender and no mail.
       const send =
         opts.sendDeletionRequestedEmail ??
-        (isMailTransportAvailable(ctx.registry)
-          ? makeDefaultDeletionRequestedEmail(
-              (tenantId) =>
-                createTransportForTenant(ctx, tenantId, "user-data-rights:request-deletion"),
-              opts.mailDefaults,
-            )
+        (ctx.notify !== undefined && isGdprMailDeliveryAvailable(ctx.registry)
+          ? makeDefaultDeletionRequestedEmail(ctx.notify, opts.mailDefaults)
           : undefined);
 
       // Best-effort Email-Notification. Send-Failure darf das Write nicht

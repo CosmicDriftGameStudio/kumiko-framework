@@ -29,13 +29,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { createChannelEmailFeature } from "../../channel-email/feature.js";
 import { createInMemoryTransport } from "../../channel-email/types.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { configValuesTable } from "../../config/table.js";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createRendererSimpleFeature } from "../../renderer-simple/feature.js";
-import { simpleRenderer } from "../../renderer-simple/simple-renderer.js";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
@@ -43,6 +40,7 @@ import { DELIVERY_ATTEMPT_EVENT } from "../constants.js";
 import { createDeliveryFeature } from "../feature.js";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables.js";
 import { createDeliveryTestContext } from "../testing.js";
+import { createPlainFallbackEmailFeature } from "./plain-email-channel.js";
 
 const emailTransport = createInMemoryTransport();
 const testEmail = (userId: string | number) => `user-${userId}@test.com`;
@@ -98,10 +96,8 @@ beforeAll(async () => {
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
-      createChannelEmailFeature({
+      createPlainFallbackEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async (userId) => testEmail(userId),
       }),
       appFeature,

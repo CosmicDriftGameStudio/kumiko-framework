@@ -29,7 +29,6 @@ import { configValuesTable } from "../../config/table.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table.js";
@@ -63,10 +62,8 @@ export async function createWaitlistTestStack(
       createTenantFeature(),
       ...authMailRendererFeatures(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
       createDataRetentionFeature(),

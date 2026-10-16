@@ -10,7 +10,7 @@ export function createChannelEmailFeature(options: EmailChannelOptions): Feature
 
   return defineFeature("channel-email", (r) => {
     r.describe(
-      "Wires an `EmailTransport` (typically `mail-transport-smtp` in production, `createInMemoryTransport()` in tests) into the delivery system as the `email` channel. Requires `delivery`; pass an `EmailChannelOptions` with a `transport`, a `renderer: NotificationRenderer` (e.g. backed by `renderer-simple`), and a `resolveEmail` function that maps a user ID to their email address.",
+      "Wires an `EmailTransport` (typically `mail-transport-smtp` in production, `createInMemoryTransport()` in tests) into the delivery system as the `email` channel. Requires `delivery`; pass an `EmailChannelOptions` with a `transport` and a `resolveEmail` function that maps a user ID to their email address. Mails render from stored templates (`renderer-mail-html`): a notification routed to this channel needs `template` + `meta` on `r.notification`, otherwise its delivery fails.",
     );
     r.uiHints({
       displayLabel: "Email Channel",

@@ -7,7 +7,6 @@ import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./const
 // (renderer-foundation api) je nach kind oder explizit. Plugin selbst
 // entscheidet nicht — es bekommt eine schon aufgelöste Form.
 export type RenderRequest =
-  | { kind: "notification"; payload: NotificationPayload }
   | { kind: "mail"; payload: MailPayload }
   | { kind: "document-pdf"; payload: DocumentPayload; options?: PdfOptions }
   | { kind: "image-snapshot"; payload: DocumentPayload; options?: ImageOptions };
@@ -31,7 +30,6 @@ export type InlineAttachmentRef = {
 };
 
 export type RenderResponse = (
-  | { kind: "notification"; html: string; text?: string }
   | {
       kind: "mail";
       subject: string;
@@ -50,14 +48,6 @@ export type RenderResponse = (
     }
 ) &
   RenderProvenance;
-
-export type NotificationPayload = {
-  readonly template?: string;
-  readonly content?: string;
-  readonly contentFormat?: ContentFormat;
-  readonly variables?: Readonly<Record<string, unknown>>;
-  readonly locale?: string;
-};
 
 // An unsaved version of the mail template; rendering it never reads its stored body or subject.
 export type MailDraft = {
@@ -117,18 +107,17 @@ export type RendererContext = {
   readonly config?: ConfigAccessor;
 };
 
-// RendererPlugin-Contract — pro Plugin (renderer-simple, renderer-mail-html,
+// RendererPlugin-Contract — pro Plugin (renderer-mail-html,
 // renderer-puppeteer-client). Plugin deklariert welche kinds es bedienen
 // kann; Foundation-Resolver wählt basierend auf Tenant-Config + kind.
 //
-// **Plugin-Invarianten:**
-// - `kinds` muss min. 1 Element haben (sonst nie ausgewählt)
-// - `render(req, ctx)`-Response.kind MUSS req.kind matchen
-// - Plugin ist zustandslos: kein internal-state zwischen render-Calls
-// - Plugin wirft `RendererError` für domain-Fehler (nicht bare Error)
-// - `ctx` ist required. Plugins ohne Service-Deps (z.B. renderer-simple)
-//   ignorieren ihn einfach — TS function-arg variance erlaubt `(req) => ...`-
-//   Implementations weiterhin (Implementation-Args ≤ Contract-Args ist OK).
+// Plugin invariants:
+// - `kinds` has at least one entry, otherwise the plugin is never picked.
+// - The response kind of `render(req, ctx)` matches req.kind.
+// - Plugins are stateless between render calls.
+// - Domain failures throw `RendererError`, not a bare Error.
+// - `ctx` is required; plugins without service deps ignore it. Function-arg
+//   variance still lets `(req) => ...` implementations satisfy the contract.
 export type RendererPlugin = {
   readonly name: string;
   readonly kinds: ReadonlyArray<RenderKind>;

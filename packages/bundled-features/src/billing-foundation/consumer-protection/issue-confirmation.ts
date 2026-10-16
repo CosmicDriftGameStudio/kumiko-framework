@@ -27,7 +27,7 @@ import {
   SUBSCRIPTION_AGGREGATE_TYPE,
 } from "../events.js";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
-import { renderContractConfirmation } from "./confirmation-mail.js";
+import { contractConfirmationVariables } from "./confirmation-mail.js";
 import { resolveConsentLocale } from "./consent-text.js";
 
 export const issueContractConfirmationSchema = z
@@ -185,7 +185,7 @@ export function createIssueContractConfirmationHandler(
           : undefined;
 
       const issuedAtIso = options.now().toString();
-      const content = renderContractConfirmation({
+      const variables = contractConfirmationVariables({
         consent,
         timeZone: pickTimeZone(recipient.data.timezone, ctx.tz.tenant),
         ...(tierLabel !== undefined && { tierLabel }),
@@ -220,7 +220,7 @@ export function createIssueContractConfirmationHandler(
 
       await ctx.notify(CONTRACT_CONFIRMATION_NOTIFICATION_TYPE, {
         route: { email: recipient.data.email },
-        data: content,
+        data: variables,
         locale,
         priority: "critical",
       });

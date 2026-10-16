@@ -18,6 +18,7 @@ import {
   type NotifyFn,
   qn,
   type TenantId,
+  templateVariable,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
@@ -30,9 +31,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetBlindIndexKeyForTests, waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import * as jose from "jose";
 import * as z from "zod";
-import { createChannelEmailFeature } from "../../channel-email/feature.js";
 import { createInMemoryTransport, type EmailMessage } from "../../channel-email/types.js";
 import { InAppHandlers, InAppQueries } from "../../channel-in-app/constants.js";
 import { createChannelInAppFeature } from "../../channel-in-app/feature.js";
@@ -42,9 +43,8 @@ import { createInMemoryPushTransport } from "../../channel-push/types.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { configValuesTable } from "../../config/table.js";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
-import { createRendererSimpleFeature } from "../../renderer-simple/feature.js";
-import { simpleRenderer } from "../../renderer-simple/simple-renderer.js";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { seedNotificationTemplates } from "../../template-resolver/seeding.js";
 import { TenantQueries } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
@@ -79,6 +79,7 @@ import {
   signAddressUnsubscribeToken,
   signUnsubscribeToken,
 } from "../unsubscribe.js";
+import { createPlainFallbackEmailFeature } from "./plain-email-channel.js";
 
 // --- Setup ---
 
@@ -137,6 +138,21 @@ const RATE_KEY_EMAIL = `test:delivery:rate:${admin.tenantId}:email`;
 // App feature that uses ctx.notify() in a handler
 const appFeature = defineFeature("app", (r) => {
   r.requires("delivery");
+
+  // Declared with a stored template so the async render job does a real mail render.
+  r.notification("async-e2e", {
+    variables: {
+      title: templateVariable.text({ required: true }),
+      body: templateVariable.text({ required: true }),
+      subject: templateVariable.text({ required: true }),
+    },
+    template: {
+      en: {
+        body: '<h1><span data-variable="title"></span></h1><p><span data-variable="body"></span></p>',
+      },
+    },
+    meta: { en: { subject: "{{subject}}" } },
+  });
 
   r.writeHandler(
     defineWriteHandler({
@@ -268,30 +284,38 @@ const ticketFeature = defineFeature("tickets", (r) => {
 
   // Declarative: notify assignee when ticket is created with assigneeId
   // Uses handler ref + per-channel templates
-  r.notification("ticketAssigned", {
+  r.notification("ticket-assigned", {
     trigger: { on: createHandler },
     recipient: (result) => {
       const assigneeId = result.data["assigneeId"] as string | undefined;
       return assigneeId ?? null;
     },
+    // The data is validated against the template variables, so it carries
+    // exactly those; inApp maps them to its own title/body.
     data: (result) => ({
-      title: "Neues Ticket",
-      body: `Ticket "${result.data["title"]}" wurde dir zugewiesen`,
-      ticketId: result.id,
+      header: "Neues Ticket",
+      text: `Ticket "${result.data["title"]}" wurde dir zugewiesen`,
+      ticketId: String(result.id),
+      url: `https://app.test/tickets/${result.id}`,
+      footer: "Kumiko Notifications",
     }),
+    variables: {
+      header: templateVariable.text({ required: true }),
+      text: templateVariable.text({ required: true }),
+      ticketId: templateVariable.text({ required: true }),
+      url: templateVariable.link({ required: true }),
+      footer: templateVariable.text({ required: true }),
+    },
+    template: {
+      en: {
+        body: '<h1><span data-variable="header"></span></h1><p><span data-variable="text"></span></p><p><a data-button href="{{url}}">Ticket oeffnen</a></p><p><span data-variable="footer"></span></p>',
+      },
+    },
+    meta: { en: { subject: "Ticket #{{ticketId}} zugewiesen" } },
     templates: {
       inApp: (data) => ({
-        title: data["title"],
-        body: data["body"],
-      }),
-      email: (data) => ({
-        subject: `Ticket #${data["ticketId"]} zugewiesen`,
-        header: data["title"] as string,
-        sections: [
-          { text: data["body"] as string },
-          { button: { label: "Ticket oeffnen", url: `/tickets/${data["ticketId"]}` } },
-        ],
-        footer: "Kumiko Notifications",
+        title: data["header"],
+        body: data["text"],
       }),
     },
   });
@@ -380,10 +404,9 @@ const templateResolverFeature = createTemplateResolverFeature();
 const rendererFoundationFeature = createRendererFoundationFeature();
 const deliveryFeature = createDeliveryFeature();
 const channelInAppFeature = createChannelInAppFeature();
-const rendererSimpleFeature = createRendererSimpleFeature();
-const channelEmailFeature = createChannelEmailFeature({
+const rendererMailHtmlFeature = createRendererMailHtmlFeature();
+const channelEmailFeature = createPlainFallbackEmailFeature({
   transport: emailTransport,
-  renderer: simpleRenderer,
   resolveEmail: resolveTestEmail,
 });
 const channelPushFeature = createChannelPushFeature({
@@ -400,7 +423,7 @@ const features = [
   rendererFoundationFeature,
   deliveryFeature,
   channelInAppFeature,
-  rendererSimpleFeature,
+  rendererMailHtmlFeature,
   channelEmailFeature,
   channelPushFeature,
   appFeature,
@@ -439,6 +462,8 @@ beforeAll(async () => {
     inAppMessagesTable,
     ticketTable,
   });
+
+  await seedNotificationTemplates(db, stack.registry);
 
   // Create tenant entity table + seed memberships for tenant broadcast tests
   const { unsafeCreateEntityTable } = await import("@cosmicdrift/kumiko-framework/stack");
@@ -1095,7 +1120,7 @@ describe("flow 9: email channel with renderer", () => {
     expect(email.html).toContain("Login kaputt");
     expect(email.html).toContain("Ticket oeffnen");
     expect(email.html).toContain("/tickets/");
-    expect(email.html).toContain("<!DOCTYPE html>");
+    expect(email.html).toContain("<!doctype html>");
     expect(email.html).toContain("</html>");
 
     // InApp also fired — ticketAssigned for user1 + ticketCreatedAdmin for admin
@@ -1113,22 +1138,6 @@ describe("flow 9: email channel with renderer", () => {
     const channels = logs.map((l) => l["channel"]);
     expect(channels).toContain("inApp");
     expect(channels).toContain("email");
-  });
-
-  test("notification without email template skips email rendering", async () => {
-    emailTransport.sent.length = 0;
-
-    // The manual app.assignOrder handler has no email template
-    await stack.http.writeOk("app:write:assign-order", { orderId: 300, driverId: user1.id }, admin);
-
-    // Email still sent (fallback to plain text) since email channel resolves the user
-    const emails = emailTransport.sent.filter((e) => e.to === testEmail(user1.id));
-    expect(emails).toHaveLength(1);
-    // But it uses the simple fallback (title as h1)
-    // Renderer always runs — falls back to title/body as header + section
-    expect(emails[0]?.html).toContain("<!DOCTYPE html>");
-    expect(emails[0]?.html).toContain("<h1"); // title as header
-    expect(emails[0]?.html).toContain("Neuer Auftrag");
   });
 });
 
@@ -1180,8 +1189,8 @@ describe("flow 10: complete end-to-end", () => {
     expect(thisEmail).toBeDefined();
     // Subject from email template
     expect(thisEmail?.subject).toMatch(/Ticket #[0-9a-f-]+ zugewiesen/);
-    // HTML from Simple Renderer (has DOCTYPE, header, sections, button, footer)
-    expect(thisEmail?.html).toContain("<!DOCTYPE html>");
+    // HTML from the mail renderer (DOCTYPE, body from the stored template)
+    expect(thisEmail?.html).toContain("<!doctype html>");
     expect(thisEmail?.html).toContain("Neues Ticket"); // header
     expect(thisEmail?.html).toContain("Datenbank Backup fehlgeschlagen"); // text section
     expect(thisEmail?.html).toContain("Ticket oeffnen"); // button label
@@ -1883,7 +1892,7 @@ describe("flow 17: async render→send pipeline", () => {
       expect(email).toBeDefined();
       expect(email?.subject).toBe("Async Subject");
       expect(email?.html).toContain("delivered via jobs");
-      expect(email?.html).toContain("<!DOCTYPE html>");
+      expect(email?.html).toContain("<!doctype html>");
 
       // Push: no render step → dispatched straight to delivery.send.
       await waitFor(

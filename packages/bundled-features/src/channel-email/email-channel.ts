@@ -1,5 +1,4 @@
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbRow } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import {
@@ -12,7 +11,6 @@ import {
   type EmailAttachmentRef,
   fileAttachmentRefSchema,
   MAX_EMAIL_ATTACHMENTS,
-  type NotificationRenderer,
   type RenderedMessage,
 } from "../delivery/index.js";
 import { decryptStoredPii } from "../shared/index.js";
@@ -138,7 +136,6 @@ async function resolveAttachments(
 
 export type EmailChannelOptions = {
   readonly transport: EmailTransport;
-  readonly renderer: NotificationRenderer;
   readonly resolveEmail: (
     userId: string,
     ctx: { db: unknown; tenantId: TenantId },
@@ -146,48 +143,34 @@ export type EmailChannelOptions = {
 };
 
 export function createEmailChannel(options: EmailChannelOptions): DeliveryChannel {
-  const { transport, renderer, resolveEmail } = options;
+  const { transport, resolveEmail } = options;
 
-  // Render is the expensive step (template engine, possibly a remote service)
-  // and runs in the delivery.render job, decoupled from the SMTP send so each
-  // can retry independently. Extracted so the inline fallback (no job runner)
+  // Render runs in the delivery.render job, decoupled from the SMTP send so
+  // each can retry independently. Extracted so the inline path (no job runner)
   // can reuse it without going through the channel's own render() indirection.
   async function renderMessage(
     message: ChannelMessage,
     ctx: ChannelContext,
   ): Promise<RenderedMessage> {
-    // A declared template means the stored mail template is the only source of
-    // subject and body: no fallback to the legacy renderer.
-    if (ctx.registry.getAllNotifications().get(message.notificationType)?.template !== undefined) {
-      if (ctx.renderMail === undefined) {
-        throw new Error(
-          `email channel: notification "${message.notificationType}" has a mail template but the channel context carries no renderMail`,
-        );
-      }
-      const unsubscribeUrl = message.data?.["unsubscribeUrl"];
-      const { subject, html, text, attachments } = await ctx.renderMail({
-        slug: message.notificationType,
-        locale: message.locale ?? "en",
-        variables: message.data ?? {},
-        ...(typeof unsubscribeUrl === "string" && { unsubscribeUrl }),
-      });
-      return { html, subject, text, ...(attachments !== undefined && { attachments }) };
+    const notificationType = message.notificationType;
+    if (ctx.registry.getAllNotifications().get(notificationType)?.template === undefined) {
+      throw new Error(
+        `email channel: notification "${notificationType}" has no mail template, declare template + meta on r.notification`,
+      );
     }
-    // Build renderer input: per-channel template data (if any) or fall back
-    // to title/body from the message. Renderer handles both cases.
-    const variables = (message.data as DbRow) ?? {
-      title: message.title,
-      body: message.body,
-    };
-    const rendererInput = {
-      template: message.notificationType,
-      variables,
-      locale: message.locale,
-    };
-    const html = await renderer.render(rendererInput);
-    const text = renderer.renderText ? await renderer.renderText(rendererInput) : undefined;
-    const subject = (variables["subject"] as string) ?? message.title; // @cast-boundary dynamic-key
-    return { html, subject, ...(text !== undefined && { text }) };
+    if (ctx.renderMail === undefined) {
+      throw new Error(
+        `email channel: notification "${notificationType}" has a mail template but the channel context carries no renderMail`,
+      );
+    }
+    const unsubscribeUrl = message.data?.["unsubscribeUrl"];
+    const { subject, html, text, attachments } = await ctx.renderMail({
+      slug: notificationType,
+      locale: message.locale ?? "en",
+      variables: message.data ?? {},
+      ...(typeof unsubscribeUrl === "string" && { unsubscribeUrl }),
+    });
+    return { html, subject, text, ...(attachments !== undefined && { attachments }) };
   }
 
   return {

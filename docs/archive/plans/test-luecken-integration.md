@@ -94,7 +94,7 @@ irreführende Metrik:
   (`FeatureSchema`/`WorkspaceSchema`/`AppSchema`), null Runtime-Logik (exportiert nur
   ein `parseRefTarget`-Re-Export aus engine). Kein Test-Kandidat; Schema-Generierung
   wird ohnehin durch `engine/__tests__/build-app-schema.test.ts` abgedeckt.
-- ~~Phase-D `text-content` (hat **3** Tests), `renderer-simple` (hat **2**)~~ —
+- ~~Phase-D `text-content` (hat **3** Tests), Renderer-Plugin (hat **2**)~~ —
   Behauptung „1 Test" war falsch; nicht backfill-bedürftig.
 
 ---

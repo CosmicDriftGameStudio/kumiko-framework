@@ -20,7 +20,6 @@ import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { notificationPreferencesTable } from "../../delivery/tables.js";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
 import { TenantQueries } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
@@ -89,11 +88,9 @@ beforeAll(async () => {
       createTenantFeature(),
       ...authMailRendererFeatures(),
       createDeliveryFeature(),
-      createRendererSimpleFeature(),
       createChannelInAppFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
-        renderer: simpleRenderer,
         resolveEmail: async () => "unused@test.local",
       }),
       createAuthEmailPasswordFeature({

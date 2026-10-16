@@ -1,7 +1,6 @@
 // English texts and expiry formatting for the transactional auth mails. The
 // mail bodies are built from these keys into stored templates (see
-// mail-notifications.ts); AuthMailContent stays for apps and mails that still
-// render structured content.
+// mail-notifications.ts).
 //
 // English ships here. Other languages register via @cosmicdrift/kumiko-locale-*
 // (localeDe() / localeEs() call registerMailTranslations).
@@ -60,16 +59,6 @@ export type TokenMailTiming = {
   readonly issuedAt?: string;
   /** IANA zone the expiry time is shown in. Default "UTC"; an invalid zone falls back to "UTC". */
   readonly timeZone?: string;
-};
-
-export type AuthMailContent = {
-  readonly subject: string;
-  readonly header: string;
-  readonly sections: readonly (
-    | { readonly text: string }
-    | { readonly button: { readonly label: string; readonly url: string } }
-  )[];
-  readonly footer: string;
 };
 
 const MS_PER_MINUTE = 60_000;

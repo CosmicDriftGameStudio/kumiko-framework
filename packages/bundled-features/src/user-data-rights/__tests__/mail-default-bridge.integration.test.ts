@@ -11,9 +11,10 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -24,6 +25,10 @@ import {
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+import {
+  authMailRendererFeatures,
+  seedAuthMailTemplates,
+} from "../../auth-email-password/__tests__/auth-mail-stack.js";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import {
   configValuesTable,
@@ -75,6 +80,7 @@ beforeAll(async () => {
       createSessionsFeature(),
       mailFoundationFeature,
       mailTransportInMemoryFeature,
+      ...authMailRendererFeatures(),
       // KEINE send*Email-Opts — die mail-foundation-Defaults muessen greifen.
       createUserDataRightsFeature(),
       localeDe(),
@@ -83,6 +89,7 @@ beforeAll(async () => {
   });
 
   await unsafePushTables(stack.db, { configValuesTable });
+  await seedAuthMailTemplates(stack);
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
@@ -176,6 +183,16 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
     // der Advisor-Befund, den dieser Assert jetzt einfaengt.
     expect(inbox[0]?.subject).toContain("Dein Konto wurde gelöscht");
     expect(inbox[0]?.html).toContain("endgültig");
+
+    // The mail bypasses delivery: no event outside the user aggregate may carry
+    // the address. The user aggregate's own anonymization event is out of scope here.
+    const nonUserEvents = (
+      await selectMany<{ aggregateType: string }>(stack.db, eventsTable, {})
+    ).filter((event) => event.aggregateType !== "user");
+    const traces = JSON.stringify(nonUserEvents, (_key, value) =>
+      typeof value === "bigint" ? value.toString() : value,
+    );
+    expect(traces).not.toContain(ORIGINAL_EMAIL);
   });
 
   test("no mail transport mounted is NOT this stack — sanity: provider really is inmemory", () => {

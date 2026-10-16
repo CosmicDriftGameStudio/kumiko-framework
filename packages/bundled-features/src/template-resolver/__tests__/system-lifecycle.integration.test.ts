@@ -64,13 +64,14 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-function notificationPayload(slug: string, extra: Record<string, unknown> = {}) {
+function plainMailPayload(slug: string, extra: Record<string, unknown> = {}) {
   return {
     slug,
-    kind: "notification" as const,
+    kind: "mail" as const,
+    meta: { subject: "Hallo" },
     locale: "de",
-    content: "Hallo",
-    contentFormat: "markdown" as const,
+    content: "<p>Hallo</p>",
+    contentFormat: "html" as const,
     variableSchema: {},
     linkedResources: {},
     ...extra,
@@ -103,15 +104,11 @@ function pdfPayload(slug: string, extra: Record<string, unknown> = {}) {
   };
 }
 
-function resolve(
-  tenantIndex: number,
-  slug: string,
-  kind: "notification" | "mail" = "notification",
-) {
+function resolve(tenantIndex: number, slug: string) {
   return createTemplateResolverApi(stack.db).resolveTemplate({
     tenantId: testTenantId(tenantIndex),
     slug,
-    kind,
+    kind: "mail",
     locale: "de",
   });
 }
@@ -161,7 +158,7 @@ describe("template-resolver :: own-tenant status handlers", () => {
   test("a TenantAdmin cannot archive a system row through archive", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertSystem,
-      notificationPayload("guard-system-row"),
+      plainMailPayload("guard-system-row"),
       systemAdmin,
     );
     const err = await stack.http.writeErr(
@@ -181,7 +178,7 @@ describe("template-resolver :: archive-system / publish-system", () => {
   beforeAll(async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertSystem,
-      notificationPayload(slug),
+      plainMailPayload(slug),
       systemAdmin,
     );
     systemRowId = created.id;
@@ -219,7 +216,7 @@ describe("template-resolver :: archive-system / publish-system", () => {
   test("a tenant row id is NotFound for the system handlers", async () => {
     const draft = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
-      notificationPayload("lifecycle-tenant-row"),
+      plainMailPayload("lifecycle-tenant-row"),
       tenantAdmin,
     );
     for (const handler of [
@@ -312,22 +309,22 @@ describe("template-resolver :: tenant-overrides without the tenant feature", () 
     const slug = "overrides-no-tenant-feature";
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertSystem,
-      notificationPayload(slug),
+      plainMailPayload(slug),
       systemAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      notificationPayload(slug, { status: "active" }),
+      plainMailPayload(slug, { status: "active" }),
       tenantAdmin,
     );
     await stack.http.writeOk(
       TemplateResolverHandlers.upsertTenant,
-      notificationPayload(slug),
+      plainMailPayload(slug),
       otherTenantAdmin,
     );
     const counts = await stack.http.queryOk(
       TemplateResolverQueries.tenantOverrides,
-      { slug, kind: "notification" },
+      { slug, kind: "mail" },
       systemAdmin,
     );
     expect(counts).toEqual({ activeOverrides: 1, draftOverrides: 1, totalTenants: null });
@@ -402,7 +399,7 @@ describe("template-resolver :: diff-to-system", () => {
     expect(own.code).toBe("not_found");
     const foreignDraft = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
-      notificationPayload("diff-foreign"),
+      plainMailPayload("diff-foreign"),
       otherTenantAdmin,
     );
     const foreign = await stack.http.queryErr(
@@ -421,7 +418,7 @@ describe("template-resolver :: reset-to-system", () => {
   beforeAll(async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertSystem,
-      notificationPayload(slug),
+      plainMailPayload(slug),
       systemAdmin,
     );
     systemRowId = created.id;
@@ -430,7 +427,7 @@ describe("template-resolver :: reset-to-system", () => {
   test("archives the override so the resolver serves the system row again", async () => {
     const override = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
-      notificationPayload(slug, { content: "Eigener Text", status: "active" }),
+      plainMailPayload(slug, { content: "<p>Eigener Text</p>", status: "active" }),
       tenantAdmin,
     );
     expect((await resolve(10, slug)).id).toBe(override.id);
@@ -463,7 +460,7 @@ describe("template-resolver :: reset-to-system", () => {
   test("an override without an active system counterpart is a validation error", async () => {
     const orphan = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
-      notificationPayload("reset-orphan", { status: "active" }),
+      plainMailPayload("reset-orphan", { status: "active" }),
       tenantAdmin,
     );
     const err = await stack.http.writeErr(

@@ -32,7 +32,6 @@ import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-featur
 import { mailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createRateLimitingFeature } from "@cosmicdrift/kumiko-bundled-features/rate-limiting";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
-import { createRendererSimpleFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-simple";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
@@ -120,7 +119,6 @@ export function composeRendererStack(): FeatureDefinition[] {
   return [
     createTemplateResolverFeature(),
     createRendererFoundationFeature(),
-    createRendererSimpleFeature(),
     createRendererMailHtmlFeature(),
   ];
 }

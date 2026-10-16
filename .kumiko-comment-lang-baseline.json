@@ -222,8 +222,6 @@
     "packages/bundled-features/src/renderer-foundation/constants.ts": 5,
     "packages/bundled-features/src/renderer-foundation/feature.ts": 4,
     "packages/bundled-features/src/renderer-foundation/types.ts": 9,
-    "packages/bundled-features/src/renderer-simple/__tests__/adapter.test.ts": 1,
-    "packages/bundled-features/src/renderer-simple/feature.ts": 5,
     "packages/bundled-features/src/secrets/__tests__/require-secrets-context.test.ts": 11,
     "packages/bundled-features/src/secrets/feature.ts": 1,
     "packages/bundled-features/src/seo/__tests__/seo.integration.test.ts": 8,
