@@ -21,6 +21,7 @@ import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engi
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { ENTITY_METAS } from "../../kumiko/schema";
+import { devAppOptions } from "../app/dev-app-options";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 
 const composedFeatures = composeFeatures([...APP_FEATURES], {
@@ -45,6 +46,16 @@ afterAll(() => {
 describe("use-all-bundled boot", () => {
   test("validateBoot — every r.requires resolves", () => {
     expect(() => validateBoot(composedFeatures)).not.toThrow();
+  });
+
+  // The dev/e2e server mounts app-owned features (custom screens, notes) on
+  // top of APP_FEATURES; only this set reaches the nav-area check for them.
+  test("validateBoot — dev-server feature set boots", () => {
+    const devFeatures = composeFeatures([...devAppOptions.features], {
+      includeBundled: true,
+      authOptions: AUTH_COMPOSE_OPTIONS,
+    });
+    expect(() => validateBoot(devFeatures)).not.toThrow();
   });
 
   test("createRegistry succeeds + every mounted feature is queryable", () => {

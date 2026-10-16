@@ -279,7 +279,10 @@ async function renderMailBody(
     const handlebarsSource = compileDocumentBodyToHandlebars(
       template.content,
       resolveTemplateVariables(ctx.registry, template.slug, template.variableSchema),
-      { resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined) },
+      {
+        resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined),
+        alignmentAsInlineStyle: true,
+      },
     );
     return {
       contentHtml: compileDocumentSource(hbs, handlebarsSource)(context),

@@ -23,7 +23,7 @@ RenderRequest { kind: "mail", payload: { slug, locale, variables, unsubscribeUrl
    RenderResponse { kind: "mail", subject, html, text, previewText? }
 ```
 
-`ctx.config` (optional) liefert Tenant-Locale, Währung (tenant-settings) und `tenantName` (Branding-Titel); ohne Config gelten `payload.locale`, `EUR` und `""`.
+Datum und Zahlen formatiert der Renderer nach `payload.locale`, der Sprache der Vorlage, im langen Datumsformat („1. Oktober 2026“). `ctx.config` (optional) liefert die Währung (tenant-settings) und `tenantName` (Branding-Titel); ohne Config gelten `EUR` und `""`.
 
 ## Mount
 

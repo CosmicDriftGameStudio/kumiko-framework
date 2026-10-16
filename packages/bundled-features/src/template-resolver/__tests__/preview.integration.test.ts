@@ -195,7 +195,7 @@ describe("template-resolver :: preview query", () => {
     );
     expect(preview.subject).toBe("Rechnung RE-2026-001");
     expect(preview.html).toContain("RE-2026-001");
-    expect(preview.html).toContain("15.03.2026");
+    expect(preview.html).toContain("15. März 2026");
     expect(preview.html).toContain("Beratung");
     expect(preview.html).toContain("Lizenz");
     expect(preview.html).not.toContain("Dritte Zeile");

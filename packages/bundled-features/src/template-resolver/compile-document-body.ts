@@ -1,7 +1,9 @@
 import type { TemplateVariableDef, TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Element as ScanElement } from "happy-dom";
 import { withParsedDocument } from "./document-sanitizer.js";
 import {
+  DOCUMENT_TEXT_ALIGNMENTS,
   isAllowedDocumentLinkHref,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
@@ -121,6 +123,8 @@ function neutralizeBraces(html: string): string {
 export type CompileDocumentBodyOptions = {
   // Returns the src for an `img[data-resource]` key; undefined drops the image.
   readonly resourceSrc?: (key: string) => string | undefined;
+  // Mail clients ignore document CSS, so mail turns data-align into an inline style.
+  readonly alignmentAsInlineStyle?: boolean;
 };
 
 const RESOURCE_IMAGE_CONTENT_TYPES: ReadonlySet<string> = new Set([
@@ -147,6 +151,13 @@ export function toResourceDataUri(contentType: string, bytes: Uint8Array): strin
     throw new Error(`resource content type "${contentType}" cannot be embedded as an image`);
   }
   return `data:${contentType};base64,${Buffer.from(bytes).toString("base64")}`;
+}
+
+function rewriteAlignment(element: ScanElement): void {
+  const align = element.getAttribute("data-align");
+  element.removeAttribute("data-align");
+  if (isOneOf(DOCUMENT_TEXT_ALIGNMENTS, align))
+    element.setAttribute("style", `text-align:${align}`);
 }
 
 function rewriteResourceImage(
@@ -180,6 +191,11 @@ export function compileDocumentBodyToHandlebars(
       rewriteResourceImage(element, options.resourceSrc);
     }
     for (const element of Array.from(root.querySelectorAll("*"))) stripActiveContent(element);
+    if (options.alignmentAsInlineStyle === true) {
+      for (const element of Array.from(root.querySelectorAll("[data-align]"))) {
+        rewriteAlignment(element);
+      }
+    }
     for (const element of Array.from(root.querySelectorAll("span[data-variable]"))) {
       rewriteVariable(element, state);
     }

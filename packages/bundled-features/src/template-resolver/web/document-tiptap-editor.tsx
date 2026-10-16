@@ -16,6 +16,10 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
   Bold as BoldIcon,
   Braces,
   Image as ImageIcon,
@@ -32,6 +36,8 @@ import {
 } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
+  DOCUMENT_TEXT_ALIGNMENTS,
+  type DocumentTextAlignment,
   isAllowedDocumentLinkHref,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
@@ -57,13 +63,74 @@ function previewsKey(previews: Readonly<Record<string, DocumentResourcePreview>>
     .join("\n");
 }
 
-type PanelKind = "link" | "placeholder" | "image" | "button" | "repeat";
+type PanelKind = "link" | "placeholder" | "image" | "button" | "repeat" | "align";
 
 const BLOCK_PANEL: Partial<Record<DocumentToolbarBlock, PanelKind>> = {
   image: "image",
   button: "button",
   repeat: "repeat",
+  align: "align",
 };
+
+const ALIGNMENT_ICONS: Record<DocumentTextAlignment, ReactNode> = {
+  left: <AlignLeft size={16} />,
+  center: <AlignCenter size={16} />,
+  right: <AlignRight size={16} />,
+  justify: <AlignJustify size={16} />,
+};
+
+const ALIGNMENT_LABEL_KEYS: Record<DocumentTextAlignment, string> = {
+  left: "template-resolver.documentEditor.alignLeft",
+  center: "template-resolver.documentEditor.alignCenter",
+  right: "template-resolver.documentEditor.alignRight",
+  justify: "template-resolver.documentEditor.alignJustify",
+};
+
+type RepeatTableState = {
+  readonly lists: readonly string[];
+  readonly headerRepeats: boolean;
+  readonly firstRowPos: number;
+};
+
+// print-document moves the leading rows flagged repeatHeader into thead, so the
+// toggle reads and writes the table's first row.
+function findRepeatTable(editor: Editor): RepeatTableState | null {
+  const { $from } = editor.state.selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+    if (node.type.name !== "table") continue;
+    const lists: string[] = [];
+    node.forEach((row) => {
+      const each: unknown = row.attrs["each"];
+      if (typeof each === "string" && each !== "" && !lists.includes(each)) lists.push(each);
+    });
+    if (lists.length === 0) return null;
+    return {
+      lists,
+      headerRepeats: node.firstChild?.attrs["repeatHeader"] === true,
+      firstRowPos: $from.start(depth),
+    };
+  }
+  return null;
+}
+
+function toggleRepeatHeader(editor: Editor): void {
+  const found = findRepeatTable(editor);
+  if (found === null) return;
+  editor
+    .chain()
+    .focus()
+    .command(({ tr }) => {
+      const row = tr.doc.nodeAt(found.firstRowPos);
+      if (row === null) return false;
+      tr.setNodeMarkup(found.firstRowPos, undefined, {
+        ...row.attrs,
+        repeatHeader: !found.headerRepeats,
+      });
+      return true;
+    })
+    .run();
+}
 
 const PARAGRAPH_STYLES = ["paragraph", "1", "2", "3"] as const;
 type ParagraphStyle = (typeof PARAGRAPH_STYLES)[number];
@@ -165,7 +232,7 @@ type PanelProps = {
 };
 
 function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps): ReactNode {
-  const { Field, Input } = usePrimitives();
+  const { Button, Field, Input } = usePrimitives();
   const t = useTranslation();
   const [href, setHref] = useState(() => {
     const current = editor.getAttributes("link")["href"];
@@ -245,6 +312,30 @@ function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps)
             variables={selectable}
             onInsert={(name) => insertAndClose({ type: "variable", attrs: { name } })}
           />
+        </div>
+      )}
+      {kind === "align" && (
+        <div className="flex flex-wrap gap-1">
+          {DOCUMENT_TEXT_ALIGNMENTS.map((alignment) => (
+            <Button
+              key={alignment}
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                editor
+                  .chain()
+                  .focus()
+                  .updateAttributes("paragraph", { textAlign: alignment })
+                  .updateAttributes("heading", { textAlign: alignment })
+                  .run();
+                onClose();
+              }}
+            >
+              {ALIGNMENT_ICONS[alignment]}
+              {t(ALIGNMENT_LABEL_KEYS[alignment])}
+            </Button>
+          ))}
         </div>
       )}
       {kind === "image" && (
@@ -427,6 +518,7 @@ export default function DocumentTiptapEditor({
             bulletList: e.isActive("bulletList"),
             orderedList: e.isActive("orderedList"),
             link: e.isActive("link"),
+            repeatTable: findRepeatTable(e),
           },
   });
 
@@ -487,7 +579,14 @@ export default function DocumentTiptapEditor({
     divider: { label: t("template-resolver.documentEditor.divider"), icon: <Minus size={16} /> },
     repeat: { label: t("template-resolver.documentEditor.repeat"), icon: <Repeat size={16} /> },
     pageBreak: { label: pageBreakLabel, icon: <Scissors size={16} /> },
+    align: { label: t("template-resolver.documentEditor.align"), icon: <AlignLeft size={16} /> },
   };
+
+  const repeatTable = activeState?.repeatTable ?? null;
+  const repeatListLabel =
+    repeatTable !== null && repeatTable.lists.length === 1
+      ? (variableLabels[repeatTable.lists[0] ?? ""] ?? repeatTable.lists[0])
+      : undefined;
 
   const paragraphStyleLabel = t("template-resolver.documentEditor.paragraphStyle");
   const styleOptions = [
@@ -674,6 +773,30 @@ export default function DocumentTiptapEditor({
           variables={variables}
           onClose={() => setOpenPanel(null)}
         />
+      )}
+      {repeatTable !== null && !readOnly && (
+        <div
+          data-testid="document-repeat-bar"
+          className="flex flex-wrap items-center gap-3 border-b border-input bg-muted/40 px-2 py-1 text-xs"
+        >
+          <span className="font-medium">
+            {repeatListLabel === undefined
+              ? t("template-resolver.documentEditor.repeat")
+              : t("template-resolver.documentEditor.repeatBarList", { list: repeatListLabel })}
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            pressed={repeatTable.headerRepeats}
+            onClick={() => toggleRepeatHeader(editor)}
+          >
+            {t("template-resolver.documentEditor.repeatHeader")}
+          </Button>
+          <span className="text-muted-foreground">
+            {t("template-resolver.documentEditor.keepRowsTogether")}
+          </span>
+        </div>
       )}
       <div className={cn(canvas && "flex justify-center bg-muted p-6")}>
         <EditorContent

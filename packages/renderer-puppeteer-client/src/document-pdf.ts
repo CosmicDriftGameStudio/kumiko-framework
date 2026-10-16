@@ -2,6 +2,7 @@
 // puppeteer-service prints. Everything the page needs (images, fonts-free CSS)
 // is embedded here: the service performs no network fetches at all.
 
+import { sanitizePdfAttachmentFileName } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   FileRefTooLargeError,
   readFileRefContent,
@@ -55,7 +56,6 @@ export type DocumentPdfRequest = {
 };
 
 const LINE_BREAKS = /[\r\n]+/g;
-const MAX_FILE_NAME_LENGTH = 200;
 const IMAGE_CONTENT_TYPE_PREFIX = "image/";
 const DEFAULT_MARGIN_MM = 15;
 const HEADER_MARGIN_MM = 30;
@@ -72,6 +72,10 @@ const PRINT_CSS = [
   "thead{display:table-header-group}",
   "tr{page-break-inside:avoid;break-inside:avoid}",
   "[data-page-break]{page-break-before:always;break-before:page}",
+  "[data-align=left]{text-align:left}",
+  "[data-align=center]{text-align:center}",
+  "[data-align=right]{text-align:right}",
+  "[data-align=justify]{text-align:justify}",
   "img{max-width:100%}",
 ].join("");
 
@@ -92,30 +96,6 @@ function escapeHtml(value: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
-}
-
-function stripControlCharacters(value: string): string {
-  return value
-    .split("")
-    .filter((char) => {
-      const code = char.charCodeAt(0);
-      return code > 0x1f && code !== 0x7f;
-    })
-    .join("");
-}
-
-// The name ends up in a Content-Disposition header or a mail attachment: content-disposition
-// (download) and nodemailer (send) apply the RFC 5987 encoding, so only separators and
-// control characters have to go here.
-export function sanitizePdfFileName(raw: string, slug: string): string {
-  const cleaned = stripControlCharacters(raw)
-    .replace(/[/\\";]/g, "-")
-    .replaceAll("..", "-")
-    .trim()
-    .slice(0, MAX_FILE_NAME_LENGTH)
-    .trim();
-  if (cleaned === "") return `${slug}.pdf`;
-  return cleaned.toLowerCase().endsWith(".pdf") ? cleaned : `${cleaned}.pdf`;
 }
 
 async function resolvePdfTemplate(
@@ -277,7 +257,8 @@ function resolveOptions(
   const right = meta?.margins?.right ?? DEFAULT_MARGIN_MM;
   const options: PdfOptions = {
     format: meta?.pageFormat ?? "A4",
-    printBackground: true,
+    printBackground: meta?.printBackground ?? true,
+    ...(meta?.orientation === "landscape" && { landscape: true }),
     marginMm: {
       top: meta?.margins?.top ?? (hasHeader ? HEADER_MARGIN_MM : DEFAULT_MARGIN_MM),
       right,
@@ -293,6 +274,8 @@ type DocumentInput = {
   readonly locale: string;
   readonly variables: Readonly<Record<string, unknown>>;
   readonly draft?: DocumentPdfDraft;
+  /** Whose row the draft edits: a SystemAdmin edits the system row, everyone else the tenant's own. */
+  readonly draftScope?: "system" | "tenant";
 };
 
 type PageMarkers = "chromium" | "preview";
@@ -313,8 +296,11 @@ type AssembledDocument = {
 
 // The draft comes from a caller outside the write pipeline, so it passes the document
 // sanitizer and the meta check again instead of being trusted as already gated.
+// Images come from the caller's own row of this slug and locale whatever its status: a
+// tenant that only saved a draft has no active row, yet its draft already links the logo.
 function applyPdfDraft(
   stored: TemplateResource | null,
+  own: TemplateResource | null,
   draft: DocumentPdfDraft,
   slug: string,
   locale: string,
@@ -326,27 +312,30 @@ function applyPdfDraft(
       "invalid_payload",
     );
   }
-  const base: TemplateResource = stored ?? {
-    id: "",
-    version: 0,
-    tenantId: "",
-    slug,
-    kind: "document-pdf",
-    locale,
-    title: null,
-    folder: null,
-    content: "",
-    contentFormat: "html",
-    variableSchema: {},
-    linkedResources: {},
-    meta: null,
-    scope: "tenant",
-    parentTemplateId: null,
-    status: "draft",
-    modifiedAt: null,
-  };
+  const base: TemplateResource = stored ??
+    own ?? {
+      id: "",
+      version: 0,
+      tenantId: "",
+      slug,
+      kind: "document-pdf",
+      locale,
+      title: null,
+      folder: null,
+      content: "",
+      contentFormat: "html",
+      variableSchema: {},
+      linkedResources: {},
+      meta: null,
+      scope: "tenant",
+      parentTemplateId: null,
+      status: "draft",
+      modifiedAt: null,
+    };
   return {
     ...base,
+    linkedResources: { ...(own ?? stored ?? base).linkedResources },
+    scope: (own ?? base).scope,
     content: sanitized.html,
     contentFormat: "html",
     meta: draft.meta,
@@ -368,6 +357,22 @@ async function findStoredPdfTemplate(
   }
 }
 
+async function findOwnPdfTemplate(
+  tplApi: TemplateResolverApi,
+  ctx: RendererContext,
+  slug: string,
+  locale: string,
+  scope: "system" | "tenant",
+): Promise<TemplateResource | null> {
+  return tplApi.findExact({
+    tenantId: ctx.tenantId,
+    slug,
+    kind: "document-pdf",
+    locale,
+    ...(scope === "system" && { scope }),
+  });
+}
+
 async function assembleDocument(
   input: DocumentInput,
   ctx: RendererContext,
@@ -380,6 +385,7 @@ async function assembleDocument(
       ? await resolvePdfTemplate(tplApi, ctx, slug, locale)
       : applyPdfDraft(
           await findStoredPdfTemplate(tplApi, ctx, slug, locale),
+          await findOwnPdfTemplate(tplApi, ctx, slug, locale, input.draftScope ?? "tenant"),
           input.draft,
           slug,
           locale,
@@ -431,7 +437,7 @@ async function assembleDocument(
     const renderLine = (pattern: string): string =>
       compileDocumentSource(hbs, pattern, { noEscape: true })(context).replace(LINE_BREAKS, "");
     const title = meta?.metadata?.title === undefined ? slug : renderLine(meta.metadata.title);
-    const fileName = sanitizePdfFileName(
+    const fileName = sanitizePdfAttachmentFileName(
       meta?.fileName === undefined ? "" : renderLine(meta.fileName),
       slug,
     );
@@ -461,13 +467,28 @@ export async function buildDocumentPdfRequest(
   req: Extract<RenderRequest, { kind: "document-pdf" }>,
   ctx: RendererContext,
 ): Promise<DocumentPdfRequest> {
-  const document = await assembleDocument(req.payload, ctx, "chromium");
-  const hasHeader = document.headerHtml.trim() !== "";
-  const hasFooter = document.footerHtml.trim() !== "";
+  return toPdfRequest(await assembleDocument(req.payload, ctx, "chromium"), req.payload.locale);
+}
+
+// Prints an unsaved draft; the stored template of the slug only supplies images and the variable schema.
+export async function buildDocumentDraftPdfRequest(
+  req: DocumentPreviewRequest & {
+    readonly draft: DocumentPdfDraft;
+    readonly draftScope?: "system" | "tenant";
+  },
+  ctx: RendererContext,
+): Promise<DocumentPdfRequest> {
+  return toPdfRequest(await assembleDocument(req, ctx, "chromium"), req.locale);
+}
+
+function toPdfRequest(document: AssembledDocument, locale: string): DocumentPdfRequest {
+  const showLayoutRegions = document.meta?.layoutHeaderFooter !== false;
+  const hasHeader = showLayoutRegions && document.headerHtml.trim() !== "";
+  const hasFooter = showLayoutRegions && document.footerHtml.trim() !== "";
   const { options, left, right } = resolveOptions(document.meta, hasHeader, hasFooter);
   return {
     html: frameDocument({
-      locale: req.payload.locale,
+      locale,
       title: document.title,
       bodyHtml: document.bodyHtml,
       signatureHtml: document.signatureHtml,

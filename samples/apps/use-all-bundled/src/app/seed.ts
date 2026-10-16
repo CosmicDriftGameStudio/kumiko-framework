@@ -37,6 +37,7 @@ import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { ADMIN_EMAIL, BETA_TENANT_ID, DEMO_NOTE_ID, DEV_TENANT_ID } from "./auth-constants";
 import { noteEntity } from "./notes-feature";
+import { seedPdfDocuments } from "./seed-documents";
 
 // Event-store executors mirror the real handlers (createEntityExecutor pairs the
 // projection table + executor), so seeded rows are proper event streams, not
@@ -391,6 +392,9 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   ]) {
     await stack.http.writeOk("auth-email-password:write:invite-create", invitee, inviter);
   }
+
+  // PDF template editor — system invoice + letterhead, one live and one draft tenant override.
+  await seedPdfDocuments(stack, devAdminId);
 
   // reply-snippets — entries for the rich collection. Written through the
   // collection's own set-handler, the same path the editor uses, so the rows

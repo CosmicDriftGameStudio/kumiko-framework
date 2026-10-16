@@ -48,11 +48,28 @@ describe("document-pdf meta", () => {
     expect(parseTemplateMeta("document-pdf", null)).toEqual({ ok: true, meta: null });
   });
 
+  test("orientation, printBackground and layoutHeaderFooter are accepted", () => {
+    const meta = {
+      orientation: "landscape",
+      printBackground: false,
+      layoutHeaderFooter: false,
+    } as const;
+    expect(parseTemplateMeta("document-pdf", meta)).toEqual({ ok: true, meta });
+    expect(readPdfTemplateMeta(meta)).toEqual(meta);
+  });
+
+  test.each([{ orientation: "diagonal" }, { printBackground: "yes" }, { layoutHeaderFooter: 0 }])(
+    "invalid new field %j is rejected",
+    (meta) => {
+      expect(parseTemplateMeta("document-pdf", meta).ok).toBe(false);
+    },
+  );
+
   test("an unknown page format or key is rejected", () => {
     const format = parseTemplateMeta("document-pdf", { pageFormat: "A5" });
     expect(format.ok).toBe(false);
     if (!format.ok) expect(format.issues[0]?.path).toBe("meta.pageFormat");
-    expect(parseTemplateMeta("document-pdf", { orientation: "landscape" }).ok).toBe(false);
+    expect(parseTemplateMeta("document-pdf", { watermark: true }).ok).toBe(false);
     expect(parseTemplateMeta("document-pdf", { margins: { top: 1, middle: 2 } }).ok).toBe(false);
   });
 

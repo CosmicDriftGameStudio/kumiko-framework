@@ -19,6 +19,7 @@ import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createWaitlistFeature } from "@cosmicdrift/kumiko-bundled-features/waitlist";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { tagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
@@ -42,6 +43,7 @@ const _dataRetention = createDataRetentionFeature();
 const _userDataRights = createUserDataRightsFeature();
 const _waitlist = createWaitlistFeature();
 const _templateResolver = createTemplateResolverFeature();
+const _rendererPuppeteerClient = createRendererPuppeteerClientFeature();
 const _managedPages = createManagedPagesFeature({ resolveApexTenant: () => null, allowCustomCss: true });
 const _customFields = customFieldsFeature;
 const _tags = tagsFeature;
@@ -71,6 +73,7 @@ export const downloadAttemptTable = buildEntityTable("download-attempt", _userDa
 export const waitlistEntryTable = buildEntityTable("waitlistEntry", _waitlist.entities["waitlistEntry"]!);
 export const templateResourceTable = buildEntityTable("template-resource", _templateResolver.entities["template-resource"]!);
 export const userContentEntryTable = buildEntityTable("user-content-entry", _templateResolver.entities["user-content-entry"]!);
+export const renderedPdfTable = buildEntityTable("rendered-pdf", _rendererPuppeteerClient.entities["rendered-pdf"]!);
 export const pageTable = buildEntityTable("page", _managedPages.entities["page"]!);
 export const fieldDefinitionTable = buildEntityTable("field-definition", _customFields.entities["field-definition"]!);
 export const tagTable = buildEntityTable("tag", _tags.entities["tag"]!);

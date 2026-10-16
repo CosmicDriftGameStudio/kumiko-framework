@@ -14,3 +14,8 @@ export const BETA_TENANT_ID = "00000000-0000-4000-8000-000000000002";
 // Fixed id of the first seeded note, so the tags-section screenshot can navigate
 // straight to /note-edit/<id> (the other seeded notes get minted uuids).
 export const DEMO_NOTE_ID = "00000000-0000-4000-8000-00000000d001";
+
+// Seeded PDF template and the custom screen that edits it; the pdf-template-editor
+// spec opens the screen by URL because the template overview owns the nav.
+export const PDF_TEMPLATE_EDITOR_SCREEN_ID = "pdf-template-editor";
+export const INVOICE_TEMPLATE_SLUG = "billing:invoice";

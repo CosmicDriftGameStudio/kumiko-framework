@@ -7,7 +7,8 @@ export type DocumentToolbarBlock =
   | "button"
   | "divider"
   | "repeat"
-  | "pageBreak";
+  | "pageBreak"
+  | "align";
 
 /** Imperative access for an outside panel (placeholder list, resource list). */
 export type DocumentEditorHandle = {
@@ -49,6 +50,7 @@ export const MAIL_DOCUMENT_BLOCKS = [
 ] as const satisfies readonly DocumentToolbarBlock[];
 
 export const PDF_DOCUMENT_BLOCKS = [
+  "align",
   "image",
   "table",
   "divider",

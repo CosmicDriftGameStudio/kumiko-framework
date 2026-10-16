@@ -12,6 +12,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./qualified-names": {
+      "types": "./src/qualified-names.ts",
+      "default": "./src/qualified-names.ts"
     }
   },
   "dependencies": {
@@ -36,6 +40,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./qualified-names": {
+        "types": "./dist/qualified-names.d.ts",
+        "default": "./dist/qualified-names.js"
       }
     }
   },

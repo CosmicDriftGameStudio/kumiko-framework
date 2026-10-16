@@ -36,6 +36,14 @@ describe("compileDocumentBodyToHandlebars", () => {
     expect(out).toContain("{{date due}}");
   });
 
+  test("data-align is kept for print and becomes an inline style for mail", () => {
+    const html = '<p data-align="center">x</p><h1 data-align="bogus">y</h1>';
+    expect(compile(html)).toContain('<p data-align="center">');
+    expect(compileDocumentBodyToHandlebars(html, variables, { alignmentAsInlineStyle: true })).toBe(
+      '<p style="text-align:center">x</p><h1>y</h1>',
+    );
+  });
+
   test("link placeholders become the link helper", () => {
     expect(compile('<a href="{{url}}">go</a>')).toContain('href="{{link url}}"');
   });

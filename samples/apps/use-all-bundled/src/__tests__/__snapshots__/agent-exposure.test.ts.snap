@@ -161,6 +161,8 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "personal-access-tokens:write:revoke expose=true risk=high",
   "rate-limiting:query:status expose=true risk=low",
   "readiness:query:status expose=true risk=low",
+  "renderer-puppeteer-client:query:preview-pdf expose=true risk=low",
+  "renderer-puppeteer-client:query:puppeteer-status expose=true risk=low",
   "secrets:query:list expose=true risk=low",
   "secrets:write:delete expose=true risk=high",
   "secrets:write:set expose=false risk=mid",

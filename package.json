@@ -48,6 +48,7 @@
     "packages/locale-de",
     "packages/renderer-mail-html",
     "packages/renderer-puppeteer-client",
+    "packages/document-designer",
     "apps/puppeteer-service",
     "packages/samples",
     "samples/recipes/*",

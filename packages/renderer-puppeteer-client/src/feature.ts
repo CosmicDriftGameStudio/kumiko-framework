@@ -2,6 +2,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-types/feature";
 import { buildDocumentPreview } from "./document-pdf.js";
 import { RENDERED_PDF_ENTITY_NAME, renderedPdfEntity } from "./entity.js";
+import { previewPdfQuery } from "./preview-pdf.query.js";
 import { puppeteerRender } from "./render.js";
 import { puppeteerStatusQuery } from "./status.query.js";
 
@@ -33,5 +34,6 @@ export function createRendererPuppeteerClientFeature(): FeatureDefinition {
 
     r.entity(RENDERED_PDF_ENTITY_NAME, renderedPdfEntity);
     r.queryHandler(puppeteerStatusQuery);
+    r.queryHandler(previewPdfQuery);
   });
 }

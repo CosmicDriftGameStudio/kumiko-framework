@@ -5,6 +5,11 @@
 // `@cosmicdrift/kumiko-bundled-features/template-resolver` and has no React or
 // DOM deps.
 
+export {
+  TemplateResolverErrors,
+  TemplateResolverHandlers,
+  TemplateResolverQueries,
+} from "../qualified-names.js";
 export { textBlocksClient } from "./client-plugin.js";
 export { DocumentContentEditor } from "./document-editor.js";
 export {
