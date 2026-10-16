@@ -6,6 +6,7 @@ import {
   compileDocumentBodyToHandlebars,
   toResourceDataUri,
 } from "../compile-document-body";
+import { mailLayoutAppearance } from "../layout-appearance";
 
 const variables = {
   name: templateVariable.text(),
@@ -42,6 +43,52 @@ describe("compileDocumentBodyToHandlebars", () => {
     expect(compileDocumentBodyToHandlebars(html, variables, { alignmentAsInlineStyle: true })).toBe(
       '<p style="text-align:center">x</p><h1>y</h1>',
     );
+  });
+
+  test("a resource image gets an inline width cap for mail only", () => {
+    const html = '<p><img data-resource="logo" alt="x"></p>';
+    const resourceSrc = () => "cid:logo";
+    expect(compileDocumentBodyToHandlebars(html, variables, { resourceSrc })).not.toContain(
+      "max-width",
+    );
+    expect(
+      compileDocumentBodyToHandlebars(html, variables, {
+        resourceSrc,
+        resourceImageMaxWidthPx: 180,
+      }),
+    ).toContain('style="max-width:180px;height:auto"');
+  });
+
+  test("table cells get padding inline for mail only and keep their alignment", () => {
+    const html =
+      '<table><tr><th><p>Item</p></th><td data-align="right">Rent</td></tr></table><p data-size="small" data-align="right">x</p>';
+    expect(compile(html)).not.toContain("padding");
+    const out = compileDocumentBodyToHandlebars(html, variables, {
+      alignmentAsInlineStyle: true,
+      tableAsInlineStyle: true,
+    });
+    expect(out).toContain('<table style="width:100%;border-collapse:collapse">');
+    expect(out).toContain('<th style="padding:6px 12px;');
+    expect(out).toContain('<td style="text-align:right;padding:6px 12px;');
+    expect(out).toContain('<p style="text-align:right;font-size:12px;color:#6b7280">x</p>');
+  });
+
+  test("a data-button link gets button styling inline for mail only", () => {
+    const html = '<a data-button href="https://example.com">go</a>';
+    expect(compile(html)).not.toContain("style=");
+    expect(
+      compileDocumentBodyToHandlebars(html, variables, { buttonAsInlineStyle: true }),
+    ).toContain("background-color:");
+  });
+
+  test("the layout button style replaces the default button look", () => {
+    const html = '<a data-button href="https://example.com">go</a>';
+    const out = compileDocumentBodyToHandlebars(html, variables, {
+      buttonAsInlineStyle: true,
+      buttonInlineStyle: mailLayoutAppearance({ buttonStyle: "outline" }).buttonStyle,
+    });
+    expect(out).toContain("border:2px solid #1f5468");
+    expect(out).not.toContain("background-color:#1f5468");
   });
 
   test("link placeholders become the link helper", () => {

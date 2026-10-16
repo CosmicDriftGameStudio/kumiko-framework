@@ -10,6 +10,10 @@ const INVOICE_ISSUED_VARIABLES = {
     required: true,
     example: "Familie Yilmaz",
   }),
+  recipientEmail: templateVariable.text({
+    label: "Empfänger-Adresse",
+    example: "yilmaz.familie@example.org",
+  }),
   invoiceNumber: templateVariable.text({
     label: "Rechnungsnummer",
     required: true,

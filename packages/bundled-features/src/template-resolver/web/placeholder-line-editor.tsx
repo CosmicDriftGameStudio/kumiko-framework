@@ -26,6 +26,8 @@ export type PlaceholderLineEditorProps = {
   /** Placeholders shown as system chips (a different tint). */
   readonly systemVariables?: readonly string[];
   readonly readOnly?: boolean;
+  /** Drops the input frame so the line sits flat inside a label/value row. */
+  readonly flat?: boolean;
   readonly onEditorReady?: (handle: DocumentEditorHandle) => void;
   readonly "aria-label": string;
 };
@@ -50,6 +52,7 @@ function LineEditorBody({
   variableLabels,
   systemVariables,
   readOnly,
+  flat,
   onEditorReady,
   ariaLabel,
 }: {
@@ -59,6 +62,7 @@ function LineEditorBody({
   readonly variableLabels: Readonly<Record<string, string>>;
   readonly systemVariables: readonly string[];
   readonly readOnly: boolean;
+  readonly flat: boolean;
   readonly onEditorReady: ((handle: DocumentEditorHandle) => void) | undefined;
   readonly ariaLabel: string;
 }): ReactNode {
@@ -88,12 +92,12 @@ function LineEditorBody({
         undoRedo: false,
       }),
       DocumentVariable.extend({
-        addNodeView: () => createVariableView(variableLabels, systemVariables),
+        addNodeView: () => createVariableView(variableLabels, systemVariables, flat),
       }),
       UndoRedo,
       BlockLineBreaks,
     ],
-    [variableLabels, systemVariables],
+    [variableLabels, systemVariables, flat],
   );
 
   const editor = useEditor({
@@ -118,7 +122,8 @@ function LineEditorBody({
     <EditorContent
       editor={editor}
       className={cn(
-        "flex min-h-9 items-center rounded-md border border-input bg-transparent px-3 text-base md:text-sm",
+        "flex items-center bg-transparent text-base md:text-sm",
+        flat ? "min-h-10" : "min-h-9 rounded-md border border-input px-3",
         "[&_.ProseMirror]:w-full [&_.ProseMirror]:whitespace-nowrap [&_.ProseMirror]:outline-none",
         "[&_p]:m-0",
         readOnly && "opacity-60",
@@ -134,6 +139,7 @@ export default function PlaceholderLineEditor({
   variableLabels = NO_LABELS,
   systemVariables = NO_NAMES,
   readOnly = false,
+  flat = false,
   onEditorReady,
   "aria-label": ariaLabel,
 }: PlaceholderLineEditorProps): ReactNode {
@@ -162,6 +168,7 @@ export default function PlaceholderLineEditor({
       variableLabels={stableLabels}
       systemVariables={stableSystem}
       readOnly={readOnly}
+      flat={flat}
       onEditorReady={onEditorReady}
       ariaLabel={ariaLabel}
     />

@@ -50,7 +50,7 @@ async function someHandler(ctx) {
 
 | kind | contentFormat | meta |
 |---|---|---|
-| `mail` | `html` (Dokument-Schema, wird serverseitig neu aufgebaut) | Pflicht: `subject`; optional `previewText`, `layoutSlug`, `category` (`transactional`/`marketing`), `sender` |
+| `mail` | `html` (Dokument-Schema, wird serverseitig neu aufgebaut) | Pflicht: `subject`; optional `previewText`, `layoutSlug`, `category` (`transactional`/`marketing`), `senderName`, `replyTo` |
 | `mail-layout` | `mjml` | leer (`{}`) oder fehlend |
 | `pdf-layout` | `html` | leer (`{}`) oder fehlend |
 | `document-pdf` | `html` | fehlt |

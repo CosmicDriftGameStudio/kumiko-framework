@@ -288,6 +288,28 @@ export const DocumentTextAlign = Extension.create({
   },
 });
 
+// Only "small" exists: the sender line above an address block. Serialized as data-size for the
+// same reason as data-align.
+export const DocumentTextSize = Extension.create({
+  name: "documentTextSize",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph"],
+        attributes: {
+          textSize: {
+            default: null,
+            parseHTML: (element) =>
+              element.getAttribute("data-size") === "small" ? "small" : null,
+            renderHTML: (attributes) =>
+              attributes["textSize"] === "small" ? { "data-size": "small" } : {},
+          },
+        },
+      },
+    ];
+  },
+});
+
 export const documentExtensions: Extensions = [
   StarterKit.configure({
     blockquote: false,
@@ -320,4 +342,5 @@ export const documentExtensions: Extensions = [
   DocumentDivider,
   DocumentPageBreak,
   DocumentTextAlign,
+  DocumentTextSize,
 ];

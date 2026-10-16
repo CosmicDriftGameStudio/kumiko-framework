@@ -8,9 +8,12 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { LoadingState, ModeSwitch } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
+import type { EditorOrigin } from "./editor-header.js";
+import { EditorBody, EditorInfoBar } from "./editor-shell.js";
 import { formatKilobytes } from "./mail-draft.js";
-import { PreviewSide } from "./mail-preview-side.js";
+import { PreviewSide, type TestMailControls } from "./mail-preview-side.js";
 import type { MailPreview, MailValidation, PreviewAttachment } from "./mail-types.js";
+import type { OwnAddress } from "./use-own-address.js";
 
 type PreviewFormat = "html" | "text";
 type PreviewWidth = "desktop" | "mobile";
@@ -38,42 +41,70 @@ function attachmentText(
   }
 }
 
+function HeadRow({
+  label,
+  children,
+}: {
+  readonly label: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  return (
+    <>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="min-w-0">{children}</span>
+    </>
+  );
+}
+
 function MailFrame({
   preview,
   format,
   width,
+  fromName,
+  recipient,
 }: {
   readonly preview: MailPreview;
   readonly format: PreviewFormat;
   readonly width: PreviewWidth;
+  readonly fromName: string;
+  readonly recipient: string | null;
 }): ReactNode {
   const t = useTranslation();
   const attachments = preview.attachments.flatMap((a) => attachmentText(t, a) ?? []);
   return (
     <div
-      className="flex flex-col overflow-hidden rounded-md border"
+      className="mx-auto flex w-full max-w-[680px] flex-col border bg-card shadow-md"
       data-testid="mail-preview-frame"
     >
-      <div className="flex flex-col gap-1 border-b bg-muted px-4 py-3 text-sm">
-        <div className="flex gap-3">
-          <span className="w-16 shrink-0 text-muted-foreground">
-            {t("documentDesigner.mail.meta.subject")}
+      <div className="grid grid-cols-[80px_minmax(0,1fr)] gap-y-1 border-b px-5 py-3.5 text-sm">
+        <HeadRow label={t("documentDesigner.mail.preview.from")}>
+          <span data-testid="mail-preview-from">
+            {fromName === "" ? t("documentDesigner.mail.props.senderDefault") : fromName}
           </span>
+        </HeadRow>
+        {recipient !== null && (
+          <HeadRow label={t("documentDesigner.mail.preview.to")}>
+            <span data-testid="mail-preview-to">{recipient}</span>
+          </HeadRow>
+        )}
+        <HeadRow label={t("documentDesigner.mail.meta.subject")}>
           <span className="font-medium" data-testid="mail-preview-subject">
             {preview.subject ?? ""}
           </span>
-        </div>
+        </HeadRow>
         {attachments.length > 0 && (
-          <div className="flex gap-3">
-            <span className="w-16 shrink-0 text-muted-foreground">
-              {t("documentDesigner.mail.preview.attachments")}
-            </span>
-            <span className="flex flex-col" data-testid="mail-preview-attachments">
+          <HeadRow label={t("documentDesigner.mail.preview.attachments")}>
+            <span
+              className="flex flex-col items-start gap-1"
+              data-testid="mail-preview-attachments"
+            >
               {attachments.map((line) => (
-                <span key={line}>{line}</span>
+                <span key={line} className="rounded border bg-muted px-2 py-0.5 text-xs">
+                  {line}
+                </span>
               ))}
             </span>
-          </div>
+          </HeadRow>
         )}
       </div>
       {format === "html" ? (
@@ -96,13 +127,20 @@ function MailFrame({
   );
 }
 
+// The preview mail goes to the example recipient of the sample values, not to the test-mail address.
+function recipientOf(preview: MailPreview, own: OwnAddress): string | null {
+  const { recipientName: name, recipientEmail: email } = preview.sampleValues;
+  if (typeof name !== "string" || name === "") return own.email;
+  return typeof email === "string" && email !== "" ? `${name} <${email}>` : name;
+}
+
 function layoutText(
   t: (key: string, params?: Readonly<Record<string, unknown>>) => string,
   preview: MailPreview | null,
 ): string {
-  return preview?.layout == null
+  return preview?.mailLayout == null
     ? t("documentDesigner.mail.preview.barPlain")
-    : t("documentDesigner.mail.preview.bar", { layout: preview.layout.slug });
+    : t("documentDesigner.mail.preview.bar", { version: preview.mailLayout.version });
 }
 
 export function MailPreviewMode({
@@ -110,13 +148,21 @@ export function MailPreviewMode({
   validation,
   slug,
   locale,
+  fromName,
+  own,
+  controls,
+  origin,
   testMail,
 }: {
   readonly payload: PreviewPayload;
   readonly validation: MailValidation | null;
   readonly slug: string;
   readonly locale: string;
-  readonly testMail: { readonly pending: boolean; readonly onSend: () => void };
+  readonly fromName: string;
+  readonly own: OwnAddress;
+  readonly controls: ReactNode;
+  readonly origin: EditorOrigin | null;
+  readonly testMail: TestMailControls;
 }): ReactNode {
   const t = useTranslation();
   const { Banner } = usePrimitives();
@@ -126,54 +172,72 @@ export function MailPreviewMode({
   const preview = query.data;
 
   return (
-    <div className="flex flex-col gap-3" data-testid="mail-editor-preview">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border bg-muted px-4 py-2.5">
-        <span className="text-sm" data-testid="mail-preview-bar">
-          {layoutText(t, preview)}
-        </span>
-        <div className="grow" />
-        <ModeSwitch<PreviewFormat>
-          value={format}
-          onChange={setFormat}
-          ariaLabel={t("documentDesigner.mail.preview.formatSwitch")}
-          testId="mail-preview-format"
-          options={[
-            { value: "html", label: t("documentDesigner.mail.preview.html") },
-            { value: "text", label: t("documentDesigner.mail.preview.text") },
-          ]}
-        />
-        <ModeSwitch<PreviewWidth>
-          value={width}
-          onChange={setWidth}
-          ariaLabel={t("documentDesigner.mail.preview.widthSwitch")}
-          testId="mail-preview-width"
-          options={[
-            { value: "desktop", label: t("documentDesigner.mail.preview.desktop") },
-            { value: "mobile", label: t("documentDesigner.mail.preview.mobile") },
-          ]}
-        />
-      </div>
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <div className="flex min-w-0 flex-col gap-3">
-          {query.error !== null && (
-            <Banner variant="error" testId="mail-preview-error">
-              {dispatcherErrorText(query.error, t)}
-            </Banner>
-          )}
-          {preview === null ? (
-            query.error === null && <LoadingState />
-          ) : (
-            <MailFrame preview={preview} format={format} width={width} />
-          )}
-        </div>
-        <PreviewSide
-          preview={preview}
-          validation={validation}
-          slug={slug}
-          locale={locale}
-          testMail={testMail}
-        />
-      </div>
-    </div>
+    <>
+      <EditorInfoBar
+        tone="muted"
+        testId="mail-preview-bar"
+        origin={origin}
+        controls={controls}
+        links={
+          <>
+            <ModeSwitch<PreviewFormat>
+              value={format}
+              onChange={setFormat}
+              ariaLabel={t("documentDesigner.mail.preview.formatSwitch")}
+              testId="mail-preview-format"
+              options={[
+                { value: "html", label: t("documentDesigner.mail.preview.html") },
+                { value: "text", label: t("documentDesigner.mail.preview.text") },
+              ]}
+            />
+            <ModeSwitch<PreviewWidth>
+              value={width}
+              onChange={setWidth}
+              ariaLabel={t("documentDesigner.mail.preview.widthSwitch")}
+              testId="mail-preview-width"
+              options={[
+                { value: "desktop", label: t("documentDesigner.mail.preview.desktop") },
+                { value: "mobile", label: t("documentDesigner.mail.preview.mobile") },
+              ]}
+            />
+          </>
+        }
+      >
+        {layoutText(t, preview)}
+      </EditorInfoBar>
+      <EditorBody
+        testId="mail-editor-preview"
+        center={
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-8 py-6">
+            {query.error !== null && (
+              <Banner variant="error" testId="mail-preview-error">
+                {dispatcherErrorText(query.error, t)}
+              </Banner>
+            )}
+            {preview === null ? (
+              query.error === null && <LoadingState />
+            ) : (
+              <MailFrame
+                preview={preview}
+                format={format}
+                width={width}
+                fromName={fromName}
+                recipient={recipientOf(preview, own)}
+              />
+            )}
+          </div>
+        }
+        right={
+          <PreviewSide
+            preview={preview}
+            validation={validation}
+            slug={slug}
+            locale={locale}
+            own={own}
+            testMail={testMail}
+          />
+        }
+      />
+    </>
   );
 }

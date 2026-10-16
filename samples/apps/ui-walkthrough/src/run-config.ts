@@ -15,6 +15,7 @@ import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-featu
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { TENANT_ADMIN_EMAIL } from "./app/auth-constants";
 import { billingFeature } from "./features/billing";
 import { rentalFeature } from "./features/rental";
@@ -35,6 +36,9 @@ export const APP_FEATURES = [
   // Mounted individually: composeRendererStack() would add a second template-resolver.
   createRendererFoundationFeature(),
   createRendererMailHtmlFeature(),
+  // The PDF preview of the template editor prints through the puppeteer-service
+  // (PUPPETEER_SERVICE_URL / PUPPETEER_AUTH_TOKEN); the e2e config starts one.
+  createRendererPuppeteerClientFeature(),
   createDeliveryFeature(),
   // In-memory transport: the test mail of the mail editor is rendered and
   // "sent" for real, nothing leaves the process. Every user resolves to the

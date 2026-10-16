@@ -2,7 +2,7 @@
 import { formatWhen, useAppFeatures, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { RailRow, RailSection } from "./rail.js";
+import { RailHint, RailRow, RailSection } from "./rail.js";
 import { asRowStatus, statusLabel, statusTone } from "./status-label.js";
 
 const AUDIT_FEATURE = "audit";
@@ -87,6 +87,7 @@ export function VersionsSection({
   return (
     <RailSection title={t("documentDesigner.mail.versions.title")} testId="mail-editor-versions">
       <VersionRows rowId={rowId} currentVersion={currentVersion} currentStatus={currentStatus} />
+      <RailHint>{t("documentDesigner.mail.versions.hint")}</RailHint>
     </RailSection>
   );
 }

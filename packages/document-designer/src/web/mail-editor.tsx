@@ -3,11 +3,7 @@ import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/te
 import { useNav, useQuery, useUserRoles } from "@cosmicdrift/kumiko-renderer";
 import { LoadingState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ComponentType, type ReactNode, useState } from "react";
-import {
-  DEFAULT_TEMPLATE_LOCALES,
-  PLATFORM_TEMPLATES_SCREEN_ID,
-  TEMPLATES_SCREEN_ID,
-} from "../constants.js";
+import { DEFAULT_TEMPLATE_LOCALES } from "../constants.js";
 import { MailEditorBody } from "./mail-editor-body.js";
 import type { TemplateRowSummary, TemplateRowView } from "./mail-types.js";
 import type { OverviewRowView } from "./overview-row.js";
@@ -53,7 +49,6 @@ function MailEditorData({
   readonly onLocaleChange: (locale: string) => void;
   readonly refreshOverview: () => Promise<void>;
 }): ReactNode {
-  const nav = useNav();
   const [generation, setGeneration] = useState(0);
   const list = useQuery<readonly TemplateRowSummary[]>(TemplateResolverQueries.list, {
     kind: "mail",
@@ -92,11 +87,6 @@ function MailEditorData({
       onRefreshRow={async () => {
         await stored.refetch();
       }}
-      onBack={() =>
-        nav.navigate({
-          screenId: isSystemAdmin ? PLATFORM_TEMPLATES_SCREEN_ID : TEMPLATES_SCREEN_ID,
-        })
-      }
     />
   );
 }

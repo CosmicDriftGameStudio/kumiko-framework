@@ -31,7 +31,14 @@ async function openEditor(
   kind: "mail-layout" | "pdf-layout",
   readyTestId = "document-designer-paper",
 ): Promise<void> {
+  // Cold dev-server: the editor chunk and layout source arrive slowly; wait for the
+  // data response itself instead of racing the 5 s expect timeout against compilation.
+  const layoutSourceLoaded = page.waitForResponse(
+    (response) =>
+      response.request().postData()?.includes("template-resolver:query:layout-source") === true,
+  );
   await page.goto(`/layout-editor?kind=${kind}&slug=default`);
+  await layoutSourceLoaded;
   await expect(page.getByTestId("document-designer-layout-editor")).toBeVisible();
   await expect(page.getByTestId(readyTestId)).toBeVisible();
 }

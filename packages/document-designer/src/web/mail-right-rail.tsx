@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { DEFAULT_LAYOUT_SLUG } from "../constants.js";
 import type { LinkedResourceView, MailCategory, MailDraft } from "./mail-types.js";
 import type { OverviewRowView } from "./overview-row.js";
-import { RailHint, RailRow, RailSection } from "./rail.js";
+import { RailField, RailHint, RailRow, RailSection } from "./rail.js";
 import { usageParts } from "./used-by-label.js";
 
 type Usage = { readonly feature: string; readonly notification: string };
@@ -14,11 +14,16 @@ export function layoutOptionLabel(
   t: (key: string, params?: Readonly<Record<string, unknown>>) => string,
   layout: OverviewRowView,
 ): string {
+  // A layout has no registry title; the slug would read like an id, so name it by kind.
+  const title =
+    layout.title === layout.slug
+      ? t(`documentDesigner.editor.title.${layout.kind === "mail-layout" ? "mail" : "pdf"}`)
+      : layout.title;
   return t(
     layout.origin === "tenant"
       ? "documentDesigner.mail.props.layoutTenant"
       : "documentDesigner.mail.props.layoutSystem",
-    { title: layout.title, version: layout.version },
+    { title, version: layout.version },
   );
 }
 
@@ -74,42 +79,39 @@ export function AttachmentSection({
         </Button>
       }
     >
-      {attachments.length === 0 && (
-        <RailHint>{t("documentDesigner.mail.attachments.none")}</RailHint>
-      )}
+      {attachments.length === 0 && <RailRow label={t("documentDesigner.mail.attachments.none")} />}
       {attachments.map((attachment) => (
-        <div
+        <RailRow
           key={attachment.key}
-          className="flex items-center gap-1"
-          data-testid="mail-attachment-row"
-        >
-          <div className="min-w-0 grow">
-            {attachment.kind === "pdf" ? (
-              <RailRow
-                symbol="⎘"
-                label={t("documentDesigner.mail.attachments.pdfRow", {
+          testId="mail-attachment-row"
+          symbol="⎘"
+          label={
+            attachment.kind === "pdf"
+              ? t("documentDesigner.mail.attachments.pdfRow", {
                   title: pdfTitles.get(attachment.templateSlug) ?? attachment.templateSlug,
-                })}
-                trailing={attachment.fileName}
-              />
-            ) : (
-              <RailRow
-                symbol="⎘"
-                label={attachment.kind === "file" ? attachment.fileName : attachment.key}
-                trailing={t("documentDesigner.mail.attachments.file")}
-              />
-            )}
-          </div>
-          <Button
-            variant="danger-ghost"
-            size="sm"
-            onClick={() => onRemove(attachment.key)}
-            testId={`mail-attachment-remove-${attachment.key}`}
-          >
-            {t("documentDesigner.mail.resource.remove")}
-          </Button>
-        </div>
+                })
+              : attachment.kind === "file"
+                ? attachment.fileName
+                : attachment.key
+          }
+          trailing={
+            attachment.kind === "pdf"
+              ? attachment.fileName
+              : t("documentDesigner.mail.attachments.file")
+          }
+          action={
+            <Button
+              variant="danger-ghost"
+              size="sm"
+              onClick={() => onRemove(attachment.key)}
+              testId={`mail-attachment-remove-${attachment.key}`}
+            >
+              {t("documentDesigner.mail.resource.remove")}
+            </Button>
+          }
+        />
       ))}
+      <RailHint>{t("documentDesigner.mail.attachments.hint")}</RailHint>
     </RailSection>
   );
 }
@@ -124,18 +126,19 @@ export function PropertiesSection({
   readonly onChange: (patch: Partial<MailDraft>) => void;
 }): ReactNode {
   const t = useTranslation();
-  const { Field, Input, Text } = usePrimitives();
+  const { Field, Input } = usePrimitives();
   const layoutValue = draft.layoutSlug === "" ? DEFAULT_LAYOUT_SLUG : draft.layoutSlug;
   const categoryValue: MailCategory = draft.category === "" ? "transactional" : draft.category;
   return (
     <RailSection title={t("documentDesigner.mail.props.title")} testId="mail-editor-properties">
-      <div className="flex flex-col gap-3 px-2">
+      <RailField>
         <Field id="mail-layout" label={t("documentDesigner.mail.props.layout")}>
           <Input
             kind="select"
             id="mail-layout"
             name="mail-layout"
             value={layoutValue}
+            display="dropdown"
             onChange={(next) => onChange({ layoutSlug: next })}
             options={layouts.map((layout) => ({
               value: layout.slug,
@@ -143,15 +146,41 @@ export function PropertiesSection({
             }))}
           />
         </Field>
+      </RailField>
+      <RailField>
         <Field id="mail-sender" label={t("documentDesigner.mail.props.sender")}>
-          <Text testId="mail-sender">{t("documentDesigner.mail.props.senderDefault")}</Text>
+          <Input
+            kind="text"
+            id="mail-sender"
+            name="mail-sender"
+            testId="mail-sender"
+            value={draft.senderName}
+            onChange={(next) => onChange({ senderName: next })}
+            placeholder={t("documentDesigner.mail.props.senderPlaceholder")}
+          />
         </Field>
+      </RailField>
+      <RailHint>{t("documentDesigner.mail.props.senderHint")}</RailHint>
+      <RailField>
+        <Field id="mail-reply-to" label={t("documentDesigner.mail.props.replyTo")}>
+          <Input
+            kind="email"
+            id="mail-reply-to"
+            name="mail-reply-to"
+            testId="mail-reply-to"
+            value={draft.replyTo}
+            onChange={(next) => onChange({ replyTo: next })}
+          />
+        </Field>
+      </RailField>
+      <RailField>
         <Field id="mail-category" label={t("documentDesigner.mail.props.category")}>
           <Input
             kind="select"
             id="mail-category"
             name="mail-category"
             value={categoryValue}
+            display="dropdown"
             onChange={(next) =>
               onChange({ category: next === "marketing" ? "marketing" : "transactional" })
             }
@@ -161,7 +190,7 @@ export function PropertiesSection({
             ]}
           />
         </Field>
-      </div>
+      </RailField>
       <RailHint>{t("documentDesigner.mail.props.categoryHint")}</RailHint>
     </RailSection>
   );

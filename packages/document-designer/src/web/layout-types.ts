@@ -1,4 +1,6 @@
 // @runtime client
+import type { LayoutMeta } from "./layout-meta.js";
+
 export type LayoutKind = "mail-layout" | "pdf-layout";
 
 export type ValidationIssue = {
@@ -63,5 +65,6 @@ export type LayoutSourceView = {
   };
   readonly effectiveFormat: "html" | "mjml" | null;
   readonly mjmlSource: string | null;
+  readonly meta: LayoutMeta;
   readonly locale: string;
 };

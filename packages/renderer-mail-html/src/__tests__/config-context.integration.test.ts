@@ -22,6 +22,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createTemplateResolverFeature,
+  TemplateResolverHandlers,
   templateResourceEntity,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
@@ -162,5 +163,39 @@ describe("renderer-mail-html :: ctx.config", () => {
     expect(html).not.toContain("CHF");
     expect(html).not.toContain("Muster AG");
     expect(html).toContain("1.234,56 €");
+  });
+});
+
+describe("renderer-mail-html :: layout accent line", () => {
+  const layout = (accentLine: "branding" | "none") => ({
+    slug: "default",
+    kind: "mail-layout" as const,
+    locale: "de",
+    content: "<div data-header><p>Kopf</p></div><div data-content></div>",
+    contentFormat: "html" as const,
+    meta: { accentLine },
+    variableSchema: {},
+    linkedResources: {},
+    status: "active" as const,
+  });
+
+  test("the branding accent color draws the top line only when the layout asks for it", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.accentColor, value: "#ab12cd", scope: "tenant" },
+      configuredAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      layout("none"),
+      configuredAdmin,
+    );
+    expect(await renderInvoice(configuredAdmin.tenantId)).not.toContain("#ab12cd");
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      layout("branding"),
+      configuredAdmin,
+    );
+    expect(await renderInvoice(configuredAdmin.tenantId)).toContain("#ab12cd");
   });
 });

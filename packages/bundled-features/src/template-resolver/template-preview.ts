@@ -24,7 +24,12 @@ import {
 } from "../renderer-foundation/index.js";
 import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResource } from "./api.js";
 import { collectDocumentResourceKeys } from "./compile-document-body.js";
-import { MAIL_PREVIEW_MAX_BYTES, SYSTEM_TENANT_ID, type TemplateScope } from "./constants.js";
+import {
+  DEFAULT_MAIL_LAYOUT_SLUG,
+  MAIL_PREVIEW_MAX_BYTES,
+  SYSTEM_TENANT_ID,
+  type TemplateScope,
+} from "./constants.js";
 import { parseStoredJson } from "./handlers/template-gates.js";
 import { validateTemplateDraft } from "./handlers/validate.query.js";
 import { type LayoutRegions, readLayoutRegions, sanitizeLayoutHtml } from "./layout-regions.js";
@@ -42,7 +47,7 @@ import {
 
 const SAMPLE_LINK = "https://example.com";
 const SAMPLE_DATE = "2026-01-15";
-const SAMPLE_LIST_ROWS = 2;
+const SAMPLE_LIST_ROWS = 3;
 const DEFAULT_PDF_LAYOUT_SLUG = "default";
 
 function sampleScalar(name: string, def: TemplateScalarVariableDef): unknown {
@@ -141,6 +146,12 @@ export type TemplatePreview = {
   readonly text: string | null;
   readonly attachments: readonly PreviewAttachment[];
   readonly layout: PreviewLayout | null;
+  /** Mail only: which layout version the html was rendered through. */
+  readonly mailLayout?: {
+    readonly slug: string;
+    readonly scope: TemplateScope;
+    readonly version: number;
+  } | null;
   readonly sampleValues: Readonly<Record<string, unknown>>;
   readonly checks: readonly PreviewCheck[];
   readonly validation: ValidationResponse;
@@ -152,6 +163,7 @@ export type TemplatePreviewOutcome =
       readonly preview: TemplatePreview;
       /** What the send path needs to attach; kept out of the response shown to the editor. */
       readonly mailAttachments: readonly MailAttachmentRef[];
+      readonly sender: { readonly fromName?: string; readonly replyTo?: string };
     }
   | { readonly ok: false; readonly error: KumikoError };
 
@@ -328,6 +340,7 @@ async function renderDocumentPreview(
     return {
       ok: true,
       mailAttachments: [],
+      sender: {},
       preview: {
         kind: "document-pdf",
         subject: null,
@@ -372,6 +385,7 @@ async function renderDocumentPreview(
   return {
     ok: true,
     mailAttachments: [],
+    sender: {},
     preview: {
       kind: "document-pdf",
       subject: null,
@@ -445,51 +459,39 @@ export async function evaluateDocumentDraft(
   };
 }
 
-// Renders a draft (or, without content, the stored template) with sample values, going through
-// the same write gates and the same mail renderer as a real send. Nothing is stored or sent.
-export async function renderTemplatePreview(
+type DraftSource = {
+  readonly content: string;
+  readonly meta: unknown;
+  readonly variableSchema: Readonly<Record<string, unknown>>;
+};
+
+// The posted draft when it carries content, else the stored template; null when none is stored.
+async function resolveDraftSource(
   ctx: HandlerContext,
   user: SessionUser,
   input: TemplatePreviewInput,
+): Promise<DraftSource | null> {
+  if (input.content !== undefined) {
+    return { content: input.content, meta: input.meta, variableSchema: input.variableSchema };
+  }
+  const stored = await loadStoredDraft(ctx, user, input);
+  if (stored === null) return null;
+  return { content: stored.content, meta: stored.meta, variableSchema: stored.variableSchema };
+}
+
+async function renderMailPreview(
+  ctx: HandlerContext,
+  user: SessionUser,
+  args: DocumentPreviewArgs,
 ): Promise<TemplatePreviewOutcome> {
-  let draftContent = input.content;
-  let draftMeta: unknown = input.meta;
-  let draftVariableSchema = input.variableSchema;
-  if (draftContent === undefined) {
-    const stored = await loadStoredDraft(ctx, user, input);
-    if (stored === null) return failed(new NotFoundError("template-resource", input.slug));
-    draftContent = stored.content;
-    draftMeta = stored.meta;
-    draftVariableSchema = stored.variableSchema;
-  }
-
-  const { response: validation, evaluation } = await validateTemplateDraft(ctx, user, {
-    slug: input.slug,
-    kind: input.kind,
-    contentFormat: "html",
-    content: draftContent,
-    meta: draftMeta,
+  const {
+    input,
+    content,
+    meta,
+    validation,
+    sampleValues,
     variableSchema: draftVariableSchema,
-    locale: input.locale,
-    scope: "tenant",
-  });
-  if (!evaluation.ok) return failed(new ValidationError({ fields: [...evaluation.issues] }));
-
-  const content = evaluation.content ?? "";
-  const meta = parseTemplateMeta(input.kind, parseStoredJson(evaluation.metaJson));
-  const sampleValues = sampleValuesFor(validation.variables);
-
-  if (input.kind === "document-pdf") {
-    return renderDocumentPreview(ctx, user, {
-      input,
-      content,
-      meta,
-      variableSchema: draftVariableSchema,
-      sampleValues,
-      validation,
-    });
-  }
-
+  } = args;
   if (!meta.ok || !isMailTemplateMeta(meta.meta)) {
     return failed(
       new UnprocessableError(TemplateResolverErrors.previewRenderFailed, {
@@ -542,6 +544,10 @@ export async function renderTemplatePreview(
   return {
     ok: true,
     mailAttachments,
+    sender: {
+      ...(rendered.fromName !== undefined && { fromName: rendered.fromName }),
+      ...(rendered.replyTo !== undefined && { replyTo: rendered.replyTo }),
+    },
     preview: {
       kind: "mail",
       subject: rendered.subject,
@@ -551,6 +557,14 @@ export async function renderTemplatePreview(
       text: rendered.text,
       attachments,
       layout: null,
+      mailLayout:
+        rendered.layout === undefined
+          ? null
+          : {
+              slug: mailMeta.layoutSlug ?? DEFAULT_MAIL_LAYOUT_SLUG,
+              scope: rendered.layout.scope,
+              version: rendered.layout.templateVersion,
+            },
       sampleValues,
       checks: [
         missingResourceCheck(unresolved),
@@ -570,4 +584,56 @@ export async function renderTemplatePreview(
       validation,
     },
   };
+}
+
+// Renders a draft (or, without content, the stored template) with sample values, going through
+// the same write gates and the same mail renderer as a real send. Nothing is stored or sent.
+export async function renderTemplatePreview(
+  ctx: HandlerContext,
+  user: SessionUser,
+  input: TemplatePreviewInput,
+): Promise<TemplatePreviewOutcome> {
+  const draftSource = await resolveDraftSource(ctx, user, input);
+  if (draftSource === null) return failed(new NotFoundError("template-resource", input.slug));
+  const {
+    content: draftContent,
+    meta: draftMeta,
+    variableSchema: draftVariableSchema,
+  } = draftSource;
+
+  const { response: validation, evaluation } = await validateTemplateDraft(ctx, user, {
+    slug: input.slug,
+    kind: input.kind,
+    contentFormat: "html",
+    content: draftContent,
+    meta: draftMeta,
+    variableSchema: draftVariableSchema,
+    locale: input.locale,
+    scope: "tenant",
+  });
+  if (!evaluation.ok) return failed(new ValidationError({ fields: [...evaluation.issues] }));
+
+  const content = evaluation.content ?? "";
+  const meta = parseTemplateMeta(input.kind, parseStoredJson(evaluation.metaJson));
+  const sampleValues = sampleValuesFor(validation.variables);
+
+  if (input.kind === "document-pdf") {
+    return renderDocumentPreview(ctx, user, {
+      input,
+      content,
+      meta,
+      variableSchema: draftVariableSchema,
+      sampleValues,
+      validation,
+    });
+  }
+
+  return renderMailPreview(ctx, user, {
+    input,
+    content,
+    meta,
+    variableSchema: draftVariableSchema,
+    sampleValues,
+    validation,
+  });
 }

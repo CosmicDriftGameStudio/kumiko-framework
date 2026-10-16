@@ -3,6 +3,7 @@
 export const E2E_PORTS = {
   "framework/config-demo": 4173,
   "framework/ui-walkthrough": 4174,
+  "framework/ui-walkthrough-puppeteer-service": 4198,
   "framework/showcase": 4175,
   "framework/renderer-web": 4176,
   "framework/marketing-demo": 4179,

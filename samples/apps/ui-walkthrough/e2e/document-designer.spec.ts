@@ -46,6 +46,10 @@ test("tenant admin sees the own mail template and edits the mail layout without 
   await page.getByTestId("document-designer-save").click();
 
   await expect(page.getByTestId("document-designer-editor-status")).toContainText("Entwurf");
+  // A draft replaces the single stored row and takes the tenant layout out of use, so the
+  // later mail specs would render through the system layout: publish it.
+  await page.getByTestId("document-designer-publish").click();
+  await expect(page.getByTestId("document-designer-editor-status")).toContainText("Aktiv");
 });
 
 test("platform admin sees who customised each template and the MJML source of the layout", async ({
@@ -98,9 +102,7 @@ test("mail rows open the mail editor and PDF rows the PDF editor", async ({ page
   const mailRow = await rowOf(page, "Passwort zurücksetzen");
   await mailRow.getByRole("button", { name: "Bearbeiten" }).click();
   await expect(page).toHaveURL(/mail-editor/);
-  await expect(page.getByTestId("document-designer-editor-title")).toContainText(
-    "Passwort zurücksetzen",
-  );
+  await expect(page.getByRole("heading", { name: "Passwort zurücksetzen" })).toBeVisible();
 
   await page.goto("/templates");
 

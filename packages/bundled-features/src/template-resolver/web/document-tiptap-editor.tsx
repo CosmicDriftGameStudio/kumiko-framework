@@ -6,6 +6,7 @@
 // never as `{{name}}` text, so the sanitizer's schema keeps them.
 
 import {
+  type ActionMenuItemSpec,
   TextareaContentEditor,
   usePrimitives,
   useTranslation,
@@ -15,6 +16,7 @@ import { cn } from "@cosmicdrift/kumiko-renderer-web";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import {
   AlignCenter,
   AlignJustify,
@@ -22,6 +24,7 @@ import {
   AlignRight,
   Bold as BoldIcon,
   Braces,
+  ChevronDown,
   Image as ImageIcon,
   Italic as ItalicIcon,
   Link as LinkIcon,
@@ -34,7 +37,8 @@ import {
   Table as TableIcon,
   Underline as UnderlineIcon,
 } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   DOCUMENT_TEXT_ALIGNMENTS,
   type DocumentTextAlignment,
@@ -43,7 +47,10 @@ import {
   isDocumentReferenceName,
   isDocumentResourceKey,
 } from "../document-schema.js";
-import { createDocumentEditorExtensions } from "./document-editor-extensions.js";
+import {
+  createDocumentEditorExtensions,
+  DOCUMENT_BLOCK_ATTRIBUTE,
+} from "./document-editor-extensions.js";
 import {
   type DocumentEditorProps,
   type DocumentResourcePreview,
@@ -64,6 +71,9 @@ function previewsKey(previews: Readonly<Record<string, DocumentResourcePreview>>
 }
 
 type PanelKind = "link" | "placeholder" | "image" | "button" | "repeat" | "align";
+
+// Blocks that stay in the canvas toolbar; the rest moves into the overflow menu.
+const CANVAS_INLINE_BLOCKS: readonly DocumentToolbarBlock[] = ["image", "table"];
 
 const BLOCK_PANEL: Partial<Record<DocumentToolbarBlock, PanelKind>> = {
   image: "image",
@@ -136,6 +146,66 @@ const PARAGRAPH_STYLES = ["paragraph", "1", "2", "3"] as const;
 type ParagraphStyle = (typeof PARAGRAPH_STYLES)[number];
 
 const HEADING_LEVELS = { "1": 1, "2": 2, "3": 3 } as const;
+
+const PLACEHOLDER_HREF = /^\{\{([^{}]+)\}\}$/;
+
+function buttonTargetLabel(href: string, labels: Readonly<Record<string, string>>): string {
+  const name = PLACEHOLDER_HREF.exec(href)?.[1];
+  if (name === undefined) return href;
+  return Object.hasOwn(labels, name) ? (labels[name] ?? name) : name;
+}
+
+// The bubble menu registers its plugin once per mount, so a rebuilt editor needs a fresh mount.
+const editorMountKeys = new WeakMap<Editor, number>();
+let lastMountKey = 0;
+function mountKeyOf(editor: Editor): number {
+  const known = editorMountKeys.get(editor);
+  if (known !== undefined) return known;
+  lastMountKey += 1;
+  const created = lastMountKey;
+  editorMountKeys.set(editor, created);
+  return created;
+}
+
+// Board .hb: a small bar that straddles the block's top frame line on the right; above a table it sits fully
+// outside so the header row stays readable.
+const BUBBLE_BAR_CLASS =
+  "flex w-max items-center gap-1 rounded border border-input bg-card p-px text-xs [&_button]:h-5 [&_button]:px-1.5 [&_button]:text-[10px]";
+
+function bubbleOffset(editor: Editor): (args: { rects: { floating: { height: number } } }) => {
+  mainAxis: number;
+  crossAxis: number;
+} {
+  return ({ rects }) => ({
+    mainAxis: findRepeatTable(editor) !== null ? 2 : -rects.floating.height / 2,
+    crossAxis: -8,
+  });
+}
+
+const BUBBLE_MENU_PLUGIN_KEY = "documentBlockOptions";
+
+// The options bar belongs to the block frame, not to the caret inside it.
+function selectedBlockReference(editor: Editor): {
+  getBoundingClientRect: () => DOMRect;
+  getClientRects: () => DOMRect[];
+  contextElement: Element;
+} | null {
+  const { node } = editor.view.domAtPos(editor.state.selection.from);
+  const start = node instanceof Element ? node : node.parentElement;
+  const block = start?.closest(`[${DOCUMENT_BLOCK_ATTRIBUTE}], table`);
+  if (block === null || block === undefined) return null;
+  return {
+    getBoundingClientRect: () => block.getBoundingClientRect(),
+    getClientRects: () => [block.getBoundingClientRect()],
+    contextElement: block,
+  };
+}
+
+// The bubble is first measured before React has filled it, so it sits at the wrong place until a second pass.
+function repositionBubble(editor: Editor): void {
+  if (editor.isDestroyed) return;
+  editor.view.dispatch(editor.state.tr.setMeta(BUBBLE_MENU_PLUGIN_KEY, "updatePosition"));
+}
 
 function isParagraphStyle(value: string): value is ParagraphStyle {
   return isOneOf(PARAGRAPH_STYLES, value);
@@ -434,17 +504,22 @@ export default function DocumentTiptapEditor({
   resourcePreviews = NO_PREVIEWS,
   chrome = "default",
   toolbar = "full",
+  renderPaper,
+  toolbarHost,
   onEditorReady,
 }: DocumentEditorProps): ReactNode {
   const t = useTranslation();
-  const { Button, Field, Input } = usePrimitives();
+  const { ActionOverflowMenu, Button, Field, Input } = usePrimitives();
   const [openPanel, setOpenPanel] = useState<PanelKind | null>(null);
+  const [canvasScroller, setCanvasScroller] = useState<HTMLElement | null>(null);
   const [showHtml, setShowHtml] = useState(false);
   const canvas = chrome === "canvas";
   const compact = toolbar === "compact" && !canvas;
+  const hosted = toolbarHost !== undefined;
 
   const placeholderLabel = t("template-resolver.documentEditor.placeholder");
   const imageLabel = t("template-resolver.documentEditor.image");
+  const imageBlockLabel = t("template-resolver.documentEditor.imageBlock");
   const pageBreakLabel = t("template-resolver.documentEditor.pageBreak");
   const buttonLabel = t("template-resolver.documentEditor.button");
   const stableLabels = useStableByKey(variableLabels, JSON.stringify(variableLabels));
@@ -457,6 +532,7 @@ export default function DocumentTiptapEditor({
         image: imageLabel,
         pageBreak: pageBreakLabel,
         button: buttonLabel,
+        imageBlock: imageBlockLabel,
         variableLabels: stableLabels,
         systemVariables: stableSystem,
         resourcePreviews: stablePreviews,
@@ -465,6 +541,7 @@ export default function DocumentTiptapEditor({
     [
       placeholderLabel,
       imageLabel,
+      imageBlockLabel,
       pageBreakLabel,
       buttonLabel,
       stableLabels,
@@ -592,6 +669,11 @@ export default function DocumentTiptapEditor({
       ? (variableLabels[repeatTable.lists[0] ?? ""] ?? repeatTable.lists[0])
       : undefined;
 
+  const repeatBarLabel =
+    repeatListLabel === undefined
+      ? t("template-resolver.documentEditor.repeat")
+      : t("template-resolver.documentEditor.repeatBarList", { list: repeatListLabel });
+
   const paragraphStyleLabel = t("template-resolver.documentEditor.paragraphStyle");
   const styleOptions = [
     { value: "paragraph", label: t("template-resolver.documentEditor.paragraph") },
@@ -600,17 +682,18 @@ export default function DocumentTiptapEditor({
     { value: "3", label: t("template-resolver.documentEditor.heading3") },
   ];
 
-  // Canvas chrome shows plain text buttons instead of icons.
+  // Canvas chrome is one flat row: unframed ghost buttons, glyph plus text for the longer names.
   const iconButton = (
     label: string,
     icon: ReactNode,
     isActive: boolean,
     onClick: () => void,
+    text?: string,
   ): ReactNode =>
     canvas ? (
       <Button
         type="button"
-        variant={isActive ? "secondary" : "ghost"}
+        variant="ghost"
         size="sm"
         pressed={isActive}
         disabled={readOnly}
@@ -619,6 +702,7 @@ export default function DocumentTiptapEditor({
         title={label}
       >
         {icon}
+        {text}
       </Button>
     ) : (
       <Button
@@ -646,6 +730,7 @@ export default function DocumentTiptapEditor({
     readonly label: string;
     readonly icon: ReactNode;
     readonly showIcon: boolean;
+    readonly trailingIcon?: ReactNode;
     readonly expanded?: boolean;
     readonly onClick: () => void;
   }): ReactNode => {
@@ -664,112 +749,208 @@ export default function DocumentTiptapEditor({
       <Button key={spec.key} {...shared} size="sm">
         {spec.showIcon && spec.icon}
         {spec.label}
+        {spec.trailingIcon}
       </Button>
     );
   };
 
-  return (
+  const editorContent = (
+    <EditorContent
+      editor={editor}
+      className={cn(
+        canvas
+          ? renderPaper === undefined &&
+              !hosted &&
+              "mx-auto w-full max-w-[600px] bg-card px-10 py-7 shadow-md"
+          : "min-h-40 px-3 py-2 text-base outline-none md:text-sm",
+        canvas && "text-sm",
+        "[&_.ProseMirror-focused_.ProseMirror-selectednode]:ring-2 [&_.ProseMirror-focused_.ProseMirror-selectednode]:ring-primary",
+        hosted
+          ? "[&_.ProseMirror]:outline-none"
+          : "[&_.ProseMirror]:min-h-40 [&_.ProseMirror]:outline-none",
+        "[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6",
+        "[&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-base [&_h3]:font-bold",
+        "[&_a]:underline [&_a]:text-primary",
+        "[&_strong]:font-bold [&_em]:italic [&_u]:underline",
+        canvas
+          ? "[&_table]:mb-2 [&_table]:mt-6 [&_.ProseMirror>:first-child_table]:mt-0 [&_.ProseMirror>table:first-child]:mt-0 [&_td:last-child>p[data-size=small][data-align=right]]:whitespace-nowrap"
+          : "[&_table]:my-2",
+        "[&_table]:w-full [&_table]:border-collapse",
+        "[&_td]:border-b [&_td]:border-border [&_td]:px-2 [&_td]:py-1.5 [&_td>p]:m-0 [&_th>p]:m-0",
+        "[&_th]:border-b [&_th]:border-border [&_th]:px-2 [&_th]:py-1.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-medium [&_th]:text-muted-foreground",
+        "[&_tr[data-each]>td]:bg-muted/50",
+        "[&_[data-align=left]]:text-left [&_[data-align=center]]:text-center [&_[data-align=right]]:text-right [&_[data-align=justify]]:text-justify",
+        "[&_p[data-size=small]]:text-xs [&_p[data-size=small]]:text-muted-foreground",
+        "[&_a[data-button]]:inline-block [&_a[data-button]]:rounded-full [&_a[data-button]]:bg-primary [&_a[data-button]]:px-4 [&_a[data-button]]:py-1.5 [&_a[data-button]]:text-primary-foreground [&_a[data-button]]:no-underline",
+        "[&_hr]:my-3 [&_hr]:border-input",
+        "[&_.is-editor-empty]:before:pointer-events-none [&_.is-editor-empty]:before:float-left [&_.is-editor-empty]:before:h-0 [&_.is-editor-empty]:before:text-muted-foreground [&_.is-editor-empty]:before:content-[attr(data-placeholder)]",
+      )}
+    />
+  );
+
+  // The canvas toolbar never scrolls sideways: the rarer blocks and the HTML view sit in the menu.
+  const menuBlocks =
+    canvas && ActionOverflowMenu !== undefined
+      ? blocks.filter((block) => !CANVAS_INLINE_BLOCKS.includes(block))
+      : [];
+  const inlineBlocks = blocks.filter((block) => !menuBlocks.includes(block));
+  const overflowItems: readonly ActionMenuItemSpec[] = [
+    ...menuBlocks.map((block) => ({
+      id: block,
+      label: blockButtons[block].label,
+      disabled: readOnly,
+      onSelect: () => runBlock(block),
+    })),
+    ...(canvas && !hosted
+      ? [
+          {
+            id: "html",
+            label: t("template-resolver.documentEditor.showHtml"),
+            onSelect: () => setShowHtml((current) => !current),
+          },
+        ]
+      : []),
+  ];
+
+  const toolbarBar = (
     <div
-      className={cn("rounded-md border border-input", canvas ? "bg-background" : "bg-transparent")}
+      className={cn(
+        "flex items-center border-b border-input",
+        canvas
+          ? "min-h-9 flex-nowrap gap-0 overflow-hidden bg-background px-1.5 [&>*]:shrink-0 [&_button]:h-7 [&_button]:gap-1 [&_button]:px-1 [&_button]:text-xs"
+          : "flex-wrap gap-1 p-1",
+      )}
     >
-      <div className="flex flex-wrap items-center gap-1 border-b border-input p-1">
-        <div className={compact ? "w-24" : "w-40"}>
-          <Field id={`${id}-paragraph-style`} label={paragraphStyleLabel} hideLabel>
-            <Input
-              kind="select"
-              id={`${id}-paragraph-style`}
-              name="paragraph-style"
-              value={activeState?.blockStyle ?? "paragraph"}
-              onChange={setBlockStyle}
-              options={styleOptions}
-              display="dropdown"
-              disabled={readOnly}
-            />
-          </Field>
-        </div>
-        <Separator compact={compact} />
-        {iconButton(
-          t("kumiko.contentEditor.bold"),
-          markContent("B", <BoldIcon size={16} />, "font-bold"),
-          activeState?.bold ?? false,
-          () => editor.chain().focus().toggleBold().run(),
+      <div
+        className={cn(
+          !canvas && (compact ? "w-24" : "w-40"),
+          canvas &&
+            "w-auto shrink-0 [&_button[aria-haspopup=listbox]]:border-transparent [&_button[aria-haspopup=listbox]]:bg-transparent [&_button[aria-haspopup=listbox]]:shadow-none",
         )}
-        {iconButton(
-          t("kumiko.contentEditor.italic"),
-          markContent("I", <ItalicIcon size={16} />, "italic"),
-          activeState?.italic ?? false,
-          () => editor.chain().focus().toggleItalic().run(),
-        )}
-        {iconButton(
-          t("template-resolver.documentEditor.underline"),
-          markContent("U", <UnderlineIcon size={16} />, "underline"),
-          activeState?.underline ?? false,
-          () => editor.chain().focus().toggleUnderline().run(),
-        )}
-        <Separator compact={compact} />
-        {iconButton(
-          t("kumiko.contentEditor.bulletList"),
-          <List size={16} />,
-          activeState?.bulletList ?? false,
-          () => editor.chain().focus().toggleBulletList().run(),
-        )}
-        {iconButton(
-          t("kumiko.contentEditor.orderedList"),
-          <ListOrdered size={16} />,
-          activeState?.orderedList ?? false,
-          () => editor.chain().focus().toggleOrderedList().run(),
-        )}
-        {iconButton(
-          t("template-resolver.documentEditor.link"),
-          <LinkIcon size={16} />,
-          activeState?.link ?? false,
-          () => togglePanel("link"),
-        )}
-        <Separator compact={compact} />
-        {labelledButton({
-          label: t("template-resolver.documentEditor.insertPlaceholder"),
-          icon: <Braces size={16} />,
-          showIcon: true,
-          expanded: openPanel === "placeholder",
-          onClick: () => togglePanel("placeholder"),
-        })}
-        {blocks.length > 0 && <Separator compact={compact} />}
-        {blocks.map((block) =>
+      >
+        <Field id={`${id}-paragraph-style`} label={paragraphStyleLabel} hideLabel>
+          <Input
+            kind="select"
+            id={`${id}-paragraph-style`}
+            name="paragraph-style"
+            value={activeState?.blockStyle ?? "paragraph"}
+            onChange={setBlockStyle}
+            options={styleOptions}
+            display="dropdown"
+            disabled={readOnly}
+          />
+        </Field>
+      </div>
+      <Separator compact={compact || canvas} />
+      {iconButton(
+        t("kumiko.contentEditor.bold"),
+        markContent("B", <BoldIcon size={16} />, "font-bold"),
+        activeState?.bold ?? false,
+        () => editor.chain().focus().toggleBold().run(),
+      )}
+      {iconButton(
+        t("kumiko.contentEditor.italic"),
+        markContent("I", <ItalicIcon size={16} />, "italic"),
+        activeState?.italic ?? false,
+        () => editor.chain().focus().toggleItalic().run(),
+      )}
+      {iconButton(
+        t("template-resolver.documentEditor.underline"),
+        markContent("U", <UnderlineIcon size={16} />, "underline"),
+        activeState?.underline ?? false,
+        () => editor.chain().focus().toggleUnderline().run(),
+      )}
+      <Separator compact={compact || canvas} />
+      {iconButton(
+        t("kumiko.contentEditor.bulletList"),
+        <List size={16} />,
+        activeState?.bulletList ?? false,
+        () => editor.chain().focus().toggleBulletList().run(),
+        canvas ? undefined : t("template-resolver.documentEditor.list"),
+      )}
+      {iconButton(
+        t("kumiko.contentEditor.orderedList"),
+        <ListOrdered size={16} />,
+        activeState?.orderedList ?? false,
+        () => editor.chain().focus().toggleOrderedList().run(),
+      )}
+      {iconButton(
+        t("template-resolver.documentEditor.link"),
+        <LinkIcon size={16} />,
+        activeState?.link ?? false,
+        () => togglePanel("link"),
+      )}
+      <Separator compact={compact || canvas} />
+      {labelledButton({
+        label: t("template-resolver.documentEditor.insertPlaceholder"),
+        icon: <Braces size={16} />,
+        showIcon: true,
+        trailingIcon: canvas ? <ChevronDown size={12} /> : undefined,
+        expanded: openPanel === "placeholder",
+        onClick: () => togglePanel("placeholder"),
+      })}
+      {inlineBlocks.length > 0 && <Separator compact={compact || canvas} />}
+      {inlineBlocks.map((block) =>
+        canvas ? (
+          <Fragment key={block}>
+            {iconButton(blockButtons[block].label, blockButtons[block].icon, false, () =>
+              runBlock(block),
+            )}
+          </Fragment>
+        ) : (
           labelledButton({
             key: block,
             label: blockButtons[block].label,
             icon: blockButtons[block].icon,
-            showIcon: !canvas,
+            showIcon: true,
             onClick: () => runBlock(block),
-          }),
-        )}
-        {canvas && (
-          <>
-            <span className="flex-1" />
-            <Button
-              type="button"
-              variant={flatVariant}
-              size="sm"
-              expanded={showHtml}
-              onClick={() => {
-                setShowHtml((current) => !current);
-              }}
-            >
-              {t("template-resolver.documentEditor.showHtml")}
-            </Button>
-          </>
-        )}
-      </div>
-      {canvas && selectedBlock !== null && !readOnly && (
-        <div className="flex items-center gap-2 border-b border-input bg-muted/40 px-2 py-1 text-sm">
-          <span className="text-muted-foreground">
-            {t("template-resolver.documentEditor.selectedBlock")}
+          })
+        ),
+      )}
+      {overflowItems.length > 0 && ActionOverflowMenu !== undefined && (
+        <span className="ml-auto shrink-0">
+          <ActionOverflowMenu
+            items={overflowItems}
+            label={t("template-resolver.documentEditor.more")}
+            testId={`${id}-toolbar-more`}
+          />
+        </span>
+      )}
+    </div>
+  );
+
+  const bubbleMenu = (
+    <BubbleMenu
+      key={mountKeyOf(editor)}
+      pluginKey={BUBBLE_MENU_PLUGIN_KEY}
+      editor={editor}
+      options={{
+        strategy: "fixed",
+        placement: "top-end",
+        offset: bubbleOffset(editor),
+        scrollTarget: canvasScroller ?? window,
+        onShow: () => requestAnimationFrame(() => repositionBubble(editor)),
+      }}
+      getReferencedVirtualElement={() => selectedBlockReference(editor)}
+      shouldShow={({ editor: e, element }) =>
+        // A leading image is selected by default; the bubble belongs to a deliberate selection.
+        (e.isFocused || element.contains(document.activeElement)) &&
+        (e.isActive("resource") || e.isActive("button") || findRepeatTable(e) !== null)
+      }
+    >
+      {selectedBlock !== null ? (
+        <div className={BUBBLE_BAR_CLASS} data-testid="document-block-options">
+          <span className="px-1.5 text-[10px] text-muted-foreground">
+            {selectedBlock.type === "resource"
+              ? t("template-resolver.documentEditor.resourceKey")
+              : t("template-resolver.documentEditor.buttonTarget")}
+            {": "}
+            {selectedBlock.type === "button" ? (
+              <strong>{buttonTargetLabel(selectedBlock.detail, variableLabels)}</strong>
+            ) : (
+              <code>{selectedBlock.detail}</code>
+            )}
           </span>
-          <span className="font-medium">
-            {selectedBlock.type === "resource" ? imageLabel : buttonLabel}
-          </span>
-          <code className="text-xs text-muted-foreground">{selectedBlock.detail}</code>
-          <span className="flex-1" />
           <Button
             type="button"
             size="sm"
@@ -781,25 +962,72 @@ export default function DocumentTiptapEditor({
             {t("template-resolver.documentEditor.removeBlock")}
           </Button>
         </div>
+      ) : (
+        repeatTable !== null && (
+          <div data-testid="document-repeat-bar" className={BUBBLE_BAR_CLASS}>
+            <span className="px-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+              {repeatBarLabel}
+            </span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              pressed={repeatTable.headerRepeats}
+              onClick={() => toggleRepeatHeader(editor)}
+            >
+              {t("template-resolver.documentEditor.repeatHeader")}
+            </Button>
+          </div>
+        )
       )}
-      {canvas && showHtml && (
+    </BubbleMenu>
+  );
+
+  const insertPanel = openPanel !== null && !readOnly && (
+    <InsertPanel
+      key={openPanel}
+      editor={editor}
+      editorId={id}
+      kind={openPanel}
+      variables={variables}
+      onClose={() => setOpenPanel(null)}
+    />
+  );
+
+  if (hosted) {
+    return (
+      <>
+        {toolbarHost !== null &&
+          createPortal(
+            <>
+              {toolbarBar}
+              {insertPanel}
+            </>,
+            toolbarHost,
+          )}
+        {!readOnly && bubbleMenu}
+        {editorContent}
+      </>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        canvas ? "flex min-h-0 flex-1 flex-col" : "rounded-md border border-input bg-transparent",
+      )}
+    >
+      {!hosted && toolbarBar}
+      {canvas && !readOnly && bubbleMenu}
+      {canvas && !hosted && showHtml && (
         <section aria-label={t("template-resolver.documentEditor.htmlSource")}>
           <pre className="h-40 overflow-auto whitespace-pre-wrap break-all border-b border-input bg-muted p-2 font-mono text-xs">
             {activeState?.html ?? ""}
           </pre>
         </section>
       )}
-      {openPanel !== null && !readOnly && (
-        <InsertPanel
-          key={openPanel}
-          editor={editor}
-          editorId={id}
-          kind={openPanel}
-          variables={variables}
-          onClose={() => setOpenPanel(null)}
-        />
-      )}
-      {repeatTable !== null && !readOnly && (
+      {!hosted && insertPanel}
+      {repeatTable !== null && !readOnly && !canvas && (
         <div
           data-testid="document-repeat-bar"
           className="flex flex-wrap items-center gap-3 border-b border-input bg-muted/40 px-2 py-1 text-xs"
@@ -818,32 +1046,13 @@ export default function DocumentTiptapEditor({
           >
             {t("template-resolver.documentEditor.repeatHeader")}
           </Button>
-          <span className="text-muted-foreground">
-            {t("template-resolver.documentEditor.keepRowsTogether")}
-          </span>
         </div>
       )}
-      <div className={cn(canvas && "flex justify-center bg-muted p-6")}>
-        <EditorContent
-          editor={editor}
-          className={cn(
-            canvas
-              ? "w-[600px] max-w-full bg-background px-10 py-7 text-sm border border-input"
-              : "min-h-40 px-3 py-2 text-base outline-none md:text-sm",
-            "[&_.ProseMirror-selectednode]:ring-2 [&_.ProseMirror-selectednode]:ring-primary",
-            "[&_.ProseMirror]:min-h-40 [&_.ProseMirror]:outline-none",
-            "[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6",
-            "[&_h1]:text-xl [&_h1]:font-bold [&_h2]:text-lg [&_h2]:font-bold [&_h3]:text-base [&_h3]:font-bold",
-            "[&_a]:underline [&_a]:text-primary",
-            "[&_strong]:font-bold [&_em]:italic [&_u]:underline",
-            "[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse",
-            "[&_td]:border [&_td]:border-input [&_td]:p-1 [&_th]:border [&_th]:border-input [&_th]:bg-muted [&_th]:p-1 [&_th]:text-left",
-            "[&_tr[data-each]]:bg-muted",
-            "[&_a[data-button]]:inline-block [&_a[data-button]]:rounded-full [&_a[data-button]]:bg-primary [&_a[data-button]]:px-4 [&_a[data-button]]:py-1.5 [&_a[data-button]]:text-primary-foreground [&_a[data-button]]:no-underline",
-            "[&_hr]:my-3 [&_hr]:border-input",
-            "[&_.is-editor-empty]:before:pointer-events-none [&_.is-editor-empty]:before:float-left [&_.is-editor-empty]:before:h-0 [&_.is-editor-empty]:before:text-muted-foreground [&_.is-editor-empty]:before:content-[attr(data-placeholder)]",
-          )}
-        />
+      <div
+        ref={setCanvasScroller}
+        className={cn(canvas && "min-h-0 flex-1 overflow-auto bg-muted px-8 py-6")}
+      >
+        {canvas && renderPaper !== undefined ? renderPaper(editorContent) : editorContent}
       </div>
     </div>
   );

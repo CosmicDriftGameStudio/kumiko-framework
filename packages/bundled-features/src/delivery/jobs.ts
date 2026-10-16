@@ -59,6 +59,8 @@ const sendJobPayloadSchema = renderJobPayloadSchema.extend({
       html: z.string(),
       subject: z.string(),
       text: z.string().optional(),
+      fromName: z.string().optional(),
+      replyTo: z.string().optional(),
       attachments: z.array(emailAttachmentRefSchema).max(MAX_EMAIL_ATTACHMENTS).optional(),
     })
     .optional(),
@@ -96,6 +98,8 @@ function toSendRendered(
     html: rendered.html,
     subject: rendered.subject,
     ...(rendered.text !== undefined && { text: rendered.text }),
+    ...(rendered.fromName !== undefined && { fromName: rendered.fromName }),
+    ...(rendered.replyTo !== undefined && { replyTo: rendered.replyTo }),
     ...(rendered.attachments !== undefined && {
       attachments: rendered.attachments.map(toAttachmentRef),
     }),

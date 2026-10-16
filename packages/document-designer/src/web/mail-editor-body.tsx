@@ -11,6 +11,14 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
+import {
+  EditorHeader,
+  EditorLocaleSwitch,
+  type EditorMode,
+  EditorModeSwitch,
+  originOf,
+} from "./editor-header.js";
+import { EditorBody, EditorFooter, EditorFrame } from "./editor-shell.js";
 import { fileUrl } from "./file-name.js";
 import { type ConfirmDialog, type LeaveTarget, MailConfirmDialogs } from "./mail-dialogs.js";
 import {
@@ -19,12 +27,13 @@ import {
   loadedMailOf,
   parseJsonRecord,
   parseLinkedResources,
+  systemLabelMap,
   variableLabelMap,
 } from "./mail-draft.js";
 import { MailEditCenter } from "./mail-edit-center.js";
-import { MailFooter } from "./mail-footer.js";
-import { type EditorMode, MailHeader } from "./mail-header.js";
+import { footerMessage, metaFieldMessages } from "./mail-footer.js";
 import { PlaceholderSection, ResourceSection, SystemPlaceholderSection } from "./mail-left-rail.js";
+import { MissingLocaleCanvas } from "./mail-missing-locale.js";
 import { MailOriginBar } from "./mail-origin-bar.js";
 import { PdfLinkModal } from "./mail-pdf-link-modal.js";
 import { MailPreviewMode } from "./mail-preview.js";
@@ -35,8 +44,12 @@ import { VersionsSection } from "./mail-versions.js";
 import { useInsertTargets } from "./use-insert-targets.js";
 import { useMailPersistence } from "./use-mail-persistence.js";
 import { useOverviewRows } from "./use-overview-rows.js";
+import { useOwnAddress } from "./use-own-address.js";
 import { useSettledValue } from "./use-settled-value.js";
 import { useTestMail } from "./use-test-mail.js";
+
+// The editor replaces this token with the decoded image size once the preview image loaded.
+const SIZE_TOKEN = "{size}";
 
 export type MailEditorBodyProps = {
   readonly slug: string;
@@ -50,15 +63,6 @@ export type MailEditorBodyProps = {
   readonly onLocaleChange: (locale: string) => void;
   readonly onReload: () => Promise<void>;
   readonly onRefreshRow: () => Promise<void>;
-  readonly onBack: () => void;
-};
-
-type RailsProps = {
-  readonly validation: MailValidation | null;
-  readonly row: TemplateRowView | null;
-  readonly slug: string;
-  readonly draft: MailDraft;
-  readonly onChange: (patch: Partial<MailDraft>) => void;
 };
 
 function sortedUnique(values: readonly string[]): string[] {
@@ -79,8 +83,8 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   const t = useTranslation();
   const { Banner } = usePrimitives();
   const [baseline] = useState(() => loadedMailOf(row));
-  const [draft, setDraft] = useState(baseline.draft);
-  const [settled, settle] = useSettledValue(baseline.draft);
+  const [draft, setDraft] = useState(baseline);
+  const [settled, settle] = useSettledValue(baseline);
   const [mode, setMode] = useState<EditorMode>("edit");
   const [creating, setCreating] = useState(false);
   const [dialog, setDialog] = useState<ConfirmDialog>({ kind: "none" });
@@ -88,6 +92,8 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   const [pdfOpen, setPdfOpen] = useState(false);
   const [resourceError, setResourceError] = useState<string | null>(null);
   const [editorEpoch, setEditorEpoch] = useState(0);
+  const [includeAttachments, setIncludeAttachments] = useState(true);
+  const [prefixSubject, setPrefixSubject] = useState(true);
 
   const insert = useInsertTargets();
   const persistence = useMailPersistence({
@@ -96,9 +102,9 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
     title,
     isSystemAdmin,
     row,
-    sender: baseline.sender,
   });
   const testMail = useTestMail();
+  const own = useOwnAddress();
   const resourceRemove = useMutation(TemplateResolverHandlers.resourceRemove);
   const layouts = useOverviewRows("mail-layout");
   const pdfTemplates = useOverviewRows("document-pdf");
@@ -110,7 +116,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
     kind: "mail",
     contentFormat: "html",
     content: settled.body,
-    meta: buildMeta(settled, baseline.sender),
+    meta: buildMeta(settled),
     variableSchema,
     locale,
     scope: isSystemAdmin ? "system" : "tenant",
@@ -122,13 +128,13 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
     settle(next);
   };
   const reset = (): void => {
-    setDraft(baseline.draft);
-    settle(baseline.draft);
+    setDraft(baseline);
+    settle(baseline);
     setEditorEpoch((epoch) => epoch + 1);
     persistence.clearError();
   };
 
-  const dirty = isDraftDirty(draft, baseline.draft);
+  const dirty = isDraftDirty(draft, baseline);
   const isActiveTenantRow = row?.scope === "tenant" && row.status === "active";
   const busy = persistence.busy;
   const canSave = !locked && !busy && validation?.canSave === true && (dirty || creating);
@@ -147,12 +153,9 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
     else void saveAndReload(false);
   };
 
-  const perform = (target: LeaveTarget): void => {
-    if (target.kind === "locale") props.onLocaleChange(target.locale);
-    else props.onBack();
-  };
+  const perform = (target: LeaveTarget): void => props.onLocaleChange(target.locale);
   const leave = (target: LeaveTarget): void => {
-    if (target.kind === "locale" && target.locale === locale) return;
+    if (target.locale === locale) return;
     if (dirty) setDialog({ kind: "leave", target });
     else perform(target);
   };
@@ -167,7 +170,10 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
               resource.key,
               {
                 src: fileUrl(resource.fileRefId),
-                caption: t("documentDesigner.mail.resource.caption", { key: resource.key }),
+                caption: t("documentDesigner.mail.resource.caption", {
+                  key: resource.key,
+                  size: SIZE_TOKEN,
+                }),
               },
             ],
           ]
@@ -190,40 +196,63 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
       slug,
       locale,
       content: draft.body,
-      meta: buildMeta(draft, baseline.sender),
+      meta: buildMeta(draft),
       variableSchema,
+      includeAttachments,
+      prefixSubject,
     });
   };
 
+  // Nothing is written yet in a missing language, so no placeholder may read as missing.
+  const railValidation =
+    locked && validation != null ? { ...validation, missingRequired: [] } : (validation ?? null);
   const names = placeholderNames(validation ?? null);
   const vocabulary = {
     names,
-    labels: variableLabelMap(validation?.variables ?? {}),
+    labels: {
+      ...systemLabelMap(t, validation?.systemPlaceholders ?? []),
+      ...variableLabelMap(validation?.variables ?? {}),
+    },
     system: validation?.systemPlaceholders ?? [],
   };
-  const rails: RailsProps = { validation: validation ?? null, row, slug, draft, onChange: update };
+  const attachments = resources.filter((resource) => resource.kind !== "image");
+  const footer =
+    locked || validation === undefined || validation === null
+      ? null
+      : footerMessage(t, validation, mode === "preview");
 
+  const fieldErrors = locked ? {} : metaFieldMessages(t, validation ?? null);
+  const publish = (): void => void saveAndReload(true);
+  const controls = (
+    <EditorLocaleSwitch
+      testIdPrefix="mail"
+      locales={props.locales}
+      locale={locale}
+      onLocale={(next) => leave({ kind: "locale", locale: next })}
+    />
+  );
+  const origin =
+    row === null ? null : originOf(row.scope !== "tenant", props.systemVersion !== null);
   return (
-    <div className="flex flex-col gap-4 p-6" data-testid="document-designer-mail-editor">
-      <MailHeader
+    <EditorFrame testId="document-designer-mail-editor">
+      <EditorHeader
         title={title}
-        row={row}
-        locales={props.locales}
-        locale={locale}
-        mode={mode}
-        testPending={testMail.pending}
-        actions={{
-          busy,
-          canSave,
-          canPublish,
-          onSave: requestSave,
-          onPublish: () => void saveAndReload(true),
-        }}
-        onBack={() => leave({ kind: "back" })}
-        onLocale={(next) => leave({ kind: "locale", locale: next })}
-        onMode={setMode}
-        onTestMail={sendTestMail}
-      />
+        stored={row === null ? null : { status: row.status, version: row.version }}
+        actions={{ busy, canSave, canPublish, onSave: requestSave, onPublish: publish }}
+      >
+        <EditorModeSwitch testIdPrefix="mail" mode={mode} onMode={setMode} />
+      </EditorHeader>
+      {mode === "edit" && (
+        <MailOriginBar
+          row={row}
+          systemVersion={props.systemVersion}
+          locale={locale}
+          isSystemAdmin={isSystemAdmin}
+          creating={creating}
+          controls={controls}
+          onReload={() => void onReload()}
+        />
+      )}
       {testMail.state.kind === "sent" && (
         <Banner variant="primary" testId="mail-test-sent">
           {t("documentDesigner.mail.testMail.sent", { subject: testMail.state.subject })}
@@ -239,61 +268,67 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
           {resourceError}
         </Banner>
       )}
-      <MailOriginBar
-        row={row}
-        title={title}
-        systemVersion={props.systemVersion}
-        slug={slug}
-        locale={locale}
-        fallbackLocale={props.fallbackLocale}
-        isSystemAdmin={isSystemAdmin}
-        creating={creating}
-        onCreateBlank={() => setCreating(true)}
-        onReload={() => void onReload()}
-      />
       {mode === "edit" ? (
-        <div className="grid items-start gap-4 lg:grid-cols-[260px_minmax(0,1fr)_300px]">
-          <div className="flex max-h-[70vh] flex-col overflow-y-auto">
-            <PlaceholderSection validation={rails.validation} onInsert={insert.insertPlaceholder} />
-            <SystemPlaceholderSection
-              validation={rails.validation}
-              onInsert={insert.insertPlaceholder}
-            />
-            <ResourceSection
-              resources={resources}
-              pdfTitles={pdfTitles}
-              canUpload={uploadTemplateId !== null}
-              onUpload={() => setUploadOpen(true)}
-              onInsert={insert.insertResource}
-              onRemove={(key) => setDialog({ kind: "remove", key })}
-            />
-          </div>
-          <MailEditCenter
-            key={editorEpoch}
-            draft={draft}
-            vocabulary={vocabulary}
-            resourcePreviews={resourcePreviews}
-            insert={insert}
-            readOnly={locked}
-            onChange={update}
-          />
-          <div className="flex max-h-[70vh] flex-col overflow-y-auto">
-            <PropertiesSection draft={draft} layouts={layouts.rows} onChange={update} />
-            <AttachmentSection
-              attachments={resources.filter((resource) => resource.kind !== "image")}
-              pdfTitles={pdfTitles}
-              canEdit={uploadTemplateId !== null}
-              onAddPdf={() => setPdfOpen(true)}
-              onRemove={(key) => setDialog({ kind: "remove", key })}
-            />
-            <UsageSection slug={slug} />
-            <VersionsSection
-              rowId={row?.id ?? null}
-              currentVersion={row?.version ?? 0}
-              currentStatus={row?.status ?? "draft"}
-            />
-          </div>
-        </div>
+        <EditorBody
+          left={
+            <>
+              <PlaceholderSection validation={railValidation} onInsert={insert.insertPlaceholder} />
+              <SystemPlaceholderSection
+                validation={railValidation}
+                onInsert={insert.insertPlaceholder}
+              />
+              <ResourceSection
+                resources={resources}
+                pdfTitles={pdfTitles}
+                canUpload={uploadTemplateId !== null}
+                onUpload={() => setUploadOpen(true)}
+                onInsert={insert.insertResource}
+                onRemove={(key) => setDialog({ kind: "remove", key })}
+              />
+            </>
+          }
+          center={
+            locked ? (
+              <MissingLocaleCanvas
+                slug={slug}
+                locale={locale}
+                fallbackLocale={props.fallbackLocale}
+                copyScope={isSystemAdmin ? "system" : "tenant"}
+                onCreateBlank={() => setCreating(true)}
+                onCopied={() => void onReload()}
+              />
+            ) : (
+              <MailEditCenter
+                key={editorEpoch}
+                draft={draft}
+                vocabulary={vocabulary}
+                resourcePreviews={resourcePreviews}
+                insert={insert}
+                readOnly={false}
+                fieldErrors={fieldErrors}
+                onChange={update}
+              />
+            )
+          }
+          right={
+            <>
+              <PropertiesSection draft={draft} layouts={layouts.rows} onChange={update} />
+              <AttachmentSection
+                attachments={attachments}
+                pdfTitles={pdfTitles}
+                canEdit={uploadTemplateId !== null}
+                onAddPdf={() => setPdfOpen(true)}
+                onRemove={(key) => setDialog({ kind: "remove", key })}
+              />
+              <UsageSection slug={slug} />
+              <VersionsSection
+                rowId={row?.id ?? null}
+                currentVersion={row?.version ?? 0}
+                currentStatus={row?.status ?? "draft"}
+              />
+            </>
+          }
+        />
       ) : (
         <MailPreviewMode
           payload={{
@@ -301,28 +336,41 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
             kind: "mail",
             locale,
             content: settled.body,
-            meta: buildMeta(settled, baseline.sender),
+            meta: buildMeta(settled),
             variableSchema,
           }}
           validation={validation ?? null}
           slug={slug}
           locale={locale}
-          testMail={{ pending: testMail.pending, onSend: sendTestMail }}
+          fromName={settled.senderName}
+          own={own}
+          origin={origin}
+          controls={controls}
+          testMail={{
+            pending: testMail.pending,
+            onSend: sendTestMail,
+            includeAttachments,
+            onIncludeAttachments: setIncludeAttachments,
+            prefixSubject,
+            onPrefixSubject: setPrefixSubject,
+          }}
         />
       )}
-      <MailFooter
-        validation={validation ?? null}
-        previewMode={mode === "preview"}
-        saveError={persistence.error}
-        modifiedAt={row?.modifiedAt ?? null}
-        dirty={dirty}
-        busy={busy}
-        canSave={canSave}
-        canPublish={canPublish}
-        onDiscard={() => setDialog({ kind: "discard" })}
-        onSave={requestSave}
-        onPublish={() => void saveAndReload(true)}
-      />
+      {!locked && (
+        <EditorFooter
+          testIdPrefix="mail-editor"
+          message={footer}
+          saveError={persistence.error}
+          modifiedAt={row?.modifiedAt ?? null}
+          dirty={dirty}
+          busy={busy}
+          canSave={canSave}
+          canPublish={canPublish}
+          onDiscard={() => setDialog({ kind: "discard" })}
+          onSave={requestSave}
+          onPublish={publish}
+        />
+      )}
       {uploadTemplateId !== null && (
         <>
           <UploadModal
@@ -367,6 +415,6 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
           perform(target);
         }}
       />
-    </div>
+    </EditorFrame>
   );
 }

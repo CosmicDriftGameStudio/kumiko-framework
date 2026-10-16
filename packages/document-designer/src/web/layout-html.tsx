@@ -52,6 +52,8 @@ export type LayoutHtmlProps = {
   readonly html: string;
   /** Label per system placeholder (`data-variable`), shown as a chip. */
   readonly systemLabels: Readonly<Record<string, string>>;
+  /** Display URL of an `img[data-resource]` key (the tenant logo, a linked image); no URL drops the image. */
+  readonly resourceSrc?: (key: string) => string | undefined;
 };
 
 function renderChildren(node: Node, props: LayoutHtmlProps, path: string): ReactNode[] {
@@ -81,8 +83,23 @@ function renderNode(node: Node, props: LayoutHtmlProps, path: string): ReactNode
   }
 
   const align = ALIGN_CLASSES[node.getAttribute("data-align") ?? ""];
-  const className = cn(TAG_CLASSES[tag], align);
+  const className = cn(
+    TAG_CLASSES[tag],
+    align,
+    node.getAttribute("data-size") === "small" && "text-xs",
+  );
   if (tag === "img") {
+    const resource = node.getAttribute("data-resource");
+    if (resource !== null) {
+      const resourceUrl = props.resourceSrc?.(resource);
+      if (resourceUrl === undefined) return null;
+      return createElement("img", {
+        key: path,
+        className: "max-h-10 max-w-40 object-contain",
+        src: resourceUrl,
+        alt: node.getAttribute("alt") ?? resource,
+      });
+    }
     const src = node.getAttribute("src") ?? "";
     if (!SAFE_IMAGE_SRC.test(src)) return null;
     return createElement("img", { key: path, className, src, alt: node.getAttribute("alt") ?? "" });

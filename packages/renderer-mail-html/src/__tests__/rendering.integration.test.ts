@@ -20,6 +20,7 @@ import {
   createTemplateResolverFeature,
   SYSTEM_TENANT_ID,
   TemplateResolverHandlers,
+  TemplateResolverQueries,
   templateResourceEntity,
   templateResourcesTable,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
@@ -378,6 +379,79 @@ describe("renderer-mail-html :: layout resolution", () => {
     });
     expect(result.html).toContain('href="https://example.com/unsub"');
     expect(result.html).toContain("Abmelden");
+  });
+
+  test("layout appearance meta sets width, background and font", async () => {
+    const meta = {
+      width: 640,
+      font: "serif",
+      outerBackground: "#112233",
+    };
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      tenantLayoutPayload("APPEARANCE_MARKER", { status: "active", meta }),
+      tenantAdmin(21),
+    );
+    const result = await renderMail(tenantId(21));
+    expect(result.html).toContain("max-width:640px");
+    expect(result.html).toContain("background:#112233");
+    expect(result.html).toContain("Georgia");
+    expect(result.html).not.toContain("#f5f5f5");
+    const source = await stack.http.queryOk<{ meta: unknown }>(
+      TemplateResolverQueries.layoutSource,
+      { kind: "mail-layout", slug: "default" },
+      tenantAdmin(21),
+    );
+    expect(source.meta).toEqual(meta);
+  });
+
+  test("the layout button style reaches buttons in the mail body", async () => {
+    const admin = tenantAdmin(23);
+    const draft = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: SLUG,
+        kind: "mail",
+        locale: LOCALE,
+        content:
+          '<p><span data-variable="name"></span></p><p><a data-button href="{{url}}">Los</a></p>',
+        contentFormat: "html",
+        meta: { subject: "Betreff" },
+        variableSchema: {},
+        linkedResources: {},
+      },
+      admin,
+    );
+    await stack.http.writeOk(TemplateResolverHandlers.publish, { id: draft.id }, admin);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      tenantLayoutPayload("BUTTON_MARKER", { status: "active", meta: { buttonStyle: "outline" } }),
+      admin,
+    );
+    const outline = await renderMail(tenantId(23));
+    expect(outline.html).toContain("border:2px solid #1f5468");
+    expect(outline.html).not.toContain("background:#1f5468");
+  });
+
+  test("a layout without appearance meta renders the previous look", async () => {
+    const result = await renderMail(tenantId(4));
+    expect(result.html).toContain("max-width:600px");
+    expect(result.html).toContain("background:#f5f5f5");
+  });
+
+  test.each([
+    { outerBackground: "red" },
+    { outerBackground: '#fff" onload="x' },
+    { width: 700 },
+    { font: "Comic Sans" },
+  ])("appearance meta %o is rejected with a meta field issue", async (meta) => {
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.upsertTenant,
+      tenantLayoutPayload("x", { status: "active", meta }),
+      tenantAdmin(22),
+    );
+    expect(err.code).toBe("validation_error");
+    expect(JSON.stringify(err.details)).toContain("meta.");
   });
 
   test("a leftover tenant mjml layout is ignored in favour of the system layout", async () => {

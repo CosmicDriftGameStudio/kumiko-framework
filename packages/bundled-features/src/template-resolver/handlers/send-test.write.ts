@@ -37,18 +37,24 @@ export const sendTestWrite = defineWriteHandler({
     content: z.string().max(200_000).optional(),
     meta: z.unknown().optional(),
     variableSchema: z.record(z.string(), z.unknown()).default({}),
+    includeAttachments: z.boolean().default(true),
+    prefixSubject: z.boolean().default(true),
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   rateLimit: { per: "user+handler", ...TEST_MAIL_RATE_LIMIT },
   description:
-    "Sends the rendered preview of a mail template draft, or of the stored template when no content is given, to the calling user's own address with the subject prefixed by [TEST], carrying the inline images and the files attached to the template; there is no recipient input, the sample values come from the declared variable examples, and a draft that fails the write rules is rejected without sending.",
+    "Sends the rendered preview of a mail template draft, or of the stored template when no content is given, to the calling user's own address with the subject prefixed by [TEST] unless prefixSubject is false, carrying the inline images and, unless includeAttachments is false, the files attached to the template; there is no recipient input, the sample values come from the declared variable examples, and a draft that fails the write rules is rejected without sending.",
   handler: async (event, ctx) => {
+    const { includeAttachments, prefixSubject, ...previewPayload } = event.payload;
     const outcome = await renderTemplatePreview(ctx, event.user, {
-      ...event.payload,
+      ...previewPayload,
       kind: "mail",
     });
     if (!outcome.ok) return writeFailure(outcome.error);
-    const { preview, mailAttachments } = outcome;
+    const { preview, sender } = outcome;
+    const mailAttachments = includeAttachments
+      ? outcome.mailAttachments
+      : outcome.mailAttachments.filter((ref) => ref.kind === "inline");
 
     const channel = emailChannelOf(ctx.registry);
     if (channel === undefined) {
@@ -81,7 +87,7 @@ export const sendTestWrite = defineWriteHandler({
       );
     }
 
-    const subject = `${TEST_MAIL_SUBJECT_PREFIX}${preview.subject ?? ""}`;
+    const subject = `${prefixSubject ? TEST_MAIL_SUBJECT_PREFIX : ""}${preview.subject ?? ""}`;
     let sent: boolean;
     try {
       const result = await channel.send(
@@ -94,7 +100,13 @@ export const sendTestWrite = defineWriteHandler({
           locale: event.payload.locale,
         },
         channelContext,
-        { subject, html: preview.html, text: preview.text ?? "", attachments: mailAttachments },
+        {
+          subject,
+          html: preview.html,
+          text: preview.text ?? "",
+          ...sender,
+          attachments: mailAttachments,
+        },
       );
       sent = result.status === "sent";
     } catch {

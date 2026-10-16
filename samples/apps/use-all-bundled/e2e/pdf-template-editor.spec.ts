@@ -27,7 +27,8 @@ test("SystemAdmin: unsaved invoice edit prints on two pages, drawer counts overr
   await page.keyboard.press("Control+End");
   await page.keyboard.type(" Ungespeicherter Zusatz.");
 
-  await page.getByRole("button", { name: "Generate PDF" }).click();
+  // Opening the preview prints the unsaved draft.
+  await page.getByTestId("pdf-mode-switch").getByText("Preview", { exact: true }).click();
 
   const pageOne = page.getByTestId("pdf-page-1");
   const pageTwo = page.getByTestId("pdf-page-2");
@@ -41,10 +42,9 @@ test("SystemAdmin: unsaved invoice edit prints on two pages, drawer counts overr
   await page.getByRole("button", { name: "Show tenant customisations" }).click();
   const drawer = page.getByTestId("document-designer-overrides-drawer");
   await expect(drawer).toBeVisible();
-  await expect(
-    drawer.getByRole("listitem").filter({ hasText: "Customised and active" }),
-  ).toContainText("1");
-  await expect(drawer.getByRole("listitem").filter({ hasText: "Draft only" })).toContainText("1");
+  await expect(drawer.getByTestId("overrides-summary")).toHaveText(
+    "2 tenants have their own version.",
+  );
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
 

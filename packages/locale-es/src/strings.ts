@@ -1071,6 +1071,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.divider": "Separador",
   "template-resolver.documentEditor.heading3": "Título 3",
   "template-resolver.documentEditor.image": "Imagen",
+  "template-resolver.documentEditor.imageBlock": "Imagen · en línea",
   "template-resolver.documentEditor.imageAlt": "Texto alternativo (opcional)",
   "template-resolver.documentEditor.insert": "Insertar",
   "template-resolver.documentEditor.insertPlaceholder": "Marcador",
@@ -1091,7 +1092,6 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.alignJustify": "Justificado",
   "template-resolver.documentEditor.repeatBarList": "Repetición · {list}",
   "template-resolver.documentEditor.repeatHeader": "Repetir fila de encabezado",
-  "template-resolver.documentEditor.keepRowsTogether": "No dividir la fila",
   "template-resolver.documentEditor.paragraph": "Párrafo",
   "template-resolver.documentEditor.paragraphStyle": "Estilo de párrafo",
   "template-resolver.documentEditor.placeholder": "Escribe tu texto…",
@@ -1148,7 +1148,24 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Las plantillas «{detail}» se editan en su propio editor, no mediante una colección.",
   "templateResolver.errors.noSystemTemplate":
     "No hay una plantilla de sistema activa a la que volver.",
-  "templateResolver.errors.template.invalidMeta": "Ajustes de plantilla no válidos: {detail}",
+  "templateResolver.errors.template.invalidMeta": "Los ajustes de la plantilla no son válidos.",
+  "templateResolver.errors.template.meta.subject.required": "Falta el asunto.",
+  "templateResolver.errors.template.meta.subject.invalid":
+    "El asunto no es válido (máximo 200 caracteres, sin saltos de línea).",
+  "templateResolver.errors.template.meta.previewText.required": "Falta el texto de vista previa.",
+  "templateResolver.errors.template.meta.previewText.invalid":
+    "El texto de vista previa no es válido (máximo 200 caracteres, sin saltos de línea).",
+  "templateResolver.errors.template.meta.senderName.required": "Falta el nombre del remitente.",
+  "templateResolver.errors.template.meta.senderName.invalid":
+    "El nombre del remitente no es válido (máximo 80 caracteres, sin saltos de línea).",
+  "templateResolver.errors.template.meta.replyTo.required": "Falta la dirección de respuesta.",
+  "templateResolver.errors.template.meta.replyTo.invalid":
+    "La dirección de respuesta no es un correo válido.",
+  "templateResolver.errors.template.meta.layoutSlug.required": "Falta el diseño.",
+  "templateResolver.errors.template.meta.layoutSlug.invalid": "El diseño elegido no es válido.",
+  "templateResolver.errors.template.meta.fileName.required": "Falta el nombre del archivo.",
+  "templateResolver.errors.template.meta.fileName.invalid":
+    "El nombre del archivo no es válido: sin barras, comillas, punto y coma ni dos puntos seguidos.",
   "templateResolver.errors.template.unknownPlaceholders": "Marcadores desconocidos: {detail}",
   "templateResolver.errors.template.missingRequiredPlaceholders":
     "No se usan los marcadores obligatorios: {detail}",
@@ -1175,7 +1192,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "No existe ninguna plantilla PDF «{slug}» para este inquilino ni para el sistema.",
   "template-resolver.documentEditor.htmlSource": "Código HTML",
   "template-resolver.documentEditor.removeBlock": "Quitar bloque",
-  "template-resolver.documentEditor.selectedBlock": "Bloque seleccionado",
+  "template-resolver.documentEditor.list": "Lista",
+  "template-resolver.documentEditor.more": "Más",
   "template-resolver.documentEditor.showHtml": "HTML",
   "template-resolver.documentEditor.underline": "Subrayado",
   "tenant-settings.currency": "Moneda predeterminada",
@@ -1399,6 +1417,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.kind.layout": "Diseño",
   "documentDesigner.source.system": "Sistema",
   "documentDesigner.source.tenant": "Organización",
+  "documentDesigner.origin.system": "Plantilla del sistema",
+  "documentDesigner.origin.override": "Personalizada",
   "documentDesigner.status.active": "Activa",
   "documentDesigner.status.draft": "Borrador",
   "documentDesigner.status.archived": "Archivada",
@@ -1433,14 +1453,28 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.appearance.title": "Apariencia",
   "documentDesigner.appearance.width": "Ancho",
   "documentDesigner.appearance.font": "Fuente",
-  "documentDesigner.appearance.systemFont": "Fuente del sistema (Helvetica, Arial)",
   "documentDesigner.appearance.background": "Fondo exterior",
-  "documentDesigner.appearance.backgroundValue": "#f5f5f5",
-  "documentDesigner.appearance.pageFormat": "Formato de página",
-  "documentDesigner.appearance.hint":
-    "La apariencia es fija. Las fuentes y colores personalizados llegarán más adelante.",
+  "documentDesigner.appearance.font.sans": "Fuente del sistema (Arial, Helvetica)",
+  "documentDesigner.appearance.font.serif": "Fuente con serifa (Georgia)",
+  "documentDesigner.appearance.fontHint":
+    "Las fuentes propias en los correos llegar\u00e1n m\u00e1s adelante. El PDF usa la fuente incluida del framework.",
+  "documentDesigner.appearance.backgroundInvalid": "Indique un color como #f3f2ee.",
+  "documentDesigner.appearance.accentLine": "L\u00ednea de acento superior",
+  "documentDesigner.appearance.accentLine.branding": "Color de acento del branding",
+  "documentDesigner.appearance.accentLine.none": "Ninguna",
+  "documentDesigner.appearance.buttonStyle": "Estilo de bot\u00f3n",
+  "documentDesigner.appearance.buttonStyle.filled-rounded": "Relleno, redondeado",
+  "documentDesigner.appearance.buttonStyle.filled-square": "Relleno, cuadrado",
+  "documentDesigner.appearance.buttonStyle.outline": "Contorno",
+  "documentDesigner.appearance.fromMjml":
+    "La apariencia procede del c\u00f3digo MJML de este dise\u00f1o.",
   "documentDesigner.mjml.title": "Código MJML",
-  "documentDesigner.editor.crumb": "Plantillas",
+  "documentDesigner.mjml.hint":
+    "Los administradores de la plataforma pueden editar el c\u00f3digo MJML directamente. Los clientes solo ven el modo borrador.",
+  "documentDesigner.renderer.title": "Renderizador",
+  "documentDesigner.renderer.mjml": "MJML",
+  "documentDesigner.renderer.chromium": "Chromium (PDF)",
+  "documentDesigner.renderer.active": "activo",
   "documentDesigner.editor.title.mail": "Diseño del correo",
   "documentDesigner.editor.title.pdf": "Papel de carta",
   "documentDesigner.editor.kindSwitch": "Tipo de diseño",
@@ -1466,15 +1500,16 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Diseño del sistema v{version} · {active} organizaciones tienen su propia versión",
   "documentDesigner.editor.origin.platformOfTotal":
     "Diseño del sistema v{version} · {active} de {total} organizaciones tienen su propia versión",
-  "documentDesigner.editor.diff.open": "Diferencia con el diseño del sistema",
+  "documentDesigner.editor.diff.open": "Ver diferencia",
   "documentDesigner.editor.diff.title": "Diferencia con el diseño del sistema",
   "documentDesigner.editor.diff.identical": "Tu diseño coincide con el diseño del sistema.",
-  "documentDesigner.editor.reset.open": "Restablecer al diseño del sistema",
+  "documentDesigner.editor.reset.open": "Restablecer",
   "documentDesigner.editor.reset.title": "¿Restablecer al diseño del sistema?",
   "documentDesigner.editor.reset.description":
     "Tu diseño propio se elimina y vuelve a aplicarse el diseño del sistema.",
   "documentDesigner.editor.reset.confirm": "Restablecer",
   "documentDesigner.editor.region.header": "Encabezado",
+  "documentDesigner.editor.logoCaption": "Logo · de la marca, máx. 180 px de ancho",
   "documentDesigner.editor.region.content": "Contenido de la plantilla",
   "documentDesigner.editor.region.signature": "Área de firma",
   "documentDesigner.editor.region.footer": "Pie de página",
@@ -1500,27 +1535,29 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.header.modeSwitch": "Modo",
   "documentDesigner.mail.header.edit": "Editar",
   "documentDesigner.mail.header.preview": "Vista previa",
-  "documentDesigner.mail.header.testMail": "Enviarme un correo de prueba",
   "documentDesigner.mail.language.de": "Alemán",
   "documentDesigner.mail.language.en": "Inglés",
   "documentDesigner.mail.language.es": "Español",
-  "documentDesigner.mail.origin.overrides":
-    "Sobrescribe la plantilla del sistema «{title}» v{version}.",
+  "documentDesigner.mail.origin.overrides": "Sobrescribe la plantilla del sistema v{version}.",
   "documentDesigner.mail.origin.tenantOnly": "Esta plantilla solo existe para tu organización.",
   "documentDesigner.mail.origin.activeSince": "Activa desde {when}.",
   "documentDesigner.mail.origin.notPublished": "Aún no publicada.",
   "documentDesigner.mail.origin.archived": "Archivada.",
-  "documentDesigner.mail.origin.reset": "Restablecer a la plantilla del sistema",
+  "documentDesigner.mail.origin.reset": "Restablecer",
   "documentDesigner.mail.origin.system":
     "Estás viendo la plantilla del sistema v{version}. Al guardar se crea una personalización para tu organización.",
   "documentDesigner.mail.origin.platform":
     "Plantilla del sistema v{version}. Al guardar se modifica para todas las organizaciones sin personalización.",
-  "documentDesigner.mail.origin.missing":
-    "No hay una versión propia para {language}. Los destinatarios con el idioma {locale} reciben la versión {fallback}.",
-  "documentDesigner.mail.origin.missingNoFallback": "No hay una versión propia para {language}.",
+  "documentDesigner.mail.origin.missing": "Todavía no hay una versión para {language}.",
+  "documentDesigner.mail.missing.text":
+    "Todavía no hay una versión para {language}. Los destinatarios con el idioma {locale} reciben la versión {fallbackAdjective}.",
+  "documentDesigner.mail.missing.textNoFallback": "Todavía no hay una versión para {language}.",
+  "documentDesigner.mail.missing.copy": "Copiar desde {language}",
+  "documentDesigner.mail.languageAdjective.de": "alemana",
+  "documentDesigner.mail.languageAdjective.en": "inglesa",
+  "documentDesigner.mail.languageAdjective.es": "española",
   "documentDesigner.mail.origin.copyNote":
     "Al copiar una versión del sistema no se copian las imágenes ni los adjuntos; vuelve a subirlos después.",
-  "documentDesigner.mail.origin.copyFrom": "Copiar desde {fallback}",
   "documentDesigner.mail.origin.createBlank": "Empezar en blanco",
   "documentDesigner.mail.origin.creating": "Nueva versión para {language}. Se crea al guardar.",
   "documentDesigner.mail.reset.title": "¿Restablecer a la plantilla del sistema?",
@@ -1532,6 +1569,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.placeholder.hint":
     "T texto · € importe · D fecha · ↗ enlace · ≡ lista. Asterisco: obligatorio, debe aparecer en el contenido.",
   "documentDesigner.mail.system.title": "Marcadores de posición del sistema",
+  "documentDesigner.mail.system.layout": "Diseño",
+  "documentDesigner.mail.system.hint":
+    "Los rellena la plataforma. El aviso legal y el enlace de baja los aporta el diseño.",
   "documentDesigner.mail.resource.title": "Recursos",
   "documentDesigner.mail.resource.upload": "+ Subir",
   "documentDesigner.mail.resource.saveFirst": "Primero guarda, luego sube.",
@@ -1539,7 +1579,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.resource.attachment": "Adjunto",
   "documentDesigner.mail.resource.fromPdf": "Adjunto · de «{title}»",
   "documentDesigner.mail.resource.remove": "Quitar",
-  "documentDesigner.mail.resource.caption": "{key} · incrustado como CID",
+  "documentDesigner.mail.resource.caption": "{key} · {size} · incrustado como CID",
   "documentDesigner.mail.resource.hint":
     "Las imágenes en línea se envían como CID. Los adjuntos de plantillas PDF se generan al enviar el correo.",
   "documentDesigner.mail.upload.title": "Subir recurso",
@@ -1563,6 +1603,10 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.props.layoutSystem": "{title} (sistema v{version})",
   "documentDesigner.mail.props.sender": "Remitente",
   "documentDesigner.mail.props.senderDefault": "Remitente predeterminado de la organización",
+  "documentDesigner.mail.props.senderPlaceholder": "Nombre que ven los destinatarios",
+  "documentDesigner.mail.props.senderHint":
+    "La dirección procede del envío de correo de la plataforma.",
+  "documentDesigner.mail.props.replyTo": "Responder a",
   "documentDesigner.mail.props.category": "Categoría",
   "documentDesigner.mail.props.transactional": "Transaccional",
   "documentDesigner.mail.props.marketing": "Marketing",
@@ -1573,6 +1617,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.attachments.addPdf": "+ Adjunto desde plantilla PDF",
   "documentDesigner.mail.attachments.pdfRow": "{title} (plantilla PDF)",
   "documentDesigner.mail.attachments.file": "Archivo",
+  "documentDesigner.mail.attachments.hint":
+    "Las plantillas PDF se generan al enviar; los archivos se envían tal como se subieron.",
   "documentDesigner.mail.pdfLink.title": "Adjunto desde plantilla PDF",
   "documentDesigner.mail.pdfLink.template": "Plantilla PDF",
   "documentDesigner.mail.pdfLink.fileName": "Nombre del archivo",
@@ -1586,6 +1632,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "La función proporciona los marcadores de posición. Lo que no aparece aquí no se puede usar en la plantilla.",
   "documentDesigner.mail.versions.title": "Versiones",
   "documentDesigner.mail.versions.line": "v{version} {when}, {name}",
+  "documentDesigner.mail.versions.hint":
+    "Cada guardado crea una versión nueva. La activa es la que reciben los destinatarios.",
   "documentDesigner.mail.footer.missing":
     "Falta el marcador de posición obligatorio «{names}» en el asunto, el texto de vista previa y el contenido. La publicación está bloqueada.",
   "documentDesigner.mail.footer.missingPreview":
@@ -1605,7 +1653,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.leave.save": "Guardar como borrador",
   "documentDesigner.mail.leave.discard": "Descartar",
   "documentDesigner.mail.preview.bar":
-    "Vista previa con valores de ejemplo del esquema de marcadores de posición. Renderizada con «{layout}».",
+    "Vista previa con valores de ejemplo del esquema de marcadores de posición. Renderizada con «Diseño de correo v{version}», renderizador: MJML.",
   "documentDesigner.mail.preview.barPlain":
     "Vista previa con valores de ejemplo del esquema de marcadores de posición.",
   "documentDesigner.mail.preview.formatSwitch": "Formato",
@@ -1617,17 +1665,23 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.preview.attachments": "Adjunto",
   "documentDesigner.mail.preview.generatedOnSend": "se genera al enviar",
   "documentDesigner.mail.preview.frameTitle": "Vista previa del correo",
+  "documentDesigner.mail.preview.from": "De",
+  "documentDesigner.mail.preview.to": "Para",
   "documentDesigner.mail.preview.samples": "Valores de ejemplo",
   "documentDesigner.mail.preview.samplesHint":
     "Los importes y las fechas se formatean según los ajustes de la organización.",
   "documentDesigner.mail.preview.missingInContent": "falta en el contenido",
   "documentDesigner.mail.preview.entries": "{count} entradas",
   "documentDesigner.mail.preview.checks": "Comprobación",
+  "documentDesigner.mail.preview.checksHint":
+    "Lo que encontró el servidor al renderizar este correo.",
   "documentDesigner.mail.testMail.title": "Correo de prueba",
   "documentDesigner.mail.testMail.recipient": "Destinatario",
   "documentDesigner.mail.testMail.ownAddress": "Tu dirección",
-  "documentDesigner.mail.testMail.prefix": "Asunto con prefijo [TEST]",
-  "documentDesigner.mail.testMail.attachments": "Los adjuntos se envían también",
+  "documentDesigner.mail.testMail.changeAddress": "Cambiar dirección",
+  "documentDesigner.mail.testMail.prefixSubject": "Prefijo [TEST] en el asunto",
+  "documentDesigner.mail.testMail.attachments": "Enviar adjuntos",
+  "documentDesigner.mail.testMail.noAttachments": "Esta plantilla no tiene adjuntos",
   "documentDesigner.mail.testMail.send": "Enviar correo de prueba",
   "documentDesigner.mail.testMail.hint":
     "Se envía por la vía de entrega habitual de la organización a tu propia dirección.",

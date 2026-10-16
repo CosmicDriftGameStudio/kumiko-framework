@@ -37,7 +37,7 @@ describe("sampleValuesFor", () => {
     expect(sampleValuesFor(variables)).toEqual(expected);
   });
 
-  test("a list without example gets two rows built from the item fallbacks", () => {
+  test("a list without example gets three rows built from the item fallbacks", () => {
     const values = sampleValuesFor({
       positions: templateVariable.list({
         label: templateVariable.text({ label: "Position" }),
@@ -48,11 +48,12 @@ describe("sampleValuesFor", () => {
       positions: [
         { label: "[Position]", price: 0 },
         { label: "[Position]", price: 0 },
+        { label: "[Position]", price: 0 },
       ],
     });
   });
 
-  test("a list takes the first two example rows and fills missing rows and fields", () => {
+  test("a list takes up to three example rows and fills missing rows and fields", () => {
     const withThree = sampleValuesFor({
       positions: templateVariable.list(
         { label: templateVariable.text(), price: templateVariable.money() },
@@ -61,6 +62,7 @@ describe("sampleValuesFor", () => {
             { label: "A", price: 1 },
             { label: "B", price: 2 },
             { label: "C", price: 3 },
+            { label: "D", price: 4 },
           ],
         },
       ),
@@ -68,6 +70,7 @@ describe("sampleValuesFor", () => {
     expect(withThree["positions"]).toEqual([
       { label: "A", price: 1 },
       { label: "B", price: 2 },
+      { label: "C", price: 3 },
     ]);
 
     const withOnePartial = sampleValuesFor({
@@ -78,6 +81,7 @@ describe("sampleValuesFor", () => {
     });
     expect(withOnePartial["positions"]).toEqual([
       { label: "A", price: 0 },
+      { label: "[label]", price: 0 },
       { label: "[label]", price: 0 },
     ]);
   });

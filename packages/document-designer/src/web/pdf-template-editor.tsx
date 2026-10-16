@@ -1,6 +1,5 @@
 // @runtime client
 import {
-  type DocumentEditorHandle,
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
@@ -12,24 +11,28 @@ import {
   useUserRoles,
 } from "@cosmicdrift/kumiko-renderer";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
+import { ErrorState, LoadingState, uploadFileRef } from "@cosmicdrift/kumiko-renderer-web";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { BRANDING_QUERY_QN } from "../constants.js";
 import {
-  ErrorState,
-  LoadingState,
-  ModeSwitch,
-  StatusBadge,
-  uploadFileRef,
-} from "@cosmicdrift/kumiko-renderer-web";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+  EditorHeader,
+  EditorLocaleSwitch,
+  type EditorMode,
+  EditorModeSwitch,
+  originOf,
+} from "./editor-header.js";
+import { EditorBody, EditorFooter, EditorFrame, EditorInfoBar } from "./editor-shell.js";
 import { describeError, isAlreadyActive } from "./errors.js";
+import { fileUrl } from "./file-name.js";
+import type { BrandingView } from "./layout-types.js";
+import { systemLabelMap, variableLabelMap } from "./mail-draft.js";
+import { PlaceholderSection, SystemPlaceholderSection } from "./mail-left-rail.js";
 import { OverridesDrawer } from "./overrides-drawer.js";
 import { PageCanvas } from "./page-canvas.js";
+import { pdfFooterMessage } from "./pdf-footer.js";
+import { PdfResourceSection, visibleSystemPlaceholders } from "./pdf-left-rail.js";
 import { EMPTY_PDF_META, type PdfMetaDraft, parsePdfMeta, serializePdfMeta } from "./pdf-meta.js";
 import { PdfPreview } from "./pdf-preview.js";
-import {
-  PlaceholderPanel,
-  type SystemPlaceholderRow,
-  visibleSystemPlaceholders,
-} from "./placeholder-panel.js";
 import { SettingsPanel } from "./settings-panel.js";
 import { localesOf, parseJsonObject, pickRow, resolveLocale } from "./template-rows.js";
 import {
@@ -47,12 +50,11 @@ import {
   type ValidationResult,
   type VariableInfo,
 } from "./types.js";
+import { useInsertTargets } from "./use-insert-targets.js";
+import { useOverviewRows } from "./use-overview-rows.js";
 
 const SETTLE_MS = 500;
 const NO_VARIABLES: Readonly<Record<string, VariableInfo>> = {};
-const SYSTEM_LABEL_NAMES = ["tenantName", "imprint", "signature", "page", "pages"] as const;
-// Page numbers share one row in the panel; "pages" is inserted with "page".
-const MERGED_SYSTEM_PLACEHOLDERS: ReadonlySet<string> = new Set(["pages"]);
 
 type Draft = { readonly content: string; readonly meta: PdfMetaDraft };
 
@@ -66,7 +68,13 @@ type EditorState = {
 
 type GeneratedPdf = { readonly forSnapshot: string; readonly result: PdfPreviewResult };
 
-type ViewMode = "edit" | "preview";
+// Opening the preview prints the page without a click; a failed print is not retried for the same draft.
+function RunOnMount({ run }: { readonly run: () => void }): null {
+  useEffect(() => {
+    run();
+  }, [run]);
+  return null;
+}
 
 export type PdfTemplateEditorProps = {
   readonly slug: string;
@@ -83,12 +91,6 @@ const draftFromDetail = (detail: TemplateDetail): Draft => ({
 const snapshotOf = (draft: Draft): string =>
   JSON.stringify({ content: draft.content, meta: serializePdfMeta(draft.meta) });
 
-function formatSize(bytes: number): string {
-  return bytes < 1024 * 1024
-    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
 export function PdfTemplateEditor({
   slug,
   locale: requestedLocale,
@@ -97,6 +99,8 @@ export function PdfTemplateEditor({
   const t = useTranslation();
   const dispatcher = useDispatcher();
   const { Button, Banner, Dialog } = usePrimitives();
+  const insert = useInsertTargets();
+  const overview = useOverviewRows(DOCUMENT_PDF_KIND);
   const roles = useUserRoles();
   const scope: TemplateScope = roles?.includes("SystemAdmin") === true ? "system" : "tenant";
 
@@ -136,11 +140,12 @@ export function PdfTemplateEditor({
     [],
   );
   const [overridesOpen, setOverridesOpen] = useState(false);
-  const editorHandle = useRef<DocumentEditorHandle | null>(null);
-  const [mode, setMode] = useState<ViewMode>("edit");
+  const [draftEpoch, setDraftEpoch] = useState(0);
+  const [mode, setMode] = useState<EditorMode>("edit");
   const [busy, setBusy] = useState<"save" | "publish" | "pdf" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [generated, setGenerated] = useState<GeneratedPdf | null>(null);
+  const autoPrintedFor = useRef<string | null>(null);
   const [pendingLocale, setPendingLocale] = useState<string | null>(null);
 
   const variableSchema = useMemo(
@@ -180,13 +185,10 @@ export function PdfTemplateEditor({
   );
   const layout = previewQuery.error === null ? (previewQuery.data?.layout ?? null) : null;
 
-  const layoutsQuery = useQuery<readonly TemplateListRow[]>(TemplateResolverQueries.list, {
-    kind: PDF_LAYOUT_KIND,
-    locale,
-  });
-  const layoutSlugs = [
-    ...new Set((layoutsQuery.data ?? []).map((layoutRow) => layoutRow.slug)),
-  ].sort();
+  const layouts = useOverviewRows(PDF_LAYOUT_KIND);
+  // The built-in "logo" resource of a layout is the tenant's branding logo.
+  const branding = useQuery<BrandingView>(BRANDING_QUERY_QN, {});
+  const brandingLogoFile = branding.data?.logoFile ?? "";
 
   const statusQuery = useQuery<PuppeteerStatus>(RendererPuppeteerClientQueries.status, {});
   const pdfAvailable = statusQuery.error === null && statusQuery.data?.available === true;
@@ -201,29 +203,14 @@ export function PdfTemplateEditor({
   );
 
   const variables = validation?.variables ?? NO_VARIABLES;
-  const systemLabel = useCallback(
-    (name: string): string => {
-      const label = t(`documentDesigner.system.${name}`);
-      return label === `documentDesigner.system.${name}` ? name : label;
-    },
-    [t],
-  );
-  const variableLabels = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(variables).flatMap(([name, info]) =>
-          info.label === undefined ? [] : [[name, info.label]],
-        ),
-      ),
-    [variables],
-  );
-  const systemLabels = useMemo(
-    () => Object.fromEntries(SYSTEM_LABEL_NAMES.map((name) => [name, systemLabel(name)])),
-    [systemLabel],
-  );
   const systemVariables = useMemo(
     () => visibleSystemPlaceholders(validation?.systemPlaceholders ?? []),
     [validation?.systemPlaceholders],
+  );
+  const systemLabels = useMemo(() => systemLabelMap(t, systemVariables), [t, systemVariables]);
+  const variableLabels = useMemo(
+    () => ({ ...systemLabels, ...variableLabelMap(variables) }),
+    [systemLabels, variables],
   );
   const variableNames = useMemo(() => Object.keys(variables), [variables]);
   const linkedResources = detail?.linkedResources ?? null;
@@ -239,10 +226,6 @@ export function PdfTemplateEditor({
       ),
     [linkedResources],
   );
-  const onEditorReady = useCallback((handle: DocumentEditorHandle) => {
-    editorHandle.current = handle;
-  }, []);
-
   if (rowsQuery.loading && rowsQuery.data === null) return <LoadingState />;
   if (rowsQuery.error !== null) return <ErrorState error={rowsQuery.error} />;
   if (row === undefined)
@@ -268,6 +251,7 @@ export function PdfTemplateEditor({
     const draft = draftFromDetail(source);
     if (settleTimer.current !== null) clearTimeout(settleTimer.current);
     setState({ key: source.id, draft, settled: draft, snapshot: snapshotOf(draft) });
+    setDraftEpoch((epoch) => epoch + 1);
     setActionError(null);
   }
 
@@ -358,9 +342,10 @@ export function PdfTemplateEditor({
     setBusy(null);
   }
 
-  function switchMode(next: ViewMode): void {
-    setMode(next);
-    if (next === "preview" && pdfAvailable && !generatedFresh && busy === null) void generatePdf();
+  function printOnce(): void {
+    if (current === null || autoPrintedFor.current === snapshotOf(current.draft)) return;
+    autoPrintedFor.current = snapshotOf(current.draft);
+    void generatePdf();
   }
 
   async function uploadResource(file: File): Promise<void> {
@@ -379,242 +364,235 @@ export function PdfTemplateEditor({
     else onLocaleChange?.(next);
   }
 
-  const used = validation?.used ?? [];
-  const missingRequired = validation?.missingRequired ?? [];
-  const layoutName = layout?.slug ?? DEFAULT_LAYOUT_SLUG;
-  const systemNames = visibleSystemPlaceholders(validation?.systemPlaceholders ?? []).filter(
-    (name) => !MERGED_SYSTEM_PLACEHOLDERS.has(name),
-  );
-  const systemRows: SystemPlaceholderRow[] = systemNames.map((name) => ({
-    name,
-    label: systemLabel(name),
-    status: used.includes(name)
-      ? "used"
-      : layout !== null &&
-          (layout.html.includes(`data-variable="${name}"`) || layout.html.includes(`{{${name}}}`))
-        ? "layout"
-        : "unused",
-  }));
+  const canPublish = validation?.canPublish === true;
+  const layoutSlugShown = layout?.slug ?? DEFAULT_LAYOUT_SLUG;
+  const layoutName =
+    layouts.rows.find((row) => row.slug === layoutSlugShown)?.title ?? layoutSlugShown;
+  const layoutResourceSrc = (key: string): string | undefined =>
+    key === "logo" && brandingLogoFile !== "" ? fileUrl(brandingLogoFile) : undefined;
+  const placeholderSource =
+    validation === undefined || validation === null
+      ? null
+      : {
+          ...validation,
+          systemPlaceholders: visibleSystemPlaceholders(validation.systemPlaceholders),
+        };
+  const layoutFills = (name: string): boolean =>
+    layout !== null &&
+    (layout.html.includes(`data-variable="${name}"`) || layout.html.includes(`{{${name}}}`));
   const overrideCount =
     (overridesQuery.data?.activeOverrides ?? 0) + (overridesQuery.data?.draftOverrides ?? 0);
-  const canPublish = validation?.canPublish === true;
-  const issueTexts = [...(validation?.issues ?? []), ...(validation?.publishIssues ?? [])].map(
-    (issue) => t(issue.i18nKey, issue.params),
-  );
   const resourceKeys = Object.keys(parseJsonObject(detail.linkedResources));
-
-  const actions = (
-    <>
-      <Button variant="ghost" disabled={!dirty || busy !== null} onClick={() => resetDraft(detail)}>
-        {t("documentDesigner.actions.discard")}
-      </Button>
-      <Button
-        variant="secondary"
-        disabled={busy !== null || validation?.canSave === false}
-        loading={busy === "save"}
-        onClick={() => void save()}
-      >
-        {t("documentDesigner.actions.save")}
-      </Button>
-      <Button
-        variant="primary"
-        disabled={busy !== null || !canPublish}
-        loading={busy === "publish"}
-        onClick={() => void publish()}
-      >
-        {t("documentDesigner.actions.publish")}
-      </Button>
-    </>
-  );
+  const overviewRow = overview.rows.find((candidate) => candidate.slug === slug);
+  const title = overviewRow?.title ?? slug;
+  const systemVersion = overviewRow?.systemVersion ?? null;
+  const vocabulary = {
+    names: variableNames,
+    labels: variableLabels,
+    system: systemVariables,
+  };
+  const footer =
+    validation === undefined || validation === null
+      ? null
+      : pdfFooterMessage(
+          t,
+          validation,
+          generated === null
+            ? null
+            : {
+                pages: generated.result.pageCount,
+                sizeBytes: generated.result.sizeBytes,
+                durationMs: generated.result.durationMs,
+              },
+        );
+  const showOverrideLinks = showOrigin && detail.scope === "system";
+  const originText = showOverrideLinks
+    ? overridesQuery.data?.totalTenants == null
+      ? t("documentDesigner.originBar.noTotal", { count: overrideCount })
+      : t("documentDesigner.originBar.withTotal", {
+          count: overrideCount,
+          total: overridesQuery.data.totalTenants,
+        })
+    : detail.scope === "system"
+      ? t("documentDesigner.mail.origin.system", { version: detail.version })
+      : systemVersion === null
+        ? t("documentDesigner.mail.origin.tenantOnly")
+        : t("documentDesigner.mail.origin.overrides", { version: systemVersion });
+  const pdfUnavailableNote = !pdfAvailable && statusQuery.loading === false;
 
   return (
-    <div className="flex flex-col gap-3" data-testid="pdf-template-editor">
-      <header className="flex flex-wrap items-center gap-3">
-        <nav className="text-sm text-muted-foreground">
-          {scope === "system" ? `${t("documentDesigner.breadcrumb.platform")} › ` : ""}
-          {t("documentDesigner.breadcrumb.templates")} ›{" "}
-          <span className="text-foreground">{slug}</span>
-        </nav>
-        <StatusBadge tone={detail.status === "active" ? "ok" : "warn"}>
-          {t(
-            detail.status === "active"
-              ? "documentDesigner.status.activeVersion"
-              : "documentDesigner.status.draftVersion",
-            { version: detail.version },
-          )}
-        </StatusBadge>
-        <StatusBadge tone="muted">
-          {t(
-            detail.scope === "system"
-              ? "documentDesigner.origin.system"
-              : "documentDesigner.origin.tenant",
-          )}
-        </StatusBadge>
-        <ModeSwitch
-          ariaLabel={t("documentDesigner.locale")}
-          value={locale}
-          onChange={requestLocale}
-          options={(locales.length > 0 ? locales : [locale]).map((value) => ({
-            value,
-            label: value.toUpperCase(),
-          }))}
-        />
-        <ModeSwitch<ViewMode>
-          ariaLabel={t("documentDesigner.mode.label")}
-          variant="pill"
-          value={mode}
-          onChange={switchMode}
-          options={[
-            { value: "edit", label: t("documentDesigner.mode.edit") },
-            { value: "preview", label: t("documentDesigner.mode.preview") },
-          ]}
-        />
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="secondary"
-            disabled={!pdfAvailable || busy !== null}
-            loading={busy === "pdf"}
-            onClick={() => void generatePdf()}
-          >
-            {t("documentDesigner.actions.generatePdf")}
-          </Button>
-          {actions}
-        </div>
-      </header>
-
-      {showOrigin && detail.scope === "system" && (
-        <Banner
-          variant="info"
-          actions={
-            <div className="flex flex-wrap items-center gap-4">
+    <EditorFrame testId="pdf-template-editor">
+      <EditorHeader
+        title={title}
+        stored={{ status: detail.status, version: detail.version }}
+        actions={{
+          busy: busy === "save",
+          canSave: busy === null && validation?.canSave !== false,
+          canPublish: busy === null && canPublish,
+          onSave: () => void save(),
+          onPublish: () => void publish(),
+        }}
+      >
+        <EditorModeSwitch testIdPrefix="pdf" mode={mode} onMode={setMode} />
+      </EditorHeader>
+      <EditorInfoBar
+        tone={pdfUnavailableNote ? "warn" : detail.scope === "tenant" ? "active" : "muted"}
+        testId="pdf-origin-bar"
+        origin={originOf(detail.scope === "system", systemVersion !== null)}
+        controls={
+          <>
+            <EditorLocaleSwitch
+              testIdPrefix="pdf"
+              locales={locales.length > 0 ? locales : [locale]}
+              locale={locale}
+              onLocale={requestLocale}
+            />
+            {mode === "preview" && (
+              <Button
+                variant="secondary"
+                disabled={!pdfAvailable || busy !== null}
+                loading={busy === "pdf"}
+                onClick={() => void generatePdf()}
+                testId="pdf-generate-header"
+              >
+                {t("documentDesigner.actions.generatePdf")}
+              </Button>
+            )}
+          </>
+        }
+        overlays={
+          <OverridesDrawer
+            open={overridesOpen}
+            onOpenChange={setOverridesOpen}
+            slug={slug}
+            locale={locale}
+            overrides={overridesQuery.data}
+          />
+        }
+        links={
+          showOverrideLinks && (
+            <>
               <Button variant="link" onClick={() => void exportBundle()}>
                 {t("documentDesigner.originBar.export")}
               </Button>
               <Button variant="link" onClick={() => setOverridesOpen(true)}>
                 {t("documentDesigner.originBar.showOverrides")}
               </Button>
-            </div>
-          }
-        >
-          {overridesQuery.data?.totalTenants == null
-            ? t("documentDesigner.originBar.noTotal", { count: overrideCount })
-            : t("documentDesigner.originBar.withTotal", {
-                count: overrideCount,
-                total: overridesQuery.data.totalTenants,
-              })}
-        </Banner>
-      )}
-      <OverridesDrawer
-        open={overridesOpen}
-        onOpenChange={setOverridesOpen}
-        slug={slug}
-        overrides={overridesQuery.data}
-      />
-      {!pdfAvailable && statusQuery.loading === false && (
-        <Banner variant="warning">
-          {t("documentDesigner.pdfUnavailable", { message: unavailableMessage })}
-        </Banner>
-      )}
-      {actionError !== null && <Banner variant="error">{actionError}</Banner>}
-
-      <div className="grid grid-cols-[260px_minmax(0,1fr)_300px] items-start gap-4">
-        <PlaceholderPanel
-          variables={variables}
-          used={used}
-          missingRequired={missingRequired}
-          systemRows={systemRows}
-          resourceKeys={resourceKeys}
-          canUpload={detail.scope === scope}
-          layoutName={layoutName}
-          onInsert={(name) => editorHandle.current?.insertPlaceholder(name)}
-          onInsertResource={(key) => editorHandle.current?.insertResource(key)}
-          onUpload={uploadResource}
-        />
-        {mode === "edit" ? (
-          <PageCanvas
-            meta={current.draft.meta}
-            content={current.draft.content}
-            onContentChange={(content) => updateDraft({ ...current.draft, content })}
-            regions={layout?.regions ?? null}
-            layoutName={layoutName}
-            variableLabels={variableLabels}
-            systemVariables={systemVariables}
-            systemLabels={systemLabels}
-            variableNames={variableNames}
-            resourcePreviews={resourcePreviews}
-            onEditorReady={onEditorReady}
-          />
-        ) : generated !== null && generatedFresh ? (
-          <PdfPreview pdfBase64={generated.result.pdfBase64} />
-        ) : (
-          <div
-            className="flex flex-col items-start gap-3 bg-muted p-6"
-            data-testid="document-designer-preview-stale"
-          >
-            <p className="text-sm text-muted-foreground">
-              {busy === "pdf"
-                ? t("documentDesigner.preview.loading")
-                : t("documentDesigner.preview.stale")}
-            </p>
-            <Button
-              variant="secondary"
-              disabled={!pdfAvailable || busy !== null}
-              onClick={() => void generatePdf()}
-            >
-              {t("documentDesigner.actions.generatePdf")}
-            </Button>
-          </div>
+            </>
+          )
+        }
+      >
+        {originText}
+        {pdfUnavailableNote && (
+          <>
+            {" "}
+            <span data-testid="pdf-unavailable">
+              {unavailableMessage === ""
+                ? t("documentDesigner.pdfUnavailableNoReason")
+                : t("documentDesigner.pdfUnavailable", { message: unavailableMessage })}
+            </span>
+          </>
         )}
-        <SettingsPanel
-          meta={current.draft.meta}
-          onMetaChange={(meta) => updateDraft({ ...current.draft, meta })}
-          layoutSlugs={layoutSlugs}
-          locale={locale}
-          version={{
-            version: detail.version,
-            status: detail.status,
-            modifiedAt: detail.modifiedAt,
-          }}
-        />
-      </div>
-
-      <footer className="flex flex-wrap items-start justify-between gap-3 border-t border-border pt-3">
-        <ul
-          className="m-0 flex list-none flex-col gap-1 p-0 text-sm"
-          data-testid="document-designer-validation"
-        >
-          {missingRequired.length === 0 && validation !== undefined && validation !== null && (
-            <li className="text-status-ok">{t("documentDesigner.validation.ok")}</li>
-          )}
-          {missingRequired.map((name) => (
-            <li key={name} className="text-status-bad">
-              {t("documentDesigner.validation.missingRequired", {
-                name: variables[name]?.label ?? name,
-              })}
-            </li>
-          ))}
-          {issueTexts.map((text) => (
-            <li key={text} className="text-status-bad">
-              {text}
-            </li>
-          ))}
-          {(validation?.warnings ?? []).map((warning) => (
-            <li key={`${warning.code}:${warning.detail}`} className="text-status-warn">
-              {t(warning.i18nKey, { detail: warning.detail })}
-            </li>
-          ))}
-          {generated !== null && (
-            <li className="text-muted-foreground">
-              {t("documentDesigner.validation.lastProbe", {
-                pages: generated.result.pageCount,
-                size: formatSize(generated.result.sizeBytes),
-                seconds: (generated.result.durationMs / 1000).toFixed(1),
-              })}
-            </li>
-          )}
-        </ul>
-        <div className="flex items-center gap-2">{actions}</div>
-      </footer>
+      </EditorInfoBar>
+      <EditorBody
+        left={
+          mode === "edit" ? (
+            <>
+              <PlaceholderSection
+                validation={placeholderSource}
+                onInsert={insert.insertPlaceholder}
+                idPrefix="pdf"
+              />
+              <SystemPlaceholderSection
+                validation={placeholderSource}
+                onInsert={insert.insertPlaceholder}
+                idPrefix="pdf"
+                isLayoutOwned={layoutFills}
+              />
+              <PdfResourceSection
+                resourceKeys={resourceKeys}
+                canUpload={detail.scope === scope}
+                layoutName={layoutName}
+                onInsert={insert.insertResource}
+                onUpload={uploadResource}
+              />
+            </>
+          ) : undefined
+        }
+        center={
+          mode === "edit" ? (
+            <div
+              className="flex min-h-0 min-w-0 flex-1 flex-col"
+              onFocusCapture={insert.markFocused("body")}
+            >
+              <PageCanvas
+                meta={current.draft.meta}
+                content={current.draft.content}
+                onContentChange={(content) => updateDraft({ ...current.draft, content })}
+                regions={layout?.regions ?? null}
+                layoutName={layoutName}
+                resourceSrc={layoutResourceSrc}
+                variableLabels={variableLabels}
+                systemVariables={systemVariables}
+                systemLabels={systemLabels}
+                variableNames={variableNames}
+                resourcePreviews={resourcePreviews}
+                onEditorReady={insert.register("body")}
+              />
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-auto">
+              {generated !== null && generatedFresh ? (
+                <PdfPreview pdfBase64={generated.result.pdfBase64} />
+              ) : (
+                <div
+                  className="flex flex-col items-start gap-3 p-6"
+                  data-testid="document-designer-preview-stale"
+                >
+                  {pdfAvailable && busy === null && <RunOnMount run={printOnce} />}
+                  <p className="text-sm text-muted-foreground">
+                    {busy === "pdf"
+                      ? t("documentDesigner.preview.loading")
+                      : t("documentDesigner.preview.stale")}
+                  </p>
+                  <Button
+                    variant="secondary"
+                    disabled={!pdfAvailable || busy !== null}
+                    onClick={() => void generatePdf()}
+                  >
+                    {t("documentDesigner.actions.generatePdf")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )
+        }
+        right={
+          <SettingsPanel
+            meta={current.draft.meta}
+            onMetaChange={(meta) => updateDraft({ ...current.draft, meta })}
+            layouts={layouts.rows}
+            locale={locale}
+            version={{ id: detail.id, version: detail.version, status: detail.status }}
+            vocabulary={vocabulary}
+            insert={insert}
+            draftKey={`${current.key}:${draftEpoch}`}
+          />
+        }
+      />
+      <EditorFooter
+        testIdPrefix="pdf-editor"
+        message={footer}
+        saveError={actionError}
+        modifiedAt={detail.modifiedAt ?? null}
+        dirty={dirty}
+        busy={busy === "save"}
+        canSave={busy === null && validation?.canSave !== false}
+        canPublish={busy === null && canPublish}
+        onDiscard={() => resetDraft(detail)}
+        onSave={() => void save()}
+        onPublish={() => void publish()}
+      />
 
       <Dialog
         open={pendingLocale !== null}
@@ -643,7 +621,7 @@ export function PdfTemplateEditor({
           {t("documentDesigner.localeDialog.discard")}
         </Button>
       </Dialog>
-    </div>
+    </EditorFrame>
   );
 
   async function exportBundle(): Promise<void> {

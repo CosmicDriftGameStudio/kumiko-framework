@@ -27,7 +27,9 @@ import {
   fileAttachmentsOf,
   imageLinksOf,
   isMailTemplateMeta,
+  type MailLayoutAppearance,
   type MailTemplateMeta,
+  mailLayoutAppearance,
   parseTemplateMeta,
   pdfAttachmentLinksOf,
   readLayoutRegions,
@@ -47,12 +49,13 @@ import {
   compileDocumentSource,
   createDocumentHandlebars,
   mergeResourceFileRefs,
+  readBrandingAccentColor,
   readDocumentFormat,
   readTenantName,
   resolveResourceFileRefs,
 } from "./document-kit.js";
 import { buildRenderedPdfAttachments, combineMailAttachments } from "./mail-attachments.js";
-import { renderStructuredLayoutMjml } from "./structured-layout.js";
+import { MAIL_IMAGE_MAX_WIDTH_PX, renderStructuredLayoutMjml } from "./structured-layout.js";
 
 const LINE_BREAKS = /[\r\n]+/g;
 
@@ -268,6 +271,7 @@ async function renderMailBody(
   template: TemplateResource,
   hbs: typeof Handlebars,
   context: Readonly<Record<string, unknown>>,
+  buttonInlineStyle: string | undefined,
 ): Promise<MailBody> {
   try {
     const resourceFileRefs = await resolveResourceFileRefs(
@@ -281,7 +285,11 @@ async function renderMailBody(
       resolveTemplateVariables(ctx.registry, template.slug, template.variableSchema),
       {
         resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined),
+        resourceImageMaxWidthPx: MAIL_IMAGE_MAX_WIDTH_PX,
         alignmentAsInlineStyle: true,
+        buttonAsInlineStyle: true,
+        tableAsInlineStyle: true,
+        ...(buttonInlineStyle !== undefined && { buttonInlineStyle }),
       },
     );
     return {
@@ -369,6 +377,99 @@ function assembleMailAttachments(args: {
   );
 }
 
+type DocumentHandlebars = ReturnType<typeof createDocumentHandlebars>;
+
+function compileLayoutMjml(args: {
+  readonly layout: ResolvedLayout;
+  readonly hbs: DocumentHandlebars;
+  readonly contentHtml: string;
+  readonly appearance: MailLayoutAppearance | undefined;
+  readonly accentColor: string | undefined;
+  readonly resourceFileRefs: ReadonlyMap<string, string>;
+  readonly layoutContext: Readonly<Record<string, unknown>>;
+}): string {
+  const { layout, hbs, contentHtml, appearance, accentColor, resourceFileRefs, layoutContext } =
+    args;
+  try {
+    return layout.format === "html"
+      ? renderStructuredLayoutMjml({
+          layoutHtml: layout.content,
+          contentHtml,
+          context: layoutContext,
+          compile: (source) => compileDocumentSource(hbs, source),
+          resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined),
+          ...(appearance !== undefined && { appearance }),
+          ...(accentColor !== undefined && { accentColor }),
+        })
+      : compileDocumentSource(hbs, layout.content)({ ...layoutContext, content: contentHtml });
+  } catch (e) {
+    // "other": the caller's payload is fine, the layout template is broken.
+    throw new RendererError(
+      `renderer-mail-html: Handlebars compile failed for layout — ${describe(e)}`,
+      "other",
+    );
+  }
+}
+
+async function compileMjmlToHtml(mjmlSource: string): Promise<string> {
+  // mjml@5 is async
+  const mjmlResult = await mjml2html(mjmlSource, { validationLevel: "soft" });
+  const errors = mjmlResult.errors ?? [];
+  if (errors.length > 0) {
+    const firstErrors = errors
+      .slice(0, 3)
+      .map((e) => `line ${e.line}: ${e.message}`)
+      .join("; ");
+    throw new RendererError(
+      `renderer-mail-html: MJML compile produced ${errors.length} error(s) — ${firstErrors}`,
+      "other",
+    );
+  }
+  return mjmlResult.html;
+}
+
+function htmlToPlainText(html: string): string {
+  return htmlToText(html, {
+    wordwrap: 80,
+    selectors: [
+      { selector: "a", options: { hideLinkHrefIfSameAsText: true } },
+      { selector: "img", format: "skip" },
+    ],
+  });
+}
+
+function buildMailRenderResponse(args: {
+  readonly subject: string;
+  readonly previewText: string | undefined;
+  readonly html: string;
+  readonly text: string;
+  readonly meta: MailTemplateMeta;
+  readonly attachments: readonly MailAttachmentRef[];
+  readonly template: TemplateResource;
+  readonly layout: ResolvedLayout;
+  readonly isDraft: boolean;
+}): RenderResponse {
+  const { subject, previewText, html, text, meta, attachments, template, layout, isDraft } = args;
+  return {
+    kind: "mail",
+    subject,
+    html,
+    text,
+    ...(previewText === undefined ? {} : { previewText }),
+    ...(meta.senderName !== undefined && { fromName: meta.senderName }),
+    ...(meta.replyTo !== undefined && { replyTo: meta.replyTo }),
+    ...(attachments.length > 0 && { attachments }),
+    ...(!isDraft && {
+      template: {
+        templateId: template.id,
+        templateVersion: template.version,
+        scope: template.scope,
+      },
+    }),
+    ...(layout.ref === null ? {} : { layout: layout.ref }),
+  };
+}
+
 export async function mailHtmlRender(
   req: RenderRequest,
   ctx: RendererContext,
@@ -399,7 +500,10 @@ export async function mailHtmlRender(
     unsubscribeUrl: unsubscribeUrl ?? "",
   };
 
-  const body = await renderMailBody(tplApi, ctx, template, hbs, context);
+  // Only a structured (html) layout carries appearance; an mjml layout keeps its own look.
+  const appearance: MailLayoutAppearance | undefined =
+    layout.format === "html" ? mailLayoutAppearance(layout.template?.meta) : undefined;
+  const body = await renderMailBody(tplApi, ctx, template, hbs, context, appearance?.buttonStyle);
   const { contentHtml } = body;
   const layoutFileRefs = await resolveLayoutFileRefs(tplApi, ctx, layout);
   const resourceFileRefs = mergeResourceFileRefs(body.resourceFileRefs, layoutFileRefs);
@@ -413,70 +517,35 @@ export async function mailHtmlRender(
   });
   const { subject, previewText } = renderSubjectLines(hbs, meta, slug, context);
 
-  let mjmlSource: string;
-  try {
-    const layoutContext = {
+  const accentColor =
+    appearance?.accentLine === true ? await readBrandingAccentColor(ctx) : undefined;
+  const mjmlSource = compileLayoutMjml({
+    layout,
+    hbs,
+    contentHtml,
+    appearance,
+    accentColor,
+    resourceFileRefs,
+    layoutContext: {
       subject,
       previewText: previewText ?? "",
       tenantName,
       signature: "",
       imprint: "",
       unsubscribeUrl: unsubscribeUrl ?? "",
-    };
-    mjmlSource =
-      layout.format === "html"
-        ? renderStructuredLayoutMjml({
-            layoutHtml: layout.content,
-            contentHtml,
-            context: layoutContext,
-            compile: (source) => compileDocumentSource(hbs, source),
-            resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined),
-          })
-        : compileDocumentSource(hbs, layout.content)({ ...layoutContext, content: contentHtml });
-  } catch (e) {
-    // "other": the caller's payload is fine, the layout template is broken.
-    throw new RendererError(
-      `renderer-mail-html: Handlebars compile failed for layout — ${describe(e)}`,
-      "other",
-    );
-  }
-
-  // mjml@5 is async
-  const mjmlResult = await mjml2html(mjmlSource, { validationLevel: "soft" });
-  const errors = mjmlResult.errors ?? [];
-  if (errors.length > 0) {
-    const firstErrors = errors
-      .slice(0, 3)
-      .map((e) => `line ${e.line}: ${e.message}`)
-      .join("; ");
-    throw new RendererError(
-      `renderer-mail-html: MJML compile produced ${errors.length} error(s) — ${firstErrors}`,
-      "other",
-    );
-  }
-
-  const text = htmlToText(mjmlResult.html, {
-    wordwrap: 80,
-    selectors: [
-      { selector: "a", options: { hideLinkHrefIfSameAsText: true } },
-      { selector: "img", format: "skip" },
-    ],
+    },
   });
+  const html = await compileMjmlToHtml(mjmlSource);
 
-  return {
-    kind: "mail",
+  return buildMailRenderResponse({
     subject,
-    html: mjmlResult.html,
-    text,
-    ...(previewText === undefined ? {} : { previewText }),
-    ...(attachments.length > 0 && { attachments }),
-    ...(draft === undefined && {
-      template: {
-        templateId: template.id,
-        templateVersion: template.version,
-        scope: template.scope,
-      },
-    }),
-    ...(layout.ref === null ? {} : { layout: layout.ref }),
-  };
+    previewText,
+    html,
+    text: htmlToPlainText(html),
+    meta,
+    attachments,
+    template,
+    layout,
+    isDraft: draft !== undefined,
+  });
 }

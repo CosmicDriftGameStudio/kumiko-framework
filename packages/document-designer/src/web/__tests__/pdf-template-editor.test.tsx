@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   TemplateResolverHandlers,
   TemplateResolverQueries,
+  textBlocksClient,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import {
@@ -9,14 +10,20 @@ import {
   DispatcherProvider,
   kumikoDefaultTranslations,
   LocaleProvider,
+  mergeTranslations,
   PrimitivesProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { documentDesignerTranslations } from "../i18n.js";
+import { documentDesignerClient } from "../client-plugin.js";
 import { PdfTemplateEditor } from "../pdf-template-editor.js";
+
+const translations = mergeTranslations(
+  mergeTranslations(kumikoDefaultTranslations, textBlocksClient().translations ?? {}),
+  documentDesignerClient().translations ?? {},
+);
 
 type Call = { readonly type: string; readonly payload: unknown };
 
@@ -100,7 +107,34 @@ function createFakeDispatcher(options: FakeOptions): { dispatcher: Dispatcher; w
       case TemplateResolverQueries.tenantOverrides:
         return {
           isSuccess: true,
-          data: { activeOverrides: 3, draftOverrides: 1, totalTenants: 10 },
+          data: {
+            activeOverrides: 1,
+            draftOverrides: 1,
+            totalTenants: 12,
+            diff: null,
+            rows: [
+              {
+                tenantId: "t-4",
+                tenantName: "Küstenwohnen Kiel GmbH",
+                templateId: "o-1",
+                locale: "de",
+                status: "active",
+                version: 2,
+                changedAt: "2026-10-12T09:00:00.000Z",
+                changedBy: "Anna Berger",
+              },
+              {
+                tenantId: "t-5",
+                tenantName: "Hansa Wohnbau eG",
+                templateId: "o-2",
+                locale: "de",
+                status: "draft",
+                version: 1,
+                changedAt: "2026-10-13T09:00:00.000Z",
+                changedBy: null,
+              },
+            ],
+          },
         };
       case TemplateResolverQueries.usage:
         return { isSuccess: true, data: { usedBy: [] } };
@@ -144,7 +178,7 @@ function renderEditor(
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en" })}
-      fallbackBundles={[kumikoDefaultTranslations, documentDesignerTranslations]}
+      fallbackBundles={[translations]}
     >
       <DispatcherProvider dispatcher={fake.dispatcher}>
         <UserRolesProvider roles={roles}>
@@ -164,7 +198,16 @@ function renderEditor(
 
 async function ready(): Promise<void> {
   await screen.findByTestId("pdf-template-editor");
-  await screen.findByTestId("document-designer-validation");
+  await screen.findByTestId("pdf-editor-footer-message");
+}
+
+async function pickOption(triggerTestId: string, label: string): Promise<void> {
+  fireEvent.click(await screen.findByTestId(triggerTestId));
+  const option = (await screen.findAllByText(label)).find(
+    (node) => node.closest("[role=option], [cmdk-item]") !== null,
+  );
+  if (option === undefined) throw new Error(`option ${label} not found`);
+  fireEvent.click(option);
 }
 
 function buttonsNamed(name: string): HTMLButtonElement[] {
@@ -182,9 +225,9 @@ describe("PdfTemplateEditor", () => {
     await ready();
 
     await waitFor(() =>
-      expect(screen.getByTestId("placeholder-customer").textContent).toContain("missing"),
+      expect(screen.getByTestId("pdf-placeholder-customer").textContent).toContain("missing"),
     );
-    expect(screen.getByTestId("document-designer-validation").textContent).toContain(
+    expect(screen.getByTestId("pdf-editor-footer-message").textContent).toContain(
       'Required placeholder "Customer" is missing. Publishing is blocked.',
     );
     for (const button of buttonsNamed("Publish")) expect(button.disabled).toBe(true);
@@ -214,8 +257,8 @@ describe("PdfTemplateEditor", () => {
     fireEvent.change(document.getElementById("dd-file-name") as HTMLInputElement, {
       target: { value: "invoice-{{number}}.pdf" },
     });
-    fireEvent.click(buttonsNamed("Letter")[0] as HTMLButtonElement);
-    fireEvent.click(buttonsNamed("Landscape")[0] as HTMLButtonElement);
+    await pickOption("combobox-dd-page-format", "Letter");
+    await pickOption("combobox-dd-orientation", "Landscape");
     fireEvent.click(buttonsNamed("Save")[0] as HTMLButtonElement);
 
     await waitFor(() => expect(writes.length).toBe(1));
@@ -237,7 +280,7 @@ describe("PdfTemplateEditor", () => {
 
     const fileName = document.getElementById("dd-file-name") as HTMLInputElement;
     fireEvent.change(fileName, { target: { value: "keep-me.pdf" } });
-    fireEvent.click(buttonsNamed("EN")[0] as HTMLButtonElement);
+    fireEvent.click(buttonsNamed("en")[0] as HTMLButtonElement);
 
     await screen.findByText("Unsaved changes");
     expect(switched).toEqual([]);
@@ -255,12 +298,10 @@ describe("PdfTemplateEditor", () => {
     fireEvent.click(await screen.findByText("Show tenant customisations"));
 
     const drawer = await screen.findByTestId("document-designer-overrides-drawer");
-    await waitFor(() => expect(drawer.textContent).toContain("No own version"));
+    await waitFor(() => expect(drawer.textContent).toContain("Küstenwohnen Kiel GmbH"));
     const text = drawer.textContent ?? "";
-    expect(text).toContain("Customised and active3");
-    expect(text).toContain("Draft only1");
-    expect(text).toContain("No own version6");
-    expect(text).toContain("Tenants in total10");
+    expect(text).toContain("Hansa Wohnbau eG");
+    expect(text).toContain("2 tenants have their own version");
     expect(text).toContain("No registered notification uses this template directly.");
   });
 });

@@ -92,7 +92,7 @@ function PageView({
 
   return (
     <figure className="m-0 flex flex-col items-center gap-2" data-testid={`pdf-page-${pageNumber}`}>
-      <div className="relative w-fit bg-background shadow-md">
+      <div className="relative w-fit bg-card shadow-md">
         <canvas ref={mountCanvas} width={viewport.width} height={viewport.height} />
         <div
           ref={mountTextLayer}

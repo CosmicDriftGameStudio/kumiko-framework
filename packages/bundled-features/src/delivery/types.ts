@@ -13,7 +13,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import type { MailPayload } from "../renderer-foundation/index.js";
+import type { MailPayload, RenderedTemplateRef } from "../renderer-foundation/index.js";
 import type { EmailAttachmentRef } from "./attachment-ref.js";
 import { DELIVERY_CHANNEL_EXTENSION } from "./constants.js";
 
@@ -24,7 +24,11 @@ export type RenderedMail = {
   readonly html: string;
   readonly text: string;
   readonly previewText?: string;
+  readonly fromName?: string;
+  readonly replyTo?: string;
   readonly attachments?: readonly EmailAttachmentRef[];
+  /** The layout version the html was rendered through; the editor preview names it. */
+  readonly layout?: RenderedTemplateRef;
 };
 
 export type ChannelContext = {
@@ -71,6 +75,8 @@ export type RenderedMessage = {
   readonly html: string;
   readonly subject: string;
   readonly text?: string;
+  readonly fromName?: string;
+  readonly replyTo?: string;
   readonly attachments?: readonly EmailAttachmentRef[];
 };
 

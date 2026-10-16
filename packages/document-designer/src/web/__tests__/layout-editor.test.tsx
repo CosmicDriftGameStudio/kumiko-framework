@@ -26,6 +26,7 @@ const tenantSource: LayoutSourceView = {
   regions: { header: "<p>Kopf</p>", signature: "<p>Gruss</p>", footer: "<p>Fuss</p>" },
   effectiveFormat: "html",
   mjmlSource: null,
+  meta: {},
   locale: "de",
 };
 
@@ -35,6 +36,7 @@ const systemSource: LayoutSourceView = {
   regions: { header: "", signature: "", footer: "" },
   effectiveFormat: "mjml",
   mjmlSource: MJML,
+  meta: {},
   locale: "en",
 };
 
@@ -49,11 +51,20 @@ const okValidation = {
 
 type Call = { readonly type: string; readonly payload: unknown };
 
+let brandingLogoFile = "";
+
 function fakeDispatcher(source: LayoutSourceView | null, calls: Call[]): Dispatcher {
   const answers: Record<string, unknown> = {
     ...(source !== null && { "template-resolver:query:layout-source": source }),
     "template-resolver:query:overview": { rows: [], nextCursor: null, total: 0 },
     "template-resolver:query:validate": okValidation,
+    "managed-pages:query:branding": {
+      title: "Nordlicht",
+      accentColor: "#205265",
+      logoUrl: "",
+      logoFile: brandingLogoFile,
+      siteUrl: "https://nordlicht.example",
+    },
     "template-resolver:query:tenant-overrides": {
       activeOverrides: 1,
       draftOverrides: 0,
@@ -230,5 +241,68 @@ describe("LayoutEditor", () => {
       content:
         "<div data-header><p>Kopf</p></div><div data-content></div><div data-signature><p>Gruss</p></div><div data-footer><p>Fuss</p></div>",
     });
+  });
+
+  test("the header shows the branding logo as an image instead of a resource chip", async () => {
+    brandingLogoFile = "file-1";
+    try {
+      renderEditor(
+        ["TenantAdmin"],
+        {
+          ...tenantSource,
+          regions: {
+            ...tenantSource.regions,
+            header: '<p><img data-resource="logo" alt="Logo"></p>',
+          },
+        },
+        [],
+      );
+      const header = await screen.findByTestId("document-designer-region-header");
+      await waitFor(() =>
+        expect(header.querySelector("img")?.getAttribute("src")).toBe("/api/files/file-1"),
+      );
+      expect(header.textContent).toContain("from branding, max. 180 px wide");
+    } finally {
+      brandingLogoFile = "";
+    }
+  });
+
+  test("appearance edits are saved as layout meta, keeping only non-default values", async () => {
+    const calls: Call[] = [];
+    renderEditor(["TenantAdmin"], tenantSource, calls);
+    const width = await screen.findByLabelText("Width");
+    fireEvent.click(width);
+    fireEvent.click(await screen.findByRole("option", { name: "640 px" }));
+    const save = screen.getByTestId("document-designer-save");
+    await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(
+        calls.find((call) => call.type === "template-resolver:write:upsert-tenant"),
+      ).toBeDefined(),
+    );
+    expect(
+      calls.find((call) => call.type === "template-resolver:write:upsert-tenant")?.payload,
+    ).toMatchObject({ meta: { width: 640 }, status: "draft" });
+  });
+
+  test("an invalid outer background blocks saving and publishing and says why", async () => {
+    renderEditor(["TenantAdmin"], tenantSource, []);
+    const background = await screen.findByLabelText("Outer background");
+    fireEvent.change(background, { target: { value: "red" } });
+    await waitFor(() =>
+      expect(screen.getByTestId("document-designer-footer-message").textContent).toContain(
+        "Enter a colour like #f3f2ee.",
+      ),
+    );
+    expect(screen.getByTestId("document-designer-save").hasAttribute("disabled")).toBe(true);
+    expect(screen.getByTestId("document-designer-publish").hasAttribute("disabled")).toBe(true);
+  });
+
+  test("an mjml layout shows where its look comes from instead of appearance controls", async () => {
+    renderEditor(["SystemAdmin"], systemSource, []);
+    const rail = await screen.findByTestId("document-designer-appearance");
+    expect(rail.textContent).toContain("layout's MJML source");
+    expect(screen.queryByLabelText("Width")).toBeNull();
   });
 });

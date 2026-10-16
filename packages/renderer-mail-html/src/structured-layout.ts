@@ -3,19 +3,38 @@
 
 import {
   compileDocumentBodyToHandlebars,
+  isHexColor,
+  type MailLayoutAppearance,
+  mailLayoutAppearance,
   readLayoutRegions,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 
-const STRUCTURED_LAYOUT_FRAME = `<mjml>
+// The logo of a mail layout and of a mail body is capped here; the editors show the same width.
+export const MAIL_IMAGE_MAX_WIDTH_PX = 180;
+
+// Appearance values are enum members or a strict hex (see mailLayoutAppearance / isHexColor),
+// so interpolating them into the frame cannot inject MJML; the escaping keeps that if the schema widens.
+function structuredLayoutFrame(appearance: MailLayoutAppearance, accentColor: string | undefined) {
+  const accentLine =
+    appearance.accentLine && accentColor !== undefined && isHexColor(accentColor)
+      ? `<mj-section background-color="${escapeHtmlAttr(accentColor)}" padding="0">
+      <mj-column padding="0">
+        <mj-spacer height="4px" padding="0" />
+      </mj-column>
+    </mj-section>`
+      : "";
+  return `<mjml>
   <mj-head>
     <mj-title>{{subject}}</mj-title>
     <mj-preview>{{previewText}}</mj-preview>
     <mj-attributes>
-      <mj-all font-family="Helvetica, Arial, sans-serif" />
+      <mj-all font-family="${escapeHtmlAttr(appearance.fontFamily)}" />
       <mj-text font-size="14px" color="#333" line-height="1.6" />
     </mj-attributes>
   </mj-head>
-  <mj-body background-color="#f5f5f5">
+  <mj-body width="${appearance.width}px" background-color="${escapeHtmlAttr(appearance.outerBackground)}">
+    ${accentLine}
     {{#if regionHeader}}
     <mj-section background-color="#ffffff" padding="20px">
       <mj-column>
@@ -25,7 +44,7 @@ const STRUCTURED_LAYOUT_FRAME = `<mjml>
     {{/if}}
     <mj-section background-color="#ffffff" padding="20px">
       <mj-column>
-        <mj-raw>{{{content}}}</mj-raw>
+        <mj-text>{{{content}}}</mj-text>
       </mj-column>
     </mj-section>
     {{#if regionSignature}}
@@ -36,7 +55,7 @@ const STRUCTURED_LAYOUT_FRAME = `<mjml>
     </mj-section>
     {{/if}}
     {{#if regionFooter}}
-    <mj-section background-color="#f5f5f5" padding="20px">
+    <mj-section background-color="${escapeHtmlAttr(appearance.outerBackground)}" padding="20px">
       <mj-column>
         <mj-text font-size="11px" color="#888" align="center">{{{regionFooter}}}</mj-text>
       </mj-column>
@@ -44,6 +63,7 @@ const STRUCTURED_LAYOUT_FRAME = `<mjml>
     {{/if}}
   </mj-body>
 </mjml>`;
+}
 
 export type StructuredLayoutInput = {
   readonly layoutHtml: string;
@@ -54,6 +74,10 @@ export type StructuredLayoutInput = {
   readonly compile: (source: string) => (context: Readonly<Record<string, unknown>>) => string;
   /** src for `img[data-resource]` in the regions; without it layout images are dropped. */
   readonly resourceSrc?: (key: string) => string | undefined;
+  /** Parsed layout appearance; defaults apply when missing. */
+  readonly appearance?: MailLayoutAppearance;
+  /** Tenant branding accent color for the accent line; ignored unless it is a #rrggbb hex. */
+  readonly accentColor?: string;
 };
 
 export function renderStructuredLayoutMjml(input: StructuredLayoutInput): string {
@@ -65,10 +89,17 @@ export function renderStructuredLayoutMjml(input: StructuredLayoutInput): string
           compileDocumentBodyToHandlebars(
             region,
             {},
-            input.resourceSrc && { resourceSrc: input.resourceSrc },
+            {
+              ...(input.resourceSrc && { resourceSrc: input.resourceSrc }),
+              resourceImageMaxWidthPx: MAIL_IMAGE_MAX_WIDTH_PX,
+            },
           ),
         )(input.context);
-  return input.compile(STRUCTURED_LAYOUT_FRAME)({
+  const frame = structuredLayoutFrame(
+    input.appearance ?? mailLayoutAppearance({}),
+    input.accentColor,
+  );
+  return input.compile(frame)({
     ...input.context,
     content: input.contentHtml,
     regionHeader: renderRegion(regions.header),

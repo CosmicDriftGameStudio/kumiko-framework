@@ -16,6 +16,9 @@ export type SeedTemplate = {
 // Document HTML marks a variable as an empty span; only link targets take {{name}}.
 const v = (name: string): string => `<span data-variable="${name}"></span>`;
 
+// Resource key of the logo image the invoice mail embeds (uploaded by seed-templates.ts).
+export const LOGO_RESOURCE_KEY = "logo-nordlicht.png";
+
 const AUTH_VARIABLE_SCHEMA = {
   appName: { type: "text", required: true },
   actionUrl: { type: "link", required: true },
@@ -44,16 +47,134 @@ const DOCUMENT_LINES_SCHEMA = {
   },
 } as const;
 
+// Same variable names the billing notifications declare; labels follow the template language.
+type InvoiceDocumentLabels = {
+  readonly recipientAddress: string;
+  readonly invoiceNumber: string;
+  readonly invoiceDate: string;
+  readonly invoiceTotal: string;
+  readonly netTotal: string;
+  readonly vatAmount: string;
+  readonly dueDate: string;
+  readonly lines: string;
+  readonly position: string;
+  readonly description: string;
+  readonly period: string;
+  readonly net: string;
+  readonly paymentReference: string;
+  readonly iban: string;
+};
+
+function invoiceDocumentSchema(labels: InvoiceDocumentLabels) {
+  return {
+    recipientAddress: {
+      type: "text",
+      required: true,
+      label: labels.recipientAddress,
+      example: "Familie Yilmaz, Lindenstraße 14, 24103 Kiel",
+    },
+    invoiceNumber: {
+      type: "text",
+      required: true,
+      label: labels.invoiceNumber,
+      example: "RE-2026-0142",
+    },
+    invoiceDate: { type: "date", required: true, label: labels.invoiceDate, example: "2026-10-01" },
+    dueDate: { type: "date", required: true, label: labels.dueDate, example: "2026-10-15" },
+    netTotal: {
+      type: "money",
+      label: labels.netTotal,
+      example: { amount: 107900, currency: "EUR" },
+    },
+    vatAmount: {
+      type: "money",
+      label: labels.vatAmount,
+      example: { amount: 20501, currency: "EUR" },
+    },
+    invoiceTotal: {
+      type: "money",
+      required: true,
+      label: labels.invoiceTotal,
+      example: { amount: 128401, currency: "EUR" },
+    },
+    lines: {
+      type: "list",
+      required: true,
+      label: labels.lines,
+      item: {
+        position: { type: "text", label: labels.position },
+        description: { type: "text", label: labels.description },
+        period: { type: "text", label: labels.period },
+        net: { type: "money", label: labels.net },
+      },
+      example: [
+        {
+          position: "1",
+          description: "Kaltmiete Lindenstraße 14, WE 3",
+          period: "Okt 2026",
+          net: { amount: 98000, currency: "EUR" },
+        },
+        {
+          position: "2",
+          description: "Stellplatz 7",
+          period: "Okt 2026",
+          net: { amount: 9900, currency: "EUR" },
+        },
+      ],
+    },
+    paymentReference: {
+      type: "text",
+      label: labels.paymentReference,
+      example: "RE-2026-0142 / Yilmaz",
+    },
+    iban: { type: "text", label: labels.iban, example: "DE12 2105 0170 0012 3456 78" },
+  } as const;
+}
+
+const INVOICE_DOCUMENT_SCHEMA_DE = invoiceDocumentSchema({
+  recipientAddress: "Empfängeradresse",
+  invoiceNumber: "Rechnungsnummer",
+  invoiceDate: "Rechnungsdatum",
+  invoiceTotal: "Rechnungsbetrag",
+  netTotal: "Nettobetrag",
+  vatAmount: "Umsatzsteuer",
+  dueDate: "Fälligkeitsdatum",
+  lines: "Rechnungspositionen",
+  position: "Nr.",
+  description: "Bezeichnung",
+  period: "Zeitraum",
+  net: "Netto",
+  paymentReference: "Zahlungsreferenz",
+  iban: "IBAN",
+});
+
+const INVOICE_DOCUMENT_SCHEMA_EN = invoiceDocumentSchema({
+  recipientAddress: "Recipient address",
+  invoiceNumber: "Invoice number",
+  invoiceDate: "Invoice date",
+  invoiceTotal: "Invoice total",
+  netTotal: "Net amount",
+  vatAmount: "VAT",
+  dueDate: "Due date",
+  lines: "Invoice lines",
+  position: "No.",
+  description: "Description",
+  period: "Period",
+  net: "Net",
+  paymentReference: "Payment reference",
+  iban: "IBAN",
+});
+
 export const SYSTEM_PDF_LAYOUT: SeedTemplate = {
   slug: "default",
   kind: "pdf-layout",
   locale: "en",
   title: "Briefpapier",
   content: [
-    `<div data-header><p><strong>${v("tenantName")}</strong></p></div>`,
+    `<div data-header><table><tbody><tr><td><img data-resource="logo" alt="Nordlicht"></td><td><p data-align="right" data-size="small">Am Hafen 12 · 24103 Kiel</p></td></tr></tbody></table></div>`,
     "<div data-content></div>",
     "<div data-signature></div>",
-    `<div data-footer><p>${v("tenantName")} · Seite ${v("page")} von ${v("pages")}</p></div>`,
+    `<div data-footer><p>Seite ${v("page")} von ${v("pages")}</p><p>${v("tenantName")} · HRB 18422 Kiel · IBAN DE12 2105 0170 0012 3456 78</p></div>`,
   ].join(""),
 };
 
@@ -65,14 +186,14 @@ export const TENANT_MAIL_LAYOUT_VERSIONS: readonly string[] = [
     `<div data-footer><p>${v("tenantName")}</p></div>`,
   ].join(""),
   [
-    `<div data-header><p><strong>${v("tenantName")}</strong></p><p>Ihre Hausverwaltung in Kiel</p></div>`,
+    '<div data-header><img data-resource="logo" alt="Nordlicht"></div>',
     "<div data-content></div>",
     `<div data-signature><p>Mit freundlichen Grüßen</p><p>${v("signature")}</p><p>${v("tenantName")}</p></div>`,
-    `<div data-footer><p>${v("imprint")}</p><p><a href="https://nordlicht-immobilien.de/datenschutz">Datenschutz</a> · <a href="{{unsubscribeUrl}}">Abmelden</a></p></div>`,
+    `<div data-footer><p>${v("imprint")}</p><p><a href="https://nordlicht-immobilien.de/datenschutz">Datenschutz</a> · <a href="{{unsubscribeUrl}}">Abmeldelink</a></p></div>`,
   ].join(""),
 ];
 
-const LINES_TABLE = `<table><tbody><tr><th><p>Position</p></th><th><p>Betrag</p></th></tr><tr data-each="lines" data-repeat-header=""><td><p>${v("description")}</p></td><td><p>${v("amount")}</p></td></tr></tbody></table>`;
+const LINES_TABLE = `<table><tbody><tr><th><p>Position</p></th><th><p data-align="right">Betrag</p></th></tr><tr data-each="lines" data-repeat-header=""><td><p>${v("description")}</p></td><td><p data-align="right">${v("amount")}</p></td></tr><tr><td><p><strong>Gesamt</strong></p></td><td><p data-align="right">${v("invoiceTotal")}</p></td></tr></tbody></table>`;
 
 // The registry of the billing notifications declares the variables, so these
 // templates carry no variableSchema of their own.
@@ -82,14 +203,14 @@ function invoiceIssuedBody(args: {
 }): string {
   const due = args.withDueDate ? ` Bitte überweisen Sie den Betrag bis zum ${v("dueDate")}.` : "";
   return [
-    "<h2>Ihre Rechnung ist da</h2>",
+    `<h2>Ihre Rechnung ${v("invoiceNumber")}</h2>`,
     `<p>Guten Tag ${v("recipientName")},</p>`,
-    `<p>${args.intro} <strong>${v("invoiceNumber")}</strong> über <strong>${v("invoiceTotal")}</strong>.${due}</p>`,
-    '<a data-button href="{{invoiceUrl}}">Rechnung öffnen</a>',
+    `<p>${args.intro} ${v("invoiceNumber")} über ${v("invoiceTotal")}.${due} Die Rechnung finden Sie als PDF im Anhang und jederzeit online.</p>`,
+    '<a data-button href="{{invoiceUrl}}">Rechnung online ansehen</a>',
     LINES_TABLE,
     "<hr>",
-    "<p>Mit freundlichen Grüßen</p>",
-    `<p>${v("tenantName")}</p>`,
+    "<p>Bei Fragen zur Rechnung antworten Sie einfach auf diese E-Mail.</p>",
+    `<p>${v("signature")}</p>`,
   ].join("");
 }
 
@@ -99,6 +220,12 @@ const INVOICE_CORRECTED_SLUG = "billing:notify:invoice-corrected";
 const invoiceIssuedMeta = (subject: string) => ({
   subject,
   previewText: "Rechnung {{invoiceNumber}} über {{invoiceTotal}}, online abrufbar",
+});
+
+const tenantInvoiceMeta = (subject: string) => ({
+  ...invoiceIssuedMeta(subject),
+  senderName: "Nordlicht Immobilien GmbH",
+  replyTo: "buchhaltung@nordlicht-immobilien.de",
 });
 
 // The platform default has a due date; the tenant drafts below drop it, which
@@ -123,7 +250,7 @@ export const INVOICE_ISSUED_DRAFT_VERSIONS: readonly SeedTemplate[] = [
       intro: "anbei senden wir Ihnen die Rechnung",
       withDueDate: false,
     }),
-    meta: invoiceIssuedMeta("Ihre Rechnung {{invoiceNumber}}"),
+    meta: tenantInvoiceMeta("Ihre Rechnung {{invoiceNumber}}"),
   },
   {
     slug: INVOICE_ISSUED_SLUG,
@@ -131,7 +258,7 @@ export const INVOICE_ISSUED_DRAFT_VERSIONS: readonly SeedTemplate[] = [
     locale: "de",
     title: "Rechnung versendet",
     content: invoiceIssuedBody({ intro: "anbei erhalten Sie die Rechnung", withDueDate: false }),
-    meta: invoiceIssuedMeta("Ihre Rechnung {{invoiceNumber}} von {{tenantName}}"),
+    meta: tenantInvoiceMeta("Ihre Rechnung {{invoiceNumber}} von {{tenantName}}"),
   },
 ];
 
@@ -279,7 +406,22 @@ export const SYSTEM_AUTH_MAILS: readonly SeedTemplate[] = [
   ]),
 ];
 
-const INVOICE_DOCUMENT_ROWS = `<table><tbody><tr><th><p>Leistung</p></th><th><p>Betrag</p></th></tr><tr data-each="lines" data-repeat-header=""><td><p>${v("description")}</p></td><td><p>${v("amount")}</p></td></tr></tbody></table>`;
+const UTILITY_ROWS = `<table><tbody><tr><th><p>Leistung</p></th><th><p>Betrag</p></th></tr><tr data-each="lines" data-repeat-header=""><td><p>${v("description")}</p></td><td><p>${v("amount")}</p></td></tr></tbody></table>`;
+
+const right = (inner: string): string => `<p data-align="right">${inner}</p>`;
+
+function invoiceRows(labels: {
+  readonly service: string;
+  readonly period: string;
+  readonly net: string;
+}): string {
+  return [
+    "<table><tbody>",
+    `<tr><th><p>#</p></th><th><p>${labels.service}</p></th><th><p>${labels.period}</p></th><th><p data-align="right">${labels.net}</p></th></tr>`,
+    `<tr data-each="lines" data-repeat-header=""><td><p>${v("position")}</p></td><td><p>${v("description")}</p></td><td><p>${v("period")}</p></td><td><p data-align="right">${v("net")}</p></td></tr>`,
+    "</tbody></table>",
+  ].join("");
+}
 
 export const SYSTEM_INVOICE_DOCUMENTS: readonly SeedTemplate[] = [
   {
@@ -288,16 +430,29 @@ export const SYSTEM_INVOICE_DOCUMENTS: readonly SeedTemplate[] = [
     locale: "de",
     title: "Rechnung",
     content: [
+      `<p data-size="small"><u>Nordlicht Immobilien GmbH · Am Hafen 12 · 24103 Kiel</u></p>`,
+      `<p>${v("recipientAddress")}</p>`,
+      right(`Rechnungsnummer: ${v("invoiceNumber")}`),
+      right(`Rechnungsdatum: ${v("invoiceDate")}`),
+      right(`Fällig am: ${v("dueDate")}`),
       `<h1>Rechnung ${v("invoiceNumber")}</h1>`,
-      `<p>Rechnungsdatum: ${v("invoiceDate")}</p>`,
-      `<p>Guten Tag ${v("customerName")},</p>`,
-      "<p>für unsere Leistungen stellen wir Ihnen folgenden Betrag in Rechnung.</p>",
-      INVOICE_DOCUMENT_ROWS,
-      `<p><strong>Gesamtbetrag: ${v("total")}</strong></p>`,
-      "<p>Bitte überweisen Sie den Betrag innerhalb von 14 Tagen auf unser Konto.</p>",
+      "<p>Sehr geehrte Damen und Herren,</p>",
+      "<p>wir stellen Ihnen die folgenden Leistungen in Rechnung:</p>",
+      invoiceRows({ service: "Leistung", period: "Zeitraum", net: "Netto" }),
+      right(`Nettobetrag ${v("netTotal")}`),
+      right(`Umsatzsteuer 19 % ${v("vatAmount")}`),
+      right(`<strong>Rechnungsbetrag ${v("invoiceTotal")}</strong>`),
+      `<p>Bitte überweisen Sie den Rechnungsbetrag bis zum ${v("dueDate")} unter Angabe der Referenz ${v("paymentReference")} auf ${v("iban")}.</p>`,
+      "<div data-page-break></div>",
+      "<p>Zahlungsbedingungen und Hinweise auf Seite 2 …</p>",
     ].join(""),
-    meta: { layoutSlug: "default", pageFormat: "A4", fileName: "Rechnung.pdf" },
-    variableSchema: DOCUMENT_LINES_SCHEMA,
+    meta: {
+      layoutSlug: "default",
+      pageFormat: "A4",
+      fileName: "rechnung-{{invoiceNumber}}.pdf",
+      metadata: { title: "Rechnung {{invoiceNumber}}" },
+    },
+    variableSchema: INVOICE_DOCUMENT_SCHEMA_DE,
   },
   {
     slug: "billing:invoice",
@@ -305,16 +460,29 @@ export const SYSTEM_INVOICE_DOCUMENTS: readonly SeedTemplate[] = [
     locale: "en",
     title: "Invoice",
     content: [
+      `<p data-size="small"><u>Nordlicht Immobilien GmbH · Am Hafen 12 · 24103 Kiel</u></p>`,
+      `<p>${v("recipientAddress")}</p>`,
+      right(`Invoice number: ${v("invoiceNumber")}`),
+      right(`Invoice date: ${v("invoiceDate")}`),
+      right(`Due on: ${v("dueDate")}`),
       `<h1>Invoice ${v("invoiceNumber")}</h1>`,
-      `<p>Invoice date: ${v("invoiceDate")}</p>`,
-      `<p>Dear ${v("customerName")},</p>`,
-      "<p>we charge you the following amount for our services.</p>",
-      INVOICE_DOCUMENT_ROWS.replace("Leistung", "Service").replace("Betrag", "Amount"),
-      `<p><strong>Total: ${v("total")}</strong></p>`,
-      "<p>Please transfer the amount to our account within 14 days.</p>",
+      "<p>Dear Sir or Madam,</p>",
+      "<p>we charge you the following services:</p>",
+      invoiceRows({ service: "Service", period: "Period", net: "Net" }),
+      right(`Net amount ${v("netTotal")}`),
+      right(`VAT 19 % ${v("vatAmount")}`),
+      right(`<strong>Total ${v("invoiceTotal")}</strong>`),
+      `<p>Please transfer the amount by ${v("dueDate")} quoting the reference ${v("paymentReference")} to ${v("iban")}.</p>`,
+      "<div data-page-break></div>",
+      "<p>Terms of payment and notes on page 2 …</p>",
     ].join(""),
-    meta: { layoutSlug: "default", pageFormat: "A4", fileName: "Invoice.pdf" },
-    variableSchema: DOCUMENT_LINES_SCHEMA,
+    meta: {
+      layoutSlug: "default",
+      pageFormat: "A4",
+      fileName: "invoice-{{invoiceNumber}}.pdf",
+      metadata: { title: "Invoice {{invoiceNumber}}" },
+    },
+    variableSchema: INVOICE_DOCUMENT_SCHEMA_EN,
   },
 ];
 
@@ -328,7 +496,7 @@ export const TENANT_UTILITY_STATEMENT: SeedTemplate = {
     `<p>Abrechnungsdatum: ${v("invoiceDate")}</p>`,
     `<p>Guten Tag ${v("customerName")},</p>`,
     "<p>nachfolgend erhalten Sie die Abrechnung der Betriebskosten für den Abrechnungszeitraum.</p>",
-    INVOICE_DOCUMENT_ROWS,
+    UTILITY_ROWS,
     `<p><strong>Ergebnis: ${v("total")}</strong></p>`,
     "<p>Ein Guthaben überweisen wir Ihnen innerhalb von 30 Tagen, eine Nachzahlung ist zum Monatsende fällig.</p>",
   ].join(""),
@@ -352,3 +520,51 @@ export const SYSTEM_TENANCY_CERTIFICATE: SeedTemplate = {
     invoiceDate: { type: "date", required: true },
   },
 };
+
+// Two other tenants customise the invoice for the "Anpassungen der Mandanten" drawer: one
+// published copy with a second save, one draft.
+export type TenantInvoiceOverride = {
+  readonly tenantId: string;
+  readonly tenantKey: string;
+  readonly tenantName: string;
+  readonly adminEmail: string;
+  readonly adminName: string;
+  readonly status: "active" | "draft";
+  readonly versions: readonly SeedTemplate[];
+};
+
+const SYSTEM_INVOICE_DE = SYSTEM_INVOICE_DOCUMENTS[0] as SeedTemplate;
+const INVOICE_INTRO = "<p>wir stellen Ihnen die folgenden Leistungen in Rechnung:</p>";
+
+function invoiceWithIntro(sentence: string): SeedTemplate {
+  return {
+    ...SYSTEM_INVOICE_DE,
+    content: SYSTEM_INVOICE_DE.content.replace(INVOICE_INTRO, `<p>${sentence}</p>`),
+  };
+}
+
+export const TENANT_INVOICE_OVERRIDES: readonly TenantInvoiceOverride[] = [
+  {
+    tenantId: "00000000-0000-4000-8000-000000000004",
+    tenantKey: "kuestenwohnen",
+    tenantName: "Küstenwohnen Kiel GmbH",
+    adminEmail: "verwaltung@kuestenwohnen-kiel.de",
+    adminName: "M. Petersen",
+    status: "active",
+    versions: [
+      invoiceWithIntro("für den genannten Zeitraum stellen wir Ihnen Folgendes in Rechnung:"),
+      invoiceWithIntro(
+        "für den genannten Zeitraum stellen wir Ihnen Folgendes in Rechnung. Die Nebenkosten rechnen wir jährlich ab.",
+      ),
+    ],
+  },
+  {
+    tenantId: "00000000-0000-4000-8000-000000000005",
+    tenantKey: "hansa-wohnbau",
+    tenantName: "Hansa Wohnbau eG",
+    adminEmail: "rechnungswesen@hansa-wohnbau.de",
+    adminName: "K. Lorenzen",
+    status: "draft",
+    versions: [invoiceWithIntro("nachfolgend die Abrechnung für Ihre Wohnung:")],
+  },
+];

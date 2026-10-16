@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
+import type { MailMetaField } from "./mail-footer.js";
 import type { MailDraft } from "./mail-types.js";
 import type { InsertTargets } from "./use-insert-targets.js";
 
@@ -19,22 +20,31 @@ export type EditorVocabulary = {
 function MetaLine({
   label,
   testId,
+  error,
   onFocusCapture,
   children,
 }: {
   readonly label: string;
   readonly testId: string;
+  readonly error: string | undefined;
   readonly onFocusCapture: () => void;
   readonly children: ReactNode;
 }): ReactNode {
   return (
     <div
-      className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-2"
+      className="grid min-h-10 grid-cols-[84px_minmax(0,1fr)] items-center border-b bg-background px-4"
       data-testid={testId}
       onFocusCapture={onFocusCapture}
     >
-      <span className="text-sm text-muted-foreground">{label}</span>
-      {children}
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="min-w-0 flex-1">{children}</div>
+        {error !== undefined && (
+          <span className="shrink-0 text-xs text-status-bad" role="alert">
+            {error}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -45,6 +55,7 @@ export function MailEditCenter({
   resourcePreviews,
   insert,
   readOnly,
+  fieldErrors,
   onChange,
 }: {
   readonly draft: MailDraft;
@@ -52,46 +63,53 @@ export function MailEditCenter({
   readonly resourcePreviews: Readonly<Record<string, DocumentResourcePreview>>;
   readonly insert: InsertTargets;
   readonly readOnly: boolean;
+  readonly fieldErrors: Partial<Record<MailMetaField, string>>;
   readonly onChange: (patch: Partial<MailDraft>) => void;
 }): ReactNode {
   const t = useTranslation();
   return (
-    <div className="flex min-w-0 flex-col gap-3" data-testid="mail-editor-center">
-      <div className="flex flex-col gap-2 rounded-md border bg-muted p-3">
-        <MetaLine
-          label={t("documentDesigner.mail.meta.subject")}
-          testId="mail-meta-subject"
-          onFocusCapture={insert.markFocused("subject")}
-        >
-          <PlaceholderLineEditor
-            id="mail-subject"
-            value={draft.subject}
-            onChange={(subject) => onChange({ subject })}
-            variableLabels={vocabulary.labels}
-            systemVariables={vocabulary.system}
-            readOnly={readOnly}
-            onEditorReady={insert.register("subject")}
-            aria-label={t("documentDesigner.mail.meta.subject")}
-          />
-        </MetaLine>
-        <MetaLine
-          label={t("documentDesigner.mail.meta.previewText")}
-          testId="mail-meta-preview-text"
-          onFocusCapture={insert.markFocused("previewText")}
-        >
-          <PlaceholderLineEditor
-            id="mail-preview-text"
-            value={draft.previewText}
-            onChange={(previewText) => onChange({ previewText })}
-            variableLabels={vocabulary.labels}
-            systemVariables={vocabulary.system}
-            readOnly={readOnly}
-            onEditorReady={insert.register("previewText")}
-            aria-label={t("documentDesigner.mail.meta.previewText")}
-          />
-        </MetaLine>
-      </div>
-      <div onFocusCapture={insert.markFocused("body")} data-testid="mail-content">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="mail-editor-center">
+      <MetaLine
+        label={t("documentDesigner.mail.meta.subject")}
+        testId="mail-meta-subject"
+        error={fieldErrors.subject}
+        onFocusCapture={insert.markFocused("subject")}
+      >
+        <PlaceholderLineEditor
+          id="mail-subject"
+          value={draft.subject}
+          onChange={(subject) => onChange({ subject })}
+          variableLabels={vocabulary.labels}
+          systemVariables={vocabulary.system}
+          readOnly={readOnly}
+          flat
+          onEditorReady={insert.register("subject")}
+          aria-label={t("documentDesigner.mail.meta.subject")}
+        />
+      </MetaLine>
+      <MetaLine
+        label={t("documentDesigner.mail.meta.previewText")}
+        testId="mail-meta-preview-text"
+        error={fieldErrors.previewText}
+        onFocusCapture={insert.markFocused("previewText")}
+      >
+        <PlaceholderLineEditor
+          id="mail-preview-text"
+          value={draft.previewText}
+          onChange={(previewText) => onChange({ previewText })}
+          variableLabels={vocabulary.labels}
+          systemVariables={vocabulary.system}
+          readOnly={readOnly}
+          flat
+          onEditorReady={insert.register("previewText")}
+          aria-label={t("documentDesigner.mail.meta.previewText")}
+        />
+      </MetaLine>
+      <div
+        className="flex min-h-0 flex-1 flex-col"
+        onFocusCapture={insert.markFocused("body")}
+        data-testid="mail-content"
+      >
         <DocumentContentEditor
           id="mail-body"
           value={draft.body}

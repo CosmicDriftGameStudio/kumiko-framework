@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { PDF_PAGE_FORMATS, type TemplateKind } from "./constants.js";
+import { HEX_COLOR_PATTERN, PDF_PAGE_FORMATS, type TemplateKind } from "./constants.js";
 
 // One or more kebab segments joined by ":" — notification templates are seeded
 // under their qualified name `feature:notify:name`.
@@ -22,19 +22,26 @@ const singleLine = (max: number) =>
     .max(max)
     .refine((value) => !/[\r\n]/.test(value), "must not contain line breaks");
 
-const mailMetaSchema = z
-  .object({
-    subject: singleLine(200).min(1),
-    previewText: singleLine(200).optional(),
-    layoutSlug: templateSlugSchema.optional(),
-    category: z.enum(MAIL_CATEGORIES).optional(),
-    sender: z
-      .string()
-      .max(60)
-      .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "sender must be a kebab-case key")
-      .optional(),
-  })
-  .strict();
+// Rows saved before the sender key was dropped still carry it; discard it on read so they stay editable.
+function withoutLegacySender(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null || !("sender" in raw)) return raw;
+  const { sender: _legacySender, ...rest } = raw;
+  return rest;
+}
+
+const mailMetaSchema = z.preprocess(
+  withoutLegacySender,
+  z
+    .object({
+      subject: singleLine(200).min(1),
+      previewText: singleLine(200).optional(),
+      layoutSlug: templateSlugSchema.optional(),
+      category: z.enum(MAIL_CATEGORIES).optional(),
+      senderName: singleLine(80).min(1).optional(),
+      replyTo: singleLine(254).pipe(z.email()).optional(),
+    })
+    .strict(),
+);
 
 const PDF_ORIENTATIONS = ["portrait", "landscape"] as const;
 
@@ -71,11 +78,26 @@ const pdfMetaSchema = z
   })
   .strict();
 
-const layoutMetaSchema = z.object({}).strict();
+const MAIL_LAYOUT_FONTS = ["sans", "serif"] as const;
+const MAIL_LAYOUT_ACCENT_LINES = ["branding", "none"] as const;
+const MAIL_LAYOUT_BUTTON_STYLES = ["filled-rounded", "filled-square", "outline"] as const;
+
+const mailLayoutMetaSchema = z
+  .object({
+    width: z.union([z.literal(560), z.literal(600), z.literal(640)]).optional(),
+    font: z.enum(MAIL_LAYOUT_FONTS).optional(),
+    outerBackground: z.string().regex(HEX_COLOR_PATTERN, "must be a #rrggbb color").optional(),
+    accentLine: z.enum(MAIL_LAYOUT_ACCENT_LINES).optional(),
+    buttonStyle: z.enum(MAIL_LAYOUT_BUTTON_STYLES).optional(),
+  })
+  .strict();
+
+const pdfLayoutMetaSchema = z.object({}).strict();
 
 export type MailTemplateMeta = z.infer<typeof mailMetaSchema>;
 export type PdfTemplateMeta = z.infer<typeof pdfMetaSchema>;
-export type LayoutTemplateMeta = z.infer<typeof layoutMetaSchema>;
+export type MailLayoutMeta = z.infer<typeof mailLayoutMetaSchema>;
+export type LayoutTemplateMeta = MailLayoutMeta | z.infer<typeof pdfLayoutMetaSchema>;
 export type TemplateMeta = MailTemplateMeta | PdfTemplateMeta | LayoutTemplateMeta;
 
 export function isMailTemplateMeta(meta: TemplateMeta | null): meta is MailTemplateMeta {
@@ -87,7 +109,29 @@ export function readPdfTemplateMeta(meta: TemplateMeta | null): PdfTemplateMeta 
   return parsed.success ? parsed.data : null;
 }
 
-export type TemplateMetaIssue = { readonly path: string; readonly message: string };
+export function readMailLayoutMeta(meta: unknown): MailLayoutMeta {
+  const parsed = mailLayoutMetaSchema.safeParse(meta ?? {});
+  return parsed.success ? parsed.data : {};
+}
+
+export type TemplateMetaIssue = {
+  readonly path: string;
+  /** The setting the issue is about (`subject`), `meta` when it concerns the object as a whole. */
+  readonly field: string;
+  /** The value is absent or empty, as opposed to present and wrong. */
+  readonly missing: boolean;
+  /** Parser wording; for logs and tests, never for the UI. */
+  readonly message: string;
+};
+
+function valueAt(raw: unknown, path: readonly PropertyKey[]): unknown {
+  let current: unknown = raw;
+  for (const key of path) {
+    if (typeof current !== "object" || current === null) return undefined;
+    current = Object.entries(current).find(([name]) => name === String(key))?.[1];
+  }
+  return current;
+}
 
 export type TemplateMetaResult =
   | { readonly ok: true; readonly meta: TemplateMeta | null }
@@ -100,8 +144,9 @@ function schemaForKind(kind: TemplateKind) {
     case "document-pdf":
       return pdfMetaSchema;
     case "mail-layout":
+      return mailLayoutMetaSchema;
     case "pdf-layout":
-      return layoutMetaSchema;
+      return pdfLayoutMetaSchema;
     default:
       return null;
   }
@@ -114,16 +159,31 @@ export function parseTemplateMeta(kind: TemplateKind, raw: unknown): TemplateMet
   if (schema === null) {
     return raw === undefined || raw === null
       ? { ok: true, meta: null }
-      : { ok: false, issues: [{ path: "meta", message: `kind ${kind} does not take meta` }] };
+      : {
+          ok: false,
+          issues: [
+            {
+              path: "meta",
+              field: "meta",
+              missing: false,
+              message: `kind ${kind} does not take meta`,
+            },
+          ],
+        };
   }
   if ((raw === undefined || raw === null) && kind !== "mail") return { ok: true, meta: null };
   const parsed = schema.safeParse(raw ?? undefined);
   if (parsed.success) return { ok: true, meta: parsed.data };
   return {
     ok: false,
-    issues: parsed.error.issues.map((issue) => ({
-      path: ["meta", ...issue.path.map(String)].join("."),
-      message: issue.message,
-    })),
+    issues: parsed.error.issues.map((issue) => {
+      const value = valueAt(raw, issue.path);
+      return {
+        path: ["meta", ...issue.path.map(String)].join("."),
+        field: issue.path.length === 0 ? "meta" : String(issue.path[0]),
+        missing: value === undefined || value === "",
+        message: issue.message,
+      };
+    }),
   };
 }

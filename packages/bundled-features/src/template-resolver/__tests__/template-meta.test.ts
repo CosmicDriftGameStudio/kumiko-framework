@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { parseTemplateMeta, readPdfTemplateMeta, templateSlugSchema } from "../template-meta";
+import { mailLayoutAppearance } from "../layout-appearance";
+import {
+  parseTemplateMeta,
+  readMailLayoutMeta,
+  readPdfTemplateMeta,
+  templateSlugSchema,
+} from "../template-meta";
 
 describe("parseTemplateMeta", () => {
   test("mail requires a subject", () => {
@@ -24,10 +30,36 @@ describe("parseTemplateMeta", () => {
     expect(parseTemplateMeta("mail", { subject: "Hi", category: "marketing" }).ok).toBe(true);
   });
 
+  test("the legacy sender key is dropped instead of rejected", () => {
+    expect(parseTemplateMeta("mail", { subject: "Hi", sender: "kebab" })).toEqual({
+      ok: true,
+      meta: { subject: "Hi" },
+    });
+  });
+
+  test("senderName and replyTo are accepted; line breaks and non-addresses are rejected", () => {
+    expect(
+      parseTemplateMeta("mail", {
+        subject: "Hi",
+        senderName: "Nordlicht Immobilien GmbH",
+        replyTo: "buchhaltung@nordlicht-immobilien.de",
+      }).ok,
+    ).toBe(true);
+    expect(parseTemplateMeta("mail", { subject: "Hi", senderName: "A\r\nBcc: x@y.z" }).ok).toBe(
+      false,
+    );
+    expect(parseTemplateMeta("mail", { subject: "Hi", senderName: "x".repeat(81) }).ok).toBe(false);
+    expect(parseTemplateMeta("mail", { subject: "Hi", replyTo: "not-an-address" }).ok).toBe(false);
+    expect(parseTemplateMeta("mail", { subject: "Hi", replyTo: "a@b.de\r\nBcc: x@y.z" }).ok).toBe(
+      false,
+    );
+  });
+
   test("layouts accept empty meta or none; other kinds take no meta", () => {
     expect(parseTemplateMeta("mail-layout", undefined)).toEqual({ ok: true, meta: null });
     expect(parseTemplateMeta("mail-layout", {})).toEqual({ ok: true, meta: {} });
     expect(parseTemplateMeta("mail-layout", { subject: "x" }).ok).toBe(false);
+    expect(parseTemplateMeta("pdf-layout", { width: 600 }).ok).toBe(false);
     expect(parseTemplateMeta("text-block", { subject: "x" }).ok).toBe(false);
     expect(parseTemplateMeta("text-block", undefined)).toEqual({ ok: true, meta: null });
   });
@@ -101,5 +133,40 @@ describe("templateSlugSchema", () => {
   });
   test.each(["Welcome", "a_b", "a::b", "-a", "a b", ""])("rejects %j", (slug) => {
     expect(templateSlugSchema.safeParse(slug).success).toBe(false);
+  });
+});
+
+describe("mail layout appearance meta", () => {
+  test("accepts every appearance field", () => {
+    const meta = {
+      width: 560,
+      font: "serif",
+      outerBackground: "#A0b1C2",
+      accentLine: "branding",
+      buttonStyle: "filled-square",
+    } as const;
+    expect(parseTemplateMeta("mail-layout", meta)).toEqual({ ok: true, meta });
+  });
+
+  test.each([
+    { width: 601 },
+    { font: "mono" },
+    { outerBackground: "#fff" },
+    { outerBackground: "#12345g" },
+    { accentLine: "always" },
+    { buttonStyle: "pill" },
+    { unknown: 1 },
+  ])("rejects %o with an issue under meta", (meta) => {
+    const result = parseTemplateMeta("mail-layout", meta);
+    expect(result.ok).toBe(false);
+  });
+
+  test("an invalid stored value reads as defaults", () => {
+    expect(readMailLayoutMeta({ width: 999 })).toEqual({});
+    expect(mailLayoutAppearance({ width: 999 })).toMatchObject({
+      width: 600,
+      outerBackground: "#f5f5f5",
+      accentLine: false,
+    });
   });
 });

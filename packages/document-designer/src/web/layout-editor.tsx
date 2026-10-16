@@ -3,11 +3,7 @@ import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/te
 import { useNav, useQuery, useUserRoles } from "@cosmicdrift/kumiko-renderer";
 import { ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
-import {
-  DEFAULT_LAYOUT_SLUG,
-  PLATFORM_TEMPLATES_SCREEN_ID,
-  TEMPLATES_SCREEN_ID,
-} from "../constants.js";
+import { DEFAULT_LAYOUT_SLUG } from "../constants.js";
 import { LayoutEditorBody } from "./layout-editor-body.js";
 import type { LayoutKind, LayoutSourceView, TenantOverrideCounts } from "./layout-types.js";
 import { parseOverviewRow } from "./overview-row.js";
@@ -29,7 +25,6 @@ function LayoutEditorLoader({
   readonly isSystemAdmin: boolean;
   readonly onKindChange: (kind: LayoutKind) => void;
 }): ReactNode {
-  const nav = useNav();
   const source = useQuery<LayoutSourceView>(TemplateResolverQueries.layoutSource, { kind, slug });
   const overview = useQuery<OverviewResponse>(TemplateResolverQueries.overview, { limit: 200 });
   const overrides = useQuery<TenantOverrideCounts>(
@@ -70,11 +65,6 @@ function LayoutEditorLoader({
       overrides={isSystemAdmin ? overrides.data : null}
       onKindChange={onKindChange}
       onReload={reload}
-      onBack={() =>
-        nav.navigate({
-          screenId: isSystemAdmin ? PLATFORM_TEMPLATES_SCREEN_ID : TEMPLATES_SCREEN_ID,
-        })
-      }
     />
   );
 }

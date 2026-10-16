@@ -50,7 +50,11 @@ export type MailPreview = {
   readonly displayHtml?: string;
   readonly text: string | null;
   readonly attachments: readonly PreviewAttachment[];
-  readonly layout: { readonly slug: string; readonly scope: string } | null;
+  readonly mailLayout?: {
+    readonly slug: string;
+    readonly scope: string;
+    readonly version: number;
+  } | null;
   readonly sampleValues: Readonly<Record<string, unknown>>;
   readonly checks: readonly PreviewCheck[];
 };
@@ -87,6 +91,8 @@ export type MailDraft = {
   readonly previewText: string;
   readonly layoutSlug: string;
   readonly category: MailCategory;
+  readonly senderName: string;
+  readonly replyTo: string;
   readonly body: string;
 };
 
