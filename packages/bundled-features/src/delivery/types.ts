@@ -14,11 +14,7 @@ import type {
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { MailPayload } from "../renderer-foundation/index.js";
-import type {
-  EmailAttachmentRef,
-  FileAttachmentRef,
-  InlineAttachmentRef,
-} from "./attachment-ref.js";
+import type { EmailAttachmentRef } from "./attachment-ref.js";
 import { DELIVERY_CHANNEL_EXTENSION } from "./constants.js";
 
 // --- Channel Interface ---
@@ -28,7 +24,7 @@ export type RenderedMail = {
   readonly html: string;
   readonly text: string;
   readonly previewText?: string;
-  readonly attachments?: readonly (InlineAttachmentRef | FileAttachmentRef)[];
+  readonly attachments?: readonly EmailAttachmentRef[];
 };
 
 export type ChannelContext = {

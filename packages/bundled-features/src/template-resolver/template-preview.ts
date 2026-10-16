@@ -18,8 +18,7 @@ import { fileContextForTenant } from "../file-foundation/index.js";
 import {
   collectRendererPlugins,
   createRendererFoundationApi,
-  type FileAttachmentRef,
-  type InlineAttachmentRef,
+  type MailAttachmentRef,
   RendererError,
   type RendererPlugin,
 } from "../renderer-foundation/index.js";
@@ -29,8 +28,10 @@ import { MAIL_PREVIEW_MAX_BYTES, SYSTEM_TENANT_ID, type TemplateScope } from "./
 import { parseStoredJson } from "./handlers/template-gates.js";
 import { validateTemplateDraft } from "./handlers/validate.query.js";
 import { type LayoutRegions, readLayoutRegions, sanitizeLayoutHtml } from "./layout-regions.js";
+import { type LinkedResourceEntry, parseLinkedResourceEntries } from "./linked-resources.js";
 import { buildDisplayHtml } from "./preview-display-html.js";
 import { TemplateResolverErrors } from "./qualified-names.js";
+import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 import {
   isMailTemplateMeta,
   type MailTemplateMeta,
@@ -103,7 +104,13 @@ export type PreviewAttachment =
       readonly name: string;
       readonly sizeBytes: number;
     }
-  | { readonly kind: "file"; readonly name: string; readonly sizeBytes: number };
+  | { readonly kind: "file"; readonly name: string; readonly sizeBytes: number }
+  // Rendered when the mail is sent, so the preview knows the name but not the size.
+  | {
+      readonly kind: "rendered-pdf";
+      readonly name: string;
+      readonly templateSlug: string;
+    };
 
 export type PreviewLayout = {
   readonly slug: string;
@@ -143,7 +150,7 @@ export type TemplatePreviewOutcome =
       readonly ok: true;
       readonly preview: TemplatePreview;
       /** What the send path needs to attach; kept out of the response shown to the editor. */
-      readonly mailAttachments: readonly (InlineAttachmentRef | FileAttachmentRef)[];
+      readonly mailAttachments: readonly MailAttachmentRef[];
     }
   | { readonly ok: false; readonly error: KumikoError };
 
@@ -171,22 +178,58 @@ async function loadStoredDraft(
 
 async function describeAttachments(
   ctx: HandlerContext,
-  refs: readonly (InlineAttachmentRef | FileAttachmentRef)[],
+  refs: readonly MailAttachmentRef[],
 ): Promise<PreviewAttachment[]> {
-  if (refs.length === 0) return [];
-  const rows = await selectMany<{ id: string; size: number | bigint | string }>(
-    ctx.db,
-    fileRefsTable,
-    { id: refs.map((ref) => ref.fileRefId) },
-  );
+  const fileRefIds = refs.flatMap((ref) => (ref.kind === "rendered-pdf" ? [] : [ref.fileRefId]));
+  const rows =
+    fileRefIds.length === 0
+      ? []
+      : await selectMany<{ id: string; size: number | bigint | string }>(ctx.db, fileRefsTable, {
+          id: fileRefIds,
+        });
   const sizeById = new Map(rows.map((row) => [row.id, Number(row.size)]));
   // An inline image is named by its content id because the stored file name is personal data and
   // may be ciphertext; a file attachment carries the name the admin gave it.
-  return refs.map((ref) =>
-    ref.kind === "inline"
-      ? { kind: "inline", cid: ref.cid, name: ref.cid, sizeBytes: sizeById.get(ref.fileRefId) ?? 0 }
-      : { kind: "file", name: ref.fileName, sizeBytes: sizeById.get(ref.fileRefId) ?? 0 },
+  return refs.map((ref) => previewAttachmentOf(ref, sizeById));
+}
+
+function previewAttachmentOf(
+  ref: MailAttachmentRef,
+  sizeById: ReadonlyMap<string, number>,
+): PreviewAttachment {
+  switch (ref.kind) {
+    case "inline":
+      return {
+        kind: "inline",
+        cid: ref.cid,
+        name: ref.cid,
+        sizeBytes: sizeById.get(ref.fileRefId) ?? 0,
+      };
+    case "file":
+      return { kind: "file", name: ref.fileName, sizeBytes: sizeById.get(ref.fileRefId) ?? 0 };
+    case "rendered-pdf":
+      return { kind: "rendered-pdf", name: ref.fileName, templateSlug: ref.templateSlug };
+  }
+}
+
+const attachmentSizeOf = (attachment: PreviewAttachment): number =>
+  attachment.kind === "rendered-pdf" ? 0 : attachment.sizeBytes;
+
+// The row an editor is working on, whatever its status: the stored template only resolves when
+// active, so a draft would otherwise lose the images and attachments uploaded to it.
+async function loadEditedRowResources(
+  ctx: HandlerContext,
+  user: SessionUser,
+  input: TemplatePreviewInput,
+): Promise<Record<string, LinkedResourceEntry> | undefined> {
+  const rows = await selectMany<TemplateResourceRow>(
+    ctx.db,
+    templateResourcesTable,
+    { tenantId: user.tenantId, slug: input.slug, kind: "mail", locale: input.locale },
+    { limit: 1 },
   );
+  const row = rows[0];
+  return row === undefined ? undefined : parseLinkedResourceEntries(row.linkedResources);
 }
 
 async function resolvePdfLayout(
@@ -409,6 +452,8 @@ export async function renderTemplatePreview(
     );
   }
   const mailMeta: MailTemplateMeta = meta.meta;
+  const editedResources =
+    input.content === undefined ? undefined : await loadEditedRowResources(ctx, user, input);
   let rendered: Awaited<ReturnType<ReturnType<typeof createTemplateMailRenderer>>>;
   try {
     rendered = await createTemplateMailRenderer(
@@ -420,7 +465,12 @@ export async function renderTemplatePreview(
       slug: input.slug,
       locale: input.locale,
       variables: sampleValues,
-      draft: { content, meta: mailMeta, variableSchema: draftVariableSchema },
+      draft: {
+        content,
+        meta: mailMeta,
+        variableSchema: draftVariableSchema,
+        ...(editedResources !== undefined && { linkedResources: editedResources }),
+      },
     });
   } catch (e) {
     return toRenderFailure(e);
@@ -441,7 +491,7 @@ export async function renderTemplatePreview(
   const totalBytes =
     utf8Bytes(rendered.html) +
     utf8Bytes(rendered.text) +
-    attachments.reduce((sum, attachment) => sum + attachment.sizeBytes, 0);
+    attachments.reduce((sum, attachment) => sum + attachmentSizeOf(attachment), 0);
   return {
     ok: true,
     mailAttachments,

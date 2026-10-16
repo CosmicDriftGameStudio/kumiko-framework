@@ -1129,6 +1129,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.attachment.limit": "A template can have at most {max} attachments.",
   "templateResolver.errors.attachment.invalid":
     "The attachment needs a template, a key and a valid file name.",
+  "templateResolver.errors.attachment.pdfTemplateMissing":
+    "There is no PDF template “{slug}” for this tenant or the system.",
   "template-resolver.documentEditor.htmlSource": "HTML source",
   "template-resolver.documentEditor.removeBlock": "Remove block",
   "template-resolver.documentEditor.selectedBlock": "Selected block",

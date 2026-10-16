@@ -71,6 +71,15 @@ export {
   type SanitizeLayoutResult,
   sanitizeLayoutHtml,
 } from "./layout-regions.js";
+export {
+  fileAttachmentsOf,
+  imageLinksOf,
+  type LinkedResourceEntry,
+  parseLinkedResourceEntries,
+  pdfAttachmentLinksOf,
+  type TemplatePdfAttachmentLink,
+  templatePdfAttachmentLinkSchema,
+} from "./linked-resources.js";
 export { prepareDocumentForPrint } from "./print-document.js";
 export {
   TEMPLATE_RESOLVER_FEATURE,
@@ -98,6 +107,7 @@ export {
   type MailTemplateMeta,
   type PdfTemplateMeta,
   parseTemplateMeta,
+  pdfAttachmentFileNamePatternSchema,
   readPdfTemplateMeta,
   type TemplateMeta,
   type TemplateMetaIssue,

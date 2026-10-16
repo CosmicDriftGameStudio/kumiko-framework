@@ -96,11 +96,14 @@ async function storeBundleResources(
   args: BundleImport,
 ): Promise<WriteResult<Record<string, LinkedResourceEntry>>> {
   const linked: Record<string, LinkedResourceEntry> = {};
-  const attachmentCount = Object.values(args.bundle.resources).filter(
-    (resource) => resource.purpose === "attachment",
-  ).length;
+  const pdfLinks = Object.entries(args.bundle.pdfAttachments);
+  const attachmentCount =
+    Object.values(args.bundle.resources).filter((resource) => resource.purpose === "attachment")
+      .length + pdfLinks.length;
   if (attachmentCount > 0 && args.bundle.kind !== "mail") return attachmentNeedsMailTemplate();
   if (attachmentCount > MAX_FILE_ATTACHMENTS_PER_TEMPLATE) return attachmentLimitFailure();
+  // The document template is not looked up: a bundle may carry it later than the mail.
+  for (const [key, link] of pdfLinks) linked[key] = { kind: "rendered-pdf", ...link };
   const maxBytes = await readTemplateResourceMaxBytes(args.ctx.config, args.ctx.registry);
   // A bundle is untrusted input like an upload: the same re-encoding decides the stored
   // content type, so a declared image/png can't smuggle SVG or HTML into a mail or PDF.

@@ -1,6 +1,7 @@
 import * as z from "zod";
 import { CONTENT_FORMATS, UPSERT_KINDS } from "./constants.js";
 import { isDocumentResourceKey } from "./document-schema.js";
+import { templatePdfAttachmentLinkSchema } from "./linked-resources.js";
 import { templateSlugSchema } from "./template-meta.js";
 
 const MAX_RESOURCES = 20;
@@ -35,6 +36,8 @@ const bundleResourceSchema = z
   })
   .strict();
 
+const pdfAttachmentLinkBodySchema = templatePdfAttachmentLinkSchema.omit({ kind: true });
+
 const bundleLocaleEntrySchema = z
   .object({ body: z.string().max(200_000), meta: z.unknown().optional() })
   .strict();
@@ -59,7 +62,18 @@ export const templateBundleSchema = z
         message: `a bundle holds at most ${MAX_RESOURCES} resources`,
       })
       .default({}),
+    // PDFs rendered from document templates at send time; nothing to store, so no bytes.
+    pdfAttachments: z
+      .record(
+        z.string().refine(isDocumentResourceKey, { message: "not a valid resource key" }),
+        pdfAttachmentLinkBodySchema,
+      )
+      .default({}),
   })
-  .strict();
+  .strict()
+  .refine(
+    (bundle) => Object.keys(bundle.pdfAttachments).every((key) => !(key in bundle.resources)),
+    { message: "a key is used by a resource and a PDF attachment", path: ["pdfAttachments"] },
+  );
 
 export type TemplateBundle = z.infer<typeof templateBundleSchema>;

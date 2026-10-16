@@ -1,8 +1,4 @@
-import {
-  defineWriteHandler,
-  type TenantId,
-  type WriteResult,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import {
   NotFoundError,
   UnprocessableError,
@@ -23,7 +19,7 @@ import {
   storeTemplateAttachment,
   storeTemplateResource,
 } from "../store-template-resource.js";
-import { RESOURCE_PURPOSES, resourceKeySchema } from "./resource-shared.js";
+import { RESOURCE_PURPOSES, resourceKeySchema, resourceTargetTenantId } from "./resource-shared.js";
 
 type AttachmentTarget = {
   readonly templateId: string;
@@ -114,9 +110,7 @@ export const resourceUploadWrite = defineWriteHandler({
     if (source === null) return writeFailure(new NotFoundError("file-ref", sourceFileRefId));
 
     // The source upload stays as an unclaimed file: bundled-features cannot reach the fileRef executor to delete it.
-    // @cast-boundary engine-payload — override is a zod-validated string; forTenant
-    // rejects it for non-SystemAdmins.
-    const tenantId = (event.payload.tenantIdOverride ?? event.user.tenantId) as TenantId;
+    const tenantId = resourceTargetTenantId(event.payload.tenantIdOverride, event.user.tenantId);
     if (attachmentTarget !== null) {
       return storeTemplateAttachment({
         ctx,

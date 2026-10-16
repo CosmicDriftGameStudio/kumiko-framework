@@ -12,6 +12,7 @@
 
 import {
   type InlineAttachmentRef,
+  type MailAttachmentRef,
   type MailDraft,
   type RenderedTemplateRef,
   type RendererContext,
@@ -23,9 +24,12 @@ import {
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   createTemplateResolverApi,
+  fileAttachmentsOf,
+  imageLinksOf,
   isMailTemplateMeta,
   type MailTemplateMeta,
   parseTemplateMeta,
+  pdfAttachmentLinksOf,
   readLayoutRegions,
   resolveTemplateVariables,
   sanitizeDocumentHtml,
@@ -47,7 +51,7 @@ import {
   readTenantName,
   resolveResourceFileRefs,
 } from "./document-kit.js";
-import { combineMailAttachments } from "./mail-attachments.js";
+import { buildRenderedPdfAttachments, combineMailAttachments } from "./mail-attachments.js";
 import { renderStructuredLayoutMjml } from "./structured-layout.js";
 
 const LINE_BREAKS = /[\r\n]+/g;
@@ -213,6 +217,11 @@ function applyMailDraft(
     contentFormat: "html",
     meta: parsedMeta.meta,
     variableSchema: { ...(draft.variableSchema ?? base.variableSchema) },
+    ...(draft.linkedResources !== undefined && {
+      linkedResources: imageLinksOf(draft.linkedResources),
+      fileAttachments: fileAttachmentsOf(draft.linkedResources),
+      pdfAttachmentLinks: pdfAttachmentLinksOf(draft.linkedResources),
+    }),
   };
 }
 
@@ -292,6 +301,22 @@ function renderSubjectLine(
   return compileDocumentSource(hbs, source, { noEscape: true })(context).replace(LINE_BREAKS, "");
 }
 
+function renderFileNamePattern(
+  hbs: typeof Handlebars,
+  pattern: string,
+  slug: string,
+  context: Readonly<Record<string, unknown>>,
+): string {
+  try {
+    return renderSubjectLine(hbs, pattern, context);
+  } catch (e) {
+    throw new RendererError(
+      `renderer-mail-html: rendering the attachment file name "${pattern}" of "${slug}" failed — ${describe(e)}`,
+      "other",
+    );
+  }
+}
+
 function renderSubjectLines(
   hbs: typeof Handlebars,
   meta: MailTemplateMeta,
@@ -312,6 +337,33 @@ function renderSubjectLines(
       "other",
     );
   }
+}
+
+function assembleMailAttachments(args: {
+  readonly slug: string;
+  readonly template: TemplateResource;
+  readonly resourceFileRefs: ReadonlyMap<string, string>;
+  readonly variables: Readonly<Record<string, unknown>>;
+  readonly locale: string;
+  readonly renderFileName: (pattern: string) => string;
+}): readonly MailAttachmentRef[] {
+  const { slug, template, resourceFileRefs, variables, locale, renderFileName } = args;
+  const inlineAttachments: readonly InlineAttachmentRef[] = [...resourceFileRefs].map(
+    ([cid, fileRefId]) => ({ kind: "inline", cid, fileRefId }),
+  );
+  const renderedPdfs = buildRenderedPdfAttachments({
+    slug,
+    links: template.pdfAttachmentLinks ?? [],
+    variables,
+    locale,
+    renderFileName,
+  });
+  return combineMailAttachments(
+    slug,
+    inlineAttachments,
+    template.fileAttachments ?? [],
+    renderedPdfs,
+  );
 }
 
 export async function mailHtmlRender(
@@ -348,14 +400,14 @@ export async function mailHtmlRender(
   const { contentHtml } = body;
   const layoutFileRefs = await resolveLayoutFileRefs(tplApi, ctx, layout);
   const resourceFileRefs = mergeResourceFileRefs(body.resourceFileRefs, layoutFileRefs);
-  const inlineAttachments: readonly InlineAttachmentRef[] = [...resourceFileRefs].map(
-    ([cid, fileRefId]) => ({ kind: "inline", cid, fileRefId }),
-  );
-  const attachments = combineMailAttachments(
+  const attachments = assembleMailAttachments({
     slug,
-    inlineAttachments,
-    template.fileAttachments ?? [],
-  );
+    template,
+    resourceFileRefs,
+    variables,
+    locale,
+    renderFileName: (pattern) => renderFileNamePattern(hbs, pattern, slug, context),
+  });
   const { subject, previewText } = renderSubjectLines(hbs, meta, slug, context);
 
   let mjmlSource: string;

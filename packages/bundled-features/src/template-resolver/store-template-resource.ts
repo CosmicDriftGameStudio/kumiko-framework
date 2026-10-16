@@ -1,4 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type {
   ConfigAccessor,
   HandlerContext,
@@ -16,6 +16,7 @@ import { createFileRefFromBytes } from "@cosmicdrift/kumiko-framework/files";
 import { fileContextForTenant } from "../file-foundation/index.js";
 import type { FileAttachmentRef } from "../renderer-foundation/index.js";
 import { requireForTenant } from "../shared/index.js";
+import { SYSTEM_TENANT_ID } from "./constants.js";
 import {
   DEFAULT_RESOURCE_MAX_BYTES,
   MAX_FILE_ATTACHMENTS_PER_TEMPLATE,
@@ -23,9 +24,10 @@ import {
 } from "./handlers/resource-shared.js";
 import { executor } from "./handlers/shared.js";
 import {
-  isFileAttachmentEntry,
+  attachmentEntriesOf,
   type LinkedResourceEntry,
   parseLinkedResourceEntries,
+  templatePdfAttachmentLinkSchema,
 } from "./linked-resources.js";
 import { TemplateResolverErrors } from "./qualified-names.js";
 import { normalizeResourceImage } from "./resource-image.js";
@@ -190,6 +192,14 @@ export function attachmentLimitFailure(): WriteResult<never> {
   );
 }
 
+// Files and rendered PDFs share one cap; the entry being replaced under `key` does not count.
+export function otherAttachmentCount(
+  linked: Readonly<Record<string, LinkedResourceEntry>>,
+  key: string,
+): number {
+  return attachmentEntriesOf(linked).filter(([linkedKey]) => linkedKey !== key).length;
+}
+
 function inspectAttachmentBytes(
   bytes: Uint8Array,
   maxBytes: number,
@@ -290,10 +300,9 @@ export async function storeTemplateAttachment(args: {
   if (row.kind !== "mail") return attachmentNeedsMailTemplate();
 
   const linked = parseLinkedResourceEntries(row.linkedResources);
-  const otherFileCount = Object.entries(linked).filter(
-    ([linkedKey, entry]) => linkedKey !== key && isFileAttachmentEntry(entry),
-  ).length;
-  if (otherFileCount >= MAX_FILE_ATTACHMENTS_PER_TEMPLATE) return attachmentLimitFailure();
+  if (otherAttachmentCount(linked, key) >= MAX_FILE_ATTACHMENTS_PER_TEMPLATE) {
+    return attachmentLimitFailure();
+  }
 
   const created = await createAttachmentFileRef({ ctx, user, tenantId, bytes, key, type });
   if (!created.isSuccess) return created;
@@ -320,5 +329,86 @@ export async function storeTemplateAttachment(args: {
       contentType: type.contentType,
       size: bytes.length,
     },
+  };
+}
+
+export type LinkedTemplatePdfAttachment = {
+  readonly key: string;
+  readonly templateSlug: string;
+  readonly fileName: string;
+};
+
+function pdfAttachmentInvalid(code: string): WriteResult<never> {
+  return writeFailure(
+    new UnprocessableError(TemplateResolverErrors.attachmentInvalid, {
+      i18nKey: "templateResolver.errors.attachment.invalid",
+      details: { code },
+    }),
+  );
+}
+
+// Links a PDF that is rendered from a document template at send time into a mail template of the
+// target tenant. Nothing is stored besides the link entry. The caller authorizes tenantId.
+export async function linkTemplatePdfAttachment(args: {
+  readonly ctx: HandlerContext;
+  readonly user: SessionUser;
+  readonly tenantId: TenantId;
+  readonly templateId: string;
+  readonly key: string;
+  readonly templateSlug: string;
+  readonly fileName: string;
+}): Promise<WriteResult<LinkedTemplatePdfAttachment>> {
+  const { ctx, user, tenantId, templateId, key } = args;
+  const link = templatePdfAttachmentLinkSchema.safeParse({
+    kind: "rendered-pdf",
+    templateSlug: args.templateSlug,
+    fileName: args.fileName,
+  });
+  if (!link.success) return pdfAttachmentInvalid("invalid_pdf_link");
+
+  const { db, streamTenantId } = requireForTenant(ctx, tenantId);
+  const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+    tenantId,
+    id: templateId,
+  });
+  if (row === undefined) return writeFailure(new NotFoundError("template-resource", templateId));
+  if (row.kind !== "mail") return attachmentNeedsMailTemplate();
+
+  const linked = parseLinkedResourceEntries(row.linkedResources);
+  if (otherAttachmentCount(linked, key) >= MAX_FILE_ATTACHMENTS_PER_TEMPLATE) {
+    return attachmentLimitFailure();
+  }
+
+  const visibleTemplates = await selectMany<TemplateResourceRow>(
+    db,
+    templateResourcesTable,
+    { tenantId: [tenantId, SYSTEM_TENANT_ID], slug: link.data.templateSlug, kind: "document-pdf" },
+    { limit: 1 },
+  );
+  if (visibleTemplates.length === 0) {
+    return writeFailure(
+      new UnprocessableError(TemplateResolverErrors.attachmentPdfTemplateMissing, {
+        i18nKey: "templateResolver.errors.attachment.pdfTemplateMissing",
+        i18nParams: { slug: link.data.templateSlug },
+        details: { templateSlug: link.data.templateSlug },
+      }),
+    );
+  }
+
+  const updated = await executor.update(
+    {
+      id: row.id,
+      version: row.version,
+      changes: { linkedResources: JSON.stringify({ ...linked, [key]: link.data }) },
+    },
+    user,
+    db,
+    { streamTenantId },
+  );
+  if (!updated.isSuccess) return updated;
+
+  return {
+    isSuccess: true as const,
+    data: { key, templateSlug: link.data.templateSlug, fileName: link.data.fileName },
   };
 }

@@ -41,6 +41,12 @@ const marginMm = z.number().finite().min(0).max(100).optional();
 // The file name ends up in a Content-Disposition header and on disk.
 const FORBIDDEN_FILE_NAME = /[/\\";]|\.\./;
 
+// Name of a PDF rendered into a mail; {{placeholders}} are filled at render time.
+export const pdfAttachmentFileNamePatternSchema = singleLine(200)
+  .min(1)
+  .refine((value) => !FORBIDDEN_FILE_NAME.test(value), 'must not contain / \\ " ; or ..')
+  .refine((value) => value.toLowerCase().endsWith(".pdf"), "must end with .pdf");
+
 const pdfMetaSchema = z
   .object({
     layoutSlug: templateSlugSchema.optional(),

@@ -312,6 +312,234 @@ describe("template-resolver :: mail attachments", () => {
   });
 });
 
+describe("template-resolver :: linked PDF template", () => {
+  const link = (as: Caller, payload: Record<string, unknown>) =>
+    stack.http.writeErr(TemplateResolverHandlers.resourceLinkPdf, payload, as);
+
+  test("links a system document template and stores only the entry", async () => {
+    await createTemplate(systemAdmin, "billing:link-invoice", "document-pdf");
+    const templateId = await createTemplate(tenantA, "link-basic");
+    const result = await stack.http.writeOk(
+      TemplateResolverHandlers.resourceLinkPdf,
+      {
+        templateId,
+        key: "invoice",
+        templateSlug: "billing:link-invoice",
+        fileName: "rechnung-{{number}}.pdf",
+      },
+      tenantA,
+    );
+    expect(result).toEqual({
+      key: "invoice",
+      templateSlug: "billing:link-invoice",
+      fileName: "rechnung-{{number}}.pdf",
+    });
+    expect(await linkedOf(templateId, tenantA)).toEqual({
+      invoice: {
+        kind: "rendered-pdf",
+        templateSlug: "billing:link-invoice",
+        fileName: "rechnung-{{number}}.pdf",
+      },
+    });
+  });
+
+  test("a document template that exists nowhere is refused, also a mail template slug", async () => {
+    await createTemplate(systemAdmin, "link-only-mail");
+    const templateId = await createTemplate(tenantA, "link-missing");
+    for (const templateSlug of ["link-nonexistent", "link-only-mail"]) {
+      const res = await link(tenantA, {
+        templateId,
+        key: "invoice",
+        templateSlug,
+        fileName: "a.pdf",
+      });
+      expectErrorIncludes(res, '"reason":"template_attachment_pdf_template_missing"');
+    }
+    expect(await linkedOf(templateId, tenantA)).toEqual({});
+  });
+
+  test("a document template of another tenant does not count", async () => {
+    await createTemplate(tenantB, "link-foreign-doc", "document-pdf");
+    const templateId = await createTemplate(tenantA, "link-foreign");
+    const res = await link(tenantA, {
+      templateId,
+      key: "invoice",
+      templateSlug: "link-foreign-doc",
+      fileName: "a.pdf",
+    });
+    expectErrorIncludes(res, '"reason":"template_attachment_pdf_template_missing"');
+  });
+
+  test("a bad file name pattern or slug is refused as invalid", async () => {
+    await createTemplate(systemAdmin, "link-valid-doc", "document-pdf");
+    const templateId = await createTemplate(tenantA, "link-invalid");
+    for (const fileName of ["a.txt", "../a.pdf", "a/b.pdf", "a\nb.pdf", `${"a".repeat(200)}.pdf`]) {
+      const res = await link(tenantA, {
+        templateId,
+        key: "invoice",
+        templateSlug: "link-valid-doc",
+        fileName,
+      });
+      expectErrorIncludes(res, '"reason":"template_attachment_invalid"');
+    }
+    const badSlug = await link(tenantA, {
+      templateId,
+      key: "invoice",
+      templateSlug: "Not A Slug",
+      fileName: "a.pdf",
+    });
+    expectErrorIncludes(badSlug, '"reason":"template_attachment_invalid"');
+  });
+
+  test("only mail templates take a linked PDF", async () => {
+    await createTemplate(systemAdmin, "link-kind-doc", "document-pdf");
+    const templateId = await createTemplate(tenantA, "link-kind", "document-pdf");
+    const res = await link(tenantA, {
+      templateId,
+      key: "invoice",
+      templateSlug: "link-kind-doc",
+      fileName: "a.pdf",
+    });
+    expectErrorIncludes(res, '"reason":"template_attachment_invalid"');
+  });
+
+  test("files and linked PDFs share the limit of ten", async () => {
+    await createTemplate(systemAdmin, "link-limit-doc", "document-pdf");
+    const templateId = await createTemplate(tenantA, "link-limit");
+    for (let index = 0; index < 5; index++) await attach(tenantA, templateId, `file${index}`);
+    for (let index = 0; index < 5; index++) {
+      await stack.http.writeOk(
+        TemplateResolverHandlers.resourceLinkPdf,
+        { templateId, key: `pdf${index}`, templateSlug: "link-limit-doc", fileName: "a.pdf" },
+        tenantA,
+      );
+    }
+    const refused = await link(tenantA, {
+      templateId,
+      key: "pdf5",
+      templateSlug: "link-limit-doc",
+      fileName: "a.pdf",
+    });
+    expectErrorIncludes(refused, '"reason":"template_attachment_limit"');
+
+    const uploadErr = await stack.http.writeErr(
+      TemplateResolverHandlers.resourceUpload,
+      {
+        sourceFileRefId: await uploadPdf(tenantA),
+        templateId,
+        key: "file5",
+        purpose: "attachment",
+        fileName: "a.pdf",
+      },
+      tenantA,
+    );
+    expectErrorIncludes(uploadErr, '"reason":"template_attachment_limit"');
+
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceLinkPdf,
+      { templateId, key: "pdf0", templateSlug: "link-limit-doc", fileName: "renamed.pdf" },
+      tenantA,
+    );
+    expect(Object.keys(await linkedOf(templateId, tenantA))).toHaveLength(10);
+  });
+
+  test("a template of another tenant cannot be linked into", async () => {
+    await createTemplate(systemAdmin, "link-scope-doc", "document-pdf");
+    const foreignId = await createTemplate(tenantB, "link-scope");
+    const res = await link(tenantA, {
+      templateId: foreignId,
+      key: "invoice",
+      templateSlug: "link-scope-doc",
+      fileName: "a.pdf",
+    });
+    expect(res.httpStatus).toBe(404);
+    expect(await linkedOf(foreignId, tenantB)).toEqual({});
+  });
+
+  test("resource-remove, copy-locale and the bundle round trip carry the entry", async () => {
+    await createTemplate(systemAdmin, "link-round-doc", "document-pdf");
+    const templateId = await createTemplate(tenantA, "link-round");
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceLinkPdf,
+      { templateId, key: "invoice", templateSlug: "link-round-doc", fileName: "r-{{n}}.pdf" },
+      tenantA,
+    );
+    const entry = { kind: "rendered-pdf", templateSlug: "link-round-doc", fileName: "r-{{n}}.pdf" };
+
+    const copied = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.copyLocale,
+      { slug: "link-round", kind: "mail", fromLocale: "de", toLocale: "en" },
+      tenantA,
+    );
+    expect(await linkedOf(copied.id, tenantA)).toEqual({ invoice: entry });
+
+    const bundle = await stack.http.queryOk<{
+      pdfAttachments: Record<string, unknown>;
+      resources: Record<string, unknown>;
+    }>(TemplateResolverQueries.exportBundle, { slug: "link-round", kind: "mail" }, tenantA);
+    expect(bundle.resources).toEqual({});
+    expect(bundle.pdfAttachments).toEqual({
+      invoice: { templateSlug: "link-round-doc", fileName: "r-{{n}}.pdf" },
+    });
+
+    // The document template does not exist for tenantB: import does not check, send would fail.
+    await stack.http.writeOk(TemplateResolverHandlers.importBundle, { bundle }, tenantB);
+    const imported = await stack.http.queryOk<{ pdfAttachments: Record<string, unknown> }>(
+      TemplateResolverQueries.exportBundle,
+      { slug: "link-round", kind: "mail" },
+      tenantB,
+    );
+    expect(imported.pdfAttachments).toEqual(bundle.pdfAttachments);
+
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceRemove,
+      { templateId, key: "invoice" },
+      tenantA,
+    );
+    expect(await linkedOf(templateId, tenantA)).toEqual({});
+  });
+
+  test("a bundle with an invalid PDF link or a key used twice is refused", async () => {
+    const base = {
+      slug: "link-bundle-bad",
+      kind: "mail",
+      contentFormat: "html",
+      locales: { de: { body: "<p>x</p>", meta: { subject: "Hi" } } },
+    };
+    const badName = await stack.http.writeErr(
+      TemplateResolverHandlers.importBundle,
+      {
+        bundle: {
+          ...base,
+          pdfAttachments: { invoice: { templateSlug: "invoice", fileName: "../a.txt" } },
+        },
+      },
+      tenantA,
+    );
+    expect(badName.httpStatus).toBe(400);
+
+    const twice = await stack.http.writeErr(
+      TemplateResolverHandlers.importBundle,
+      {
+        bundle: {
+          ...base,
+          resources: {
+            invoice: {
+              fileName: "a.pdf",
+              contentType: "application/pdf",
+              base64: Buffer.from(PDF_BYTES).toString("base64"),
+              purpose: "attachment",
+            },
+          },
+          pdfAttachments: { invoice: { templateSlug: "invoice", fileName: "a.pdf" } },
+        },
+      },
+      tenantA,
+    );
+    expect(twice.httpStatus).toBe(400);
+  });
+});
+
 describe("template-resolver :: copy-locale scope system", () => {
   test("a system admin copies a system template into another locale as a draft", async () => {
     await createTemplate(systemAdmin, "att-system-copy");

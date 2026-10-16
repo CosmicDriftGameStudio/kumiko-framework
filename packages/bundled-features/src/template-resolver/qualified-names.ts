@@ -16,6 +16,7 @@ export const TemplateResolverHandlers = {
   copyLocale: "template-resolver:write:copy-locale",
   resourceUpload: "template-resolver:write:resource-upload",
   resourceRemove: "template-resolver:write:resource-remove",
+  resourceLinkPdf: "template-resolver:write:resource-link-pdf",
   sendTest: "template-resolver:write:send-test",
 } as const;
 
@@ -59,6 +60,7 @@ export const TemplateResolverErrors = {
   attachmentUnsupportedType: "template_attachment_unsupported_type",
   attachmentLimit: "template_attachment_limit",
   attachmentInvalid: "template_attachment_invalid",
+  attachmentPdfTemplateMissing: "template_attachment_pdf_template_missing",
   previewRenderFailed: "template_preview_render_failed",
   testMailNoChannel: "template_test_mail_no_channel",
   testMailNoAddress: "template_test_mail_no_address",

@@ -1,6 +1,9 @@
 export { collectErasureFailure, throwIfErasureFailed } from "./assert-erased.js";
 export { assertNoWhereRuleInOwnershipWrite } from "./assert-no-where-rule-in-ownership-write.js";
-export { attachmentFileNameSchema } from "./attachment-file-name.js";
+export {
+  attachmentFileNameSchema,
+  sanitizePdfAttachmentFileName,
+} from "./attachment-file-name.js";
 export {
   type ChunkedMigrationOptions,
   type ChunkedMigrationResult,
