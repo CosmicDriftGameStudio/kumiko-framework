@@ -715,8 +715,10 @@ export type ProjectionListScreenDefinition = {
    *  boot-validator only checks structure (`op:"in"` ⇒ array value). */
   readonly filter?: ScreenFilter;
   /** User-toggleable facet dropdowns — see `ListFacetSpec` doc. `field`
-   *  must be a declared column; the bound query handler must accept
-   *  `filters` in its Zod schema — the boot-validator checks both. A
+   *  must be a declared column, except for `type: "reference"`: it filters
+   *  by id through the bound query's `filters` and needs a registered
+   *  `entity` instead. The bound query handler must accept `filters` in its
+   *  Zod schema — the boot-validator checks both. A
    *  "dateRange" facet instead needs its two `params` keys in that schema;
    *  it sends no `filters` entry. */
   readonly facets?: readonly ListFacetSpec[];
@@ -1489,7 +1491,9 @@ export type EditRelatedListSection = {
   readonly searchable?: boolean;
   /** User-toggleable facet dropdowns — same explicit-label `ListFacetSpec` as
    *  `projectionList.facets` (a relatedList has no entity to derive filterable
-   *  fields from). `field` must be a declared column and the bound query
+   *  fields from). `field` must be a declared column, except for
+   *  `type: "reference"`: it filters by id through the bound query's
+   *  `filters` and needs a registered `entity` instead. The bound query
    *  handler must accept `filters` in its Zod schema — the boot-validator
    *  checks both. Selected values ride along as `payload.filters`. */
   readonly facets?: readonly ListFacetSpec[];
