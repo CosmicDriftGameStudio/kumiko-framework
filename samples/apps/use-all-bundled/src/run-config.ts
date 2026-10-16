@@ -93,6 +93,7 @@ import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 import { createWaitlistFeature } from "@cosmicdrift/kumiko-bundled-features/waitlist";
 import { workflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
+import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
@@ -342,6 +343,9 @@ export const APP_FEATURES = [
   // covered — not standalone-mounted here (smoke = one mount per subpath-export).
   createManagedPagesFeature({ resolveApexTenant: () => null, allowCustomCss: true }),
 
+  // Template overview, layout editor and PDF template editor; needs template-resolver and managed-pages above.
+  createDocumentDesignerFeature(),
+
   // seo: requires config (auto-bundled). Smoke resolver never serves (boot-
   // only) — includeLegalPages:true gives the boot-check a real source
   // without needing real page data; managedPages reuses the same never-
@@ -359,7 +363,7 @@ export const APP_FEATURES = [
   // admin-shell: requires tenant (auto-mounted) + audit + jobs + tier-engine,
   // all mounted above. includeCapOverview:true exercises the my-caps /
   // tenant-caps nav entries end-to-end — cap-overview is mounted below.
-  createAdminShellFeature({ includeCapOverview: true }),
+  createAdminShellFeature({ includeCapOverview: true, includeDocumentDesigner: true }),
 
   // app-author-grade
   customFieldsFeature,

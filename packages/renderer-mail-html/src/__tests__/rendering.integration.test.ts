@@ -416,6 +416,18 @@ describe("renderer-mail-html :: layout resolution", () => {
     expect(result.layout?.scope).toBe("system");
   });
 
+  test("a de mail uses the tenant layout stored under en, since layouts are locale-neutral", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      tenantLayoutPayload("EN_TENANT_LAYOUT_MARKER", { status: "active", locale: "en" }),
+      tenantAdmin(16),
+    );
+    const result = await renderMail(tenantId(16));
+    expect(result.html).toContain("EN_TENANT_LAYOUT_MARKER");
+    expect(result.html).toContain("Hallo Anna");
+    expect(result.layout?.scope).toBe("tenant");
+  });
+
   async function storeTenantHtmlLayout(
     owner: ReturnType<typeof tenantId>,
     userId: number,

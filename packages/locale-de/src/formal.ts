@@ -4,6 +4,15 @@ import { localeDeBundle } from "./strings";
 export type GermanAddress = "informal" | "formal";
 
 export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
+  "documentDesigner.editor.mjmlNotice.tenant":
+    "Sie sehen das System-Layout. Speichern legt ein eigenes Layout für Ihren Mandanten an.",
+  "documentDesigner.editor.origin.system":
+    "Sie sehen das System-Layout. Speichern legt eine Anpassung für Ihren Mandanten an.",
+  "documentDesigner.editor.diff.identical": "Ihr Layout entspricht dem System-Layout.",
+  "documentDesigner.editor.reset.description":
+    "Ihr eigenes Layout wird entfernt, danach gilt wieder das System-Layout.",
+  "documentDesigner.editor.dirtySwitch.description":
+    "Beim Wechsel der Layout-Art gehen Ihre ungespeicherten Änderungen verloren.",
   "auth.errors.accountRestricted":
     "Konto nach Art. 18 DSGVO eingeschränkt. Heben Sie die Einschränkung auf, um sich wieder anzumelden.",
   "auth.errors.invalidResetToken":

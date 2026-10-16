@@ -33,7 +33,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "documentDesigner.kind.pdf": { en: "PDF", de: "PDF" },
   "documentDesigner.kind.layout": { en: "Layout", de: "Layout" },
   "documentDesigner.source.system": { en: "System", de: "System" },
-  "documentDesigner.source.tenant": { en: "Tenant customisation", de: "Tenant-Anpassung" },
+  "documentDesigner.source.tenant": { en: "Tenant customisation", de: "Mandanten-Anpassung" },
   "documentDesigner.status.active": { en: "Active", de: "Aktiv" },
   "documentDesigner.status.draft": { en: "Draft", de: "Entwurf" },
   "documentDesigner.status.archived": { en: "Archived", de: "Archiviert" },

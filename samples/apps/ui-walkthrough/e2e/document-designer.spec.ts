@@ -30,7 +30,7 @@ test("tenant admin sees the own mail template and edits the mail layout without 
 
   const invoiceRow = await rowOf(page, "Rechnung versendet");
   await expect(invoiceRow.getByTestId("document-designer-origin")).toContainText(
-    "Tenant-Anpassung",
+    "Mandanten-Anpassung",
   );
 
   const layoutRow = await rowOf(page, "Mail-Layout");
@@ -64,7 +64,9 @@ test("platform admin sees who customised each template and the MJML source of th
 async function expectNoHorizontalOverflow(page: Page, lastColumnHeaders: readonly string[]) {
   const table = page.getByTestId("render-list-table");
   await expect(table).toBeVisible();
-  const scrollContainer = table.locator("xpath=ancestor::*[@data-slot='table-container'][1]");
+  // A scrollBody list scrolls inside this wrapper (the table itself has no overflow container).
+  const scrollContainer = page.getByTestId("render-list-table-scroll");
+  await expect(scrollContainer).toHaveCount(1);
   const { scrollWidth, clientWidth } = await scrollContainer.evaluate((el) => ({
     scrollWidth: el.scrollWidth,
     clientWidth: el.clientWidth,

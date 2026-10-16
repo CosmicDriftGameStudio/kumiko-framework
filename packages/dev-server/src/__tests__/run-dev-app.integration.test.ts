@@ -203,6 +203,9 @@ describe("runDevApp — extraContext merge order: app values win over boot defau
       resolveTemplate: async () => {
         throw new Error("not used in this test");
       },
+      resolveLayout: async () => {
+        throw new Error("not used in this test");
+      },
     };
     const readBlockQuery = defineQueryHandler({
       name: "read-block",
