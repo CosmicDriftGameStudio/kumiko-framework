@@ -125,7 +125,7 @@ createKumikoApp({
     textBlocksClient({ navId: "app-screens:nav:content", tenantId: SYSTEM_TENANT_ID }),
     // PDF template editor with live PDF preview, mounted as the custom screen
     // app-screens declares (no nav entry; opened by URL).
-    documentDesignerClient(PDF_TEMPLATE_EDITOR_SCREEN_ID),
+    documentDesignerClient({ pdfEditorScreenId: PDF_TEMPLATE_EDITOR_SCREEN_ID }),
     appScreens,
   ],
 });
