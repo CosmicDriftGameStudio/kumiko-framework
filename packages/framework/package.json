@@ -419,6 +419,8 @@
     "src/changes.json",
     "src/scripts/codemod",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "AGENTS.md",
+    "agents"
   ]
 }

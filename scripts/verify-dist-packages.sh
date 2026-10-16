@@ -63,9 +63,15 @@ for pkg_json in packages/*/package.json; do
     grep -qxF "package/${target#./}" <<<"$listing" || fail "$name: export target $target missing in tarball"
   done < <(jq -r '.exports | .. | strings' <<<"$packed_json" | sort -u)
 
-  if jq -e '(.files // []) | index("README.md")' "$pkg_json" >/dev/null && ! grep -qxF 'package/README.md' <<<"$listing"; then
-    problems+=("$name: lists README.md in files but the tarball has none")
-  fi
+  # Literal `files` entries (no glob, no negation, not shipped source) must exist in the tarball as a file or a directory prefix.
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    entry="${entry#./}"
+    entry="${entry%/}"
+    if ! grep -qxF "package/$entry" <<<"$listing" && ! grep -qF "package/$entry/" <<<"$listing"; then
+      problems+=("$name: lists $entry in files but the tarball has none")
+    fi
+  done < <(jq -r '(.files // [])[] | select((contains("*") | not) and (startswith("!") | not) and (startswith("src/") | not))' "$pkg_json")
 
   # Resolved or dynamically imported at runtime, so a missing declaration only breaks consumers; a consumer install hoists everything and hides it here.
   unpacked="$(mktemp -d "$scratch/scan.XXXXXX")"

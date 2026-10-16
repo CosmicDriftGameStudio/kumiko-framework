@@ -78,6 +78,8 @@ describe("kumiko cli", () => {
       "bin/dev.ts",
       ".env.example",
       "README.md",
+      "AGENTS.md",
+      "CLAUDE.md",
     ]) {
       expect(() => readFileSync(join(appRoot, f), "utf-8")).not.toThrow();
     }
