@@ -170,6 +170,19 @@ describe("DocumentTiptapEditor toolbar", () => {
     expectCanonical(currentHtml());
   });
 
+  test("placeholder link without selection links a variable node, never {{ text", async () => {
+    await renderEditor();
+    await click("Link");
+    fireEvent.change(screen.getByLabelText("Link target"), {
+      target: { value: "{{invoice.url}}" },
+    });
+    await click("Insert");
+    await waitFor(() => expect(currentHtml()).toContain('<a href="{{invoice.url}}">'));
+    expect(currentHtml()).toContain('<span data-variable="invoice.url"></span>');
+    expect(currentHtml()).not.toMatch(/>\{\{/);
+    expectCanonical(currentHtml());
+  });
+
   test("paragraph style select switches to a heading", async () => {
     await renderEditor();
     await chooseOption(`${CONTENT_EDITOR_ELEMENT_ID}-paragraph-style`, "2");
@@ -196,5 +209,73 @@ describe("DocumentTiptapEditor toolbar", () => {
     for (const name of ["Bold", "Italic", "Placeholder", "Divider", "Table"]) {
       expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
     }
+  });
+});
+
+function LoadedValue({
+  loaded,
+  onEdit,
+}: {
+  readonly loaded: string;
+  readonly onEdit: (html: string) => void;
+}): ReactNode {
+  const [value, setValue] = useState("");
+  return (
+    <LocaleProvider
+      resolver={localeResolver}
+      fallbackBundles={[kumikoDefaultTranslations, defaultTranslations]}
+    >
+      <PrimitivesProvider value={defaultPrimitives}>
+        <DocumentTiptapEditor
+          id={CONTENT_EDITOR_ELEMENT_ID}
+          value={value}
+          onChange={(html) => {
+            onEdit(html);
+            setValue(html);
+          }}
+          variables={VARIABLES}
+          readOnly={false}
+        />
+        <button type="button" onClick={() => setValue(loaded)}>
+          Load entry
+        </button>
+        <output data-testid="html">{value}</output>
+      </PrimitivesProvider>
+    </LocaleProvider>
+  );
+}
+
+describe("DocumentTiptapEditor asynchronously loaded value", () => {
+  test("a canonical value set from outside is shown without emitting a change", async () => {
+    const edits: string[] = [];
+    render(<LoadedValue loaded="<p>Hallo Welt</p>" onEdit={(html) => edits.push(html)} />);
+    await screen.findByRole("button", { name: "Bold" });
+    // The editor reports its empty document once on mount.
+    edits.length = 0;
+    fireEvent.click(screen.getByRole("button", { name: "Load entry" }));
+    expect(await screen.findByText("Hallo Welt")).toBeTruthy();
+    expect(edits).toEqual([]);
+    expect(currentHtml()).toBe("<p>Hallo Welt</p>");
+  });
+
+  test("a non-canonical value is normalized in the editor without a update loop and is canonical after the next edit", async () => {
+    const edits: string[] = [];
+    render(
+      <LoadedValue
+        loaded="<p><strong>a</strong><strong>b</strong></p>"
+        onEdit={(html) => edits.push(html)}
+      />,
+    );
+    await screen.findByRole("button", { name: "Bold" });
+    edits.length = 0;
+    fireEvent.click(screen.getByRole("button", { name: "Load entry" }));
+    expect(await screen.findByText("ab")).toBeTruthy();
+    expect(edits).toEqual([]);
+
+    await click("Divider");
+    await waitFor(() => expect(currentHtml()).toContain("<hr>"));
+    expect(edits).toHaveLength(1);
+    expect(currentHtml()).toContain("<strong>ab</strong>");
+    expectCanonical(currentHtml());
   });
 });

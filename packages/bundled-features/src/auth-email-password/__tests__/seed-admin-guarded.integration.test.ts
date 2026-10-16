@@ -211,6 +211,18 @@ describe("seedAdminGuarded (offlot#114)", () => {
     expect(found?.["id"]).toBe(first.id);
   });
 
+  test("a repeated boot seed with an intact blind index appends no further user event", async () => {
+    await seedAdminGuarded(stack.db, seedOptions);
+    const eventCount = async (): Promise<number> =>
+      (await selectMany(stack.db, eventsTable, {})).length;
+    const afterFirst = await eventCount();
+
+    await seedAdminGuarded(stack.db, seedOptions);
+    await seedAdminGuarded(stack.db, seedOptions);
+
+    expect(await eventCount()).toBe(afterFirst);
+  });
+
   test("a foreign row that cannot be decrypted does not abort the seed", async () => {
     await seedUser(stack.db, { email: "foreign@offlot.app", displayName: "Foreign" });
     // Fresh KMS store: the foreign row's subject key no longer exists.

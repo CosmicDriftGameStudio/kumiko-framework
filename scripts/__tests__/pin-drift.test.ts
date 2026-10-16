@@ -114,12 +114,47 @@ describe("pin-drift.jq guard", () => {
     ).toBe("@cosmicdrift/kumiko-framework@^0.353.0 (expected 0.354.0)");
   });
 
-  test("explicit peer range is not drift", () => {
+  test("explicit peer range containing the release version is not drift", () => {
     expect(
       runGuard(
         { peerDependencies: { "@cosmicdrift/kumiko-framework": ">=0.353.0 <1.0.0" } },
         EXPECTED_RANGE_ERA,
       ),
     ).toBe("");
+    expect(
+      runGuard(
+        { peerDependencies: { "@cosmicdrift/kumiko-framework": ">=0.354.0 <0.355.0" } },
+        EXPECTED_RANGE_ERA,
+      ),
+    ).toBe("");
+  });
+
+  test("explicit peer range that excludes the release version is drift", () => {
+    expect(
+      runGuard(
+        { peerDependencies: { "@cosmicdrift/kumiko-framework": ">=0.100.0 <0.200.0" } },
+        EXPECTED_RANGE_ERA,
+      ),
+    ).toBe("@cosmicdrift/kumiko-framework@>=0.100.0 <0.200.0 (expected 0.354.0)");
+    expect(
+      runGuard(
+        { peerDependencies: { "@cosmicdrift/kumiko-framework": ">=0.355.0" } },
+        EXPECTED_RANGE_ERA,
+      ),
+    ).toBe("@cosmicdrift/kumiko-framework@>=0.355.0 (expected 0.354.0)");
+    expect(
+      runGuard(
+        { peerDependencies: { "@cosmicdrift/kumiko-framework": ">=0.353.0 <=0.353.9" } },
+        EXPECTED_RANGE_ERA,
+      ),
+    ).toBe("@cosmicdrift/kumiko-framework@>=0.353.0 <=0.353.9 (expected 0.354.0)");
+  });
+
+  test("peer range without a recognizable lower bound is drift", () => {
+    for (const range of ["*", "0.x"]) {
+      expect(
+        runGuard({ peerDependencies: { "@cosmicdrift/kumiko-framework": range } }, EXPECTED_RANGE_ERA),
+      ).toBe(`@cosmicdrift/kumiko-framework@${range} (expected 0.354.0)`);
+    }
   });
 });

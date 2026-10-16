@@ -670,7 +670,9 @@ describe("event-store-executor — entity cache read-through", () => {
     expect(store.has(storeKey)).toBe(true);
 
     // Poison the cache entry — proves the second detail reads from cache, not DB.
-    store.set(storeKey, { ...store.get(storeKey)!, email: "from-cache@test.de" });
+    const cachedEntry = store.get(storeKey);
+    if (!cachedEntry) throw new Error("cache not populated");
+    store.set(storeKey, { ...cachedEntry, email: "from-cache@test.de" });
 
     const second = await cachedCrud.detail({ id }, adminUser, tdb);
     expect(second?.["email"]).toBe("from-cache@test.de");
@@ -720,7 +722,9 @@ describe("event-store-executor — entity cache read-through", () => {
     const storeKey = `${adminUser.tenantId}:esExecUser:${id}`;
 
     await cachedCrud.detail({ id }, adminUser, tdb);
-    store.set(storeKey, { ...store.get(storeKey)!, email: "from-cache@test.de" });
+    const cachedEntry = store.get(storeKey);
+    if (!cachedEntry) throw new Error("cache not populated");
+    store.set(storeKey, { ...cachedEntry, email: "from-cache@test.de" });
 
     await append(testDb.db, {
       aggregateId: String(id),

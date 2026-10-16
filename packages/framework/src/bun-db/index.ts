@@ -32,6 +32,7 @@ export {
   deleteManyBatched,
   extractTableInfo,
   fetchOne,
+  hasBegin,
   type IncrementCounterOptions,
   incrementCounter,
   insertMany,

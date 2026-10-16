@@ -1244,6 +1244,7 @@ export function StackedAreaChart({
   formatAxisValue = formatValue,
   formatMarkerTime,
   dateFormat,
+  timeZone,
   markerLegend = "list",
   markerLabels = false,
   scrollable = false,
@@ -1280,6 +1281,8 @@ export function StackedAreaChart({
   readonly formatMarkerTime?: (atMs: number, format: StackedAreaDateFormat) => string;
   /** Overrides the automatic format (month and year once the visible window spans 18 months). */
   readonly dateFormat?: StackedAreaDateFormat;
+  /** Zone the x-axis ticks align to; must match the zone `formatBucketLabel` formats in. Default UTC. */
+  readonly timeZone?: string;
   /** "legend": unnumbered pins with tooltip, one dashed legend entry per marker label and color. */
   readonly markerLegend?: "list" | "legend";
   /** Writes each marker label vertically next to its guide line on wide containers; narrow ones keep the pins. */
@@ -1682,18 +1685,21 @@ export function StackedAreaChart({
           <span className="absolute right-0 whitespace-nowrap">{formatBucket(windowEndMs)}</span>
           {AXIS_TIERS.map((tier) => (
             <div key={tier.maxLabels} className={cn("absolute inset-0", tier.visibilityClass)}>
-              {stackedAreaAxisTicks(visibleWindow, tier.maxLabels, effectiveDateFormat).map(
-                (tickMs) => (
-                  <span
-                    key={tickMs}
-                    data-testid="chart-axis-tick"
-                    className="absolute -translate-x-1/2 whitespace-nowrap"
-                    style={{ left: percent(fractionOf(tickMs)) }}
-                  >
-                    {formatBucket(tickMs)}
-                  </span>
-                ),
-              )}
+              {stackedAreaAxisTicks(
+                visibleWindow,
+                tier.maxLabels,
+                effectiveDateFormat,
+                timeZone,
+              ).map((tickMs) => (
+                <span
+                  key={tickMs}
+                  data-testid="chart-axis-tick"
+                  className="absolute -translate-x-1/2 whitespace-nowrap"
+                  style={{ left: percent(fractionOf(tickMs)) }}
+                >
+                  {formatBucket(tickMs)}
+                </span>
+              ))}
             </div>
           ))}
         </div>

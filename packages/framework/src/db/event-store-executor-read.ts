@@ -591,7 +591,7 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
     softDelete,
     streamTenantFor,
     idFilter,
-    loadWithOwnership,
+    probeOwnershipWithStreamVersion,
     loadDetailSnapshot,
     decryptForRead,
     encryptForStorage,
@@ -979,19 +979,28 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       if (entityCache && entityName) {
         const cached = await entityCache.get(user.tenantId, entityName, payload.id);
         if (cached) {
+          let streamVersion: number;
           if (ownership.kind === "sql") {
             // Re-check ownership predicate (incl. the parent-ref gate) against
             // the live row — the cache is keyed only by tenant + id, not by
-            // role, so a cache hit can't bypass either gate. Deliberate price:
-            // one extra roundtrip per cache hit once either gate produces SQL.
-            const checkRows = await loadWithOwnership(db, idWhere, ownership);
-            if (checkRows.length === 0) return null;
+            // role, so a cache hit can't bypass either gate. The probe carries
+            // the stream version in the same statement.
+            const probe = await probeOwnershipWithStreamVersion(
+              db,
+              idWhere,
+              ownership,
+              streamTenantFor(user),
+              String(payload.id),
+            );
+            if (!probe.owned) return null;
+            streamVersion = probe.streamVersion;
+          } else {
+            streamVersion = await getStreamVersion(
+              tenantDbRunner(db),
+              String(payload.id),
+              streamTenantFor(user),
+            );
           }
-          const streamVersion = await getStreamVersion(
-            tenantDbRunner(db),
-            String(payload.id),
-            streamTenantFor(user),
-          );
           if (!(streamVersion > 0 && cached["version"] !== streamVersion)) {
             // Cached rows are stored re-encrypted (see the `set` below) so an
             // `encrypted` field's plaintext never sits in a second at-rest

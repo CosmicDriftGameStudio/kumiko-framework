@@ -473,6 +473,105 @@ describe("crypto-shredding :: forget-subject when the search purge fails", () =>
     expect(String(cleanupError)).not.toContain(ownerId);
   });
 });
+// A failing sweep makes the handler throw and roll its transaction back; the
+// login door (status + PATs) must already be committed independently.
+describe("crypto-shredding :: forget-subject closes the login door although the search purge fails", () => {
+  const probeEntity = createEntity({
+    table: "read_forget_subject_door_failing_search_probe",
+    fields: {
+      ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
+      userNote: createTextField({
+        required: true,
+        maxLength: 100,
+        personal: { of: "ownerId" },
+        find: "fuzzy",
+      }),
+    },
+  });
+  const probeTable = buildEntityTable("forgetSubjectDoorFailingSearchProbe", probeEntity);
+  const probeFeature = defineFeature("forget-subject-door-failing-search-probe", (r) => {
+    r.entity("probe", probeEntity);
+  });
+
+  let doorStack: TestStack;
+
+  beforeAll(async () => {
+    doorStack = await setupTestStack({
+      features: [
+        createCryptoShreddingFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createConfigFeature(),
+        authFoundationFeature,
+        createPersonalAccessTokensFeature({ scopes: {} }),
+        probeFeature,
+      ],
+      extraContext: {
+        searchAdapter: createMeilisearchAdapter({ url: "http://127.0.0.1:1", apiKey: "unused" }),
+      },
+    });
+    await unsafeCreateEntityTable(doorStack.db, userEntity);
+    await unsafeCreateEntityTable(doorStack.db, apiTokenEntity);
+    await unsafeCreateEntityTable(doorStack.db, tenantInvitationEntity);
+    await unsafeCreateEntityTable(doorStack.db, probeEntity, "probe");
+    await unsafePushTables(doorStack.db, { tenantMembershipsTable });
+  });
+
+  afterAll(async () => {
+    await doorStack.cleanup();
+  });
+
+  beforeEach(() => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("user status is Deleted and PATs are revoked after the failed forget", async () => {
+    const { id: userId } = await seedUser(doorStack.db, {
+      email: "door-failing-search@example.com",
+      displayName: "Door Failing Search",
+      emailVerified: true,
+    });
+    await seedTenantMembership(doorStack.db, { userId, tenantId: TENANT, roles: ["Member"] });
+    await insertOne(doorStack.db, apiTokenTable, {
+      id: generateId(),
+      userId,
+      tenantId: TENANT,
+      name: "door-pat",
+      tokenHash: "b".repeat(64),
+      prefix: "ktest",
+      scopes: "[]",
+      createdAt: Temporal.Now.instant(),
+    });
+    const admin = TestUsers.admin;
+    const created = await createEventStoreExecutor(probeTable, probeEntity, {
+      entityName: "probe",
+    }).create(
+      { ownerId: userId, userNote: "DoorSweepFailureNote" },
+      admin,
+      createTenantDb(doorStack.db, admin.tenantId, "system"),
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+
+    const res = await doorStack.http.write(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      dpoUser,
+    );
+    expect((await res.json()).isSuccess).toBe(false);
+
+    const userRow = await fetchOne<Record<string, unknown>>(doorStack.db, userTable, {
+      id: userId,
+    });
+    expect(userRow?.["status"]).toBe(USER_STATUS.Deleted);
+    const tokens = await selectMany(doorStack.db, apiTokenTable, { userId });
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0]?.["revokedAt"]).not.toBeNull();
+  });
+});
 
 // The P2 audit finding: forget-subject shredded the DEK but left status +
 // PATs untouched — a forgotten user's credentials stayed live (PAT resolver

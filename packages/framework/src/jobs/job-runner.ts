@@ -242,6 +242,12 @@ export type JobQueuedMeta = {
   readonly subject: string | null;
 };
 
+// Names the tenant whose queued row a dropped job id belonged to; job ids are
+// only unique per queue, so the id alone cannot address the row.
+export type JobDroppedMeta = {
+  readonly tenantId: string;
+};
+
 // What a finished run tells the run-logger about the tenant-visible failure
 // record (`JobDefinition.tenantVisibleFailure`). `tenantVisible` is set only
 // when the job opted in; `messageKey` is null on the success path, where the
@@ -413,7 +419,7 @@ export type JobRunnerOptions = {
   onJobQueued?: (jobName: string, jobId: string, meta: JobQueuedMeta) => void;
   // A queued job that will never run under that id (concurrency "replace"
   // removal, sequential re-enqueue under a new id).
-  onJobDropped?: (jobName: string, jobId: string) => void;
+  onJobDropped?: (jobName: string, jobId: string, meta: JobDroppedMeta) => void;
 };
 
 // Serialized trace context lives under this key in the BullMQ job data.
@@ -885,11 +891,15 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     jobName: string,
     jobDef: JobDefinition,
     bullJobId: string,
+    data: Record<string, unknown>,
   ): Promise<void> {
     // skip: job did not opt in or no logger wired
     if (!jobDef.tenantVisibleRun || !options.onJobDropped) return;
+    const tenantId = tenantIdOfJobData(data);
+    // skip: tenant-less run — announceQueued never recorded a row for it
+    if (tenantId === SYSTEM_TENANT_ID) return;
     try {
-      await options.onJobDropped(jobName, bullJobId);
+      await options.onJobDropped(jobName, bullJobId, { tenantId });
     } catch (err) {
       errorLogger.warn("tenant-visible queued state not cleared", {
         job: jobName,
@@ -1011,7 +1021,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           ...buildRetryBullOpts(jobDef, priorAttempts),
         });
         if (bullJob.id !== undefined && bullJob.id !== requeued.id) {
-          await announceDropped(jobName, jobDef, bullJob.id);
+          await announceDropped(jobName, jobDef, bullJob.id, bullJob.data);
         }
         await announceQueued(jobName, jobDef, requeued.id, requeuedData);
         // skip: lock taken, work re-enqueued with delay, current invocation done
@@ -1670,7 +1680,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           for (const j of waiting) {
             if (j.name === jobName && j.id) {
               await j.remove();
-              await announceDropped(jobName, jobDef, j.id);
+              await announceDropped(jobName, jobDef, j.id, j.data);
             }
           }
           break;

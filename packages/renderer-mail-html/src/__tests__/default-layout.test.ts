@@ -1,6 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, test } from "bun:test";
 import mjml2html from "mjml";
 import { DEFAULT_MAIL_LAYOUT_MJML } from "../default-layout";
+import { expectBodyInsideTableCell } from "./expect-body-in-table-cell";
 
 const BODY = "<h2>Ihre Rechnung ist da</h2><p>Guten Tag Familie Yilmaz,</p><hr>";
 
@@ -11,8 +12,6 @@ describe("default mail layout", () => {
       "",
     );
     const { html } = await mjml2html(source, { validationLevel: "strict" });
-    const beforeBody = html.slice(0, html.indexOf(BODY));
-    expect(html).toContain(BODY);
-    expect(beforeBody.lastIndexOf("<td")).toBeGreaterThan(beforeBody.lastIndexOf("<tbody>"));
+    expectBodyInsideTableCell(html, BODY);
   });
 });

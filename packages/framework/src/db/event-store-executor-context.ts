@@ -1,6 +1,7 @@
 import { requestContext } from "../api/request-context.js";
 import {
   collectPiiEncryptedFields,
+  collectPiiSubjectFields,
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
   encryptPiiFieldValues,
@@ -208,14 +209,13 @@ export type ExecutorContext = {
     options?: { readonly includeDeleted?: boolean },
   ) => Promise<Record<string, unknown> | null>;
   readonly assertStreamWritable: (db: TenantDb, id: EntityId, tenantId: TenantId) => Promise<void>;
-  readonly loadWithOwnership: (
+  readonly probeOwnershipWithStreamVersion: (
     db: TenantDb,
     idWhere: WhereObject,
-    ownership:
-      | { kind: "pass" }
-      | { kind: "empty" }
-      | { kind: "sql"; sqlText: string; params: readonly unknown[] },
-  ) => Promise<Record<string, unknown>[]>;
+    ownership: { kind: "sql"; sqlText: string; params: readonly unknown[] },
+    streamTenantId: TenantId,
+    aggregateId: string,
+  ) => Promise<{ readonly owned: boolean; readonly streamVersion: number }>;
   readonly loadDetailSnapshot: (
     db: TenantDb,
     idWhere: WhereObject,
@@ -358,6 +358,11 @@ export function buildExecutorContext(
 
   const piiSubjectFields = collectPiiEncryptedFields(entity);
   const hasPiiFields = piiSubjectFields.length > 0;
+  // Decrypt keeps file-reference fields: rows and event payloads written by
+  // the old backfill may hold ciphertext there, and decrypt passes plaintext
+  // through untouched.
+  const piiDecryptFields = collectPiiSubjectFields(entity);
+  const hasPiiDecryptFields = piiDecryptFields.length > 0;
 
   function fieldCipher(): EnvelopeCipher {
     if (options.encryption) return options.encryption;
@@ -436,8 +441,8 @@ export function buildExecutorContext(
   ): Promise<Record<string, unknown>> {
     let out = row;
     const kms = piiKms();
-    if (hasPiiFields && kms) {
-      out = await decryptPiiFieldValues(out, piiSubjectFields, kms, kmsContextFor());
+    if (hasPiiDecryptFields && kms) {
+      out = await decryptPiiFieldValues(out, piiDecryptFields, kms, kmsContextFor());
     }
     if (hasEncryptedFields) {
       out = await decryptEntityFieldValues(
@@ -523,31 +528,6 @@ export function buildExecutorContext(
     }
   }
 
-  // SELECT a row by id with the ownership clause applied at the DB layer.
-  // Detail() uses this both on cold path and as a cache-revalidation probe.
-  async function loadWithOwnership(
-    db: TenantDb,
-    idWhere: WhereObject,
-    ownership:
-      | { kind: "pass" }
-      | { kind: "empty" }
-      | { kind: "sql"; sqlText: string; params: readonly unknown[] },
-  ): Promise<Record<string, unknown>[]> {
-    if (ownership.kind === "empty") return [];
-    if (ownership.kind === "pass") {
-      const row = await db.fetchOne(table, idWhere);
-      return row ? [row as Record<string, unknown>] : [];
-    }
-    // ownership has raw SQL — splice it into a raw query alongside the
-    // idFilter + tenant-filter that TenantDb would have added.
-    const tableName = String(schemaTableName(table));
-    const { whereParts, params } = buildRawIdWhere(db, idWhere, ownership);
-    const sqlText = `SELECT * FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
-    return [
-      ...(await executeRawQueryRead<Record<string, unknown>>(tenantDbRunner(db), sqlText, params)),
-    ];
-  }
-
   // Tenant filter + idFilter + ownership predicate as raw SQL, mirroring what
   // TenantDb.fetchOne/readWhere add. idFilter only yields `id` and a boolean
   // `isDeleted`, so no null/IS NULL branch is needed.
@@ -585,6 +565,32 @@ export function buildExecutorContext(
       `(SELECT MAX("version") FROM "kumiko_events" WHERE "aggregate_id" = $${aggregateIdParam} ` +
       `AND "tenant_id" = $${tenantIdParam}) AS "__streamVersion"`
     );
+  }
+
+  // Cache-hit revalidation: ownership predicate and live stream version in ONE
+  // statement, so a cache hit costs the same single roundtrip as the cold path.
+  async function probeOwnershipWithStreamVersion(
+    db: TenantDb,
+    idWhere: WhereObject,
+    ownership: { kind: "sql"; sqlText: string; params: readonly unknown[] },
+    streamTenantId: TenantId,
+    aggregateId: string,
+  ): Promise<{ readonly owned: boolean; readonly streamVersion: number }> {
+    const tableName = String(schemaTableName(table));
+    const { whereParts, params } = buildRawIdWhere(db, idWhere, ownership);
+    params.push(aggregateId, streamTenantId);
+    const sqlText =
+      `SELECT 1 AS "__owned", ${streamVersionSubquerySql(params.length - 1, params.length)} ` +
+      `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
+    const rows = await executeRawQueryRead<Record<string, unknown>>(
+      tenantDbRunner(db),
+      sqlText,
+      params,
+    );
+    const first = rows[0];
+    if (!first) return { owned: false, streamVersion: 0 };
+    const version = first["__streamVersion"];
+    return { owned: true, streamVersion: typeof version === "number" ? version : 0 };
   }
 
   // Row and MAX(version) in ONE statement: two reads can pair a post-write
@@ -694,7 +700,7 @@ export function buildExecutorContext(
     idFilter,
     loadById,
     assertStreamWritable,
-    loadWithOwnership,
+    probeOwnershipWithStreamVersion,
     loadDetailSnapshot,
     loadExpectSnapshot,
     encryptForStorage,

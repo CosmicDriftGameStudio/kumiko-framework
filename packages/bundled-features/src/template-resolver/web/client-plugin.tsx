@@ -40,7 +40,8 @@ import {
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "../qualified-names.js";
-import { DocumentContentEditor } from "./document-editor.js";
+import { DocumentBlocksContext, DocumentContentEditor } from "./document-editor.js";
+import { documentBlocksForKind } from "./document-toolbar-blocks.js";
 import { defaultTranslations } from "./i18n.js";
 
 // Exported for the unit test — groupBlocksByFolder is a pure function.
@@ -311,6 +312,7 @@ function TextBlockEditor({
   const contentFormat = findContentFormat(features, collectionId);
   const variableExamples = findVariableExamples(features, collectionId);
   const variables = Object.keys(variableExamples);
+  const documentBlocks = documentBlocksForKind(findCollection(features, collectionId)?.kind);
   const ContentEditor = useContentEditor(contentFormat);
   const canWrite =
     user?.roles.includes("TenantAdmin") === true || user?.roles.includes("SystemAdmin") === true;
@@ -448,13 +450,15 @@ function TextBlockEditor({
             contentFormat={contentFormat}
           />
         ) : (
-          <ContentEditor
-            id={contentEditorId}
-            value={content}
-            onChange={setContent}
-            variables={variables}
-            readOnly={disabled}
-          />
+          <DocumentBlocksContext.Provider value={documentBlocks}>
+            <ContentEditor
+              id={contentEditorId}
+              value={content}
+              onChange={setContent}
+              variables={variables}
+              readOnly={disabled}
+            />
+          </DocumentBlocksContext.Provider>
         )}
       </Field>
       {saveError !== null && <Banner variant="error">{saveError}</Banner>}

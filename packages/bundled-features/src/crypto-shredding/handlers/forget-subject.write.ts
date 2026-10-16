@@ -1,6 +1,12 @@
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import { runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  asRawClient,
+  fetchOne,
+  hasBegin,
+  runInSavepointIfSupported,
+  transaction,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   computeBlindIndex,
   configuredBlindIndexKey,
@@ -42,7 +48,7 @@ import * as z from "zod";
 import { resolveRetentionPolicyForTenant } from "../../data-retention/index.js";
 import { eraseNoteBodiesReachingSubject } from "../../notes-history-user-data/index.js";
 import { revokeAllPatTokensForUser } from "../../personal-access-tokens/index.js";
-import { USER_STATUS } from "../../user/index.js";
+import { USER_STATUS, userTable } from "../../user/index.js";
 import {
   denyIfTargetOutsideAdminTenant,
   isSystemAdminActor,
@@ -337,25 +343,32 @@ async function sweepDerivedSubjectData(
   }
 }
 
-// Graceful fail: email-subscribers and other non-user entities may use
-// user-style subject keys without having an actual user row — the key erase is
-// the important part for GDPR compliance; the lifecycle update is best-effort for
-// real users. The savepoint confines the failure so the handler transaction
-// stays usable for the audit event.
-async function closeUserLoginDoorBestEffort(
+// Email subscribers and other non-user entities use user-style subject keys
+// without a read_users row — the key erase is the GDPR-relevant part, so no row
+// means nothing to close. For an existing row, failures propagate: the handler
+// throws and the retry re-runs the (idempotent) erase plus the door close. With
+// an outside-transaction runner that can open its own transaction, the door
+// closes there and stays committed when the handler throws afterwards (sweep
+// error). Otherwise a savepoint confines a failure to the handler transaction.
+async function closeUserLoginDoor(
   ctx: HandlerContext,
   userId: string,
-  lifecycleRunner: DbRunner,
+  outsideRunner: DbRunner | undefined,
+  handlerTxRunner: DbRunner,
 ): Promise<void> {
-  try {
-    await runInSavepointIfSupported(lifecycleRunner, async (userLifecycleRunner) => {
-      await updateUserLifecycle(userLifecycleRunner, userId, { status: USER_STATUS.Deleted });
-      if (ctx.registry.features.has("personal-access-tokens")) {
-        await revokeAllPatTokensForUser(userLifecycleRunner, userId);
-      }
-    });
-  } catch {
-    // skip: no user row for this subject key (e.g. email subscribers); key erase and sweeps already ran.
+  const userRow = await fetchOne(handlerTxRunner, userTable, { id: userId });
+  if (!userRow) return;
+
+  const closeDoor = async (runner: DbRunner): Promise<void> => {
+    await updateUserLifecycle(runner, userId, { status: USER_STATUS.Deleted });
+    if (ctx.registry.features.has("personal-access-tokens")) {
+      await revokeAllPatTokensForUser(runner, userId);
+    }
+  };
+  if (outsideRunner && hasBegin(asRawClient(outsideRunner))) {
+    await transaction(outsideRunner, closeDoor);
+  } else {
+    await runInSavepointIfSupported(handlerTxRunner, closeDoor);
   }
 }
 
@@ -490,14 +503,6 @@ export const forgetSubjectWrite = defineWriteHandler({
       eraseReason: event.payload.reason,
     });
 
-    const cleanupError = await sweepDerivedSubjectData(
-      ctx,
-      subject,
-      subjectKey,
-      ctx.db.unsafeRaw(),
-      { requestId, erasedBy: event.user.id },
-    );
-
     // User subject: close the login door. DEK-erase makes the passwordHash
     // ciphertext unreadable, but status + PATs are standalone credentials —
     // the PAT resolver only checks revokedAt/expiresAt, NOT user.status
@@ -513,9 +518,25 @@ export const forgetSubjectWrite = defineWriteHandler({
     // crash recovery is safe. User-feature guard: without the user feature
     // read_users doesn't exist (crypto-only stack). Tenant subjects have no
     // credentials.
+    // Runs before the sweep and in its own transaction: a failing sweep rolls the
+    // handler transaction back, and the handler tx holds no lock on this user's
+    // read_users row yet (only read gates ran), so there is no lock conflict.
     if (raw.kind === "user" && ctx.registry.features.has("user")) {
-      await closeUserLoginDoorBestEffort(ctx, raw.userId, ctx.db.unsafeRaw());
+      await closeUserLoginDoor(
+        ctx,
+        raw.userId,
+        ctx.dbOutsideTransaction?.unsafeRaw(),
+        ctx.db.unsafeRaw(),
+      );
     }
+
+    const cleanupError = await sweepDerivedSubjectData(
+      ctx,
+      subject,
+      subjectKey,
+      ctx.db.unsafeRaw(),
+      { requestId, erasedBy: event.user.id },
+    );
 
     await appendSubjectForgotten(
       ctx,

@@ -122,6 +122,27 @@ describe("template-resolver :: bundle", () => {
     );
   });
 
+  test("exporting a system template with resources needs a system-tenant caller", async () => {
+    const systemBundle = { ...bundle, slug: "bundle-system-export" };
+    await stack.http.writeOk(
+      TemplateResolverHandlers.importBundleSystem,
+      { bundle: systemBundle },
+      systemTenantAdmin,
+    );
+    const err = await stack.http.queryErr(
+      TemplateResolverQueries.exportBundle,
+      { slug: systemBundle.slug, kind: systemBundle.kind, scope: "system" },
+      tenantA,
+    );
+    const codes = (err.details as { fields: Array<{ code: string }> }).fields.map((f) => f.code);
+    expect(codes).toContain("system_resources_need_system_tenant");
+    await stack.http.queryOk(
+      TemplateResolverQueries.exportBundle,
+      { slug: systemBundle.slug, kind: systemBundle.kind, scope: "system" },
+      systemTenantAdmin,
+    );
+  });
+
   test("an active system import with a publish issue in a later locale writes nothing and stores no file", async () => {
     const slug = "bundle-publish-gate";
     const gated = {

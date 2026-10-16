@@ -577,6 +577,35 @@ describe("preview-pdf", () => {
     expect(onlyStubRequest().html).toContain("data:image/png;base64,");
   });
 
+  test("a SystemAdmin prints a draft whose image is linked only by the system row", async () => {
+    const systemRow = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug: "system-draft",
+        kind: "document-pdf",
+        locale: "de",
+        content: "<p>Gespeicherter Systementwurf</p>",
+        contentFormat: "html",
+        meta: { layoutSlug: "letterhead" },
+        variableSchema: {},
+        linkedResources: {},
+      },
+      TestUsers.systemAdmin,
+    );
+    await uploadImageFor(systemRow.id, "photo");
+
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({
+        slug: "system-draft",
+        content: '<p><img data-resource="photo" alt="Foto"></p>',
+      }),
+      TestUsers.systemAdmin,
+    );
+
+    expect(onlyStubRequest().html).toContain("data:image/png;base64,");
+  });
+
   test("orientation, background and layout header/footer end up in the service request", async () => {
     await stack.http.queryOk<PdfPreview>(
       RendererPuppeteerClientQueries.previewPdf,

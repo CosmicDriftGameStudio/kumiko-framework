@@ -10,6 +10,7 @@
 // where-object leer ist → löscht ALLE Zeilen. Das ist ein Footgun; das Verhalten
 // ist hier explizit dokumentiert und getestet.
 import { afterAll, describe, expect, test } from "bun:test";
+import { InternalError } from "../../errors/index.js";
 import {
   deleteMany,
   fetchOne,
@@ -221,6 +222,14 @@ describe("transaction", () => {
       const rows = await selectMany<{ val: string }>(db, meta);
       expect(rows.length).toBe(1);
       expect(rows[0]!.val).toBe("committed");
+    });
+  });
+
+  test("auf einem tx-Handle: InternalError statt TypeError", async () => {
+    await withTable(textCols, async ({ db }) => {
+      await transaction(db, async (tx) => {
+        await expect(transaction(tx, async () => "nested")).rejects.toBeInstanceOf(InternalError);
+      });
     });
   });
 

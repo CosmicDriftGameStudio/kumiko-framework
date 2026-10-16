@@ -1,6 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
+import { NotFoundError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import {
   isFileAttachmentEntry,
@@ -47,6 +47,21 @@ export const exportBundleQuery = defineQueryHandler({
       for (const [key, entry] of Object.entries(parseLinkedResourceEntries(row.linkedResources))) {
         if (!entryByKey.has(key)) entryByKey.set(key, entry);
       }
+    }
+
+    // The files live in the system tenant's key space; readTemplateResource only
+    // serves the caller's own tenant, so anyone else would end in a misleading NotFound.
+    const hasFileResources = [...entryByKey.values()].some((entry) => !isPdfAttachmentLink(entry));
+    if (scope === "system" && hasFileResources && query.user.tenantId !== SYSTEM_TENANT_ID) {
+      throw new ValidationError({
+        fields: [
+          {
+            path: "scope",
+            code: "system_resources_need_system_tenant",
+            i18nKey: "templateResolver.errors.template.systemResourcesNeedSystemTenant",
+          },
+        ],
+      });
     }
 
     const resources: TemplateBundle["resources"] = {};

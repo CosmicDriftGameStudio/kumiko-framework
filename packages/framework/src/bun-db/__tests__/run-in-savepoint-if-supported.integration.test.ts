@@ -6,7 +6,7 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { InternalError } from "../../errors/index.js";
-import { asRawClient, runInSavepointIfSupported } from "../query.js";
+import { runInSavepointIfSupported, transaction } from "../query.js";
 import { closeDb, getDb } from "./_helpers.js";
 
 afterAll(async () => {
@@ -16,10 +16,9 @@ afterAll(async () => {
 describe("runInSavepointIfSupported — already-committed transaction", () => {
   test("throws InternalError naming afterCommit + dbOutsideTransaction, never runs fn", async () => {
     const db = await getDb();
-    const raw = asRawClient(db);
 
     let committedTx: unknown;
-    await raw.begin(async (tx) => {
+    await transaction(db, async (tx) => {
       committedTx = tx;
     });
     // `committedTx` is now a driver handle whose transaction has committed —

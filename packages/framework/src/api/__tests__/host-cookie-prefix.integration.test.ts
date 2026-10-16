@@ -174,7 +174,7 @@ describe("__Host- session cookies (integration)", () => {
       async (stack) => {
         const cookies = getSetCookies(await login(stack));
         expect(cookies.get(AUTH_COOKIE_BASE)?.raw).toMatch(/Domain=example\.eu/i);
-        expect(cookies.get(PREFIXED_AUTH)).toBeUndefined();
+        expect(cookies.get(PREFIXED_AUTH)?.value ?? "").toBe("");
 
         const auth = cookies.get(AUTH_COOKIE_BASE)?.value;
         const csrf = cookies.get(CSRF_COOKIE_BASE)?.value;
@@ -184,6 +184,44 @@ describe("__Host- session cookies (integration)", () => {
           Origin: "https://admin.example.eu",
         });
         expect(ok.status).toBe(200);
+      },
+    );
+  });
+
+  test("with cookieDomain login and logout expire the leftover __Host- cookies as Secure host-only", async () => {
+    await withStack(
+      {
+        ...BASE_AUTH_CONFIG,
+        secureCookies: true,
+        cookieDomain: "example.eu",
+        allowedOrigins: ["https://admin.example.eu"],
+      },
+      async (stack) => {
+        const expectHostPrefixedExpiry = (res: Response): void => {
+          const headers = res.headers.getSetCookie();
+          for (const name of [PREFIXED_AUTH, PREFIXED_CSRF]) {
+            const expiry = headers.find((h) => isExpiry(h, name));
+            expect(expiry).toMatch(/;\s*Secure/i);
+            expect(expiry).toMatch(/;\s*Path=\//i);
+            expect(expiry).not.toMatch(/Domain=/i);
+          }
+        };
+        const loginRes = await login(stack);
+        expectHostPrefixedExpiry(loginRes);
+
+        const cookies = getSetCookies(loginRes);
+        const auth = cookies.get(AUTH_COOKIE_BASE)?.value;
+        const csrf = cookies.get(CSRF_COOKIE_BASE)?.value;
+        const logoutRes = await stack.app.request("/api/auth/logout", {
+          method: "POST",
+          headers: {
+            Cookie: `${AUTH_COOKIE_BASE}=${auth}; ${CSRF_COOKIE_BASE}=${csrf}`,
+            [CSRF_HEADER_NAME]: csrf ?? "",
+            Origin: "https://admin.example.eu",
+          },
+        });
+        expect(logoutRes.status).toBe(200);
+        expectHostPrefixedExpiry(logoutRes);
       },
     );
   });
