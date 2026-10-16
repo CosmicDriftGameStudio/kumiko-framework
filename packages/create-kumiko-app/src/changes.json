@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "The scaffold no longer offers renderer-simple",
+    "detail": "renderer-simple is removed from the bundled features, so the feature picker and the bundled feature manifest no longer list it. Template-based mails need template-resolver, renderer-foundation and renderer-mail-html."
+  }
+]

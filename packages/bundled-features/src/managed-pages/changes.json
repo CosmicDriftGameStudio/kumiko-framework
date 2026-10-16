@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Branding screen edits the logo file and readBranding returns logoFile",
+    "detail": "The branding settings screen has a logo upload for managed-pages:config:branding-logo-file, and readBranding and the branding query include logoFile next to logoUrl. The template resource errors template_resource_too_large and template_resource_unsupported_image have German and Spanish texts."
+  },
+  {
     "version": "0.353.0",
     "type": "fix",
     "title": "A rate-limited page request answers 429 with Retry-After instead of 503 or an unbranded page",

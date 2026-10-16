@@ -1,0 +1,59 @@
+[
+  {
+    "version": "0.363.0",
+    "type": "breaking",
+    "title": "Documents format dates and numbers by the template locale, dates in the long style",
+    "detail": "readDocumentFormat used the tenant setting tenant-settings:config:locale ahead of the template locale, so a German invoice of a tenant set to English printed \"Oct 1, 2026\" and \"€780.00\". Mails, mail previews and document PDFs now format by the locale of the template that is rendered; the tenant settings still supply the currency. The date helper prints the long style (\"1. Oktober 2026\", \"October 1, 2026\") instead of the medium style (\"01.10.2026\", \"Oct 1, 2026\").",
+    "migration": "Tests or snapshots that assert rendered dates change from \"05.03.2026\" to \"5. März 2026\" (de) and from \"Mar 5, 2026\" to \"March 5, 2026\" (en). A tenant that relied on tenant-settings:config:locale to change the number format of its documents now needs a template in that locale."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Images in layout regions, exported document-kit helpers",
+    "detail": "A mail layout region can contain images (data-resource) that are sent as inline attachments. The document helpers (createDocumentHandlebars, compileDocumentSource, readDocumentFormat, readTenantName, resolveResourceFileRefs, collectRegionResourceKeys, mergeResourceFileRefs) are exported, so other renderers format documents the same way."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Text alignment of paragraphs and headings is sent as an inline style",
+    "detail": "A paragraph or heading with data-align is rendered with an inline text-align, because mail clients ignore document CSS."
+  },
+  {
+    "version": "0.363.0",
+    "type": "breaking",
+    "title": "renders kind mail from document templates, Markdown path removed",
+    "detail": "The plugin serves kind mail. It resolves the template by slug (contentFormat html, meta.subject required), compiles the document body to Handlebars through template-resolver, renders it in an isolated Handlebars instance (helpers money, date and link, HTML escaping on) and places the result into the mail-layout named by meta.layoutSlug (default slug default, in-code DEFAULT_MAIL_LAYOUT_MJML as fallback). The layout only sees content, subject, previewText, tenantName, signature, imprint and unsubscribeUrl. The response carries subject and previewText; the subject has line breaks removed. Markdown rendering and the content/contentFormat payload are gone; DEFAULT_MAIL_LAYOUT_MJML uses tenantName instead of appName. seedSystemMailLayout writes kind mail-layout slug default through seedSystemTemplate and is idempotent. New dependency on @cosmicdrift/kumiko-headless.",
+    "migration": "Send kind mail requests with { slug, locale, variables } and move mail texts into kind mail templates (html body plus meta.subject), for example through r.notification({ template, meta }). Custom mail layouts become kind mail-layout, contentFormat mjml, slug default and use {{tenantName}} instead of {{appName}}; the body is inserted with {{{content}}}."
+  },
+  {
+    "version": "0.363.0",
+    "type": "breaking",
+    "title": "Package moved to the framework under the @cosmicdrift scope",
+    "detail": "Renamed from @cosmicdriftgamestudio/kumiko-renderer-mail-html (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-mail-html on npmjs; the API is unchanged.",
+    "migration": "Replace @cosmicdriftgamestudio/kumiko-renderer-mail-html with @cosmicdrift/kumiko-renderer-mail-html in package.json and in every import; install from npmjs instead of GitHub Packages."
+  },
+  {
+    "version": "0.363.0",
+    "type": "fix",
+    "title": "The default mail layout shows the mail body",
+    "detail": "The in-code default mail layout wraps the body in mj-text instead of mj-raw. With mj-raw the body HTML sat directly in the column table, browsers moved it into the column wrapper with font-size 0, and every mail without a mail-layout row had an invisible body. seedSystemMailLayout updates a seeded row on its next run."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Mail renderer attaches linked PDF templates as rendered-pdf attachments",
+    "detail": "The renderer builds a RenderedPdfAttachmentRef per linked PDF with the mail's render variables, the mail locale and the file name pattern rendered like the subject and cleaned by sanitizePdfAttachmentFileName, now exported from @cosmicdrift/kumiko-bundled-features/delivery (control characters and / \\ \" ; .. removed, at most 200 characters including .pdf, empty falls back to the last slug segment). Order is inline images, files, rendered PDFs, all within MAX_EMAIL_ATTACHMENTS; variables above MAX_RENDERED_PDF_VARIABLES_BYTES fail the render with the mail slug. RenderedPdfAttachmentRef now lives in renderer-foundation (still exported from delivery) and RenderResponse and RenderedMail allow it."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Renders a MailPayload.draft instead of the stored template body and subject",
+    "detail": "With a draft the stored template of the slug only supplies its linked images and variable schema; the body goes through the document sanitizer and the meta through the mail meta check, and a violation is an invalid_payload error. The response has no template reference because a draft is not a stored version."
+  },
+  {
+    "version": "0.363.0",
+    "type": "fix",
+    "title": "Mails use a tenant layout stored under another locale",
+    "detail": "The mail renderer resolves its layout with resolveLayout, so a tenant layout saved in en no longer leaves German mails without the tenant branding."
+  }
+]

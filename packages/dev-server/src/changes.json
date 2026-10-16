@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "composeRendererStack includes renderer-mail-html",
+    "detail": "The renderer stack now also mounts createRendererMailHtmlFeature, which the auth mails need. Apps that already list renderer-mail-html next to composeRendererStack() drop their own copy, createRegistry rejects duplicate features."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "composeRendererStack no longer mounts renderer-simple",
+    "detail": "renderer-simple is removed, so the renderer stack is template-resolver, renderer-foundation and renderer-mail-html."
+  },
+  {
     "version": "0.361.0",
     "type": "breaking",
     "title": "runDevApp encrypts PII on ephemeral dev DBs by default",

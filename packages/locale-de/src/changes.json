@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "error texts for template meta and placeholder validation in German and Spanish",
+    "detail": "The locale packages carry the new templateResolver.errors keys (invalid meta, unknown and missing placeholders, mail layout format, collection kind not allowed); renderer-web's formatMoney delegates to headless and the create-kumiko-app feature manifest is refreshed."
+  },
+  {
     "version": "0.361.0",
     "type": "improvement",
     "title": "German string for locked records",

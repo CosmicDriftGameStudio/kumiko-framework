@@ -1,5 +1,53 @@
 [
   {
+    "version": "0.363.0",
+    "type": "breaking",
+    "title": "NotificationRenderer and RendererInput removed, immediate notify renders with the tenant config",
+    "detail": "The inline (immediate, job-less) delivery path now gets the tenant config accessor like the delivery.render job, so the mail layout shows the tenant name in both paths. DeliveryServiceOptions and CreateDeliveryTestContextOptions accept tenantConfigFor; runProdApp wires it from the boot config resolver. The types NotificationRenderer and RendererInput are removed from the delivery exports because the legacy renderer path is gone.",
+    "migration": "Drop NotificationRenderer and RendererInput imports; render mails with template + meta on r.notification (see renderer-foundation)."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "ChannelContext.renderMail renders template notifications for the email channel",
+    "detail": "A notification that declares a template is rendered through the mail renderer plugin with the recipient locale and the notification variables; the email channel fails when renderMail is missing instead of falling back to the legacy renderer. The job path passes the tenant config accessor to the renderer, the inline path renders without one."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Mails can attach a PDF that is rendered from a document template when the mail is sent",
+    "detail": "notify data.attachments accepts { kind: \"rendered-pdf\", templateSlug, variables, fileName, locale? }. The send job renders the PDF through the document-pdf renderer, so the job payload carries the variables (at most 64000 bytes as JSON), not the bytes. Variables are stored in the job payload, so keep personal data out of them or accept that retention."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "ChannelContext.readAttachment takes an attachment origin",
+    "detail": "readAttachment(ref, origin) with origin \"template\" (from the renderer) or \"message\" (default, from notify data). Only template attachments may fall back to the system tenant; file refs from notify data stay limited to the sending tenant."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "EMAIL_CHANNEL_NAME, createTemplateMailRenderer and createEmailAttachmentReader are exported",
+    "detail": "The email channel name is a shared constant instead of a string literal. The mail renderer and the inline-attachment reader that build the channel context are exported and accept a tenant-bound db, so a handler can send through the same path as a notification."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Notification messages carry attachments (file refs and inline cid images)",
+    "detail": "RenderedMessage and the send job payload accept attachments as references (kind file or inline), never bytes. ChannelContext.readAttachment resolves them tenant-scoped at send time; createDeliveryService takes a new filesForTenant option for the inline fallback path."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "NotifyFactory takes an optional fileProviderResolver, so immediate and bootstrap mails can read attachments too"
+  },
+  {
+    "version": "0.363.0",
+    "type": "fix",
+    "title": "Queued mails render with the tenant's config again",
+    "detail": "The delivery render and send jobs read the tenant config through ctx.configFor, which job contexts do not carry, so queued mails rendered without tenant name, locale, currency and branding. Both jobs now use ctx.config, which the job runner builds for the payload's tenant."
+  },
+  {
     "version": "0.357.0",
     "type": "improvement",
     "title": "Delivery idempotencyKey is released when nothing was delivered",

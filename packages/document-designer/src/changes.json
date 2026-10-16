@@ -1,0 +1,20 @@
+[
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Mail templates open in a mail editor with preview and test mail",
+    "detail": "The \"Edit\" row action of a mail template opens the new mail-editor screen: subject, preview text and content with placeholders from the notification, logo and file attachments, PDF-template attachments, layout and category, sandboxed preview (HTML or text, desktop or 375 px), test mail to the signed-in user and the audit-based version list. PreviewRecordPickerProvider is an optional slot for a \"pick a record\" action in the preview."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Template overview, layout editor and an options object for documentDesignerClient",
+    "detail": "The package gains the server feature createDocumentDesignerFeature with the templates and platform-templates overviews and the layout-editor screen. documentDesignerClient now takes an options object instead of a screen id, and appLocales sets the languages column of the overview. The feature declares the pdf-template-editor screen (PDF_TEMPLATE_EDITOR_SCREEN_ID) and PDF rows open the PDF editor."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "New package with the PDF template editor screen",
+    "detail": "\"@cosmicdrift/kumiko-document-designer/web\" exports documentDesignerClient(screenId), PdfTemplateEditorScreen, PdfTemplateEditor and documentDesignerTranslations. The screen takes the template from the URL (?slug=...&locale=...), edits the system template for a SystemAdmin and a tenant customisation for everyone else, and previews the printed PDF with pdf.js. template-resolver/web additionally exports DocumentEditorHandle, TemplateResolverQueries, TemplateResolverHandlers and TemplateResolverErrors."
+  }
+]

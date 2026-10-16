@@ -1,5 +1,43 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.363.0
+
+### Minor Changes
+
+- 2972bc2: headless exports formatMoney and resolveSafeMoneyLocale
+
+  <!-- kumiko-changes
+  feature: headless
+  type: improvement
+  title: formatMoney and resolveSafeMoneyLocale move into headless
+  detail: formatMoney(amountMinor, currency, locale?, fractionDigits?) and resolveSafeMoneyLocale(locale) are exported from @cosmicdrift/kumiko-headless so server code such as the mail renderer formats money like the web client; renderer-web's formatMoney delegates to it.
+  -->
+
+### Patch Changes
+
+- a12e094: propertyOf type guard and fewer unchecked casts in the UI packages
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: propertyOf type guard and fewer unchecked casts in the UI packages
+  detail: "@cosmicdrift/kumiko-types/type-guards" exports propertyOf, which reads one property off an unknown value. Headless, renderer, renderer-web and dispatcher-live replace unchecked as-casts and globalThis probes with it and with narrowing. Behavior stays the same for well-formed input; a format spec, upload response or stream event with a wrongly typed property is now ignored instead of passed through.
+  -->
+
+- Updated dependencies [045f886]
+- Updated dependencies [a12e094]
+- Updated dependencies [58452ae]
+- Updated dependencies [09a4aa2]
+- Updated dependencies [fcd6eb4]
+- Updated dependencies [2972bc2]
+- Updated dependencies [ef689d8]
+- Updated dependencies [4a748c3]
+- Updated dependencies [cbed66e]
+- Updated dependencies [366d89f]
+- Updated dependencies [a12e094]
+  - @cosmicdrift/kumiko-framework@0.363.0
+  - @cosmicdrift/kumiko-types@0.363.0
+
 ## 0.362.0
 
 ### Patch Changes

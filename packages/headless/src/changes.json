@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "formatMoney and resolveSafeMoneyLocale move into headless",
+    "detail": "formatMoney(amountMinor, currency, locale?, fractionDigits?) and resolveSafeMoneyLocale(locale) are exported from @cosmicdrift/kumiko-headless so server code such as the mail renderer formats money like the web client; renderer-web's formatMoney delegates to it."
+  },
+  {
     "version": "0.361.0",
     "type": "improvement",
     "title": "Edit view model carries read-only cells and fixed rows",

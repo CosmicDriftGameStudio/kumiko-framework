@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "composeFeatures adds template-resolver, renderer-foundation and renderer-mail-html for auth apps",
+    "detail": "With includeBundled, the auth mails are stored templates and the boot seed needs the template-resolver and a mail renderer. composeFeatures adds whichever of template-resolver, renderer-foundation and renderer-mail-html the app does not mount itself, so runDevApp, runProdApp and scaffolds keep booting. Apps without the template tables need a schema migration (`kumiko schema generate`)."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Immediate notify renders with the tenant config in runProdApp",
+    "detail": "The boot delivery notify factory passes tenantConfigFor, built from the boot config resolver, to the delivery service, so immediate notifications render the tenant name in the mail layout like the delivery.render job does."
+  },
+  {
     "version": "0.357.0",
     "type": "fix",
     "title": "composeFeatures no longer warns about auth-self-registration listed in APP_FEATURES"

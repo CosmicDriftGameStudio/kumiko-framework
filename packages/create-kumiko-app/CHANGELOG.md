@@ -1,5 +1,47 @@
 # create-kumiko-app
 
+## 0.363.0
+
+### Minor Changes
+
+- 9120f65: Scaffold feature picker drops renderer-simple
+
+  <!-- kumiko-changes
+  feature: create-kumiko-app
+  type: improvement
+  title: The scaffold no longer offers renderer-simple
+  detail: renderer-simple is removed from the bundled features, so the feature picker and the bundled feature manifest no longer list it. Template-based mails need template-resolver, renderer-foundation and renderer-mail-html.
+  -->
+
+### Patch Changes
+
+- 2972bc2: Error texts for template meta and placeholder validation, formatMoney delegates to headless, feature manifest refreshed
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: error texts for template meta and placeholder validation in German and Spanish
+  detail: The locale packages carry the new templateResolver.errors keys (invalid meta, unknown and missing placeholders, mail layout format, collection kind not allowed); renderer-web's formatMoney delegates to headless and the create-kumiko-app feature manifest is refreshed.
+  -->
+
+- Updated dependencies [045f886]
+- Updated dependencies [a12e094]
+- Updated dependencies [58452ae]
+- Updated dependencies [ef689d8]
+- Updated dependencies [9120f65]
+- Updated dependencies [fcd6eb4]
+- Updated dependencies [2972bc2]
+- Updated dependencies [ef689d8]
+- Updated dependencies [4a748c3]
+- Updated dependencies [ef689d8]
+- Updated dependencies [9120f65]
+- Updated dependencies [cbed66e]
+- Updated dependencies [366d89f]
+  - @cosmicdrift/kumiko-framework@0.363.0
+  - @cosmicdrift/kumiko-dev-server@0.363.0
+  - @cosmicdrift/kumiko-server-runtime@0.363.0
+  - @cosmicdrift/kumiko-testing@0.363.0
+
 ## 0.362.0
 
 ### Patch Changes

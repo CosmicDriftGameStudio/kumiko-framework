@@ -1,5 +1,89 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.363.0
+
+### Minor Changes
+
+- ef689d8: composeRendererStack mounts renderer-mail-html
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: composeRendererStack includes renderer-mail-html
+  detail: The renderer stack now also mounts createRendererMailHtmlFeature, which the auth mails need. Apps that already list renderer-mail-html next to composeRendererStack() drop their own copy, createRegistry rejects duplicate features.
+  -->
+
+- 9120f65: composeRendererStack drops renderer-simple
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: composeRendererStack no longer mounts renderer-simple
+  detail: renderer-simple is removed, so the renderer stack is template-resolver, renderer-foundation and renderer-mail-html.
+  -->
+
+### Patch Changes
+
+- 045f886: Fewer unchecked casts in bundled features, dev-server, server-runtime, testing and cli
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Fewer unchecked casts in bundled features, dev-server, server-runtime, testing and cli
+  detail: Casts are replaced by shared type guards, typed query rows and direct Bun typings. Behavior stays the same, except that a tier-resolver registration without a build() factory now fails with a clear error at boot, the kumiko CLI prints the thrown value of non-Error failures instead of "undefined".
+  -->
+
+- Updated dependencies [9120f65]
+- Updated dependencies [ef689d8]
+- Updated dependencies [9120f65]
+- Updated dependencies [045f886]
+- Updated dependencies [a12e094]
+- Updated dependencies [9120f65]
+- Updated dependencies [b9a146d]
+- Updated dependencies [9120f65]
+- Updated dependencies [58452ae]
+- Updated dependencies [ef689d8]
+- Updated dependencies [a12e094]
+- Updated dependencies [3c6b3da]
+- Updated dependencies [09a4aa2]
+- Updated dependencies [0a79504]
+- Updated dependencies [b022cca]
+- Updated dependencies [fcd6eb4]
+- Updated dependencies [2972bc2]
+- Updated dependencies [2972bc2]
+- Updated dependencies [2972bc2]
+- Updated dependencies [ef689d8]
+- Updated dependencies [4a748c3]
+- Updated dependencies [0a79504]
+- Updated dependencies [0a79504]
+- Updated dependencies [2972bc2]
+- Updated dependencies [2972bc2]
+- Updated dependencies [f7da271]
+- Updated dependencies [6b8d89b]
+- Updated dependencies [9120f65]
+- Updated dependencies [ef689d8]
+- Updated dependencies [9120f65]
+- Updated dependencies [7ed530a]
+- Updated dependencies [d35e9a0]
+- Updated dependencies [549a6f6]
+- Updated dependencies [f3fe91e]
+- Updated dependencies [3c6b3da]
+- Updated dependencies [2972bc2]
+- Updated dependencies [3c6b3da]
+- Updated dependencies [46b83b8]
+- Updated dependencies [cbed66e]
+- Updated dependencies [366d89f]
+- Updated dependencies [a12e094]
+- Updated dependencies [9120f65]
+- Updated dependencies [9120f65]
+  - @cosmicdrift/kumiko-bundled-features@0.363.0
+  - @cosmicdrift/kumiko-framework@0.363.0
+  - @cosmicdrift/kumiko-server-runtime@0.363.0
+  - @cosmicdrift/kumiko-types@0.363.0
+  - @cosmicdrift/kumiko-renderer-web@0.363.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.363.0
+  - @cosmicdrift/kumiko-headless@0.363.0
+
 ## 0.362.0
 
 ### Patch Changes

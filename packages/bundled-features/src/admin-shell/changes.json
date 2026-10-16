@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "includeDocumentDesigner lists the template navs in the admin workspaces",
+    "detail": "With includeDocumentDesigner, the tenant workspace shows document-designer:nav:templates and the platform workspace document-designer:nav:platform-templates. The option requires the document-designer feature and defaults to false."
+  },
+  {
     "version": "0.330.0",
     "type": "breaking",
     "title": "admin-shell requires the metrics and metrics-system features and builds its overview dashboards from a metrics list",
