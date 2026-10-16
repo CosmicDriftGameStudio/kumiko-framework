@@ -12,6 +12,7 @@
 
 import {
   type InlineAttachmentRef,
+  type MailAttachmentRef,
   type MailDraft,
   type RenderedTemplateRef,
   type RendererContext,
@@ -338,6 +339,33 @@ function renderSubjectLines(
   }
 }
 
+function assembleMailAttachments(args: {
+  readonly slug: string;
+  readonly template: TemplateResource;
+  readonly resourceFileRefs: ReadonlyMap<string, string>;
+  readonly variables: Readonly<Record<string, unknown>>;
+  readonly locale: string;
+  readonly renderFileName: (pattern: string) => string;
+}): readonly MailAttachmentRef[] {
+  const { slug, template, resourceFileRefs, variables, locale, renderFileName } = args;
+  const inlineAttachments: readonly InlineAttachmentRef[] = [...resourceFileRefs].map(
+    ([cid, fileRefId]) => ({ kind: "inline", cid, fileRefId }),
+  );
+  const renderedPdfs = buildRenderedPdfAttachments({
+    slug,
+    links: template.pdfAttachmentLinks ?? [],
+    variables,
+    locale,
+    renderFileName,
+  });
+  return combineMailAttachments(
+    slug,
+    inlineAttachments,
+    template.fileAttachments ?? [],
+    renderedPdfs,
+  );
+}
+
 export async function mailHtmlRender(
   req: RenderRequest,
   ctx: RendererContext,
@@ -372,22 +400,14 @@ export async function mailHtmlRender(
   const { contentHtml } = body;
   const layoutFileRefs = await resolveLayoutFileRefs(tplApi, ctx, layout);
   const resourceFileRefs = mergeResourceFileRefs(body.resourceFileRefs, layoutFileRefs);
-  const inlineAttachments: readonly InlineAttachmentRef[] = [...resourceFileRefs].map(
-    ([cid, fileRefId]) => ({ kind: "inline", cid, fileRefId }),
-  );
-  const renderedPdfs = buildRenderedPdfAttachments({
+  const attachments = assembleMailAttachments({
     slug,
-    links: template.pdfAttachmentLinks ?? [],
+    template,
+    resourceFileRefs,
     variables,
     locale,
     renderFileName: (pattern) => renderFileNamePattern(hbs, pattern, slug, context),
   });
-  const attachments = combineMailAttachments(
-    slug,
-    inlineAttachments,
-    template.fileAttachments ?? [],
-    renderedPdfs,
-  );
   const { subject, previewText } = renderSubjectLines(hbs, meta, slug, context);
 
   let mjmlSource: string;
