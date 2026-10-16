@@ -203,7 +203,7 @@ function validateAnonymousHasIpBucket(
   if (!hasIpBucket) {
     throw new Error(
       `${where} and allows anonymous callers, but has no ip-keyed rateLimit ` +
-        `(per: "ip" or "ip+handler", not disabled). Payload buckets only complement the IP bucket.`,
+        `(per: "ip" or "ip+handler", not disabled). Payload buckets only complement the IP bucket. Set rateLimit: { per: "ip", ... } on the handler.`,
     );
   }
 }
@@ -246,7 +246,7 @@ export function validateTenantlessAnonymous(
   if (!isAnonymousOnly) {
     throw new Error(
       `${where} but its access is not exactly { roles: ["anonymous"] } — a tenantless request ` +
-        `carries no principal beyond the anonymous visitor.`,
+        `carries no principal beyond the anonymous visitor. Set access to { roles: ["anonymous"] } or remove tenantlessAnonymous.`,
     );
   }
   if (!handler.rateLimit || isRateLimitDisabled(handler.rateLimit)) {
@@ -485,12 +485,12 @@ export function validateEncryptedFields(feature: FeatureDefinition): boolean {
       if (field.type === "text") {
         if (field.searchable) {
           throw new Error(
-            `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and searchable`,
+            `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and searchable. Drop searchable: true or remove the encryption.`,
           );
         }
         if (field.sortable) {
           throw new Error(
-            `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and sortable`,
+            `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and sortable. Drop sortable: true or remove the encryption.`,
           );
         }
         // AES-GCM draws a fresh random IV per call, so the ciphertext is
@@ -499,7 +499,7 @@ export function validateEncryptedFields(feature: FeatureDefinition): boolean {
         if (field.filterable) {
           throw new Error(
             `Field "${fieldName}" on entity "${entityName}" cannot be both encrypted and filterable ` +
-              `— non-deterministic ciphertext never matches an equality filter.`,
+              `— non-deterministic ciphertext never matches an equality filter. Drop filterable: true or remove the encryption.`,
           );
         }
       }
@@ -688,7 +688,7 @@ export function validateEmbeddedFields(
 
       if (!field.schema || Object.keys(field.schema).length === 0) {
         throw new Error(
-          `Embedded field "${fieldName}" on entity "${entityName}" in feature "${feature.name}" has an empty schema`,
+          `Embedded field "${fieldName}" on entity "${entityName}" in feature "${feature.name}" has an empty schema. Declare at least one sub-field in the embedded schema.`,
         );
       }
 
@@ -705,7 +705,7 @@ export function validateEmbeddedFields(
         }
         if (subField.type === "select" && subField.options.length === 0) {
           throw new Error(
-            `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has empty options`,
+            `Embedded field "${fieldName}.${subName}" on entity "${entityName}" has empty options. Add at least one option.`,
           );
         }
         // Reference sub-fields get the same target/labelField/query-handler
@@ -752,7 +752,7 @@ function validateEmbeddedListBounds(
     field.minItems > field.maxItems
   ) {
     throw new Error(
-      `Embedded-list field "${fieldName}" on entity "${entityName}" has minItems ${field.minItems} greater than maxItems ${field.maxItems}.`,
+      `Embedded-list field "${fieldName}" on entity "${entityName}" has minItems ${field.minItems} greater than maxItems ${field.maxItems}. Set minItems at or below maxItems.`,
     );
   }
   // required:true means "at least one row" (schema-builder.ts falls back to
@@ -776,18 +776,18 @@ function validateEmbeddedDerivedCells(
   for (const [derivedName, derivedDef] of Object.entries(field.derived)) {
     if (!(derivedName in field.schema)) {
       throw new Error(
-        `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" that is not a sub-field in its schema.`,
+        `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" that is not a sub-field in its schema. Add the sub-field to the schema or remove the derived cell.`,
       );
     }
     for (const sourceName of derivedDef.from) {
       if (!(sourceName in field.schema)) {
         throw new Error(
-          `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading unknown sub-field "${sourceName}".`,
+          `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading unknown sub-field "${sourceName}". Read only sub-fields that exist in the schema.`,
         );
       }
       if (sourceName in field.derived) {
         throw new Error(
-          `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading derived sub-field "${sourceName}".`,
+          `Embedded-list field "${fieldName}" on entity "${entityName}" has a derived cell "${derivedName}" reading derived sub-field "${sourceName}". Read only stored sub-fields, not other derived cells.`,
         );
       }
     }
@@ -805,7 +805,7 @@ function validateEmbeddedTotalsColumns(
     const totalSubField = field.schema[totalName];
     if (!totalSubField || !NUMERIC_EMBEDDED_SUB_TYPES.has(totalSubField.type)) {
       throw new Error(
-        `Embedded-list field "${fieldName}" on entity "${entityName}" lists "${totalName}" in totals, but it is not a number/money/decimal sub-field.`,
+        `Embedded-list field "${fieldName}" on entity "${entityName}" lists "${totalName}" in totals, but it is not a number/money/decimal sub-field. List only number, money or decimal sub-fields in totals.`,
       );
     }
   }
@@ -823,13 +823,13 @@ function validateEmbeddedTotalsMatch(
     const subField = field.schema[subFieldName];
     if (subField?.type !== "money") {
       throw new Error(
-        `Embedded-list field "${fieldName}" on entity "${entityName}" has a totalsMatch entry for "${subFieldName}", which is not a money sub-field in its schema.`,
+        `Embedded-list field "${fieldName}" on entity "${entityName}" has a totalsMatch entry for "${subFieldName}", which is not a money sub-field in its schema. Use a money sub-field as the totalsMatch key.`,
       );
     }
     const siblingField = entity.fields[siblingFieldName];
     if (siblingField?.type !== "money") {
       throw new Error(
-        `Embedded-list field "${fieldName}" on entity "${entityName}" has a totalsMatch entry mapping "${subFieldName}" to sibling field "${siblingFieldName}", which is not a money field on entity "${entityName}".`,
+        `Embedded-list field "${fieldName}" on entity "${entityName}" has a totalsMatch entry mapping "${subFieldName}" to sibling field "${siblingFieldName}", which is not a money field on entity "${entityName}". Map it to a money field of the entity.`,
       );
     }
   }
@@ -995,7 +995,7 @@ export function validateEntitySelectConditionalOptions(feature: FeatureDefinitio
       const where = `[Feature ${feature.name}] Select field "${fieldName}" on entity "${entityName}"`;
       if (field.optionsQuery !== undefined) {
         throw new Error(
-          `${where} combines conditionalOptions with optionsQuery — conditionalOptions filters the static options only.`,
+          `${where} combines conditionalOptions with optionsQuery — conditionalOptions filters the static options only. Remove either conditionalOptions or optionsQuery.`,
         );
       }
       const knownOptions = new Set<string>(field.options);
@@ -1014,7 +1014,7 @@ export function validateEntitySelectConditionalOptions(feature: FeatureDefinitio
           const otherRule = ruleOfOption.get(option);
           if (otherRule !== undefined) {
             throw new Error(
-              `${where} lists "${option}" in conditionalOptions[${otherRule}] and ${ruleLabel} — an option may belong to one rule only.`,
+              `${where} lists "${option}" in conditionalOptions[${otherRule}] and ${ruleLabel} — an option may belong to one rule only. Remove the option from one of the rules.`,
             );
           }
           ruleOfOption.set(option, ruleIndex);
@@ -1026,11 +1026,13 @@ export function validateEntitySelectConditionalOptions(feature: FeatureDefinitio
         }
         const conditionField = rule.when.field;
         if (conditionField === fieldName) {
-          throw new Error(`${where} has ${ruleLabel}.when on its own field.`);
+          throw new Error(
+            `${where} has ${ruleLabel}.when on its own field. Make the condition depend on a different field.`,
+          );
         }
         if (!(conditionField in entity.fields)) {
           throw new Error(
-            `${where} has ${ruleLabel}.when.field "${conditionField}" which is not a field of the entity.`,
+            `${where} has ${ruleLabel}.when.field "${conditionField}" which is not a field of the entity. Use an existing field of the entity in when.field.`,
           );
         }
       });
@@ -1045,7 +1047,7 @@ export function validateMultiSelectFields(feature: FeatureDefinition): void {
 
       if (field.options.length === 0) {
         throw new Error(
-          `MultiSelect field "${fieldName}" on entity "${entityName}" in feature "${feature.name}" has empty options`,
+          `MultiSelect field "${fieldName}" on entity "${entityName}" in feature "${feature.name}" has empty options. Add at least one option.`,
         );
       }
 
@@ -1268,7 +1270,7 @@ export function validateExtendSchemaCollisions(feature: FeatureDefinition): void
       for (const fieldName of Object.keys(extraFields)) {
         if (existingFields.has(fieldName)) {
           throw new Error(
-            `extendSchema column "${fieldName}" conflicts with existing field on entity "${entityName}"`,
+            `extendSchema column "${fieldName}" conflicts with existing field on entity "${entityName}". Rename the extension column or the entity field.`,
           );
         }
       }
@@ -1291,7 +1293,7 @@ export function validateDerivedFieldCollisions(feature: FeatureDefinition): void
       if (fieldNames.has(derivedName)) {
         throw new Error(
           `Entity "${entityName}": derivedFields key "${derivedName}" conflicts with a stored ` +
-            `field of the same name — the derived value would silently overwrite the real one on every read.`,
+            `field of the same name — the derived value would silently overwrite the real one on every read. Rename the derivedFields key or the stored field.`,
         );
       }
     }

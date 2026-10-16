@@ -34,7 +34,7 @@ function validateHandlerGroup(
       if (by !== undefined && targetEntity.fields[by] === undefined) {
         throw new Error(
           `[Feature ${feature.name}] ${where} references entity "${entity}" by "${by}", ` +
-            `but that entity has no field "${by}".`,
+            `but that entity has no field "${by}". Use an existing field of that entity for "by".`,
         );
       }
     }

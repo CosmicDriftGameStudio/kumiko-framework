@@ -45,7 +45,7 @@ export function loadSecurityExceptions(
     const hasDate = expiryEndMs(exception.expires) !== undefined;
     if (!hasDate) {
       console.warn(
-        `  WARN: security exception ${exception.advisory} dropped, expires "${exception.expires}" is not a YYYY-MM-DD date.`,
+        `  WARN: security exception ${exception.advisory} dropped, expires "${exception.expires}" is not a YYYY-MM-DD date. Set expires to a date like 2026-12-31.`,
       );
     }
     return hasDate;
@@ -141,7 +141,7 @@ export async function runSecurityCheck(options: {
   const lockfileDir = findLockfileDir(options.repoRoot);
   if (lockfileDir === undefined) {
     console.error(
-      `  security: no bun.lock found in ${options.repoRoot} or any ancestor — nothing to audit.`,
+      `  security: no bun.lock found in ${options.repoRoot} or any ancestor — nothing to audit. Run bun install to create bun.lock.`,
     );
     return 1;
   }

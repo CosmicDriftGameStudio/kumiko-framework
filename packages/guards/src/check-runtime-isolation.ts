@@ -221,7 +221,9 @@ if (import.meta.main) {
   if (args.includes("--write-baseline")) {
     const root = resolveRepoRoots()[0];
     if (!root) {
-      console.error("No repo root resolved — nothing to baseline.");
+      console.error(
+        "No repo root resolved — nothing to baseline. Run it from inside a repo checkout.",
+      );
       process.exit(1);
     }
     const { allViolations } = scanRoot(root);

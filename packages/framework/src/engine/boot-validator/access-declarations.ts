@@ -130,7 +130,7 @@ function validatePersonalDataSupportedForKind(
         "personal data through nested writes of an anonymous request."
       : "it only applies to write handlers, whose input is checked for personal-data fields.";
   throw new Error(
-    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ${property} — ${onlyAllowed}`,
+    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ${property} — ${onlyAllowed} Remove the personalData declaration from this handler.`,
   );
 }
 
@@ -163,7 +163,7 @@ function validatePersonalDataValue(
     `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
       'access.personalData: "public-intake" but its roles do not include ' +
       `"${ANONYMOUS_ROLE}" — personalData: "public-intake" only applies to handlers ` +
-      "that allow anonymous callers.",
+      "that allow anonymous callers. Add the anonymous role to access.roles or remove personalData.",
   );
 }
 

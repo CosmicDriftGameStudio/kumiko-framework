@@ -37,7 +37,7 @@ export function collectDetailForScreens(
       if (findEntityFeature(detailFor, featureMap) === undefined) {
         throw new Error(
           `[detailFor] Screen "${qualified}" declares detailFor: "${detailFor}", ` +
-            `but no feature registers an entity with that name.`,
+            `but no feature registers an entity with that name. Set detailFor to a registered entity name or remove it.`,
         );
       }
 

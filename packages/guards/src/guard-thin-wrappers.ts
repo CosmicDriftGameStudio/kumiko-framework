@@ -377,6 +377,9 @@ const SCAN: ScanSpec = {
   frameworkWithin: ["packages/*/src/**"],
 };
 
+const WRAPPER_FIX =
+  "call the delegate directly, or mark a deliberate wrapper with // @wrapper-known <reason>";
+
 export const check: RepoCheck = {
   name: "Thin-Wrappers Guard",
   run(roots) {
@@ -403,12 +406,16 @@ export const check: RepoCheck = {
       scanned++;
       for (const f of collectFindings(sf)) {
         if (f.markerReason === null) {
-          warnings.push({ file: f.file, line: f.line, message: `${f.fnName} → ${f.callee}` });
+          warnings.push({
+            file: f.file,
+            line: f.line,
+            message: `${f.fnName} → ${f.callee}  (${WRAPPER_FIX})`,
+          });
         } else if (!isKnownReason(f.markerReason)) {
           warnings.push({
             file: f.file,
             line: f.line,
-            message: `${f.fnName} → ${f.callee}  (reason="${f.markerReason}")`,
+            message: `${f.fnName} → ${f.callee}  (reason="${f.markerReason}"; use a known reason from the list in this guard)`,
           });
         }
       }

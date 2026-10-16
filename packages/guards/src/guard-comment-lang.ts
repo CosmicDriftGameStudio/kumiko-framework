@@ -243,7 +243,7 @@ function runTouchedMode(
   const baseRef = baseArg ? baseArg.slice(BASE_FLAG_PREFIX.length) : "origin/main";
   if (baseRef.startsWith("-")) {
     throw new CommentLangFailure(
-      `--base must not start with "-" (${baseRef}): it would be read as a git option, not a ref.`,
+      `--base must not start with "-" (${baseRef}): it would be read as a git option, not a ref. Pass a ref name such as origin/main.`,
     );
   }
 
@@ -256,7 +256,7 @@ function runTouchedMode(
   const gitToplevel = gitOrFail(
     ["rev-parse", "--show-toplevel"],
     root,
-    "Touched mode: no git repository found.",
+    "Touched mode: no git repository found. Run it inside a git checkout.",
   ).trim();
   const mergeBase = gitOrFail(
     ["merge-base", baseRef, "HEAD"],
@@ -267,7 +267,7 @@ function runTouchedMode(
   const touchedFiles = gitOrFail(
     ["diff", "--name-only", "-z", "--diff-filter=ACMR", mergeBase],
     gitToplevel,
-    "Touched mode: git diff --name-only failed.",
+    "Touched mode: git diff --name-only failed. Check the git error below and that the base ref is reachable.",
   )
     .split("\0")
     .filter(Boolean);
@@ -289,7 +289,7 @@ function runTouchedMode(
       gitOrFail(
         ["--literal-pathspecs", "diff", "--unified=0", mergeBase, "--", file],
         gitToplevel,
-        `Touched mode: git diff --unified=0 failed for ${file}.`,
+        `Touched mode: git diff --unified=0 failed for ${file}. Check the git error below.`,
       ),
     );
     const touchedSites = sitesTouchedByAddedLines(candidates, addedLines);
@@ -481,7 +481,9 @@ export function runCommentLangCli(
 
     // Zero scanned files must not read as a clean pass (misresolved root, empty scope).
     if (scanned === 0) {
-      throw new CommentLangFailure("Scanned 0 files — repo root or scan scope did not resolve.");
+      throw new CommentLangFailure(
+        "Scanned 0 files — repo root or scan scope did not resolve. Run it from inside a repo checkout whose kumiko.json declares the source roots.",
+      );
     }
 
     console.log(

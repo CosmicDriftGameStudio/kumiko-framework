@@ -87,7 +87,7 @@ export function validateI18nSurfaceKeys(features: readonly FeatureDefinition[]):
       if (isFrameworkOwnedI18nKey(key)) continue;
       if (!hasDefinedTranslation(defined, key)) {
         throw new Error(
-          `[i18n] Feature "${feature.name}": required translation key missing: "${key}"`,
+          `[i18n] Feature "${feature.name}": required translation key missing: "${key}". Add it via r.translations(...) in this feature.`,
         );
       }
     }
@@ -95,7 +95,9 @@ export function validateI18nSurfaceKeys(features: readonly FeatureDefinition[]):
 
   for (const key of requiredKeysFromGeneratedConfigHub(generatedConfigHub)) {
     if (!hasDefinedTranslation(defined, key)) {
-      throw new Error(`[i18n] Settings-Hub: required translation key missing: "${key}"`);
+      throw new Error(
+        `[i18n] Settings-Hub: required translation key missing: "${key}". Add it via r.translations(...) in the owning feature.`,
+      );
     }
   }
 }

@@ -86,7 +86,7 @@ function validateAtMostOneRowClick(
   if (rowClickActions.length > 1) {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has ${rowClickActions.length} ` +
-        "rowActions marked rowClick:true — at most one may fire on a row-body click.",
+        "rowActions marked rowClick:true — at most one may fire on a row-body click. Mark at most one rowAction with rowClick: true.",
     );
   }
 }
@@ -114,7 +114,7 @@ function validateEditFieldExtras(
     if (fieldDef.type !== "embedded" || fieldDef.multiple !== true) {
       throw new Error(
         `${where} sets embeddedList, which only applies to an embedded list ` +
-          `(createEmbeddedListField); the field is type "${fieldDef.type}".`,
+          `(createEmbeddedListField); the field is type "${fieldDef.type}". Remove embeddedList or point it at an embedded list field.`,
       );
     }
     for (const cell of listSpec.readOnlyCells ?? []) {
@@ -132,7 +132,7 @@ function validateEditFieldExtras(
   if (prefill.kind === "today") {
     if (fieldDef.type !== "date") {
       throw new Error(
-        `${where} prefill "today" needs a date field; the field is type "${fieldDef.type}".`,
+        `${where} prefill "today" needs a date field; the field is type "${fieldDef.type}". Use a date field or a different prefill.`,
       );
     }
     // skip: today carries no property, nothing further to check
@@ -142,7 +142,7 @@ function validateEditFieldExtras(
   if (prefill.property === "id" ? !allowsUserId : fieldDef.type !== "text") {
     throw new Error(
       `${where} prefill currentUser.${prefill.property} does not fit a field of type ` +
-        `"${fieldDef.type}" (displayName and email need text; id needs text or a reference).`,
+        `"${fieldDef.type}" (displayName and email need text; id needs text or a reference). Use a fitting field type or a different prefill property.`,
     );
   }
 }
@@ -330,7 +330,7 @@ function validateTabSections(
     if (tabIds.has(section.id)) {
       throw new Error(
         `[Feature ${featureName}] Screen "${screenId}" (${screenType}) has duplicate tab id ` +
-          `"${section.id}" (sections[${index}]).`,
+          `"${section.id}" (sections[${index}]). Give each tab section a unique id.`,
       );
     }
     tabIds.add(section.id);
@@ -648,7 +648,7 @@ function validateDrawerPrefillKeys(
     if (isSensitiveOrPassword) {
       throw new Error(
         `${where} params prefills "${fieldName}", which ${targetLabel} "${targetScreenId}" marks as ` +
-          `sensitive or password — the renderer never prefills those fields and would leave the form empty.`,
+          `sensitive or password — the renderer never prefills those fields and would leave the form empty. Remove that param or prefill a non-sensitive field.`,
       );
     }
     if (!renderedFieldNames.has(fieldName)) {
@@ -688,14 +688,14 @@ function validateRowActionNavigateTab(
   if (target === undefined) {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
-        `sets tab "${action.tab}", but its navigate-target could not be resolved to a screen.`,
+        `sets tab "${action.tab}", but its navigate-target could not be resolved to a screen. Point the navigate-target at a registered screen.`,
     );
   }
   if (target.screen.type !== "projectionDetail" || target.screen.layout.mode !== "tabs") {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
         `sets tab "${action.tab}", but navigate-target screen "${target.screen.id}" is not a ` +
-        `projectionDetail with layout.mode "tabs" — only those read the tab param.`,
+        `projectionDetail with layout.mode "tabs" — only those read the tab param. Remove the tab or navigate to a projectionDetail screen with layout.mode "tabs".`,
     );
   }
   const sectionIds = target.screen.layout.sections
@@ -751,7 +751,7 @@ function resolveRowActionNavigateTarget(
       throw new Error(
         `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
           `navigate-target entity "${action.entity}" has no screen declaring ` +
-          `detailFor: "${action.entity}".`,
+          `detailFor: "${action.entity}". Add detailFor: "${action.entity}" to a screen or navigate to a screen directly.`,
       );
     }
     validateRowActionNavigateTab(featureName, screenId, screenType, actionLabel, action, detail);
@@ -767,7 +767,7 @@ function resolveRowActionNavigateTarget(
   if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${screenType}) ${actionLabel} "${action.id}" ` +
-        `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
+        `navigate-target "${action.screen}" does not resolve to a registered screen in any feature. Use "<feature>:screen:<id>" of an existing screen.`,
     );
   }
   const target = screensByShortId.get(action.screen)?.[0];
@@ -787,7 +787,7 @@ function validateWriteHandlerRegistered(
 ): void {
   if (!handler || typeof handler !== "string") {
     throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (${context}) has empty or non-string handler.`,
+      `[Feature ${featureName}] Screen "${screenId}" (${context}) has empty or non-string handler. Set handler to a non-empty handler name.`,
     );
   }
   if (!allWriteHandlerQns.has(handler)) {
@@ -853,7 +853,9 @@ function validateOptionsQueryFieldRefs(
 ): void {
   for (const ref of optionsQueryFieldRefs(payload)) {
     if (ref === fieldName) {
-      throw new Error(`${where} optionsQueryPayload references itself ({ field: "${ref}" })`);
+      throw new Error(
+        `${where} optionsQueryPayload references itself ({ field: "${ref}" }). Reference a different field of the form.`,
+      );
     }
     if (!siblingFieldNames.has(ref)) {
       throw new Error(
@@ -903,11 +905,13 @@ function validateFormSelectOptions(
   if (fdef.type === "select") {
     const where = `[Feature ${featureName}] Screen "${screenId}" (${context}) select field "${fieldName}"`;
     if (fdef.conditionalOptions !== undefined) {
-      throw new Error(`${where} declares conditionalOptions — ${CONDITIONAL_OPTIONS_ENTITY_ONLY}`);
+      throw new Error(
+        `${where} declares conditionalOptions — ${CONDITIONAL_OPTIONS_ENTITY_ONLY}. Remove conditionalOptions from this field.`,
+      );
     }
     if (fdef.optionsQuery !== undefined) {
       if (fdef.optionsQuery.length === 0) {
-        throw new Error(`${where} has an empty optionsQuery`);
+        throw new Error(`${where} has an empty optionsQuery. Set it to a query name or remove it.`);
       }
       if (fdef.options.length > 0) {
         throw new Error(`${where} declares both options and optionsQuery — pick one`);
@@ -915,16 +919,20 @@ function validateFormSelectOptions(
       validateOptionsQueryFieldRefs(where, fieldName, fdef.optionsQueryPayload, siblingFieldNames);
     } else if (fdef.optionsAvailabilityQuery !== undefined) {
       if (fdef.optionsAvailabilityQuery.length === 0) {
-        throw new Error(`${where} has an empty optionsAvailabilityQuery`);
+        throw new Error(
+          `${where} has an empty optionsAvailabilityQuery. Set it to a query name or remove it.`,
+        );
       }
       validateOptionsQueryFieldRefs(where, fieldName, fdef.optionsQueryPayload, siblingFieldNames);
     } else if (fdef.optionsQueryPayload !== undefined) {
-      throw new Error(`${where} has optionsQueryPayload without optionsQuery`);
+      throw new Error(
+        `${where} has optionsQueryPayload without optionsQuery. Set optionsQuery or remove optionsQueryPayload.`,
+      );
     }
   } else if (fdef.type === "multiSelect" && fdef.optionsAvailabilityQuery !== undefined) {
     if (fdef.optionsAvailabilityQuery.length === 0) {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (${context}) multiSelect field "${fieldName}" has an empty optionsAvailabilityQuery`,
+        `[Feature ${featureName}] Screen "${screenId}" (${context}) multiSelect field "${fieldName}" has an empty optionsAvailabilityQuery. Set it to a query name or remove it.`,
       );
     }
   }
@@ -1031,13 +1039,13 @@ function validateFormLayoutSections(
       throw new Error(
         `[Feature ${featureName}] Screen "${screenId}" (${context}) relatedList section ` +
           `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
-          `primitive (fw#2166).`,
+          `primitive (fw#2166). Move the section to a projectionDetail screen or remove it.`,
       );
     }
     if (isWriteFormEditSection(section)) {
       throw new Error(
         `[Feature ${featureName}] Screen "${screenId}" (${context}) writeForm section ` +
-          `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
+          `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive. Move the section to a projectionDetail screen or remove it.`,
       );
     }
     validateFieldsXorGroups(`[Feature ${featureName}] Screen "${screenId}" (${context})`, section);
@@ -1084,7 +1092,7 @@ function validateRedirectTarget(
   if (typeof redirect !== "string" && redirect.idFrom !== redirect.idFrom.trim()) {
     throw new Error(
       `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) redirect.idFrom "${redirect.idFrom}" ` +
-        `has leading/trailing whitespace — it would never match a payload field.`,
+        `has leading/trailing whitespace — it would never match a payload field. Remove the whitespace from idFrom.`,
     );
   }
   validateScreenNavTarget(
@@ -1193,10 +1201,14 @@ function validateScreenVisibleWhen(
   const { visibleWhen, fallback } = screen;
   const context = `[Feature ${feature.name}] Screen "${screenId}" (${screen.type})`;
   if (visibleWhen === undefined && fallback !== undefined) {
-    throw new Error(`${context} declares fallback without visibleWhen.`);
+    throw new Error(
+      `${context} declares fallback without visibleWhen. Add visibleWhen or remove fallback.`,
+    );
   }
   if (visibleWhen !== undefined && (visibleWhen.query === "" || visibleWhen.field === "")) {
-    throw new Error(`${context} visibleWhen needs a non-empty query and field.`);
+    throw new Error(
+      `${context} visibleWhen needs a non-empty query and field. Set both visibleWhen.query and visibleWhen.field.`,
+    );
   }
   if (fallback !== undefined) {
     validateScreenFallback(feature, screenId, screen.type, fallback, allScreenQns, featureMap);
@@ -1223,7 +1235,9 @@ function validateScreenFallback(
   );
   const fallbackQn = resolveScreenTargetQn(feature.name, fallback);
   if (fallbackQn === qualifyEntityName(feature.name, "screen", screenId)) {
-    throw new Error(`${context} fallback points at the screen itself.`);
+    throw new Error(
+      `${context} fallback points at the screen itself. Point fallback at a different screen.`,
+    );
   }
   // A gated fallback could hide in turn and chain or cycle (A→B→A); one hop keeps the
   // runtime gate trivially terminating.
@@ -1341,7 +1355,7 @@ function validateSecretMintConfirm(
     if (typeof carryField !== "string" || carryField.trim() === "") {
       throw new Error(
         `[Feature ${feature.name}] Screen "${screenId}" (${context}) has an empty or non-string ` +
-          `entry in "carry".`,
+          `entry in "carry". Use non-empty strings in carry.`,
       );
     }
     if (fieldNames.has(carryField)) {
@@ -1468,7 +1482,9 @@ type RelatedListSectionValidation = {
 function validateRelatedListSection(args: RelatedListSectionValidation): void {
   const { featureName, featureMap, where, section } = args;
   if (!section.query || typeof section.query !== "string") {
-    throw new Error(`[Feature ${featureName}] ${where} has empty or non-string query.`);
+    throw new Error(
+      `[Feature ${featureName}] ${where} has empty or non-string query. Set query to a registered query name.`,
+    );
   }
   if (section.entity !== undefined) {
     assertRefTargetRegistered(
@@ -1590,7 +1606,7 @@ function validateRelatedListDefaultSort(
   if (col === undefined) {
     throw new Error(
       `[Feature ${featureName}] ${where} ` +
-        `defaultSort.field "${sortField}" is not a listed column.`,
+        `defaultSort.field "${sortField}" is not a listed column. Use a listed column as defaultSort.field.`,
     );
   }
   if (normalizeListColumn(col).sortable !== true) {
@@ -1776,7 +1792,7 @@ export function validateScreens(
       // werden zur Render-Zeit gegen die Projection-Rows aufgelöst).
       if (!screen.query || typeof screen.query !== "string") {
         throw new Error(
-          `[Feature ${feature.name}] Screen "${screenId}" (projectionList) has empty or non-string query.`,
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionList) has empty or non-string query. Set query to a registered query name.`,
         );
       }
       if (screen.columns.length === 0) {
@@ -1810,7 +1826,7 @@ export function validateScreens(
       ) {
         throw new Error(
           `[Feature ${feature.name}] Screen "${screenId}" (projectionList) filter.op "in" requires ` +
-            `filter.value to be a readonly array.`,
+            `filter.value to be a readonly array. Pass an array as filter.value.`,
         );
       }
       if (screen.facets !== undefined) {
@@ -1897,7 +1913,7 @@ export function validateScreens(
       // gegen die Query-Response aufgelöst, nicht gegen eine Entity.
       if (!screen.query || typeof screen.query !== "string") {
         throw new Error(
-          `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has empty or non-string query.`,
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has empty or non-string query. Set query to a registered query name.`,
         );
       }
       if (screen.singleton === true && screen.idParam !== undefined) {
@@ -1966,7 +1982,7 @@ export function validateScreens(
               ) {
                 throw new Error(
                   `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" ` +
-                    `navigates to tab "${navigate.tab}", which is not a section id on this screen.`,
+                    `navigates to tab "${navigate.tab}", which is not a section id on this screen. Navigate to an existing section id or remove navigate.tab.`,
                 );
               }
             } else {
@@ -2008,7 +2024,7 @@ export function validateScreens(
         if (screen.header.subtitleHref !== undefined) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) sets header.subtitleHref ` +
-              `together with a multi-part header.subtitle — subtitleHref only works with the string form.`,
+              `together with a multi-part header.subtitle — subtitleHref only works with the string form. Use a single-field subtitle or remove subtitleHref.`,
           );
         }
         const seenPartFields = new Set<string>();
@@ -2017,7 +2033,7 @@ export function validateScreens(
           if (seenPartFields.has(partField)) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) header.subtitle ` +
-                `lists field "${partField}" twice.`,
+                `lists field "${partField}" twice. List each field once.`,
             );
           }
           seenPartFields.add(partField);
@@ -2194,7 +2210,7 @@ export function validateScreens(
               throw new Error(
                 `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
                   `(writeForm) field "${fieldName}" has no entry in fieldDefs — every rendered field needs ` +
-                  `a type declared there.`,
+                  `a type declared there. Add the field to fieldDefs.`,
               );
             }
           }
@@ -2344,13 +2360,13 @@ export function validateScreens(
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (configEdit) relatedList section ` +
               `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
-              `primitive (fw#2166).`,
+              `primitive (fw#2166). Move the section to a projectionDetail screen or remove it.`,
           );
         }
         if (isWriteFormEditSection(section)) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (configEdit) writeForm section ` +
-              `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
+              `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive. Move the section to a projectionDetail screen or remove it.`,
           );
         }
         validateFieldsXorGroups(
@@ -2374,18 +2390,18 @@ export function validateScreens(
         const qualified = screen.configKeys[fname];
         if (qualified === undefined) {
           throw new Error(
-            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) field "${fname}" hat ` +
-              `keinen Eintrag in configKeys-Map. Jedes deklarierte Field braucht ein Mapping zu ` +
-              `einem qualifizierten Config-Key (\`<feature>:config:<short>\`).`,
+            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) field "${fname}" has ` +
+              `no entry in the configKeys map. Every declared field needs a mapping to a ` +
+              `qualified config key (\`<feature>:config:<short>\`). Add one to configKeys.`,
           );
         }
         const configKeyDef = configKeyDefsByQn.get(qualified);
         if (configKeyDef === undefined) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (configEdit) field "${fname}" → ` +
-              `Config-Key "${qualified}" ist in keiner Feature-Registry deklariert. Tippfehler? ` +
-              `Erwartetes Format: "<feature>:config:<short>". Bekannte Keys: ${
-                [...configKeyDefsByQn.keys()].sort().join(", ") || "(keine)"
+              `Config key "${qualified}" is not declared in any feature registry. Typo? ` +
+              `Expected format: "<feature>:config:<short>". Known keys: ${
+                [...configKeyDefsByQn.keys()].sort().join(", ") || "(none)"
               }`,
           );
         }
@@ -2434,7 +2450,7 @@ export function validateScreens(
         if (typeof revealField.field !== "string" || revealField.field.trim() === "") {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (secretMint) has a reveal.fields entry ` +
-              `with an empty or non-string "field".`,
+              `with an empty or non-string "field". Set field to a non-empty string.`,
           );
         }
         if (revealFieldNames.has(revealField.field)) {
@@ -2447,7 +2463,7 @@ export function validateScreens(
         if (typeof revealField.label !== "string" || revealField.label.trim() === "") {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (secretMint) reveal.fields entry ` +
-              `"${revealField.field}" has an empty or non-string "label".`,
+              `"${revealField.field}" has an empty or non-string "label". Set label to a non-empty string.`,
           );
         }
       }
@@ -2625,7 +2641,7 @@ export function validateScreens(
         if (screen.filter.op === "in" && !Array.isArray(screen.filter.value)) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (entityList) filter.op "in" requires ` +
-              `filter.value to be a readonly array.`,
+              `filter.value to be a readonly array. Pass an array as filter.value.`,
           );
         }
       }
@@ -2734,7 +2750,7 @@ export function validateScreens(
             if (!allScreenQns.has(candidateQn) && !navTargetShortIds.has(action.screen)) {
               throw new Error(
                 `[Feature ${feature.name}] Screen "${screenId}" (entityList) toolbarAction "${action.id}" ` +
-                  `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
+                  `navigate-target "${action.screen}" does not resolve to a registered screen in any feature. Use "<feature>:screen:<id>" of an existing screen.`,
               );
             }
             if (action.tab !== undefined) {
@@ -2853,13 +2869,13 @@ export function validateScreens(
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) relatedList section ` +
               `"${section.title}" is not supported — relatedList is a projectionDetail-only ` +
-              `primitive (fw#2166).`,
+              `primitive (fw#2166). Move the section to a projectionDetail screen or remove it.`,
           );
         }
         if (isWriteFormEditSection(section)) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) writeForm section ` +
-              `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive.`,
+              `"${section.title}" is not supported — writeForm is a projectionDetail-only primitive. Move the section to a projectionDetail screen or remove it.`,
           );
         }
         validateFieldsXorGroups(
@@ -2978,7 +2994,7 @@ function validateDashboardScreen(
   const addPanelId = (id: string, context: string): void => {
     if (panelIds.has(id)) {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) has duplicate panel id "${id}" (${context}).`,
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) has duplicate panel id "${id}" (${context}). Give each panel a unique id.`,
       );
     }
     panelIds.add(id);
@@ -3012,10 +3028,10 @@ function validateDashboardTimeRange(
   filterId: string | undefined,
 ): void {
   const prefix = `[Feature ${featureName}] Screen "${screenId}" (dashboard) timeRange`;
-  if (timeRange.id.length === 0) throw new Error(`${prefix} has an empty id.`);
+  if (timeRange.id.length === 0) throw new Error(`${prefix} has an empty id. Set a non-empty id.`);
   if (timeRange.id === filterId) {
     throw new Error(
-      `${prefix} id "${timeRange.id}" collides with the filter id — both live in the URL search params.`,
+      `${prefix} id "${timeRange.id}" collides with the filter id — both live in the URL search params. Use an id different from the filter id.`,
     );
   }
   if (timeRange.options.length === 0) {
@@ -3024,16 +3040,20 @@ function validateDashboardTimeRange(
   const values = new Set<string>();
   for (const option of timeRange.options) {
     if (option.value.length === 0 || option.label.length === 0) {
-      throw new Error(`${prefix} option needs a non-empty value and label.`);
+      throw new Error(
+        `${prefix} option needs a non-empty value and label. Give every option both.`,
+      );
     }
     if (values.has(option.value)) {
-      throw new Error(`${prefix}.options has duplicate value "${option.value}".`);
+      throw new Error(
+        `${prefix}.options has duplicate value "${option.value}". Use each option value once.`,
+      );
     }
     values.add(option.value);
   }
   if (!values.has(timeRange.default)) {
     throw new Error(
-      `${prefix}.default "${timeRange.default}" is not among the options (${[...values].join(", ")}).`,
+      `${prefix}.default "${timeRange.default}" is not among the options (${[...values].join(", ")}). Set default to one of the options.`,
     );
   }
 }
@@ -3089,7 +3109,9 @@ function validateDashboardPanelVisibleWhen(
   visibleWhen: DashboardPanelVisibility | undefined,
 ): void {
   if (visibleWhen !== undefined && (visibleWhen.query === "" || visibleWhen.field === "")) {
-    throw new Error(`${context} visibleWhen needs a non-empty query and field.`);
+    throw new Error(
+      `${context} visibleWhen needs a non-empty query and field. Set both visibleWhen.query and visibleWhen.field.`,
+    );
   }
 }
 
@@ -3113,11 +3135,11 @@ function validateDashboardStatGroupPanel(
 ): void {
   const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}"`;
   if (panel.stats.length === 0) {
-    throw new Error(`${context} has an empty stats list.`);
+    throw new Error(`${context} has an empty stats list. Add at least one stat.`);
   }
   if (panel.subtitle !== undefined && panel.label === undefined) {
     throw new Error(
-      `${context} sets subtitle without label — an unlabeled group renders as a KPI strip without a header.`,
+      `${context} sets subtitle without label — an unlabeled group renders as a KPI strip without a header. Set a label or remove subtitle.`,
     );
   }
   validateDashboardPanelSpan(featureName, screenId, panel);
@@ -3131,12 +3153,12 @@ function validateDashboardStatGroupPanel(
     }
     if (!stat.query || typeof stat.query !== "string") {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" child "${stat.id}" has empty or non-string query.`,
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" child "${stat.id}" has empty or non-string query. Set query to a registered query name.`,
       );
     }
     if (stat.valueField.length === 0) {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" child "${stat.id}" has empty valueField.`,
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" child "${stat.id}" has empty valueField. Set valueField to a field of the query result.`,
       );
     }
     validateDashboardValueFormat(featureName, screenId, stat.id, stat.valueFormat);
@@ -3151,11 +3173,11 @@ function validateDashboardChartDisplay(
   validateDashboardValueFormat(featureName, screenId, panel.id, panel.valueFormat);
   const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) chart-panel "${panel.id}"`;
   if (panel.scrollable !== undefined && typeof panel.scrollable !== "boolean") {
-    throw new Error(`${where} has a non-boolean scrollable.`);
+    throw new Error(`${where} has a non-boolean scrollable. Use true or false.`);
   }
   if (panel.scrollable === true && panel.chart !== "stacked-area") {
     throw new Error(
-      `${where} sets scrollable on chart "${panel.chart}" — only "stacked-area" supports it.`,
+      `${where} sets scrollable on chart "${panel.chart}" — only "stacked-area" supports it. Remove scrollable or use chart "stacked-area".`,
     );
   }
   validateStackedAreaOnlyProps(where, panel);
@@ -3169,7 +3191,7 @@ function validateDashboardChartDisplay(
     (prop) => panel[prop] !== undefined && typeof panel[prop] !== "boolean",
   );
   if (nonBooleanProp !== undefined) {
-    throw new Error(`${where} has a non-boolean ${nonBooleanProp}.`);
+    throw new Error(`${where} has a non-boolean ${nonBooleanProp}. Use true or false.`);
   }
   for (const [key, color] of Object.entries(panel.seriesColors ?? {})) {
     if (typeof color !== "string" || color.trim() === "") {
@@ -3212,7 +3234,7 @@ function validateStackedAreaOnlyProps(where: string, panel: DashboardChartPanel)
   ).filter((prop) => panel[prop] !== undefined);
   if (stackedAreaOnly.length > 0) {
     throw new Error(
-      `${where} sets ${stackedAreaOnly.join(", ")} on chart "${panel.chart}" — only "stacked-area" supports it.`,
+      `${where} sets ${stackedAreaOnly.join(", ")} on chart "${panel.chart}" — only "stacked-area" supports it. Remove these props or use chart "stacked-area".`,
     );
   }
 }
@@ -3226,7 +3248,7 @@ const DASHBOARD_CHART_TONES: ReadonlySet<string> = new Set([
 
 function validateDashboardChartMarkerKind(where: string, look: DashboardChartMarkerKind): void {
   if (look.tone === undefined && look.color === undefined) {
-    throw new Error(`${where} needs a tone or a color.`);
+    throw new Error(`${where} needs a tone or a color. Set tone or color.`);
   }
   if (look.tone !== undefined && !DASHBOARD_CHART_TONES.has(look.tone)) {
     throw new Error(
@@ -3248,10 +3270,12 @@ function validateDashboardChartRanges(where: string, ranges: DashboardChartRange
   const values = new Set<string>();
   for (const option of ranges.options) {
     if (option.value.length === 0 || option.label.length === 0) {
-      throw new Error(`${where} option needs a non-empty value and label.`);
+      throw new Error(`${where} option needs a non-empty value and label. Give every option both.`);
     }
     if (values.has(option.value)) {
-      throw new Error(`${where}.options has duplicate value "${option.value}".`);
+      throw new Error(
+        `${where}.options has duplicate value "${option.value}". Use each option value once.`,
+      );
     }
     if (option.months !== undefined && (!Number.isInteger(option.months) || option.months <= 0)) {
       throw new Error(
@@ -3262,7 +3286,7 @@ function validateDashboardChartRanges(where: string, ranges: DashboardChartRange
   }
   if (!values.has(ranges.default)) {
     throw new Error(
-      `${where}.default "${ranges.default}" is not among the options (${[...values].join(", ")}).`,
+      `${where}.default "${ranges.default}" is not among the options (${[...values].join(", ")}). Set default to one of the options.`,
     );
   }
 }
@@ -3319,14 +3343,14 @@ function validateDashboardQueryPanel(
 ): void {
   if (!panel.query || typeof panel.query !== "string") {
     throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has empty or non-string query.`,
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has empty or non-string query. Set query to a registered query name.`,
     );
   }
   validateDashboardPanelSpan(featureName, screenId, panel);
   if (panel.kind === "stat") {
     if (panel.valueField.length === 0) {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-panel "${panel.id}" has empty valueField.`,
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-panel "${panel.id}" has empty valueField. Set valueField to a field of the query result.`,
       );
     }
     validateDashboardValueFormat(featureName, screenId, panel.id, panel.valueFormat);
@@ -3339,7 +3363,7 @@ function validateDashboardQueryPanel(
   if (panel.kind === "list") {
     if (panel.columns.length === 0) {
       throw new Error(
-        `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" has an empty columns list.`,
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" has an empty columns list. Add at least one column.`,
       );
     }
     for (const col of panel.columns) {
@@ -3365,12 +3389,12 @@ function validateDashboardFilterDefinition(
 ): void {
   if (filter.id.length === 0) {
     throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter has an empty id.`,
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter has an empty id. Set a non-empty id.`,
     );
   }
   if (filter.label.length === 0) {
     throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter has an empty label.`,
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter has an empty label. Set a non-empty label.`,
     );
   }
   const hasOptions = filter.options !== undefined;
@@ -3389,7 +3413,7 @@ function validateDashboardFilterDefinition(
   }
   if (hasOptionsQuery && filter.optionsQuery?.length === 0) {
     throw new Error(
-      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter.optionsQuery is empty.`,
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) filter.optionsQuery is empty. Set optionsQuery to a query name or remove it.`,
     );
   }
 }
@@ -3419,7 +3443,7 @@ function rejectInertColumnSortable(
       : "sorting is derived from the query's Zod schema; only sortable: false is honored";
   throw new Error(
     `[Feature ${featureName}] Screen "${screenId}" (${screenType}) column "${column.field}" sets sortable — ` +
-      `it is ignored here; ${source}.`,
+      `it is ignored here; ${source}. Remove sortable from this column.`,
   );
 }
 
@@ -3517,7 +3541,9 @@ function validateListFacets(
   const seenFacetFields = new Set<string>();
   for (const facet of facets) {
     if (seenFacetFields.has(facet.field)) {
-      throw new Error(`${prefix} declares facet "${facet.field}" more than once.`);
+      throw new Error(
+        `${prefix} declares facet "${facet.field}" more than once. Declare each facet field once.`,
+      );
     }
     seenFacetFields.add(facet.field);
     if (facet.type !== "reference" && !columnFieldNames.has(facet.field)) {
