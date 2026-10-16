@@ -36,6 +36,9 @@ function initRepo({ withChangesetConfig }: { withChangesetConfig: boolean }): vo
   write("package.json", JSON.stringify({ name: "fixture-root", private: true, workspaces: ["packages/*"] }));
   write("packages/foo/package.json", JSON.stringify({ name: "@fixture/foo", version: "1.0.0" }));
   write("packages/foo/index.ts", "export const a = 1;\n");
+  // changesets 3 (@manypkg/get-packages 3) detects a Bun workspace by its lockfile;
+  // without one it sees only the root package and `changeset status` passes everything.
+  write("bun.lock", "");
   if (withChangesetConfig) {
     write(".changeset/config.json", JSON.stringify({ changelog: false, commit: false, access: "public", baseBranch: "main" }));
     symlinkSync(join(REPO_ROOT, "node_modules"), join(dir, "node_modules"));
