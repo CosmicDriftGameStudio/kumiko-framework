@@ -25,10 +25,15 @@ async function openOverview(page: Page, path: string): Promise<void> {
   await expect(page.getByTestId("render-list-table")).toBeVisible();
 }
 
-async function openEditor(page: Page, kind: "mail-layout" | "pdf-layout"): Promise<void> {
+// The system mail layout is MJML only, so the platform admin lands in the MJML editor, not on the paper.
+async function openEditor(
+  page: Page,
+  kind: "mail-layout" | "pdf-layout",
+  readyTestId = "document-designer-paper",
+): Promise<void> {
   await page.goto(`/layout-editor?kind=${kind}&slug=default`);
   await expect(page.getByTestId("document-designer-layout-editor")).toBeVisible();
-  await expect(page.getByTestId("document-designer-paper")).toBeVisible();
+  await expect(page.getByTestId(readyTestId)).toBeVisible();
 }
 
 test("document-designer-overview-tenant", async ({ page }) => {
@@ -51,7 +56,7 @@ test("document-designer-layout-mail-tenant", async ({ page }) => {
 
 test("document-designer-layout-mail-platform", async ({ page }) => {
   await loginAs(page, PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD);
-  await openEditor(page, "mail-layout");
+  await openEditor(page, "mail-layout", "document-designer-mjml-source");
   await shot(page, "document-designer-layout-mail-platform");
 });
 

@@ -39,7 +39,9 @@ test("tenant admin sees the own mail template and edits the mail layout without 
   await expect(page.getByTestId("document-designer-layout-editor")).toBeVisible();
   await expect(page.getByTestId("layout-mjml-tab")).toHaveCount(0);
 
-  const footer = page.getByTestId("document-designer-region-footer").locator("[contenteditable]");
+  const footer = page
+    .getByTestId("document-designer-region-footer")
+    .locator('[contenteditable="true"]');
   await footer.click();
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.type(NEW_FOOTER_TEXT);
