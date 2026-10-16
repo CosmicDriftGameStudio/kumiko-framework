@@ -4,7 +4,10 @@
 //
 // **Variables the layout receives (nothing else):**
 //   - {{tenantName}}      - header + footer
-//   - {{{content}}}       - the rendered mail body (escaped values), triple-stash
+//   - {{{content}}}       - the rendered mail body (escaped values), triple-stash.
+//                           It sits in mj-text: mj-raw would put block HTML straight into
+//                           the column tbody, where browsers move it out of the table into
+//                           the column div with font-size 0, so the body turns invisible.
 //   - {{subject}}         - mj-title
 //   - {{previewText}}     - inbox preview line
 //   - {{unsubscribeUrl}}  - optional footer link
@@ -33,7 +36,7 @@ export const DEFAULT_MAIL_LAYOUT_MJML = `<mjml>
     </mj-section>
     <mj-section background-color="#ffffff" padding="20px">
       <mj-column>
-        <mj-raw>{{{content}}}</mj-raw>
+        <mj-text>{{{content}}}</mj-text>
       </mj-column>
     </mj-section>
     <mj-section background-color="#f5f5f5" padding="20px">
