@@ -1,11 +1,11 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.js";
 import { parseLinkedResourceEntries } from "../linked-resources.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
-import { resourceKeySchema } from "./resource-shared.js";
+import { resourceKeySchema, resourceTargetTenantId } from "./resource-shared.js";
 import { executor } from "./shared.js";
 
 // The FileRef itself stays: copy-locale and tenant overrides can share ids and there is
@@ -20,12 +20,10 @@ export const resourceRemoveWrite = defineWriteHandler({
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Unlinks a resource key from a template, whether it holds an image or an attached file; removing a key the template does not have succeeds without a change.",
+    "Unlinks a resource key from a template, whether it holds an image, an attached file or a linked PDF template; removing a key the template does not have succeeds without a change.",
   handler: async (event, ctx) => {
     const { templateId, key } = event.payload;
-    // @cast-boundary engine-payload — override is a zod-validated string; forTenant
-    // rejects it for non-SystemAdmins.
-    const tenantId = (event.payload.tenantIdOverride ?? event.user.tenantId) as TenantId;
+    const tenantId = resourceTargetTenantId(event.payload.tenantIdOverride, event.user.tenantId);
     const { db, streamTenantId } = requireForTenant(ctx, tenantId);
     const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
       tenantId,

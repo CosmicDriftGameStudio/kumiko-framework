@@ -1,18 +1,13 @@
 import * as z from "zod";
-import type { FileAttachmentRef, InlineAttachmentRef } from "../renderer-foundation/index.js";
+import type {
+  FileAttachmentRef,
+  InlineAttachmentRef,
+  RenderedPdfAttachmentRef,
+} from "../renderer-foundation/index.js";
 import { attachmentFileNameSchema } from "../shared/index.js";
 import { isDocumentResourceKey, templateSlugSchema } from "../template-resolver/index.js";
 
-export type { FileAttachmentRef, InlineAttachmentRef };
-// A PDF rendered from a stored document template when the mail is sent, so the job
-// payload carries the variables instead of the bytes.
-export type RenderedPdfAttachmentRef = {
-  readonly kind: "rendered-pdf";
-  readonly templateSlug: string;
-  readonly variables: Readonly<Record<string, unknown>>;
-  readonly fileName: string;
-  readonly locale?: string;
-};
+export type { FileAttachmentRef, InlineAttachmentRef, RenderedPdfAttachmentRef };
 export type EmailAttachmentRef = InlineAttachmentRef | FileAttachmentRef | RenderedPdfAttachmentRef;
 
 export const MAX_EMAIL_ATTACHMENTS = 20;

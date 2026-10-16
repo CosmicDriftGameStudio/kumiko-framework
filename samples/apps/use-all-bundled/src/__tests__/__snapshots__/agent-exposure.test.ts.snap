@@ -205,6 +205,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "template-resolver:write:publish-system expose=true risk=high",
   "template-resolver:write:reply-snippets-set expose=true risk=mid",
   "template-resolver:write:reset-to-system expose=true risk=mid",
+  "template-resolver:write:resource-link-pdf expose=true risk=mid",
   "template-resolver:write:resource-remove expose=true risk=mid",
   "template-resolver:write:resource-upload expose=true risk=mid",
   "template-resolver:write:send-test expose=true risk=mid",

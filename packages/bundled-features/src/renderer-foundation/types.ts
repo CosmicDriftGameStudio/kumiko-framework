@@ -2,6 +2,7 @@ import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigAccessor, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
 import type {
+  LinkedResourceEntry,
   MailTemplateMeta,
   PdfPageFormat,
   PdfTemplateMeta,
@@ -42,6 +43,18 @@ export type FileAttachmentRef = {
   readonly fileName: string;
 };
 
+// A PDF rendered from a stored document template when the mail is sent, so the job
+// payload carries the variables instead of the bytes.
+export type RenderedPdfAttachmentRef = {
+  readonly kind: "rendered-pdf";
+  readonly templateSlug: string;
+  readonly variables: Readonly<Record<string, unknown>>;
+  readonly fileName: string;
+  readonly locale?: string;
+};
+
+export type MailAttachmentRef = InlineAttachmentRef | FileAttachmentRef | RenderedPdfAttachmentRef;
+
 export type RenderResponse = (
   | {
       kind: "mail";
@@ -49,7 +62,7 @@ export type RenderResponse = (
       html: string;
       text: string;
       previewText?: string;
-      attachments?: readonly (InlineAttachmentRef | FileAttachmentRef)[];
+      attachments?: readonly MailAttachmentRef[];
     }
   | {
       kind: "document-pdf";
@@ -73,6 +86,8 @@ export type MailDraft = {
   readonly content: string;
   readonly meta: MailTemplateMeta;
   readonly variableSchema?: Readonly<Record<string, unknown>>;
+  /** Images and attachments of the row being edited; absent means those of the stored template. */
+  readonly linkedResources?: Readonly<Record<string, LinkedResourceEntry>>;
 };
 
 export type MailPayload = {

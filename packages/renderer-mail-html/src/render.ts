@@ -23,9 +23,12 @@ import {
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   createTemplateResolverApi,
+  fileAttachmentsOf,
+  imageLinksOf,
   isMailTemplateMeta,
   type MailTemplateMeta,
   parseTemplateMeta,
+  pdfAttachmentLinksOf,
   readLayoutRegions,
   resolveTemplateVariables,
   sanitizeDocumentHtml,
@@ -47,7 +50,7 @@ import {
   readTenantName,
   resolveResourceFileRefs,
 } from "./document-kit.js";
-import { combineMailAttachments } from "./mail-attachments.js";
+import { buildRenderedPdfAttachments, combineMailAttachments } from "./mail-attachments.js";
 import { renderStructuredLayoutMjml } from "./structured-layout.js";
 
 const LINE_BREAKS = /[\r\n]+/g;
@@ -213,6 +216,11 @@ function applyMailDraft(
     contentFormat: "html",
     meta: parsedMeta.meta,
     variableSchema: { ...(draft.variableSchema ?? base.variableSchema) },
+    ...(draft.linkedResources !== undefined && {
+      linkedResources: imageLinksOf(draft.linkedResources),
+      fileAttachments: fileAttachmentsOf(draft.linkedResources),
+      pdfAttachmentLinks: pdfAttachmentLinksOf(draft.linkedResources),
+    }),
   };
 }
 
@@ -292,6 +300,22 @@ function renderSubjectLine(
   return compileDocumentSource(hbs, source, { noEscape: true })(context).replace(LINE_BREAKS, "");
 }
 
+function renderFileNamePattern(
+  hbs: typeof Handlebars,
+  pattern: string,
+  slug: string,
+  context: Readonly<Record<string, unknown>>,
+): string {
+  try {
+    return renderSubjectLine(hbs, pattern, context);
+  } catch (e) {
+    throw new RendererError(
+      `renderer-mail-html: rendering the attachment file name "${pattern}" of "${slug}" failed — ${describe(e)}`,
+      "other",
+    );
+  }
+}
+
 function renderSubjectLines(
   hbs: typeof Handlebars,
   meta: MailTemplateMeta,
@@ -351,10 +375,18 @@ export async function mailHtmlRender(
   const inlineAttachments: readonly InlineAttachmentRef[] = [...resourceFileRefs].map(
     ([cid, fileRefId]) => ({ kind: "inline", cid, fileRefId }),
   );
+  const renderedPdfs = buildRenderedPdfAttachments({
+    slug,
+    links: template.pdfAttachmentLinks ?? [],
+    variables,
+    locale,
+    renderFileName: (pattern) => renderFileNamePattern(hbs, pattern, slug, context),
+  });
   const attachments = combineMailAttachments(
     slug,
     inlineAttachments,
     template.fileAttachments ?? [],
+    renderedPdfs,
   );
   const { subject, previewText } = renderSubjectLines(hbs, meta, slug, context);
 

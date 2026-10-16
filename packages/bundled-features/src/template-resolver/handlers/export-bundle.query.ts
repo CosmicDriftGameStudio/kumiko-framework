@@ -4,6 +4,7 @@ import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import {
   isFileAttachmentEntry,
+  isPdfAttachmentLink,
   type LinkedResourceEntry,
   parseLinkedResourceEntries,
 } from "../linked-resources.js";
@@ -49,7 +50,12 @@ export const exportBundleQuery = defineQueryHandler({
     }
 
     const resources: TemplateBundle["resources"] = {};
+    const pdfAttachments: TemplateBundle["pdfAttachments"] = {};
     for (const [key, entry] of entryByKey) {
+      if (isPdfAttachmentLink(entry)) {
+        pdfAttachments[key] = { templateSlug: entry.templateSlug, fileName: entry.fileName };
+        continue;
+      }
       const attachment = isFileAttachmentEntry(entry);
       const file = await readTemplateResource(
         { db: ctx.db, files: ctx.files, user: query.user },
@@ -71,6 +77,7 @@ export const exportBundleQuery = defineQueryHandler({
       variableSchema: storedRecord(first.variableSchema),
       locales,
       resources,
+      pdfAttachments,
     };
   },
 });

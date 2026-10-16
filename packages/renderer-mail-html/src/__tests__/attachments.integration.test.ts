@@ -132,6 +132,29 @@ const invoiceFeature = defineFeature(FEATURE, (r) => {
   );
 });
 
+const FAKE_PDF_BYTES = new TextEncoder().encode("%PDF-1.4 rendered statement");
+const renderedPdfRequests: { slug: string; locale: string; variables: unknown }[] = [];
+
+// Stands in for renderer-puppeteer-client: records what the mail asked to print.
+const fakePdfRenderer = defineFeature("fake-pdf-renderer", (r) => {
+  r.requires("renderer-foundation");
+  r.useExtension("renderer", "fake-pdf", {
+    kinds: ["document-pdf"] as const,
+    render: async (req) => {
+      if (req.kind !== "document-pdf") throw new Error(`unexpected kind ${req.kind}`);
+      const { slug, locale, variables } = req.payload;
+      renderedPdfRequests.push({ slug, locale, variables });
+      return {
+        kind: "document-pdf",
+        pdfBytes: FAKE_PDF_BYTES,
+        pageCount: 1,
+        sizeBytes: FAKE_PDF_BYTES.length,
+        fileName: `${slug}.pdf`,
+      };
+    },
+  });
+});
+
 const tenantAdmin = (id: number) =>
   createTestUser({ id, roles: ["TenantAdmin"], tenantId: testTenantId(id) });
 const adminTenantA = tenantAdmin(31);
@@ -143,6 +166,7 @@ const adminTenantF = tenantAdmin(36);
 const adminTenantG = tenantAdmin(37);
 const adminTenantH = tenantAdmin(38);
 const adminTenantI = tenantAdmin(39);
+const adminTenantJ = tenantAdmin(40);
 
 // Job failures only surface as a bare error code; the job's error log names the failing step.
 const loggedErrors: string[] = [];
@@ -163,6 +187,7 @@ beforeAll(async () => {
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createRendererMailHtmlFeature(),
+      fakePdfRenderer,
       createDeliveryFeature(),
       createChannelEmailFeature({
         transport,
@@ -475,6 +500,47 @@ describe("mail attachments: inline logo and file attachment", () => {
     expect(Buffer.from(mail.attachments?.[0]?.content ?? [])).toEqual(
       Buffer.from(await storedBytes(logoFileRefId)),
     );
+  });
+
+  test("a linked PDF template is rendered at send time with the mail's variables and locale", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug: `${FEATURE}:doc:statement`,
+        kind: "document-pdf",
+        locale: "en",
+        content: "<p>Statement</p>",
+        contentFormat: "html",
+        meta: {},
+        variableSchema: {},
+      },
+      TestUsers.systemAdmin,
+    );
+    const templateId = await publishTenantOverride(adminTenantJ, INVOICE);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceLinkPdf,
+      {
+        templateId,
+        key: "statement",
+        templateSlug: `${FEATURE}:doc:statement`,
+        fileName: "statement.pdf",
+      },
+      adminTenantJ,
+    );
+
+    const mail = await sendMail(adminTenantJ, INVOICE);
+
+    const pdf = mail.attachments?.find((a) => a.kind === "rendered-pdf");
+    expect(pdf).toMatchObject({
+      kind: "rendered-pdf",
+      templateSlug: `${FEATURE}:doc:statement`,
+      fileName: "statement.pdf",
+      contentType: "application/pdf",
+    });
+    expect(Buffer.from(pdf?.content ?? [])).toEqual(Buffer.from(FAKE_PDF_BYTES));
+    expect(renderedPdfRequests).toEqual([
+      { slug: `${FEATURE}:doc:statement`, locale: "en", variables: {} },
+    ]);
   });
 
   // Stays last: its deliberately failing send job is retried with a backoff that can outlive the drain.

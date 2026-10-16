@@ -419,7 +419,10 @@ async function uploadFile(
 }
 
 describe("template-resolver :: preview with a logo and a file attachment", () => {
-  async function storeTemplateWithResources(admin: ReturnType<typeof adminOf>) {
+  async function storeTemplateWithResources(
+    admin: ReturnType<typeof adminOf>,
+    status: "active" | "draft" = "active",
+  ) {
     const created = await stack.http.writeOk<{ id: string }>(
       TemplateResolverHandlers.upsertTenant,
       {
@@ -431,7 +434,7 @@ describe("template-resolver :: preview with a logo and a file attachment", () =>
         contentFormat: "html",
         meta: { subject: "Rechnung {{invoiceNumber}}" },
         variableSchema: {},
-        status: "active",
+        status,
       },
       admin,
     );
@@ -496,5 +499,106 @@ describe("template-resolver :: preview with a logo and a file attachment", () =>
     const file = emailTransport.sent[0]?.attachments?.find((a) => a.kind === "file");
     expect(file).toMatchObject({ kind: "file", fileName: "offer.pdf" });
     expect(Buffer.from(file?.content ?? [])).toEqual(Buffer.from(PDF_BYTES));
+  });
+
+  const DRAFT_BODY =
+    '<p><img data-resource="logo" alt="Logo"></p><p>ENTWURF <span data-variable="invoiceNumber"></span></p>';
+
+  test("a draft row's logo and attachment show in the preview of the edited content", async () => {
+    const admin = adminOf(43);
+    await storeTemplateWithResources(admin, "draft");
+    const preview = await stack.http.queryOk<
+      Preview & {
+        displayHtml: string;
+        attachments: Array<{ kind: string; name: string; sizeBytes: number }>;
+      }
+    >(TemplateResolverQueries.preview, mailDraft(DRAFT_BODY), admin);
+    expect(preview.html).toContain("cid:logo");
+    expect(preview.displayHtml).toContain("data:image/");
+    expect(preview.attachments).toContainEqual({
+      kind: "file",
+      name: "offer.pdf",
+      sizeBytes: PDF_BYTES.length,
+    });
+    expect(checkOf(preview, "resources_resolved")?.ok).toBe(true);
+  });
+
+  test("a test mail of the edited content carries the draft row's attachment", async () => {
+    const admin = adminOf(44);
+    await storeTemplateWithResources(admin, "draft");
+    await stack.http.writeOk(TemplateResolverHandlers.sendTest, mailDraft(DRAFT_BODY), admin);
+    const file = emailTransport.sent[0]?.attachments?.find((a) => a.kind === "file");
+    expect(file).toMatchObject({ kind: "file", fileName: "offer.pdf" });
+    expect(Buffer.from(file?.content ?? [])).toEqual(Buffer.from(PDF_BYTES));
+    expect(emailTransport.sent[0]?.attachments?.some((a) => a.kind === "inline")).toBe(true);
+  });
+
+  test("the resources of another tenant's row are not used", async () => {
+    await storeTemplateWithResources(adminOf(45), "draft");
+    const preview = await stack.http.queryOk<Preview & { attachments: unknown[] }>(
+      TemplateResolverQueries.preview,
+      mailDraft(DRAFT_BODY),
+      adminOf(46),
+    );
+    expect(preview.attachments).toEqual([]);
+    expect(checkOf(preview, "resources_resolved")?.ok).toBe(false);
+  });
+});
+
+describe("template-resolver :: preview with a linked PDF template", () => {
+  test("lists the PDF under its rendered name without rendering it", async () => {
+    const admin = adminOf(47);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug: "inv-mailer:doc:invoice",
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: "<p>Rechnung</p>",
+        contentFormat: "html",
+        meta: {},
+        variableSchema: {},
+      },
+      TestUsers.systemAdmin,
+    );
+    const created = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: SLUG,
+        kind: "mail",
+        locale: LOCALE,
+        content: '<p>Rechnung <span data-variable="invoiceNumber"></span></p>',
+        contentFormat: "html",
+        meta: { subject: "Rechnung {{invoiceNumber}}" },
+        variableSchema: {},
+        status: "draft",
+      },
+      admin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceLinkPdf,
+      {
+        templateId: created.id,
+        key: "invoice",
+        templateSlug: "inv-mailer:doc:invoice",
+        fileName: "rechnung-{{invoiceNumber}}.pdf",
+      },
+      admin,
+    );
+    const preview = await stack.http.queryOk<
+      Preview & { attachments: Array<Record<string, unknown>> }
+    >(
+      TemplateResolverQueries.preview,
+      mailDraft('<p>Rechnung <span data-variable="invoiceNumber"></span></p>'),
+      admin,
+    );
+    expect(preview.attachments).toEqual([
+      {
+        kind: "rendered-pdf",
+        name: "rechnung-RE-2026-001.pdf",
+        templateSlug: "inv-mailer:doc:invoice",
+      },
+    ]);
+    expect(checkOf(preview, "size_under_cap")?.ok).toBe(true);
   });
 });

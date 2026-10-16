@@ -1,3 +1,4 @@
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { isDocumentResourceKey } from "../document-schema.js";
 
@@ -12,3 +13,12 @@ export const RESOURCE_PURPOSES = ["image", "attachment"] as const;
 export type ResourcePurpose = (typeof RESOURCE_PURPOSES)[number];
 
 export const MAX_FILE_ATTACHMENTS_PER_TEMPLATE = 10;
+
+export function resourceTargetTenantId(
+  tenantIdOverride: string | undefined,
+  sessionTenantId: TenantId,
+): TenantId {
+  // @cast-boundary engine-payload — override is a zod-validated string; forTenant
+  // rejects it for non-SystemAdmins.
+  return (tenantIdOverride ?? sessionTenantId) as TenantId;
+}

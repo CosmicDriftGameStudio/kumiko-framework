@@ -1164,6 +1164,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.attachment.limit": "Eine Vorlage kann höchstens {max} Anhänge haben.",
   "templateResolver.errors.attachment.invalid":
     "Der Anhang braucht eine Vorlage, einen Schlüssel und einen gültigen Dateinamen.",
+  "templateResolver.errors.attachment.pdfTemplateMissing":
+    "Es gibt keine PDF-Vorlage „{slug}“ für diesen Mandanten oder das System.",
   "template-resolver.documentEditor.htmlSource": "HTML-Quelltext",
   "template-resolver.documentEditor.removeBlock": "Block entfernen",
   "template-resolver.documentEditor.selectedBlock": "Ausgewählter Block",

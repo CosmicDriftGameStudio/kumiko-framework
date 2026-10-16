@@ -17,6 +17,7 @@ import { importBundleSystemWrite } from "./handlers/import-bundle-system.write.j
 import { listQuery } from "./handlers/list.query.js";
 import { previewQuery } from "./handlers/preview.query.js";
 import { resetToSystemWrite } from "./handlers/reset-to-system.write.js";
+import { resourceLinkPdfWrite } from "./handlers/resource-link-pdf.write.js";
 import { resourceRemoveWrite } from "./handlers/resource-remove.write.js";
 import { resourceUploadWrite } from "./handlers/resource-upload.write.js";
 import { sendTestWrite } from "./handlers/send-test.write.js";
@@ -69,7 +70,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
         'A collection is tenant-wide by default. With `ownership: "user"` every user keeps their own entries — mail signatures being the obvious case. Those rows live in the separate `user-content-entry` entity and count as user data, so mounting one also requires the `template-resolver-user-data` feature and a migration on the app side.',
         "`validate` dry-runs the write pipeline for a draft (sanitizer, layout rules, placeholders) and reports what the template uses and misses. `export-bundle` / `import-bundle` (and `import-bundle-system`) move one template with all locales and resource files between tenants or environments; `copy-locale` starts a translation from an existing locale. Layouts are structured: a mail or PDF layout is `data-header` / `data-content` / `data-signature` / `data-footer` regions, and mjml layout source is system-only.",
         "`preview` renders a draft (or the stored template) with sample values taken from the `example` of each declared variable, through the same gates and the same mail renderer as a real send, and returns subject, html, `displayHtml` (the html with cid images as data URIs for an editor), text, attachments (inline images and files) and `checks` (images resolved, plain text present, size under 10 MiB, required placeholders used); nothing is saved or sent. `send-test` mails that rendering to the calling user's own address only, subject prefixed with `[TEST]`, at most 10 per user and hour; it needs `delivery`, `channel-email` and `renderer-mail-html` to be mounted.",
-        'Images used by a template (`<img data-resource="logo">`) are uploaded with `resourceUpload`, which re-encodes them, stores a file and links it under the key; `resourceRemove` unlinks it. `linkedResources` is written only through these two handlers. With `purpose: "attachment"` and a `fileName`, `resourceUpload` stores a PDF, PNG or JPEG as a file attachment of a mail template (original bytes, at most 10) that the mail renderer attaches after the inline images.',
+        'Images used by a template (`<img data-resource="logo">`) are uploaded with `resourceUpload`, which re-encodes them, stores a file and links it under the key; `resourceRemove` unlinks it. `linkedResources` is written only through these two handlers. With `purpose: "attachment"` and a `fileName`, `resourceUpload` stores a PDF, PNG or JPEG as a file attachment of a mail template (original bytes, at most 10) that the mail renderer attaches after the inline images. `resourceLinkPdf` instead links a `document-pdf` template under a key: every mail sent from the template then carries that PDF, rendered at send time with the mail\'s own variables and locale, under a file name pattern such as `invoice-{{number}}.pdf`; files and linked PDFs share the limit of 10.',
         "Replaces the former `text-content` feature; its blocks now live here as kind `text-block`.",
       ].join("\n\n"),
     );
@@ -104,6 +105,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       copyLocale: r.writeHandler(copyLocaleWrite),
       resourceUpload: r.writeHandler(resourceUploadWrite),
       resourceRemove: r.writeHandler(resourceRemoveWrite),
+      resourceLinkPdf: r.writeHandler(resourceLinkPdfWrite),
       sendTest: r.writeHandler(sendTestWrite),
     };
 

@@ -10,7 +10,13 @@ import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { FileAttachmentRef } from "../renderer-foundation/index.js";
 import type { ContentFormat, TemplateKind } from "./constants.js";
 import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants.js";
-import { fileAttachmentsOf, imageLinksOf, parseLinkedResourceEntries } from "./linked-resources.js";
+import {
+  fileAttachmentsOf,
+  imageLinksOf,
+  parseLinkedResourceEntries,
+  pdfAttachmentLinksOf,
+  type TemplatePdfAttachmentLink,
+} from "./linked-resources.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 import { parseTemplateMeta, type TemplateMeta } from "./template-meta.js";
 
@@ -32,6 +38,8 @@ export type TemplateResource = {
   readonly linkedResources: Record<string, string>;
   /** Files attached to every mail rendered from this template, ordered by key. */
   readonly fileAttachments?: readonly FileAttachmentRef[];
+  /** PDFs rendered from document templates and attached at send time, ordered by key. */
+  readonly pdfAttachmentLinks?: readonly TemplatePdfAttachmentLink[];
   /** Parsed per kind; null when absent or when the stored JSON no longer
    *  matches the kind's schema (the renderer then fails with a clear error). */
   readonly meta: TemplateMeta | null;
@@ -158,6 +166,7 @@ function toPublic(row: TemplateResourceRow): TemplateResource {
     variableSchema: parseJson(row.variableSchema),
     linkedResources: imageLinksOf(linkedEntries),
     fileAttachments: fileAttachmentsOf(linkedEntries),
+    pdfAttachmentLinks: pdfAttachmentLinksOf(linkedEntries),
     meta: parseStoredMeta(kind, row.meta),
     scope,
     parentTemplateId: row.parentTemplateId,

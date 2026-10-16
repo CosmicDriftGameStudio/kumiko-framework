@@ -1159,6 +1159,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Una plantilla puede tener como máximo {max} archivos adjuntos.",
   "templateResolver.errors.attachment.invalid":
     "El archivo adjunto necesita una plantilla, una clave y un nombre de archivo válido.",
+  "templateResolver.errors.attachment.pdfTemplateMissing":
+    "No existe ninguna plantilla PDF «{slug}» para este inquilino ni para el sistema.",
   "template-resolver.documentEditor.htmlSource": "Código HTML",
   "template-resolver.documentEditor.removeBlock": "Quitar bloque",
   "template-resolver.documentEditor.selectedBlock": "Bloque seleccionado",

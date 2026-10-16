@@ -4,6 +4,7 @@ import {
   imageLinksOf,
   imageResourceKeysOf,
   parseLinkedResourceEntries,
+  pdfAttachmentLinksOf,
 } from "../linked-resources";
 
 const STORED = JSON.stringify({
@@ -33,6 +34,38 @@ describe("linked resource entries", () => {
       { kind: "file", fileRefId: "file-2", fileName: "offer.pdf" },
       { kind: "file", fileRefId: "file-3", fileName: "terms.pdf" },
     ]);
+  });
+
+  test("parses rendered PDF links and returns them sorted by key", () => {
+    const stored = JSON.stringify({
+      "b-copy": { kind: "rendered-pdf", templateSlug: "billing:invoice", fileName: "b-{{n}}.pdf" },
+      "a-main": { kind: "rendered-pdf", templateSlug: "billing:invoice", fileName: "a.PDF" },
+      logo: "file-1",
+      doc: { kind: "file", fileRefId: "file-2", fileName: "terms.pdf" },
+    });
+    const entries = parseLinkedResourceEntries(stored);
+    expect(pdfAttachmentLinksOf(entries).map((link) => link.fileName)).toEqual([
+      "a.PDF",
+      "b-{{n}}.pdf",
+    ]);
+    expect(imageLinksOf(entries)).toEqual({ logo: "file-1" });
+    expect(fileAttachmentsOf(entries)).toHaveLength(1);
+  });
+
+  test("drops rendered PDF links with a bad slug, a bad file name or extra fields", () => {
+    const rejected = [
+      { kind: "rendered-pdf", templateSlug: "Bad Slug", fileName: "a.pdf" },
+      { kind: "rendered-pdf", templateSlug: "invoice", fileName: "a.txt" },
+      { kind: "rendered-pdf", templateSlug: "invoice", fileName: "../a.pdf" },
+      { kind: "rendered-pdf", templateSlug: "invoice", fileName: "a/b.pdf" },
+      { kind: "rendered-pdf", templateSlug: "invoice", fileName: "a\nb.pdf" },
+      { kind: "rendered-pdf", templateSlug: "invoice", fileName: `${"a".repeat(200)}.pdf` },
+      { kind: "rendered-pdf", templateSlug: "invoice" },
+      { kind: "rendered-pdf", templateSlug: "invoice", fileName: "a.pdf", fileRefId: "x" },
+    ];
+    for (const entry of rejected) {
+      expect(parseLinkedResourceEntries(JSON.stringify({ key: entry }))).toEqual({});
+    }
   });
 
   test("null, empty and invalid JSON give no entries", () => {
