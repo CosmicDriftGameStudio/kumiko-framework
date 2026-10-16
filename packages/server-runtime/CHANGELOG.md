@@ -1,5 +1,115 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.363.0
+
+### Minor Changes
+
+- 58452ae: ctx.notify in write handlers delivers after commit
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: ctx.notify in write handlers delivers after commit
+  detail: Inside a write handler's transaction ctx.notify only records the notification and delivers it once the write has committed, so a rolled-back write sends nothing and leaves no attempt event. Delivery no longer takes a connection from the app pool while the write holds one, which deadlocked at pool max N with N parallel writes. With immediate: true the call stays synchronous and runs its DB work on the outside-transaction pool.
+  migration: |
+    NotifyResult is now a union, NotifyDispatched ({ kind: "dispatched", deliveries }) or NotifyDeferred ({ kind: "deferred" }). In a write handler without immediate: true ctx.notify returns deferred and delivers after commit (a rollback means no notification). Code that reads the result (for example a "send test message" handler showing sent/failed) sets immediate: true, which delivers synchronously on the outside-transaction pool and returns dispatched; narrow on kind before reading deliveries. Errors such as a missing idempotency Redis, a tenant broadcast without the tenant feature or an unknown notification type no longer throw in a deferred write handler, they land in the afterCommit log. Notifications from jobs, from seeding and from handlers without a transaction stay synchronous. The boot default wires tenantUserIdsQuery for to: { tenant } when the tenant feature is mounted, so an app-side tenantUserIdsQuery wiring can go. Custom NotifyFactory implementations receive an optional 4th parameter deliveryDb, and DeliveryService.notify an optional 6th.
+  -->
+
+- 2972bc2: r.notification declares variables, mail template text and meta
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.notification declares variables, template and meta; applyBootSeeds seeds them
+  detail: r.notification accepts variables (typed with templateVariable.text, link, money, date and list), template (per locale body, document html) and meta (per locale subject and more). Boot validation requires a kebab-case name, a meta.<locale>.subject for every template locale and valid placeholder names. templateVariablesToZod turns the variables into a Zod schema. applyBootSeeds calls seedNotificationTemplates, which writes the text as system templates of kind mail and fails loudly when notifications declare a template but the template-resolver feature is not mounted.
+  -->
+
+- ef689d8: composeFeatures mounts the mail stack that auth-email-password needs
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: composeFeatures adds template-resolver, renderer-foundation and renderer-mail-html for auth apps
+  detail: With includeBundled, the auth mails are stored templates and the boot seed needs the template-resolver and a mail renderer. composeFeatures adds whichever of template-resolver, renderer-foundation and renderer-mail-html the app does not mount itself, so runDevApp, runProdApp and scaffolds keep booting. Apps without the template tables need a schema migration (`kumiko schema generate`).
+  -->
+
+- 9120f65: runProdApp wires the tenant config accessor into the inline delivery path
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Immediate notify renders with the tenant config in runProdApp
+  detail: The boot delivery notify factory passes tenantConfigFor, built from the boot config resolver, to the delivery service, so immediate notifications render the tenant name in the mail layout like the delivery.render job does.
+  -->
+
+### Patch Changes
+
+- 045f886: Fewer unchecked casts in bundled features, dev-server, server-runtime, testing and cli
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Fewer unchecked casts in bundled features, dev-server, server-runtime, testing and cli
+  detail: Casts are replaced by shared type guards, typed query rows and direct Bun typings. Behavior stays the same, except that a tier-resolver registration without a build() factory now fails with a clear error at boot, the kumiko CLI prints the thrown value of non-Error failures instead of "undefined".
+  -->
+
+- a12e094: Remove unknown cast-boundary reasons and share propertyOf
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Remove unknown cast-boundary reasons and share propertyOf
+  detail: Framework internals read untyped properties through the shared propertyOf from kumiko-types instead of private copies and casts. The as-casts guard knows four more boundary reasons (phantom-brand, third-party-type-gap, dom-event-target, feature-exports) and normalizes whitespace in cast targets so re-indenting a multi-line cast no longer counts as a regression. A stored inbound-mail cursor that is not a JSON object is now treated like a missing cursor.
+  -->
+
+- Updated dependencies [9120f65]
+- Updated dependencies [ef689d8]
+- Updated dependencies [9120f65]
+- Updated dependencies [045f886]
+- Updated dependencies [a12e094]
+- Updated dependencies [9120f65]
+- Updated dependencies [b9a146d]
+- Updated dependencies [9120f65]
+- Updated dependencies [58452ae]
+- Updated dependencies [ef689d8]
+- Updated dependencies [a12e094]
+- Updated dependencies [3c6b3da]
+- Updated dependencies [09a4aa2]
+- Updated dependencies [0a79504]
+- Updated dependencies [b022cca]
+- Updated dependencies [fcd6eb4]
+- Updated dependencies [2972bc2]
+- Updated dependencies [2972bc2]
+- Updated dependencies [2972bc2]
+- Updated dependencies [ef689d8]
+- Updated dependencies [4a748c3]
+- Updated dependencies [0a79504]
+- Updated dependencies [0a79504]
+- Updated dependencies [2972bc2]
+- Updated dependencies [2972bc2]
+- Updated dependencies [f7da271]
+- Updated dependencies [6b8d89b]
+- Updated dependencies [9120f65]
+- Updated dependencies [7ed530a]
+- Updated dependencies [d35e9a0]
+- Updated dependencies [549a6f6]
+- Updated dependencies [f3fe91e]
+- Updated dependencies [3c6b3da]
+- Updated dependencies [2972bc2]
+- Updated dependencies [3c6b3da]
+- Updated dependencies [46b83b8]
+- Updated dependencies [cbed66e]
+- Updated dependencies [366d89f]
+- Updated dependencies [a12e094]
+- Updated dependencies [9120f65]
+- Updated dependencies [9120f65]
+  - @cosmicdrift/kumiko-bundled-features@0.363.0
+  - @cosmicdrift/kumiko-framework@0.363.0
+  - @cosmicdrift/kumiko-types@0.363.0
+  - @cosmicdrift/kumiko-renderer-web@0.363.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.363.0
+  - @cosmicdrift/kumiko-headless@0.363.0
+
 ## 0.362.0
 
 ### Patch Changes

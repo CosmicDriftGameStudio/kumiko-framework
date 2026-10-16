@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.363.0",
+    "type": "breaking",
+    "title": "A notification without a mail template fails on the email channel",
+    "detail": "The renderer option of createChannelEmailFeature is removed. A notification routed to the email channel without template + meta fails its delivery permanently with \"has no mail template, declare template + meta on r.notification\". r.notification declares no channels, so this is not checked at boot; an app's own mail tests over the inmemory transport catch it.",
+    "migration": "Drop the renderer option. Declare template + meta (or localizedTemplate) and variables on every r.notification that reaches the email channel, or accept that its email delivery fails. Run the app's notification tests after the bump: every email notification without a template now fails there."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Email channel sends rendered-pdf attachments",
+    "detail": "The channel resolves rendered-pdf entries from notify data next to file entries; without a locale the message locale is used. A render failure fails the send job, so the retry runs it again."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Email channel sends file attachments and inline cid images",
+    "detail": "EmailMessage.attachments is sent through the SMTP transport (inline images with Content-ID). notify data.attachments with kind file entries are resolved through the file store; the PII guard rejects ciphertext file names."
+  },
+  {
     "version": "0.350.0",
     "type": "improvement",
     "title": "Mails get a plain-text part (EmailMessage.text, NotificationRenderer.renderText, simple renderer and GDPR mails fill it)",

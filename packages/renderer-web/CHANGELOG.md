@@ -1,5 +1,72 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.363.0
+
+### Patch Changes
+
+- a12e094: dispatcher-live validates server envelopes with Zod
+
+  <!-- kumiko-changes
+  feature: dispatcher-live
+  type: improvement
+  title: dispatcher-live validates server envelopes with Zod
+  detail: Query, write, batch and stream responses are parsed against Zod schemas for the envelope (isSuccess, error, failedIndex, results); the data payload stays typed by the caller. A malformed envelope now yields the network_error fallback ("unexpected response shape") instead of passing wrongly typed fields through; bare gate errors ({ error } from csrf, origin, auth or rate limits) keep their code, and a missing i18nKey defaults to errors.unknown; a malformed SSE error frame yields stream_error, and failing batch items get httpStatus filled from the response like top-level errors. renderer-web types CSS custom properties on React's CSSProperties instead of casting style objects.
+  -->
+
+- 2972bc2: Error texts for template meta and placeholder validation, formatMoney delegates to headless, feature manifest refreshed
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: error texts for template meta and placeholder validation in German and Spanish
+  detail: The locale packages carry the new templateResolver.errors keys (invalid meta, unknown and missing placeholders, mail layout format, collection kind not allowed); renderer-web's formatMoney delegates to headless and the create-kumiko-app feature manifest is refreshed.
+  -->
+
+- 0a79504: Add the PDF template editor screen (`@cosmicdrift/kumiko-document-designer/web`): placeholder panel, page canvas with layout header and footer, page settings, validation footer and a pdf.js preview. The template-resolver document editor gains an `align` block, labelled placeholder chips, a repeat-table bar and an `onEditorReady` handle; `template-resolver/web` exports the qualified names; `renderer-puppeteer-client` exports `./qualified-names`; renderer-web's stylesheet scans the new package.
+
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: New package with the PDF template editor screen
+  detail: "@cosmicdrift/kumiko-document-designer/web" exports documentDesignerClient(screenId), PdfTemplateEditorScreen, PdfTemplateEditor and documentDesignerTranslations. The screen takes the template from the URL (?slug=...&locale=...), edits the system template for a SystemAdmin and a tenant customisation for everyone else, and previews the printed PDF with pdf.js. template-resolver/web additionally exports DocumentEditorHandle, TemplateResolverQueries, TemplateResolverHandlers and TemplateResolverErrors.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: uploadFileRef uploads a file to the stack and returns its FileRef id
+  detail: uploadFileRef(file, target?) posts to /api/files with the CSRF header and returns the new FileRef id; it throws FileUploadFailedError carrying the server message when the endpoint sent one. FileUploadInput uses it with unchanged behaviour.
+  -->
+
+- a12e094: propertyOf type guard and fewer unchecked casts in the UI packages
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: propertyOf type guard and fewer unchecked casts in the UI packages
+  detail: "@cosmicdrift/kumiko-types/type-guards" exports propertyOf, which reads one property off an unknown value. Headless, renderer, renderer-web and dispatcher-live replace unchecked as-casts and globalThis probes with it and with narrowing. Behavior stays the same for well-formed input; a format spec, upload response or stream event with a wrongly typed property is now ignored instead of passed through.
+  -->
+
+- Updated dependencies [045f886]
+- Updated dependencies [a12e094]
+- Updated dependencies [58452ae]
+- Updated dependencies [a12e094]
+- Updated dependencies [09a4aa2]
+- Updated dependencies [b022cca]
+- Updated dependencies [fcd6eb4]
+- Updated dependencies [2972bc2]
+- Updated dependencies [2972bc2]
+- Updated dependencies [ef689d8]
+- Updated dependencies [4a748c3]
+- Updated dependencies [cbed66e]
+- Updated dependencies [366d89f]
+- Updated dependencies [a12e094]
+  - @cosmicdrift/kumiko-framework@0.363.0
+  - @cosmicdrift/kumiko-types@0.363.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.363.0
+  - @cosmicdrift/kumiko-renderer@0.363.0
+  - @cosmicdrift/kumiko-headless@0.363.0
+
 ## 0.362.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "data-retention exports computeCutoff",
+    "detail": "computeCutoff(keepFor, now) and its Instant type are exported from @cosmicdrift/kumiko-bundled-features/data-retention, so apps that compute a retention cutoff themselves (for example a backfill) use the same keepFor parsing as the cleanup job instead of a copy."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Retention hardDelete keeps cross-entity shared files and isolates storage errors per row",

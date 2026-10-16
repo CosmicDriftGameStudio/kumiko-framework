@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "propertyOf type guard and fewer unchecked casts in the UI packages",
+    "detail": "\"@cosmicdrift/kumiko-types/type-guards\" exports propertyOf, which reads one property off an unknown value. Headless, renderer, renderer-web and dispatcher-live replace unchecked as-casts and globalThis probes with it and with narrowing. Behavior stays the same for well-formed input; a format spec, upload response or stream event with a wrongly typed property is now ignored instead of passed through."
+  },
+  {
     "version": "0.362.0",
     "type": "improvement",
     "title": "entityList honours allowCreate false",

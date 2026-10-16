@@ -1,5 +1,28 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.363.0
+
+### Patch Changes
+
+- 045f886: Fewer unchecked casts in bundled features, dev-server, server-runtime, testing and cli
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Fewer unchecked casts in bundled features, dev-server, server-runtime, testing and cli
+  detail: Casts are replaced by shared type guards, typed query rows and direct Bun typings. Behavior stays the same, except that a tier-resolver registration without a build() factory now fails with a clear error at boot, the kumiko CLI prints the thrown value of non-Error failures instead of "undefined".
+  -->
+
+- Updated dependencies [045f886]
+- Updated dependencies [a12e094]
+- Updated dependencies [ef689d8]
+- Updated dependencies [9120f65]
+- Updated dependencies [a12e094]
+  - @cosmicdrift/kumiko-dev-server@0.363.0
+  - @cosmicdrift/kumiko-testing@0.363.0
+  - @cosmicdrift/kumiko-guards@0.363.0
+  - @cosmicdrift/kumiko-repo-manifest@0.363.0
+
 ## 0.362.0
 
 ### Patch Changes

@@ -2,13 +2,163 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-15
+verified: 2026-10-16
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.363.0
+
+### @cosmicdrift/kumiko-renderer-mail-html
+
+**Documents format dates and numbers by the template locale, dates in the long style**
+
+readDocumentFormat used the tenant setting tenant-settings:config:locale ahead of the template locale, so a German invoice of a tenant set to English printed "Oct 1, 2026" and "€780.00". Mails, mail previews and document PDFs now format by the locale of the template that is rendered; the tenant settings still supply the currency. The date helper prints the long style ("1. Oktober 2026", "October 1, 2026") instead of the medium style ("01.10.2026", "Oct 1, 2026").
+
+**Migration:** Tests or snapshots that assert rendered dates change from "05.03.2026" to "5. März 2026" (de) and from "Mar 5, 2026" to "March 5, 2026" (en). A tenant that relied on tenant-settings:config:locale to change the number format of its documents now needs a template in that locale.
+
+**renders kind mail from document templates, Markdown path removed**
+
+The plugin serves kind mail. It resolves the template by slug (contentFormat html, meta.subject required), compiles the document body to Handlebars through template-resolver, renders it in an isolated Handlebars instance (helpers money, date and link, HTML escaping on) and places the result into the mail-layout named by meta.layoutSlug (default slug default, in-code DEFAULT_MAIL_LAYOUT_MJML as fallback). The layout only sees content, subject, previewText, tenantName, signature, imprint and unsubscribeUrl. The response carries subject and previewText; the subject has line breaks removed. Markdown rendering and the content/contentFormat payload are gone; DEFAULT_MAIL_LAYOUT_MJML uses tenantName instead of appName. seedSystemMailLayout writes kind mail-layout slug default through seedSystemTemplate and is idempotent. New dependency on @cosmicdrift/kumiko-headless.
+
+**Migration:** Send kind mail requests with { slug, locale, variables } and move mail texts into kind mail templates (html body plus meta.subject), for example through r.notification({ template, meta }). Custom mail layouts become kind mail-layout, contentFormat mjml, slug default and use {{tenantName}} instead of {{appName}}; the body is inserted with {{{content}}}.
+
+**Package moved to the framework under the @cosmicdrift scope**
+
+Renamed from @cosmicdriftgamestudio/kumiko-renderer-mail-html (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-mail-html on npmjs; the API is unchanged.
+
+**Migration:** Replace @cosmicdriftgamestudio/kumiko-renderer-mail-html with @cosmicdrift/kumiko-renderer-mail-html in package.json and in every import; install from npmjs instead of GitHub Packages.
+
+### @cosmicdrift/kumiko-renderer-puppeteer-client
+
+**renders document-pdf from templates, adds renderAndStorePdf, the rendered-pdf entity and puppeteer-status**
+
+The plugin resolves the document-pdf template and its pdf-layout (header, signature, footer), embeds every image as a data URI and sends finished HTML to the puppeteer-service. renderAndStorePdf(ctx, { slug, locale, variables, attachTo? }) stores the PDF as a file and a rendered-pdf record with the template and layout version. The puppeteer-status query reports whether the service answers; while it does not, rendering fails with PuppeteerUnavailableError (HTTP 503, puppeteer_unavailable). The feature adds the table rendered_pdfs.
+
+**Migration:** Call renderAndStorePdf(ctx, { slug, locale, variables, attachTo? }) from a write handler; no escape hatch or rendererDb is needed because the tenant db also reads system templates and files. Apps that mount renderer-puppeteer-client need a schema migration for rendered_pdfs (`kumiko schema generate`). PUPPETEER_SERVICE_URL and PUPPETEER_AUTH_TOKEN stay as before. image-snapshot requests are unchanged.
+
+**Package moved to the framework under the @cosmicdrift scope**
+
+Renamed from @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-puppeteer-client on npmjs; the API is unchanged.
+
+**Migration:** Replace @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client with @cosmicdrift/kumiko-renderer-puppeteer-client in package.json and in every import; install from npmjs instead of GitHub Packages.
+
+### auth-email-password
+
+**AuthMailContent is removed**
+
+The sections-based content type only fed the retired renderer-simple. Auth mails are template notifications with variables, so nothing builds or consumes AuthMailContent anymore.
+
+**Migration:** Drop AuthMailContent imports; the auth mail text lives in the seeded templates and is overridden per tenant in the template editor.
+
+**Auth mails are notifications with seeded templates, render*Email is gone**
+
+password-reset, account-unlock, email-verification, signup-activation and invite are declared as r.notification with a localized template and variables, seeded as system templates at boot and rendered by renderer-mail-html, so a tenant can override the text in the template editor. A locale without its own subject key falls back to en, because the renderer has no locale fallback. AuthMailNotificationTypes is exported for the qualified names.
+
+**Migration:** The notification types are now `auth-email-password:notify:<name>` (before: the plain names). Update delivery preferences, preference rows and tests that reference the old names. renderResetPasswordEmail, renderUnlockAccountEmail, renderVerifyEmail, renderActivationEmail, renderInviteEmail, AuthMailSection, RenderTokenContentArgs and RenderInviteEmailArgs are removed; AuthMailContent stays. An app that mounts auth-email-password now needs template-resolver, renderer-foundation and @cosmicdrift/kumiko-renderer-mail-html (composeRendererStack() from dev-server mounts all of them; with includeBundled, composeFeatures adds whichever is missing). Boot fails with a clear error otherwise, and apps without the template tables need a schema migration (`kumiko schema generate`). kumiko-schema-check counts the three as implicit features of every HAS_AUTH app, so its check fails until that migration exists. Tests that read the token from a mail use the text part (`mail.text`); the html part encodes `=` as `&#x3D;`.
+
+### billing-foundation
+
+**Contract confirmation and termination mails use template variables**
+
+contract-confirmation, contract-termination-receipt and contract-termination-operator-notice are r.notification declarations with variables and localized templates (de, en). The notification types are qualified names now (billing-foundation:notify:<name>). The notify data is the template variable object (subject, details, contractLines, termsParagraphs, operatorEmail), not sections.
+
+**Migration:** Update delivery preferences and tests that referenced the old type strings, and anything that listens to the notification data. An app that mounts it without includeBundled needs template-resolver, renderer-foundation and @cosmicdrift/kumiko-renderer-mail-html at boot (composeRendererStack() from dev-server mounts all of them), plus a delivery with the channel-email feature; apps without the template tables need a schema migration (`kumiko schema generate`).
+
+### channel-email
+
+**A notification without a mail template fails on the email channel**
+
+The renderer option of createChannelEmailFeature is removed. A notification routed to the email channel without template + meta fails its delivery permanently with "has no mail template, declare template + meta on r.notification". r.notification declares no channels, so this is not checked at boot; an app's own mail tests over the inmemory transport catch it.
+
+**Migration:** Drop the renderer option. Declare template + meta (or localizedTemplate) and variables on every r.notification that reaches the email channel, or accept that its email delivery fails. Run the app's notification tests after the bump: every email notification without a template now fails there.
+
+### delivery
+
+**NotificationRenderer and RendererInput removed, immediate notify renders with the tenant config**
+
+The inline (immediate, job-less) delivery path now gets the tenant config accessor like the delivery.render job, so the mail layout shows the tenant name in both paths. DeliveryServiceOptions and CreateDeliveryTestContextOptions accept tenantConfigFor; runProdApp wires it from the boot config resolver. The types NotificationRenderer and RendererInput are removed from the delivery exports because the legacy renderer path is gone.
+
+**Migration:** Drop NotificationRenderer and RendererInput imports; render mails with template + meta on r.notification (see renderer-foundation).
+
+### framework-core
+
+**ctx.notify in write handlers delivers after commit**
+
+Inside a write handler's transaction ctx.notify only records the notification and delivers it once the write has committed, so a rolled-back write sends nothing and leaves no attempt event. Delivery no longer takes a connection from the app pool while the write holds one, which deadlocked at pool max N with N parallel writes. With immediate: true the call stays synchronous and runs its DB work on the outside-transaction pool.
+
+**Migration:** NotifyResult is now a union, NotifyDispatched ({ kind: "dispatched", deliveries }) or NotifyDeferred ({ kind: "deferred" }). In a write handler without immediate: true ctx.notify returns deferred and delivers after commit (a rollback means no notification). Code that reads the result (for example a "send test message" handler showing sent/failed) sets immediate: true, which delivers synchronously on the outside-transaction pool and returns dispatched; narrow on kind before reading deliveries. Errors such as a missing idempotency Redis, a tenant broadcast without the tenant feature or an unknown notification type no longer throw in a deferred write handler, they land in the afterCommit log. Notifications from jobs, from seeding and from handlers without a transaction stay synchronous. The boot default wires tenantUserIdsQuery for to: { tenant } when the tenant feature is mounted, so an app-side tenantUserIdsQuery wiring can go. Custom NotifyFactory implementations receive an optional 4th parameter deliveryDb, and DeliveryService.notify an optional 6th.
+
+**ctx.notify rejects a broadcast to another tenant**
+
+A notify with to: { tenant } now throws an AccessDeniedError (reason notify_foreign_tenant_broadcast) unless the tenant is the caller's own, before any delivery work. In a write handler it fails synchronously instead of landing in the afterCommit log. Notifications fired from seed hooks during self-signup no longer use the app pool inside the signup transaction, which deadlocked at pool max N with N parallel signups; they deliver after commit. ctx.scheduleAfterCommit is now absent in query bridges and post-commit contexts, where hooks pushed to it never ran; callers that check for it (cache-sync announce, set-tenant-tier onAssigned, form-draft discard, seed hooks) now run inline there instead of being dropped.
+
+**Migration:** to: { tenant } must be the tenant of the caller (user.tenantId of the handler or job context), otherwise notify throws; in a write handler the throw is synchronous. Seed-hook notifications in the signup transaction run after commit and return { kind: "deferred" } (immediate: true runs synchronously on the outside-transaction pool, which cannot see rows the signup transaction has not committed yet, so a tenant broadcast there finds no new member). No known consumer broadcasts to a foreign tenant.
+
+### renderer-foundation
+
+**document-pdf requests name a template, the response carries fileName**
+
+The document-pdf payload is { slug, locale, variables } instead of ready HTML in content. The response has a fileName, RendererContext gets an optional filesForTenant (file access per tenant) and RendererError has the new code unavailable for a renderer backend that cannot be reached.
+
+**Migration:** Callers that sent `payload: { content }` switch to a document-pdf template and pass slug, locale and variables (money-horse credit-schedule-pdf follows in #621); renderer-pdf callers pass slug and locale too. The enterprise package @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client no longer builds against these types and is replaced by @cosmicdrift/kumiko-renderer-puppeteer-client.
+
+**RenderRequest kind mail replaces mail-html**
+
+RenderRequest and RenderResponse use kind mail with a MailPayload ({ slug, locale, variables, unsubscribeUrl? }) and a response of { subject, html, text, previewText? }. The export MailHtmlPayload is removed; use MailPayload. The default plugin name for kind mail stays mail-html. RendererContext gains an optional config accessor that plugins use for tenant locale, currency and branding.
+
+**Migration:** Replace kind mail-html with mail in createRendererForTenant and render calls, pass { slug, locale, variables } instead of content/contentFormat, and read the subject from the response instead of building it yourself. Pass ctx.config in the RendererContext to get tenant locale, currency and branding.
+
+**renderer-simple, MailBranding and renderer kind "notification" are removed**
+
+Every mail is a stored template rendered by renderer-mail-html now. renderer-simple (createRendererSimpleFeature, simpleRenderer, createSimpleRenderer, RendererSimpleOptions, mail blocks with LocalizedText, MailBadge, MailChip, MailStage, MailStageState and MailTone), the MailBranding type, the renderer kind "notification" and AuthMailContent are gone. NotificationRenderer and RendererInput are removed from delivery, and createChannelEmailFeature no longer takes a renderer option. The type NotificationPayload is removed from renderer-foundation. The template-resolver keeps "notification" only as a stored kind so legacy rows stay readable; RENDER_KINDS is mail, document-pdf and image-snapshot.
+
+**Migration:** Remove createRendererSimpleFeature() and any renderer or mailBranding option from your feature list and createChannelEmailFeature call. An r.notification that is sent by email needs template + meta (or localizedTemplate) and variables; the sections/header/footer data it carried is replaced by template variables. Branding (logo, footer) now comes from the tenant branding config and the mail layout of renderer-mail-html. Mount template-resolver, renderer-foundation and @cosmicdrift/kumiko-renderer-mail-html (composeRendererStack() mounts all of them) and run seedNotificationTemplates at boot. Existing template rows with kind "notification" are no longer rendered; re-create them as kind "mail" or archive them.
+
+### template-resolver
+
+**document-pdf templates require contentFormat html, and html bodies are sanitized on write**
+
+upsertSystem, upsertTenant, the collection-set handlers and seedSystemTemplate rebuild html bodies of kind mail-html and document-pdf through the new document schema (template-resolver/document-schema). Script elements, inline event handlers, embedded content (iframe, frame, object, embed, applet, portal), links and url attributes (svg href, xlink:href, form action, base) outside https/http/mailto/tel/{{placeholder}}, external image sources, alt text containing < or >, and invalid or prototype-chain variable names are rejected with a validation_error (or a thrown Error in seedSystemTemplate); anything the schema cannot express is dropped silently, and links keep only href (no target, rel, class or title). New exports: documentExtensions, DocumentLink and the other Document* nodes, isAllowedDocumentLinkHref, isDocumentReferenceName, isDocumentResourceKey, isDocumentPlaceholderHref, sanitizeDocumentHtml, sanitizeTemplateBody. kind document-pdf with another contentFormat is rejected with document_requires_html_format.
+
+**Migration:** Store document-pdf bodies as html and reference images via data-resource instead of src. mail-html with markdown or mjml is unchanged.
+
+**kind mail-html is replaced by mail, mail-layout and pdf-layout; templates carry meta**
+
+The kind mail-html is removed; the new non-render kind snippet holds collection content (reply snippets, signatures; any contentFormat, html is sanitized like a mail body). Mail bodies are kind mail (contentFormat html only, rebuilt through the document schema, meta.subject required), mail frames are kind mail-layout (contentFormat mjml), and pdf-layout (html) is new. The table gains a nullable meta column (JSON per kind, validated by parseTemplateMeta: mail takes subject, previewText, layoutSlug, category, sender; layouts take none; other kinds take no meta) and the template-resource entity moves to eventVersion 2 with an upcaster that reads stored mail-html events as mail. upsertSystem, upsertTenant (active), publish and seedSystemTemplate reject unknown placeholders and, for the same writes, bodies that miss a required variable of the notification with the same qualified name; a tenant draft may be incomplete and returns validation. Slugs must be kebab segments joined by a colon. seedSystemTemplate now validates the slug (templateSlugSchema) and the per-kind meta for every kind. A content collection of kind mail, mail-layout or pdf-layout is refused on collection-set (field issue on kind, templateResolver.errors.collection.kindNotAllowed), because such a tenant row would shadow the system template without the meta and placeholder gates. TemplateResource gains meta. New exports: parseTemplateMeta, isMailTemplateMeta, templateSlugSchema, validateTemplatePlaceholders, resolveTemplateVariables, compileDocumentBodyToHandlebars, MAIL_CATEGORIES and their types; seedNotificationTemplates and hasNotificationTemplates on template-resolver/seeding, which applyBootSeeds now calls. RENDER_KINDS contains mail instead of mail-html.
+
+**Migration:** Rename kind mail-html to mail in app code, collections and seeds; mail bodies must be contentFormat html (markdown or mjml mail bodies are rejected) and carry meta.subject, mail layouts use kind mail-layout with contentFormat mjml and slug default. Slugs of every kind must now be kebab segments joined by a colon (upsert handlers and seedSystemTemplate reject dotted, underscored or camelCase slugs). Collections that used kind mail-html move to the new kind snippet (stored mail-html rows are upcast to mail, which collections refuse, so re-create those entries under snippet); collection-set refuses mail, mail-layout and pdf-layout collections. seedSystemTemplate callers must pass a kebab slug and valid meta for every kind, not only mail. Generate and apply the migration that adds the nullable meta column to read_template_resources; it ships a rebuild marker for read_template_resources so existing mail-html rows are read as mail after the rebuild.
+
+**linkedResources is no longer a payload field of upsertSystem/upsertTenant; resourceUpload and resourceRemove manage it**
+
+Two steps - upload the image with POST /api/files (multipart, no entityType), then call template-resolver:write:resource-upload with { sourceFileRefId, templateId?, key? }. The handler re-encodes the caller's own unclaimed upload into a new file ref (width at most 1200 px) and links it into the template; resource-remove unlinks a key. upsertSystem and upsertTenant no longer accept linkedResources and leave the stored value untouched on update. The size cap is the system config key resource-max-bytes (default 2 MiB); a cap above the files route's maxUploadSize has no effect because the upload is rejected first. The source upload stays as an unclaimed file.
+
+**Migration:** Whoever sent linkedResources with upsertSystem or upsertTenant now uploads the image via POST /api/files (multipart, no entityType) and links it with template-resolver:write:resource-upload { sourceFileRefId, templateId, key }. Server-side seeding (seedSystemTemplate linkedResources) stays.
+
+**Tenant mail-layouts are structured html, pdf-layout and document-pdf are placeholder-validated**
+
+A new validate query dry-runs the write pipeline (used, unknown and missing placeholders, canSave, canPublish). document-pdf, pdf-layout and mail-layout now go through the same placeholder gate as mail; document-pdf and pdf-layout know the system placeholders page and pages. A tenant mail-layout is html with a data-content slot plus header, signature and footer regions that renderer-mail-html wraps in a fixed MJML frame; raw mjml (with {{{content}}} exactly once) is system-only. New handlers export-bundle, import-bundle, import-bundle-system and copy-locale move a template with its resource files between tenants and locales. r.notification accepts a record mapping from an entity row to the declared variables, validated at boot. publish and archive no longer touch system rows through a tenant-scoped SystemAdmin.
+
+**Migration:** Tenant mail-layout rows stored as mjml are ignored by the renderer, which falls back to the system layout; re-create them as html with a data-content slot. upsert-system answers with an extra validation field. seedSystemTemplate errors now read `<label> rejected: <code> (<detail>); ...`. Layout bodies without the content slot are rejected on write. `set` now runs the same gate for mail, document-pdf, pdf-layout and mail-layout rows and rejects unsanitized markup or publish issues, since saving publishes; the mail renderer also re-sanitizes stored tenant html layouts and falls back to the system layout when they fail. upsert-system and upsert-tenant no longer accept linkedResources (resources go through the resource upload; bundle import and copy-locale attach them). Unknown data-resource keys are a validate warning (resource_not_uploaded), not a write error.
+
+### user-data-rights
+
+**GDPR default mails are r.notification declarations, render*Email is gone**
+
+export-ready, export-failed, deletion-requested and deletion-executed are declared as trigger-less notifications (user-data-rights:notify:<name>) with variables and localized templates built from the GDPR translations, so a tenant can override the text. The default export-ready, export-failed and deletion-requested mails send through ctx.notify to the user (export mails with immediate so the plain magic-link token never lands in a job payload). deletion-executed renders the seeded template through the mail renderer and sends over the tenant mail transport without a delivery log, because the user is already gone. App-provided send*Email callbacks still win. The defaults now need delivery with channel-email; a boot warning is logged once when mail-foundation and a mail transport are mounted without them. New exports are GdprMailNotificationTypes, gdprMailLocalizedTemplate, gdprMailTemplateLocale, registerGdprMails and formatGdprMailTimestamp.
+
+**Migration:** renderExportReadyEmail, renderExportFailedEmail, renderDeletionRequestedEmail, renderDeletionExecutedEmail and RenderedEmail are removed from user-data-rights/email-templates; the translations stay. An app that mounts it without includeBundled needs template-resolver, renderer-foundation and @cosmicdrift/kumiko-renderer-mail-html at boot (composeRendererStack() from dev-server mounts all of them), plus a delivery with the channel-email feature; apps without the template tables need a schema migration (`kumiko schema generate`). Delivery preferences that referenced the mails use the new user-data-rights:notify:<name> types.
+
+### waitlist
+
+**Waitlist confirmation and admin notice use template variables**
+
+The confirmation and admin-notice mails are r.notification declarations (waitlist:notify:confirmation, waitlist:notify:admin-notice) with variables and localized templates. The notify data is the variable object; the confirmation wording is computed in code and passed as variables. The admin notice subject is the submitter name.
+
+**Migration:** Update delivery preferences and tests that referenced the old types or read the sections data. An app that mounts it without includeBundled needs template-resolver, renderer-foundation and @cosmicdrift/kumiko-renderer-mail-html at boot (composeRendererStack() from dev-server mounts all of them), plus a delivery with the channel-email feature; apps without the template tables need a schema migration (`kumiko schema generate`).
 
 ## 0.362.0
 

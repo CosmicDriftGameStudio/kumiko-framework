@@ -1,5 +1,121 @@
 # @cosmicdrift/kumiko-types
 
+## 0.363.0
+
+### Minor Changes
+
+- 58452ae: ctx.notify in write handlers delivers after commit
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: ctx.notify in write handlers delivers after commit
+  detail: Inside a write handler's transaction ctx.notify only records the notification and delivers it once the write has committed, so a rolled-back write sends nothing and leaves no attempt event. Delivery no longer takes a connection from the app pool while the write holds one, which deadlocked at pool max N with N parallel writes. With immediate: true the call stays synchronous and runs its DB work on the outside-transaction pool.
+  migration: |
+    NotifyResult is now a union, NotifyDispatched ({ kind: "dispatched", deliveries }) or NotifyDeferred ({ kind: "deferred" }). In a write handler without immediate: true ctx.notify returns deferred and delivers after commit (a rollback means no notification). Code that reads the result (for example a "send test message" handler showing sent/failed) sets immediate: true, which delivers synchronously on the outside-transaction pool and returns dispatched; narrow on kind before reading deliveries. Errors such as a missing idempotency Redis, a tenant broadcast without the tenant feature or an unknown notification type no longer throw in a deferred write handler, they land in the afterCommit log. Notifications from jobs, from seeding and from handlers without a transaction stay synchronous. The boot default wires tenantUserIdsQuery for to: { tenant } when the tenant feature is mounted, so an app-side tenantUserIdsQuery wiring can go. Custom NotifyFactory implementations receive an optional 4th parameter deliveryDb, and DeliveryService.notify an optional 6th.
+  -->
+
+- 09a4aa2: New content editor format "document" for template bodies, built on the shared document schema
+
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: contentFormat "document" with a toolbar editor for mail and PDF templates
+  detail: ContentEditorFormat gains "document". template-resolver registers DocumentContentEditor for it (tiptap, lazy-loaded) and stores the body as html. The toolbar offers paragraph style, bold, italic, lists, links, placeholders and the blocks image, table, button, divider, repeat and page break; the blocks prop picks them (MAIL_DOCUMENT_BLOCKS, PDF_DOCUMENT_BLOCKS). Placeholders are inserted only as variable nodes (data-variable), never as {{name}} text. ContentPreview does not substitute example values for "document" content, because substituting a button or link href would make the schema drop that node. New exports from template-resolver/web: DocumentContentEditor, DocumentEditorProps, DocumentToolbarBlock, MAIL_DOCUMENT_BLOCKS, PDF_DOCUMENT_BLOCKS.
+  -->
+
+- fcd6eb4: Shared type guards and fewer unchecked casts in framework internals
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Shared type guards and fewer unchecked casts in framework internals
+  detail: "@cosmicdrift/kumiko-types/type-guards" exports isPlainObject, isOneOf and errorCodeOf. The framework replaces many unchecked as-casts with narrowing, generic query rows and table-introspection helpers. encryptPiiFieldValues is generic over the row and returns PiiEncryptedRow<TRow>, so callers read encrypted fields without casts. Behavior stays the same.
+  -->
+
+- 2972bc2: r.notification declares variables, mail template text and meta
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.notification declares variables, template and meta; applyBootSeeds seeds them
+  detail: r.notification accepts variables (typed with templateVariable.text, link, money, date and list), template (per locale body, document html) and meta (per locale subject and more). Boot validation requires a kebab-case name, a meta.<locale>.subject for every template locale and valid placeholder names. templateVariablesToZod turns the variables into a Zod schema. applyBootSeeds calls seedNotificationTemplates, which writes the text as system templates of kind mail and fails loudly when notifications declare a template but the template-resolver feature is not mounted.
+  -->
+
+- ef689d8: r.notification without trigger, localizedTemplate and mail locale helpers
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.notification works without trigger and ships localized templates
+  detail: trigger, recipient and data are optional and must be declared together, a notification without trigger is sent explicitly through ctx.notify. localizedTemplate groups body and meta per locale and is mutually exclusive with template and meta. The variable names link, money and date are reserved for template helpers. ctx.notify validates the data against the declared variables and fails the write on a missing required variable. New exports are listMailLocales, hasMailTranslationKey, assertNotificationVariables and NotificationLocalizedTemplate.
+  -->
+
+- cbed66e: Template resources (images) and mail attachments
+
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: linkedResources is no longer a payload field of upsertSystem/upsertTenant; resourceUpload and resourceRemove manage it
+  detail: Two steps - upload the image with POST /api/files (multipart, no entityType), then call template-resolver:write:resource-upload with { sourceFileRefId, templateId?, key? }. The handler re-encodes the caller's own unclaimed upload into a new file ref (width at most 1200 px) and links it into the template; resource-remove unlinks a key. upsertSystem and upsertTenant no longer accept linkedResources and leave the stored value untouched on update. The size cap is the system config key resource-max-bytes (default 2 MiB); a cap above the files route's maxUploadSize has no effect because the upload is rejected first. The source upload stays as an unclaimed file.
+  migration: |
+    Whoever sent linkedResources with upsertSystem or upsertTenant now uploads the image via POST /api/files (multipart, no entityType) and links it with template-resolver:write:resource-upload { sourceFileRefId, templateId, key }. Server-side seeding (seedSystemTemplate linkedResources) stays.
+  -->
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Notification messages carry attachments (file refs and inline cid images)
+  detail: RenderedMessage and the send job payload accept attachments as references (kind file or inline), never bytes. ChannelContext.readAttachment resolves them tenant-scoped at send time; createDeliveryService takes a new filesForTenant option for the inline fallback path.
+  -->
+
+  <!-- kumiko-changes
+  feature: channel-email
+  type: improvement
+  title: Email channel sends file attachments and inline cid images
+  detail: EmailMessage.attachments is sent through the SMTP transport (inline images with Content-ID). notify data.attachments with kind file entries are resolved through the file store; the PII guard rejects ciphertext file names.
+  -->
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: NotifyFactory takes an optional fileProviderResolver, so immediate and bootstrap mails can read attachments too
+  -->
+
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Bundle import re-encodes its images like resource-upload; re-seeding keeps uploaded system resources
+  detail: importBundle and importBundleSystem store each bundle resource through the same normalization as resource-upload (decoded format decides the content type, SVG and non-images are rejected, width at most 1200 px, resource-max-bytes applies), so an exported bundle carries the re-encoded bytes. seedSystemTemplate without linkedResources no longer resets the links of an existing row, so images a system admin uploaded survive the next boot. storeTemplateResource from the template-resolver barrel is the normalizing store; the raw byte variant is gone.
+  -->
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Queued mails render with the tenant's config again
+  detail: The delivery render and send jobs read the tenant config through ctx.configFor, which job contexts do not carry, so queued mails rendered without tenant name, locale, currency and branding. Both jobs now use ctx.config, which the job runner builds for the payload's tenant.
+  -->
+
+- 366d89f: Template validation query, layout kinds as structured html, bundle import/export, copy-locale and notification record mapping
+
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: Tenant mail-layouts are structured html, pdf-layout and document-pdf are placeholder-validated
+  detail: A new validate query dry-runs the write pipeline (used, unknown and missing placeholders, canSave, canPublish). document-pdf, pdf-layout and mail-layout now go through the same placeholder gate as mail; document-pdf and pdf-layout know the system placeholders page and pages. A tenant mail-layout is html with a data-content slot plus header, signature and footer regions that renderer-mail-html wraps in a fixed MJML frame; raw mjml (with {{{content}}} exactly once) is system-only. New handlers export-bundle, import-bundle, import-bundle-system and copy-locale move a template with its resource files between tenants and locales. r.notification accepts a record mapping from an entity row to the declared variables, validated at boot. publish and archive no longer touch system rows through a tenant-scoped SystemAdmin.
+  migration: |
+    Tenant mail-layout rows stored as mjml are ignored by the renderer, which falls back to the system layout; re-create them as html with a data-content slot. upsert-system answers with an extra validation field. seedSystemTemplate errors now read `<label> rejected: <code> (<detail>); ...`. Layout bodies without the content slot are rejected on write. `set` now runs the same gate for mail, document-pdf, pdf-layout and mail-layout rows and rejects unsanitized markup or publish issues, since saving publishes; the mail renderer also re-sanitizes stored tenant html layouts and falls back to the system layout when they fail. upsert-system and upsert-tenant no longer accept linkedResources (resources go through the resource upload; bundle import and copy-locale attach them). Unknown data-resource keys are a validate warning (resource_not_uploaded), not a write error.
+  -->
+
+- a12e094: propertyOf type guard and fewer unchecked casts in the UI packages
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: propertyOf type guard and fewer unchecked casts in the UI packages
+  detail: "@cosmicdrift/kumiko-types/type-guards" exports propertyOf, which reads one property off an unknown value. Headless, renderer, renderer-web and dispatcher-live replace unchecked as-casts and globalThis probes with it and with narrowing. Behavior stays the same for well-formed input; a format spec, upload response or stream event with a wrongly typed property is now ignored instead of passed through.
+  -->
+
 ## 0.362.0
 
 ### Minor Changes

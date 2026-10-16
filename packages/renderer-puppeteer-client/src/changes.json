@@ -1,0 +1,34 @@
+[
+  {
+    "version": "0.363.0",
+    "type": "breaking",
+    "title": "renders document-pdf from templates, adds renderAndStorePdf, the rendered-pdf entity and puppeteer-status",
+    "detail": "The plugin resolves the document-pdf template and its pdf-layout (header, signature, footer), embeds every image as a data URI and sends finished HTML to the puppeteer-service. renderAndStorePdf(ctx, { slug, locale, variables, attachTo? }) stores the PDF as a file and a rendered-pdf record with the template and layout version. The puppeteer-status query reports whether the service answers; while it does not, rendering fails with PuppeteerUnavailableError (HTTP 503, puppeteer_unavailable). The feature adds the table rendered_pdfs.",
+    "migration": "Call renderAndStorePdf(ctx, { slug, locale, variables, attachTo? }) from a write handler; no escape hatch or rendererDb is needed because the tenant db also reads system templates and files. Apps that mount renderer-puppeteer-client need a schema migration for rendered_pdfs (`kumiko schema generate`). PUPPETEER_SERVICE_URL and PUPPETEER_AUTH_TOKEN stay as before. image-snapshot requests are unchanged."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "The service performs no network fetches",
+    "detail": "Only data:, about: and blob: requests are allowed, everything else is aborted. The client embeds all resources as data URIs, so there is no DNS rebinding and no reachable node IP or kubelet. Margins accept 0."
+  },
+  {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "Query preview-pdf prints a document draft to a real PDF",
+    "detail": "renderer-puppeteer-client:query:preview-pdf takes { slug, locale, content, meta, variableSchema? } and returns { fileName, pdfBase64, pageCount, sizeBytes, durationMs }. The draft passes the same write rules as a save, is printed with the sample values of its variable schema through the puppeteer-service and nothing is stored. It is limited to 60 calls per user and hour and fails with puppeteer_unavailable (HTTP 503) while the service does not answer. Access is TenantAdmin and SystemAdmin."
+  },
+  {
+    "version": "0.363.0",
+    "type": "breaking",
+    "title": "Package moved to the framework under the @cosmicdrift scope",
+    "detail": "Renamed from @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client (GitHub Packages, kumiko-enterprise) to @cosmicdrift/kumiko-renderer-puppeteer-client on npmjs; the API is unchanged.",
+    "migration": "Replace @cosmicdriftgamestudio/kumiko-renderer-puppeteer-client with @cosmicdrift/kumiko-renderer-puppeteer-client in package.json and in every import; install from npmjs instead of GitHub Packages."
+  },
+  {
+    "version": "0.363.0",
+    "type": "fix",
+    "title": "PDFs use a tenant layout stored under another locale",
+    "detail": "The document PDF renderer resolves its letterhead with resolveLayout, so a tenant pdf-layout saved under one locale applies to every document locale."
+  }
+]

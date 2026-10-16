@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.363.0",
+    "type": "improvement",
+    "title": "uploadFileRef uploads a file to the stack and returns its FileRef id",
+    "detail": "uploadFileRef(file, target?) posts to /api/files with the CSRF header and returns the new FileRef id; it throws FileUploadFailedError carrying the server message when the endpoint sent one. FileUploadInput uses it with unchanged behaviour."
+  },
+  {
     "version": "0.362.0",
     "type": "fix",
     "title": "Embedded list readOnly cells render as wrapping plain text",
