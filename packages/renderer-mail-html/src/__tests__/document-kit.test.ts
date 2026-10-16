@@ -49,6 +49,24 @@ describe("renderer-mail-html :: richText helper", () => {
     expect(out).toContain("&lt;");
   });
 
+  test("tiptap output from the reply composer renders as HTML, not escaped text", () => {
+    const out = render("{{richText body}}", {
+      body: '<p>Hallo <strong>Frau Meier</strong>,</p><ul><li><p>eins</p></li><li><p>zwei</p></li></ul><p>Siehe <a target="_blank" rel="noopener noreferrer nofollow" href="https://example.com">Link</a>, <em>danke</em>.</p>',
+    });
+    expect(out).toContain("<strong>Frau Meier</strong>");
+    expect(out).toContain("<li><p>zwei</p></li>");
+    expect(out).toContain('href="https://example.com"');
+    expect(out).not.toContain("&lt;");
+  });
+
+  test("tiptap paragraphs with a class attribute render as HTML", () => {
+    const out = render("{{richText body}}", {
+      body: '<p class="text-sm">Hallo <strong>Frau Meier</strong></p>',
+    });
+    expect(out).toContain("<strong>Frau Meier</strong>");
+    expect(out).not.toContain("&lt;");
+  });
+
   test("a plain variable carrying markup stays escaped", () => {
     expect(render("{{body}}", { body: "<b>x</b>" })).toBe("&lt;b&gt;x&lt;/b&gt;");
   });
