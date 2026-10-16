@@ -1,0 +1,57 @@
+{
+  "name": "@cosmicdrift/kumiko-document-designer",
+  "version": "0.362.0",
+  "description": "Document designer screens for Kumiko: the PDF template editor (client side).",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
+  "type": "module",
+  "kumiko": {
+    "runtime": "client"
+  },
+  "exports": {
+    "./web": {
+      "types": "./src/web/index.ts",
+      "default": "./src/web/index.ts"
+    }
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-headless": "workspace:*",
+    "@cosmicdrift/kumiko-renderer": "workspace:*",
+    "@cosmicdrift/kumiko-renderer-puppeteer-client": "workspace:*",
+    "@cosmicdrift/kumiko-renderer-web": "workspace:*",
+    "@cosmicdrift/kumiko-types": "workspace:*",
+    "pdfjs-dist": "5.7.284",
+    "react": "^19.2.6"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
+    "directory": "packages/document-designer"
+  },
+  "homepage": "https://kumiko.rocks",
+  "bugs": {
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public",
+    "exports": {
+      "./web": {
+        "types": "./dist/web/index.d.ts",
+        "default": "./dist/web/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src/changes.json",
+    "README.md",
+    "LICENSE"
+  ]
+}

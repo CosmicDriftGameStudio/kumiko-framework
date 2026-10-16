@@ -3,8 +3,8 @@
 // Universal on purpose: the web editor and the server sanitizer load the same
 // extension list, so what the editor can produce is exactly what the server
 // keeps. No DOM access at module level, no happy-dom here.
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { type Extensions, Node } from "@tiptap/core";
+import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { Extension, type Extensions, Node } from "@tiptap/core";
 import { Link } from "@tiptap/extension-link";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import StarterKit from "@tiptap/starter-kit";
@@ -259,6 +259,35 @@ export const DocumentLink = Link.extend({
   },
 });
 
+export const DOCUMENT_TEXT_ALIGNMENTS = ["left", "center", "right", "justify"] as const;
+export type DocumentTextAlignment = (typeof DOCUMENT_TEXT_ALIGNMENTS)[number];
+
+// Serialized as data-align, never as a style attribute: the sanitizer keeps
+// styles out of the model, and each renderer maps the value to its own CSS.
+export const DocumentTextAlign = Extension.create({
+  name: "documentTextAlign",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph", "heading"],
+        attributes: {
+          textAlign: {
+            default: null,
+            parseHTML: (element) => {
+              const align = element.getAttribute("data-align");
+              return isOneOf(DOCUMENT_TEXT_ALIGNMENTS, align) ? align : null;
+            },
+            renderHTML: (attributes) => {
+              const align: unknown = attributes["textAlign"];
+              return isOneOf(DOCUMENT_TEXT_ALIGNMENTS, align) ? { "data-align": align } : {};
+            },
+          },
+        },
+      },
+    ];
+  },
+});
+
 export const documentExtensions: Extensions = [
   StarterKit.configure({
     blockquote: false,
@@ -290,4 +319,5 @@ export const documentExtensions: Extensions = [
   DocumentButton,
   DocumentDivider,
   DocumentPageBreak,
+  DocumentTextAlign,
 ];

@@ -36,6 +36,8 @@ const mailMetaSchema = z
   })
   .strict();
 
+const PDF_ORIENTATIONS = ["portrait", "landscape"] as const;
+
 const marginMm = z.number().finite().min(0).max(100).optional();
 
 // The file name ends up in a Content-Disposition header and on disk.
@@ -51,6 +53,9 @@ const pdfMetaSchema = z
   .object({
     layoutSlug: templateSlugSchema.optional(),
     pageFormat: z.enum(PDF_PAGE_FORMATS).optional(),
+    orientation: z.enum(PDF_ORIENTATIONS).optional(),
+    printBackground: z.boolean().optional(),
+    layoutHeaderFooter: z.boolean().optional(),
     margins: z
       .object({ top: marginMm, right: marginMm, bottom: marginMm, left: marginMm })
       .strict()

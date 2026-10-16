@@ -47,6 +47,7 @@ export {
 } from "./document-sanitizer.js";
 export {
   DOCUMENT_NODE_NAMES,
+  DOCUMENT_TEXT_ALIGNMENTS,
   DocumentButton,
   DocumentDivider,
   DocumentLink,
@@ -57,6 +58,8 @@ export {
   DocumentTableCell,
   DocumentTableHeader,
   DocumentTableRow,
+  DocumentTextAlign,
+  type DocumentTextAlignment,
   DocumentVariable,
   documentExtensions,
   isAllowedDocumentLinkHref,
@@ -65,6 +68,7 @@ export {
   isDocumentResourceKey,
 } from "./document-schema.js";
 export { createTemplateResolverFeature } from "./feature.js";
+export { localeSchema } from "./handlers/shared.js";
 export {
   type LayoutRegions,
   readLayoutRegions,
@@ -114,6 +118,7 @@ export {
   type TemplateMetaResult,
   templateSlugSchema,
 } from "./template-meta.js";
+export { type DocumentDraftOutcome, evaluateDocumentDraft } from "./template-preview.js";
 export { readTemplateResource, type TemplateResourceFile } from "./template-resources.js";
 export {
   hasPlaceholderProblems,

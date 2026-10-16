@@ -18,6 +18,7 @@
       "@cosmicdrift/kumiko-locale-es",
       "@cosmicdrift/kumiko-renderer-mail-html",
       "@cosmicdrift/kumiko-renderer-puppeteer-client",
+      "@cosmicdrift/kumiko-document-designer",
       "@cosmicdrift/kumiko-cli",
       "create-kumiko-app",
       "@cosmicdrift/kumiko-guards",

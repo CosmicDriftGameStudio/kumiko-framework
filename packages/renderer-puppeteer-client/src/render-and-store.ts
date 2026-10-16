@@ -6,7 +6,11 @@ import {
   RendererError,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import type { HandlerContext, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  type KumikoError,
+  UnprocessableError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { createFileRefFromBytes } from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
@@ -37,19 +41,27 @@ export type StoredRenderedPdf = {
   readonly layout?: RenderedTemplateRef;
 };
 
-// Maps the renderer errors a caller can act on to write failures; anything else is a bug and throws.
-function renderFailure(e: unknown, ctx: HandlerContext, slug: string): WriteResult<never> {
+// Maps the renderer errors a caller can act on to client errors; anything else is a bug and throws.
+export function clientErrorForRenderFailure(
+  e: unknown,
+  ctx: HandlerContext,
+  slug: string,
+): KumikoError {
   const log = createFallbackLogger("renderer-puppeteer-client", ctx.log);
   if (e instanceof RendererError && e.code === "unavailable") {
     log.error("PDF service unavailable", { cause: e.message });
-    return writeFailure(new PuppeteerUnavailableError());
+    return new PuppeteerUnavailableError();
   }
   if (e instanceof RendererError && e.code === "invalid_payload") {
     // The cause names the service response or the template; the client only gets the reason code.
     log.error("PDF request rejected", { slug, cause: e.message });
-    return writeFailure(new UnprocessableError(INVALID_REQUEST_REASON));
+    return new UnprocessableError(INVALID_REQUEST_REASON);
   }
   throw e;
+}
+
+function renderFailure(e: unknown, ctx: HandlerContext, slug: string): WriteResult<never> {
+  return writeFailure(clientErrorForRenderFailure(e, ctx, slug));
 }
 
 export async function renderAndStorePdf(

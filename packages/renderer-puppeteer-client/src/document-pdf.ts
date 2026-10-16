@@ -72,6 +72,10 @@ const PRINT_CSS = [
   "thead{display:table-header-group}",
   "tr{page-break-inside:avoid;break-inside:avoid}",
   "[data-page-break]{page-break-before:always;break-before:page}",
+  "[data-align=left]{text-align:left}",
+  "[data-align=center]{text-align:center}",
+  "[data-align=right]{text-align:right}",
+  "[data-align=justify]{text-align:justify}",
   "img{max-width:100%}",
 ].join("");
 
@@ -277,7 +281,8 @@ function resolveOptions(
   const right = meta?.margins?.right ?? DEFAULT_MARGIN_MM;
   const options: PdfOptions = {
     format: meta?.pageFormat ?? "A4",
-    printBackground: true,
+    printBackground: meta?.printBackground ?? true,
+    ...(meta?.orientation === "landscape" && { landscape: true }),
     marginMm: {
       top: meta?.margins?.top ?? (hasHeader ? HEADER_MARGIN_MM : DEFAULT_MARGIN_MM),
       right,
@@ -461,13 +466,25 @@ export async function buildDocumentPdfRequest(
   req: Extract<RenderRequest, { kind: "document-pdf" }>,
   ctx: RendererContext,
 ): Promise<DocumentPdfRequest> {
-  const document = await assembleDocument(req.payload, ctx, "chromium");
-  const hasHeader = document.headerHtml.trim() !== "";
-  const hasFooter = document.footerHtml.trim() !== "";
+  return toPdfRequest(await assembleDocument(req.payload, ctx, "chromium"), req.payload.locale);
+}
+
+// Prints an unsaved draft; the stored template of the slug only supplies images and the variable schema.
+export async function buildDocumentDraftPdfRequest(
+  req: DocumentPreviewRequest & { readonly draft: DocumentPdfDraft },
+  ctx: RendererContext,
+): Promise<DocumentPdfRequest> {
+  return toPdfRequest(await assembleDocument(req, ctx, "chromium"), req.locale);
+}
+
+function toPdfRequest(document: AssembledDocument, locale: string): DocumentPdfRequest {
+  const showLayoutRegions = document.meta?.layoutHeaderFooter !== false;
+  const hasHeader = showLayoutRegions && document.headerHtml.trim() !== "";
+  const hasFooter = showLayoutRegions && document.footerHtml.trim() !== "";
   const { options, left, right } = resolveOptions(document.meta, hasHeader, hasFooter);
   return {
     html: frameDocument({
-      locale: req.payload.locale,
+      locale,
       title: document.title,
       bodyHtml: document.bodyHtml,
       signatureHtml: document.signatureHtml,

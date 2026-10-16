@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "composite": true
+  },
+  "include": ["./src"],
+  "exclude": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx"],
+  "references": [
+    { "path": "../framework" },
+    { "path": "../types" },
+    { "path": "../headless" },
+    { "path": "../renderer" },
+    { "path": "../renderer-web" },
+    { "path": "../bundled-features" },
+    { "path": "../renderer-puppeteer-client" }
+  ]
+}

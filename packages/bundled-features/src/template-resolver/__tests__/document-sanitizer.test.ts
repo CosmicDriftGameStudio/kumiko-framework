@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { generateHTML, generateJSON } from "@tiptap/html/server";
 import { sanitizeDocumentHtml, sanitizeTemplateBody } from "../document-sanitizer";
-import { documentExtensions } from "../document-schema";
+import { DOCUMENT_TEXT_ALIGNMENTS, documentExtensions } from "../document-schema";
 import { documentBodyFixture } from "./document-body-fixture";
 
 function violationCodes(html: string): string[] {
@@ -280,6 +280,24 @@ describe("document schema alone (second line of defence)", () => {
 
   test("drops a variable span with an invalid name", () => {
     expect(rebuild('<p>a<span data-variable="a b"></span></p>')).toBe("<p>a</p>");
+  });
+
+  test.each([...DOCUMENT_TEXT_ALIGNMENTS])(
+    "keeps data-align=%s on paragraph and heading",
+    (align) => {
+      const html = `<h2 data-align="${align}">T</h2><p data-align="${align}">x</p>`;
+      expect(rebuild(html)).toBe(html);
+    },
+  );
+
+  test.each([
+    ['<p data-align="middle">x</p>', "<p>x</p>"],
+    ['<p data-align="CENTER">x</p>', "<p>x</p>"],
+    ['<p style="text-align:center">x</p>', "<p>x</p>"],
+    ['<p data-align="center;color:red">x</p>', "<p>x</p>"],
+    ['<div data-align="center">x</div>', "<p>x</p>"],
+  ])("drops the alignment of %s", (html, expected) => {
+    expect(sanitizeDocumentHtml(html)).toEqual({ ok: true, html: expected });
   });
 
   test("drops an invalid data-each", () => {

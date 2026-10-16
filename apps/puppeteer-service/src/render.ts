@@ -47,6 +47,7 @@ const pdfOptionsSchema = z.object({
   headerTemplate: z.string().optional(),
   footerTemplate: z.string().optional(),
   displayHeaderFooter: z.boolean().optional(),
+  landscape: z.boolean().optional(),
 });
 
 const imageOptionsSchema = z.object({
@@ -159,6 +160,7 @@ function mapPdfOptions(opts: PdfRenderRequest["options"]): PDFOptions {
     format: opts?.format ?? "A4",
     printBackground: opts?.printBackground ?? true,
     displayHeaderFooter: opts?.displayHeaderFooter ?? false,
+    landscape: opts?.landscape ?? false,
     ...(opts?.headerTemplate !== undefined && { headerTemplate: opts.headerTemplate }),
     ...(opts?.footerTemplate !== undefined && { footerTemplate: opts.footerTemplate }),
     margin: margin

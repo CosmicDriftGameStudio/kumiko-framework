@@ -35,6 +35,7 @@ import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 import {
   isMailTemplateMeta,
   type MailTemplateMeta,
+  type PdfTemplateMeta,
   parseTemplateMeta,
   readPdfTemplateMeta,
 } from "./template-meta.js";
@@ -395,6 +396,52 @@ async function renderDocumentPreview(
       checks: [missingResourceCheck(document.missingResourceKeys), requiredCheck],
       validation,
     },
+  };
+}
+
+export type DocumentDraftOutcome =
+  | {
+      readonly ok: true;
+      readonly content: string;
+      readonly meta: PdfTemplateMeta | null;
+      readonly variableSchema: Readonly<Record<string, unknown>>;
+      readonly sampleValues: Readonly<Record<string, unknown>>;
+    }
+  | { readonly ok: false; readonly error: KumikoError };
+
+// A document draft is always tenant-scoped here, like in the preview: it passes the write gates
+// and a failing draft is rejected with the same problems as a save.
+export async function evaluateDocumentDraft(
+  ctx: HandlerContext,
+  user: SessionUser,
+  draft: {
+    readonly slug: string;
+    readonly locale: string;
+    readonly content: string;
+    readonly meta?: unknown;
+    readonly variableSchema: Readonly<Record<string, unknown>>;
+  },
+): Promise<DocumentDraftOutcome> {
+  const { response, evaluation } = await validateTemplateDraft(ctx, user, {
+    slug: draft.slug,
+    kind: "document-pdf",
+    contentFormat: "html",
+    content: draft.content,
+    meta: draft.meta,
+    variableSchema: draft.variableSchema,
+    locale: draft.locale,
+    scope: "tenant",
+  });
+  if (!evaluation.ok) {
+    return { ok: false, error: new ValidationError({ fields: [...evaluation.issues] }) };
+  }
+  const meta = parseTemplateMeta("document-pdf", parseStoredJson(evaluation.metaJson));
+  return {
+    ok: true,
+    content: evaluation.content ?? "",
+    meta: meta.ok ? readPdfTemplateMeta(meta.meta) : null,
+    variableSchema: draft.variableSchema,
+    sampleValues: sampleValuesFor(response.variables),
   };
 }
 

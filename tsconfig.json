@@ -116,6 +116,9 @@
       "path": "./packages/renderer-puppeteer-client"
     },
     {
+      "path": "./packages/document-designer"
+    },
+    {
       "path": "./apps/puppeteer-service"
     }
   ],

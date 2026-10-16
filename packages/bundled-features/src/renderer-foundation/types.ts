@@ -145,6 +145,7 @@ export type PdfOptions = {
   readonly footerTemplate?: string;
   readonly printBackground?: boolean;
   readonly displayHeaderFooter?: boolean;
+  readonly landscape?: boolean;
 };
 
 export type ImageOptions = {

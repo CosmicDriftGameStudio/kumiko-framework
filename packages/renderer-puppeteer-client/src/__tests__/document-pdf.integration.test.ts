@@ -89,6 +89,8 @@ type StubRequest = {
   readonly options: {
     readonly format?: string;
     readonly displayHeaderFooter?: boolean;
+    readonly landscape?: boolean;
+    readonly printBackground?: boolean;
     readonly headerTemplate?: string;
     readonly footerTemplate?: string;
     readonly marginMm?: { readonly top: number };
@@ -499,6 +501,137 @@ describe("rendered-pdf mail attachment", () => {
       contentType: "application/pdf",
     });
     expect(Buffer.from(pdf?.content ?? [])).toEqual(Buffer.from(STUB_PDF));
+  });
+});
+
+type PdfPreview = {
+  fileName: string;
+  pdfBase64: string;
+  pageCount: number;
+  sizeBytes: number;
+  durationMs: number;
+};
+
+const draftPayload = (overrides: Record<string, unknown> = {}) => ({
+  slug: "invoice",
+  locale: "de",
+  content: '<p>ENTWURF <span data-variable="number"></span></p>',
+  meta: { layoutSlug: "letterhead", fileName: "Entwurf-{{number}}.pdf" },
+  variableSchema: { number: { type: "text", example: "R-77" } },
+  ...overrides,
+});
+
+describe("preview-pdf", () => {
+  test("prints the unsaved draft with sample values, not the stored template", async () => {
+    const preview = await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload(),
+      adminTenantA,
+    );
+
+    const request = onlyStubRequest();
+    expect(request.html).toContain("ENTWURF R-77");
+    expect(request.html).not.toContain("Zahlbar innerhalb von 14 Tagen");
+    expect(request.options.headerTemplate).toContain("Briefkopf Test GmbH");
+    expect(preview.fileName).toBe("Entwurf-R-77.pdf");
+    expect(preview.pageCount).toBe(2);
+    expect(preview.sizeBytes).toBe(STUB_PDF.byteLength);
+    expect(Buffer.from(preview.pdfBase64, "base64")).toEqual(Buffer.from(STUB_PDF));
+    expect(preview.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  test("orientation, background and layout header/footer end up in the service request", async () => {
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({
+        meta: {
+          layoutSlug: "letterhead",
+          orientation: "landscape",
+          printBackground: false,
+          layoutHeaderFooter: false,
+        },
+      }),
+      adminTenantA,
+    );
+
+    const { options } = onlyStubRequest();
+    expect(options.landscape).toBe(true);
+    expect(options.printBackground).toBe(false);
+    expect(options.displayHeaderFooter).toBe(false);
+    expect(options.headerTemplate).toBeUndefined();
+    expect(options.footerTemplate).toBeUndefined();
+  });
+
+  test("a draft without those meta fields prints portrait with background and layout regions", async () => {
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload(),
+      adminTenantA,
+    );
+
+    const { options } = onlyStubRequest();
+    expect(options.landscape).toBeUndefined();
+    expect(options.printBackground).toBe(true);
+    expect(options.displayHeaderFooter).toBe(true);
+  });
+
+  test("data-align reaches the printed html with its print css", async () => {
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({ content: '<p data-align="center">Mitte</p>', variableSchema: {} }),
+      adminTenantA,
+    );
+
+    const { html } = onlyStubRequest();
+    expect(html).toContain('<p data-align="center">Mitte</p>');
+    expect(html).toContain("[data-align=center]{text-align:center}");
+  });
+
+  test("a user without an admin role is refused and nothing is printed", async () => {
+    const error = await stack.http.queryErr(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload(),
+      TestUsers.user,
+    );
+    expect(error.httpStatus).toBe(403);
+    expect(stubRequests).toHaveLength(0);
+  });
+
+  test("with the service down it answers 503 puppeteer_unavailable", async () => {
+    const closed = Bun.serve({ port: 0, fetch: () => new Response("") });
+    const closedUrl = `http://127.0.0.1:${closed.port}`;
+    await closed.stop(true);
+    pointClientAt(closedUrl);
+
+    const error = await stack.http.queryErr(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload(),
+      adminTenantA,
+    );
+
+    expect(error.code).toBe("puppeteer_unavailable");
+    expect(error.httpStatus).toBe(503);
+    expect(JSON.stringify(error)).not.toContain(closedUrl.replace("http://", ""));
+  });
+
+  test("a draft that breaks the document rules is a validation error and is not printed", async () => {
+    const error = await stack.http.queryErr(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({ content: "<p>x</p><script>alert(1)</script>" }),
+      adminTenantA,
+    );
+    expect(error.code).toBe("validation_error");
+    expect(stubRequests).toHaveLength(0);
+  });
+
+  test("an invalid meta is a validation error", async () => {
+    const error = await stack.http.queryErr(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({ meta: { orientation: "diagonal" } }),
+      adminTenantA,
+    );
+    expect(error.code).toBe("validation_error");
+    expect(stubRequests).toHaveLength(0);
   });
 });
 

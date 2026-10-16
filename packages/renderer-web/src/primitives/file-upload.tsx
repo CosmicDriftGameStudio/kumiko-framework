@@ -4,14 +4,12 @@
 // rectangular preview (GET /api/files/:id, or the declared variant), file →
 // file name link. A disabled input shows the value only, without controls.
 
-import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { toAcceptAttr } from "../lib/accept-attr.js";
-import { buildFileUploadFormData } from "../lib/file-upload-form-data.js";
 import { resizeImageBeforeUpload } from "../lib/resize-image.js";
+import { FileUploadFailedError, uploadFileRef } from "../lib/upload-file-ref.js";
 import { Button as UiButton } from "../ui/button.js";
 import { FileNameLink, FileThumbnail } from "./file-thumbnail.js";
 
@@ -54,24 +52,13 @@ export function FileUploadInput({
     setError(null);
     try {
       const uploadFile = await resizeImageBeforeUpload(file);
-      const fd = buildFileUploadFormData({ file: uploadFile, entityType, entityId, fieldName });
-      // Double-Submit-CSRF wie der Dispatcher: kumiko_csrf-Cookie → Header.
-      const csrf = readCsrfToken();
-      const res = await fetch("/api/files", {
-        method: "POST",
-        body: fd,
-        ...(csrf !== undefined && { headers: { [CSRF_HEADER_NAME]: csrf } }),
-      });
-      const json: unknown = await res.json().catch(() => ({}));
-      const id = propertyOf(json, "id");
-      if (!res.ok || typeof id !== "string") {
-        const message = propertyOf(json, "error");
-        setError(typeof message === "string" ? message : t("kumiko.field.file-upload.failed"));
-        return;
-      }
-      onChange(id);
-    } catch {
-      setError(t("kumiko.field.file-upload.failed"));
+      onChange(await uploadFileRef(uploadFile, { entityType, entityId, fieldName }));
+    } catch (error) {
+      setError(
+        error instanceof FileUploadFailedError && error.fromServer
+          ? error.message
+          : t("kumiko.field.file-upload.failed"),
+      );
     } finally {
       setUploading(false);
       // Clear the input so re-picking the SAME file still fires change — the
