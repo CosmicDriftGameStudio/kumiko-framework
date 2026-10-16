@@ -407,6 +407,50 @@ describe("scenario 6: logout", () => {
 
 // --- Scenario 7: multi-membership — lastActiveTenantId is honored ---
 
+describe.each([
+  ["TenantAdmin", "tenant-admin"],
+  ["PropertyManager", "app-role"],
+])("scenario 6b: self-service for a member with only the %s role", (role, slug) => {
+  const email = `${slug}@example.com`;
+  const oldPassword = "initial-pw-for-role-test";
+  const newPassword = "rotated-pw-for-role-test";
+
+  test("change-password succeeds, new password logs in, old does not; logout succeeds", async () => {
+    const seed = await seedLoginUser({ email, password: oldPassword, roles: [role] });
+    const member = createTestUser({ id: seed.id, tenantId: seed.tenantId, roles: [role] });
+
+    await stack.http.writeOk(AuthHandlers.changePassword, { oldPassword, newPassword }, member);
+
+    const oldRes = await stack.http.raw("POST", "/api/auth/login", {
+      email,
+      password: oldPassword,
+    });
+    expect(oldRes.status).toBe(401);
+    const newRes = await stack.http.raw("POST", "/api/auth/login", {
+      email,
+      password: newPassword,
+    });
+    expect(newRes.status).toBe(200);
+
+    const data = await stack.http.writeOk<{ kind: string }>(AuthHandlers.logout, {}, member);
+    expect(data.kind).toBe("logged-out");
+  });
+
+  test("anonymous caller is rejected as unauthenticated", async () => {
+    const guest = createTestUser({
+      id: 0,
+      tenantId: "00000000-0000-4000-8000-000000000000",
+      roles: ["anonymous"],
+    });
+    const error = await stack.http.writeErr(
+      AuthHandlers.changePassword,
+      { oldPassword, newPassword },
+      guest,
+    );
+    expectErrorIncludes(error, "unauthenticated");
+  });
+});
+
 describe("scenario 7: multi-membership tenant resolution", () => {
   test("login picks the tenant matching lastActiveTenantId, not the first", async () => {
     const hash = await hashPassword("multi-pw-1234");

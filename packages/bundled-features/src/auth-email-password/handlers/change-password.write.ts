@@ -1,5 +1,4 @@
 import {
-  access,
   createSystemUser,
   defineWriteHandler,
   SYSTEM_TENANT_ID,
@@ -20,7 +19,12 @@ export const changePasswordWrite = defineWriteHandler({
     oldPassword: z.string().min(1),
     newPassword: passwordSchema,
   }),
-  access: { roles: access.authenticated },
+  access: {
+    openToAll: {
+      reason:
+        "Self-service: acts only on event.user.id and re-checks the caller's current password; invited members hold only an app role, so a fixed role list would lock them out.",
+    },
+  },
   escapeHatch: {
     grants: ["systemIdentity"],
     reason:
