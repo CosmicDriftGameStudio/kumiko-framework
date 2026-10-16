@@ -25,7 +25,12 @@ const DIFF_TONE: Readonly<Record<TemplateDiff["blocks"][number]["change"], strin
   removed: "bg-status-bad-surface text-status-bad",
 };
 
-function DiffPanel({ tenantId }: { readonly tenantId: string }): ReactNode {
+function metaValueText(value: unknown): string {
+  if (value === undefined || value === null) return "–";
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+export function DiffPanel({ tenantId }: { readonly tenantId: string }): ReactNode {
   const t = useTranslation();
   const { data, loading } = useQuery<TemplateDiff>(TemplateResolverQueries.diffToSystem, {
     id: tenantId,
@@ -35,17 +40,28 @@ function DiffPanel({ tenantId }: { readonly tenantId: string }): ReactNode {
   // Diff blocks have no identity beyond their position.
   const entries = data.blocks.map((block, position) => ({ block, key: `block-${position}` }));
   return (
-    <ul className="flex flex-col gap-1" data-testid="document-designer-diff">
-      {entries.map(({ block, key }) => (
-        <li
-          key={key}
-          data-change={block.change}
-          className={`whitespace-pre-wrap rounded px-2 py-1 font-mono text-xs ${DIFF_TONE[block.change]}`}
-        >
-          {DIFF_MARK[block.change]} {block.content}
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-1" data-testid="document-designer-diff">
+        {entries.map(({ block, key }) => (
+          <li
+            key={key}
+            data-change={block.change}
+            className={`whitespace-pre-wrap rounded px-2 py-1 font-mono text-xs ${DIFF_TONE[block.change]}`}
+          >
+            {DIFF_MARK[block.change]} {block.content}
+          </li>
+        ))}
+      </ul>
+      {data.meta.length > 0 && (
+        <ul className="flex flex-col gap-1" data-testid="document-designer-diff-meta">
+          {data.meta.map((entry) => (
+            <li key={entry.key} className="rounded bg-muted px-2 py-1 font-mono text-xs">
+              {entry.key}: {metaValueText(entry.system)} → {metaValueText(entry.tenant)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

@@ -12,6 +12,7 @@ import {
   DOCUMENT_DESIGNER_FEATURE,
   DocumentDesignerCells,
   LAYOUT_EDITOR_SCREEN_ID,
+  MAIL_EDITOR_SCREEN_ID,
   PDF_TEMPLATE_EDITOR_SCREEN_ID,
 } from "../constants.js";
 import { DOCUMENT_DESIGNER_I18N } from "../i18n.js";
@@ -27,6 +28,7 @@ import {
 } from "./cells.js";
 import { documentDesignerTranslations } from "./i18n.js";
 import { LayoutEditor } from "./layout-editor.js";
+import { createMailEditor } from "./mail-editor.js";
 import { PdfTemplateEditor } from "./pdf-template-editor.js";
 
 /**
@@ -71,6 +73,7 @@ export function documentDesignerClient(
     components: {
       [LAYOUT_EDITOR_SCREEN_ID]: LayoutEditor,
       [PDF_TEMPLATE_EDITOR_SCREEN_ID]: PdfTemplateEditorScreen,
+      [MAIL_EDITOR_SCREEN_ID]: createMailEditor(options.appLocales ?? DEFAULT_TEMPLATE_LOCALES),
     },
     translations: mergeTranslations(
       mergeTranslations(textBlocksClient().translations ?? {}, documentDesignerTranslations),

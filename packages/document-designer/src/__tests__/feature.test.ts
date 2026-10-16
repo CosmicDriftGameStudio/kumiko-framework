@@ -44,12 +44,13 @@ describe("document-designer feature", () => {
     expect(columnFields("document-designer:screen:platform-templates")).toContain("overriddenBy");
   });
 
-  test("PDF and layout rows get an edit action with slug and kind, mail rows get none", () => {
+  test("mail, PDF and layout rows get an edit action with slug and kind", () => {
     const registry = createRegistry(features);
     const screen = registry.getScreen("document-designer:screen:templates");
     if (screen?.type !== "projectionList") throw new Error("not a projectionList");
     const navigate = (screen.rowActions ?? []).filter((action) => action.kind === "navigate");
     expect(navigate.map((action) => [action.id, action.screen])).toEqual([
+      ["edit-mail", TEMPLATE_EDITOR_SCREENS.mail],
       ["edit-document-pdf", TEMPLATE_EDITOR_SCREENS["document-pdf"]],
       ["edit-mail-layout", TEMPLATE_EDITOR_SCREENS["mail-layout"]],
       ["edit-pdf-layout", TEMPLATE_EDITOR_SCREENS["pdf-layout"]],

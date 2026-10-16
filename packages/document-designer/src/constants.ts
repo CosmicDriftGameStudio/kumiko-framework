@@ -6,6 +6,7 @@ export const TEMPLATES_SCREEN_ID = "templates" as const;
 export const PLATFORM_TEMPLATES_SCREEN_ID = "platform-templates" as const;
 export const LAYOUT_EDITOR_SCREEN_ID = "layout-editor" as const;
 export const PDF_TEMPLATE_EDITOR_SCREEN_ID = "pdf-template-editor" as const;
+export const MAIL_EDITOR_SCREEN_ID = "mail-editor" as const;
 
 export const TEMPLATES_NAV_ID = "templates" as const;
 export const PLATFORM_TEMPLATES_NAV_ID = "platform-templates" as const;
@@ -22,6 +23,7 @@ export type TemplateEditorKind = "mail" | "document-pdf" | "mail-layout" | "pdf-
 // boot validator only accepts navigate targets in the same feature.
 export const TEMPLATE_EDITOR_SCREENS: Partial<Record<TemplateEditorKind, string>> = {
   "document-pdf": PDF_TEMPLATE_EDITOR_SCREEN_ID,
+  mail: MAIL_EDITOR_SCREEN_ID,
   "mail-layout": LAYOUT_EDITOR_SCREEN_ID,
   "pdf-layout": LAYOUT_EDITOR_SCREEN_ID,
 };

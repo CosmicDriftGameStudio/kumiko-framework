@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 42,
+  "featureCount": 43,
   "features": {
     "admin-shell": {
       "samples": [
@@ -11,7 +11,8 @@
     },
     "audit": {
       "samples": [
-        "apps-admin-console"
+        "apps-admin-console",
+        "apps-ui-walkthrough"
       ],
       "hasVisualOutput": true,
       "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees."
@@ -73,7 +74,8 @@
     },
     "channel-email": {
       "samples": [
-        "apps-cap-billing-demo"
+        "apps-cap-billing-demo",
+        "apps-ui-walkthrough"
       ],
       "hasVisualOutput": true,
       "readmeSummary": "Declarative notifications:: r.notification() declares the mail variables, the default mail text, the subject and the short inApp/push texts in one place.",
@@ -139,6 +141,7 @@
     "delivery": {
       "samples": [
         "apps-admin-console",
+        "apps-ui-walkthrough",
         "recipes-chat-channels",
         "recipes-delivery-notifications"
       ],
@@ -297,6 +300,13 @@
       "whenToUse": "A headless client (CI, a script, a customer ERP, Zapier) must call your HTTP API without a browser login — a long-lived, revocable `kpat_` bearer token carries the user's live roles and a scoped subset of handlers.",
       "sampleBlurb": "use-all-bundled mounts the feature with per-domain read/write scopes (pages, tags, ledger); the integration test mints a token, calls the API with the Bearer header, and asserts fail-closed scope enforcement and revocation.",
       "screenshot": null
+    },
+    "renderer-foundation": {
+      "samples": [
+        "apps-ui-walkthrough"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Full-stack demo of the Kumiko renderer: `DefaultAppShell` + `LanguageSwitcher` + `ThemeToggle` + `emailPasswordClient` + `TenantSwitcher` + tasks CRUD. Boots via `runDevApp` from `@cosmicdrift/kumiko-dev-server` in auth mode (login screen before access) with two dev tenants so the TenantSwitcher is visible."
     },
     "renderer-pdf": {
       "samples": [

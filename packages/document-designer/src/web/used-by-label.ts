@@ -10,13 +10,22 @@ function translateOrRaw(t: Translate, key: string, raw: string): string {
   return translated === key ? raw : translated;
 }
 
+export function usageParts(
+  t: Translate,
+  usage: OverviewUsageView,
+): { readonly feature: string; readonly notification: string } {
+  return {
+    feature: translateOrRaw(t, `${usage.feature}:feature.label`, usage.feature),
+    notification: translateOrRaw(
+      t,
+      `${usage.feature}:notify.${usage.notification}.label`,
+      usage.notification,
+    ),
+  };
+}
+
 export function usageLabel(t: Translate, usage: OverviewUsageView): string {
-  const feature = translateOrRaw(t, `${usage.feature}:feature.label`, usage.feature);
-  const notification = translateOrRaw(
-    t,
-    `${usage.feature}:notify.${usage.notification}.label`,
-    usage.notification,
-  );
+  const { feature, notification } = usageParts(t, usage);
   return usage.feature === "" ? notification : `${feature} · ${notification}`;
 }
 

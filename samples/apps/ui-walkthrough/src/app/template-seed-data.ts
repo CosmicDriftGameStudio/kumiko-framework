@@ -72,50 +72,82 @@ export const TENANT_MAIL_LAYOUT_VERSIONS: readonly string[] = [
   ].join(""),
 ];
 
-const INVOICE_ISSUED_META = (subject: string) => ({
-  subject,
-  previewText: "Ihre Rechnung steht zum Abruf bereit.",
-});
+const LINES_TABLE = `<table><tbody><tr><th><p>Position</p></th><th><p>Betrag</p></th></tr><tr data-each="lines" data-repeat-header=""><td><p>${v("description")}</p></td><td><p>${v("amount")}</p></td></tr></tbody></table>`;
 
-function invoiceIssuedBody(intro: string): string {
+// The registry of the billing notifications declares the variables, so these
+// templates carry no variableSchema of their own.
+function invoiceIssuedBody(args: {
+  readonly intro: string;
+  readonly withDueDate: boolean;
+}): string {
+  const due = args.withDueDate ? ` Bitte überweisen Sie den Betrag bis zum ${v("dueDate")}.` : "";
   return [
-    `<p>Guten Tag ${v("customerName")},</p>`,
-    `<p>${intro} <strong>${v("invoiceNumber")}</strong> über <strong>${v("amount")}</strong>. Bitte überweisen Sie den Betrag bis zum ${v("dueDate")}.</p>`,
-    `<p>Sie können die Rechnung hier abrufen: <a href="{{invoiceUrl}}">Rechnung öffnen</a></p>`,
-    "<p>Bei Rückfragen melden Sie sich gerne bei uns.</p>",
+    "<h2>Ihre Rechnung ist da</h2>",
+    `<p>Guten Tag ${v("recipientName")},</p>`,
+    `<p>${args.intro} <strong>${v("invoiceNumber")}</strong> über <strong>${v("invoiceTotal")}</strong>.${due}</p>`,
+    '<a data-button href="{{invoiceUrl}}">Rechnung öffnen</a>',
+    LINES_TABLE,
+    "<hr>",
+    "<p>Mit freundlichen Grüßen</p>",
+    `<p>${v("tenantName")}</p>`,
   ].join("");
 }
+
+const INVOICE_ISSUED_SLUG = "billing:notify:invoice-issued";
+const INVOICE_CORRECTED_SLUG = "billing:notify:invoice-corrected";
+
+const invoiceIssuedMeta = (subject: string) => ({
+  subject,
+  previewText: "Rechnung {{invoiceNumber}} über {{invoiceTotal}}, online abrufbar",
+});
+
+// The platform default has a due date; the tenant drafts below drop it, which
+// is what blocks publishing in the walkthrough.
+export const SYSTEM_INVOICE_ISSUED: SeedTemplate = {
+  slug: INVOICE_ISSUED_SLUG,
+  kind: "mail",
+  locale: "de",
+  title: "Rechnung versendet",
+  content: invoiceIssuedBody({ intro: "anbei senden wir Ihnen die Rechnung", withDueDate: true }),
+  meta: invoiceIssuedMeta("Rechnung {{invoiceNumber}} von {{tenantName}}"),
+};
 
 // Saved in order: each entry becomes the next version of the same draft.
 export const INVOICE_ISSUED_DRAFT_VERSIONS: readonly SeedTemplate[] = [
   {
-    slug: "billing:notify:invoice-issued",
+    slug: INVOICE_ISSUED_SLUG,
     kind: "mail",
     locale: "de",
     title: "Rechnung versendet",
-    content: invoiceIssuedBody("anbei senden wir Ihnen die Rechnung"),
-    meta: INVOICE_ISSUED_META("Ihre Rechnung {{invoiceNumber}}"),
-    variableSchema: INVOICE_VARIABLE_SCHEMA,
+    content: invoiceIssuedBody({
+      intro: "anbei senden wir Ihnen die Rechnung",
+      withDueDate: false,
+    }),
+    meta: invoiceIssuedMeta("Ihre Rechnung {{invoiceNumber}}"),
   },
   {
-    slug: "billing:notify:invoice-issued",
+    slug: INVOICE_ISSUED_SLUG,
     kind: "mail",
     locale: "de",
     title: "Rechnung versendet",
-    content: invoiceIssuedBody("anbei erhalten Sie die Rechnung"),
-    meta: INVOICE_ISSUED_META("Ihre Rechnung {{invoiceNumber}} von {{tenantName}}"),
-    variableSchema: INVOICE_VARIABLE_SCHEMA,
-  },
-  {
-    slug: "billing:notify:invoice-issued",
-    kind: "mail",
-    locale: "de",
-    title: "Rechnung versendet",
-    content: invoiceIssuedBody("anbei erhalten Sie die aktuelle Rechnung"),
-    meta: INVOICE_ISSUED_META("Rechnung {{invoiceNumber}}: {{amount}} fällig am {{dueDate}}"),
-    variableSchema: INVOICE_VARIABLE_SCHEMA,
+    content: invoiceIssuedBody({ intro: "anbei erhalten Sie die Rechnung", withDueDate: false }),
+    meta: invoiceIssuedMeta("Ihre Rechnung {{invoiceNumber}} von {{tenantName}}"),
   },
 ];
+
+// Separate draft for the screenshot spec, so the mail-editor e2e can change
+// "Rechnung versendet" without touching what the screenshots show.
+export const INVOICE_CORRECTED_DRAFT: SeedTemplate = {
+  slug: INVOICE_CORRECTED_SLUG,
+  kind: "mail",
+  locale: "de",
+  title: "Korrigierte Rechnung",
+  content: invoiceIssuedBody({
+    intro: "anbei erhalten Sie die korrigierte Rechnung",
+    withDueDate: false,
+  }),
+  meta: invoiceIssuedMeta("Ihre Rechnung {{invoiceNumber}} von {{tenantName}}"),
+};
 
 export const PAYMENT_REMINDER_TEMPLATES: readonly SeedTemplate[] = [
   {

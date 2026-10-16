@@ -7,6 +7,7 @@ import {
 import {
   DOCUMENT_DESIGNER_FEATURE,
   LAYOUT_EDITOR_SCREEN_ID,
+  MAIL_EDITOR_SCREEN_ID,
   PDF_TEMPLATE_EDITOR_SCREEN_ID,
   PLATFORM_TEMPLATES_NAV_ID,
   PLATFORM_TEMPLATES_SCREEN_ID,
@@ -92,6 +93,16 @@ export function createDocumentDesignerFeature(): FeatureDefinition {
       renderer: { react: { __component: PDF_TEMPLATE_EDITOR_SCREEN_ID } },
       description:
         "Editor for one PDF template: edit the body, print a preview through the print service, review tenant customisations and export the template as a bundle.",
+      dormant: true,
+      access: { roles: access.roles(...TENANT_ROLES) },
+    });
+
+    // kumiko-lint-ignore app-feature-structure Board-2/3 mail editor (placeholder rail, chip editors, live preview, test mail) has no declarative screen type
+    r.screen({
+      id: MAIL_EDITOR_SCREEN_ID,
+      type: "custom",
+      renderer: { react: { __component: MAIL_EDITOR_SCREEN_ID } },
+      description: "documentDesigner.screen.mailEditor.description",
       dormant: true,
       access: { roles: access.roles(...TENANT_ROLES) },
     });
