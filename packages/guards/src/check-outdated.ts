@@ -57,7 +57,7 @@ function printUnresolved(
   total: number,
 ): void {
   console.error(
-    `\n  WARNING: deprecation status UNKNOWN for ${unresolved.length} of ${total} ${scope} — the registry did not answer, so these were NOT checked:`,
+    `\n  WARNING: deprecation status UNKNOWN for ${unresolved.length} of ${total} ${scope} — the registry did not answer, so these were NOT checked (re-run once the registry is reachable):`,
   );
   for (const pkg of unresolved.slice(0, 10)) {
     console.error(`    ${pkg.name}@${pkg.version}  — ${pkg.reason}`);
@@ -143,6 +143,9 @@ function reportDirectScan(scan: DeprecationScan, directChecked: number): boolean
     for (const dep of scan.deprecated) {
       console.error(`    ${dep.name}@${dep.version}  — ${dep.message}`);
     }
+    console.error(
+      "\n  Replace each deprecated package or upgrade to a version that is not deprecated.",
+    );
   } else if (scan.unresolved.length === 0) {
     console.log("  No deprecated direct dependencies found.");
   }
@@ -152,7 +155,9 @@ function reportDirectScan(scan: DeprecationScan, directChecked: number): boolean
   // Partial registry gaps stay a warning (npm answers 503 under load); a run that checked nothing must not pass.
   const nothingChecked = directChecked > 0 && scan.unresolved.length === directChecked;
   if (nothingChecked) {
-    console.error("  outdated: nothing checked — no direct dependency got a registry answer.");
+    console.error(
+      "  outdated: nothing checked — no direct dependency got a registry answer. Re-run once the registry is reachable.",
+    );
   }
   return scan.deprecated.length > 0 || nothingChecked;
 }

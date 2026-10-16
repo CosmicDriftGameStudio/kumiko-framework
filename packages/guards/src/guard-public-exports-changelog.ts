@@ -270,7 +270,7 @@ function scanPackage(cwd: string, project: Project, pkg: PackageName): PackageSc
     pkgJson = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
   } catch (e) {
     console.error(
-      `  ${pkg}: package.json unreadable (${e instanceof Error ? e.message : String(e)}).`,
+      `  ${pkg}: package.json unreadable (${e instanceof Error ? e.message : String(e)}). Fix the file so it is valid JSON.`,
     );
     return null;
   }
@@ -320,7 +320,9 @@ export type EvaluateResult = {
 
 function buildFinding(missing: MissingExport, version: string): UncoveredFinding {
   if (!isPackageName(missing.pkg)) {
-    throw new Error(`baseline package key not in scope: ${missing.pkg}`);
+    throw new Error(
+      `baseline package key not in scope: ${missing.pkg}. Remove the key from the baseline or re-freeze it with --write-baseline.`,
+    );
   }
   const pkg = missing.pkg;
   const changelogPath = owningChangelogPath(pkg, missing.key);
@@ -370,7 +372,7 @@ function findingsAgainstBaseline(
   for (const [pkg, keys] of Object.entries(baseline.packages)) {
     if (!isPackageName(pkg)) {
       console.error(
-        `  Baseline contains unknown package key "${pkg}", ignored (only framework|bundled-features).`,
+        `  Baseline contains unknown package key "${pkg}", ignored (only framework|bundled-features). Remove the key from the baseline or re-freeze it with --write-baseline.`,
       );
       continue;
     }
@@ -397,7 +399,9 @@ export function evaluatePublicExportsChangelog(args: {
   logOutOfScopeNotice();
   const scans = scanAllPackages(args.cwd, args.project);
   if (scans.length === 0 && args.mode === "check") {
-    console.error("  No package scanned: the guard would pass vacuously.");
+    console.error(
+      "  No package scanned: the guard would pass vacuously. Run it from a kumiko-framework checkout that contains the framework package.",
+    );
     return { scans, baselineStatus: "ok", findings: [vacuousFinding()] };
   }
 
@@ -441,11 +445,16 @@ export async function loadChangesetParser(frameworkRootAbsPath: string): Promise
     frameworkRootAbsPath,
     "packages/framework/src/engine/changeset-changes.ts",
   );
-  if (!existsSync(parserPath)) throw new Error(`changeset parser not found: ${parserPath}`);
+  if (!existsSync(parserPath))
+    throw new Error(
+      `changeset parser not found: ${parserPath}. Run the guard from a complete kumiko-framework checkout.`,
+    );
   const loaded: unknown = await import(pathToFileURL(parserPath).href);
   const parse = isRecord(loaded) ? loaded["parseChangesetChanges"] : undefined;
   if (!isChangesetParser(parse)) {
-    throw new Error(`${parserPath} does not export parseChangesetChanges as a function`);
+    throw new Error(
+      `${parserPath} does not export parseChangesetChanges as a function. Export it from that file.`,
+    );
   }
   return parse;
 }
@@ -560,7 +569,7 @@ export function writeBaseline(
   const frameworkScan = scans.find((s) => s.pkg === "framework");
   if (!frameworkScan) {
     console.error(
-      "  framework package.json missing: asOfVersion undetermined, baseline not written.",
+      "  framework package.json missing: asOfVersion undetermined, baseline not written. Run it from a kumiko-framework checkout.",
     );
     return 1;
   }
@@ -665,7 +674,9 @@ export async function runPublicExportsChangelogCli(
   }
   const tsConfigFilePath = frameworkTsConfigPath(cwd);
   if (tsConfigFilePath === undefined) {
-    console.error("  public-exports-changelog: framework tsconfig.json not found.");
+    console.error(
+      "  public-exports-changelog: framework tsconfig.json not found. Run it from a complete kumiko-framework checkout.",
+    );
     return 1;
   }
   const project = new Project({ tsConfigFilePath, skipAddingFilesFromTsConfig: true });
@@ -676,7 +687,9 @@ export async function runPublicExportsChangelogCli(
     try {
       pending = await loadPendingBreakingChanges(scanCwd);
     } catch (e) {
-      console.error(`  Cannot read open changesets: ${e instanceof Error ? e.message : String(e)}`);
+      console.error(
+        `  Cannot read open changesets: ${e instanceof Error ? e.message : String(e)}. Fix the changeset file named above.`,
+      );
       return 1;
     }
     return writeBaseline(scanCwd, project, join(scanCwd, BASELINE_FILE), pending);

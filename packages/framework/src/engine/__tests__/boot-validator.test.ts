@@ -3382,7 +3382,7 @@ describe("boot-validator", () => {
             configKeys: { maxUploadMb: "shop:config:max-upload-mb" },
           }),
         ]),
-      ).toThrow(/field "siteName" hat keinen Eintrag in configKeys-Map/);
+      ).toThrow(/field "siteName" has no entry in the configKeys map/);
     });
 
     test("configKeys referenziert unbekannten qualifizierten Key → Throw", () => {
@@ -3395,7 +3395,7 @@ describe("boot-validator", () => {
             },
           }),
         ]),
-      ).toThrow(/Config-Key "shop:config:typo-here" ist in keiner Feature-Registry deklariert/);
+      ).toThrow(/Config key "shop:config:typo-here" is not declared in any feature registry/);
     });
 
     test("camelCase-Quelle (multi-word) → kanonische kebab-QN matched, kein Throw", () => {

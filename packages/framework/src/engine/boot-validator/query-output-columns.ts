@@ -156,7 +156,7 @@ function checkProjectionDetailOutputFields(
       recordShape,
       field,
       () =>
-        `${prefix} header.${part} references field "${field}" which is not present in query "${screen.query}"'s outputSchema.`,
+        `${prefix} header.${part} references field "${field}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
     );
   };
   if (screen.header !== undefined) {
@@ -189,7 +189,7 @@ function checkProjectionDetailOutputFields(
       recordShape,
       field,
       () =>
-        `${prefix} recordTitleField references field "${field}" which is not present in query "${screen.query}"'s outputSchema.`,
+        `${prefix} recordTitleField references field "${field}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
     );
   }
   for (const metric of screen.metrics ?? []) {
@@ -198,7 +198,7 @@ function checkProjectionDetailOutputFields(
       recordShape,
       field,
       () =>
-        `${prefix} metrics references field "${field}" which is not present in query "${screen.query}"'s outputSchema.`,
+        `${prefix} metrics references field "${field}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
     );
   }
   checkDetailSectionFields(recordShape, prefix, screen);
@@ -220,7 +220,7 @@ function checkDetailSectionFields(
         recordShape,
         countField,
         () =>
-          `${prefix} section "${section.title ?? "(untitled)"}" countField references field "${countField}" which is not present in query "${screen.query}"'s outputSchema.`,
+          `${prefix} section "${section.title ?? "(untitled)"}" countField references field "${countField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
       );
     }
     if (section.kind !== undefined && section.kind !== "fields") continue;
@@ -230,7 +230,7 @@ function checkDetailSectionFields(
         recordShape,
         field,
         () =>
-          `${prefix} section "${section.title ?? section.id ?? "(untitled)"}" references field "${field}" which is not present in query "${screen.query}"'s outputSchema.`,
+          `${prefix} section "${section.title ?? section.id ?? "(untitled)"}" references field "${field}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
       );
     }
   }
@@ -285,7 +285,7 @@ function checkDashboardStatPanelFields(
       recordShape,
       field,
       () =>
-        `${prefix} ${part} references field "${field}" which is not present in query "${panel.query}"'s outputSchema.`,
+        `${prefix} ${part} references field "${field}" which is not present in query "${panel.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
     );
   };
   checkPanelField("valueField", panel.valueField);
@@ -310,7 +310,7 @@ function checkVisibleWhenField(
     getZodObjectShape(queryHandlers.get(query)?.outputSchema),
     field,
     () =>
-      `${owner} visibleWhen references field "${field}" which is not present in query "${query}"'s outputSchema.`,
+      `${owner} visibleWhen references field "${field}" which is not present in query "${query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
   );
 }
 

@@ -121,7 +121,7 @@ export function validateNavCycles(
   function visit(qualified: string, path: string[]): void {
     if (stack.has(qualified)) {
       throw new Error(
-        `[Kumiko Nav] Nav entry parent cycle detected: ${[...path, qualified].join(" → ")}`,
+        `[Kumiko Nav] Nav entry parent cycle detected: ${[...path, qualified].join(" → ")}. Change or remove the parent of one entry in the cycle.`,
       );
     }
     // skip: already visited — cycle-detection only needs to traverse each

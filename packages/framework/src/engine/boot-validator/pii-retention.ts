@@ -74,7 +74,7 @@ function validateWriteOnlyField(
       if ("writeOnly" in subField && subField.writeOnly === true) {
         // @cast-boundary schema-walk
         throw new Error(
-          `${where} declares writeOnly on embedded sub-field "${subName}" — writeOnly is only supported on top-level text fields.`,
+          `${where} declares writeOnly on embedded sub-field "${subName}" — writeOnly is only supported on top-level text fields. Remove writeOnly from the sub-field or declare it on a top-level text field.`,
         );
       }
     }
@@ -86,7 +86,7 @@ function validateWriteOnlyField(
   if (flags.writeOnly !== true) return;
   if (field.type !== "text") {
     throw new Error(
-      `${where} declares { writeOnly: true } but has type "${field.type}" — writeOnly only applies to text fields.`,
+      `${where} declares { writeOnly: true } but has type "${field.type}" — writeOnly only applies to text fields. Use a text field or remove writeOnly.`,
     );
   }
   if (field.sensitive !== true) {
@@ -98,7 +98,7 @@ function validateWriteOnlyField(
     const value = flags[flag];
     if (value !== undefined && value !== false) {
       throw new Error(
-        `${where} combines { writeOnly: true } with { ${flag} } — a value that is never returned cannot be defaulted, searched, sorted, filtered or looked up.`,
+        `${where} combines { writeOnly: true } with { ${flag} } — a value that is never returned cannot be defaulted, searched, sorted, filtered or looked up. Remove either writeOnly or the conflicting flag.`,
       );
     }
   }
@@ -129,7 +129,7 @@ function validatePersonalJsonbField(
   for (const flag of JSONB_PERSONAL_FORBIDDEN_FLAGS) {
     if (flags[flag] !== undefined && flags[flag] !== false) {
       throw new Error(
-        `${where} combines a personal annotation on a jsonb field with { ${flag} } — ${reason}.`,
+        `${where} combines a personal annotation on a jsonb field with { ${flag} } — ${reason}. Remove the ${flag} flag or the personal annotation.`,
       );
     }
   }
@@ -205,7 +205,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       if (annot.lookupable === true) {
         if (field.type !== "text") {
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares find: "exact" (or "fuzzy") but has type "${field.type}" — blind-index equality lookups only apply to text fields.`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares find: "exact" (or "fuzzy") but has type "${field.type}" — blind-index equality lookups only apply to text fields. Use a text field or set find: "none".`,
           );
         }
         if (annotCount === 0) {
@@ -266,7 +266,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         const ownerName = annot.userOwned.ownerField;
         if (!ownerName || typeof ownerName !== "string") {
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has personal: { of: ... } without an owner field name`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has personal: { of: ... } without an owner field name. Pass the name of the owner field: personal: { of: "<ownerField>" }.`,
           );
         }
         const ownerField = fieldsByName[ownerName];
@@ -289,7 +289,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         const { whenAbsent } = annot.userOwned;
         if (whenAbsent !== undefined && whenAbsent !== "tenant") {
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares personal.whenAbsent "${String(whenAbsent)}" — entity fields only support whenAbsent: "tenant" (no plaintext fallback for stored PII).`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" declares personal.whenAbsent "${String(whenAbsent)}" — entity fields only support whenAbsent: "tenant" (no plaintext fallback for stored PII). Remove whenAbsent or set it to "tenant".`,
           );
         }
         if (ownerField.required !== true && whenAbsent === undefined) {
@@ -359,7 +359,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       if (!KEEP_FOR_PATTERN.test(retention.keepFor)) {
         // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
         console.warn(
-          `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.keepFor="${retention.keepFor}" hat ungueltiges Format. Erwartet: <Zahl><h|d|w|m|y> (z.B. "30d", "10y", "6m"). Cleanup-Job (Sprint 2) wird das nicht parsen koennen.`,
+          `[kumiko:boot] [Feature ${feature.name}] Entity "${entityName}" retention.keepFor="${retention.keepFor}" has an invalid format. Expected: <number><h|d|w|m|y> (e.g. "30d", "10y", "6m"). The cleanup job cannot parse anything else; fix keepFor.`,
         );
       }
 

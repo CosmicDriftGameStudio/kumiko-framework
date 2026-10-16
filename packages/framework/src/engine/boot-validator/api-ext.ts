@@ -47,7 +47,7 @@ export function validateApiExposureMatching(
     // aber defensiv für unklare Constructor-Pfade.
     if (!featureMap.has(providerFeature)) {
       throw new Error(
-        `[Feature ${feature.name}] internal: r.usesApi("${apiName}") points to provider "${providerFeature}" which is not in feature map`,
+        `[Feature ${feature.name}] internal: r.usesApi("${apiName}") points to provider "${providerFeature}" which is not in feature map. Register the provider feature in the app's feature list.`,
       );
     }
   }
@@ -63,7 +63,7 @@ export function validateExtensionUsages(
     const providerFeature = extensionProviders.get(usage.extensionName);
     if (!providerFeature) {
       throw new Error(
-        `Feature "${feature.name}" uses extension "${usage.extensionName}" on entity "${usage.entityName}" but no feature defines that extension`,
+        `Feature "${feature.name}" uses extension "${usage.extensionName}" on entity "${usage.entityName}" but no feature defines that extension. Register the feature that defines it or fix the extension name.`,
       );
     }
 
@@ -74,7 +74,7 @@ export function validateExtensionUsages(
     const allDeps = [...feature.requires, ...feature.optionalRequires];
     if (!allDeps.includes(providerFeature)) {
       throw new Error(
-        `Feature "${feature.name}" uses extension "${usage.extensionName}" but missing requires("${providerFeature}")`,
+        `Feature "${feature.name}" uses extension "${usage.extensionName}" but missing requires("${providerFeature}"). Add r.requires("${providerFeature}").`,
       );
     }
   }

@@ -461,6 +461,9 @@ export const guard: AstGuard = {
   name: "Direct-Entity-Writes Guard",
   scan: SCAN,
   security: true,
+  hint:
+    "Write ES-entity tables through the entity write handlers / event-store executor or inside an r.projection apply (tx receiver); a direct insert/update/delete lets the projection row drift from the event stream. " +
+    "For a BLOCKED scan, check that the scan still covers the files declaring r.entity / createEventStoreExecutor.",
   run(files) {
     // Merge both collections BEFORE the empty-set check — otherwise a repo
     // that only uses r.entity (no createEventStoreExecutor anymore) would

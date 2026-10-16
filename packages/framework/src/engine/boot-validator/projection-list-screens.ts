@@ -52,7 +52,7 @@ function validateOneProjectionListScreen(
 
   if (screen.searchable === true && !schemaAccepts(schema, "search")) {
     throw new Error(
-      `${prefix}: searchable: true but query "${screen.query}" has no "search" parameter in its Zod schema`,
+      `${prefix}: searchable: true but query "${screen.query}" has no "search" parameter in its Zod schema. Add a "search" field to the query schema or remove searchable: true.`,
     );
   }
 
@@ -80,7 +80,9 @@ function validateOneProjectionListScreen(
   const searchActive = screen.searchable !== false && schemaAccepts(schema, "search");
   const sortActive = schemaAccepts(schema, "sort");
   if ((searchActive || sortActive) && screen.defaultSort === undefined) {
-    throw new Error(`${prefix}: defaultSort required when search or sort is active`);
+    throw new Error(
+      `${prefix}: defaultSort required when search or sort is active. Set defaultSort: { field, direction }.`,
+    );
   }
 
   validateProjectionListFilterSchemaAcceptance(prefix, screen, schema);
@@ -138,7 +140,7 @@ function validateProjectionListDateRangeFacets(
     if (facet.params.from === facet.params.to) {
       throw new Error(
         `${prefix}: dateRange facet on "${facet.field}" names the same param ` +
-          `"${facet.params.from}" for both bounds.`,
+          `"${facet.params.from}" for both bounds. Use two different param names for from and to.`,
       );
     }
     for (const param of [facet.params.from, facet.params.to]) {
@@ -151,7 +153,7 @@ function validateProjectionListDateRangeFacets(
       if (usedParams.has(param)) {
         throw new Error(
           `${prefix}: dateRange facet on "${facet.field}" names "${param}" which another dateRange ` +
-            `facet on this screen already uses — the facets would overwrite each other's bound.`,
+            `facet on this screen already uses — the facets would overwrite each other's bound. Give each dateRange facet its own param names.`,
         );
       }
       usedParams.add(param);
@@ -201,7 +203,7 @@ function validateRelatedListSearchable(
   // skip: not searchable, or the schema already accepts search — nothing to reject.
   if (section.searchable !== true || schemaAccepts(schema, "search")) return;
   throw new Error(
-    `${prefix}: searchable: true but query "${section.query}" has no "search" parameter in its Zod schema`,
+    `${prefix}: searchable: true but query "${section.query}" has no "search" parameter in its Zod schema. Add a "search" field to the query schema or remove searchable: true.`,
   );
 }
 

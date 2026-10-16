@@ -51,7 +51,7 @@ export function validateConfigKeyBounds(feature: FeatureDefinition): void {
 
     if (min !== undefined && max !== undefined && min > max) {
       throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has bounds.min (${min}) > bounds.max (${max})`,
+        `[Feature ${feature.name}] Config key "${keyName}" has bounds.min (${min}) > bounds.max (${max}). Set bounds.min to a value at or below bounds.max.`,
       );
     }
 
@@ -59,12 +59,12 @@ export function validateConfigKeyBounds(feature: FeatureDefinition): void {
       const defaultNum = keyDef.default as number; // @cast-boundary engine-payload
       if (min !== undefined && defaultNum < min) {
         throw new Error(
-          `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is below bounds.min (${min})`,
+          `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is below bounds.min (${min}). Raise the default or lower bounds.min.`,
         );
       }
       if (max !== undefined && defaultNum > max) {
         throw new Error(
-          `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is above bounds.max (${max})`,
+          `[Feature ${feature.name}] Config key "${keyName}" default (${defaultNum}) is above bounds.max (${max}). Lower the default or raise bounds.max.`,
         );
       }
     }
@@ -83,7 +83,7 @@ export function validateConfigKeyComputed(feature: FeatureDefinition): void {
     // is cheaper than surprising behaviour at runtime.
     if (isEncryptedAtRest(keyDef)) {
       throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has both encrypted/backing="secrets" and a computed resolver — these are mutually exclusive paradigms`,
+        `[Feature ${feature.name}] Config key "${keyName}" has both encrypted/backing="secrets" and a computed resolver — these are mutually exclusive paradigms. Use either encrypted/backing="secrets" or a computed resolver on one key.`,
       );
     }
   }
@@ -123,7 +123,7 @@ export function validateConfigKeyAllowPerRequest(feature: FeatureDefinition): vo
     // misconfiguration that should fail loudly at boot.
     if (keyDef.type === "text") {
       throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but type="text" — text keys are permanently ineligible for per-request overrides (XSS/injection risk)`,
+        `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but type="text" — text keys are permanently ineligible for per-request overrides (XSS/injection risk). Remove allowPerRequest or change the key type.`,
       );
     }
 
@@ -145,17 +145,19 @@ export function validateConfigKeyOptionsQuery(feature: FeatureDefinition): void 
     const prefix = `[Feature ${feature.name}] Config key "${keyName}"`;
     if ("conditionalOptions" in keyDef) {
       throw new Error(
-        `${prefix} declares conditionalOptions — conditionalOptions is only supported on entity select fields (enforced by the entity write path)`,
+        `${prefix} declares conditionalOptions — conditionalOptions is only supported on entity select fields (enforced by the entity write path). Remove conditionalOptions from the config key.`,
       );
     }
     if (keyDef.optionsQuery === undefined) {
       if (keyDef.optionsQueryPayload !== undefined) {
-        throw new Error(`${prefix} has optionsQueryPayload without optionsQuery`);
+        throw new Error(
+          `${prefix} has optionsQueryPayload without optionsQuery. Set optionsQuery or remove optionsQueryPayload.`,
+        );
       }
       continue;
     }
     if (keyDef.optionsQuery.length === 0) {
-      throw new Error(`${prefix} has an empty optionsQuery`);
+      throw new Error(`${prefix} has an empty optionsQuery. Set it to a query name or remove it.`);
     }
     if (keyDef.type !== "select") {
       throw new Error(
@@ -182,7 +184,9 @@ function validateOptionsQueryKeyRefs(
   const prefix = `[Feature ${feature.name}] Config key "${keyName}"`;
   for (const ref of optionsQueryFieldRefs(keyDef.optionsQueryPayload)) {
     if (ref === keyName) {
-      throw new Error(`${prefix} optionsQueryPayload references itself ({ field: "${ref}" })`);
+      throw new Error(
+        `${prefix} optionsQueryPayload references itself ({ field: "${ref}" }). Reference a different config key.`,
+      );
     }
     if (feature.configKeys[ref] === undefined) {
       throw new Error(
@@ -224,7 +228,7 @@ export function validateConfigKeyPiiEncrypted(feature: FeatureDefinition): void 
 
     if (keyDef.type !== "text") {
       throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but type="${keyDef.type}" — piiEncrypted only applies to text keys`,
+        `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but type="${keyDef.type}" — piiEncrypted only applies to text keys. Use type="text" or remove piiEncrypted.`,
       );
     }
 
@@ -232,7 +236,7 @@ export function validateConfigKeyPiiEncrypted(feature: FeatureDefinition): void 
     // to encrypt under.
     if (keyDef.scope === "system") {
       throw new Error(
-        `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but scope="system" — system-scope has no subject (tenant/user) for the subject-KMS to encrypt under`,
+        `[Feature ${feature.name}] Config key "${keyName}" has piiEncrypted=true but scope="system" — system-scope has no subject (tenant/user) for the subject-KMS to encrypt under. Use scope="tenant" or "user", or remove piiEncrypted.`,
       );
     }
 
@@ -261,7 +265,7 @@ export function validateConfigReads(
     for (const key of feature.configReads) {
       if (!allConfigKeys.has(key)) {
         throw new Error(
-          `Feature "${feature.name}" reads config "${key}" but no feature defines that key`,
+          `Feature "${feature.name}" reads config "${key}" but no feature defines that key. Declare the key via r.config(...) in a feature, or fix the key name.`,
         );
       }
     }
@@ -279,7 +283,9 @@ export function validateCircularDeps(
 
   function visit(name: string, path: string[]): void {
     if (stack.has(name)) {
-      throw new Error(`Circular dependency: ${[...path, name].join(" → ")}`);
+      throw new Error(
+        `Circular dependency: ${[...path, name].join(" → ")}. Break the cycle by removing one requires() link.`,
+      );
     }
     // skip: node already visited in DFS traversal
     if (visited.has(name)) return;

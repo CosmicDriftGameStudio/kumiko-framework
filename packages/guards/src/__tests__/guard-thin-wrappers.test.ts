@@ -98,7 +98,9 @@ describe("check.run — RepoCheck seam (warning-only)", () => {
       const outcome = await check.run([root]);
       expect(outcome.violations).toEqual([]);
       expect(outcome.warnings).toHaveLength(1);
-      expect(outcome.warnings?.[0]?.message).toBe("alias → target");
+      expect(outcome.warnings?.[0]?.message).toBe(
+        "alias → target  (call the delegate directly, or mark a deliberate wrapper with // @wrapper-known <reason>)",
+      );
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

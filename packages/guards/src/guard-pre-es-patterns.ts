@@ -163,6 +163,9 @@ const PATTERNS: readonly Pattern[] = [
 export const guard: AstGuard = {
   name: "Pre-ES-Patterns Guard",
   scan: SCAN,
+  hint:
+    "These APIs were removed with the event-sourcing migration. Use the events table with ctx.loadAggregate / queryProjection, ctx.appendEvent on aggregate streams, " +
+    'r.multiStreamProjection for cross-aggregate consumers, and configValue.created/updated/deleted events (aggregateType: "configValue") for config changes.',
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 

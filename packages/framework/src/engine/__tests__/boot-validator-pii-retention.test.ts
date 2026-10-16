@@ -951,7 +951,7 @@ describe("validateBoot — retention", () => {
     });
     validateBoot([feature]);
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
-      String(args[0]).includes('keepFor="30days" hat ungueltiges Format'),
+      String(args[0]).includes('keepFor="30days" has an invalid format'),
     );
     expect(matchingWarn).toBeDefined();
   });
@@ -976,7 +976,7 @@ describe("validateBoot — retention", () => {
       validateBoot([feature]);
     }
     const matchingWarn = warnSpy.mock.calls.find((args: unknown[]) =>
-      String(args[0]).includes("hat ungueltiges Format"),
+      String(args[0]).includes("has an invalid format"),
     );
     expect(matchingWarn).toBeUndefined();
   });

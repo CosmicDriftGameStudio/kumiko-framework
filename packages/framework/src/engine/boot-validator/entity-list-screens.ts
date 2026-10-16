@@ -42,7 +42,7 @@ function validateOneEntityListScreen(
   const searchable = screen.searchable !== false;
   if ((searchable || filtersActive) && screen.defaultSort === undefined) {
     throw new Error(
-      `${prefix}: defaultSort required when searchable or filterable fields are active`,
+      `${prefix}: defaultSort required when searchable or filterable fields are active. Set defaultSort: { field, direction } on the screen.`,
     );
   }
 
@@ -50,7 +50,9 @@ function validateOneEntityListScreen(
     const sortField = screen.defaultSort.field;
     const col = screen.columns.find((c) => normalizeListColumn(c).field === sortField);
     if (col === undefined) {
-      throw new Error(`${prefix}: defaultSort.field "${sortField}" is not a listed column`);
+      throw new Error(
+        `${prefix}: defaultSort.field "${sortField}" is not a listed column. Pick a field from columns or add it there.`,
+      );
     }
     const entityDef = feature.entities?.[screen.entity];
     const fieldDef = entityDef?.fields[sortField];
