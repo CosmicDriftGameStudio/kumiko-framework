@@ -1,10 +1,14 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { ReservationHandle, ReservationRelease } from "@cosmicdrift/kumiko-types/handlers";
-import type { SessionUser } from "../engine/types/index.js";
+import type { SessionUser, WriteHandlerDef } from "../engine/types/index.js";
 import { toWriteErrorInfo, type WriteErrorInfo } from "../errors/index.js";
 import { createFallbackLogger } from "../logging/utils.js";
 import type { BatchCommand, DispatchContext } from "./dispatch-shared.js";
-import { buildHandlerContext, isMemberResolutionPrincipal } from "./dispatch-shared.js";
+import {
+  applyBeforeTransactionReadOnly,
+  buildHandlerContext,
+  isMemberResolutionPrincipal,
+} from "./dispatch-shared.js";
 import { wrapToKumiko } from "./dispatcher-utils.js";
 import { runPreHandlerGates } from "./pre-handler-gates.js";
 import type { WriteOrigin } from "./write-origin.js";
@@ -12,9 +16,16 @@ import { effectiveWriteOrigin, rootWriteOrigin } from "./write-origin.js";
 
 type ReservationConfirm = ReservationHandle["confirmInTransaction"];
 
-// What a command's pre-transaction reservation leaves for the handler run: the confirm, if the
-// reservation settles inside the transaction.
-export type ConsumedReservation = { readonly confirmInTransaction: ReservationConfirm | undefined };
+// What a command's pre-transaction phases leave for the handler run: the confirm, if the
+// reservation settles inside the transaction, and the beforeTransaction phase's data.
+export type ConsumedReservation = {
+  readonly confirmInTransaction: ReservationConfirm | undefined;
+  readonly prepared: unknown;
+};
+
+export function hasPreTransactionPhase(handler: WriteHandlerDef): boolean {
+  return handler.reserveBeforeTransaction !== undefined || handler.beforeTransaction !== undefined;
+}
 
 // One-shot permission per top-level command: the handler that reserved before the transaction
 // consumes it on entry. A capped handler reached any other way (nested ctx.write, writeAs, a
@@ -61,14 +72,14 @@ async function releaseAll(ctx: DispatchContext, releases: readonly ReservationRe
     try {
       await release();
     } catch (error) {
-      log.error("releasing a pre-transaction reservation failed", { error });
+      log.error("releasing a pre-transaction phase failed", { error });
     }
   }
 }
 
 // Same gates as the in-transaction run, but before any transaction: a caller who is rate limited,
-// denied or sends an invalid payload never reserves anything, so a rejected request cannot consume
-// capacity or trigger the reservation's side effects.
+// denied or sends an invalid payload never reserves or prepares anything, so a rejected request
+// cannot consume capacity or trigger external calls.
 export async function reserveBeforeTransaction(
   ctx: DispatchContext,
   commands: readonly BatchCommand[],
@@ -84,7 +95,7 @@ export async function reserveBeforeTransaction(
   for (const [index, command] of commands.entries()) {
     try {
       const handler = ctx.registry.getWriteHandler(command.type);
-      if (!handler?.reserveBeforeTransaction) continue;
+      if (!handler || !hasPreTransactionPhase(handler)) continue;
 
       const gates = await runPreHandlerGates(
         ctx,
@@ -104,14 +115,32 @@ export async function reserveBeforeTransaction(
         inheritedOrigin,
       );
       const handlerContext = await buildHandlerContext(ctx, command.type, user, origin);
-      const handle = toReservationHandle(
-        await handler.reserveBeforeTransaction(
-          { type: command.type, payload: gates.payload, user },
-          handlerContext,
-        ),
-      );
-      if (handle) releases.push(handle.release);
-      reservedCommands.set(index, { confirmInTransaction: handle?.confirmInTransaction });
+      const event = { type: command.type, payload: gates.payload, user };
+
+      let confirmInTransaction: ReservationConfirm | undefined;
+      if (handler.reserveBeforeTransaction) {
+        const handle = toReservationHandle(
+          await handler.reserveBeforeTransaction(event, handlerContext),
+        );
+        if (handle) releases.push(handle.release);
+        confirmInTransaction = handle?.confirmInTransaction;
+      }
+
+      let prepared: unknown;
+      if (handler.beforeTransaction) {
+        const phase = await handler.beforeTransaction(
+          event,
+          applyBeforeTransactionReadOnly(handlerContext),
+        );
+        if (!phase.isSuccess) {
+          await releaseAll(ctx, releases);
+          return { isSuccess: false, error: phase.error, failedIndex: index };
+        }
+        if (phase.release) releases.push(phase.release);
+        prepared = phase.data;
+      }
+
+      reservedCommands.set(index, { confirmInTransaction, prepared });
     } catch (error) {
       await releaseAll(ctx, releases);
       return { isSuccess: false, error: toWriteErrorInfo(wrapToKumiko(error)), failedIndex: index };

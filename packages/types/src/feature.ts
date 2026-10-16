@@ -31,6 +31,7 @@ import type {
 } from "./define-handler.js";
 import type { RegisterEntityCrudOptions } from "./entity-handlers.js";
 import type { EntityTableMeta } from "./entity-table-meta-types.js";
+import type { KumikoEventTypeMap } from "./event-type-map.js";
 import type { ExtensionOptionsArgs, ExtensionOptionsFor } from "./extension-options-map.js";
 import type { EntityDefinition } from "./fields.js";
 import type {
@@ -501,8 +502,8 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // Shorthand for registerEntityCrud(r, ...), scoped to this registrar.
   crud(entityName: string, entity: EntityDefinition, options?: RegisterEntityCrudOptions): void;
 
-  writeHandler<TName extends string, TSchema extends ZodType>(
-    def: WriteHandlerDefinition<TName, TSchema>,
+  writeHandler<TName extends string, TSchema extends ZodType, TPrepared = undefined>(
+    def: WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
   ): HandlerRef;
   writeHandler<TSchema extends ZodType>(
     name: string,

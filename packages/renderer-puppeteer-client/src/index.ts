@@ -6,7 +6,9 @@ export { countPdfPages } from "./pdf-page-count.js";
 export { RendererPuppeteerClientQueries } from "./qualified-names.js";
 export { puppeteerRender } from "./render.js";
 export {
-  type RenderAndStorePdfArgs,
-  renderAndStorePdf,
+  type RenderedPdfUpload,
+  type RenderPdfArgs,
+  renderPdfBeforeTransaction,
   type StoredRenderedPdf,
+  storeRenderedPdf,
 } from "./render-and-store.js";

@@ -91,6 +91,7 @@ const WRITE_HANDLER_KEY_KINDS: Record<keyof WriteHandlerDef, KeyClassification> 
   escapeHatch: "modeled",
   tenantlessAnonymous: "opaque",
   reserveBeforeTransaction: "opaque",
+  beforeTransaction: "opaque",
   perform: "opaque",
 };
 

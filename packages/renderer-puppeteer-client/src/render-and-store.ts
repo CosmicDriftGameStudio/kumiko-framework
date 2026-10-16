@@ -5,13 +5,21 @@ import {
   type RenderedTemplateRef,
   RendererError,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
-import type { HandlerContext, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  BeforeTransactionResult,
+  HandlerContext,
+  WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   type KumikoError,
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { createFileRefFromBytes } from "@cosmicdrift/kumiko-framework/files";
+import {
+  createFileRefFromUploadedBytes,
+  type UploadedFileBytes,
+  uploadFileBytesBeforeTransaction,
+} from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { PuppeteerUnavailableError } from "./errors.js";
@@ -20,7 +28,7 @@ import { renderedPdfExecutor } from "./executor.js";
 const PDF_MIME_TYPE = "application/pdf";
 const INVALID_REQUEST_REASON = "rendered_pdf_invalid_request";
 
-export type RenderAndStorePdfArgs = {
+export type RenderPdfArgs = {
   readonly slug: string;
   readonly locale: string;
   readonly variables: Readonly<Record<string, unknown>>;
@@ -29,6 +37,16 @@ export type RenderAndStorePdfArgs = {
     readonly fieldName: string;
     readonly entityId?: string;
   };
+};
+
+export type RenderedPdfUpload = {
+  readonly upload: UploadedFileBytes;
+  readonly slug: string;
+  readonly locale: string;
+  readonly template: RenderedTemplateRef;
+  readonly layout?: RenderedTemplateRef;
+  readonly pageCount: number;
+  readonly sizeBytes: number;
 };
 
 export type StoredRenderedPdf = {
@@ -64,10 +82,12 @@ function renderFailure(e: unknown, ctx: HandlerContext, slug: string): WriteResu
   return writeFailure(clientErrorForRenderFailure(e, ctx, slug));
 }
 
-export async function renderAndStorePdf(
+// Renders and uploads the PDF while no transaction is open: the print service call can take
+// seconds and must not hold a pool connection. Use as a handler's `beforeTransaction`.
+export async function renderPdfBeforeTransaction(
   ctx: HandlerContext,
-  args: RenderAndStorePdfArgs,
-): Promise<WriteResult<StoredRenderedPdf>> {
+  args: RenderPdfArgs,
+): Promise<BeforeTransactionResult<RenderedPdfUpload>> {
   const tenantId = ctx.user.tenantId;
   const plugin = createRendererFoundationApi(
     collectRendererPlugins(ctx.registry),
@@ -105,7 +125,7 @@ export async function renderAndStorePdf(
     );
   }
 
-  const stored = await createFileRefFromBytes(
+  const uploaded = await uploadFileBytesBeforeTransaction(
     {
       db: ctx.db,
       files: fileContextForTenant(ctx, tenantId),
@@ -119,21 +139,45 @@ export async function renderAndStorePdf(
       ...(args.attachTo !== undefined && { attachTo: args.attachTo }),
     },
   );
+  if (!uploaded.isSuccess) return uploaded;
+
+  return {
+    isSuccess: true,
+    data: {
+      upload: uploaded.data,
+      slug: args.slug,
+      locale: args.locale,
+      template,
+      ...(layout !== undefined && { layout }),
+      pageCount: response.pageCount,
+      sizeBytes: response.sizeBytes,
+    },
+    ...(uploaded.release && { release: uploaded.release }),
+  };
+}
+
+// Transaction half: writes the fileRef and rendered-pdf rows for a PDF renderPdfBeforeTransaction produced.
+export async function storeRenderedPdf(
+  ctx: HandlerContext,
+  rendered: RenderedPdfUpload,
+): Promise<WriteResult<StoredRenderedPdf>> {
+  const stored = await createFileRefFromUploadedBytes(ctx, rendered.upload);
   if (!stored.isSuccess) return stored;
 
+  const { template, layout } = rendered;
   const renderedPdfId = generateId();
   const created = await renderedPdfExecutor.create(
     {
       id: renderedPdfId,
       fileRefId: stored.data.id,
-      templateSlug: args.slug,
-      locale: args.locale,
+      templateSlug: rendered.slug,
+      locale: rendered.locale,
       templateId: template.templateId,
       templateVersion: template.templateVersion,
       templateScope: template.scope,
       layoutId: layout?.templateId ?? null,
       layoutVersion: layout?.templateVersion ?? null,
-      pageCount: response.pageCount,
+      pageCount: rendered.pageCount,
     },
     ctx.user,
     ctx.db,
@@ -146,8 +190,8 @@ export async function renderAndStorePdf(
       renderedPdfId,
       fileRefId: stored.data.id,
       fileName: stored.data.fileName,
-      pageCount: response.pageCount,
-      sizeBytes: response.sizeBytes,
+      pageCount: rendered.pageCount,
+      sizeBytes: rendered.sizeBytes,
       template,
       ...(layout !== undefined && { layout }),
     },

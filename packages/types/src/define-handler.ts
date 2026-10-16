@@ -4,13 +4,14 @@ import type { KumikoEventTypeMap } from "./event-type-map.js";
 import type {
   AccessRule,
   AgentHandlerHints,
+  BeforeTransactionPhase,
   EscapeHatchDeclaration,
   HandlerContext,
   PayloadRateLimitOption,
+  PreparedWriteEvent,
   PreTransactionReservation,
   QueryEvent,
   RateLimitDeclaration,
-  WriteEvent,
   WriteResult,
 } from "./handlers.js";
 import type { PipelineDef } from "./step.js";
@@ -35,6 +36,7 @@ export type WriteHandlerDefinition<
   TSchema extends ZodType = ZodType,
   TData = unknown,
   TMap extends object = KumikoEventTypeMap,
+  TPrepared = undefined,
 > = {
   readonly name: TName;
   readonly schema: TSchema;
@@ -48,9 +50,10 @@ export type WriteHandlerDefinition<
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly reserveBeforeTransaction?: PreTransactionReservation;
+  readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   readonly tenantlessAnonymous?: boolean;
   readonly handler: (
-    event: WriteEvent<z.infer<TSchema>>,
+    event: PreparedWriteEvent<z.infer<TSchema>, TPrepared>,
     context: HandlerContext<TMap>,
   ) => Promise<WriteResult<TData>>;
   // Preserved when the author wrote a `perform` block — the original
@@ -68,6 +71,7 @@ export type WriteHandlerInput<
   TSchema extends ZodType = ZodType,
   TData = unknown,
   TMap extends object = KumikoEventTypeMap,
+  TPrepared = undefined,
 > = {
   readonly name: TName;
   readonly schema: TSchema;
@@ -79,11 +83,12 @@ export type WriteHandlerInput<
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly reserveBeforeTransaction?: PreTransactionReservation;
+  readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   readonly tenantlessAnonymous?: boolean;
 } & (
   | {
       readonly handler: (
-        event: WriteEvent<z.infer<TSchema>>,
+        event: PreparedWriteEvent<z.infer<TSchema>, TPrepared>,
         context: HandlerContext<TMap>,
       ) => Promise<WriteResult<TData>>;
       readonly perform?: never;
