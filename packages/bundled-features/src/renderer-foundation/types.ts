@@ -1,6 +1,12 @@
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigAccessor, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import type { MailTemplateMeta, PdfPageFormat, TemplateScope } from "../template-resolver/index.js";
+import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
+import type {
+  MailTemplateMeta,
+  PdfPageFormat,
+  PdfTemplateMeta,
+  TemplateScope,
+} from "../template-resolver/index.js";
 import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./constants.js";
 
 // RenderRequest — Plugins erhalten das. Resource-Mode wählt der Caller
@@ -8,7 +14,7 @@ import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./const
 // entscheidet nicht — es bekommt eine schon aufgelöste Form.
 export type RenderRequest =
   | { kind: "mail"; payload: MailPayload }
-  | { kind: "document-pdf"; payload: DocumentPayload; options?: PdfOptions }
+  | { kind: "document-pdf"; payload: DocumentPdfPayload; options?: PdfOptions }
   | { kind: "image-snapshot"; payload: DocumentPayload; options?: ImageOptions };
 
 export type RenderedTemplateRef = {
@@ -38,7 +44,13 @@ export type RenderResponse = (
       previewText?: string;
       attachments?: readonly InlineAttachmentRef[];
     }
-  | { kind: "document-pdf"; pdfBytes: Uint8Array; pageCount: number; sizeBytes: number }
+  | {
+      kind: "document-pdf";
+      pdfBytes: Uint8Array;
+      pageCount: number;
+      sizeBytes: number;
+      fileName: string;
+    }
   | {
       kind: "image-snapshot";
       imageBytes: Uint8Array;
@@ -70,6 +82,38 @@ export type DocumentPayload = {
   readonly contentFormat?: ContentFormat;
   readonly variables?: Readonly<Record<string, unknown>>;
   readonly locale?: string;
+};
+
+export type DocumentPdfPayload = {
+  readonly slug: string;
+  readonly locale: string;
+  readonly variables: Readonly<Record<string, unknown>>;
+};
+
+// An unsaved version of the document template, like MailDraft.
+export type DocumentPdfDraft = {
+  readonly content: string;
+  readonly meta: PdfTemplateMeta | null;
+  readonly variableSchema?: Readonly<Record<string, unknown>>;
+};
+
+export type DocumentPreviewRequest = DocumentPdfPayload & { readonly draft?: DocumentPdfDraft };
+
+// What an editor shows for a document: the printable HTML with the values filled in,
+// without calling any print service.
+export type DocumentPreview = {
+  readonly title: string;
+  readonly fileName: string;
+  readonly bodyHtml: string;
+  readonly layout: {
+    readonly slug: string;
+    readonly scope: TemplateScope;
+    readonly headerHtml: string;
+    readonly signatureHtml: string;
+    readonly footerHtml: string;
+  } | null;
+  /** Image keys the body or the layout asks for that no file is linked to. */
+  readonly missingResourceKeys: readonly string[];
 };
 
 export type PdfOptions = {
@@ -105,6 +149,8 @@ export type RendererContext = {
   /** Tenant-scoped config for plugins that format by tenant locale/currency
    *  or read branding; plugins fall back to request defaults when absent. */
   readonly config?: ConfigAccessor;
+  /** Only plugins that embed resource bytes (PDF) need it; without it images are dropped. */
+  readonly filesForTenant?: (tenantId: string) => FileContext | undefined;
 };
 
 // RendererPlugin-Contract — pro Plugin (renderer-mail-html,
@@ -122,12 +168,14 @@ export type RendererPlugin = {
   readonly name: string;
   readonly kinds: ReadonlyArray<RenderKind>;
   render(req: RenderRequest, ctx: RendererContext): Promise<RenderResponse>;
+  /** Optional: plugins that print documents offer a preview that never reaches the print service. */
+  previewDocument?(req: DocumentPreviewRequest, ctx: RendererContext): Promise<DocumentPreview>;
 };
 
 export class RendererError extends Error {
   constructor(
     message: string,
-    public readonly code: "no_plugin_for_kind" | "invalid_payload" | "other",
+    public readonly code: "no_plugin_for_kind" | "invalid_payload" | "unavailable" | "other",
   ) {
     super(message);
     this.name = "RendererError";

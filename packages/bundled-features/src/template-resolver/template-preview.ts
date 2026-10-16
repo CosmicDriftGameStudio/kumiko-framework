@@ -14,7 +14,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createTemplateMailRenderer } from "../delivery/index.js";
-import { type InlineAttachmentRef, RendererError } from "../renderer-foundation/index.js";
+import { fileContextForTenant } from "../file-foundation/index.js";
+import {
+  collectRendererPlugins,
+  createRendererFoundationApi,
+  type InlineAttachmentRef,
+  RendererError,
+  type RendererPlugin,
+} from "../renderer-foundation/index.js";
 import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResource } from "./api.js";
 import { collectDocumentResourceKeys } from "./compile-document-body.js";
 import { MAIL_PREVIEW_MAX_BYTES, SYSTEM_TENANT_ID, type TemplateScope } from "./constants.js";
@@ -232,6 +239,114 @@ function toRenderFailure(e: unknown): TemplatePreviewOutcome {
   );
 }
 
+type DocumentPreviewArgs = {
+  readonly input: TemplatePreviewInput;
+  readonly content: string;
+  readonly meta: ReturnType<typeof parseTemplateMeta>;
+  readonly variableSchema: Readonly<Record<string, unknown>>;
+  readonly sampleValues: Readonly<Record<string, unknown>>;
+  readonly validation: ValidationResponse;
+};
+
+// Only a plugin that prints documents can show the filled-in page; without one the editor
+// still gets the body and the raw layout, just without placeholder values.
+function documentPreviewPlugin(ctx: HandlerContext, tenantId: string): RendererPlugin | null {
+  try {
+    const plugin = createRendererFoundationApi(
+      collectRendererPlugins(ctx.registry),
+    ).createRendererForTenant({ tenantId, kind: "document-pdf" });
+    return plugin.previewDocument === undefined ? null : plugin;
+  } catch (e) {
+    if (e instanceof RendererError && e.code === "no_plugin_for_kind") return null;
+    throw e;
+  }
+}
+
+async function renderDocumentPreview(
+  ctx: HandlerContext,
+  user: SessionUser,
+  args: DocumentPreviewArgs,
+): Promise<TemplatePreviewOutcome> {
+  const { input, content, meta, validation, sampleValues } = args;
+  const pdfMeta = meta.ok ? readPdfTemplateMeta(meta.meta) : null;
+  const requiredCheck = requiredPlaceholdersCheck(validation.missingRequired);
+  const plugin = documentPreviewPlugin(ctx, user.tenantId);
+
+  if (plugin?.previewDocument === undefined) {
+    return {
+      ok: true,
+      inlineAttachments: [],
+      preview: {
+        kind: "document-pdf",
+        subject: null,
+        previewText: null,
+        html: content,
+        text: null,
+        attachments: [],
+        layout: await resolvePdfLayout(
+          ctx,
+          user,
+          pdfMeta?.layoutSlug ?? DEFAULT_PDF_LAYOUT_SLUG,
+          input.locale,
+        ),
+        sampleValues,
+        checks: [missingResourceCheck(validation.warnings.map((w) => w.detail)), requiredCheck],
+        validation,
+      },
+    };
+  }
+
+  let document: Awaited<ReturnType<NonNullable<RendererPlugin["previewDocument"]>>>;
+  try {
+    document = await plugin.previewDocument(
+      {
+        slug: input.slug,
+        locale: input.locale,
+        variables: sampleValues,
+        draft: { content, meta: pdfMeta, variableSchema: args.variableSchema },
+      },
+      {
+        db: ctx.db,
+        registry: ctx.registry,
+        tenantId: user.tenantId,
+        ...(ctx.config !== undefined && { config: ctx.config }),
+        filesForTenant: (fileTenantId) => fileContextForTenant(ctx, fileTenantId),
+      },
+    );
+  } catch (e) {
+    return toRenderFailure(e);
+  }
+  const layout = document.layout;
+  return {
+    ok: true,
+    inlineAttachments: [],
+    preview: {
+      kind: "document-pdf",
+      subject: null,
+      previewText: null,
+      html: document.bodyHtml,
+      text: null,
+      attachments: [],
+      layout:
+        layout === null
+          ? null
+          : {
+              slug: layout.slug,
+              scope: layout.scope,
+              html: `${layout.headerHtml}${layout.signatureHtml}${layout.footerHtml}`,
+              regions: {
+                header: layout.headerHtml,
+                signature: layout.signatureHtml,
+                footer: layout.footerHtml,
+              },
+            },
+      sampleValues,
+      checks: [missingResourceCheck(document.missingResourceKeys), requiredCheck],
+      validation,
+    },
+  };
+}
+
 // Renders a draft (or, without content, the stored template) with sample values, going through
 // the same write gates and the same mail renderer as a real send. Nothing is stored or sent.
 export async function renderTemplatePreview(
@@ -267,27 +382,14 @@ export async function renderTemplatePreview(
   const sampleValues = sampleValuesFor(validation.variables);
 
   if (input.kind === "document-pdf") {
-    const layoutSlug =
-      (meta.ok ? readPdfTemplateMeta(meta.meta)?.layoutSlug : undefined) ?? DEFAULT_PDF_LAYOUT_SLUG;
-    return {
-      ok: true,
-      inlineAttachments: [],
-      preview: {
-        kind: "document-pdf",
-        subject: null,
-        previewText: null,
-        html: content,
-        text: null,
-        attachments: [],
-        layout: await resolvePdfLayout(ctx, user, layoutSlug, input.locale),
-        sampleValues,
-        checks: [
-          missingResourceCheck(validation.warnings.map((warning) => warning.detail)),
-          requiredPlaceholdersCheck(validation.missingRequired),
-        ],
-        validation,
-      },
-    };
+    return renderDocumentPreview(ctx, user, {
+      input,
+      content,
+      meta,
+      variableSchema: draftVariableSchema,
+      sampleValues,
+      validation,
+    });
   }
 
   if (!meta.ok || !isMailTemplateMeta(meta.meta)) {

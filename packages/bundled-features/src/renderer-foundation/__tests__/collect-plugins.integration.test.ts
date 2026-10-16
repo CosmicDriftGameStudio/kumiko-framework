@@ -27,6 +27,7 @@ function createTestPluginFeature(name: string, kinds: ReadonlyArray<RenderKind>)
             pdfBytes: new Uint8Array([1]),
             pageCount: 1,
             sizeBytes: 1,
+            fileName: "x.pdf",
           };
         return {
           kind: "image-snapshot",

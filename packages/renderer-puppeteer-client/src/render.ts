@@ -1,6 +1,6 @@
 // Render function: bridges Foundation's RenderRequest to an HTTP call to
-// puppeteer-service. The plugin's `ctx` is NOT used (the service is
-// app-wide, no tenant scoping needed). Pure render function.
+// puppeteer-service. document-pdf resolves a stored template and embeds every
+// resource as data: URI before sending; image-snapshot forwards payload.content as is.
 
 import {
   type RendererContext,
@@ -8,15 +8,22 @@ import {
   type RenderRequest,
   type RenderResponse,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
-import { loadClientConfig } from "./config.js";
+import { type ClientConfig, loadClientConfig } from "./config.js";
+import { buildDocumentPdfRequest } from "./document-pdf.js";
 import { postRender } from "./http-client.js";
 import { countPdfPages } from "./pdf-page-count.js";
 
+export function loadClientConfigOrUnavailable(): ClientConfig {
+  try {
+    return loadClientConfig();
+  } catch (e) {
+    throw new RendererError(e instanceof Error ? e.message : String(e), "unavailable");
+  }
+}
+
 export async function puppeteerRender(
   req: RenderRequest,
-  // ctx is required by the Foundation contract, unused here: the service is
-  // app-wide without tenant scoping. Underscore prefix = intentionally unused.
-  _ctx: RendererContext,
+  ctx: RendererContext,
 ): Promise<RenderResponse> {
   if (req.kind !== "document-pdf" && req.kind !== "image-snapshot") {
     throw new RendererError(
@@ -25,14 +32,28 @@ export async function puppeteerRender(
     );
   }
 
-  // Load config on every call — env vars cannot change at runtime,
-  // but loadClientConfig validates. Lazy load is minimal cost.
-  const config = loadClientConfig();
+  // Env vars cannot change at runtime, but loadClientConfig validates; loading per call is cheap.
+  const config = loadClientConfigOrUnavailable();
 
-  // HTML kommt aus payload.content (renderer-foundation contract).
-  // Plugin nimmt payload.content as-is — keine Markdown-Substitution
-  // hier (das macht der Caller, z.B. ein PDF-Template-Renderer der
-  // template-resolver konsumiert).
+  if (req.kind === "document-pdf") {
+    const built = await buildDocumentPdfRequest(req, ctx);
+    const result = await postRender(config, {
+      kind: "document-pdf",
+      html: built.html,
+      options: built.options,
+    });
+    return {
+      kind: "document-pdf",
+      pdfBytes: result.bytes,
+      pageCount: countPdfPages(result.bytes),
+      sizeBytes: result.bytes.byteLength,
+      fileName: built.fileName,
+      template: built.template,
+      ...(built.layout !== null && { layout: built.layout }),
+    };
+  }
+
+  // The caller resolves the template; the plugin takes payload.content as is.
   const html = req.payload.content;
   if (!html) {
     throw new RendererError(
@@ -40,22 +61,7 @@ export async function puppeteerRender(
       "invalid_payload",
     );
   }
-
-  const result = await postRender(config, {
-    kind: req.kind,
-    html,
-    options: req.options,
-  });
-
-  if (req.kind === "document-pdf") {
-    return {
-      kind: "document-pdf",
-      pdfBytes: result.bytes,
-      pageCount: countPdfPages(result.bytes),
-      sizeBytes: result.bytes.byteLength,
-    };
-  }
-  // image-snapshot
+  const result = await postRender(config, { kind: req.kind, html, options: req.options });
   const format = result.contentType.includes("png") ? "png" : "jpg";
   return {
     kind: "image-snapshot",

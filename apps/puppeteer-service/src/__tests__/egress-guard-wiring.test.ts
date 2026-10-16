@@ -41,14 +41,12 @@ describe("attachEgressRequestGuard wiring", () => {
         allowedCalls.push("continue");
       },
     });
-    await Promise.resolve();
-    await Promise.resolve();
     expect(blockedCalls).toEqual(["blockedbyclient"]);
     expect(allowedCalls).toEqual([]);
 
     blockedCalls.length = 0;
     requestHandler!({
-      url: () => "https://8.8.8.8/ok.png",
+      url: () => "data:image/png;base64,iVBORw0KGgo=",
       abort: async (code) => {
         blockedCalls.push(code);
       },
@@ -56,8 +54,6 @@ describe("attachEgressRequestGuard wiring", () => {
         allowedCalls.push("continue");
       },
     });
-    await Promise.resolve();
-    await Promise.resolve();
     expect(blockedCalls).toEqual([]);
     expect(allowedCalls).toEqual(["continue"]);
   });

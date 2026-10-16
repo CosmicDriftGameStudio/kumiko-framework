@@ -512,6 +512,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "errors.rate_limited": "Demasiadas solicitudes. Inténtalo de nuevo en breve.",
   "errors.rate_limit_unavailable":
     "La limitación de solicitudes no está disponible temporalmente. Inténtalo de nuevo en breve.",
+  "errors.puppeteer_unavailable":
+    "El servicio de PDF no está disponible. Ahora mismo no se pueden crear PDF.",
   "errors.recordLocked": "Este registro está bloqueado y ya no se puede modificar.",
   "errors.unconfigured": "Esta función todavía no está configurada.",
   "errors.uniqueViolation": "Esta entrada ya existe.",

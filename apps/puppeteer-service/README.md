@@ -45,6 +45,10 @@ puppeteer_render_errors_total 0
 puppeteer_render_duration_ms_mean 1240
 ```
 
+## Egress: keine Netzabrufe
+
+Der Service lädt nichts aus dem Netz. Erlaubt sind nur `data:`, `about:` und `blob:`; jede andere Anfrage der Seite (http, https, file, ws, ...) wird abgebrochen. Der Client bettet Bilder deshalb als `data:`-URI ein. Ohne Netzabrufe gibt es kein DNS-Rebinding und keine erreichbaren Node-IPs, Kubelet oder NodePorts; eine NetworkPolicy kann Loopback nicht sperren, der Guard schon.
+
 ## Configuration (env-vars)
 
 | Var | Default | Beschreibung |

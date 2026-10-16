@@ -64,8 +64,12 @@ export const sendTestWrite = defineWriteHandler({
       sseBroker: undefined,
       tenantId: event.user.tenantId,
       secrets: ctx.secrets,
-      readAttachment: createEmailAttachmentReader(ctx.db, event.user.tenantId, (tenantId) =>
-        fileContextForTenant(ctx, tenantId),
+      readAttachment: createEmailAttachmentReader(
+        ctx.db,
+        ctx.registry,
+        event.user.tenantId,
+        ctx.config,
+        (tenantId) => fileContextForTenant(ctx, tenantId),
       ),
     };
     const address = (await channel.resolve?.(event.user.id, channelContext)) ?? null;

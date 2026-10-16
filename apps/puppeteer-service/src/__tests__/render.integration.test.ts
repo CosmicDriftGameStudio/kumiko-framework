@@ -179,3 +179,60 @@ describe.skipIf(!RUN_RENDER_TESTS)("countPdfPages gegen ein ECHTES Chromium-PDF 
     expect(pages).toBeGreaterThanOrEqual(12);
   });
 });
+
+// 1x1 transparent PNG
+const PIXEL_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+describe.skipIf(!RUN_RENDER_TESTS)("Dokument mit Briefkopf", () => {
+  test("invoice with letterhead: header, footer and a table spanning pages", async () => {
+    const { app } = createApp(CONFIG);
+    const rows = Array.from(
+      { length: 60 },
+      (_, i) => `<tr><td>Position ${i + 1}</td><td>${(i + 1) * 10},00 EUR</td></tr>`,
+    ).join("");
+    const res = await app.request("/render", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${CONFIG.authToken}`,
+      },
+      body: JSON.stringify({
+        kind: "document-pdf",
+        html: `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>Rechnung R-1</title><style>table{width:100%;border-collapse:collapse}thead{display:table-header-group}tr{page-break-inside:avoid}</style></head><body><h1>Rechnung R-1</h1><table><thead><tr><th>Position</th><th>Betrag</th></tr></thead><tbody>${rows}</tbody></table></body></html>`,
+        options: {
+          format: "A4",
+          printBackground: true,
+          displayHeaderFooter: true,
+          marginMm: { top: 30, bottom: 20, left: 15, right: 15 },
+          headerTemplate: `<div style="font-size:9px;width:100%"><img src="${PIXEL_PNG}" style="height:8mm"> Briefkopf Test GmbH</div>`,
+          footerTemplate:
+            '<div style="font-size:9px;width:100%;text-align:center">Seite <span class="pageNumber"></span> / <span class="totalPages"></span></div>',
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect(countPdfPages(bytes)).toBeGreaterThanOrEqual(2);
+    const outPath = process.env["PDF_OUT_PATH"];
+    if (outPath !== undefined && outPath !== "") await Bun.write(outPath, bytes);
+  });
+
+  test("an https image in the HTML is blocked and the render still finishes", async () => {
+    const { app } = createApp(CONFIG);
+    const res = await app.request("/render", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${CONFIG.authToken}`,
+      },
+      body: JSON.stringify({
+        kind: "document-pdf",
+        html: '<html><body><p>Text</p><img src="https://example.com/x.png"></body></html>',
+      }),
+    });
+    expect(res.status).toBe(200);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect(bytes[0]).toBe(0x25);
+  });
+});

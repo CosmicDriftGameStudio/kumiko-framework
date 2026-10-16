@@ -7,6 +7,9 @@ export {
   type InlineAttachmentRef,
   inlineAttachmentRefSchema,
   MAX_EMAIL_ATTACHMENTS,
+  MAX_RENDERED_PDF_VARIABLES_BYTES,
+  type RenderedPdfAttachmentRef,
+  renderedPdfAttachmentRefSchema,
   toAttachmentRef,
 } from "./attachment-ref.js";
 export {

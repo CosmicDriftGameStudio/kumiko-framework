@@ -25,7 +25,13 @@ export async function renderTablePdfRequest(req: RenderRequest): Promise<RenderR
     ...(req.options?.format && { format: req.options.format }),
     ...(req.options?.marginMm && { marginMm: req.options.marginMm }),
   });
-  return { kind: "document-pdf", pdfBytes, pageCount, sizeBytes: pdfBytes.byteLength };
+  return {
+    kind: "document-pdf",
+    pdfBytes,
+    pageCount,
+    sizeBytes: pdfBytes.byteLength,
+    fileName: `${req.payload.slug}.pdf`,
+  };
 }
 
 export function createRendererPdfFeature(): FeatureDefinition {

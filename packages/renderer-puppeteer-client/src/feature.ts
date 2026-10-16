@@ -1,20 +1,13 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-types/feature";
+import { buildDocumentPreview } from "./document-pdf.js";
+import { RENDERED_PDF_ENTITY_NAME, renderedPdfEntity } from "./entity.js";
 import { puppeteerRender } from "./render.js";
+import { puppeteerStatusQuery } from "./status.query.js";
 
 // renderer-puppeteer-client — plugin for renderer-foundation. Renders
 // kind=["document-pdf", "image-snapshot"] requests via an HTTP call to
 // puppeteer-service (app in apps/puppeteer-service).
-//
-// **Caller pattern:**
-//   1. The caller (e.g. Solon NKA PDF generator) resolves the content template
-//      beforehand via template-resolver → resolved HTML in payload.content.
-//   2. Foundation selects the plugin via `createRendererForTenant({ kind:
-//      "document-pdf" })` → the plugin pool's default is "puppeteer".
-//   3. The caller invokes `plugin.render(req, ctx)`. The plugin makes an HTTP POST
-//      to PUPPETEER_SERVICE_URL with a bearer token from env.
-//   4. The plugin returns { kind: "document-pdf", pdfBytes, ... } — the caller
-//      persists it in S3 or passes it on (FileRef etc.).
 //
 // **Configuration:** env vars (app-wide, one service per deployment):
 //   - PUPPETEER_SERVICE_URL  default http://puppeteer-service:3000
@@ -28,13 +21,17 @@ import { puppeteerRender } from "./render.js";
 export function createRendererPuppeteerClientFeature(): FeatureDefinition {
   return defineFeature("renderer-puppeteer-client", (r) => {
     r.describe(
-      'A `renderer-foundation` plugin that handles `kind="document-pdf"` and `kind="image-snapshot"` by forwarding the render request over HTTP to a separately deployed `puppeteer-service`. Configure the service endpoint and auth token via `PUPPETEER_SERVICE_URL` and `PUPPETEER_AUTH_TOKEN` env vars. The client retries on 5xx and network errors with exponential backoff (default 3 retries); 4xx responses fail immediately. The plugin returns raw bytes \u2014 callers are responsible for persisting to S3 or streaming to the client. Register it alongside `renderer-foundation` and reach it through `foundation.createRendererForTenant({ kind: "document-pdf" }).render(...)`. Use this when you need PDF generation or screenshot capabilities without bundling a browser into the app process.',
+      "A `renderer-foundation` plugin that prints documents to PDF through a separately deployed `puppeteer-service`. A `document-pdf` request names a stored template (`{ slug, locale, variables }`): the plugin resolves the template and its `pdf-layout` (header, signature and footer regions), embeds every image as a data URI, turns repeating table header rows into a real table head and sends the finished HTML to the service, which performs no network fetches itself. The page format, margins, file name pattern and title come from the template meta. `renderAndStorePdf(ctx, ...)` renders and stores the PDF as a file with a `rendered-pdf` record that keeps the template and layout version, so a stored document can always be traced to the text it was created from. The `puppeteer-status` query tells a TenantAdmin whether the service answers; while it does not, rendering fails with a `puppeteer_unavailable` error (HTTP 503) and no PDF is created. `image-snapshot` requests still take ready HTML in `payload.content`. Configure the endpoint and token with `PUPPETEER_SERVICE_URL` and `PUPPETEER_AUTH_TOKEN`; the client retries 5xx and network errors with exponential backoff (default 3 retries), 4xx fails at once. The feature adds the `rendered_pdfs` table, so apps that mount it need a schema migration.",
     );
     r.requires("renderer-foundation");
 
     r.useExtension("renderer", "puppeteer", {
       kinds: ["document-pdf", "image-snapshot"] as const,
       render: puppeteerRender,
+      previewDocument: buildDocumentPreview,
     });
+
+    r.entity(RENDERED_PDF_ENTITY_NAME, renderedPdfEntity);
+    r.queryHandler(puppeteerStatusQuery);
   });
 }

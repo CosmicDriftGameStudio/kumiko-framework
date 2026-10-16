@@ -81,4 +81,18 @@ describe("variablesFromSchema", () => {
       b: { type: "money" },
     });
   });
+
+  test("label and example survive, so the preview can use them as sample values", () => {
+    expect(
+      variablesFromSchema({
+        number: { type: "text", label: "Nummer", example: "R-77" },
+        total: { type: "money", example: { amount: 12, currency: "EUR" } },
+        rows: { type: "list", item: { name: { type: "text" } }, example: [{ name: "A" }] },
+      }),
+    ).toEqual({
+      number: { type: "text", label: "Nummer", example: "R-77" },
+      total: { type: "money", example: { amount: 12, currency: "EUR" } },
+      rows: { type: "list", item: { name: { type: "text" } }, example: [{ name: "A" }] },
+    });
+  });
 });

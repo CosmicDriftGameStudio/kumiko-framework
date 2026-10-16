@@ -30,57 +30,12 @@ afterEach(() => {
   delete process.env["PUPPETEER_SERVICE_URL"];
 });
 
-function mockPdfResponse(bytes: Uint8Array): Response {
-  // @cast-boundary engine-bridge — Uint8Array is a valid BodyInit at runtime
-  // (Bun + Node 22+), but lib.dom.d.ts types BodyInit without TypedArray.
-  return new Response(bytes as unknown as BodyInit, {
-    status: 200,
-    headers: { "Content-Type": "application/pdf" },
-  });
-}
-
 function mockPngResponse(bytes: Uint8Array): Response {
   return new Response(bytes as unknown as BodyInit, {
     status: 200,
     headers: { "Content-Type": "image/png" },
   });
 }
-
-describe("puppeteerRender — document-pdf", () => {
-  test("returns RenderResponse mit kind=document-pdf + pdfBytes", async () => {
-    const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]); // %PDF-
-    installFetchMock(mock().mockResolvedValueOnce(mockPdfResponse(pdfBytes)));
-    const req: RenderRequest = {
-      kind: "document-pdf",
-      payload: { content: "<h1>Test</h1>" },
-    };
-    const result = await puppeteerRender(req, STUB_CTX);
-    expect(result.kind).toBe("document-pdf");
-    if (result.kind === "document-pdf") {
-      expect(result.pdfBytes).toEqual(pdfBytes);
-      expect(result.sizeBytes).toBe(5);
-    }
-  });
-
-  test("PDF-options werden im Request-Body weitergeleitet", async () => {
-    const fetchMock = mock().mockResolvedValueOnce(mockPdfResponse(new Uint8Array([0x25])));
-    installFetchMock(fetchMock);
-    await puppeteerRender(
-      {
-        kind: "document-pdf",
-        payload: { content: "<p>x</p>" },
-        options: { format: "Letter", marginMm: { top: 20 } },
-      },
-      STUB_CTX,
-    );
-    const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(opts.body as string) as {
-      options?: { format?: string; marginMm?: { top?: number } };
-    };
-    expect(body.options?.format).toBe("Letter");
-    expect(body.options?.marginMm?.top).toBe(20);
-  });
-});
 
 describe("puppeteerRender — image-snapshot", () => {
   test("PNG-response mapped to kind=image-snapshot, format=png", async () => {
@@ -115,9 +70,22 @@ describe("puppeteerRender — Validation", () => {
 
   test("empty content → RendererError invalid_payload", async () => {
     const req: RenderRequest = {
-      kind: "document-pdf",
+      kind: "image-snapshot",
       payload: { content: "" },
     };
     await expect(puppeteerRender(req, STUB_CTX)).rejects.toThrow(/required/);
+  });
+
+  test("missing auth token → RendererError unavailable with the config message", async () => {
+    delete process.env["PUPPETEER_AUTH_TOKEN"];
+    const req: RenderRequest = {
+      kind: "document-pdf",
+      payload: { slug: "invoice", locale: "de", variables: {} },
+    };
+    await expect(puppeteerRender(req, STUB_CTX)).rejects.toMatchObject({
+      name: RendererError.name,
+      code: "unavailable",
+      message: expect.stringContaining("PUPPETEER_AUTH_TOKEN"),
+    });
   });
 });

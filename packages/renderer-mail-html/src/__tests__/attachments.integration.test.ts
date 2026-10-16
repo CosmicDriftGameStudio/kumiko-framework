@@ -70,6 +70,7 @@ const INVOICE = qn(FEATURE, QnTypes.notify, "invoice");
 const INHERIT = qn(FEATURE, QnTypes.notify, "inherit");
 const IMMEDIATE = qn(FEATURE, QnTypes.notify, "immediate");
 const BRANDED = qn(FEATURE, QnTypes.notify, "branded");
+const PLAIN = qn(FEATURE, QnTypes.notify, "plain");
 const SEND = qn(FEATURE, QnTypes.write, "send");
 
 const LOGO_BODY = '<p>Your invoice</p><p><img data-resource="logo" alt="Logo"></p>';
@@ -97,6 +98,12 @@ const invoiceFeature = defineFeature(FEATURE, (r) => {
   r.notification("inherit", mailNotification("Inherited"));
   r.notification("immediate", mailNotification("Immediate"));
   r.notification("branded", mailNotification("Branded"));
+  r.notification("plain", {
+    variables: {},
+    localizedTemplate: () => ({
+      en: { body: "<p>Plain</p>", meta: { subject: "Plain", category: "transactional" as const } },
+    }),
+  });
   r.writeHandler(
     defineWriteHandler({
       name: "send",
@@ -131,6 +138,10 @@ const adminTenantC = tenantAdmin(33);
 const adminTenantD = tenantAdmin(34);
 const adminTenantE = tenantAdmin(35);
 const adminTenantF = tenantAdmin(36);
+const adminTenantG = tenantAdmin(37);
+
+// Job failures only surface as a bare error code; the job's error log names the failing step.
+const loggedErrors: string[] = [];
 
 const transport = createInMemoryTransport();
 const provider = createInMemoryFileProvider();
@@ -156,7 +167,14 @@ beforeAll(async () => {
       invoiceFeature,
     ],
     files: { storageProvider: provider },
-    jobs: { consumerLane: "worker" },
+    jobs: {
+      consumerLane: "worker",
+      runLogger: () => ({
+        onJobFailed: (_jobName, _jobId, _error, logs) => {
+          for (const entry of logs) if (entry.level === "error") loggedErrors.push(entry.message);
+        },
+      }),
+    },
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
       configResolver: resolver,
@@ -228,16 +246,23 @@ async function systemTemplateId(slug: string): Promise<string> {
   return found.id;
 }
 
-async function publishTenantOverride(as: typeof adminTenantA, slug: string): Promise<string> {
+async function publishTenantOverride(
+  as: typeof adminTenantA,
+  slug: string,
+  options: { content?: string; layoutSlug?: string } = {},
+): Promise<string> {
   const created = await stack.http.writeOk<{ id: string }>(
     TemplateResolverHandlers.upsertTenant,
     {
       slug,
       kind: "mail",
       locale: "en",
-      content: LOGO_BODY,
+      content: options.content ?? LOGO_BODY,
       contentFormat: "html",
-      meta: { subject: "Tenant subject" },
+      meta: {
+        subject: "Tenant subject",
+        ...(options.layoutSlug !== undefined && { layoutSlug: options.layoutSlug }),
+      },
       variableSchema: {},
     },
     as,
@@ -257,7 +282,14 @@ async function sendMail(
     { type, ...(fileRefId && { fileRefId }), ...(immediate && { immediate }) },
     as,
   );
-  await stack.drainJobs();
+  loggedErrors.length = 0;
+  try {
+    await stack.drainJobs();
+  } catch (error) {
+    throw new Error(`${String(error)} | logged: ${[...new Set(loggedErrors)].join(" | ")}`, {
+      cause: error,
+    });
+  }
   const mail = transport.sent.at(-1);
   if (mail === undefined) throw new Error("no mail was sent");
   return mail;
@@ -351,6 +383,39 @@ describe("mail attachments: inline logo and file attachment", () => {
     expect(mail.attachments ?? []).toHaveLength(0);
   });
 
+  test("an image in the data-header of a tenant layout is sent as an inline attachment", async () => {
+    const layout = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "letterhead",
+        kind: "mail-layout",
+        locale: "en",
+        content:
+          '<div data-header><img data-resource="logo" alt="Logo"></div><div data-content></div><div data-footer></div>',
+        contentFormat: "html",
+        meta: {},
+        variableSchema: {},
+      },
+      adminTenantG,
+    );
+    await stack.http.writeOk(TemplateResolverHandlers.publish, { id: layout.id }, adminTenantG);
+    const logoFileRefId = await uploadResource(adminTenantG, { templateId: layout.id });
+    await publishTenantOverride(adminTenantG, PLAIN, {
+      content: "<p>Plain</p>",
+      layoutSlug: "letterhead",
+    });
+
+    const mail = await sendMail(adminTenantG, PLAIN);
+
+    expect(mail.html).toContain('src="cid:logo"');
+    expect(mail.attachments).toHaveLength(1);
+    expect(mail.attachments?.[0]).toMatchObject({ kind: "inline", cid: "logo" });
+    expect(Buffer.from(mail.attachments?.[0]?.content ?? [])).toEqual(
+      Buffer.from(await storedBytes(logoFileRefId)),
+    );
+  });
+
+  // Stays last: its deliberately failing send job is retried with a backoff that can outlive the drain.
   test("a file attachment of another tenant is not sent", async () => {
     const foreignPdf = await upload(adminTenantF, PDF_BYTES, {
       name: "foreign.pdf",

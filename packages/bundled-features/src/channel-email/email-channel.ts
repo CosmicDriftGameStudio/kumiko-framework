@@ -12,6 +12,7 @@ import {
   fileAttachmentRefSchema,
   MAX_EMAIL_ATTACHMENTS,
   type RenderedMessage,
+  renderedPdfAttachmentRefSchema,
 } from "../delivery/index.js";
 import { decryptStoredPii } from "../shared/index.js";
 import { guardEmailMessage } from "./pii-guard.js";
@@ -87,15 +88,25 @@ function emailEnvelopeFrom(data: Readonly<Record<string, unknown>> | undefined):
   };
 }
 
-const fileAttachmentsSchema = z.array(fileAttachmentRefSchema).max(MAX_EMAIL_ATTACHMENTS);
+const fileAttachmentsSchema = z
+  .array(z.discriminatedUnion("kind", [fileAttachmentRefSchema, renderedPdfAttachmentRefSchema]))
+  .max(MAX_EMAIL_ATTACHMENTS);
 
-// Only kind "file" may come from notify data; inline images are created by the renderer alone.
+// Only kinds "file" and "rendered-pdf" may come from notify data; inline images are created by the renderer alone.
 // Invalid input throws instead of dropping the attachment silently.
 export function fileAttachmentsFrom(
   data: Readonly<Record<string, unknown>> | undefined,
+  messageLocale?: string,
 ): readonly EmailAttachmentRef[] {
   const raw = data?.["attachments"];
-  return raw === undefined ? [] : fileAttachmentsSchema.parse(raw);
+  if (raw === undefined) return [];
+  return fileAttachmentsSchema
+    .parse(raw)
+    .map((ref) =>
+      ref.kind === "rendered-pdf" && ref.locale === undefined && messageLocale !== undefined
+        ? { ...ref, locale: messageLocale }
+        : ref,
+    );
 }
 
 const INLINE_EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = {
@@ -118,6 +129,19 @@ async function resolveAttachments(
   const resolved: EmailAttachment[] = [];
   for (const ref of refs) {
     const found = await ctx.readAttachment(ref);
+    if (ref.kind === "rendered-pdf") {
+      if (found === null) {
+        throw new Error(`email channel: rendering attachment "${ref.fileName}" returned nothing`);
+      }
+      resolved.push({
+        kind: "rendered-pdf",
+        templateSlug: ref.templateSlug,
+        fileName: ref.fileName,
+        content: found.content,
+        contentType: found.contentType,
+      });
+      continue;
+    }
     if (found === null) {
       // A missing inline image only degrades the look; a missing file is content the recipient expects.
       if (ref.kind === "inline") continue;
@@ -193,7 +217,7 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
       const { html, subject, text, attachments } = rendered ?? (await renderMessage(message, ctx));
       const envelope = emailEnvelopeFrom(message.data);
       const resolvedAttachments = await resolveAttachments(
-        [...(attachments ?? []), ...fileAttachmentsFrom(message.data)],
+        [...(attachments ?? []), ...fileAttachmentsFrom(message.data, message.locale)],
         ctx,
       );
       await transport.send(

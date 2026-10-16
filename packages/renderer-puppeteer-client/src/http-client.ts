@@ -16,7 +16,9 @@ export type FetchResult = {
 // target — what `internal` buys here is http(s)-scheme enforcement and
 // redirects confined to that same origin (scheme, host, port), so a compromised
 // or misrouted puppeteer-service cannot bounce the Bearer token elsewhere.
-function serviceEgress(serviceUrl: string): (raw: string, init?: RequestInit) => Promise<Response> {
+export function serviceEgress(
+  serviceUrl: string,
+): (raw: string, init?: RequestInit) => Promise<Response> {
   let parsed: URL;
   try {
     parsed = new URL(serviceUrl);
@@ -62,10 +64,9 @@ export async function postRender(config: ClientConfig, body: unknown): Promise<F
       // 5xx or network error: continue to the next attempt
     }
   }
-  // Alle Retries exhausted
   throw new RendererError(
-    `renderer-puppeteer-client: all ${config.maxRetries + 1} attempts failed — last error: ${lastError?.message ?? "unknown"}`,
-    "other",
+    `puppeteer-service is not reachable at ${config.serviceUrl}: ${lastError?.message ?? "unknown"}`,
+    "unavailable",
   );
 }
 

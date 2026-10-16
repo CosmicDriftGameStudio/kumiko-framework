@@ -515,6 +515,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "errors.rate_limited": "Zu viele Anfragen. Bitte versuche es in Kürze erneut.",
   "errors.rate_limit_unavailable":
     "Die Anfragenbegrenzung ist vorübergehend nicht verfügbar. Bitte versuche es in Kürze erneut.",
+  "errors.puppeteer_unavailable":
+    "Der PDF-Dienst ist nicht erreichbar. PDFs können gerade nicht erzeugt werden.",
   "errors.recordLocked": "Dieser Eintrag ist gesperrt und kann nicht mehr geändert werden.",
   "errors.unconfigured": "Diese Funktion ist noch nicht konfiguriert.",
   "errors.uniqueViolation": "Dieser Eintrag existiert bereits.",
