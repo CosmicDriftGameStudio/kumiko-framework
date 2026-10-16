@@ -620,6 +620,17 @@ jobs:
             exit 1
           fi
 
+      - name: Upload e2e screenshots
+        # The sample apps write their screenshot specs to $RUNNER_TEMP/screenshots (see above);
+        # uploaded even when a suite failed so the shots can be looked at.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: ${{ runner.temp }}/screenshots
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Stop services
         if: always()
         uses: ./.github/actions/kumiko-services/stop

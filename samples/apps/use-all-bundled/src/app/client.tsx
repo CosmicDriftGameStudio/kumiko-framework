@@ -33,10 +33,12 @@ import { tenantClient } from "@cosmicdrift/kumiko-bundled-features/tenant/web";
 import { tierEngineClient } from "@cosmicdrift/kumiko-bundled-features/tier-engine/web";
 import { userDataRightsClient } from "@cosmicdrift/kumiko-bundled-features/user-data-rights/web";
 import { userProfileClient } from "@cosmicdrift/kumiko-bundled-features/user-profile/web";
+import { documentDesignerClient } from "@cosmicdrift/kumiko-document-designer/web";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine/types";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import { type ClientFeatureDefinition, createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { PDF_TEMPLATE_EDITOR_SCREEN_ID } from "./auth-constants";
 import { AppShell } from "./shell";
 
 const APP_TRANSLATIONS: TranslationsByLocale = {
@@ -121,6 +123,9 @@ createKumikoApp({
     // nav node. Points at SYSTEM_TENANT because that is where the legal and
     // marketing copy is seeded.
     textBlocksClient({ navId: "app-screens:nav:content", tenantId: SYSTEM_TENANT_ID }),
+    // PDF template editor with live PDF preview, mounted as the custom screen
+    // app-screens declares (no nav entry; opened by URL).
+    documentDesignerClient(PDF_TEMPLATE_EDITOR_SCREEN_ID),
     appScreens,
   ],
 });

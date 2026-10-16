@@ -298,6 +298,8 @@ type DocumentInput = {
   readonly locale: string;
   readonly variables: Readonly<Record<string, unknown>>;
   readonly draft?: DocumentPdfDraft;
+  /** Whose row the draft edits: a SystemAdmin edits the system row, everyone else the tenant's own. */
+  readonly draftScope?: "system" | "tenant";
 };
 
 type PageMarkers = "chromium" | "preview";
@@ -318,8 +320,11 @@ type AssembledDocument = {
 
 // The draft comes from a caller outside the write pipeline, so it passes the document
 // sanitizer and the meta check again instead of being trusted as already gated.
+// Images come from the caller's own row of this slug and locale whatever its status: a
+// tenant that only saved a draft has no active row, yet its draft already links the logo.
 function applyPdfDraft(
   stored: TemplateResource | null,
+  own: TemplateResource | null,
   draft: DocumentPdfDraft,
   slug: string,
   locale: string,
@@ -331,27 +336,30 @@ function applyPdfDraft(
       "invalid_payload",
     );
   }
-  const base: TemplateResource = stored ?? {
-    id: "",
-    version: 0,
-    tenantId: "",
-    slug,
-    kind: "document-pdf",
-    locale,
-    title: null,
-    folder: null,
-    content: "",
-    contentFormat: "html",
-    variableSchema: {},
-    linkedResources: {},
-    meta: null,
-    scope: "tenant",
-    parentTemplateId: null,
-    status: "draft",
-    modifiedAt: null,
-  };
+  const base: TemplateResource = stored ??
+    own ?? {
+      id: "",
+      version: 0,
+      tenantId: "",
+      slug,
+      kind: "document-pdf",
+      locale,
+      title: null,
+      folder: null,
+      content: "",
+      contentFormat: "html",
+      variableSchema: {},
+      linkedResources: {},
+      meta: null,
+      scope: "tenant",
+      parentTemplateId: null,
+      status: "draft",
+      modifiedAt: null,
+    };
   return {
     ...base,
+    linkedResources: { ...(own ?? stored ?? base).linkedResources },
+    scope: (own ?? base).scope,
     content: sanitized.html,
     contentFormat: "html",
     meta: draft.meta,
@@ -373,6 +381,22 @@ async function findStoredPdfTemplate(
   }
 }
 
+async function findOwnPdfTemplate(
+  tplApi: TemplateResolverApi,
+  ctx: RendererContext,
+  slug: string,
+  locale: string,
+  scope: "system" | "tenant",
+): Promise<TemplateResource | null> {
+  return tplApi.findExact({
+    tenantId: ctx.tenantId,
+    slug,
+    kind: "document-pdf",
+    locale,
+    ...(scope === "system" && { scope }),
+  });
+}
+
 async function assembleDocument(
   input: DocumentInput,
   ctx: RendererContext,
@@ -385,6 +409,7 @@ async function assembleDocument(
       ? await resolvePdfTemplate(tplApi, ctx, slug, locale)
       : applyPdfDraft(
           await findStoredPdfTemplate(tplApi, ctx, slug, locale),
+          await findOwnPdfTemplate(tplApi, ctx, slug, locale, input.draftScope ?? "tenant"),
           input.draft,
           slug,
           locale,
@@ -471,7 +496,10 @@ export async function buildDocumentPdfRequest(
 
 // Prints an unsaved draft; the stored template of the slug only supplies images and the variable schema.
 export async function buildDocumentDraftPdfRequest(
-  req: DocumentPreviewRequest & { readonly draft: DocumentPdfDraft },
+  req: DocumentPreviewRequest & {
+    readonly draft: DocumentPdfDraft;
+    readonly draftScope?: "system" | "tenant";
+  },
   ctx: RendererContext,
 ): Promise<DocumentPdfRequest> {
   return toPdfRequest(await assembleDocument(req, ctx, "chromium"), req.locale);

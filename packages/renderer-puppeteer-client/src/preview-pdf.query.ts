@@ -40,6 +40,7 @@ export const previewPdfQuery = defineQueryHandler({
           slug,
           locale,
           variables: draft.sampleValues,
+          draftScope: query.user.roles.includes("SystemAdmin") ? "system" : "tenant",
           draft: {
             content: draft.content,
             meta: draft.meta,

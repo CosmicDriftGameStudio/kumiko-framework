@@ -95,6 +95,7 @@ import { createWaitlistFeature } from "@cosmicdrift/kumiko-bundled-features/wait
 import { workflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { DEV_TENANT_ID } from "./app/auth-constants";
 import { CAP_OVERVIEW_CAPS } from "./app/cap-overview-caps";
 import { capOverviewLabelsFeature } from "./app/cap-overview-labels-feature";
@@ -330,6 +331,9 @@ export const APP_FEATURES = [
   collectionLabelsFeature,
   createRendererFoundationFeature(),
   createRendererPdfFeature(),
+  // PDF printing for document templates; the print service is reached through
+  // PUPPETEER_SERVICE_URL + PUPPETEER_AUTH_TOKEN and only asked when a PDF is generated.
+  createRendererPuppeteerClientFeature(),
 
   // managed-pages: requires config (auto-bundled). Smoke resolver never serves
   // (boot-only). allowCustomCss:true boot-validates the CSS code path + emits

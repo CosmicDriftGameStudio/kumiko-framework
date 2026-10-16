@@ -287,7 +287,7 @@ beforeAll(async () => {
     TestUsers.systemAdmin,
   );
   invoiceTemplateId = invoice.id;
-  await uploadLogoFor(layoutTemplateId);
+  await uploadImageFor(layoutTemplateId, "logo");
 });
 
 afterAll(async () => {
@@ -310,8 +310,12 @@ afterEach(() => {
   }
 });
 
-async function uploadLogoFor(templateId: string): Promise<void> {
-  const token = await stack.jwt.sign(TestUsers.systemAdmin);
+async function uploadImageFor(
+  templateId: string,
+  key: string,
+  user: typeof TestUsers.systemAdmin = TestUsers.systemAdmin,
+): Promise<void> {
+  const token = await stack.jwt.sign(user);
   const fd = new FormData();
   fd.append("file", new File([Buffer.from(PNG_BYTES)], "logo.png", { type: "image/png" }));
   const { body, contentType } = await buildMultipartBody(fd);
@@ -324,8 +328,13 @@ async function uploadLogoFor(templateId: string): Promise<void> {
   const { id: sourceFileRefId } = (await res.json()) as { id: string };
   await stack.http.writeOk(
     TemplateResolverHandlers.resourceUpload,
-    { sourceFileRefId, templateId, key: "logo", tenantIdOverride: SYSTEM_TENANT_ID },
-    TestUsers.systemAdmin,
+    {
+      sourceFileRefId,
+      templateId,
+      key,
+      ...(user === TestUsers.systemAdmin ? { tenantIdOverride: SYSTEM_TENANT_ID } : {}),
+    },
+    user,
   );
 }
 
@@ -538,6 +547,33 @@ describe("preview-pdf", () => {
     expect(preview.sizeBytes).toBe(STUB_PDF.byteLength);
     expect(Buffer.from(preview.pdfBase64, "base64")).toEqual(Buffer.from(STUB_PDF));
     expect(preview.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  test("an image linked only by the caller's draft row is printed although no row is active", async () => {
+    const adminTenantE = tenantAdmin(45);
+    const draftRow = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "invoice",
+        kind: "document-pdf",
+        locale: "de",
+        content: "<p>Gespeicherter Entwurf</p>",
+        contentFormat: "html",
+        meta: { layoutSlug: "letterhead" },
+        variableSchema: {},
+        linkedResources: {},
+      },
+      adminTenantE,
+    );
+    await uploadImageFor(draftRow.id, "photo", adminTenantE);
+
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({ content: '<p><img data-resource="photo" alt="Foto"></p>' }),
+      adminTenantE,
+    );
+
+    expect(onlyStubRequest().html).toContain("data:image/png;base64,");
   });
 
   test("orientation, background and layout header/footer end up in the service request", async () => {
