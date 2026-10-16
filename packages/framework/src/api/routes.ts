@@ -101,6 +101,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
           result.failedIndex != null ? body.commands[result.failedIndex]?.type : undefined;
         logServerFault(err, requestId, failedType);
         const { error } = serializeError(err, requestId, requestContext.get()?.errorDocs);
+        setRetryAfterHeader(c, err);
         // Keep failedIndex + results alongside the error envelope so callers
         // can tell which command in the batch failed and inspect the partial
         // results from the successful commands before the rollback.
@@ -450,6 +451,13 @@ function logServerFault(err: KumikoError, requestId: string | undefined, type?: 
   });
 }
 
+// Same floor of 1 as the rate-limit middleware: "Retry-After: 0" invites an instant retry loop.
+function setRetryAfterHeader(c: Context, err: KumikoError): void {
+  // skip: most errors carry no retry hint, so the response gets no Retry-After header
+  if (err.retryAfterSeconds === undefined) return;
+  c.header("Retry-After", String(Math.max(1, Math.ceil(err.retryAfterSeconds))));
+}
+
 // For /write + /batch: keep the isSuccess flag so clients can flip on a single
 // boolean (mirrors the success shape). The actual error body is the
 // error-contract payload nested under .error.
@@ -457,6 +465,7 @@ function writeErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   const requestId = requestContext.get()?.requestId;
   logServerFault(err, requestId, type);
   const { error } = serializeError(err, requestId, requestContext.get()?.errorDocs);
+  setRetryAfterHeader(c, err);
   return c.json({ isSuccess: false, error }, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
 }
 
@@ -474,6 +483,7 @@ function queryErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   if (isClientAbort(err)) return clientAbortResponse(c, requestId, type);
   logServerFault(err, requestId, type);
   const body = serializeError(err, requestId, requestContext.get()?.errorDocs);
+  setRetryAfterHeader(c, err);
   return c.json(body, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
 }
 
@@ -494,6 +504,7 @@ export function handleUncaughtRouteError(err: Error, c: Context): Response | Pro
   if (isRequestAbortError(err, c.req.raw.signal)) return clientAbortResponse(c, requestId);
   const kumikoError = toKumiko(err);
   logServerFault(kumikoError, requestId);
+  setRetryAfterHeader(c, kumikoError);
   return c.json(
     serializeError(kumikoError, requestId, requestContext.get()?.errorDocs),
     kumikoError.httpStatus as ContentfulStatusCode,

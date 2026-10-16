@@ -53,6 +53,9 @@ import { chainReservations } from "./reservation-chain.js";
 export type CalendarCapDef = {
   readonly capName: string;
   readonly periodStartIso: string;
+  // Default: end of the calendar month that starts at periodStartIso.
+  readonly periodEndIso?: string;
+  readonly i18nKey?: string;
   readonly limit: number;
   readonly profile: CapToleranceProfileName;
   /** Increment-amount post-success. Default 1. */

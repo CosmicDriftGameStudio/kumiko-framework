@@ -17,6 +17,8 @@ export type ErrorCtorInput = {
   readonly i18nParams?: Readonly<Record<string, unknown>>;
   readonly details?: unknown;
   readonly cause?: Error;
+  // Seconds until a retry can succeed; the API layer turns it into a Retry-After header.
+  readonly retryAfterSeconds?: number;
 };
 
 export abstract class KumikoError extends Error {
@@ -25,6 +27,7 @@ export abstract class KumikoError extends Error {
   readonly i18nKey: string;
   readonly i18nParams: Readonly<Record<string, unknown>> | undefined;
   readonly details: unknown;
+  readonly retryAfterSeconds: number | undefined;
 
   constructor(input: ErrorCtorInput) {
     super(input.message, input.cause ? { cause: input.cause } : undefined);
@@ -32,6 +35,7 @@ export abstract class KumikoError extends Error {
     this.i18nKey = input.i18nKey;
     this.i18nParams = input.i18nParams;
     this.details = input.details;
+    this.retryAfterSeconds = input.retryAfterSeconds;
   }
 }
 

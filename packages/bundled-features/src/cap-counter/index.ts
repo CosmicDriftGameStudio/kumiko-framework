@@ -29,6 +29,7 @@ export {
   CapExceededError,
   type CapToleranceProfile,
   type CapToleranceProfileName,
+  calendarMonthPeriodEndIso,
   currentCalendarMonthStartIso,
   type EnforceCapResult,
   enforceCap,
