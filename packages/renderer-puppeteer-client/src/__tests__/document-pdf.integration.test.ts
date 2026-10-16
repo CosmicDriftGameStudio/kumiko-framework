@@ -65,7 +65,7 @@ import * as z from "zod";
 import { renderedPdfEntity, renderedPdfsTable } from "../entity";
 import { createRendererPuppeteerClientFeature } from "../feature";
 import { RendererPuppeteerClientQueries } from "../qualified-names";
-import { renderAndStorePdf } from "../render-and-store";
+import { renderPdfBeforeTransaction, storeRenderedPdf } from "../render-and-store";
 
 const FEATURE = "invoice-pdf";
 const GENERATE = qn(FEATURE, QnTypes.write, "generate");
@@ -147,8 +147,8 @@ const invoiceFeature = defineFeature(FEATURE, (r) => {
       name: "generate",
       schema: z.object({ number: z.string(), description: z.string().optional() }),
       access: { roles: ["TenantAdmin"] },
-      handler: async (event, ctx) =>
-        renderAndStorePdf(ctx, {
+      beforeTransaction: async (event, ctx) =>
+        renderPdfBeforeTransaction(ctx, {
           slug: "invoice",
           locale: "de",
           variables: {
@@ -159,6 +159,7 @@ const invoiceFeature = defineFeature(FEATURE, (r) => {
                 : [{ description: event.payload.description, amount: 100 }],
           },
         }),
+      handler: async (event, ctx) => storeRenderedPdf(ctx, event.prepared),
     }),
   );
   r.writeHandler(
@@ -352,7 +353,7 @@ function onlyStubRequest(): StubRequest {
   return request;
 }
 
-describe("document-pdf through renderAndStorePdf", () => {
+describe("document-pdf through renderPdfBeforeTransaction and storeRenderedPdf", () => {
   test("an invoice is rendered from the stored template and layout and stored with provenance", async () => {
     const result = await stack.http.writeOk<Generated>(GENERATE, { number: "R-1" }, adminTenantA);
 

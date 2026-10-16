@@ -5,7 +5,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import * as z from "zod";
 import { selectMany } from "../../bun-db/index.js";
 import { entityEventName } from "../../db/index.js";
-import { createEntity, createFileField, defineFeature } from "../../engine/index.js";
+import type { WriteResult } from "../../engine/index.js";
+import {
+  createEntity,
+  createFileField,
+  defineFeature,
+  defineWriteHandler,
+} from "../../engine/index.js";
 import { loadAggregate } from "../../event-store/index.js";
 import {
   createTestUser,
@@ -14,7 +20,11 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "../../stack/index.js";
-import { createFileRefFromBytes } from "../create-file-ref-from-bytes.js";
+import {
+  createFileRefFromBytes,
+  createFileRefFromUploadedBytes,
+  uploadFileBytesBeforeTransaction,
+} from "../create-file-ref-from-bytes.js";
 import { createFilesFeature } from "../feature.js";
 import { fileRefsTable } from "../file-ref-table.js";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.js";
@@ -44,6 +54,15 @@ const reportEntity = createEntity({
 
 let jobStoredIds: string[] = [];
 let jobStoreFailure: string | undefined;
+let capturedRelease: (() => Promise<void>) | undefined;
+let capturedStorageKey: string | undefined;
+
+const uploadedPayload = z.object({
+  storageKey: z.string(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  size: z.number(),
+});
 
 const fixtureFeature = defineFeature("file-ref-from-bytes-fixture", (r) => {
   r.entity("report", reportEntity);
@@ -71,6 +90,45 @@ const fixtureFeature = defineFeature("file-ref-from-bytes-fixture", (r) => {
       }),
     { access: { openToAll: { reason: "test fixture: every signed-in user may store bytes" } } },
   );
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "store-uploaded",
+      schema: uploadedPayload,
+      access: { openToAll: { reason: "test fixture: every signed-in user may store bytes" } },
+      handler: (event, ctx) => createFileRefFromUploadedBytes(ctx, event.payload),
+    }),
+  );
+
+  // Uploads in the pre-transaction phase; `createRow` decides whether the handler commits a row.
+  for (const [name, createRow] of [
+    ["two-phase-store", true],
+    ["two-phase-upload-only", false],
+  ] as const) {
+    r.writeHandler(
+      defineWriteHandler({
+        name,
+        schema: z.object({}),
+        access: { openToAll: { reason: "test fixture: every signed-in user may store bytes" } },
+        beforeTransaction: async (_event, ctx) => {
+          const uploaded = await uploadFileBytesBeforeTransaction(ctx, {
+            fileName: "report.pdf",
+            mimeType: "application/pdf",
+            data: PDF_BYTES,
+          });
+          if (uploaded.isSuccess) {
+            capturedRelease = uploaded.release;
+            capturedStorageKey = uploaded.data.storageKey;
+          }
+          return uploaded;
+        },
+        handler: async (event, ctx): Promise<WriteResult> =>
+          createRow
+            ? createFileRefFromUploadedBytes(ctx, event.prepared)
+            : { isSuccess: true as const, data: {} },
+      }),
+    );
+  }
 
   r.job("store-from-job", { trigger: { manual: true }, retries: 0 }, async (_payload, ctx) => {
     const result = await createFileRefFromBytes(
@@ -115,6 +173,8 @@ beforeEach(async () => {
   fileRefCountBeforeTest = await countTenantAFileRefs();
   jobStoredIds = [];
   jobStoreFailure = undefined;
+  capturedRelease = undefined;
+  capturedStorageKey = undefined;
 });
 
 type Stored = { id: string; fileName: string; mimeType: string; size: number; storageKey: string };
@@ -274,5 +334,66 @@ describe("createFileRefFromBytes from a job", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("application/pdf");
     expect((await download(userB, id)).status).toBe(404);
+  });
+});
+
+describe("two-phase upload (uploadFileBytesBeforeTransaction + createFileRefFromUploadedBytes)", () => {
+  const STORE_UPLOADED = "file-ref-from-bytes-fixture:write:store-uploaded";
+  const TWO_PHASE_STORE = "file-ref-from-bytes-fixture:write:two-phase-store";
+  const TWO_PHASE_UPLOAD_ONLY = "file-ref-from-bytes-fixture:write:two-phase-upload-only";
+
+  function uploadedFor(storageKey: string) {
+    return { storageKey, fileName: "report.pdf", mimeType: "application/pdf", size: 1 };
+  }
+
+  test("a storageKey of another tenant is rejected without creating a row", async () => {
+    const err = await stack.http.writeErr(
+      STORE_UPLOADED,
+      uploadedFor(`${tenantB}/unattached/none/file/stolen.pdf`),
+      userA,
+    );
+
+    expect(err.httpStatus).toBe(500);
+    expect(err.message).toContain("outside the caller's tenant prefix");
+    expect(await countTenantAFileRefs()).toBe(fileRefCountBeforeTest);
+  });
+
+  test("a traversal storageKey inside the own tenant prefix is rejected without creating a row", async () => {
+    const err = await stack.http.writeErr(
+      STORE_UPLOADED,
+      uploadedFor(`${tenantA}/unattached/../${tenantB}/file/stolen.pdf`),
+      userA,
+    );
+
+    expect(err.httpStatus).toBe(500);
+    expect(err.message).toContain("unsafe storageKey");
+    expect(JSON.stringify(err.details)).toContain("path-traversal segment");
+    expect(await countTenantAFileRefs()).toBe(fileRefCountBeforeTest);
+  });
+
+  test("the committed two-phase upload serves its bytes", async () => {
+    const stored = await stack.http.writeOk<Stored>(TWO_PHASE_STORE, {}, userA);
+
+    const res = await download(userA, stored.id);
+    expect(res.status).toBe(200);
+    expect(new Uint8Array(await res.arrayBuffer())).toEqual(PDF_BYTES);
+  });
+
+  test("release deletes the bytes when no row was committed", async () => {
+    await stack.http.writeOk(TWO_PHASE_UPLOAD_ONLY, {}, userA);
+    expect(provider.keys()).toEqual([capturedStorageKey ?? ""]);
+
+    await capturedRelease?.();
+
+    expect(provider.keys()).toHaveLength(0);
+  });
+
+  test("release keeps the bytes when the row exists (commit outcome unknown)", async () => {
+    await stack.http.writeOk(TWO_PHASE_STORE, {}, userA);
+    expect(provider.keys()).toEqual([capturedStorageKey ?? ""]);
+
+    await capturedRelease?.();
+
+    expect(provider.keys()).toEqual([capturedStorageKey ?? ""]);
   });
 });

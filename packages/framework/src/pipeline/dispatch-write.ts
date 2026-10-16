@@ -48,7 +48,11 @@ import {
   wrapToKumiko,
 } from "./dispatcher-utils.js";
 import { runPreHandlerGates } from "./pre-handler-gates.js";
-import { type ConsumedReservation, consumeReservation } from "./pre-transaction-reservations.js";
+import {
+  type ConsumedReservation,
+  consumeReservation,
+  hasPreTransactionPhase,
+} from "./pre-transaction-reservations.js";
 import { runProjections } from "./projections-runner.js";
 
 function getTable(
@@ -496,9 +500,10 @@ async function executeWriteInner(
     return writeFailure(memberResolutionReadOnlyDenied());
   }
 
-  // A command the dispatcher reserved for was already billed against the rate limits; the
-  // gates only run again against the in-transaction state.
-  const reservation = handler.reserveBeforeTransaction ? consumeReservation(type) : undefined;
+  // A command the dispatcher ran pre-transaction phases for was already billed against the rate
+  // limits; the gates only run again against the in-transaction state.
+  const needsPreTransactionPhase = hasPreTransactionPhase(handler);
+  const reservation = needsPreTransactionPhase ? consumeReservation(type) : undefined;
   const gates = await runPreHandlerGates(
     ctx,
     handler,
@@ -510,13 +515,13 @@ async function executeWriteInner(
   if (!gates.isSuccess) return gates;
   const parsedPayload = gates.payload;
 
-  // A handler that reserves before the transaction cannot do so from inside an open one; running
-  // it unreserved would skip the check entirely, so a nested ctx.write of a different capped
-  // handler is rejected instead.
-  if (handler.reserveBeforeTransaction && !reservation) {
+  // A handler with a pre-transaction phase cannot run that phase from inside an open transaction;
+  // running it without would skip the reservation or the prepared data, so a nested ctx.write of
+  // such a handler is rejected instead.
+  if (needsPreTransactionPhase && !reservation) {
     return writeFailure(
       new InternalError({
-        message: `handler "${type}" reserves before the transaction and cannot run as a nested write unless the top-level command reserved it`,
+        message: `handler "${type}" has a pre-transaction phase (reserveBeforeTransaction/beforeTransaction) and cannot run as a nested write unless the top-level command ran it`,
       }),
     );
   }
@@ -590,7 +595,8 @@ async function executeWriteInner(
   // writeFailure, not via a rethrow) so batches roll back naturally.
   let result: WriteResult;
   try {
-    result = await handler.handler({ type, payload: parsedPayload, user }, handlerContext);
+    const event = { type, payload: parsedPayload, user, prepared: reservation?.prepared };
+    result = await handler.handler(event, handlerContext);
   } catch (e) {
     return writeFailure(wrapToKumiko(e));
   }

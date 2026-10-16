@@ -278,10 +278,10 @@ async function denyMemberResolutionWrite(): Promise<never> {
 
 // JobRunnerRef's declared type only carries handleEvent, but callers
 // routinely bracket-access a fuller runner — a Proxy denies ANY property read.
-function denyingJobRunnerProxy(): JobRunnerRef {
+function denyingJobRunnerProxy(denied: () => Error = memberResolutionReadOnlyDenied): JobRunnerRef {
   return new Proxy({} as JobRunnerRef, {
     get() {
-      throw memberResolutionReadOnlyDenied();
+      throw denied();
     },
   });
 }
@@ -379,6 +379,43 @@ export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): H
         handlerContext.entityCache,
         MEMBER_READ_ENTITY_CACHE_METHODS,
       ),
+    }),
+  };
+}
+
+function beforeTransactionDenied(surface: string): InternalError {
+  return new InternalError({
+    message: `ctx.${surface} is not available before the transaction; move it into the handler`,
+  });
+}
+
+function denyBeforeTransaction(surface: string): () => never {
+  return () => {
+    throw beforeTransactionDenied(surface);
+  };
+}
+
+// Fail-closed context for a handler's beforeTransaction phase: no transaction is open, so every
+// write or side-effect surface that would commit on its own or outlive a rollback throws.
+export function applyBeforeTransactionReadOnly(handlerContext: HandlerContext): HandlerContext {
+  return {
+    ...handlerContext,
+    write: denyBeforeTransaction("write"),
+    writeAs: denyBeforeTransaction("writeAs"),
+    appendEvent: denyBeforeTransaction("appendEvent"),
+    unsafeAppendEvent: denyBeforeTransaction("unsafeAppendEvent"),
+    tryAppendEvent: denyBeforeTransaction("tryAppendEvent"),
+    fetchForWriting: denyBeforeTransaction("fetchForWriting"),
+    archiveStream: denyBeforeTransaction("archiveStream"),
+    restoreStream: denyBeforeTransaction("restoreStream"),
+    snapshotAggregate: denyBeforeTransaction("snapshotAggregate"),
+    scheduleAfterCommit: denyBeforeTransaction("scheduleAfterCommit"),
+    dbOutsideTransaction: undefined,
+    outsideTransaction: undefined,
+    forTenant: undefined,
+    ...(handlerContext.notify && { notify: denyBeforeTransaction("notify") }),
+    ...(handlerContext.jobRunner && {
+      jobRunner: denyingJobRunnerProxy(() => beforeTransactionDenied("jobRunner")),
     }),
   };
 }

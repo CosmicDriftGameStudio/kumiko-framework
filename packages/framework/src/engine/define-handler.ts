@@ -19,13 +19,32 @@ export type {
   WriteHandlerInput,
 } from "./types/define-handler.js";
 
+function pickPreTransactionPhases<
+  TName extends string,
+  TSchema extends ZodType,
+  TData,
+  TMap extends object,
+  TPrepared,
+>(
+  def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared>,
+): Pick<
+  WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared>,
+  "reserveBeforeTransaction" | "beforeTransaction"
+> {
+  return {
+    ...(def.reserveBeforeTransaction && { reserveBeforeTransaction: def.reserveBeforeTransaction }),
+    ...(def.beforeTransaction && { beforeTransaction: def.beforeTransaction }),
+  };
+}
+
 export function defineWriteHandler<
   const TName extends string,
   TSchema extends ZodType,
   TData = unknown,
   TMap extends object = KumikoEventTypeMap,
+  TPrepared = undefined,
 >(
-  def: WriteHandlerInput<TName, TSchema, TData, TMap>,
+  def: WriteHandlerInput<TName, TSchema, TData, TMap, TPrepared>,
   // R6: a phantom rest-param. When the inferred response `TData` carries a
   // Secret<> anywhere, ContainsSecret<TData> is `true` and this resolves to a
   // 1-tuple the caller can't supply → compile error at the leak site. Clean
@@ -50,7 +69,7 @@ export function defineWriteHandler<
         secretLeak: "A handler response must not contain a Secret<> — call .reveal() and return the plaintext, or drop the field.",
       ]
     : []
-): WriteHandlerDefinition<TName, TSchema, TData, TMap> {
+): WriteHandlerDefinition<TName, TSchema, TData, TMap, TPrepared> {
   // Runtime-guard against accidentally setting BOTH handler+perform.
   // The discriminated-union type-error
   //   "Type 'PipelineDef<...>' is not assignable to type 'undefined'."
@@ -87,7 +106,7 @@ export function defineWriteHandler<
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
     ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
     ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
-    ...(def.reserveBeforeTransaction && { reserveBeforeTransaction: def.reserveBeforeTransaction }),
+    ...pickPreTransactionPhases(def),
     ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
   };
 

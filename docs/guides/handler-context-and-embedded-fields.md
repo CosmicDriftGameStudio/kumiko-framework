@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-08-13
+verified: 2026-10-16
 ---
 
 # Handler context and embedded fields
@@ -68,6 +68,29 @@ A handler wrapped in `withCapEnforcement(handler, capResolver)` from `cap-counte
 No connection is held across the handler, so capped requests cannot exhaust the pool, and the counter stream is not locked while the handler runs. A reservation covers one top-level command. A capped handler reached through a nested `ctx.write`, `writeAs` or a second run of the same type finds the reservation spent and fails with an `InternalError`. Book the nested work from the top-level handler instead, or make the capped handler the top-level command. If a commit fails with an unknown outcome, the release can under-count, so a wrapped handler must not book the same counter itself.
 
 `withRollingCapEnforcement` is unchanged: it checks inside the handler and books through the SystemAdmin-only `increment-rolling` handler, with no reservation.
+
+## External calls run before the transaction
+
+A call to a slow external service (the PDF print service, later AI providers) must not run inside the handler transaction, because the transaction holds a pool connection for as long as the call takes. A write handler declares a `beforeTransaction` phase for it. The dispatcher runs the phases in a fixed order: pre-handler gates, then `reserveBeforeTransaction` (if any), then `beforeTransaction`, then the transaction with the handler.
+
+```ts illustration
+defineWriteHandler({
+  name: "generate",
+  schema,
+  access,
+  beforeTransaction: (event, ctx) =>
+    renderPdfBeforeTransaction(ctx, { slug: "invoice", locale: "de", variables: { number: event.payload.number } }),
+  handler: (event, ctx) => storeRenderedPdf(ctx, event.prepared),
+});
+```
+
+- The phase returns `{ isSuccess: true, data, release? }` or a failure result. `data` reaches the handler as `event.prepared`, typed from the phase.
+- A failure result or a throw rejects the write before anything is written. Earlier reservations and phase releases of the same batch are released.
+- `release` runs whenever the handler transaction does not commit: failure result, throw, rollback, and a failed commit with unknown outcome. Because the outcome can be unknown, a release must tolerate a commit that actually happened. `uploadFileBytesBeforeTransaction` deletes its bytes only if no `file_refs` row with that storage key exists.
+- A handler with a `beforeTransaction` phase cannot run as a nested `ctx.write`; the dispatcher fails it with an `InternalError`, like a capped handler.
+- No transaction is open in the phase. `ctx.write`, `writeAs`, `appendEvent`, `fetchForWriting`, `scheduleAfterCommit`, `notify` and the job runner throw there. Reads through `ctx.db` work. A write through `ctx.db` or `ctx.systemDb` commits on its own and survives a rollback, so do not write in the phase; move it into the handler. `forTenant` and the outside-transaction handles are unavailable.
+- In an `r.systemScope()` handler `ctx.db` is fail-closed, so the release of `uploadFileBytesBeforeTransaction` cannot check for a committed row and keeps the bytes (logged).
+- A crash between the phase and the commit leaves what the phase uploaded in storage, because no job sweeps an original file without a `file_refs` row.
 
 ## `r.systemScope()` handlers self-check through `ctx.systemDb`
 

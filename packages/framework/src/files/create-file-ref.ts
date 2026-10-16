@@ -89,6 +89,20 @@ export type CreatedFileRef = {
   readonly storageKey: string;
 };
 
+export type UploadedFileBytes = {
+  readonly storageKey: string;
+  readonly fileName: string;
+  readonly mimeType: string;
+  readonly size: number;
+  readonly entityType?: string | undefined;
+  readonly entityId?: string | undefined;
+  readonly fieldName?: string | undefined;
+};
+
+export type UploadBytesOutcome =
+  | { readonly kind: "uploaded"; readonly uploaded: UploadedFileBytes }
+  | { readonly kind: "rejected"; readonly error: string };
+
 export type StoreFileOutcome =
   | { readonly kind: "created"; readonly fileRef: CreatedFileRef }
   | { readonly kind: "rejected"; readonly error: string }
@@ -164,17 +178,17 @@ function acceptFile(
   };
 }
 
-// The one upload pipeline behind POST /files and createFileRefFromBytes.
-export async function storeFileAsFileRef(
-  deps: StoreFileDeps,
+// Upload step: validates and writes the binary. Outside any transaction on purpose — network/disk
+// I/O doesn't belong inside a PG connection's tx window.
+export async function writeAcceptedFileBytes(
+  deps: Pick<StoreFileDeps, "user" | "registry" | "defaultMaxUploadSize" | "writeBytes">,
   input: StoreFileInput,
-): Promise<StoreFileOutcome> {
+): Promise<UploadBytesOutcome> {
   const { fileName, data, entityType, entityId, fieldName } = input;
   const accepted = acceptFile(deps, input);
   if (accepted.kind === "rejected") return accepted;
   const { mimeType, extension } = accepted;
 
-  const fileRefId = generateId();
   const storageKey = buildStorageKey(
     deps.user.tenantId,
     entityType ?? "unattached",
@@ -184,41 +198,74 @@ export async function storeFileAsFileRef(
     generateId(),
     extension,
   );
-
-  // Write binary FIRST (outside the tx — network/disk I/O doesn't belong
-  // inside a PG connection's tx window). A failed create deletes the bytes
-  // again below; a later rollback of an enclosing transaction cannot, so
-  // those are orphaned for the cleanup-jobs to sweep. Losing a row on
-  // append-failure is acceptable; a committed row with a missing binary is not.
   await deps.writeBytes(storageKey, data, mimeType);
 
-  // id is explicit so the response + storageKey stay consistent; tenantId,
-  // insertedAt and insertedById are set by applyEntityEvent from the event metadata.
-  const result = await getFileRefExecutor().create(
-    {
-      id: fileRefId,
+  return {
+    kind: "uploaded",
+    uploaded: {
       storageKey,
       fileName,
       mimeType,
       size: data.byteLength,
-      entityType: entityType ?? null,
-      entityId: entityId ?? null,
-      fieldName: fieldName ?? null,
+      entityType,
+      entityId,
+      fieldName,
+    },
+  };
+}
+
+// Row step: id is explicit so the response + storageKey stay consistent; tenantId, insertedAt and
+// insertedById are set by applyEntityEvent from the event metadata.
+export async function createFileRefRow(
+  deps: Pick<StoreFileDeps, "user" | "tenantDb">,
+  uploaded: UploadedFileBytes,
+): Promise<{ readonly fileRef: CreatedFileRef } | { readonly failure: WriteFailure }> {
+  const fileRefId = generateId();
+  const result = await getFileRefExecutor().create(
+    {
+      id: fileRefId,
+      storageKey: uploaded.storageKey,
+      fileName: uploaded.fileName,
+      mimeType: uploaded.mimeType,
+      size: uploaded.size,
+      entityType: uploaded.entityType ?? null,
+      entityId: uploaded.entityId ?? null,
+      fieldName: uploaded.fieldName ?? null,
     },
     deps.user,
     deps.tenantDb,
   );
-  if (!result.isSuccess) {
-    try {
-      await deps.deleteBytes(storageKey);
-    } catch {
-      // skip: the create failure is the error worth reporting; leftover bytes are swept by cleanup-jobs.
-    }
-    return { kind: "failed", failure: result };
-  }
-
+  if (!result.isSuccess) return { failure: result };
   return {
-    kind: "created",
-    fileRef: { id: fileRefId, fileName, mimeType, size: data.byteLength, storageKey },
+    fileRef: {
+      id: fileRefId,
+      fileName: uploaded.fileName,
+      mimeType: uploaded.mimeType,
+      size: uploaded.size,
+      storageKey: uploaded.storageKey,
+    },
   };
+}
+
+// The one upload pipeline behind POST /files and createFileRefFromBytes.
+export async function storeFileAsFileRef(
+  deps: StoreFileDeps,
+  input: StoreFileInput,
+): Promise<StoreFileOutcome> {
+  const upload = await writeAcceptedFileBytes(deps, input);
+  if (upload.kind === "rejected") return upload;
+
+  // A failed create deletes the bytes again; a later rollback of an enclosing transaction or a
+  // crash cannot, so those bytes stay in storage (no job sweeps an original without a fileRef row).
+  // Losing a row on append-failure is acceptable; a committed row with a missing binary is not.
+  const row = await createFileRefRow(deps, upload.uploaded);
+  if ("failure" in row) {
+    try {
+      await deps.deleteBytes(upload.uploaded.storageKey);
+    } catch {
+      // skip: the create failure is the error worth reporting; the leftover bytes stay in storage.
+    }
+    return { kind: "failed", failure: row.failure };
+  }
+  return { kind: "created", fileRef: row.fileRef };
 }

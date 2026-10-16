@@ -286,6 +286,12 @@ export type WriteEvent<TPayload = unknown> = {
   readonly user: SessionUser;
 };
 
+/** What a handler sees when its `beforeTransaction` phase ran: the phase's `data` as `prepared`; absent for handlers without the phase. */
+export type PreparedWriteEvent<TPayload = unknown, TPrepared = unknown> = WriteEvent<TPayload> &
+  ([TPrepared] extends [undefined]
+    ? { readonly prepared?: undefined }
+    : { readonly prepared: TPrepared });
+
 export type QueryEvent<TPayload = unknown> = {
   readonly type: string;
   readonly payload: TPayload;
@@ -1423,6 +1429,20 @@ export type PreTransactionReservation = (
   ctx: HandlerContext,
 ) => Promise<ReservationRelease | ReservationHandle | undefined>;
 
+/** Outcome of a write handler's pre-transaction phase. `release` runs when the handler transaction does not commit (failure result, throw, rollback, failed commit with unknown outcome), so it must itself tolerate a commit that actually happened. */
+export type BeforeTransactionResult<TPrepared = unknown> =
+  | {
+      readonly isSuccess: true;
+      readonly data: TPrepared;
+      readonly release?: ReservationRelease;
+    }
+  | WriteFailure;
+
+export type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (
+  event: WriteEvent<TPayload>,
+  ctx: HandlerContext,
+) => Promise<BeforeTransactionResult<TPrepared>>;
+
 export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
@@ -1442,6 +1462,11 @@ export type WriteHandlerDef = {
   /** Reserves before the handler transaction opens. Reached through a nested ctx.write the
    *  reservation cannot run, so the dispatcher rejects it unless the top-level batch reserved it. */
   readonly reserveBeforeTransaction?: PreTransactionReservation;
+  /** Runs after all pre-handler gates (and after reserveBeforeTransaction) and before the
+   *  transaction opens: no transaction and no connection held, for external I/O and reads only.
+   *  Its `data` reaches the handler as `event.prepared`; a failure result or throw rejects the
+   *  write before anything is written. A handler with this phase cannot run as a nested ctx.write. */
+  readonly beforeTransaction?: BeforeTransactionPhase;
   /** Lets an anonymous `POST /api/write` for this handler proceed under
    *  SYSTEM_TENANT_ID when the host resolves no tenant. Boot requires
    *  `access.roles: ["anonymous"]` and a real `rateLimit`. */

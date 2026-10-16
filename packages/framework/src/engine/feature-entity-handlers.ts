@@ -18,10 +18,12 @@ import { splitNamedDefinition } from "./object-form.js";
 import type {
   AccessRule,
   AgentHandlerHints,
+  BeforeTransactionPhase,
   EntityDefinition,
   EntityRef,
   EscapeHatchDeclaration,
   HandlerRef,
+  KumikoEventTypeMap,
   NameOrRef,
   PayloadRateLimitOption,
   QueryHandlerFn,
@@ -146,8 +148,10 @@ export function buildEntityHandlerMethods<TName extends string>(
       if (!state.relations[entityName]) state.relations[entityName] = {};
       state.relations[entityName][resolvedRelationName] = resolvedDefinition;
     },
-    writeHandler<TName extends string, TSchema extends ZodType>(
-      nameOrDef: string | WriteHandlerDefinition<TName, TSchema>,
+    writeHandler<TName extends string, TSchema extends ZodType, TPrepared = undefined>(
+      nameOrDef:
+        | string
+        | WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
       schema?: TSchema,
       handler?: WriteHandlerFn<z.infer<TSchema>>,
       options?: {
@@ -183,6 +187,9 @@ export function buildEntityHandlerMethods<TName extends string>(
           ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
           ...(def.reserveBeforeTransaction && {
             reserveBeforeTransaction: def.reserveBeforeTransaction,
+          }),
+          ...(def.beforeTransaction && {
+            beforeTransaction: def.beforeTransaction as BeforeTransactionPhase, // @cast-boundary engine-bridge
           }),
           ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
           // Forward the pipeline-build closure so boot-validators and
