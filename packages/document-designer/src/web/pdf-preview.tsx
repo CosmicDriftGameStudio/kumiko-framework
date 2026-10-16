@@ -1,4 +1,5 @@
 // @runtime client
+/// <reference path="./pdfjs-worker.d.ts" />
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import { type ReactNode, Suspense, use, useCallback } from "react";

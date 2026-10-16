@@ -2,6 +2,7 @@
 // puppeteer-service prints. Everything the page needs (images, fonts-free CSS)
 // is embedded here: the service performs no network fetches at all.
 
+import { sanitizePdfAttachmentFileName } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   FileRefTooLargeError,
   readFileRefContent,
@@ -55,7 +56,6 @@ export type DocumentPdfRequest = {
 };
 
 const LINE_BREAKS = /[\r\n]+/g;
-const MAX_FILE_NAME_LENGTH = 200;
 const IMAGE_CONTENT_TYPE_PREFIX = "image/";
 const DEFAULT_MARGIN_MM = 15;
 const HEADER_MARGIN_MM = 30;
@@ -96,30 +96,6 @@ function escapeHtml(value: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
-}
-
-function stripControlCharacters(value: string): string {
-  return value
-    .split("")
-    .filter((char) => {
-      const code = char.charCodeAt(0);
-      return code > 0x1f && code !== 0x7f;
-    })
-    .join("");
-}
-
-// The name ends up in a Content-Disposition header or a mail attachment: content-disposition
-// (download) and nodemailer (send) apply the RFC 5987 encoding, so only separators and
-// control characters have to go here.
-export function sanitizePdfFileName(raw: string, slug: string): string {
-  const cleaned = stripControlCharacters(raw)
-    .replace(/[/\\";]/g, "-")
-    .replaceAll("..", "-")
-    .trim()
-    .slice(0, MAX_FILE_NAME_LENGTH)
-    .trim();
-  if (cleaned === "") return `${slug}.pdf`;
-  return cleaned.toLowerCase().endsWith(".pdf") ? cleaned : `${cleaned}.pdf`;
 }
 
 async function resolvePdfTemplate(
@@ -461,7 +437,7 @@ async function assembleDocument(
     const renderLine = (pattern: string): string =>
       compileDocumentSource(hbs, pattern, { noEscape: true })(context).replace(LINE_BREAKS, "");
     const title = meta?.metadata?.title === undefined ? slug : renderLine(meta.metadata.title);
-    const fileName = sanitizePdfFileName(
+    const fileName = sanitizePdfAttachmentFileName(
       meta?.fileName === undefined ? "" : renderLine(meta.fileName),
       slug,
     );
