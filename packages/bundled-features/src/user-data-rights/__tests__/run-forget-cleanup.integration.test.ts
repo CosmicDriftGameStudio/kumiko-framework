@@ -17,14 +17,22 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configureBlindIndexKey,
+  configurePiiSubjectKms,
+  decryptPiiFieldValues,
+  InMemoryKmsAdapter,
+  isPiiCiphertext,
+  PII_ERASED_SENTINEL,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   type JobContext,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
@@ -34,6 +42,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
+  resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
   seedRow,
@@ -51,11 +60,14 @@ import {
   USER_ANONYMIZED_DISPLAY_NAME,
   USER_DELETED_DISPLAY_NAME,
   USER_STATUS,
+  UserHandlers,
   userEntity,
   userTable,
 } from "../../user/index.js";
+import { seedUser as seedUserViaExecutor } from "../../user/seeding.js";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
 import { runForgetCleanup } from "../run-forget-cleanup.js";
 
 let stack: TestStack;
@@ -1130,5 +1142,104 @@ describe("run-forget-cleanup write handler (manual, risk high) via configuredPii
     await expect(kms.getKey({ kind: "user", userId: ALICE_ID })).rejects.toThrow(
       "Subject key erased",
     );
+  });
+});
+
+// user.updated carries the pre-update row in `previous`. With a subject KMS the
+// executor encrypts it under the user's key, so the forget run's eraseKey must
+// shred every historical copy of the address, including the one an earlier
+// email change left behind (#3718).
+describe("forget shreds user.updated.previous (email change before deletion)", () => {
+  const OLD_EMAIL = "alice.old-address@example.com";
+  const NEW_EMAIL = "alice.new-address@example.com";
+  const DISPLAY_NAME = "Alice Previous Shred";
+  const kmsRequest = { requestId: "forget-previous-shred-check" };
+
+  let kms: InMemoryKmsAdapter;
+
+  beforeEach(async () => {
+    await resetTestTables(stack.db, [eventsTable]);
+    kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    configureBlindIndexKey(Buffer.alloc(32, 7).toString("base64"));
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+    resetBlindIndexKeyForTests();
+  });
+
+  async function loadUserUpdatedPayloads(userId: string): Promise<Record<string, unknown>[]> {
+    const events = await selectMany<{ type: string; payload: Record<string, unknown> }>(
+      stack.db,
+      eventsTable,
+      { aggregateId: userId },
+    );
+    return events.filter((event) => event.type === "user.updated").map((event) => event.payload);
+  }
+
+  function emailsIn(payloads: readonly Record<string, unknown>[], key: "changes" | "previous") {
+    return payloads.flatMap((payload) => {
+      const email = (payload[key] as Record<string, unknown> | undefined)?.["email"];
+      return typeof email === "string" ? [email] : [];
+    });
+  }
+
+  async function decryptEmail(email: string): Promise<unknown> {
+    const out = await decryptPiiFieldValues({ email }, ["email"], kms, kmsRequest);
+    return out["email"];
+  }
+
+  test("previous.email of an earlier email change is unreadable after the forget run", async () => {
+    const { id: userId } = await seedUserViaExecutor(stack.db, {
+      email: OLD_EMAIL,
+      displayName: DISPLAY_NAME,
+      passwordHash: "hashed",
+      emailVerified: true,
+    });
+    await seedMembership(userId, TENANT_A);
+
+    await stack.http.writeOk(
+      UserHandlers.update,
+      { id: userId, version: 1, changes: { email: NEW_EMAIL } },
+      TestUsers.systemAdmin,
+    );
+
+    // Positive control: before the erase the key still opens the history.
+    const beforeForget = emailsIn(await loadUserUpdatedPayloads(userId), "previous");
+    expect(beforeForget).toHaveLength(1);
+    expect(isPiiCiphertext(beforeForget[0])).toBe(true);
+    expect(await decryptEmail(beforeForget[0] ?? "")).toBe(OLD_EMAIL);
+
+    await updateUserLifecycle(stack.db, userId, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+    });
+
+    await stack.http.writeOk(
+      "user-data-rights:write:run-forget-cleanup",
+      {},
+      TestUsers.systemAdmin,
+    );
+
+    expect((await fetchUser(userId))?.status).toBe(USER_STATUS.Deleted);
+    await expect(kms.getKey({ kind: "user", userId })).rejects.toThrow("Subject key erased");
+
+    const events = await selectMany(stack.db, eventsTable, { aggregateId: userId });
+    const serialized = JSON.stringify(events, (_key, value) =>
+      typeof value === "bigint" ? value.toString() : value,
+    );
+    expect(serialized).not.toContain(OLD_EMAIL);
+    expect(serialized).not.toContain(NEW_EMAIL);
+    expect(serialized).not.toContain(DISPLAY_NAME);
+
+    const payloads = await loadUserUpdatedPayloads(userId);
+    const emails = [...emailsIn(payloads, "changes"), ...emailsIn(payloads, "previous")];
+    // Email change `previous`, lifecycle update `previous` and anonymization `changes` are ciphertexts.
+    expect(emails.filter((email) => isPiiCiphertext(email)).length).toBeGreaterThanOrEqual(3);
+    for (const email of emails) {
+      expect(isPiiCiphertext(email) || email === PII_ERASED_SENTINEL).toBe(true);
+      expect(await decryptEmail(email)).toBe(PII_ERASED_SENTINEL);
+    }
   });
 });
