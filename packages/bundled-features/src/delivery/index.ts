@@ -14,6 +14,7 @@ export {
   DEFAULT_ATTEMPT_LOG_RETENTION_DAYS,
   runAttemptLogRetention,
 } from "./attempt-log-retention.js";
+export { createEmailAttachmentReader, createTemplateMailRenderer } from "./channel-context.js";
 export {
   type ChatWebhookChannelOptions,
   chatMessageText,
@@ -46,6 +47,7 @@ export {
   DeliveryJobs,
   DeliveryQueries,
   DeliveryStatus,
+  EMAIL_CHANNEL_NAME,
 } from "./constants.js";
 export {
   collectChannels,

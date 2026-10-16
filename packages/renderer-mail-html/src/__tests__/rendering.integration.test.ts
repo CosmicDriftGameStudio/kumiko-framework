@@ -589,3 +589,56 @@ describe("renderer-mail-html :: write gates", () => {
     expect(publishErr.code).toBe("validation_error");
   });
 });
+
+describe("renderer-mail-html :: draft", () => {
+  async function renderDraft(
+    tenant: TenantId,
+    draft: { content: string; subject: string },
+    slug: string = SLUG,
+  ) {
+    const result = await plugin.render(
+      {
+        kind: "mail",
+        payload: {
+          slug,
+          locale: LOCALE,
+          variables: PLAIN_VARIABLES,
+          draft: { content: draft.content, meta: { subject: draft.subject } },
+        },
+      },
+      { db: stack.db, registry: stack.registry, tenantId: tenant },
+    );
+    if (result.kind !== "mail") throw new Error(`unexpected render kind ${result.kind}`);
+    return result;
+  }
+
+  test("a draft replaces body and subject of the stored template and names no template", async () => {
+    const result = await renderDraft(tenantId(1), {
+      content: '<p>Entwurf <span data-variable="name"></span></p>',
+      subject: "Entwurfsbetreff {{name}}",
+    });
+    expect(result.subject).toBe("Entwurfsbetreff Anna");
+    expect(result.html).toContain("Entwurf Anna");
+    expect(result.html).not.toContain("Hallo Anna");
+    expect(result.template).toBeUndefined();
+  });
+
+  test("a slug without stored template renders from the draft alone", async () => {
+    const result = await renderDraft(
+      tenantId(1),
+      { content: "<p>Nur Entwurf</p>", subject: "Neu" },
+      "mail-demo:notify:unsaved",
+    );
+    expect(result.subject).toBe("Neu");
+    expect(result.html).toContain("Nur Entwurf");
+  });
+
+  test("a draft with a script tag or an event handler is rejected as invalid_payload", async () => {
+    await expect(
+      renderDraft(tenantId(1), { content: "<p>x</p><script>alert(1)</script>", subject: "s" }),
+    ).rejects.toMatchObject({ code: "invalid_payload" });
+    await expect(
+      renderDraft(tenantId(1), { content: '<p onclick="alert(1)">x</p>', subject: "s" }),
+    ).rejects.toMatchObject({ code: "invalid_payload" });
+  });
+});

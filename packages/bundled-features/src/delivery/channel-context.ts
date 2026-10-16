@@ -1,5 +1,5 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
-import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, type DbConnection, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigAccessor, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
@@ -14,8 +14,8 @@ import {
 import type { EmailAttachmentRef } from "./attachment-ref.js";
 import type { ChannelContext, RenderedMail } from "./types.js";
 
-function createMailRenderer(
-  db: DbConnection,
+export function createTemplateMailRenderer(
+  db: DbConnection | TenantDb,
   registry: Registry,
   tenantId: TenantId,
   config: ConfigAccessor | undefined,
@@ -49,8 +49,8 @@ const INLINE_IMAGE_CONTENT_TYPE_PREFIX = "image/";
 // Inline images may come from the system tenant (system template or tenant override of
 // one); file attachments only from the job's own tenant. Inline content that is not an
 // image is dropped, so a swapped fileRef id cannot smuggle a document into the mail body.
-function createAttachmentReader(
-  db: DbConnection,
+export function createEmailAttachmentReader(
+  db: DbConnection | TenantDb,
   tenantId: TenantId,
   filesForTenant: (tenantId: string) => FileContext | undefined,
 ): NonNullable<ChannelContext["readAttachment"]> {
@@ -88,9 +88,9 @@ export function buildChannelContext(
     sseBroker,
     tenantId,
     secrets,
-    renderMail: createMailRenderer(db, registry, tenantId, tenantConfig),
+    renderMail: createTemplateMailRenderer(db, registry, tenantId, tenantConfig),
     ...(filesForTenant !== undefined && {
-      readAttachment: createAttachmentReader(db, tenantId, filesForTenant),
+      readAttachment: createEmailAttachmentReader(db, tenantId, filesForTenant),
     }),
   };
 }

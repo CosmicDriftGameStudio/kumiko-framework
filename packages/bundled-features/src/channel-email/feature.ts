@@ -1,4 +1,7 @@
-import { DELIVERY_CHANNEL_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import {
+  DELIVERY_CHANNEL_EXTENSION,
+  EMAIL_CHANNEL_NAME,
+} from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createEmailChannel, type EmailChannelOptions } from "./email-channel.js";
 
@@ -17,7 +20,7 @@ export function createChannelEmailFeature(options: EmailChannelOptions): Feature
     r.requires("delivery");
 
     r.translations({ keys: { "delivery.channel.email": { en: "Email" } } });
-    r.useExtension(DELIVERY_CHANNEL_EXTENSION, "email", {
+    r.useExtension(DELIVERY_CHANNEL_EXTENSION, EMAIL_CHANNEL_NAME, {
       mode: channel.mode,
       resolve: channel.resolve,
       render: channel.render,

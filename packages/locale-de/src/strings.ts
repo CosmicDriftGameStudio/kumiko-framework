@@ -1124,6 +1124,16 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.template.targetExists":
     "Für die Sprache „{detail}“ gibt es schon eine Vorlage; überschreibe sie ausdrücklich, um sie zu ersetzen.",
   "templateResolver.warnings.resourceNotUploaded": "Bild nicht hochgeladen: {detail}",
+  "templateResolver.checks.resourcesResolved": "Alle Bilder sind vorhanden",
+  "templateResolver.checks.textPresent": "Eine Nur-Text-Fassung ist vorhanden",
+  "templateResolver.checks.sizeUnderCap": "Die Mail liegt unter dem Größenlimit von 10 MiB",
+  "templateResolver.checks.requiredPlaceholders": "Alle Pflicht-Platzhalter werden verwendet",
+  "templateResolver.errors.preview.renderFailed": "Die Vorschau konnte nicht erzeugt werden.",
+  "templateResolver.errors.testMail.noChannel":
+    "Es ist kein E-Mail-Kanal eingerichtet, daher kann keine Testmail gesendet werden.",
+  "templateResolver.errors.testMail.noAddress":
+    "Im Konto ist keine E-Mail-Adresse hinterlegt, an die die Testmail gehen könnte.",
+  "templateResolver.errors.testMail.failed": "Die Testmail konnte nicht gesendet werden.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Ressourcendateien lassen sich nur von einem Benutzer des System-Mandanten als Systemvorlagen importieren.",
   "templateResolver.errors.collection.kindNotAllowed":

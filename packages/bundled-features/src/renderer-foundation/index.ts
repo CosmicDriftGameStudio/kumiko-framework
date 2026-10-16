@@ -17,6 +17,7 @@ export {
   type ImageOptions,
   type InlineAttachmentRef,
   isRendererRegistrationPlugin,
+  type MailDraft,
   type MailPayload,
   type NotificationPayload,
   type PdfOptions,

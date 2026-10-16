@@ -8,6 +8,7 @@ import {
   DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
   DELIVERY_UNSUBSCRIBE_PATH,
   type DeliveryChannel,
+  EMAIL_CHANNEL_NAME,
   type EmailAttachmentRef,
   fileAttachmentRefSchema,
   MAX_EMAIL_ATTACHMENTS,
@@ -190,7 +191,7 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
   }
 
   return {
-    name: "email",
+    name: EMAIL_CHANNEL_NAME,
     mode: "queued",
 
     // resolveEmail typically returns the raw stored user.email, which is ciphertext under an active KMS.

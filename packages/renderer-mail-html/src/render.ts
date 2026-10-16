@@ -13,6 +13,7 @@
 import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
   type InlineAttachmentRef,
+  type MailDraft,
   type RenderedTemplateRef,
   type RendererContext,
   RendererError,
@@ -25,7 +26,9 @@ import {
   createTemplateResolverApi,
   isMailTemplateMeta,
   type MailTemplateMeta,
+  parseTemplateMeta,
   resolveTemplateVariables,
+  sanitizeDocumentHtml,
   sanitizeLayoutHtml,
   TemplateNotFoundError,
   type TemplateResource,
@@ -260,25 +263,86 @@ async function resolveLayout(
   }
 }
 
+async function findStoredMailTemplate(
+  tplApi: ReturnType<typeof createTemplateResolverApi>,
+  ctx: RendererContext,
+  slug: string,
+  locale: string,
+): Promise<TemplateResource | null> {
+  try {
+    return await tplApi.resolveTemplate({ tenantId: ctx.tenantId, slug, kind: "mail", locale });
+  } catch (e) {
+    if (e instanceof TemplateNotFoundError) return null;
+    throw new RendererError(
+      `renderer-mail-html: template resolution failed — ${describe(e)}`,
+      "other",
+    );
+  }
+}
+
+// The draft comes from a caller outside the write pipeline, so it passes the document
+// sanitizer and the meta check again instead of being trusted as already gated.
+function applyMailDraft(
+  stored: TemplateResource | null,
+  draft: MailDraft,
+  slug: string,
+  locale: string,
+): TemplateResource {
+  const sanitized = sanitizeDocumentHtml(draft.content);
+  if (!sanitized.ok) {
+    throw new RendererError(
+      `renderer-mail-html: draft of "${slug}" violates the document rules (${sanitized.violations.map((v) => v.code).join(", ")})`,
+      "invalid_payload",
+    );
+  }
+  const parsedMeta = parseTemplateMeta("mail", draft.meta);
+  if (!parsedMeta.ok || !isMailTemplateMeta(parsedMeta.meta)) {
+    throw new RendererError(
+      `renderer-mail-html: draft of "${slug}" has no valid mail meta`,
+      "invalid_payload",
+    );
+  }
+  const base: TemplateResource = stored ?? {
+    id: "",
+    version: 0,
+    tenantId: "",
+    slug,
+    kind: "mail",
+    locale,
+    title: null,
+    folder: null,
+    content: "",
+    contentFormat: "html",
+    variableSchema: {},
+    linkedResources: {},
+    meta: null,
+    scope: "tenant",
+    parentTemplateId: null,
+    status: "draft",
+    modifiedAt: null,
+  };
+  return {
+    ...base,
+    content: sanitized.html,
+    contentFormat: "html",
+    meta: parsedMeta.meta,
+    variableSchema: { ...(draft.variableSchema ?? base.variableSchema) },
+  };
+}
+
 async function resolveMailTemplate(
   tplApi: ReturnType<typeof createTemplateResolverApi>,
   ctx: RendererContext,
   slug: string,
   locale: string,
+  draft: MailDraft | undefined,
 ): Promise<{ readonly template: TemplateResource; readonly meta: MailTemplateMeta }> {
-  let template: TemplateResource;
-  try {
-    template = await tplApi.resolveTemplate({ tenantId: ctx.tenantId, slug, kind: "mail", locale });
-  } catch (e) {
-    if (e instanceof TemplateNotFoundError) {
-      throw new RendererError(
-        `renderer-mail-html: no mail template "${slug}" for locale "${locale}"`,
-        "invalid_payload",
-      );
-    }
+  const stored = await findStoredMailTemplate(tplApi, ctx, slug, locale);
+  const template = draft === undefined ? stored : applyMailDraft(stored, draft, slug, locale);
+  if (template === null) {
     throw new RendererError(
-      `renderer-mail-html: template resolution failed — ${describe(e)}`,
-      "other",
+      `renderer-mail-html: no mail template "${slug}" for locale "${locale}"`,
+      "invalid_payload",
     );
   }
   if (template.contentFormat !== "html") {
@@ -379,10 +443,10 @@ export async function mailHtmlRender(
       "invalid_payload",
     );
   }
-  const { slug, locale, variables, unsubscribeUrl } = req.payload;
+  const { slug, locale, variables, unsubscribeUrl, draft } = req.payload;
 
   const tplApi = createTemplateResolverApi(ctx.db);
-  const { template, meta } = await resolveMailTemplate(tplApi, ctx, slug, locale);
+  const { template, meta } = await resolveMailTemplate(tplApi, ctx, slug, locale, draft);
   const layout = await resolveLayout(tplApi, ctx, meta, locale);
 
   const [format, tenantName] = await Promise.all([
@@ -457,11 +521,13 @@ export async function mailHtmlRender(
     text,
     ...(previewText === undefined ? {} : { previewText }),
     ...(attachments.length > 0 && { attachments }),
-    template: {
-      templateId: template.id,
-      templateVersion: template.version,
-      scope: template.scope,
-    },
+    ...(draft === undefined && {
+      template: {
+        templateId: template.id,
+        templateVersion: template.version,
+        scope: template.scope,
+      },
+    }),
     ...(layout.ref === null ? {} : { layout: layout.ref }),
   };
 }
