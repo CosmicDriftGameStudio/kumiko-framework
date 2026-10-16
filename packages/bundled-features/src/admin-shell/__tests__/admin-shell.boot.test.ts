@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { access, createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createRegistry,
+  defineFeature,
+  validateBoot,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createAuditFeature } from "../../audit/feature.js";
 import { billingFoundationFeature } from "../../billing-foundation/index.js";
 import { createCapOverviewFeature } from "../../cap-overview/feature.js";
@@ -223,6 +228,64 @@ describe("admin-shell boot + workspace composition", () => {
     ).not.toContain("admin-shell:nav:tenant-caps");
     expect(registry.getNav("admin-shell:nav:my-caps")).toBeUndefined();
     expect(registry.getNav("admin-shell:nav:tenant-caps")).toBeUndefined();
+  });
+});
+
+// Stand-in for the document-designer package, which bundled-features must not depend on:
+// admin-shell only references its nav ids.
+const documentDesignerStandIn = defineFeature("document-designer", (r) => {
+  r.nav({
+    id: "templates",
+    label: "test.nav.templates",
+    screen: "document-designer:screen:templates",
+  });
+  r.nav({
+    id: "platform-templates",
+    label: "test.nav.platformTemplates",
+    screen: "document-designer:screen:platform-templates",
+  });
+});
+
+describe("admin-shell includeDocumentDesigner", () => {
+  const withDesigner = createAdminShellFeature({
+    metrics: ADMIN_SHELL_TEST_METRICS,
+    includeDocumentDesigner: true,
+  });
+  const baseFeatures = [
+    createConfigFeature(),
+    createUserFeature(),
+    createTenantFeature(),
+    createAuditFeature(),
+    createJobsFeature(),
+    ...ADMIN_SHELL_METRICS_FEATURES,
+    tierEngineFeature,
+  ];
+
+  test("lists each template nav exactly once in its workspace", () => {
+    const registry = createRegistry([...baseFeatures, documentDesignerStandIn, withDesigner]);
+    const tenantNavs = registry.getWorkspaceNavs(
+      `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`,
+    );
+    const platformNavs = registry.getWorkspaceNavs(
+      `${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_PLATFORM_WORKSPACE_ID}`,
+    );
+    expect(tenantNavs.filter((id) => id === "document-designer:nav:templates")).toHaveLength(1);
+    expect(tenantNavs).not.toContain("document-designer:nav:platform-templates");
+    expect(
+      platformNavs.filter((id) => id === "document-designer:nav:platform-templates"),
+    ).toHaveLength(1);
+    expect(platformNavs).not.toContain("document-designer:nav:templates");
+  });
+
+  test("requires the document-designer feature", () => {
+    expect(() => validateBoot([...baseFeatures, withDesigner])).toThrow();
+  });
+
+  test("default adds no template navs", () => {
+    const registry = createRegistry(features);
+    expect(
+      registry.getWorkspaceNavs(`${ADMIN_SHELL_FEATURE}:workspace:${DEFAULT_TENANT_WORKSPACE_ID}`),
+    ).not.toContain("document-designer:nav:templates");
   });
 });
 

@@ -262,6 +262,7 @@
     },
     "managed-pages": {
       "samples": [
+        "apps-ui-walkthrough",
         "recipes-managed-pages"
       ],
       "hasVisualOutput": true,
@@ -356,6 +357,7 @@
     },
     "template-resolver": {
       "samples": [
+        "apps-ui-walkthrough",
         "recipes-legal-pages"
       ],
       "hasVisualOutput": true,

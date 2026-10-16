@@ -1,0 +1,83 @@
+// @runtime client
+import type { TemplateEditorKind } from "../constants.js";
+
+export type OverviewUsageView = {
+  readonly feature: string;
+  readonly notification: string;
+};
+
+export type OverviewRowView = {
+  readonly id: string;
+  readonly title: string;
+  readonly layoutSlug: string | null;
+  readonly slug: string;
+  readonly kind: TemplateEditorKind;
+  readonly origin: "tenant" | "system";
+  readonly locales: readonly string[];
+  readonly status: "draft" | "active" | "archived";
+  readonly version: number;
+  readonly modifiedAt: string;
+  readonly usedBy: readonly OverviewUsageView[];
+  readonly usedByCount: number;
+};
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isTemplateKind(value: unknown): value is TemplateEditorKind {
+  return (
+    value === "mail" ||
+    value === "document-pdf" ||
+    value === "mail-layout" ||
+    value === "pdf-layout"
+  );
+}
+
+function isStatus(value: unknown): value is OverviewRowView["status"] {
+  return value === "draft" || value === "active" || value === "archived";
+}
+
+function usageViewOf(value: unknown): OverviewUsageView | null {
+  if (!isRecord(value)) return null;
+  const { feature, notification } = value;
+  return typeof feature === "string" && typeof notification === "string"
+    ? { feature, notification }
+    : null;
+}
+
+export function parseOverviewRow(row: Readonly<Record<string, unknown>>): OverviewRowView | null {
+  const {
+    id,
+    title,
+    layoutSlug,
+    slug,
+    kind,
+    origin,
+    locales,
+    status,
+    version,
+    modifiedAt,
+    usedBy,
+    usedByCount,
+  } = row;
+  if (typeof slug !== "string" || !isTemplateKind(kind) || !isStatus(status)) return null;
+  if (origin !== "tenant" && origin !== "system") return null;
+  const usages = Array.isArray(usedBy) ? usedBy.flatMap((u) => usageViewOf(u) ?? []) : [];
+  return {
+    id: typeof id === "string" ? id : `${kind}|${slug}`,
+    title: typeof title === "string" ? title : slug,
+    layoutSlug: typeof layoutSlug === "string" ? layoutSlug : null,
+    slug,
+    kind,
+    origin,
+    locales: Array.isArray(locales)
+      ? locales.filter((l): l is string => typeof l === "string")
+      : [],
+    status,
+    version: typeof version === "number" ? version : 0,
+    modifiedAt: typeof modifiedAt === "string" ? modifiedAt : "",
+    usedBy: usages,
+    usedByCount: typeof usedByCount === "number" ? usedByCount : usages.length,
+  };
+}

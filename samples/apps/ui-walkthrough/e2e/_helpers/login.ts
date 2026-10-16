@@ -27,11 +27,12 @@ import type { Page } from "@playwright/test";
 // Symbol $$jest-matchers-object.
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../../src/app/auth-constants";
 
-export async function loginAsAdmin(page: Page): Promise<void> {
-  const res = await page.request.post("/api/auth/login", {
-    data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
+export async function loginAs(page: Page, email: string, password: string): Promise<void> {
+  const res = await page.request.post("/api/auth/login", { data: { email, password } });
   if (!res.ok()) {
-    throw new Error(`loginAsAdmin: POST /api/auth/login → ${res.status()} ${await res.text()}`);
+    throw new Error(`loginAs: POST /api/auth/login → ${res.status()} ${await res.text()}`);
   }
 }
+
+export const loginAsAdmin = (page: Page): Promise<void> =>
+  loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);

@@ -122,7 +122,7 @@ export const documentDesignerTranslations: TranslationsByLocale = {
     "documentDesigner.mode.preview": "Vorschau",
     "documentDesigner.notFound": 'Die Vorlage "{slug}" wurde nicht gefunden.',
     "documentDesigner.origin.system": "System-Vorlage",
-    "documentDesigner.origin.tenant": "Tenant-Anpassung",
+    "documentDesigner.origin.tenant": "Mandanten-Anpassung",
     "documentDesigner.originBar.export": "Als Bundle exportieren",
     "documentDesigner.originBar.noTotal":
       "System-Vorlage für alle Mandanten. {count} Mandanten haben eine eigene Fassung und bekommen Änderungen hier nicht.",

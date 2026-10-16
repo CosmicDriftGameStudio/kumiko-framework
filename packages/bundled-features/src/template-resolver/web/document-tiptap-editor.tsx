@@ -164,8 +164,10 @@ function repeatTableContent(listName: string): JSONContent {
   return { type: "table", content: [headerRow, repeatRow] };
 }
 
-function Separator(): ReactNode {
-  return <span aria-hidden="true" className="mx-2 h-5 w-px bg-border" />;
+function Separator({ compact = false }: { readonly compact?: boolean }): ReactNode {
+  return (
+    <span aria-hidden="true" className={cn("h-5 w-px bg-border", compact ? "mx-0.5" : "mx-2")} />
+  );
 }
 
 function PanelActions({
@@ -431,6 +433,7 @@ export default function DocumentTiptapEditor({
   systemVariables = NO_NAMES,
   resourcePreviews = NO_PREVIEWS,
   chrome = "default",
+  toolbar = "full",
   onEditorReady,
 }: DocumentEditorProps): ReactNode {
   const t = useTranslation();
@@ -438,6 +441,7 @@ export default function DocumentTiptapEditor({
   const [openPanel, setOpenPanel] = useState<PanelKind | null>(null);
   const [showHtml, setShowHtml] = useState(false);
   const canvas = chrome === "canvas";
+  const compact = toolbar === "compact" && !canvas;
 
   const placeholderLabel = t("template-resolver.documentEditor.placeholder");
   const imageLabel = t("template-resolver.documentEditor.image");
@@ -612,6 +616,7 @@ export default function DocumentTiptapEditor({
         disabled={readOnly}
         onClick={onClick}
         ariaLabel={label}
+        title={label}
       >
         {icon}
       </Button>
@@ -624,6 +629,7 @@ export default function DocumentTiptapEditor({
         disabled={readOnly}
         onClick={onClick}
         ariaLabel={label}
+        title={label}
       >
         {icon}
       </Button>
@@ -635,12 +641,39 @@ export default function DocumentTiptapEditor({
 
   const flatVariant = canvas ? "ghost" : "secondary";
 
+  const labelledButton = (spec: {
+    readonly key?: string;
+    readonly label: string;
+    readonly icon: ReactNode;
+    readonly showIcon: boolean;
+    readonly expanded?: boolean;
+    readonly onClick: () => void;
+  }): ReactNode => {
+    const shared = {
+      type: "button",
+      variant: flatVariant,
+      disabled: readOnly,
+      onClick: spec.onClick,
+      ...(spec.expanded !== undefined && { expanded: spec.expanded }),
+    } as const;
+    return compact ? (
+      <Button key={spec.key} {...shared} size="icon" ariaLabel={spec.label} title={spec.label}>
+        {spec.icon}
+      </Button>
+    ) : (
+      <Button key={spec.key} {...shared} size="sm">
+        {spec.showIcon && spec.icon}
+        {spec.label}
+      </Button>
+    );
+  };
+
   return (
     <div
       className={cn("rounded-md border border-input", canvas ? "bg-background" : "bg-transparent")}
     >
       <div className="flex flex-wrap items-center gap-1 border-b border-input p-1">
-        <div className="w-40">
+        <div className={compact ? "w-24" : "w-40"}>
           <Field id={`${id}-paragraph-style`} label={paragraphStyleLabel} hideLabel>
             <Input
               kind="select"
@@ -654,7 +687,7 @@ export default function DocumentTiptapEditor({
             />
           </Field>
         </div>
-        <Separator />
+        <Separator compact={compact} />
         {iconButton(
           t("kumiko.contentEditor.bold"),
           markContent("B", <BoldIcon size={16} />, "font-bold"),
@@ -673,7 +706,7 @@ export default function DocumentTiptapEditor({
           activeState?.underline ?? false,
           () => editor.chain().focus().toggleUnderline().run(),
         )}
-        <Separator />
+        <Separator compact={compact} />
         {iconButton(
           t("kumiko.contentEditor.bulletList"),
           <List size={16} />,
@@ -692,32 +725,24 @@ export default function DocumentTiptapEditor({
           activeState?.link ?? false,
           () => togglePanel("link"),
         )}
-        <Separator />
-        <Button
-          type="button"
-          variant={flatVariant}
-          size="sm"
-          expanded={openPanel === "placeholder"}
-          disabled={readOnly}
-          onClick={() => togglePanel("placeholder")}
-        >
-          <Braces size={16} />
-          {t("template-resolver.documentEditor.insertPlaceholder")}
-        </Button>
-        {blocks.length > 0 && <Separator />}
-        {blocks.map((block) => (
-          <Button
-            key={block}
-            type="button"
-            variant={flatVariant}
-            size="sm"
-            disabled={readOnly}
-            onClick={() => runBlock(block)}
-          >
-            {!canvas && blockButtons[block].icon}
-            {blockButtons[block].label}
-          </Button>
-        ))}
+        <Separator compact={compact} />
+        {labelledButton({
+          label: t("template-resolver.documentEditor.insertPlaceholder"),
+          icon: <Braces size={16} />,
+          showIcon: true,
+          expanded: openPanel === "placeholder",
+          onClick: () => togglePanel("placeholder"),
+        })}
+        {blocks.length > 0 && <Separator compact={compact} />}
+        {blocks.map((block) =>
+          labelledButton({
+            key: block,
+            label: blockButtons[block].label,
+            icon: blockButtons[block].icon,
+            showIcon: !canvas,
+            onClick: () => runBlock(block),
+          }),
+        )}
         {canvas && (
           <>
             <span className="flex-1" />

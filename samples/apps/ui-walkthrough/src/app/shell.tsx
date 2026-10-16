@@ -5,6 +5,7 @@
 import {
   TenantMenuItems,
   UserMenu,
+  useSession,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import {
   type AppSchema,
@@ -18,13 +19,19 @@ import {
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { AssistantAction } from "./assistant-action";
-import { BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
+import {
+  BETA_TENANT_ID,
+  DEV_TENANT_ID,
+  NORDLICHT_TENANT_ID,
+  NORDLICHT_TENANT_NAME,
+} from "./auth-constants";
 
 const APP_NAME = "Kumiko Walkthrough";
 
 const tenantName = (tenantId: string): string => {
   if (tenantId === DEV_TENANT_ID) return "Dev Tenant";
   if (tenantId === BETA_TENANT_ID) return "Beta Tenant";
+  if (tenantId === NORDLICHT_TENANT_ID) return NORDLICHT_TENANT_NAME;
   return tenantId.slice(0, 8);
 };
 
@@ -41,10 +48,14 @@ export function AppShell({
   readonly schema: AppSchema;
 }): ReactNode {
   const t = useTranslation();
+  const session = useSession();
+  // Without the user the shell hides role-gated navs and KumikoScreen denies role-gated screens.
+  const user = session.user !== null ? { id: session.user.id, roles: session.roles } : undefined;
   return (
     <DefaultAppShell
       brand={<SidebarBrand name={APP_NAME} plan={t("tasks.shell.tagline")} />}
       schema={schema}
+      {...(user !== undefined && { user })}
       headerActions={
         <>
           <AssistantAction />

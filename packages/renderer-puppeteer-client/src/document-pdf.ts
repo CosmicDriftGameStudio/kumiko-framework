@@ -142,7 +142,7 @@ async function resolvePdfLayout(
   locale: string,
 ): Promise<PdfLayout & { readonly ref: RenderedTemplateRef | null }> {
   try {
-    let layout = await tplApi.resolveTemplate({
+    let layout = await tplApi.resolveLayout({
       tenantId: ctx.tenantId,
       slug,
       kind: "pdf-layout",
@@ -154,7 +154,7 @@ async function resolvePdfLayout(
       if (sanitized.ok) {
         html = sanitized.html;
       } else {
-        layout = await tplApi.resolveTemplate({
+        layout = await tplApi.resolveLayout({
           tenantId: SYSTEM_TENANT_ID,
           slug,
           kind: "pdf-layout",

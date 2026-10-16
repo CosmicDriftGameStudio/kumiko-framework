@@ -14,8 +14,8 @@ import {
 import {
   type ContentFormat,
   FALLBACK_LOCALE,
-  type RenderKind,
   SYSTEM_TENANT_ID,
+  type TemplateKind,
   type TemplateScope,
   type TemplateStatus,
 } from "../constants.js";
@@ -50,7 +50,7 @@ afterAll(async () => {
 async function seedTemplate(args: {
   tenantId: string;
   slug: string;
-  kind: RenderKind;
+  kind: TemplateKind;
   locale: string;
   scope: TemplateScope;
   status?: TemplateStatus;
@@ -571,5 +571,79 @@ describe("template-resolver :: parentTemplateId", () => {
       locale: "de",
     });
     expect(override?.parentTemplateId).toBe(systemTemplate?.id);
+  });
+});
+
+describe("template-resolver :: resolveLayout", () => {
+  const layoutArgs = (slug: string, locale: string) => ({
+    tenantId: TENANT_A,
+    slug,
+    kind: "mail-layout" as const,
+    locale,
+  });
+  const layout = (
+    slug: string,
+    tenantId: string,
+    scope: TemplateScope,
+    locale: string,
+    extra: { status?: TemplateStatus; content?: string } = {},
+  ) =>
+    seedTemplate({
+      tenantId,
+      slug,
+      kind: "mail-layout",
+      locale,
+      scope,
+      contentFormat: "html",
+      ...extra,
+    });
+
+  test("a tenant layout in another locale beats the system layout in the requested locale", async () => {
+    await layout("rl-1", TENANT_A, "tenant", "en", { content: "tenant-en" });
+    await layout("rl-1", SYSTEM_TENANT_ID, "system", "de", { content: "system-de" });
+    const found = await api.resolveLayout(layoutArgs("rl-1", "de"));
+    expect(found.scope).toBe("tenant");
+    expect(found.content).toBe("tenant-en");
+  });
+
+  test("the requested locale wins, then the fallback locale, within the tenant", async () => {
+    await layout("rl-2", TENANT_A, "tenant", "en", { content: "tenant-en" });
+    await layout("rl-2", TENANT_A, "tenant", FALLBACK_LOCALE, { content: "tenant-fallback" });
+    await layout("rl-2", TENANT_A, "tenant", "es", { content: "tenant-es" });
+    expect((await api.resolveLayout(layoutArgs("rl-2", "es"))).content).toBe("tenant-es");
+    expect((await api.resolveLayout(layoutArgs("rl-2", "fr"))).content).toBe("tenant-fallback");
+  });
+
+  test("without a tenant row the system layout is used in any locale", async () => {
+    await layout("rl-3", SYSTEM_TENANT_ID, "system", "en", { content: "system-en" });
+    const found = await api.resolveLayout(layoutArgs("rl-3", "de"));
+    expect(found.scope).toBe("system");
+    expect(found.content).toBe("system-en");
+  });
+
+  test("another tenant's layout is never used", async () => {
+    await layout("rl-4", TENANT_B, "tenant", "de", { content: "tenant-b" });
+    await expect(api.resolveLayout(layoutArgs("rl-4", "de"))).rejects.toBeInstanceOf(
+      TemplateNotFoundError,
+    );
+  });
+
+  test("draft and archived rows are ignored", async () => {
+    await layout("rl-5", TENANT_A, "tenant", "de", { status: "draft", content: "draft" });
+    await layout("rl-5", TENANT_A, "tenant", "en", { status: "archived", content: "archived" });
+    await layout("rl-5", SYSTEM_TENANT_ID, "system", "en", { content: "system-en" });
+    expect((await api.resolveLayout(layoutArgs("rl-5", "de"))).content).toBe("system-en");
+  });
+
+  test("among several other locales the choice is stable: highest version, then locale order", async () => {
+    await layout("rl-6", TENANT_A, "tenant", "fr", { content: "tenant-fr" });
+    await layout("rl-6", TENANT_A, "tenant", "es", { content: "tenant-es" });
+    expect((await api.resolveLayout(layoutArgs("rl-6", "de"))).content).toBe("tenant-es");
+  });
+
+  test("throws TemplateNotFoundError when no scope has an active layout", async () => {
+    await expect(api.resolveLayout(layoutArgs("rl-none", "de"))).rejects.toBeInstanceOf(
+      TemplateNotFoundError,
+    );
   });
 });

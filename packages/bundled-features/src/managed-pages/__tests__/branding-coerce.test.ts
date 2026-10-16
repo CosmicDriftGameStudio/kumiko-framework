@@ -12,6 +12,7 @@ describe("coerceBranding", () => {
     siteUrl: "https://acme.test",
     accentColor: "#abcdef",
     logoUrl: "https://acme.test/logo.png",
+    logoFile: "0b6f2d3e-0c0e-4f3a-8d52-2f8d5a3c9b11",
     layoutPreset: "wide",
     customCss: ":root{--brand:1}",
   };

@@ -123,6 +123,8 @@ await seedSystemTemplate(db, {
 | `TemplateResolverQueries.findById` | `template-resolver:query:find-by-id` | TenantAdmin + User (eigener Tenant + system-templates sichtbar) | Raw-Lookup für Edit-UI |
 | `TemplateResolverQueries.list` | `template-resolver:query:list` | gleich | Filter nach kind/locale/status, optional includeSystem |
 | `TemplateResolverQueries.usage` | `template-resolver:query:usage` | TenantAdmin | Welche Notifications eine Mail-Vorlage bzw. ein Mail-Layout verwenden (aus der Registry) |
+| `TemplateResolverQueries.overview` | `template-resolver:query:overview` | TenantAdmin + SystemAdmin | Eine Zeile je Slug und Art (Mail, PDF, Layouts) mit Herkunft, Sprachen, Status, Version, Layout und Verwendung; durchsuch-, filter-, sortier- und seitenweise lesbar |
+| `TemplateResolverQueries.layoutSource` | `template-resolver:query:layout-source` | TenantAdmin + SystemAdmin | Eigene und System-Fassung eines Layouts, Kopf/Signatur/Fuß-Bereiche der wirksamen html-Fassung, Speicher-Locale; MJML-Quelle nur für SystemAdmin |
 | `TemplateResolverQueries.tenantOverrides` | `template-resolver:query:tenant-overrides` | SystemAdmin | Anzahl aktiver/Entwurf-Overrides einer System-Vorlage und aktive Tenants gesamt, nur Zahlen |
 | `TemplateResolverQueries.diffToSystem` | `template-resolver:query:diff-to-system` | TenantAdmin (eigener Tenant) | Block- und Meta-Vergleich eines Tenant-Overrides mit der System-Vorlage |
 

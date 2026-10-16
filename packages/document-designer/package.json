@@ -1,14 +1,18 @@
 {
   "name": "@cosmicdrift/kumiko-document-designer",
   "version": "0.362.0",
-  "description": "Document designer screens for Kumiko: the PDF template editor (client side).",
+  "description": "Document designer for Kumiko: template overview, layout editor (mail layout, PDF letterhead) and the PDF template editor.",
   "license": "BUSL-1.1",
   "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
   "type": "module",
   "kumiko": {
-    "runtime": "client"
+    "runtime": "runtime"
   },
   "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
     "./web": {
       "types": "./src/web/index.ts",
       "default": "./src/web/index.ts"
@@ -42,6 +46,10 @@
     "registry": "https://registry.npmjs.org",
     "access": "public",
     "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
       "./web": {
         "types": "./dist/web/index.d.ts",
         "default": "./dist/web/index.js"

@@ -312,6 +312,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/template-resolver",
     factory: "createTemplateResolverFeature",
   },
+  "document-designer": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-document-designer",
+    factory: "createDocumentDesignerFeature",
+  },
   "renderer-foundation": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/renderer-foundation",

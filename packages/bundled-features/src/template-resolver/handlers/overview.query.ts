@@ -1,0 +1,250 @@
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import * as z from "zod";
+import { DEFAULT_MAIL_LAYOUT_SLUG, FALLBACK_LOCALE, type TemplateStatus } from "../constants.js";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { collectTemplateUsage } from "../template-usage.js";
+import { storedRecord } from "./template-gates.js";
+
+const OVERVIEW_KINDS = ["mail", "document-pdf", "mail-layout", "pdf-layout"] as const;
+type OverviewKind = (typeof OVERVIEW_KINDS)[number];
+
+const OVERVIEW_ROW_LIMIT = 5000;
+
+export type OverviewOrigin = "tenant" | "system";
+export type OverviewKindGroup = "mail" | "pdf" | "layout";
+
+export type OverviewUsage = {
+  readonly qualifiedName: string;
+  readonly feature: string;
+  readonly notification: string;
+  readonly trigger: string | null;
+};
+
+export type OverviewRow = {
+  readonly id: string;
+  readonly slug: string;
+  readonly kind: OverviewKind;
+  readonly kindGroup: OverviewKindGroup;
+  readonly title: string;
+  readonly origin: OverviewOrigin;
+  readonly locales: readonly string[];
+  readonly status: TemplateStatus;
+  readonly version: number;
+  readonly systemVersion: number | null;
+  readonly layoutSlug: string | null;
+  readonly modifiedAt: string;
+  readonly usedBy: readonly OverviewUsage[];
+  readonly usedByCount: number;
+};
+
+export type OverviewResponse = {
+  readonly rows: readonly OverviewRow[];
+  readonly nextCursor: null;
+  readonly total: number;
+};
+
+const SORT_FIELDS = ["title", "slug", "kind", "origin", "status", "modifiedAt"] as const;
+type SortField = (typeof SORT_FIELDS)[number];
+
+const KIND_GROUP: Readonly<Record<OverviewKind, OverviewKindGroup>> = {
+  mail: "mail",
+  "document-pdf": "pdf",
+  "mail-layout": "layout",
+  "pdf-layout": "layout",
+};
+
+function isOverviewKind(kind: string): kind is OverviewKind {
+  return OVERVIEW_KINDS.some((candidate) => candidate === kind);
+}
+
+function isTemplateStatus(status: string): status is TemplateStatus {
+  return status === "draft" || status === "active" || status === "archived";
+}
+
+function layoutSlugOf(row: TemplateResourceRow): string {
+  const layoutSlug = storedRecord(row.meta)["layoutSlug"];
+  return typeof layoutSlug === "string" ? layoutSlug : DEFAULT_MAIL_LAYOUT_SLUG;
+}
+
+function preferredRow(rows: readonly TemplateResourceRow[]): TemplateResourceRow | undefined {
+  return (
+    rows.find((row) => row.locale === FALLBACK_LOCALE) ??
+    [...rows].sort((a, b) => a.locale.localeCompare(b.locale))[0]
+  );
+}
+
+type EffectiveRows = { readonly origin: OverviewOrigin; readonly rows: TemplateResourceRow[] };
+
+function effectiveRowsOf(rows: readonly TemplateResourceRow[]): EffectiveRows | null {
+  const tenantRows = rows.filter((row) => row.scope === "tenant");
+  const systemRows = rows.filter((row) => row.scope === "system");
+  const live = (list: TemplateResourceRow[]) => list.filter((row) => row.status !== "archived");
+  const liveTenant = live(tenantRows);
+  if (liveTenant.length > 0) return { origin: "tenant", rows: liveTenant };
+  if (systemRows.length > 0) {
+    const liveSystem = live(systemRows);
+    return { origin: "system", rows: liveSystem.length > 0 ? liveSystem : systemRows };
+  }
+  return tenantRows.length > 0 ? { origin: "tenant", rows: tenantRows } : null;
+}
+
+function modifiedAtOf(row: TemplateResourceRow): string {
+  return (row.modifiedAt ?? row.insertedAt).toString();
+}
+
+function splitDocumentSlug(slug: string): { feature: string; notification: string } {
+  const separator = slug.indexOf(":");
+  return separator === -1
+    ? { feature: "", notification: slug }
+    : { feature: slug.slice(0, separator), notification: slug.slice(separator + 1) };
+}
+
+function compareBy(field: SortField, a: OverviewRow, b: OverviewRow): number {
+  return String(a[field]).localeCompare(String(b[field]));
+}
+
+function isSortField(value: string): value is SortField {
+  return SORT_FIELDS.some((candidate) => candidate === value);
+}
+
+type OverviewDraft = Omit<OverviewRow, "usedBy" | "usedByCount">;
+type OverviewFilter = {
+  readonly field: "kindGroup" | "kind" | "origin" | "status";
+  readonly value: readonly string[];
+};
+
+function groupBySlugAndKind(
+  rows: readonly TemplateResourceRow[],
+): Map<string, TemplateResourceRow[]> {
+  const groups = new Map<string, TemplateResourceRow[]>();
+  for (const row of rows) {
+    if (!isOverviewKind(row.kind)) continue;
+    const key = `${row.kind}|${row.slug}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  return groups;
+}
+
+function buildDrafts(groups: ReadonlyMap<string, readonly TemplateResourceRow[]>): {
+  readonly drafts: OverviewDraft[];
+  readonly layoutSlugByDocument: Map<string, string>;
+} {
+  const layoutSlugByDocument = new Map<string, string>();
+  const drafts: OverviewDraft[] = [];
+  for (const [id, groupRows] of groups) {
+    const effective = effectiveRowsOf(groupRows);
+    const preferred = effective === null ? undefined : preferredRow(effective.rows);
+    if (effective === null || preferred === undefined) continue;
+    if (!isOverviewKind(preferred.kind) || !isTemplateStatus(preferred.status)) continue;
+    const systemSameLocale = groupRows.find(
+      (row) => row.scope === "system" && row.locale === preferred.locale,
+    );
+    const isDocument = preferred.kind === "mail" || preferred.kind === "document-pdf";
+    const layoutSlug = isDocument ? layoutSlugOf(preferred) : null;
+    if (layoutSlug !== null && preferred.kind === "document-pdf") {
+      layoutSlugByDocument.set(preferred.slug, layoutSlug);
+    }
+    drafts.push({
+      id,
+      slug: preferred.slug,
+      kind: preferred.kind,
+      kindGroup: KIND_GROUP[preferred.kind],
+      title: preferred.title ?? preferred.slug,
+      origin: effective.origin,
+      locales: [...new Set(effective.rows.map((row) => row.locale))].sort(),
+      status: preferred.status,
+      version: preferred.version,
+      systemVersion: systemSameLocale?.version ?? null,
+      layoutSlug,
+      modifiedAt: modifiedAtOf(preferred),
+    });
+  }
+  return { drafts, layoutSlugByDocument };
+}
+
+function withUsage(
+  draft: OverviewDraft,
+  layoutSlugByDocument: ReadonlyMap<string, string>,
+  registry: Parameters<typeof collectTemplateUsage>[0],
+): OverviewRow {
+  let usedBy: OverviewUsage[] = [];
+  if (draft.kind === "mail" || draft.kind === "mail-layout") {
+    usedBy = collectTemplateUsage(registry, draft.slug, draft.kind).map((entry) => ({
+      qualifiedName: entry.qualifiedName,
+      feature: entry.feature,
+      notification: entry.notification,
+      trigger: entry.trigger,
+    }));
+  } else if (draft.kind === "pdf-layout") {
+    usedBy = [...layoutSlugByDocument]
+      .filter(([, layoutSlug]) => layoutSlug === draft.slug)
+      .map(([documentSlug]) => ({
+        qualifiedName: documentSlug,
+        ...splitDocumentSlug(documentSlug),
+        trigger: null,
+      }));
+  }
+  return { ...draft, usedBy, usedByCount: usedBy.length };
+}
+
+function filterRows(
+  rows: readonly OverviewRow[],
+  search: string | undefined,
+  filters: readonly OverviewFilter[],
+): OverviewRow[] {
+  const needle = search?.trim().toLowerCase() ?? "";
+  return rows.filter((row) => {
+    if (needle !== "" && !`${row.title} ${row.slug}`.toLowerCase().includes(needle)) return false;
+    return filters.every((filter) => filter.value.includes(String(row[filter.field])));
+  });
+}
+
+const filterSchema = z.object({
+  field: z.enum(["kindGroup", "kind", "origin", "status"]),
+  op: z.literal("in"),
+  value: z.array(z.string()),
+});
+
+export const overviewQuery = defineQueryHandler({
+  name: "overview",
+  schema: z.object({
+    search: z.string().optional(),
+    filters: z.array(filterSchema).optional(),
+    sort: z.string().optional(),
+    sortDirection: z.enum(["asc", "desc"]).optional(),
+    limit: z.number().int().min(1).max(200).default(50),
+    offset: z.number().int().min(0).optional(),
+    totalCount: z.boolean().optional(),
+  }),
+  access: { roles: ["TenantAdmin", "SystemAdmin"] },
+  description:
+    "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant: where the effective version comes from (own override or system), its locales, status and version, the system version it overrides, the layout it uses and which notifications or templates use it; use it to browse and filter all templates at a glance.",
+  handler: async (query, ctx) => {
+    const payload = query.payload;
+    const rows = await selectMany<TemplateResourceRow>(
+      ctx.db,
+      templateResourcesTable,
+      { kind: { in: [...OVERVIEW_KINDS] } },
+      { limit: OVERVIEW_ROW_LIMIT },
+    );
+
+    const { drafts, layoutSlugByDocument } = buildDrafts(groupBySlugAndKind(rows));
+    const overviewRows = drafts.map((draft) =>
+      withUsage(draft, layoutSlugByDocument, ctx.registry),
+    );
+    const filtered = filterRows(overviewRows, payload.search, payload.filters ?? []);
+
+    const sortField: SortField =
+      payload.sort !== undefined && isSortField(payload.sort) ? payload.sort : "modifiedAt";
+    const direction = (payload.sortDirection ?? "desc") === "desc" ? -1 : 1;
+    filtered.sort((a, b) => direction * compareBy(sortField, a, b) || a.id.localeCompare(b.id));
+
+    const offset = payload.offset ?? 0;
+    return {
+      rows: filtered.slice(offset, offset + payload.limit),
+      nextCursor: null,
+      total: filtered.length,
+    } satisfies OverviewResponse;
+  },
+});

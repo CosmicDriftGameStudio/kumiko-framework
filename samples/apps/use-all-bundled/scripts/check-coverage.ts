@@ -53,6 +53,7 @@ const EXPECTED_REGISTRY_ONLY = new Set([
   "locale-de", // @cosmicdrift/kumiko-locale-de, not a bundled-features export
   "renderer-mail-html", // @cosmicdrift/kumiko-renderer-mail-html, auto-mounted with auth by composeFeatures
   "renderer-puppeteer-client", // @cosmicdrift/kumiko-renderer-puppeteer-client, not a bundled-features export
+  "document-designer", // @cosmicdrift/kumiko-document-designer, not a bundled-features export
 ]);
 
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,

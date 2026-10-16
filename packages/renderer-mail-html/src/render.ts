@@ -85,7 +85,7 @@ async function resolveLayout(
 ): Promise<ResolvedLayout> {
   const slug = meta.layoutSlug ?? DEFAULT_MAIL_LAYOUT_SLUG;
   try {
-    let layout = await tplApi.resolveTemplate({
+    let layout = await tplApi.resolveLayout({
       tenantId: ctx.tenantId,
       slug,
       kind: "mail-layout",
@@ -105,7 +105,7 @@ async function resolveLayout(
       }
     }
     if (useSystemLayout) {
-      layout = await tplApi.resolveTemplate({
+      layout = await tplApi.resolveLayout({
         tenantId: SYSTEM_TENANT_ID,
         slug,
         kind: "mail-layout",

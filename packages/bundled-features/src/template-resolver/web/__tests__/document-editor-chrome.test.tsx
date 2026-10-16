@@ -30,7 +30,12 @@ function Providers({ children }: { readonly children: ReactNode }): ReactNode {
 type ExtraProps = Partial<
   Pick<
     DocumentEditorProps,
-    "variableLabels" | "systemVariables" | "resourcePreviews" | "chrome" | "onEditorReady"
+    | "variableLabels"
+    | "systemVariables"
+    | "resourcePreviews"
+    | "chrome"
+    | "toolbar"
+    | "onEditorReady"
   >
 >;
 
@@ -187,5 +192,21 @@ describe("PlaceholderLineEditor", () => {
     render(<LineEditor initial="a {{bad name}} b" />);
     const box = await screen.findByRole("textbox", { name: "Subject" });
     expect(box.textContent).toContain("{{bad name}}");
+  });
+
+  test("compact toolbar renders icon-only buttons with a name and tooltip, full keeps the labels", async () => {
+    const compact = render(<Controlled toolbar="compact" />);
+    const table = await screen.findByRole("button", { name: "Table" });
+    expect(table.getAttribute("title")).toBe("Table");
+    expect(table.textContent).toBe("");
+    const placeholder = screen.getByRole("button", { name: "Placeholder" });
+    expect(placeholder.getAttribute("title")).toBe("Placeholder");
+    expect(placeholder.textContent).toBe("");
+    expect(screen.getByRole("button", { name: "Bold" }).getAttribute("title")).toBe("Bold");
+    compact.unmount();
+
+    render(<Controlled />);
+    const fullTable = await screen.findByRole("button", { name: "Table" });
+    expect(fullTable.textContent).toBe("Table");
   });
 });

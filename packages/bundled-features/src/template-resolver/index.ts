@@ -68,6 +68,14 @@ export {
   isDocumentResourceKey,
 } from "./document-schema.js";
 export { createTemplateResolverFeature } from "./feature.js";
+export type { LayoutSourceResponse, LayoutSourceRow } from "./handlers/layout-source.query.js";
+export type {
+  OverviewKindGroup,
+  OverviewOrigin,
+  OverviewResponse,
+  OverviewRow,
+  OverviewUsage,
+} from "./handlers/overview.query.js";
 export { localeSchema } from "./handlers/shared.js";
 export {
   type LayoutRegions,
@@ -120,6 +128,7 @@ export {
 } from "./template-meta.js";
 export { type DocumentDraftOutcome, evaluateDocumentDraft } from "./template-preview.js";
 export { readTemplateResource, type TemplateResourceFile } from "./template-resources.js";
+export { collectTemplateUsage, type TemplateUsageEntry } from "./template-usage.js";
 export {
   hasPlaceholderProblems,
   resolveTemplateVariables,

@@ -242,7 +242,7 @@ async function resolvePdfLayout(
   const api = createTemplateResolverApi(ctx.db);
   const find = async (tenantId: string): Promise<TemplateResource | null> => {
     try {
-      return await api.resolveTemplate({ tenantId, slug, kind: "pdf-layout", locale });
+      return await api.resolveLayout({ tenantId, slug, kind: "pdf-layout", locale });
     } catch (e) {
       if (e instanceof TemplateNotFoundError) return null;
       throw e;

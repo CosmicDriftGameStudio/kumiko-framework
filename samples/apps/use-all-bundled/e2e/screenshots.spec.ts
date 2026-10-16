@@ -7,6 +7,7 @@
 
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
+import { PDF_TEMPLATE_EDITOR_SCREEN_ID } from "@cosmicdrift/kumiko-document-designer";
 import {
   CSRF_COOKIE_NAME,
   clearSession,
@@ -16,11 +17,7 @@ import {
   type ScenarioFixtures,
 } from "@cosmicdrift/kumiko-testing/e2e";
 import type { BrowserContext, Page } from "@playwright/test";
-import {
-  DEMO_NOTE_ID,
-  INVOICE_TEMPLATE_SLUG,
-  PDF_TEMPLATE_EDITOR_SCREEN_ID,
-} from "../src/app/auth-constants";
+import { DEMO_NOTE_ID, INVOICE_TEMPLATE_SLUG } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
 
 const THEMES = ["default-light", "default-dark"] as const;

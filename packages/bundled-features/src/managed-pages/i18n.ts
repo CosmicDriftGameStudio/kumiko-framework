@@ -42,6 +42,7 @@ export const MANAGED_PAGES_I18N: Readonly<Record<string, LocalizedString>> = {
     en: "Accent color",
   },
   "managed-pages:entity:__config-edit__:field:logoUrl": { en: "Logo URL" },
+  "managed-pages:entity:__config-edit__:field:logoFile": { en: "Logo file" },
   "managed-pages:entity:__config-edit__:field:layoutPreset": { en: "Layout" },
 
   // Section-Header

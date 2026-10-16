@@ -15,6 +15,7 @@ import { APP_FEATURES } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { seedTasks } from "./seed";
 import { seedRental } from "./seed-rental";
+import { seedTemplates } from "./seed-templates";
 import { seedVehicles } from "./seed-vehicles";
 
 // Zwei feste Tenants — Admin ist in beiden Mitglied damit der
@@ -25,7 +26,7 @@ import { seedVehicles } from "./seed-vehicles";
 
 await runDevApp({
   features: [...APP_FEATURES],
-  seeds: [seedTasks, seedRental, seedVehicles],
+  seeds: [seedTasks, seedRental, seedVehicles, seedTemplates],
   // PORT env-var override für Playwright-e2e-Runs (config zeigt auf 4174);
   // sonst lokal-Default 4173.
   port: Number.parseInt(process.env["PORT"] ?? "4173", 10),

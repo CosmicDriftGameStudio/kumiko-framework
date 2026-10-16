@@ -56,6 +56,15 @@ export type ResolveRequest = {
   readonly locale: string;
 };
 
+export type LayoutKind = "mail-layout" | "pdf-layout";
+
+export type ResolveLayoutRequest = {
+  readonly tenantId: TenantId;
+  readonly slug: string;
+  readonly kind: LayoutKind;
+  readonly locale: string;
+};
+
 export type TemplateResolverApi = {
   /**
    * Findet ein konkretes Template by (tenantId, slug, kind, locale).
@@ -91,6 +100,17 @@ export type TemplateResolverApi = {
    * User cross-tenant Templates abfragen (Tenant-Isolation gebrochen).
    */
   readonly resolveTemplate: (args: ResolveRequest) => Promise<TemplateResource>;
+
+  /**
+   * Layouts are locale-neutral in the product (the layout editor saves under the locale of the
+   * row it loaded), so the locale chain is wider than resolveTemplate: tenant (requested,
+   * FALLBACK_LOCALE, any active locale), then system (same). Only active rows count; among
+   * "any" the highest version wins, then the alphabetically first locale, so the pick is stable.
+   * Throws TemplateNotFoundError when neither scope has an active row.
+   *
+   * **Caller invariant:** `tenantId` must come from the server, as for `resolveTemplate`.
+   */
+  readonly resolveLayout: (args: ResolveLayoutRequest) => Promise<TemplateResource>;
 };
 
 export function createTemplateResolverApi(db: DbRunner | TenantDb): TemplateResolverApi {
@@ -119,7 +139,35 @@ export function createTemplateResolverApi(db: DbRunner | TenantDb): TemplateReso
       }
       throw new TemplateNotFoundError({ slug, kind, locale });
     },
+
+    resolveLayout: async ({ tenantId, slug, kind, locale }) => {
+      for (const tid of [tenantId, SYSTEM_TENANT_ID]) {
+        const rows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
+          tenantId: tid,
+          slug,
+          kind,
+        });
+        const row = pickActiveLayoutRow(rows, locale);
+        if (row !== null) return toPublic(row);
+      }
+      throw new TemplateNotFoundError({ slug, kind, locale });
+    },
   };
+}
+
+function pickActiveLayoutRow(
+  rows: readonly TemplateResourceRow[],
+  locale: string,
+): TemplateResourceRow | null {
+  const active = rows
+    .filter((row) => row.status === "active")
+    .sort((a, b) => b.version - a.version || a.locale.localeCompare(b.locale));
+  return (
+    active.find((row) => row.locale === locale) ??
+    active.find((row) => row.locale === FALLBACK_LOCALE) ??
+    active[0] ??
+    null
+  );
 }
 
 async function fetchTemplate(

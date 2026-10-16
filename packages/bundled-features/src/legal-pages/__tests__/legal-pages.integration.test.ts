@@ -540,6 +540,9 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
           if (!found) throw new TemplateNotFoundError({ slug, kind, locale });
           return found;
         },
+        resolveLayout: async ({ slug, kind, locale }) => {
+          throw new TemplateNotFoundError({ slug, kind, locale });
+        },
       },
     };
   }
