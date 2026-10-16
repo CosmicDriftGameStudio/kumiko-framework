@@ -156,6 +156,27 @@ describe("buildAgentManifest", () => {
     });
   });
 
+  test("references meta with a business key survives into the exported inputSchema", () => {
+    const feature = defineFeature("agent-references", (r) => {
+      r.writeHandler(
+        "post:publish",
+        z.object({
+          channelKeys: z.array(z.string()).meta({ references: { entity: "channel", by: "key" } }),
+        }),
+        async () => ({ isSuccess: true, data: {} }),
+        { access: { roles: ["admin"] }, description: "Publish a post." },
+      );
+    });
+    const admin = buildAgentManifest(createRegistry([feature]), { locale: "en", roles: ["admin"] });
+    const publish = admin.handlers.find((h) => h.qn.endsWith(":publish"));
+
+    expect(publish?.inputSchema).toMatchObject({
+      properties: {
+        channelKeys: { references: { entity: "channel", by: "key" } },
+      },
+    });
+  });
+
   test("a handler whose schema toJSONSchema cannot express is dropped, others stay", () => {
     const registry = createRegistry([buildTestFeature()]);
     const admin = buildAgentManifest(registry, { locale: "en", roles: ["admin"] });

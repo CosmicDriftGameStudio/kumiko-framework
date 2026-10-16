@@ -1,4 +1,4 @@
-import { handlerFieldReference } from "../handler-field-references.js";
+import { readHandlerFieldReference } from "../handler-field-references.js";
 import { parseRefTarget } from "../parse-ref-target.js";
 import type { FeatureDefinition, QueryHandlerDef, WriteHandlerDef } from "../types/index.js";
 import { getZodObjectShape } from "./zod-shape.js";
@@ -13,15 +13,30 @@ function validateHandlerGroup(
     const shape = getZodObjectShape(def.schema);
     if (shape === undefined) continue;
     for (const fieldName of Object.keys(shape)) {
-      const reference = handlerFieldReference(def.schema, fieldName);
-      if (reference === undefined) continue;
-      const target = parseRefTarget(reference, feature.name);
-      const targetEntities = featureMap.get(target.featureName)?.entities;
-      if (targetEntities?.[target.entityName] !== undefined) continue;
-      throw new Error(
-        `[Feature ${feature.name}] Input field "${fieldName}" of ${handlerNoun} "${handlerName}" has meta references: "${reference}", ` +
-          `which is not a registered entity. Use "<entity>" for this feature or "<feature>:<entity>" for another one.`,
-      );
+      const where = `Input field "${fieldName}" of ${handlerNoun} "${handlerName}"`;
+      const reading = readHandlerFieldReference(def.schema, fieldName);
+      if (reading.kind === "none") continue;
+      if (reading.kind === "invalid") {
+        throw new Error(
+          `[Feature ${feature.name}] ${where} has an invalid meta references value ${JSON.stringify(reading.raw)}. ` +
+            `Use "<entity>", "<feature>:<entity>" or { entity, by? }.`,
+        );
+      }
+      const { entity, by } = reading.reference;
+      const target = parseRefTarget(entity, feature.name);
+      const targetEntity = featureMap.get(target.featureName)?.entities?.[target.entityName];
+      if (targetEntity === undefined) {
+        throw new Error(
+          `[Feature ${feature.name}] ${where} has meta references: "${entity}", ` +
+            `which is not a registered entity. Use "<entity>" for this feature or "<feature>:<entity>" for another one.`,
+        );
+      }
+      if (by !== undefined && targetEntity.fields[by] === undefined) {
+        throw new Error(
+          `[Feature ${feature.name}] ${where} references entity "${entity}" by "${by}", ` +
+            `but that entity has no field "${by}".`,
+        );
+      }
     }
   }
 }

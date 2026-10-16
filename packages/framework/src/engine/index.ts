@@ -261,6 +261,8 @@ export {
 } from "./field-access.js";
 export {
   HANDLER_FIELD_REFERENCES_META_KEY,
+  type HandlerFieldReference,
+  type HandlerFieldReferenceMeta,
   handlerFieldReference,
 } from "./handler-field-references.js";
 export { resolveName, withResponseData } from "./handler-helpers.js";
