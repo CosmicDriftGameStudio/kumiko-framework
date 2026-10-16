@@ -5,7 +5,7 @@
 
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD } from "../src/app/auth-constants";
 import { loginAs } from "./_helpers/login";
 
@@ -16,6 +16,16 @@ test.describe.configure({ mode: "serial" });
 const here = dirname(fileURLToPath(import.meta.url));
 const LOGO = resolve(here, "fixtures/logo-nordlicht.png");
 const PDF = resolve(here, "fixtures/hausordnung.pdf");
+
+// The subject editor loads lazily behind a plain input with the raw {{name}}
+// text; a click on that fallback can put the caret inside a placeholder token.
+async function appendToSubject(page: Page, text: string): Promise<void> {
+  const subject = page.locator("#mail-subject[contenteditable='true']");
+  await expect(subject).toBeVisible();
+  await subject.click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(text);
+}
 
 test("tenant admin edits the invoice mail, attaches files, previews, sends a test mail and publishes", async ({
   page,
@@ -39,8 +49,7 @@ test("tenant admin edits the invoice mail, attaches files, previews, sends a tes
 
   // Save is only enabled for a changed draft: edit the subject, then save a new version.
   await expect(page.getByTestId("document-designer-editor-status")).toContainText("v1");
-  await page.locator("#mail-subject").click();
-  await page.keyboard.type(" (Oktober)");
+  await appendToSubject(page, " (Oktober)");
   await page.getByTestId("document-designer-save").click();
   await expect(page.getByTestId("document-designer-editor-status")).toContainText("v2");
   await expect(page.getByTestId("document-designer-editor-status")).toContainText("Entwurf");
@@ -90,9 +99,8 @@ test("switching the language with unsaved changes asks first and keeps the input
   await row.getByRole("button", { name: "Bearbeiten" }).click();
   await expect(page.getByTestId("document-designer-editor-title")).toBeVisible();
 
+  await appendToSubject(page, " (geprüft)");
   const subject = page.locator("#mail-subject");
-  await subject.click();
-  await page.keyboard.type(" (geprüft)");
 
   await page.getByTestId("mail-locale-switch").getByText("en", { exact: true }).click();
   const dialog = page.getByTestId("mail-leave-dialog");
