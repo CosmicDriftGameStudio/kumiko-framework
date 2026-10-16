@@ -21,7 +21,7 @@ import { createTemplateResolverApi } from "../api.js";
 import { createTemplateResolverFeature } from "../feature.js";
 import type { LayoutSourceResponse, OverviewResponse } from "../index.js";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
-import { seedSystemTemplate } from "../seeding.js";
+import { seedSystemTemplate, seedTextBlock } from "../seeding.js";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
@@ -436,7 +436,7 @@ describe("template-resolver :: draft beside the active version", () => {
 
   test("a system draft never reaches a tenant, a SystemAdmin works on it", async () => {
     const copyToSystem = (fromLocale: string, toLocale: string) =>
-      stack.http.writeOk(
+      stack.http.writeOk<{ id: string }>(
         TemplateResolverHandlers.copyLocale,
         {
           slug: slugOf("sysdraft"),
@@ -484,6 +484,10 @@ describe("template-resolver :: draft beside the active version", () => {
     expect(seenByTenant.content).toContain("Aktiv DE");
     expect(seenByTenant.content).not.toContain("Quelle EN");
     expect(seenByTenant.meta).not.toContain("Quelle EN");
+
+    const { id: neverServedId } = await copyToSystem("en", "fr");
+    expect((await findWorking(neverServedId, systemAdmin)).status).toBe("draft");
+    expect(await findWorking(neverServedId)).toBeNull();
   });
 
   test("a system layout draft is shown to the SystemAdmin only", async () => {
@@ -530,6 +534,20 @@ describe("template-resolver :: draft beside the active version", () => {
     const forSystemAdmin = await sourceFor(systemAdmin);
     expect(forSystemAdmin.system?.status).toBe("draft");
     expect(forSystemAdmin.regions.header).toContain("Entwurf Kopf");
+
+    await stack.http.writeOk(
+      TemplateResolverHandlers.copyLocale,
+      { slug: layout.slug, kind: layout.kind, fromLocale: "de", toLocale: "fr", scope: "system" },
+      systemAdmin,
+    );
+    const frFor = (user: typeof admin) =>
+      stack.http.queryOk<LayoutSourceResponse>(
+        TemplateResolverQueries.layoutSource,
+        { kind: layout.kind, slug: layout.slug, locale: "fr" },
+        user,
+      );
+    expect((await frFor(admin)).system?.locale).toBe("de");
+    expect((await frFor(systemAdmin)).system?.locale).toBe("fr");
   });
 
   test("re-seeding a system template keeps the recorded served version in step", async () => {
@@ -553,6 +571,27 @@ describe("template-resolver :: draft beside the active version", () => {
       id,
     });
     expect(stored?.activeVersion).toBe(stored?.version ?? -1);
+  });
+
+  test("re-seeding an archived text block keeps it archived", async () => {
+    const seed = (content: string) =>
+      seedTextBlock(stack.db, {
+        tenantId,
+        slug: "dd-seeded-block",
+        locale: "de",
+        title: "Block",
+        content,
+        ifExists: "update",
+      });
+    const { id } = await seed("v1");
+    await stack.http.writeOk(TemplateResolverHandlers.archive, { id }, admin);
+    await seed("v2");
+
+    const [stored] = await selectMany<TemplateResourceRow>(stack.db, templateResourcesTable, {
+      id,
+    });
+    expect(stored?.content).toBe("v2");
+    expect(stored?.status).toBe("archived");
   });
 
   test("rebuilding the projection reproduces rows with drafts and served versions", async () => {

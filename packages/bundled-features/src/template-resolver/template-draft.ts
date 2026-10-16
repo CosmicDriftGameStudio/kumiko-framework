@@ -52,13 +52,23 @@ export type ActiveInfo = { readonly version: number; readonly since: Temporal.In
 export type WorkingRow = TemplateResourceRow & { readonly active: ActiveInfo | null };
 
 // A SystemAdmin edits system rows, so for them those rows count as their own.
+function isSystemAdmin(user: { readonly roles: readonly string[] }): boolean {
+  return user.roles.includes("SystemAdmin");
+}
+
+// A system row that was never served keeps its draft in the main fields, so only a SystemAdmin may read it.
+export function isHiddenSystemDraft(
+  user: { readonly roles: readonly string[] },
+  row: Pick<TemplateResourceRow, "scope" | "status">,
+): boolean {
+  return row.scope === "system" && row.status === "draft" && !isSystemAdmin(user);
+}
+
 export function draftViewerTenantId(
   user: { readonly tenantId: string; readonly roles: readonly string[] },
   row: TemplateResourceRow,
 ): string {
-  return row.scope === "system" && user.roles.includes("SystemAdmin")
-    ? row.tenantId
-    : user.tenantId;
+  return row.scope === "system" && isSystemAdmin(user) ? row.tenantId : user.tenantId;
 }
 
 // The version an editor works on: the open draft if there is one, else the stored row.
@@ -74,12 +84,15 @@ export function toWorkingRow(row: TemplateResourceRow, viewerTenantId: string): 
 
 // Event changes that turn a row into a served one. Every value is explicit so a
 // rebuild reproduces the row without deriving anything.
-export function activeStampChanges(row: { readonly version: number } | null) {
+export function servedStampChanges(row: { readonly version: number } | null) {
   return {
-    status: "active",
     activeVersion: row === null ? 1 : row.version + 1,
     activeSince: Temporal.Now.instant(),
   };
+}
+
+export function activeStampChanges(row: { readonly version: number } | null) {
+  return { status: "active", ...servedStampChanges(row) };
 }
 
 // Publishing also consumes the open draft.

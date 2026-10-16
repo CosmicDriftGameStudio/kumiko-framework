@@ -35,7 +35,7 @@ import { evaluateTemplateWrite } from "./handlers/template-gates.js";
 import { TEMPLATE_RESOLVER_FEATURE } from "./qualified-names.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 import type { TemplateBundle } from "./template-bundle.js";
-import { activeStampChanges } from "./template-draft.js";
+import { activeStampChanges, servedStampChanges } from "./template-draft.js";
 import { templateSlugSchema } from "./template-meta.js";
 import { variablesFromSchema } from "./template-validation.js";
 
@@ -381,7 +381,8 @@ export async function seedTextBlock(
           title: fields.title,
           content: fields.content,
           folder: fields.folder,
-          ...activeStampChanges(row),
+          // A re-seed must not revive an archived block; only a served one gets a new served version.
+          ...(current?.status === "active" && servedStampChanges(row)),
         },
       },
       by,

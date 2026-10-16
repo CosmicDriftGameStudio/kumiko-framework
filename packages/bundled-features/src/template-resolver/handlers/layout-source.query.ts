@@ -7,6 +7,7 @@ import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import {
   type ActiveInfo,
   draftViewerTenantId,
+  isHiddenSystemDraft,
   toWorkingRow,
   type WorkingRow,
 } from "../template-draft.js";
@@ -65,6 +66,7 @@ function layoutFormat(row: WorkingRow): "html" | "mjml" | null {
 
 function pickEditedRows(
   rows: readonly TemplateResourceRow[],
+  user: { readonly roles: readonly string[] },
   isSystemAdmin: boolean,
   locale: string | undefined,
 ): {
@@ -78,7 +80,7 @@ function pickEditedRows(
         locale,
       );
   const systemRow = pickByLocale(
-    rows.filter((row) => row.scope === "system"),
+    rows.filter((row) => row.scope === "system" && !isHiddenSystemDraft(user, row)),
     locale,
   );
   return { tenantRow, systemRow };
@@ -143,7 +145,7 @@ export const layoutSourceQuery = defineQueryHandler({
       kind,
       slug,
     });
-    const picked = pickEditedRows(rows, isSystemAdmin, locale);
+    const picked = pickEditedRows(rows, query.user, isSystemAdmin, locale);
     const tenantRow = picked.tenantRow && toWorkingRow(picked.tenantRow, query.user.tenantId);
     // Only a SystemAdmin works on the system draft; a tenant sees the served system version.
     const systemRow =
