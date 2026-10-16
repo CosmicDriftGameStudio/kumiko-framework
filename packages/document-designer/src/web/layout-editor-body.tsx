@@ -23,10 +23,6 @@ import {
   PlaceholderRail,
   UsedByRail,
 } from "./layout-rails.js";
-import { layoutUsers } from "./layout-users.js";
-import { OriginBar } from "./origin-bar.js";
-import type { OverviewRowView } from "./overview-row.js";
-import { asRowStatus, statusLabel, statusTone } from "./status-label.js";
 import type {
   LayoutKind,
   LayoutSourceView,
@@ -35,6 +31,10 @@ import type {
   UpsertResponse,
   ValidationIssue,
 } from "./layout-types.js";
+import { layoutUsers } from "./layout-users.js";
+import { OriginBar } from "./origin-bar.js";
+import type { OverviewRowView } from "./overview-row.js";
+import { asRowStatus, statusLabel, statusTone } from "./status-label.js";
 
 type EditorTab = "draft" | "mjml";
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;

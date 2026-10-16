@@ -9,8 +9,8 @@ import {
   TEMPLATES_SCREEN_ID,
 } from "../constants.js";
 import { LayoutEditorBody } from "./layout-editor-body.js";
-import { parseOverviewRow } from "./overview-row.js";
 import type { LayoutKind, LayoutSourceView, TenantOverrideCounts } from "./layout-types.js";
+import { parseOverviewRow } from "./overview-row.js";
 
 function parseLayoutKind(raw: string | undefined): LayoutKind {
   return raw === "pdf-layout" ? "pdf-layout" : "mail-layout";

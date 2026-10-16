@@ -1,7 +1,7 @@
 // @runtime client
 import { DEFAULT_LAYOUT_SLUG } from "../constants.js";
-import type { OverviewRowView } from "./overview-row.js";
 import type { LayoutKind } from "./layout-types.js";
+import type { OverviewRowView } from "./overview-row.js";
 
 // Templates whose content is wrapped by this layout. A template without an explicit
 // layoutSlug uses the default layout.

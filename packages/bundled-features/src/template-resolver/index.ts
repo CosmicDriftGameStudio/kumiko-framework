@@ -68,7 +68,6 @@ export {
   isDocumentResourceKey,
 } from "./document-schema.js";
 export { createTemplateResolverFeature } from "./feature.js";
-export { localeSchema } from "./handlers/shared.js";
 export type { LayoutSourceResponse, LayoutSourceRow } from "./handlers/layout-source.query.js";
 export type {
   OverviewKindGroup,
@@ -77,6 +76,7 @@ export type {
   OverviewRow,
   OverviewUsage,
 } from "./handlers/overview.query.js";
+export { localeSchema } from "./handlers/shared.js";
 export {
   type LayoutRegions,
   readLayoutRegions,

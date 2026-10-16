@@ -70,7 +70,10 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     de: "Branding ist nicht verfügbar.",
   },
 
-  "documentDesigner.layoutPlaceholders.title": { en: "Layout placeholders", de: "Layout-Platzhalter" },
+  "documentDesigner.layoutPlaceholders.title": {
+    en: "Layout placeholders",
+    de: "Layout-Platzhalter",
+  },
   "documentDesigner.placeholders.content": { en: "Template content", de: "Inhalt der Vorlage" },
   "documentDesigner.placeholder.tenantName": { en: "Tenant name", de: "Mandantenname" },
   "documentDesigner.placeholder.signature": { en: "Signature", de: "Signatur" },

@@ -9,10 +9,10 @@ import {
 import { DetailList, EmptyState, SectionCard } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
 import { BRANDING_QUERY_QN, BRANDING_SCREEN_QN } from "../constants.js";
+import type { BrandingView, LayoutKind, LayoutValidation } from "./layout-types.js";
 import { layoutUsers } from "./layout-users.js";
 import type { OverviewRowView } from "./overview-row.js";
 import { statusLabel } from "./status-label.js";
-import type { BrandingView, LayoutKind, LayoutValidation } from "./layout-types.js";
 
 const NOT_SET_MARK = "–";
 const HEX_COLOR = /^#[0-9a-f]{3,8}$/i;

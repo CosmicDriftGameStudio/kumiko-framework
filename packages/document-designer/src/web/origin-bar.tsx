@@ -6,7 +6,12 @@ import {
 import { useMutation, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { EmptyState, LoadingState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
-import type { LayoutKind, LayoutSourceView, TemplateDiff, TenantOverrideCounts } from "./layout-types.js";
+import type {
+  LayoutKind,
+  LayoutSourceView,
+  TemplateDiff,
+  TenantOverrideCounts,
+} from "./layout-types.js";
 
 const DIFF_MARK: Readonly<Record<TemplateDiff["blocks"][number]["change"], string>> = {
   same: " ",
