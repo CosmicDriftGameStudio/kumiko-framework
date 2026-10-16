@@ -5,9 +5,10 @@ type Localized = { readonly en: string; readonly de: string };
 
 export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "screen:templates.title": { en: "Templates", de: "Vorlagen" },
-  "screen:platform-templates.title": { en: "Templates", de: "Vorlagen" },
+  "screen:platform-templates.title": { en: "System templates", de: "System-Vorlagen" },
   "screen:layout-editor.title": { en: "Layout", de: "Layout" },
   "document-designer:nav.templates": { en: "Templates", de: "Vorlagen" },
+  "document-designer:nav.platformTemplates": { en: "System templates", de: "System-Vorlagen" },
   "documentDesigner.screen.layoutEditor.description": {
     en: "Edit the mail layout or the PDF letterhead.",
     de: "Mail-Layout oder Briefpapier bearbeiten.",

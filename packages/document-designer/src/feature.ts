@@ -69,7 +69,7 @@ export function createDocumentDesignerFeature(): FeatureDefinition {
     });
     r.nav({
       id: PLATFORM_TEMPLATES_NAV_ID,
-      label: "document-designer:nav.templates",
+      label: "document-designer:nav.platformTemplates",
       icon: "file",
       screen: `${DOCUMENT_DESIGNER_FEATURE}:screen:${PLATFORM_TEMPLATES_SCREEN_ID}`,
       access: { roles: access.systemAdmin },

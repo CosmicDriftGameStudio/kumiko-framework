@@ -26,7 +26,13 @@ function withRow(
 
 export function SlugCell({ row }: ColumnRendererProps): ReactNode {
   return withRow(row, (r) => (
-    <span className="font-mono text-xs text-muted-foreground">{r.slug}</span>
+    // Qualified notification slugs are long; capped so status, usage and date stay in view.
+    <span
+      className="block max-w-44 truncate font-mono text-xs text-muted-foreground"
+      title={r.slug}
+    >
+      {r.slug}
+    </span>
   ));
 }
 

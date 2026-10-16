@@ -219,6 +219,32 @@ export const SYSTEM_AUTH_MAILS: readonly SeedTemplate[] = [
       `<p>Der Link ist ${v("validFor")} gültig, bis ${v("validUntil")}.</p>`,
     ],
   ),
+  authMail(
+    "email-verification",
+    "de",
+    "E-Mail-Adresse bestätigen",
+    "E-Mail-Adresse für {{appName}} bestätigen",
+    [
+      "<p>Hallo,</p>",
+      `<p>bitte bestätigen Sie Ihre E-Mail-Adresse für ${v("appName")}: <a href="{{actionUrl}}">E-Mail-Adresse bestätigen</a></p>`,
+      `<p>Der Link ist ${v("validFor")} gültig, bis ${v("validUntil")}.</p>`,
+    ],
+  ),
+  authMail("email-verification", "en", "Confirm email address", "Confirm your {{appName}} email", [
+    "<p>Hello,</p>",
+    `<p>please confirm your email address for ${v("appName")}: <a href="{{actionUrl}}">Confirm email address</a></p>`,
+    `<p>The link is valid for ${v("validFor")}, until ${v("validUntil")}.</p>`,
+  ]),
+  authMail("account-unlock", "de", "Konto entsperren", "Ihr Konto bei {{appName}} entsperren", [
+    "<p>Hallo,</p>",
+    `<p>Ihr Konto bei ${v("appName")} wurde nach mehreren fehlgeschlagenen Anmeldungen gesperrt. Mit dem folgenden Link entsperren Sie es: <a href="{{actionUrl}}">Konto entsperren</a></p>`,
+    `<p>Der Link ist ${v("validFor")} gültig, bis ${v("validUntil")}.</p>`,
+  ]),
+  authMail("account-unlock", "en", "Unlock account", "Unlock your {{appName}} account", [
+    "<p>Hello,</p>",
+    `<p>your ${v("appName")} account was locked after several failed sign-ins. Unlock it with this link: <a href="{{actionUrl}}">Unlock account</a></p>`,
+    `<p>The link is valid for ${v("validFor")}, until ${v("validUntil")}.</p>`,
+  ]),
 ];
 
 const INVOICE_DOCUMENT_ROWS = `<table><tbody><tr><th><p>Leistung</p></th><th><p>Betrag</p></th></tr><tr data-each="lines" data-repeat-header=""><td><p>${v("description")}</p></td><td><p>${v("amount")}</p></td></tr></tbody></table>`;
