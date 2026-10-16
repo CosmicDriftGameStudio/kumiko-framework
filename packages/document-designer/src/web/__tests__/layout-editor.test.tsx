@@ -49,9 +49,9 @@ const okValidation = {
 
 type Call = { readonly type: string; readonly payload: unknown };
 
-function fakeDispatcher(source: LayoutSourceView, calls: Call[]): Dispatcher {
+function fakeDispatcher(source: LayoutSourceView | null, calls: Call[]): Dispatcher {
   const answers: Record<string, unknown> = {
-    "template-resolver:query:layout-source": source,
+    ...(source !== null && { "template-resolver:query:layout-source": source }),
     "template-resolver:query:overview": { rows: [], nextCursor: null, total: 0 },
     "template-resolver:query:validate": okValidation,
     "template-resolver:query:tenant-overrides": {
@@ -99,7 +99,11 @@ const translations = mergeTranslations(
   documentDesignerClient().translations ?? {},
 );
 
-function renderEditor(roles: readonly string[], source: LayoutSourceView, calls: Call[]): void {
+function renderEditor(
+  roles: readonly string[],
+  source: LayoutSourceView | null,
+  calls: Call[],
+): void {
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en" })}
@@ -119,6 +123,12 @@ function renderEditor(roles: readonly string[], source: LayoutSourceView, calls:
 }
 
 describe("LayoutEditor", () => {
+  test("a failing layout-source query shows the error instead of loading forever", async () => {
+    renderEditor(["TenantAdmin"], null, []);
+    await screen.findByTestId("document-designer-layout-error");
+    expect(screen.queryByTestId("document-designer-paper")).toBeNull();
+  });
+
   test("a tenant admin gets no MJML tab and a disabled save while nothing changed", async () => {
     renderEditor(["TenantAdmin"], tenantSource, []);
     await screen.findByTestId("document-designer-paper");

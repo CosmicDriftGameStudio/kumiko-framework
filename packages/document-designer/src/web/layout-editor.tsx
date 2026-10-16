@@ -1,7 +1,7 @@
 // @runtime client
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useNav, useQuery, useUserRoles } from "@cosmicdrift/kumiko-renderer";
-import { LoadingState } from "@cosmicdrift/kumiko-renderer-web";
+import { ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
 import {
   DEFAULT_LAYOUT_SLUG,
@@ -38,6 +38,15 @@ function LayoutEditorLoader({
     { enabled: isSystemAdmin },
   );
 
+  if (source.error !== null) {
+    return (
+      <ErrorState
+        error={source.error}
+        onRetry={() => void source.refetch()}
+        testId="document-designer-layout-error"
+      />
+    );
+  }
   if (source.data === null) {
     return <LoadingState />;
   }
