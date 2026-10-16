@@ -3,7 +3,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { FRAMEWORK_AGENTS_IMPORT } from "../scaffold-agent-docs.js";
 import { type ScaffoldTestSetup, scaffoldApp } from "../scaffold-app.js";
 
 const SCAFFOLD_FILES = [
@@ -31,6 +32,8 @@ const SCAFFOLD_FILES = [
   "deploy/Dockerfile.dockerignore",
   "deploy/migrate-step.sh",
   "README.md",
+  "AGENTS.md",
+  "CLAUDE.md",
 ] as const;
 
 const STUB_TEST_SETUP: ScaffoldTestSetup = {
@@ -63,6 +66,32 @@ describe("scaffoldApp", () => {
       expect(result.files).toContain(f);
       expect(existsSync(join(dest, f))).toBe(true);
     }
+  });
+
+  test("CLAUDE.md imports the framework guide and AGENTS.md only points at it", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const claudeLines = readFileSync(join(dest, "CLAUDE.md"), "utf-8").split("\n");
+    expect(claudeLines[0]).toBe("@node_modules/@cosmicdrift/kumiko-framework/AGENTS.md");
+    expect(claudeLines[1]).toBe("@AGENTS.md");
+    const agentsMd = readFileSync(join(dest, "AGENTS.md"), "utf-8");
+    expect(agentsMd).toContain("node_modules/@cosmicdrift/kumiko-framework/AGENTS.md");
+    expect(agentsMd.trimEnd().split("\n").length).toBeLessThan(20);
+  });
+
+  test("the CLAUDE.md import path resolves to a file the framework package ships", () => {
+    const packageJsonPath = Bun.resolveSync(
+      "@cosmicdrift/kumiko-framework/package.json",
+      import.meta.dir,
+    );
+    const packageDir = dirname(packageJsonPath);
+    const packageFiles: unknown = JSON.parse(readFileSync(packageJsonPath, "utf-8")).files;
+
+    expect(FRAMEWORK_AGENTS_IMPORT).toBe("@node_modules/@cosmicdrift/kumiko-framework/AGENTS.md");
+    expect(existsSync(join(packageDir, "AGENTS.md"))).toBe(true);
+    expect(packageFiles).toContain("AGENTS.md");
+    expect(packageFiles).toContain("agents");
   });
 
   test("package.json has @cosmicdrift/* deps with version pin", async () => {

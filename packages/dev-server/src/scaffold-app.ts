@@ -22,6 +22,7 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
 import { isKebabSegment } from "./kebab.js";
+import { renderAgentsMd, renderClaudeMd } from "./scaffold-agent-docs.js";
 import {
   createDemoTasksFeature,
   renderDemoSeedFile,
@@ -191,6 +192,11 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
     `${renderReadme(options.name, options.features)}${testSetup === undefined ? "" : `\n${testSetup.rulesMarkdown}`}`,
   );
   files.push("README.md");
+
+  write(join(destination, "AGENTS.md"), renderAgentsMd());
+  files.push("AGENTS.md");
+  write(join(destination, "CLAUDE.md"), renderClaudeMd());
+  files.push("CLAUDE.md");
 
   return { destination, files, appName: options.name };
 }

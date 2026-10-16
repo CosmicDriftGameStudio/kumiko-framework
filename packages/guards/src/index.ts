@@ -1,3 +1,4 @@
+export { AGENT_DOCS_DIR, renderAgentDocs, writeAgentDocs } from "./_lib/agent-docs";
 export { gitEnv } from "./_lib/git-env";
 export {
   type AstGuard,
