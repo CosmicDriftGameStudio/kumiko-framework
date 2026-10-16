@@ -87,7 +87,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^3.0.3",
     "@cosmicdrift/kumiko-guards": "workspace:*",
     "@happy-dom/global-registrator": "^20.11.2",
     "@playwright/test": "^1.62.1",
@@ -119,7 +119,8 @@
     "ip-address": "10.7.3",
     "prosemirror-model": "1.25.12",
     "prosemirror-view": "1.42.6",
-    "source-map-js": "1.2.2"
+    "source-map-js": "1.2.2",
+    "@parcel/watcher": "2.6.0"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-cli": "workspace:*",
