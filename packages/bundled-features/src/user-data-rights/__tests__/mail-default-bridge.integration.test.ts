@@ -9,9 +9,17 @@
 // ueberspringen (vgl. project_export_cron_config_accessor_fix). Akzeptanz von
 // #624: "App mountet mail-foundation+transport → GDPR-Mails ohne Callback-Code".
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configureBlindIndexKey,
+  configurePiiSubjectKms,
+  decryptPiiFieldValues,
+  InMemoryKmsAdapter,
+  isPiiCiphertext,
+  PII_ERASED_SENTINEL,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -22,7 +30,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+  seedRow,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import {
@@ -56,6 +69,7 @@ const TENANT_SYSTEM = SYSTEM_TENANT_ID;
 const USER_ID = "00000000-0000-4000-8000-0000000006b1";
 const ORIGINAL_EMAIL = "bridge-delete@example.test";
 const FORGET_JOB = "user-data-rights:job:run-forget-cleanup";
+const BIDX_KEY = Buffer.alloc(32, 7).toString("base64");
 
 // App-weiter Override (wie money-horse's Config-Resolver): provider=inmemory
 // ohne per-Tenant-config-Row. Der Job-Kontext traegt DIESEN resolver, kein config.
@@ -64,6 +78,7 @@ const configResolver = createConfigResolver({
 });
 
 let stack: TestStack;
+let kms: InMemoryKmsAdapter;
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 const past = (): Instant => getTemporal().Instant.fromEpochMilliseconds(Date.now() - 60_000);
@@ -118,8 +133,23 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [userTable, "read_tenant_memberships", fileRefsTable]);
+  await resetTestTables(stack.db, [
+    userTable,
+    "read_tenant_memberships",
+    fileRefsTable,
+    eventsTable,
+  ]);
   clearInbox(TENANT_A);
+  // Without a subject KMS every event payload stays plaintext by design
+  // (crypto-shredding off), so the forget assertions need one configured.
+  kms = new InMemoryKmsAdapter();
+  configurePiiSubjectKms(kms);
+  configureBlindIndexKey(BIDX_KEY);
+});
+
+afterEach(() => {
+  resetPiiSubjectKmsForTests();
+  resetBlindIndexKeyForTests();
 });
 
 describe("C6 default mail bridge :: forget cron sends deletion-executed without app callback", () => {
@@ -184,15 +214,39 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
     expect(inbox[0]?.subject).toContain("Dein Konto wurde gelöscht");
     expect(inbox[0]?.html).toContain("endgültig");
 
-    // The mail bypasses delivery: no event outside the user aggregate may carry
-    // the address. The user aggregate's own anonymization event is out of scope here.
-    const nonUserEvents = (
-      await selectMany<{ aggregateType: string }>(stack.db, eventsTable, {})
-    ).filter((event) => event.aggregateType !== "user");
-    const traces = JSON.stringify(nonUserEvents, (_key, value) =>
+    // No event of any aggregate carries the address in plaintext, and the user
+    // aggregate keeps it only in `previous`, under the now-erased subject key.
+    const events = await selectMany<{
+      aggregateId: string;
+      type: string;
+      payload: Record<string, unknown>;
+    }>(stack.db, eventsTable, {});
+    const traces = JSON.stringify(events, (_key, value) =>
       typeof value === "bigint" ? value.toString() : value,
     );
     expect(traces).not.toContain(ORIGINAL_EMAIL);
+    const updates = events.filter(
+      (event) => event.aggregateId === USER_ID && event.type === "user.updated",
+    );
+    expect(updates.length).toBeGreaterThan(0);
+
+    const previousEmails = updates.flatMap((event) => {
+      const previous = event.payload["previous"] as Record<string, unknown> | undefined;
+      return previous?.["email"] === undefined ? [] : [previous["email"]];
+    });
+    expect(previousEmails.length).toBeGreaterThan(0);
+    // Later events load the already-erased row, so their `previous` carries the sentinel.
+    expect(previousEmails.some((email) => isPiiCiphertext(email))).toBe(true);
+    for (const email of previousEmails) {
+      expect(isPiiCiphertext(email) || email === PII_ERASED_SENTINEL).toBe(true);
+      const decrypted = await decryptPiiFieldValues({ email }, ["email"], kms, {
+        requestId: "forget-shredding-check",
+      });
+      expect(decrypted["email"]).toBe(PII_ERASED_SENTINEL);
+    }
+    await expect(kms.getKey({ kind: "user", userId: USER_ID })).rejects.toThrow(
+      "Subject key erased",
+    );
   });
 
   test("no mail transport mounted is NOT this stack — sanity: provider really is inmemory", () => {
