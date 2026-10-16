@@ -24,6 +24,8 @@ export const TemplateResolverQueries = {
   findById: "template-resolver:query:find-by-id",
   list: "template-resolver:query:list",
   usage: "template-resolver:query:usage",
+  overview: "template-resolver:query:overview",
+  layoutSource: "template-resolver:query:layout-source",
   tenantOverrides: "template-resolver:query:tenant-overrides",
   diffToSystem: "template-resolver:query:diff-to-system",
   validate: "template-resolver:query:validate",

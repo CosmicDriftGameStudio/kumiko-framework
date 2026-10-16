@@ -40,6 +40,12 @@
       "@cosmicdrift/kumiko-locale-de/*": [
         "./packages/locale-de/src/*"
       ],
+      "@cosmicdrift/kumiko-document-designer": [
+        "./packages/document-designer/src"
+      ],
+      "@cosmicdrift/kumiko-document-designer/*": [
+        "./packages/document-designer/src/*"
+      ],
       "@cosmicdrift/kumiko-locale-es": [
         "./packages/locale-es/src"
       ],
@@ -108,6 +114,9 @@
     },
     {
       "path": "./packages/locale-es"
+    },
+    {
+      "path": "./packages/document-designer"
     },
     {
       "path": "./packages/renderer-mail-html"

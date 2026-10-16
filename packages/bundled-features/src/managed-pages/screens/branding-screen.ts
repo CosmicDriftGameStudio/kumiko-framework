@@ -1,5 +1,6 @@
 import {
   type ConfigEditScreenDefinition,
+  createImageField,
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -35,6 +36,7 @@ export function createBrandingSettingsScreen(opts: {
       siteUrl: BRANDING_QN.siteUrl,
       accentColor: BRANDING_QN.accentColor,
       logoUrl: BRANDING_QN.logoUrl,
+      logoFile: BRANDING_QN.logoFile,
       layoutPreset: BRANDING_QN.layoutPreset,
     },
     fields: {
@@ -62,6 +64,11 @@ export function createBrandingSettingsScreen(opts: {
         personal: false,
         reason: "is_business_data",
       }),
+      logoFile: createImageField({
+        accept: ["image/png", "image/jpeg", "image/webp"],
+        personal: false,
+        reason: "is_business_data",
+      }),
       layoutPreset: createSelectField({ options: LAYOUT_PRESETS }),
     },
     layout: {
@@ -75,6 +82,7 @@ export function createBrandingSettingsScreen(opts: {
             { field: "description", span: 2 },
             { field: "siteUrl", span: 1 },
             { field: "logoUrl", span: 1 },
+            { field: "logoFile", span: 1 },
             { field: "accentColor", span: 1 },
           ],
         },

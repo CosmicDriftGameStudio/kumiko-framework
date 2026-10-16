@@ -141,17 +141,28 @@ async function readText(config: ConfigAccessor, qualifiedKey: string): Promise<s
 // publicstatus' branding read), not a crash.
 export async function readBranding(config: ConfigAccessor | undefined): Promise<BrandingTokens> {
   if (!config) return EMPTY_BRANDING;
-  const [title, description, siteUrl, accentColor, logoUrl, layoutPreset] = await Promise.all([
-    readText(config, BRANDING_QN.title),
-    readText(config, BRANDING_QN.description),
-    readText(config, BRANDING_QN.siteUrl),
-    readText(config, BRANDING_QN.accentColor),
-    readText(config, BRANDING_QN.logoUrl),
-    readText(config, BRANDING_QN.layoutPreset),
-  ]);
+  const [title, description, siteUrl, accentColor, logoUrl, logoFile, layoutPreset] =
+    await Promise.all([
+      readText(config, BRANDING_QN.title),
+      readText(config, BRANDING_QN.description),
+      readText(config, BRANDING_QN.siteUrl),
+      readText(config, BRANDING_QN.accentColor),
+      readText(config, BRANDING_QN.logoUrl),
+      readText(config, BRANDING_QN.logoFile),
+      readText(config, BRANDING_QN.layoutPreset),
+    ]);
   // customCss stays "" here — it is gated (allowCustomCss + per-tenant toggle)
   // and read separately by the branding query via readCustomCss.
-  return { title, description, siteUrl, accentColor, logoUrl, layoutPreset, customCss: "" };
+  return {
+    title,
+    description,
+    siteUrl,
+    accentColor,
+    logoUrl,
+    logoFile,
+    layoutPreset,
+    customCss: "",
+  };
 }
 
 // Read the raw, untrusted custom CSS for the request's tenant. The caller (the
@@ -179,6 +190,7 @@ export function coerceBranding(value: unknown): BrandingTokens {
     siteUrl: stringField(source, "siteUrl"),
     accentColor: stringField(source, "accentColor"),
     logoUrl: stringField(source, "logoUrl"),
+    logoFile: stringField(source, "logoFile"),
     layoutPreset: stringField(source, "layoutPreset"),
     customCss: stringField(source, "customCss"),
   };

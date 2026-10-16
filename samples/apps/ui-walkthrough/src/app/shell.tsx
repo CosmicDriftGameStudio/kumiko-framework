@@ -18,13 +18,19 @@ import {
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { AssistantAction } from "./assistant-action";
-import { BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
+import {
+  BETA_TENANT_ID,
+  DEV_TENANT_ID,
+  NORDLICHT_TENANT_ID,
+  NORDLICHT_TENANT_NAME,
+} from "./auth-constants";
 
 const APP_NAME = "Kumiko Walkthrough";
 
 const tenantName = (tenantId: string): string => {
   if (tenantId === DEV_TENANT_ID) return "Dev Tenant";
   if (tenantId === BETA_TENANT_ID) return "Beta Tenant";
+  if (tenantId === NORDLICHT_TENANT_ID) return NORDLICHT_TENANT_NAME;
   return tenantId.slice(0, 8);
 };
 

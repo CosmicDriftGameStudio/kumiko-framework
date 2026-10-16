@@ -18,3 +18,12 @@ export const ADMIN_PASSWORD = "kumiko-admin";
 // `as TenantId`-Cast lokal.
 export const DEV_TENANT_ID = "00000000-0000-4000-8000-000000000001";
 export const BETA_TENANT_ID = "00000000-0000-4000-8000-000000000002";
+
+// Nordlicht Immobilien GmbH: the tenant the document-designer walkthrough runs
+// in. Both users are new; the admin above stays untouched.
+export const NORDLICHT_TENANT_ID = "00000000-0000-4000-8000-000000000003";
+export const NORDLICHT_TENANT_NAME = "Nordlicht Immobilien GmbH";
+export const TENANT_ADMIN_EMAIL = "a.berger@nordlicht-immobilien.de";
+export const TENANT_ADMIN_PASSWORD = "nordlicht-berger";
+export const PLATFORM_ADMIN_EMAIL = "plattform@kumiko.dev";
+export const PLATFORM_ADMIN_PASSWORD = "kumiko-plattform";

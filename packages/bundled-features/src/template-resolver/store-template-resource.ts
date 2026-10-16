@@ -75,6 +75,7 @@ export async function storeTemplateResource(args: {
   if (bytes.length > maxBytes) {
     return writeFailure(
       new UnprocessableError(TemplateResolverErrors.resourceTooLarge, {
+        i18nKey: "templateResolver.errors.resource.tooLarge",
         details: { maxBytes, size: bytes.length },
       }),
     );
@@ -85,6 +86,7 @@ export async function storeTemplateResource(args: {
   } catch (cause) {
     return writeFailure(
       new UnprocessableError(TemplateResolverErrors.resourceUnsupportedImage, {
+        i18nKey: "templateResolver.errors.resource.unsupportedImage",
         cause: cause instanceof Error ? cause : undefined,
       }),
     );

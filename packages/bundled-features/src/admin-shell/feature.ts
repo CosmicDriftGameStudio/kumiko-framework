@@ -36,6 +36,9 @@ export type CreateAdminShellOptions = {
    *  Requires cap-overview mounted. Default false — apps that don't mount cap-overview
    *  must not get a nav entry pointing at a screen that doesn't exist. */
   readonly includeCapOverview?: boolean;
+  /** Tenant nav → document-designer:nav:templates, platform nav → document-designer:nav:platform-templates.
+   *  Requires document-designer mounted (a separate package, so no import here). Default false. */
+  readonly includeDocumentDesigner?: boolean;
   /** When false, only overview screens + nav are registered — app owns r.workspace(). Default true. */
   readonly registerWorkspaces?: boolean;
   /** Metric list the overview panels are built from — pass the SAME list to
@@ -49,12 +52,13 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
   const platformWsId = options.workspaceIds?.platform ?? DEFAULT_PLATFORM_WORKSPACE_ID;
   const includeTierAdmin = options.includeTierAdmin ?? true;
   const includeCapOverview = options.includeCapOverview ?? false;
+  const includeDocumentDesigner = options.includeDocumentDesigner ?? false;
   const registerWorkspaces = options.registerWorkspaces ?? true;
   const metrics = options.metrics ?? DEFAULT_METRICS;
 
   return defineFeature(ADMIN_SHELL_FEATURE, (r) => {
     r.describe(
-      "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`) and the two overview dashboards, built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
+      "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`, optional `document-designer` template navs) and the two overview dashboards, built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
     );
     r.uiHints({
       displayLabel: "Admin Shell",
@@ -69,6 +73,7 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
     r.requires("metrics-system");
     if (includeTierAdmin) r.requires("tier-engine");
     if (includeCapOverview) r.requires("cap-overview");
+    if (includeDocumentDesigner) r.requires("document-designer");
 
     r.translations({ keys: ADMIN_SHELL_I18N });
 
@@ -77,12 +82,14 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       "tenant:nav:members",
       "audit:nav:audit-log",
       ...(includeCapOverview ? (["admin-shell:nav:my-caps"] as const) : []),
+      ...(includeDocumentDesigner ? (["document-designer:nav:templates"] as const) : []),
     ];
     const platformNav: string[] = [
       "admin-shell:nav:platform-overview",
       "admin-shell:nav:tenants",
       ...(includeCapOverview ? (["admin-shell:nav:tenant-caps"] as const) : []),
       "jobs:nav:job-runs",
+      ...(includeDocumentDesigner ? (["document-designer:nav:platform-templates"] as const) : []),
       ...(includeTierAdmin ? (["admin-shell:nav:tier-admin"] as const) : []),
     ];
 

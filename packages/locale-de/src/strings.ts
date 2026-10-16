@@ -867,6 +867,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "managed-pages:entity:__config-edit__:field:description": "Beschreibung",
   "managed-pages:entity:__config-edit__:field:layoutPreset": "Layout",
   "managed-pages:entity:__config-edit__:field:logoUrl": "Logo-URL",
+  "managed-pages:entity:__config-edit__:field:logoFile": "Logo-Datei",
   "managed-pages:entity:__config-edit__:field:siteUrl": "Website-URL",
   "managed-pages:entity:__config-edit__:field:title": "Website-Titel",
   "managed-pages:entity:page:field:body": "Inhalt",
@@ -1144,6 +1145,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.testMail.noAddress":
     "Im Konto ist keine E-Mail-Adresse hinterlegt, an die die Testmail gehen könnte.",
   "templateResolver.errors.testMail.failed": "Die Testmail konnte nicht gesendet werden.",
+  "templateResolver.errors.resource.tooLarge": "Das Bild ist zu groß.",
+  "templateResolver.errors.resource.unsupportedImage":
+    "Diese Datei ist kein unterstütztes Bild. Erlaubt sind PNG, JPEG, WebP und GIF.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Ressourcendateien lassen sich nur von einem Benutzer des System-Mandanten als Systemvorlagen importieren.",
   "templateResolver.errors.collection.kindNotAllowed":

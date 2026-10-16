@@ -78,6 +78,9 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.errors.testMail.noAddress":
       "Your account has no email address to send the test mail to.",
     "templateResolver.errors.testMail.failed": "The test mail could not be sent.",
+    "templateResolver.errors.resource.tooLarge": "The image is too large.",
+    "templateResolver.errors.resource.unsupportedImage":
+      "This file is not a supported image. Use PNG, JPEG, WebP or GIF.",
     "templateResolver.errors.template.systemResourcesNeedSystemTenant":
       "Resource files can only be imported as system templates by a user of the system tenant.",
     "templateResolver.errors.collection.kindNotAllowed":

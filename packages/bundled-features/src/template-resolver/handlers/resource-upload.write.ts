@@ -101,6 +101,7 @@ export const resourceUploadWrite = defineWriteHandler({
       if (cause instanceof FileRefTooLargeError) {
         return writeFailure(
           new UnprocessableError(TemplateResolverErrors.resourceTooLarge, {
+            i18nKey: "templateResolver.errors.resource.tooLarge",
             details: { maxBytes, size: cause.size },
           }),
         );

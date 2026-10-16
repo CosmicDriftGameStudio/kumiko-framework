@@ -838,6 +838,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "managed-pages:entity:__config-edit__:field:description": "Description",
   "managed-pages:entity:__config-edit__:field:layoutPreset": "Layout",
   "managed-pages:entity:__config-edit__:field:logoUrl": "Logo URL",
+  "managed-pages:entity:__config-edit__:field:logoFile": "Logo file",
   "managed-pages:entity:__config-edit__:field:siteUrl": "Site URL",
   "managed-pages:entity:__config-edit__:field:title": "Site title",
   "managed-pages:entity:page:field:body": "Content",
@@ -1110,6 +1111,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.testMail.noAddress":
     "Your account has no email address to send the test mail to.",
   "templateResolver.errors.testMail.failed": "The test mail could not be sent.",
+  "templateResolver.errors.resource.tooLarge": "The image is too large.",
+  "templateResolver.errors.resource.unsupportedImage":
+    "This file is not a supported image. Use PNG, JPEG, WebP or GIF.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Resource files can only be imported as system templates by a user of the system tenant.",
   "templateResolver.errors.collection.kindNotAllowed":

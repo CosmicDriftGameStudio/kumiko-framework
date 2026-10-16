@@ -1,0 +1,12 @@
+export {
+  DEFAULT_TEMPLATE_LOCALES,
+  DOCUMENT_DESIGNER_FEATURE,
+  LAYOUT_EDITOR_SCREEN_ID,
+  PLATFORM_TEMPLATES_NAV_ID,
+  PLATFORM_TEMPLATES_SCREEN_ID,
+  TEMPLATE_EDITOR_SCREENS,
+  TEMPLATES_NAV_ID,
+  TEMPLATES_SCREEN_ID,
+  type TemplateEditorKind,
+} from "./constants.js";
+export { createDocumentDesignerFeature } from "./feature.js";

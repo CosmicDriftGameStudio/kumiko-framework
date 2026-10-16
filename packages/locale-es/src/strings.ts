@@ -862,6 +862,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "managed-pages:entity:__config-edit__:field:description": "Descripción",
   "managed-pages:entity:__config-edit__:field:layoutPreset": "Diseño",
   "managed-pages:entity:__config-edit__:field:logoUrl": "URL del logo",
+  "managed-pages:entity:__config-edit__:field:logoFile": "Archivo del logo",
   "managed-pages:entity:__config-edit__:field:siteUrl": "URL del sitio",
   "managed-pages:entity:__config-edit__:field:title": "Título del sitio",
   "managed-pages:entity:page:field:body": "Contenido",
@@ -1138,6 +1139,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.testMail.noAddress":
     "Tu cuenta no tiene una dirección de correo a la que enviar el correo de prueba.",
   "templateResolver.errors.testMail.failed": "No se pudo enviar el correo de prueba.",
+  "templateResolver.errors.resource.tooLarge": "La imagen es demasiado grande.",
+  "templateResolver.errors.resource.unsupportedImage":
+    "Este archivo no es una imagen compatible. Usa PNG, JPEG, WebP o GIF.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Los archivos de recursos solo los puede importar como plantillas del sistema un usuario del inquilino del sistema.",
   "templateResolver.errors.collection.kindNotAllowed":

@@ -47,6 +47,7 @@ function brandingRevisionSeed(branding: BrandingTokens): string {
     branding.siteUrl,
     branding.accentColor,
     branding.logoUrl,
+    branding.logoFile,
     branding.layoutPreset,
     branding.customCss,
   ]);

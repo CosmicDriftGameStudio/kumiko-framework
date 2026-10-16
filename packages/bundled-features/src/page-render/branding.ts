@@ -13,6 +13,8 @@ export type BrandingTokens = {
   readonly siteUrl: string;
   readonly accentColor: string;
   readonly logoUrl: string;
+  // FileRef id of an uploaded logo ("" = none); the renderer resolves it, tenant ownership is checked there.
+  readonly logoFile: string;
   readonly layoutPreset: string;
   // RAW, untrusted tenant CSS — "" unless the custom-css capability is gated on
   // (managed-pages allowCustomCss + the per-tenant toggle). It is NOT pre-
@@ -29,6 +31,7 @@ export const EMPTY_BRANDING: BrandingTokens = {
   siteUrl: "",
   accentColor: "",
   logoUrl: "",
+  logoFile: "",
   layoutPreset: "",
   customCss: "",
 };

@@ -14,7 +14,9 @@ import { exportBundleQuery } from "./handlers/export-bundle.query.js";
 import { findByIdQuery } from "./handlers/find-by-id.query.js";
 import { importBundleWrite } from "./handlers/import-bundle.write.js";
 import { importBundleSystemWrite } from "./handlers/import-bundle-system.write.js";
+import { layoutSourceQuery } from "./handlers/layout-source.query.js";
 import { listQuery } from "./handlers/list.query.js";
+import { overviewQuery } from "./handlers/overview.query.js";
 import { previewQuery } from "./handlers/preview.query.js";
 import { resetToSystemWrite } from "./handlers/reset-to-system.write.js";
 import { resourceLinkPdfWrite } from "./handlers/resource-link-pdf.write.js";
@@ -115,6 +117,8 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       bySlug: r.queryHandler(bySlugQuery),
       byTenant: r.queryHandler(byTenantQuery),
       usage: r.queryHandler(usageQuery),
+      overview: r.queryHandler(overviewQuery),
+      layoutSource: r.queryHandler(layoutSourceQuery),
       tenantOverrides: r.queryHandler(tenantOverridesQuery),
       diffToSystem: r.queryHandler(diffToSystemQuery),
       validate: r.queryHandler(validateQuery),
