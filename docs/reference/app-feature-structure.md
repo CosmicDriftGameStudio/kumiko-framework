@@ -8,7 +8,7 @@ evidence: "kumiko-platform#353 (App-Mounting 2.0); Scaffold: kumiko add feature 
 
 App-lokale Features folgen derselben Struktur wie bundled-features (Referenz:
 `packages/bundled-features/src/tenant/`). `kumiko add feature <name>` scaffoldet
-sie; `guard-app-feature-structure` (infra, `kumiko-guard-ui`) erzwingt sie in
+sie; `guard-app-feature-structure` (`kumiko-guards guards`) erzwingt sie in
 den App-Repos.
 
 ```

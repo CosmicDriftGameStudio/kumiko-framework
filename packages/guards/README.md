@@ -15,6 +15,33 @@ repo's root. `--explain` prints the resolved repo and per-guard scan scope
 without running any guard; `--write-security-baseline` freezes current
 findings into the baseline file.
 
+## Dependency checks
+
+Three subcommands check the dependencies of the repo `cwd` sits in. They call
+the npm registry or `bun audit`, so they are not part of the default run and
+not part of `checks`; each takes `--report` (print only, exit 0; for `outdated`
+it adds transitive and major-lag sections and a deprecated direct dependency
+still exits 1).
+
+```
+bunx kumiko-guards licenses   # licence allow/gray/deny classification of installed packages
+bunx kumiko-guards security   # bun audit: critical/high block, moderate warns
+bunx kumiko-guards outdated   # installed direct dependencies the registry marks deprecated
+```
+
+Installed packages (`licenses`, `outdated`) are read from `node_modules` of the
+repo root, its workspace members and every ancestor directory, the resolution
+Bun itself uses, so a hoisted parent workspace and `.wt/` worktrees work. If
+nothing is found the command fails ("nothing scanned"). `security` audits the
+repo root's `bun.lock`, or the nearest ancestor's (announced) when the repo has
+none, and fails if there is no lockfile at all.
+
+Exceptions need a reason, a reviewer and an expiry date. The package ships
+defaults (`dependency-license-exceptions.json`,
+`dependency-security-exceptions.json`); a file of the same name in the repo
+root (and, for `licenses`, in an ancestor whose `node_modules` was scanned) is
+merged on top. A security exception that expires within 14 days blocks.
+
 ## Raw-SQL markers
 
 `guard-raw-sql` blocks `.unsafe()` / `asRawClient()` outside `db/queries/*`,

@@ -4,7 +4,11 @@
 // runners already use in their own `if (import.meta.main)` blocks — including
 // flags, which each runner's own *Cli function validates and applies so this
 // bin and the direct `bun run-*.ts` invocation can never drift apart.
+import { DEPENDENCY_CHECK_FLAGS } from "./_lib/dependency-cli";
 import { buildGuardKitInventory, cliFlagsError } from "./_lib/guard-kit";
+import { runLicensesCli } from "./check-licenses";
+import { runOutdatedCli } from "./check-outdated";
+import { runSecurityCli } from "./check-security";
 import { COMMENT_LANG_FLAGS, runCommentLangCli } from "./guard-comment-lang";
 import {
   PUBLIC_EXPORTS_CHANGELOG_FLAGS,
@@ -20,6 +24,9 @@ const SUBCOMMANDS = [
   "checks",
   "comment-lang",
   "public-exports-changelog",
+  "licenses",
+  "security",
+  "outdated",
   "list",
 ] as const;
 type Subcommand = (typeof SUBCOMMANDS)[number];
@@ -30,6 +37,9 @@ const SUBCOMMAND_FLAGS: Record<Subcommand, readonly string[]> = {
   checks: REPO_CHECK_FLAGS,
   "comment-lang": [...COMMENT_LANG_FLAGS, "--base=<ref>"],
   "public-exports-changelog": PUBLIC_EXPORTS_CHANGELOG_FLAGS,
+  licenses: DEPENDENCY_CHECK_FLAGS,
+  security: DEPENDENCY_CHECK_FLAGS,
+  outdated: DEPENDENCY_CHECK_FLAGS,
   list: [],
 };
 
@@ -39,7 +49,7 @@ function isSubcommand(value: string): value is Subcommand {
 
 function printHelp(): void {
   console.log(
-    "Usage: kumiko-guards [guards|ui|checks|comment-lang|public-exports-changelog|list] [flags]",
+    "Usage: kumiko-guards [guards|ui|checks|comment-lang|public-exports-changelog|licenses|security|outdated|list] [flags]",
   );
   console.log();
   for (const sub of SUBCOMMANDS) {
@@ -91,6 +101,17 @@ function printInventory(flags: readonly string[]): void {
   console.log(JSON.stringify(inventory));
 }
 
+const STANDALONE_SUBCOMMANDS: Record<
+  string,
+  (flags: readonly string[]) => number | Promise<number>
+> = {
+  "comment-lang": runCommentLangCli,
+  "public-exports-changelog": runPublicExportsChangelogCli,
+  licenses: (flags) => runLicensesCli(flags),
+  security: (flags) => runSecurityCli(flags),
+  outdated: (flags) => runOutdatedCli(flags),
+};
+
 async function main(): Promise<void> {
   const { subcommand, flags } = parseInvocation(process.argv);
 
@@ -101,14 +122,10 @@ async function main(): Promise<void> {
   }
 
   // Not part of the no-subcommand run: comment-lang needs a baseline or a git base ref,
-  // public-exports-changelog only applies to the kumiko-framework repo.
-  if (subcommand === "comment-lang") {
-    process.exit(runCommentLangCli(flags));
-  }
-
-  if (subcommand === "public-exports-changelog") {
-    process.exit(await runPublicExportsChangelogCli(flags));
-  }
+  // public-exports-changelog only applies to the kumiko-framework repo, and
+  // licenses/security/outdated call the npm registry or `bun audit` (network).
+  const standalone = subcommand === undefined ? undefined : STANDALONE_SUBCOMMANDS[subcommand];
+  if (standalone) process.exit(await standalone(flags));
 
   let failed = 0;
   if (subcommand === undefined || subcommand === "guards") {

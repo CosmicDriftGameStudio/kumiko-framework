@@ -65,6 +65,28 @@ describe("cli.ts — real process runs, no mocks", () => {
     expect(stderr).toBe("");
   });
 
+  test("licenses, security and outdated are registered, take --report and reject other flags", async () => {
+    const { stdout } = await runCli(["--help"]);
+    for (const sub of ["licenses", "security", "outdated"]) {
+      expect(stdout).toContain(`${sub} [--report]`);
+      const { exitCode, stderr } = await runCli([sub, "--nope"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Unknown argument");
+    }
+  });
+
+  test("licenses with nothing installed fails loudly instead of passing", async () => {
+    const fixture = mkdtempSync(join(tmpdir(), "cli-licenses-empty-"));
+    writeRepo(fixture, { name: "cli-licenses-empty", layout: "flat" });
+    try {
+      const { exitCode, stderr } = await runCli(["licenses"], { cwd: fixture });
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("nothing scanned");
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   test("list rejects unknown flags instead of silently ignoring them", async () => {
     const { exitCode, stdout, stderr } = await runCli(["list", "--nope"]);
 

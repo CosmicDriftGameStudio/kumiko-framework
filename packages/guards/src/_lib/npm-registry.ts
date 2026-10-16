@@ -1,0 +1,136 @@
+// Registry lookups go through `bun info` (honors the project's registry/auth config) instead of raw HTTP.
+
+export type LatestRelease = {
+  readonly version: string;
+  readonly publishedAt: string;
+};
+
+export type RegistryClient = {
+  /** Deprecation message for one exact version; `null` when not deprecated or the registry could not answer. */
+  deprecatedMessage(name: string, version: string): Promise<string | null>;
+  /** Latest dist-tag with its publish date; `null` when unknown. */
+  latestRelease(name: string): Promise<LatestRelease | null>;
+};
+
+const BUN_INFO_TIMEOUT_MS = 30_000;
+
+async function bunInfoJson(cwd: string, args: readonly string[]): Promise<unknown> {
+  try {
+    const proc = Bun.spawn(["bun", "info", ...args, "--json"], {
+      cwd,
+      stdout: "pipe",
+      stderr: "pipe",
+      timeout: BUN_INFO_TIMEOUT_MS,
+    });
+    const [out, exitCode] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+    if (exitCode !== 0 || out.trim() === "") return null;
+    return JSON.parse(out);
+  } catch {
+    // Unreachable registry or unparsable output means "unknown" — never a false finding.
+    return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** `cwd` must contain a package.json — `bun info` refuses to run without one. */
+export function createBunInfoClient(cwd: string): RegistryClient {
+  return {
+    async deprecatedMessage(name, version) {
+      const value = await bunInfoJson(cwd, [`${name}@${version}`, "deprecated"]);
+      return typeof value === "string" && value !== "" ? value : null;
+    },
+    async latestRelease(name) {
+      const version = await bunInfoJson(cwd, [name, "dist-tags.latest"]);
+      if (typeof version !== "string") return null;
+      const time = await bunInfoJson(cwd, [name, "time"]);
+      const publishedAt = isRecord(time) ? time[version] : undefined;
+      return typeof publishedAt === "string" ? { version, publishedAt } : null;
+    },
+  };
+}
+
+/** Memoizes per call key, so a package listed twice costs one lookup. */
+export function memoizeRegistryClient(client: RegistryClient): RegistryClient {
+  const deprecated = new Map<string, Promise<string | null>>();
+  const latest = new Map<string, Promise<LatestRelease | null>>();
+  return {
+    deprecatedMessage(name, version) {
+      const key = `${name}@${version}`;
+      const cached = deprecated.get(key);
+      if (cached) return cached;
+      const pending = client.deprecatedMessage(name, version);
+      deprecated.set(key, pending);
+      return pending;
+    },
+    latestRelease(name) {
+      const cached = latest.get(name);
+      if (cached) return cached;
+      const pending = client.latestRelease(name);
+      latest.set(name, pending);
+      return pending;
+    },
+  };
+}
+
+export function parseMajor(version: string): number | null {
+  const match = version.match(/^(\d+)/);
+  return match?.[1] === undefined ? null : Number.parseInt(match[1], 10);
+}
+
+export type MajorLagWarning = {
+  readonly name: string;
+  readonly current: string;
+  readonly latest: string;
+  readonly latestPublished: string;
+};
+
+export function findMajorLagWarning(
+  name: string,
+  currentVersion: string,
+  release: LatestRelease,
+  lagMonths: number,
+  nowMs: number,
+): MajorLagWarning | null {
+  const currentMajor = parseMajor(currentVersion);
+  const latestMajor = parseMajor(release.version);
+  if (currentMajor === null || latestMajor === null || latestMajor <= currentMajor) return null;
+
+  let published: Temporal.Instant;
+  try {
+    published = Temporal.Instant.from(release.publishedAt);
+  } catch {
+    return null;
+  }
+  const cutoff = Temporal.Instant.fromEpochMilliseconds(nowMs)
+    .toZonedDateTimeISO("UTC")
+    .subtract({ months: lagMonths });
+  if (Temporal.Instant.compare(published, cutoff.toInstant()) > 0) return null;
+
+  return {
+    name,
+    current: currentVersion,
+    latest: release.version,
+    latestPublished: release.publishedAt,
+  };
+}
+
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let index = 0;
+  async function worker(): Promise<void> {
+    while (index < items.length) {
+      const i = index++;
+      const item = items[i];
+      if (item !== undefined) results[i] = await fn(item);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
+  return results;
+}

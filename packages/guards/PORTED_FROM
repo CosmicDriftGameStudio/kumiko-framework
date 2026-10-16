@@ -4,3 +4,12 @@ No drift to take over: infra deleted its own copies of the ported guards in
 c9c7e94 and sources them from this package since. Everything it changed
 between the two commits is either already here or a deliberate divergence
 (_lib/roots.ts and _lib/guard-kit.ts are single-repo here, multi-repo there).
+
+licenses, security and outdated (check-licenses.ts, check-security.ts, check-outdated.ts and
+their _lib helpers) were ported from infra at 1b05e18dc2381dbcb330e7217952ba1559b8bb33
+and deliberately diverge: single-repo scope (the repo cwd sits in) instead of the parent
+workspace plus siblings, no KUMIKO_GUARD_ROOTS, no audit-roots freshness guard, primary-scope
+or "environment" classification and no `repos` scoping on exceptions. Installed packages come
+from node_modules of the repo, its workspace members and all ancestors; exceptions are the
+bundled defaults merged with the files in the repo root and in each scanned installation root
+(ancestor with node_modules for licenses/outdated, the audited lockfile directory for security).

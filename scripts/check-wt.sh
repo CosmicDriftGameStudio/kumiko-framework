@@ -62,10 +62,6 @@ echo "→ changes-json guard (kumiko-changes blocks, CI parity, base=$MERGE_BASE
 GITHUB_BASE_SHA="$MERGE_BASE" bun scripts/guard-changes-json.ts || fail=1
 
 echo
-echo "→ feature-changelog guard (bunx kumiko-guard-feature-changelog)"
-bunx kumiko-guard-feature-changelog || fail=1
-
-echo
 echo "→ comment-lang guard --touched (base=$MERGE_BASE)"
 bun packages/guards/src/cli.ts comment-lang --touched --base="$MERGE_BASE" || fail=1
 

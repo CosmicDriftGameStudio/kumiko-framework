@@ -108,7 +108,7 @@ and skips custom projections.
 
 ## CI guard
 
-`packages/guards/src/guard-direct-entity-writes.ts` (bin: `kumiko-guard-direct-entity-writes`)
+`packages/guards/src/guard-direct-entity-writes.ts` (runs via `kumiko-guards guards`)
 **blocks** production direct-writes on tables registered as ES entities or
 `r.entity` implicit projections. Allowed paths:
 
