@@ -432,7 +432,7 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.mail.props.layoutTenant": {
     en: "{title} (tenant customisation v{version})",
-    de: "{title} (Tenant-Anpassung v{version})",
+    de: "{title} (Mandanten-Anpassung v{version})",
   },
   "documentDesigner.mail.props.layoutSystem": {
     en: "{title} (system v{version})",
