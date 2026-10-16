@@ -153,7 +153,12 @@ function parseEntryArray(raw: string): Record<string, unknown>[] | undefined {
 const EDITABLE_TEXT_FIELDS: ReadonlySet<string> = new Set(["title", "detail", "migration"]);
 
 export function isTextOnlyChangesEdit(repoRoot: string, file: string): boolean {
-  const base = Bun.spawnSync(["git", "show", `origin/main:${file}`], { cwd: repoRoot, env: gitEnv() });
+  // Compared against the branch point, not the main tip: a release on main may append entries meanwhile,
+  // and on a push to main the merge-base is HEAD itself, so the already-reviewed edit passes again.
+  const mergeBase = Bun.spawnSync(["git", "merge-base", "HEAD", "origin/main"], { cwd: repoRoot, env: gitEnv() });
+  if (mergeBase.exitCode !== 0) return false;
+  const baseSha = new TextDecoder().decode(mergeBase.stdout).trim();
+  const base = Bun.spawnSync(["git", "show", `${baseSha}:${file}`], { cwd: repoRoot, env: gitEnv() });
   if (base.exitCode !== 0) return false;
   const before = parseEntryArray(new TextDecoder().decode(base.stdout));
   const after = existsSync(join(repoRoot, file)) ? parseEntryArray(readFileSync(join(repoRoot, file), "utf-8")) : undefined;

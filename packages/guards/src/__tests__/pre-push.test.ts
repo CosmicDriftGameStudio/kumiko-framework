@@ -683,7 +683,9 @@ describe("kumiko-pre-push", () => {
       const { output, exitCode } = runHook(dir, tmp, { PATH: pathWithoutGitleaks() });
 
       expect(exitCode).toBe(0);
-      expect(output).toContain("gitleaks not installed — secret scan skipped. Install: brew install gitleaks");
+      expect(output).toContain(
+        "gitleaks not installed — secret scan skipped. Install: brew install gitleaks",
+      );
     });
 
     test("a finding from gitleaks blocks the push before the main check", () => {
@@ -700,7 +702,9 @@ describe("kumiko-pre-push", () => {
       });
 
       expect(exitCode).toBe(1);
-      expect(output).toContain("GITLEAKS_ARGS=git --no-banner --redact --log-opts=origin/main..HEAD .");
+      expect(output).toContain(
+        "GITLEAKS_ARGS=git --no-banner --redact --log-opts=origin/main..HEAD .",
+      );
       expect(output).toContain("gitleaks found secrets — refusing push");
       expect(output).not.toContain("bun run test (standalone)");
     });
