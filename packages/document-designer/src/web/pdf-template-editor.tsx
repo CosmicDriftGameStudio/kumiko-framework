@@ -655,7 +655,9 @@ export function PdfTemplateEditor({
     );
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${slug}.bundle.json`;
+    // Slugs are namespaced with ":", which browsers rewrite in download names
+    // on their own; replacing it here keeps the file name stable everywhere.
+    anchor.download = `${slug.replace(/[\\/:*?"<>|]/g, "_")}.bundle.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   }

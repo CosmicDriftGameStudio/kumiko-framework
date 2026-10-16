@@ -50,7 +50,7 @@ test("SystemAdmin: unsaved invoice edit prints on two pages, drawer counts overr
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export as bundle" }).click();
   const download = await downloadPromise;
-  expect(download.suggestedFilename()).toBe(`${INVOICE_TEMPLATE_SLUG}.bundle.json`);
+  expect(download.suggestedFilename()).toBe("billing_invoice.bundle.json");
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
