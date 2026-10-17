@@ -1,5 +1,5 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { tenantDbRunner } from "../db/tenant-db-runner.js";
+import { tenantDbRunner, tenantDbWriteRunner } from "../db/tenant-db-runner.js";
 import type { Registry } from "../engine/types/index.js";
 import { runProjectionsForEvent } from "../pipeline/projections-runner.js";
 import { append, type EventToAppend, getStreamVersion, type StoredEvent } from "./event-store.js";
@@ -18,7 +18,7 @@ export async function appendEventInTenantDb(
   event: Omit<EventToAppend, "tenantId">,
   options: AppendEventInTenantDbOptions = {},
 ): Promise<StoredEvent> {
-  const runner = tenantDbRunner(tenantDb);
+  const runner = tenantDbWriteRunner(tenantDb, "appendEventInTenantDb");
   const stored = await append(runner, { ...event, tenantId: tenantDb.tenantId });
   if (options.registry) await runProjectionsForEvent(stored, options.registry, runner);
   return stored;

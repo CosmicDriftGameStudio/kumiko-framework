@@ -1443,6 +1443,9 @@ export type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (
   ctx: HandlerContext,
 ) => Promise<BeforeTransactionResult<TPrepared>>;
 
+/** `perCommand`: the handler runs without a transaction of its own. */
+export type WriteHandlerTransactionMode = "perCommand";
+
 export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
@@ -1467,6 +1470,11 @@ export type WriteHandlerDef = {
    *  Its `data` reaches the handler as `event.prepared`; a failure result or throw rejects the
    *  write before anything is written. A handler with this phase cannot run as a nested ctx.write. */
   readonly beforeTransaction?: BeforeTransactionPhase;
+  /** `"perCommand"`: the handler runs without a transaction of its own. Every ctx.write/writeAs it
+   *  issues runs as its own top-level command with its own transaction and afterCommit hooks;
+   *  ctx.db writes and event appends throw. It cannot run as a nested write or inside a
+   *  multi-command batch, and cannot be combined with beforeTransaction/reserveBeforeTransaction. */
+  readonly transaction?: WriteHandlerTransactionMode;
   /** Lets an anonymous `POST /api/write` for this handler proceed under
    *  SYSTEM_TENANT_ID when the host resolves no tenant. Boot requires
    *  `access.roles: ["anonymous"]` and a real `rateLimit`. */

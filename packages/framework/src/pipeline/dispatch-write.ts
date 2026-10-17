@@ -34,6 +34,7 @@ import {
   CONFIG_WRITE_RESET_TYPE,
   CONFIG_WRITE_SET_TYPE,
   isMemberResolutionPrincipal,
+  perCommandNestedDenied,
   resolveDbSource,
   runHandlerInstrumented,
   TENANT_TIMEZONE_CONFIG_KEY,
@@ -190,7 +191,7 @@ async function runLifecycle(
         undefined,
         undefined,
         undefined,
-        true,
+        "postCommit",
       );
       await lifecycle.runPostSave(type, result, afterCommitContext, HookPhases.afterCommit);
     });
@@ -206,7 +207,7 @@ async function runLifecycle(
         undefined,
         undefined,
         undefined,
-        true,
+        "postCommit",
       );
       await lifecycle.runPostDelete(type, result, afterCommitContext, HookPhases.afterCommit);
     });
@@ -500,6 +501,11 @@ async function executeWriteInner(
     return writeFailure(memberResolutionReadOnlyDenied());
   }
 
+  const isPerCommand = handler.transaction === "perCommand";
+  if (isPerCommand && tx !== undefined) {
+    return writeFailure(perCommandNestedDenied(type));
+  }
+
   // A command the dispatcher ran pre-transaction phases for was already billed against the rate
   // limits; the gates only run again against the in-transaction state.
   const needsPreTransactionPhase = hasPreTransactionPhase(handler);
@@ -528,7 +534,17 @@ async function executeWriteInner(
 
   const entityName = registry.getHandlerEntity(type);
 
-  const handlerContext = await buildHandlerContext(ctx, type, user, origin, tx, afterCommitHooks);
+  // Without a database there is no transaction either, but ordinary handlers keep the in-transaction nested-write semantics.
+  const handlerContext = await buildHandlerContext(
+    ctx,
+    type,
+    user,
+    origin,
+    tx,
+    afterCommitHooks,
+    undefined,
+    isPerCommand ? "withoutTransaction" : "inTransaction",
+  );
 
   // Auto transition guard: if entity has transitions and handler doesn't skip it.
   // Reads via the guard's own db handle — for r.systemScope() handlers
@@ -624,20 +640,23 @@ async function executeWriteInner(
   }
 
   if (result.isSuccess) {
-    try {
-      const runner = resolveDbSource(ctx, tx);
-      await runLifecycle(
-        ctx,
-        type,
-        result.data,
-        handlerContext,
-        user,
-        origin,
-        afterCommitHooks,
-        runner,
-      );
-    } catch (e) {
-      return writeFailure(wrapToKumiko(e));
+    // A perCommand handler's writes ran as their own commands; its result carries no SaveContext of its own to project.
+    if (!isPerCommand) {
+      try {
+        const runner = resolveDbSource(ctx, tx);
+        await runLifecycle(
+          ctx,
+          type,
+          result.data,
+          handlerContext,
+          user,
+          origin,
+          afterCommitHooks,
+          runner,
+        );
+      } catch (e) {
+        return writeFailure(wrapToKumiko(e));
+      }
     }
 
     // jobRunner has external side-effects (BullMQ enqueue) — must NOT

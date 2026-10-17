@@ -14,7 +14,7 @@
 import { extractTableName } from "../../db/index.js";
 import { executeRawQuery } from "../../db/queries/raw-sql.js";
 import { columnSqlNameOf } from "../../db/table-introspection.js";
-import { tenantDbRunner } from "../../db/tenant-db-runner.js";
+import { tenantDbWriteRunner } from "../../db/tenant-db-runner.js";
 import { defineStep } from "../define-step.js";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
 import { resolveRequired } from "./_resolver-utils.js";
@@ -71,7 +71,7 @@ defineStep<UnsafeProjectionUpsertArgs, void>({
       `INSERT INTO ${quoteIdent(tableName)} (${colNames.join(", ")}) VALUES (${placeholders.join(", ")}) ` +
       `ON CONFLICT (${conflictCols}) DO UPDATE SET ${setClauses.join(", ")}`;
 
-    await executeRawQuery(tenantDbRunner(ctx.db), sqlText, params);
+    await executeRawQuery(tenantDbWriteRunner(ctx.db, "unsafe projection upsert"), sqlText, params);
   },
 });
 

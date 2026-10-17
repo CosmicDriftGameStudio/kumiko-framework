@@ -8,12 +8,17 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types/index.js";
-import { InternalError, toWriteErrorInfo, writeFailure } from "../errors/index.js";
+import {
+  InternalError,
+  toWriteErrorInfo,
+  UnprocessableError,
+  writeFailure,
+} from "../errors/index.js";
 import { createFallbackLogger } from "../logging/utils.js";
 import { parseJsonSafe } from "../utils/safe-json.js";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.js";
 import { resolveDbSource } from "./dispatch-shared.js";
-import { executeNestedWrite } from "./dispatch-write.js";
+import { executeNestedWrite, executeWrite } from "./dispatch-write.js";
 import {
   type AfterCommitHook,
   BatchRollback,
@@ -59,6 +64,10 @@ function toReservedScope(
   return reservation && { type: cmd.type, reservation };
 }
 
+function isPerCommandHandler(ctx: DispatchContext, type: string): boolean {
+  return ctx.registry.getWriteHandler(type)?.transaction === "perCommand";
+}
+
 async function runReservedCommand(
   scope: ReservedCommandScope,
   cmd: BatchCommand,
@@ -72,9 +81,11 @@ async function runReservedCommand(
   );
   origins.push(origin);
   const hookStart = afterCommitHooks.length;
+  // Nested-write children would run inline with the in-transaction scope, so a perCommand command skips the expansion.
+  const execute = isPerCommandHandler(ctx, cmd.type) ? executeWrite : executeNestedWrite;
   const res = await runAsCommand(toReservedScope(reservations, index, cmd), () =>
     runWithWriteOrigin(origin, () =>
-      executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
+      execute(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
     ),
   );
   rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
@@ -218,6 +229,25 @@ async function runBatchBody(
     await runWithWriteOrigin(strictest, flushBatchHooksInner);
   };
 
+  const perCommandIndex = commands.findIndex((cmd) => isPerCommandHandler(ctx, cmd.type));
+  const perCommandCommand = commands[perCommandIndex];
+  if (perCommandCommand && commands.length > 1) {
+    return releaseOrFinalize(
+      {
+        isSuccess: false,
+        error: toWriteErrorInfo(
+          new UnprocessableError("per_command_handler_in_batch", {
+            message: `handler "${perCommandCommand.type}" runs without a transaction (transaction: "perCommand") and cannot be part of a multi-command batch`,
+          }),
+        ),
+        failedIndex: perCommandIndex,
+        results,
+      },
+      false,
+    );
+  }
+  const runsWithoutTransaction = perCommandCommand !== undefined;
+
   // Reserve before the transaction opens so no extra connection is held while the handler tx is
   // open; the release below runs only after that tx has ended without committing.
   const reservations = await reserveBeforeTransaction(ctx, commands, user, inheritedOrigin);
@@ -236,8 +266,9 @@ async function runBatchBody(
   // batch() opens its own outer transaction — needs the top-level
   // connection's `.begin()` (TransactionSql exposes only `.savepoint()`).
   const db = resolveDbSource(ctx, undefined) as DbConnection | undefined;
-  if (!db) {
-    // Without a DB connection there is no transaction to open. Fall back to
+  if (!db || runsWithoutTransaction) {
+    // Without a DB connection (or for a perCommand handler, whose writes open their own transactions)
+    // there is no transaction to open. Fall back to
     // sequential execution — useful for unit tests that don't touch the DB.
     // Each command runs independently; a failure stops the batch.
     for (let i = 0; i < commands.length; i++) {
@@ -258,7 +289,8 @@ async function runBatchBody(
       }
     }
     await flushAfterCommit();
-    await flushBatchHooks();
+    // The inner commands of a perCommand handler already fired their own batch hooks.
+    if (!runsWithoutTransaction) await flushBatchHooks();
     return finalize({ isSuccess: true, results });
   }
 

@@ -192,6 +192,7 @@ export function buildEntityHandlerMethods<TName extends string>(
             beforeTransaction: def.beforeTransaction as BeforeTransactionPhase, // @cast-boundary engine-bridge
           }),
           ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
+          ...(def.transaction && { transaction: def.transaction }),
           // Forward the pipeline-build closure so boot-validators and
           // Designer/AI tooling can inspect the step list. Absent on
           // free-form handlers — defineWriteHandler only sets `perform`
