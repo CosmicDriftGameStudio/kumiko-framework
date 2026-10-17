@@ -5,6 +5,7 @@
 "@cosmicdrift/kumiko-bundled-features": patch
 "@cosmicdrift/kumiko-dev-server": patch
 "@cosmicdrift/kumiko-document-designer": patch
+"@cosmicdrift/kumiko-renderer": patch
 "@cosmicdrift/kumiko-renderer-mail-html": patch
 "@cosmicdrift/kumiko-renderer-puppeteer-client": patch
 ---
