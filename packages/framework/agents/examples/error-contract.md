@@ -115,8 +115,7 @@ The chain lands in the log (for forensics), but **not** in the response to the c
 // documented wire shape. If you extend the sample, add a matching test here
 // so the "copy this" guarantee stays valid.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -142,9 +141,6 @@ beforeAll(async () => {
   await createEventsTable(stack.db);
 });
 afterAll(async () => stack.cleanup());
-beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${orderTable.tableName}"`);
-});
 
 // --- 1) Zod validation error via schema: empty cart rejected ---
 

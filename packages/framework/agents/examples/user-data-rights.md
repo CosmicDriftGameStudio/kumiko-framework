@@ -144,7 +144,7 @@ import {
   runForgetCleanup,
   runUserExport,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-import { asRawClient, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -157,9 +157,13 @@ import { noteEntity, notesFeature, notesTable } from "../feature";
 
 let stack: TestStack;
 
-const TENANT_A = "00000000-0000-4000-8000-00000000000a";
 const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
-const ALICE_ID = "11111111-1111-4111-8111-000000000001";
+
+// Each test gets its own tenant and user, so rows from other tests never show up.
+let testNumber = 0;
+let TENANT_A = "";
+let ALICE_ID = "";
+let ALICE_EMAIL = "";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 const NOW = (): Instant => getTemporal().Now.instant();
@@ -204,17 +208,23 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM store_notes`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_tenant_memberships`);
+beforeEach(() => {
+  testNumber += 1;
+  const suffix = String(testNumber).padStart(12, "0");
+  TENANT_A = `00000000-0000-4000-8000-${suffix}`;
+  ALICE_ID = `11111111-1111-4111-8111-${suffix}`;
+  ALICE_EMAIL = `alice-${testNumber}@recipe.test`;
 });
+
+function noteId(index: number): string {
+  return `aaaaaaaa-aaaa-4aaa-8aaa-${String(testNumber * 10 + index).padStart(12, "0")}`;
+}
 
 async function seedAlice(opts: { gracePeriodEnd?: Instant; status?: string } = {}): Promise<void> {
   await seedRow(stack.db, userTable, {
     id: ALICE_ID,
     tenantId: TENANT_SYSTEM,
-    email: "alice@recipe.test",
+    email: ALICE_EMAIL,
     passwordHash: "h",
     displayName: "Alice",
     locale: "de",
@@ -246,8 +256,8 @@ async function seedNote(id: string, title: string): Promise<void> {
 describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domain", () => {
   test("Export-Bundle enthaelt Note-Snippet via Hook", async () => {
     await seedAlice();
-    await seedNote("aaaaaaaa-aaaa-4aaa-8aaa-000000000001", "first");
-    await seedNote("aaaaaaaa-aaaa-4aaa-8aaa-000000000002", "second");
+    await seedNote(noteId(1), "first");
+    await seedNote(noteId(2), "second");
 
     const bundle = await runUserExport({
       db: stack.db,
@@ -267,7 +277,7 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
 
   test("Forget-Cron strategy=delete entfernt Notes (Default-Pfad)", async () => {
     await seedAlice({ status: USER_STATUS.DeletionRequested, gracePeriodEnd: PAST() });
-    await seedNote("aaaaaaaa-aaaa-4aaa-8aaa-000000000003", "to-delete");
+    await seedNote(noteId(1), "to-delete");
 
     const result = await runForgetCleanup({
       db: stack.db,
@@ -276,13 +286,13 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
     });
     expect(result.processedUserIds).toContain(ALICE_ID);
 
-    const remaining = await asRawClient(stack.db).unsafe(`SELECT id FROM store_notes`);
+    const remaining = await selectMany(stack.db, notesTable, { tenantId: TENANT_A });
     expect(remaining.length).toBe(0);
   });
 
   test("Strategy=anonymize: authorId=null, Row bleibt (HR-Compliance-Pfad)", async () => {
     await seedAlice();
-    await seedNote("aaaaaaaa-aaaa-4aaa-8aaa-000000000004", "stays-anonymous");
+    await seedNote(noteId(1), "stays-anonymous");
 
     const usage = stack.registry
       .getExtensionUsages(EXT_USER_DATA)
@@ -297,11 +307,9 @@ describe("user-data-rights recipe :: EXT_USER_DATA-Hooks integrieren Notes-Domai
       | undefined;
     await hooks?.delete?.({ db: stack.db, tenantId: TENANT_A, userId: ALICE_ID }, "anonymize");
 
-    const after = (await asRawClient(stack.db).unsafe(
-      `SELECT title, author_id FROM store_notes`,
-    )) as Array<{ title: string; author_id: string | null }>;
+    const after = await selectMany(stack.db, notesTable, { tenantId: TENANT_A });
     expect(after).toHaveLength(1);
-    expect(after[0]?.author_id).toBeNull();
+    expect(after[0]?.authorId).toBeNull();
     expect(after[0]?.title).toBe("stays-anonymous");
   });
 });

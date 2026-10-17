@@ -4,7 +4,7 @@
 // real HTTP + DB + Redis. If a reader copies the buildServer({...}) block
 // verbatim, the resulting app behaves like this test asserts.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   AuthHandlers,
   createAuthEmailPasswordFeature,
@@ -18,7 +18,6 @@ import {
 import {
   type SessionCallbacks,
   userSessionEntity,
-  userSessionTable,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
   sessionCallbacksFromLateBound,
@@ -34,9 +33,7 @@ import {
   createUserFeature,
   UserHandlers,
   userEntity,
-  userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -82,12 +79,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
-});
-
-beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userSessionTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 });
 
 describe("session-revocation sample wiring", () => {
