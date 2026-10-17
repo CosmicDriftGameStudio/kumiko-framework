@@ -1,5 +1,6 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type {
+  BeforeTransactionResult,
   HandlerContext,
   SessionUser,
   TenantId,
@@ -16,9 +17,11 @@ import type { LinkedResourceEntry } from "../linked-resources.js";
 import {
   attachmentLimitFailure,
   attachmentNeedsMailTemplate,
+  createPreparedBundleResourceEntry,
+  type PreparedTemplateFile,
+  prepareTemplateAttachmentBeforeTransaction,
+  prepareTemplateResourceBeforeTransaction,
   readTemplateResourceMaxBytes,
-  storeBundleAttachment,
-  storeTemplateResource,
 } from "../store-template-resource.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import type { TemplateBundle } from "../template-bundle.js";
@@ -92,64 +95,110 @@ async function collectBundleIssues(
   return issues;
 }
 
-async function storeBundleResources(
-  args: BundleImport,
-): Promise<WriteResult<Record<string, LinkedResourceEntry>>> {
-  const linked: Record<string, LinkedResourceEntry> = {};
-  const pdfLinks = Object.entries(args.bundle.pdfAttachments);
+export type PreparedBundleResources = ReadonlyMap<string, PreparedTemplateFile>;
+
+type Release = () => Promise<void>;
+
+// Tries every release, so one failing delete does not strand the other uploads; the first rejection is rethrown.
+async function releaseAll(releases: readonly Release[]): Promise<void> {
+  const settled = await Promise.allSettled(releases.map((release) => release()));
+  const rejected = settled.find((outcome) => outcome.status === "rejected");
+  if (rejected?.status === "rejected") throw rejected.reason;
+}
+
+function checkBundleAttachments(bundle: TemplateBundle): WriteResult<null> {
   const attachmentCount =
-    Object.values(args.bundle.resources).filter((resource) => resource.purpose === "attachment")
-      .length + pdfLinks.length;
-  if (attachmentCount > 0 && args.bundle.kind !== "mail") return attachmentNeedsMailTemplate();
+    Object.values(bundle.resources).filter((resource) => resource.purpose === "attachment").length +
+    Object.keys(bundle.pdfAttachments).length;
+  if (attachmentCount > 0 && bundle.kind !== "mail") return attachmentNeedsMailTemplate();
   if (attachmentCount > MAX_FILE_ATTACHMENTS_PER_TEMPLATE) return attachmentLimitFailure();
-  // The document template is not looked up: a bundle may carry it later than the mail.
-  for (const [key, link] of pdfLinks) linked[key] = { kind: "rendered-pdf", ...link };
+  return { isSuccess: true, data: null };
+}
+
+// beforeTransaction half: validates the bundle and uploads every resource file to the target
+// tenant's storage. A failed or throwing upload releases the ones before it.
+export async function prepareTemplateBundleBeforeTransaction(
+  args: BundleImport & { readonly status: BundleImportStatus },
+): Promise<BeforeTransactionResult<PreparedBundleResources>> {
+  const refused = refuseTenantScopeUnderSystemTenant(args.scope, args.tenantId);
+  if (refused !== null) return refused;
+  const issues = await collectBundleIssues(args, args.status);
+  if (issues.length > 0) return writeFailure(new ValidationError({ fields: [...issues] }));
+  const attachmentCheck = checkBundleAttachments(args.bundle);
+  if (!attachmentCheck.isSuccess) return attachmentCheck;
+
   const maxBytes = await readTemplateResourceMaxBytes(args.ctx.config, args.ctx.registry);
-  // A bundle is untrusted input like an upload: the same re-encoding decides the stored
-  // content type, so a declared image/png can't smuggle SVG or HTML into a mail or PDF.
-  for (const [key, resource] of Object.entries(args.bundle.resources)) {
-    const bytes = Uint8Array.from(Buffer.from(resource.base64, "base64"));
-    if (resource.purpose === "attachment") {
-      const attachment = await storeBundleAttachment({
+  const prepared = new Map<string, PreparedTemplateFile>();
+  const releases: Release[] = [];
+  try {
+    // A bundle is untrusted input like an upload: the same re-encoding decides the stored
+    // content type, so a declared image/png can't smuggle SVG or HTML into a mail or PDF.
+    for (const [key, resource] of Object.entries(args.bundle.resources)) {
+      const bytes = Uint8Array.from(Buffer.from(resource.base64, "base64"));
+      const common = {
         ctx: args.ctx,
         user: args.user,
         tenantId: args.tenantId,
         bytes,
         maxBytes,
         key,
-        fileName: resource.fileName,
-      });
-      if (!attachment.isSuccess) return attachment;
-      linked[key] = attachment.data;
-      continue;
+      };
+      const result =
+        resource.purpose === "attachment"
+          ? await prepareTemplateAttachmentBeforeTransaction({
+              ...common,
+              fileName: resource.fileName,
+            })
+          : await prepareTemplateResourceBeforeTransaction(common);
+      if (!result.isSuccess) {
+        await releaseAll(releases);
+        return result;
+      }
+      if (result.release) releases.push(result.release);
+      prepared.set(key, result.data);
     }
-    const stored = await storeTemplateResource({
-      ctx: args.ctx,
-      user: args.user,
-      tenantId: args.tenantId,
-      bytes,
-      maxBytes,
-      key,
-    });
-    if (!stored.isSuccess) return stored;
-    linked[key] = stored.data.fileRefId;
+  } catch (cause) {
+    await releaseAll(releases);
+    throw cause;
+  }
+  return { isSuccess: true, data: prepared, release: () => releaseAll(releases) };
+}
+
+async function linkPreparedBundleResources(
+  args: BundleImport,
+  prepared: PreparedBundleResources,
+): Promise<WriteResult<Record<string, LinkedResourceEntry>>> {
+  const linked: Record<string, LinkedResourceEntry> = {};
+  // The document template is not looked up: a bundle may carry it later than the mail.
+  for (const [key, link] of Object.entries(args.bundle.pdfAttachments)) {
+    linked[key] = { kind: "rendered-pdf", ...link };
+  }
+  for (const [key, file] of prepared) {
+    const entry = await createPreparedBundleResourceEntry(
+      { ctx: args.ctx, user: args.user, tenantId: args.tenantId },
+      file,
+    );
+    if (!entry.isSuccess) return entry;
+    linked[key] = entry.data;
   }
   return { isSuccess: true, data: linked };
 }
 
 // Validates every locale first, so a bad locale is refused before anything is written.
-// Resource files are stored before the row loop and live outside the DB transaction: an
-// image that fails re-encoding, or a row write that fails later, rolls the rows and fileRefs
-// back but leaves already stored binaries unreferenced, like a replaced upload.
+// The resource files are uploaded in the beforeTransaction phase; a rolled-back transaction
+// releases them there. A crash between the upload and the commit leaves the binaries unreferenced.
 export async function importTemplateBundle(
-  args: BundleImport & { readonly status: BundleImportStatus },
+  args: BundleImport & {
+    readonly status: BundleImportStatus;
+    readonly prepared: PreparedBundleResources;
+  },
 ): Promise<WriteResult<{ ids: Record<string, string> }>> {
   const refused = refuseTenantScopeUnderSystemTenant(args.scope, args.tenantId);
   if (refused !== null) return refused;
   const issues = await collectBundleIssues(args, args.status);
   if (issues.length > 0) return writeFailure(new ValidationError({ fields: [...issues] }));
 
-  const linked = await storeBundleResources(args);
+  const linked = await linkPreparedBundleResources(args, args.prepared);
   if (!linked.isSuccess) return linked;
 
   const variableSchema = args.bundle.variableSchema ?? {};

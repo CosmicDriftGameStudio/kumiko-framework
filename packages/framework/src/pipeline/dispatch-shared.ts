@@ -445,7 +445,6 @@ export function applyBeforeTransactionReadOnly(handlerContext: HandlerContext): 
     ...denyTransactionBoundSurfaces(handlerContext),
     dbOutsideTransaction: undefined,
     outsideTransaction: undefined,
-    forTenant: undefined,
   };
 }
 
@@ -466,6 +465,8 @@ export async function buildHandlerContext(
   // A query bridge has no commit sink of its own, but ctx.notify inside it must still wait for
   // the outer write's commit: the outer sink is lent to notify only, not to scheduleAfterCommit.
   outerNotifySink?: AfterCommitHook[],
+  // beforeTransaction phase: ctx.forTenant stays available but every target db denies writes.
+  readOnlyForTenant = false,
 ): Promise<HandlerContext> {
   const { registry, appContext: context, effectiveFeatures, jobRunner, lifecycle } = ctx;
   const isSystem = registry.isHandlerSystemScoped(type);
@@ -682,7 +683,7 @@ export async function buildHandlerContext(
             // Only perCommand handlers lose forTenant writes; reservations keep their pre-transaction contract.
             const ownTenantDb =
               denyDbWrites && !isPerCommand
-                ? buildTenantScopedDb(dbSource, reqCtx?.signal)
+                ? buildTenantScopedDb(dbSource, reqCtx?.signal, undefined, readOnlyForTenant)
                 : exposedDb;
             return { db: ownTenantDb, streamTenantId: undefined };
           }
@@ -696,7 +697,7 @@ export async function buildHandlerContext(
               dbSource,
               reqCtx?.signal,
               targetTenantId,
-              denyDbWrites && isPerCommand,
+              denyDbWrites && (isPerCommand || readOnlyForTenant),
             ),
             streamTenantId: targetTenantId,
           };
