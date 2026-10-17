@@ -24,9 +24,9 @@ export {
   validateMetricName,
 } from "./metric-validator.js";
 export {
+  createMetricsForFactory,
   createMetricsHandle,
   createNoopMetricsHandle,
-  createMetricsForFactory,
   createSafeMetricsHandle,
   createUnboundMetricsHandle,
 } from "./metrics-handle.js";
