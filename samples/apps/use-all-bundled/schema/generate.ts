@@ -72,14 +72,14 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
   },
   // Owns the tokenVerifier extension-point personal-access-tokens registers
   // against. No r.entity → generate.ts skips it silently. Listed for
-  // schema-check ↔ mounted-set consistency (kumiko-framework#1369).
+  // check-coverage ↔ mounted-set consistency (kumiko-framework#1369).
   "auth-foundation": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/auth-foundation",
     exportName: "authFoundationFeature",
   },
   // auth-email-password auto-mounted via composeFeatures(includeBundled:true).
-  // Kein r.entity → generate.ts skipt silent. Listed für schema-check ↔
+  // Kein r.entity → generate.ts skipt silent. Listed für check-coverage ↔
   // mounted-set Konsistenz.
   "auth-email-password": {
     kind: "factory",
@@ -87,13 +87,13 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     factory: "createAuthEmailPasswordFeature",
   },
   // Companion toggle auto-mounted by composeFeatures when authOptions.signup
-  // is set (#1521). No r.entity — listed for schema-check parity.
+  // is set (#1521). No r.entity — listed for check-coverage parity.
   "auth-self-registration": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/auth-email-password",
     factory: "createAuthSelfRegistrationToggleFeature",
   },
-  // Opt-in German copy. No r.entity — listed for schema-check ↔ mounted-set.
+  // Opt-in German copy. No r.entity — listed for check-coverage ↔ mounted-set.
   "locale-de": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-locale-de",
@@ -253,7 +253,7 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
   },
   // No r.entity of its own — it reads OTHER entities' `transferable`/
   // `parentRef` declarations off the registry. generate.ts skips it
-  // silently; listed for schema-check ↔ mounted-set parity.
+  // silently; listed for check-coverage ↔ mounted-set parity.
   "tenant-handover": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/tenant-handover",
@@ -348,14 +348,14 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     factory: "createAuditFeature",
   },
   // admin-shell: workspaces + nav only, kein r.entity → generate.ts skipt
-  // silent. Listed für schema-check ↔ mounted-set Konsistenz.
+  // silent. Listed für check-coverage ↔ mounted-set Konsistenz.
   "admin-shell": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/admin-shell",
     factory: "createAdminShellFeature",
   },
   // agent-tools: tool catalog + boot-time doc lint only, no r.entity — the
-  // generator skips it and it is listed purely for the schema-check ↔
+  // generator skips it and it is listed purely for the check-coverage ↔
   // mounted-set consistency.
   "agent-tools": {
     kind: "factory",
@@ -410,7 +410,7 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     exportName: "templateResolverUserDataFeature",
   },
   // collection-labels: app-local, translations only, kein r.entity →
-  // generate.ts skipt silent. Listed für schema-check ↔ mounted-set Konsistenz.
+  // generate.ts skipt silent. Listed für check-coverage ↔ mounted-set Konsistenz.
   "collection-labels": {
     kind: "named",
     path: "../src/app/collection-labels-feature",
@@ -442,7 +442,7 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     exportName: "documentIngestFoundationFeature",
   },
   // workflow-runner: no r.entity/MSPs/handlers → generate.ts skips it
-  // silently. Listed for schema-check ↔ mounted-set consistency.
+  // silently. Listed for check-coverage ↔ mounted-set consistency.
   "workflow-runner": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/workflow-runner",

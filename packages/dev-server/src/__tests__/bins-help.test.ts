@@ -13,7 +13,6 @@ const bins = [
   { file: "kumiko-init-deploy.ts", usage: "Usage: kumiko-init-deploy" },
   { file: "kumiko-build.ts", usage: "Usage: kumiko-build" },
   { file: "kumiko-dev.ts", usage: "Usage: kumiko-dev" },
-  { file: "kumiko-schema-check.ts", usage: "Usage: kumiko-schema-check" },
   { file: "kumiko-schema.ts", usage: "Subcommands:" },
   { file: "kumiko-upgrade.ts", usage: "kumiko-upgrade [--from" },
 ] as const;

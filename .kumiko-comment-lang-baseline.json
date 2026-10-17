@@ -366,7 +366,6 @@
     "packages/dev-server/src/__tests__/crash-tracker.test.ts": 18,
     "packages/dev-server/src/__tests__/create-kumiko-server.integration.test.ts": 21,
     "packages/dev-server/src/__tests__/env-schema.test.ts": 2,
-    "packages/dev-server/src/__tests__/kumiko-schema-check.test.ts": 2,
     "packages/dev-server/src/__tests__/resolve-stylesheet.test.ts": 14,
     "packages/dev-server/src/__tests__/run-dev-app-boot-validation.test.ts": 8,
     "packages/dev-server/src/__tests__/scaffold-app-feature.test.ts": 3,

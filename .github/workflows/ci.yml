@@ -350,23 +350,17 @@ jobs:
         # oder ein stale registry-entry.
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Coverage lint (M5)" -- bun samples/apps/use-all-bundled/scripts/check-coverage.ts
 
-      - name: Schema check (Empfehlung 3)
-        # kumiko-schema-check diff't mounted features (runtime) gegen
-        # FEATURE_IMPORT_REGISTRY (statisch). Studio's 9.8-Drama:
-        # registry 18 features hinter APP_FEATURES → migrations fehlten.
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema check (Empfehlung 3)" -- bun packages/dev-server/bin/kumiko-schema-check.ts --run-config samples/apps/use-all-bundled/src/run-config.ts --generate samples/apps/use-all-bundled/schema/generate.ts
-
       - name: Schema validate (migration content)
         # kumiko-schema validate: entity↔snapshot + validateBoot + SQL-replay
-        # ↔snapshot. Catches migration drift that schema.generated / schema-check
-        # miss (#1521). Same stub KEK as Boot smoke (encrypted entity fields).
+        # ↔snapshot. Catches migration drift that schema.generated / the
+        # coverage lint miss (#1521). Same stub KEK as Boot smoke (encrypted entity fields).
         working-directory: samples/apps/use-all-bundled
         env:
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema validate (migration content)" -- bun ../../../packages/dev-server/bin/kumiko-schema.ts validate
 
       - name: Schema validate (demo)
-        # demo/ has no schema/generate.ts registry (schema-check needs one),
+        # demo/ has no schema/generate.ts registry (the coverage lint needs one),
         # so only validate is wired here — entity↔snapshot + validateBoot +
         # SQL-replay↔snapshot against demo/kumiko/migrations. Without this,
         # demo/ silently re-drifts on the next entity change (kumiko-framework#2309).
