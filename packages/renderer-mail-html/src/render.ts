@@ -1,7 +1,7 @@
 // renderer-mail-html pipeline for kind "mail":
 //   1. Resolve the mail template (tenant -> system) and its layout
-//      (meta.layoutSlug ?? "default", kind mail-layout, fallback to the in-code
-//      DEFAULT_MAIL_LAYOUT_MJML).
+//      (meta.layoutSlug ?? "default", kind mail-layout, fallback to an in-code
+//      structured layout with the branding logo or tenant name as header).
 //   2. compileDocumentBodyToHandlebars turns the sanitized document body into
 //      Handlebars source; every author brace is neutralized there, so the only
 //      expressions are the ones template-resolver wrote.
@@ -41,15 +41,18 @@ import {
   type TemplateResource,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { convert as htmlToText } from "html-to-text";
 import mjml2html from "mjml";
-import { DEFAULT_MAIL_LAYOUT_MJML, DEFAULT_MAIL_LAYOUT_SLUG } from "./default-layout.js";
+import { DEFAULT_MAIL_LAYOUT_SLUG } from "./default-layout.js";
 import {
   collectRegionResourceKeys,
   compileDocumentSource,
   createDocumentHandlebars,
+  LOGO_RESOURCE_KEY,
   mergeResourceFileRefs,
   readBrandingAccentColor,
+  readBrandingLogo,
   readDocumentFormat,
   readTenantName,
   resolveResourceFileRefs,
@@ -59,7 +62,18 @@ import {
   combineMailAttachments,
   mergeInheritedAttachments,
 } from "./mail-attachments.js";
+import {
+  buildMailFooterHtml,
+  layoutLinksToPlaceholder,
+  type MailFooter,
+  type MailFooterResolver,
+  safeFooterUrl,
+} from "./mail-footer.js";
 import { MAIL_IMAGE_MAX_WIDTH_PX, renderStructuredLayoutMjml } from "./structured-layout.js";
+
+export type MailHtmlRenderOptions = {
+  readonly footer?: MailFooterResolver;
+};
 
 const LINE_BREAKS = /[\r\n]+/g;
 
@@ -72,14 +86,30 @@ type ResolvedLayout = {
   readonly format: "mjml" | "html";
   readonly ref: RenderedTemplateRef | null;
   readonly template: TemplateResource | null;
+  readonly appearanceMeta: unknown;
+  readonly fileRefs?: ReadonlyMap<string, string>;
 };
 
-const IN_CODE_LAYOUT: ResolvedLayout = {
-  content: DEFAULT_MAIL_LAYOUT_MJML,
-  format: "mjml",
-  ref: null,
-  template: null,
-};
+// Without a seeded layout every mail still carries the tenant's branding: accent
+// line and button color, and the logo (or the name when there is no logo) on top.
+const IN_CODE_LAYOUT_META = { accentLine: "branding" } as const;
+
+async function inCodeLayout(ctx: RendererContext, tenantName: string): Promise<ResolvedLayout> {
+  const logoFileRefId = await readBrandingLogo(ctx);
+  const header =
+    logoFileRefId === undefined
+      ? '<p style="font-size:20px;font-weight:600;margin:0"><span data-variable="tenantName"></span></p>'
+      : `<p style="margin:0"><img data-resource="${LOGO_RESOURCE_KEY}" alt="${escapeHtmlAttr(tenantName)}"></p>`;
+  return {
+    content: `<div data-header>${header}</div><div data-content></div>`,
+    format: "html",
+    ref: null,
+    template: null,
+    appearanceMeta: IN_CODE_LAYOUT_META,
+    fileRefs:
+      logoFileRefId === undefined ? new Map() : new Map([[LOGO_RESOURCE_KEY, logoFileRefId]]),
+  };
+}
 
 // Only system layouts are trusted as written: a tenant mjml row left over from
 // before that rule, or a tenant html row failing the layout sanitizer, is
@@ -89,7 +119,7 @@ async function resolveLayout(
   ctx: RendererContext,
   meta: MailTemplateMeta,
   locale: string,
-): Promise<ResolvedLayout> {
+): Promise<ResolvedLayout | null> {
   const slug = meta.layoutSlug ?? DEFAULT_MAIL_LAYOUT_SLUG;
   try {
     let layout = await tplApi.resolveLayout({
@@ -125,6 +155,7 @@ async function resolveLayout(
       format: layout.contentFormat === "html" ? "html" : "mjml",
       ref: { templateId: layout.id, templateVersion: layout.version, scope: layout.scope },
       template: layout,
+      appearanceMeta: layout.meta,
     };
   } catch (e) {
     // Only "no layout seeded" falls back to the in-code layout. Connection or
@@ -135,7 +166,7 @@ async function resolveLayout(
         "other",
       );
     }
-    return IN_CODE_LAYOUT;
+    return null;
   }
 }
 
@@ -161,6 +192,7 @@ async function resolveLayoutFileRefs(
   ctx: RendererContext,
   layout: ResolvedLayout,
 ): Promise<ReadonlyMap<string, string>> {
+  if (layout.fileRefs !== undefined) return layout.fileRefs;
   if (layout.format !== "html" || layout.template === null) return new Map();
   try {
     return await resolveResourceFileRefs(
@@ -430,6 +462,7 @@ function compileLayoutMjml(args: {
   readonly accentColor: string | undefined;
   readonly resourceFileRefs: ReadonlyMap<string, string>;
   readonly layoutContext: Readonly<Record<string, unknown>>;
+  readonly footerHtml: string;
 }): string {
   const { layout, hbs, contentHtml, appearance, accentColor, resourceFileRefs, layoutContext } =
     args;
@@ -443,8 +476,16 @@ function compileLayoutMjml(args: {
           resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined),
           ...(appearance !== undefined && { appearance }),
           ...(accentColor !== undefined && { accentColor }),
+          footerHtml: args.footerHtml,
         })
-      : compileDocumentSource(hbs, layout.content)({ ...layoutContext, content: contentHtml });
+      : compileDocumentSource(
+          hbs,
+          layout.content,
+        )({
+          ...layoutContext,
+          content: contentHtml,
+          mailFooterHtml: args.footerHtml,
+        });
   } catch (e) {
     // "other": the caller's payload is fine, the layout template is broken.
     throw new RendererError(
@@ -513,9 +554,59 @@ function buildMailRenderResponse(args: {
   };
 }
 
+async function resolveMailFooter(
+  options: MailHtmlRenderOptions,
+  ctx: RendererContext,
+  locale: string,
+): Promise<MailFooter | null> {
+  if (options.footer === undefined) return null;
+  try {
+    return await options.footer({ locale, ctx });
+  } catch (e) {
+    throw new RendererError(
+      `renderer-mail-html: the mail footer resolver failed — ${describe(e)}`,
+      "other",
+    );
+  }
+}
+
+type MailBranding = {
+  readonly appearance: MailLayoutAppearance | undefined;
+  readonly accentColor: string | undefined;
+};
+
+// Only a structured (html) layout carries appearance; an mjml layout keeps its own look.
+async function resolveMailBranding(
+  ctx: RendererContext,
+  layout: ResolvedLayout,
+): Promise<MailBranding> {
+  if (layout.format !== "html") return { appearance: undefined, accentColor: undefined };
+  const wantsAccent = mailLayoutAppearance(layout.appearanceMeta).accentLine;
+  const accentColor = wantsAccent ? await readBrandingAccentColor(ctx) : undefined;
+  return { appearance: mailLayoutAppearance(layout.appearanceMeta, accentColor), accentColor };
+}
+
+function renderFooterHtml(
+  layout: ResolvedLayout,
+  footer: MailFooter | null,
+  unsubscribeUrl: string,
+  locale: string,
+): string {
+  const structured = layout.format === "html";
+  return buildMailFooterHtml({
+    footer,
+    unsubscribeUrl,
+    locale,
+    layoutLinksImprint: structured && layoutLinksToPlaceholder(layout.content, "imprint"),
+    layoutLinksUnsubscribe:
+      structured && layoutLinksToPlaceholder(layout.content, "unsubscribeUrl"),
+  });
+}
+
 export async function mailHtmlRender(
   req: RenderRequest,
   ctx: RendererContext,
+  options: MailHtmlRenderOptions = {},
 ): Promise<RenderResponse> {
   if (req.kind !== "mail") {
     // Foundation selects plugins only for matching kinds; defensive guard.
@@ -528,24 +619,23 @@ export async function mailHtmlRender(
 
   const tplApi = createTemplateResolverApi(ctx.db);
   const { template, meta } = await resolveMailTemplate(tplApi, ctx, slug, locale, draft);
-  const layout = await resolveLayout(tplApi, ctx, meta, locale);
-
-  const [format, tenantName] = await Promise.all([
+  const [format, tenantName, footer] = await Promise.all([
     readDocumentFormat(ctx, locale),
     readTenantName(ctx),
+    resolveMailFooter(options, ctx, locale),
   ]);
+  const layout =
+    (await resolveLayout(tplApi, ctx, meta, locale)) ?? (await inCodeLayout(ctx, tenantName));
   const hbs = createDocumentHandlebars(format);
-  const context = {
-    ...variables,
+  const systemPlaceholders = {
     tenantName,
     signature: "",
-    imprint: "",
+    imprint: safeFooterUrl(footer?.imprint),
     unsubscribeUrl: unsubscribeUrl ?? "",
   };
+  const context = { ...variables, ...systemPlaceholders };
 
-  // Only a structured (html) layout carries appearance; an mjml layout keeps its own look.
-  const appearance: MailLayoutAppearance | undefined =
-    layout.format === "html" ? mailLayoutAppearance(layout.template?.meta) : undefined;
+  const { appearance, accentColor } = await resolveMailBranding(ctx, layout);
   const body = await renderMailBody(tplApi, ctx, template, hbs, context, appearance?.buttonStyle);
   const { contentHtml } = body;
   const layoutFileRefs = await resolveLayoutFileRefs(tplApi, ctx, layout);
@@ -561,8 +651,6 @@ export async function mailHtmlRender(
   });
   const { subject, previewText } = renderSubjectLines(hbs, meta, slug, context);
 
-  const accentColor =
-    appearance?.accentLine === true ? await readBrandingAccentColor(ctx) : undefined;
   const mjmlSource = compileLayoutMjml({
     layout,
     hbs,
@@ -571,13 +659,12 @@ export async function mailHtmlRender(
     accentColor,
     resourceFileRefs,
     layoutContext: {
+      ...systemPlaceholders,
+      lang: locale,
       subject,
       previewText: previewText ?? "",
-      tenantName,
-      signature: "",
-      imprint: "",
-      unsubscribeUrl: unsubscribeUrl ?? "",
     },
+    footerHtml: renderFooterHtml(layout, footer, systemPlaceholders.unsubscribeUrl, locale),
   });
   const html = await compileMjmlToHtml(mjmlSource);
 

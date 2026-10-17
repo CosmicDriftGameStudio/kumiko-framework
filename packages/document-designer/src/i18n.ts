@@ -484,6 +484,10 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Preview text",
     de: "Vorschautext",
   },
+  "documentDesigner.mail.meta.previewTextPlaceholder": {
+    en: "Short line shown next to the subject in the inbox",
+    de: "Kurze Zeile, die im Posteingang neben dem Betreff erscheint",
+  },
   "documentDesigner.mail.props.title": {
     en: "Properties",
     de: "Eigenschaften",
@@ -491,6 +495,10 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   "documentDesigner.mail.props.layout": {
     en: "Layout",
     de: "Layout",
+  },
+  "documentDesigner.mail.props.layoutBuiltIn": {
+    en: "Standard layout (built in)",
+    de: "Standard-Layout (eingebaut)",
   },
   "documentDesigner.mail.props.layoutTenant": {
     en: "{title} (tenant customisation v{version})",

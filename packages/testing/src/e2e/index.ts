@@ -37,6 +37,12 @@ export {
   resolveE2eWorkers,
 } from "./define-app-e2e-config";
 export { type MailCaptureOptions, mailCapture } from "./mail-capture";
+export {
+  decodeHtmlAttribute,
+  extractMailLink,
+  extractMailLinkToken,
+  mailLinks,
+} from "./mail-links";
 export { pinEnglishLocale } from "./pin-english-locale";
 export { pollForRow, waitForProjection } from "./poll";
 export {

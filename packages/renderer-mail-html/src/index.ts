@@ -10,4 +10,5 @@ export {
   resolveResourceFileRefs,
 } from "./document-kit.js";
 export { createRendererMailHtmlFeature } from "./feature.js";
-export { mailHtmlRender } from "./render.js";
+export type { MailFooter, MailFooterLink, MailFooterResolver } from "./mail-footer.js";
+export { type MailHtmlRenderOptions, mailHtmlRender } from "./render.js";

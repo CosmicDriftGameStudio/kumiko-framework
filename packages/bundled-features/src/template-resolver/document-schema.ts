@@ -131,7 +131,8 @@ export const DocumentResource = Node.create({
 export const DocumentButton = Node.create({
   name: "button",
   group: "block",
-  content: "text*",
+  // A placeholder in the label ("View {{pageName}}") must survive the round trip.
+  content: "(text | variable)*",
   marks: "",
   defining: true,
   addAttributes() {

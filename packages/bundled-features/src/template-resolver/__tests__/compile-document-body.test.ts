@@ -91,6 +91,18 @@ describe("compileDocumentBodyToHandlebars", () => {
     expect(out).not.toContain("background-color:#1f5468");
   });
 
+  test("buttons take the branding accent only when the layout opts into the branding accent", () => {
+    expect(mailLayoutAppearance({ accentLine: "branding" }, "#ab12cd").buttonStyle).toContain(
+      "background-color:#ab12cd",
+    );
+    expect(mailLayoutAppearance({ accentLine: "none" }, "#ab12cd").buttonStyle).toContain(
+      "background-color:#1f5468",
+    );
+    expect(
+      mailLayoutAppearance({ accentLine: "branding" }, 'red;background:url("x")').buttonStyle,
+    ).not.toContain("url(");
+  });
+
   test("link placeholders become the link helper", () => {
     expect(compile('<a href="{{url}}">go</a>')).toContain('href="{{link url}}"');
   });
@@ -103,6 +115,45 @@ describe("compileDocumentBodyToHandlebars", () => {
     expect(out).toContain("{{/each}}");
     expect(out).toContain("{{label}}");
     expect(out).toContain("{{@root.name}}");
+  });
+
+  test("a line with only an empty optional placeholder renders nothing, a filled one renders", () => {
+    const template = Handlebars.create().compile(
+      compile('<p>Hello</p><p><span data-variable="name"></span></p>'),
+    );
+    expect(template({})).toBe("<p>Hello</p>");
+    expect(template({ name: "" })).toBe("<p>Hello</p>");
+    expect(template({ name: "Ada" })).toBe("<p>Hello</p><p>Ada</p>");
+  });
+
+  test("an amount of 0 keeps its placeholder-only line", () => {
+    const hbs = Handlebars.create();
+    hbs.registerHelper("money", (value: unknown) => `${String(value)} EUR`);
+    const template = hbs.compile(compile('<h2><span data-variable="total"></span></h2>'));
+    expect(template({ total: 0 })).toBe("<h2>0 EUR</h2>");
+    expect(template({})).toBe("");
+  });
+
+  test("lines with static text, an image or two placeholders are never wrapped", () => {
+    expect(compile('<p>Dear <span data-variable="name"></span></p>')).not.toContain("{{#if");
+    expect(
+      compileDocumentBodyToHandlebars(
+        '<p><img data-resource="logo" alt=""><span data-variable="name"></span></p>',
+        variables,
+        { resourceSrc: () => "cid:logo" },
+      ),
+    ).not.toContain("{{#if");
+    expect(
+      compile('<p><span data-variable="name"></span> <span data-variable="due"></span></p>'),
+    ).not.toContain("{{#if");
+  });
+
+  test("a placeholder-only line inside a list row checks the row field, not the root", () => {
+    const out = compile(
+      '<table><tr data-each="lines"><td><p><span data-variable="label"></span></p><p><span data-variable="name"></span></p></td></tr></table>',
+    );
+    expect(out).toContain("{{#if label includeZero=true}}<p>{{label}}</p>{{/if}}");
+    expect(out).toContain("{{#if @root.name includeZero=true}}<p>{{@root.name}}</p>{{/if}}");
   });
 
   test("a row for an undeclared list is dropped", () => {

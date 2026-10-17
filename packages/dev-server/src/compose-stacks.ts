@@ -42,7 +42,10 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import {
+  createRendererMailHtmlFeature,
+  type MailFooterResolver,
+} from "@cosmicdrift/kumiko-renderer-mail-html";
 
 export type FileProviderKind = "inmemory" | "s3" | "s3-env";
 export type MailTransportKind = "inmemory" | "smtp";
@@ -115,11 +118,18 @@ export function composePagesStack(options: PagesStackOptions = {}): FeatureDefin
   ];
 }
 
-export function composeRendererStack(): FeatureDefinition[] {
+export type RendererStackOptions = {
+  /** Platform imprint, privacy link and footer text under every mail; see createRendererMailHtmlFeature. */
+  readonly mailFooter?: MailFooterResolver;
+};
+
+export function composeRendererStack(options: RendererStackOptions = {}): FeatureDefinition[] {
   return [
     createTemplateResolverFeature(),
     createRendererFoundationFeature(),
-    createRendererMailHtmlFeature(),
+    createRendererMailHtmlFeature(
+      options.mailFooter !== undefined ? { footer: options.mailFooter } : {},
+    ),
   ];
 }
 

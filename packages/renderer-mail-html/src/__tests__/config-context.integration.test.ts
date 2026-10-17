@@ -93,7 +93,16 @@ beforeAll(async () => {
       createManagedPagesFeature({ resolveApexTenant: () => null }),
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
-      createRendererMailHtmlFeature(),
+      createRendererMailHtmlFeature({
+        footer: ({ locale }) => ({
+          text: "Sent via Demo <Platform>",
+          imprint: {
+            label: locale.startsWith("de") ? "Impressum" : "Imprint",
+            url: "https://demo.example/impressum",
+          },
+          privacy: { label: "Datenschutz", url: "javascript:alert(1)" },
+        }),
+      }),
       mailConfigDemo,
     ],
     {
@@ -166,6 +175,29 @@ describe("renderer-mail-html :: ctx.config", () => {
   });
 });
 
+describe("renderer-mail-html :: in-code layout and platform footer", () => {
+  test("without a layout row the mail shows the tenant name on top and the branding accent", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.accentColor, value: "#ab12cd", scope: "tenant" },
+      configuredAdmin,
+    );
+    const html = await renderInvoice(configuredAdmin.tenantId);
+    expect(html).toContain('lang="de"');
+    expect(html.split("Muster AG").length).toBeGreaterThan(2);
+    expect(html).toContain("#ab12cd");
+  });
+
+  test("the footer resolver adds escaped text and safe links, an unsafe link is dropped", async () => {
+    const html = await renderInvoice(untouchedTenant);
+    expect(html).toContain("Sent via Demo &lt;Platform&gt;");
+    expect(html).toContain('href="https://demo.example/impressum"');
+    expect(html).toContain("Impressum");
+    expect(html).not.toContain("javascript:");
+    expect(html).not.toContain("#ab12cd");
+  });
+});
+
 describe("renderer-mail-html :: layout accent line", () => {
   const layout = (accentLine: "branding" | "none") => ({
     slug: "default",
@@ -197,5 +229,11 @@ describe("renderer-mail-html :: layout accent line", () => {
       configuredAdmin,
     );
     expect(await renderInvoice(configuredAdmin.tenantId)).toContain("#ab12cd");
+  });
+
+  test("a tenant layout cannot drop the platform footer", async () => {
+    const html = await renderInvoice(configuredAdmin.tenantId);
+    expect(html).toContain("Kopf");
+    expect(html).toContain('href="https://demo.example/impressum"');
   });
 });

@@ -24,7 +24,7 @@ function structuredLayoutFrame(appearance: MailLayoutAppearance, accentColor: st
       </mj-column>
     </mj-section>`
       : "";
-  return `<mjml>
+  return `<mjml lang="{{lang}}">
   <mj-head>
     <mj-title>{{subject}}</mj-title>
     <mj-preview>{{previewText}}</mj-preview>
@@ -54,10 +54,10 @@ function structuredLayoutFrame(appearance: MailLayoutAppearance, accentColor: st
       </mj-column>
     </mj-section>
     {{/if}}
-    {{#if regionFooter}}
+    {{#if hasFooter}}
     <mj-section background-color="${escapeHtmlAttr(appearance.outerBackground)}" padding="20px">
       <mj-column>
-        <mj-text font-size="11px" color="#888" align="center">{{{regionFooter}}}</mj-text>
+        <mj-text font-size="11px" color="#888" align="center">{{{regionFooter}}}{{#if mailFooterHtml}}<p>{{{mailFooterHtml}}}</p>{{/if}}</mj-text>
       </mj-column>
     </mj-section>
     {{/if}}
@@ -68,7 +68,7 @@ function structuredLayoutFrame(appearance: MailLayoutAppearance, accentColor: st
 export type StructuredLayoutInput = {
   readonly layoutHtml: string;
   readonly contentHtml: string;
-  /** Layout context (tenantName, subject, previewText, signature, imprint, unsubscribeUrl). */
+  /** Layout context (lang, tenantName, subject, previewText, signature, imprint, unsubscribeUrl). */
   readonly context: Readonly<Record<string, unknown>>;
   /** Compiles Handlebars source with the renderer's isolated instance and helper set. */
   readonly compile: (source: string) => (context: Readonly<Record<string, unknown>>) => string;
@@ -78,6 +78,8 @@ export type StructuredLayoutInput = {
   readonly appearance?: MailLayoutAppearance;
   /** Tenant branding accent color for the accent line; ignored unless it is a #rrggbb hex. */
   readonly accentColor?: string;
+  /** Escaped footer HTML from buildMailFooterHtml; rendered below the footer region, never editable. */
+  readonly footerHtml?: string;
 };
 
 export function renderStructuredLayoutMjml(input: StructuredLayoutInput): string {
@@ -99,11 +101,14 @@ export function renderStructuredLayoutMjml(input: StructuredLayoutInput): string
     input.appearance ?? mailLayoutAppearance({}),
     input.accentColor,
   );
+  const regionFooter = renderRegion(regions.footer);
   return input.compile(frame)({
     ...input.context,
     content: input.contentHtml,
     regionHeader: renderRegion(regions.header),
     regionSignature: renderRegion(regions.signature),
-    regionFooter: renderRegion(regions.footer),
+    regionFooter,
+    mailFooterHtml: input.footerHtml ?? "",
+    hasFooter: regionFooter !== "" || (input.footerHtml ?? "") !== "",
   });
 }

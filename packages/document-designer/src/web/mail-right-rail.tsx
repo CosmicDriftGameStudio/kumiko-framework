@@ -27,6 +27,24 @@ export function layoutOptionLabel(
   );
 }
 
+// Without a stored default layout the renderer uses its built-in one, so the
+// select still needs an option for the value it shows.
+function layoutOptions(
+  t: (key: string, params?: Readonly<Record<string, unknown>>) => string,
+  layouts: readonly OverviewRowView[],
+): readonly { readonly value: string; readonly label: string }[] {
+  const stored = layouts.map((layout) => ({
+    value: layout.slug,
+    label: layoutOptionLabel(t, layout),
+  }));
+  return layouts.some((layout) => layout.slug === DEFAULT_LAYOUT_SLUG)
+    ? stored
+    : [
+        { value: DEFAULT_LAYOUT_SLUG, label: t("documentDesigner.mail.props.layoutBuiltIn") },
+        ...stored,
+      ];
+}
+
 function UsageRows({ slug }: { readonly slug: string }): ReactNode {
   const t = useTranslation();
   const { data } = useQuery<{ readonly usedBy: readonly Usage[] }>(TemplateResolverQueries.usage, {
@@ -140,10 +158,7 @@ export function PropertiesSection({
             value={layoutValue}
             display="dropdown"
             onChange={(next) => onChange({ layoutSlug: next })}
-            options={layouts.map((layout) => ({
-              value: layout.slug,
-              label: layoutOptionLabel(t, layout),
-            }))}
+            options={layoutOptions(t, layouts)}
           />
         </Field>
       </RailField>

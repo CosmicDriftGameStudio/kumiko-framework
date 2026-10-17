@@ -30,6 +30,7 @@ import {
 } from "./handlers/signup-request.write.js";
 import { createSwitchTenantMfaGateHandler } from "./handlers/switch-tenant-mfa-gate.write.js";
 import { createVerifyEmailHandler } from "./handlers/verify-email.write.js";
+import { AUTH_EMAIL_PASSWORD_MAIL_I18N } from "./mail-i18n.js";
 import {
   AUTH_MAIL_VARIABLES,
   authMailLocalizedTemplate,
@@ -207,6 +208,7 @@ export function createAuthEmailPasswordFeature(
     // of silently dropping the mail.
     if (sendsMagicLinkMail(opts)) r.requires("delivery");
     r.envSchema(authEmailPasswordEnvSchema);
+    r.translations({ keys: AUTH_EMAIL_PASSWORD_MAIL_I18N });
 
     // Declared unconditionally: apps also issue the activation link from their
     // own flows (issueSignupActivation) without enabling the signup option.

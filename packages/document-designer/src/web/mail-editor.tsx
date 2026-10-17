@@ -1,19 +1,21 @@
 // @runtime client
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { useNav, useQuery, useUserRoles } from "@cosmicdrift/kumiko-renderer";
+import {
+  useLocale,
+  useNav,
+  useQuery,
+  useTranslation,
+  useUserRoles,
+} from "@cosmicdrift/kumiko-renderer";
 import { LoadingState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DEFAULT_TEMPLATE_LOCALES } from "../constants.js";
+import { defaultLocaleOf } from "./editor-locale.js";
 import { MailEditorBody } from "./mail-editor-body.js";
 import type { TemplateRowSummary, TemplateRowView } from "./mail-types.js";
 import type { OverviewRowView } from "./overview-row.js";
 import { useOverviewRows } from "./use-overview-rows.js";
-
-function defaultLocaleOf(appLocales: readonly string[], rowLocales: readonly string[]): string {
-  const preferred = appLocales[0] ?? DEFAULT_TEMPLATE_LOCALES[0] ?? "de";
-  if (rowLocales.length === 0 || rowLocales.includes(preferred)) return preferred;
-  return rowLocales[0] ?? preferred;
-}
+import { templateTitle } from "./used-by-label.js";
 
 function fallbackLocaleOf(locale: string, rowLocales: readonly string[]): string | null {
   const others = rowLocales.filter((candidate) => candidate !== locale);
@@ -49,6 +51,7 @@ function MailEditorData({
   readonly onLocaleChange: (locale: string) => void;
   readonly refreshOverview: () => Promise<void>;
 }): ReactNode {
+  const t = useTranslation();
   const [generation, setGeneration] = useState(0);
   const list = useQuery<readonly TemplateRowSummary[]>(TemplateResolverQueries.list, {
     kind: "mail",
@@ -77,7 +80,7 @@ function MailEditorData({
       slug={slug}
       locale={locale}
       locales={locales}
-      title={overviewRow?.title ?? slug}
+      title={overviewRow === null ? slug : templateTitle(t, overviewRow)}
       isSystemAdmin={isSystemAdmin}
       row={row}
       systemVersion={overviewRow?.systemVersion ?? null}
@@ -94,13 +97,14 @@ function MailEditorData({
 function MailEditorEntry({ appLocales }: { readonly appLocales: readonly string[] }): ReactNode {
   const nav = useNav();
   const roles = useUserRoles();
+  const uiLocale = useLocale().locale();
   const slug = nav.searchParams["slug"] ?? "";
   const overview = useOverviewRows("mail", slug);
   const [picked, setPicked] = useState<string | null>(nav.searchParams["locale"] ?? null);
   if (!overview.loaded) return <LoadingState />;
   const overviewRow = overview.rows.find((candidate) => candidate.slug === slug) ?? null;
   const rowLocales = overviewRow?.locales ?? [];
-  const locale = picked ?? defaultLocaleOf(appLocales, rowLocales);
+  const locale = picked ?? defaultLocaleOf(uiLocale, appLocales, rowLocales);
   const locales = [...new Set([...appLocales, ...rowLocales])];
   return (
     <MailEditorData

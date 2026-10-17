@@ -63,6 +63,12 @@ describe("sanitizeDocumentHtml", () => {
     );
   });
 
+  test("keeps a placeholder inside a button label", () => {
+    const html =
+      '<a data-button="" href="{{pageUrl}}">View <span data-variable="pageName"></span> now</a>';
+    expect(sanitizeDocumentHtml(html)).toEqual({ ok: true, html });
+  });
+
   test("rejects invalid reference names", () => {
     expect(violationCodes('<p><span data-variable="a b"></span></p>')).toContain(
       "invalid_reference_name",

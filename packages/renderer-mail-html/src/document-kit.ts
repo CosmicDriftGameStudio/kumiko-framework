@@ -143,7 +143,7 @@ export async function readBrandingAccentColor(ctx: RendererContext): Promise<str
   return value !== undefined && isHexColor(value) ? value : undefined;
 }
 
-const LOGO_RESOURCE_KEY = "logo";
+export const LOGO_RESOURCE_KEY = "logo";
 
 // Lookup order: the template's own link, the system template it overrides, and for
 // "logo" the tenant's branding logo. The system lookup is skipped for system templates.
@@ -183,7 +183,7 @@ export async function resolveResourceFileRefs(
 
 // The token is a free field of the tenant admin and the send reader also reaches the system
 // tenant's files, so only a file of the rendering tenant itself counts.
-async function readBrandingLogo(ctx: RendererContext): Promise<string | undefined> {
+export async function readBrandingLogo(ctx: RendererContext): Promise<string | undefined> {
   const fileRefId = await readConfigText(ctx, BRANDING_QN.logoFile);
   if (fileRefId === undefined || !isUuid(fileRefId)) return undefined;
   const [row] = await selectMany<{ id: string }>(ctx.db, fileRefsTable, {

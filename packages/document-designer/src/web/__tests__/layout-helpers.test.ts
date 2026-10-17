@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { composeLayoutHtml } from "../compose-layout.js";
 import { parseOverviewRow } from "../overview-row.js";
-import { usedByLabel } from "../used-by-label.js";
+import { templateTitle, usedByLabel } from "../used-by-label.js";
 
 const messages: Readonly<Record<string, string>> = {
   "documentDesigner.usedBy.allMails": "all mails",
@@ -80,6 +80,27 @@ describe("usedByLabel", () => {
 
   test("a PDF template without usage shows a dash", () => {
     expect(usedByLabel(t, viewOf({ kind: "document-pdf", slug: "billing:invoice" }))).toBe("–");
+  });
+});
+
+describe("templateTitle", () => {
+  test("a stored title wins over the notification label", () => {
+    expect(templateTitle(t, viewOf({}))).toBe("Invoice sent");
+  });
+
+  test("a seeded mail without a title is named by its notification label, else by its slug", () => {
+    expect(templateTitle(t, viewOf({ title: "billing:notify:invoice-issued" }))).toBe(
+      "Invoice issued",
+    );
+    expect(
+      templateTitle(t, viewOf({ title: "rental:notify:reminder", slug: "rental:notify:reminder" })),
+    ).toBe("reminder");
+    expect(
+      templateTitle(
+        t,
+        viewOf({ kind: "document-pdf", title: "billing:invoice", slug: "billing:invoice" }),
+      ),
+    ).toBe("billing:invoice");
   });
 });
 

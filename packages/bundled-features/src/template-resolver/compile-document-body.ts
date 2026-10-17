@@ -83,6 +83,38 @@ function pathAndDef(
   return [path, def];
 }
 
+const VARIABLE_ONLY_BLOCK_SELECTOR = "p, h1, h2, h3, h4";
+
+function soleVariableName(block: ScanElement): string | null {
+  const names = new Set(
+    Array.from(block.querySelectorAll("span[data-variable]")).map(
+      (span) => span.getAttribute("data-variable") ?? "",
+    ),
+  );
+  const [name] = [...names];
+  if (names.size !== 1 || name === undefined || !isDocumentReferenceName(name)) return null;
+  const withoutVariables = block.cloneNode(true);
+  for (const span of Array.from(withoutVariables.querySelectorAll("span[data-variable]"))) {
+    span.remove();
+  }
+  const hasStaticContent =
+    (withoutVariables.textContent ?? "").trim() !== "" ||
+    withoutVariables.querySelector("img") !== null;
+  return hasStaticContent ? null : name;
+}
+
+// A line that holds nothing but one optional placeholder would otherwise leave
+// an empty paragraph (a visible gap) when the value is missing. includeZero
+// keeps an amount of 0.
+function wrapVariableOnlyBlock(block: ScanElement, state: CompileState): void {
+  const name = soleVariableName(block);
+  if (name === null) return;
+  const [path] = pathAndDef(name, block, state);
+  const document = block.ownerDocument;
+  block.before(document.createTextNode(marker(state, `{{#if ${path} includeZero=true}}`)));
+  block.after(document.createTextNode(marker(state, "{{/if}}")));
+}
+
 function rewriteLink(element: ScanElement, state: CompileState): void {
   const href = element.getAttribute("href") ?? "";
   if (isDocumentPlaceholderHref(href)) {
@@ -262,6 +294,9 @@ export function compileDocumentBodyToHandlebars(
     stripScriptsAndActiveContent(root, options);
     if (options.alignmentAsInlineStyle === true) applyAlignmentInlineStyles(root);
     if (options.tableAsInlineStyle === true) applyTableInlineStyles(root);
+    for (const block of Array.from(root.querySelectorAll(VARIABLE_ONLY_BLOCK_SELECTOR))) {
+      wrapVariableOnlyBlock(block, state);
+    }
     for (const element of Array.from(root.querySelectorAll("span[data-variable]"))) {
       rewriteVariable(element, state);
     }
