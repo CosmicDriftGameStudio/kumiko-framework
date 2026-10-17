@@ -6,7 +6,7 @@
 // proving the "extend any object" promise on real, bootable screens.
 //
 // Deliberately NOT in src/run-config.ts APP_FEATURES: that set is bundled-only
-// (schema/generate.ts FEATURE_IMPORT_REGISTRY + check-coverage gate it). Like
+// (check-coverage compares it against the bundled-features exports). Like
 // appScreensFeature, this app-owned feature is mounted only in the dev server
 // (src/app/dev-app-options.ts), where runDevApp dev-pushes its table into the ephemeral
 // DB. Nothing here ships to prod / the schema pipeline.

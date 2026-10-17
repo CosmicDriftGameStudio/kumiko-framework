@@ -33,24 +33,14 @@ Exits 0 on success; any feature-wiring fault throws and exits 1.
 
 ## Coverage status
 
-36/39 bundled-feature exports mounted, 3 held-back. M0.1 reduced this from 10. Held-back nach M0.1:
-
-- `auth-email-password` — auto-mounted via `composeFeatures(authOptions)` (no need to list)
-- `files-provider-s3` — utility helpers (`createS3Provider`), kein `defineFeature`
-- `foundation-shared` — pure utilities (`requireDefined`, `requireNonEmpty`), kein `defineFeature`
-
-The 3 remaining are utilities or auto-mounted — they cannot be added to `APP_FEATURES` by design.
+Every bundled-feature export is mounted except the held-back ones in `EXPECTED_HELD_BACK` (`scripts/check-coverage.ts`): utilities without `defineFeature` and scaffold-only features. They cannot be added to `APP_FEATURES` by design.
 
 ## Maintenance
 
 When you add a new feature-export to `@cosmicdrift/kumiko-bundled-features` you MUST either:
 
 1. Mount it in `src/run-config.ts`. `kumiko/schema.ts` picks up entities via
-   `composeFeatures(APP_FEATURES)` — then regenerate if schema changed:
-   ```sh
-   cd samples/apps/use-all-bundled
-   bun ../../bin/kumiko.ts schema generate feature-coverage
-   ```
+   `composeFeatures(APP_FEATURES)`; run `kumiko-schema generate` if the schema changed.
 2. Or, if the feature is not yet smoke-ready, add it to `EXPECTED_HELD_BACK` in `scripts/check-coverage.ts` with a one-line reason.
 
-CI fails otherwise via `Coverage lint (M5)`.
+CI fails otherwise via `Coverage lint`.
