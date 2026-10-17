@@ -10,7 +10,7 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {

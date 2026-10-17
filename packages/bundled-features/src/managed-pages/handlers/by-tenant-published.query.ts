@@ -1,5 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { castTenantRows } from "@cosmicdrift/kumiko-framework/db";
+import { castTenantRows, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { type PageRow, pagesTable } from "../table.js";

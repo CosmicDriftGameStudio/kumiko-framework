@@ -169,7 +169,7 @@ import {
   createSecretsFeature,
   tenantSecretsTable,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigCascade,
   createRegistry,

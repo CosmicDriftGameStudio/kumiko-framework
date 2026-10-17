@@ -1,4 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";

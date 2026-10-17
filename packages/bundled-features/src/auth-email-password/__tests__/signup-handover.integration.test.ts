@@ -6,8 +6,9 @@
 // binding into the freshly provisioned tenant. Spec is this test itself.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
+  asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,

@@ -2,9 +2,9 @@
 // TenantDb hides the escapeHatch grant the "app-data" stage actually resolves.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { isStreamArchived, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";

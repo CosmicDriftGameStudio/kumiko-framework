@@ -7,13 +7,17 @@
 // subject key dies.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";

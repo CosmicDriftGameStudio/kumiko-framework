@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+
+import {
+  asRawClient,
+  createTenantDb,
+  type DbConnection,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createProjectionStateTable,

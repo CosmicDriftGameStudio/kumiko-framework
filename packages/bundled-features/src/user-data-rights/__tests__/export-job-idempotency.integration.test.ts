@@ -11,8 +11,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { extractPgError } from "@cosmicdrift/kumiko-framework/db";
+
+import { asRawClient, extractPgError, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetTestTables, seedRow, updateRows } from "@cosmicdrift/kumiko-testing/helpers";
 import {

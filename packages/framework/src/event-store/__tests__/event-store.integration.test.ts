@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
+import type { DbRunner } from "../../db/index.js";
 import { asRawClient, transaction } from "../../db/query.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { generateId as uuid } from "../../utils/index.js";
@@ -966,14 +967,12 @@ describe("event-store: streamAllEventsByType (memory-bounded iteration)", () => 
 });
 
 describe("event-store: jsonb encoding of payload/metadata", () => {
-  // Regression für die Bun.SQL-Doppelkodierung (Prod-Incident 2026-06-11):
-  // insertSubsequentEventRow band stringifyJson(payload) an ::jsonb — Bun
-  // kodiert einen JS-String für jsonb erneut, das Ergebnis ist ein jsonb-
-  // STRING-Skalar statt einem Objekt. Der typed Read-Pfad parsed Strings
-  // beim Laden zurück (bun-db/query.ts), deshalb blieb das in allen
-  // loadAggregate-Tests unsichtbar — nur SQL-Konsumenten (payload->>'x',
-  // GDPR-Pipeline, MSP-Replays über raw rows) sahen kaputte Daten. Darum
-  // prüft dieser Test das Spalten-Encoding direkt in SQL.
+  // Regression for the Bun.SQL double encoding (prod incident 2026-06-11):
+  // insertSubsequentEventRow bound stringifyJson(payload) to ::jsonb, Bun encoded
+  // the JS string again, and the column held a jsonb string scalar instead of an
+  // object. The typed read path in db/query.ts parses strings back on load, so every
+  // loadAggregate test stayed green while SQL consumers (payload->>'x', the GDPR
+  // pipeline, MSP replays over raw rows) saw broken data. Hence the check in SQL.
   test("first AND subsequent append store payload/metadata as jsonb objects", async () => {
     const aggregateId = uuid();
     const base = {
@@ -1064,7 +1063,7 @@ describe("event-store: append atomicity", () => {
 });
 
 describe("event-store: version conflict reports the stream version", () => {
-  const appendAt = (aggregateId: string, expectedVersion: number, db = testDb.db) =>
+  const appendAt = (aggregateId: string, expectedVersion: number, db: DbRunner = testDb.db) =>
     append(db, {
       aggregateId,
       aggregateType: "task",
@@ -1133,7 +1132,7 @@ describe("event-store: version conflict reports the stream version", () => {
 
   test("an idempotency-key conflict still throws IdempotentAppendConflictError inside a transaction", async () => {
     const idempotencyKey = `key-${uuid()}`;
-    const withKey = (aggregateId: string, db = testDb.db) =>
+    const withKey = (aggregateId: string, db: DbRunner = testDb.db) =>
       append(db, {
         aggregateId,
         aggregateType: "task",

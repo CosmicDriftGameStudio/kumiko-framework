@@ -30,7 +30,7 @@
 // resultKey on steps/wait-for-event.ts) — pre-seeded into stepsAcc below so
 // a subsequent step's resolver can read `ctx.steps[awaits.someKey]`.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildPipelineSteps,
   computeDefinitionFingerprint,

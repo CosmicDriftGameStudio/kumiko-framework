@@ -9,7 +9,7 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { fetchOne, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   computeBlindIndex,
   configureBlindIndexKey,
@@ -20,6 +20,9 @@ import {
   buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,
+  fetchOne,
+  insertOne,
+  selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,

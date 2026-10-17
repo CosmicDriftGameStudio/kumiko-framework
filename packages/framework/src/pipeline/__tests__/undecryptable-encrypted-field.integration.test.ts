@@ -9,8 +9,8 @@ import {
   resetEntityFieldEncryptionCacheForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../bun-db/index.js";
 import { configureEntityFieldEncryption } from "../../db/entity-field-encryption.js";
+import { asRawClient } from "../../db/query.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import { TestUsers } from "../../seeding/seed-users.js";
 

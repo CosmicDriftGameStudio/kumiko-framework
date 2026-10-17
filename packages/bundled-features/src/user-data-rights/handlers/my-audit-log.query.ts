@@ -1,4 +1,4 @@
-import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";

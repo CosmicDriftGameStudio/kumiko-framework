@@ -57,7 +57,7 @@ export const projectCommand: CliCommand = {
     } = await import("@cosmicdrift/kumiko-framework/pipeline");
 
     const registry = createRegistry(config.features);
-    const { db, close } = createDbConnection(databaseUrl);
+    const { db, close } = createDbConnection({ url: databaseUrl });
 
     try {
       await createProjectionStateTable(db);

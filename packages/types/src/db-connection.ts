@@ -14,8 +14,8 @@ export type RawDbClient = {
   end?: (options?: { timeout?: number }) => Promise<void>;
 };
 
-// Raw SQL client (postgres-js instance or Bun.SQL). Distinct from the
-// framework's structural pool handle (`DbPoolHandle` in db/api.ts).
+// Raw SQL client (postgres-js instance or Bun.SQL-shaped). Distinct from the
+// framework's pool handle (`DbConnectionHandle` in db/connection.ts).
 export type DbConnection = ReturnType<typeof postgres> | RawDbClient;
 export type DbTx = postgres.TransactionSql<Record<string, unknown>> | RawDbClient;
 export type DbRunner = DbConnection | DbTx;

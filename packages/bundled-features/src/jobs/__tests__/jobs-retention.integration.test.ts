@@ -8,8 +8,8 @@
 // decided by that same DELETE and can be asserted right after.
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
+
+import { selectMany, sql } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";

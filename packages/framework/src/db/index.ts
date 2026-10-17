@@ -10,9 +10,10 @@ export { collectTableMetas } from "./collect-table-metas.js";
 export { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.js";
 export { seedConfigValues } from "./config-seed.js";
 export type {
+  CreateDbConnectionOptions,
   DbConnection,
+  DbConnectionHandle,
   DbConnectionOptions,
-  DbPoolHandle,
   DbRow,
   DbRunner,
   DbTx,
@@ -131,20 +132,49 @@ export {
 export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.js";
 export { toPostgresArrayLiteral } from "./queries/postgres-array-literal.js";
 export { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.js";
-export type { SelectOptions, WhereObject, WhereValue } from "./query-api.js";
+export type {
+  DeleteManyBatchedOptions,
+  DeleteManyBatchedResult,
+  IncrementCounterOptions,
+  InnerJoinRow,
+  InnerJoinSpec,
+  InsertOnConflictDoNothingOptions,
+  JoinColumnPair,
+  JsonTextMatch,
+  SelectOptions,
+  TableInfo,
+  UpsertOnConflictOptions,
+  WhereObject,
+  WhereOperator,
+  WhereValue,
+} from "./query.js";
 export {
   aggregateWhere,
+  asEntityTableMeta,
   asRawClient,
   countWhere,
   deleteMany,
+  deleteManyBatched,
+  extractTableInfo,
   fetchOne,
+  incrementCounter,
   insertMany,
+  insertOnConflictDoNothing,
   insertOne,
+  instantToTimestamptzParam,
+  isTimestamptzType,
+  requireEntityTableMeta,
   runInSavepoint,
+  runInSavepointIfSupported,
+  runnerCanBeginTransaction,
+  selectInnerJoin,
   selectMany,
   transaction,
+  unsafeReadRetrying,
   updateMany,
-} from "./query-api.js";
+  upsertByPk,
+  upsertOnConflict,
+} from "./query.js";
 export {
   readRebuildMarker,
   rebuildTablesFromDiff,

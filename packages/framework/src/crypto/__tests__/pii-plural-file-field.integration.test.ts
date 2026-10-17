@@ -9,8 +9,8 @@ import {
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { selectMany } from "../../bun-db/index.js";
 import { buildEntityTable } from "../../db/index.js";
+import { selectMany } from "../../db/query.js";
 import {
   createEntity,
   createImagesField,

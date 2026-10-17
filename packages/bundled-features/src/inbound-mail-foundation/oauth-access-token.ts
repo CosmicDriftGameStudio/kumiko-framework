@@ -16,8 +16,11 @@
 // audit context. SecretsContext does not cache values (only unwrapped DEKs),
 // so the read always reflects the latest committed write.
 
-import { transaction } from "@cosmicdrift/kumiko-framework/bun-db";
-import { acquireNamespacedAdvisoryLock, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import {
+  acquireNamespacedAdvisoryLock,
+  type DbConnection,
+  transaction,
+} from "@cosmicdrift/kumiko-framework/db";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { InboundMailAuthMethods, inboundCredentialSecretKey } from "./constants.js";

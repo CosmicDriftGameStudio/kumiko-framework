@@ -34,9 +34,9 @@ import {
   type SseEvent,
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import { InMemoryKmsAdapter, type KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, createDbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
   createEntity,
@@ -235,7 +235,7 @@ afterEach(async () => {
 // den Migrationspfad zu duplizieren.
 async function migrateTestDb(): Promise<void> {
   const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
-  const { db, close } = createDbConnection(url);
+  const { db, close } = createDbConnection({ url });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -1174,7 +1174,7 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
     expect(result.isSuccess).toBe(true);
 
     const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
-    const { db, close } = createDbConnection(url);
+    const { db, close } = createDbConnection({ url });
     try {
       const row = await pollFor(async () => {
         const rows = (await asRawClient(db).unsafe(

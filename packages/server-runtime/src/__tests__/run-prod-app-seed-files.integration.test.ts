@@ -9,8 +9,8 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
+
+import { createDbConnection, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,
@@ -73,7 +73,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.end();
   }
-  const { db, close } = createDbConnection(TEST_DB_URL);
+  const { db, close } = createDbConnection({ url: TEST_DB_URL });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -133,7 +133,7 @@ async function bootWithSeed(
 }
 
 async function storedFileNames(): Promise<string[]> {
-  const { db, close } = createDbConnection(TEST_DB_URL);
+  const { db, close } = createDbConnection({ url: TEST_DB_URL });
   try {
     const rows = await selectMany(db, fileRefsTable, { tenantId: TENANT_ID });
     return rows.map((row) => row.fileName).sort();

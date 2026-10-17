@@ -1,4 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { TenantQueries } from "../../tenant/index.js";

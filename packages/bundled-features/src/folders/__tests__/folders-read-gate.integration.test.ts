@@ -5,7 +5,7 @@
 // opt-in lever either. The gate below is default-on.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,

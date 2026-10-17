@@ -24,7 +24,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {

@@ -38,7 +38,7 @@ import {
   tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   defineWriteHandler,

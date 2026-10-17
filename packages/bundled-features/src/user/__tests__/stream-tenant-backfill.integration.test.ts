@@ -7,8 +7,12 @@
 // aggregate → events_aggregate_version_uq violation).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+
+import {
+  asRawClient,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   SYSTEM_TENANT_ID,

@@ -47,7 +47,7 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
     return 1;
   }
 
-  const { db, close } = createDbConnection(dbUrl);
+  const { db, close } = createDbConnection({ url: dbUrl });
   try {
     // Infra-Tabellen (event-store + pipeline-state) zuerst, alle
     // tableExists-gated idempotent: auf einer Bestands-DB no-op, auf einer

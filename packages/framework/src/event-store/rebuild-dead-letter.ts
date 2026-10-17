@@ -65,7 +65,7 @@ export async function recordRebuildDeadLetters(
   projectionName: string,
   skipped: readonly SkippedApply[],
 ): Promise<void> {
-  const { insertMany } = await import("../bun-db/query.js");
+  const { insertMany } = await import("../db/query.js");
   await insertMany(
     db,
     rebuildDeadLetterTable,
@@ -100,7 +100,7 @@ export async function listRebuildDeadLetters(
   db: DbConnection,
   options: { projectionName?: string; limit?: number } = {},
 ): Promise<readonly RebuildDeadLetterRow[]> {
-  const { selectMany } = await import("../bun-db/query.js");
+  const { selectMany } = await import("../db/query.js");
   const limit = options.limit ?? 100;
   const where =
     options.projectionName !== undefined ? { projectionName: options.projectionName } : undefined;

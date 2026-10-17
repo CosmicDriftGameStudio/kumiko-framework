@@ -1,4 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
@@ -8,7 +8,7 @@ import { apiTokenTable } from "../schema/api-token.js";
 
 // `sort` arrives raw from the client's query string. selectMany's orderBy has
 // no column-existence check — an unrecognised field just gets snake_cased and
-// quoted as-is (bun-db/query.ts columnOf) — so this allowlist is what stops a
+// quoted as-is (db/query.ts columnOf) — so this allowlist is what stops a
 // client sorting by tokenHash or any other non-exposed column.
 const SORTABLE_COLUMNS = ["id", "name", "createdAt", "expiresAt", "revokedAt"] as const;
 type SortableColumn = (typeof SORTABLE_COLUMNS)[number];

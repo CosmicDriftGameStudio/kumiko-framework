@@ -196,7 +196,7 @@ function applyScreenFilter(
     return;
   }
   for (const [field, value] of Object.entries(screen)) {
-    // #2015: `x <> NULL` is never true — mirror buildWhereClause's IS [NOT] NULL handling in bun-db/query.ts.
+    // #2015: `x <> NULL` is never true — mirror buildWhereClause's IS [NOT] NULL handling in db/query.ts.
     if (value === null) {
       whereSql.push(`${colSql(field)} IS NULL`);
     } else if (Array.isArray(value)) {
@@ -224,7 +224,7 @@ function applyScreenFilter(
       }
     } else {
       // Blind-index OR rewrite (#818), lock-step with buildWhereClause
-      // in bun-db/query.ts — equality on lookupable fields matches the
+      // in db/query.ts — equality on lookupable fields matches the
       // plaintext arm OR the HMAC arm.
       const bidxKey = configuredBlindIndexKey();
       if (bidxKey !== undefined && typeof value === "string" && table[`${field}Bidx`]) {

@@ -6,7 +6,7 @@
 // KMS silently broken.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -14,7 +14,7 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   resetBlindIndexKeyForTests,

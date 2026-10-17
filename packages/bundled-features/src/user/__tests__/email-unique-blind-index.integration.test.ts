@@ -16,7 +16,7 @@
 // the surviving row.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   computeBlindIndex,
   configureBlindIndexKey,
@@ -24,7 +24,11 @@ import {
   decodeBlindIndexKey,
   InMemoryKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   resetBlindIndexKeyForTests,

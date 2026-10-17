@@ -1,4 +1,4 @@
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   definePagedQueryHandler,

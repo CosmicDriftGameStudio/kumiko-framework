@@ -44,12 +44,12 @@
 // only while the connection is open. Losing the claim (Redis outage, TTL
 // exceeded) tears down the local watcher instead of racing a new holder.
 
-import { fetchOne, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";

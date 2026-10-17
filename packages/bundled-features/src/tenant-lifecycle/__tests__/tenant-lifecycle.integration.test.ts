@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   EXT_EXTERNAL_RESOURCE,

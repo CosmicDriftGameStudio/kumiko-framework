@@ -1,11 +1,11 @@
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   decryptPiiValueForSubject,
   type KmsContext,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type {
   ConfigCascade,
   ConfigCascadeLevel,

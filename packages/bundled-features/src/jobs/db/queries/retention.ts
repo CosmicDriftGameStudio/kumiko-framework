@@ -10,8 +10,8 @@
 // deleteManyBatched (typed query API, no raw SQL in this file) chunks each
 // delete so a large backlog doesn't hold one lock for the whole sweep.
 
-import { deleteManyBatched } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { deleteManyBatched } from "@cosmicdrift/kumiko-framework/db";
 import { jobRunLogsTable, jobRunsTable } from "../../job-run-table.js";
 import { tenantJobFailuresTable } from "../../tenant-job-failure-table.js";
 import { tenantJobRunsTable } from "../../tenant-job-run-table.js";

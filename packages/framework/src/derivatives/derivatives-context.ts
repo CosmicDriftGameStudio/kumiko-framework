@@ -5,7 +5,7 @@ import type {
   ResolvedOverlayLayer,
   VariantSpec,
 } from "@cosmicdrift/kumiko-types/derivatives-types";
-import { type AnyDb, fetchOne } from "../bun-db/query.js";
+import { type AnyDb, fetchOne } from "../db/query.js";
 import {
   EXT_DERIVATIVE_OVERLAY_RESOLVER,
   EXT_DERIVATIVE_RENDERER,

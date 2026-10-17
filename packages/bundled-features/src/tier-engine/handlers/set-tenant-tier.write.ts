@@ -1,5 +1,8 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  createEventStoreExecutor,
+  fetchOne,
+} from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.js";

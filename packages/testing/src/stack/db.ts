@@ -1,12 +1,10 @@
 // @runtime dev
 // Test-DB Factory: CREATE DATABASE → connect → createEventsTable.
-// Provider-agnostic via createConnection (DB_PROVIDER env).
-// postgres-js = default. DB_PROVIDER=bun = Bun.SQL (experimentell).
 
 import { DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX } from "@cosmicdrift/kumiko-framework/db";
 import {
-  createConnection,
   createDatabase,
+  createDbConnection,
   databaseExists,
   dropDatabaseIfExists,
 } from "@cosmicdrift/kumiko-framework/internal/stack-support";
@@ -40,10 +38,6 @@ export type CreateTestDbOptions = {
   readonly outsideTransactionPoolMax?: number;
 };
 
-/**
- * Provider-agnostic test DB. createConnection reads DB_PROVIDER.
- * For Bun.SQL set DB_PROVIDER=bun (experimental, see db/bun-provider.ts).
- */
 export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<TestDb> {
   await ensureTemporalPolyfill();
   const opts: CreateTestDbOptions = typeof arg === "string" ? { baseUrl: arg } : (arg ?? {});
@@ -51,7 +45,7 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
   const dbName = opts.dbName ?? `kumiko_test_${generateId().slice(-8)}`;
   const adminUrl = url.replace(/\/[^/]+$/, "/postgres");
 
-  const admin = await createConnection(adminUrl, { maxConnections: 1 });
+  const admin = createDbConnection({ url: adminUrl, maxConnections: 1 });
   try {
     if (opts.persistent) {
       if (!(await databaseExists(admin.db, dbName))) {
@@ -65,11 +59,12 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
   }
 
   const testUrl = url.replace(/\/[^/]+$/, `/${dbName}`);
-  const conn = await createConnection(
-    testUrl,
-    opts.poolMax !== undefined ? { maxConnections: opts.poolMax } : {},
-  );
-  const outsideConn = await createConnection(testUrl, {
+  const conn = createDbConnection({
+    url: testUrl,
+    ...(opts.poolMax !== undefined ? { maxConnections: opts.poolMax } : {}),
+  });
+  const outsideConn = createDbConnection({
+    url: testUrl,
     maxConnections: opts.outsideTransactionPoolMax ?? DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX,
   });
 
@@ -85,7 +80,7 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
       await conn.close();
       await outsideConn.close();
       if (!opts.persistent) {
-        const admin2 = await createConnection(adminUrl, { maxConnections: 1 });
+        const admin2 = createDbConnection({ url: adminUrl, maxConnections: 1 });
         try {
           await dropDatabaseIfExists(admin2.db, dbName);
         } finally {

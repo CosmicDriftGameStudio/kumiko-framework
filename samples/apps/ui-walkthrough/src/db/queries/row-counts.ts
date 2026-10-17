@@ -1,5 +1,5 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 
 type CountedTable = "read_ui_walkthrough_leases" | "read_ui_walkthrough_vehicles";
 

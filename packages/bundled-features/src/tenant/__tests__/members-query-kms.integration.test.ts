@@ -6,12 +6,12 @@
 // ciphertext leak.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";

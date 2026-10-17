@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-types/event-store-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { requestContext } from "../api/request-context.js";
-import { instantToTimestamptzParam } from "../bun-db/query.js";
+
 import { encryptEventPayloadPii } from "../crypto/event-pii.js";
 import type { DbRunner } from "../db/index.js";
 import { constraintOf, isUniqueViolation } from "../db/pg-error.js";
@@ -23,7 +23,7 @@ import {
   selectStreamMaxVersion,
   selectStreamMaxVersions,
 } from "../db/queries/event-store.js";
-import { selectMany } from "../db/query.js";
+import { instantToTimestamptzParam, selectMany } from "../db/query.js";
 import type { TenantId } from "../engine/types/index.js";
 import { isStreamArchived } from "./archive.js";
 import {

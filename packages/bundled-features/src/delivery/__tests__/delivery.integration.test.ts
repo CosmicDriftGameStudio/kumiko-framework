@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import { configureBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -7,6 +7,8 @@ import {
   createEventStoreExecutor,
   createSystemDbView,
   createTenantDb,
+  deleteMany,
+  selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,

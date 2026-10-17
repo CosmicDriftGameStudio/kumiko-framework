@@ -12,7 +12,6 @@
 // Damit Sample-Server und Tests keine drei sub-paths zusammensammeln
 // müssen.
 
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredBlindIndexKey,
   configuredPiiSubjectKms,
@@ -20,6 +19,7 @@ import {
   type LocalKeyKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";

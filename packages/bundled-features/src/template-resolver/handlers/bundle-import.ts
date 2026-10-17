@@ -1,4 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type {
   BeforeTransactionResult,
   HandlerContext,

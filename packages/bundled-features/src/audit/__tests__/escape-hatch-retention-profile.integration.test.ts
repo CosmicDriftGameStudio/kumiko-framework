@@ -1,7 +1,7 @@
 // With compliance-profiles mounted, the retention job prunes per tenant after the profile's
 // auditLog.retention (eu-dsgvo 24 months, no profile row -> minimal-no-region 3 months).
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { appendRaw } from "@cosmicdrift/kumiko-framework/event-store/admin-api";

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../../__tests__/query/bun-test-db.js";
 import { asRawClient } from "../../query.js";
 import { toPostgresArrayLiteral } from "../postgres-array-literal.js";
 

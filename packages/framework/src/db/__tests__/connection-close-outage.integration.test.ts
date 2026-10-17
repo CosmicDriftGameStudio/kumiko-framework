@@ -81,7 +81,8 @@ describe("createDbConnection close() bounds shutdown during a DB outage", () => 
     proxiedUrl.hostname = "127.0.0.1";
     proxiedUrl.port = String(address.port);
 
-    const conn = createDbConnection(proxiedUrl.toString(), {
+    const conn = createDbConnection({
+      url: proxiedUrl.toString(),
       maxConnections: 1,
       closeTimeoutSeconds: 1,
     });

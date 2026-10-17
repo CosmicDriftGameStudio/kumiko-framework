@@ -1,6 +1,6 @@
 ---
 status: parked
-verified: 2026-09-26
+verified: 2026-10-18
 evidence: Status-Box (line 572-590): alle Phasen 1-6 'pending'; Phase 0 und 7 'entfällt'. Drizzle-Session pausiert 2026-05-24. Git: commit 59107c3f phase-1 vorarbeit gestartet aber kein weiterer Fortschritt. Preload-/Timeout-Referenzen auf #3078/#3297-Stand korrigiert, kein Fortschritt an den Phasen.
 next: Bun-Migration erst angehen wenn Drizzle-Replacement 2.0 abgeschlossen ist (Sync-Punkt laut Plan)
 ---
@@ -55,8 +55,7 @@ Wenn du diesen Plan nach Pause wieder aufnimmst:
 ## Keine Sperre mehr
 
 Drizzle-Session pausiert nach Production-Code-Migration (2026-05-24). Production-Code-Stand:
-- `bun-db/connection.ts` — Bun.SQL primary, postgres-js als LISTEN/NOTIFY-Peer
-- `db/connection.ts` (legacy) — bleibt vorerst für Tests aktiv
+- `db/connection.ts` — `createDbConnection({ url, ... })`, postgres-js ist der einzige DB-Treiber (Stand 2026-10-18)
 - `migrate-runner.ts` + `entity-table-meta.ts` — auf Bun.sql
 
 Bun-Migration kann ohne Einschränkung jeden Pfad anfassen. Tests behalten ihre aktuelle DB-Driver-Mischung (drizzle/postgres-js) während der Bun-Migration — nur der Test-Runner wechselt (vitest → bun test), nicht der DB-Driver.
@@ -501,8 +500,7 @@ Original Phase 7-Sektion (Detail-Plan für die 2.0-Session) folgt unten als Refe
 **Hintergrund:** Während der parallelen Drizzle→bun.sql-Session musste postgres-js (`"postgres": "^3.4.9"`) als Peer-Driver bestehen bleiben, weil vitest unter Node läuft und Bun.sql Bun-only ist. Nach Phase 4a/b (vitest → bun test) ist diese Sperre weg — Tests laufen mit Bun und können Bun.sql direkt nutzen.
 
 **Aktueller Bestand (2026-05-24):**
-- `kumiko-framework/packages/framework/src/bun-db/connection.ts` — Bun.SQL-Pfad (Prod), nutzt postgres-js NUR für LISTEN/NOTIFY
-- `kumiko-framework/packages/framework/src/db/connection.ts` (legacy) — pure postgres-js, schritt-für-schritt-Migration nicht fertig
+- `kumiko-framework/packages/framework/src/db/connection.ts` — `createDbConnection({ url, ... })`, postgres-js ist der einzige DB-Treiber; Bun.SQL-Pfad, `DB_PROVIDER` und `createConnection` sind entfernt (Stand 2026-10-18)
 - `kumiko-framework/packages/framework/src/stack/db.ts` — Stack-Composition mit postgres-js
 - `scripts/cleanup-test-dbs.ts` — Test-DB-Cleanup via postgres-js
 - `packages/dev-server/src/__tests__/run-prod-app.integration.ts` — Test mit postgres-js (klassischer Pain-Punkt)
@@ -541,7 +539,7 @@ Original Phase 7-Sektion (Detail-Plan für die 2.0-Session) folgt unten als Refe
 - Image-Size-Reduktion: `bun pm ls | grep postgres` zeigt 0 (falls komplett raus)
 
 **Sync-Punkt mit Drizzle-Session:**
-- Was sie über bun-db/connection.ts API-Surface geschrieben hat ist bindend — diese Phase ändert nur Konsumenten, nicht die Bun.SQL-Wrapper-API
+- Historisch: die Bun.SQL-Wrapper-API (`bun-db/connection.ts`) ist entfallen; postgres-js ist der einzige DB-Treiber
 - Falls in der Drizzle-Session andere postgres-js-Peer-Files entstanden sind (z.B. SSE-Broker?), in dieser Phase mit-enumerieren
 
 ### Phase 6 — Production-Single-Binary (post-cutover, ~2-3 Tage, optional)

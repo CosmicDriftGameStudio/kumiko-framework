@@ -57,3 +57,25 @@ Runs automatically via `bun kumiko-upgrade --apply`. Without a mode flag it writ
 formats the changed files with the Biome binary found in `node_modules/.bin` (`--no-format`
 skips that). `--dry-run` only reports; `--check` reports and exits 1 while any rewritable
 or manual site is left.
+
+## db-factory.ts
+
+Moves consumers to the single DB connection factory and the relocated query helpers.
+`@cosmicdrift/kumiko-framework/bun-db` imports (including `import type`, `export … from` and
+`import("…")` types) are repointed to `@cosmicdrift/kumiko-framework/db`, merged into an existing
+`/db` import of the same kind. `createDbConnection(url, options)` becomes
+`createDbConnection({ url, ...options })`; `createConnection`/`createPgConnection` from the
+framework become `createDbConnection` in the object form, and the now-pointless `await` is dropped.
+Idempotent. Local functions named `createConnection` are left alone.
+
+Reported as `manual` instead of guessed at: imports of `createBunDbConnection`,
+`bunDbConnectionOptionsFromEnv`, `BunDbConnection`, `BunDbTx`, `BunDbRunner`,
+`BunDbConnectionOptions` and `DbPoolHandle` (removed without replacement), uses of `DB_PROVIDER`,
+and `createConnection` results that are not awaited directly.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/db-factory.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+Runs automatically via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then formats the
+changed files with Biome. `--check` exits 1 while any rewritable or manual site is left.

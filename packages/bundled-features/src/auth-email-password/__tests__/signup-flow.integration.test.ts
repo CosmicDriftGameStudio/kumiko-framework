@@ -27,8 +27,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+
+import { asRawClient, buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";

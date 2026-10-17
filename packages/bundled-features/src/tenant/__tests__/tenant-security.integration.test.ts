@@ -3,7 +3,7 @@
 // tenant isolation before the MembersScreen ships to apps.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createSystemUser,

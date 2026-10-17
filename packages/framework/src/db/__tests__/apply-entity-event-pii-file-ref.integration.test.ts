@@ -5,7 +5,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { createTestDb, type TestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import {
   configurePiiSubjectKms,
   encryptPiiValueForSubject,
@@ -21,6 +20,7 @@ import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { generateId } from "../../utils/index.js";
 import { selectMany } from "../query.js";
 import { buildEntityTable } from "../table-builder.js";
+import { createTestDb, type TestDb } from "./query/bun-test-db.js";
 
 const adminUser = TestUsers.admin;
 const FIRST_FILE_REF = "11111111-1111-4111-8111-111111111111";

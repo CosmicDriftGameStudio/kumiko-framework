@@ -1,5 +1,5 @@
-import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
 
 export async function selectSerializedFieldDefinition(
   runner: DbRunner,

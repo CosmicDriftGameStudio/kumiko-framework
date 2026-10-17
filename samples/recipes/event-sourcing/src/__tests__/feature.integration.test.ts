@@ -12,8 +12,8 @@
 //   - getAllProjectionProgress (projection lag for ops dashboards)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbTx } from "@cosmicdrift/kumiko-framework/db";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   append,
   loadAggregate as loadAggregateRaw,

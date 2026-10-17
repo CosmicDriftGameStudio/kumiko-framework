@@ -2,8 +2,13 @@
 // TTL sweep of orphaned reservations, a release after a committed confirm, and wrapper composition.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb, type DbConnection, insertOne } from "@cosmicdrift/kumiko-framework/db";
+
+import {
+  createTenantDb,
+  type DbConnection,
+  insertOne,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   defineFeature,

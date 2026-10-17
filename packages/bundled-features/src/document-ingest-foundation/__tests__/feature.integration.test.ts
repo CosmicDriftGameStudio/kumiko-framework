@@ -12,7 +12,7 @@ import {
   dispatchToolCall,
   toolNameForQn,
 } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configurePiiSubjectKms,
   decryptPiiValueForSubject,
@@ -20,7 +20,12 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  createEventStoreExecutor,
+  createTenantDb,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createFileField,

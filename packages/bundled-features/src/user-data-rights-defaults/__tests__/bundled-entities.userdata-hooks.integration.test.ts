@@ -11,8 +11,8 @@
 //             crashen (der Export-Runner hat kein per-Hook try/catch).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+
+import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";

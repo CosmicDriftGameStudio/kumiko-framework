@@ -6,8 +6,7 @@
 // out) entry point, own DB connection) so `kumiko-consumer` ships the same
 // way `kumiko-schema` does.
 
-import { createConnection } from "./db/api.js";
-import { dbConnectionOptionsFromEnv } from "./db/connection.js";
+import { createDbConnection, dbConnectionOptionsFromEnv } from "./db/connection.js";
 import { getConsumerState, restartConsumer } from "./pipeline/index.js";
 import { ensureTemporalPolyfill } from "./time/index.js";
 
@@ -99,7 +98,7 @@ export async function runConsumerCli(
     out.err("  DATABASE_URL not set.");
     return 1;
   }
-  const { db, close } = await createConnection(dbUrl, dbConnectionOptionsFromEnv());
+  const { db, close } = createDbConnection({ url: dbUrl, ...dbConnectionOptionsFromEnv() });
   try {
     if (sub === "status") {
       const state = await getConsumerState(db, name, instanceId);

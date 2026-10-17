@@ -9,13 +9,13 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import {
   configurePiiSubjectKms,
   encryptPiiValueForSubject,
   InMemoryKmsAdapter,
 } from "../../crypto/index.js";
 import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
 import { asRawClient, selectMany } from "../../db/query.js";
 import { createRegistry, SYSTEM_TENANT_ID } from "../../engine/index.js";
 import { createDispatcher, type Dispatcher } from "../../pipeline/index.js";

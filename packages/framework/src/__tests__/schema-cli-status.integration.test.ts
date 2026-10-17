@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.js";
 import { asRawClient } from "../db/query.js";
 import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
 import { ensureTemporalPolyfill } from "../time/polyfill.js";

@@ -6,13 +6,13 @@
 // the log entry to [[erased]] without touching the append-only stream.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   defineWriteHandler,

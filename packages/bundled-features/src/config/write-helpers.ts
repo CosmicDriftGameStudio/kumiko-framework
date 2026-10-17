@@ -2,9 +2,9 @@
 // Extracted from set.write.ts so reset.write.ts + values.query.ts don't
 // have to cross-import from another handler file.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { SubjectId } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigKeyDefinition,
   type ConfigScope,

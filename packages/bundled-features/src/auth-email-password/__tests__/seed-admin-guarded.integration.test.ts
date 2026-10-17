@@ -6,12 +6,12 @@
 // `email_bidx` companion column.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {

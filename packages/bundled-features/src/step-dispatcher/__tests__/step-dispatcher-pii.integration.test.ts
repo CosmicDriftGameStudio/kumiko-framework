@@ -4,7 +4,7 @@
 // key once the outcome is recorded — redelivery after that must be a no-op.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configurePiiSubjectKms,
   decryptPiiValueForSubject,
@@ -14,7 +14,7 @@ import {
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   defineWriteHandler,

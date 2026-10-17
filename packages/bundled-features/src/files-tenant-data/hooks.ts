@@ -46,8 +46,7 @@
 //     its original. Batched: one existence query per chunk of listed keys,
 //     not one query per key.
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   parseTenantId,

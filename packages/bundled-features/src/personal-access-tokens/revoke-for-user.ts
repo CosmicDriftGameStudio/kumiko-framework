@@ -1,9 +1,9 @@
+import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   runnerCanBeginTransaction,
   transaction,
   updateMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+} from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";

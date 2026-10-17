@@ -10,7 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
-import { asRawClient } from "../../bun-db/index.js";
+import { asRawClient } from "../../db/query.js";
 import {
   createEntity,
   createImageField,

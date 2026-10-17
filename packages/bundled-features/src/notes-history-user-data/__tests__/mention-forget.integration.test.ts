@@ -11,14 +11,18 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";

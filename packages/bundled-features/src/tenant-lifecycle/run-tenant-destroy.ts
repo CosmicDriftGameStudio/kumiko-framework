@@ -1,9 +1,9 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner, TenantDb, WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEventStoreExecutor,
   createTenantDb,
+  selectMany,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
 import {

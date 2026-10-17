@@ -5,13 +5,13 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {

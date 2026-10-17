@@ -1,5 +1,5 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { isPiiCiphertext, PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   InternalError,

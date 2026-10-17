@@ -5,7 +5,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {

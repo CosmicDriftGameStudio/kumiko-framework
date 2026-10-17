@@ -1,4 +1,4 @@
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   UnprocessableError,

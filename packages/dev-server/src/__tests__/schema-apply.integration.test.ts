@@ -54,7 +54,7 @@ beforeAll(async () => {
   testDb = await createTestDb();
   const testUrl = base.replace(/\/[^/]+$/, `/${testDb.dbName}`);
   process.env["DATABASE_URL"] = testUrl;
-  conn = createDbConnection(testUrl);
+  conn = createDbConnection({ url: testUrl });
 
   // Greenfield erzwingen: createTestDb legt kumiko_events bereits an —
   // wegdroppen, damit runSchemaApply den Infra-Bootstrap echt durchläuft.

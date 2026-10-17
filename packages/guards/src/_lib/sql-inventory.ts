@@ -65,7 +65,7 @@ export const RAW_SQL_ALLOWLIST: ReadonlyArray<RegExp> = [
   /(^|\/)(packages\/[^/]+\/)?src\/db\/migrate-runner\.ts$/,
   /(^|\/)(packages\/[^/]+\/)?src\/db\/schema-inspection\.ts$/,
   /(^|\/)(packages\/[^/]+\/)?src\/db\/render-ddl\.ts$/,
-  /(^|\/)(packages\/[^/]+\/)?src\/bun-db\/query\.ts$/,
+  /(^|\/)(packages\/[^/]+\/)?src\/db\/query\.ts$/,
   /(^|\/)(packages\/[^/]+\/)?src\/testing\//,
   /(^|\/)packages\/testing\/src\/helpers\//,
   // ponytail: explicit enumeration — a blanket regex would auto-allow any new .unsafe()

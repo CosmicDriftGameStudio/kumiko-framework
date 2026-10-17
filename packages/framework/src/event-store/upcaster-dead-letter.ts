@@ -75,7 +75,7 @@ export async function recordUpcasterDeadLetter(
   },
 ): Promise<void> {
   const message = args.error instanceof Error ? args.error.message : String(args.error);
-  const { insertOne } = await import("../bun-db/query.js");
+  const { insertOne } = await import("../db/query.js");
   await insertOne(db, upcasterDeadLetterTable, {
     eventId: args.event.id,
     tenantId: args.event.tenantId,
@@ -109,7 +109,7 @@ export async function listDeadLetters(
   db: DbConnection,
   options: { eventType?: string; limit?: number } = {},
 ): Promise<readonly DeadLetterRow[]> {
-  const { selectMany } = await import("../bun-db/query.js");
+  const { selectMany } = await import("../db/query.js");
   const limit = options.limit ?? 100;
   const where = options.eventType !== undefined ? { eventType: options.eventType } : undefined;
   const rows = await selectMany<DeadLetterRow>(db, upcasterDeadLetterTable, where, {

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   EXT_ASSIGNABLE_ROLE,

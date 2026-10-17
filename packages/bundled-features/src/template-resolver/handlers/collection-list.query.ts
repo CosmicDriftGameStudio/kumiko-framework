@@ -1,5 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { castTenantRows } from "@cosmicdrift/kumiko-framework/db";
+import { castTenantRows, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ContentCollectionDefinition,
   defineQueryHandler,

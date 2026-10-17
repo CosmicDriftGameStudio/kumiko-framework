@@ -1,4 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { TEMPLATE_KINDS, TEMPLATE_STATUSES } from "../constants.js";

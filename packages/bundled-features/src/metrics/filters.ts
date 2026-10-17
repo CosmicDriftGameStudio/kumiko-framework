@@ -1,4 +1,4 @@
-import { extractTableInfo, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
+import { extractTableInfo, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import type { MetricDefinition, MetricFilterResolver } from "./types.js";

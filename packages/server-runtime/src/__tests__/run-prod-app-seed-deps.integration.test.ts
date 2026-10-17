@@ -60,7 +60,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.end();
   }
-  const { db, close } = createDbConnection(TEST_DB_URL);
+  const { db, close } = createDbConnection({ url: TEST_DB_URL });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -137,7 +137,7 @@ describe("runProdApp seeds", () => {
     expect(res.status).toBe(200);
     expect(JSON.stringify(await res.json())).toContain("seeded-note");
 
-    const { db, close } = createDbConnection(TEST_DB_URL);
+    const { db, close } = createDbConnection({ url: TEST_DB_URL });
     try {
       expect(await getStreamVersion(db, createdId, TENANT_ID)).toBeGreaterThan(0);
     } finally {

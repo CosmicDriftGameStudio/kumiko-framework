@@ -1,4 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { userMfaTable } from "../schema/user-mfa.js";

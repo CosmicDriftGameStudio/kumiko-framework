@@ -1,5 +1,5 @@
-import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { userSessionTable } from "../../sessions/index.js";

@@ -116,7 +116,7 @@ beforeAll(async () => {
     await adminClient.end();
   }
   const url = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
-  const { db, close } = createDbConnection(url);
+  const { db, close } = createDbConnection({ url });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -197,7 +197,7 @@ describe("runWorkerApp", () => {
       },
     });
 
-    const { db, close } = createDbConnection(dbUrl);
+    const { db, close } = createDbConnection({ url: dbUrl });
     try {
       const events = await loadAllEventsByType(db, APP_INSTANCE_STREAM_TYPE);
       const mine = events.filter(

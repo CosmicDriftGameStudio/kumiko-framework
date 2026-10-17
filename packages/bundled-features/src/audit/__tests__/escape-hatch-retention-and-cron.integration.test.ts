@@ -1,7 +1,7 @@
 // Declared escape hatches of system crons are audited once per process (with a use counter),
 // and the daily retention job prunes only old escapeHatchUse events through pruneEvents.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { appendRaw } from "@cosmicdrift/kumiko-framework/event-store/admin-api";

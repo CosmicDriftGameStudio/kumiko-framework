@@ -1,9 +1,9 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   type ComplianceProfileKey,
   type EffectiveComplianceProfile,
   resolveComplianceProfile,
 } from "@cosmicdrift/kumiko-framework/compliance";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { parseComplianceProfileOverride } from "../_internal/parse-override.js";

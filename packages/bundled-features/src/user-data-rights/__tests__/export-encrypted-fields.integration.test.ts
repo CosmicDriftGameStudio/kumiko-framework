@@ -5,8 +5,13 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable, configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
+
+import {
+  asRawClient,
+  buildEntityTable,
+  configureEntityFieldEncryption,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createRegistry,

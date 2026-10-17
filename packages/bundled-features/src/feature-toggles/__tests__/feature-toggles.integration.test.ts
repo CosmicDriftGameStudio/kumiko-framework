@@ -1,11 +1,13 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
+  asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
   entityEventName,
   integer,
   table as pgTable,
+  selectMany,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 import {

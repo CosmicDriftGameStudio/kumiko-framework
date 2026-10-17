@@ -40,7 +40,7 @@ export const eventsCommand = defineCommand({
       "@cosmicdrift/kumiko-framework/pipeline"
     );
 
-    const { db, close } = createDbConnection(databaseUrl);
+    const { db, close } = createDbConnection({ url: databaseUrl });
     try {
       const result = await pruneEvents(db, { olderThanDays, dryRun });
       const verb = dryRun ? "would delete" : "deleted";

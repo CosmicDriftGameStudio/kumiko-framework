@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.js";
 import { createDbConnection } from "../db/connection.js";
 import { tableExists } from "../db/index.js";
 import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
@@ -54,7 +54,7 @@ describe("retired framework tables (fw#3531)", () => {
   });
 
   async function liveTableExists(name: string): Promise<boolean> {
-    const { db, close } = createDbConnection(dbUrl);
+    const { db, close } = createDbConnection({ url: dbUrl });
     try {
       return await tableExists(db, name);
     } finally {

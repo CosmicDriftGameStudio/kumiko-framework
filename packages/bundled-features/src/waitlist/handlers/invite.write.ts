@@ -1,5 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { acquireNamespacedAdvisoryLock } from "@cosmicdrift/kumiko-framework/db";
+import { acquireNamespacedAdvisoryLock, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineWriteHandler,

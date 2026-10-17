@@ -17,10 +17,10 @@
 // Spalten laufen, oder DB drop'pen wenn der State Demo-State ist.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient } from "../../db/query.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { extractPgError } from "../pg-error.js";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
 
 let testDb: BunTestDb;
 

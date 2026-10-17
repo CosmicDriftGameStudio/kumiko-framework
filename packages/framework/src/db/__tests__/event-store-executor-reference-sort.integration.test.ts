@@ -7,7 +7,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient } from "../../db/query.js";
 import { createEntity, createTextField, from } from "../../engine/index.js";
 import type { EntityDefinition } from "../../engine/types/index.js";
@@ -16,6 +15,7 @@ import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb, type TenantDb } from "../tenant-db.js";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
 
 const customerEntity = createEntity({
   table: "read_ref_sort_customers",

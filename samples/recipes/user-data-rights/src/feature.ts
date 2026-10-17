@@ -16,8 +16,12 @@
 //   - HTTP-Endpoints fuer create/list
 //   - Compliance-Profile-Wiring + Cron-Scheduling
 
-import { deleteMany, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import {
+  deleteMany,
+  deriveEntityTableMeta,
+  selectMany,
+  updateMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,

@@ -1,4 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   definePagedQueryHandler,
@@ -11,7 +11,7 @@ import { userSessionTable } from "../schema/user-session.js";
 
 // `sort` arrives raw from the client's query string. selectMany's orderBy
 // has no column-existence check — an unrecognised field just gets
-// snake_cased and quoted as-is (bun-db/query.ts columnOf) — so this
+// snake_cased and quoted as-is (db/query.ts columnOf) — so this
 // allowlist is what stops a client sorting by ip/userAgent or any other
 // non-exposed column.
 const SORTABLE_COLUMNS = ["id", "userId", "createdAt", "expiresAt", "revokedAt"] as const;

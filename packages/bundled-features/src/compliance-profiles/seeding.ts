@@ -10,7 +10,6 @@
 //
 // Pattern matched seedTextBlock aus text-content.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type {
   ComplianceProfileKey,
   ComplianceProfileOverride,
@@ -19,6 +18,7 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
+  fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {

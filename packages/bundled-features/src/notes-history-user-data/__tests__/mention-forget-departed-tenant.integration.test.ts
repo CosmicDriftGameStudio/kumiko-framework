@@ -4,13 +4,13 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,

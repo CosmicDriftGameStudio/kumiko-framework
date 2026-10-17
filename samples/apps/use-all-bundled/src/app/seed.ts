@@ -24,8 +24,13 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { SeedFn } from "@cosmicdrift/kumiko-dev-server";
-import { fetchOne, insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+
+import {
+  createTenantDb,
+  type DbConnection,
+  fetchOne,
+  insertOne,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   type SessionUser,

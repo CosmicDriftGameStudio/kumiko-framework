@@ -8,7 +8,6 @@
 // Allowlist: samples/*/migration/, scripts/migrations/, die Definition
 // selbst, das Guard-Script selbst.
 
-import { instantToTimestamptzParam } from "../bun-db/query.js";
 import type { DbRunner } from "../db/index.js";
 import { constraintOf, isUniqueViolation } from "../db/pg-error.js";
 import { claimXactId, runAtomicEventWrite } from "../db/queries/event-store.js";
@@ -19,6 +18,7 @@ import {
   insertRawFirstEvent,
   insertRawSubsequentEvent,
 } from "../db/queries/event-store-admin.js";
+import { instantToTimestamptzParam } from "../db/query.js";
 import type { TenantId } from "../engine/types/index.js";
 import { IdempotentAppendConflictError, VersionConflictError } from "./errors.js";
 import type { EventMetadata } from "./event-store.js";

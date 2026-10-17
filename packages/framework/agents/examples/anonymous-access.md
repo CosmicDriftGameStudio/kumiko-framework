@@ -42,7 +42,7 @@ bun test
 // callback that confirms the tenant is real (against DB or cache).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { ANONYMOUS_USER_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";

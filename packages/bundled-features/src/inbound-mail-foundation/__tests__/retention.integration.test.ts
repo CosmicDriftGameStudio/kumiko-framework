@@ -6,9 +6,9 @@
 //   - Seen-Anchor-Cleanup: past-cutoff weg, in-window bleibt (Dedup intakt)
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";

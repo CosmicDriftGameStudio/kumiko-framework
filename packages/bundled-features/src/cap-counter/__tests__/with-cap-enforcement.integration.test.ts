@@ -9,8 +9,13 @@
 //      verbrannt für gescheiterte writes)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { asRawClient, createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+
+import {
+  asRawClient,
+  createTenantDb,
+  type DbConnection,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,

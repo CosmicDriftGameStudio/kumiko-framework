@@ -111,12 +111,6 @@
     "packages/framework/src/api/routes.ts": {
       "T": 1
     },
-    "packages/framework/src/bun-db/query.ts": {
-      "T": 1,
-      "TenantDbDelegate": 1,
-      "TLeft": 1,
-      "TRight": 1
-    },
     "packages/framework/src/crypto/kms-adapter.ts": {
       "TenantId": 1
     },
@@ -138,6 +132,12 @@
     },
     "packages/framework/src/db/migrate-generator.ts": {
       "Snapshot": 1
+    },
+    "packages/framework/src/db/query.ts": {
+      "T": 1,
+      "TenantDbDelegate": 1,
+      "TLeft": 1,
+      "TRight": 1
     },
     "packages/framework/src/db/schema-inspection.ts": {
       "{ unsafe?: UnsafeFn }": 1

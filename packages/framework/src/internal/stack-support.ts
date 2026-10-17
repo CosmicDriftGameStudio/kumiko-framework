@@ -1,12 +1,12 @@
 // @runtime dev
-export { type AnyDb, isClosedConnectionError } from "../bun-db/query.js";
-export { createConnection } from "../db/api.js";
+export { createDbConnection } from "../db/connection.js";
 export {
   createDatabase,
   databaseExists,
   dropDatabaseIfExists,
   truncateTablesRestartIdentity,
 } from "../db/queries/test-stack.js";
+export { type AnyDb, isClosedConnectionError } from "../db/query.js";
 export { columnNamesOf } from "../db/schema-inspection.js";
 export { schemaTableName } from "../db/table-introspection.js";
 export {

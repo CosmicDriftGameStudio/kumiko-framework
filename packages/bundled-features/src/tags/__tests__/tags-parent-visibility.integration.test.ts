@@ -10,7 +10,7 @@
 // read path (tenant scope plus its `access.read` ownership).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,

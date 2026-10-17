@@ -1,4 +1,4 @@
-import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { insertOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineWriteHandler,

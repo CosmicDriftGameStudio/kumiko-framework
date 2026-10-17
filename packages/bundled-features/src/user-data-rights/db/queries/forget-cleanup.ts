@@ -1,5 +1,5 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { userTable } from "../../../user/index.js";
 

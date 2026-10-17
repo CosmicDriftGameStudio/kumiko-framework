@@ -21,7 +21,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createEsOperationsTable,

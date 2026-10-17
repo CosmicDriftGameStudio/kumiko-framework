@@ -14,7 +14,7 @@ import type {
   PostAuthLandingArgs,
   PostAuthLandingResolver,
 } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,

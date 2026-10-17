@@ -4,9 +4,9 @@
 // dependency. Mirrors job-run/delivery-attempt (user-data-rights-defaults):
 // export-only, erasure via crypto-shredding.
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configuredPiiSubjectKms, type SubjectId } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type {
   TenantId,
   UserDataDeleteHook,

@@ -159,7 +159,7 @@ describe("public-share-token recipe: expiry", () => {
 // A full consumer adds domain snapshots, layouts and tier gates on top.
 
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,

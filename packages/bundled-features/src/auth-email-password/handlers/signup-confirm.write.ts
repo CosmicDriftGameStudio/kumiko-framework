@@ -19,8 +19,8 @@
 // bei !committed wird der burn released damit ein legitimer Retry
 // nicht durch einen stale Marker geblockt wird (wie reset/verify).
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
   type HandlerContext,

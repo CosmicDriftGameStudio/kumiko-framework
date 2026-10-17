@@ -881,7 +881,7 @@ const commands = {
         console.error("\n  DATABASE_URL not set. Run against a configured env.\n");
         process.exit(1);
       }
-      const { db, close } = createDbConnection(databaseUrl);
+      const { db, close } = createDbConnection({ url: databaseUrl });
       await createProjectionStateTable(db);
 
       const dim = "\x1b[2m";
@@ -1016,7 +1016,7 @@ const commands = {
         console.error("\n  DATABASE_URL not set. Run against a configured env.\n");
         process.exit(1);
       }
-      const { db, close } = createDbConnection(databaseUrl);
+      const { db, close } = createDbConnection({ url: databaseUrl });
       const green = "\x1b[32m";
       const yellow = "\x1b[33m";
       const red = "\x1b[31m";
@@ -1093,7 +1093,7 @@ const commands = {
         console.error("\n  DATABASE_URL not set. Run against a configured env.\n");
         process.exit(1);
       }
-      const { db, close } = createDbConnection(databaseUrl);
+      const { db, close } = createDbConnection({ url: databaseUrl });
       await createEventConsumerStateTable(db);
 
       const dim = "\x1b[2m";

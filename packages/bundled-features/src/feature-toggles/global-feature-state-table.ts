@@ -1,4 +1,3 @@
-import { requireEntityTableMeta } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   boolean,
   declareGlobalTenancy,
@@ -6,6 +5,7 @@ import {
   instant,
   integer,
   table as pgTable,
+  requireEntityTableMeta,
   type SchemaTable,
   sql,
   text,

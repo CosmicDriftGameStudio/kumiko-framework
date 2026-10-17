@@ -12,8 +12,8 @@
 // this table and dispatches the actual resume. This projection only writes
 // the rows.
 
-import { deleteMany, fetchOne, upsertOnConflict } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { deleteMany, fetchOne, upsertOnConflict } from "@cosmicdrift/kumiko-framework/db";
 import type {
   FeatureRegistrar,
   MultiStreamProjectionDefinition,

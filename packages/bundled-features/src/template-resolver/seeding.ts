@@ -9,12 +9,12 @@
 // Default ifExists="skip". The actor is `createSystemUser(SYSTEM_TENANT_ID)`,
 // deliberately not TestUsers (prod seeds are not test utilities).
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createTenantDb,
   type DbConnection,
   deleteMany,
   type EntityTableMeta,
+  fetchOne,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {

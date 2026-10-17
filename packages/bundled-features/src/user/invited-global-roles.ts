@@ -1,8 +1,8 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbRunner,
+  fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";

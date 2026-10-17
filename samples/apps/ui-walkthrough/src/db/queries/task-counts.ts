@@ -1,5 +1,5 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 
 export async function countTasksForTenant(db: DbRunner, tenantId: string): Promise<number> {
   const rows = await asRawClient(db).unsafe<{ count: number }>(

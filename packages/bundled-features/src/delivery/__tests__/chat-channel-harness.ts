@@ -4,8 +4,8 @@
 
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+
+import { createSystemDbView, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition, JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import {

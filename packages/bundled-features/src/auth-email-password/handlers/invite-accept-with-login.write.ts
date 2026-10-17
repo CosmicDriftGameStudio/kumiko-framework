@@ -21,8 +21,11 @@
 // both already exist. The magic is the combined login+accept operation in
 // one round trip.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  fetchOne,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   buildSessionRoles,
   createSystemUser,

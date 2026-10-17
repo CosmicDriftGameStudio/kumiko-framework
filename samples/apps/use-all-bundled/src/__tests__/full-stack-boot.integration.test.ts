@@ -7,7 +7,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createKumikoServer, type KumikoServerHandle } from "@cosmicdrift/kumiko-dev-server";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 

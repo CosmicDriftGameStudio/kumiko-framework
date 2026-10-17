@@ -4,7 +4,7 @@ import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/sta
 import type { Hono } from "hono";
 import * as z from "zod";
 import { buildServer, type JwtHelper } from "../../api/index.js";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
 import { createRegistry, defineFeature, type SessionUser } from "../../engine/index.js";
 import { TestUsers } from "../../seeding/seed-users.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";

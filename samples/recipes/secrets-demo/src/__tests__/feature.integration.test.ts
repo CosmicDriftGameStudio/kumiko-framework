@@ -22,7 +22,7 @@ import {
   TENANT_SECRET_READ_EVENT,
   tenantSecretsTable,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";

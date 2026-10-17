@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
 import { deriveEntityTableMeta } from "../../db/entity-table-meta.js";
 import { generateMigration, writeSnapshotJson } from "../../db/migrate-generator.js";
 import {

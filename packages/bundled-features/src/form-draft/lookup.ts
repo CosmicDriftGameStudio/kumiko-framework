@@ -1,5 +1,5 @@
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { formDraftTable } from "./executor.js";

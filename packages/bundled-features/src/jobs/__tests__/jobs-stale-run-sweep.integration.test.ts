@@ -5,8 +5,8 @@
 // isolation, not that the job is actually registered and dispatchable.
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
+
+import { fetchOne, sql } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { seedRow, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {

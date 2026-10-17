@@ -19,8 +19,8 @@ import {
 import type { Hono } from "hono";
 import type { JwtHelper } from "../../api/jwt.js";
 import { buildServer } from "../../api/server.js";
-import { selectMany } from "../../bun-db/index.js";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto/index.js";
+import { selectMany } from "../../db/query.js";
 import {
   createEntity,
   createFileField,

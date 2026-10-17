@@ -9,8 +9,8 @@ import { configValuesTable } from "@cosmicdrift/kumiko-bundled-features/config";
 import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+
+import { asRawClient, buildEntityTable, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";

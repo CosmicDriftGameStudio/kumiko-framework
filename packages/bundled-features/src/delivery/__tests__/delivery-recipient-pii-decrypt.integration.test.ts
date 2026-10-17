@@ -4,14 +4,14 @@
 // plaintext address — channel-email's PII guard refuses ciphertext recipients.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,

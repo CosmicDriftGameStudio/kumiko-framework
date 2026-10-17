@@ -19,8 +19,8 @@
 //   3. Idempotency: tenant-update fired keinen weiteren row
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import {

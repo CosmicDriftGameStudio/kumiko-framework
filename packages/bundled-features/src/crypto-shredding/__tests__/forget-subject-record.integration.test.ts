@@ -9,7 +9,7 @@
 //     happens to share the same uuid
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configurePiiSubjectKms,
   decryptPiiFieldValues,
@@ -19,9 +19,11 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
+  asRawClient,
   buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,
+  selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,

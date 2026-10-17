@@ -5,8 +5,12 @@
 // restricted/deleted invitee never gets a session at all.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
+
+import {
+  asRawClient,
+  configureEntityFieldEncryption,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher, seedRow } from "@cosmicdrift/kumiko-testing/helpers";

@@ -3,7 +3,7 @@
 // can only read events in their own tenant; a SystemAdmin can pass scope
 // "system" to read app-instance system events (e.g. app.started).
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import * as z from "zod";

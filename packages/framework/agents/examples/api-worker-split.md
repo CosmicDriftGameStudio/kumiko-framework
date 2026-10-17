@@ -97,8 +97,8 @@ before the worker picks up the job and writes the fulfillment back.
 //      dispatcher (dispatchSystemWrite → orders:write:fulfillment:create).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createApiEntrypoint,
@@ -278,8 +278,7 @@ describe("api-worker-split", () => {
 //     dispatcher — JobContext has no write/query (fw#1717), so the app
 //     wires a write-bridge at boot (see setOrderFulfillWrite below).
 
-import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { table, text, uuid } from "@cosmicdrift/kumiko-framework/db";
+import { insertOne, table, text, uuid } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createNumberField,

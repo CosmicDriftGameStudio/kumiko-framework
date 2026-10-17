@@ -6,8 +6,8 @@
 // fieldDefinition-delete path already uses).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+
+import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createEntityExecutor,

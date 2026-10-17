@@ -18,8 +18,8 @@
 // candidates into a flat queue so the shared deadline/circuit-breaker/signal
 // handling still applies per-key.
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { parseDerivativeKey } from "@cosmicdrift/kumiko-framework/derivatives";
 import type { JobContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {

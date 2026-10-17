@@ -4,7 +4,7 @@
 // subject's key was used, events untouched).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -13,7 +13,12 @@ import {
   PII_ERASED_SENTINEL,
   subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { buildEntityTable, nullBlindIndexesForSubject } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  buildEntityTable,
+  fetchOne,
+  nullBlindIndexesForSubject,
+} from "@cosmicdrift/kumiko-framework/db";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";

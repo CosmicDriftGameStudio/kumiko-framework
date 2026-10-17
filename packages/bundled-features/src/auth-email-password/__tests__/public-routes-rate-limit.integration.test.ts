@@ -6,7 +6,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {

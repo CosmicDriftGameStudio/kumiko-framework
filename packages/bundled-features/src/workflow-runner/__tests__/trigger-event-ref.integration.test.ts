@@ -7,13 +7,18 @@
 // events table.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createSystemDbView, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  createSystemDbView,
+  createTenantDb,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   type AwaitedEventType,
   createSystemUser,

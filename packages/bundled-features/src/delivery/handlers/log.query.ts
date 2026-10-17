@@ -1,8 +1,9 @@
-import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   decodeKeysetCursor,
   encodeKeysetCursor,
+  selectMany,
   type TenantDb,
+  type WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
@@ -66,7 +67,7 @@ function isDeliveryLogSortField(value: string): value is DeliveryLogSortField {
 type DeliveryLogSortColumn = (typeof DELIVERY_LOG_SORT_COLUMNS)[DeliveryLogSortField];
 
 // createdAt round-trips through Temporal.Instant (matches how the WHERE
-// builder coerces timestamptz values — see bun-db/query.ts prepareValue);
+// builder coerces timestamptz values — see db/query.ts prepareValue);
 // every other whitelisted column is a plain text column. Keyed by the
 // PHYSICAL column, not the display alias — row only has the DB field names
 // (e.g. notificationType), never the alias (e.g. "type").

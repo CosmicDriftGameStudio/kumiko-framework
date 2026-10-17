@@ -1,5 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,

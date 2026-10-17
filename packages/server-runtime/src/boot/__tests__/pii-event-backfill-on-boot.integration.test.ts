@@ -3,13 +3,13 @@
 // leaves the stored payloads untouched, a run that is not aborted rewrites them.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,

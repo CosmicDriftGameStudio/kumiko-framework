@@ -1,4 +1,4 @@
-import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";

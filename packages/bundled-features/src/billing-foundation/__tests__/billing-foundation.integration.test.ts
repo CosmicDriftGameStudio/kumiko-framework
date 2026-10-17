@@ -12,7 +12,6 @@
 // coverage in webhook-handler.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
@@ -22,6 +21,7 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";

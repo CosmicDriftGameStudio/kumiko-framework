@@ -1,5 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
   findForbiddenRoleAssignment,

@@ -15,7 +15,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
-import { asRawClient } from "../../db/query-api.js";
+import { asRawClient } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import { UnprocessableError, writeFailure } from "../../errors/index.js";
