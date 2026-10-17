@@ -33,6 +33,7 @@ import {
 import { buildAppSchema, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { createMetricsForFactory } from "@cosmicdrift/kumiko-framework/observability";
 import {
   pushEntityProjectionTables,
   setupTestStack,
@@ -960,6 +961,7 @@ export async function createKumikoServer(
       // Parität mit runProdApp, App-Code soll in dev+prod dasselbe sehen.
       redis: stack.redis.redis,
       registry: stack.registry,
+      metricsFor: createMetricsForFactory(stack.observability.meter),
       dispatchSystemWrite: makeDispatchSystemWrite(stack.dispatcher),
     });
   }

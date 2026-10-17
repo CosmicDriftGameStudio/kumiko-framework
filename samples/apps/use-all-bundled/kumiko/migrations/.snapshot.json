@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-16T23:18:37.379Z",
+  "generatedAt": "2026-10-17T17:27:49.849Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -3649,6 +3649,11 @@
           "name": "created_at",
           "pgType": "timestamptz",
           "notNull": true
+        },
+        {
+          "name": "settled_at",
+          "pgType": "timestamptz",
+          "notNull": false
         }
       ],
       "indexes": [

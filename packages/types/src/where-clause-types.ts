@@ -32,6 +32,8 @@ export type OrderByClause = {
 
 export type SelectOptions = {
   readonly limit?: number;
+  // Field names as in WhereObject/row; only these columns are read, so unselected columns (e.g. encrypted ciphertext) never leave the database.
+  readonly fields?: readonly string[];
   // Single column or array for multi-column tie-breaks (e.g.
   // [{col: "createdAt"}, {col: "id"}] for chronological-with-stable-id).
   readonly orderBy?: OrderByClause | readonly OrderByClause[];

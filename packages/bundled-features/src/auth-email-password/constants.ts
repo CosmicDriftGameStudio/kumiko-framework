@@ -38,7 +38,6 @@ export const AuthHandlers = {
   //   inviteAccept: logged-in user → POST token (membership-add)
   //   inviteAcceptWithLogin: anon user with existing email → POST token + email + password
   //   inviteSignupComplete: anon user with new email → POST token + password
-  //   inviteCancel: admin cancels a pending invite
   inviteCreate: "auth-email-password:write:invite-create",
   // System-only variant (access.system) that may carry global roles — see
   // invite-create.write.ts. Dispatched in-process by runBootstrap.
@@ -47,7 +46,6 @@ export const AuthHandlers = {
   inviteAcceptWithLogin: "auth-email-password:write:invite-accept-with-login",
   inviteSignupComplete: "auth-email-password:write:invite-signup-complete",
   switchTenantMfaGate: "auth-email-password:write:switch-tenant-mfa-gate",
-  inviteCancel: "auth-email-password:write:invite-cancel",
 } as const;
 
 // Qualified query names. Anonymous-readable status so the (unauthenticated)

@@ -19,17 +19,22 @@
 // live in @cosmicdrift/kumiko-types/tz-context — only the factories are here.
 
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import type { TzContext, TzContextOptions } from "@cosmicdrift/kumiko-types/tz-context";
+import type { Clock, TzContext, TzContextOptions } from "@cosmicdrift/kumiko-types/tz-context";
 import { ensureTemporalPolyfill } from "./polyfill.js";
 
 // Back-compat shim: re-exported so existing `from "@cosmicdrift/kumiko-framework/time/tz-context"`
 // imports keep working. Prefer importing from @cosmicdrift/kumiko-types/tz-context directly in
 // new code — drop this re-export once no framework-path imports remain.
 export type {
+  Clock,
   LocatedTimestampJson,
   TzContext,
   TzContextOptions,
 } from "@cosmicdrift/kumiko-types/tz-context";
+
+const SYSTEM_CLOCK: Clock = {
+  now: () => Temporal.Now.instant(), // @wrapper-known semantic-alias
+};
 
 /**
  * Factory: creates a TzContext for the current request.
@@ -40,15 +45,17 @@ export function createTzContext(options: TzContextOptions = {}): TzContext {
   const tenant = options.tenant ?? "UTC";
   const user = options.user ?? tenant;
   const geoTz = options.geoTz;
+  const clock = options.clock ?? SYSTEM_CLOCK;
+  const nowIn = (tz: string) => clock.now().toZonedDateTimeISO(tz);
 
   return {
     tenant,
     user,
-    now: () => Temporal.Now.instant(), // @wrapper-known semantic-alias
-    nowIn: (tz: string) => Temporal.Now.zonedDateTimeISO(tz), // @wrapper-known semantic-alias
-    today: (tz: string) => Temporal.Now.plainDateISO(tz), // @wrapper-known semantic-alias
+    now: () => clock.now(),
+    nowIn,
+    today: (tz: string) => nowIn(tz).toPlainDate(),
     todayRange: (tz: string) => {
-      const today = Temporal.Now.plainDateISO(tz);
+      const today = nowIn(tz).toPlainDate();
       const startZdt = today.toZonedDateTime({ timeZone: tz });
       const endZdt = today.add({ days: 1 }).toZonedDateTime({ timeZone: tz });
       return { start: startZdt.toInstant(), end: endZdt.toInstant() };

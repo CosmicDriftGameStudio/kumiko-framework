@@ -15,7 +15,7 @@ import type { Logger } from "./logger.js";
 import type { Meter, MetricsHandle, Tracer } from "./observability/index.js";
 import type { SearchAdapter } from "./search-adapter.js";
 import type { CrossTenantReads, TenantDb } from "./tenant-db-types.js";
-import type { TzContext } from "./tz-context.js";
+import type { Clock, TzContext } from "./tz-context.js";
 
 // --- Access ---
 
@@ -667,6 +667,8 @@ export type AppContext = SharedContextFields & {
    *  runProdApp/runDevApp extraContext), reicht der Dispatcher ihn an
    *  ctx.tz.fromCoordinates / fromAddress weiter. Ohne Provider werfen diese. */
   readonly geoTzProvider?: GeoTzProvider;
+  /** Overrides the system clock behind ctx.tz in handlers and jobs; tests inject a fixed time. */
+  readonly clock?: Clock;
   /** Tenant des aktuellen Pipeline-Calls. Wird vom Dispatcher beim Bauen
    *  des HandlerContext aus `user.tenantId` gespiegelt, damit lifecycle-
    *  pipeline + system-hooks den Wert ohne Zugriff auf user-Object haben.
@@ -982,6 +984,8 @@ export type JobContext = SharedContextFields & {
   readonly log: Logger;
   // Same contract as HandlerContext.metricsFor: unregistered names no-op.
   readonly metricsFor: (featureName: string) => MetricsHandle;
+  // Tenant zone comes from tenant:config:timezone ("UTC" when unset or invalid); now() honours AppContext.clock.
+  readonly tz: TzContext;
   readonly triggeredBy: { readonly id: string; readonly tenantId: TenantId } | null;
   // 1-based run number; finalAttempt = no retry follows if this run throws. A sequential-lock re-enqueue restarts at 1.
   readonly attempt: number;

@@ -124,16 +124,12 @@ import {
   systemIdentitySwitchDenied,
 } from "./system-identity-switch.js";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache.js";
+import { TENANT_TIMEZONE_CONFIG_KEY } from "./tenant-timezone-config-key.js";
 import { buildPersonalDataGate, rootWriteOrigin, type WriteOrigin } from "./write-origin.js";
 
 export type { WriteOrigin } from "./write-origin.js";
 
-// Framework/pipeline stays bundled-features-free, so this can't import the
-// `tenant` feature — the literal below IS the coupling to its `timezone`
-// config key. Renaming that key (or the "tenant" feature name) must update
-// this constant too; tenant-timezone-boot.integration.test.ts boots the real
-// createTenantFeature() and would catch a drift.
-export const TENANT_TIMEZONE_CONFIG_KEY = "tenant:config:timezone";
+export { TENANT_TIMEZONE_CONFIG_KEY };
 
 // Same bundled-features-free constraint as above — these name the config
 // feature's write handlers so dispatch-write.ts can invalidate
@@ -1199,6 +1195,7 @@ export async function buildHandlerContext(
     user.timezone !== undefined && isValidIanaTimeZone(user.timezone) ? user.timezone : undefined;
   const tz = createTzContext({
     ...(context.geoTzProvider !== undefined ? { geoTz: context.geoTzProvider } : {}),
+    ...(context.clock !== undefined ? { clock: context.clock } : {}),
     tenant: safeTenantTz,
     ...(safeUserTz !== undefined && { user: safeUserTz }),
   });

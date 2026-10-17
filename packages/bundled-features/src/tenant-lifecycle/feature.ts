@@ -140,8 +140,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
         if (!ctx.registry) {
           throw new Error("run-tenant-destruction: ctx.registry required (JobContext incomplete)");
         }
-        const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-        const now = T.Now.instant();
+        const now = ctx.tz.now();
         // Without crossTenantReads (undeclared hatch) fall through to the sweep.
         if (ctx.crossTenantReads && !(await hasTenantDestructionWork(ctx.crossTenantReads, now))) {
           // skip: no tenant is due, so the sweep would not touch anything

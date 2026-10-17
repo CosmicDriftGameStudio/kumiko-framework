@@ -28,6 +28,9 @@ export const ROLLING_RELEASED_EVENT_QN = "cap-counter:event:rolling-released" as
 // reservation for the same cap, which bounds the over-count a failed release can leave behind.
 export const CAP_RESERVATION_TTL_MINUTES = 60;
 
+// A settled reservation stays as a tombstone this long so a retried or lost-ack settle stays a no-op.
+export const CAP_SETTLED_TOMBSTONE_TTL_MINUTES = 24 * 60;
+
 // Qualified write handler names (QN format: scope:type:name).
 export const CapCounterHandlers = {
   increment: "cap-counter:write:increment",

@@ -1,7 +1,10 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
+
+import type { ConfigAccessor } from "@cosmicdrift/kumiko-types/config";
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import type { TzContext } from "@cosmicdrift/kumiko-types/tz-context";
 import { DelayedError, type JobsOptions, Queue, UnrecoverableError, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context.js";
@@ -47,12 +50,14 @@ import {
 import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock.js";
 import { RedisKeys } from "../pipeline/redis-keys.js";
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.js";
+import { TENANT_TIMEZONE_CONFIG_KEY } from "../pipeline/tenant-timezone-config-key.js";
 import {
   buildPersonalDataGate,
   isPersonalDataGated,
   parseWriteOrigin,
 } from "../pipeline/write-origin.js";
 import { bridgeStub } from "../testing/handler-context.js";
+import { createTzContext, isValidIanaTimeZone } from "../time/index.js";
 import { cronRepeatOptions } from "./cron-repeat-options.js";
 import { resolveMaxPerTenant } from "./max-per-tenant.js";
 
@@ -313,6 +318,18 @@ function jobSubjectKey(
     subject[field] = value as JobSubjectValue;
   }
   return serializeJobSubject(subject);
+}
+
+async function resolveJobTz(
+  config: ConfigAccessor | undefined,
+  context: Pick<AppContext, "geoTzProvider" | "clock">,
+): Promise<TzContext> {
+  const tenantTz = config ? await config(TENANT_TIMEZONE_CONFIG_KEY) : undefined;
+  return createTzContext({
+    ...(context.geoTzProvider !== undefined && { geoTz: context.geoTzProvider }),
+    ...(context.clock !== undefined && { clock: context.clock }),
+    tenant: typeof tenantTz === "string" && isValidIanaTimeZone(tenantTz) ? tenantTz : "UTC",
+  });
 }
 
 // Jobs that never touch ctx.db run fine on a runner built without one; a job
@@ -1331,7 +1348,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       },
       { reason: identitySwitchGrantReason, report: reportEscapeHatch },
     );
-    const jobContext: JobContext = {
+    const jobContextWithoutTz: Omit<JobContext, "tz"> = {
       ...context,
       db: jobDb ?? missingDbProxy(jobName),
       files,
@@ -1418,7 +1435,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             feature: registry.getJobFeature(jobName) ?? qnScope(jobName),
             writeOrigin: jobOrigin,
           },
-          () => jobDef.handler(payload, jobContext),
+          async () =>
+            jobDef.handler(payload, {
+              ...jobContextWithoutTz,
+              tz: await resolveJobTz(config, context),
+            }),
         );
         // Stamped before the observer hook: a throwing onJobComplete must not
         // make a run that actually succeeded look dead to the liveness alert.

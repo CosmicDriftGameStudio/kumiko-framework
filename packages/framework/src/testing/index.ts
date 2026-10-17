@@ -34,6 +34,7 @@ export {
   type ParsedSetCookie,
 } from "./http-cookies.js";
 export { createLateBoundHolder, type LateBoundHolder } from "./late-bound.js";
+export { createManualClock, type ManualClock } from "./manual-clock.js";
 export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper.js";
 export {
   createMutableMasterKeyProvider,

@@ -1061,6 +1061,21 @@ export async function unsafeReadRetrying<TRow>(
   }
 }
 
+function selectColumnList(info: TableInfo, fields: readonly string[] | undefined): string {
+  if (fields === undefined) return "*";
+  if (fields.length === 0) {
+    throw new Error(`selectMany: fields must not be empty for "${info.name}"`);
+  }
+  return fields
+    .map((field) => {
+      if (!info.hasColumn(field)) {
+        throw new Error(`selectMany: fields entry "${field}" is not a column of "${info.name}"`);
+      }
+      return quoteIdent(info.columnOf(field));
+    })
+    .join(", ");
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: opt-in default loosens row type for unannotated test fixtures
 export async function selectMany<TRow = any>(
   db: AnyDb,
@@ -1073,7 +1088,7 @@ export async function selectMany<TRow = any>(
     return scoped.selectMany<TRow>(table, where, options);
   }
   const info = extractTableInfo(table);
-  let sqlText = `SELECT * FROM ${quoteIdent(info.name)}`;
+  let sqlText = `SELECT ${selectColumnList(info, options?.fields)} FROM ${quoteIdent(info.name)}`;
   let values: unknown[] = [];
   if (where && Object.keys(where).length > 0) {
     const w = buildWhereClause(info, where, 1);

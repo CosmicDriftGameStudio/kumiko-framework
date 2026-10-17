@@ -1,4 +1,9 @@
-import { deleteMany, runInOwnTransaction, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  deleteMany,
+  isUniqueViolation,
+  runInOwnTransaction,
+  type TenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import {
@@ -25,6 +30,7 @@ import {
 import {
   CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
   CAP_RESERVATION_TTL_MINUTES,
+  CAP_SETTLED_TOMBSTONE_TTL_MINUTES,
   ROLLING_INCREMENTED_EVENT_QN,
   ROLLING_RELEASED_EVENT_QN,
 } from "./constants.js";
@@ -38,6 +44,7 @@ type CapReservationRow = {
   readonly amount: number;
   readonly expiresAt: Temporal.Instant;
   readonly createdAt: Temporal.Instant;
+  readonly settledAt: Temporal.Instant | null;
 };
 
 const NOTHING_TO_RELEASE: WriteResult = { isSuccess: true, data: {} };
@@ -61,6 +68,7 @@ async function insertReservationRow(
     amount: draft.amount,
     expiresAt: now.add({ minutes: CAP_RESERVATION_TTL_MINUTES }),
     createdAt: now,
+    settledAt: null,
   });
 }
 
@@ -185,7 +193,11 @@ async function confirmCapReservation(
   confirm: ReservationConfirmContext,
   id: string,
 ): Promise<void> {
-  await deleteMany(confirm.tx, capReservationsTable, { id, tenantId: confirm.tenantId });
+  await deleteMany(confirm.tx, capReservationsTable, {
+    id,
+    tenantId: confirm.tenantId,
+    settledAt: null,
+  });
 }
 
 async function giveBackCalendar(
@@ -229,7 +241,10 @@ async function giveBackReservation(
   id: string,
 ): Promise<WriteResult> {
   const ownRow = { id, tenantId: user.tenantId };
-  const row = await txDb.fetchOne<CapReservationRow>(capReservationsTable, ownRow);
+  const row = await txDb.fetchOne<CapReservationRow>(capReservationsTable, {
+    ...ownRow,
+    settledAt: null,
+  });
   if (!row) return NOTHING_TO_RELEASE;
   const claimed = await claimReservationRow(txDb, user, row);
   if (!claimed) return NOTHING_TO_RELEASE;
@@ -242,7 +257,8 @@ async function giveBackReservation(
   return given;
 }
 
-// Waits for a confirm still holding the row; false means that confirm (or another release) won.
+// Waits for a confirm still holding the row; false means that confirm, a settle or another release
+// won (Postgres re-checks settled_at after the lock wait).
 async function claimReservationRow(
   txDb: TenantDb,
   user: SessionUser,
@@ -251,7 +267,7 @@ async function claimReservationRow(
   const claimed = await txDb.updateMany(
     capReservationsTable,
     { expiresAt: row.expiresAt },
-    { id: row.id, tenantId: user.tenantId },
+    { id: row.id, tenantId: user.tenantId, settledAt: null },
   );
   return claimed.length > 0;
 }
@@ -291,8 +307,61 @@ function bookCalendarDelta(
   );
 }
 
-// Replaces the reserved amount by the actual one in a single transaction. When the row is already
-// gone (swept or released), the reserved amount was given back, so the full actual amount is booked.
+async function settleInTransaction(
+  txDb: TenantDb,
+  user: SessionUser,
+  id: string,
+  options: SettleCalendarCapOptions,
+): Promise<WriteResult> {
+  const ownRow = { id, tenantId: user.tenantId };
+  const open = await txDb.fetchOne<CapReservationRow>(capReservationsTable, {
+    ...ownRow,
+    settledAt: null,
+  });
+  if (open && (await claimReservationRow(txDb, user, open))) {
+    const booked = await bookCalendarDelta(txDb, user, options, options.actualAmount - open.amount);
+    if (!booked.isSuccess) return booked;
+    const now = Temporal.Now.instant();
+    await txDb.updateMany(
+      capReservationsTable,
+      { settledAt: now, expiresAt: now.add({ minutes: CAP_SETTLED_TOMBSTONE_TTL_MINUTES }) },
+      ownRow,
+    );
+    return booked;
+  }
+  // The claim lost to a concurrent settle or release: a tombstone means the amount is booked.
+  if (await txDb.fetchOne<CapReservationRow>(capReservationsTable, ownRow)) {
+    return NOTHING_TO_RELEASE;
+  }
+  // Row swept or released: its amount was given back, so the full actual amount is booked and a
+  // tombstone makes a repeated settle a no-op. A parallel settle inserting first fails this insert.
+  const now = Temporal.Now.instant();
+  await txDb.insertOne(capReservationsTable, {
+    ...ownRow,
+    capName: options.capName,
+    kind: "calendar",
+    periodStartIso: options.periodStartIso,
+    amount: options.actualAmount,
+    expiresAt: now.add({ minutes: CAP_SETTLED_TOMBSTONE_TTL_MINUTES }),
+    createdAt: now,
+    settledAt: now,
+  });
+  return bookCalendarDelta(txDb, user, options, options.actualAmount);
+}
+
+// The failed tombstone insert aborts the whole attempt, so nothing was booked; the repeat sees the
+// winner's tombstone.
+async function retryOnceOnTombstoneRace(attempt: () => Promise<WriteResult>): Promise<WriteResult> {
+  try {
+    return await attempt();
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    return attempt();
+  }
+}
+
+// Replaces the reserved amount by the actual one in a single transaction and keeps the row as a
+// settled tombstone, so a repeated settle (retry, lost ack) books nothing twice.
 export async function settleCalendarCapReservation(
   ctx: CapCounterContext,
   id: string,
@@ -306,41 +375,33 @@ export async function settleCalendarCapReservation(
   }
   const { user, writeDb } = resolveCapCounterScope(ctx, outsideTransaction);
   const settled = await retryCounterWriteOnVersionConflict(() =>
-    runInOwnTransaction(writeDb, async (txDb) => {
-      const row = await txDb.fetchOne<CapReservationRow>(capReservationsTable, {
-        id,
-        tenantId: user.tenantId,
-      });
-      const claimed = row ? await claimReservationRow(txDb, user, row) : false;
-      if (!row || !claimed) {
-        return bookCalendarDelta(txDb, user, options, options.actualAmount);
-      }
-      const booked = await bookCalendarDelta(
-        txDb,
-        user,
-        options,
-        options.actualAmount - row.amount,
-      );
-      if (!booked.isSuccess) return booked;
-      await txDb.deleteMany(capReservationsTable, { id, tenantId: user.tenantId });
-      return booked;
-    }),
+    retryOnceOnTombstoneRace(() =>
+      runInOwnTransaction(writeDb, (txDb) => settleInTransaction(txDb, user, id, options)),
+    ),
   );
   if (!settled.isSuccess) throw reraiseAsKumikoError(settled.error);
 }
 
 // A failed release leaves its row behind; giving it back once the TTL passed bounds how long that
-// capacity stays counted.
+// capacity stays counted. Expired settled tombstones are only deleted: their amount stays booked.
 export async function releaseExpiredCapReservations(
   ctx: CapCounterContext,
   capName: string,
   outsideTransaction = true,
 ): Promise<void> {
   const { user, writeDb } = resolveCapCounterScope(ctx, outsideTransaction);
-  const expired = await writeDb.selectMany<Pick<CapReservationRow, "id">>(capReservationsTable, {
+  const expiredWhere = {
     tenantId: user.tenantId,
     capName,
     expiresAt: { lt: Temporal.Now.instant() },
+  };
+  await writeDb.deleteMany(capReservationsTable, {
+    ...expiredWhere,
+    settledAt: { ne: null },
+  });
+  const expired = await writeDb.selectMany<Pick<CapReservationRow, "id">>(capReservationsTable, {
+    ...expiredWhere,
+    settledAt: null,
   });
   for (const { id } of expired) {
     try {

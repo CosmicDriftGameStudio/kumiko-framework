@@ -15,6 +15,7 @@ export { isValidIanaTimeZone } from "./iana.js";
 export { instantToLegacyDate, legacyDateToInstant } from "./legacy-date.js";
 export { ensureTemporalPolyfill, getTemporal } from "./polyfill.js";
 export {
+  type Clock,
   createTzContext,
   createTzContextAsync,
   type LocatedTimestampJson,
