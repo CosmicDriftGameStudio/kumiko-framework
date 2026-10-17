@@ -1,3 +1,4 @@
+// @runtime client
 // No imports: web/ re-exports these, and constants.ts pulls in the framework engine.
 export const PDF_PAGE_FORMATS = ["A4", "Letter"] as const;
 export type PdfPageFormat = (typeof PDF_PAGE_FORMATS)[number];
