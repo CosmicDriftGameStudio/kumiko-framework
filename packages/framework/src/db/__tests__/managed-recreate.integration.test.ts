@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { createTestDb, type TestDb } from "../../stack/index.js";
 import type { ColumnMeta, EntityTableMeta } from "../entity-table-meta.js";
 import { diffSnapshots, renderMigrationSql, snapshotFromMetas } from "../migrate-generator.js";
-import { runMigrationsFromDir } from "../migrate-runner.js";
+import { MIGRATION_ADVISORY_LOCK_KEY, runMigrationsFromDir } from "../migrate-runner.js";
 import { asRawClient } from "../query.js";
 
 const ID_COL: ColumnMeta = { name: "id", pgType: "uuid", notNull: true, primaryKey: true };
@@ -74,5 +74,32 @@ describe("managed projection recreate applies on a populated table (#356)", () =
       `SELECT count(*)::int AS count FROM "read_proof"`,
     )) as readonly { count: number }[];
     expect(countRows[0]?.count).toBe(0);
+  });
+});
+
+describe("migrate-runner advisory lock", () => {
+  test("is released on the session that took it, so a second run completes", async () => {
+    const lockDir = mkdtempSync(join(tmpdir(), "migrate-lock-"));
+    try {
+      writeFileSync(join(lockDir, "0001_noop.sql"), "SELECT 1;");
+      await runMigrationsFromDir(testDb.db, lockDir);
+
+      // pg_locks is cluster-wide: restrict to this database and the runner's key
+      // (bigint key splits into classid = high 32 bits, objid = low 32 bits).
+      const held = (await asRawClient(testDb.db).unsafe(
+        `SELECT count(*)::int AS count FROM pg_locks
+           WHERE locktype = 'advisory'
+             AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
+             AND classid = 0 AND objid = $1`,
+        [MIGRATION_ADVISORY_LOCK_KEY],
+      )) as readonly { count: number }[];
+      expect(held[0]?.count).toBe(0);
+
+      const second = await runMigrationsFromDir(testDb.db, lockDir);
+      expect(second.applied).toEqual([]);
+      expect(second.skipped).toEqual(["0001_noop"]);
+    } finally {
+      rmSync(lockDir, { recursive: true, force: true });
+    }
   });
 });

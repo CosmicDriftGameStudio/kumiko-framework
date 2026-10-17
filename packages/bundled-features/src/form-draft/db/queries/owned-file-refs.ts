@@ -1,4 +1,7 @@
-import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  instantToTimestamptzParam,
+  unsafeReadRetrying,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import { type DbRunner, toPostgresArrayLiteral } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -72,7 +75,7 @@ export async function filterOwnedFileRefs(
       tenantId,
       ownerId,
       toPostgresArrayLiteral(candidateKeys),
-      draftInsertedAt.toString(),
+      instantToTimestamptzParam(draftInsertedAt),
       isCreateMode,
     ],
   );

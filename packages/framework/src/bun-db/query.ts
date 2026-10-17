@@ -79,11 +79,19 @@ export { asEntityTableMeta, requireEntityTableMeta };
 // The shim extracts a `{unsafe, begin}` surface in every case.
 // begin is optional: postgres-js TransactionSql lacks it (see asRawClient);
 // savepoint/release exist only on tx handles.
+// A pinned connection from reserve(): every statement runs on the same session,
+// which session-level state (advisory locks, BEGIN/COMMIT) depends on.
+export type ReservedClient = {
+  unsafe: RawClient["unsafe"];
+  release: () => unknown;
+};
+
 export type RawClient = {
   unsafe: <TRow = unknown>(sql: string, params?: readonly unknown[]) => Promise<readonly TRow[]>;
   begin?: <T>(fn: (tx: BunDbRunner) => Promise<T>) => Promise<T>;
   savepoint?: <T>(fn: (sp: unknown) => Promise<T>) => Promise<T>;
   release?: unknown;
+  reserve?: () => Promise<ReservedClient>;
 };
 
 export type RawClientWithBegin = RawClient & {
@@ -91,7 +99,8 @@ export type RawClientWithBegin = RawClient & {
 };
 
 export function hasBegin(client: RawClient): client is RawClientWithBegin {
-  return typeof client.begin === "function";
+  // Bun.SQL tx/savepoint handles keep a begin() that throws; only savepoint() tells them apart from a pool.
+  return typeof client.begin === "function" && typeof client.savepoint !== "function";
 }
 
 function isRawClient(value: unknown): value is RawClient {
@@ -163,16 +172,27 @@ export async function runInSavepointIfSupported<T>(
   // @cast-boundary db-runner savepoint handle → DbRunner at the single seam
   const asRunner = (sp: unknown): DbRunner => sp as DbRunner;
   if (typeof raw.savepoint !== "function") return fn(asRunner(db));
+  // An error from inside fn must never be remapped, even if it carries a closed-connection code.
+  let fnStarted = false;
   try {
-    return await raw.savepoint((sp) => fn(asRunner(sp)));
+    return await raw.savepoint((sp) => {
+      fnStarted = true;
+      return fn(asRunner(sp));
+    });
   } catch (e) {
-    if (extractPgError(e)?.code === "25P01") {
+    const code = extractPgError(e)?.code;
+    if (!fnStarted && (code === "25P01" || code === "ERR_POSTGRES_CONNECTION_CLOSED")) {
       throw new InternalError({
         message:
-          "runInSavepointIfSupported: savepoint on a transaction that has already committed — " +
-          "this is almost always database work in an afterCommit hook. afterCommit is the default " +
-          "phase of r.hook/postSave/postDelete. Use HookPhases.inTransaction for writes that must " +
-          "roll back with the trigger, or ctx.dbOutsideTransaction for work that must survive a rollback.",
+          code === "25P01"
+            ? "runInSavepointIfSupported: savepoint on a transaction that has already committed — " +
+              "this is almost always database work in an afterCommit hook. afterCommit is the default " +
+              "phase of r.hook/postSave/postDelete. Use HookPhases.inTransaction for writes that must " +
+              "roll back with the trigger, or ctx.dbOutsideTransaction for work that must survive a rollback."
+            : "runInSavepointIfSupported: the transaction handle's connection is gone — the transaction " +
+              "already committed (almost always database work in an afterCommit hook) or the connection dropped. " +
+              "afterCommit is the default phase of r.hook/postSave/postDelete. Use HookPhases.inTransaction " +
+              "for writes that must roll back with the trigger, or ctx.dbOutsideTransaction for work that must survive a rollback.",
         cause: e instanceof Error ? e : undefined,
       });
     }
@@ -601,6 +621,37 @@ function prepareJsonbValue(value: unknown): PreparedValue | undefined {
   return { kind: "param", sql: "::jsonb", bound: value };
 }
 
+const INTEGER_PG_TYPES: ReadonlySet<string> = new Set([
+  "integer",
+  "int4",
+  "smallint",
+  "int2",
+  "bigint",
+  "int8",
+  "serial",
+  "bigserial",
+]);
+
+// postgres.js truncates timestamptz params to ms via Date; Bun.SQL sends µs and Postgres
+// rounds into timestamptz(3). Truncating here keeps both drivers storing the same instant.
+export function instantToTimestamptzParam(instant: Temporal.Instant): string {
+  return Temporal.Instant.fromEpochMilliseconds(instant.epochMilliseconds).toString();
+}
+
+function prepareDriverNeutralScalar(
+  value: unknown,
+  pgType: string | undefined,
+): PreparedValue | undefined {
+  if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
+    return { kind: "param", sql: "", bound: instantToTimestamptzParam(value) };
+  }
+  // Bun.SQL binds JS numbers typed, so Postgres would round 3.5 into an integer column; postgres.js sends text and rejects it.
+  if (typeof value === "number" && pgType !== undefined && INTEGER_PG_TYPES.has(pgType)) {
+    return { kind: "param", sql: "", bound: String(value) };
+  }
+  return undefined;
+}
+
 function prepareValue(value: unknown, pgType: string | undefined): PreparedValue {
   if (isSqlExpression(value)) {
     return { kind: "literal", literal: value.text };
@@ -614,9 +665,8 @@ function prepareValue(value: unknown, pgType: string | undefined): PreparedValue
     const prepared = prepareJsonbValue(value);
     if (prepared) return prepared;
   }
-  if ((pgType === "timestamptz" || pgType === "timestamptz(3)") && isTemporalInstant(value)) {
-    return { kind: "param", sql: "", bound: value.toString() };
-  }
+  const scalar = prepareDriverNeutralScalar(value, pgType);
+  if (scalar) return scalar;
   if (pgType === "date") {
     const prepared = prepareDateValue(value);
     if (prepared) return prepared;

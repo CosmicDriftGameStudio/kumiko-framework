@@ -1,4 +1,8 @@
-import { aggregateWhere, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  aggregateWhere,
+  runnerCanBeginTransaction,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   COMPLIANCE_PROFILES,
   subtractRetentionSpec,
@@ -27,7 +31,7 @@ import {
 
 // pruneEvents opens its own transaction, so a runner that cannot begin one (a tx handle) is rejected instead of nested.
 export function isDbConnection(runner: DbRunner): runner is DbConnection {
-  return "begin" in runner && typeof runner.begin === "function";
+  return runnerCanBeginTransaction(runner);
 }
 
 async function resolveRetentionDays(args: {

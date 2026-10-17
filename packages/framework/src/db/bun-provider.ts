@@ -1,11 +1,11 @@
-// Bun.SQL Provider — experimentell.
-// Default: postgres-js. Dieser Provider nur aktiv wenn DB_PROVIDER=bun.
-// Bekannter Bug: Extended-Query-Protocol Caching verursacht
-// PostgresError "bind message has 11 result formats but query has 1 columns"
-// bei sequentiellen Queries mit unterschiedlicher Spaltenzahl innerhalb
-// derselben Connection.
+// Bun.SQL provider, opt-in via DB_PROVIDER=bun; postgres-js stays the default.
+// Known bug (Bun <= 1.4.3, oven-sh/bun#29484): a cached plan is not re-prepared
+// after DDL, so e.g. `SELECT *` after ADD COLUMN fails on that connection with
+// 0A000 "cached plan must not change result type". prepare:false is no fix,
+// it changes how jsonb params are bound.
 //
-// Bun.SQL hat kein LISTEN — postgres-js-Peer für event-dispatcher.
+// The event dispatcher needs listen(channel, fn, onlisten) plus unlisten, which
+// Bun.SQL.listen lacks, hence the postgres-js LISTEN peer.
 
 import postgres from "postgres";
 import {

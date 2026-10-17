@@ -12,7 +12,7 @@
 // (projection-rebuild.ts's final drain re-checks via a count fence;
 // the live dispatcher has no such fence — it has pending_gaps instead).
 
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import type { DbConnection, DbTx } from "../../db/connection.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query.js";
@@ -52,6 +52,10 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
 });
 
 afterEach(async () => {

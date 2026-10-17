@@ -12,7 +12,7 @@
 // via payload, not via a wrapped DB handle. Tenant-isolation-via-MSP is
 // tested in multi-stream-projection.integration.ts.
 
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
 import { defineFeature } from "../../engine/index.js";
@@ -87,6 +87,10 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
 });
 
 afterEach(async () => {

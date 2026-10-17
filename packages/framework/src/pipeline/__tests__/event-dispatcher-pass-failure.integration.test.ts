@@ -14,7 +14,7 @@
 // metric emission rolls back an otherwise-successful pass. No production
 // code is touched to make this reproducible.
 
-import { afterEach, beforeAll, describe, expect, setSystemTime, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, setSystemTime, test } from "bun:test";
 import type { DbTx } from "../../db/connection.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { recordConsumerPassFailure } from "../../db/queries/event-consumer.js";
@@ -53,6 +53,10 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
 });
 
 afterEach(async () => {

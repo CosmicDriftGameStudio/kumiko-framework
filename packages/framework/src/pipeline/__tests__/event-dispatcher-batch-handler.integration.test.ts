@@ -4,7 +4,7 @@
 // normal errorPolicy machinery, delivering the poisoned event via handler
 // exactly once before it does.
 
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
 import { defineFeature } from "../../engine/index.js";
@@ -40,6 +40,10 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature], systemHooks: [] });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   tdb = createTenantDb(stack.db, admin.tenantId);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
 });
 
 afterEach(async () => {

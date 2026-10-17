@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-types/event-store-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { requestContext } from "../api/request-context.js";
+import { instantToTimestamptzParam } from "../bun-db/query.js";
 import { encryptEventPayloadPii } from "../crypto/event-pii.js";
 import type { DbRunner } from "../db/index.js";
 import { constraintOf, isUniqueViolation } from "../db/pg-error.js";
@@ -222,7 +223,7 @@ async function insertSubsequentEvent(
     metadata: event.metadata,
     createdBy: event.metadata.userId,
     expectedVersion: event.expectedVersion,
-    createdAt: seedCreatedAt?.toString(),
+    createdAt: seedCreatedAt && instantToTimestamptzParam(seedCreatedAt),
   });
   if (!row) throw new VersionConflictError(event.aggregateId, event.expectedVersion);
   const createdAt =

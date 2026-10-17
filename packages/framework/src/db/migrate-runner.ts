@@ -19,7 +19,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
-import { asRawClient, hasBegin, type RawClientWithBegin } from "../bun-db/query.js";
+import {
+  asRawClient,
+  hasBegin,
+  type RawClient,
+  type RawClientWithBegin,
+  type ReservedClient,
+} from "../bun-db/query.js";
 import type { DbConnection, DbRunner } from "./connection.js";
 
 export type Migration = {
@@ -41,7 +47,7 @@ export type ApplyResult = {
 // Advisory-lock key (random 32-bit int, stable). Verhindert dass zwei
 // gleichzeitig bootende Pods beide migrate apply laufen lassen (zweiter
 // blockiert bis erster fertig).
-const ADVISORY_LOCK_KEY = 0x6b756d69; // "kumi" in ASCII
+export const MIGRATION_ADVISORY_LOCK_KEY = 0x6b756d69; // "kumi" in ASCII
 
 const MIGRATIONS_TABLE_DDL = `
 CREATE TABLE IF NOT EXISTS "_kumiko_migrations" (
@@ -225,10 +231,26 @@ async function executeRaw(db: DbRunner, sqlText: string): Promise<void> {
   await migrationClient(db).unsafe(sqlText);
 }
 
+async function reserveConnection(db: DbRunner): Promise<ReservedClient> {
+  const client = migrationClient(db);
+  if (typeof client.reserve !== "function") {
+    throw new Error(
+      "migrate-runner: db argument has no .reserve() (need Bun.SQL or postgres-js Sql)",
+    );
+  }
+  return client.reserve();
+}
+
 export async function fetchAppliedMigrations(
   db: DbConnection,
 ): Promise<readonly AppliedMigration[]> {
-  const result = await migrationClient(db).unsafe<Record<string, unknown>>(
+  return fetchAppliedFrom(migrationClient(db));
+}
+
+async function fetchAppliedFrom(
+  client: Pick<RawClient, "unsafe">,
+): Promise<readonly AppliedMigration[]> {
+  const result = await client.unsafe<Record<string, unknown>>(
     `SELECT id, checksum FROM "_kumiko_migrations" ORDER BY id`,
   );
   const rows = Array.isArray(result) ? result : [];
@@ -263,44 +285,57 @@ export async function runMigrations(
   db: DbConnection,
   migrations: readonly Migration[],
 ): Promise<ApplyResult> {
-  await executeRaw(db, MIGRATIONS_TABLE_DDL);
-  await executeRaw(db, `SELECT pg_advisory_lock(${ADVISORY_LOCK_KEY})`);
+  // Session-level advisory lock and per-migration BEGIN/COMMIT must share one
+  // session. Pool calls may land on different connections (Bun.SQL round-robins),
+  // which would leave the lock held on a session nobody unlocks.
+  const conn = await reserveConnection(db);
   try {
-    const applied = new Map(
-      (await fetchAppliedMigrations(db)).map((a) => [a.id, a.checksum] as const),
-    );
+    await conn.unsafe(MIGRATIONS_TABLE_DDL);
+    await conn.unsafe(`SELECT pg_advisory_lock(${MIGRATION_ADVISORY_LOCK_KEY})`);
+    try {
+      const applied = new Map(
+        (await fetchAppliedFrom(conn)).map((a) => [a.id, a.checksum] as const),
+      );
 
-    const appliedIds: string[] = [];
-    const skippedIds: string[] = [];
+      const appliedIds: string[] = [];
+      const skippedIds: string[] = [];
 
-    for (const m of migrations) {
-      const prevChecksum = applied.get(m.id);
-      if (prevChecksum !== undefined) {
-        if (prevChecksum !== m.checksum) {
-          throw new MigrationChecksumMismatchError(m.id, prevChecksum, m.checksum);
+      for (const m of migrations) {
+        const prevChecksum = applied.get(m.id);
+        if (prevChecksum !== undefined) {
+          if (prevChecksum !== m.checksum) {
+            throw new MigrationChecksumMismatchError(m.id, prevChecksum, m.checksum);
+          }
+          skippedIds.push(m.id);
+          continue;
         }
-        skippedIds.push(m.id);
-        continue;
+        // Apply file content + INSERT tracking-row in einer TX. Wenn ein
+        // Statement bricht, Rollback inkl. Tracking-Row → kein partial-apply
+        // stuck in den books.
+        await conn.unsafe("BEGIN");
+        try {
+          for (const stmt of m.statements) {
+            await conn.unsafe(stmt);
+          }
+          await conn.unsafe(`INSERT INTO "_kumiko_migrations" ("id", "checksum") VALUES ($1, $2)`, [
+            m.id,
+            m.checksum,
+          ]);
+          await conn.unsafe("COMMIT");
+        } catch (e) {
+          // A failed ROLLBACK means the session is gone (its lock and tx with it); keep the migration error.
+          await conn.unsafe("ROLLBACK").catch(() => undefined);
+          throw e;
+        }
+        appliedIds.push(m.id);
       }
-      // Apply file content + INSERT tracking-row in einer TX. Wenn ein
-      // Statement bricht, Rollback inkl. Tracking-Row → kein partial-apply
-      // stuck in den books.
-      const client = migrationClient(db);
-      await client.begin(async (tx) => {
-        for (const stmt of m.statements) {
-          await tx.unsafe(stmt);
-        }
-        await tx.unsafe(`INSERT INTO "_kumiko_migrations" ("id", "checksum") VALUES ($1, $2)`, [
-          m.id,
-          m.checksum,
-        ]);
-      });
-      appliedIds.push(m.id);
-    }
 
-    return { applied: appliedIds, skipped: skippedIds };
+      return { applied: appliedIds, skipped: skippedIds };
+    } finally {
+      await conn.unsafe(`SELECT pg_advisory_unlock(${MIGRATION_ADVISORY_LOCK_KEY})`);
+    }
   } finally {
-    await executeRaw(db, `SELECT pg_advisory_unlock(${ADVISORY_LOCK_KEY})`);
+    await conn.release();
   }
 }
 

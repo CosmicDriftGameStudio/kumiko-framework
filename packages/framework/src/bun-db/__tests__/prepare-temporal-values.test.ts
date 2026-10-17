@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { EntityTableMeta } from "../../db/entity-table-meta.js";
-import { selectMany } from "../query.js";
+import { instantToTimestamptzParam, selectMany } from "../query.js";
 
 const meta: EntityTableMeta = {
   source: "unmanaged",
@@ -52,5 +52,13 @@ describe("Temporal value binding", () => {
 
   test("jsonb column: an Instant is not bound as a structured jsonb object", async () => {
     expect(await boundParam({ doc: instant })).toBe(instant);
+  });
+});
+
+describe("instantToTimestamptzParam", () => {
+  test("truncates microseconds to milliseconds", () => {
+    expect(instantToTimestamptzParam(Temporal.Instant.from("2026-07-19T07:04:39.486941Z"))).toBe(
+      "2026-07-19T07:04:39.486Z",
+    );
   });
 });
