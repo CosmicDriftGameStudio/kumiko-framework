@@ -345,6 +345,39 @@ describe("contract confirmation mail on a subscription", () => {
     expect(html).toContain(TERMS_EN);
   });
 
+  test("Markdown in the terms reaches the mail as formatting, never as literal markers", async () => {
+    await asRawClient(stack.db).unsafe(
+      `DELETE FROM "${templateResourcesTable.tableName}" WHERE slug = '${TERMS_SLUG}' AND locale = 'en'`,
+    );
+    await seedTerms(
+      "en",
+      [
+        "## Cancellation",
+        "",
+        "**Right to cancel.** You have the right to cancel within *14 days*.",
+        "",
+        "- Write to [support](mailto:support@example.com)",
+      ].join("\n"),
+    );
+    const buyer = await createBuyer(8204);
+    const consentId = await recordSubscriptionConsent(buyer, "en");
+
+    await postWebhook(subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1", consentId }));
+    await stack.drainJobs();
+
+    expect(emailTransport.sent).toHaveLength(1);
+    const html = emailTransport.sent[0]?.html ?? "";
+    const text = emailTransport.sent[0]?.text ?? "";
+    expect(html).toContain("<strong>Right to cancel.</strong>");
+    expect(html).toContain("<em>14 days</em>");
+    expect(html).toContain("<strong>Cancellation</strong>");
+    expect(html).toContain('href="mailto:support@example.com"');
+    expect(html).not.toContain("**");
+    expect(html).not.toContain("&lt;");
+    expect(text).toContain("Right to cancel.");
+    expect(text).not.toContain("**");
+  });
+
   test("a webhook replay and a later invoice-paid with the same consentId do not send a second mail", async () => {
     const buyer = await createBuyer(8203);
     const consentId = await recordSubscriptionConsent(buyer, "de");

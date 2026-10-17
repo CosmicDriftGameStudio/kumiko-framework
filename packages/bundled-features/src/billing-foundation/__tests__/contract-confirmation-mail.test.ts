@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { sanitizeDocumentHtml } from "../../template-resolver/document-sanitizer.js";
 import {
   type ContractConfirmationArgs,
   contractConfirmationVariables,
@@ -105,14 +106,14 @@ describe("contractConfirmationVariables", () => {
     );
   });
 
-  test("terms heading markers are dropped and blank-line paragraphs become rows", () => {
+  test("terms headings become bold rows and blank-line paragraphs become rows", () => {
     expect(variablesFor("en", "# AGB\n\nText").termsParagraphs).toEqual([
-      { text: "AGB" },
+      { text: "<strong>AGB</strong>" },
       { text: "Text" },
     ]);
   });
 
-  test("terms Markdown is reduced to plain text: emphasis, links and list items", () => {
+  test("terms Markdown keeps emphasis and links as HTML, one row per paragraph and list item", () => {
     const terms = [
       "## §1",
       "",
@@ -123,15 +124,33 @@ describe("contractConfirmationVariables", () => {
       "- Zweiter [Link](https://example.test/a)",
       "  - Unterpunkt",
     ].join("\n");
-    expect(variablesFor("de", terms).termsParagraphs).toEqual([
-      { text: "§1" },
+    const rows = variablesFor("de", terms).termsParagraphs;
+    expect(rows).toEqual([
+      { text: "<strong>§1</strong>" },
       {
-        text: "Der Anbieter ist ACME (https://acme.test) und zuverlässig. Zweite Zeile im selben Absatz.",
+        text: 'Der <strong>Anbieter</strong> ist <a href="https://acme.test">ACME</a> und <em>zuverlässig</em>. Zweite Zeile im selben Absatz.',
       },
       { text: "Erster Punkt" },
-      { text: "Zweiter Link (https://example.test/a)" },
+      { text: 'Zweiter <a href="https://example.test/a">Link</a>' },
       { text: "Unterpunkt" },
     ]);
+    for (const row of rows) expect(sanitizeDocumentHtml(row.text).ok).toBe(true);
+  });
+
+  test("author HTML, images and links outside the mail link rules stay text the sanitizer keeps", () => {
+    const terms = [
+      'Siehe <b onclick="steal()">hier</b> & <script>steal()</script>.',
+      "",
+      "![Logo](https://cdn.test/logo.png) [Formular](/legal/withdrawal) [x](javascript:steal())",
+    ].join("\n");
+    const rows = variablesFor("de", terms).termsParagraphs;
+    expect(rows).toEqual([
+      {
+        text: "Siehe &lt;b onclick=&quot;steal()&quot;&gt;hier&lt;/b&gt; &amp; &lt;script&gt;steal()&lt;/script&gt;.",
+      },
+      { text: "Logo Formular (/legal/withdrawal) x (javascript:steal())" },
+    ]);
+    for (const row of rows) expect(sanitizeDocumentHtml(row.text).ok).toBe(true);
   });
 
   test("omits the period end when the trigger did not carry one", () => {

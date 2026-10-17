@@ -32,7 +32,10 @@ export const OPERATOR_NOTICE_VARIABLES: TemplateVariables = {
 export const CONTRACT_CONFIRMATION_VARIABLES: TemplateVariables = {
   contractLines: textRows(),
   consentGivenAt: templateVariable.text({ required: true }),
-  termsParagraphs: textRows(),
+  termsParagraphs: templateVariable.list(
+    { text: templateVariable.richText({ required: true }) },
+    { required: true },
+  ),
   operatorEmail: templateVariable.text({ required: true }),
 };
 

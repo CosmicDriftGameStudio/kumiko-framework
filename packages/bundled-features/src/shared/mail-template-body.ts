@@ -19,7 +19,24 @@ export function mailHeading(text: string): string {
   return `<h2>${mailTextWithSlotsHtml(text)}</h2>`;
 }
 
+export function mailButton(label: string, linkVariable: string): string {
+  return `<p><a data-button href="{{${escapeHtmlAttr(linkVariable)}}}">${escapeHtml(label)}</a></p>`;
+}
+
+export function mailParagraphWithLink(
+  text: string,
+  linkLabel: string,
+  linkVariable: string,
+): string {
+  return `<p>${mailTextWithSlotsHtml(text)} <a href="{{${escapeHtmlAttr(linkVariable)}}}">${escapeHtml(linkLabel)}</a></p>`;
+}
+
 // One table row per list entry; the cell shows the entry's `field`.
 export function mailRepeatedRows(listName: string, field: string): string {
   return `<table><tbody><tr data-each="${escapeHtmlAttr(listName)}"><td><p><span data-variable="${escapeHtmlAttr(field)}"></span></p></td></tr></tbody></table>`;
+}
+
+// Subjects are Handlebars text, so the same `{name}` slots become `{{name}}`.
+export function mailSubject(text: string): string {
+  return text.replace(SLOT_PATTERN, "{{$1}}");
 }

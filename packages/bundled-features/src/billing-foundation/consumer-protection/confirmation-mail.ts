@@ -1,5 +1,10 @@
+import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { Marked } from "marked";
+import {
+  isAllowedDocumentLinkHref,
+  isDocumentPlaceholderHref,
+} from "../../template-resolver/index.js";
 import type { CheckoutConsentRecordedPayload } from "../events.js";
 import { type ConsentLocale, resolveConsentLocale } from "./consent-text.js";
 
@@ -139,20 +144,25 @@ function formatDate(iso: string, locale: ConsentLocale, timeZone: string): strin
   }).format(epochMilliseconds);
 }
 
-// The mail template only knows plain text variables, so the Markdown terms are
-// rendered to plain text: emphasis and code lose their markers, links become
-// "label (url)", and each block (paragraph, heading, list item) is one row.
+// One richText row of inline HTML per Markdown block. The sanitizer shows a rejected
+// row as escaped text, so author HTML, images and refused links stay plain text.
 const ROW_END = "\n\n";
-const plainTextMarkdown = new Marked({ gfm: false, breaks: false });
-plainTextMarkdown.use({
+
+function isMailLinkHref(href: string): boolean {
+  return isAllowedDocumentLinkHref(href) && !isDocumentPlaceholderHref(href);
+}
+
+const inlineHtmlMarkdown = new Marked({ gfm: false, breaks: false });
+inlineHtmlMarkdown.use({
   renderer: {
     heading({ tokens }) {
-      return `${this.parser.parseInline(tokens)}${ROW_END}`;
+      const headingHtml = this.parser.parseInline(tokens);
+      return `<strong>${headingHtml}</strong>${ROW_END}`;
     },
     paragraph({ tokens }) {
       return `${this.parser.parseInline(tokens)}${ROW_END}`;
     },
-    code: ({ text }) => `${text}${ROW_END}`,
+    code: ({ text }) => `${escapeHtml(text)}${ROW_END}`,
     blockquote({ tokens }) {
       return this.parser.parse(tokens);
     },
@@ -161,34 +171,28 @@ plainTextMarkdown.use({
     },
     hr: () => "",
     space: () => "",
-    strong({ tokens }) {
-      return this.parser.parseInline(tokens);
-    },
-    em({ tokens }) {
-      return this.parser.parseInline(tokens);
-    },
     del({ tokens }) {
       return this.parser.parseInline(tokens);
     },
-    codespan: ({ text }) => text,
     br: () => " ",
-    html: ({ text }) => text,
-    image: ({ text }) => text,
+    html: ({ text }) => escapeHtml(text),
+    image: ({ text }) => escapeHtml(text),
     text(token) {
       // Only block-level text (a list item's own text) carries inline child tokens.
       return "tokens" in token && token.tokens
         ? `${this.parser.parseInline(token.tokens)}${ROW_END}`
-        : token.text;
+        : escapeHtml(token.text);
     },
     link({ href, tokens }) {
-      const label = this.parser.parseInline(tokens);
-      return label === href ? href : `${label} (${href})`;
+      const labelHtml = this.parser.parseInline(tokens);
+      if (isMailLinkHref(href)) return `<a href="${escapeHtmlAttr(href)}">${labelHtml}</a>`;
+      return labelHtml === escapeHtml(href) ? labelHtml : `${labelHtml} (${escapeHtml(href)})`;
     },
   },
 });
 
 function termsParagraphsOf(markdown: string): readonly TextRow[] {
-  return plainTextMarkdown
+  return inlineHtmlMarkdown
     .parse(markdown, { async: false })
     .split(/\n\s*\n/)
     .map((row) => row.replace(/\s+/g, " ").trim())
