@@ -63,6 +63,10 @@ export {
   type RateLimitConfig,
 } from "./delivery-service.js";
 export { createDeliveryFeature, type DeliveryFeatureOptions } from "./feature.js";
+export {
+  type UnsubscribeAddressPayload,
+  unsubscribeAddressPayloadSchema,
+} from "./handlers/unsubscribe-address.write.js";
 export { createDeliveryNotifyFactory } from "./notify-factory.js";
 export {
   deliveryAttemptsTable,
@@ -95,3 +99,4 @@ export {
   type UnsubscribeTokenPayload,
 } from "./unsubscribe.js";
 export type { UnsubscribeLinkConfig } from "./unsubscribe-link.js";
+export { UNSUBSCRIBE_PAGE_EN } from "./unsubscribe-page-strings.js";

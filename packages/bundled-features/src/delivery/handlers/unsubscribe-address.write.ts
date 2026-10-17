@@ -4,13 +4,18 @@ import * as z from "zod";
 import { upsertAddressOptOut } from "../address-opt-out.js";
 import { currentNotificationType } from "../notification-type-aliases.js";
 
+// Also the payload an app job receives with `trigger: { on: DeliveryHandlers.unsubscribeAddress }`
+// after a committed address opt-out (the tenant is the job's `ctx.triggeredBy.tenantId`).
+export const unsubscribeAddressPayloadSchema = z.object({
+  addressHash: z.string().min(1),
+  notificationType: z.string().min(1),
+  channel: z.string().min(1),
+});
+export type UnsubscribeAddressPayload = z.infer<typeof unsubscribeAddressPayloadSchema>;
+
 export const unsubscribeAddressWrite = defineWriteHandler({
   name: "unsubscribeAddress",
-  schema: z.object({
-    addressHash: z.string().min(1),
-    notificationType: z.string().min(1),
-    channel: z.string().min(1),
-  }),
+  schema: unsubscribeAddressPayloadSchema,
   access: { roles: access.systemAdmin },
   // Only reachable via createUnsubscribeRoutes' POST dispatchSystemWrite, once
   // verify() has already proven the address-token signature — not a surface

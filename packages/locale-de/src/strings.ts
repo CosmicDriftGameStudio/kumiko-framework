@@ -1167,6 +1167,15 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail.footer.unsubscribe": "Abmelden",
   "mail.footer.imprint": "Impressum",
   "mail.footer.privacy": "Datenschutz",
+  "mail.unsubscribe.confirmTitle": "Abmelden",
+  "mail.unsubscribe.confirmQuestion": "Diese E-Mails nicht mehr erhalten?",
+  "mail.unsubscribe.confirmButton": "Abmelden",
+  "mail.unsubscribe.doneTitle": "Abgemeldet",
+  "mail.unsubscribe.doneMessage": "Diese E-Mails kommen nicht mehr.",
+  "mail.unsubscribe.undoButton": "Rückgängig",
+  "mail.unsubscribe.resubscribedTitle": "Wieder angemeldet",
+  "mail.unsubscribe.resubscribedMessage": "Diese E-Mails kommen wieder.",
+  "mail.unsubscribe.failed": "Das hat nicht geklappt. Bitte später noch einmal versuchen.",
   "templateResolver.errors.systemOnlyTemplate":
     "Diese Vorlage pflegt nur die Plattform; sie lässt sich nicht pro Mandant überschreiben.",
   "templateResolver.errors.template.targetExists":

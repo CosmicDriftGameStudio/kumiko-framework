@@ -1133,6 +1133,15 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "mail.footer.unsubscribe": "Unsubscribe",
   "mail.footer.imprint": "Imprint",
   "mail.footer.privacy": "Privacy policy",
+  "mail.unsubscribe.confirmTitle": "Unsubscribe",
+  "mail.unsubscribe.confirmQuestion": "Unsubscribe from these emails?",
+  "mail.unsubscribe.confirmButton": "Unsubscribe",
+  "mail.unsubscribe.doneTitle": "Unsubscribed",
+  "mail.unsubscribe.doneMessage": "You have been unsubscribed.",
+  "mail.unsubscribe.undoButton": "Undo",
+  "mail.unsubscribe.resubscribedTitle": "Subscribed again",
+  "mail.unsubscribe.resubscribedMessage": "You have been subscribed again.",
+  "mail.unsubscribe.failed": "That did not work. Please try again later.",
   "templateResolver.errors.systemOnlyTemplate":
     "Only the platform maintains this template; it cannot be overridden per tenant.",
   "templateResolver.errors.template.targetExists":
