@@ -197,6 +197,40 @@ export type SubsequentEventInsertRow = {
   readonly created_at: Date | string;
 };
 
+export type FirstEventInsertParams = Omit<SubsequentEventInsertParams, "expectedVersion">;
+
+// ON CONFLICT on the version index only: a lost race returns no row instead of
+// a 23505, which would abort the caller's transaction (25P02) and make the
+// current stream version unreadable. The idempotency index still raises 23505.
+export async function insertFirstEventRow(
+  db: AnyDb,
+  params: FirstEventInsertParams,
+): Promise<SubsequentEventInsertRow | undefined> {
+  const rows = await asRawClient(db).unsafe<SubsequentEventInsertRow>(
+    `INSERT INTO "kumiko_events" (
+       aggregate_id, aggregate_type, tenant_id, version,
+       type, event_version, payload, metadata, created_by, created_at
+     )
+     VALUES ($1::uuid, $2, $3::uuid, $4, $5, $6, $7::jsonb, $8::jsonb, $9,
+             COALESCE($10::timestamptz, now()))
+     ON CONFLICT (tenant_id, aggregate_id, version) DO NOTHING
+     RETURNING id, created_at`,
+    [
+      params.aggregateId,
+      params.aggregateType,
+      params.tenantId,
+      params.newVersion,
+      params.type,
+      params.eventVersion,
+      params.payload,
+      params.metadata,
+      params.createdBy,
+      params.createdAt ?? null,
+    ],
+  );
+  return rows[0];
+}
+
 /** INSERT … SELECT … WHERE EXISTS predecessor — stays raw (typed builder can't express this). */
 export async function insertSubsequentEventRow(
   db: AnyDb,
@@ -216,6 +250,7 @@ export async function insertSubsequentEventRow(
          AND version = $10
          AND tenant_id = $3::uuid
      )
+     ON CONFLICT (tenant_id, aggregate_id, version) DO NOTHING
      RETURNING id, created_at`,
     [
       params.aggregateId,

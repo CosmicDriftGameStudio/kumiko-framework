@@ -13,15 +13,17 @@ import type { DbRunner } from "../db/index.js";
 import { constraintOf, isUniqueViolation } from "../db/pg-error.js";
 import {
   claimXactId,
+  insertFirstEventRow,
   insertSubsequentEventRow,
   notifyPgChannel,
   runAtomicEventWrite,
+  type SubsequentEventInsertRow,
   selectAggregateMaxVersion,
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
   selectStreamMaxVersions,
 } from "../db/queries/event-store.js";
-import { insertOne, selectMany } from "../db/query.js";
+import { selectMany } from "../db/query.js";
 import type { TenantId } from "../engine/types/index.js";
 import { isStreamArchived } from "./archive.js";
 import {
@@ -185,20 +187,20 @@ async function insertFirstEvent(
   eventVersion: number,
   seedCreatedAt: Temporal.Instant | undefined,
 ): Promise<InsertReturn> {
-  const row = await insertOne<{ id: bigint; createdAt: Temporal.Instant }>(db, eventsTable, {
+  const row = await insertFirstEventRow(db, {
     aggregateId: event.aggregateId,
     aggregateType: event.aggregateType,
     tenantId: event.tenantId,
-    version: newVersion,
+    newVersion,
     type: event.type,
     eventVersion,
     payload: event.payload,
     metadata: event.metadata,
     createdBy: event.metadata.userId,
-    ...(seedCreatedAt !== undefined && { createdAt: seedCreatedAt }),
+    createdAt: seedCreatedAt && instantToTimestamptzParam(seedCreatedAt),
   });
-  if (!row) throw new Error("insertFirstEvent: INSERT RETURNING produced no row");
-  return { id: row.id, createdAt: row.createdAt };
+  if (!row) throw await versionConflictWithCurrentVersion(db, event);
+  return insertReturnOf(row);
 }
 
 // Subsequent event — predecessor must exist AND belong to the same tenant.
@@ -225,7 +227,11 @@ async function insertSubsequentEvent(
     expectedVersion: event.expectedVersion,
     createdAt: seedCreatedAt && instantToTimestamptzParam(seedCreatedAt),
   });
-  if (!row) throw new VersionConflictError(event.aggregateId, event.expectedVersion);
+  if (!row) throw await versionConflictWithCurrentVersion(db, event);
+  return insertReturnOf(row);
+}
+
+function insertReturnOf(row: SubsequentEventInsertRow): InsertReturn {
   const createdAt =
     row.created_at instanceof Date
       ? Temporal.Instant.fromEpochMilliseconds(row.created_at.getTime())
@@ -234,6 +240,16 @@ async function insertSubsequentEvent(
     id: typeof row.id === "bigint" ? row.id : BigInt(row.id),
     createdAt,
   };
+}
+
+// Runs in the still-healthy write transaction: ON CONFLICT DO NOTHING left it
+// unaborted, so the stream version is readable here.
+async function versionConflictWithCurrentVersion(
+  db: DbRunner,
+  event: EventToAppend,
+): Promise<VersionConflictError> {
+  const currentVersion = await selectStreamMaxVersion(db, event.aggregateId, event.tenantId);
+  return new VersionConflictError(event.aggregateId, event.expectedVersion, currentVersion);
 }
 
 function buildStoredEvent(

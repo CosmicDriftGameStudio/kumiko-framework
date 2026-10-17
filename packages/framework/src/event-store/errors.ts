@@ -10,10 +10,14 @@
 export class VersionConflictError extends Error {
   public readonly aggregateId: string;
   public readonly expectedVersion: number;
-  constructor(aggregateId: string, expectedVersion: number) {
+  // Undefined when the conflict surfaced as a bare unique violation with no lookup possible.
+  public readonly currentVersion: number | undefined;
+  constructor(aggregateId: string, expectedVersion: number, currentVersion?: number) {
     super(
-      `Version conflict on aggregate ${aggregateId}: expected predecessor version ${expectedVersion}`,
+      `Version conflict on aggregate ${aggregateId}: expected predecessor version ${expectedVersion}` +
+        (currentVersion === undefined ? "" : `, stream is at version ${currentVersion}`),
     );
+    this.currentVersion = currentVersion;
     this.name = "VersionConflictError";
     this.aggregateId = aggregateId;
     this.expectedVersion = expectedVersion;

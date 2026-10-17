@@ -1062,3 +1062,90 @@ describe("event-store: append atomicity", () => {
     expect(await loadAggregate(testDb.db, aggregateId, tenantA)).toHaveLength(1);
   });
 });
+
+describe("event-store: version conflict reports the stream version", () => {
+  const appendAt = (aggregateId: string, expectedVersion: number, db = testDb.db) =>
+    append(db, {
+      aggregateId,
+      aggregateType: "task",
+      tenantId: tenantA,
+      expectedVersion,
+      type: "task.updated",
+      payload: { title: `v${expectedVersion + 1}` },
+      metadata: { userId: userA },
+    });
+
+  async function conflictOf(promise: Promise<unknown>): Promise<VersionConflictError> {
+    const error = await promise.then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    if (!(error instanceof VersionConflictError)) {
+      throw new Error("expected VersionConflictError", { cause: error });
+    }
+    return error;
+  }
+
+  test("a second create reports the existing stream version", async () => {
+    const aggregateId = uuid();
+    await appendAt(aggregateId, 0);
+    await appendAt(aggregateId, 1);
+    const conflict = await conflictOf(appendAt(aggregateId, 0));
+    expect(conflict.currentVersion).toBe(2);
+    expect(conflict.expectedVersion).toBe(0);
+  });
+
+  test("a stale expectedVersion reports the real stream version", async () => {
+    const aggregateId = uuid();
+    await appendAt(aggregateId, 0);
+    await appendAt(aggregateId, 1);
+    const conflict = await conflictOf(appendAt(aggregateId, 1));
+    expect(conflict.currentVersion).toBe(2);
+  });
+
+  test("a missing predecessor (expectedVersion beyond the stream) reports the real stream version", async () => {
+    const aggregateId = uuid();
+    await appendAt(aggregateId, 0);
+    const conflict = await conflictOf(appendAt(aggregateId, 5));
+    expect(conflict.currentVersion).toBe(1);
+    expect(conflict.expectedVersion).toBe(5);
+  });
+
+  test("an unknown stream reports version 0", async () => {
+    const conflict = await conflictOf(appendAt(uuid(), 3));
+    expect(conflict.currentVersion).toBe(0);
+  });
+
+  test("a conflict inside an outer transaction does not abort it", async () => {
+    const aggregateId = uuid();
+    await appendAt(aggregateId, 0);
+    const other = uuid();
+
+    await transaction(testDb.db, async (tx) => {
+      const conflict = await conflictOf(appendAt(aggregateId, 0, tx));
+      expect(conflict.currentVersion).toBe(1);
+      await appendAt(other, 0, tx);
+    });
+
+    expect(await loadAggregate(testDb.db, other, tenantA)).toHaveLength(1);
+    expect(await loadAggregate(testDb.db, aggregateId, tenantA)).toHaveLength(1);
+  });
+
+  test("an idempotency-key conflict still throws IdempotentAppendConflictError inside a transaction", async () => {
+    const idempotencyKey = `key-${uuid()}`;
+    const withKey = (aggregateId: string, db = testDb.db) =>
+      append(db, {
+        aggregateId,
+        aggregateType: "task",
+        tenantId: tenantA,
+        expectedVersion: 0,
+        type: "task.created",
+        payload: {},
+        metadata: { userId: userA, idempotencyKey },
+      });
+    await withKey(uuid());
+    await expect(transaction(testDb.db, (tx) => withKey(uuid(), tx))).rejects.toBeInstanceOf(
+      IdempotentAppendConflictError,
+    );
+  });
+});
