@@ -1958,22 +1958,27 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     async countPendingJobs(): Promise<number> {
       let total = 0;
       for (const queue of Object.values(queues)) {
+        // One getJobCounts call is a single atomic snapshot. Reading delayed in a
+        // second call misses a deferred job that cycles delayed -> active between
+        // the reads, so delayed is counted here and only repeat schedulers (which
+        // stay delayed between cron fires) are subtracted afterwards.
         const counts = await queue.getJobCounts(
           "waiting",
           "active",
           "prioritized",
           "waiting-children",
+          "delayed",
         );
         total +=
           (counts["waiting"] ?? 0) +
           (counts["active"] ?? 0) +
           (counts["prioritized"] ?? 0) +
-          (counts["waiting-children"] ?? 0);
-        // getJobCounts has no id-prefix filter for "delayed" — getJobs(["delayed"])
-        // loads the full Job objects (payload included) just to read .id; fine for
+          (counts["waiting-children"] ?? 0) +
+          (counts["delayed"] ?? 0);
+        // getJobs(["delayed"]) loads full Job objects just to read .id; fine for
         // test-draining's low volume, not a pattern for a prod-path hot loop.
         const delayed = await queue.getJobs(["delayed"]);
-        total += delayed.filter((job) => !(job.id ?? "").startsWith("repeat:")).length;
+        total -= delayed.filter((job) => (job.id ?? "").startsWith("repeat:")).length;
       }
       return total;
     },
