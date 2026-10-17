@@ -8,7 +8,13 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createSystemUser,
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -248,6 +254,25 @@ describe("PAT auth", () => {
     expect(ok.status).toBe(200);
 
     await updateRows(stack.db, userTable, { status: USER_STATUS.Deleted }, { id: actor.id });
+    const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
+    expect(res.status).toBe(401);
+  });
+
+  test("soft-deleted user (status still active) → 401", async () => {
+    const actor = await actorFor("soft-deleted@example.com");
+    const token = await mintToken(actor);
+    const ok = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
+    expect(ok.status).toBe(200);
+
+    const deleted = await createEventStoreExecutor(userTable, userEntity, {
+      entityName: "user",
+    }).delete(
+      { id: actor.id },
+      createSystemUser(SYSTEM_TENANT_ID),
+      createTenantDb(stack.db, SYSTEM_TENANT_ID, "system"),
+    );
+    expect(deleted.isSuccess).toBe(true);
+
     const res = await h.authedPost("/api/query", token, { type: PatQueries.mine, payload: {} });
     expect(res.status).toBe(401);
   });

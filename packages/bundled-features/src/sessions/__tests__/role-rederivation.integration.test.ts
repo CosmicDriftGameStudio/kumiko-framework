@@ -3,7 +3,12 @@ import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createSystemUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   createLateBoundHolder,
@@ -133,5 +138,34 @@ describe("sessionChecker re-derives roles from the DB on every request", () => {
     });
     expect(after.status).toBe(200);
     expect(await after.json()).toEqual({ data: [] });
+  });
+});
+
+describe("sessionChecker refuses a soft-deleted user", () => {
+  test("a live token stops working after executor.delete although the status still reads active", async () => {
+    const { userId } = await h.seedUser("soft-deleted@example.com", "first-password", {
+      roles: ["Admin"],
+    });
+    const { token } = await h.login("soft-deleted@example.com", "first-password");
+    const before = await h.authedPost("/api/query", token, {
+      type: TenantQueries.invitations,
+      payload: {},
+    });
+    expect(before.status).toBe(200);
+
+    const deleted = await createEventStoreExecutor(userTable, userEntity, {
+      entityName: "user",
+    }).delete(
+      { id: userId },
+      createSystemUser(SYSTEM_TENANT_ID),
+      createTenantDb(stack.db, SYSTEM_TENANT_ID, "system"),
+    );
+    expect(deleted.isSuccess).toBe(true);
+
+    const after = await h.authedPost("/api/query", token, {
+      type: TenantQueries.invitations,
+      payload: {},
+    });
+    expect(after.status).toBe(401);
   });
 });
