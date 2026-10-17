@@ -164,6 +164,7 @@ import { resolveBootCrypto } from "./boot/boot-crypto.js";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger.js";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.js";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.js";
+import { waitForDatabase, waitUntilDatabaseReachable } from "./boot/wait-for-database.js";
 import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.js";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
@@ -980,7 +981,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // against an unreachable key store — a silent start would answer every
   // PII read with 503. Runs BEFORE connections so an abort leaks nothing.
   if (options.kms) {
-    const kmsHealth = await options.kms.health();
+    const kms = options.kms;
+    const kmsHealth = await waitUntilDatabaseReachable(() => kms.health(), {
+      processName: "runProdApp",
+    });
     if (!kmsHealth.ok) {
       throw new Error(
         `[runProdApp] BOOT ABORTED — KMS health check failed (latency ${kmsHealth.latencyMs}ms)`,
@@ -997,6 +1001,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     outsideTransactionPoolOptionsFromEnv(envSource),
   );
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
+
+  await waitForDatabase(db, { processName: "runProdApp" });
 
   // Sprint-8a Tier-Composition auto-wire: scan features for a
   // tenantTierResolver-extension. If found AND user didn't supply own
