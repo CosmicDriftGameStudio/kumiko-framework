@@ -108,3 +108,46 @@ describe("validateBoot — handler field references meta", () => {
     );
   });
 });
+
+describe("validateBoot — nested handler field references", () => {
+  function nestedConsumer(references: unknown) {
+    return defineFeature("planner", (r) => {
+      r.writeHandler(
+        "plan",
+        z.object({
+          channels: z.array(z.object({ channelKey: z.string().meta({ references }) })),
+        }),
+        noopHandler,
+        { access: OPEN_ACCESS },
+      );
+    });
+  }
+
+  const channelFeature = defineFeature("channels", (r) => {
+    r.entity("channel", { fields: { key: { type: "text", required: true } } });
+  });
+
+  test("names the nested path for an unknown entity", () => {
+    expect(() => validateBoot([channelFeature, nestedConsumer("nope")])).toThrow(
+      /Input field "channels\[\]\.channelKey" of write handler "plan".*not a registered entity/s,
+    );
+  });
+
+  test("names the nested path for an unknown by field", () => {
+    expect(() =>
+      validateBoot([channelFeature, nestedConsumer({ entity: "channels:channel", by: "nope" })]),
+    ).toThrow(/Input field "channels\[\]\.channelKey".*no field "nope"/s);
+  });
+
+  test("names the nested path for invalid meta", () => {
+    expect(() => validateBoot([channelFeature, nestedConsumer(42)])).toThrow(
+      /Input field "channels\[\]\.channelKey".*invalid meta references/s,
+    );
+  });
+
+  test("accepts a valid nested reference", () => {
+    expect(() =>
+      validateBoot([channelFeature, nestedConsumer({ entity: "channels:channel", by: "key" })]),
+    ).not.toThrow();
+  });
+});

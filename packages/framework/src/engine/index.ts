@@ -261,9 +261,13 @@ export {
 } from "./field-access.js";
 export {
   HANDLER_FIELD_REFERENCES_META_KEY,
+  type HandlerFieldPathSegment,
   type HandlerFieldReference,
+  type HandlerFieldReferenceAtPath,
   type HandlerFieldReferenceMeta,
   handlerFieldReference,
+  handlerFieldReferences,
+  readHandlerFieldReferences,
 } from "./handler-field-references.js";
 export { resolveName, withResponseData } from "./handler-helpers.js";
 export { i18nKey } from "./i18n-key.js";
