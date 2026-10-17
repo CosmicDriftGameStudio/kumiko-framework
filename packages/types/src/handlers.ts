@@ -974,6 +974,8 @@ export type JobContext = SharedContextFields & {
   readonly registry: Registry;
   readonly systemUser: SessionUser;
   readonly log: Logger;
+  // Same contract as HandlerContext.metricsFor: unregistered names no-op.
+  readonly metricsFor: (featureName: string) => MetricsHandle;
   readonly triggeredBy: { readonly id: string; readonly tenantId: TenantId } | null;
   // 1-based run number; finalAttempt = no retry follows if this run throws. A sequential-lock re-enqueue restarts at 1.
   readonly attempt: number;

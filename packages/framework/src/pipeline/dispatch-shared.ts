@@ -82,9 +82,9 @@ import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale.js";
 import { createFallbackLogger } from "../logging/utils.js";
 import {
   createEscapeHatchReporter,
+  createMetricsForFactory,
   createMetricsHandle,
   createNoopMetricsHandle,
-  createSafeMetricsHandle,
   type EscapeHatchReportWindow,
   emitDispatcherError,
   emitDispatcherHandler,
@@ -728,11 +728,8 @@ export async function buildHandlerContext(
     meter && featureName ? createMetricsHandle(meter, featureName) : createNoopMetricsHandle();
   // ctx.metricsFor(featureName) — shared/library code binds to a feature
   // name of its own choosing instead of the dispatching handler's
-  // (framework#1844). Unregistered names no-op rather than throw, see
-  // createSafeMetricsHandle.
-  const metricsFor = meter
-    ? (targetFeatureName: string) => createSafeMetricsHandle(meter, targetFeatureName)
-    : () => createNoopMetricsHandle();
+  // (framework#1844). Unregistered names no-op rather than throw.
+  const metricsFor = createMetricsForFactory(meter);
 
   // A failed inner write has already appended its event and projections when a later
   // step (e.g. an inTransaction hook) fails, and the outer handler may swallow the
