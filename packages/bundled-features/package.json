@@ -106,6 +106,7 @@
     "./shared/single-use-token-store": "./src/shared/single-use-token-store.ts",
     "./shared/signed-token": "./src/shared/signed-token.ts",
     "./shared/row-bound-grant": "./src/shared/row-bound-grant.ts",
+    "./shared/mail-template-body": "./src/shared/mail-template-body.ts",
     "./delivery": "./src/delivery/index.ts",
     "./delivery/web": "./src/delivery/web/index.ts",
     "./channel-in-app": "./src/channel-in-app/index.ts",
@@ -527,6 +528,10 @@
       "./shared/row-bound-grant": {
         "types": "./dist/shared/row-bound-grant.d.ts",
         "default": "./dist/shared/row-bound-grant.js"
+      },
+      "./shared/mail-template-body": {
+        "types": "./dist/shared/mail-template-body.d.ts",
+        "default": "./dist/shared/mail-template-body.js"
       },
       "./delivery": {
         "types": "./dist/delivery/index.d.ts",
