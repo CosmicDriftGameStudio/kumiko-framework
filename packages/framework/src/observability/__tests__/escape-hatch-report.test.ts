@@ -10,6 +10,7 @@ import {
   flushEscapeHatchAudits,
   reportEscapeHatchUse,
   withEscapeHatchAuditScope,
+  withEscapeHatchAuditScopeStream,
 } from "../escape-hatch-report.js";
 import { type MetricEvent, RecordingMeter } from "../recording-meter.js";
 import { registerStandardMetrics } from "../standard-metrics.js";
@@ -169,6 +170,40 @@ describe("escape-hatch audit durability", () => {
     await withEscapeHatchAuditScope(async () => {
       reportEscapeHatchUse(baseEvent, { sink, log: recordingLogger() });
     });
+    expect(persisted).toEqual([baseEvent]);
+  });
+
+  test("the stream scope reports audits from every pull and waits for them when the stream ends", async () => {
+    const { persisted, sink } = slowSink();
+    async function* handlerStream(): AsyncGenerator<number> {
+      await Promise.resolve();
+      reportEscapeHatchUse(baseEvent, { sink, log: recordingLogger() });
+      yield 1;
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      reportEscapeHatchUse(
+        { ...baseEvent, reason: "second pull" },
+        { sink, log: recordingLogger() },
+      );
+      yield 2;
+    }
+
+    const chunks: number[] = [];
+    for await (const chunk of withEscapeHatchAuditScopeStream(handlerStream)) chunks.push(chunk);
+
+    expect(chunks).toEqual([1, 2]);
+    expect(persisted.map((event) => event.reason)).toEqual([baseEvent.reason, "second pull"]);
+  });
+
+  test("the stream scope waits for audits when the consumer closes the stream early", async () => {
+    const { persisted, sink } = slowSink();
+    async function* handlerStream(): AsyncGenerator<number> {
+      reportEscapeHatchUse(baseEvent, { sink, log: recordingLogger() });
+      yield 1;
+      yield 2;
+    }
+
+    for await (const _chunk of withEscapeHatchAuditScopeStream(handlerStream)) break;
+
     expect(persisted).toEqual([baseEvent]);
   });
 

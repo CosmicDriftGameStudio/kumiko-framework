@@ -91,6 +91,8 @@ describe("foreign where.tenantId narrowing warning", () => {
       for (const where of [
         { tenantId: ownTenantId },
         { tenantId: [ownTenantId, SYSTEM_TENANT_ID] },
+        { tenantId: { in: [ownTenantId] } },
+        { tenantId: { eq: ownTenantId } },
         { id: "x" },
       ]) {
         await getStep(kind)!.run({ name: "lookup", table: testTable, where }, loggingCtx);

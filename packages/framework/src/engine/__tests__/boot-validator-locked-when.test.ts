@@ -38,6 +38,16 @@ describe("boot validation of entity.lockedWhen", () => {
     );
   });
 
+  test("a field with a read restriction cannot carry the condition", () => {
+    const restricted = createSelectField({
+      options: ["open", "closed"] as const,
+      access: { read: ["Admin"] },
+    });
+    expect(() => bootWith({ field: "status", eq: "closed" }, { status: restricted })).toThrow(
+      /lockedWhen field "status" has a read restriction/,
+    );
+  });
+
   test("a field type without a plain scalar value is rejected", () => {
     expect(() =>
       bootWith({ field: "closedOn", eq: "x" }, { status, closedOn: createDateField({}) }),

@@ -7,6 +7,7 @@ import type {
 import {
   evalFieldCondition,
   findUnavailableSelectOptions,
+  isUnchangedValue,
   NO_WIDGET_FIELD_TYPES,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type EditFormMode, I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
@@ -50,8 +51,7 @@ function isRequiredValueMissing(
   if (NO_WIDGET_FIELD_TYPES.includes(field.type) && !isEmbeddedListField(field)) return false;
   if (isPresent(record[spec.field])) return false;
   return !(
-    unchangedFrom !== undefined &&
-    JSON.stringify(record[spec.field]) === JSON.stringify(unchangedFrom[spec.field])
+    unchangedFrom !== undefined && isUnchangedValue(record[spec.field], unchangedFrom[spec.field])
   );
 }
 

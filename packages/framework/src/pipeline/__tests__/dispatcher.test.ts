@@ -382,7 +382,7 @@ describe("dispatcher.stream", () => {
     expect(unsubscribeCalls).toBe(1);
   });
 
-  test("an idle stream ends with AccessDeniedError when its token expires and cleans up once", async () => {
+  test("an idle stream ends with UnauthenticatedError when its token expires and cleans up once", async () => {
     let unsubscribeCalls = 0;
     let handlerCleanups = 0;
     const broker: SseBroker = {
@@ -434,7 +434,7 @@ describe("dispatcher.stream", () => {
     expect((await gen.next()).value).toEqual({ i: 0 });
 
     await expect(gen.next()).rejects.toMatchObject({
-      code: "access_denied",
+      code: "unauthenticated",
       message: expect.stringContaining("token expired mid-stream"),
     });
     releaseHang?.();

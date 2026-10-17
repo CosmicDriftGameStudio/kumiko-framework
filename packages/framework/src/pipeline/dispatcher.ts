@@ -19,6 +19,7 @@ import type {
   WriteResult,
 } from "../engine/types/index.js";
 import { InternalError, reraiseAsKumikoError } from "../errors/index.js";
+import { withEscapeHatchAuditScopeStream } from "../observability/escape-hatch-report.js";
 import {
   createEscapeHatchReportWindow,
   getFallbackMeter,
@@ -269,13 +270,9 @@ export function createDispatcher(
 
     stream: (typeOrRef, payload, user, options) => {
       const type = resolveType(typeOrRef);
-      return executeStream(
-        ctx,
-        type,
-        payload,
-        user,
-        rootWriteOrigin(registry, type, user),
-        options,
+      const origin = rootWriteOrigin(registry, type, user);
+      return withEscapeHatchAuditScopeStream(() =>
+        executeStream(ctx, type, payload, user, origin, options),
       );
     },
 

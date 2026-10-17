@@ -27,6 +27,24 @@ export function checkQueryRef(
   throw new Error(`${buildPrefix()} query "${query}" ${NOT_REGISTERED_SUFFIX}`);
 }
 
+// visibleWhen queries are run with an empty payload by the client gate, so a query
+// that requires input would fail on every call and the screen/panel would stay
+// unavailable with no hint.
+function checkVisibleWhenQueryRef(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  query: string,
+  buildPrefix: () => string,
+): void {
+  checkQueryRef(queryHandlers, query, buildPrefix);
+  const handler = queryHandlers.get(query);
+  // skip: nothing to check for an unknown handler (checkQueryRef already threw) or an input-free query
+  if (handler === undefined || handler.schema.safeParse({}).success) return;
+  throw new Error(
+    `${buildPrefix()} query "${query}" requires input; visibleWhen queries run with an empty payload. ` +
+      "Make the query's input fields optional or use a query without required input.",
+  );
+}
+
 // relatedList is currently only reachable on projectionDetail — screens.ts
 // rejects it outright on entityEdit/actionForm/configEdit (fw#2166). Walking
 // the shared EditLayout uniformly here (instead of excluding those three
@@ -58,7 +76,7 @@ function checkDashboardQueryRefs(
   for (const panel of screen.panels) {
     if (panel.kind === "custom") continue;
     if (panel.visibleWhen !== undefined) {
-      checkQueryRef(
+      checkVisibleWhenQueryRef(
         queryHandlers,
         panel.visibleWhen.query,
         () =>
@@ -136,7 +154,7 @@ function checkScreenQueryRefs(
   screen: ScreenDefinition,
 ): void {
   if (screen.visibleWhen !== undefined) {
-    checkQueryRef(
+    checkVisibleWhenQueryRef(
       queryHandlers,
       screen.visibleWhen.query,
       () => `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) visibleWhen`,

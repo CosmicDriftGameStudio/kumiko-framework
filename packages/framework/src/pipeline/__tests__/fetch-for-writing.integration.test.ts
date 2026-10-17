@@ -264,6 +264,47 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
     expect(events.map((e) => e.version)).toEqual([1, 2, 3, 4]);
   });
 
+  test("multiple appendOne after a foreign-type event keep the pinned version in step", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "carol" },
+      admin,
+    );
+    await append(stack.db, {
+      aggregateId: created.id,
+      aggregateType: "reservation",
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
+      type: "reservation:event:created",
+      payload: {},
+      metadata: { userId: String(admin.id) },
+    });
+
+    const result = await stack.http.writeOk<{ finalVersion: number }>(
+      "f4w:write:cart:bulk-add",
+      { id: created.id, skus: ["a", "b"] },
+      admin,
+    );
+
+    expect(result.finalVersion).toBe(4);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
+    expect(events.map((e) => e.version)).toEqual([1, 2, 3, 4]);
+  });
+
+  test("a fresh aggregate (version 0) accepts pinned appends starting at version 1", async () => {
+    const freshId = crypto.randomUUID();
+
+    const result = await stack.http.writeOk<{ finalVersion: number }>(
+      "f4w:write:cart:bulk-add",
+      { id: freshId, skus: ["a", "b"] },
+      admin,
+    );
+
+    expect(result.finalVersion).toBe(2);
+    const events = await loadAggregate(stack.db, freshId, admin.tenantId);
+    expect(events.map((e) => e.version)).toEqual([1, 2]);
+  });
+
   test("expectedVersion mismatch throws VersionConflictError before any write lands", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "f4w:write:cart:create",

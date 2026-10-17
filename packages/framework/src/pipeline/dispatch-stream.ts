@@ -7,6 +7,7 @@ import {
   AccessDeniedError,
   memberResolutionReadOnlyDenied,
   NotFoundError,
+  UnauthenticatedError,
   validationErrorFromZod,
 } from "../errors/index.js";
 import { assertNoSecretLeak } from "../secrets/index.js";
@@ -117,11 +118,16 @@ async function* executeStreamInner(
         abandonedForInvalidation = true;
         void nextPull.catch(() => {});
         void iterator.return?.(undefined)?.then(undefined, () => {});
+        // An expired token is a lapsed session (401, so clients show the
+        // session-end hint); revocation is a permission change (403).
+        if (outcome.reason === "expired") {
+          throw new UnauthenticatedError({
+            message: `token expired mid-stream for ${type}`,
+            details: { handler: type, reason: outcome.reason },
+          });
+        }
         throw new AccessDeniedError({
-          message:
-            outcome.reason === "expired"
-              ? `token expired mid-stream for ${type}`
-              : `access revoked mid-stream for ${type}`,
+          message: `access revoked mid-stream for ${type}`,
           details: { handler: type },
         });
       }

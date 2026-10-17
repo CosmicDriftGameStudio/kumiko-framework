@@ -58,6 +58,35 @@ describe("findRetiredTableDrops", () => {
     expect(findRetiredTableDrops([CREATE_RETIRED], snapshot)).toEqual([]);
   });
 
+  test("a comma list in DROP TABLE marks every table as dropped", () => {
+    const drops = findRetiredTableDrops(
+      [CREATE_RETIRED, `DROP TABLE IF EXISTS "other_table", "read_job_runs";`],
+      snapshotWithout,
+    );
+    expect(drops).toEqual([]);
+  });
+
+  test("a schema-qualified drop marks the table, not the schema", () => {
+    const drops = findRetiredTableDrops(
+      [CREATE_RETIRED, `DROP TABLE IF EXISTS "public"."read_job_runs";`],
+      snapshotWithout,
+    );
+    expect(drops).toEqual([]);
+  });
+
+  test("ALTER TABLE RENAME TO drops the old name and creates the new one", () => {
+    const renamedAway = findRetiredTableDrops(
+      [CREATE_RETIRED, `ALTER TABLE "read_job_runs" RENAME TO "read_job_runs_old";`],
+      snapshotWithout,
+    );
+    expect(renamedAway).toEqual([]);
+    const renamedIn = findRetiredTableDrops(
+      [`ALTER TABLE "legacy_runs" RENAME TO "read_job_runs";`],
+      snapshotWithout,
+    );
+    expect(renamedIn.map((d) => d.tableName)).toEqual(["read_job_runs"]);
+  });
+
   test("an app table with a commented drop is never auto-dropped", () => {
     expect(
       findRetiredTableDrops(

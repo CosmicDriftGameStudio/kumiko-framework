@@ -69,14 +69,11 @@ describe("dedupeFeatures", () => {
     expect(result).toEqual([a]);
   });
 
-  test("matching dedupeOptions are the only equivalence signal: differing registrar bodies still collapse, first kept", () => {
+  test("equal dedupeOptions do not hide a differing nav surface", () => {
     const a = defineFeature("x", (r) => r.nav({ id: "a", label: "A" }), { dedupeOptions: {} });
     const b = defineFeature("x", (r) => r.nav({ id: "b", label: "B" }), { dedupeOptions: {} });
 
-    const result = dedupeFeatures([a, b]);
-
-    expect(result).toEqual([a]);
-    expect(result[0]).toBe(a);
+    expect(() => dedupeFeatures([a, b])).toThrow(/Duplicate feature: "x"/);
   });
 
   test("two distinct instances with no dedupeOptions throw with a 'distinct instances' message", () => {
@@ -116,5 +113,42 @@ describe("dedupeFeatures", () => {
     );
 
     expect(() => dedupeFeatures([a, b])).toThrow(/Duplicate feature: "x"/);
+  });
+
+  test("same name and equal dedupeOptions but different screens throws", () => {
+    const a = defineFeature("x", () => {}, { dedupeOptions: {} });
+    const b = defineFeature(
+      "x",
+      (r) => {
+        r.screen({
+          id: "overview",
+          type: "projectionList",
+          query: "x:query:items:list",
+          columns: ["name"],
+        });
+      },
+      { dedupeOptions: {} },
+    );
+
+    expect(() => dedupeFeatures([a, b])).toThrow(/Duplicate feature: "x"/);
+  });
+
+  test("identical declarations with equal dedupeOptions still collapse", () => {
+    const build = () =>
+      defineFeature(
+        "x",
+        (r) => {
+          r.screen({
+            id: "overview",
+            type: "projectionList",
+            query: "x:query:items:list",
+            columns: ["name"],
+          });
+        },
+        { dedupeOptions: {} },
+      );
+    const first = build();
+
+    expect(dedupeFeatures([first, build()])).toEqual([first]);
   });
 });

@@ -1,4 +1,7 @@
 import { describe, expect, expectTypeOf, test } from "bun:test";
+import type { DbRunner } from "../../db/connection.js";
+import { createTenantDb } from "../../db/tenant-db.js";
+import { testTenantId } from "../../stack/test-users.js";
 import {
   access,
   createSystemConfig,
@@ -283,12 +286,20 @@ describe("config helpers — validate (async write gate)", () => {
       },
     });
     if (!key.validate) throw new Error("unreachable");
+    const tenantId = testTenantId(1);
+    // The validator under test never touches the db; a runner that throws on use
+    // keeps the context fully typed without a real connection.
+    const unusedRunner = {
+      unsafe: async () => {
+        throw new Error("db not used in this test");
+      },
+    } as DbRunner;
     await key.validate("https://example.com", {
       key: "demo:config:endpoint",
       scope: "tenant",
-      tenantId: "00000000-0000-4000-8000-000000000001" as never,
+      tenantId,
       userId: null,
-      db: {} as never,
+      db: createTenantDb(unusedRunner, tenantId),
     });
     expect(seen).toEqual(["https://example.com"]);
   });

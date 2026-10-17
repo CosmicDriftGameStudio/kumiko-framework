@@ -9,7 +9,14 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack/index.js";
 import { defineFeature } from "../define-feature.js";
-import { createEntity, createTextField } from "../factories.js";
+import {
+  createBooleanField,
+  createDateField,
+  createEntity,
+  createNumberField,
+  createTextField,
+  createTimestampField,
+} from "../factories.js";
 import type { PreSaveHookFn } from "../types/index.js";
 
 const noteEntity = createEntity({
@@ -17,6 +24,11 @@ const noteEntity = createEntity({
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     endpoint: createTextField({ personal: false, reason: "test_fixture" }),
+    isDone: createBooleanField({ default: undefined }),
+    amount: createNumberField(),
+    dueOn: createDateField(),
+    startedAt: createTimestampField(),
+    parentId: { type: "reference", entity: "note", labelField: "name" },
   },
 });
 
@@ -56,19 +68,23 @@ describe("update clears optional fields with null", () => {
     await asRawClient(stack.db).unsafe('DELETE FROM "update_null_clear_notes"');
   });
 
-  async function createNote(): Promise<Created["data"]["data"]> {
+  async function createNote(extra: Record<string, unknown> = {}): Promise<Created["data"]["data"]> {
     const res = await stack.http.write(
       CREATE,
-      { name: "n", endpoint: "https://example.test" },
+      { name: "n", endpoint: "https://example.test", ...extra },
       TestUsers.user,
     );
     expect(res.status).toBe(200);
     return ((await res.json()) as Created).data.data;
   }
 
-  async function readEndpoint(id: string): Promise<unknown> {
+  async function readField(id: string, field: string): Promise<unknown> {
     const row = await stack.http.queryOk<Record<string, unknown>>(DETAIL, { id }, TestUsers.user);
-    return row["endpoint"];
+    return row[field];
+  }
+
+  async function readEndpoint(id: string): Promise<unknown> {
+    return readField(id, "endpoint");
   }
 
   test("direct update payload with null clears the field", async () => {
@@ -94,14 +110,48 @@ describe("update clears optional fields with null", () => {
     expect(await readEndpoint(note.id)).toBeNull();
   });
 
-  test("required field with null is rejected", async () => {
-    const note = await createNote();
+  test.each([
+    ["boolean", "isDone", true],
+    ["number", "amount", 42],
+    ["date", "dueOn", "2026-03-04"],
+    ["timestamp", "startedAt", "2026-03-04T10:00:00.000Z"],
+  ])("a %s field is cleared with null", async (_type, field, value) => {
+    const note = await createNote({ [field]: value });
+    expect(await readField(note.id, field)).not.toBeNull();
+
     const res = await stack.http.write(
+      UPDATE,
+      { id: note.id, version: note.version, changes: { [field]: null } },
+      TestUsers.user,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await readField(note.id, field)).toBeNull();
+  });
+
+  test("a reference field is cleared with null", async () => {
+    const parent = await createNote();
+    const child = await createNote({ parentId: parent.id });
+    expect(await readField(child.id, "parentId")).toBe(parent.id);
+
+    const res = await stack.http.write(
+      UPDATE,
+      { id: child.id, version: child.version, changes: { parentId: null } },
+      TestUsers.user,
+    );
+
+    expect(res.status).toBe(200);
+    expect(await readField(child.id, "parentId")).toBeNull();
+  });
+
+  test("required field with null is rejected as a validation error", async () => {
+    const note = await createNote();
+    const err = await stack.http.writeErr(
       UPDATE,
       { id: note.id, version: note.version, changes: { name: null } },
       TestUsers.user,
     );
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(res.status).toBeLessThan(500);
+    expect([400, 422]).toContain(err.httpStatus);
+    expect(err.code).toMatch(/validation|unprocessable/);
   });
 });
