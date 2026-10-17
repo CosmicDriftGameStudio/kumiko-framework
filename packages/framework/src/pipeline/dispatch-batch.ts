@@ -8,12 +8,18 @@ import type {
   SessionUser,
   WriteResult,
 } from "../engine/types/index.js";
-import { InternalError, toWriteErrorInfo, writeFailure } from "../errors/index.js";
+import {
+  InternalError,
+  toWriteErrorInfo,
+  UnprocessableError,
+  type WriteErrorInfo,
+  writeFailure,
+} from "../errors/index.js";
 import { createFallbackLogger } from "../logging/utils.js";
 import { parseJsonSafe } from "../utils/safe-json.js";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.js";
 import { resolveDbSource } from "./dispatch-shared.js";
-import { executeNestedWrite } from "./dispatch-write.js";
+import { executeNestedWrite, executeWrite } from "./dispatch-write.js";
 import {
   type AfterCommitHook,
   BatchRollback,
@@ -59,6 +65,10 @@ function toReservedScope(
   return reservation && { type: cmd.type, reservation };
 }
 
+function isPerCommandHandler(ctx: DispatchContext, type: string): boolean {
+  return ctx.registry.getWriteHandler(type)?.transaction === "perCommand";
+}
+
 async function runReservedCommand(
   scope: ReservedCommandScope,
   cmd: BatchCommand,
@@ -72,13 +82,42 @@ async function runReservedCommand(
   );
   origins.push(origin);
   const hookStart = afterCommitHooks.length;
+  // Nested-write children would run inline with the in-transaction scope, so a perCommand command skips the expansion.
+  const execute = isPerCommandHandler(ctx, cmd.type) ? executeWrite : executeNestedWrite;
   const res = await runAsCommand(toReservedScope(reservations, index, cmd), () =>
     runWithWriteOrigin(origin, () =>
-      executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
+      execute(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
     ),
   );
   rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
   return res;
+}
+
+// Sequential fallback without an outer transaction. A failure result and a throw both end the
+// batch, so both give the reserved capacity back.
+async function runCommandsWithoutTransaction(
+  scope: ReservedCommandScope,
+  commands: readonly BatchCommand[],
+  results: WriteResult[],
+): Promise<{ readonly index: number; readonly error: WriteErrorInfo } | undefined> {
+  try {
+    for (let i = 0; i < commands.length; i++) {
+      const cmd = commands[i];
+      if (!cmd) continue;
+      const res = await runReservedCommand(scope, cmd, i, undefined);
+      results.push(res);
+      if (!res.isSuccess) {
+        // No tx means no rollback — but we still drop afterCommit hooks,
+        // matching the semantic "failure = side-effects don't fire".
+        await scope.reservations.releaseAll();
+        return { index: i, error: res.error };
+      }
+    }
+  } catch (e) {
+    await scope.reservations.releaseAll();
+    throw e;
+  }
+  return undefined;
 }
 
 // Core batch logic extracted so write() and command() can reuse it
@@ -102,6 +141,38 @@ export async function runBatch(
   );
 }
 
+function perCommandBatchRejection(
+  ctx: DispatchContext,
+  commands: readonly BatchCommand[],
+): BatchResult | undefined {
+  const index = commands.findIndex((cmd) => isPerCommandHandler(ctx, cmd.type));
+  const command = commands[index];
+  if (!command || commands.length < 2) return undefined;
+  return {
+    isSuccess: false,
+    error: toWriteErrorInfo(
+      new UnprocessableError("per_command_handler_in_batch", {
+        message: `handler "${command.type}" runs without a transaction (transaction: "perCommand") and cannot be part of a multi-command batch`,
+      }),
+    ),
+    failedIndex: index,
+    results: [],
+  };
+}
+
+async function checkBatchIdempotency(
+  ctx: DispatchContext,
+  user: SessionUser,
+  requestId: string | undefined,
+): Promise<{ cached?: BatchResult; token?: string }> {
+  if (!requestId || !ctx.idempotency) return {};
+  const checked = await ctx.idempotency.check(user.tenantId, user.id, requestId);
+  if (checked.status !== "cached") return { token: checked.token };
+  const parsed = parseJsonSafe<BatchResult | null>(checked.result, null);
+  // corrupted cache entry — treat as miss, let the request re-run
+  return parsed ? { cached: parsed } : {};
+}
+
 async function runBatchBody(
   ctx: DispatchContext,
   commands: readonly BatchCommand[],
@@ -119,17 +190,9 @@ async function runBatchBody(
   // idempotencyToken is only set when we actually acquired the lock — the
   // corrupted-cache fallthrough below leaves it unset, so finalize() skips
   // store() rather than writing over an entry it never owned.
-  let idempotencyToken: string | undefined;
-  if (requestId && idempotency) {
-    const checked = await idempotency.check(user.tenantId, user.id, requestId);
-    if (checked.status === "cached") {
-      const parsed = parseJsonSafe<BatchResult | null>(checked.result, null);
-      if (parsed) return parsed;
-      // corrupted cache entry — treat as miss, let the request re-run
-    } else {
-      idempotencyToken = checked.token;
-    }
-  }
+  const idempotencyCheck = await checkBatchIdempotency(ctx, user, requestId);
+  if (idempotencyCheck.cached) return idempotencyCheck.cached;
+  const idempotencyToken = idempotencyCheck.token;
 
   // Hooks already ran on the plaintext results; what is returned and cached
   // for retries must not carry writeOnly values.
@@ -218,6 +281,10 @@ async function runBatchBody(
     await runWithWriteOrigin(strictest, flushBatchHooksInner);
   };
 
+  const perCommandRejection = perCommandBatchRejection(ctx, commands);
+  if (perCommandRejection) return releaseOrFinalize(perCommandRejection, false);
+  const runsWithoutTransaction = commands.some((cmd) => isPerCommandHandler(ctx, cmd.type));
+
   // Reserve before the transaction opens so no extra connection is held while the handler tx is
   // open; the release below runs only after that tx has ended without committing.
   const reservations = await reserveBeforeTransaction(ctx, commands, user, inheritedOrigin);
@@ -236,29 +303,27 @@ async function runBatchBody(
   // batch() opens its own outer transaction — needs the top-level
   // connection's `.begin()` (TransactionSql exposes only `.savepoint()`).
   const db = resolveDbSource(ctx, undefined) as DbConnection | undefined;
-  if (!db) {
-    // Without a DB connection there is no transaction to open. Fall back to
+  if (!db || runsWithoutTransaction) {
+    // Without a DB connection (or for a perCommand handler, whose writes open their own transactions)
+    // there is no transaction to open. Fall back to
     // sequential execution — useful for unit tests that don't touch the DB.
     // Each command runs independently; a failure stops the batch.
-    for (let i = 0; i < commands.length; i++) {
-      const cmd = commands[i];
-      if (!cmd) continue;
-      const res = await runReservedCommand(
-        { ctx, user, inheritedOrigin, reservations, origins, afterCommitHooks },
-        cmd,
-        i,
-        undefined,
-      );
-      results.push(res);
-      if (!res.isSuccess) {
-        // No tx means no rollback — but we still drop afterCommit hooks,
-        // matching the semantic "failure = side-effects don't fire".
-        await reservations.releaseAll();
-        return finalize({ isSuccess: false, error: res.error, failedIndex: i, results });
-      }
+    const failed = await runCommandsWithoutTransaction(
+      { ctx, user, inheritedOrigin, reservations, origins, afterCommitHooks },
+      commands,
+      results,
+    );
+    if (failed) {
+      return finalize({
+        isSuccess: false,
+        error: failed.error,
+        failedIndex: failed.index,
+        results,
+      });
     }
     await flushAfterCommit();
-    await flushBatchHooks();
+    // The inner commands of a perCommand handler already fired their own batch hooks.
+    if (!runsWithoutTransaction) await flushBatchHooks();
     return finalize({ isSuccess: true, results });
   }
 
@@ -283,6 +348,7 @@ async function runBatchBody(
     });
   } catch (e) {
     // Rollback or failed COMMIT: the transaction is over, so the reserved capacity goes back.
+    // The release is outcome-safe: it only gives back a reservation row the handler tx did not delete.
     await reservations.releaseAll();
     if (e instanceof BatchRollback) {
       // Thrown inside the callback, so the tx rolled back. A 4xx is

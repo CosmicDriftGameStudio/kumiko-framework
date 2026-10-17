@@ -16,9 +16,12 @@ import { createMockDispatcher, render, renderWithSidebar, screen, waitFor } from
 const GATE_QUERY = "billing:query:tier:status";
 const OPEN = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 
-type GateOptions = { readonly fallback?: string };
+type GateOptions = {
+  readonly fallback?: string;
+  readonly fallbackAccess?: ScreenDefinition["access"];
+};
 
-function buildSchema({ fallback }: GateOptions): FeatureSchema {
+function buildSchema({ fallback, fallbackAccess }: GateOptions): FeatureSchema {
   const gated: ScreenDefinition = {
     id: "channels",
     type: "projectionList",
@@ -33,7 +36,7 @@ function buildSchema({ fallback }: GateOptions): FeatureSchema {
     type: "projectionList",
     query: "billing:query:upgrade:list",
     columns: [{ field: "name", label: "billing.col.name" }],
-    access: OPEN,
+    access: fallbackAccess ?? OPEN,
   };
   return { featureName: "billing", entities: {}, screens: [gated, upgrade] };
 }
@@ -97,6 +100,17 @@ describe("KumikoScreen visibleWhen (direct access)", () => {
     await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
     expect(screen.queryByText("CHANNEL ROW")).toBeNull();
     expect(queryTypes).not.toContain("billing:query:channel:list");
+  });
+
+  test("a fallback screen the user's roles cannot access shows the standard notice, not a not-found error", async () => {
+    const { queryTypes } = renderDirect(
+      { kind: "data", available: false },
+      { fallback: "upgrade", fallbackAccess: { roles: ["TenantAdmin"] } },
+    );
+    await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
+    expect(screen.queryByTestId("kumiko-screen-not-found")).toBeNull();
+    expect(screen.queryByText("UPGRADE ROW")).toBeNull();
+    expect(queryTypes).not.toContain("billing:query:upgrade:list");
   });
 
   test("while the gate query loads, no content and no notice render", () => {

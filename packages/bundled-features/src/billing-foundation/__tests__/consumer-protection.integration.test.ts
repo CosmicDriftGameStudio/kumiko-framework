@@ -48,10 +48,14 @@ const consumerProtection: ConsumerProtectionOptions = {
   termsTextBlock: TERMS_SLUG,
   vatNote: { de: "Preise inkl. USt.", en: "Prices include VAT." },
   operatorEmail: "billing@example.com",
-  oneOffItemLabel: async (_ctx, priceId) =>
-    priceId === "price_topup"
+  oneOffItemLabel: async (_ctx, priceId) => {
+    if (priceId === "price_badlabel") {
+      return { labelKey: "shop:pack.credits", params: { count: 1, name: "x".repeat(101) } };
+    }
+    return priceId === "price_topup"
       ? { labelKey: "shop:pack.credits", params: { count: 500, name: "Pack" } }
-      : undefined,
+      : undefined;
+  },
   legalLinks: {
     terms: "/legal/terms",
     withdrawal: "/legal/withdrawal",
@@ -86,7 +90,7 @@ const mockProviderFeature = defineFeature("test-mock-consent-provider", (r) => {
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     priceToTier: { price_starter: "starter", price_pro: "pro" },
-    oneOffPriceIds: ["price_topup", "price_unlisted"],
+    oneOffPriceIds: ["price_topup", "price_unlisted", "price_badlabel"],
     isBillingEnabled: async () => billingEnabled,
     retrievePrices: async (_ctx, priceIds) =>
       [
@@ -117,6 +121,15 @@ const mockProviderFeature = defineFeature("test-mock-consent-provider", (r) => {
           active: true,
           metadata: {},
         },
+        {
+          priceId: "price_badlabel",
+          unitAmount: 500,
+          currency: "eur",
+          interval: null,
+          intervalCount: null,
+          active: true,
+          metadata: {},
+        },
       ].filter((p) => priceIds.includes(p.priceId)),
     createCheckoutSession: async (_ctx, options) => {
       if (providerThrows) throw new Error("provider down");
@@ -131,6 +144,20 @@ const mockProviderFeature = defineFeature("test-mock-consent-provider", (r) => {
     },
   };
   r.useExtension("subscriptionProvider", "mock-consent-provider", plugin);
+});
+
+// A provider that can open checkouts but cannot report live prices.
+const mockProviderWithoutPricesFeature = defineFeature("test-mock-consent-no-prices", (r) => {
+  r.requires("billing-foundation");
+  const plugin: SubscriptionProviderPlugin = {
+    verifyAndParseWebhook: async () => null,
+    oneOffPriceIds: ["price_topup"],
+    createCheckoutSession: async (_ctx, options) => {
+      checkoutCalls.push({ priceId: options.priceId });
+      return { url: `https://mock.example/checkout/${options.priceId}` };
+    },
+  };
+  r.useExtension("subscriptionProvider", "mock-consent-no-prices", plugin);
 });
 
 let stack: TestStack;
@@ -151,6 +178,7 @@ beforeAll(async () => {
         consumerProtection,
       }),
       mockProviderFeature,
+      mockProviderWithoutPricesFeature,
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -444,6 +472,38 @@ describe("consumerProtection on — create-checkout-session gate order", () => {
     );
     expect(error.httpStatus).toBe(422);
     expect(JSON.stringify(error)).toContain("price_unavailable");
+    expect(checkoutCalls).toHaveLength(0);
+    expect(await consentEvents(paymentAggregateId(admin.tenantId), admin.tenantId)).toEqual([]);
+  });
+
+  test("an invalid oneOffItemLabel fails as a configuration error before the provider is called", async () => {
+    const admin = adminFor(8115);
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      {
+        ...PAYMENT_BODY,
+        priceId: "price_badlabel",
+        consent: consentFor("en", consentTextVersion("en")),
+      },
+      admin,
+    );
+    expect(error.httpStatus).toBe(500);
+    expect(checkoutCalls).toHaveLength(0);
+    expect(await consentEvents(paymentAggregateId(admin.tenantId), admin.tenantId)).toEqual([]);
+  });
+
+  test("a provider without retrievePrices fails as a configuration error before the provider is called", async () => {
+    const admin = adminFor(8116);
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      {
+        ...PAYMENT_BODY,
+        providerName: "mock-consent-no-prices",
+        consent: consentFor("en", consentTextVersion("en")),
+      },
+      admin,
+    );
+    expect(error.httpStatus).toBe(500);
     expect(checkoutCalls).toHaveLength(0);
     expect(await consentEvents(paymentAggregateId(admin.tenantId), admin.tenantId)).toEqual([]);
   });

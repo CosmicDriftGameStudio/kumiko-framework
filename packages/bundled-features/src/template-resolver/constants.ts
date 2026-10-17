@@ -62,8 +62,15 @@ export type TemplateScope = (typeof TEMPLATE_SCOPES)[number];
 export const TEMPLATE_STATUSES = ["draft", "active", "archived"] as const;
 export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number];
 
-export const PDF_PAGE_FORMATS = ["A4", "Letter"] as const;
-export type PdfPageFormat = (typeof PDF_PAGE_FORMATS)[number];
+export {
+  PDF_DEFAULT_MARGIN_MM,
+  PDF_FOOTER_MARGIN_MM,
+  PDF_HEADER_MARGIN_MM,
+  PDF_ORIENTATIONS,
+  PDF_PAGE_FORMATS,
+  type PdfOrientation,
+  type PdfPageFormat,
+} from "./pdf-constants.js";
 
 // Colors end up inside MJML attributes, so only a strict hex is ever written there.
 export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;

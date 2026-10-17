@@ -26,6 +26,23 @@ function canonicalColumnsKey(meta: EntityTableMeta): string {
     .join("\n");
 }
 
+function registerPass1Meta(
+  metas: EntityTableMeta[],
+  byName: Map<string, { meta: EntityTableMeta; origin: string }>,
+  meta: EntityTableMeta,
+  origin: string,
+): void {
+  const existing = byName.get(meta.tableName);
+  if (existing) {
+    throw new Error(
+      `collectTableMetas: table "${meta.tableName}" is registered by ${origin} and ${existing.origin}. ` +
+        "Give one of them a different table name.",
+    );
+  }
+  metas.push(meta);
+  byName.set(meta.tableName, { meta, origin });
+}
+
 export function collectTableMetas(
   features: readonly FeatureDefinition[],
 ): readonly EntityTableMeta[] {
@@ -53,15 +70,10 @@ export function collectTableMetas(
         assertBackingTableSuperset(name, fieldMeta, tableMeta);
         meta = tableMeta;
       }
-      metas.push(meta);
-      byName.set(meta.tableName, { meta, origin: `entity "${name}" (${feature.name})` });
+      registerPass1Meta(metas, byName, meta, `entity "${name}" (${feature.name})`);
     }
     for (const entry of Object.values(feature.storeTables)) {
-      metas.push(entry.meta);
-      byName.set(entry.meta.tableName, {
-        meta: entry.meta,
-        origin: `storeTable "${entry.name}" (${feature.name})`,
-      });
+      registerPass1Meta(metas, byName, entry.meta, `storeTable "${entry.name}" (${feature.name})`);
     }
   }
 

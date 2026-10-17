@@ -66,6 +66,9 @@ function stubSecrets(
     has: async (_tenantId, key) => values[nameOf(key)] !== undefined,
     set: async () => undefined,
     delete: async () => false,
+    withRunner: () => {
+      throw new Error("withRunner is not used by this test");
+    },
   };
 }
 

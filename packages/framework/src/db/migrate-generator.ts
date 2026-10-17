@@ -573,7 +573,7 @@ export function assertUniqueTableNames(metas: readonly EntityTableMeta[]): void 
       duplicates
         .map(
           ([tableName, count]) =>
-            `ENTITY_METAS lists table "${tableName}" ${count} times — the migration diff would silently use only one definition. collectTableMetas(features) already includes every table a feature registers (r.storeTable, entities, projections); remove the hand-added meta for "${tableName}".`,
+            `ENTITY_METAS lists table "${tableName}" ${count} times — the migration diff would silently use only one definition. collectTableMetas(features) already includes every table a feature registers (r.storeTable, entities, projections); remove the duplicate entry for "${tableName}" (a hand-added meta, or two features registering the same table).`,
         )
         .join("\n"),
     );

@@ -303,11 +303,21 @@ function renderMetric(p: MetricPattern): string {
   return `r.metric(${renderValue(merged)});`;
 }
 
+// r.secret / r.secretNamespace throw on an empty writeRoles list; the designer's
+// string-list input emits [] when cleared, which means "rely on handler access alone".
+function dropEmptyWriteRoles<T extends { readonly writeRoles?: readonly string[] }>(
+  options: T,
+): T | Omit<T, "writeRoles"> {
+  if (options.writeRoles?.length !== 0) return options;
+  const { writeRoles: _emptyWriteRoles, ...rest } = options;
+  return rest;
+}
+
 function renderSecret(p: SecretPattern): string {
   if (isRawRefSentinel(p.options)) {
     return `r.secret(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
   }
-  const merged = { name: p.shortName, ...p.options };
+  const merged = { name: p.shortName, ...dropEmptyWriteRoles(p.options) };
   return `r.secret(${renderValue(merged)});`;
 }
 
@@ -315,7 +325,7 @@ function renderSecretNamespace(p: SecretNamespacePattern): string {
   if (isRawRefSentinel(p.options)) {
     return `r.secretNamespace(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
   }
-  const merged = { name: p.shortName, ...p.options };
+  const merged = { name: p.shortName, ...dropEmptyWriteRoles(p.options) };
   return `r.secretNamespace(${renderValue(merged)});`;
 }
 

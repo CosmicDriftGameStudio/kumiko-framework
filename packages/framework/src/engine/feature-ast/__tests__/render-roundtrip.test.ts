@@ -691,6 +691,25 @@ defineFeature("hooks", (r) => {
   });
 });
 
+describe("render — empty writeRoles on secrets", () => {
+  test("r.secret and r.secretNamespace render without an empty writeRoles list", () => {
+    const initial = parse(`
+defineFeature("hooks", (r) => {
+  r.secret("api-key", { label: { en: "Key" }, scope: "tenant", writeRoles: [] });
+  r.secretNamespace("webhook-auth", { label: { en: "Auth" }, scope: "tenant", writeRoles: [] });
+  r.secretNamespace("kept", { label: { en: "Kept" }, scope: "tenant", writeRoles: ["TenantAdmin"] });
+});
+`);
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    expect(rendered.match(/writeRoles/g)).toHaveLength(1);
+    expect(rendered).toContain('writeRoles: ["TenantAdmin"]');
+    expect(rendered).toContain('r.secret({ name: "api-key"');
+  });
+});
+
 const AI_PIPELINE_FEATURE = `
 import { defineFeature, defineWorkflow, stepsPipeline } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";

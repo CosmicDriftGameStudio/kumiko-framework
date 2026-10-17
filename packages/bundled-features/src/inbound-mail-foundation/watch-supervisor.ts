@@ -231,8 +231,10 @@ export function createInboundMailSupervisor(
         : row;
       const decryptedAddress = decrypted["address"];
       // Falling back to row.address would hand the ciphertext to a provider.
+      // One undecryptable account must not stop polling of every other tenant's accounts.
       if (typeof decryptedAddress !== "string") {
-        throw new Error(`inbound-mail: address of mail account ${row.id} did not decrypt to text`);
+        log(`inbound-mail: account ${row.id} skipped — address did not decrypt to text`);
+        continue;
       }
       records.push({
         id: row.id,

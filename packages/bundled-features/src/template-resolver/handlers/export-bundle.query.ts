@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
@@ -8,6 +9,7 @@ import {
   type LinkedResourceEntry,
   parseLinkedResourceEntries,
 } from "../linked-resources.js";
+import { TemplateResolverErrors } from "../qualified-names.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import type { TemplateBundle } from "../template-bundle.js";
 import { readTemplateResource } from "../template-resources.js";
@@ -39,6 +41,31 @@ function assertSystemFilesReadable(
   });
 }
 
+// A bundle carries one contentFormat and one variableSchema for all locales; importing it would
+// relabel the rows that differ from the first.
+function assertLocalesShareFormat(rows: readonly TemplateResourceRow[]): void {
+  const [first, ...rest] = rows;
+  // skip: a bundle without rows has nothing to compare
+  if (first === undefined) return;
+  const firstSchema = storedRecord(first.variableSchema);
+  const differing = rest.find(
+    (row) =>
+      row.contentFormat !== first.contentFormat ||
+      !isDeepStrictEqual(storedRecord(row.variableSchema), firstSchema),
+  );
+  // skip: all locales agree
+  if (differing === undefined) return;
+  throw new ValidationError({
+    fields: [
+      {
+        path: "slug",
+        code: TemplateResolverErrors.bundleLocalesDiffer,
+        i18nKey: "templateResolver.errors.template.bundleLocalesDiffer",
+      },
+    ],
+  });
+}
+
 export const exportBundleQuery = defineQueryHandler({
   name: "export-bundle",
   schema: z.object({
@@ -63,6 +90,7 @@ export const exportBundleQuery = defineQueryHandler({
       .sort((a, b) => a.locale.localeCompare(b.locale));
     const first = rows[0];
     if (!first) throw new NotFoundError("template-resource", slug);
+    assertLocalesShareFormat(rows);
 
     const locales: Record<string, { body: string; meta?: unknown }> = {};
     const entryByKey = new Map<string, LinkedResourceEntry>();

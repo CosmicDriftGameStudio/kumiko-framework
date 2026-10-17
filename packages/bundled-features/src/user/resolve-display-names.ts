@@ -6,9 +6,10 @@ import { userTable } from "./schema/user.js";
 // Shares the KMS adapter's small dedicated pool, same as member-directory.
 const KMS_POOL_CONCURRENCY = 4;
 
-// One batched lookup for a page of user ids. Users that are missing, have no
-// display name, or whose name cannot be decrypted (e.g. crypto-shredded) are
-// left out, so callers fall back to the raw id instead of failing the page.
+// One batched lookup for a page of user ids. Users that are missing or have no
+// display name are left out, so callers fall back to the raw id. Decrypt errors
+// propagate (a misconfigured or unavailable KMS fails loudly, like member-directory);
+// crypto-shredding is handled by the KMS layer.
 export async function resolveUserDisplayNames(
   db: TenantDb,
   userIds: readonly string[],
@@ -18,18 +19,10 @@ export async function resolveUserDisplayNames(
   const users = await selectMany(db, userTable, { id: [...userIds] });
   const named = users.filter((user) => typeof user.displayName === "string");
   await mapWithConcurrency(named, KMS_POOL_CONCURRENCY, async (user) => {
-    try {
-      names.set(
-        String(user.id),
-        await decryptStoredPii(
-          String(user.displayName),
-          "displayName",
-          "user:resolve-display-names",
-        ),
-      );
-    } catch {
-      // Unreadable name: the caller's fallback applies.
-    }
+    names.set(
+      String(user.id),
+      await decryptStoredPii(String(user.displayName), "displayName", "user:resolve-display-names"),
+    );
   });
   return names;
 }

@@ -13,7 +13,10 @@ import { markStaleJobRunsFailed } from "../db/queries/stale-run-sweep.js";
 // Configurable per-app via JobsFeatureOptions.staleRunTimeoutHours.
 export const DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS = 24;
 
-export function createStaleRunSweepJob(timeoutHours: number): JobHandlerFn {
+export function createStaleRunSweepJob(
+  timeoutHours: number,
+  queuedRetentionDays: number,
+): JobHandlerFn {
   return async (_payload, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({
@@ -24,7 +27,7 @@ export function createStaleRunSweepJob(timeoutHours: number): JobHandlerFn {
     const db = ctx.systemDb.unsafeRaw(
       "stale-run sweep marks stuck runs of every tenant as failed",
     ) as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
-    const result = await markStaleJobRunsFailed(db, timeoutHours);
+    const result = await markStaleJobRunsFailed(db, timeoutHours, queuedRetentionDays);
     ctx.log?.info?.(`[jobs:stale-run-sweep] complete: ${JSON.stringify(result)}`);
   };
 }

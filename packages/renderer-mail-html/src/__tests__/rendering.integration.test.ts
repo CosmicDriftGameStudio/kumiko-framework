@@ -454,7 +454,10 @@ describe("renderer-mail-html :: layout resolution", () => {
     expect(JSON.stringify(err.details)).toContain("meta.");
   });
 
-  test("a leftover tenant mjml layout is ignored in favour of the system layout", async () => {
+  async function renderWithLegacyTenantLayout(
+    tenantNumber: number,
+    contentFormat: "mjml" | "markdown",
+  ) {
     const legacyExecutor = createEventStoreExecutor(
       templateResourcesTable,
       templateResourceEntity,
@@ -462,7 +465,7 @@ describe("renderer-mail-html :: layout resolution", () => {
         entityName: "template-resource",
       },
     );
-    const owner = tenantId(12);
+    const owner = tenantId(tenantNumber);
     const created = await legacyExecutor.create(
       {
         tenantId: owner,
@@ -470,7 +473,7 @@ describe("renderer-mail-html :: layout resolution", () => {
         kind: "mail-layout",
         locale: LOCALE,
         content: layoutPayload("LEGACY_TENANT_MJML_MARKER").content,
-        contentFormat: "mjml",
+        contentFormat,
         variableSchema: "{}",
         linkedResources: "{}",
         meta: null,
@@ -480,11 +483,22 @@ describe("renderer-mail-html :: layout resolution", () => {
         parentTemplateId: null,
         status: "active",
       },
-      createTestUser({ id: 12, roles: ["TenantAdmin"], tenantId: owner }),
+      createTestUser({ id: tenantNumber, roles: ["TenantAdmin"], tenantId: owner }),
       createTenantDb(stack.db, owner, "system"),
     );
     expect(created.isSuccess).toBe(true);
-    const result = await renderMail(owner);
+    return renderMail(owner);
+  }
+
+  test("a leftover tenant mjml layout is ignored in favour of the system layout", async () => {
+    const result = await renderWithLegacyTenantLayout(12, "mjml");
+    expect(result.html).not.toContain("LEGACY_TENANT_MJML_MARKER");
+    expect(result.html).toContain("SYSTEM_LAYOUT_MARKER");
+    expect(result.layout?.scope).toBe("system");
+  });
+
+  test("a leftover tenant layout in any other non-html format is ignored too", async () => {
+    const result = await renderWithLegacyTenantLayout(30, "markdown");
     expect(result.html).not.toContain("LEGACY_TENANT_MJML_MARKER");
     expect(result.html).toContain("SYSTEM_LAYOUT_MARKER");
     expect(result.layout?.scope).toBe("system");

@@ -1,5 +1,5 @@
-// Per-recipient limit on the public § 312k declaration (additionalRateLimits):
-// a botnet rotating IPs must not flood one address with confirmation mails.
+// Per-recipient cap on the receipt mail of the public § 312k declaration: a botnet
+// rotating IPs must not flood one address, yet the declaration is never refused.
 // Real HTTP, real Redis rate limiter; the client IP comes from X-Forwarded-For.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -57,7 +57,7 @@ import { createSubscriptionWebhookRoute } from "../webhook-handler.js";
 const PROVIDER = "mock-recipient-limit-provider";
 const TERMS_SLUG = "billing-terms";
 const ANONYMOUS_TENANT = testTenantId(8300);
-const RATE_LIMIT_KEY_PATTERN = "kumiko:rl:payload+handler:*";
+const RATE_LIMIT_KEY_PATTERN = "kumiko:rl:termination-receipt:*";
 
 const consumerProtection: ConsumerProtectionOptions = {
   termsTextBlock: TERMS_SLUG,
@@ -239,76 +239,85 @@ async function seedMatchingContract(email: string): Promise<void> {
   expect(res.status).toBe(200);
 }
 
-type LimitedBody = {
-  error: {
-    code: string;
-    i18nKey: string;
-    details: { limit: number; windowSeconds: number; remaining: number };
-  };
-};
-
-// Request id and timestamps legitimately differ per request; everything a caller could use to tell a
-// matched address from an unmatched one must not.
-function distinguishingParts(body: LimitedBody) {
-  const { code, i18nKey, details } = body.error;
-  return {
-    code,
-    i18nKey,
-    limit: details.limit,
-    windowSeconds: details.windowSeconds,
-    remaining: details.remaining,
-  };
+function receiptMailsTo(address: string) {
+  return emailTransport.sent.filter((mail) => mail.to === address);
 }
 
-describe("per-recipient limit on request-contract-termination", () => {
-  test("a fourth declaration for one address is rejected even from a fresh IP", async () => {
+function operatorMails() {
+  return emailTransport.sent.filter((mail) => mail.to === consumerProtection.operatorEmail);
+}
+
+describe("per-recipient receipt limit on request-contract-termination", () => {
+  test("the declaration is always accepted, only the fourth receipt mail is withheld", async () => {
     const email = "flooded@example.com";
-    for (let i = 0; i < 3; i += 1) {
+    for (let i = 0; i < 4; i += 1) {
       expect((await declare(email)).status).toBe(200);
     }
-    const fourth = await declare(email);
-    expect(fourth.status).toBe(429);
-    const bodyText = await fourth.text();
-    expect((JSON.parse(bodyText) as LimitedBody).error.code).toBe("rate_limited");
-    expect(bodyText).not.toContain(email);
-    // The Redis key ends in the address digest; the 429 body must not leak it.
-    const [bucketKey] = await scanKeys(RATE_LIMIT_KEY_PATTERN);
-    const digest = bucketKey?.slice(bucketKey.lastIndexOf(":") + 1) ?? "";
-    expect(digest).toMatch(/^[0-9a-f]{64}$/);
-    expect(bodyText).not.toContain(digest);
     await stack.drainJobs();
-    expect(emailTransport.sent.filter((mail) => mail.to === email)).toHaveLength(3);
+    expect(receiptMailsTo(email)).toHaveLength(3);
+    // Three unmatched notices plus the fourth that reports the withheld receipt.
+    const notices = operatorMails();
+    expect(notices).toHaveLength(4);
+    expect(notices.filter((mail) => mail.html.includes("Keine Eingangsbestätigung"))).toHaveLength(
+      1,
+    );
   });
 
   test("a matched and an unmatched address behave identically at the limit", async () => {
     const hit = "hit@example.com";
     const miss = "miss@example.com";
     await seedMatchingContract(hit);
-    const outcomes: Record<string, { statuses: number[]; limitedBody: LimitedBody | undefined }> =
-      {};
     for (const email of [hit, miss]) {
-      const statuses: number[] = [];
-      let limitedBody: LimitedBody | undefined;
       for (let i = 0; i < 4; i += 1) {
-        const res = await declare(email);
-        statuses.push(res.status);
-        if (res.status === 429) limitedBody = (await res.json()) as LimitedBody;
+        expect((await declare(email)).status).toBe(200);
       }
-      outcomes[email] = { statuses, limitedBody };
     }
-    expect(outcomes[hit]?.statuses).toEqual([200, 200, 200, 429]);
-    expect(outcomes[miss]?.statuses).toEqual(outcomes[hit]?.statuses ?? []);
-    const hitBody = outcomes[hit]?.limitedBody;
-    const missBody = outcomes[miss]?.limitedBody;
-    if (!hitBody || !missBody) throw new Error("expected a 429 body for both addresses");
-    expect(distinguishingParts(missBody)).toEqual(distinguishingParts(hitBody));
+    await stack.drainJobs();
+    expect(receiptMailsTo(hit)).toHaveLength(3);
+    expect(receiptMailsTo(miss)).toHaveLength(3);
   });
 
-  test("case variants of one address share a single bucket", async () => {
-    expect((await declare("Foo@Example.com")).status).toBe(200);
+  test("case variants and plus-tags of one address share a single bucket", async () => {
+    for (const email of ["Foo@Example.com", "foo@example.com", "FOO+news@EXAMPLE.COM"]) {
+      expect((await declare(email)).status).toBe(200);
+    }
     expect((await declare("foo@example.com")).status).toBe(200);
-    expect((await declare("FOO@EXAMPLE.COM")).status).toBe(200);
-    expect((await declare("foo@example.com")).status).toBe(429);
+    await stack.drainJobs();
+    const received = emailTransport.sent.filter(
+      (mail) => mail.to.toLowerCase().replace(/\+news/, "") === "foo@example.com",
+    );
+    expect(received).toHaveLength(3);
+  });
+
+  test("the receipt carries no free text from the declarant", async () => {
+    const response = await stack.app.request("/api/write", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": nextClientIp() },
+      body: JSON.stringify({
+        type: SubscriptionFoundationHandlers.requestContractTermination,
+        payload: {
+          declarationType: "termination",
+          terminationKind: "extraordinary",
+          name: "Zebra Quirkmann",
+          email: "freetext@example.com",
+          customerReference: "ref-needle-4711",
+          reason: "reason-needle-4711 http://evil.example",
+          locale: "de",
+        },
+      }),
+    });
+    expect(response.status).toBe(200);
+    await stack.drainJobs();
+    const [receipt] = receiptMailsTo("freetext@example.com");
+    expect(receipt?.html).toBeDefined();
+    for (const needle of ["Zebra", "ref-needle", "reason-needle", "evil.example"]) {
+      expect(receipt?.html).not.toContain(needle);
+    }
+    expect(
+      operatorMails()
+        .map((mail) => mail.html)
+        .join("\n"),
+    ).toContain("reason-needle-4711");
   });
 
   test("Redis holds neither the address nor its local part in any bucket key", async () => {

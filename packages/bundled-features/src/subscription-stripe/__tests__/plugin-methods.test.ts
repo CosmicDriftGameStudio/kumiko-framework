@@ -420,6 +420,41 @@ describe("createStripePortalSession", () => {
       return_url: "https://example.com/return",
     });
   });
+
+  test("unknown customer → UnprocessableError instead of the raw Stripe error", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.billingPortal.sessions, "create").mockRejectedValue(
+      new Stripe.errors.StripeInvalidRequestError({
+        type: "invalid_request_error",
+        code: "resource_missing",
+        param: "customer",
+        message: "No such customer: 'cus_stale'",
+      }),
+    );
+
+    const portal = createStripePortalSession(ctxRuntime(stripe));
+    const error = await portal(stubCtx, {
+      providerCustomerId: "cus_stale",
+      returnUrl: "https://example.com/return",
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(UnprocessableError);
+    expect(error).toMatchObject({
+      i18nKey: "billing-foundation.errors.providerCustomerUnknown",
+      details: { reason: "provider_customer_unknown" },
+    });
+  });
+
+  test("other Stripe errors are propagated unchanged", async () => {
+    const stripe = buildStripe();
+    const failure = new Error("Stripe API: Internal server error");
+    spyOn(stripe.billingPortal.sessions, "create").mockRejectedValue(failure);
+
+    const portal = createStripePortalSession(ctxRuntime(stripe));
+    await expect(
+      portal(stubCtx, { providerCustomerId: "cus_001", returnUrl: "https://example.com/return" }),
+    ).rejects.toBe(failure);
+  });
 });
 
 // =============================================================================

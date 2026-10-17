@@ -4,6 +4,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -570,5 +571,105 @@ describe("template-resolver :: copy-locale scope system", () => {
       tenantA,
     );
     expect(res.status).toBe(403);
+  });
+});
+
+describe("template-resolver :: copy-locale source resolution", () => {
+  async function contentOf(templateId: string, as: Caller): Promise<string | undefined> {
+    const found = await stack.http.queryOk<{ content: string } | null>(
+      TemplateResolverQueries.findById,
+      { id: templateId },
+      as,
+    );
+    return found?.content;
+  }
+
+  test("an archived tenant source is ignored and the active system row is copied", async () => {
+    await createTemplate(systemAdmin, "copy-archived-source");
+    const own = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "copy-archived-source",
+        kind: "mail",
+        meta: { subject: "Hello" },
+        locale: "de",
+        content: "<p>tenant text</p>",
+        contentFormat: "html",
+        variableSchema: {},
+        status: "active",
+      },
+      tenantA,
+    );
+    await stack.http.writeOk(TemplateResolverHandlers.archive, { id: own.id }, tenantA);
+
+    const copied = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.copyLocale,
+      { slug: "copy-archived-source", kind: "mail", fromLocale: "de", toLocale: "en" },
+      tenantA,
+    );
+    expect(await contentOf(copied.id, tenantA)).toBe("<p>Hello</p>");
+  });
+
+  test("copy from the system default gives the tenant its own attachment files that export", async () => {
+    const systemTemplateId = await createTemplate(systemAdmin, "copy-system-files");
+    const sourceFileRefId = await uploadPdf(systemAdmin);
+    const systemAttachment = await stack.http.writeOk<AttachmentResult>(
+      TemplateResolverHandlers.resourceUpload,
+      {
+        sourceFileRefId,
+        templateId: systemTemplateId,
+        key: "offer",
+        purpose: "attachment",
+        fileName: "offer.pdf",
+        tenantIdOverride: SYSTEM_TENANT_ID,
+      },
+      systemAdmin,
+    );
+
+    const copied = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.copyLocale,
+      { slug: "copy-system-files", kind: "mail", fromLocale: "de", toLocale: "en" },
+      tenantA,
+    );
+    const linked = await linkedOf(copied.id, tenantA);
+    const entry = linked["offer"] as { kind: string; fileRefId: string; fileName: string };
+    expect(entry).toMatchObject({ kind: "file", fileName: "offer.pdf" });
+    expect(entry.fileRefId).not.toBe(systemAttachment.fileRefId);
+
+    const [row] = await selectMany<{ tenantId: string }>(stack.db, fileRefsTable, {
+      id: entry.fileRefId,
+    });
+    expect(row?.tenantId).toBe(tenantA.tenantId);
+
+    const bundle = await stack.http.queryOk<{
+      resources: Record<string, { base64: string }>;
+    }>(TemplateResolverQueries.exportBundle, { slug: "copy-system-files", kind: "mail" }, tenantA);
+    expect(
+      Buffer.from(bundle.resources["offer"]?.base64 ?? "", "base64").equals(Buffer.from(PDF_BYTES)),
+    ).toBe(true);
+  });
+
+  test("export-bundle refuses locales that differ in their variable schema", async () => {
+    await createTemplate(tenantA, "export-mixed-format", "mail", "de");
+    const second = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "export-mixed-format",
+        kind: "mail",
+        meta: { subject: "Hello" },
+        locale: "en",
+        content: "<p>Hello</p>",
+        contentFormat: "html",
+        variableSchema: { name: { type: "string" } },
+      },
+      tenantA,
+    );
+    expect(second.id).toBeString();
+    const err = await stack.http.queryErr(
+      TemplateResolverQueries.exportBundle,
+      { slug: "export-mixed-format", kind: "mail" },
+      tenantA,
+    );
+    expectErrorIncludes(err, "bundle_locales_differ");
   });
 });

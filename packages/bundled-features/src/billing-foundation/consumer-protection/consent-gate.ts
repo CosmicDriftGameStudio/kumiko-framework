@@ -3,7 +3,7 @@
 
 import { createHash } from "node:crypto";
 import { type HandlerContext, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import {
@@ -15,6 +15,7 @@ import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js"
 import {
   CHECKOUT_CONSENT_RECORDED_EVENT_QN,
   type CheckoutConsentRecordedPayload,
+  checkoutConsentRecordedPayloadSchema,
   PAYMENT_AGGREGATE_TYPE,
   SUBSCRIPTION_AGGREGATE_TYPE,
 } from "../events.js";
@@ -49,6 +50,26 @@ export type OrderItem = {
   readonly labelKey: string;
   readonly params?: Readonly<Record<string, string | number>>;
 };
+
+// Bounds come from the event schema the label ends up in, so an app label that
+// passes here cannot fail the append after the provider session exists.
+const orderItemSchema = z.object({
+  labelKey: checkoutConsentRecordedPayloadSchema.shape.itemLabelKey.unwrap(),
+  params: checkoutConsentRecordedPayloadSchema.shape.itemLabelParams,
+});
+
+/** Throws an InternalError (an app configuration fault, not a buyer error) for a
+ *  label the consent event could not store. */
+export function assertValidOrderItem(item: OrderItem | undefined, priceId: string): void {
+  // skip: subscription checkouts have no one-off order item
+  if (item === undefined) return;
+  const parsed = orderItemSchema.safeParse(item);
+  if (!parsed.success) {
+    throw new InternalError({
+      message: `billing-foundation: consumerProtection.oneOffItemLabel returned an invalid label for priceId "${priceId}": ${parsed.error.message}`,
+    });
+  }
+}
 
 export type ConsentPriceDetails = {
   readonly tier: string | null;

@@ -179,14 +179,7 @@ import { useToast } from "./toast.js";
 import { TzInput } from "./tz-input.js";
 import { useKeyboardInset } from "./use-keyboard-inset.js";
 import { useIsBelowSmViewport, useIsNarrowViewport } from "./use-narrow-viewport.js";
-
-// React passes CSS custom properties through `style` unchanged, but csstype only
-// lists standard properties, so `--name` keys need this augmentation.
-declare module "react" {
-  interface CSSProperties {
-    [customProperty: `--${string}`]: string | number | undefined;
-  }
-}
+import "../react-css-custom-properties.js";
 
 // ---- Card-Chrome (eine Definition für Form/Section/Card) ----
 
@@ -1462,7 +1455,7 @@ function DataTableFooter({
 // Cell content is a ReactNode, so the tooltip text is read from the rendered DOM.
 function showFullTextOnHover(event: PointerEvent<HTMLElement>): void {
   const element = event.currentTarget;
-  if (element.title === "") element.title = element.textContent ?? "";
+  element.title = element.scrollWidth > element.clientWidth ? (element.textContent ?? "") : "";
 }
 
 function DefaultDataTable({
@@ -1697,19 +1690,16 @@ function DefaultDataTable({
                 );
               }
               const row = item.row;
+              const opensOnClick = rowIsLink && !rowClickIsHidden(row);
               return (
                 <Fragment key={row.id}>
                   <TableRow
                     data-testid={rowTestId(row)}
                     data-tone={rowTone?.(row)}
-                    onClick={
-                      onRowClick !== undefined && !rowClickIsHidden(row)
-                        ? () => onRowClick(row)
-                        : undefined
-                    }
+                    onClick={opensOnClick ? () => onRowClick(row) : undefined}
                     className={cn(
                       rowToneClass(rowTone?.(row)),
-                      rowIsLink && !rowClickIsHidden(row) && "cursor-pointer",
+                      opensOnClick && "cursor-pointer",
                       fillsHeight && "h-10 border-border-row hover:bg-muted",
                     )}
                   >
@@ -1747,12 +1737,7 @@ function DefaultDataTable({
                         title={cellTitle(row.values[col.field])}
                       >
                         <FirstCellLink
-                          enabled={
-                            colIndex === 0 &&
-                            onRowClick !== undefined &&
-                            !rowClickIsHidden(row) &&
-                            onCellChange === undefined
-                          }
+                          enabled={colIndex === 0 && opensOnClick && onCellChange === undefined}
                           onOpen={() => onRowClick?.(row)}
                           empty={isEmptyCellValue(row.values[col.field])}
                           emptyLabel={rowClickLabel}
@@ -3348,7 +3333,11 @@ function DataTableCell({
   if (value === PII_ERASED_SENTINEL && translate !== undefined) {
     return translate("kumiko.pii.erased");
   }
-  if (typeof value === "boolean" && isUnlabeledBooleanFormat(renderer)) {
+  if (
+    typeof value === "boolean" &&
+    isBooleanColumn(type, renderer) &&
+    (renderer === undefined || isUnlabeledBooleanFormat(renderer))
+  ) {
     return <BooleanCell value={value} translate={translate} />;
   }
   if (isUnlabeledFalse(type, value, renderer)) {
@@ -3759,6 +3748,8 @@ function FormFooter({
     stickyActions === true && !pinned && isBelowSm && keyboardInset > 0
       ? { bottom: keyboardInset }
       : undefined;
+  // Below sm the pinned footer swaps to NarrowPinnedFooter; the subtree remounts, so a
+  // confirm dialog owned by an action button closes on a breakpoint change (rotate, resize).
   if (pinned && isBelowSm) {
     return (
       <NarrowPinnedFooter
@@ -3769,6 +3760,11 @@ function FormFooter({
             : t("kumiko.list.row-actions.more")
         }
         unsavedCount={unsavedCount}
+        unsavedStatus={
+          unsavedCount !== undefined && unsavedCount > 0
+            ? unsavedStatusText(t, unsavedCount)
+            : undefined
+        }
         testId={testId}
         keyboardInset={keyboardInset}
       />

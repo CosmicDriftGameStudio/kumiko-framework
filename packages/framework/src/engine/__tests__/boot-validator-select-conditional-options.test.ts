@@ -33,6 +33,24 @@ describe("validateBoot — select conditionalOptions on entity fields", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
+  test.each([
+    ["eq", { field: "kind", eq: "hearbeat" }],
+    ["ne", { field: "kind", ne: "hearbeat" }],
+    ["in", { field: "kind", in: ["http", "hearbeat"] }],
+    ["notIn", { field: "kind", notIn: ["hearbeat"] }],
+  ] as const)(
+    "a when.%s value that is not an option of the condition field throws",
+    (_op, when) => {
+      const feature = monitorFeature({
+        ...base,
+        conditionalOptions: [{ options: ["3600"], when }],
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /conditionalOptions\[0\]\.when value "hearbeat" which is not an option of "kind"/,
+      );
+    },
+  );
+
   test("an empty rule throws", () => {
     const feature = monitorFeature({ ...base, conditionalOptions: [heartbeatOnly([])] });
     expect(() => validateBoot([feature])).toThrow(/empty conditionalOptions\[0\]\.options/);

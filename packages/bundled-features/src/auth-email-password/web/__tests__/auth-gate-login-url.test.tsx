@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -8,6 +8,7 @@ import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../../i18n.js";
+import type { MfaSetupComponentProps, MfaVerifyComponentProps } from "../auth-gate.js";
 import {
   makeSessionAuthGate,
   resolveLoginRedirect,
@@ -69,13 +70,16 @@ function mockBackend(opts: { readonly signedIn: boolean }): void {
   }) as unknown as typeof fetch;
 }
 
-function mockLoginBackend(): void {
+function mockLoginBackend(loginBody: Record<string, unknown> = {}): void {
   let loggedIn = false;
   globalThis.fetch = mock(async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : input.toString();
     const user = { id: "u1", email: "u@example.com", displayName: "U", roles: [] };
     if (url === "/api/auth/login") {
       loggedIn = true;
+      if (Object.keys(loginBody).length > 0) {
+        return new Response(JSON.stringify({ isSuccess: true, ...loginBody }), { status: 200 });
+      }
       return new Response(JSON.stringify({ isSuccess: true, token: "t", user }), { status: 200 });
     }
     if (!loggedIn) return new Response(null, { status: 401 });
@@ -211,6 +215,65 @@ describe("auth gate login route and builder", () => {
     fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/a/settings?tab=2"));
+  });
+
+  async function submitLogin(): Promise<void> {
+    await waitFor(() => screen.getByLabelText(/^Email/));
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "u@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "pw-1234567" } });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+  }
+
+  function StubMfaVerify({ onSuccess }: MfaVerifyComponentProps): ReactNode {
+    return (
+      <button type="button" onClick={() => onSuccess?.()}>
+        verify-mfa
+      </button>
+    );
+  }
+
+  function StubMfaSetup({ onSuccess }: MfaSetupComponentProps): ReactNode {
+    return (
+      <button type="button" onClick={() => onSuccess?.()}>
+        setup-mfa
+      </button>
+    );
+  }
+
+  test("a successful MFA verify follows a valid next", async () => {
+    window.history.replaceState(null, "", "/login?next=%2Fa%2Fsettings%3Ftab%3D2");
+    mockLoginBackend({ mfaRequired: true, challengeToken: "ch-1" });
+
+    renderGate({ loginUrl: "/login", mfaVerifyScreen: StubMfaVerify });
+    await submitLogin();
+    fireEvent.click(await screen.findByRole("button", { name: "verify-mfa" }));
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/a/settings?tab=2"));
+  });
+
+  test("a successful MFA setup refreshes the session, then follows a valid next", async () => {
+    window.history.replaceState(null, "", "/login?next=%2Fa%2Fsettings%3Ftab%3D2");
+    mockLoginBackend({ mfaSetupRequired: true, preauthSetupToken: "pre-1" });
+
+    renderGate({ loginUrl: "/login", mfaSetupScreen: StubMfaSetup });
+    await submitLogin();
+    fireEvent.click(await screen.findByRole("button", { name: "setup-mfa" }));
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/a/settings?tab=2"));
+    expect(screen.getByTestId("protected")).toBeTruthy();
+  });
+
+  test("a loginUrl builder returning an invalid URL falls back to the login screen", async () => {
+    window.history.replaceState(null, "", "/a/settings");
+    mockBackend({ signedIn: false });
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+
+    renderGate({ loginUrl: () => "javascript:alert(1)" });
+
+    await waitFor(() => expect(screen.getByLabelText(/password/i)).toBeTruthy());
+    expect(replaceMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   test("a successful login ignores an open-redirect next", async () => {

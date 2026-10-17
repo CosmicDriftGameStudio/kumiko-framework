@@ -553,18 +553,20 @@ describe("tenant run state housekeeping", () => {
   const statusOf = async (bullJobId: string) =>
     (await selectMany<{ status: string }>(db, tenantJobRunsTable, { bullJobId }))[0]?.status;
 
-  test("the stale sweep fails old running rows and drops old queued rows", async () => {
+  test("the stale sweep fails old running rows and drops queued rows older than the retention window", async () => {
     await seed("sweep-running-old", "running", 48);
     await seed("sweep-running-new", "running", 1);
-    await seed("sweep-queued-old", "queued", 48);
+    await seed("sweep-queued-lost", "queued", 24 * 40);
+    await seed("sweep-queued-waiting", "queued", 48);
     await seed("sweep-queued-new", "queued", 1);
     await seed("sweep-completed-old", "completed", 48);
 
-    await markStaleJobRunsFailed(db, 24);
+    await markStaleJobRunsFailed(db, 24, 30);
 
     expect(await statusOf("sweep-running-old")).toBe("failed");
     expect(await statusOf("sweep-running-new")).toBe("running");
-    expect(await statusOf("sweep-queued-old")).toBeUndefined();
+    expect(await statusOf("sweep-queued-lost")).toBeUndefined();
+    expect(await statusOf("sweep-queued-waiting")).toBe("queued");
     expect(await statusOf("sweep-queued-new")).toBe("queued");
     expect(await statusOf("sweep-completed-old")).toBe("completed");
   });

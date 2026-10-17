@@ -74,7 +74,9 @@ export type ConfigValidateContext = {
   readonly scope: ConfigScope;
   readonly tenantId: TenantId;
   readonly userId: string | null;
-  readonly db: DbConnection | TenantDb;
+  // Tenant-mode handle bound to `tenantId` (the tenant the value is written for): reads see
+  // that tenant's rows plus reference data, never other tenants'.
+  readonly db: TenantDb;
 };
 
 export type ConfigValidateFn<T extends ConfigKeyType = ConfigKeyType> = (
@@ -140,6 +142,8 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // and boot must not depend on a validator's I/O).
   // The error reaches the caller unchanged: keep the raw value out of its details for
   // encrypted keys.
+  // Runs inside the write transaction, so it holds the dispatcher's DB connection for its whole
+  // duration: external I/O (DNS, HTTP) needs its own short timeout, the framework sets none.
   readonly validate?: ConfigValidateFn<T>;
   // Per-Request opt-in. Default false — resolveConfigOrParam wirft für
   // Keys ohne diese Marke, auch wenn der Caller paramValue übergibt. Das

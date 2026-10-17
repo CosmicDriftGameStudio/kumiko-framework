@@ -29,7 +29,7 @@ import type {
 // Static import (not getTemporal()): coercion works without an installed
 // global and returns the same Temporal classes as the rest of the repo (#1480).
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { isOneOf, isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type {
   JsonTextMatch,
   SelectOptions,
@@ -469,8 +469,15 @@ function plainDateFromDriver(value: unknown, column: string): Temporal.PlainDate
 //   - coerce timestamptz Date/string → Temporal.Instant
 //
 // Unknown columns (computed/aliased) pass through unchanged.
-export function coerceRow<T>(row: T, info: TableInfo): T {
-  if (!isPlainObject(row)) return row;
+export function coerceRow<TOut = Record<string, unknown>>(
+  row: Record<string, unknown>,
+  info: TableInfo,
+): TOut {
+  // @cast-boundary db-row — the driver row (raw column names/types) becomes the caller's entity row shape here, and only here
+  return coerceDriverRow(row, info) as TOut;
+}
+
+function coerceDriverRow(row: Record<string, unknown>, info: TableInfo): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   let changed = false;
   for (const key of Object.keys(row)) {
@@ -532,11 +539,14 @@ export function coerceRow<T>(row: T, info: TableInfo): T {
     if (coerced !== value) changed = true;
     out[fieldName] = coerced;
   }
-  return (changed ? out : row) as T;
+  return changed ? out : row;
 }
 
-function coerceRows<T>(rows: readonly T[], info: TableInfo): readonly T[] {
-  return rows.map((r) => coerceRow(r, info));
+function coerceRows<TOut>(
+  rows: readonly Record<string, unknown>[],
+  info: TableInfo,
+): readonly TOut[] {
+  return rows.map((r) => coerceRow<TOut>(r, info));
 }
 
 // Helper for jsonb values: structured values bind as a JS object/array with
@@ -694,8 +704,14 @@ function buildWhereClause(
           throw new Error(`where: jsonText requires a jsonb column, "${col}" is ${pgType}`);
         }
         const matches = isJsonTextMatchList(value.jsonText) ? value.jsonText : [value.jsonText];
+        if (matches.length === 0) {
+          conditions.push("FALSE");
+          continue;
+        }
         for (const match of matches) {
           if (
+            match === null ||
+            typeof match !== "object" ||
             !Array.isArray(match.keys) ||
             match.keys.length === 0 ||
             !match.keys.every((k) => typeof k === "string") ||
@@ -1037,8 +1053,8 @@ export async function selectMany<TRow = any>(
     }
     sqlText += ` LIMIT ${options.limit}`;
   }
-  const raw = await unsafeReadRetrying<TRow>(db, sqlText, values);
-  return coerceRows(raw, info);
+  const raw = await unsafeReadRetrying<Record<string, unknown>>(db, sqlText, values);
+  return coerceRows<TRow>(raw, info);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -1149,8 +1165,8 @@ export async function selectInnerJoin<
       (side === "left" ? leftRow : rightRow)[column] = row[`c${index}`];
     });
     return {
-      left: coerceRow(leftRow, leftInfo) as TLeft,
-      right: coerceRow(rightRow, rightInfo) as TRight,
+      left: coerceRow<TLeft>(leftRow, leftInfo),
+      right: coerceRow<TRight>(rightRow, rightInfo),
     };
   });
 }
@@ -1192,11 +1208,11 @@ export async function insertMany<TRow = any>(
     valuesClauses.push(`(${placeholders.join(", ")})`);
   }
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES ${valuesClauses.join(", ")} RETURNING *`;
-  const raw = await unsafeLoggingClosedConnection<TRow>(db, sqlText, params, {
+  const raw = await unsafeLoggingClosedConnection<Record<string, unknown>>(db, sqlText, params, {
     operation: "insertMany",
     table: info.name,
   });
-  return coerceRows(raw, info);
+  return coerceRows<TRow>(raw, info);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -1228,13 +1244,13 @@ export async function insertOne<TRow = any>(
     })
     .join(", ");
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES (${placeholders}) RETURNING *`;
-  const rows = await unsafeLoggingClosedConnection<TRow>(db, sqlText, params, {
+  const rows = await unsafeLoggingClosedConnection<Record<string, unknown>>(db, sqlText, params, {
     operation: "insertOne",
     table: info.name,
   });
   const first = rows[0];
   if (!first) return undefined;
-  return coerceRow(first, info);
+  return coerceRow<TRow>(first, info);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -1273,11 +1289,11 @@ export async function updateMany<TRow = any>(
     for (const v of w.values) values.push(v);
   }
   sqlText += " RETURNING *";
-  const raw = await unsafeLoggingClosedConnection<TRow>(db, sqlText, values, {
+  const raw = await unsafeLoggingClosedConnection<Record<string, unknown>>(db, sqlText, values, {
     operation: "updateMany",
     table: info.name,
   });
-  return coerceRows(raw, info);
+  return coerceRows<TRow>(raw, info);
 }
 
 export async function deleteMany(
@@ -1551,13 +1567,13 @@ export async function upsertOnConflict<TRow = any>(
 
   const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
   const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO UPDATE SET ${updateParts.join(", ")} RETURNING *`;
-  const rows = await unsafeLoggingClosedConnection<TRow>(db, sqlText, params, {
+  const rows = await unsafeLoggingClosedConnection<Record<string, unknown>>(db, sqlText, params, {
     operation: "upsertOnConflict",
     table: info.name,
   });
   const first = rows[0];
   if (!first) return undefined;
-  return coerceRow(first, info);
+  return coerceRow<TRow>(first, info);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default
@@ -1592,13 +1608,13 @@ export async function insertOnConflictDoNothing<TRow = any>(
   const { sqlPrefix, params } = buildInsertSql(info, entries);
   const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
   const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO NOTHING RETURNING *`;
-  const rows = await unsafeLoggingClosedConnection<TRow>(db, sqlText, params, {
+  const rows = await unsafeLoggingClosedConnection<Record<string, unknown>>(db, sqlText, params, {
     operation: "insertOnConflictDoNothing",
     table: info.name,
   });
   const first = rows[0];
   if (!first) return undefined;
-  return coerceRow(first, info);
+  return coerceRow<TRow>(first, info);
 }
 
 export type IncrementCounterOptions = {
@@ -1658,13 +1674,13 @@ export async function incrementCounter<TRow = any>(
 
   const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
   const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO UPDATE SET ${updateParts.join(", ")} RETURNING *`;
-  const rows = await unsafeLoggingClosedConnection<TRow>(db, sqlText, params, {
+  const rows = await unsafeLoggingClosedConnection<Record<string, unknown>>(db, sqlText, params, {
     operation: "incrementCounter",
     table: info.name,
   });
   const first = rows[0];
   if (!first) return undefined;
-  return coerceRow(first, info);
+  return coerceRow<TRow>(first, info);
 }
 
 export async function deleteManyBatched(

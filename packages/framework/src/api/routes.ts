@@ -13,6 +13,7 @@ import {
 } from "../errors/index.js";
 import { createFallbackLogger } from "../logging/index.js";
 import type { Dispatcher } from "../pipeline/dispatcher.js";
+import { isPlainObject } from "../utils/is-plain-object.js";
 import { stringifyJson } from "../utils/safe-json.js";
 import { Routes } from "./api-constants.js";
 import { getAuthTokenExpiry, getUser } from "./auth-middleware.js";
@@ -64,12 +65,11 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
 
   api.post(Routes.batch, async (c) => {
     const user = getUser(c);
-    const body = await readJsonObject<{
-      commands?: Array<{ type: string; payload: unknown }>;
-      requestId?: string;
-    }>(c);
+    const body = await readJsonObject(c);
+    const requestId = parseRequestId(body["requestId"]);
+    const rawCommands = body["commands"];
 
-    if (!Array.isArray(body.commands)) {
+    if (!Array.isArray(rawCommands)) {
       // Client-shape violation → ValidationError (400, code=validation_error)
       // matches what a Zod-level schema failure would produce if /batch had
       // one. Client SDKs can key off the uniform validation contract.
@@ -81,26 +81,30 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
               path: "commands",
               code: "invalid_type",
               i18nKey: "errors.validation.invalid_type",
-              params: { expected: "array", received: typeof body.commands },
+              params: { expected: "array", received: typeof rawCommands },
             },
           ],
         }),
       );
     }
 
+    const commands = rawCommands.map((raw, index) =>
+      parseDispatchCommand(raw, `commands.${index}`),
+    );
+
     try {
-      for (const cmd of body.commands) assertPayloadDepthAllowed(cmd.payload);
+      for (const cmd of commands) assertPayloadDepthAllowed(cmd.payload);
       if (user.pat) {
-        for (const cmd of body.commands) assertPatAllowed(user, cmd.type);
+        for (const cmd of commands) assertPatAllowed(user, cmd.type);
       }
-      const result = await dispatcher.batch(body.commands, user, body.requestId);
+      const result = await dispatcher.batch(commands, user, requestId);
       if (!result.isSuccess) {
         const err = reraiseAsKumikoError(result.error);
-        const requestId = requestContext.get()?.requestId;
+        const ctxRequestId = requestContext.get()?.requestId;
         const failedType =
-          result.failedIndex != null ? body.commands[result.failedIndex]?.type : undefined;
-        logServerFault(err, requestId, failedType);
-        const { error } = serializeError(err, requestId, requestContext.get()?.errorDocs);
+          result.failedIndex != null ? commands[result.failedIndex]?.type : undefined;
+        logServerFault(err, ctxRequestId, failedType);
+        const { error } = serializeError(err, ctxRequestId, requestContext.get()?.errorDocs);
         setRetryAfterHeader(c, err);
         // Keep failedIndex + results alongside the error envelope so callers
         // can tell which command in the batch failed and inspect the partial
@@ -119,7 +123,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
       return c.json(result);
     } catch (e) {
       // single "type" doesn't apply to a batch; command types keep the fault context.
-      return writeErrorResponse(c, toKumiko(e), body.commands?.map((cmd) => cmd.type).join(","));
+      return writeErrorResponse(c, toKumiko(e), commands.map((cmd) => cmd.type).join(","));
     }
   });
 
@@ -322,25 +326,46 @@ function invalidBodyError(path: string, expected: string, received: string): Val
 }
 
 // Malformed or non-object JSON is a client error; letting c.req.json() throw
-// would surface as an unclassified 500.
-// @cast-boundary request-body — shape is validated per route right after
-async function readJsonObject<T extends object>(c: Context): Promise<T> {
+// would surface as an unclassified 500. Callers validate the fields they read.
+async function readJsonObject(c: Context): Promise<Record<string, unknown>> {
   const raw: unknown = await c.req.json().catch(() => undefined);
   if (raw === undefined) throw invalidBodyError("body", "json", "malformed");
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+  if (!isPlainObject(raw)) {
     throw invalidBodyError("body", "object", raw === null ? "null" : typeof raw);
   }
-  return raw as T;
+  return raw;
+}
+
+function parseRequestId(raw: unknown): string | undefined {
+  if (raw === undefined || typeof raw === "string") return raw;
+  throw invalidBodyError("requestId", "string", typeof raw);
+}
+
+type DispatchCommandInput = { readonly type: string; readonly payload: unknown };
+
+// `path` prefixes the reported field path; empty for a top-level body.
+function parseDispatchCommand(raw: unknown, path: string): DispatchCommandInput {
+  const at = (key: string) => (path === "" ? key : `${path}.${key}`);
+  if (!isPlainObject(raw)) {
+    throw invalidBodyError(
+      path === "" ? "body" : path,
+      "object",
+      raw === null ? "null" : typeof raw,
+    );
+  }
+  const type = raw["type"];
+  if (typeof type !== "string" || type === "") {
+    throw invalidBodyError(at("type"), "string", typeof type);
+  }
+  return { type, payload: raw["payload"] };
 }
 
 async function readDispatchBody(
   c: Context,
 ): Promise<{ type: string; payload: unknown; requestId?: string }> {
-  const body = await readJsonObject<{ type?: unknown; payload?: unknown; requestId?: string }>(c);
-  if (typeof body.type !== "string" || body.type === "") {
-    throw invalidBodyError("type", "string", typeof body.type);
-  }
-  return { type: body.type, payload: body.payload, requestId: body.requestId };
+  const body = await readJsonObject(c);
+  const command = parseDispatchCommand(body, "");
+  return { ...command, requestId: parseRequestId(body["requestId"]) };
 }
 
 // Rejects payloads nested deeper than MAX_PAYLOAD_DEPTH before they reach

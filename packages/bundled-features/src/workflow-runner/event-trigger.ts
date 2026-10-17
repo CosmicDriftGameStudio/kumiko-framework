@@ -22,6 +22,7 @@ import {
   describeWorkflowStepError,
   getStep,
   SYSTEM_TENANT_ID,
+  unwrapWorkflowStepError,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RUN_FAILED_TYPE,
   WorkflowStepError,
@@ -167,7 +168,7 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
             runId,
             workflowName: workflow.name,
             stepIndex,
-            error: String(error),
+            error: String(unwrapWorkflowStepError(error)),
           });
           const failedPayload: WorkflowRunFailedPayload = {
             workflowName: workflow.name,

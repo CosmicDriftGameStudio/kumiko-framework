@@ -5,6 +5,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
+import { asRawClient } from "../../bun-db/index.js";
 import {
   createEntity,
   createImageField,
@@ -264,5 +265,33 @@ describe("GET /api/files/:id/variant/:name", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Type")).toBe("image/jpeg");
+  });
+});
+
+// A tenant handover moves the fileRow's ownership, not the bytes: the storageKey keeps the
+// previous tenant's prefix, and the new tenant must still read the file and its variants.
+describe("after a tenant handover (row moved, bytes stay under the old prefix)", () => {
+  async function moveFileRowTo(fileId: string, destinationTenantId: string): Promise<void> {
+    await asRawClient(stack.db).unsafe(`UPDATE file_refs SET tenant_id = $2 WHERE id = $1`, [
+      fileId,
+      destinationTenantId,
+    ]);
+  }
+
+  test("the new tenant downloads the original and requests a variant", async () => {
+    const fileId = await uploadFile();
+    await moveFileRowTo(fileId, otherTenantId);
+    const token = await stack.jwt.sign(otherTenantUser);
+
+    const download = await stack.app.request(`/api/files/${fileId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const variant = await stack.app.request(`/api/files/${fileId}/variant/thumb`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    expect(download.status).toBe(200);
+    expect(variant.status).toBe(200);
+    expect(new Uint8Array(await variant.arrayBuffer())).toEqual(VARIANT_BYTES);
   });
 });

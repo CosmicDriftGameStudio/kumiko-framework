@@ -398,6 +398,63 @@ describe("event-store-executor — detail liefert die Stream-Version", () => {
     const after = await crud.detail({ id }, adminUser, tdb);
     expect(after?.["firstName"]).toBe("B");
   });
+
+  test("list after a stream bump returns the stream version", async () => {
+    const created = await crud.create({ email: "list-stream@test.de" }, adminUser, tdb);
+    expect(created.isSuccess).toBe(true);
+    if (!created.isSuccess) return;
+    const id = created.data.id;
+    await append(testDb.db, {
+      aggregateId: String(id),
+      aggregateType: "esExecUser",
+      tenantId: adminUser.tenantId,
+      expectedVersion: 1,
+      type: "esExecUser.lifecycle-bumped",
+      payload: { note: "stream moved past the row" },
+      metadata: { userId: String(adminUser.id) },
+    });
+
+    const listed = await crud.list({ limit: 10 }, adminUser, tdb);
+
+    expect(listed.rows.map((r) => [r["id"], r["version"]])).toEqual([[id, 2]]);
+  });
+
+  test("concurrent update during list(): row and version come from the same snapshot", async () => {
+    const created = await crud.create(
+      { email: "list-race@test.de", firstName: "orig" },
+      adminUser,
+      tdb,
+    );
+    expect(created.isSuccess).toBe(true);
+    if (!created.isSuccess) return;
+    const id = created.data.id;
+
+    let afterNextStatement: (() => Promise<void>) | undefined;
+    const hookedDb = new Proxy(testDb.db, {
+      get(target, prop) {
+        const value = Reflect.get(target, prop, target);
+        if (typeof value !== "function") return value;
+        if (prop !== "unsafe") return value.bind(target);
+        return async (...args: unknown[]) => {
+          const result = await value.apply(target, args);
+          const hook = afterNextStatement;
+          afterNextStatement = undefined;
+          if (hook) await hook();
+          return result;
+        };
+      },
+    });
+    const tdbA = createTenantDb(hookedDb, adminUser.tenantId);
+
+    afterNextStatement = async () => {
+      const b = await crud.update({ id, version: 1, changes: { firstName: "B" } }, adminUser, tdb);
+      expect(b.isSuccess).toBe(true);
+    };
+    const listed = await crud.list({ limit: 10 }, adminUser, tdbA);
+
+    expect(afterNextStatement).toBeUndefined();
+    expect(listed.rows.map((r) => [r["firstName"], r["version"]])).toEqual([["orig", 1]]);
+  });
 });
 
 const ENCRYPTION_TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
@@ -629,6 +686,76 @@ describe("event-store-executor — encrypted fields", () => {
 
     expect(restored.data.data["secretNote"]).toBe("restore-plaintext-note");
     expect(restored.data.previous?.["secretNote"]).toBe("restore-plaintext-note");
+  });
+});
+
+describe("event-store-executor — undecryptable encrypted field with entity cache", () => {
+  const encryption = createTestEnvelopeCipher(ENCRYPTION_TEST_KEY);
+  const store = new Map<string, Record<string, unknown>>();
+  const entityCache: EntityCache = {
+    get: async (tenantId, name, id) => store.get(`${tenantId}:${name}:${id}`) ?? null,
+    mget: async () => new Map(),
+    set: async (tenantId, name, id, data) => {
+      store.set(`${tenantId}:${name}:${id}`, data);
+    },
+    mset: async (tenantId, name, entries) => {
+      for (const { id, data } of entries) store.set(`${tenantId}:${name}:${id}`, data);
+    },
+    del: async (tenantId, name, id) => {
+      store.delete(`${tenantId}:${name}:${id}`);
+    },
+  };
+  const cachedCrud = createEventStoreExecutor(encryptedTable, encryptedEntity, {
+    entityName: "esExecEncrypted",
+    encryption,
+    entityCache,
+  });
+
+  beforeAll(async () => {
+    resetEntityFieldEncryptionCacheForTests();
+    await unsafeCreateEntityTable(testDb.db, encryptedEntity, "esExecEncrypted");
+  });
+
+  beforeEach(async () => {
+    store.clear();
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_exec_encrypted RESTART IDENTITY CASCADE`,
+    );
+  });
+
+  test("a degraded row is never cached; after repair detail serves the real value", async () => {
+    const created = await cachedCrud.create(
+      { email: "degraded@test.de", secretNote: "real-note" },
+      adminUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = created.data.id;
+    const storeKey = `${adminUser.tenantId}:esExecEncrypted:${id}`;
+    const goodStored = (await asRawClient(testDb.db).unsafe(
+      `SELECT secret_note FROM read_es_exec_encrypted WHERE id = $1`,
+      [id],
+    )) as Array<{ secret_note: string }>;
+    const goodEnvelope = goodStored[0]?.secret_note;
+    await asRawClient(testDb.db).unsafe(
+      `UPDATE read_es_exec_encrypted SET secret_note = 'not-an-envelope' WHERE id = $1`,
+      [id],
+    );
+
+    const first = await cachedCrud.detail({ id }, adminUser, tdb);
+    const cachedAfterFirst = store.has(storeKey);
+    const second = await cachedCrud.detail({ id }, adminUser, tdb);
+    const cachedAfterSecond = store.has(storeKey);
+    await asRawClient(testDb.db).unsafe(
+      `UPDATE read_es_exec_encrypted SET secret_note = $2 WHERE id = $1`,
+      [id, goodEnvelope],
+    );
+    const repaired = await cachedCrud.detail({ id }, adminUser, tdb);
+
+    expect([first?.["secretNote"], second?.["secretNote"]]).toEqual([null, null]);
+    expect([cachedAfterFirst, cachedAfterSecond]).toEqual([false, false]);
+    expect(repaired?.["secretNote"]).toBe("real-note");
+    expect(store.has(storeKey)).toBe(true);
   });
 });
 

@@ -1138,16 +1138,16 @@ describe("ctx.queryAsMember — database-level read-only (READ ONLY transaction)
     expect(result.rows[0]?.ownerId).toBe(userA);
   });
 
-  test("g) tries-db-write via the normal dispatch path (no queryAsMember) succeeds, updates every row", async () => {
+  test("g) tries-db-write via the normal dispatch path (no queryAsMember) is rejected: a query holds no transaction", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("directwrite@example.com", "pw-long-enough-31");
     await addMembership(userId, TENANT_A);
     await createNote(userId, "note-1");
     await createNote(userId, "note-2");
 
-    const result = await stack.http.queryOk<{ ok: boolean }>(TRIES_DB_WRITE_QN, {}, admin);
-    expect(result.ok).toBe(true);
-    expect(await readNoteBodies()).toEqual(["tampered", "tampered"]);
+    const err = await stack.http.queryErr(TRIES_DB_WRITE_QN, {}, admin);
+    expect(err.message).toContain("writes are not available without an open transaction");
+    expect(await readNoteBodies()).toEqual(["note-1", "note-2"]);
   });
 
   test("h) read-as-member-then-write: a read via queryAsMember followed by a normal write succeeds", async () => {

@@ -165,12 +165,12 @@ export async function selectProvablyIdleConsumerPairs(
   return rows.map((r) => ({ name: r.name, instanceId: r.instance_id }));
 }
 
-export async function selectConsumerForUpdateSkipLocked<TRow = Record<string, unknown>>(
+export async function selectConsumerForUpdateSkipLocked(
   db: AnyDb,
   name: string,
   instanceId: string,
-): Promise<TRow | undefined> {
-  const rows = await asRawClient(db).unsafe<TRow>(
+): Promise<Record<string, unknown> | undefined> {
+  const rows = await asRawClient(db).unsafe<Record<string, unknown>>(
     `SELECT * FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2 FOR UPDATE SKIP LOCKED`,
     [name, instanceId],
   );
@@ -277,13 +277,13 @@ export async function updateConsumerDeliveryOutcome(
   );
 }
 
-export async function updateConsumerStatusReturning<TRow = Record<string, unknown>>(
+export async function updateConsumerStatusReturning(
   db: AnyDb,
   name: string,
   instanceId: string,
   status: "idle" | "disabled",
-): Promise<TRow | undefined> {
-  const rows = await asRawClient(db).unsafe<TRow>(
+): Promise<Record<string, unknown> | undefined> {
+  const rows = await asRawClient(db).unsafe<Record<string, unknown>>(
     `UPDATE "kumiko_event_consumers" SET "status" = $1, "attempts" = 0, "last_error" = NULL, "rearm_count" = 0, "updated_at" = now()
      WHERE "name" = $2 AND "instance_id" = $3
      RETURNING *`,
@@ -292,15 +292,15 @@ export async function updateConsumerStatusReturning<TRow = Record<string, unknow
   return rows[0];
 }
 
-export async function advanceConsumerPastEventReturning<TRow = Record<string, unknown>>(
+export async function advanceConsumerPastEventReturning(
   db: AnyDb,
   name: string,
   instanceId: string,
   eventId: bigint,
   // Full list, including ids skipped over between the old cursor and eventId that were not visible yet.
   pendingGaps: readonly PendingGapEntry[],
-): Promise<TRow | undefined> {
-  const rows = await asRawClient(db).unsafe<TRow>(
+): Promise<Record<string, unknown> | undefined> {
+  const rows = await asRawClient(db).unsafe<Record<string, unknown>>(
     `UPDATE "kumiko_event_consumers" SET
        "last_processed_event_id" = $1,
        "status" = 'idle',
@@ -338,12 +338,12 @@ export async function resetConsumerForMspRebuild(
   );
 }
 
-export async function selectConsumerForUpdate<TRow = Record<string, unknown>>(
+export async function selectConsumerForUpdate(
   db: AnyDb,
   name: string,
   instanceId: string,
-): Promise<TRow | undefined> {
-  const rows = await asRawClient(db).unsafe<TRow>(
+): Promise<Record<string, unknown> | undefined> {
+  const rows = await asRawClient(db).unsafe<Record<string, unknown>>(
     `SELECT * FROM "kumiko_event_consumers" WHERE "name" = $1 AND "instance_id" = $2 FOR UPDATE`,
     [name, instanceId],
   );
@@ -390,12 +390,12 @@ export async function markConsumerRebuildFailed(
 // precondition like restartConsumer/enableConsumer). Increments rearm_count
 // so the caller can enforce a lifetime cap on automatic revivals; manual
 // restartConsumer()/enableConsumer() reset it back to 0.
-export async function rearmDeadConsumer<TRow = Record<string, unknown>>(
+export async function rearmDeadConsumer(
   db: AnyDb,
   name: string,
   instanceId: string,
-): Promise<TRow | undefined> {
-  const rows = await asRawClient(db).unsafe<TRow>(
+): Promise<Record<string, unknown> | undefined> {
+  const rows = await asRawClient(db).unsafe<Record<string, unknown>>(
     `UPDATE "kumiko_event_consumers" SET
        "status" = 'idle',
        "attempts" = 0,
@@ -413,13 +413,13 @@ export async function rearmDeadConsumer<TRow = Record<string, unknown>>(
 // cursor, so it's removed from pending_gaps directly instead of advancing
 // last_processed_event_id (advancing it here would be a regression — the
 // cursor already sits above this id).
-export async function removePendingGapReturning<TRow = Record<string, unknown>>(
+export async function removePendingGapReturning(
   db: AnyDb,
   name: string,
   instanceId: string,
   newPendingGaps: readonly PendingGapEntry[],
-): Promise<TRow | undefined> {
-  const rows = await asRawClient(db).unsafe<TRow>(
+): Promise<Record<string, unknown> | undefined> {
+  const rows = await asRawClient(db).unsafe<Record<string, unknown>>(
     `UPDATE "kumiko_event_consumers" SET
        "pending_gaps" = $1::text::jsonb,
        "status" = 'idle',

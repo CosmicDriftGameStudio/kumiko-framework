@@ -34,6 +34,16 @@ function withViewportWidth(width: number, run: () => void): void {
   }
 }
 
+async function withViewportWidthAsync(width: number, run: () => Promise<void>): Promise<void> {
+  const originalWidth = window.innerWidth;
+  setViewportWidth(width);
+  try {
+    await run();
+  } finally {
+    setViewportWidth(originalWidth);
+  }
+}
+
 const LONG_BIO =
   "Anna joined the handler team in 2019 and has led onboarding for every partner integration since, focusing on payment reconciliation edge cases and cross-border tax handling.";
 
@@ -213,18 +223,119 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
-  test("hovering a meta value exposes its full text as tooltip", () => {
+  function stubOverflow(element: HTMLElement, overflowing: boolean): void {
+    Object.defineProperty(element, "scrollWidth", { configurable: true, value: 200 });
+    Object.defineProperty(element, "clientWidth", {
+      configurable: true,
+      value: overflowing ? 100 : 200,
+    });
+  }
+
+  const noteColumns = [
+    { field: "name", label: "Name", type: "string", sortable: false },
+    { field: "note", label: "Note", type: "string", sortable: false },
+  ] as const;
+
+  test("hovering an overflowing meta value exposes its full text as tooltip", () => {
     withViewportWidth(500, () => {
-      const columns = [
-        { field: "name", label: "Name", type: "string", sortable: false },
-        { field: "note", label: "Note", type: "string", sortable: false },
-      ] as const;
       const rows = [{ id: "u1", values: { name: "Anna", note: "Full note text" } }];
-      render(<DataTable columns={columns} rows={rows} testId="t" />);
+      render(<DataTable columns={noteColumns} rows={rows} testId="t" />);
       const note = screen.getByTestId("cell-u1-note");
       expect(note.getAttribute("title")).toBeNull();
+      stubOverflow(note, true);
       fireEvent.pointerEnter(note);
       expect(note.getAttribute("title")).toBe("Full note text");
+    });
+  });
+
+  test("hovering a meta value that fits sets no tooltip", () => {
+    withViewportWidth(500, () => {
+      const rows = [{ id: "u1", values: { name: "Anna", note: "Short" } }];
+      render(<DataTable columns={noteColumns} rows={rows} testId="t" />);
+      const note = screen.getByTestId("cell-u1-note");
+      stubOverflow(note, false);
+      fireEvent.pointerEnter(note);
+      expect(note.getAttribute("title")).toBe("");
+    });
+  });
+
+  test("the tooltip follows a changed value after a rerender", () => {
+    withViewportWidth(500, () => {
+      const first = [{ id: "u1", values: { name: "Anna", note: "Offen" } }];
+      const second = [{ id: "u1", values: { name: "Anna", note: "Erledigt" } }];
+      const { rerender } = render(<DataTable columns={noteColumns} rows={first} testId="t" />);
+      const note = screen.getByTestId("cell-u1-note");
+      stubOverflow(note, true);
+      fireEvent.pointerEnter(note);
+      expect(note.getAttribute("title")).toBe("Offen");
+      rerender(<DataTable columns={noteColumns} rows={second} testId="t" />);
+      expect(screen.getByTestId("cell-u1-note")).toBe(note);
+      fireEvent.pointerEnter(note);
+      expect(note.getAttribute("title")).toBe("Erledigt");
+    });
+  });
+
+  describe("rowClick action hidden per row", () => {
+    const columns = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
+    const rows = [
+      { id: "r1", values: { id: "r1", name: "Alpha" } },
+      { id: "r2", values: { id: "r2", name: "Beta" } },
+    ];
+    const rowActions = [
+      {
+        id: "open",
+        label: "Open",
+        rowClick: true,
+        isVisible: (row: { readonly id: string }) => row.id === "r1",
+        onTrigger: mock(),
+      },
+    ];
+
+    test("card layout: hidden row has no button, no chevron and ignores click and Enter", async () => {
+      const user = userEvent.setup();
+      const onRowClick = mock();
+      await withViewportWidthAsync(500, async () => {
+        render(
+          <DataTable
+            columns={columns}
+            rows={rows}
+            testId="t"
+            onRowClick={onRowClick}
+            rowActions={rowActions}
+          />,
+        );
+        const hidden = screen.getByTestId("row-r2");
+        expect(within(hidden).queryByRole("button")).toBeNull();
+        expect(hidden.querySelector("svg")).toBeNull();
+        await user.click(hidden);
+        fireEvent.keyDown(hidden, { key: "Enter" });
+        expect(onRowClick).not.toHaveBeenCalled();
+        const open = screen.getByTestId("row-r1");
+        expect(open.querySelector("svg")).not.toBeNull();
+        await user.click(within(open).getByRole("button"));
+        expect(onRowClick).toHaveBeenCalledTimes(1);
+        expect(onRowClick.mock.calls[0]?.[0]).toMatchObject({ id: "r1" });
+      });
+    });
+
+    test("table layout: first cell is a button only for the visible row", async () => {
+      const user = userEvent.setup();
+      const onRowClick = mock();
+      await withViewportWidthAsync(1024, async () => {
+        render(
+          <DataTable
+            columns={columns}
+            rows={rows}
+            testId="t"
+            onRowClick={onRowClick}
+            rowActions={rowActions}
+          />,
+        );
+        expect(within(screen.getByTestId("cell-r2-name")).queryByRole("button")).toBeNull();
+        const link = within(screen.getByTestId("cell-r1-name")).getByRole("button");
+        await user.click(link);
+        expect(onRowClick).toHaveBeenCalledTimes(1);
+      });
     });
   });
 

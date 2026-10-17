@@ -40,6 +40,7 @@ import {
   runStepList,
   type StepInstance,
   SYSTEM_ROLE,
+  unwrapWorkflowStepError,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RESUMED_TYPE,
   WORKFLOW_RETRY_SCHEDULED_TYPE,
@@ -392,7 +393,12 @@ async function runResumedPipeline(ctx: HandlerContext, input: ResumedPipelineInp
     });
     return { isSuccess: true as const, data: { outcome: "completed" as const } };
   } catch (error) {
-    log.warn("workflow run failed", { runId, workflowName, stepIndex, error: String(error) });
+    log.warn("workflow run failed", {
+      runId,
+      workflowName,
+      stepIndex,
+      error: String(unwrapWorkflowStepError(error)),
+    });
     // The input stepIndex is the suspended step; the failure happened at the step the resumed pass reached.
     const failedPayload: WorkflowRunFailedPayload = {
       workflowName,

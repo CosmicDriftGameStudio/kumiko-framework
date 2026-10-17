@@ -76,6 +76,9 @@ jobs:
       # A Version PR merged while stale ships versions that predate changesets
       # already on main (0.343.0 without #3555, 0.345.0 without #3563). The
       # stale flag is consumed by the required `test` job, which fails on it.
+      # This only covers the state at PR time: a changeset merged afterwards
+      # leaves the green status standing, so the release job repeats the check
+      # on the merge result before it publishes.
       - id: freshness
         if: github.event_name == 'pull_request' && github.head_ref == 'changeset-release/main'
         env:
@@ -764,6 +767,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
+
+      # The Version PR's freshness check ran when the PR was last pushed; a
+      # changeset merged to main since then is still in HEAD's parent but was
+      # not consumed by the version commit. Abort before anything is published.
+      - name: Refuse a stale Version PR merge
+        run: |
+          case "$(git log -1 --format=%s)" in
+            "chore: version packages"*) ;;
+            *) echo "HEAD is not a version commit, nothing to check"; exit 0 ;;
+          esac
+          if ! reason="$(bash scripts/verify-version-pr-fresh.sh HEAD HEAD^1)"; then
+            echo "::error::Stale Version PR merged: ${reason}"
+            exit 1
+          fi
 
       # OIDC Trusted Publishing + Provenance via npm-CLI (bun pm publish kann
       # kein OIDC). scripts/publish-with-oidc.sh iteriert publishable

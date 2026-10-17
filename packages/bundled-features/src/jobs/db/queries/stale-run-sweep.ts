@@ -15,6 +15,7 @@
 import { deleteManyBatched, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { mapWithConcurrency } from "../../../shared/index.js";
+import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../../handlers/retention-cleanup.job.js";
 import { encryptFailureError } from "../../job-run-logger.js";
 import { jobRunsTable } from "../../job-run-table.js";
 import { tenantJobRunsTable } from "../../tenant-job-run-table.js";
@@ -31,18 +32,24 @@ export type StaleRunSweepResult = {
   readonly tenantQueuedDropped: number;
 };
 
+// A queued tenant row can legitimately wait much longer than a run takes (backlog, delay/backoff,
+// sequential requeue), so it is only treated as lost once it is older than the retention window,
+// not after the running-timeout.
 export async function markStaleJobRunsFailed(
   db: DbConnection,
   timeoutHours: number,
+  queuedRetentionDays: number = DEFAULT_JOB_RUN_RETENTION_DAYS,
 ): Promise<StaleRunSweepResult> {
   const cutoff = Temporal.Now.instant().subtract({ hours: timeoutHours });
+  const queuedCutoff = Temporal.Now.instant().subtract({ hours: queuedRetentionDays * 24 });
   const now = Temporal.Now.instant();
 
   // Fetch the matched rows first: `error` carries the same per-triggering-
   // user subject annotation as job-run-logger.ts's onJobFailed path
   // (personal: { of: "triggeredById" } on job-run-table.ts), so it is encrypted
-  // under that subject's DEK. Runs are grouped by subject: one encrypt and one
-  // updateMany per subject instead of per run.
+  // under the triggering user's DEK, or the system tenant key when
+  // triggeredById is null (whenAbsent: "tenant", fw#3654). Runs are grouped by
+  // that subject: one encrypt and one updateMany per subject instead of per run.
   const stale = await selectMany<{ id: string; triggeredById: string | null }>(db, jobRunsTable, {
     status: "running",
     startedAt: { lt: cutoff },
@@ -86,7 +93,8 @@ export async function markStaleJobRunsFailed(
 
   // Tenant-visible run state follows the same clock: a running row whose
   // worker died is a failure, a queued row that never started (job lost from
-  // Redis, enqueue hook without a run) would otherwise show "waiting" forever.
+  // Redis, enqueue hook without a run) would otherwise show "waiting" forever;
+  // it is dropped once it has outlived the retention window.
   const tenantRunsFailed = await updateMany(
     db,
     tenantJobRunsTable,
@@ -96,7 +104,7 @@ export async function markStaleJobRunsFailed(
   const tenantQueuedStale = await deleteManyBatched(
     db,
     tenantJobRunsTable,
-    { status: "queued", updatedAt: { lt: cutoff } },
+    { status: "queued", updatedAt: { lt: queuedCutoff } },
     { limit: STALE_DELETE_BATCH_SIZE },
   );
 

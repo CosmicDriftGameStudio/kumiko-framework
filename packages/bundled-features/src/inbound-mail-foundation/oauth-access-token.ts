@@ -140,14 +140,17 @@ export function createOAuthAccessTokenManager(
     const secretKey = inboundCredentialSecretKey(account.id);
     return transaction(deps.db, async (tx) => {
       await acquireNamespacedAdvisoryLock(tx, OAUTH_REFRESH_LOCK_NAMESPACE, lockKey(account));
-      const stored = await deps.secrets.get(account.tenantId, secretKey);
+      // Secret read/write join the lock transaction: a second pool connection per refresh
+      // would exhaust a small pool when many accounts refresh at once.
+      const secrets = deps.secrets.withRunner(tx);
+      const stored = await secrets.get(account.tenantId, secretKey);
       if (!stored) {
         throw new InboundAuthError("no refresh token stored for account");
       }
       const currentRefreshToken = stored.reveal();
       const tokens = await refreshWithTimeout(plugin, account, currentRefreshToken);
       if (tokens.refreshToken && tokens.refreshToken !== currentRefreshToken) {
-        await deps.secrets.set(
+        await secrets.set(
           account.tenantId,
           secretKey,
           tokens.refreshToken,
@@ -180,12 +183,14 @@ export function createOAuthAccessTokenManager(
     async storeRefreshToken(account, refreshToken) {
       await transaction(deps.db, async (tx) => {
         await acquireNamespacedAdvisoryLock(tx, OAUTH_REFRESH_LOCK_NAMESPACE, lockKey(account));
-        await deps.secrets.set(
-          account.tenantId,
-          inboundCredentialSecretKey(account.id),
-          refreshToken,
-          inboundRefreshTokenSecretOptions(account.id),
-        );
+        await deps.secrets
+          .withRunner(tx)
+          .set(
+            account.tenantId,
+            inboundCredentialSecretKey(account.id),
+            refreshToken,
+            inboundRefreshTokenSecretOptions(account.id),
+          );
       });
       cache.delete(account.id);
     },

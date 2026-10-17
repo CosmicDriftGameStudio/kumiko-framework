@@ -10,7 +10,7 @@
 // Screen rein konfigurieren, ohne den Gate selbst ersetzen zu müssen.
 
 import { useLocale } from "@cosmicdrift/kumiko-renderer";
-import { type ComponentType, type ReactNode, useEffect, useState } from "react";
+import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   assertNavigableUrl,
   buildLoginRedirectUrl,
@@ -204,6 +204,21 @@ export function resolveLoginRedirect(
   };
 }
 
+// A throwing loginUrl builder must not take the whole app tree down in render;
+// null falls through to the built-in login screen.
+function resolveLoginRedirectOrNull(
+  loginUrl: string | LoginUrlBuilder,
+  locale: string,
+  location: Pick<Location, "origin" | "pathname" | "search" | "hash">,
+): LoginRedirect | null {
+  try {
+    return resolveLoginRedirect(loginUrl, locale, location);
+  } catch (error) {
+    console.error("Auth gate: loginUrl could not be resolved, showing the built-in login", error);
+    return null;
+  }
+}
+
 export function makeAuthGate(opts: AuthGateOptions = {}): ComponentType<{
   children: ReactNode;
 }> {
@@ -213,10 +228,14 @@ export function makeAuthGate(opts: AuthGateOptions = {}): ComponentType<{
   function AuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     const { status } = useSession();
     const locale = useLocale().locale();
-    const loginRedirect =
-      loginUrl !== undefined && status === "unauthenticated"
-        ? resolveLoginRedirect(loginUrl, locale, window.location)
-        : null;
+    const { origin, pathname, search, hash } = window.location;
+    const loginRedirect = useMemo(
+      () =>
+        loginUrl !== undefined && status === "unauthenticated"
+          ? resolveLoginRedirectOrNull(loginUrl, locale, { origin, pathname, search, hash })
+          : null,
+      [status, locale, origin, pathname, search, hash],
+    );
     const redirectUrl = loginRedirect?.kind === "redirect" ? loginRedirect.url : null;
     // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
     useEffect(() => {

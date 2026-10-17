@@ -338,7 +338,8 @@ export function createTierEngineFeature<
     };
     const publishAssignmentChange = (tenantId: TenantId): void => {
       const message: TierAssignmentSyncMessage = { tenantId };
-      busHolder.bus?.publish(CACHE_SYNC_TOPICS.tierAssignment, message);
+      // The writer already updated its own cache; only other pods need to re-read.
+      busHolder.bus?.publish(CACHE_SYNC_TOPICS.tierAssignment, message, { remoteOnly: true });
     };
 
     // Trial: zeit-abgeleitet aus tenant.inserted_at (≈ Signup), live am
@@ -533,10 +534,17 @@ export function createTierEngineFeature<
           const isNewerThanSnapshot = (tenantId: TenantId): boolean =>
             (latestTicket.get(tenantId) ?? 0) > startedAtTicket;
           for (const tenantId of [...cache.keys()]) {
-            if (!loaded.has(tenantId) && !isNewerThanSnapshot(tenantId)) cache.delete(tenantId);
+            if (!loaded.has(tenantId) && !isNewerThanSnapshot(tenantId)) {
+              cache.delete(tenantId);
+              latestTicket.set(tenantId, startedAtTicket);
+            }
           }
           for (const [tenantId, features] of loaded) {
-            if (!isNewerThanSnapshot(tenantId)) cache.set(tenantId, features);
+            if (!isNewerThanSnapshot(tenantId)) {
+              cache.set(tenantId, features);
+              // Makes a single reload that started before this snapshot discard its older result.
+              latestTicket.set(tenantId, startedAtTicket);
+            }
           }
         };
 

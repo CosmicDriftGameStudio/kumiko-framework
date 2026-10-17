@@ -9,6 +9,7 @@ export {
   UNATTRIBUTED_ACTOR,
   withEscapeHatchAuditScope,
 } from "../observability/escape-hatch-report.js";
+export { normalizePayloadBucketValue } from "../rate-limit/bucket.js";
 export type { AppendDomainEventCoreDeps } from "./append-event-core.js";
 export { appendDomainEventCore } from "./append-event-core.js";
 export type { ResolveAuthClaimsArgs } from "./auth-claims-resolver.js";

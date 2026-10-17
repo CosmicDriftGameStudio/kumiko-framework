@@ -283,6 +283,22 @@ describe("validateBoot — writeForm select fields share the options XOR options
   });
 });
 
+describe("validateBoot — optionsQuery and optionsAvailabilityQuery are exclusive on form fields", () => {
+  test("a form select declaring both throws", () => {
+    const shop = featureWithWriteForm({
+      model: {
+        type: "select",
+        options: [],
+        optionsQuery: "catalog:query:model-options",
+        optionsAvailabilityQuery: "catalog:query:model-options",
+      },
+    });
+    expect(() => validateBoot([catalog, shop])).toThrow(
+      /declares both optionsQuery and optionsAvailabilityQuery/,
+    );
+  });
+});
+
 describe("validateBoot — optionsQueryPayload { field } on config keys", () => {
   const query = "catalog:query:model-options";
 

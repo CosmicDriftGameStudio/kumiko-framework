@@ -54,7 +54,11 @@ import {
   readTenantName,
   resolveResourceFileRefs,
 } from "./document-kit.js";
-import { buildRenderedPdfAttachments, combineMailAttachments } from "./mail-attachments.js";
+import {
+  buildRenderedPdfAttachments,
+  combineMailAttachments,
+  mergeInheritedAttachments,
+} from "./mail-attachments.js";
 import { MAIL_IMAGE_MAX_WIDTH_PX, renderStructuredLayoutMjml } from "./structured-layout.js";
 
 const LINE_BREAKS = /[\r\n]+/g;
@@ -104,7 +108,7 @@ async function resolveLayout(
         if (sanitized.ok) content = sanitized.html;
         else useSystemLayout = true;
       } else {
-        useSystemLayout = layout.contentFormat === "mjml";
+        useSystemLayout = true;
       }
     }
     if (useSystemLayout) {
@@ -350,21 +354,56 @@ function renderSubjectLines(
   }
 }
 
-function assembleMailAttachments(args: {
+type InheritedAttachments = Pick<TemplateResource, "fileAttachments" | "pdfAttachmentLinks">;
+
+// Same fallback as for images (resolveResourceFileRefs): a tenant override of a system mail
+// keeps the attachments the system mail carries.
+async function resolveSystemAttachments(
+  tplApi: TemplateResolverApi,
+  template: TemplateResource,
+): Promise<InheritedAttachments> {
+  if (template.scope !== "tenant") return {};
+  try {
+    const system = await tplApi.resolveTemplate({
+      tenantId: SYSTEM_TENANT_ID,
+      slug: template.slug,
+      kind: template.kind,
+      locale: template.locale,
+    });
+    return {
+      fileAttachments: system.fileAttachments ?? [],
+      pdfAttachmentLinks: system.pdfAttachmentLinks ?? [],
+    };
+  } catch (e) {
+    if (e instanceof TemplateNotFoundError) return {};
+    throw new RendererError(
+      `renderer-mail-html: resolving the system attachments of "${template.slug}" failed — ${describe(e)}`,
+      "other",
+    );
+  }
+}
+
+async function assembleMailAttachments(args: {
+  readonly tplApi: TemplateResolverApi;
   readonly slug: string;
   readonly template: TemplateResource;
   readonly resourceFileRefs: ReadonlyMap<string, string>;
   readonly variables: Readonly<Record<string, unknown>>;
   readonly locale: string;
   readonly renderFileName: (pattern: string) => string;
-}): readonly MailAttachmentRef[] {
-  const { slug, template, resourceFileRefs, variables, locale, renderFileName } = args;
+}): Promise<readonly MailAttachmentRef[]> {
+  const { tplApi, slug, template, resourceFileRefs, variables, locale, renderFileName } = args;
+  const inherited = await resolveSystemAttachments(tplApi, template);
   const inlineAttachments: readonly InlineAttachmentRef[] = [...resourceFileRefs].map(
     ([cid, fileRefId]) => ({ kind: "inline", cid, fileRefId }),
   );
   const renderedPdfs = buildRenderedPdfAttachments({
     slug,
-    links: template.pdfAttachmentLinks ?? [],
+    links: mergeInheritedAttachments(
+      template.pdfAttachmentLinks ?? [],
+      inherited.pdfAttachmentLinks ?? [],
+      (link) => link.fileName,
+    ),
     variables,
     locale,
     renderFileName,
@@ -372,7 +411,11 @@ function assembleMailAttachments(args: {
   return combineMailAttachments(
     slug,
     inlineAttachments,
-    template.fileAttachments ?? [],
+    mergeInheritedAttachments(
+      template.fileAttachments ?? [],
+      inherited.fileAttachments ?? [],
+      (file) => file.fileName,
+    ),
     renderedPdfs,
   );
 }
@@ -507,7 +550,8 @@ export async function mailHtmlRender(
   const { contentHtml } = body;
   const layoutFileRefs = await resolveLayoutFileRefs(tplApi, ctx, layout);
   const resourceFileRefs = mergeResourceFileRefs(body.resourceFileRefs, layoutFileRefs);
-  const attachments = assembleMailAttachments({
+  const attachments = await assembleMailAttachments({
+    tplApi,
     slug,
     template,
     resourceFileRefs,

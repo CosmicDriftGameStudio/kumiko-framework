@@ -17,6 +17,7 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
+  type DbRunner,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, type WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
@@ -91,8 +92,20 @@ function resolveKey(keyOrHandle: string | { readonly name: string }): string {
 }
 
 export function createSecretsContext(opts: SecretsContextOptions): SecretsContext {
-  const { db, masterKeyProvider } = opts;
+  const { masterKeyProvider } = opts;
   const provider = withDekCache(masterKeyProvider, opts.dekCache ?? createDekCache());
+  return buildSecretsContext(opts, provider, opts.db, false);
+}
+
+// `runnerIsTransaction`: the runner is a caller-owned transaction, so audited reads join it
+// instead of opening a second connection (which would deadlock a small pool).
+function buildSecretsContext(
+  opts: SecretsContextOptions,
+  provider: MasterKeyProvider,
+  db: DbRunner,
+  runnerIsTransaction: boolean,
+): SecretsContext {
+  const { masterKeyProvider } = opts;
 
   type SecretLookupRow = {
     readonly id: string;
@@ -105,6 +118,10 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
   }
 
   return {
+    withRunner(runner) {
+      return buildSecretsContext(opts, provider, runner, true);
+    },
+
     async get(tenantId, keyOrHandle, auditCtx) {
       const key = resolveKey(keyOrHandle);
       // Atomic audit + read: a decrypt that "escaped" the audit trail
@@ -120,7 +137,7 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
         return createSecret(plaintext);
       }
 
-      const plaintext = await transaction(db, async (tx) => {
+      const readAndAudit = async (tx: DbRunner): Promise<string | undefined> => {
         // Inline select inside the TX via raw client — fetchOne's connection
         // type doesn't widen to the transaction object cleanly.
         const envelope = await selectTenantSecretEnvelope(tx, tenantId, key);
@@ -154,7 +171,10 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
           metadata,
         });
         return pt;
-      });
+      };
+      const plaintext = runnerIsTransaction
+        ? await readAndAudit(db)
+        : await transaction(db, readAndAudit);
 
       if (plaintext === undefined) return undefined;
       // Brand the plaintext only after audit committed. The response

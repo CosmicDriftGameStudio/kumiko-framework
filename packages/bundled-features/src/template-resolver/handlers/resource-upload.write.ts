@@ -91,7 +91,7 @@ export const resourceUploadWrite = defineWriteHandler({
     try {
       source = await readFileRefContent({
         db: ctx.db,
-        filesForTenant: (tid) => fileContextForTenant(ctx, tid),
+        filesForTenant: (tid) => fileContextForTenant(ctx, ctx.user.tenantId, tid),
         fileRefId: sourceFileRefId,
         allowedTenantIds: [event.user.tenantId],
         unclaimedUploadOf: event.user.id,

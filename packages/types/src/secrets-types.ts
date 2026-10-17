@@ -3,6 +3,7 @@
 // is what makes key rotation cheap: on rotation we only re-wrap the small
 // encryptedDek, never touch the ciphertext.
 
+import type { DbRunner } from "./db-connection.js";
 import type { TenantId } from "./identifiers.js";
 
 // Plaintext-secret wrapper (branded). Carries the actual string internally
@@ -130,6 +131,10 @@ export type SecretKeyRef = string | { readonly name: string };
 // lean interface is what the framework's HandlerContext carries so engine
 // code can talk about it without pulling in bundled-features.
 export interface SecretsContext {
+  // Same semantics (tenant scoping, encryption, read audit) on a caller-owned runner. Code that
+  // already holds a transaction (e.g. under an advisory lock) uses it so secret reads and
+  // writes join that transaction instead of taking a second pool connection.
+  withRunner(runner: DbRunner): SecretsContext;
   get(
     tenantId: TenantId,
     key: SecretKeyRef,

@@ -291,7 +291,8 @@ export function fieldToZod(
       // Multi file: array of fileRef UUIDs. Same story as the singular
       // variant — the element type has to match the UUID column on
       // fileRefsTable.id.
-      return z.array(z.uuid());
+      const ids = z.array(z.uuid());
+      return field.maxCount === undefined ? ids : ids.max(field.maxCount);
     }
     case "reference":
       // Tier 2.7e-3: Validiert UUID-shape. Existenz-Check der Reference

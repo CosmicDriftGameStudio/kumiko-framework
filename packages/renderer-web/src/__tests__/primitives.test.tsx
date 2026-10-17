@@ -577,7 +577,7 @@ describe("DataTable", () => {
     );
     expect(screen.getByTestId("row-r1")).not.toBeNull();
     expect(screen.getByTestId("cell-r1-name").textContent).toBe("Alice");
-    expect(screen.getByTestId("cell-r1-active").textContent).toBe("✓");
+    expect(screen.getByTestId("cell-r1-active").textContent).toBe("Yes");
   });
 
   test("onRowClick fires with the clicked row", () => {

@@ -71,6 +71,26 @@ describe("buildRenderedPdfAttachments", () => {
     fileName: "x.pdf",
   };
 
+  test("keeps the delivery envelope keys out of every attached PDF's variables", () => {
+    const refs = buildRenderedPdfAttachments({
+      slug: "mail",
+      links: [link],
+      variables: {
+        number: "RE-1",
+        attachments: [{ kind: "rendered-pdf", variables: { nested: true } }],
+        from: "a@example.com",
+        fromName: "A",
+        replyTo: "b@example.com",
+        headers: { "X-Test": "1" },
+        unsubscribeUrl: "https://example.com/unsubscribe",
+      },
+      locale: "de",
+      renderFileName: (pattern) => pattern,
+    });
+
+    expect(refs.map((ref) => ref.variables)).toEqual([{ number: "RE-1" }]);
+  });
+
   test("hands the mail's variables and locale to every PDF and renders the name pattern", () => {
     const refs = buildRenderedPdfAttachments({
       slug: "mail",

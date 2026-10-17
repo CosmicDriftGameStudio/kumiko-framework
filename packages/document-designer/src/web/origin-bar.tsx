@@ -3,8 +3,14 @@ import {
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { useMutation, usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { EmptyState, LoadingState } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  dispatcherErrorText,
+  useMutation,
+  usePrimitives,
+  useQuery,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
+import { EmptyState, ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer-web";
 import { type ReactNode, useState } from "react";
 import { originOf } from "./editor-header.js";
 import { EditorInfoBar } from "./editor-shell.js";
@@ -77,9 +83,11 @@ export function DiffView({
 }
 
 export function DiffPanel({ tenantId }: { readonly tenantId: string }): ReactNode {
-  const { data, loading } = useQuery<TemplateDiff>(TemplateResolverQueries.diffToSystem, {
-    id: tenantId,
-  });
+  const { data, loading, error, refetch } = useQuery<TemplateDiff>(
+    TemplateResolverQueries.diffToSystem,
+    { id: tenantId },
+  );
+  if (error !== null) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (loading || data === null) return <LoadingState />;
   return <DiffView data={data} />;
 }
@@ -154,6 +162,7 @@ export function OriginBar({
   userCount,
   overrides,
   onReset,
+  onResetError,
 }: {
   readonly isSystemAdmin: boolean;
   readonly source: LayoutSourceView;
@@ -161,6 +170,7 @@ export function OriginBar({
   readonly userCount: number;
   readonly overrides: TenantOverrideCounts | null;
   readonly onReset: () => void;
+  readonly onResetError: (message: string) => void;
 }): ReactNode {
   const t = useTranslation();
   const { Button, Dialog } = usePrimitives();
@@ -217,6 +227,7 @@ export function OriginBar({
               if (tenant === null) return;
               const result = await resetToSystem.mutate({ id: tenant.id });
               if (result.isSuccess) onReset();
+              else onResetError(dispatcherErrorText(result.error, t));
             }}
           />
         </>

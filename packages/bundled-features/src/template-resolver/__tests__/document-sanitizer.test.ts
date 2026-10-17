@@ -141,6 +141,22 @@ describe("sanitizeTemplateBody", () => {
 
 describe("sanitizeDocumentHtml :: hostile input", () => {
   const rejected: ReadonlyArray<readonly [string, string, string]> = [
+    ["proto placeholder link", '<a href="{{__proto__}}">x</a>', "disallowed_link_href"],
+    [
+      "prototype chain placeholder link",
+      '<a href="{{constructor.prototype}}">x</a>',
+      "disallowed_link_href",
+    ],
+    [
+      "proto placeholder button",
+      '<a data-button="" href="{{__proto__}}">Go</a>',
+      "button_href_not_placeholder",
+    ],
+    [
+      "prototype chain placeholder button",
+      '<a data-button="" href="{{constructor.prototype}}">Go</a>',
+      "button_href_not_placeholder",
+    ],
     ["uppercase script", "<SCRIPT>alert(1)</SCRIPT>", "script_element"],
     ["script with src", "<ScRiPt src=//evil.example/x.js></ScRiPt>", "script_element"],
     ["uppercase handler", '<p ONCLICK="x()">a</p>', "event_handler_attribute"],

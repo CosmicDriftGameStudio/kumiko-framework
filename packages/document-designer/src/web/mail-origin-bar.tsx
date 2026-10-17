@@ -1,6 +1,7 @@
 // @runtime client
 import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
+  dispatcherErrorText,
   formatWhen,
   useMutation,
   usePrimitives,
@@ -62,11 +63,13 @@ function TenantOriginBar({
   systemVersion,
   controls,
   onReset,
+  onResetError,
 }: {
   readonly row: TemplateRowView;
   readonly systemVersion: number | null;
   readonly controls: ReactNode;
   readonly onReset: () => void;
+  readonly onResetError: (message: string) => void;
 }): ReactNode {
   const t = useTranslation();
   const { Button, Dialog } = usePrimitives();
@@ -93,6 +96,7 @@ function TenantOriginBar({
             onConfirm={async () => {
               const result = await resetToSystem.mutate({ id: row.id });
               if (result.isSuccess) onReset();
+              else onResetError(dispatcherErrorText(result.error, t));
             }}
           />
         </>
@@ -134,6 +138,7 @@ export function MailOriginBar({
   creating,
   controls,
   onReload,
+  onResetError,
 }: {
   readonly row: TemplateRowView | null;
   readonly systemVersion: number | null;
@@ -142,6 +147,7 @@ export function MailOriginBar({
   readonly creating: boolean;
   readonly controls: ReactNode;
   readonly onReload: () => void;
+  readonly onResetError: (message: string) => void;
 }): ReactNode {
   const t = useTranslation();
   if (row === null) {
@@ -154,6 +160,7 @@ export function MailOriginBar({
         systemVersion={systemVersion}
         controls={controls}
         onReset={onReload}
+        onResetError={onResetError}
       />
     );
   }

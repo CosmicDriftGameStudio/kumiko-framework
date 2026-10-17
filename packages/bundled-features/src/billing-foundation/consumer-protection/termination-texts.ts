@@ -72,6 +72,8 @@ export const OPERATOR_NOTICE_REASONS = [
   "provider_error",
   "no_active_subscription",
   "recording_failed",
+  "withdrawal_period_expired",
+  "receipt_rate_limited",
 ] as const;
 export type OperatorNoticeReason = (typeof OPERATOR_NOTICE_REASONS)[number];
 
@@ -116,6 +118,10 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
       provider_error: "Die Kündigung beim Zahlungsanbieter ist fehlgeschlagen",
       no_active_subscription: "Keine laufende Subscription beim Anbieter",
       recording_failed: "Die Erklärung konnte nicht gespeichert werden",
+      withdrawal_period_expired:
+        "Widerruf nach Ablauf der Widerrufsfrist: zum Periodenende gekündigt, Anspruch prüfen",
+      receipt_rate_limited:
+        "Keine Eingangsbestätigung versendet: Limit pro Empfängeradresse erreicht",
     },
     noticeReasons: "Grund der Benachrichtigung",
     channel: "Kanal",
@@ -199,6 +205,9 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
       provider_error: "Cancelling at the payment provider failed",
       no_active_subscription: "No running subscription at the provider",
       recording_failed: "The declaration could not be stored",
+      withdrawal_period_expired:
+        "Withdrawal after the withdrawal period: cancelled at period end, review the claim",
+      receipt_rate_limited: "No receipt mail sent: the per-recipient limit was reached",
     },
     noticeReasons: "Reason for this notice",
     channel: "Channel",

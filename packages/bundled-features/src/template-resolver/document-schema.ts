@@ -9,13 +9,14 @@ import { Link } from "@tiptap/extension-link";
 import { Table, TableCell, TableHeader, TableRow } from "@tiptap/extension-table";
 import StarterKit from "@tiptap/starter-kit";
 
-const PLACEHOLDER_HREF = /^\{\{[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*\}\}$/;
+const PLACEHOLDER_HREF = /^\{\{(.+)\}\}$/;
 const REFERENCE_NAME = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 const RESOURCE_KEY = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/;
 const ALLOWED_LINK_SCHEMES = ["https://", "http://", "mailto:", "tel:"] as const;
 
 export function isDocumentPlaceholderHref(href: string): boolean {
-  return PLACEHOLDER_HREF.test(href);
+  const name = PLACEHOLDER_HREF.exec(href)?.[1];
+  return name !== undefined && isDocumentReferenceName(name);
 }
 
 const UNSAFE_URL_CHARACTERS = new Set(["<", ">", '"']);
@@ -203,8 +204,6 @@ export const DocumentTableRow = TableRow.extend({
     };
   },
 });
-
-export const DocumentRepeatRow = DocumentTableRow;
 
 export const DocumentTable = Table.extend({
   renderHTML() {

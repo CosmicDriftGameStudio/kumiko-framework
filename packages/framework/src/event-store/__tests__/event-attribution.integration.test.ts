@@ -51,6 +51,7 @@ const PROBED = "attribution:event:probed";
 const PLACE_HANDLER = "attribution:write:order:place";
 const STREAM_HANDLER = "attribution:stream:order:emit-after-yield";
 const STREAMED = "attribution:event:streamed";
+const EMIT_STREAMED_HANDLER = "attribution:write:order:emit-streamed";
 const JOB_NAME = "attribution:job:order-seed";
 const PROBE_HANDLER = "attribution:write:order:probe";
 const CONFIRMER_MSP = "attribution:projection:confirmer";
@@ -109,13 +110,10 @@ const attributionFeature = defineFeature("attribution", (r) => {
     piiFields: "none",
   });
 
-  // The append happens after the first yield, i.e. in a later it.next() pull —
-  // the scope has to be re-entered per pull for the stamp to find it.
-  r.streamHandler(
-    "order:emit-after-yield",
+  r.writeHandler(
+    "order:emit-streamed",
     z.object({}),
-    async function* (_query, ctx) {
-      yield "first";
+    async (_event, ctx) => {
       const aggregateId = uuid();
       await ctx.unsafeAppendEvent({
         aggregateId,
@@ -123,6 +121,19 @@ const attributionFeature = defineFeature("attribution", (r) => {
         type: streamed.name,
         payload: { orderId: aggregateId },
       });
+      return { isSuccess: true as const, data: {} };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // The write happens after the first yield, i.e. in a later it.next() pull; a stream holds no
+  // transaction, so ctx.write runs it as its own command.
+  r.streamHandler(
+    "order:emit-after-yield",
+    z.object({}),
+    async function* (_query, ctx) {
+      yield "first";
+      await ctx.write(EMIT_STREAMED_HANDLER, {});
       yield "second";
     },
     { access: { roles: ["Admin"] } },
@@ -273,7 +284,7 @@ describe("#3043 — event attribution from the execution scope", () => {
     expect(origin.handler).toBeUndefined();
   });
 
-  test("stream handler: an event appended after the first yield is attributed to the stream", async () => {
+  test("stream handler: an event written after the first yield is attributed to the written command", async () => {
     const authJwt = await stack.jwt.sign(admin);
     const csrfToken = generateToken();
     const cookieHeader = `kumiko_auth=${authJwt}; kumiko_csrf=${csrfToken}`;
@@ -290,7 +301,7 @@ describe("#3043 — event attribution from the execution scope", () => {
 
     expect(await originOf(STREAMED)).toMatchObject({
       feature: "attribution",
-      handler: STREAM_HANDLER,
+      handler: EMIT_STREAMED_HANDLER,
     });
   });
 

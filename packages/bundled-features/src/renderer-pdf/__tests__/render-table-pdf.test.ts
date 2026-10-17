@@ -9,7 +9,7 @@ import {
   RendererError,
 } from "../../renderer-foundation/index.js";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
-import { createRendererPdfFeature } from "../feature.js";
+import { createRendererPdfFeature, renderTablePdfRequest } from "../feature.js";
 import { type PdfTableDocument, renderTablePdf } from "../render-table-pdf.js";
 
 const TENANT = "11111111-1111-4111-8111-111111111111" as TenantId;
@@ -144,6 +144,135 @@ describe("renderTablePdf", () => {
       code: "invalid_payload",
     });
   });
+
+  test("a header that leaves no room for a row throws instead of looping", async () => {
+    const attempt = renderTablePdf({
+      title: "Schmal",
+      columns: [
+        { header: "W".repeat(150), weight: 0.01 },
+        { header: "x", weight: 100 },
+      ],
+      rows: [["a", "b"]],
+    });
+
+    await expect(attempt).rejects.toMatchObject({
+      name: RendererError.name,
+      message: "table header leaves no room for rows",
+      code: "invalid_payload",
+    });
+  });
+
+  test("60 columns with 60-character headers end with invalid_payload", async () => {
+    const columns = Array.from({ length: 60 }, () => ({ header: "H".repeat(60) }));
+
+    const attempt = renderTablePdf({
+      title: "Breit",
+      columns,
+      rows: [columns.map(() => "x")],
+    });
+
+    await expect(attempt).rejects.toMatchObject({
+      name: RendererError.name,
+      code: "invalid_payload",
+    });
+  });
+
+  test("rows, columns and cell length above the limits are rejected as invalid_payload", async () => {
+    const oneColumn = [{ header: "H" }];
+    const variablesOverLimit = [
+      { title: "Zeilen", columns: oneColumn, rows: Array.from({ length: 10_001 }, () => ["x"]) },
+      { title: "Spalten", columns: Array.from({ length: 31 }, () => ({ header: "H" })), rows: [] },
+      { title: "Zelle", columns: oneColumn, rows: [["x".repeat(5_001)]] },
+    ];
+
+    for (const variables of variablesOverLimit) {
+      const attempt = renderTablePdfRequest({
+        kind: "document-pdf",
+        payload: { slug: "table", locale: "de", variables },
+      });
+      await expect(attempt).rejects.toMatchObject({
+        name: RendererError.name,
+        code: "invalid_payload",
+      });
+    }
+  });
+
+  test("a very long title continues on the next pages without losing text", async () => {
+    const title = Array.from({ length: 1500 }, (_, index) => `T${index}x`).join(" ");
+    const { pdfBytes, pageCount } = await renderTablePdf({
+      title,
+      columns: [{ header: "Spalte" }],
+      rows: [["Zelle"]],
+    });
+
+    expect(pageCount).toBeGreaterThanOrEqual(2);
+    const text = (await readPages(pdfBytes)).join("\n");
+    expect(text).toContain("T0x");
+    expect(text).toContain("T1499x");
+    expect(text).toContain("Spalte");
+    expect(text).toContain("Zelle");
+  });
+
+  test("100 meta lines flow over pages and the table still starts with its header", async () => {
+    const meta = Array.from({ length: 100 }, (_, index) => ({
+      label: `Label${index}`,
+      value: `Wert${index}`,
+    }));
+    const { pdfBytes, pageCount } = await renderTablePdf({
+      title: "Meta",
+      meta,
+      columns: [{ header: "Spalte" }],
+      rows: [["Zelle"]],
+    });
+
+    expect(pageCount).toBeGreaterThanOrEqual(2);
+    const text = (await readPages(pdfBytes)).join("\n");
+    expect(text).toContain("Label0");
+    expect(text).toContain("Wert99");
+    expect(text).toContain("Spalte");
+    expect(text).toContain("Zelle");
+  });
+
+  test("Windows and old-Mac line endings break lines instead of becoming '?'", async () => {
+    const { pdfBytes } = await renderTablePdf({
+      title: "Zeilenenden",
+      columns: [{ header: "Text" }],
+      rows: [["a\r\nb"], ["c\rd"]],
+    });
+
+    const text = (await readPages(pdfBytes)).join("\n");
+    expect(text).not.toContain("?");
+    expect(text).toMatch(/a\s+b/);
+    expect(text).toMatch(/c\s+d/);
+  });
+
+  test("negative margins throw invalid_payload", async () => {
+    const attempt = renderTablePdf(
+      { title: "Rand", columns: [{ header: "A" }], rows: [] },
+      { marginMm: { left: -5 } },
+    );
+
+    await expect(attempt).rejects.toMatchObject({
+      name: RendererError.name,
+      code: "invalid_payload",
+    });
+  });
+
+  test("margins that leave under 20pt per column throw invalid_payload", async () => {
+    const attempt = renderTablePdf(
+      {
+        title: "Rand",
+        columns: [{ header: "A" }, { header: "B" }, { header: "C" }],
+        rows: [],
+      },
+      { marginMm: { left: 100, right: 100 } },
+    );
+
+    await expect(attempt).rejects.toMatchObject({
+      message: "margins leave no room for table columns",
+      code: "invalid_payload",
+    });
+  });
 });
 
 describe("renderer-pdf plugin", () => {
@@ -178,6 +307,28 @@ describe("renderer-pdf plugin", () => {
     expect(response.fileName).toBe("table.pdf");
     const [page = ""] = await readPages(response.pdfBytes);
     expect(page).toContain("Prüfprotokoll Kessel");
+  });
+
+  test("negative margins in the request options raise invalid_payload", async () => {
+    const renderer = api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" });
+
+    const attempt = renderer.render(
+      {
+        kind: "document-pdf",
+        payload: {
+          slug: "table",
+          locale: "de",
+          variables: { ...manyRowsDocument({ rows: [] }) },
+        },
+        options: { marginMm: { top: -1 } },
+      },
+      ctx,
+    );
+
+    await expect(attempt).rejects.toMatchObject({
+      name: RendererError.name,
+      code: "invalid_payload",
+    });
   });
 
   test("variables that are no table document raise invalid_payload", async () => {

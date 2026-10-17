@@ -21,3 +21,23 @@ export function tenantDbRunner(tenantDb: TenantDb): DbRunner {
   }
   return runner;
 }
+
+const writesDeniedReasons = new WeakMap<TenantDb, string>();
+
+export function denyTenantDbWrites(tenantDb: TenantDb, reason: string): void {
+  writesDeniedReasons.set(tenantDb, reason);
+}
+
+export function tenantDbWritesDeniedError(operation: string, reason: string): InternalError {
+  return new InternalError({
+    message: `${operation}: writes are not available ${reason}; run the write through ctx.write so it gets its own transaction`,
+  });
+}
+
+// For framework code that writes through the raw runner (executor verbs, event appends, projection steps):
+// the TenantDb's own write methods are denied via TenantDbGrants, this closes the runner-based door.
+export function tenantDbWriteRunner(tenantDb: TenantDb, operation: string): DbRunner {
+  const reason = writesDeniedReasons.get(tenantDb);
+  if (reason !== undefined) throw tenantDbWritesDeniedError(operation, reason);
+  return tenantDbRunner(tenantDb);
+}

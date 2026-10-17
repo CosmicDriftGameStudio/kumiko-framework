@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Handler context and embedded fields
@@ -88,9 +88,31 @@ defineWriteHandler({
 - A failure result or a throw rejects the write before anything is written. Earlier reservations and phase releases of the same batch are released.
 - `release` runs whenever the handler transaction does not commit: failure result, throw, rollback, and a failed commit with unknown outcome. Because the outcome can be unknown, a release must tolerate a commit that actually happened. `uploadFileBytesBeforeTransaction` deletes its bytes only if no `file_refs` row with that storage key exists.
 - A handler with a `beforeTransaction` phase cannot run as a nested `ctx.write`; the dispatcher fails it with an `InternalError`, like a capped handler.
-- No transaction is open in the phase. `ctx.write`, `writeAs`, `appendEvent`, `fetchForWriting`, `scheduleAfterCommit`, `notify` and the job runner throw there. Reads through `ctx.db` work. A write through `ctx.db` or `ctx.systemDb` commits on its own and survives a rollback, so do not write in the phase; move it into the handler. `forTenant` and the outside-transaction handles are unavailable.
+- No transaction is open in the phase. `ctx.write`, `writeAs`, `appendEvent`, `fetchForWriting`, `scheduleAfterCommit`, `notify` and the job runner throw there. Reads through `ctx.db` work. A write through `ctx.db` or `ctx.systemDb` throws, so do not write in the phase; move it into the handler. `forTenant` and the outside-transaction handles are unavailable.
 - In an `r.systemScope()` handler `ctx.db` is fail-closed, so the release of `uploadFileBytesBeforeTransaction` cannot check for a committed row and keeps the bytes (logged).
 - A crash between the phase and the commit leaves what the phase uploaded in storage, because no job sweeps an original file without a `file_refs` row.
+
+## Handlers without a transaction of their own
+
+Where no transaction is open, `ctx.write` and `ctx.writeAs` run the target as its own top-level command with its own transaction and afterCommit hooks. This applies to stream handlers, top-level query handlers and handlers that declare `transaction: "perCommand"`. In these contexts, and in `beforeTransaction` and `reserveBeforeTransaction`, writes through `ctx.db` (including the entity executor and `db.global()`) and event appends throw; reads work. `ctx.dbOutsideTransaction` and `ctx.outsideTransaction` stay available, and `ctx.db.unsafeRaw()` remains the audited escape hatch. AfterCommit hooks already worked this way and keep their writable `ctx.db`. `runInOwnTransaction(ctx.db, ...)` stays locked in these contexts; use `runInOwnTransaction(ctx.dbOutsideTransaction, ...)` for a deliberate own transaction.
+
+```ts illustration
+defineWriteHandler({
+  name: "import-all",
+  schema,
+  access,
+  transaction: "perCommand",
+  handler: async (event, ctx) => {
+    for (const row of event.payload.rows) {
+      const result = await ctx.write("crm:write:customer:create", row);
+      if (!result.isSuccess) return result;
+    }
+    return { isSuccess: true, data: {} };
+  },
+});
+```
+
+A `perCommand` handler orchestrates many commands without holding one long transaction: each `ctx.write` commits on its own, so an earlier command stays committed when a later one fails. It cannot run as a nested `ctx.write`, cannot be part of a multi-command batch, and cannot combine with `beforeTransaction` or `reserveBeforeTransaction`; boot rejects the combination.
 
 ## `r.systemScope()` handlers self-check through `ctx.systemDb`
 

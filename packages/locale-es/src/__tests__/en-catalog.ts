@@ -328,6 +328,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation.errors.planTiersShareProduct":
     "Each plan needs its own Stripe product. Contact support.",
   "billing-foundation.errors.priceUnavailable": "This plan's price is temporarily unavailable.",
+  "billing-foundation.errors.providerCustomerUnknown":
+    "The billing account for this subscription no longer exists. Subscribe again to continue.",
   "billing-foundation.errors.providerHasNoPriceCatalog":
     "This provider has no known prices configured.",
   "billing-foundation.errors.providerMismatch":
@@ -1116,6 +1118,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "This file is not a supported image. Use PNG, JPEG, WebP or GIF.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
     "Resource files of system templates can only be imported or exported by a user of the system tenant.",
+  "templateResolver.errors.template.bundleLocalesDiffer":
+    "The locales of this template differ in content format or variables, so they cannot be exported as one bundle.",
   "templateResolver.errors.collection.kindNotAllowed":
     "“{detail}” templates are written through their own editor, not through a collection.",
   "templateResolver.errors.noSystemTemplate": "There is no active system template to reset to.",

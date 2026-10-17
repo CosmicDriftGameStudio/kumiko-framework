@@ -1,5 +1,9 @@
 // @runtime client
-import { PlaceholderLineEditor } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import {
+  PDF_ORIENTATIONS,
+  PDF_PAGE_FORMATS,
+  PlaceholderLineEditor,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import type { EditorVocabulary } from "./mail-edit-center.js";
@@ -7,13 +11,7 @@ import { languageName } from "./mail-origin-bar.js";
 import { layoutOptionLabel } from "./mail-right-rail.js";
 import { VersionsSection } from "./mail-versions.js";
 import type { OverviewRowView } from "./overview-row.js";
-import {
-  MARGIN_SIDES,
-  type MarginSide,
-  ORIENTATIONS,
-  PAGE_FORMATS,
-  type PdfMetaDraft,
-} from "./pdf-meta.js";
+import { MARGIN_SIDES, type MarginSide, type PdfMetaDraft } from "./pdf-meta.js";
 import { RailField, RailHint, RailSection } from "./rail.js";
 import { DEFAULT_LAYOUT_SLUG, type TemplateStatus } from "./types.js";
 import type { InsertTargets } from "./use-insert-targets.js";
@@ -93,11 +91,11 @@ export function SettingsPanel({
                 name="pageFormat"
                 value={meta.pageFormat}
                 onChange={(pageFormat) => {
-                  const next = PAGE_FORMATS.find((format) => format === pageFormat);
+                  const next = PDF_PAGE_FORMATS.find((format) => format === pageFormat);
                   if (next !== undefined) patch({ pageFormat: next });
                 }}
                 display="dropdown"
-                options={PAGE_FORMATS.map((value) => ({ value, label: value }))}
+                options={PDF_PAGE_FORMATS.map((value) => ({ value, label: value }))}
               />
             </Field>
             <Field id="dd-orientation" label={t("documentDesigner.settings.orientation")}>
@@ -107,11 +105,11 @@ export function SettingsPanel({
                 name="orientation"
                 value={meta.orientation}
                 onChange={(orientation) => {
-                  const next = ORIENTATIONS.find((candidate) => candidate === orientation);
+                  const next = PDF_ORIENTATIONS.find((candidate) => candidate === orientation);
                   if (next !== undefined) patch({ orientation: next });
                 }}
                 display="dropdown"
-                options={ORIENTATIONS.map((value) => ({
+                options={PDF_ORIENTATIONS.map((value) => ({
                   value,
                   label: t(`documentDesigner.settings.${value}`),
                 }))}

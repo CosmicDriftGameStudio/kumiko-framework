@@ -282,7 +282,7 @@ export function createDerivativesContext(deps: DerivativesContextDeps): Derivati
       // — see resolveOverlaySpec.
       const resolvedSpec = await resolveOverlaySpec(spec, row, deps.registry, deps.tenantId);
 
-      const src = deps.files.ref(row.storageKey);
+      const src = deps.files.refFromFileRef(row);
       // ponytail: derived key keeps the source extension regardless of the
       // spec's format — widen deriveKey if a storage backend ever routes on
       // extension.

@@ -1,5 +1,10 @@
 import * as z from "zod";
-import { HEX_COLOR_PATTERN, PDF_PAGE_FORMATS, type TemplateKind } from "./constants.js";
+import {
+  HEX_COLOR_PATTERN,
+  PDF_ORIENTATIONS,
+  PDF_PAGE_FORMATS,
+  type TemplateKind,
+} from "./constants.js";
 
 // One or more kebab segments joined by ":" — notification templates are seeded
 // under their qualified name `feature:notify:name`.
@@ -42,8 +47,6 @@ const mailMetaSchema = z.preprocess(
     })
     .strict(),
 );
-
-const PDF_ORIENTATIONS = ["portrait", "landscape"] as const;
 
 const marginMm = z.number().finite().min(0).max(100).optional();
 

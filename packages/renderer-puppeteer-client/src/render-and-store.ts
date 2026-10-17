@@ -105,7 +105,7 @@ export async function renderPdfBeforeTransaction(
         registry: ctx.registry,
         tenantId,
         ...(ctx.config !== undefined && { config: ctx.config }),
-        filesForTenant: (fileTenantId) => fileContextForTenant(ctx, fileTenantId),
+        filesForTenant: (fileTenantId) => fileContextForTenant(ctx, tenantId, fileTenantId),
       },
     );
   } catch (e) {
@@ -128,7 +128,7 @@ export async function renderPdfBeforeTransaction(
   const uploaded = await uploadFileBytesBeforeTransaction(
     {
       db: ctx.db,
-      files: fileContextForTenant(ctx, tenantId),
+      files: fileContextForTenant(ctx, tenantId, tenantId),
       registry: ctx.registry,
       user: ctx.user,
     },
