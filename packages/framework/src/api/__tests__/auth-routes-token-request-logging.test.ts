@@ -62,6 +62,16 @@ async function requestReset(app: Hono): Promise<Response> {
   });
 }
 
+// Other test files in the same bun process emit async errors while a console spy is active,
+// so assertions only count the token-request failure log.
+function tokenRequestErrors(spy: {
+  readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> };
+}) {
+  return spy.mock.calls.filter((args) =>
+    args.some((arg) => String(arg).includes("token request handler")),
+  );
+}
+
 describe("POST /auth/request-password-reset failure logging", () => {
   let errorSpy: ReturnType<typeof spyOn>;
   beforeEach(() => {
@@ -72,13 +82,14 @@ describe("POST /auth/request-password-reset failure logging", () => {
   test("rate_limited stays silent and the response is still uniform success", async () => {
     const res = await requestReset(buildApp(dispatcherFailingWith("rate_limited")));
     expect(res.status).toBe(200);
-    expect(errorSpy).not.toHaveBeenCalled();
+    expect(tokenRequestErrors(errorSpy)).toHaveLength(0);
   });
 
   test("an unexpected failure code is logged", async () => {
     const res = await requestReset(buildApp(dispatcherFailingWith("internal_error")));
     expect(res.status).toBe(200);
-    expect(errorSpy).toHaveBeenCalledTimes(1);
-    expect(String(errorSpy.mock.calls[0]?.[0])).toContain("internal_error");
+    const errors = tokenRequestErrors(errorSpy);
+    expect(errors).toHaveLength(1);
+    expect(String(errors[0]?.[0])).toContain("internal_error");
   });
 });

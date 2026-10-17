@@ -116,6 +116,16 @@ describe("effectiveFeatures filtering", () => {
   });
 });
 
+// Other test files in the same bun process emit async warnings while a console spy is active,
+// so assertions only count the collision warnings this feature produces.
+function collisionWarnings(spy: {
+  readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> };
+}) {
+  return spy.mock.calls.filter((args) =>
+    args.some((arg) => String(arg).includes("[kumiko:search] searchPayloadExtension")),
+  );
+}
+
 describe("buildSearchDocument — contributor precedence (base fields win)", () => {
   // A describe-body spy is installed at collection time and never removed; under
   // `--no-isolate` it outlives this file and later files inherit its call count.
@@ -145,14 +155,14 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     const registry = registryWith(() => ({ title: "from-contributor" }));
     const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
     expect(doc?.fields["title"]).toBe("real-value");
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(collisionWarnings(warnSpy)).toHaveLength(1);
   });
 
   test("a non-colliding contributor key is still merged in", async () => {
     const registry = registryWith(() => ({ flatTags: "a,b" }));
     const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
     expect(doc?.fields).toMatchObject({ title: "real-value", flatTags: "a,b" });
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(collisionWarnings(warnSpy)).toHaveLength(0);
   });
 
   test("collision dedup — same collision warns exactly once across calls", async () => {
@@ -171,7 +181,7 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     const registry = createRegistry([feature]);
     await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry);
     await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry);
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(collisionWarnings(warnSpy)).toHaveLength(1);
   });
 
   test("collision dedup is scoped per registry — separate registries each warn", async () => {
@@ -182,7 +192,7 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     const r2 = registryWith(() => ({ title: "from-contributor" }));
     await buildSearchDocument("thing", "t1", { title: "real-value" }, r1);
     await buildSearchDocument("thing", "t1", { title: "real-value" }, r2);
-    expect(warnSpy).toHaveBeenCalledTimes(2);
+    expect(collisionWarnings(warnSpy)).toHaveLength(2);
   });
 
   test("contributor-vs-contributor collision warns with the right message", async () => {
@@ -206,8 +216,9 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     // second contributor's "overlap" collides with the first one's → "earlier contributor key".
     expect(doc?.fields["title"]).toBe("real-value");
     expect(doc?.fields["overlap"]).toBe("first");
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(warnSpy.mock.calls[0]?.[0]).toContain("earlier contributor key");
+    const warnings = collisionWarnings(warnSpy);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.[0]).toContain("earlier contributor key");
   });
 });
 

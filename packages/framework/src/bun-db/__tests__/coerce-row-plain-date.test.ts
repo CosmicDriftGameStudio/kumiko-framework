@@ -74,7 +74,7 @@ describe("coerceRow — date → Temporal.PlainDate", () => {
 describe("coerceRow — date column that is still timestamptz", () => {
   const legacyInfo: TableInfo = {
     ...dateTableInfo(),
-    pgTypeOf: (c) => (c === "legacy_day" ? "date" : undefined),
+    pgTypeOf: (c) => (c === "legacy_day" || c === "midnight_day" ? "date" : undefined),
   };
 
   test("warns once per column when the driver Date is not UTC-midnight, still returns the UTC day", () => {
@@ -85,8 +85,10 @@ describe("coerceRow — date column that is still timestamptz", () => {
       const first = coerceRow({ legacy_day: shifted }, legacyInfo);
       coerceRow({ legacy_day: shifted }, legacyInfo);
       expect((first["legacy_day"] as unknown as Temporal.PlainDate).toString()).toBe("2026-03-14");
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(String(warn.mock.calls[0]?.[0])).toContain('column "legacy_day"');
+      const driftWarnings = warn.mock.calls.filter((args) =>
+        args.some((arg) => String(arg).includes('column "legacy_day"')),
+      );
+      expect(driftWarnings).toHaveLength(1);
     } finally {
       warn.mockRestore();
     }
@@ -95,8 +97,15 @@ describe("coerceRow — date column that is still timestamptz", () => {
   test("stays silent for UTC-midnight values", () => {
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
-      coerceRow({ legacy_day: new Date(Date.UTC(2026, 2, 15)) }, legacyInfo);
-      expect(warn).not.toHaveBeenCalled();
+      // Own column: the drift warning dedups per column module-wide, so a column the previous
+      // test already warned about would stay silent even if the midnight branch were broken.
+      coerceRow({ midnight_day: new Date(Date.UTC(2026, 2, 15)) }, legacyInfo);
+      // Other test files in the same bun process emit async warnings while this spy is active,
+      // so only the date-column drift warning counts.
+      const driftWarnings = warn.mock.calls.filter((args) =>
+        args.some((arg) => String(arg).includes("is declared as date")),
+      );
+      expect(driftWarnings).toHaveLength(0);
     } finally {
       warn.mockRestore();
     }

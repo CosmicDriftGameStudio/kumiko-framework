@@ -58,5 +58,5 @@ if [ -z "$changed_packages" ]; then
   exit 1
 fi
 
-echo "::error::No changeset found for changed package(s): $(echo "$changed_packages" | paste -sd, -). Run 'bun changeset' (or 'bun changeset --empty' if this change needs no release)."
+echo "::error::No changeset found for changed package(s): $(echo "$changed_packages" | paste -sd, -). Run 'bun changeset' and add the kumiko-changes block; empty changesets are rejected by the changes guards."
 exit 1
