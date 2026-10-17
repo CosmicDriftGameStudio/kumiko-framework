@@ -198,454 +198,451 @@ function mergeAlwaysOn(
 export function createTierEngineFeature<
   TCaps extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 >(opts: CreateTierEngineOptions<TCaps> = {}): FeatureDefinition {
-  return defineFeature(TIER_ENGINE_FEATURE, (r) => {
-    r.describe(
-      'Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition \u2014 including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created \u2014 or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`. A SystemAdmin-only `set-tenant-tier` write plus `get-tenant-tier`/`tier-options` reads let an operator assign a tier to ANY tenant manually \u2014 without a billing purchase \u2014 stamping `source: "manual"` so a future Stripe\u2192tier sync won\'t overwrite the grant. Apps surface this via the `tier-admin` screen, which is always registered — in storage-only mode (no `tierMap`) it shows an honest "no tiers configured" message instead of a tier dropdown.',
-    );
-    r.uiHints({
-      displayLabel: "Tier Engine \u00b7 Plan Composition",
-      category: "billing",
-      recommended: false,
-    });
-    r.requires({ features: ["config"] });
-    r.requires({ features: ["tenant"] });
-
-    r.entity({ name: "tier-assignment", ...tierAssignmentEntity });
-
-    // Standard-CRUD via Helper.
-    r.writeHandler(
-      defineEntityCreateHandler("tier-assignment", tierAssignmentEntity, {
-        ...writeAccess,
-        // Bypasses the feature-gate refresh that set-tenant-tier performs.
-        agent: { expose: false },
-      }),
-    );
-    r.writeHandler(
-      defineEntityUpdateHandler("tier-assignment", tierAssignmentEntity, {
-        ...writeAccess,
-        agent: { expose: false },
-      }),
-    );
-
-    // Reads.
-    r.queryHandler(
-      defineEntityListHandler("tier-assignment", tierAssignmentEntity, {
-        ...adminAccess,
-        description:
-          "Lists the tier-assignment rows visible to the caller with tier name and assignment source; use it to see which plan is stored for a tenant.",
-      }),
-    );
-    r.queryHandler(getActiveTierQuery);
-
-    // \u2500\u2500 Manueller Tier-Grant (SystemAdmin, ohne Billing) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-    // Cross-tenant set + read f\u00fcr den tier-admin-Screen. tier-options liefert
-    // dem Client die App-Tier-Namen aus der tierMap-Closure (sonst hartkodiert).
-    //
-    // onAssigned runs after commit (the direct executor write fires no postSave
-    // hook). Late-bound: without tierMap it stays a no-op, the tierMap block
-    // below installs the real cache update + publish.
-    const onTierAssigned: { fn: (tenantId: TenantId, tier: string) => void } = { fn: () => {} };
-    r.writeHandler(
-      createSetTenantTierWrite({
-        onAssigned: (tenantId, tier) => onTierAssigned.fn(tenantId, tier),
-        validTiers: opts.tierMap ? new Set(Object.keys(opts.tierMap)) : undefined,
-      }),
-    );
-    r.queryHandler(getTenantTierQuery);
-    r.queryHandler(
-      defineQueryHandler({
-        name: "tier-options",
-        description:
-          "Returns the tier names the application defines in its tier map; use it to find out which values `set-tenant-tier` accepts.",
-        schema: z.object({}),
-        access: { roles: ["SystemAdmin"] },
-        handler: async () => ({ tiers: opts.tierMap ? Object.keys(opts.tierMap) : [] }),
-      }),
-    );
-
-    // Declarative form for the manual grant. SystemAdmin-only, hard-wired
-    // (platform-admin authority, not app-configurable). Apps place it only
-    // via r.nav("tier-engine:screen:tier-admin"); tier options are built
-    // statically from the tierMap closure. Always registered — even in
-    // storage-only mode (no tierMap) — so the screen shows an honest
-    // "no tiers configured" message instead of vanishing (samples like
-    // use-all-bundled deliberately mount storage-only to screenshot that
-    // empty state).
-    r.translations({ keys: TIER_ENGINE_I18N });
-    r.screen({
-      id: TIER_ADMIN_SCREEN_ID,
-      type: "actionForm",
-      handler: TierEngineHandlers.setTenantTier,
-      fields: {
-        tenantId: {
-          type: "reference",
-          entity: "tenant:tenant",
-          labelField: "name",
-          required: true,
-        },
-        tier: {
-          type: "select",
-          options: opts.tierMap ? Object.keys(opts.tierMap) : [],
-          required: true,
-        },
-      },
-      layout: {
-        sections: [
-          {
-            fields: ["tenantId", "tier"],
-            description: opts.tierMap ? "tier-admin.explainer" : "tier-admin.error.noTiers",
-          },
-        ],
-      },
-      submitLabel: "tier-admin.submit",
-      successMessage: "tier-admin.success",
-      cancelTarget: false,
-      description: "tier-admin.screen.subtitle",
-      access: { roles: ["SystemAdmin"] },
-      // Apps place it via r.nav() (see above) — no nav area to resolve in
-      // isolation.
-      dormant: true,
-    });
-
-    // ───────────────────────────────────────────────────────────────────
-    // Resolver-extension (only when tierMap is configured)
-    // ───────────────────────────────────────────────────────────────────
-    // skip: ohne tierMap ist die feature nur Storage (legacy back-compat
-    // zu `tierEngineFeature`). Resolver-extension + invalidation-hooks
-    // brauchen die tierMap zum Mapping tier-name → feature-set.
-    if (!opts.tierMap) return;
-
-    const tierMap = opts.tierMap;
-
-    // Closure-state: cache per-tenant effective Sets. Hooks halten den
-    // cache aktuell during process-lifetime; build() im extension-pickup
-    // pre-loaded existing assignments at boot.
-    const cache = new Map<TenantId, ReadonlySet<string>>();
-    // alwaysOn-Set wird in build(deps) aus registry.features berechnet (alle
-    // non-toggleable features). Hooks brauchen Zugriff darauf für
-    // mergeAlwaysOn-calls — Late-bind via mutable holder, gefüllt vor allen
-    // Requests (build läuft pre-listen via runDevApp/runProdApp-pickup).
-    const alwaysOnHolder: { set: ReadonlySet<string> } = { set: new Set() };
-    // Bus handed to build(); hooks fire outside build and publish through it.
-    const busHolder: { bus: CacheSyncBus | undefined } = { bus: undefined };
-    // Out-of-order guard: every cache mutation or reload start takes a ticket; a
-    // reload result is applied only while its ticket is still the tenant's latest.
-    let ticketCounter = 0;
-    const latestTicket = new Map<TenantId, number>();
-    const takeTicket = (tenantId: TenantId): number => {
-      ticketCounter += 1;
-      latestTicket.set(tenantId, ticketCounter);
-      return ticketCounter;
-    };
-    const publishAssignmentChange = (tenantId: TenantId): void => {
-      const message: TierAssignmentSyncMessage = { tenantId };
-      // The writer already updated its own cache; only other pods need to re-read.
-      busHolder.bus?.publish(CACHE_SYNC_TOPICS.tierAssignment, message, { remoteOnly: true });
-    };
-
-    // Trial: zeit-abgeleitet aus tenant.inserted_at (≈ Signup), live am
-    // Feature-Gate geprüft — NICHT im Resolver-Cache. Der Resolver ist
-    // boot-cached + synchron und sieht weder frische Signups noch den
-    // Zeitablauf; der Trial-Status ändert sich aber mit der Zeit und gilt ab
-    // Sekunde 1 nach Signup. Darum lebt er als async trialGate (unten, am
-    // build-Ende angehängt), den der dispatcher nur auf dem disabled-Pfad
-    // konsultiert. trialFeatures = fixe Feature-Menge des Trial-Tiers.
-    if (opts.trial && !tierMap[opts.trial.tier]) {
-      throw new Error(
-        `tier-engine: trial.tier "${opts.trial.tier}" is not a key in tierMap — trial would unlock no features`,
+  return defineFeature(
+    TIER_ENGINE_FEATURE,
+    (r) => {
+      r.describe(
+        'Stores a `tier-assignment` entity per tenant (which pricing tier is active) and, when configured with a `TierMap`, registers itself as the `tenantTierResolver` extension so the dispatcher automatically gates `r.toggleable()` features per tenant based on their assigned tier. Call `createTierEngineFeature({ defaultTier, tierMap })` to get full tier composition \u2014 including an `inTransaction` entity hook that atomically writes the default tier when a new tenant is created \u2014 or use `createTierEngineFeature()` without options for storage-only mode when you manage tier assignment yourself via `composeApp`. A SystemAdmin-only `set-tenant-tier` write plus `get-tenant-tier`/`tier-options` reads let an operator assign a tier to ANY tenant manually \u2014 without a billing purchase \u2014 stamping `source: "manual"` so a future Stripe\u2192tier sync won\'t overwrite the grant. Apps surface this via the `tier-admin` screen, which is always registered — in storage-only mode (no `tierMap`) it shows an honest "no tiers configured" message instead of a tier dropdown.',
       );
-    }
-    const trialFeatures: ReadonlySet<string> = opts.trial
-      ? featuresForTier(tierMap, opts.trial.tier)
-      : new Set();
-    const nowMs = (): number => getTemporal().Now.instant().epochMilliseconds;
+      r.uiHints({
+        displayLabel: "Tier Engine \u00b7 Plan Composition",
+        category: "billing",
+        recommended: false,
+      });
+      r.requires({ features: ["config"] });
+      r.requires({ features: ["tenant"] });
 
-    // Immediate local visibility on the writing pod; other pods learn via the
-    // bus and re-read the row.
-    const applyAssignment = (tenantId: TenantId, tier: string): void => {
-      takeTicket(tenantId);
-      cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, tier)));
-      publishAssignmentChange(tenantId);
-    };
-    onTierAssigned.fn = applyAssignment;
+      r.entity({ name: "tier-assignment", ...tierAssignmentEntity });
 
-    // Invalidation: tier-assignment CRUD events (e.g. the billing webhook) update the cache.
-    r.hook({
-      type: "postSave",
-      target: { allOf: "tier-assignment" },
-      handler: async (result) => {
-        // result.data has tenantId + tier (after entity-update merge)
-        const data = result.data as { tenantId?: unknown; tier?: unknown }; // @cast-boundary engine-payload
-        // skip: defensive guard on the payload shape. Correct entity events
-        // always carry both fields as strings; a malformed payload (a custom
-        // handler bug) skips the cache update instead of throwing, because a
-        // hook error must not block the lifecycle pipeline (afterCommit,
-        // best-effort side effect).
-        if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
-        applyAssignment(data.tenantId as TenantId, data.tier);
-      },
-    });
-    r.hook({
-      type: "postDelete",
-      target: { allOf: "tier-assignment" },
-      handler: async (payload) => {
-        const data = payload.data as { tenantId?: unknown }; // @cast-boundary engine-payload
-        // skip: gleiche type-guard semantik wie postSave-hook oben.
-        if (typeof data.tenantId !== "string") return;
-        const tenantId = data.tenantId as TenantId;
+      // Standard-CRUD via Helper.
+      r.writeHandler(
+        defineEntityCreateHandler("tier-assignment", tierAssignmentEntity, {
+          ...writeAccess,
+          // Bypasses the feature-gate refresh that set-tenant-tier performs.
+          agent: { expose: false },
+        }),
+      );
+      r.writeHandler(
+        defineEntityUpdateHandler("tier-assignment", tierAssignmentEntity, {
+          ...writeAccess,
+          agent: { expose: false },
+        }),
+      );
+
+      // Reads.
+      r.queryHandler(
+        defineEntityListHandler("tier-assignment", tierAssignmentEntity, {
+          ...adminAccess,
+          description:
+            "Lists the tier-assignment rows visible to the caller with tier name and assignment source; use it to see which plan is stored for a tenant.",
+        }),
+      );
+      r.queryHandler(getActiveTierQuery);
+
+      // \u2500\u2500 Manueller Tier-Grant (SystemAdmin, ohne Billing) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+      // Cross-tenant set + read f\u00fcr den tier-admin-Screen. tier-options liefert
+      // dem Client die App-Tier-Namen aus der tierMap-Closure (sonst hartkodiert).
+      //
+      // onAssigned runs after commit (the direct executor write fires no postSave
+      // hook). Late-bound: without tierMap it stays a no-op, the tierMap block
+      // below installs the real cache update + publish.
+      const onTierAssigned: { fn: (tenantId: TenantId, tier: string) => void } = { fn: () => {} };
+      r.writeHandler(
+        createSetTenantTierWrite({
+          onAssigned: (tenantId, tier) => onTierAssigned.fn(tenantId, tier),
+          validTiers: opts.tierMap ? new Set(Object.keys(opts.tierMap)) : undefined,
+        }),
+      );
+      r.queryHandler(getTenantTierQuery);
+      r.queryHandler(
+        defineQueryHandler({
+          name: "tier-options",
+          description:
+            "Returns the tier names the application defines in its tier map; use it to find out which values `set-tenant-tier` accepts.",
+          schema: z.object({}),
+          access: { roles: ["SystemAdmin"] },
+          handler: async () => ({ tiers: opts.tierMap ? Object.keys(opts.tierMap) : [] }),
+        }),
+      );
+
+      // Declarative form for the manual grant. SystemAdmin-only, hard-wired
+      // (platform-admin authority, not app-configurable). Apps place it only
+      // via r.nav("tier-engine:screen:tier-admin"); tier options are built
+      // statically from the tierMap closure. Always registered — even in
+      // storage-only mode (no tierMap) — so the screen shows an honest
+      // "no tiers configured" message instead of vanishing (samples like
+      // use-all-bundled deliberately mount storage-only to screenshot that
+      // empty state).
+      r.translations({ keys: TIER_ENGINE_I18N });
+      r.screen({
+        id: TIER_ADMIN_SCREEN_ID,
+        type: "actionForm",
+        handler: TierEngineHandlers.setTenantTier,
+        fields: {
+          tenantId: {
+            type: "reference",
+            entity: "tenant:tenant",
+            labelField: "name",
+            required: true,
+          },
+          tier: {
+            type: "select",
+            options: opts.tierMap ? Object.keys(opts.tierMap) : [],
+            required: true,
+          },
+        },
+        layout: {
+          sections: [
+            {
+              fields: ["tenantId", "tier"],
+              description: opts.tierMap ? "tier-admin.explainer" : "tier-admin.error.noTiers",
+            },
+          ],
+        },
+        submitLabel: "tier-admin.submit",
+        successMessage: "tier-admin.success",
+        cancelTarget: false,
+        description: "tier-admin.screen.subtitle",
+        access: { roles: ["SystemAdmin"] },
+        // Apps place it via r.nav() (see above) — no nav area to resolve in
+        // isolation.
+        dormant: true,
+      });
+
+      // ───────────────────────────────────────────────────────────────────
+      // Resolver-extension (only when tierMap is configured)
+      // ───────────────────────────────────────────────────────────────────
+      // skip: ohne tierMap ist die feature nur Storage (legacy back-compat
+      // zu `tierEngineFeature`). Resolver-extension + invalidation-hooks
+      // brauchen die tierMap zum Mapping tier-name → feature-set.
+      if (!opts.tierMap) return;
+
+      const tierMap = opts.tierMap;
+
+      // Closure state: per-tenant cache of effective sets. Hooks keep the
+      // cache current during the process lifetime; build() in the extension
+      // pickup pre-loads existing assignments at boot.
+      const cache = new Map<TenantId, ReadonlySet<string>>();
+      // The alwaysOn set is computed in build(deps) from registry.features (all
+      // non-toggleable features). Hooks need it for mergeAlwaysOn calls — late
+      // bound via a mutable holder, filled before any request (build runs
+      // pre-listen via the runDevApp/runProdApp pickup).
+      const alwaysOnHolder: { set: ReadonlySet<string> } = { set: new Set() };
+      // Bus handed to build(); hooks fire outside build and publish through it.
+      const busHolder: { bus: CacheSyncBus | undefined } = { bus: undefined };
+      // Out-of-order guard: every cache mutation or reload start takes a ticket; a
+      // reload result is applied only while its ticket is still the tenant's latest.
+      let ticketCounter = 0;
+      const latestTicket = new Map<TenantId, number>();
+      const takeTicket = (tenantId: TenantId): number => {
+        ticketCounter += 1;
+        latestTicket.set(tenantId, ticketCounter);
+        return ticketCounter;
+      };
+      const publishAssignmentChange = (tenantId: TenantId): void => {
+        const message: TierAssignmentSyncMessage = { tenantId };
+        // The writer already updated its own cache; only other pods need to re-read.
+        busHolder.bus?.publish(CACHE_SYNC_TOPICS.tierAssignment, message, { remoteOnly: true });
+      };
+
+      // Trial: derived from time (tenant.inserted_at ≈ signup) and checked live
+      // at the feature gate — NOT in the resolver cache. The resolver is
+      // boot-cached and synchronous, so it sees neither fresh signups nor the
+      // passage of time; the trial status changes over time and applies from
+      // second 1 after signup. That is why it lives as an async trialGate
+      // (below, attached at the end of build) which the dispatcher consults
+      // only on the disabled path. trialFeatures = fixed feature set of the
+      // trial tier.
+      if (opts.trial && !tierMap[opts.trial.tier]) {
+        throw new Error(
+          `tier-engine: trial.tier "${opts.trial.tier}" is not a key in tierMap — trial would unlock no features`,
+        );
+      }
+      const trialFeatures: ReadonlySet<string> = opts.trial
+        ? featuresForTier(tierMap, opts.trial.tier)
+        : new Set();
+      const nowMs = (): number => getTemporal().Now.instant().epochMilliseconds;
+
+      // Immediate local visibility on the writing pod; other pods learn via the
+      // bus and re-read the row.
+      const applyAssignment = (tenantId: TenantId, tier: string): void => {
         takeTicket(tenantId);
-        cache.delete(tenantId);
+        cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, tier)));
         publishAssignmentChange(tenantId);
-      },
-    });
+      };
+      onTierAssigned.fn = applyAssignment;
 
-    // Auto-default-tier-on-tenant-signup: hook fires inTransaction (atomic
-    // mit tenant-create rollback), schreibt tier-assignment via Direct-
-    // Executor (nicht ctx.write — hook hat AppContext). Pattern analog
-    // tenant/seeding.ts seedTenant.
-    //
-    // **Idempotency:** deterministic aggregate-id aus tenantId. Re-replay
-    // (nach projection-rebuild oder hook-retry) findet stream-version > 0
-    // und skipt, statt version_conflict zu werfen. Caller sieht erfolgreichen
-    // tenant-create + bestehende tier-assignment.
-    //
-    // **Cross-tenant write:** executor braucht systemUser MIT tenantId =
-    // neuer Tenant (Memory `feedback_event_store_tenant_consistency`).
-    if (opts.defaultTier !== undefined) {
-      const defaultTier = opts.defaultTier;
-      const autoDefaultTierHookReason =
-        "seeds the default tier-assignment stream of the tenant just created";
+      // Invalidation: tier-assignment CRUD events (e.g. the billing webhook) update the cache.
       r.hook({
         type: "postSave",
-        target: { allOf: "tenant" },
-        handler: async (result, ctx) => {
-          // result-shape: kumiko-framework's SaveContext mit isNew + data
-          const saveResult = result as { isNew?: unknown; data?: unknown }; // @cast-boundary engine-payload
-          // skip: nur bei tenant-create (initial) — tenant-updates feuern
-          // auch postSave aber wir wollen kein neues tier-assignment bei
-          // re-keying oder name-update.
-          if (saveResult.isNew !== true) return;
-          const data = saveResult.data as { id?: unknown }; // @cast-boundary engine-payload
-          // skip: defensive type-guard. Tenant-entity hat id zwingend, aber
-          // CrudExecutor's payload-shape ist runtime-unknown.
-          if (typeof data.id !== "string") return;
-          const newTenantId = data.id as TenantId; // @cast-boundary engine-payload
-          const aggregateId = tierAssignmentAggregateId(newTenantId);
-
-          // tenant is an r.systemScope() feature, so this cross-feature hook gets a
-          // fail-closed ctx.db — reach for ctx.systemDb instead (see entity-handlers.ts).
-          // Event-store paths need the raw DbConnection — TenantDb only exposes
-          // select/insert/update/delete, not execute (db.execute(sql`SELECT pg_notify(...)`) would TypeError).
-          const rawDb = ctx.systemDb
-            ? ctx.systemDb.unsafeRaw(autoDefaultTierHookReason)
-            : ctx.db && "unsafeRaw" in ctx.db
-              ? ctx.db.unsafeRaw()
-              : undefined;
-          // skip: defensive — inTransaction phase always sets db, but AppContext's
-          // type makes it optional. Throwing would be overreach (lifecycle
-          // blocking), silent-skip is defensive-soft.
-          if (!rawDb) return;
-
-          // Idempotency: stream-existence-check vor create. Pattern aus
-          // seedTenant.ts. Bei re-replay (rebuild) nicht versionsbumpen.
-          const streamVersion = await getUnscopedAggregateStreamMaxVersion(rawDb, aggregateId);
-          // skip: idempotent — tier-assignment stream already seeded (rebuild/replay).
-          if (streamVersion > 0) return;
-
-          // SystemUser für den NEUEN tenant — der Hook wird vom signup-
-          // user (anderer tenant, oder SystemAdmin) ausgelöst, aber das
-          // tier-assignment muss im stream des neu-erzeugten tenants
-          // landen (= aggregate-id deterministic auf newTenantId). Memory
-          // `feedback_event_store_tenant_consistency`: by.tenantId muss =
-          // ziel-tenant.
-          const systemUser: SessionUser = {
-            id: "00000000-0000-4000-8000-000000000001",
-            tenantId: newTenantId,
-            roles: ["SystemAdmin"],
-          };
-          const tdb = createTenantDb({ db: rawDb, tenantId: newTenantId, mode: "system" });
-
-          await tierAssignmentExecutor.create(
-            { id: aggregateId, tier: defaultTier, source: TierAssignmentSources.default },
-            systemUser,
-            tdb,
-          );
+        target: { allOf: "tier-assignment" },
+        handler: async (result) => {
+          // result.data has tenantId + tier (after entity-update merge)
+          const data = result.data as { tenantId?: unknown; tier?: unknown }; // @cast-boundary engine-payload
+          // skip: defensive guard on the payload shape. Correct entity events
+          // always carry both fields as strings; a malformed payload (a custom
+          // handler bug) skips the cache update instead of throwing, because a
+          // hook error must not block the lifecycle pipeline (afterCommit,
+          // best-effort side effect).
+          if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
+          applyAssignment(data.tenantId as TenantId, data.tier);
         },
-        phase: HookPhases.inTransaction,
-        escapeHatch: { reason: autoDefaultTierHookReason },
       });
-    }
+      r.hook({
+        type: "postDelete",
+        target: { allOf: "tier-assignment" },
+        handler: async (payload) => {
+          const data = payload.data as { tenantId?: unknown }; // @cast-boundary engine-payload
+          // skip: same type-guard semantics as the postSave hook above.
+          if (typeof data.tenantId !== "string") return;
+          const tenantId = data.tenantId as TenantId;
+          takeTicket(tenantId);
+          cache.delete(tenantId);
+          publishAssignmentChange(tenantId);
+        },
+      });
 
-    // Extension-point declaration + self-registration. Pattern analog
-    // mail-foundation/file-foundation: das feature deklariert den
-    // extension-point UND registriert sich als default-plugin. Andere
-    // features könnten später auch dort registrieren (z.B. ein future
-    // toggle-only-resolver), aber nur ein plugin gewinnt — siehe
-    // findTierResolverUsage's "single-plugin"-comment.
-    r.extendsRegistrar(TENANT_TIER_RESOLVER_EXT, { onRegister: () => {} });
+      // Auto-default-tier-on-tenant-signup: the hook fires inTransaction (atomic
+      // with the tenant-create rollback) and writes the tier-assignment via the
+      // direct executor (not ctx.write — the hook has an AppContext). Same
+      // pattern as seedTenant in tenant/seeding.ts.
+      //
+      // **Idempotency:** deterministic aggregate id derived from tenantId. A
+      // re-replay (after a projection rebuild or hook retry) finds
+      // stream-version > 0 and skips instead of throwing version_conflict. The
+      // caller sees a successful tenant-create plus the existing
+      // tier-assignment.
+      //
+      // **Cross-tenant write:** the executor needs a systemUser WITH tenantId =
+      // the new tenant (memory `feedback_event_store_tenant_consistency`).
+      if (opts.defaultTier !== undefined) {
+        const defaultTier = opts.defaultTier;
+        const autoDefaultTierHookReason =
+          "seeds the default tier-assignment stream of the tenant just created";
+        r.hook({
+          type: "postSave",
+          target: { allOf: "tenant" },
+          handler: async (result, ctx) => {
+            // result shape: kumiko-framework's SaveContext with isNew + data
+            const saveResult = result as { isNew?: unknown; data?: unknown }; // @cast-boundary engine-payload
+            // skip: only on tenant-create (initial) — tenant updates fire
+            // postSave too, but a re-keying or name update must not create a
+            // new tier-assignment.
+            if (saveResult.isNew !== true) return;
+            const data = saveResult.data as { id?: unknown }; // @cast-boundary engine-payload
+            // skip: defensive type guard. The tenant entity always has an id, but
+            // CrudExecutor's payload shape is unknown at runtime.
+            if (typeof data.id !== "string") return;
+            const newTenantId = data.id as TenantId; // @cast-boundary engine-payload
+            const aggregateId = tierAssignmentAggregateId(newTenantId);
 
-    // Plugin-registration: framework's runDevApp/runProdApp picks this up
-    // post-stack-setup, calls build(deps), wires effectiveFeatures.
-    const plugin: TierResolverPlugin = {
-      build: async (deps) => {
-        // Always-on-Set: alle non-toggleable features im registry. Canonical
-        // Kumiko-pattern (matches feature-toggles' resolver): nur features
-        // die explizit `r.toggleable()` registrieren sind tier-cuttable.
-        // Framework-base-features (auth-email-password, config, user, tenant,
-        // sessions, etc.) sind non-toggleable → IMMER aktiv für jeden Tenant
-        // unabhängig vom tier. Sonst würde dispatcher 403 auf login-handler
-        // werfen weil "feature auth-email-password disabled".
-        const computedAlwaysOn = new Set<string>();
-        for (const feature of deps.registry.features.values()) {
-          if (feature.toggleableDefault === undefined) computedAlwaysOn.add(feature.name);
-        }
-        alwaysOnHolder.set = computedAlwaysOn;
+            // tenant is an r.systemScope() feature, so this cross-feature hook gets a
+            // fail-closed ctx.db — reach for ctx.systemDb instead (see entity-handlers.ts).
+            // Event-store paths need the raw DbConnection — TenantDb only exposes
+            // select/insert/update/delete, not execute (db.execute(sql`SELECT pg_notify(...)`) would TypeError).
+            const rawDb = ctx.systemDb
+              ? ctx.systemDb.unsafeRaw(autoDefaultTierHookReason)
+              : ctx.db && "unsafeRaw" in ctx.db
+                ? ctx.db.unsafeRaw()
+                : undefined;
+            // skip: defensive — inTransaction phase always sets db, but AppContext's
+            // type makes it optional. Throwing would be overreach (lifecycle
+            // blocking), silent-skip is defensive-soft.
+            if (!rawDb) return;
 
-        // Pre-load all existing assignments into cache. SaaS-Apps haben
-        // typischerweise <100k tenants — single-pass scan akzeptabel.
-        // Skalierungs-Pfad (lazy-load + LRU) ist Sprint-8b wenn echtes
-        // Bedürfnis entsteht.
-        type AssignmentRow = { tenantId: string; tier: string };
-        const rows = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
-        for (const row of rows) {
-          cache.set(
-            row.tenantId as TenantId,
-            mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
-          );
-        }
+            // Idempotency: stream-existence check before create. Same pattern as
+            // seedTenant.ts. On a re-replay (rebuild) do not bump the version.
+            const streamVersion = await getUnscopedAggregateStreamMaxVersion(rawDb, aggregateId);
+            // skip: idempotent — tier-assignment stream already seeded (rebuild/replay).
+            if (streamVersion > 0) return;
 
-        // Read first, then set — never clear-then-refill: a cache miss falls back
-        // to the default tier, which would lock paying tenants out meanwhile.
-        const reloadTenant = async (tenantId: TenantId): Promise<void> => {
-          const ticket = takeTicket(tenantId);
-          const row = await fetchOne<AssignmentRow>(deps.db, tierAssignmentTable, { tenantId });
-          // skip: a newer write or reload for this tenant started meanwhile and owns the entry
-          if (latestTicket.get(tenantId) !== ticket) return;
-          if (row) {
-            cache.set(
-              tenantId,
-              mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
+            // SystemUser for the NEW tenant — the hook is triggered by the signup
+            // user (another tenant, or SystemAdmin), but the tier-assignment has
+            // to land in the stream of the newly created tenant (= aggregate id
+            // deterministic on newTenantId). Memory
+            // `feedback_event_store_tenant_consistency`: by.tenantId must equal
+            // the target tenant.
+            const systemUser: SessionUser = {
+              id: "00000000-0000-4000-8000-000000000001",
+              tenantId: newTenantId,
+              roles: ["SystemAdmin"],
+            };
+            const tdb = createTenantDb({ db: rawDb, tenantId: newTenantId, mode: "system" });
+
+            await tierAssignmentExecutor.create(
+              { id: aggregateId, tier: defaultTier, source: TierAssignmentSources.default },
+              systemUser,
+              tdb,
             );
-          } else {
-            cache.delete(tenantId);
+          },
+          phase: HookPhases.inTransaction,
+          escapeHatch: { reason: autoDefaultTierHookReason },
+        });
+      }
+
+      // Extension-point declaration + self-registration. Same pattern as
+      // mail-foundation/file-foundation: the feature declares the extension
+      // point AND registers itself as the default plugin. Other features could
+      // register there later (e.g. a future toggle-only resolver), but only one
+      // plugin wins — see the "single-plugin" comment on findTierResolverUsage.
+      r.extendsRegistrar(TENANT_TIER_RESOLVER_EXT, { onRegister: () => {} });
+
+      // Plugin-registration: framework's runDevApp/runProdApp picks this up
+      // post-stack-setup, calls build(deps), wires effectiveFeatures.
+      const plugin: TierResolverPlugin = {
+        build: async (deps) => {
+          // Always-on set: all non-toggleable features in the registry. Canonical
+          // Kumiko pattern (matches the feature-toggles resolver): only features
+          // that explicitly register `r.toggleable()` are tier-cuttable.
+          // Framework base features (auth-email-password, config, user, tenant,
+          // sessions, etc.) are non-toggleable → ALWAYS active for every tenant
+          // regardless of tier. Otherwise the dispatcher would answer 403 on the
+          // login handler because "feature auth-email-password disabled".
+          const computedAlwaysOn = new Set<string>();
+          for (const feature of deps.registry.features.values()) {
+            if (feature.toggleableDefault === undefined) computedAlwaysOn.add(feature.name);
           }
-        };
-        const reloadAllTenants = async (): Promise<void> => {
-          ticketCounter += 1;
-          const startedAtTicket = ticketCounter;
-          const current = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
-          const loaded = new Map<TenantId, ReadonlySet<string>>();
-          for (const row of current) {
-            loaded.set(
+          alwaysOnHolder.set = computedAlwaysOn;
+
+          // Pre-load all existing assignments into the cache. SaaS apps typically
+          // have <100k tenants, so a single-pass scan is acceptable. The scaling
+          // path (lazy load + LRU) is Sprint-8b, once a real need arises.
+          type AssignmentRow = { tenantId: string; tier: string };
+          const rows = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
+          for (const row of rows) {
+            cache.set(
               row.tenantId as TenantId,
               mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
             );
           }
-          const isNewerThanSnapshot = (tenantId: TenantId): boolean =>
-            (latestTicket.get(tenantId) ?? 0) > startedAtTicket;
-          for (const tenantId of [...cache.keys()]) {
-            if (!loaded.has(tenantId) && !isNewerThanSnapshot(tenantId)) {
-              cache.delete(tenantId);
-              latestTicket.set(tenantId, startedAtTicket);
-            }
-          }
-          for (const [tenantId, features] of loaded) {
-            if (!isNewerThanSnapshot(tenantId)) {
-              cache.set(tenantId, features);
-              // Makes a single reload that started before this snapshot discard its older result.
-              latestTicket.set(tenantId, startedAtTicket);
-            }
-          }
-        };
 
-        busHolder.bus = deps.cacheSync;
-        deps.cacheSync?.subscribe(CACHE_SYNC_TOPICS.tierAssignment, (message) => {
-          // skip: malformed message from another process
-          if (!isTierAssignmentSyncMessage(message)) return;
-          reloadTenant(message.tenantId).catch((err: unknown) => {
-            log.error("tier reload failed, keeping cached set", {
-              tenantId: message.tenantId,
-              err,
+          // Read first, then set — never clear-then-refill: a cache miss falls back
+          // to the default tier, which would lock paying tenants out meanwhile.
+          const reloadTenant = async (tenantId: TenantId): Promise<void> => {
+            const ticket = takeTicket(tenantId);
+            const row = await fetchOne<AssignmentRow>(deps.db, tierAssignmentTable, { tenantId });
+            // skip: a newer write or reload for this tenant started meanwhile and owns the entry
+            if (latestTicket.get(tenantId) !== ticket) return;
+            if (row) {
+              cache.set(
+                tenantId,
+                mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
+              );
+            } else {
+              cache.delete(tenantId);
+            }
+          };
+          const reloadAllTenants = async (): Promise<void> => {
+            ticketCounter += 1;
+            const startedAtTicket = ticketCounter;
+            const current = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
+            const loaded = new Map<TenantId, ReadonlySet<string>>();
+            for (const row of current) {
+              loaded.set(
+                row.tenantId as TenantId,
+                mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
+              );
+            }
+            const isNewerThanSnapshot = (tenantId: TenantId): boolean =>
+              (latestTicket.get(tenantId) ?? 0) > startedAtTicket;
+            for (const tenantId of [...cache.keys()]) {
+              if (!loaded.has(tenantId) && !isNewerThanSnapshot(tenantId)) {
+                cache.delete(tenantId);
+                latestTicket.set(tenantId, startedAtTicket);
+              }
+            }
+            for (const [tenantId, features] of loaded) {
+              if (!isNewerThanSnapshot(tenantId)) {
+                cache.set(tenantId, features);
+                // Makes a single reload that started before this snapshot discard its older result.
+                latestTicket.set(tenantId, startedAtTicket);
+              }
+            }
+          };
+
+          busHolder.bus = deps.cacheSync;
+          deps.cacheSync?.subscribe(CACHE_SYNC_TOPICS.tierAssignment, (message) => {
+            // skip: malformed message from another process
+            if (!isTierAssignmentSyncMessage(message)) return;
+            reloadTenant(message.tenantId).catch((err: unknown) => {
+              log.error("tier reload failed, keeping cached set", {
+                tenantId: message.tenantId,
+                err,
+              });
             });
           });
-        });
-        deps.cacheSync?.onResync(() => {
-          reloadAllTenants().catch((err: unknown) => {
-            log.error("tier resync failed, keeping cached sets", { err });
+          deps.cacheSync?.onResync(() => {
+            reloadAllTenants().catch((err: unknown) => {
+              log.error("tier resync failed, keeping cached sets", { err });
+            });
           });
-        });
 
-        // Synchronous resolver-callback for dispatcher hot-path.
-        const resolver = (tenantId: TenantId): ReadonlySet<string> => {
-          // Operator-tooling + async-event-dispatch convention: SYSTEM_TENANT_ID
-          // gets the union of all tier-features (siehe DispatcherOptions doc).
-          if (tenantId === SYSTEM_TENANT_ID) {
-            return mergeAlwaysOn(computedAlwaysOn, unionAllTierFeatures(tierMap));
-          }
-          // Cache-miss: tenant ist noch nicht im cache (z.B. brandneu nach
-          // boot, oder defaultTier-hook hat noch nicht gefired). Default-Set
-          // ist least-privileged — typisch Free-Tier-features. Memory
-          // `feedback_security_default_on`: secure-by-default. Der Trial wird
-          // hier NICHT addiert (sync/boot-cached sieht den Zeitablauf nicht) —
-          // das macht der trialGate unten am disabled-Gate-Pfad.
-          const fallbackTier = opts.defaultTier;
-          return (
-            cache.get(tenantId) ??
-            (fallbackTier === undefined
-              ? computedAlwaysOn
-              : mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, fallbackTier)))
-          );
-        };
+          // Synchronous resolver-callback for dispatcher hot-path.
+          const resolver = (tenantId: TenantId): ReadonlySet<string> => {
+            // Operator-tooling + async-event-dispatch convention: SYSTEM_TENANT_ID
+            // gets the union of all tier features (see DispatcherOptions doc).
+            if (tenantId === SYSTEM_TENANT_ID) {
+              return mergeAlwaysOn(computedAlwaysOn, unionAllTierFeatures(tierMap));
+            }
+            // Cache miss: the tenant is not in the cache yet (e.g. brand new after
+            // boot, or the defaultTier hook has not fired yet). The default set
+            // is least-privileged — typically free-tier features. Memory
+            // `feedback_security_default_on`: secure by default. The trial is NOT
+            // added here (sync/boot-cached, cannot see the passage of time) — the
+            // trialGate below does that on the disabled-gate path.
+            const fallbackTier = opts.defaultTier;
+            return (
+              cache.get(tenantId) ??
+              (fallbackTier === undefined
+                ? computedAlwaysOn
+                : mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, fallbackTier)))
+            );
+          };
 
-        const trial = opts.trial;
-        if (trial === undefined) return resolver;
+          const trial = opts.trial;
+          if (trial === undefined) return resolver;
 
-        // Live-Trial-Gate: liest tenant.inserted_at (≈ Signup, existiert für
-        // JEDEN Tenant inkl. auth-signup via seedTenant — anders als die
-        // tier-assignment-Row, die der seed-Pfad nicht anlegt) und prüft das
-        // Fenster gegen die aktuelle Zeit. Nur auf dem disabled-Gate-Pfad
-        // konsultiert. inserted_at ist immutable → pro Tenant einmal lesen.
-        // Promise-memo (not a plain value cache): N concurrent requests for the
-        // same fresh tenant must await the SAME in-flight fetchOne, not each
-        // fire their own — a plain `Map<TenantId, number>` set AFTER the await
-        // lets every concurrent caller miss the cache and issue a redundant
-        // read (benign but wasteful on a signup burst).
-        const startedMemo = new Map<TenantId, Promise<number | undefined>>();
-        const trialGate: TrialGate = async (tenantId, featureName) => {
-          if (!trialFeatures.has(featureName)) return false;
-          let startedMsPromise = startedMemo.get(tenantId);
-          if (startedMsPromise === undefined) {
-            startedMsPromise = fetchOne<{ insertedAt?: Temporal.Instant }>(deps.db, tenantTable, {
-              id: tenantId,
-            }).then((row) => row?.insertedAt?.epochMilliseconds);
-            // Evict on rejection too — a transient DB error must not poison
-            // every future call for this tenant with the same cached rejection.
-            startedMsPromise.catch(() => startedMemo.delete(tenantId));
-            startedMemo.set(tenantId, startedMsPromise);
-          }
-          const startedMs = await startedMsPromise;
-          // Tenant-Row noch nicht projiziert (Replay-Race) → keinen Miss
-          // memoizen, beim nächsten Request neu lesen.
-          if (startedMs === undefined) {
-            startedMemo.delete(tenantId);
-            return false;
-          }
-          return isTrialActive(startedMs, nowMs(), trial.durationHours);
-        };
-        return Object.assign(resolver, { trialGate });
-      },
-    };
-    // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a framework registrar method, not a React hook.
-    r.useExtension(TENANT_TIER_RESOLVER_EXT, TIER_ENGINE_FEATURE, plugin);
-  });
+          // Live trial gate: reads tenant.inserted_at (≈ signup; exists for EVERY
+          // tenant incl. auth-signup via seedTenant — unlike the tier-assignment
+          // row, which the seed path does not create) and checks the window
+          // against the current time. Consulted only on the disabled-gate path.
+          // inserted_at is immutable → read once per tenant.
+          // Promise-memo (not a plain value cache): N concurrent requests for the
+          // same fresh tenant must await the SAME in-flight fetchOne, not each
+          // fire their own — a plain `Map<TenantId, number>` set AFTER the await
+          // lets every concurrent caller miss the cache and issue a redundant
+          // read (benign but wasteful on a signup burst).
+          const startedMemo = new Map<TenantId, Promise<number | undefined>>();
+          const trialGate: TrialGate = async (tenantId, featureName) => {
+            if (!trialFeatures.has(featureName)) return false;
+            let startedMsPromise = startedMemo.get(tenantId);
+            if (startedMsPromise === undefined) {
+              startedMsPromise = fetchOne<{ insertedAt?: Temporal.Instant }>(deps.db, tenantTable, {
+                id: tenantId,
+              }).then((row) => row?.insertedAt?.epochMilliseconds);
+              // Evict on rejection too — a transient DB error must not poison
+              // every future call for this tenant with the same cached rejection.
+              startedMsPromise.catch(() => startedMemo.delete(tenantId));
+              startedMemo.set(tenantId, startedMsPromise);
+            }
+            const startedMs = await startedMsPromise;
+            // Tenant row not projected yet (replay race) → do not memoize the
+            // miss, re-read on the next request.
+            if (startedMs === undefined) {
+              startedMemo.delete(tenantId);
+              return false;
+            }
+            return isTrialActive(startedMs, nowMs(), trial.durationHours);
+          };
+          return Object.assign(resolver, { trialGate });
+        },
+      };
+      // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a framework registrar method, not a React hook.
+      r.useExtension(TENANT_TIER_RESOLVER_EXT, TIER_ENGINE_FEATURE, plugin);
+    },
+    Object.keys(opts).length === 0 ? { dedupeOptions: {} } : undefined,
+  );
 }
 
-/**
- * Legacy named export — equivalent to `createTierEngineFeature()` ohne opts.
- * Storage-only mode (no resolver, no auto-default). Existing apps die
- * `tierEngineFeature` referenzieren bekommen identical behavior.
- *
- * Migration zu `createTierEngineFeature({ defaultTier, tierMap })` gibt
- * volle Tier-Composition (Sprint-8a Pattern).
- */
+/** @deprecated Use createTierEngineFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
 export const tierEngineFeature: FeatureDefinition = createTierEngineFeature();

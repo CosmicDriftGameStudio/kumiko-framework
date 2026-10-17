@@ -16,7 +16,7 @@ import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { TierEngineHandlers, TierEngineQueries } from "../constants.js";
 import { tierAssignmentEntity } from "../entity.js";
-import { tierEngineFeature } from "../feature.js";
+import { createTierEngineFeature } from "../feature.js";
 
 // --- Setup ---
 //
@@ -39,7 +39,7 @@ beforeAll(async () => {
   resolver = createConfigResolver({ cipher: encryption });
 
   stack = await setupTestStack({
-    features: [configFeature, tenantFeature, tierEngineFeature],
+    features: [configFeature, tenantFeature, createTierEngineFeature()],
     extraContext: { configResolver: resolver, configEncryption: encryption },
   });
   db = stack.db;

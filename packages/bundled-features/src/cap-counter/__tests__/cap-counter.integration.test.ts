@@ -38,7 +38,7 @@ import {
   type SoftHitNotifier,
 } from "../enforce-cap.js";
 import { capCounterEntity } from "../entity.js";
-import { capCounterFeature } from "../feature.js";
+import { createCapCounterFeature } from "../feature.js";
 
 // --- Test-Probe-Feature: drives enforceCap from inside a real handler ---
 
@@ -184,7 +184,7 @@ let db: DbConnection;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [capCounterFeature, enforceProbeFeature],
+    features: [createCapCounterFeature(), enforceProbeFeature],
   });
   db = stack.db;
 

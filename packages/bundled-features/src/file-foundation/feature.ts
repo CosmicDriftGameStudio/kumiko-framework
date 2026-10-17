@@ -37,36 +37,45 @@ export {
 
 const FEATURE_NAME = "file-foundation";
 
-export const fileFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.describe(
-    "Defines the `fileProvider` extension point and a per-tenant `provider` config key that selects which registered storage plugin to use at runtime. Call `createFileProviderForTenant(ctx, tenantId)` to get a `FileStorageProvider` — use this feature together with at least one `file-provider-*` feature; the `files` feature builds on top of it for tracked `FileRef` entities with GDPR hooks.",
-  );
-  r.uiHints({
-    displayLabel: "File Provider Foundation",
-    category: "storage",
-    recommended: false,
-  });
-  r.requires({ features: ["config"] });
+export function createFileFoundationFeature() {
+  return defineFeature(
+    FEATURE_NAME,
+    (r) => {
+      r.describe(
+        "Defines the `fileProvider` extension point and a per-tenant `provider` config key that selects which registered storage plugin to use at runtime. Call `createFileProviderForTenant(ctx, tenantId)` to get a `FileStorageProvider` — use this feature together with at least one `file-provider-*` feature; the `files` feature builds on top of it for tracked `FileRef` entities with GDPR hooks.",
+      );
+      r.uiHints({
+        displayLabel: "File Provider Foundation",
+        category: "storage",
+        recommended: false,
+      });
+      r.requires({ features: ["config"] });
 
-  r.extendsRegistrar(EXT_FILE_PROVIDER, {
-    onRegister: () => {
-      // No side-effects at register-time — registry stores the usage,
-      // factory looks it up at request-time.
+      r.extendsRegistrar(EXT_FILE_PROVIDER, {
+        onRegister: () => {
+          // No side-effects at register-time — registry stores the usage,
+          // factory looks it up at request-time.
+        },
+      });
+
+      const providerConfigKey = r.config(
+        "provider",
+        createTenantConfig("text", {
+          default: "",
+          env: FILE_STORAGE_PROVIDER_ENV,
+          write: access.roles("TenantAdmin", "SystemAdmin"),
+          read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+        }),
+      );
+      // Readiness gating: provider-plugins' required keys/secrets count only
+      // while their plugin is the one this key selects.
+      r.extensionSelector(EXT_FILE_PROVIDER, providerConfigKey);
+
+      return { providerConfigKey };
     },
-  });
-
-  const providerConfigKey = r.config(
-    "provider",
-    createTenantConfig("text", {
-      default: "",
-      env: FILE_STORAGE_PROVIDER_ENV,
-      write: access.roles("TenantAdmin", "SystemAdmin"),
-      read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-    }),
+    { dedupeOptions: {} },
   );
-  // Readiness gating: provider-plugins' required keys/secrets count only
-  // while their plugin is the one this key selects.
-  r.extensionSelector(EXT_FILE_PROVIDER, providerConfigKey);
+}
 
-  return { providerConfigKey };
-});
+/** @deprecated Use createFileFoundationFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const fileFoundationFeature = createFileFoundationFeature();

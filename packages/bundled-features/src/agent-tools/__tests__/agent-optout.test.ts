@@ -10,7 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { AuthHandlers, createAuthEmailPasswordFeature } from "../../auth-email-password/index.js";
-import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
 import { AuthMfaHandlers, AuthMfaQueries, createAuthMfaFeature } from "../../auth-mfa/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createCryptoShreddingFeature } from "../../crypto-shredding/index.js";
@@ -50,7 +50,7 @@ function buildSecretHandlingFeatures() {
     createConfigFeature(),
     createUserFeature(),
     createTenantFeature(),
-    authFoundationFeature,
+    createAuthFoundationFeature(),
     createAuthMfaFeature({
       setupTokenSecret: "test-mfa-setup-secret-at-least-32-bytes!!",
       issuer: "Kumiko Test",
@@ -107,7 +107,7 @@ describe("credential-carrying bundled handlers opt out of agent exposure", () =>
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createAuthEmailPasswordFeature(),
       createAuthMfaFeature({
         setupTokenSecret: "test-mfa-setup-secret-at-least-32-bytes!!",

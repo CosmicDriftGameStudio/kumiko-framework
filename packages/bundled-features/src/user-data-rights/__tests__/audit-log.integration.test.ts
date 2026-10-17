@@ -1,7 +1,7 @@
 // S2.U7 — my-audit-log + invalid-attempt-audit + list-download-attempts.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { append, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables, seedRow, seedRows } from "@cosmicdrift/kumiko-testing/helpers";
@@ -40,7 +40,7 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature(),
     ],

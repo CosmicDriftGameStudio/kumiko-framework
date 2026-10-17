@@ -7,12 +7,12 @@
 //   - bunx @cosmicdrift/kumiko-cli add feature <name>  (DX-2, automatic)
 //   - or: hand-edit + add the import below
 
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
+import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
@@ -30,11 +30,11 @@ export const APP_FEATURES = [
   createDataRetentionFeature(),
   createComplianceProfilesFeature(),
   // user-data-rights-defaults requires "files" (kumiko-framework#2309)
-  fileFoundationFeature,
-  fileProviderInMemoryFeature,
+  createFileFoundationFeature(),
+  createFileProviderInMemoryFeature(),
   createFilesFeature(),
   // required by sessions' `sessionStore` extension (kumiko-framework#2309)
-  authFoundationFeature,
+  createAuthFoundationFeature(),
   createSessionsFeature(),
   createDeliveryFeature(),
   createSecretsFeature(),

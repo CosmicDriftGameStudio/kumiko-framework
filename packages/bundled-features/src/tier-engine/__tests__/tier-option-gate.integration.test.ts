@@ -21,7 +21,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { capCounterEntity } from "../../cap-counter/entity.js";
-import { capCounterFeature } from "../../cap-counter/feature.js";
+import { createCapCounterFeature } from "../../cap-counter/feature.js";
 import { withCapEnforcement } from "../../cap-counter/with-cap-enforcement.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
@@ -30,7 +30,7 @@ import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { TierEngineHandlers } from "../constants.js";
 import { tierAssignmentEntity } from "../entity.js";
-import { tierEngineFeature } from "../feature.js";
+import { createTierEngineFeature } from "../feature.js";
 import { createTierOptionGate } from "../tier-option-gate.js";
 import { createTierResolver } from "../tier-resolver.js";
 
@@ -116,8 +116,8 @@ beforeAll(async () => {
     features: [
       createConfigFeature(),
       createTenantFeature(),
-      tierEngineFeature,
-      capCounterFeature,
+      createTierEngineFeature(),
+      createCapCounterFeature(),
       siteFeature,
     ],
     extraContext: {

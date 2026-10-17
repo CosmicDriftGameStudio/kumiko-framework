@@ -13,7 +13,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.js";
-import { FormDraftHandlers, formDraftEntity, formDraftFeature } from "../../form-draft/index.js";
+import {
+  createFormDraftFeature,
+  FormDraftHandlers,
+  formDraftEntity,
+} from "../../form-draft/index.js";
 import { formDraftDeleteHook, formDraftExportHook } from "../hooks.js";
 
 async function countDraftRows(stack: TestStack, ownerId: string): Promise<number> {
@@ -29,7 +33,7 @@ const owner = createTestUser({ id: 1, roles: ["TenantMember"] });
 const other = createTestUser({ id: 2, roles: ["TenantMember"] });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [formDraftFeature, createConfigFeature()] });
+  stack = await setupTestStack({ features: [createFormDraftFeature(), createConfigFeature()] });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
 });
 

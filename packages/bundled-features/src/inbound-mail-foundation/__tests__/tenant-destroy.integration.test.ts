@@ -27,7 +27,7 @@ import {
   resetInboundInMemory,
   seedInboundMessage,
 } from "../../inbound-provider-inmemory/feature.js";
-import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
+import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
 import { TenantHandlers } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantMembershipEntity } from "../../tenant/index.js";
@@ -44,7 +44,7 @@ import {
   syncCursorEntity,
   syncCursorTable,
 } from "../entities.js";
-import { inboundMailFoundationFeature } from "../feature.js";
+import { createInboundMailFoundationFeature } from "../feature.js";
 import { createInboundMailSupervisor, type RawInboundMessage } from "../index.js";
 import {
   inboundMessagesProjectionTable,
@@ -76,8 +76,8 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      inboundMailFoundationFeature,
-      inboundProviderInMemoryFeature,
+      createInboundMailFoundationFeature(),
+      createInboundProviderInMemoryFeature(),
     ],
   });
   db = stack.db;

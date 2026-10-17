@@ -316,12 +316,6 @@ setup in sample tests (`unsafeCreateEntityTable`, `createEventsTable`) and
 any raw `DELETE FROM` cleanup are framework internals. Never copy them;
 isolate tests with one tenant each.
 
-Some samples import from `@app/define`. That alias points at the generated
-`.kumiko/define.ts`, which re-exports the engine with event types narrowed to
-the app's own `r.defineEvent` declarations. `bun dev` and `bun run build`
-regenerate it; never edit it. Without it, import the same names from
-`@cosmicdrift/kumiko-framework/engine`.
-
 ## Package entry points
 
 Import only from these subpaths of `@cosmicdrift/kumiko-framework`. Deep

@@ -3,10 +3,10 @@
 import { describe, expect, test } from "bun:test";
 import { describeMailTransportContract } from "../../mail-foundation/__tests__/mail-transport-contract.js";
 import { isMailTransportPlugin, type MailTransportPlugin } from "../../mail-foundation/index.js";
-import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../feature.js";
+import { clearInbox, createMailTransportInMemoryFeature, getInbox } from "../feature.js";
 
 function registeredPlugin(): MailTransportPlugin {
-  const usage = mailTransportInMemoryFeature.extensionUsages.find(
+  const usage = createMailTransportInMemoryFeature().extensionUsages.find(
     (u) => u.extensionName === "mailTransport" && u.entityName === "inmemory",
   );
   if (!usage || !isMailTransportPlugin(usage.options)) {
@@ -28,19 +28,19 @@ describeMailTransportContract(
 
 describe("mailTransportInMemoryFeature — shape", () => {
   test("has the expected name", () => {
-    expect(mailTransportInMemoryFeature.name).toBe("mail-transport-inmemory");
+    expect(createMailTransportInMemoryFeature().name).toBe("mail-transport-inmemory");
   });
 
   test("requires only mail-foundation (no config, no secrets — nothing to configure)", () => {
-    expect(mailTransportInMemoryFeature.requires).toContain("mail-foundation");
-    expect(mailTransportInMemoryFeature.requires).not.toContain("config");
-    expect(mailTransportInMemoryFeature.requires).not.toContain("secrets");
+    expect(createMailTransportInMemoryFeature().requires).toContain("mail-foundation");
+    expect(createMailTransportInMemoryFeature().requires).not.toContain("config");
+    expect(createMailTransportInMemoryFeature().requires).not.toContain("secrets");
   });
 });
 
 describe("mailTransportInMemoryFeature — plugin-registration", () => {
   test("registers itself under entityName 'inmemory' for mail-foundation's extension", () => {
-    const usages = mailTransportInMemoryFeature.extensionUsages;
+    const usages = createMailTransportInMemoryFeature().extensionUsages;
     expect(
       usages.some((u) => u.extensionName === "mailTransport" && u.entityName === "inmemory"),
     ).toBe(true);

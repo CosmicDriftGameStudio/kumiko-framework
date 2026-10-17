@@ -17,7 +17,7 @@ import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -64,7 +64,7 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature(),
     ],
@@ -1081,7 +1081,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
         createUserFeature(),
         createDataRetentionFeature(),
         createComplianceProfilesFeature(),
-        authFoundationFeature,
+        createAuthFoundationFeature(),
         createSessionsFeature(),
         createUserDataRightsFeature(),
         testFileExporter,

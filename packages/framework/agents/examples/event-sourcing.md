@@ -831,8 +831,8 @@ describe("role-restricted write handlers", () => {
 //
 //   - r.defineEvent with { version, migrations } — evolving event shapes +
 //     upcast older payloads on read (declarative + sync/async transforms)
-//   - ctx.appendEvent — write domain events onto the aggregate stream
-//   - ctx.appendEvent with headers — Marten free key/value metadata
+//   - emitEvent — write domain events onto the aggregate stream, payload typed by the EventDef
+//   - emitEvent with headers — Marten free key/value metadata
 //   - r.projection — single-stream read model (inline in the write TX)
 //   - r.multiStreamProjection — cross-aggregate async read model
 //   - ctx.loadAggregate with { asOf } — point-in-time aggregate state
@@ -843,14 +843,6 @@ describe("role-restricted write handlers", () => {
 //     the auto-snapshot policy ({ snapshotEvery, snapshotVersion })
 //   - streamAllEventsByType — memory-bounded iteration for ops/export jobs
 //   - getAllProjectionProgress — projection lag for ops dashboards
-
-import {
-  createEntity,
-  createTextField,
-  defineFeature,
-  defineProjectionQueryHandler,
-  typedPayload,
-} from "@app/define";
 
 import {
   buildEntityTable,
@@ -864,6 +856,14 @@ import {
   updateMany,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  defineProjectionQueryHandler,
+  emitEvent,
+  typedPayload,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // --- Reducer: shared by live + snapshot-aware query handlers ---
@@ -1111,10 +1111,9 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       const headers: Record<string, string> = {};
       if (event.payload.geoRegion) headers["geoRegion"] = event.payload.geoRegion;
       if (event.payload.abTestBucket) headers["abTestBucket"] = event.payload.abTestBucket;
-      await ctx.appendEvent({
+      await emitEvent(ctx, approved, {
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
-        type: approved.name,
         payload: { amountCents: event.payload.amountCents, approvedBy: event.payload.approvedBy },
         ...(Object.keys(headers).length > 0 ? { headers } : {}),
       });
@@ -1131,10 +1130,9 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         approverId: event.payload.approverId,
       });
       const approverDisplayName: string = row?.displayName ?? `unknown:${event.payload.approverId}`;
-      await ctx.appendEvent({
+      await emitEvent(ctx, acknowledged, {
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
-        type: acknowledged.name,
         payload: { approverId: event.payload.approverId, approverDisplayName },
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
@@ -1146,10 +1144,9 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
     name: "invoice:pay",
     schema: z.object({ id: z.uuid(), amountCents: z.number().int() }),
     handler: async (event, ctx) => {
-      await ctx.appendEvent({
+      await emitEvent(ctx, paid, {
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
-        type: paid.name,
         payload: { amountCents: event.payload.amountCents },
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };

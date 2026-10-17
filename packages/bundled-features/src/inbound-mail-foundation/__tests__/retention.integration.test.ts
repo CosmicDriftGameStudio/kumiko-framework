@@ -24,14 +24,14 @@ import {
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
-import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
+import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import { inboundMessageAggregateId } from "../aggregate-id.js";
 import { InboundMailFoundationHandlers } from "../constants.js";
 import { seenMessageEntity, seenMessageTable, syncCursorEntity } from "../entities.js";
-import { inboundMailFoundationFeature } from "../feature.js";
+import { createInboundMailFoundationFeature } from "../feature.js";
 import { inboundMessagesProjectionTable } from "../projection.js";
 import { runInboundMailRetention } from "../retention-sweep.js";
 
@@ -45,8 +45,8 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      inboundMailFoundationFeature,
-      inboundProviderInMemoryFeature,
+      createInboundMailFoundationFeature(),
+      createInboundProviderInMemoryFeature(),
     ],
   });
   db = stack.db;

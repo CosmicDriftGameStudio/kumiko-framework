@@ -21,20 +21,17 @@
 //   handlers/create.ts        — invoice:create (uses executor)
 //   handlers/transitions.ts   — the six state-change handlers
 
-import { defineFeature, setFields } from "@app/define";
-import { z } from "zod";
+import { defineFeature, setFields, typedPayload } from "@cosmicdrift/kumiko-framework/engine";
 import { invoiceEntity, invoiceTable } from "./entities/invoice";
-import { eventName, INVOICE_EVENTS } from "./events";
-import { invoiceCreate } from "./handlers/create";
 import {
-  invoiceCancel,
-  invoiceForceStatus,
-  invoiceMarkPaid,
-  invoiceReopen,
-  invoiceSend,
-  invoiceUpdateStatus,
-} from "./handlers/transitions";
-import type { InvoiceStatus } from "./reducer";
+  emptyEventPayload,
+  eventName,
+  INVOICE_EVENTS,
+  type InvoiceEvents,
+  statusForcedPayload,
+} from "./events";
+import { invoiceCreate } from "./handlers/create";
+import { createInvoiceTransitionHandlers } from "./handlers/transitions";
 
 export { invoiceEntity } from "./entities/invoice";
 
@@ -45,18 +42,15 @@ export const stateMachineFeature = defineFeature("billing", (r) => {
   // and the projection stay in sync. The auto "invoice.created" event from
   // the executor's create-path covers the initial insert, so we only declare
   // the state-change events here.
-  r.defineEvent(INVOICE_EVENTS.sent, z.object({}), { piiFields: "none" });
-  r.defineEvent(INVOICE_EVENTS.markedPaid, z.object({}), { piiFields: "none" });
-  r.defineEvent(INVOICE_EVENTS.cancelled, z.object({}), { piiFields: "none" });
-  r.defineEvent(INVOICE_EVENTS.reopened, z.object({}), { piiFields: "none" });
-  r.defineEvent(
-    INVOICE_EVENTS.statusForced,
-    z.object({
-      newStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
-      fromStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
+  const events: InvoiceEvents = {
+    sent: r.defineEvent(INVOICE_EVENTS.sent, emptyEventPayload, { piiFields: "none" }),
+    markedPaid: r.defineEvent(INVOICE_EVENTS.markedPaid, emptyEventPayload, { piiFields: "none" }),
+    cancelled: r.defineEvent(INVOICE_EVENTS.cancelled, emptyEventPayload, { piiFields: "none" }),
+    reopened: r.defineEvent(INVOICE_EVENTS.reopened, emptyEventPayload, { piiFields: "none" }),
+    statusForced: r.defineEvent(INVOICE_EVENTS.statusForced, statusForcedPayload, {
+      piiFields: "none",
     }),
-    { piiFields: "none" },
-  );
+  };
 
   // The aggregate table (sample_sm_invoices) is INSERTed by the executor on
   // invoice:create. State-change events update the same row via this inline
@@ -74,16 +68,17 @@ export const stateMachineFeature = defineFeature("billing", (r) => {
       [eventName(INVOICE_EVENTS.cancelled)]: setFields(invoiceTable, { status: "cancelled" }),
       [eventName(INVOICE_EVENTS.reopened)]: setFields(invoiceTable, { status: "draft" }),
       [eventName(INVOICE_EVENTS.statusForced)]: setFields(invoiceTable, (e) => ({
-        status: (e.payload as { newStatus: InvoiceStatus }).newStatus,
+        status: typedPayload(e, events.statusForced).newStatus,
       })),
     },
   });
 
+  const transitions = createInvoiceTransitionHandlers(events);
   r.writeHandler(invoiceCreate);
-  r.writeHandler(invoiceSend);
-  r.writeHandler(invoiceMarkPaid);
-  r.writeHandler(invoiceCancel);
-  r.writeHandler(invoiceReopen);
-  r.writeHandler(invoiceUpdateStatus);
-  r.writeHandler(invoiceForceStatus);
+  r.writeHandler(transitions.invoiceSend);
+  r.writeHandler(transitions.invoiceMarkPaid);
+  r.writeHandler(transitions.invoiceCancel);
+  r.writeHandler(transitions.invoiceReopen);
+  r.writeHandler(transitions.invoiceUpdateStatus);
+  r.writeHandler(transitions.invoiceForceStatus);
 });

@@ -10,9 +10,9 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
+  createNotesHistoryFeature,
   noteEntryEntity,
   noteMentionEntity,
-  notesHistoryFeature,
 } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -37,7 +37,7 @@ const notesClient: NotesClient = {
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [notesHistoryFeature, taskFeature] });
+  stack = await setupTestStack({ features: [createNotesHistoryFeature(), taskFeature] });
   await unsafeCreateEntityTable(stack.db, noteEntryEntity);
   await unsafeCreateEntityTable(stack.db, noteMentionEntity);
   await unsafeCreateEntityTable(stack.db, taskEntity);

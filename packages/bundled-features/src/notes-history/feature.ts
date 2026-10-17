@@ -63,7 +63,7 @@ function registerNotesHistory(
   r.translations({ keys: NOTES_HISTORY_FEATURE_I18N });
 }
 
-export const notesHistoryFeature = defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>
+const defaultNotesHistoryFeature = defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>
   registerNotesHistory(r, DEFAULT_NOTES_HISTORY_ACCESS, undefined, undefined),
 );
 
@@ -114,14 +114,14 @@ function resolveAccess(opts: NotesHistoryFeatureOptions): AccessRule {
 // rebuild). access/roles/ownership build a fresh feature-definition.
 export function createNotesHistoryFeature(
   opts: NotesHistoryFeatureOptions = {},
-): typeof notesHistoryFeature {
+): typeof defaultNotesHistoryFeature {
   if (
     opts.access === undefined &&
     opts.roles === undefined &&
     opts.ownership === undefined &&
     opts.parents === undefined
   ) {
-    return notesHistoryFeature;
+    return defaultNotesHistoryFeature;
   }
   assertNoWhereRuleInOwnershipWrite("createNotesHistoryFeature", opts.ownership?.write);
   // A mount that accepts no parents at all can never take a note write —
@@ -138,3 +138,6 @@ export function createNotesHistoryFeature(
     registerNotesHistory(r, resolveAccess(opts), opts.ownership, opts.parents),
   );
 }
+
+/** @deprecated Use createNotesHistoryFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const notesHistoryFeature = createNotesHistoryFeature();

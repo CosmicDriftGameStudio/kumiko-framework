@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createCryptoShreddingFeature } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
@@ -21,7 +21,7 @@ const HOST_FEATURES = [
   createConfigFeature(),
   createUserFeature(),
   createTenantFeature(),
-  authFoundationFeature,
+  createAuthFoundationFeature(),
 ];
 
 describe("securityBaselineFeatures", () => {

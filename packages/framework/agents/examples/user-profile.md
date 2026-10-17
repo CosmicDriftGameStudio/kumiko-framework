@@ -166,7 +166,7 @@ describe("user-profile recipe — boot validation", () => {
 //   })
 
 import { createAuthEmailPasswordFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
@@ -211,7 +211,7 @@ export function composeAccountApp(): FeatureDefinition[] {
     createAuthEmailPasswordFeature(),
     createDataRetentionFeature(),
     createComplianceProfilesFeature(),
-    authFoundationFeature,
+    createAuthFoundationFeature(),
     createPersonalAccessTokensFeature({ scopes: {} }),
     createSessionsFeature(),
     createFilesFeature(),

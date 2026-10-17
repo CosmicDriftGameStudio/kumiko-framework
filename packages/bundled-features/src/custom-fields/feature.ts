@@ -33,7 +33,7 @@
 //   `customFieldsField()` (jsonb) deklarieren.
 //
 // **Exports-Pattern (2026-05-23 refactor)**:
-//   `customFieldsFeature.exports.{setEvent,clearedEvent,fieldDefinitionDeletedEvent}`
+//   `createCustomFieldsFeature().exports.{setEvent,clearedEvent,fieldDefinitionDeletedEvent}`
 //   liefern typed EventDef-handles. Handler + wire-for-entity nutzen
 //   `<event>.name` als compile-time-literal-typed qualified-string — keine
 //   hand-gebauten Template-Literals mehr (T1 hat den toKebab-collapse-drift
@@ -179,12 +179,9 @@ function registerCustomFields(
   return { setEvent, clearedEvent, fieldDefinitionDeletedEvent };
 }
 
-// Singleton feature-definition mit typed exports. Handler + wire-for-entity
-// importieren diesen `customFieldsFeature` und greifen lazy in ihrer
-// runtime-arrow-fn auf `.exports.<event>.name` zu — der module-cycle
-// (feature.ts -> handlers/*.write.ts -> feature.ts) löst sich auf weil
-// kein top-level-access stattfindet.
-export const customFieldsFeature = defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) =>
+// Handlers and wire-for-entity read `.exports.<event>.name` lazily inside their runtime
+// arrow functions, which resolves the module cycle (feature.ts -> handlers/*.write.ts -> feature.ts).
+const defaultCustomFieldsFeature = defineFeature(CUSTOM_FIELDS_FEATURE_NAME, (r) =>
   registerCustomFields(r, {
     defineTenantHandler: defineTenantFieldHandler,
     updateTenantHandler: updateTenantFieldHandler,
@@ -246,21 +243,18 @@ export function resolveFieldDefinitionListRoles(
   ];
 }
 
-// Backwards-compat-wrapper. Bestehende Caller (z.B. integration-tests,
-// host-apps) nutzen weiterhin `createCustomFieldsFeature()`. Returnt den
-// module-level-Singleton — kein neuer build pro Aufruf, was für consumer
-// nicht erkennbar ist (read-only inspection). Jede gesetzte Option baut
-// eine frische Feature-Definition mit den Varianten-Handlern.
+// Without options this returns the module-level singleton (no rebuild per call); every
+// option builds a fresh feature definition with the variant handlers.
 export function createCustomFieldsFeature(
   opts: CustomFieldsFeatureOptions = {},
-): typeof customFieldsFeature {
+): typeof defaultCustomFieldsFeature {
   const hasOptions =
     opts.fieldDefinitionLimitPerTenant !== undefined ||
     opts.valueWriteRoles !== undefined ||
     opts.fieldDefinitionListRoles !== undefined ||
     opts.fieldDefinitionWriteRoles !== undefined;
   if (!hasOptions) {
-    return customFieldsFeature;
+    return defaultCustomFieldsFeature;
   }
   const limit = opts.fieldDefinitionLimitPerTenant;
   const definitionWriteRoles = opts.fieldDefinitionWriteRoles;
@@ -287,3 +281,6 @@ export function createCustomFieldsFeature(
     }),
   );
 }
+
+/** @deprecated Use createCustomFieldsFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const customFieldsFeature = createCustomFieldsFeature();

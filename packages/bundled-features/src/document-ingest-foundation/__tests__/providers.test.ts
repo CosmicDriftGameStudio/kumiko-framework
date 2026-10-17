@@ -15,7 +15,7 @@ import { createTenantFeature } from "../../tenant/feature.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import { validateDocumentIngestProviderWiring } from "../boot-checks.js";
 import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "../events.js";
-import { documentIngestFoundationFeature } from "../feature.js";
+import { createDocumentIngestFoundationFeature } from "../feature.js";
 import {
   type DocumentIngestProviderOptions,
   documentIngestProviderTrigger,
@@ -201,7 +201,7 @@ describe("validateBoot — proves the feature actually registers the bootCheck",
         createTenantFeature(),
         createComplianceProfilesFeature(),
         createTenantLifecycleFeature(),
-        documentIngestFoundationFeature,
+        createDocumentIngestFoundationFeature(),
         providerA,
         providerAConsumer,
         providerB,

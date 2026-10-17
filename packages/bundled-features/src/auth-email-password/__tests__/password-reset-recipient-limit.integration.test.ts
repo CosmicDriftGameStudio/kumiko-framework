@@ -4,7 +4,7 @@
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -63,7 +63,7 @@ beforeAll(async () => {
           appUrl: "https://app.example.com/reset",
         },
       }),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature({ autoRevokeOnPasswordChange: async () => 0 }),
     ],
     extraContext: (deps) => ({

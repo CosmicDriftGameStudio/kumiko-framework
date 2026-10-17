@@ -8,7 +8,7 @@
 // landing on the anonymous "<unattributed>" fallback.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -69,7 +69,7 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
         createUserFeature(),
         createDataRetentionFeature(),
         createComplianceProfilesFeature(),
-        authFoundationFeature,
+        createAuthFoundationFeature(),
         createSessionsFeature(),
         createUserDataRightsFeature(),
         auditedFeature,

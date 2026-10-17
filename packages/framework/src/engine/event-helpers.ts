@@ -34,6 +34,7 @@ export async function emitEvent<TPayload>(
     readonly aggregateId: string;
     readonly aggregateType: string;
     readonly payload: TPayload;
+    readonly headers?: AppendEventArgs["headers"];
   },
 ): Promise<void> {
   const appendArgs: AppendEventArgs = {
@@ -41,6 +42,7 @@ export async function emitEvent<TPayload>(
     aggregateType: args.aggregateType,
     type: eventDef.name,
     payload: args.payload,
+    ...(args.headers !== undefined && { headers: args.headers }),
   };
   await ctx.unsafeAppendEvent(appendArgs);
 }

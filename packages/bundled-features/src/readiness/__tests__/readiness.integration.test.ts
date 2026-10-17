@@ -31,7 +31,7 @@ import {
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { ReadinessQueries } from "../constants.js";
-import { readinessFeature } from "../feature.js";
+import { createReadinessFeature } from "../feature.js";
 
 // Probe-feature: one required + one optional config key, one required +
 // one optional secret — the rollup must list exactly the required gaps.
@@ -147,7 +147,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantFeature(),
       createSecretsFeature(),
-      readinessFeature,
+      createReadinessFeature(),
       probeFeature,
       probeMailFoundation,
       probeSmtpProvider,

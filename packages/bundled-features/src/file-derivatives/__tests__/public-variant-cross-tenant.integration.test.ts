@@ -33,7 +33,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { createConfigFeature } from "../../config/index.js";
-import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createFileFoundationFeature } from "../../file-foundation/index.js";
 import { createTenantFeature, TenantHandlers } from "../../tenant/index.js";
 import { createFileDerivativesFeature } from "../feature.js";
 import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.query.js";
@@ -127,7 +127,7 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
       features: [
         createConfigFeature(),
         createTenantFeature(),
-        fileFoundationFeature,
+        createFileFoundationFeature(),
         createFilesFeature(),
         createFileDerivativesFeature({
           resolveApexTenant: (host) => (host === HOST_A ? TENANT_A : null),
@@ -309,7 +309,7 @@ describe("file-derivatives :: default ('host') mode is unchanged", () => {
     stack = await setupTestStack({
       features: [
         createConfigFeature(),
-        fileFoundationFeature,
+        createFileFoundationFeature(),
         createFilesFeature(),
         createFileDerivativesFeature({
           resolveApexTenant: (host) => (host === HOST_A ? TENANT_A : null),

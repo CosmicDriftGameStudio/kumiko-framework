@@ -15,7 +15,11 @@ import {
 } from "../../foundation-shared/index.js";
 import { describeMailTransportContract } from "../../mail-foundation/__tests__/mail-transport-contract.js";
 import { isMailTransportPlugin, type MailTransportPlugin } from "../../mail-foundation/index.js";
-import { mailTransportSmtpFeature, SMTP_PASSWORD, setSmtpMailHostLookup } from "../feature.js";
+import {
+  createMailTransportSmtpFeature,
+  SMTP_PASSWORD,
+  setSmtpMailHostLookup,
+} from "../feature.js";
 
 // The contract fixture's host never actually connects (nodemailer's pool
 // connects lazily on send, never on construction) — "localhost" only needs
@@ -36,7 +40,7 @@ afterAll(() => {
 });
 
 function registeredPlugin(): MailTransportPlugin {
-  const usage = mailTransportSmtpFeature.extensionUsages.find(
+  const usage = createMailTransportSmtpFeature().extensionUsages.find(
     (u) => u.extensionName === "mailTransport" && u.entityName === "smtp",
   );
   if (!usage || !isMailTransportPlugin(usage.options)) {
@@ -50,7 +54,7 @@ function fakeConfig(
     Record<"host" | "port" | "secure" | "from" | "authUser", string | number | boolean>
   > = {},
 ): ConfigAccessor {
-  const keys = mailTransportSmtpFeature.exports.configKeys;
+  const keys = createMailTransportSmtpFeature().exports.configKeys;
   const values = new Map<string, string | number | boolean>([
     [keys.host.name, overrides.host ?? "localhost"],
     [keys.port.name, overrides.port ?? 587],
@@ -199,19 +203,19 @@ describe("mailTransportSmtpFeature — mail-host guard", () => {
 
 describe("mailTransportSmtpFeature — shape", () => {
   test("has the expected name", () => {
-    expect(mailTransportSmtpFeature.name).toBe("mail-transport-smtp");
+    expect(createMailTransportSmtpFeature().name).toBe("mail-transport-smtp");
   });
 
   test("requires config + secrets + mail-foundation as hard dependencies", () => {
-    expect(mailTransportSmtpFeature.requires).toContain("config");
-    expect(mailTransportSmtpFeature.requires).toContain("secrets");
-    expect(mailTransportSmtpFeature.requires).toContain("mail-foundation");
+    expect(createMailTransportSmtpFeature().requires).toContain("config");
+    expect(createMailTransportSmtpFeature().requires).toContain("secrets");
+    expect(createMailTransportSmtpFeature().requires).toContain("mail-foundation");
   });
 });
 
 describe("mailTransportSmtpFeature.exports — typed handles", () => {
   test("exports.configKeys covers the SMTP-config knobs", () => {
-    const keys = mailTransportSmtpFeature.exports.configKeys;
+    const keys = createMailTransportSmtpFeature().exports.configKeys;
     expect(keys.host).toBeDefined();
     expect(keys.port).toBeDefined();
     expect(keys.secure).toBeDefined();
@@ -220,13 +224,13 @@ describe("mailTransportSmtpFeature.exports — typed handles", () => {
   });
 
   test("exports.password is the SMTP_PASSWORD secret-handle (drift-pin)", () => {
-    expect(mailTransportSmtpFeature.exports.password).toBe(SMTP_PASSWORD);
+    expect(createMailTransportSmtpFeature().exports.password).toEqual(SMTP_PASSWORD);
     expect(SMTP_PASSWORD.name).toBe("mail-transport-smtp:secret:smtp-password");
   });
 });
 
 describe("SMTP_PASSWORD — generic redaction", () => {
-  const secretDef = mailTransportSmtpFeature.secretKeys["smtp.password"];
+  const secretDef = createMailTransportSmtpFeature().secretKeys["smtp.password"];
 
   test("redact preserves first 3 + last 2 chars for verifiability on long keys", () => {
     expect(secretDef?.redact).toBeDefined();
@@ -244,7 +248,7 @@ describe("mailTransportSmtpFeature — plugin-registration", () => {
     // feature.extensionUsages. Drift-pin: tenant sets `mail-foundation:
     // config:provider = "smtp"` and the foundation-factory looks up by
     // exactly this name.
-    const usages = mailTransportSmtpFeature.extensionUsages;
+    const usages = createMailTransportSmtpFeature().extensionUsages;
     expect(usages.some((u) => u.extensionName === "mailTransport" && u.entityName === "smtp")).toBe(
       true,
     );

@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
@@ -68,7 +68,7 @@ export async function createWaitlistTestStack(
       }),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createAuthEmailPasswordFeature({
         invite: { tokenTtlMinutes: 60, appUrl: "https://app.example.com/invite/accept" },

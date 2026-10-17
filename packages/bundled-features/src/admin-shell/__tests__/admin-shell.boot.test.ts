@@ -6,7 +6,7 @@ import {
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createAuditFeature } from "../../audit/feature.js";
-import { billingFoundationFeature } from "../../billing-foundation/index.js";
+import { createBillingFoundationFeature } from "../../billing-foundation/index.js";
 import { createCapOverviewFeature } from "../../cap-overview/feature.js";
 import type { CapSpec } from "../../cap-overview/types.js";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
@@ -14,7 +14,7 @@ import { createConfigFeature } from "../../config/feature.js";
 import { createJobsFeature } from "../../jobs/feature.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { tierEngineFeature } from "../../tier-engine/feature.js";
+import { createTierEngineFeature } from "../../tier-engine/feature.js";
 import { createUserFeature } from "../../user/feature.js";
 import {
   ADMIN_SHELL_FEATURE,
@@ -31,7 +31,7 @@ const features = [
   createAuditFeature(),
   createJobsFeature(),
   ...ADMIN_SHELL_METRICS_FEATURES,
-  tierEngineFeature,
+  createTierEngineFeature(),
   createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS }),
 ];
 
@@ -54,7 +54,7 @@ describe("admin-shell boot + workspace composition", () => {
       createAuditFeature(),
       createJobsFeature(),
       ...ADMIN_SHELL_METRICS_FEATURES,
-      tierEngineFeature,
+      createTierEngineFeature(),
       createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS }),
     ];
     expect(() => validateBoot(withoutUser)).toThrow();
@@ -184,10 +184,10 @@ describe("admin-shell boot + workspace composition", () => {
       createAuditFeature(),
       createJobsFeature(),
       ...ADMIN_SHELL_METRICS_FEATURES,
-      tierEngineFeature,
+      createTierEngineFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      billingFoundationFeature,
+      createBillingFoundationFeature(),
       createCapOverviewFeature({ caps: [testCap] }),
       withCapOverview,
     ]);
@@ -258,7 +258,7 @@ describe("admin-shell includeDocumentDesigner", () => {
     createAuditFeature(),
     createJobsFeature(),
     ...ADMIN_SHELL_METRICS_FEATURES,
-    tierEngineFeature,
+    createTierEngineFeature(),
   ];
 
   test("lists each template nav exactly once in its workspace", () => {
@@ -297,7 +297,7 @@ describe("admin-shell overview wiring", () => {
       createTenantFeature(),
       createAuditFeature(),
       createJobsFeature(),
-      tierEngineFeature,
+      createTierEngineFeature(),
       createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS }),
     ];
     expect(() => validateBoot(withoutMetrics)).toThrow();

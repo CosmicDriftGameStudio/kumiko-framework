@@ -7,7 +7,7 @@
 // to that SELECT and survive the erasure permanently.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { asRawClient, buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -88,7 +88,7 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature(),
       noteFeature,

@@ -150,7 +150,7 @@
     "packages/bundled-features/src/file-provider-inmemory/feature.ts": 11,
     "packages/bundled-features/src/file-provider-s3/__tests__/feature.test.ts": 3,
     "packages/bundled-features/src/file-provider-s3/feature.ts": 3,
-    "packages/bundled-features/src/files-provider-s3/s3-provider.ts": 9,
+    "packages/bundled-features/src/file-provider-s3/lib/s3-provider.ts": 9,
     "packages/bundled-features/src/files/__tests__/files.integration.test.ts": 12,
     "packages/bundled-features/src/files/feature.ts": 2,
     "packages/bundled-features/src/folders/web/folder-section.tsx": 1,

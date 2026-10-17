@@ -6,7 +6,7 @@
 // path would silently drop the fail-closed guard and dev/prod would diverge.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
@@ -334,7 +334,7 @@ describe("runDevApp — session boot gate (#2027)", () => {
     // a real login + decoded JWT does.
     handle = await runDevApp({
       features: [
-        authFoundationFeature,
+        createAuthFoundationFeature(),
         createPersonalAccessTokensFeature({ scopes: {} }),
         createSessionsFeature(),
         ...composeRendererStack(),

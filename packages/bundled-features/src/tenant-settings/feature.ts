@@ -21,35 +21,40 @@ export type TenantSettingsFeatureOptions = TenantSettingsKeyOptions;
 export function createTenantSettingsFeature(
   opts: TenantSettingsFeatureOptions = {},
 ): FeatureDefinition {
-  return defineFeature(TENANT_SETTINGS_FEATURE_NAME, (r) => {
-    r.requires({ features: ["config"] });
-    r.describe(
-      "Per-tenant Currency + Locale defaults, exposed as two config keys (tenant-settings:config:currency, tenant-settings:config:locale) that surface in the self-populating Settings-Hub via `mask`. Pair with defineCreateWithTenantDefaults to auto-fill a money field's currency or a locale field on create instead of hard-coding a literal per entity.",
-    );
-    r.config({ keys: buildTenantSettingsKeys(opts) });
-    r.translations({
-      keys: {
-        "tenant-settings.currency": { en: "Default currency" },
-        "tenant-settings.locale": { en: "Default locale" },
-        // Settings-Hub-derived configEdit screen title (buildConfigFeatureSchema) —
-        // required by the i18n boot-validator whenever a feature masks config keys.
-        "screen:tenant-settings-system.title": { en: "Tenant defaults" },
-        "screen:tenant-settings-tenant.title": { en: "Tenant settings" },
-        // Settings-Hub nav label + configEdit section heading (same key, both
-        // scopes fall back here — see buildConfigFeatureSchema).
-        "tenant-settings.settings": { en: "Tenant settings" },
-        // Section heading below the page title (the page title is the same words as
-        // `.settings`, which RenderEdit would drop as a repeat).
-        "tenant-settings.settings.section": { en: "Currency and language" },
-        // Both currency/locale are tenant-home with admin write access, which
-        // cascades a SystemAdmin-only "set the platform default" screen up to
-        // the system audience — scoped override so its nav entry reads
-        // differently from the tenant-home entry instead of repeating the
-        // same words under both "Platform" and "Organization".
-        "tenant-settings.settings.system": { en: "Tenant defaults" },
-      },
-    });
-  });
+  return defineFeature(
+    TENANT_SETTINGS_FEATURE_NAME,
+    (r) => {
+      r.requires({ features: ["config"] });
+      r.describe(
+        "Per-tenant Currency + Locale defaults, exposed as two config keys (tenant-settings:config:currency, tenant-settings:config:locale) that surface in the self-populating Settings-Hub via `mask`. Pair with defineCreateWithTenantDefaults to auto-fill a money field's currency or a locale field on create instead of hard-coding a literal per entity.",
+      );
+      r.config({ keys: buildTenantSettingsKeys(opts) });
+      r.translations({
+        keys: {
+          "tenant-settings.currency": { en: "Default currency" },
+          "tenant-settings.locale": { en: "Default locale" },
+          // Settings-Hub-derived configEdit screen title (buildConfigFeatureSchema) —
+          // required by the i18n boot-validator whenever a feature masks config keys.
+          "screen:tenant-settings-system.title": { en: "Tenant defaults" },
+          "screen:tenant-settings-tenant.title": { en: "Tenant settings" },
+          // Settings-Hub nav label + configEdit section heading (same key, both
+          // scopes fall back here — see buildConfigFeatureSchema).
+          "tenant-settings.settings": { en: "Tenant settings" },
+          // Section heading below the page title (the page title is the same words as
+          // `.settings`, which RenderEdit would drop as a repeat).
+          "tenant-settings.settings.section": { en: "Currency and language" },
+          // Both currency/locale are tenant-home with admin write access, which
+          // cascades a SystemAdmin-only "set the platform default" screen up to
+          // the system audience — scoped override so its nav entry reads
+          // differently from the tenant-home entry instead of repeating the
+          // same words under both "Platform" and "Organization".
+          "tenant-settings.settings.system": { en: "Tenant defaults" },
+        },
+      });
+    },
+    Object.keys(opts).length === 0 ? { dedupeOptions: {} } : undefined,
+  );
 }
 
+/** @deprecated Use createTenantSettingsFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
 export const tenantSettingsFeature: FeatureDefinition = createTenantSettingsFeature();

@@ -8,6 +8,7 @@
 //     when registering via `r.useExtension("mailTransport", ...)`
 
 export {
+  createMailFoundationFeature,
   createTransportForTenant,
   createTransportForTenantIfConfigured,
   isMailTransportPlugin,

@@ -8,29 +8,29 @@ import { describe, expect, test } from "bun:test";
 import { EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { documentExtractEntity } from "../entity.js";
 import { DOCUMENT_INGEST_REQUESTED_EVENT_QN, DOCUMENT_INGEST_SKIPPED_EVENT_QN } from "../events.js";
-import { documentIngestFoundationFeature } from "../feature.js";
+import { createDocumentIngestFoundationFeature } from "../feature.js";
 
 describe("documentIngestFoundationFeature — shape", () => {
   test("has the expected name", () => {
-    expect(documentIngestFoundationFeature.name).toBe("document-ingest-foundation");
+    expect(createDocumentIngestFoundationFeature().name).toBe("document-ingest-foundation");
   });
 
   test("declares config as a hard requirement (tenant-config keys live there)", () => {
-    expect(documentIngestFoundationFeature.requires).toContain("config");
+    expect(createDocumentIngestFoundationFeature().requires).toContain("config");
   });
 
   test("declares tenant-lifecycle as a hard requirement — it hosts EXT_TENANT_DATA (#1621)", () => {
-    expect(documentIngestFoundationFeature.requires).toContain("tenant-lifecycle");
+    expect(createDocumentIngestFoundationFeature().requires).toContain("tenant-lifecycle");
   });
 
   test("registers the documentExtract entity as an implicit projection", () => {
-    expect(Object.keys(documentIngestFoundationFeature.entities ?? {})).toEqual([
+    expect(Object.keys(createDocumentIngestFoundationFeature().entities ?? {})).toEqual([
       "documentExtract",
     ]);
   });
 
   test("registers an entity-exact EXT_TENANT_DATA destroy hook (#1621)", () => {
-    const usage = documentIngestFoundationFeature.extensionUsages.find(
+    const usage = createDocumentIngestFoundationFeature().extensionUsages.find(
       (u) => u.extensionName === EXT_TENANT_DATA && u.entityName === "documentExtract",
     );
     expect(typeof usage?.options?.["destroy"]).toBe("function");
@@ -60,12 +60,12 @@ describe("documentIngestFoundationFeature — shape", () => {
   });
 
   test("registers NO write/query handlers — only entity, config, event, and MSP", () => {
-    expect(Object.keys(documentIngestFoundationFeature.writeHandlers)).toHaveLength(0);
-    expect(Object.keys(documentIngestFoundationFeature.queryHandlers)).toHaveLength(0);
+    expect(Object.keys(createDocumentIngestFoundationFeature().writeHandlers)).toHaveLength(0);
+    expect(Object.keys(createDocumentIngestFoundationFeature().queryHandlers)).toHaveLength(0);
   });
 
   test("registers the documentIngest.requested and documentIngest.skipped events under their exported QNs", () => {
-    expect(Object.keys(documentIngestFoundationFeature.events)).toEqual([
+    expect(Object.keys(createDocumentIngestFoundationFeature().events)).toEqual([
       "documentIngest.requested",
       "documentIngest.skipped",
     ]);
@@ -75,26 +75,29 @@ describe("documentIngestFoundationFeature — shape", () => {
     // rename can't silently drift the two apart (kumiko-framework#1497: a
     // stale QN fails MSP-apply at runtime with "event not registered", not
     // at compile time).
-    expect(documentIngestFoundationFeature.events["documentIngest.requested"]?.name).toBe(
+    expect(createDocumentIngestFoundationFeature().events["documentIngest.requested"]?.name).toBe(
       DOCUMENT_INGEST_REQUESTED_EVENT_QN,
     );
-    expect(documentIngestFoundationFeature.events["documentIngest.skipped"]?.name).toBe(
+    expect(createDocumentIngestFoundationFeature().events["documentIngest.skipped"]?.name).toBe(
       DOCUMENT_INGEST_SKIPPED_EVENT_QN,
     );
   });
 
   test("registers the fileRef.created/restored MSP and the fileRef delete/forget + orphan-extract cleanup MSP", () => {
-    expect(Object.keys(documentIngestFoundationFeature.multiStreamProjections)).toEqual([
+    expect(Object.keys(createDocumentIngestFoundationFeature().multiStreamProjections)).toEqual([
       "request-ingest",
       "forget-extract-with-file-ref",
     ]);
-    const requestIngest = documentIngestFoundationFeature.multiStreamProjections["request-ingest"];
+    const requestIngest =
+      createDocumentIngestFoundationFeature().multiStreamProjections["request-ingest"];
     expect(Object.keys(requestIngest?.apply ?? {})).toEqual([
       "fileRef.created",
       "fileRef.restored",
     ]);
     const forgetExtract =
-      documentIngestFoundationFeature.multiStreamProjections["forget-extract-with-file-ref"];
+      createDocumentIngestFoundationFeature().multiStreamProjections[
+        "forget-extract-with-file-ref"
+      ];
     expect(Object.keys(forgetExtract?.apply ?? {})).toEqual([
       "fileRef.deleted",
       "fileRef.forgotten",
@@ -103,7 +106,7 @@ describe("documentIngestFoundationFeature — shape", () => {
   });
 
   test("registers the documentIngestProvider extension point", () => {
-    expect(Object.keys(documentIngestFoundationFeature.registrarExtensions)).toContain(
+    expect(Object.keys(createDocumentIngestFoundationFeature().registrarExtensions)).toContain(
       "documentIngestProvider",
     );
   });
@@ -111,19 +114,21 @@ describe("documentIngestFoundationFeature — shape", () => {
 
 describe("documentIngestFoundationFeature.exports — typed config handles", () => {
   test("exposes ocrLanguage with the deu+eng default", () => {
-    const key = documentIngestFoundationFeature.exports.ocrLanguageConfigKey;
+    const key = createDocumentIngestFoundationFeature().exports.ocrLanguageConfigKey;
     expect(key.name).toBe("document-ingest-foundation:config:ocr-language");
-    expect(documentIngestFoundationFeature.configKeys["ocrLanguage"]?.default).toBe("deu+eng");
+    expect(createDocumentIngestFoundationFeature().configKeys["ocrLanguage"]?.default).toBe(
+      "deu+eng",
+    );
   });
 
   test("exposes maxPagesPerFile with the 50-page default", () => {
-    const key = documentIngestFoundationFeature.exports.maxPagesPerFileConfigKey;
+    const key = createDocumentIngestFoundationFeature().exports.maxPagesPerFileConfigKey;
     expect(key.name).toBe("document-ingest-foundation:config:max-pages-per-file");
-    expect(documentIngestFoundationFeature.configKeys["maxPagesPerFile"]?.default).toBe(50);
+    expect(createDocumentIngestFoundationFeature().configKeys["maxPagesPerFile"]?.default).toBe(50);
   });
 
   test("ocrLanguage rejects a value that isn't a Tesseract -l argument (#1501)", () => {
-    const pattern = documentIngestFoundationFeature.configKeys["ocrLanguage"]?.pattern;
+    const pattern = createDocumentIngestFoundationFeature().configKeys["ocrLanguage"]?.pattern;
     expect(pattern).toBeDefined();
     const re = new RegExp(pattern!.regex, pattern!.flags);
     expect(re.test("deu+eng")).toBe(true);
@@ -134,7 +139,7 @@ describe("documentIngestFoundationFeature.exports — typed config handles", () 
   });
 
   test("maxPagesPerFile is bounded so a tenant can't disable or unbound the cap (#1501)", () => {
-    const bounds = documentIngestFoundationFeature.configKeys["maxPagesPerFile"]?.bounds;
+    const bounds = createDocumentIngestFoundationFeature().configKeys["maxPagesPerFile"]?.bounds;
     expect(bounds).toEqual({ min: 1, max: 500 });
   });
 });

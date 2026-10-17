@@ -1,6 +1,6 @@
 # @cosmicdrift/kumiko-server-runtime
 
-Production server boot for Kumiko apps: connections, schema drift gate, seeds, lifecycle and graceful shutdown. The prod counterpart to `runDevApp` in `@cosmicdrift/kumiko-dev-server`, without dev, scaffold or codegen tooling.
+Production server boot for Kumiko apps: connections, schema drift gate, seeds, lifecycle and graceful shutdown. The prod counterpart to `runDevApp` in `@cosmicdrift/kumiko-dev-server`, without dev or scaffold tooling.
 
 ## Install
 

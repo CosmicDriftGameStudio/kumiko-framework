@@ -139,16 +139,24 @@ export const inMemoryInboundMailPlugin: InboundMailProviderPlugin = {
 // =============================================================================
 // Feature-definition
 // =============================================================================
-
-export const inboundProviderInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.describe(
-    'Registers a scriptable in-process `"inmemory"` provider for `inbound-mail-foundation`. Seed messages with `seedInboundMessage(accountId, msg)` — an active watch pushes them immediately (IDLE simulation) and the cursor-based `fetch` re-delivers them on the reconciliation path, exercising the foundation dedup guarantee. Error injection via `failNextFetchWith`/`failNextVerifyWith`/`emitWatchError`; reset state with `resetInboundInMemory()`. For tests, demos and sample apps — not for production.',
+export function createInboundProviderInMemoryFeature() {
+  return defineFeature(
+    FEATURE_NAME,
+    (r) => {
+      r.describe(
+        'Registers a scriptable in-process `"inmemory"` provider for `inbound-mail-foundation`. Seed messages with `seedInboundMessage(accountId, msg)` — an active watch pushes them immediately (IDLE simulation) and the cursor-based `fetch` re-delivers them on the reconciliation path, exercising the foundation dedup guarantee. Error injection via `failNextFetchWith`/`failNextVerifyWith`/`emitWatchError`; reset state with `resetInboundInMemory()`. For tests, demos and sample apps — not for production.',
+      );
+      r.uiHints({
+        displayLabel: "Inbound Mail · In-Memory Provider",
+        category: "notifications",
+        recommended: false,
+      });
+      r.requires({ features: ["inbound-mail-foundation"] });
+      r.useExtension("inboundMailProvider", INMEMORY_PROVIDER_KEY, inMemoryInboundMailPlugin);
+    },
+    { dedupeOptions: {} },
   );
-  r.uiHints({
-    displayLabel: "Inbound Mail · In-Memory Provider",
-    category: "notifications",
-    recommended: false,
-  });
-  r.requires({ features: ["inbound-mail-foundation"] });
-  r.useExtension("inboundMailProvider", INMEMORY_PROVIDER_KEY, inMemoryInboundMailPlugin);
-});
+}
+
+/** @deprecated Use createInboundProviderInMemoryFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const inboundProviderInMemoryFeature = createInboundProviderInMemoryFeature();

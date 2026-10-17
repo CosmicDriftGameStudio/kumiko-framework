@@ -298,7 +298,10 @@ describe("scaffoldDeploy", () => {
     it("a file:/workspace:/link: dependency spec triggers full-tree install without a workspaces field", () => {
       writeFileSync(
         join(tmp, "package.json"),
-        JSON.stringify({ name: "localdepapp", dependencies: { "@app/define": "file:./.kumiko" } }),
+        JSON.stringify({
+          name: "localdepapp",
+          dependencies: { "local-lib": "file:./vendor/local-lib" },
+        }),
       );
       const result = scaffoldDeploy({ appName: "localdepapp", destination: tmp });
       expect(result.detected.installFromFullTree).toBe(true);

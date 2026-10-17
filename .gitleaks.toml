@@ -13,3 +13,9 @@ paths = [
   '''(^|/)__tests__/(.+/)?fixtures/''',
   '''(^|/)e2e/screenshots/''',
 ]
+
+[[allowlists]]
+description = "r.translations({ keys: FOO_I18N }) names an i18n constant; generic-api-key reads the identifier after `keys:` as a token"
+targetRules = ["generic-api-key"]
+regexTarget = "match"
+regexes = ['''\bkeys:\s*[A-Z][A-Z0-9_]*_I18N\b''']

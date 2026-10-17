@@ -41,12 +41,12 @@ import {
 import { createConfigFeature } from "../../config/index.js";
 import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.js";
 import {
+  createInboundMailFoundationFeature,
   createInboundMailSupervisor,
   InboundMailAccountStatuses,
   InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
   inboundCredentialSecretKey,
-  inboundMailFoundationFeature,
   mailAccountsProjectionTable,
   seenMessageEntity,
   syncCursorEntity,
@@ -58,7 +58,7 @@ import {
 } from "../../secrets/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { inboundProviderImapFeature } from "../feature.js";
+import { createInboundProviderImapFeature } from "../feature.js";
 
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "127.0.0.1";
 const IMAP_PORT = Number(process.env["IMAP_LIVE_PORT"] ?? 3143);
@@ -117,8 +117,8 @@ beforeAll(async () => {
       createSecretsFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      inboundMailFoundationFeature,
-      inboundProviderImapFeature,
+      createInboundMailFoundationFeature(),
+      createInboundProviderImapFeature(),
     ],
     masterKeyProvider: providerRef,
     extraContext: ({ db: stackDb, registry }) => ({

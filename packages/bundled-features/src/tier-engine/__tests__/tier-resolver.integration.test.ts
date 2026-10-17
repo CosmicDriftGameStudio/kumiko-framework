@@ -21,7 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { tierAssignmentEntity } from "../entity.js";
-import { tierEngineFeature } from "../feature.js";
+import { createTierEngineFeature } from "../feature.js";
 import { createTierResolver } from "../tier-resolver.js";
 
 type TestCaps = { readonly maxItems: number };
@@ -51,7 +51,7 @@ const resolverProbeFeature = defineFeature("resolver-probe", (r) => {
   });
 });
 
-const features = composeFeatures([tierEngineFeature, resolverProbeFeature], {
+const features = composeFeatures([createTierEngineFeature(), resolverProbeFeature], {
   includeBundled: true,
 });
 

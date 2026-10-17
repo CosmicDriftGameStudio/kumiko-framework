@@ -75,89 +75,101 @@ export function setSmtpMailHostLookup(fn: typeof lookup | undefined): void {
 // =============================================================================
 // Feature-definition
 // =============================================================================
+export function createMailTransportSmtpFeature() {
+  return defineFeature(
+    FEATURE_NAME,
+    (r) => {
+      r.describe(
+        'Registers itself as the `"smtp"` provider for `mail-foundation` and owns the per-tenant config keys (`host`, `port`, `secure`, `from`, `authUser`) and the encrypted `smtp.password` secret. Tenants set `mail-foundation`\'s `provider` config key to `"smtp"` to activate it; set the SMTP credentials via the admin UI or a seed handler before sending the first mail.',
+      );
+      r.uiHints({
+        displayLabel: "Mail Transport · SMTP",
+        category: "notifications",
+        recommended: false,
+      });
+      r.requires({ features: ["config"] });
+      r.requires({ features: ["secrets"] });
+      r.requires({ features: ["mail-foundation"] });
+      r.envSchema(mailTransportSmtpEnvSchema);
 
-export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.describe(
-    'Registers itself as the `"smtp"` provider for `mail-foundation` and owns the per-tenant config keys (`host`, `port`, `secure`, `from`, `authUser`) and the encrypted `smtp.password` secret. Tenants set `mail-foundation`\'s `provider` config key to `"smtp"` to activate it; set the SMTP credentials via the admin UI or a seed handler before sending the first mail.',
+      // Provider-secret. Sensitive: redact-helper for admin-UI display.
+      const password = r.secret("smtp.password", {
+        label: { en: "SMTP password" },
+        hint: {
+          en: "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'.",
+        },
+        redact: (plaintext) => {
+          if (plaintext.length < 8) return "•".repeat(plaintext.length);
+          return `${plaintext.slice(0, 3)}...${plaintext.slice(-2)}`;
+        },
+        scope: "tenant",
+        // required: true ↔ the missing-secret throw in readPassword — keep in sync.
+        required: true,
+      });
+
+      // required: true ↔ the requireNonEmpty calls in buildSmtpTransport — keep in sync.
+      const configKeys = r.config({
+        keys: {
+          host: createTenantConfig("text", {
+            required: true,
+            default: "",
+            write: access.roles("TenantAdmin", "SystemAdmin"),
+            read: access.roles("TenantAdmin", "SystemAdmin"),
+          }),
+          port: createTenantConfig("number", {
+            default: 587,
+            bounds: { min: 1, max: 65535 },
+            write: access.roles("TenantAdmin", "SystemAdmin"),
+          }),
+          secure: createTenantConfig("boolean", {
+            default: false,
+            write: access.roles("TenantAdmin", "SystemAdmin"),
+          }),
+          from: createTenantConfig("text", {
+            required: true,
+            default: "",
+            write: access.roles("TenantAdmin", "SystemAdmin"),
+            read: access.roles("TenantAdmin", "SystemAdmin"),
+          }),
+          authUser: createTenantConfig("text", {
+            required: true,
+            default: "",
+            write: access.roles("TenantAdmin", "SystemAdmin"),
+            read: access.roles("TenantAdmin", "SystemAdmin"),
+          }),
+        },
+      });
+
+      // Plugin: register against mail-foundation's "mailTransport" extension.
+      // `entityName` "smtp" is what tenants set in mail-foundation's
+      // `provider` config-key to pick this transport.
+      const plugin: MailTransportPlugin = {
+        build: async (ctx: MailTransportContext, tenantId: string) =>
+          buildSmtpTransport(ctx, tenantId), // @wrapper-known semantic-alias
+      };
+      r.useExtension(MAIL_TRANSPORT_EXTENSION, "smtp", plugin);
+
+      return {
+        /** Config-key-handles — typed reads via `ctx.config(...)` in
+         *  consumer handlers. */
+        configKeys,
+        /** Secret-handle for the SMTP password. */
+        password,
+      };
+    },
+    { dedupeOptions: {} },
   );
-  r.uiHints({
-    displayLabel: "Mail Transport · SMTP",
-    category: "notifications",
-    recommended: false,
-  });
-  r.requires({ features: ["config"] });
-  r.requires({ features: ["secrets"] });
-  r.requires({ features: ["mail-foundation"] });
-  r.envSchema(mailTransportSmtpEnvSchema);
+}
 
-  // Provider-secret. Sensitive: redact-helper for admin-UI display.
-  const password = r.secret("smtp.password", {
-    label: { en: "SMTP password" },
-    hint: {
-      en: "Login password at the SMTP server. Brevo/Postmark/SES call it 'API key' or 'SMTP credentials'.",
-    },
-    redact: (plaintext) => {
-      if (plaintext.length < 8) return "•".repeat(plaintext.length);
-      return `${plaintext.slice(0, 3)}...${plaintext.slice(-2)}`;
-    },
-    scope: "tenant",
-    // required: true ↔ the missing-secret throw in readPassword — keep in sync.
-    required: true,
-  });
+// The typed handles below come from one shared instance; each factory call builds its own handle objects.
+const sharedMailTransportSmtpFeature = createMailTransportSmtpFeature();
 
-  // required: true ↔ the requireNonEmpty calls in buildSmtpTransport — keep in sync.
-  const configKeys = r.config({
-    keys: {
-      host: createTenantConfig("text", {
-        required: true,
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      port: createTenantConfig("number", {
-        default: 587,
-        bounds: { min: 1, max: 65535 },
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      secure: createTenantConfig("boolean", {
-        default: false,
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      from: createTenantConfig("text", {
-        required: true,
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-      authUser: createTenantConfig("text", {
-        required: true,
-        default: "",
-        write: access.roles("TenantAdmin", "SystemAdmin"),
-        read: access.roles("TenantAdmin", "SystemAdmin"),
-      }),
-    },
-  });
-
-  // Plugin: register against mail-foundation's "mailTransport" extension.
-  // `entityName` "smtp" is what tenants set in mail-foundation's
-  // `provider` config-key to pick this transport.
-  const plugin: MailTransportPlugin = {
-    build: async (ctx: MailTransportContext, tenantId: string) => buildSmtpTransport(ctx, tenantId), // @wrapper-known semantic-alias
-  };
-  r.useExtension(MAIL_TRANSPORT_EXTENSION, "smtp", plugin);
-
-  return {
-    /** Config-key-handles — typed reads via `ctx.config(...)` in
-     *  consumer handlers. */
-    configKeys,
-    /** Secret-handle for the SMTP password. */
-    password,
-  };
-});
+/** @deprecated Use createMailTransportSmtpFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const mailTransportSmtpFeature = sharedMailTransportSmtpFeature;
 
 /** Typed handle for the SMTP password — exported so seeds + tests can
  *  set it via `secrets:write:set` with the full qualified-name. */
-export const SMTP_PASSWORD = mailTransportSmtpFeature.exports.password;
+export const SMTP_PASSWORD = sharedMailTransportSmtpFeature.exports.password;
 
 // =============================================================================
 // Internal: build the EmailTransport from tenant config + secret
@@ -188,29 +200,29 @@ async function buildSmtpTransport(
 
   const SMTP_HINT = "Set via tenant-admin UI or seed-handler before sending mail.";
   const host = requireNonEmpty(
-    await ctxConfig(mailTransportSmtpFeature.exports.configKeys.host),
+    await ctxConfig(sharedMailTransportSmtpFeature.exports.configKeys.host),
     FEATURE_NAME,
     "host",
     SMTP_HINT,
   );
   const port = requireDefined(
-    await ctxConfig(mailTransportSmtpFeature.exports.configKeys.port),
+    await ctxConfig(sharedMailTransportSmtpFeature.exports.configKeys.port),
     FEATURE_NAME,
     "port",
   ) as number; // @cast-boundary engine-payload
   const secure = requireDefined(
-    await ctxConfig(mailTransportSmtpFeature.exports.configKeys.secure),
+    await ctxConfig(sharedMailTransportSmtpFeature.exports.configKeys.secure),
     FEATURE_NAME,
     "secure",
   ) as boolean; // @cast-boundary engine-payload
   const from = requireNonEmpty(
-    await ctxConfig(mailTransportSmtpFeature.exports.configKeys.from),
+    await ctxConfig(sharedMailTransportSmtpFeature.exports.configKeys.from),
     FEATURE_NAME,
     "from",
     SMTP_HINT,
   );
   const authUser = requireNonEmpty(
-    await ctxConfig(mailTransportSmtpFeature.exports.configKeys.authUser),
+    await ctxConfig(sharedMailTransportSmtpFeature.exports.configKeys.authUser),
     FEATURE_NAME,
     "authUser",
     SMTP_HINT,

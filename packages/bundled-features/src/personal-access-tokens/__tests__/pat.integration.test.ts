@@ -37,7 +37,7 @@ import {
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
-import { authFoundationFeature, resolveTokenVerifier } from "../../auth-foundation/index.js";
+import { createAuthFoundationFeature, resolveTokenVerifier } from "../../auth-foundation/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
@@ -120,7 +120,7 @@ beforeAll(async () => {
         // fire-time, well after setupTestStack below has assigned it.
         autoRevokeOnPasswordChange: (userId) => revokeAllPatTokensForUser(stack.db, userId),
       }),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
@@ -380,7 +380,7 @@ describe("PAT create: MFA re-auth gate", () => {
           // machinery (same shape as sessions' massRevokeSpy tests).
           mfaVerifier: async () => ({ enrolled: true, ok: false }),
         }),
-        authFoundationFeature,
+        createAuthFoundationFeature(),
       ],
       extraContext: { configResolver: resolver, configEncryption: encryption },
       authConfig: {

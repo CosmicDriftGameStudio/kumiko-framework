@@ -35,7 +35,7 @@ import {
   seedDestroyingTenant,
 } from "../../tenant-lifecycle/testing.js";
 import { documentExtractEntity, documentExtractsTable } from "../entity.js";
-import { documentIngestFoundationFeature } from "../feature.js";
+import { createDocumentIngestFoundationFeature } from "../feature.js";
 import { writeIngestPages } from "../pages.js";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
@@ -57,7 +57,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      documentIngestFoundationFeature,
+      createDocumentIngestFoundationFeature(),
     ],
   });
   db = stack.db;

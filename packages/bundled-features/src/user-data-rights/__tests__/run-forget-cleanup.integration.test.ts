@@ -16,7 +16,7 @@
 // der end-to-end-Default-Pfad (delete).
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import {
   configurePiiSubjectKms,
@@ -96,7 +96,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),

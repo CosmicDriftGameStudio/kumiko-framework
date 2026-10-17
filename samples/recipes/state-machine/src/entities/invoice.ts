@@ -1,11 +1,11 @@
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createMoneyField,
   createSelectField,
   createTextField,
   defineTransitions,
-} from "@app/define";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const INVOICE_STATES = ["draft", "sent", "paid", "cancelled"] as const;
 

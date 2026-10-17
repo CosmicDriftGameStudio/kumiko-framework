@@ -31,7 +31,7 @@ import {
 } from "../../auth-email-password/__tests__/auth-mail-stack.js";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
-import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
@@ -86,7 +86,7 @@ beforeAll(async () => {
       createTenantFeature({ inviteScreen: true }),
       // Sessions required so updateMemberRoles can revoke target JWTs via
       // sessions:write:user-session:revoke-all-for-user (best-effort lookup).
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       ...authMailRendererFeatures(),
       createDeliveryFeature(),

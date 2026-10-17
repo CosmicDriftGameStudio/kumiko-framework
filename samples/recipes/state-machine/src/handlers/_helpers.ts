@@ -2,25 +2,25 @@
 // optionally guardTransition, append the domain event, return a WriteResult
 // that reflects the post-write status.
 
-import type { AccessRule, KumikoEventTypeMap } from "@app/define";
-import { defineWriteHandler, guardTransition } from "@app/define";
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type EventDef,
+  emitEvent,
+  guardTransition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { INVOICE_TRANSITIONS } from "../entities/invoice";
-import { ENTITY_NAME } from "../events";
+import { ENTITY_NAME, type emptyEventPayload } from "../events";
 import { type InvoiceStatus, loadInvoiceState } from "../reducer";
 
-// Narrow TEvent to event-types whose payload is `{}` — this helper
-// always emits an empty payload. Anyone trying to use it with a non-
-// empty-payload event-type gets caught at the call-site, not at runtime.
-type EmptyPayloadEvent = {
-  [K in keyof KumikoEventTypeMap]: KumikoEventTypeMap[K] extends Record<string, never> ? K : never;
-}[keyof KumikoEventTypeMap];
-
-export function transitionHandler<const TEvent extends EmptyPayloadEvent>(opts: {
+// The event carries an empty payload — this helper always emits `{}`, so an EventDef with a
+// non-empty payload is a compile error at the call site.
+export function transitionHandler(opts: {
   name: string;
   toStatus: InvoiceStatus;
-  eventType: TEvent;
+  event: EventDef<z.infer<typeof emptyEventPayload>>;
   access: AccessRule;
   skipGuard?: boolean;
 }) {
@@ -41,10 +41,9 @@ export function transitionHandler<const TEvent extends EmptyPayloadEvent>(opts: 
         guardTransition(INVOICE_TRANSITIONS, state.status as InvoiceStatus, opts.toStatus);
       }
 
-      await ctx.appendEvent({
+      await emitEvent(ctx, opts.event, {
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
-        type: opts.eventType,
         payload: {},
       });
 

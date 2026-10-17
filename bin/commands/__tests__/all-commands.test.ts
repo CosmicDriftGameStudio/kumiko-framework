@@ -24,7 +24,6 @@ const EXPECTED_IDS = [
   "check:fast",
   "ci:guards",
   "clean-test-dbs",
-  "codegen",
   "codemod",
   "consumer",
   "create",

@@ -1,8 +1,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { EmailMessage } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
+  createMailTransportInMemoryFeature,
   getInbox,
-  mailTransportInMemoryFeature,
 } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import {
@@ -137,7 +137,7 @@ export type E2eSeedRoutesOptions = {
   // Apps that send tenantless mail (signup/forgot-password/magic-link) via
   // their own raw createInMemoryTransport() pass its `sent` array here so
   // the inbox route can read it without a tenantId. Independent of
-  // mailTransportInMemoryFeature — both sources may be present at once.
+  // createMailTransportInMemoryFeature() — both sources may be present at once.
   readonly mailOutbox?: { readonly sent: readonly EmailMessage[] };
 };
 
@@ -252,12 +252,13 @@ export function createE2eSeedRoutes(
       const tenantId = verified.tenantId;
       const mailOutbox = options.mailOutbox;
       const hasTenantSource =
-        tenantId !== undefined && deps.registry.features.has(mailTransportInMemoryFeature.name);
+        tenantId !== undefined &&
+        deps.registry.features.has(createMailTransportInMemoryFeature().name);
       if (!hasTenantSource && mailOutbox === undefined) {
         return c.json(
           {
             error:
-              `no inbox to read: neither ${mailTransportInMemoryFeature.name} is mounted with a ` +
+              `no inbox to read: neither ${createMailTransportInMemoryFeature().name} is mounted with a ` +
               "tenantId nor was mailOutbox passed to createE2eSeedRoutes()",
           },
           501,

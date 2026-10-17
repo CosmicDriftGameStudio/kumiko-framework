@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createInMemoryTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
+  createMailFoundationFeature,
   isMailTransportPlugin,
-  mailFoundationFeature,
 } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import {
   clearInbox,
-  mailTransportInMemoryFeature,
+  createMailTransportInMemoryFeature,
 } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
 import {
   TenantQueries,
@@ -676,9 +676,9 @@ describe("GET /__test/inbox", () => {
   }
 
   test("returns only the recipient's messages of the tenant's inbox", async () => {
-    const h = await boot([mailFoundationFeature, mailTransportInMemoryFeature]);
+    const h = await boot([createMailFoundationFeature(), createMailTransportInMemoryFeature()]);
     const seeded = await seedTenantVia(h);
-    const usage = mailTransportInMemoryFeature.extensionUsages.find(
+    const usage = createMailTransportInMemoryFeature().extensionUsages.find(
       (candidate) => candidate.entityName === "inmemory",
     );
     if (!usage || !isMailTransportPlugin(usage.options)) throw new Error("plugin not registered");
@@ -704,7 +704,7 @@ describe("GET /__test/inbox", () => {
 
     const withMail = await (async () => {
       await h.stop();
-      return boot([mailFoundationFeature, mailTransportInMemoryFeature]);
+      return boot([createMailFoundationFeature(), createMailTransportInMemoryFeature()]);
     })();
     expect((await inbox(withMail, "not-a-uuid", "a@example.test")).status).toBe(400);
   });
@@ -751,11 +751,11 @@ describe("GET /__test/inbox", () => {
 
   test("tenant buffer and mailOutbox both mounted: tenant mails first, then outbox mails, each newest first", async () => {
     const outbox = createInMemoryTransport();
-    const h = await boot([mailFoundationFeature, mailTransportInMemoryFeature], {
+    const h = await boot([createMailFoundationFeature(), createMailTransportInMemoryFeature()], {
       mailOutbox: outbox,
     });
     const seeded = await seedTenantVia(h);
-    const usage = mailTransportInMemoryFeature.extensionUsages.find(
+    const usage = createMailTransportInMemoryFeature().extensionUsages.find(
       (candidate) => candidate.entityName === "inmemory",
     );
     if (!usage || !isMailTransportPlugin(usage.options)) throw new Error("plugin not registered");

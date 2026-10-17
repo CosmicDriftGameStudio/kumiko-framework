@@ -5,7 +5,7 @@
 // expired/revoked rows go, live rows stay, batching + signal work.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { selectMany, sql } from "@cosmicdrift/kumiko-framework/db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
@@ -41,7 +41,7 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [authFoundationFeature, createSessionsFeature(), createUserFeature()],
+    features: [createAuthFoundationFeature(), createSessionsFeature(), createUserFeature()],
   });
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafeCreateEntityTable(stack.db, userEntity);

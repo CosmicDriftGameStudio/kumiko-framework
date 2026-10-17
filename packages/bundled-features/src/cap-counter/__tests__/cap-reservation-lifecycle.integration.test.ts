@@ -35,7 +35,7 @@ import { readRollingCapUsage } from "../book-cap-usage.js";
 import { CapCounterHandlers, CapCounterQueries } from "../constants.js";
 import type { SoftHitNotifier } from "../enforce-cap.js";
 import { capCounterEntity } from "../entity.js";
-import { capCounterFeature } from "../feature.js";
+import { createCapCounterFeature } from "../feature.js";
 import { capReservationsTable } from "../tables.js";
 import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.js";
 
@@ -222,7 +222,7 @@ let db: DbConnection;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [capCounterFeature, capGateFeature],
+    features: [createCapCounterFeature(), capGateFeature],
     extraContext: { rateLimit: countingRateLimiter },
   });
   db = stack.db;

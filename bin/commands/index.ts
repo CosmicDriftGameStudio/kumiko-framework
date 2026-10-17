@@ -9,7 +9,6 @@ import "./check";
 import "./check-fast";
 import "./ci-guards";
 import "./clean-test-dbs";
-import "./codegen";
 import "./codemod";
 import "./consumer";
 import "./create";

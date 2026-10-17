@@ -8,32 +8,32 @@ import {
   INBOUND_MAIL_PROVIDER_EXTENSION,
   inboundCredentialSecretKey,
 } from "../constants.js";
-import { inboundMailFoundationFeature } from "../feature.js";
+import { createInboundMailFoundationFeature } from "../feature.js";
 import { isVisibleToCaller } from "../handlers/scope-visibility.js";
 import { signOAuthState, verifyOAuthState } from "../oauth-state.js";
 import { isInboundMailProviderPlugin } from "../types.js";
 
 describe("inboundMailFoundationFeature — shape", () => {
   test("has the expected name", () => {
-    expect(inboundMailFoundationFeature.name).toBe(INBOUND_MAIL_FOUNDATION_FEATURE);
-    expect(inboundMailFoundationFeature.name).toBe("inbound-mail-foundation");
+    expect(createInboundMailFoundationFeature().name).toBe(INBOUND_MAIL_FOUNDATION_FEATURE);
+    expect(createInboundMailFoundationFeature().name).toBe("inbound-mail-foundation");
   });
 
   test("does NOT require config — Multi-Provider, Provider-Config liegt in den Plugins", () => {
     // Drift-Pin (Plan §1.3): KEIN globaler provider-config-key. Ein
     // Tenant kann parallel IMAP + M365 + Gmail verbinden — der Provider
     // steht pro MailAccount-Row.
-    expect(inboundMailFoundationFeature.requires).not.toContain("config");
+    expect(createInboundMailFoundationFeature().requires).not.toContain("config");
   });
 
   test("declares the 'inboundMailProvider' extension-point", () => {
     expect(
-      inboundMailFoundationFeature.registrarExtensions[INBOUND_MAIL_PROVIDER_EXTENSION],
+      createInboundMailFoundationFeature().registrarExtensions[INBOUND_MAIL_PROVIDER_EXTENSION],
     ).toBeDefined();
   });
 
   test("5 domain-events registriert", () => {
-    const events = inboundMailFoundationFeature.events;
+    const events = createInboundMailFoundationFeature().events;
     expect(events["mail-account-connected"]).toBeDefined();
     expect(events["mail-account-updated"]).toBeDefined();
     expect(events["mail-account-disconnected"]).toBeDefined();
@@ -44,7 +44,7 @@ describe("inboundMailFoundationFeature — shape", () => {
   test("SyncCursor + SeenMessage sind unmanaged (NICHT event-sourced, Plan §3.4)", () => {
     // Drift-Pin: als r.entity würden die Tick-State-Tabellen (a) das
     // Event-Log fluten und (b) beim Projection-Rebuild gewischt.
-    const unmanaged = Object.keys(inboundMailFoundationFeature.storeTables);
+    const unmanaged = Object.keys(createInboundMailFoundationFeature().storeTables);
     expect(unmanaged.length).toBe(2);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  authFoundationFeature,
+  createAuthFoundationFeature,
   resolveAnonymousAccessFromRegistry,
   resolveTenantExistence,
   resolveTenantResolver,
@@ -19,7 +19,7 @@ describe("auth-foundation-providers recipe", () => {
       existsById: async (id) => id === TENANT,
       trust: "authoritative",
     });
-    const registry = createRegistry([authFoundationFeature, routing]);
+    const registry = createRegistry([createAuthFoundationFeature(), routing]);
 
     const resolved = await resolveTenantResolver({ db: fakeDb, registry });
     expect(resolved?.trust).toBe("authoritative");

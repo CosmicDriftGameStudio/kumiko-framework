@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
-import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { createDataRetentionFeature } from "../../data-retention/feature.js";
@@ -29,7 +29,7 @@ describe("user-data-rights read-only inspector screens", () => {
     createConfigFeature(),
     createUserFeature(),
     createTenantFeature(),
-    authFoundationFeature,
+    createAuthFoundationFeature(),
     createPersonalAccessTokensFeature({ scopes: {} }),
     createSessionsFeature(),
     createDataRetentionFeature(),

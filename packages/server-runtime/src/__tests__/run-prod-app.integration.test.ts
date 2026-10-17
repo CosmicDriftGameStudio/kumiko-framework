@@ -13,7 +13,7 @@ import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
@@ -1227,7 +1227,7 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
     await expect(
       boot(undefined, {
         features: [
-          authFoundationFeature,
+          createAuthFoundationFeature(),
           createPersonalAccessTokensFeature({ scopes: {} }),
           createSessionsFeature(),
         ],
@@ -1245,7 +1245,7 @@ describe("runProdApp — auth allowedOrigins forwarding", () => {
     try {
       const handle = await boot(undefined, {
         features: [
-          authFoundationFeature,
+          createAuthFoundationFeature(),
           createPersonalAccessTokensFeature({ scopes: {} }),
           createSessionsFeature(),
         ],
@@ -1270,7 +1270,7 @@ describe("runProdApp — auth retiredCookieDomains forwarding", () => {
     await expect(
       boot(undefined, {
         features: [
-          authFoundationFeature,
+          createAuthFoundationFeature(),
           createPersonalAccessTokensFeature({ scopes: {} }),
           createSessionsFeature(),
         ],
@@ -1318,7 +1318,7 @@ describe("runProdApp — session boot gate (#1262/#1275)", () => {
       // sessions requires auth-foundation, which needs a tokenVerifier
       // provider — PAT.
       features: [
-        authFoundationFeature,
+        createAuthFoundationFeature(),
         createPersonalAccessTokensFeature({ scopes: {} }),
         createSessionsFeature(),
         createTemplateResolverFeature(),

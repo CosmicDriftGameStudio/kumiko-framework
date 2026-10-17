@@ -11,7 +11,6 @@ linker = "hoisted"
 # bunfig.dom.toml (Issue #1330) — hier wird happy-dom nicht mehr geladen.
 preload = [
   "@cosmicdrift/kumiko-testing/preload/ci-log",
-  "./test-setup/app-define-resolver.ts",
   "@cosmicdrift/kumiko-testing/preload/temporal",
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
 ]

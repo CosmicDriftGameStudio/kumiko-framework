@@ -73,6 +73,7 @@
     "./mail-transport-inmemory": "./src/mail-transport-inmemory/index.ts",
     "./file-foundation": "./src/file-foundation/index.ts",
     "./file-provider-s3": "./src/file-provider-s3/index.ts",
+    "./file-provider-s3/lib": "./src/file-provider-s3/lib/index.ts",
     "./document-ingest-foundation": "./src/document-ingest-foundation/index.ts",
     "./file-provider-s3-env": "./src/file-provider-s3-env/index.ts",
     "./file-provider-inmemory": "./src/file-provider-inmemory/index.ts",
@@ -396,6 +397,10 @@
       "./file-provider-s3": {
         "types": "./dist/file-provider-s3/index.d.ts",
         "default": "./dist/file-provider-s3/index.js"
+      },
+      "./file-provider-s3/lib": {
+        "types": "./dist/file-provider-s3/lib/index.d.ts",
+        "default": "./dist/file-provider-s3/lib/index.js"
       },
       "./document-ingest-foundation": {
         "types": "./dist/document-ingest-foundation/index.d.ts",

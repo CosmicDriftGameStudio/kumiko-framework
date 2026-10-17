@@ -35,55 +35,66 @@ import { workflowRunPendingTableMeta } from "./tables.js";
 // use-all-bundled's check-coverage matches exports to mounted features by it.
 const FEATURE_NAME = "workflow-runner";
 
-export const workflowRunnerFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.describe(
-    "Writes the run-envelope (`workflow.run-started` / `workflow.run-completed` / `workflow.run-failed`) for a workflow run onto its `workflow-run` aggregate stream. Provides `startAndRunWorkflow` and `registerEventTrigger` for consumer features to wire up `defineWorkflow`-based workflows against domain events. Registers no workflows itself. Runs the resume loop for suspended `wait`/`retry`/`waitForEvent` steps (`resume-due-runs` job + `resume-run` handler); `registerEventTrigger` wires an event-wakeup subscriber per workflow that declares `awaits` so a `waitForEvent` step resumes as soon as its awaited event arrives, not just on timeout.",
-  );
-  r.uiHints({
-    displayLabel: "Workflow Runner",
-    category: "infrastructure",
-    recommended: false,
-  });
-  // resume-run needs a full HandlerContext + ctx.systemDb (the pending-row
-  // scan crosses whatever tenant the row belongs to relative to the job's
-  // own tenant loop iteration) — same reasoning as tenant/feature.ts.
-  r.systemScope();
-  r.storeTable(workflowRunPendingTableMeta, {
-    reason: "resume_loop.pending_suspended_steps",
-  });
-  registerWorkflowRunPendingProjection(r);
-  r.writeHandler(resumeRunHandler);
+export function createWorkflowRunnerFeature() {
+  return defineFeature(
+    FEATURE_NAME,
+    (r) => {
+      r.describe(
+        "Writes the run-envelope (`workflow.run-started` / `workflow.run-completed` / `workflow.run-failed`) for a workflow run onto its `workflow-run` aggregate stream. Provides `startAndRunWorkflow` and `registerEventTrigger` for consumer features to wire up `defineWorkflow`-based workflows against domain events. Registers no workflows itself. Runs the resume loop for suspended `wait`/`retry`/`waitForEvent` steps (`resume-due-runs` job + `resume-run` handler); `registerEventTrigger` wires an event-wakeup subscriber per workflow that declares `awaits` so a `waitForEvent` step resumes as soon as its awaited event arrives, not just on timeout.",
+      );
+      r.uiHints({
+        displayLabel: "Workflow Runner",
+        category: "infrastructure",
+        recommended: false,
+      });
+      // resume-run needs a full HandlerContext + ctx.systemDb (the pending-row
+      // scan crosses whatever tenant the row belongs to relative to the job's
+      // own tenant loop iteration) — same reasoning as tenant/feature.ts.
+      r.systemScope();
+      r.storeTable(workflowRunPendingTableMeta, {
+        reason: "resume_loop.pending_suspended_steps",
+      });
+      registerWorkflowRunPendingProjection(r);
+      r.writeHandler(resumeRunHandler);
 
-  r.job(
-    "resume-due-runs",
-    { trigger: { cron: "* * * * *" }, perTenant: true, concurrency: "skip" },
-    async (_payload, ctx) => {
-      if (!ctx.systemDb) {
-        throw new Error("resume-due-runs: ctx.systemDb required (r.systemScope() feature)");
-      }
-      const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
-      if (tenantId === undefined) {
-        // skip: cron fired without a perTenant fan-out tenant — nothing scoped
-        return;
-      }
+      r.job(
+        "resume-due-runs",
+        { trigger: { cron: "* * * * *" }, perTenant: true, concurrency: "skip" },
+        async (_payload, ctx) => {
+          if (!ctx.systemDb) {
+            throw new Error("resume-due-runs: ctx.systemDb required (r.systemScope() feature)");
+          }
+          const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
+          if (tenantId === undefined) {
+            // skip: cron fired without a perTenant fan-out tenant — nothing scoped
+            return;
+          }
 
-      const dueRows = await selectDueWorkflowRunPending(ctx.systemDb.assertTenantMatch(tenantId));
-
-      for (const row of dueRows) {
-        try {
-          await ctx.write("workflow-runner:write:resume-run", {
-            runId: row.runId,
-            stepIndex: row.stepIndex,
-          });
-        } catch (error) {
-          // skip: one row's dispatch failing (infra hiccup, not a business
-          // outcome — resume-run itself never throws for expected cases)
-          // must not stop the rest of this tenant's due rows from resuming.
-          ctx.log.warn(
-            `[workflow-runner:resume-due-runs] runId=${row.runId} stepIndex=${row.stepIndex} dispatch failed: ${String(error)}`,
+          const dueRows = await selectDueWorkflowRunPending(
+            ctx.systemDb.assertTenantMatch(tenantId),
           );
-        }
-      }
+
+          for (const row of dueRows) {
+            try {
+              await ctx.write("workflow-runner:write:resume-run", {
+                runId: row.runId,
+                stepIndex: row.stepIndex,
+              });
+            } catch (error) {
+              // skip: one row's dispatch failing (infra hiccup, not a business
+              // outcome — resume-run itself never throws for expected cases)
+              // must not stop the rest of this tenant's due rows from resuming.
+              ctx.log.warn(
+                `[workflow-runner:resume-due-runs] runId=${row.runId} stepIndex=${row.stepIndex} dispatch failed: ${String(error)}`,
+              );
+            }
+          }
+        },
+      );
     },
+    { dedupeOptions: {} },
   );
-});
+}
+
+/** @deprecated Use createWorkflowRunnerFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const workflowRunnerFeature = createWorkflowRunnerFeature();

@@ -23,10 +23,10 @@ const FRAMEWORK_ROOT = resolve(ROOT, "..", "..", "..");
 // Held-back exports: existieren in bundled-features, sind aber nicht
 // als runtime-feature in use-all-bundled mountbar.
 //
-// Nur Utilities ohne defineFeature (foundation-shared, files-provider-s3 sind pure helpers)
+// Nur Utilities ohne defineFeature (foundation-shared sowie files-provider-s3, der deprecated Alias von file-provider-s3/lib, sind pure helpers)
 // und scaffold-only Features. Gemountete Features gehören nicht hierher.
 const EXPECTED_HELD_BACK = new Set([
-  "files-provider-s3", // utility (createS3Provider helpers), kein defineFeature
+  "files-provider-s3", // deprecated alias of file-provider-s3/lib (createS3Provider helpers), kein defineFeature
   "foundation-shared", // utilities (requireDefined/requireNonEmpty), kein feature
   "page-render", // shared HTML render/cache helpers (legal/managed-pages), kein defineFeature
   "presets", // feature-bundle helpers (dsgvoSelfServiceFeatures, securityBaselineFeatures), kein defineFeature

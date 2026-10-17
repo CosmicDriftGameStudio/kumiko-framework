@@ -130,7 +130,7 @@ function registerTags(
   r.translations({ keys: TAGS_FEATURE_I18N });
 }
 
-export const tagsFeature = defineFeature(TAGS_FEATURE_NAME, (r) =>
+const defaultTagsFeature = defineFeature(TAGS_FEATURE_NAME, (r) =>
   registerTags(r, DEFAULT_TAG_ACCESS, undefined, undefined, undefined),
 );
 
@@ -183,7 +183,7 @@ function resolveAccess(opts: TagsFeatureOptions): AccessRule {
 // Backwards-compat / options wrapper. Without options returns the module-level
 // singleton (no rebuild). access/roles/toggleable/ownership build a fresh
 // feature-definition.
-export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof tagsFeature {
+export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof defaultTagsFeature {
   if (
     opts.access === undefined &&
     opts.roles === undefined &&
@@ -191,7 +191,7 @@ export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof tagsFea
     opts.ownership === undefined &&
     opts.parents === undefined
   ) {
-    return tagsFeature;
+    return defaultTagsFeature;
   }
   if (opts.parents !== undefined && opts.parents.length === 0) {
     throw new Error(
@@ -207,3 +207,6 @@ export function createTagsFeature(opts: TagsFeatureOptions = {}): typeof tagsFea
     registerTags(r, access, opts.toggleable, opts.ownership, opts.parents),
   );
 }
+
+/** @deprecated Use createTagsFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const tagsFeature = createTagsFeature();

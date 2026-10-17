@@ -13,22 +13,31 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { tenantsMissingProfileQuery } from "./handlers/tenants-missing-profile.query.js";
 
-export const complianceProfilesOpsFeature = defineFeature("compliance-profiles-ops", (r) => {
-  r.describe(
-    "Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query (#2089): `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant. Mount alongside `compliance-profiles` and `tenant` when an operator UI needs to see which tenants still silently run on `minimal-no-region`.",
+export function createComplianceProfilesOpsFeature() {
+  return defineFeature(
+    "compliance-profiles-ops",
+    (r) => {
+      r.describe(
+        "Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query (#2089): `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant. Mount alongside `compliance-profiles` and `tenant` when an operator UI needs to see which tenants still silently run on `minimal-no-region`.",
+      );
+      r.uiHints({
+        displayLabel: "Compliance Profiles · Operator Visibility",
+        category: "compliance",
+        recommended: false,
+      });
+      r.systemScope();
+      r.requires({ features: ["compliance-profiles"] });
+      r.requires({ features: ["tenant"] });
+
+      const queries = {
+        tenantsMissingProfile: r.queryHandler(tenantsMissingProfileQuery),
+      };
+
+      return { queries };
+    },
+    { dedupeOptions: {} },
   );
-  r.uiHints({
-    displayLabel: "Compliance Profiles · Operator Visibility",
-    category: "compliance",
-    recommended: false,
-  });
-  r.systemScope();
-  r.requires({ features: ["compliance-profiles"] });
-  r.requires({ features: ["tenant"] });
+}
 
-  const queries = {
-    tenantsMissingProfile: r.queryHandler(tenantsMissingProfileQuery),
-  };
-
-  return { queries };
-});
+/** @deprecated Use createComplianceProfilesOpsFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const complianceProfilesOpsFeature = createComplianceProfilesOpsFeature();

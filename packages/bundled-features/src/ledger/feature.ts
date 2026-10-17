@@ -151,7 +151,7 @@ function registerLedger(
   r.queryHandler(createBalanceSheetHandler(access));
 }
 
-export const ledgerFeature = defineFeature(LEDGER_FEATURE_NAME, (r) =>
+const defaultLedgerFeature = defineFeature(LEDGER_FEATURE_NAME, (r) =>
   registerLedger(r, DEFAULT_LEDGER_ACCESS, undefined),
 );
 
@@ -174,10 +174,13 @@ function resolveAccess(opts: LedgerFeatureOptions): AccessRule {
 
 // Options wrapper. Without options returns the module-level singleton (no
 // rebuild). access/roles/toggleable build a fresh feature-definition.
-export function createLedgerFeature(opts: LedgerFeatureOptions = {}): typeof ledgerFeature {
+export function createLedgerFeature(opts: LedgerFeatureOptions = {}): typeof defaultLedgerFeature {
   if (opts.access === undefined && opts.roles === undefined && opts.toggleable === undefined) {
-    return ledgerFeature;
+    return defaultLedgerFeature;
   }
   const access = resolveAccess(opts);
   return defineFeature(LEDGER_FEATURE_NAME, (r) => registerLedger(r, access, opts.toggleable));
 }
+
+/** @deprecated Use createLedgerFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const ledgerFeature = createLedgerFeature();

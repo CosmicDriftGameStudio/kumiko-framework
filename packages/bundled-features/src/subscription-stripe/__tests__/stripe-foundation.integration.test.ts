@@ -15,7 +15,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
-  billingFoundationFeature,
   createBillingFoundationFeature,
   createSubscriptionWebhookRoute,
   subscriptionAggregateId,
@@ -93,7 +92,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      billingFoundationFeature,
+      createBillingFoundationFeature(),
       stripeFeature,
     ],
     masterKeyProvider,

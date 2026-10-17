@@ -7,11 +7,6 @@
 // subscription-mollie, file-provider-s3, managed-pages, tier-engine) are
 // intentionally absent — the picker hides them, the user wires them by
 // hand after scaffold.
-//
-// Naming inconsistency is intentional and historical: most features expose
-// `create<Pascal>Feature` factories, a handful export the FeatureDefinition
-// object directly. The callExpression captures that: `()` for factories,
-// bare name for objects.
 
 import type { ScaffoldFeatureEntry } from "@cosmicdrift/kumiko-dev-server";
 
@@ -32,8 +27,8 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
   "auth-foundation": {
     name: "auth-foundation",
     importPath: "@cosmicdrift/kumiko-bundled-features/auth-foundation",
-    exportName: "authFoundationFeature",
-    callExpression: "authFoundationFeature",
+    exportName: "createAuthFoundationFeature",
+    callExpression: "createAuthFoundationFeature()",
   },
   "personal-access-tokens": {
     name: "personal-access-tokens",
@@ -85,8 +80,8 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
   "cap-counter": {
     name: "cap-counter",
     importPath: "@cosmicdrift/kumiko-bundled-features/cap-counter",
-    exportName: "capCounterFeature",
-    callExpression: "capCounterFeature",
+    exportName: "createCapCounterFeature",
+    callExpression: "createCapCounterFeature()",
   },
   "step-dispatcher": {
     name: "step-dispatcher",
@@ -105,14 +100,14 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
   "file-foundation": {
     name: "file-foundation",
     importPath: "@cosmicdrift/kumiko-bundled-features/file-foundation",
-    exportName: "fileFoundationFeature",
-    callExpression: "fileFoundationFeature",
+    exportName: "createFileFoundationFeature",
+    callExpression: "createFileFoundationFeature()",
   },
   "file-provider-inmemory": {
     name: "file-provider-inmemory",
     importPath: "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory",
-    exportName: "fileProviderInMemoryFeature",
-    callExpression: "fileProviderInMemoryFeature",
+    exportName: "createFileProviderInMemoryFeature",
+    callExpression: "createFileProviderInMemoryFeature()",
   },
 
   // --- Notifications ---
@@ -125,20 +120,20 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
   "mail-foundation": {
     name: "mail-foundation",
     importPath: "@cosmicdrift/kumiko-bundled-features/mail-foundation",
-    exportName: "mailFoundationFeature",
-    callExpression: "mailFoundationFeature",
+    exportName: "createMailFoundationFeature",
+    callExpression: "createMailFoundationFeature()",
   },
   "mail-transport-inmemory": {
     name: "mail-transport-inmemory",
     importPath: "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory",
-    exportName: "mailTransportInMemoryFeature",
-    callExpression: "mailTransportInMemoryFeature",
+    exportName: "createMailTransportInMemoryFeature",
+    callExpression: "createMailTransportInMemoryFeature()",
   },
   "mail-transport-smtp": {
     name: "mail-transport-smtp",
     importPath: "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp",
-    exportName: "mailTransportSmtpFeature",
-    callExpression: "mailTransportSmtpFeature",
+    exportName: "createMailTransportSmtpFeature",
+    callExpression: "createMailTransportSmtpFeature()",
   },
   "channel-in-app": {
     name: "channel-in-app",
@@ -163,8 +158,8 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
   "billing-foundation": {
     name: "billing-foundation",
     importPath: "@cosmicdrift/kumiko-bundled-features/billing-foundation",
-    exportName: "billingFoundationFeature",
-    callExpression: "billingFoundationFeature",
+    exportName: "createBillingFoundationFeature",
+    callExpression: "createBillingFoundationFeature()",
   },
 
   // --- Compliance ---
@@ -221,8 +216,8 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
   readiness: {
     name: "readiness",
     importPath: "@cosmicdrift/kumiko-bundled-features/readiness",
-    exportName: "readinessFeature",
-    callExpression: "readinessFeature",
+    exportName: "createReadinessFeature",
+    callExpression: "createReadinessFeature()",
   },
 
   // --- Content ---
@@ -237,14 +232,14 @@ export const FEATURE_CONSTRUCTORS: Readonly<Record<string, ScaffoldFeatureEntry>
   tags: {
     name: "tags",
     importPath: "@cosmicdrift/kumiko-bundled-features/tags",
-    exportName: "tagsFeature",
-    callExpression: "tagsFeature",
+    exportName: "createTagsFeature",
+    callExpression: "createTagsFeature()",
   },
   "custom-fields": {
     name: "custom-fields",
     importPath: "@cosmicdrift/kumiko-bundled-features/custom-fields",
-    exportName: "customFieldsFeature",
-    callExpression: "customFieldsFeature",
+    exportName: "createCustomFieldsFeature",
+    callExpression: "createCustomFieldsFeature()",
   },
 };
 

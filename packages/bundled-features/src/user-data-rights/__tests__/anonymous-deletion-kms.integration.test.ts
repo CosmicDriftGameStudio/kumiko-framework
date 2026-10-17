@@ -4,7 +4,7 @@
 // KLARTEXT schicken (vorher: Ciphertext-Adresse → Mail unzustellbar).
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   configureBlindIndexKey,
   configurePiiSubjectKms,
@@ -61,7 +61,7 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature({
         deletionTokenSecret: DELETION_SECRET,

@@ -11,7 +11,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
-import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { createDataRetentionFeature } from "../../data-retention/feature.js";
@@ -27,8 +27,8 @@ function projectionProbeTable(name: string): SchemaTable {
   }) as unknown as SchemaTable; // @cast-boundary test-fixture — minimal probe shape, real schema-table irrelevant here
 }
 
-import { formDraftFeature } from "../../form-draft/index.js";
-import { formDraftUserDataFeature } from "../../form-draft-user-data/index.js";
+import { createFormDraftFeature } from "../../form-draft/index.js";
+import { createFormDraftUserDataFeature } from "../../form-draft-user-data/index.js";
 import { createUserFeature } from "../../user/feature.js";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.js";
 import { createUserDataRightsFeature } from "../feature.js";
@@ -47,7 +47,7 @@ function baseFeatures() {
     createConfigFeature(),
     createUserFeature(),
     createTenantFeature(),
-    authFoundationFeature,
+    createAuthFoundationFeature(),
     createPersonalAccessTokensFeature({ scopes: {} }),
     createSessionsFeature(),
     createDataRetentionFeature(),
@@ -77,12 +77,12 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
 
   test("form-draft + form-draft-user-data mounted together satisfies V2 and V3 (real feature pair, not synthetic)", () => {
     expect(() =>
-      validateBoot([...baseFeatures(), formDraftFeature, formDraftUserDataFeature]),
+      validateBoot([...baseFeatures(), createFormDraftFeature(), createFormDraftUserDataFeature()]),
     ).not.toThrow();
   });
 
   test("form-draft mounted WITHOUT form-draft-user-data → V3 throws (subjectRef ownerId has no EXT_USER_DATA hook)", () => {
-    expect(() => validateBoot([...baseFeatures(), formDraftFeature])).toThrow(
+    expect(() => validateBoot([...baseFeatures(), createFormDraftFeature()])).toThrow(
       /EXT_USER_DATA hook.*Art\.17 gap/,
     );
   });

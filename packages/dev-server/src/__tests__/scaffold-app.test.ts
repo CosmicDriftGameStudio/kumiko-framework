@@ -442,7 +442,7 @@ describe("scaffoldApp", () => {
 
     const runConfig = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
     expect(runConfig).toContain("createSecretsFeature()");
-    expect(runConfig).toContain("authFoundationFeature");
+    expect(runConfig).toContain("createAuthFoundationFeature()");
     expect(runConfig).toContain("createSessionsFeature()");
     expect(runConfig).toContain("tasksFeature");
     expect(runConfig).toContain('from "./features/tasks"');
@@ -490,8 +490,8 @@ describe("scaffoldApp", () => {
         {
           name: "billing-foundation",
           importPath: "@cosmicdrift/kumiko-bundled-features/billing-foundation",
-          exportName: "billingFoundationFeature",
-          callExpression: "billingFoundationFeature",
+          exportName: "createBillingFoundationFeature",
+          callExpression: "createBillingFoundationFeature()",
         },
         {
           name: "delivery",
@@ -504,7 +504,7 @@ describe("scaffoldApp", () => {
     const cfg = readFileSync(join(dest, "src/run-config.ts"), "utf-8");
     expect(cfg).toContain('from "@cosmicdrift/kumiko-bundled-features/billing-foundation"');
     expect(cfg).toContain('from "@cosmicdrift/kumiko-bundled-features/delivery"');
-    expect(cfg).toContain("billingFoundationFeature");
+    expect(cfg).toContain("createBillingFoundationFeature()");
     expect(cfg).toContain("createDeliveryFeature()");
     expect(cfg).not.toContain("createSecretsFeature");
     expect(cfg).not.toContain("createSessionsFeature");

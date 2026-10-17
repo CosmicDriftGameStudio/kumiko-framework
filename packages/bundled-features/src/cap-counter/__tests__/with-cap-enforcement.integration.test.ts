@@ -37,7 +37,7 @@ import { bookCapUsage, markCapSoftWarned, readRollingCapUsage } from "../book-ca
 import { CapCounterHandlers, CapCounterQueries } from "../constants.js";
 import type { SoftHitNotifier } from "../enforce-cap.js";
 import { capCounterEntity } from "../entity.js";
-import { capCounterFeature } from "../feature.js";
+import { createCapCounterFeature } from "../feature.js";
 import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.js";
 
 // =============================================================================
@@ -314,7 +314,7 @@ let stack: TestStack;
 let db: DbConnection;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [capCounterFeature, newsletterFeature] });
+  stack = await setupTestStack({ features: [createCapCounterFeature(), newsletterFeature] });
   db = stack.db;
   await unsafeCreateEntityTable(db, capCounterEntity);
   await unsafeCreateEntityTable(db, commitProbeEntity);

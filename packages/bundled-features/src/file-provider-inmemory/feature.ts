@@ -58,27 +58,38 @@ export function clearStorage(tenantId: string): void {
 // =============================================================================
 // Feature-definition
 // =============================================================================
+export function createFileProviderInMemoryFeature() {
+  return defineFeature(
+    FEATURE_NAME,
+    (r) => {
+      r.describe(
+        'Registers an in-process `"inmemory"` provider for `file-foundation` that stores file bytes per tenant in a module-level Map. Use `listKeys(tenantId)` and `clearStorage(tenantId)` in demo apps and tests; not for production (data is lost on restart and grows without bound).',
+      );
+      r.uiHints({
+        displayLabel: "File Provider · In-Memory",
+        category: "storage",
+        recommended: false,
+      });
+      // Kein requires auf "config" oder "secrets" — der
+      // In-Memory-Provider hat keine Config + kein Secret. Nur die
+      // file-foundation muss da sein (Plugin-extension-point).
+      r.requires({ features: ["file-foundation"] });
 
-export const fileProviderInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.describe(
-    'Registers an in-process `"inmemory"` provider for `file-foundation` that stores file bytes per tenant in a module-level Map. Use `listKeys(tenantId)` and `clearStorage(tenantId)` in demo apps and tests; not for production (data is lost on restart and grows without bound).',
+      const plugin: FileProviderPlugin = {
+        build: async (
+          _ctx: FileProviderContext,
+          tenantId: string,
+        ): Promise<FileStorageProvider> => {
+          // Returns the per-tenant storage. Identity-stable across calls so
+          // accumulated state is kept.
+          return getOrCreateProviderForTenant(tenantId);
+        }, // @wrapper-known semantic-alias
+      };
+      r.useExtension("fileProvider", "inmemory", plugin);
+    },
+    { dedupeOptions: {} },
   );
-  r.uiHints({
-    displayLabel: "File Provider · In-Memory",
-    category: "storage",
-    recommended: false,
-  });
-  // Kein requires auf "config" oder "secrets" — der
-  // In-Memory-Provider hat keine Config + kein Secret. Nur die
-  // file-foundation muss da sein (Plugin-extension-point).
-  r.requires({ features: ["file-foundation"] });
+}
 
-  const plugin: FileProviderPlugin = {
-    build: async (_ctx: FileProviderContext, tenantId: string): Promise<FileStorageProvider> => {
-      // Returnt den per-tenant Storage. Identitätsstabil zwischen calls
-      // damit accumulated state erhalten bleibt.
-      return getOrCreateProviderForTenant(tenantId);
-    }, // @wrapper-known semantic-alias
-  };
-  r.useExtension("fileProvider", "inmemory", plugin);
-});
+/** @deprecated Use createFileProviderInMemoryFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const fileProviderInMemoryFeature = createFileProviderInMemoryFeature();

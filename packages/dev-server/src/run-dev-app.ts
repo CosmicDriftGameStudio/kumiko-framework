@@ -93,7 +93,6 @@ import {
 import { assertPiiBootInvariants } from "@cosmicdrift/kumiko-server-runtime/pii-boot-gate";
 import { assertSessionBootInvariants } from "@cosmicdrift/kumiko-server-runtime/session-boot-gate";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { watchAndRegenerate } from "./codegen/index.js";
 import {
   type CreateKumikoServerOptions,
   createKumikoServer,
@@ -332,11 +331,11 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         }
       : options.validateBootOptions;
 
-  // Boot-Validation als allererstes — vor fs-Watcher und Server. Dieselbe
+  // Boot-Validation als allererstes — vor dem Server. Dieselbe
   // Fehlerklasse (unqualifizierte nav-/handler-QNs, screen-access etc.),
   // die früher nur runProdApp fing und sonst erst den Prod-Pod im
   // CrashLoopBackOff sterben ließ (#359). Wirft synchron, bevor ein
-  // Socket oder Watcher (codegen-Write) aufgeht.
+  // Socket aufgeht.
   // Resolved before validateBoot: an app-supplied masterKey provider must satisfy the
   // encrypted-field gate here exactly as it does in runProdApp.
   const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
@@ -346,22 +345,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   });
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
-
-  // Codegen + File-Watcher — schreibt `<appRoot>/.kumiko/types.generated.d.ts`
-  // + `define.ts` aus den r.defineEvent-Aufrufen der App, einmal beim
-  // Boot UND danach bei jeder relevanten Änderung unter `<appRoot>/src/`.
-  // Idempotent (writeIfChanged) — der TS-Sprachserver kriegt nur einen
-  // Reload-Tick wenn sich tatsächlich was geändert hat.
-  //
-  // App-Root ist process.cwd() (bun-dev läuft vom App-Workspace). Der
-  // Watcher läuft solange der Dev-Server lebt; close() bei Shutdown
-  // wird über das createKumikoServer-Handle implizit erledigt (Bun's
-  // process-exit räumt fs.watch-handles auf).
-  // Sammelt alle Write-Handler-QNs für den Codegen — damit
-  // `types.generated.d.ts` eine `WriteHandlerQn`-Union exportieren
-  // kann, die dispatcher.write-Aufrufe client-seitig typisiert.
-  const handlerQns = collectWriteHandlerQns(features);
-  watchAndRegenerate({ appRoot: process.cwd(), handlerQns: [...handlerQns] });
 
   // Sprint-8a Tier-Composition auto-wire: scan features for a
   // tenantTierResolver-extension. If found AND user didn't supply own

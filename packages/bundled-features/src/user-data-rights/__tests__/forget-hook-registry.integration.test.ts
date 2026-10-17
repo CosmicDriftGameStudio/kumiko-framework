@@ -8,7 +8,7 @@
 // functional registry instance; the end-to-end cascade is covered consumer-side.
 
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   createEntity,
   createTextField,
@@ -66,7 +66,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createUserFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),

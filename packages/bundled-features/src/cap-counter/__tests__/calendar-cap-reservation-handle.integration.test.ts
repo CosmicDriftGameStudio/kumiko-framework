@@ -33,7 +33,7 @@ import {
 import { releaseExpiredCapReservations, settleCalendarCapReservation } from "../cap-reservation.js";
 import { CAP_RESERVATION_TTL_MINUTES, CapCounterQueries } from "../constants.js";
 import { capCounterEntity } from "../entity.js";
-import { capCounterFeature } from "../feature.js";
+import { createCapCounterFeature } from "../feature.js";
 import { capReservationsTable } from "../tables.js";
 
 const PERIOD = "2026-09-01T00:00:00Z";
@@ -134,7 +134,7 @@ const SWEEP_QN = "caphandle:write:sweep";
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [capCounterFeature, capHandleFeature] });
+  stack = await setupTestStack({ features: [createCapCounterFeature(), capHandleFeature] });
   await unsafeCreateEntityTable(stack.db, capCounterEntity);
 });
 

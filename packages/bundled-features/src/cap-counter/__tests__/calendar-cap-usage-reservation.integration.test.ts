@@ -33,7 +33,7 @@ import {
 import { CapCounterQueries } from "../constants.js";
 import { CAP_TOLERANCES, type SoftHitNotifier } from "../enforce-cap.js";
 import { capCounterEntity } from "../entity.js";
-import { capCounterFeature } from "../feature.js";
+import { createCapCounterFeature } from "../feature.js";
 import { capReservationsTable } from "../tables.js";
 import { withCapEnforcement } from "../with-cap-enforcement.js";
 
@@ -298,7 +298,13 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [capCounterFeature, tenantFeature, systemFeature, jobFeature, meteringJobFeature],
+    features: [
+      createCapCounterFeature(),
+      tenantFeature,
+      systemFeature,
+      jobFeature,
+      meteringJobFeature,
+    ],
     jobs: { consumerLane: "worker" },
   });
   await unsafeCreateEntityTable(stack.db, capCounterEntity);

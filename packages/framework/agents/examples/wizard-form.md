@@ -102,10 +102,10 @@ the draft (reopening the wizard starts fresh on step 1).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
+  createFormDraftFeature,
   FormDraftHandlers,
   FormDraftQueries,
   formDraftEntity,
-  formDraftFeature,
 } from "@cosmicdrift/kumiko-bundled-features/form-draft";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
@@ -130,7 +130,7 @@ const DRAFT_KEY = "listing-wizard";
 beforeAll(async () => {
   // form-draft requires the "config" feature (its retention-days setting).
   stack = await setupTestStack({
-    features: [listingsFeature, formDraftFeature, createConfigFeature()],
+    features: [listingsFeature, createFormDraftFeature(), createConfigFeature()],
   });
   await unsafeCreateEntityTable(stack.db, listingEntity);
   await unsafeCreateEntityTable(stack.db, formDraftEntity);

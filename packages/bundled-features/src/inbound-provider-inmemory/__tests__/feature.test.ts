@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { describeInboundMailProviderContract } from "../../inbound-mail-foundation/__tests__/inbound-mail-provider-contract.js";
 import {
-  inboundProviderInMemoryFeature,
+  createInboundProviderInMemoryFeature,
   inMemoryInboundMailPlugin,
   seedInboundMessage,
 } from "../feature.js";
 
 describe("inboundProviderInMemoryFeature — shape", () => {
   test("has the expected name + requirement", () => {
-    expect(inboundProviderInMemoryFeature.name).toBe("inbound-provider-inmemory");
-    expect(inboundProviderInMemoryFeature.requires).toContain("inbound-mail-foundation");
+    expect(createInboundProviderInMemoryFeature().name).toBe("inbound-provider-inmemory");
+    expect(createInboundProviderInMemoryFeature().requires).toContain("inbound-mail-foundation");
   });
 });
 

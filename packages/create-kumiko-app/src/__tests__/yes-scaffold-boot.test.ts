@@ -180,8 +180,7 @@ describe("--yes resolved set through runProdApp's PII boot gate (issue-2330 regr
 // writes, so a typo in bin/main.ts's import specifier or a `...kmsWiring`
 // spread landing in the wrong object literal would stay green. This drives
 // the real generated bin/main.ts as a subprocess instead. Fixtures live
-// under __tests__/.tmp-fixtures/ (gitignored, same trick as
-// dev-server/src/codegen/__tests__/watch.test.ts) so Bun's node_modules
+// under __tests__/.tmp-fixtures/ (gitignored) so Bun's node_modules
 // walk-up from bin/main.ts still finds the repo's hoisted @cosmicdrift/*
 // symlinks — a system tmpdir sits outside the workspace and can't resolve
 // them (see walkthrough.integration.test.ts's comment on the same issue).

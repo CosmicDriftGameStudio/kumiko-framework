@@ -98,7 +98,7 @@ Alle in `/tmp/bun-risk/` durch echte Tests reproduziert. Tests nicht im Repo, In
 
 | Punkt | Befund | Konkrete Anpassung |
 |---|---|---|
-| `link:./pfad` Protocol | Bun lehnt ab, will registry-style `bun link` | `"@app/define": "file:./.kumiko"` getestet, funktioniert. Caveat: `file:` kopiert, `link:` symlinkt — bei Codegen-Watch ggf. Stale-Drift, dann manuell `bun install` triggern oder `.kumiko` als echten Workspace einrichten. |
+| `link:./pfad` Protocol | Bun lehnt ab, will registry-style `bun link` | `"<name>": "file:./pfad"` getestet, funktioniert. Caveat: `file:` kopiert, `link:` symlinkt — bei geänderten Quellen ggf. Stale-Drift, dann manuell `bun install` triggern. |
 | Default-Linker = `isolated` | kein `node_modules/@scope/`-Symlink-Layout | `bunfig.toml`: `[install] linker = "hoisted"` (oder `--linker=hoisted`-Flag) — sonst brechen Tools die node_modules direkt scannen |
 | `bunx playwright` startet Node, nicht Bun | Node 24 kann TS aus node_modules nicht strippen → kumiko-framework's TS-published Sources crashen den Config-Load | **`bunx --bun playwright test`** (mit `--bun` flag) — getestet, 17 Tests in 6 Files gelistet, kein Error. Muss in **alle** package.json scripts + CI. |
 | Snapshot-Header-Format | `// Bun Snapshot v1` vs `// Vitest Snapshot v1` + trailing-comma-Drift | einmaliger `bun test -u` nach Migration, 4 betroffene Files manuell diffen |
@@ -341,7 +341,6 @@ Drizzle-Session pausiert (siehe Reihenfolge-Entscheidung oben). Direkter Sprung 
 - CI-Workflows aktualisieren: `actions/setup-node` raus, `oven-sh/setup-bun@v2` rein, Cache-Pfad `~/.bun/install/cache`
 - `yarn.lock` + `.yarnrc.yml` entfernen
 - `packageManager`-Felder raus (Corepack akzeptiert "bun" nicht offiziell)
-- publicstatus's `"@app/define": "link:./.kumiko"` → `"file:./.kumiko"`
 
 **Verifikation (Phase-2-DoD):**
 - `bun install --frozen-lockfile` 2× exit 0 (deterministische Resolution)

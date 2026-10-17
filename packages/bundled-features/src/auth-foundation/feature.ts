@@ -44,45 +44,54 @@ export {
 
 const FEATURE_NAME = "auth-foundation";
 
-export const authFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.describe(
-    "Declares auth-middleware extension points: `tokenVerifier` (Bearer), `sessionStore` (revocable JWT sid), optional `tenantResolver` + `tenantExistence` for anonymous multi-tenant. Provider-features register via r.useExtension; mount auth-foundation with the matching provider features.",
+export function createAuthFoundationFeature() {
+  return defineFeature(
+    FEATURE_NAME,
+    (r) => {
+      r.describe(
+        "Declares auth-middleware extension points: `tokenVerifier` (Bearer), `sessionStore` (revocable JWT sid), optional `tenantResolver` + `tenantExistence` for anonymous multi-tenant. Provider-features register via r.useExtension; mount auth-foundation with the matching provider features.",
+      );
+      r.uiHints({
+        displayLabel: "Auth Provider Foundation",
+        category: "identity",
+        recommended: false,
+      });
+
+      r.extendsRegistrar(EXT_TOKEN_VERIFIER, {
+        onRegister: () => {
+          // No side-effects at register-time — registry stores the usage,
+          // resolveTokenVerifier looks it up at request-time.
+        },
+      });
+      r.bootCheck(({ features }) => validateTokenVerifierMultiplicity(features));
+
+      r.extendsRegistrar(EXT_SESSION_STORE, {
+        onRegister: () => {
+          // No side-effects at register-time — resolveSessionStore at boot/request.
+        },
+      });
+      r.bootCheck(({ features }) => validateSessionStoreMultiplicity(features));
+
+      r.extendsRegistrar(EXT_TENANT_RESOLVER, {
+        onRegister: () => {
+          // Optional — zero providers is fine (single-tenant / header-cookie).
+        },
+      });
+      r.bootCheck(({ features }) => validateTenantResolverMultiplicity(features));
+
+      r.extendsRegistrar(EXT_TENANT_EXISTENCE, {
+        onRegister: () => {
+          // Optional — zero providers skips the existence check.
+        },
+      });
+      r.bootCheck(({ features }) => validateTenantExistenceMultiplicity(features));
+    },
+    { dedupeOptions: {} },
   );
-  r.uiHints({
-    displayLabel: "Auth Provider Foundation",
-    category: "identity",
-    recommended: false,
-  });
+}
 
-  r.extendsRegistrar(EXT_TOKEN_VERIFIER, {
-    onRegister: () => {
-      // No side-effects at register-time — registry stores the usage,
-      // resolveTokenVerifier looks it up at request-time.
-    },
-  });
-  r.bootCheck(({ features }) => validateTokenVerifierMultiplicity(features));
-
-  r.extendsRegistrar(EXT_SESSION_STORE, {
-    onRegister: () => {
-      // No side-effects at register-time — resolveSessionStore at boot/request.
-    },
-  });
-  r.bootCheck(({ features }) => validateSessionStoreMultiplicity(features));
-
-  r.extendsRegistrar(EXT_TENANT_RESOLVER, {
-    onRegister: () => {
-      // Optional — zero providers is fine (single-tenant / header-cookie).
-    },
-  });
-  r.bootCheck(({ features }) => validateTenantResolverMultiplicity(features));
-
-  r.extendsRegistrar(EXT_TENANT_EXISTENCE, {
-    onRegister: () => {
-      // Optional — zero providers skips the existence check.
-    },
-  });
-  r.bootCheck(({ features }) => validateTenantExistenceMultiplicity(features));
-});
+/** @deprecated Use createAuthFoundationFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const authFoundationFeature = createAuthFoundationFeature();
 
 /**
  * Tries every registered tokenVerifier provider's shape against `rawToken`

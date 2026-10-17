@@ -1,6 +1,6 @@
 # @cosmicdrift/kumiko-dev-server
 
-Dev tooling for Kumiko apps: local dev server (`runDevApp`), scaffolding and codegen, plus the `kumiko-*` build and schema commands.
+Dev tooling for Kumiko apps: local dev server (`runDevApp`), scaffolding, plus the `kumiko-*` build and schema commands.
 
 ## Install
 

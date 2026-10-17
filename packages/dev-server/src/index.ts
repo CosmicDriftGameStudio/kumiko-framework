@@ -22,14 +22,6 @@ export {
 // kein Bun-Toolchain-Bundle mehr in Production-Reads (z.B. wenn drizzle-kit
 // die App-Config unter Node lädt).
 export {
-  type CodegenOptions,
-  type CodegenResult,
-  runCodegen,
-  type ScannedEvent,
-  type ScanWarning,
-  scanEvents,
-} from "./codegen/index.js";
-export {
   composeFileStack,
   composeGdprStack,
   composeIdentityStack,

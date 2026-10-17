@@ -20,14 +20,14 @@ import {
 import { createConfigFeature } from "../../config/index.js";
 import { FormDraftHandlers, FormDraftQueries } from "../constants.js";
 import { formDraftEntity } from "../entity.js";
-import { formDraftFeature } from "../feature.js";
+import { createFormDraftFeature } from "../feature.js";
 import type { GetDraftResult } from "../handlers/get.query.js";
 import type { ListDraftsResult } from "../handlers/list.query.js";
 
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [formDraftFeature, createConfigFeature()] });
+  stack = await setupTestStack({ features: [createFormDraftFeature(), createConfigFeature()] });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
 });
 

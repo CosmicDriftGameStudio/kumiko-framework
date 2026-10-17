@@ -12,6 +12,5 @@ export {
   readExtraRuntimeExternals,
   resolveClientEntries,
 } from "./build.js";
-export { formatScanWarning, runCodegen } from "./codegen/index.js";
 export { createCrashTracker } from "./crash-tracker.js";
 export { runInitDeployCli } from "./init-deploy-cli.js";

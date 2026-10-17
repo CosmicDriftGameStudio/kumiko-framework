@@ -41,7 +41,7 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stac
 import * as z from "zod";
 import { workflowRunAggregateId } from "../aggregate-id.js";
 import { registerEventTrigger } from "../event-trigger.js";
-import { workflowRunnerFeature } from "../feature.js";
+import { createWorkflowRunnerFeature } from "../feature.js";
 
 let stack: TestStack;
 const admin = TestUsers.admin;
@@ -188,7 +188,7 @@ let kms: InMemoryKmsAdapter;
 beforeAll(async () => {
   kms = new InMemoryKmsAdapter();
   configurePiiSubjectKms(kms);
-  stack = await setupTestStack({ features: [workflowRunnerFeature, sourceFeature] });
+  stack = await setupTestStack({ features: [createWorkflowRunnerFeature(), sourceFeature] });
 });
 
 afterAll(async () => {

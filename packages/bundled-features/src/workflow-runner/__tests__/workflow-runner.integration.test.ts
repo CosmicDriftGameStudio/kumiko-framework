@@ -32,7 +32,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { workflowRunAggregateId } from "../aggregate-id.js";
 import { registerEventTrigger } from "../event-trigger.js";
-import { workflowRunnerFeature } from "../feature.js";
+import { createWorkflowRunnerFeature } from "../feature.js";
 import type { WorkflowRunStartedPayload } from "../runner.js";
 
 let stack: TestStack;
@@ -257,7 +257,9 @@ async function resumeRun(runId: string, stepIndex: number) {
 
 describe("workflow-runner event-trigger", () => {
   beforeAll(async () => {
-    stack = await setupTestStack({ features: [workflowRunnerFeature, testTriggersFeature] });
+    stack = await setupTestStack({
+      features: [createWorkflowRunnerFeature(), testTriggersFeature],
+    });
   });
 
   afterAll(async () => {

@@ -58,7 +58,7 @@ describe("create-kumiko-app CLI", () => {
     expect(cfg).not.toContain("createConfigFeature");
     expect(cfg).toContain("createDeliveryFeature");
     // mail-transport-smtp is opt-in (not recommended, no transitive require) — should NOT auto-mount.
-    expect(cfg).not.toContain("mailTransportSmtpFeature");
+    expect(cfg).not.toContain("createMailTransportSmtpFeature");
     // issue-1174: user-profile (recommended) requires user-data-rights
     // transitively, which trips the GDPR boot-validator unless
     // user-data-rights-defaults (the PII export/delete hooks for `user`)

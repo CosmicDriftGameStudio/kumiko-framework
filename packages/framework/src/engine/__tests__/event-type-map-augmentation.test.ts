@@ -1,13 +1,12 @@
 // Type-only fixture for the KumikoEventTypeMap declaration-merging channel
 // (#1394). event-type-map.ts moved the marker interfaces behind a re-export
 // chain (kumiko-types -> engine/types/event-type-map.ts shim -> engine
-// barrel), while the codegen augmentation channel
-// (dev-server/src/codegen/render.ts) still targets
+// barrel), while apps augment the map via
 // `declare module "@cosmicdrift/kumiko-framework/engine"`. If a future
 // change breaks that re-export chain, augmentation silently stops merging
 // and every event payload falls back to `unknown` with no compile error —
 // this test only catches it because tsc checks the `declare module` below
-// against the SAME specifier the codegen emits.
+// against the SAME specifier apps use.
 import { expectTypeOf, test } from "bun:test";
 import type { KumikoEventTypeMap } from "@cosmicdrift/kumiko-framework/engine";
 

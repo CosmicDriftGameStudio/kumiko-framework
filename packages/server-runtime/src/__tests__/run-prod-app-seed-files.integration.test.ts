@@ -7,8 +7,8 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
+import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 
 import { createDbConnection, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -108,8 +108,8 @@ async function bootWithSeed(
   handle = await runProdApp({
     features: [
       createConfigFeature(),
-      fileFoundationFeature,
-      fileProviderInMemoryFeature,
+      createFileFoundationFeature(),
+      createFileProviderInMemoryFeature(),
       createFilesFeature(),
       seedFilesProbeFeature,
     ],

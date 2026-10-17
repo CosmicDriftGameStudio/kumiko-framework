@@ -73,7 +73,7 @@ import {
   createAuthEmailPasswordFeature,
   hashPassword,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   configValuesTable,
   createConfigFeature,
@@ -122,7 +122,7 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
     ],
     authConfig: {

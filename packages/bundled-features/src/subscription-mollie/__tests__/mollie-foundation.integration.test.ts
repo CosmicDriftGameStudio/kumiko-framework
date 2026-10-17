@@ -20,7 +20,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
-  billingFoundationFeature,
+  createBillingFoundationFeature,
   createSubscriptionWebhookRoute,
   subscriptionAggregateId,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
@@ -139,7 +139,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      billingFoundationFeature,
+      createBillingFoundationFeature(),
       mollieFeature,
     ],
     extraRoutes: [createSubscriptionWebhookRoute()],

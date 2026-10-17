@@ -9,7 +9,7 @@ import {
   validateTenantResolverMultiplicity,
 } from "../boot-checks.js";
 import {
-  authFoundationFeature,
+  createAuthFoundationFeature,
   resolveTenantExistence,
   resolveTenantResolver,
 } from "../feature.js";
@@ -47,12 +47,12 @@ function existenceProvider(entityName: string): ReturnType<typeof defineFeature>
 
 describe("resolveTenantResolver — optional single provider", () => {
   test("no provider → null", async () => {
-    const registry = createRegistry([authFoundationFeature]);
+    const registry = createRegistry([createAuthFoundationFeature()]);
     expect(await resolveTenantResolver({ db: fakeDb, registry })).toBeNull();
   });
 
   test("one provider → resolve + trust", async () => {
-    const registry = createRegistry([authFoundationFeature, resolverProvider("subdomain")]);
+    const registry = createRegistry([createAuthFoundationFeature(), resolverProvider("subdomain")]);
     const resolved = await resolveTenantResolver({ db: fakeDb, registry });
     expect(resolved?.trust).toBe("authoritative");
     expect(await resolved?.resolve({})).toBe("00000000-0000-4000-8000-000000000001");
@@ -61,12 +61,12 @@ describe("resolveTenantResolver — optional single provider", () => {
 
 describe("resolveTenantExistence — optional single provider", () => {
   test("no provider → null", async () => {
-    const registry = createRegistry([authFoundationFeature]);
+    const registry = createRegistry([createAuthFoundationFeature()]);
     expect(await resolveTenantExistence({ db: fakeDb, registry })).toBeNull();
   });
 
   test("one provider → existence fn", async () => {
-    const registry = createRegistry([authFoundationFeature, existenceProvider("db")]);
+    const registry = createRegistry([createAuthFoundationFeature(), existenceProvider("db")]);
     const exists = await resolveTenantExistence({ db: fakeDb, registry });
     expect(await exists?.("00000000-0000-4000-8000-000000000001")).toBe(true);
   });
@@ -74,18 +74,18 @@ describe("resolveTenantExistence — optional single provider", () => {
 
 describe("validateTenantResolverMultiplicity", () => {
   test("0 providers → no throw", () => {
-    const registry = createRegistry([authFoundationFeature]);
+    const registry = createRegistry([createAuthFoundationFeature()]);
     expect(() => validateTenantResolverMultiplicity([...registry.features.values()])).not.toThrow();
   });
 
   test("1 provider → no throw", () => {
-    const registry = createRegistry([authFoundationFeature, resolverProvider("a")]);
+    const registry = createRegistry([createAuthFoundationFeature(), resolverProvider("a")]);
     expect(() => validateTenantResolverMultiplicity([...registry.features.values()])).not.toThrow();
   });
 
   test("≥2 providers → throws", () => {
     const registry = createRegistry([
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       resolverProvider("a"),
       resolverProvider("b"),
     ]);
@@ -99,7 +99,7 @@ describe("validateTenantResolverMultiplicity", () => {
       // @ts-expect-error malformed plugin (no trust) — proves the runtime guard rejects it too.
       r.useExtension(EXT_TENANT_RESOLVER, "broken", { build: () => () => null });
     });
-    const registry = createRegistry([authFoundationFeature, broken]);
+    const registry = createRegistry([createAuthFoundationFeature(), broken]);
     expect(() => validateTenantResolverMultiplicity([...registry.features.values()])).toThrow(
       /without a valid TenantResolverProvider/,
     );
@@ -108,7 +108,7 @@ describe("validateTenantResolverMultiplicity", () => {
 
 describe("validateTenantExistenceMultiplicity", () => {
   test("0 providers → no throw", () => {
-    const registry = createRegistry([authFoundationFeature]);
+    const registry = createRegistry([createAuthFoundationFeature()]);
     expect(() =>
       validateTenantExistenceMultiplicity([...registry.features.values()]),
     ).not.toThrow();
@@ -116,7 +116,7 @@ describe("validateTenantExistenceMultiplicity", () => {
 
   test("≥2 providers → throws", () => {
     const registry = createRegistry([
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       existenceProvider("a"),
       existenceProvider("b"),
     ]);
@@ -128,7 +128,7 @@ describe("validateTenantExistenceMultiplicity", () => {
 
 describe("resolveAnonymousAccessFromRegistry — fail-closed trust", () => {
   test("inline tenantResolver without resolverTrust throws", async () => {
-    const registry = createRegistry([authFoundationFeature]);
+    const registry = createRegistry([createAuthFoundationFeature()]);
     await expect(
       resolveAnonymousAccessFromRegistry(
         {
@@ -142,19 +142,19 @@ describe("resolveAnonymousAccessFromRegistry — fail-closed trust", () => {
 
 describe("resolveAnonymousAccessFromRegistry — opt-in only (#1452)", () => {
   test("a mounted tenantResolver provider alone does not make anonymousAccess defined", async () => {
-    const registry = createRegistry([authFoundationFeature, resolverProvider("subdomain")]);
+    const registry = createRegistry([createAuthFoundationFeature(), resolverProvider("subdomain")]);
     const result = await resolveAnonymousAccessFromRegistry(undefined, { db: fakeDb, registry });
     expect(result).toBeUndefined();
   });
 
   test("a mounted tenantExists provider alone does not make anonymousAccess defined", async () => {
-    const registry = createRegistry([authFoundationFeature, existenceProvider("db")]);
+    const registry = createRegistry([createAuthFoundationFeature(), existenceProvider("db")]);
     const result = await resolveAnonymousAccessFromRegistry(undefined, { db: fakeDb, registry });
     expect(result).toBeUndefined();
   });
 
   test("an app that explicitly opts in still gets providers merged", async () => {
-    const registry = createRegistry([authFoundationFeature, resolverProvider("subdomain")]);
+    const registry = createRegistry([createAuthFoundationFeature(), resolverProvider("subdomain")]);
     const result = await resolveAnonymousAccessFromRegistry(
       { defaultTenantId: undefined },
       { db: fakeDb, registry },

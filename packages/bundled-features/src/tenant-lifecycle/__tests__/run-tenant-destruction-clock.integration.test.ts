@@ -3,7 +3,7 @@
 
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
@@ -44,7 +44,7 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createTenantLifecycleFeature(),
     ],

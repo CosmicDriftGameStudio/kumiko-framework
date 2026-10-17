@@ -16,7 +16,7 @@ import { createConfigFeature } from "../../config/feature.js";
 import { TenantHandlers } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { complianceProfilesOpsFeature } from "../index.js";
+import { createComplianceProfilesOpsFeature } from "../index.js";
 
 const TENANTS_MISSING_PROFILE = "compliance-profiles-ops:query:tenants-missing-profile";
 
@@ -33,7 +33,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantFeature(),
       createComplianceProfilesFeature(),
-      complianceProfilesOpsFeature,
+      createComplianceProfilesOpsFeature(),
     ],
   });
   await unsafeCreateEntityTable(stack.db, tenantEntity);

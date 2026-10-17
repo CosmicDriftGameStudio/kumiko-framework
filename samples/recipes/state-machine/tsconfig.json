@@ -11,16 +11,12 @@
       "@cosmicdrift/kumiko-dev-server": [
         "../../../packages/dev-server/src/index.ts"
       ],
-      "@cosmicdrift/kumiko-dev-server/*": [
-        "../../../packages/dev-server/src/*"
-      ],
-      "@app/define": ["./.kumiko/define.ts"],
-      "@app/*": ["./.kumiko/*"]
+      "@cosmicdrift/kumiko-dev-server/*": ["../../../packages/dev-server/src/*"]
     },
     "noEmit": true,
     "rootDir": "../../..",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["bun-types"]
   },
-  "include": ["./src", "./.kumiko"]
+  "include": ["./src"]
 }

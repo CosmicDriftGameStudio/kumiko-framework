@@ -45,7 +45,7 @@ describe("isIgnoredCoverageFile", () => {
     "bin/commands/add.ts",
     "scripts/check-app-tsc.ts",
     "packages/framework/src/scripts/codemod/migrate-db-raw.ts",
-    "test-setup/app-define-resolver.ts",
+    "test-setup/env.preload.ts",
     "integration.guard.ts",
     "samples/apps/use-all-bundled/scripts/gen-sample-index.ts",
   ])("ignores %s", (path) => {

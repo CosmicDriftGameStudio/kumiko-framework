@@ -3,7 +3,7 @@ import { requireForTenant } from "../../shared/index.js";
 import { fieldDefinitionAggregateId } from "../aggregate-id.js";
 import { FIELD_DEFINITION_AGGREGATE_TYPE } from "../constants.js";
 import { fieldDefinitionExecutor } from "../executor.js";
-import { customFieldsFeature } from "../feature.js";
+import { createCustomFieldsFeature } from "../feature.js";
 import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas.js";
 
 // delete-system-field — SystemAdmin entfernt eine system-weite Field-
@@ -38,7 +38,7 @@ export const deleteSystemFieldHandler: WriteHandlerDef = {
       await ctx.unsafeAppendEvent({
         aggregateId,
         aggregateType: FIELD_DEFINITION_AGGREGATE_TYPE,
-        type: customFieldsFeature.exports.fieldDefinitionDeletedEvent.name,
+        type: createCustomFieldsFeature().exports.fieldDefinitionDeletedEvent.name,
         payload: {
           entityName: payload.entityName,
           fieldKey: payload.fieldKey,
