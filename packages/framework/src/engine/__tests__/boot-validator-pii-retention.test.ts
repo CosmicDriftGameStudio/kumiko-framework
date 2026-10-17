@@ -286,16 +286,14 @@ describe("validateBoot — PII annotations", () => {
       const feature = defineFeature("test", (r) => {
         r.entity({
           name: "comment",
-          ...createEntity({
-            fields: {
-              body: {
-                ...resolved,
-                // Not type-checked here (spread field defs are structurally loose); the boot check is the runtime backstop
-                userOwned: { ownerField: "authorId", whenAbsent: "plaintext" },
-              },
-              authorId: { ...unannotatedText },
+          fields: {
+            body: {
+              ...resolved,
+              // @ts-expect-error the types reject whenAbsent "plaintext"; the boot check is the runtime backstop
+              userOwned: { ownerField: "authorId", whenAbsent: "plaintext" },
             },
-          }),
+            authorId: { ...unannotatedText },
+          },
         });
       });
       expect(() => validateBoot([feature])).toThrow(/only support whenAbsent: "tenant"/);

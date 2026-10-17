@@ -2,7 +2,7 @@ import { createInitialFeatureBuilderState } from "./feature-builder-state.js";
 import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.js";
 import { buildEntityHandlerMethods } from "./feature-entity-handlers.js";
 import { buildUiExtensionsMethods } from "./feature-ui-extensions.js";
-import { unwrapArrayForm } from "./object-form.js";
+import { isObjectArgument, throwPositionalFormRemoved, unwrapArrayForm } from "./object-form.js";
 import type { RequiresApi } from "./types/feature.js";
 import type { FeatureDefinition, FeatureRegistrar, HookMap, UiHints } from "./types/index.js";
 
@@ -19,10 +19,8 @@ import type { FeatureDefinition, FeatureRegistrar, HookMap, UiHints } from "./ty
 // that don't care can keep the default-string and use the wrapper-based
 // strict-mode (string-literal types per call-site) like before.
 
-// requires/optionalRequires accept either variadic strings (hand-written
-// call sites) or a single `{ features }` object (the feature-ast renderer's
-// canonical Object-Form for Designer/AI-generated code) — see the matching
-// overloads on RequiresApi / FeatureRegistrar['optionalRequires'].
+// optionalRequires accepts either variadic strings or a single `{ features }` object; requires
+// takes only the object (see RequiresApi).
 function resolveFeatureNamesArgs(
   args: readonly [{ readonly features: readonly string[] }] | readonly string[],
 ): readonly string[] {
@@ -73,9 +71,8 @@ export function defineFeature<const TName extends string, TExports = undefined>(
       state.description = text.trim();
     },
     requires: (() => {
-      const fn = (
-        ...args: readonly [{ readonly features: readonly string[] }] | readonly string[]
-      ) => {
+      const fn = (...args: readonly [{ readonly features: readonly string[] }]) => {
+        if (!args.every(isObjectArgument)) throwPositionalFormRemoved(name, "requires");
         state.requires.push(...resolveFeatureNamesArgs(args));
       };
       fn.projection = (tableName: string) => {

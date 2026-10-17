@@ -68,7 +68,7 @@ export const fileProviderInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
     category: "storage",
     recommended: false,
   });
-  // Kein r.requires("config") + kein r.requires("secrets") — der
+  // Kein requires auf "config" oder "secrets" — der
   // In-Memory-Provider hat keine Config + kein Secret. Nur die
   // file-foundation muss da sein (Plugin-extension-point).
   r.requires({ features: ["file-foundation"] });

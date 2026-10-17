@@ -87,7 +87,7 @@ export function buildImplicitProjection(
   extensions: readonly EntityProjectionExtension[] = [],
 ): ProjectionDefinition {
   const name = qualify(featureName, "projection", `${entityName}${IMPLICIT_PROJECTION_SUFFIX}`);
-  // Backing table (r.entity(name, def, { table })) is the one physical table
+  // Backing table (r.entity({ name, ...def, backingTable })) is the one physical table
   // object shared by executor-writes, rebuild-replay, test-push and
   // collectTableMetas — restoring the #255 invariant (test-push == generate).
   // Validated as a superset of the field-derived columns so a field/table
@@ -207,7 +207,7 @@ function resolveBackingTable(
   const tableMeta = asEntityTableMeta(backingTable);
   if (!tableMeta) {
     throw new Error(
-      `r.entity("${entityName}", …, { table }): the backing table carries no ` +
+      `r.entity({ name: "${entityName}", …, backingTable }): the backing table carries no ` +
         "EntityTableMeta — build it via table() / buildEntityTable.",
     );
   }

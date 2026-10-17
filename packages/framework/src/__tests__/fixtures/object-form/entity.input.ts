@@ -9,7 +9,7 @@ export const feature = defineFeature("orders", (r) => {
     table: "invoices",
   });
 
-  r.entity("customer", createEntity({ fields: { name: createTextField({}) } }));
+  r.entity("customer", createEntity({ fields: { name: createTextField({ personal: false, reason: "test_fixture" }) } }));
 
   r.entity("legacy", legacyEntity, { table: legacyTable });
 

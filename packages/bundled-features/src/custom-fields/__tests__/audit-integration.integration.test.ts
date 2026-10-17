@@ -135,7 +135,7 @@ describe("T1.5a: custom-fields events are visible in the audit log", () => {
 
     const res = await listAudit({ aggregateType: "field-definition" });
 
-    // The fieldDefinition is created via registerEntityCrud, so the event-type
+    // The fieldDefinition is created via r.crud, so the event-type
     // follows the entity-CRUD convention `<entity>.created` (with a dot),
     // not the feature-emit-via-defineEvent convention used by set/cleared
     // (`custom-fields:event:<short>`).

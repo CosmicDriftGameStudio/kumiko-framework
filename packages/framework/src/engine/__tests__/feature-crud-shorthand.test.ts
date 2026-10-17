@@ -10,7 +10,7 @@ const taskEntity = createEntity({
 });
 
 describe("r.crud", () => {
-  test("registers the entity + full CRUD handler set, same as registerEntityCrud", () => {
+  test("registers the entity + full CRUD handler set", () => {
     const write = { access: { roles: ["Admin"] } } as const;
     const read = {
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },

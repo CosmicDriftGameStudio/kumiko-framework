@@ -7,7 +7,7 @@
 // a separate feature (mirrors folders-user-data/notes-history-user-data)
 // rather than folded into compliance-profiles: this is the one genuinely
 // cross-tenant capability in the picker's orbit, and it alone needs
-// r.systemScope() + a hard r.requires("tenant") — apps that only want the
+// r.systemScope() + a hard r.requires({ features: ["tenant"] }) — apps that only want the
 // per-tenant picker (the vast majority) stay unaffected.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";

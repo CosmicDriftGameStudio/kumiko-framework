@@ -47,7 +47,7 @@ and why the combination is the production-realistic shape (not just
 an API tour).
 
 If you've only ever seen the free-form handler signature
-(`r.writeHandler(name, schema, async fn, opts)`), compare:
+(`r.writeHandler({ name, schema, handler, access })`), compare:
 
 - `samples/recipes/custom-handlers/src/feature.ts` — a similar
   domain, written in the free-form style.
@@ -439,7 +439,7 @@ const productExecutor = createEventStoreExecutor(productTable, productEntity, {
 });
 
 export const inventoryFeature = defineFeature("inventory", (r) => {
-  r.entity("product", productEntity);
+  r.entity({ name: "product", ...productEntity });
   r.requires.projection("read_inventory_low_stock_alerts");
 
   // Domain-events on the product stream (alongside the auto-CRUD
@@ -779,14 +779,14 @@ export const inventoryFeature = defineFeature("inventory", (r) => {
   // only; queries get the existing handler signature. The list
   // below is what the integration test reads against.
   // -------------------------------------------------------------
-  r.queryHandler(
-    "low-stock-alerts:list",
-    z.object({}),
-    async (_query, ctx) => {
+  r.queryHandler({
+    name: "low-stock-alerts:list",
+    schema: z.object({}),
+    handler: async (_query, ctx) => {
       const rows = await selectMany(ctx.db, lowStockAlertsTable);
       return { rows };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 ```

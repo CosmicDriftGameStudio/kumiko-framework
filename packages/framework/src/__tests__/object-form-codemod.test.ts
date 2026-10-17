@@ -117,6 +117,20 @@ describe("object-form codemod behavior", () => {
     expect(reasons).toContain("not a resolvable FeatureRegistrar");
     expect(reasons).toContain("referenced other than as a direct call");
   });
+
+  it("treats unresolved receivers named in assumeRegistrarNames as registrars", () => {
+    const snippet = 'ctx.requires("auth");\nreg.requires("auth");\nreg.entity("note", def);\n';
+    const withoutAssumption = transformObjectFormSource(snippet);
+    const assumed = transformObjectFormSource(snippet, "snippet.ts", {
+      assumeRegistrarNames: new Set(["reg"]),
+    });
+
+    expect(withoutAssumption.output).toBe(snippet);
+    expect(assumed.output).toBe(
+      'ctx.requires("auth");\nreg.requires({ features: ["auth"] });\nreg.entity({ name: "note", ...def });\n',
+    );
+    expect(assumed.manual).toEqual([]);
+  });
 });
 
 describe("object-form codemod CLI", () => {

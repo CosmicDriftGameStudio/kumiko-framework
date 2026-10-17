@@ -460,7 +460,7 @@ defineFeature("old-codegen-output", (r) => {
       "src/feature/feature.ts",
       `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 export default defineFeature("nothing", (r) => {
-  r.requires("auth");
+  r.requires({ features: ["auth"] });
 });
 `,
     );

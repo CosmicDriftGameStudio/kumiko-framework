@@ -61,7 +61,7 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
       });
     });
     expect(() => validateBoot([feature])).toThrow(
-      /column "ownerId" \(refEntity\) targets entity "owners:owner", but feature "owners" is not mounted.*r\.requires\("owners"\)/,
+      /column "ownerId" \(refEntity\) targets entity "owners:owner", but feature "owners" is not mounted.*r\.requires\(\{ features: \["owners"\] \}\)/,
     );
   });
 

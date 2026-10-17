@@ -102,7 +102,6 @@ export {
   entityListSchema,
   MAX_LIST_LIMIT,
   type RegisterEntityCrudOptions,
-  registerEntityCrud,
 } from "./entity-handlers.js";
 export { declareEscapeHatch } from "./escape-hatch-declaration.js";
 export type { EmitCtx } from "./event-helpers.js";
@@ -486,6 +485,7 @@ export type {
   EntityId,
   EntityListExpandableRow,
   EntityListScreenDefinition,
+  EntityObjectDefinition,
   EntityRef,
   EntityRelations,
   EscapeHatchAuditSink,
@@ -512,6 +512,7 @@ export type {
   FormWidth,
   HandlerContext,
   HasManyRelation,
+  HookDefinition,
   HookMap,
   ImageFieldDef,
   ImagesFieldDef,

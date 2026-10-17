@@ -28,7 +28,7 @@ channel-inApp / channel-email / channel-push
 support           → our business logic (tickets + the notification declaration)
 ```
 
-The `support` feature `r.requires("delivery")`: channels are features that attach to delivery, but `support` doesn't need to know them.
+The `support` feature `r.requires({ features: ["delivery"] })`: channels are features that attach to delivery, but `support` doesn't need to know them.
 
 ## Flow
 

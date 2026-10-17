@@ -446,7 +446,7 @@ describe("boot-validator", () => {
     const consumer = defineFeature("fleet", (r) => {
       r.entity({ name: "vehicle", ...createEntity({ table: "Vehicles", fields: {} }) });
       r.useExtension("tags", "vehicle");
-      // Missing: r.requires("tags")
+      // Missing: r.requires({ features: ["tags"] })
     });
 
     expect(() => validateBoot([ext, consumer])).toThrow(/fleet.*uses extension "tags".*requires/i);
@@ -726,40 +726,36 @@ describe("boot-validator", () => {
   // --- Handler access validation (default-deny) ---
 
   test("throws when a write handler has no access rule", () => {
-    // Access is a required option since fw#2855 — the registrar itself throws
-    // before validateBoot ever runs (was: caught at boot-validator level).
-    expect(() =>
-      defineFeature("a", (r) => {
-        // @ts-expect-error options.access is required since fw#2855.
-        r.writeHandler({
-          name: "createThing",
-          schema: z.object({ name: z.string() }),
-          handler: async () => ({
-            isSuccess: true as const,
-            data: {},
-          }),
-        });
-      }),
-    ).toThrow(/requires schema \+ handler \+ options\.access/);
+    const feature = defineFeature("a", (r) => {
+      // @ts-expect-error options.access is required since fw#2855.
+      r.writeHandler({
+        name: "createThing",
+        schema: z.object({ name: z.string() }),
+        handler: async () => ({
+          isSuccess: true as const,
+          data: {},
+        }),
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/is missing an access rule/);
   });
 
   test("throws when a query handler has no access rule", () => {
-    expect(() =>
-      defineFeature("a", (r) => {
-        // @ts-expect-error options.access is required since fw#2855.
-        r.queryHandler({ name: "list", schema: z.object({}), handler: async () => [] });
-      }),
-    ).toThrow(/requires schema \+ handler \+ options\.access/);
+    const feature = defineFeature("a", (r) => {
+      // @ts-expect-error options.access is required since fw#2855.
+      r.queryHandler({ name: "list", schema: z.object({}), handler: async () => [] });
+    });
+    expect(() => validateBoot([feature])).toThrow(/is missing an access rule/);
   });
 
-  test("registerEntityCrud without access options fails registration (no implicit openToAll)", () => {
+  test("r.crud without access options fails registration (no implicit openToAll)", () => {
     const widgetEntity = createEntity({
       table: "phase0_widgets",
       fields: {
         name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
       },
     });
-    // Access is required since fw#2855 — registerEntityCrud now throws at
+    // Access is required since fw#2855 — r.crud now throws at
     // registration time (was: caught at boot-validator level).
     expect(() =>
       defineFeature("phase0", (r) => {
@@ -2564,7 +2560,7 @@ describe("boot-validator", () => {
       },
     ) {
       return defineFeature("shop", (r) => {
-        r.entity({ name: "product", ...createEntity({ fields: fields as never }) });
+        r.entity({ name: "product", fields: fields as never });
         r.screen({
           id: "product-list",
           type: "entityList",
@@ -6026,7 +6022,7 @@ describe("boot-validator", () => {
   describe("entityList defaultSort: alle sortable-Field-Types", () => {
     function buildFeature(fieldName: string, fields: Record<string, unknown>) {
       return defineFeature("shop", (r) => {
-        r.entity({ name: "product", ...createEntity({ fields: fields as never }) });
+        r.entity({ name: "product", fields: fields as never });
         r.screen({
           id: "product-list",
           type: "entityList",

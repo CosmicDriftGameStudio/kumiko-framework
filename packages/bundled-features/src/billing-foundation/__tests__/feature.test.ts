@@ -39,7 +39,7 @@ describe("billingFoundationFeature — shape", () => {
     // Drift-Pin: foundation hat KEIN globales `provider`-config-key
     // mehr. Webhook-URL trägt providerName als Pfad-Parameter, jeder
     // gemountete Plugin ist gleichzeitig aktiv. Wenn jemand wieder
-    // `r.requires("config")` einbaut, verstößt das gegen die
+    // `r.requires({ features: ["config"] })` einbaut, verstößt das gegen die
     // Multi-Provider-Architektur.
     expect(billingFoundationFeature.requires).not.toContain("config");
   });

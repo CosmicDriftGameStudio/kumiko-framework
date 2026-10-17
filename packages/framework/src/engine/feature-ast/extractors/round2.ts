@@ -1,4 +1,4 @@
-import type { CallExpression, SourceFile } from "ts-morph";
+import type { CallExpression, ObjectLiteralExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { EntityDefinition } from "../../types/fields.js";
 import type { NavDefinition } from "../../types/nav.js";
@@ -11,11 +11,30 @@ import {
   type ExtractOutput,
   fail,
   isPlainObject,
+  isRawRefSentinel,
   ok,
+  type RawRefSentinel,
   readDataLiteralNode,
   readNameLiteral,
   readNameOrRef,
 } from "./shared.js";
+
+// `{ name: "x", ...xEntity }` — the definition is a reference the parser cannot
+// inline, so it is kept as a raw-ref sentinel and re-rendered as the same spread.
+// `backingTable` is runtime wiring (a table identifier), not part of the
+// definition data, so it does not take part in the shape check.
+function readSpreadOnlyDefinition(obj: ObjectLiteralExpression): RawRefSentinel | undefined {
+  const properties = obj
+    .getProperties()
+    .filter(
+      (property) => property.asKind(SyntaxKind.PropertyAssignment)?.getName() !== "backingTable",
+    );
+  const spread =
+    properties.length === 2 ? properties[1]?.asKind(SyntaxKind.SpreadAssignment) : undefined;
+  if (!spread) return undefined;
+  const reference = readDataLiteralNode(spread.getExpression());
+  return isRawRefSentinel(reference) ? reference : undefined;
+}
 
 export function extractEntity(
   call: CallExpression,
@@ -45,7 +64,7 @@ export function extractEntity(
         "object form requires a string-literal `name` property",
       );
     }
-    const definition = readDataLiteralNode(obj);
+    const definition = readSpreadOnlyDefinition(obj) ?? readDataLiteralNode(obj);
     if (!isPlainObject(definition)) {
       return fail(
         "entity",

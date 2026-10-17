@@ -36,7 +36,6 @@ import type { ExtensionOptionsArgs, ExtensionOptionsFor } from "./extension-opti
 import type { EntityDefinition } from "./fields.js";
 import type {
   AccessRule,
-  AgentHandlerHints,
   AuthClaimsFn,
   AuthClaimsHookDef,
   ClaimKeyDefinition,
@@ -51,15 +50,12 @@ import type {
   EventUpcastFn,
   HandlerRef,
   NameOrRef,
-  PayloadRateLimitOption,
   QualifiedEventName,
   QueryHandlerDef,
-  QueryHandlerFn,
   RateLimitDeclaration,
   StreamHandlerDef,
   StreamHandlerFn,
   WriteHandlerDef,
-  WriteHandlerFn,
 } from "./handlers.js";
 import type {
   EntityHookMap,
@@ -297,8 +293,8 @@ export type FeatureDefinition = {
   // (test fixtures, partial boots — see registry.test.ts "slot robustness")
   // omit them and the registry guards against that. Type follows runtime.
   readonly entities?: Readonly<Record<string, EntityDefinition>>;
-  // Optional backing Drizzle table per entity, declared via the third arg of
-  // `r.entity(name, def, { table })`. Source of truth for the physical DDL
+  // Optional backing Drizzle table per entity, declared via `backingTable` in
+  // `r.entity({ name, ...def, backingTable })`. Source of truth for the physical DDL
   // when the table carries columns/indexes the field-DSL can't express
   // (e.g. secrets' envelope jsonb without default). `collectTableMetas` and
   // the registry's implicit-projection use this object instead of the
@@ -441,12 +437,80 @@ export type FeatureDefinition = {
 // --- Feature Registrar (the "r" object in defineFeature) ---
 
 type RefOrRefs = NameOrRef | readonly NameOrRef[];
-// Entity-wide hook target — "all query/write handlers of this entity",
-// same reach r.entityHook() used to have. Only valid for postSave/
-// preDelete/postDelete/postQuery (the same 4 types entityHook covered);
-// hook() throws at registration time if used with validation/preSave/
-// preQuery.
+// Entity-wide hook target — "all query/write handlers of this entity". Only valid
+// for postSave/preDelete/postDelete/postQuery; the other hook types do not accept it.
 type HookTarget = RefOrRefs | { readonly allOf: NameOrRef };
+
+// `backingTable` points the entity at an existing drizzle table instead of a generated one.
+export type EntityObjectDefinition = {
+  readonly name: string;
+  readonly backingTable?: unknown;
+} & EntityDefinition;
+
+type HookEscapeHatch = { readonly escapeHatch?: EscapeHatchDeclaration };
+type HookPhaseOption = { readonly phase?: HookPhase };
+
+// escapeHatch grants the hook (not the handler) identity switches beyond its caller — see
+// system-identity-switch.ts. A hook type without a member field rejects it at compile time.
+export type HookDefinition =
+  | {
+      readonly type: "validation";
+      readonly target: RefOrRefs;
+      readonly handler: ValidationHookFn;
+      readonly escapeHatch?: never;
+      readonly phase?: never;
+    }
+  | ({
+      readonly type: "preSave";
+      readonly target: RefOrRefs;
+      readonly handler: PreSaveHookFn;
+      readonly phase?: never;
+    } & HookEscapeHatch)
+  | ({
+      readonly type: "postSave";
+      readonly target: HookTarget;
+      readonly handler: PostSaveHookFn;
+    } & HookEscapeHatch &
+      HookPhaseOption)
+  | ({
+      readonly type: "preDelete";
+      readonly target: HookTarget;
+      readonly handler: PreDeleteHookFn;
+      readonly phase?: never;
+    } & HookEscapeHatch)
+  | ({
+      readonly type: "postDelete";
+      readonly target: HookTarget;
+      readonly handler: PostDeleteHookFn;
+    } & HookEscapeHatch &
+      HookPhaseOption)
+  | ({
+      readonly type: "preQuery";
+      readonly target: RefOrRefs;
+      readonly handler: PreQueryHookFn;
+      readonly phase?: never;
+    } & HookEscapeHatch)
+  | ({
+      readonly type: "postQuery";
+      readonly target: HookTarget;
+      readonly handler: PostQueryHookFn;
+      readonly phase?: never;
+    } & HookEscapeHatch);
+
+/**
+ * `r.requires({ features })` declares the features this one depends on; the
+ * `.projection` extension declares read-side projection tables that this
+ * feature's pipeline steps are allowed to write via
+ * `r.step.unsafeProjectionUpsert` (hard-required for any unsafeProjection-*
+ * step usage, see Q10).
+ *
+ * @example r.requires({ features: ["auth", "tenant"] });
+ */
+export type RequiresApi = ((options: { readonly features: readonly string[] }) => void) & {
+  readonly projection: (tableName: string) => void;
+  // Tier-2 step opt-in (Q9). Tier-1 implicit, Tier-2 must be declared.
+  readonly step: (stepKind: string) => void;
+};
 
 /**
  * `TFeature` is the literal feature-name from `defineFeature("foo", ...)` —
@@ -458,24 +522,6 @@ type HookTarget = RefOrRefs | { readonly allOf: NameOrRef };
  * keeping strict-mode alive even when handlers route via `eventDef.name`
  * instead of hand-typed string literals.
  */
-/**
- * `r.requires` is a callable+namespace: existing call form takes feature
- * names (`r.requires("auth", "tenant")`), the `.projection` extension
- * declares read-side projection tables that this feature's pipeline
- * steps are allowed to write via `r.step.unsafeProjectionUpsert`.
- * Hard-required for any unsafeProjection-* step usage (see Q10).
- */
-export type RequiresApi = ((...featureNames: string[]) => void) &
-  // Object-Form — the shape the feature-ast renderer (`render.ts`) emits
-  // for Designer/AI-generated code. A single object argument with named
-  // fields is easier to generate correctly than positional args whose
-  // count/order vary per registrar method.
-  ((options: { readonly features: readonly string[] }) => void) & {
-    readonly projection: (tableName: string) => void;
-    // Tier-2 step opt-in (Q9). Tier-1 implicit, Tier-2 must be declared.
-    readonly step: (stepKind: string) => void;
-  };
-
 export type FeatureRegistrar<TFeature extends string = string> = {
   systemScope(): void;
   // One-to-three-sentence docs-lead for the feature ("what it does + when
@@ -492,49 +538,26 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // Picker/scaffolder metadata — see UiHints. At most once per feature.
   uiHints(hints: UiHints): void;
 
-  entity(
-    name: string,
-    definition: EntityDefinition,
-    options?: { readonly table?: unknown },
-  ): EntityRef;
-  entity(definition: { readonly name: string } & EntityDefinition): EntityRef;
+  /**
+   * @example r.entity({ name: "note", fields: { title: createTextField({ required: true }) } });
+   */
+  entity(definition: EntityObjectDefinition): EntityRef;
 
-  // Shorthand for registerEntityCrud(r, ...), scoped to this registrar.
+  // Registers the entity plus its standard CRUD handlers, scoped to this registrar.
   crud(entityName: string, entity: EntityDefinition, options?: RegisterEntityCrudOptions): void;
 
+  /**
+   * @example r.writeHandler({ name: "note:archive", schema, handler, access: { roles: ["User"] } });
+   */
   writeHandler<TName extends string, TSchema extends ZodType, TPrepared = undefined>(
     def: WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
   ): HandlerRef;
-  writeHandler<TSchema extends ZodType>(
-    name: string,
-    schema: TSchema,
-    handler: WriteHandlerFn<z.infer<TSchema>>,
-    options: {
-      access: AccessRule;
-      rateLimit?: RateLimitDeclaration;
-      additionalRateLimits?: readonly PayloadRateLimitOption[];
-      description?: string;
-      agent?: AgentHandlerHints;
-      escapeHatch?: EscapeHatchDeclaration;
-    },
-  ): HandlerRef;
 
+  /**
+   * @example r.queryHandler({ name: "note:list", schema, handler, access: { roles: ["User"] } });
+   */
   queryHandler<TName extends string, TSchema extends ZodType>(
     def: QueryHandlerDefinition<TName, TSchema>,
-  ): HandlerRef;
-  queryHandler<TSchema extends ZodType>(
-    name: string,
-    schema: TSchema,
-    handler: QueryHandlerFn<z.infer<TSchema>>,
-    options: {
-      access: AccessRule;
-      rateLimit?: RateLimitDeclaration;
-      outputSchema?: ZodType;
-      liveEntities?: readonly string[];
-      description?: string;
-      agent?: AgentHandlerHints;
-      escapeHatch?: EscapeHatchDeclaration;
-    },
   ): HandlerRef;
 
   streamHandler<TName extends string, TSchema extends ZodType>(
@@ -560,52 +583,10 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     definition: { readonly entity: NameOrRef; readonly name: string } & TDef,
   ): void;
 
-  hook(type: "validation", target: RefOrRefs, fn: ValidationHookFn): void;
-  // escapeHatch grants this hook (not the handler) identity-switches beyond its caller — see system-identity-switch.ts.
-  hook(
-    type: "preSave",
-    target: RefOrRefs,
-    fn: PreSaveHookFn,
-    options?: { escapeHatch?: EscapeHatchDeclaration },
-  ): void;
-  // postSave/preDelete/postDelete/postQuery accept `{ allOf: entityRef }` —
-  // fires for every write/query handler of that entity, replacing the old
-  // r.entityHook(type, entity, fn). postQuery's entity-wide form fires for
-  // ALL query-handlers of the entity (e.g. customFields-bundle merging
-  // custom-fields-jsonb into every read); no phase semantics there
-  // (synchronous after handler-execute, before field-access-filter).
-  hook(
-    type: "postSave",
-    target: HookTarget,
-    fn: PostSaveHookFn,
-    options?: { phase?: HookPhase; escapeHatch?: EscapeHatchDeclaration },
-  ): void;
-  // preDelete always runs in-transaction (it guards the delete — there is no
-  // meaningful "after" for a pre-hook). No phase option.
-  hook(
-    type: "preDelete",
-    target: HookTarget,
-    fn: PreDeleteHookFn,
-    options?: { escapeHatch?: EscapeHatchDeclaration },
-  ): void;
-  hook(
-    type: "postDelete",
-    target: HookTarget,
-    fn: PostDeleteHookFn,
-    options?: { phase?: HookPhase; escapeHatch?: EscapeHatchDeclaration },
-  ): void;
-  hook(
-    type: "preQuery",
-    target: RefOrRefs,
-    fn: PreQueryHookFn,
-    options?: { escapeHatch?: EscapeHatchDeclaration },
-  ): void;
-  hook(
-    type: "postQuery",
-    target: HookTarget,
-    fn: PostQueryHookFn,
-    options?: { escapeHatch?: EscapeHatchDeclaration },
-  ): void;
+  /**
+   * @example r.hook({ type: "postSave", target: { allOf: noteRef }, handler: notifyOwner });
+   */
+  hook(definition: HookDefinition): void;
 
   // F3 — Search-Payload-Extension: contributor function adds flat fields to
   // an entity's search-index document. Fires synchronously during
@@ -778,7 +759,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    *
    * ```ts
    * defineFeature("user-data-rights", (r) => {
-   *   r.requires("compliance-profiles");
+   *   r.requires({ features: ["compliance-profiles"] });
    *   r.usesApi("compliance.forTenant");
    * });
    * ```
@@ -800,10 +781,10 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    * ```ts
    * defineFeature("prompt-store", (r) => {
    *   const promptFields = { text: createTextField({ personal: "self", find: "none" }) };
-   *   r.entity("prompt", { fields: promptFields });
+   *   r.entity({ name: "prompt", fields: promptFields });
    *   r.bootCheck(({ features }) => {
    *     // Conditional on this feature's own shape (has a pii field) —
-   *     // r.requires("user-data-hook") can't express that, it would fail
+   *     // r.requires({ features: ["user-data-hook"] }) can't express that, it would fail
    *     // even for a prompt-store variant with no PII fields at all.
    *     const hasPiiField = Object.values(promptFields).some((f) => f.pii);
    *     const hasUserDataHook = features.some((f) => f.name === "user-data-hook");

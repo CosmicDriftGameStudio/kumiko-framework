@@ -46,7 +46,7 @@ const UPGRADE_HINT = "run `bun kumiko-upgrade --apply` (codemod object-form)";
 type ReceiverResolution = "registrar" | "other" | "unresolved";
 
 function isRegistrarMethod(name: string): name is RegistrarMethod {
-  return (REGISTRAR_METHODS as readonly string[]).includes(name);
+  return REGISTRAR_METHODS.some((method) => method === name);
 }
 
 function isFeatureFactoryCallee(callee: Node): boolean {

@@ -336,12 +336,12 @@ export const timezonesFeature = defineFeature("timezones", (r) => {
   });
   r.writeHandler(defineEntityDeleteHandler("delivery", deliveryEntity, adminWrite));
 
-  r.queryHandler(
-    "day-window",
-    z.object({
+  r.queryHandler({
+    name: "day-window",
+    schema: z.object({
       zone: z.string().refine(isValidIanaTimeZone, { message: "Invalid IANA timezone" }),
     }),
-    async (query, ctx) => {
+    handler: async (query, ctx) => {
       const { start, end } = ctx.tz.todayRange(query.payload.zone);
       return {
         zone: query.payload.zone,
@@ -350,17 +350,17 @@ export const timezonesFeature = defineFeature("timezones", (r) => {
         end: end.toString(),
       };
     },
-    openRead,
-  );
+    ...openRead,
+  });
 
-  r.queryHandler(
-    "zone-at",
-    z.object({ latitude: z.number(), longitude: z.number() }),
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "zone-at",
+    schema: z.object({ latitude: z.number(), longitude: z.number() }),
+    handler: async (query, ctx) => {
       const zone = await ctx.tz.fromCoordinates(query.payload);
       return { zone };
     },
-    openRead,
-  );
+    ...openRead,
+  });
 });
 ```

@@ -160,10 +160,10 @@ export const ticketFeature = defineFeature("tickets", (r) => {
   // Flat result: each dashboard stat reads one field via its valueField.
   // limit: 1 keeps the page tiny; totalCount counts over the whole WHERE in
   // the database, so no rows are loaded just to be counted.
-  r.queryHandler(
-    "ticket:stats",
-    z.object({}),
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "ticket:stats",
+    schema: z.object({}),
+    handler: async (query, ctx) => {
       const countWithStatus = async (status: (typeof TICKET_STATUSES)[number]): Promise<number> => {
         const page = await ticketExecutor.list(
           { filter: { field: "status", op: "eq", value: status }, limit: 1, totalCount: true },
@@ -178,8 +178,8 @@ export const ticketFeature = defineFeature("tickets", (r) => {
       ]);
       return { open, closed, total: open + closed };
     },
-    { access: readerRoles },
-  );
+    access: readerRoles,
+  });
 
   r.translations({
     keys: {

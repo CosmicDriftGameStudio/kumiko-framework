@@ -14,7 +14,7 @@ import type { RetentionDef } from "@cosmicdrift/kumiko-framework/engine";
 
 /**
  * Pro Entity-Name gemappte Retention-Policy. Entity-Namen sind der
- * String aus r.entity("name", ...) — kebab-case oder lowercase.
+ * `name` aus r.entity({ name, ... }) — kebab-case oder lowercase.
  * Cleanup-Job iteriert alle bekannten Entities; was nicht im Preset
  * steht, fällt auf Entity-Default (Layer 1) zurück.
  */

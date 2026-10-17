@@ -1,4 +1,4 @@
-// fw-review #6 — form-draft declared a hard r.requires("config"), so any
+// fw-review #6 — form-draft declared a hard r.requires({ features: ["config"] }), so any
 // app mounting form-draft without the config feature failed at boot with
 // `Feature "form-draft" requires feature "config" which is not registered`
 // (registry-validate.ts). config is now r.optionalRequires: form-draft must

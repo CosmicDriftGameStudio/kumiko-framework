@@ -89,13 +89,13 @@ export function extractFeaturesFromText(rawText: string): Set<string> {
     const name = m[1];
     if (name) feats.add(name);
   }
-  for (const m of text.matchAll(/r\.requires\(\s*["']([a-z0-9-]+)["']/g)) {
-    const name = m[1];
-    if (name) feats.add(name);
-  }
-  for (const m of text.matchAll(/r\.optionalRequires\(\s*["']([a-z0-9-]+)["']/g)) {
-    const name = m[1];
-    if (name) feats.add(name);
+  for (const m of text.matchAll(
+    /r\.(?:requires|optionalRequires)\(\s*\{\s*features:\s*\[([^\]]*)\]/g,
+  )) {
+    for (const quoted of (m[1] ?? "").matchAll(/["']([a-z0-9-]+)["']/g)) {
+      const name = quoted[1];
+      if (name) feats.add(name);
+    }
   }
   return feats;
 }

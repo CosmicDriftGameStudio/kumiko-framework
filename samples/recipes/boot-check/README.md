@@ -13,7 +13,7 @@ never mounted, and nothing caught it — until now.
   feature-prefixed message.
 - **Conditional invariants `r.requires` can't express** — the check only
   fails when *this* feature's own shape demands it (has a PII field), not
-  unconditionally. A plain `r.requires("user-data-hook")` would fail even
+  unconditionally. A plain `r.requires({ features: ["user-data-hook"] })` would fail even
   for a prompt-store variant with no PII fields at all.
 - **`validateBoot`** — the framework's boot-time validator, run directly
   against a feature list. `bootCheck` has no DB dependency, so this is the

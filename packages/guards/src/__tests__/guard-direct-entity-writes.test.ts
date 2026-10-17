@@ -62,7 +62,7 @@ describe("collectEsTables", () => {
   });
 });
 
-// r.entity(name, ent) and buildEntityTable(name2, ent) are linked through the
+// r.entity({ name, ...ent }) and buildEntityTable(name2, ent) are linked through the
 // shared `fooEntity` symbol, NOT through the name string (here "foo" vs
 // "foo_tbl" — deliberately different, like sessions' "user-session" vs
 // "user_session"). Pins the symbol-based linking.
@@ -80,7 +80,7 @@ describe("collectEntityProjectionTables", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
-          r.entity("foo", fooEntity);
+          r.entity({ name: "foo", ...fooEntity });
         }
       `,
     });
@@ -89,11 +89,11 @@ describe("collectEntityProjectionTables", () => {
     expect([...tables][0]).toContain("fooTable");
   });
 
-  test("nimmt den expliziten { table }-Override aus r.entity(name, def, { table })", () => {
+  test("nimmt den expliziten backingTable-Override aus r.entity({ name, ...def, backingTable })", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
-          r.entity("foo", fooEntity, { table: fooTable });
+          r.entity({ name: "foo", ...fooEntity, backingTable: fooTable });
         }
       `,
     });
@@ -118,7 +118,7 @@ describe("scanDirectWrites :: function-form (bun-db helpers)", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
-          r.entity("foo", fooEntity);
+          r.entity({ name: "foo", ...fooEntity });
         }
         async function bad(ctx: { db: unknown }) {
           await updateMany(ctx.db, fooTable, { authorId: null }, { id: "x" });
@@ -139,7 +139,7 @@ describe("scanDirectWrites :: function-form (bun-db helpers)", () => {
     const project = makeProject({
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void; projection: (def: unknown) => void }) {
-          r.entity("foo", fooEntity);
+          r.entity({ name: "foo", ...fooEntity });
           r.projection({
             name: "foo-proj",
             apply: async (event: { payload: unknown }, tx: unknown) => {
@@ -303,7 +303,7 @@ describe("scanDirectWrites :: tx-Receiver context-aware", () => {
 describe("scanDirectWrites :: table argument wrapped in casts", () => {
   const SETUP = `
     function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
-      r.entity("foo", fooEntity);
+      r.entity({ name: "foo", ...fooEntity });
     }
     declare function deleteMany(db: unknown, table: unknown, where: unknown): Promise<void>;
     declare const tables: { foo: unknown };
@@ -357,7 +357,7 @@ describe("guard.run() :: entity-only repo (kein createEventStoreExecutor mehr)",
       "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
         declare const db: { update: (t: unknown) => { set: (v: unknown) => { where: (w: unknown) => Promise<void> } } };
         function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
-          r.entity("foo", fooEntity);
+          r.entity({ name: "foo", ...fooEntity });
         }
         export async function directWrite() {
           await db.update(fooTable).set({ name: "x" }).where({});

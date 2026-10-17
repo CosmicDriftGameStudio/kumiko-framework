@@ -160,7 +160,7 @@ const open = {
 
 export const tasksFeature = defineFeature("tasks", (r) => {
   r.translations({ keys: tasksTranslationKeys });
-  r.entity("task", taskEntity);
+  r.entity({ name: "task", ...taskEntity });
   r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
   r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
   r.writeHandler(defineEntityDeleteHandler("task", taskEntity, open));

@@ -393,7 +393,7 @@ const chargeHandler = defineWriteHandler({
 });
 
 export const billingFeature = defineFeature(FEATURE, (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config("stripe-api-key", stripeApiKeyDef);
   r.writeHandler(chargeHandler);
   // Kein r.screen/r.nav: der `mask`-Eintrag auf dem Key lässt

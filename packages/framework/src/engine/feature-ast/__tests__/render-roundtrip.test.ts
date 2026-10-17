@@ -139,27 +139,15 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 defineFeature("workflow", (r) => {
-  r.entity("step", { fields: { title: { type: "text", required: true } } });
+  r.entity({ name: "step", fields: { title: { type: "text", required: true } } });
 
-  r.writeHandler(
-    "step:create",
-    z.object({ title: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({ name: "step:create", schema: z.object({ title: z.string() }), handler: async (event, ctx) => {
       return { isSuccess: true, data: { id: "x" } };
-    },
-    { access: { roles: ["user"] }, description: "Creates a step.", agent: { expose: true, risk: "high" } },
-  );
+    }, access: { roles: ["user"] }, description: "Creates a step.", agent: { expose: true, risk: "high" } });
 
-  r.queryHandler(
-    "step:list",
-    z.object({}),
-    async (q, ctx) => [],
-    {
-      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  r.queryHandler({ name: "step:list", schema: z.object({}), handler: async (q, ctx) => [], access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       description: "Lists steps.",
-      agent: { risk: "low" },
-    },
-  );
+      agent: { risk: "low" } });
 
   r.streamHandler(
     "step:stream",
@@ -170,9 +158,9 @@ defineFeature("workflow", (r) => {
     { access: { roles: ["user"] } },
   );
 
-  r.hook("postSave", "step", async (event, ctx) => {
+  r.hook({ type: "postSave", target: "step", handler: async (event, ctx) => {
     console.log("step saved");
-  });
+  } });
 
   r.entityHook("postDelete", "step", async (event, ctx) => {
     console.log("step deleted");
@@ -236,9 +224,9 @@ function makeHandler() {
 }
 
 defineFeature("refs", (r) => {
-  r.requires(someFeature.name, "config");
-  r.entity("event", eventEntity);
-  r.entity("task", { fields: buildFields() });
+  r.requires({ features: [someFeature.name, "config"] });
+  r.entity({ name: "event", ...eventEntity });
+  r.entity({ name: "task", fields: buildFields() });
   r.writeHandler(makeHandler());
   r.streamHandler(chatCompleteHandler);
   r.screen(eventListScreen);
@@ -512,10 +500,10 @@ const HOOK_ALL_OF_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("shop", (r) => {
-  r.entity("product", { fields: { name: { type: "text" } } });
-  r.hook("postSave", { allOf: "product" }, async (result) => {
+  r.entity({ name: "product", fields: { name: { type: "text" } } });
+  r.hook({ type: "postSave", target: { allOf: "product" }, handler: async (result) => {
     console.log(result);
-  });
+  } });
 });
 `;
 
@@ -548,7 +536,7 @@ const SCREEN_WITH_NAV_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("shop", (r) => {
-  r.entity("product", { fields: { name: { type: "text" } } });
+  r.entity({ name: "product", fields: { name: { type: "text" } } });
   r.screen({
     id: "products",
     type: "entityList",
@@ -791,7 +779,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 defineFeature("legacy", (r) => {
-  r.requires("auth");
+  r.requires({ features: ["auth"] });
 });
 `;
     const parsed = parseSourceFile(

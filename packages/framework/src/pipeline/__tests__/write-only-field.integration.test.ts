@@ -34,7 +34,7 @@ const linkEntity = createEntity({
   table: "wo_links",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
-    connection: { type: "reference", entity: "connection" },
+    connection: { type: "reference", entity: "connection" } as const,
   },
 });
 

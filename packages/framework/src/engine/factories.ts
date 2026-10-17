@@ -472,7 +472,8 @@ export function createTzField<R extends true | false = false>(
  * → DREI API-Felder beim Read (`{ at, tz, utc }`).
  *
  * ```ts
- * r.entity("order", {
+ * r.entity({
+ *   name: "order",
  *   fields: {
  *     pickup: createLocatedTimestampField(),
  *     delivery: createLocatedTimestampField(),

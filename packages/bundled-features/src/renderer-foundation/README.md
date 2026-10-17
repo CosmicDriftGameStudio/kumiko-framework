@@ -66,7 +66,7 @@ Mails einer `r.notification` rendert die Delivery selbst: `template` + `meta` an
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 export const myRendererFeature = defineFeature("renderer-myown", (r) => {
-  r.requires("renderer-foundation");
+  r.requires({ features: ["renderer-foundation"] });
   r.useExtension("renderer", "myown", {
     kinds: ["document-pdf"],
     // ctx ist optional — nur nehmen wenn Service-Access nötig

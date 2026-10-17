@@ -40,7 +40,7 @@ import {
 // `user` (S2.H1) und `fileRef` (S2.H2).
 //
 // Architektur-Entscheidung (S2.H1+H2): user-data-rights selbst kann
-// nicht r.requires("user", "files") + r.useExtension(EXT_USER_DATA, ...)
+// nicht r.requires({ features: ["user", "files"] }) + r.useExtension(EXT_USER_DATA, ...)
 // machen weil es selbst Provider von EXT_USER_DATA ist (Boot-Validator
 // lehnt self-extension ab). Lösung: drittes optional-mountbares Feature
 // das requires beide Sources + die useExtension-Calls macht.

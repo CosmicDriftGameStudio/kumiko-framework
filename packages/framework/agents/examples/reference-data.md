@@ -134,7 +134,7 @@ export const categoryTable = table("read_sample_categories", {
 });
 
 export const categoryFeature = defineFeature("catalog", (r) => {
-  r.entity("category", categoryEntity);
+  r.entity({ name: "category", ...categoryEntity });
 
   // Static reference data — seeded on boot, upserted on changes
   r.referenceData(

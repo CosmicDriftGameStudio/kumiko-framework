@@ -40,7 +40,7 @@ async function runLint(featureBody: string): Promise<{ code: number; lines: stri
 describe("kumiko agent lint exit code", () => {
   test("only warning gaps (missing translations) -> exit 0 and still listed", async () => {
     const { code, lines } = await runLint(
-      `r.writeHandler("do-x", z.object({}), handler, { access, description: "Does X." });`,
+      `r.writeHandler({ name: "do-x", schema: z.object({}), handler, access, description: "Does X." });`,
     );
     expect(code).toBe(0);
     expect(lines.join("\n")).toContain("cli-demo:write:do-x");
@@ -48,7 +48,7 @@ describe("kumiko agent lint exit code", () => {
 
   test("an error gap (non-expressible schema) -> exit 1", async () => {
     const { code } = await runLint(
-      `r.writeHandler("do-x", z.object({ at: z.instanceof(Date) }), handler, { access, description: "Does X." });`,
+      `r.writeHandler({ name: "do-x", schema: z.object({ at: z.instanceof(Date) }), handler, access, description: "Does X." });`,
     );
     expect(code).toBe(1);
   });

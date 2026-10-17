@@ -73,11 +73,11 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
       r.exposesApi("compliance.forTenant");
     });
     const consumer = defineFeature("user-data-rights", (r) => {
-      // missing r.requires("compliance-profiles")
+      // missing r.requires({ features: ["compliance-profiles"] })
       r.usesApi("compliance.forTenant");
     });
     expect(() => validateBoot([provider, consumer])).toThrow(
-      /not in requires\/optionalRequires\. Add r\.requires\("compliance-profiles"\)/,
+      /not in requires\/optionalRequires\. Add r\.requires\(\{ features: \["compliance-profiles"\] \}\)/,
     );
   });
 
@@ -116,7 +116,7 @@ describe("validateBoot — r.exposesApi / r.usesApi", () => {
 
   test("feature with no API surface boots clean (regression guard)", () => {
     const plain = defineFeature("plain", (r) => {
-      r.requires();
+      r.requires({ features: [] });
     });
     expect(() => validateBoot([plain])).not.toThrow();
   });

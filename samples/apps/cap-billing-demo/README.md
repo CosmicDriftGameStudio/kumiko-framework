@@ -102,7 +102,7 @@ In the browser, use the Designer/Admin UI to set the config key
 there's no HTTP endpoint for it because the sample shows the
 architecture, not an inbox UI.
 
-If you want clickable: write a small `r.queryHandler("inbox:list")`
+If you want clickable: write a small `r.queryHandler({ name: "inbox:list", … })`
 that returns `getInbox(ctx.user.tenantId)`. ~20 LOC, deliberately
 omitted to keep the focus on cap+tier.
 

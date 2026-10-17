@@ -13,9 +13,9 @@ logic is yours.
 
 ## What it shows
 
-- **`r.writeHandler(name, schema, handler, options)`** — the positional
-  inline form, useful when the handler body is short and stays close to
-  its registration.
+- **`r.writeHandler({ name, schema, handler, access })`** — the inline
+  form, useful when the handler body is short and stays close to its
+  registration.
 - **Read-modify-write with optimistic locking** — `increment` reads the
   current count, computes the new one, and updates with the version it
   read. Two concurrent increments cannot both succeed.

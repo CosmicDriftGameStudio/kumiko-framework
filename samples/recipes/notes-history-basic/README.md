@@ -68,7 +68,7 @@ The component itself is `notes-history/web/notes-section.tsx`
 ```
 notes-history    → core bundle: note-entry entity, add-note handler, list query
 task-management  → our feature: a plain `task` entity. Declares
-                   r.requires("notes-history") only so the bundle is
+                   r.requires({ features: ["notes-history"] }) only so the bundle is
                    mounted — the task itself is completely notes-agnostic.
 ```
 

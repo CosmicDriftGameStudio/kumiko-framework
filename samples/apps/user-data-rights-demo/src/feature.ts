@@ -6,10 +6,10 @@
 // DSGVO-Endpoints kommen vollstaendig aus user-data-rights.
 //
 // Dieses Feature zeigt:
-//   - r.entity("todo", todoEntity)            → Drizzle-Tabelle wird gebaut
-//   - r.writeHandler("create")                → User legt Todo an
-//   - r.queryHandler("list")                  → User sieht seine Todos
-//   - r.useExtension(EXT_USER_DATA, "todo")   → Forget + Export integration
+//   - r.entity({ name: "todo", ...todoEntity })  → Drizzle-Tabelle wird gebaut
+//   - r.writeHandler({ name: "create", … })      → User legt Todo an
+//   - r.queryHandler({ name: "list", … })        → User sieht seine Todos
+//   - r.useExtension(EXT_USER_DATA, "todo")      → Forget + Export integration
 //
 // Was passiert wenn der User dann request-export aufruft:
 //   1. user-data-rights.request-export.write triggert einen Job

@@ -343,8 +343,8 @@ export const publishedPhotoIds = new Set<string>();
 export const coverOrder: string[] = [];
 
 export const filesPostProcessingFeature = defineFeature("files-post-processing", (r) => {
-  r.requires("file-derivatives");
-  r.entity("photo", photoEntity);
+  r.requires({ features: ["file-derivatives"] });
+  r.entity({ name: "photo", ...photoEntity });
 
   // Uploading a file to a photo's field needs the same rights as saving the
   // photo, so the photo must exist and the uploader needs update access.
@@ -355,9 +355,9 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
 
   // Entry point 2 — imperative. A real app would gate this behind real
   // roles; `openToAll` keeps the recipe's HTTP wiring to one line.
-  r.writeHandler(
-    "set-cover",
-    z.object({
+  r.writeHandler({
+    name: "set-cover",
+    schema: z.object({
       fileRefId: z.string(),
       // Relative to the ORIGINAL image's pixels, clamped before resize —
       // runtime data (e.g. a detected face box), which is exactly why this
@@ -371,7 +371,7 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
         })
         .optional(),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       if (!ctx.derivatives) {
         return writeFailure(
           new InternalError({ message: "ctx.derivatives missing — is file-derivatives mounted?" }),
@@ -391,36 +391,32 @@ export const filesPostProcessingFeature = defineFeature("files-post-processing",
       coverOrder.push(fileRefId);
       return { isSuccess: true as const, data: { fileRefId, storageKey: result.storageKey } };
     },
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo recipe: any signed-in user may generate a cover-image derivative for " +
-            "a file; there is no per-user file ownership check in this sample",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo recipe: any signed-in user may generate a cover-image derivative for " +
+          "a file; there is no per-user file ownership check in this sample",
       },
     },
-  );
+  });
 
   // A real app would gate this behind real roles; `openToAll` keeps the
   // recipe's HTTP wiring to one line.
-  r.writeHandler(
-    "publish",
-    z.object({ entityId: z.string() }),
-    async (event) => {
+  r.writeHandler({
+    name: "publish",
+    schema: z.object({ entityId: z.string() }),
+    handler: async (event) => {
       publishedPhotoIds.add(`${event.user.tenantId}:${event.payload.entityId}`);
       return { isSuccess: true as const, data: { entityId: event.payload.entityId } };
     },
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo recipe: any signed-in user may mark a photo entity published; a real " +
-            "app would replace this with a role check as noted above",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo recipe: any signed-in user may mark a photo entity published; a real " +
+          "app would replace this with a role check as noted above",
       },
     },
-  );
+  });
 
   // Entry point 3 — default-deny. No registration here means every entityId
   // 404s; a registration that returns false does the same. Only an explicit

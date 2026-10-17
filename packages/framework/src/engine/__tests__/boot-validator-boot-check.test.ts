@@ -34,7 +34,7 @@ const promptStore = () =>
     r.entity({ name: "prompt", ...createEntity({ fields: promptFields }) });
     r.bootCheck(({ features }) => {
       // Conditional on this feature's own shape (has a pii field), closed
-      // over from setup — r.requires("user-data-hook") can't express that.
+      // over from setup — r.requires({ features: ["user-data-hook"] }) can't express that.
       const hasPiiField = Object.values(promptFields).some((field) => field.pii);
       if (hasPiiField && !requiresUserDataHook(features)) {
         throw new Error("prompt-store has PII fields but no user-data-hook feature is mounted");

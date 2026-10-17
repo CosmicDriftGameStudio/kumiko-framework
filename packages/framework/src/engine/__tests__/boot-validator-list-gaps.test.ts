@@ -18,11 +18,17 @@ function bootMessage(feature: Parameters<typeof validateBoot>[0][number]): strin
 const ADMIN_ACCESS = { roles: ["Admin"] } as const;
 
 function registerHandlers(r: Parameters<Parameters<typeof defineFeature>[1]>[0], writes: string[]) {
-  r.queryHandler("order:detail", z.object({}), async () => ({ total: 1 }), {
+  r.queryHandler({
+    name: "order:detail",
+    schema: z.object({}),
+    handler: async () => ({ total: 1 }),
     access: ADMIN_ACCESS,
   });
   for (const write of writes) {
-    r.writeHandler(write, z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+    r.writeHandler({
+      name: write,
+      schema: z.object({}),
+      handler: async () => ({ isSuccess: true as const, data: null }),
       access: ADMIN_ACCESS,
     });
   }

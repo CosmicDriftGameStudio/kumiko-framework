@@ -48,7 +48,7 @@ const managed = createManagedPagesFeature({
   },
 });
 
-// managed-pages declares `r.requires("config")` for the branding keys —
+// managed-pages declares `r.requires({ features: ["config"] })` for the branding keys —
 // the config feature must be in the stack and `ctx.config` wired.
 const configFeature = createConfigFeature();
 

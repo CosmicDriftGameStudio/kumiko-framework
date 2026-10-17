@@ -493,7 +493,7 @@ export type JobPattern = {
 // `ctx.notify(name, { to, data })`: `recipient` picks userId(s), a tenant
 // broadcast, or `null` to skip; `data` builds the payload; per-channel
 // `templates` (email, in-app, push) render it. Delivered by the `delivery`
-// bundled feature — declare `r.requires("delivery")` alongside.
+// bundled feature — declare `r.requires({ features: ["delivery"] })` alongside.
 export type NotificationPattern = {
   readonly kind: "notification";
   readonly source: SourceLocation;

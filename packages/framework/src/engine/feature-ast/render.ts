@@ -258,15 +258,12 @@ function renderDescribe(p: DescribePattern): string {
 }
 
 function renderEntity(p: EntityPattern): string {
-  // A whole-value raw-ref (`r.entity("x", eventEntity)`) can't be spread
-  // into the merged Object-Form without losing `name` to the sentinel
-  // shortcut in renderValue — fall back to the classic positional form,
-  // which keeps the reference verbatim alongside the name.
+  // A whole-value raw-ref (`eventEntity`) can't go through renderValue without
+  // losing `name` to the sentinel shortcut — spread the reference verbatim
+  // next to the name instead.
   if (isRawRefSentinel(p.definition)) {
-    return `r.entity(${JSON.stringify(p.entityName)}, ${p.definition.__raw});`;
+    return `r.entity({ name: ${JSON.stringify(p.entityName)}, ...${p.definition.__raw} });`;
   }
-  // Inline `name` into the definition object — canonical Object-Form
-  // is a single arg with name-as-property.
   const merged = { name: p.entityName, ...p.definition };
   return `r.entity(${renderValue(merged)});`;
 }

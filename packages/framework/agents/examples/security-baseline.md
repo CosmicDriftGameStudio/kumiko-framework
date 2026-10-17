@@ -33,7 +33,7 @@ used to be silent; now the boot validator warns at `NODE_ENV=production`.
 ## Feature composition
 
 ```
-config            → tenant's r.requires("config") dependency
+config            → tenant's r.requires({ features: ["config"] }) dependency
 user              → cross-tenant identity (sessions' r.requires target)
 tenant            → memberships (audit's r.requires target)
 auth-foundation   → tokenVerifier extension point (sessions' r.requires target)

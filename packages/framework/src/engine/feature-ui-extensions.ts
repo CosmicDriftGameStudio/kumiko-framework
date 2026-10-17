@@ -11,6 +11,7 @@ import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.js"
 import { LifecycleHookTypes } from "./constants.js";
 import type { FeatureBuilderState } from "./feature-builder-state.js";
 import { resolveName } from "./handler-helpers.js";
+import { isObjectArgument, throwPositionalFormRemoved } from "./object-form.js";
 import { isKebabSegment, isValidQn, qualifyEntityName, toKebab } from "./qualified-name.js";
 import type { HttpRouteDefinition } from "./types/http-route.js";
 import type {
@@ -18,6 +19,7 @@ import type {
   EntityProjectionExtension,
   EscapeHatchDeclaration,
   ExtensionSelectorPanel,
+  HookDefinition,
   HookPhase,
   LifecycleHookFn,
   LifecycleHookType,
@@ -97,8 +99,8 @@ function isEntityWideHookType(type: LifecycleHookType | "validation"): type is E
   );
 }
 
-// r.hook(type, { allOf: entity }, fn) — "all write/query handlers of this
-// entity", replacing the old r.entityHook(type, entity, fn). Hook-fn casts
+// r.hook({ type, target: { allOf: entity }, handler }) — "all write/query handlers of
+// this entity". Hook-fn casts
 // below: @cast-boundary engine-bridge — typed Dev-API (LifecycleHookFn) →
 // erased Map<entityName, fn>.
 function registerEntityWideHook(
@@ -172,16 +174,17 @@ export function buildUiExtensionsMethods<TName extends string>(
   }
 
   return {
-    hook(
-      type: LifecycleHookType | "validation",
-      target: NameOrRef | readonly NameOrRef[] | { readonly allOf: NameOrRef },
-      fn: LifecycleHookFn | ValidationHookFn,
-      options?: { phase?: HookPhase; escapeHatch?: EscapeHatchDeclaration },
-    ): void {
+    hook(definition: HookDefinition): void {
+      if (!isObjectArgument(definition)) throwPositionalFormRemoved(name, "hook");
+      const { type, target, handler: fn } = definition;
+      const options: { phase?: HookPhase; escapeHatch?: EscapeHatchDeclaration } = {
+        ...(definition.phase !== undefined && { phase: definition.phase }),
+        ...(definition.escapeHatch !== undefined && { escapeHatch: definition.escapeHatch }),
+      };
       if (type === "validation") {
         if (options?.escapeHatch !== undefined) {
           throw new Error(
-            `[Feature ${name}] r.hook("validation", ...) does not accept { escapeHatch } — ` +
+            `[Feature ${name}] r.hook({ type: "validation", … }) does not accept escapeHatch — ` +
               "validation hooks receive no context to switch identity with.",
           );
         }
@@ -190,7 +193,7 @@ export function buildUiExtensionsMethods<TName extends string>(
         options.escapeHatch.reason.trim().length === 0
       ) {
         throw new Error(
-          `[Feature ${name}] r.hook("${type}", ...) declares { escapeHatch: { reason: "" } } — ` +
+          `[Feature ${name}] r.hook({ type: "${type}", … }) declares escapeHatch: { reason: "" } — ` +
             "the reason must be a non-empty string explaining why this hook switches identity to SYSTEM.",
         );
       }
@@ -198,7 +201,7 @@ export function buildUiExtensionsMethods<TName extends string>(
         options?.escapeHatch && escapeHatchGrantsProblem(options.escapeHatch);
       if (hookGrantsProblem) {
         throw new Error(
-          `[Feature ${name}] r.hook("${type}", ...) declares an invalid escapeHatch — ${hookGrantsProblem}`,
+          `[Feature ${name}] r.hook({ type: "${type}", … }) declares an invalid escapeHatch — ${hookGrantsProblem}`,
         );
       }
 
@@ -219,7 +222,7 @@ export function buildUiExtensionsMethods<TName extends string>(
       ) {
         if (!isEntityWideHookType(type)) {
           throw new Error(
-            `[Feature ${name}] r.hook("${type}", { allOf }, ...) only supports ` +
+            `[Feature ${name}] r.hook({ type: "${type}", target: { allOf }, … }) only supports ` +
               `postSave/preDelete/postDelete/postQuery, not "${type}".`,
           );
         }
@@ -364,7 +367,7 @@ export function buildUiExtensionsMethods<TName extends string>(
      *     r.queryHandler({ name: "compliance:query:for-tenant", ... });
      *   });
      *   defineFeature("user-data-rights", (r) => {
-     *     r.requires("compliance-profiles");
+     *     r.requires({ features: ["compliance-profiles"] });
      *     r.usesApi("compliance.forTenant");
      *     // ruft im Handler: ctx.callQuery("compliance:query:for-tenant", ...)
      *   });

@@ -172,7 +172,7 @@ describe("screens-nav showcase — boot-validator catches author mistakes", () =
     // Typo-protection: field refs must exist on the entity. Mis-spelled
     // column names would otherwise silently vanish from the form.
     const broken = defineFeature("broken-shop", (r) => {
-      r.entity("book", bookEntity);
+      r.entity({ name: "book", ...bookEntity });
       r.screen({
         id: "book-edit",
         type: "entityEdit",
@@ -256,7 +256,7 @@ export const bookEntity = createEntity({
 export function createBookshopFeature(): FeatureDefinition {
   return defineFeature("bookshop", (r) => {
     r.systemScope();
-    r.entity("book", bookEntity);
+    r.entity({ name: "book", ...bookEntity });
 
     // entityList — columns carry string shorthand and the object form
     // side by side; the framework normalizes both through

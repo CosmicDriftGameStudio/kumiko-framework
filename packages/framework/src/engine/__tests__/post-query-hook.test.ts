@@ -9,8 +9,8 @@ const stubContext = {} as unknown as AppContext;
 
 // postQuery-Hook (F1) — feuert nach Query-Handler-Execute, vor Field-Access-
 // Read-Filter. Zwei Registrierungs-Pfade:
-//   - r.hook("postQuery", "ns:query:list", fn) — handler-keyed
-//   - r.hook("postQuery", { allOf: "thing" }, fn)   — entity-keyed (alle Queries)
+//   - r.hook({ type: "postQuery", target: "ns:query:list", handler }) — handler-keyed
+//   - r.hook({ type: "postQuery", target: { allOf: "thing" }, handler }) — entity-keyed (alle Queries)
 //
 // Diese Tests pinnen die Invarianten:
 //   1. Beide Registrierungs-Pfade landen in unabhängigen Maps
@@ -21,7 +21,7 @@ const stubContext = {} as unknown as AppContext;
 const noop: PostQueryHookFn = async ({ rows }) => ({ rows });
 
 describe("postQuery hook registration", () => {
-  test("r.hook('postQuery', handlerQn, fn) lands in handler-keyed lifecycleHooks map", () => {
+  test("r.hook({ type: 'postQuery', target: handlerQn }) lands in handler-keyed lifecycleHooks map", () => {
     const feature = defineFeature("test", (r) => {
       r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       r.queryHandler({
@@ -40,7 +40,7 @@ describe("postQuery hook registration", () => {
     expect(entry?.[0]?.featureName).toBe("test");
   });
 
-  test("r.hook('postQuery', { allOf: entity }, fn) lands in entity-keyed entityHooks map", () => {
+  test("r.hook({ type: 'postQuery', target: { allOf: entity } }) lands in entity-keyed entityHooks map", () => {
     const feature = defineFeature("test", (r) => {
       const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       r.hook({ type: "postQuery", target: { allOf: thing }, handler: noop });

@@ -15,9 +15,9 @@ const dummyAppContext = {} as AppContext;
 
 // These tests lock in the phase defaults + filtering so the invariants survive
 // refactors. Behavior under test:
-//   - r.hook("postSave", ...) defaults to afterCommit
-//   - r.hook("postSave", ..., { phase: inTransaction }) routes to the inTx bucket
-//   - r.hook("preDelete", ...) always lands in inTransaction (no option)
+//   - r.hook({ type: "postSave", ... }) defaults to afterCommit
+//   - r.hook({ type: "postSave", ..., phase: inTransaction }) routes to the inTx bucket
+//   - r.hook({ type: "preDelete", ... }) always lands in inTransaction (no option)
 //   - Registry getters filter by phase when asked, return all otherwise
 
 const noopSave: PostSaveHookFn = async () => undefined;

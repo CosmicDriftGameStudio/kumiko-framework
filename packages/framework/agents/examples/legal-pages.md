@@ -383,7 +383,7 @@ import {
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 
 // Beide Features aktivieren — template-resolver ist Foundation, legal-pages
-// requires sie. r.requires("template-resolver") greift automatisch im
+// requires sie. r.requires({ features: ["template-resolver"] }) greift automatisch im
 // legal-pages-Feature.
 export const templateResolverFeature = createTemplateResolverFeature();
 export const legalPagesFeature = createLegalPagesFeature();

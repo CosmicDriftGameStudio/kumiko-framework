@@ -14,7 +14,7 @@ an. user-data-rights orchestriert Export- und Forget-Pipeline:
 
 ```ts
 defineFeature("tasks", (r) => {
-  r.requires("user-data-rights");
+  r.requires({ features: ["user-data-rights"] });
   r.useExtension(EXT_USER_DATA, "task", {
     export: async (ctx) => ({
       entity: "task",

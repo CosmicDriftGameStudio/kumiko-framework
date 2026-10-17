@@ -23,7 +23,7 @@ const projectionTable = table("read_cliproj_counts", { id: uuid("id").primaryKey
 export default {
   features: [
     defineFeature("cliprojtest", (r) => {
-      r.entity("cliproj-item", entity);
+      r.entity({ name: "cliproj-item", ...entity });
       r.projection({
         name: "items-per-group",
         source: "cliproj-item",

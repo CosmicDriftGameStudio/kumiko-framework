@@ -215,7 +215,10 @@ describe("published @cosmicdrift/kumiko-cli tarball", () => {
 import { z } from "zod";
 
 const feature = defineFeature("published-cli-fixture", (r) => {
-  r.queryHandler("widget:publishedCliGapHandler", z.object({ id: z.string() }), async () => ({}), {
+  r.queryHandler({
+    name: "widget:publishedCliGapHandler",
+    schema: z.object({ id: z.string() }),
+    handler: async () => ({}),
     access: { roles: ["admin"] },
     agent: { expose: true },
   });
@@ -239,7 +242,10 @@ export default { features: [feature] };
 import { z } from "zod";
 
 const feature = defineFeature("published-cli-fixture-clean", (r) => {
-  r.queryHandler("widget:publishedCliCleanHandler", z.object({ id: z.string() }), async () => ({}), {
+  r.queryHandler({
+    name: "widget:publishedCliCleanHandler",
+    schema: z.object({ id: z.string() }),
+    handler: async () => ({}),
     access: { roles: ["admin"] },
     description: "Looks up a widget by id.",
   });

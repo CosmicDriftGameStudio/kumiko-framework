@@ -1,6 +1,6 @@
 // Regression coverage for kumiko-framework#1672 — preSave hooks were
 // registered and boot-validated but never invoked by the dispatch path,
-// making `r.hook("preSave", ...)` a silent no-op. This exercises the real
+// making `r.hook({ type: "preSave", ... })` a silent no-op. This exercises the real
 // HTTP dispatcher (not a hand-fed handler context) so the fix is proven at
 // the layer app authors actually depend on.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";

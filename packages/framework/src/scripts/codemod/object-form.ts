@@ -16,6 +16,7 @@ import {
   Node,
   type ParameterDeclaration,
   Project,
+  type SourceFile,
   SyntaxKind,
 } from "ts-morph";
 import { collectSourceFiles } from "./collect-source-files.js";
@@ -55,7 +56,7 @@ export interface ObjectFormResult {
 export type ReceiverResolution = "registrar" | "other" | "unresolved";
 
 function isRegistrarMethod(name: string): name is RegistrarMethod {
-  return (REGISTRAR_METHODS as readonly string[]).includes(name);
+  return REGISTRAR_METHODS.some((method) => method === name);
 }
 
 function isFeatureFactoryCallee(callee: Node): boolean {
@@ -130,6 +131,14 @@ function isUnresolvedRegistrarLookalike(receiver: Node): boolean {
   );
 }
 
+function isAssumedRegistrar(receiver: Node, assumeRegistrarNames: ReadonlySet<string>): boolean {
+  return (
+    Node.isIdentifier(receiver) &&
+    assumeRegistrarNames.has(receiver.getText()) &&
+    resolveReceiver(receiver) === "unresolved"
+  );
+}
+
 export function isPositionalShape(method: RegistrarMethod, args: readonly Node[]): boolean {
   if (method === "requires") return args.some((arg) => !Node.isObjectLiteralExpression(arg));
   // The object form takes exactly one argument, so a spread can only be a positional call.
@@ -192,10 +201,10 @@ class SourceRewriter {
   recordPlan(call: Node, method: ObjectFormMethod, plan: Plan): void {
     if ("why" in plan) {
       this.manual.push({ ...this.site(call, method), why: plan.why });
-      return;
+    } else {
+      this.edits.push(plan.edit);
+      this.rewrites.push(this.site(call, method));
     }
-    this.edits.push(plan.edit);
-    this.rewrites.push(this.site(call, method));
   }
 
   recordManual(call: Node, method: ObjectFormMethod, why: string): void {
@@ -392,7 +401,12 @@ function crudImportsByLocalName(sourceFile: Node): Map<string, ImportSpecifier> 
   return byLocalName;
 }
 
-function planCrud(rewriter: SourceRewriter, call: CallExpression, text: string): Plan {
+function planCrud(
+  rewriter: SourceRewriter,
+  call: CallExpression,
+  text: string,
+  assumeRegistrarNames: ReadonlySet<string>,
+): Plan {
   const args = call.getArguments();
   if (hasSpreadArgument(args)) return { why: "spread argument — rewrite by hand" };
   if (args.length < 3) return { why: "fewer than 3 arguments (registrar, name, entity)" };
@@ -407,7 +421,9 @@ function planCrud(rewriter: SourceRewriter, call: CallExpression, text: string):
   const resolution = resolveReceiver(receiver);
   const looksLikeRegistrar =
     resolution === "registrar" ||
-    (resolution === "unresolved" && REGISTRAR_RECEIVER_NAMES.has(receiver.getText()));
+    (resolution === "unresolved" &&
+      (REGISTRAR_RECEIVER_NAMES.has(receiver.getText()) ||
+        assumeRegistrarNames.has(receiver.getText())));
   if (!looksLikeRegistrar) {
     return {
       why: `first argument \`${receiver.getText()}\` is not a recognized FeatureRegistrar — rewrite to <registrar>.crud(…) by hand`,
@@ -451,43 +467,40 @@ function isOwnedByImport(node: Node): boolean {
   return node.getFirstAncestorByKind(SyntaxKind.ImportDeclaration) !== undefined;
 }
 
-export function transformObjectFormSource(text: string, fileName = "snippet.ts"): ObjectFormResult {
-  if (!CHEAP_PREFILTER.test(text)) return { output: text, rewrites: [], manual: [] };
-
-  const project = parserProject();
-  const sourceFile = project.createSourceFile(fileName, text, { overwrite: true });
-  const rewriter = new SourceRewriter(text, fileName);
-  const crudImports = crudImportsByLocalName(sourceFile);
-  const rewrittenCrudCallees = new Set<Node>();
-
-  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    const callee = call.getExpression();
-
-    if (Node.isIdentifier(callee) && crudImports.has(callee.getText())) {
-      const plan = planCrud(rewriter, call, text);
-      rewriter.recordPlan(call, CRUD_FUNCTION_NAME, plan);
-      if (!("why" in plan)) rewrittenCrudCallees.add(callee);
-      continue;
-    }
-
-    if (!Node.isPropertyAccessExpression(callee)) continue;
-    const method = callee.getName();
-    if (!isRegistrarMethod(method)) continue;
-    const args = call.getArguments();
-    if (!isPositionalShape(method, args)) continue;
-
-    const receiver = callee.getExpression();
-    if (isFeatureRegistrarReceiver(receiver)) {
-      rewriter.recordPlan(call, method, planRegistrarCall(rewriter, call, method));
-    } else if (isUnresolvedRegistrarLookalike(receiver)) {
-      rewriter.recordManual(
-        call,
-        method,
-        `receiver \`${receiver.getText()}\` is not a resolvable FeatureRegistrar (no defineFeature callback parameter or FeatureRegistrar-typed binding) — rewrite by hand`,
-      );
-    }
+function visitRegistrarCall(
+  rewriter: SourceRewriter,
+  call: CallExpression,
+  assumeRegistrarNames: ReadonlySet<string>,
+): void {
+  const callee = call.getExpression();
+  const method = Node.isPropertyAccessExpression(callee) ? callee.getName() : undefined;
+  if (
+    !Node.isPropertyAccessExpression(callee) ||
+    method === undefined ||
+    !isRegistrarMethod(method) ||
+    !isPositionalShape(method, call.getArguments())
+  ) {
+    // skip: not a positional registrar call, nothing to rewrite
+    return;
   }
+  const receiver = callee.getExpression();
+  if (isFeatureRegistrarReceiver(receiver) || isAssumedRegistrar(receiver, assumeRegistrarNames)) {
+    rewriter.recordPlan(call, method, planRegistrarCall(rewriter, call, method));
+  } else if (isUnresolvedRegistrarLookalike(receiver)) {
+    rewriter.recordManual(
+      call,
+      method,
+      `receiver \`${receiver.getText()}\` is not a resolvable FeatureRegistrar (no defineFeature callback parameter or FeatureRegistrar-typed binding) — rewrite by hand`,
+    );
+  }
+}
 
+function reportCrudImportLeftovers(
+  sourceFile: SourceFile,
+  rewriter: SourceRewriter,
+  crudImports: ReadonlyMap<string, ImportSpecifier>,
+  rewrittenCrudCallees: ReadonlySet<Node>,
+): void {
   for (const [localName, specifier] of crudImports) {
     const remainingUses = sourceFile
       .getDescendantsOfKind(SyntaxKind.Identifier)
@@ -504,6 +517,39 @@ export function transformObjectFormSource(text: string, fileName = "snippet.ts")
       );
     }
   }
+}
+
+export interface ObjectFormSourceOptions {
+  /** Receivers with these names count as registrars when their binding cannot be resolved — for doc snippets that show `r.…` without a surrounding defineFeature. */
+  readonly assumeRegistrarNames?: ReadonlySet<string>;
+}
+
+export function transformObjectFormSource(
+  text: string,
+  fileName = "snippet.ts",
+  options: ObjectFormSourceOptions = {},
+): ObjectFormResult {
+  const assumeRegistrarNames = options.assumeRegistrarNames ?? new Set<string>();
+  if (!CHEAP_PREFILTER.test(text)) return { output: text, rewrites: [], manual: [] };
+
+  const project = parserProject();
+  const sourceFile = project.createSourceFile(fileName, text, { overwrite: true });
+  const rewriter = new SourceRewriter(text, fileName);
+  const crudImports = crudImportsByLocalName(sourceFile);
+  const rewrittenCrudCallees = new Set<Node>();
+
+  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    const callee = call.getExpression();
+    if (Node.isIdentifier(callee) && crudImports.has(callee.getText())) {
+      const plan = planCrud(rewriter, call, text, assumeRegistrarNames);
+      rewriter.recordPlan(call, CRUD_FUNCTION_NAME, plan);
+      if (!("why" in plan)) rewrittenCrudCallees.add(callee);
+    } else {
+      visitRegistrarCall(rewriter, call, assumeRegistrarNames);
+    }
+  }
+
+  reportCrudImportLeftovers(sourceFile, rewriter, crudImports, rewrittenCrudCallees);
 
   const output = rewriter.textOf(0, text.length);
   project.removeSourceFile(sourceFile);
@@ -568,6 +614,7 @@ async function formatWithBiome(files: readonly string[], cwd: string): Promise<v
     console.log(
       "[object-form] biome not found in node_modules/.bin — format the changed files yourself",
     );
+    // skip: formatting is a convenience, the rewrite itself is already on disk
     return;
   }
   for (let i = 0; i < files.length; i += FORMAT_BATCH_SIZE) {
@@ -599,10 +646,9 @@ function countByMethod(rewrites: readonly ObjectFormRewrite[]): string {
     .join(", ");
 }
 
-async function main(): Promise<void> {
-  let options: CliOptions;
+function parseArgsOrExit(argv: readonly string[]): CliOptions {
   try {
-    options = parseArgs(process.argv.slice(2));
+    return parseArgs(argv);
   } catch (err) {
     if (err instanceof CliError) {
       console.error(`[object-form] ${err.message}`);
@@ -610,14 +656,16 @@ async function main(): Promise<void> {
     }
     throw err;
   }
+}
 
-  const files = collectSourceFiles(options.paths, { isMigratableFile }).filter(
-    (file) => !isFixturePath(file),
-  );
-  const allRewrites: ObjectFormRewrite[] = [];
-  const allManual: ObjectFormManualSite[] = [];
-  const changedFiles: string[] = [];
+interface RunSummary {
+  readonly rewrites: ObjectFormRewrite[];
+  readonly manual: ObjectFormManualSite[];
+  readonly changedFiles: string[];
+}
 
+function transformFiles(files: readonly string[], mode: Mode): RunSummary {
+  const summary: RunSummary = { rewrites: [], manual: [], changedFiles: [] };
   for (const file of files) {
     const before = readFileSync(file, "utf8");
     const result = transformObjectFormSource(before, file);
@@ -627,23 +675,32 @@ async function main(): Promise<void> {
     for (const site of result.manual) {
       console.log(`${shown}:${site.line}  ${site.method}  manual: ${site.why}`);
     }
-    allRewrites.push(...result.rewrites);
-    allManual.push(...result.manual);
-    if (options.mode === "write" && result.output !== before) {
+    summary.rewrites.push(...result.rewrites);
+    summary.manual.push(...result.manual);
+    if (mode === "write" && result.output !== before) {
       writeFileSync(file, result.output);
-      changedFiles.push(file);
+      summary.changedFiles.push(file);
     }
   }
+  return summary;
+}
+
+async function main(): Promise<void> {
+  const options = parseArgsOrExit(process.argv.slice(2));
+  const files = collectSourceFiles(options.paths, { isMigratableFile }).filter(
+    (file) => !isFixturePath(file),
+  );
+  const { rewrites, manual, changedFiles } = transformFiles(files, options.mode);
 
   console.log(
-    `\n[object-form] ${options.mode === "write" ? "rewritten" : "rewritable"}: ${allRewrites.length} (${countByMethod(allRewrites)}); manual: ${allManual.length}`,
+    `\n[object-form] ${options.mode === "write" ? "rewritten" : "rewritable"}: ${rewrites.length} (${countByMethod(rewrites)}); manual: ${manual.length}`,
   );
 
   if (options.mode === "write" && options.format && changedFiles.length > 0) {
     await formatWithBiome(changedFiles, resolve(options.paths[0] ?? "."));
   }
 
-  const hasOpenSites = allRewrites.length + allManual.length > 0;
+  const hasOpenSites = rewrites.length + manual.length > 0;
   process.exit(options.mode === "check" && hasOpenSites ? 1 : 0);
 }
 

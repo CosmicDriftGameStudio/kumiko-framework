@@ -295,7 +295,7 @@ describe("feature-toggles runtime cache", () => {
   });
 
   test("cascade: widget-tracker requires widget → disabling widget drops widget-tracker too", () => {
-    // widget-tracker has r.requires("widget") declared. Disabling widget
+    // widget-tracker has r.requires({ features: ["widget"] }) declared. Disabling widget
     // should cascade through the resolver so widget-tracker is effectively
     // off even though nobody touched its own override row.
     runtime.apply("widget", false);

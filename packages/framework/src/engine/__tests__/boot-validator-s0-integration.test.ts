@@ -124,12 +124,12 @@ describe("S0 Integration — full surface stack", () => {
     });
 
     const userDataRights = defineFeature("user-data-rights", (r) => {
-      // VERGESSEN: r.requires("compliance-profiles")
+      // VERGESSEN: r.requires({ features: ["compliance-profiles"] })
       r.usesApi("compliance.forTenant");
     });
 
     expect(() => validateBoot([complianceProfiles, userDataRights])).toThrow(
-      /not in requires\/optionalRequires\. Add r\.requires\("compliance-profiles"\)/,
+      /not in requires\/optionalRequires\. Add r\.requires\(\{ features: \["compliance-profiles"\] \}\)/,
     );
   });
 

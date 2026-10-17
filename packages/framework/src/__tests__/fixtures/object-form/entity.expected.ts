@@ -7,7 +7,7 @@ export const feature = defineFeature("orders", (r) => {
   r.entity({ name: "invoice", fields: { total: createMoneyField({ required: true }) },
     table: "invoices" });
 
-  r.entity({ name: "customer", ...createEntity({ fields: { name: createTextField({}) } }) });
+  r.entity({ name: "customer", ...createEntity({ fields: { name: createTextField({ personal: false, reason: "test_fixture" }) } }) });
 
   r.entity({ name: "legacy", ...legacyEntity, backingTable: legacyTable });
 

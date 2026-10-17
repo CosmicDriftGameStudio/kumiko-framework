@@ -567,7 +567,7 @@ import type { InvoiceStatus } from "./reducer";
 export { invoiceEntity } from "./entities/invoice";
 
 export const stateMachineFeature = defineFeature("billing", (r) => {
-  r.entity("invoice", invoiceEntity);
+  r.entity({ name: "invoice", ...invoiceEntity });
 
   // Domain events — one per intent. Names live in events.ts so the reducer
   // and the projection stay in sync. The auto "invoice.created" event from

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../index.js";
+import * as z from "zod";
+import { defineFeature, type FeatureRegistrar } from "../index.js";
 
 // Object-Form is the shape the feature-ast renderer emits for Designer/
 // AI-generated code (`r.entity({ name: "item", ... })` instead of
@@ -11,14 +12,11 @@ import { defineFeature } from "../index.js";
 // positional-form produce identical FeatureDefinition state.
 
 describe("registrar Object-Form — runtime parity with positional form", () => {
-  test("requires: array-unwrap ({ features }) matches variadic-string form", () => {
-    const positional = defineFeature("a", (r) => {
+  test("requires: array-unwrap ({ features }) lands the feature names in order", () => {
+    const feature = defineFeature("a", (r) => {
       r.requires({ features: ["auth", "tenant"] });
     });
-    const objectForm = defineFeature("b", (r) => {
-      r.requires({ features: ["auth", "tenant"] });
-    });
-    expect(objectForm.requires).toEqual(positional.requires);
+    expect(feature.requires).toEqual(["auth", "tenant"]);
   });
 
   test("optionalRequires: array-unwrap matches variadic-string form", () => {
@@ -41,15 +39,28 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
     expect(objectForm.configReads).toEqual(positional.configReads);
   });
 
-  test("entity: split-name ({ name, ...fields }) matches (name, definition) form", () => {
+  test("entity: split-name ({ name, ...fields }) registers the definition without the name key", () => {
     const definition = { fields: { title: { type: "text" as const, required: true } } };
-    const positional = defineFeature("a", (r) => {
+    const feature = defineFeature("a", (r) => {
       r.entity({ name: "item", ...definition });
     });
-    const objectForm = defineFeature("b", (r) => {
-      r.entity({ name: "item", ...definition });
+    expect(feature.entities?.["item"]).toEqual(definition);
+  });
+
+  test("entity: backingTable lands in entityTables, not in the entity definition", () => {
+    const table = { sentinel: "drizzle table" };
+    const feature = defineFeature("a", (r) => {
+      r.entity({ name: "item", fields: {}, backingTable: table });
     });
-    expect(objectForm.entities).toEqual(positional.entities);
+    expect(feature.entityTables?.["item"]).toBe(table);
+    expect(feature.entities?.["item"]).not.toHaveProperty("backingTable");
+  });
+
+  test("entity: without backingTable no entityTables entry exists", () => {
+    const feature = defineFeature("a", (r) => {
+      r.entity({ name: "item", fields: {} });
+    });
+    expect(feature.entityTables?.["item"]).toBeUndefined();
   });
 
   test("metric: split-name matches (shortName, options) form", () => {
@@ -187,5 +198,94 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
       r.notification({ name: "itemLowStock", trigger: { on: "item:lowStock" }, recipient, data });
     });
     expect(objectForm.notifications).toEqual(positional.notifications);
+  });
+});
+
+// The positional overloads were removed in 0.366. The static types reject them, so the
+// runtime fallback is reached through Reflect.apply, like untyped JS callers or stale
+// generated code would reach it.
+describe("registrar — removed positional form fails at registration", () => {
+  const schema = z.object({});
+  const handler = async () => ({ isSuccess: true as const, data: {} });
+  const access = { openToAll: { reason: "test" } } as const;
+
+  const positionalCalls: ReadonlyArray<{
+    readonly method: string;
+    readonly call: (r: FeatureRegistrar) => unknown;
+  }> = [
+    {
+      method: "writeHandler",
+      call: (r) => Reflect.apply(r.writeHandler, r, ["x", schema, handler, { access }]),
+    },
+    {
+      method: "queryHandler",
+      call: (r) => Reflect.apply(r.queryHandler, r, ["x", schema, handler, { access }]),
+    },
+    {
+      method: "entity",
+      call: (r) => Reflect.apply(r.entity, r, ["item", { fields: {} }]),
+    },
+    {
+      method: "requires",
+      call: (r) => Reflect.apply(r.requires, r, ["auth"]),
+    },
+    {
+      method: "hook",
+      call: (r) => Reflect.apply(r.hook, r, ["postSave", "item", () => {}]),
+    },
+  ];
+
+  for (const { method, call } of positionalCalls) {
+    test(`r.${method}: a positional call throws and points at the codemod`, () => {
+      expect(() =>
+        defineFeature("legacy", (r) => {
+          call(r);
+        }),
+      ).toThrow(`positional r.${method}(…) removed in 0.366, run \`bun kumiko-upgrade --apply\``);
+    });
+  }
+});
+
+describe("registrar — hook definitions are checked by the type system", () => {
+  test("a validation hook rejects escapeHatch", () => {
+    expect(() =>
+      defineFeature("types", (r) => {
+        // @ts-expect-error validation hooks have no escapeHatch
+        r.hook({
+          type: "validation",
+          target: "item",
+          handler: () => null,
+          escapeHatch: { reason: "not allowed here" },
+        });
+      }),
+    ).toThrow(/does not accept escapeHatch/);
+  });
+
+  test("a preDelete hook rejects phase", () => {
+    // The type is the only barrier here: the registrar itself does not inspect `phase`.
+    expect(() =>
+      defineFeature("types", (r) => {
+        r.hook({
+          type: "preDelete",
+          target: "item",
+          handler: async () => {},
+          // @ts-expect-error only post hooks (postSave, postDelete, postQuery) take a phase
+          phase: "before",
+        });
+      }),
+    ).not.toThrow();
+  });
+
+  test("a preSave hook rejects an { allOf } target", () => {
+    expect(() =>
+      defineFeature("types", (r) => {
+        r.hook({
+          type: "preSave",
+          // @ts-expect-error preSave needs a concrete handler target, not { allOf }
+          target: { allOf: "item" },
+          handler: async (changes) => changes,
+        });
+      }),
+    ).toThrow(/only supports postSave\/preDelete\/postDelete\/postQuery/);
   });
 });

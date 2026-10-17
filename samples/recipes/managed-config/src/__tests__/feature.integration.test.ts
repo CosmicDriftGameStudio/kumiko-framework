@@ -176,7 +176,7 @@ describe("managed config — tenant cascade override", () => {
 
 describe("feature contract — backing:secrets declares the secrets dependency", () => {
   test("registry build rejects integrationsFeature without the secrets feature", () => {
-    // r.requires("secrets") is what makes this throw: without the dependency a
+    // r.requires({ features: ["secrets"] }) is what makes this throw: without the dependency a
     // consumer would only discover the missing tenant_secrets table at runtime.
     // config is registered so the failure isolates the secrets requirement.
     expect(() => createRegistry([createConfigFeature(), integrationsFeature])).toThrow(/secrets/);

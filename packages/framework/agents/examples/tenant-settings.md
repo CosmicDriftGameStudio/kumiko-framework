@@ -35,7 +35,7 @@ export const invoiceEntity = createEntity({
 });
 
 export const invoiceFeature = defineFeature("invoice", (r) => {
-  r.entity("invoice", invoiceEntity);
+  r.entity({ name: "invoice", ...invoiceEntity });
   r.writeHandler(
     defineCreateWithTenantDefaults("invoice", invoiceEntity, {
       access: { roles: ["Admin"] },
@@ -263,7 +263,7 @@ export const invoiceEntity = createEntity({
 const ACCESS = { roles: ["Admin"] } as const;
 
 export const invoiceFeature = defineFeature("invoice", (r) => {
-  r.entity("invoice", invoiceEntity);
+  r.entity({ name: "invoice", ...invoiceEntity });
   r.writeHandler(
     defineCreateWithTenantDefaults("invoice", invoiceEntity, {
       access: ACCESS,

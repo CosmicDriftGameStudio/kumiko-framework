@@ -43,7 +43,9 @@ describe("scaffoldAppFeature", () => {
     const feature = readFileSync(join(appRoot, "src/features/product-catalog/feature.ts"), "utf-8");
     expect(feature).toContain("defineFeature(PRODUCT_CATALOG_FEATURE");
     expect(feature).toContain("export const productCatalogFeature");
-    expect(feature).toContain('r.entity("product-catalog-item", productCatalogItemEntity)');
+    expect(feature).toContain(
+      'r.entity({ name: "product-catalog-item", ...productCatalogItemEntity })',
+    );
     expect(feature).toContain('type: "entityList"');
     expect(feature).toContain("r.translations({ keys: productCatalogTranslationKeys })");
     // Konvention: Entity-Felder leben in schema/, nicht inline in feature.ts.

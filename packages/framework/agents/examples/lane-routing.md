@@ -178,18 +178,18 @@ const orderEntity = createEntity({
 
 export function createLaneRoutingFeature(): FeatureDefinition {
   return defineFeature("orders", (r) => {
-    r.entity("order", orderEntity);
+    r.entity({ name: "order", ...orderEntity });
 
     // Write handler — runs in the API process (or wherever the command
     // lands). Event "orders:write:order:create" is the auto-generated
     // write-event both jobs trigger on.
-    r.writeHandler(
-      "order:create",
-      z.object({
+    r.writeHandler({
+      name: "order:create",
+      schema: z.object({
         customerName: z.string().min(1),
         amount: z.number().positive(),
       }),
-      async (event) => ({
+      handler: async (event) => ({
         isSuccess: true as const,
         data: {
           id: 1,
@@ -197,15 +197,13 @@ export function createLaneRoutingFeature(): FeatureDefinition {
           amount: event.payload.amount,
         },
       }),
-      {
-        access: {
-          openToAll: {
-            reason:
-              "demo recipe: any signed-in user may place an order; the handler is a stub with no persistence",
-          },
+      access: {
+        openToAll: {
+          reason:
+            "demo recipe: any signed-in user may place an order; the handler is a stub with no persistence",
         },
       },
-    );
+    });
 
     // Receipt-rendering: heavy CPU work. Pinned to `worker` so the
     // BullMQ consumer on the API process never picks it up — even if the

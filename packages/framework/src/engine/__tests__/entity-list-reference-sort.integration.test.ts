@@ -33,12 +33,12 @@ const ticketEntity = createEntity({
       entity: "listrefsortpeople:person",
       labelField: "name",
       sortable: true,
-    },
+    } as const,
     plainOwnerId: {
       type: "reference",
       entity: "listrefsortpeople:person",
       labelField: "name",
-    },
+    } as const,
   },
 });
 const ticketTable = buildEntityTable("ticket", ticketEntity);

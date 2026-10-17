@@ -42,7 +42,7 @@ import { createTenantHandoverFeature } from "../index.js";
 
 const CLAIM = "tenant-handover:write:claim";
 const SECRET = "tenant-handover-storage-usage-secret";
-// files feature -> r.entity("fileRef", ...) -> implicit projection name
+// files feature -> r.entity({ name: "fileRef", ... }) -> implicit projection name
 // (registry-validate.ts's buildImplicitProjections naming convention).
 const FILE_REF_PROJECTION = "files:projection:file-ref-entity";
 

@@ -77,7 +77,7 @@ See the [tags feature reference](/en/bundled-features/tags/) for the full set.
 tags             → core bundle: tag + tag-assignment entities,
                    create/assign/remove handlers, list queries
 note-management  → our feature: a plain `note` entity. Declares
-                   r.requires("tags") only so the bundle is mounted —
+                   r.requires({ features: ["tags"] }) only so the bundle is mounted —
                    the note itself is completely tag-agnostic.
 ```
 

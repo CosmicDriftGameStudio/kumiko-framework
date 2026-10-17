@@ -369,6 +369,13 @@ export function manualEntryId(version: string, title: string): string {
   return `${version}:${hash}`;
 }
 
+// Breaking entries that need hand work carry the id `kumiko-upgrade --resolve` takes.
+function manualIdOf(entry: ChangelogEntry): string | undefined {
+  return entry.type === "breaking" && needsManualMigration(entry)
+    ? manualEntryId(entry.version, entry.title)
+    : undefined;
+}
+
 function toMarkerManual(entry: ChangelogEntry): UpgradeMarkerManual {
   return {
     id: manualEntryId(entry.version, entry.title),
@@ -895,7 +902,17 @@ export async function runUpgradeCli(
 
   if (jsonMode) {
     const { pendingManual } = carryOf(markerRead);
-    out.log(JSON.stringify({ currentVersion, installedVersion, pending, pendingManual }, null, 2));
+    const pendingWithManualId = pending.map((entry) => {
+      const manualId = manualIdOf(entry);
+      return manualId === undefined ? entry : { ...entry, manualId };
+    });
+    out.log(
+      JSON.stringify(
+        { currentVersion, installedVersion, pending: pendingWithManualId, pendingManual },
+        null,
+        2,
+      ),
+    );
     return 0;
   }
 
@@ -919,7 +936,8 @@ export async function runUpgradeCli(
     out.log(`  ⚠ BREAKING (${breaking.length})`);
     out.log("");
     for (const e of breaking) {
-      out.log(`    ${e.version} · ${e.title}`);
+      const manualId = manualIdOf(e);
+      out.log(`    ${e.version} · ${e.title}${manualId === undefined ? "" : `  [${manualId}]`}`);
       if (verbose && e.detail) {
         out.log(`      ${e.detail}`);
       }

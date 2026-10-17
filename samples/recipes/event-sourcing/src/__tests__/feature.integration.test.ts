@@ -709,3 +709,29 @@ describe("Event Sourcing Showcase", () => {
     expect(body.error.details?.bucket).toBe("user");
   });
 });
+
+describe("role-restricted write handlers", () => {
+  const viewer = createTestUser({ id: 2, roles: ["Viewer"] });
+
+  test("a caller without the Admin role is rejected on acknowledge and take-snapshot", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      "showcase:write:invoice:create",
+      { customer: "Acme" },
+      admin,
+    );
+
+    const acknowledgeError = await stack.http.writeErr(
+      "showcase:write:invoice:acknowledge",
+      { id, approverId: "u-42" },
+      viewer,
+    );
+    const snapshotError = await stack.http.writeErr(
+      "showcase:write:invoice:take-snapshot",
+      { id },
+      viewer,
+    );
+
+    expect(acknowledgeError.code).toBe("access_denied");
+    expect(snapshotError.code).toBe("access_denied");
+  });
+});

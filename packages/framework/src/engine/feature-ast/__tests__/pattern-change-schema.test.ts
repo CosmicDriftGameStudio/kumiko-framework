@@ -369,7 +369,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { SOME_TYPE } from "./somewhere";
 
 defineFeature("billing", (r) => {
-  r.entity("invoice", { fields: { payload: { type: SOME_TYPE } } });
+  r.entity({ name: "invoice", fields: { payload: { type: SOME_TYPE } } });
 });
 `;
     const result = parseSourceFile(makeSourceFile(source));
@@ -727,7 +727,7 @@ defineFeature("f", (r) => {
     escapeHatch: { reason: "r" },
   });
 
-  r.hook("postSave", "z", async (event, ctx) => {}, { escapeHatch: { reason: REASON } });
+  r.hook({ type: "postSave", target: "z", handler: async (event, ctx) => {}, escapeHatch: { reason: REASON } });
 });
 `;
 

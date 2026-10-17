@@ -46,8 +46,8 @@ const leaseEntity = createEntity({
   table: "elref_leases",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
-    propertyId: { type: "reference", entity: "property" },
-    extraIds: { type: "reference", entity: "property", multiple: true },
+    propertyId: { type: "reference", entity: "property" } as const,
+    extraIds: { type: "reference", entity: "property", multiple: true } as const,
   },
   access: { write: { Admin: "all" } },
 });

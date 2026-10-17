@@ -38,7 +38,7 @@ export function validateApiExposureMatching(
     const allDeps = [...feature.requires, ...feature.optionalRequires];
     if (!allDeps.includes(providerFeature)) {
       throw new Error(
-        `[Feature ${feature.name}] r.usesApi("${apiName}") is exposed by "${providerFeature}" but feature is not in requires/optionalRequires. Add r.requires("${providerFeature}").`,
+        `[Feature ${feature.name}] r.usesApi("${apiName}") is exposed by "${providerFeature}" but feature is not in requires/optionalRequires. Add r.requires({ features: ["${providerFeature}"] }).`,
       );
     }
 
@@ -74,7 +74,7 @@ export function validateExtensionUsages(
     const allDeps = [...feature.requires, ...feature.optionalRequires];
     if (!allDeps.includes(providerFeature)) {
       throw new Error(
-        `Feature "${feature.name}" uses extension "${usage.extensionName}" but missing requires("${providerFeature}"). Add r.requires("${providerFeature}").`,
+        `Feature "${feature.name}" uses extension "${usage.extensionName}" but missing requires("${providerFeature}"). Add r.requires({ features: ["${providerFeature}"] }).`,
       );
     }
   }

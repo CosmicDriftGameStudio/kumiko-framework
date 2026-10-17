@@ -30,7 +30,7 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
   // config is optional: the retention-days key only resolves when the
   // config feature is mounted (ctx.configResolver present) — the cleanup
   // job already falls back to FORM_DRAFT_DEFAULT_RETENTION_DAYS otherwise
-  // (see handlers/cleanup.job.ts). A hard r.requires("config") would break
+  // (see handlers/cleanup.job.ts). A hard r.requires({ features: ["config"] }) would break
   // every app that mounts form-draft without config, which is a breaking
   // change no minor/patch release should introduce silently.
   r.optionalRequires("config");

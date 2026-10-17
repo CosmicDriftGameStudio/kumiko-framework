@@ -793,6 +793,32 @@ describe("Event Sourcing Showcase", () => {
     expect(body.error.details?.bucket).toBe("user");
   });
 });
+
+describe("role-restricted write handlers", () => {
+  const viewer = createTestUser({ id: 2, roles: ["Viewer"] });
+
+  test("a caller without the Admin role is rejected on acknowledge and take-snapshot", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      "showcase:write:invoice:create",
+      { customer: "Acme" },
+      admin,
+    );
+
+    const acknowledgeError = await stack.http.writeErr(
+      "showcase:write:invoice:acknowledge",
+      { id, approverId: "u-42" },
+      viewer,
+    );
+    const snapshotError = await stack.http.writeErr(
+      "showcase:write:invoice:take-snapshot",
+      { id },
+      viewer,
+    );
+
+    expect(acknowledgeError.code).toBe("access_denied");
+    expect(snapshotError.code).toBe("access_denied");
+  });
+});
 ```
 
 ### src/feature.ts
@@ -926,7 +952,7 @@ export const approverDirectoryTable = table("read_showcase_approver_directory", 
 // --- Feature ---
 
 export const invoiceFeature = defineFeature("showcase", (r) => {
-  r.entity("showcase-invoice", invoiceEntity);
+  r.entity({ name: "showcase-invoice", ...invoiceEntity });
 
   // Two domain events. "approved" is versioned — v1 stored `amount` as
   // string, v2 uses `amountCents` integer. The DECLARATIVE migration form
@@ -1059,21 +1085,21 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
 
   // --- Write handlers ---
 
-  r.writeHandler(
-    "invoice:create",
-    z.object({ customer: z.string() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "invoice:create",
+    schema: z.object({ customer: z.string() }),
+    handler: async (event, ctx) =>
       invoiceExecutor.create(
         { customer: event.payload.customer, status: "draft" },
         event.user,
         ctx.db,
       ),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "invoice:approve",
-    z.object({
+  r.writeHandler({
+    name: "invoice:approve",
+    schema: z.object({
       id: z.uuid(),
       amountCents: z.number().int(),
       approvedBy: z.string(),
@@ -1082,7 +1108,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       geoRegion: z.string().optional(),
       abTestBucket: z.string().optional(),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const headers: Record<string, string> = {};
       if (event.payload.geoRegion) headers["geoRegion"] = event.payload.geoRegion;
       if (event.payload.abTestBucket) headers["abTestBucket"] = event.payload.abTestBucket;
@@ -1095,13 +1121,13 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "invoice:acknowledge",
-    z.object({ id: z.uuid(), approverId: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "invoice:acknowledge",
+    schema: z.object({ id: z.uuid(), approverId: z.string() }),
+    handler: async (event, ctx) => {
       const row = await fetchOne<{ displayName: string }>(ctx.db, approverDirectoryTable, {
         approverId: event.payload.approverId,
       });
@@ -1114,13 +1140,13 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "invoice:pay",
-    z.object({ id: z.uuid(), amountCents: z.number().int() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "invoice:pay",
+    schema: z.object({ id: z.uuid(), amountCents: z.number().int() }),
+    handler: async (event, ctx) => {
       await ctx.appendEvent({
         aggregateId: event.payload.id,
         aggregateType: "showcase-invoice",
@@ -1129,35 +1155,33 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    {
-      access: { roles: ["Admin"] },
-      // Per-user cap: a single admin shouldn't fire more than 5 pay
-      // operations per minute. Real production caps would be per
-      // tenant + handler ("tenant+handler") to keep one admin from
-      // monopolising the tenant's quota — kept simple here for the
-      // sample. Demonstrates the fourth dispatcher gate (rate-limit
-      // → access → validation → handler).
-      rateLimit: { per: "user", limit: 5, windowSeconds: 60 },
-    },
-  );
+    access: { roles: ["Admin"] },
+    // Per-user cap: a single admin shouldn't fire more than 5 pay
+    // operations per minute. Real production caps would be per
+    // tenant + handler ("tenant+handler") to keep one admin from
+    // monopolising the tenant's quota — kept simple here for the
+    // sample. Demonstrates the fourth dispatcher gate (rate-limit
+    // → access → validation → handler).
+    rateLimit: { per: "user", limit: 5, windowSeconds: 60 },
+  });
 
-  r.writeHandler(
-    "invoice:archive",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "invoice:archive",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       await ctx.archiveStream(event.payload.id, { aggregateType: "showcase-invoice" });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Persist a snapshot of the current state. In practice, features schedule
   // this from a lifecycle hook (every N events, every M minutes) — here it's
   // an explicit write-handler so the integration test can drive it.
-  r.writeHandler(
-    "invoice:take-snapshot",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "invoice:take-snapshot",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       // Rebuild the state from the current stream so the snapshot reflects
       // the committed event log, not an in-memory guess. Use the upcaster-
       // aware ctx.loadAggregate to stay consistent with read-time semantics.
@@ -1175,17 +1199,17 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       });
       return { isSuccess: true as const, data: { id: event.payload.id, snapshotVersion: version } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // --- Query handlers ---
 
   // Live aggregation via ctx.loadAggregate — reduces events into a state
   // snapshot. Supports asOf for point-in-time reads.
-  r.queryHandler(
-    "invoice:state",
-    z.object({ id: z.uuid(), asOf: z.iso.datetime().optional() }),
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "invoice:state",
+    schema: z.object({ id: z.uuid(), asOf: z.iso.datetime().optional() }),
+    handler: async (query, ctx) => {
       const events = await ctx.loadAggregate(query.payload.id, {
         ...(query.payload.asOf ? { asOf: Temporal.Instant.from(query.payload.asOf) } : {}),
       });
@@ -1195,24 +1219,22 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       }
       return state;
     },
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo recipe: any signed-in user may read the event-sourced invoice state; " +
-            "there is no per-user invoice ownership in this sample",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo recipe: any signed-in user may read the event-sourced invoice state; " +
+          "there is no per-user invoice ownership in this sample",
       },
     },
-  );
+  });
 
   // Snapshot-aware fast path. Uses the latest snapshot if available and
   // only replays delta events past it. Identical state shape to
   // invoice:state — the two are interchangeable modulo the perf profile.
-  r.queryHandler(
-    "invoice:fast-state",
-    z.object({ id: z.uuid() }),
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "invoice:fast-state",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => {
       const result = await ctx.loadAggregateWithSnapshot<InvoiceStateRecord>(
         query.payload.id,
         (state, evt) => {
@@ -1233,16 +1255,14 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
         snapshotHit: result.snapshotHit,
       };
     },
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo recipe: any signed-in user may read the snapshot-accelerated invoice " +
-            "state; there is no per-user invoice ownership in this sample",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo recipe: any signed-in user may read the snapshot-accelerated invoice " +
+          "state; there is no per-user invoice ownership in this sample",
       },
     },
-  );
+  });
 
   // Read-model query via ctx.queryProjection — auto-tenant-scoped. The
   // helper collapses the zero-argument "return this projection" pattern
@@ -1267,10 +1287,10 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
   // bytes nobody will read. The handler checks ctx.signal at every
   // iteration; on abort, throws and the dispatcher returns an error to
   // the (already-disconnected) client.
-  r.queryHandler(
-    "ops:slow-export",
-    z.object({ chunks: z.number().int().min(1).max(1000) }),
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "ops:slow-export",
+    schema: z.object({ chunks: z.number().int().min(1).max(1000) }),
+    handler: async (query, ctx) => {
       const accumulated: number[] = [];
       for (let i = 0; i < query.payload.chunks; i++) {
         ctx.signal?.throwIfAborted();
@@ -1281,7 +1301,7 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       }
       return { processed: accumulated.length };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 ```

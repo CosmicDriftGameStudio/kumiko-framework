@@ -11,21 +11,21 @@ import {
   type WriteHandlerDefinition,
 } from "./define-handler.js";
 import type { RegisterEntityCrudOptions } from "./entity-handlers.js";
-import { registerEntityCrud } from "./entity-handlers.js";
+import { registerCrudHandlers } from "./entity-handlers.js";
 import type { FeatureBuilderState } from "./feature-builder-state.js";
 import { resolveName } from "./handler-helpers.js";
-import { splitNamedDefinition } from "./object-form.js";
+import { isObjectArgument, throwPositionalFormRemoved } from "./object-form.js";
 import type {
   AccessRule,
   AgentHandlerHints,
   BeforeTransactionPhase,
   EntityDefinition,
+  EntityObjectDefinition,
   EntityRef,
   EscapeHatchDeclaration,
   HandlerRef,
   KumikoEventTypeMap,
   NameOrRef,
-  PayloadRateLimitOption,
   QueryHandlerFn,
   RateLimitDeclaration,
   RelationDefinition,
@@ -134,17 +134,11 @@ export function buildEntityHandlerMethods<TName extends string>(
   name: TName,
 ) {
   const methods = {
-    entity(
-      nameOrDefinition: string | ({ readonly name: string } & EntityDefinition),
-      definition?: EntityDefinition,
-      options?: { readonly table?: unknown },
-    ): EntityRef {
-      const [entityName, entityDefinition] =
-        typeof nameOrDefinition === "string"
-          ? [nameOrDefinition, definition as EntityDefinition]
-          : splitNamedDefinition(nameOrDefinition);
+    entity(definition: EntityObjectDefinition): EntityRef {
+      if (!isObjectArgument(definition)) throwPositionalFormRemoved(name, "entity");
+      const { name: entityName, backingTable, ...entityDefinition } = definition;
       state.entities[entityName] = entityDefinition;
-      if (options?.table !== undefined) state.entityTables[entityName] = options.table;
+      if (backingTable !== undefined) state.entityTables[entityName] = backingTable;
       return { name: entityName, table: entityDefinition.table ?? toTableName(entityName) };
     },
     relation(
@@ -166,127 +160,69 @@ export function buildEntityHandlerMethods<TName extends string>(
       state.relations[entityName][resolvedRelationName] = resolvedDefinition;
     },
     writeHandler<TName extends string, TSchema extends ZodType, TPrepared = undefined>(
-      nameOrDef:
-        | string
-        | WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
-      schema?: TSchema,
-      handler?: WriteHandlerFn<z.infer<TSchema>>,
-      options?: {
-        access: AccessRule;
-        rateLimit?: RateLimitDeclaration;
-        additionalRateLimits?: readonly PayloadRateLimitOption[];
-        description?: string;
-        agent?: AgentHandlerHints;
-        escapeHatch?: EscapeHatchDeclaration;
-      },
+      def: WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
     ): HandlerRef {
-      if (typeof nameOrDef === "object") {
-        const def = nameOrDef;
-        assertHandlerNameFree(state, name, "write", def.name);
-        state.writeHandlers[def.name] = {
-          name: def.name,
-          schema: def.schema,
-          // @cast-boundary engine-bridge — typed Dev-API's handler is
-          // generic over the schema's parsed payload (`WriteEvent<output<TSchema>>`),
-          // the storage form WriteHandlerFn carries `WriteEvent<unknown>`.
-          // Function-arg variance: TS sees the typed handler as stricter
-          // than the loose storage shape and rejects direct assignment.
-          // The runtime value is identical — the cast crosses that boundary.
-          // `satisfies` does not work here (it asserts assignability, which
-          // is what fails). Explicit cast is the right tool.
-          handler: def.handler as WriteHandlerFn,
-          access: def.access,
-          ...agentSlots(def),
-          ...(def.excludedFields && { excludedFields: def.excludedFields }),
-          ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
-          ...(def.rateLimit && { rateLimit: def.rateLimit }),
-          ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
-          ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
-          ...transactionPhaseSlots(def),
-          ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
-          // Forward the pipeline-build closure so boot-validators and
-          // Designer/AI tooling can inspect the step list. Absent on
-          // free-form handlers — defineWriteHandler only sets `perform`
-          // when the author used the pipeline form. Variance cast
-          // mirrors the handler-cast above: PipelineDef<output<TSchema>>
-          // is stricter than PipelineDef<unknown> for the same reason.
-          ...(def.perform !== undefined && {
-            perform: def.perform as PipelineDef,
-          }),
-        };
-        tryMapEntity(state, name, def.name);
-        return { name: def.name };
-      }
-      const inline = requireInlineHandlerArgs("writeHandler", schema, handler, options);
-      assertHandlerNameFree(state, name, "write", nameOrDef);
-      state.writeHandlers[nameOrDef] = {
-        name: nameOrDef,
-        schema: inline.schema,
-        handler: inline.handler as WriteHandlerFn, // @cast-boundary engine-bridge
-        access: inline.options.access,
-        ...agentSlots(inline.options),
-        ...(inline.options.rateLimit && { rateLimit: inline.options.rateLimit }),
-        ...(inline.options.additionalRateLimits && {
-          additionalRateLimits: inline.options.additionalRateLimits,
+      if (!isObjectArgument(def)) throwPositionalFormRemoved(name, "writeHandler");
+      assertHandlerNameFree(state, name, "write", def.name);
+      state.writeHandlers[def.name] = {
+        name: def.name,
+        schema: def.schema,
+        // @cast-boundary engine-bridge — typed Dev-API's handler is
+        // generic over the schema's parsed payload (`WriteEvent<output<TSchema>>`),
+        // the storage form WriteHandlerFn carries `WriteEvent<unknown>`.
+        // Function-arg variance: TS sees the typed handler as stricter
+        // than the loose storage shape and rejects direct assignment.
+        // The runtime value is identical — the cast crosses that boundary.
+        // `satisfies` does not work here (it asserts assignability, which
+        // is what fails). Explicit cast is the right tool.
+        handler: def.handler as WriteHandlerFn,
+        access: def.access,
+        ...agentSlots(def),
+        ...(def.excludedFields && { excludedFields: def.excludedFields }),
+        ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
+        ...(def.rateLimit && { rateLimit: def.rateLimit }),
+        ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
+        ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+        ...transactionPhaseSlots(def),
+        ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
+        // Forward the pipeline-build closure so boot-validators and
+        // Designer/AI tooling can inspect the step list. Absent on
+        // free-form handlers — defineWriteHandler only sets `perform`
+        // when the author used the pipeline form. Variance cast
+        // mirrors the handler-cast above: PipelineDef<output<TSchema>>
+        // is stricter than PipelineDef<unknown> for the same reason.
+        ...(def.perform !== undefined && {
+          perform: def.perform as PipelineDef,
         }),
-        ...(inline.options.escapeHatch && { escapeHatch: inline.options.escapeHatch }),
       };
-      tryMapEntity(state, name, nameOrDef);
-      return { name: nameOrDef };
+      tryMapEntity(state, name, def.name);
+      return { name: def.name };
     },
     queryHandler<TName extends string, TSchema extends ZodType>(
-      nameOrDef: string | QueryHandlerDefinition<TName, TSchema>,
-      schema?: TSchema,
-      handler?: QueryHandlerFn<z.infer<TSchema>>,
-      options?: {
-        access: AccessRule;
-        rateLimit?: RateLimitDeclaration;
-        outputSchema?: ZodType;
-        liveEntities?: readonly string[];
-        description?: string;
-        agent?: AgentHandlerHints;
-        escapeHatch?: EscapeHatchDeclaration;
-      },
+      def: QueryHandlerDefinition<TName, TSchema>,
     ): HandlerRef {
-      if (typeof nameOrDef === "object") {
-        const def = nameOrDef;
-        assertHandlerNameFree(state, name, "query", def.name);
-        state.queryHandlers[def.name] = {
-          name: def.name,
-          schema: def.schema,
-          // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
-          handler: def.handler as QueryHandlerFn, // @cast-boundary engine-bridge
-          access: def.access,
-          ...agentSlots(def),
-          ...(def.rateLimit && { rateLimit: def.rateLimit }),
-          ...(def.outputSchema && { outputSchema: def.outputSchema }),
-          ...(def.liveEntities && { liveEntities: def.liveEntities }),
-          ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
-          // Carry the definePagedQueryHandler brand through — this rebuild
-          // drops any field not explicitly listed.
-          ...(isPagedQueryHandler(def) && { [PAGED_QUERY_HANDLER_BRAND]: true }),
-          ...(isEntityConventionQueryHandler(def) && {
-            [ENTITY_CONVENTION_QUERY_BRAND]: true as const,
-          }),
-        };
-        tryMapEntity(state, name, def.name);
-        return { name: def.name };
-      }
-      const inline = requireInlineHandlerArgs("queryHandler", schema, handler, options);
-      assertHandlerNameFree(state, name, "query", nameOrDef);
-      state.queryHandlers[nameOrDef] = {
-        name: nameOrDef,
-        schema: inline.schema,
-        handler: inline.handler as QueryHandlerFn, // @cast-boundary engine-bridge
-        access: inline.options.access,
-        ...agentSlots(inline.options),
-        ...(inline.options.rateLimit && { rateLimit: inline.options.rateLimit }),
-        ...(inline.options.outputSchema && { outputSchema: inline.options.outputSchema }),
-        ...(inline.options.liveEntities && { liveEntities: inline.options.liveEntities }),
-        ...(inline.options.escapeHatch && { escapeHatch: inline.options.escapeHatch }),
+      if (!isObjectArgument(def)) throwPositionalFormRemoved(name, "queryHandler");
+      assertHandlerNameFree(state, name, "query", def.name);
+      state.queryHandlers[def.name] = {
+        name: def.name,
+        schema: def.schema,
+        // @cast-boundary engine-bridge — typed Dev-API → erased internal storage
+        handler: def.handler as QueryHandlerFn, // @cast-boundary engine-bridge
+        access: def.access,
+        ...agentSlots(def),
+        ...(def.rateLimit && { rateLimit: def.rateLimit }),
+        ...(def.outputSchema && { outputSchema: def.outputSchema }),
+        ...(def.liveEntities && { liveEntities: def.liveEntities }),
+        ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+        // Carry the definePagedQueryHandler brand through — this rebuild
+        // drops any field not explicitly listed.
+        ...(isPagedQueryHandler(def) && { [PAGED_QUERY_HANDLER_BRAND]: true }),
+        ...(isEntityConventionQueryHandler(def) && {
+          [ENTITY_CONVENTION_QUERY_BRAND]: true as const,
+        }),
       };
-      tryMapEntity(state, name, nameOrDef);
-      return { name: nameOrDef };
+      tryMapEntity(state, name, def.name);
+      return { name: def.name };
     },
     streamHandler<TName extends string, TSchema extends ZodType>(
       nameOrDef: string | StreamHandlerDefinition<TName, TSchema>,
@@ -326,7 +262,7 @@ export function buildEntityHandlerMethods<TName extends string>(
   return {
     ...methods,
     crud(entityName: string, entity: EntityDefinition, options?: RegisterEntityCrudOptions): void {
-      registerEntityCrud(methods, entityName, entity, options);
+      registerCrudHandlers(methods, entityName, entity, options);
     },
   };
 }

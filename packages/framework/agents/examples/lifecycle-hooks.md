@@ -20,19 +20,19 @@ back.
 
 ## What it shows
 
-- **`r.hook("validation", handlerRef, fn)`** — runs before the
+- **`r.hook({ type: "validation", target: handlerRef, handler })`** — runs before the
   handler body executes. Returns either `null` (pass) or an array of
   `{ field, error }` objects (fail). Used here to reject titles
   containing the word "spam" and titles longer than 200 characters.
-- **`r.hook("postSave", { allOf: entityRef }, fn)`** — fires after every
+- **`r.hook({ type: "postSave", target: { allOf: entityRef }, handler })`** — fires after every
   successful save (create or update) in the same transaction.
   `result.isNew` distinguishes create from update; `result.changes`
   carries the changed fields only.
-- **`r.hook("preDelete", { allOf: entityRef }, fn)`** — fires inside the
+- **`r.hook({ type: "preDelete", target: { allOf: entityRef }, handler })`** — fires inside the
   delete transaction. Throws on invariant violations (here: "published
   articles cannot be deleted") to roll the delete back. The handler
   receives the full row snapshot — no extra load needed.
-- **`r.hook("postDelete", { allOf: entityRef }, fn)`** — fires after commit.
+- **`r.hook({ type: "postDelete", target: { allOf: entityRef }, handler })`** — fires after commit.
   External side effects (logs, notifications) belong here because
   failures cannot roll the delete back.
 
@@ -301,7 +301,7 @@ export const hookLog: { type: string; data: Record<string, unknown> }[] = [];
 const editorWrite = { access: { roles: ["Admin", "Editor"] } } as const;
 
 export const articlesFeature = defineFeature("blog", (r) => {
-  const article = r.entity("article", articleEntity);
+  const article = r.entity({ name: "article", ...articleEntity });
 
   const articleCreate = r.writeHandler(
     defineEntityCreateHandler("article", articleEntity, editorWrite),
@@ -312,33 +312,45 @@ export const articlesFeature = defineFeature("blog", (r) => {
   r.writeHandler(defineEntityDeleteHandler("article", articleEntity, editorWrite));
 
   // --- Validation hook on create: reject banned words + length ---
-  r.hook("validation", articleCreate, (data) => {
-    const title = data["title"] as string;
-    if (title.toLowerCase().includes("spam")) {
-      return [{ field: "title", error: "title_contains_banned_word" }];
-    }
-    if (title.length > 200) {
-      return [{ field: "title", error: "title_too_long" }];
-    }
-    return null;
+  r.hook({
+    type: "validation",
+    target: articleCreate,
+    handler: (data) => {
+      const title = data["title"] as string;
+      if (title.toLowerCase().includes("spam")) {
+        return [{ field: "title", error: "title_contains_banned_word" }];
+      }
+      if (title.length > 200) {
+        return [{ field: "title", error: "title_too_long" }];
+      }
+      return null;
+    },
   });
 
   // --- Validation hook on update: length check on title changes ---
-  r.hook("validation", articleUpdate, (data) => {
-    const changes = data["changes"] as Record<string, unknown> | undefined;
-    const title = changes?.["title"] as string | undefined;
-    if (title && title.length > 200) {
-      return [{ field: "title", error: "title_too_long" }];
-    }
-    return null;
+  r.hook({
+    type: "validation",
+    target: articleUpdate,
+    handler: (data) => {
+      const changes = data["changes"] as Record<string, unknown> | undefined;
+      const title = changes?.["title"] as string | undefined;
+      if (title && title.length > 200) {
+        return [{ field: "title", error: "title_too_long" }];
+      }
+      return null;
+    },
   });
 
   // --- postSave entity hook: log all saves ---
-  r.hook("postSave", { allOf: article }, async (result: SaveContext) => {
-    hookLog.push({
-      type: result.isNew ? "created" : "updated",
-      data: { id: result.id, changes: result.changes },
-    });
+  r.hook({
+    type: "postSave",
+    target: { allOf: article },
+    handler: async (result: SaveContext) => {
+      hookLog.push({
+        type: result.isNew ? "created" : "updated",
+        data: { id: result.id, changes: result.changes },
+      });
+    },
   });
 
   // --- preDelete entity hook: block delete when the article is still published.
@@ -346,23 +358,31 @@ export const articlesFeature = defineFeature("blog", (r) => {
   // the delete rolls back before any projection or event is written. The
   // payload.data carries the full row snapshot taken just before delete —
   // no extra load needed.
-  r.hook("preDelete", { allOf: article }, async (payload) => {
-    if (payload.data["isPublished"] === true) {
-      throw new ConflictError({
-        message: `article ${payload.id} is still published`,
-        i18nKey: "errors.publishedArticleCannotBeDeleted",
-        details: { reason: "published_article_cannot_be_deleted", entityId: payload.id },
-      });
-    }
+  r.hook({
+    type: "preDelete",
+    target: { allOf: article },
+    handler: async (payload) => {
+      if (payload.data["isPublished"] === true) {
+        throw new ConflictError({
+          message: `article ${payload.id} is still published`,
+          i18nKey: "errors.publishedArticleCannotBeDeleted",
+          details: { reason: "published_article_cannot_be_deleted", entityId: payload.id },
+        });
+      }
+    },
   });
 
   // --- postDelete entity hook: log deletions after the transaction commits.
   // Default phase is afterCommit so failures here can't roll back the delete.
-  r.hook("postDelete", { allOf: article }, async (payload) => {
-    hookLog.push({
-      type: "deleted",
-      data: { id: payload.id },
-    });
+  r.hook({
+    type: "postDelete",
+    target: { allOf: article },
+    handler: async (payload) => {
+      hookLog.push({
+        type: "deleted",
+        data: { id: payload.id },
+      });
+    },
   });
 });
 ```
