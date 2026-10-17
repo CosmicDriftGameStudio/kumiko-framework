@@ -1574,6 +1574,9 @@ export type PageHeaderProps = {
   /** Hide the shell header's breadcrumb while mounted, for a screen that stands in
    *  for the one the route names (a locked screen's fallback). */
   readonly hideBreadcrumb?: boolean;
+  /** Label the breadcrumb with this screen (id as in the route) instead of the one
+   *  the route names, for a locked screen's fallback. Wins over `hideBreadcrumb`. */
+  readonly breadcrumbScreenId?: string;
 };
 
 /** One item in an `ActionOverflowMenu` (A7: header/row actions beyond the
