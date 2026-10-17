@@ -30,7 +30,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { append, eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
@@ -396,12 +396,18 @@ describe("crypto-shredding :: forget-subject (record subject) tenant gate, #2786
 
     // Tenant B opens its own stream under the same aggregate id (the unique
     // index is per tenant, so nothing stops it).
-    await asRawClient(gateStack.db).unsafe(
-      `INSERT INTO kumiko_events (aggregate_id, aggregate_type, tenant_id, version, type, event_version, payload, metadata, created_by)
-       SELECT aggregate_id, aggregate_type, $2::uuid, version, type, event_version, payload, metadata, created_by
-       FROM kumiko_events WHERE aggregate_id = $1::uuid AND tenant_id = $3::uuid AND version = 1`,
-      [subject.id, GATE_TENANT_B, GATE_TENANT_A],
-    );
+    const [tenantAEvent] = await loadAggregate(gateStack.db, subject.id, GATE_TENANT_A);
+    if (!tenantAEvent) throw new Error("tenant A v1 event missing");
+    await append(gateStack.db, {
+      tenantId: GATE_TENANT_B,
+      aggregateId: tenantAEvent.aggregateId,
+      aggregateType: tenantAEvent.aggregateType,
+      expectedVersion: 0,
+      type: tenantAEvent.type,
+      eventVersion: tenantAEvent.eventVersion,
+      payload: tenantAEvent.payload,
+      metadata: { userId: tenantAEvent.metadata.userId },
+    });
 
     for (const dpo of [dpoTenantB, dpoTenantA]) {
       const denied = await gateStack.http.writeErr(FORGET, { subject, reason: REASON }, dpo);

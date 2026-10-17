@@ -31,6 +31,7 @@ import {
   type TenantId,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   resetEventStore,
   setupTestStack,
@@ -412,20 +413,15 @@ describe("forget pipeline honours the effective tenant model", () => {
 
     // A created-event whose userId payload cannot be read may name a second
     // member — the fail-safe branch must survive the #2608 fix.
-    await asRawClient(stack.db).unsafe(
-      `INSERT INTO kumiko_events
-         (aggregate_id, aggregate_type, tenant_id, version, type, payload, metadata, created_by)
-       VALUES ($1, 'tenant-membership', $2, 1, $3, $4, '{}'::jsonb, 'system')`,
-      [
-        "eeeeeeee-eeee-4eee-8eee-0000000000c8",
-        TENANT,
-        entityEventName("tenant-membership", "created"),
-        // Object, not JSON.stringify: a string param into a jsonb column is
-        // encoded a second time and lands as a JSON scalar, which no
-        // payload->>'...' lookup would ever match.
-        { tenantId: TENANT },
-      ],
-    );
+    await append(stack.db, {
+      tenantId: TENANT,
+      aggregateId: "eeeeeeee-eeee-4eee-8eee-0000000000c8",
+      aggregateType: "tenant-membership",
+      expectedVersion: 0,
+      type: entityEventName("tenant-membership", "created"),
+      payload: { tenantId: TENANT },
+      metadata: { userId: "system" },
+    });
 
     const createdEvents = await asRawClient(stack.db).unsafe(
       `SELECT payload->>'userId' AS user_id FROM kumiko_events
