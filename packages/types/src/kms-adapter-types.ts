@@ -94,7 +94,8 @@ interface KmsAdapterBase {
 
   /**
    * Erases the key material immediately; the tombstone row stays for the
-   * audit trail. Idempotent — repeat calls and unknown subjects are no-ops.
+   * audit trail. Idempotent. A never-keyed subject gets a tombstone too, so a
+   * later createKey cannot mint a fresh key for pre-KMS plaintext.
    */
   eraseKey(subject: SubjectId, ctx: KmsContext): Promise<void>;
 

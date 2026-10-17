@@ -95,10 +95,16 @@ export function describeKmsAdapterContract(
       await expect(adapter.getKey(userA, ctx)).rejects.toBeInstanceOf(KeyErasedError);
     });
 
-    test("eraseKey for an unknown subject is a no-op", async () => {
+    test("eraseKey for a never-keyed subject leaves a tombstone: getKey throws KeyErasedError", async () => {
+      await adapter.eraseKey(userA, ctx);
       await adapter.eraseKey(userA, ctx);
       if (!isLocalKeyKmsAdapter(adapter)) return;
-      await expect(adapter.getKey(userA, ctx)).rejects.toBeInstanceOf(KeyNotFoundError);
+      await expect(adapter.getKey(userA, ctx)).rejects.toBeInstanceOf(KeyErasedError);
+    });
+
+    test("createKey after eraseKey of a never-keyed subject throws KeyAlreadyExistsError", async () => {
+      await adapter.eraseKey(userA, ctx);
+      await expect(adapter.createKey(userA, ctx)).rejects.toBeInstanceOf(KeyAlreadyExistsError);
     });
 
     test("createKey after eraseKey throws — the tombstone blocks a new key", async () => {

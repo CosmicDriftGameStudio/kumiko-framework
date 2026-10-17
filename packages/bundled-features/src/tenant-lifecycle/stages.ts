@@ -224,7 +224,7 @@ async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<StageRunOut
       );
     }
   }
-  await tenantCrud.update(
+  const tombstone = await tenantCrud.update(
     {
       id: ctx.tenantId,
       changes: {
@@ -237,6 +237,11 @@ async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<StageRunOut
     db,
     { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
   );
+  if (!tombstone.isSuccess) {
+    throw new Error(
+      `tenant-lifecycle: failed to mark tenant ${ctx.tenantId} destroyed: ${tombstone.error.message}`,
+    );
+  }
   invalidateTenantLifecycleGate(ctx.tenantId);
   return STAGE_DONE;
 }

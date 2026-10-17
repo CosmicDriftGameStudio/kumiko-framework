@@ -154,15 +154,19 @@ export class PgKmsAdapter implements LocalKeyKmsAdapter {
 
   async eraseKey(subject: SubjectId, ctx: KmsContext): Promise<void> {
     await this.ensureSchema();
-    // Guard on erased_at IS NULL keeps repeat erases from overwriting the
-    // original tombstone audit fields; unknown subjects update zero rows.
+    // Upsert: a never-keyed subject (pre-KMS plaintext) still gets a tombstone,
+    // so a later createKey cannot mint a fresh key and re-encrypt the plaintext.
+    // The erased_at IS NULL guard keeps repeat erases from overwriting the
+    // original tombstone audit fields.
     await this.sql`
-      UPDATE kumiko_subject_keys
+      INSERT INTO kumiko_subject_keys (subject_id, cipher_key, kek_version, erased_at, erased_by, erase_reason)
+      VALUES (${subjectIdToKey(subject)}, NULL, ${this.kekVersion}, now(), ${ctx.userId ?? null}, ${ctx.eraseReason ?? null})
+      ON CONFLICT (subject_id) DO UPDATE
       SET cipher_key = NULL,
           erased_at = now(),
-          erased_by = ${ctx.userId ?? null},
-          erase_reason = ${ctx.eraseReason ?? null}
-      WHERE subject_id = ${subjectIdToKey(subject)} AND erased_at IS NULL`;
+          erased_by = EXCLUDED.erased_by,
+          erase_reason = EXCLUDED.erase_reason
+      WHERE kumiko_subject_keys.erased_at IS NULL`;
   }
 
   async health(): Promise<KmsHealth> {
