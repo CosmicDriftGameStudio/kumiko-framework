@@ -9,7 +9,7 @@
 // Der Editor-Screen ist die Landing-Route, weil clientSchema.screens
 // mit editScreen beginnt (siehe samples/ui-walkthrough/src/feature-schema.ts).
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
 
 test("ui-walkthrough boots and lands on edit screen without console errors", async ({ page }) => {

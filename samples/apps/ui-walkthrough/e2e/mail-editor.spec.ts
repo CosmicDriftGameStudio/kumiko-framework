@@ -5,7 +5,7 @@
 
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Locator, Page } from "@playwright/test";
 import { TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD } from "../src/app/auth-constants";
 import { loginAs } from "./_helpers/login";

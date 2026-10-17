@@ -2,7 +2,11 @@
 // Before/after shots for the header primary action, long status badge, empty
 // list copy and flow-layout text width. Runs only with SCREENSHOT_DIR set.
 
-import { captureScreenshot, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import {
+  captureScreenshot,
+  expect,
+  boundaryGuardedTest as test,
+} from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 

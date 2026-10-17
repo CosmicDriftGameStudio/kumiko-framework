@@ -13,7 +13,7 @@
 // useMemo), so this spec matches on the `listing-wizard:new:` prefix
 // rather than a single literal key.
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 import { expectSelectedOption, selectCombobox } from "./_helpers/select-combobox";
 import { CREATED_LISTINGS_KEY, draftStorageKey } from "./fixtures/mock-dispatcher";

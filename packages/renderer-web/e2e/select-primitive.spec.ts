@@ -5,7 +5,7 @@
 //   3. Click auf ein Segment setzt den Wert direkt (kein Popover)
 //   4. Submit serialisiert den ausgewählten Wert ans Dispatcher
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("select-primitive: render + change + submit-roundtrip", async ({ page }) => {
   const errors: string[] = [];

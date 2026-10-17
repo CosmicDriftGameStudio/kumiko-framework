@@ -5,7 +5,7 @@ import {
   captureScreenshot,
   expect,
   SCREENSHOT_DIR_ENV,
-  test,
+  boundaryGuardedTest as test,
 } from "@cosmicdrift/kumiko-testing/e2e";
 
 const screenshotDir = mkdtempSync(join(tmpdir(), "kumiko-testing-fit-"));

@@ -2,7 +2,7 @@
 // auswählen → die Liste filtert serverseitig (payload.filters → executor.list
 // → IN-Clause) → nur Draft-Rows bleiben. Reset stellt alle Rows wieder her.
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("Faceted-Filter: Status=Draft filtert serverseitig, Reset hebt auf", async ({ page }) => {
   await page.goto("/item-list");

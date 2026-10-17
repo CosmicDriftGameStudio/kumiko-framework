@@ -1,7 +1,7 @@
 // multiSelect optionsAvailabilityQuery in real Chromium: an option the query
 // marks disabled is not offered in the combobox, the plain screen still lists it.
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 
 async function openRolesCombobox(page: Page, navLabel: string): Promise<void> {

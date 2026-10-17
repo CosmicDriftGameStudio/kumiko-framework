@@ -4,7 +4,7 @@
 // it. Runs against the "chromium-phone" project (see playwright.config.ts),
 // a real iPhone-sized viewport, not a resized desktop window.
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("record-detail-layout — tab strip fits the phone viewport width (fw#3234)", async ({
   page,

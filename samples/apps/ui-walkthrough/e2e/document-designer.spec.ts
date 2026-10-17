@@ -2,7 +2,7 @@
 // Template overview and layout editor, seen by the Nordlicht tenant admin and
 // by the platform admin. The two accounts are seeded in src/app/seed-templates.ts.
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 import {
   PLATFORM_ADMIN_EMAIL,

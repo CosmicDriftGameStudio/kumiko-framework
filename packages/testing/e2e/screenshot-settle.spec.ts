@@ -6,7 +6,7 @@ import {
   expect,
   runScreenshots,
   SCREENSHOT_DIR_ENV,
-  test,
+  boundaryGuardedTest as test,
   trackInFlightRequests,
 } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";

@@ -6,7 +6,7 @@
 // assertion-bearing regression test (the DOM-level padding assertions live
 // in projection-detail.test.tsx) — this only captures what a reviewer sees.
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("record-detail-layout — all tab kinds + screen actions, one screenshot per tab", async ({
   page,

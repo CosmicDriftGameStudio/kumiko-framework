@@ -2,7 +2,11 @@
 // Screenshots of the template overview and the layout editor for the design
 // review. Runs only with SCREENSHOT_DIR set.
 
-import { captureScreenshot, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import {
+  captureScreenshot,
+  expect,
+  boundaryGuardedTest as test,
+} from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 import {
   PLATFORM_ADMIN_EMAIL,

@@ -1,4 +1,4 @@
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { SCREEN_ERROR_FALLBACK_TEST_ID } from "@cosmicdrift/kumiko-types/error-boundary";
 import { BOOM_SCREEN_ID } from "./fixtures/schema";
 

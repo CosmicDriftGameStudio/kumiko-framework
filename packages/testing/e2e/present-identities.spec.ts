@@ -7,7 +7,7 @@ import {
   type PresentIdentity,
   runMatrix,
   SCREENSHOT_DIR_ENV,
-  test,
+  boundaryGuardedTest as test,
 } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 import { DESKTOP_VIEWPORT } from "../src/e2e/constants";

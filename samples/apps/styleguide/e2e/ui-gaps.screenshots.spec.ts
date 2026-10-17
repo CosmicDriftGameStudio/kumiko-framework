@@ -4,7 +4,11 @@
 // SCREENSHOT_DIR set.
 
 import { deflateSync } from "node:zlib";
-import { captureScreenshot, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import {
+  captureScreenshot,
+  expect,
+  boundaryGuardedTest as test,
+} from "@cosmicdrift/kumiko-testing/e2e";
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;

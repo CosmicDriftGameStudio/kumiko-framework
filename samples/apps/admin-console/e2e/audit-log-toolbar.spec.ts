@@ -3,7 +3,7 @@
 // search input below a usable width — it should wrap onto its own line once
 // the toolbar runs out of horizontal room.
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsTenantAdmin } from "./_helpers/login";
 
 const SEARCH_INPUT = "#render-list-search";

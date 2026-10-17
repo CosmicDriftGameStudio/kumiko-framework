@@ -6,7 +6,7 @@
 // playwright.config.ts → KUMIKO_DEV_DB_NAME=""), deshalb ist die
 // Liste zu Test-Beginn leer und ein fester Title ist kollisionsfrei.
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import { loginAsAdmin } from "./_helpers/login";
 
 test("create flow: fill form, save, row appears in list", async ({ page }) => {

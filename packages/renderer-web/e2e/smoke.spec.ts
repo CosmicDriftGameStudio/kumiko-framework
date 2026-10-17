@@ -8,7 +8,7 @@
 // Komponente. Spezifischere Specs (primitives, layout) ergänzen ab
 // hier ohne dass dieser Test angefasst werden muss.
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("renderer-web/e2e: bundle bootet, DefaultAppShell rendert NavTree + Edit-Form", async ({
   page,

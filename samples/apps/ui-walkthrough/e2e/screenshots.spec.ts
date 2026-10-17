@@ -8,7 +8,7 @@ import {
   applyDefaultTheme,
   captureScreenshot,
   expect,
-  test,
+  boundaryGuardedTest as test,
 } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Locator, Page } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";

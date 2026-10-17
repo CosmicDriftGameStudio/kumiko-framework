@@ -3,7 +3,7 @@
 // → die zurückgegebene FileRef-UUID wird zum Feld-Wert → die Avatar-Preview
 // (img[src=/api/files/:id]) erscheint und der Button wechselt auf "Change".
 
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 // 1×1 transparentes PNG.
 const PNG_1X1 = Buffer.from(
