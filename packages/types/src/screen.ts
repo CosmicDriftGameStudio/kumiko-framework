@@ -52,6 +52,8 @@ export interface FieldFormatRegistry {
     readonly locale?: string;
     readonly dateStyle?: "full" | "long" | "medium" | "short";
     readonly timeStyle?: "full" | "long" | "medium" | "short";
+    /** IANA zone id (e.g. "Europe/Berlin"). Default: the runtime's zone. */
+    readonly timeZone?: string;
   };
   date: {
     readonly locale?: string;

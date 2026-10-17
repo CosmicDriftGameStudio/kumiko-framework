@@ -10,6 +10,7 @@ import { createEntity, createTextField } from "../../engine/index.js";
 import { from } from "../../engine/ownership.js";
 import { createSystemUser } from "../../engine/system-user.js";
 import type { EntityId } from "../../engine/types/index.js";
+import { append } from "../../event-store/index.js";
 import type { EntityCache } from "../../pipeline/entity-cache.js";
 import {
   createTestDb,
@@ -25,6 +26,7 @@ import {
   resetEntityFieldEncryptionCacheForTests,
 } from "../entity-field-encryption.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
+import { buildEventMetadata } from "../event-store-executor-context.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
@@ -993,5 +995,111 @@ describe("event-store-executor write-verbs — degraded detail vs entity cache",
     const repaired = await crud.detail({ id }, admin, tdb);
     expect(repaired?.["secret"]).toBe("real");
     expect(calls.set).toBe(1);
+  });
+});
+
+// =============================================================================
+// version_conflict details on a lost append race — expected is the version the
+// verb read, current is the stream version after the competing append.
+// =============================================================================
+
+const staleVersionEntity = createEntity({
+  table: "read_es_write_stale_version",
+  fields: {
+    secret: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
+  },
+  softDelete: true,
+});
+const staleVersionTable = buildEntityTable("esWriteStaleVersion", staleVersionEntity);
+
+describe("event-store-executor write-verbs — version_conflict reports the real stream version", () => {
+  const crud = createEventStoreExecutor(staleVersionTable, staleVersionEntity, {
+    entityName: "esWriteStaleVersion",
+  });
+  let competingAppend: (() => Promise<void>) | undefined;
+
+  beforeAll(async () => {
+    await unsafeCreateEntityTable(testDb.db, staleVersionEntity, "esWriteStaleVersion");
+    const cipher = createTestEnvelopeCipher(
+      Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64"),
+    );
+    // The verb encrypts `previous` after reading the stream version and before
+    // appending, so a write landing here is a deterministic lost race.
+    configureEntityFieldEncryption({
+      decrypt: (stored, scope) => cipher.decrypt(stored, scope),
+      encrypt: async (plaintext, scope) => {
+        const race = competingAppend;
+        competingAppend = undefined;
+        await race?.();
+        return cipher.encrypt(plaintext, scope);
+      },
+    });
+  });
+
+  afterAll(() => {
+    resetEntityFieldEncryptionCacheForTests();
+  });
+
+  beforeEach(async () => {
+    competingAppend = undefined;
+    await asRawClient(testDb.db).unsafe(
+      `TRUNCATE kumiko_events, read_es_write_stale_version RESTART IDENTITY CASCADE`,
+    );
+  });
+
+  function armCompetingAppend(id: EntityId, predecessorVersion: number): void {
+    competingAppend = async () => {
+      await append(testDb.db, {
+        aggregateId: String(id),
+        aggregateType: "esWriteStaleVersion",
+        tenantId: admin.tenantId,
+        expectedVersion: predecessorVersion,
+        type: "esWriteStaleVersion.competing",
+        payload: {},
+        metadata: buildEventMetadata(admin),
+      });
+    };
+  }
+
+  test("update: expected = version read, current = version after the competing append", async () => {
+    const created = await crud.create({ secret: "s" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    armCompetingAppend(created.data.id, 1);
+
+    const result = await crud.update(
+      { id: created.data.id, version: 1, changes: { secret: "changed" } },
+      admin,
+      tdb,
+    );
+    expect(result.isSuccess).toBe(false);
+    if (result.isSuccess) return;
+    expect(result.error.code).toBe("version_conflict");
+    expect(result.error.details).toMatchObject({ expectedVersion: 1, currentVersion: 2 });
+  });
+
+  test("delete: expected = version read, current = version after the competing append", async () => {
+    const created = await crud.create({ secret: "s" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    armCompetingAppend(created.data.id, 1);
+
+    const result = await crud.delete({ id: created.data.id }, admin, tdb);
+    expect(result.isSuccess).toBe(false);
+    if (result.isSuccess) return;
+    expect(result.error.code).toBe("version_conflict");
+    expect(result.error.details).toMatchObject({ expectedVersion: 1, currentVersion: 2 });
+  });
+
+  test("restore: expected = version read, current = version after the competing append", async () => {
+    const created = await crud.create({ secret: "s" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("setup failed");
+    const deleted = await crud.delete({ id: created.data.id }, admin, tdb);
+    if (!deleted.isSuccess) throw new Error("setup failed");
+    armCompetingAppend(created.data.id, 2);
+
+    const result = await crud.restore({ id: created.data.id }, admin, tdb);
+    expect(result.isSuccess).toBe(false);
+    if (result.isSuccess) return;
+    expect(result.error.code).toBe("version_conflict");
+    expect(result.error.details).toMatchObject({ expectedVersion: 2, currentVersion: 3 });
   });
 });

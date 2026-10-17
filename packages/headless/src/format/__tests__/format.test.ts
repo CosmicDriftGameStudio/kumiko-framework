@@ -105,6 +105,51 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
     expect(out).not.toBe(instant);
   });
 
+  test("timestamp mit timeZone rendert in der angegebenen Zone, unabhängig von der Laufzeit-Zone", () => {
+    const lateEveningUtc = "2026-12-31T23:30:00Z";
+    const berlin = applyFormatSpec(
+      {
+        format: "timestamp",
+        locale: "en-US",
+        timeZone: "Europe/Berlin",
+        dateStyle: "short",
+        timeStyle: "short",
+      },
+      lateEveningUtc,
+    );
+    const losAngeles = applyFormatSpec(
+      {
+        format: "timestamp",
+        locale: "en-US",
+        timeZone: "America/Los_Angeles",
+        dateStyle: "short",
+        timeStyle: "short",
+      },
+      lateEveningUtc,
+    );
+    expect(berlin).toContain("1/1/27");
+    expect(berlin).toContain("12:30");
+    expect(losAngeles).toContain("12/31/26");
+    expect(losAngeles).toContain("3:30");
+  });
+
+  test("timestamp mit timeZone ohne dateStyle nutzt die Zone im Default-Format", () => {
+    const out = applyFormatSpec(
+      { format: "timestamp", locale: "en-US", timeZone: "Europe/Berlin" },
+      "2026-12-31T23:30:00Z",
+    );
+    expect(out).toContain("Jan");
+    expect(out).toContain("2027");
+  });
+
+  test("ungültige timeZone fällt auf den Rohstring zurück statt zu werfen", () => {
+    const instant = "2026-12-31T23:30:00Z";
+    expect(applyFormatSpec({ format: "timestamp", timeZone: "Not/AZone" }, instant)).toBe(instant);
+    expect(
+      applyFormatSpec({ format: "timestamp", timeZone: "Not/AZone", dateStyle: "short" }, instant),
+    ).toBe(instant);
+  });
+
   test("unparsebarer Wert fällt auf den Rohstring zurück", () => {
     expect(applyFormatSpec({ format: "timestamp" }, "kein-datum")).toBe("kein-datum");
     expect(applyFormatSpec({ format: "date" }, "kein-datum")).toBe("kein-datum");
