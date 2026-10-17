@@ -17,6 +17,7 @@ import {
 import {
   createDeliveryFeature,
   createDeliveryTestContext,
+  deliveryAttemptsTable,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   BRANDING_QN,
@@ -588,8 +589,7 @@ describe("mail attachments: inline logo and file attachment", () => {
     ]);
   });
 
-  // Stays last: its deliberately failing send job is retried with a backoff that can outlive the drain.
-  test("a file attachment of another tenant is not sent", async () => {
+  test("a file attachment of another tenant ends the send as failed without a retry", async () => {
     const foreignPdf = await upload(adminTenantF, PDF_BYTES, {
       name: "foreign.pdf",
       type: "application/pdf",
@@ -597,9 +597,17 @@ describe("mail attachments: inline logo and file attachment", () => {
     await publishTenantOverride(adminTenantE, INVOICE);
 
     await stack.http.writeOk(SEND, { type: INVOICE, fileRefId: foreignPdf }, adminTenantE);
-    // failAttempt rethrows only the code; the "not found" detail goes to the log.
-    await expect(stack.drainJobs()).rejects.toThrow(/send_failed/);
+    loggedErrors.length = 0;
+    await stack.drainJobs();
 
+    expect(loggedErrors).toEqual([]);
     expect(transport.sent).toHaveLength(0);
+    const attempts = await selectMany<{ status: string; error: string | null }>(
+      stack.db,
+      deliveryAttemptsTable,
+      { tenantId: adminTenantE.tenantId, notificationType: INVOICE },
+    );
+    expect(attempts).toHaveLength(1);
+    expect(attempts[0]).toMatchObject({ status: "failed", error: "send_failed" });
   });
 });

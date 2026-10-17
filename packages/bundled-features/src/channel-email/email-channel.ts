@@ -1,5 +1,6 @@
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
 import {
   type AttachmentOrigin,
@@ -120,11 +121,15 @@ function inlineFileName(cid: string, contentType: string): string {
   return extension === undefined ? cid : `${cid}.${extension}`;
 }
 
+type ResolvedAttachments =
+  | { readonly kind: "resolved"; readonly attachments: readonly EmailAttachment[] }
+  | { readonly kind: "missing-file"; readonly fileRefId: string };
+
 async function resolveAttachments(
   sources: readonly AttachmentSource[],
   ctx: ChannelContext,
-): Promise<readonly EmailAttachment[]> {
-  if (sources.length === 0) return [];
+): Promise<ResolvedAttachments> {
+  if (sources.length === 0) return { kind: "resolved", attachments: [] };
   if (ctx.readAttachment === undefined) {
     throw new Error(
       "email channel: the message has attachments but the channel context cannot read files",
@@ -149,13 +154,13 @@ async function resolveAttachments(
     if (found === null) {
       // A missing inline image only degrades the look; a missing file is content the recipient expects.
       if (ref.kind === "inline") continue;
-      throw new Error(`email channel: attachment file ${ref.fileRefId} was not found`);
+      return { kind: "missing-file", fileRefId: ref.fileRefId };
     }
     const fileName =
       ref.kind === "file" ? ref.fileName : inlineFileName(ref.cid, found.contentType);
     resolved.push({ ...ref, fileName, content: found.content, contentType: found.contentType });
   }
-  return resolved;
+  return { kind: "resolved", attachments: resolved };
 }
 
 export type EmailChannelOptions = {
@@ -229,7 +234,7 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
         ...(replyTo && { replyTo }),
         ...emailEnvelopeFrom(message.data),
       };
-      const resolvedAttachments = await resolveAttachments(
+      const resolution = await resolveAttachments(
         [
           ...(attachments ?? []).map((ref): AttachmentSource => ({ ref, origin: "template" })),
           ...fileAttachmentsFrom(message.data, message.locale).map(
@@ -238,6 +243,14 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
         ],
         ctx,
       );
+      if (resolution.kind === "missing-file") {
+        // A missing file is permanent, a retry cannot bring it back.
+        createFallbackLogger("delivery").warn("mail attachment file not found, send failed", {
+          fileRefId: resolution.fileRefId,
+        });
+        return { status: "failed", error: "send_failed", address };
+      }
+      const resolvedAttachments = resolution.attachments;
       await transport.send(
         guardEmailMessage({
           to: address,
