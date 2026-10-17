@@ -207,7 +207,7 @@ fi
 diagnostics="$(grep -E 'error TS[0-9]+' <<<"$typecheck_output" || true)"
 own_errors="$({
   grep -v 'node_modules/' <<<"$diagnostics" || true
-  grep -E 'node_modules/@cosmicdrift/[^(]*\([0-9]+,[0-9]+\): error TS' <<<"$diagnostics" | grep -v 'node_modules/@cosmicdrift/kumiko-testing/' || true
+  grep -E 'node_modules/@cosmicdrift/[^(]*\([0-9]+,[0-9]+\): error TS' <<<"$diagnostics" | grep -vE '^[^(]*node_modules/@cosmicdrift/kumiko-testing/[^(]*\([0-9]+,[0-9]+\): error TS' || true
 } | sed '/^$/d')"
 if [ -n "$own_errors" ]; then
   sed -n "1,40p" <<<"$own_errors" | sed -E 's#^.*node_modules/##' >&2

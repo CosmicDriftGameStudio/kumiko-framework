@@ -1,3 +1,4 @@
+// @runtime dev
 export { type AnyDb, isClosedConnectionError } from "../bun-db/query.js";
 export { createConnection } from "../db/api.js";
 export {
