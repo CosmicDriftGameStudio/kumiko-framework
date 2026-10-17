@@ -18,7 +18,7 @@ import {
   type TemplatePdfAttachmentLink,
 } from "./linked-resources.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
-import { activeVersionOf } from "./template-draft.js";
+import { activeVersionOf, servedVersionOf } from "./template-draft.js";
 import { parseTemplateMeta, type TemplateMeta } from "./template-meta.js";
 
 // Public TemplateResource: what consumers see. Hides DB-internal columns
@@ -203,7 +203,7 @@ function toPublic(row: TemplateResourceRow): TemplateResource {
   const linkedEntries = parseLinkedResourceEntries(row.linkedResources);
   return {
     id: String(row.id),
-    version: row.version,
+    version: servedVersionOf(row),
     tenantId: row.tenantId,
     slug: row.slug,
     kind,

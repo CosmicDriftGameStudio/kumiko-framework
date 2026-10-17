@@ -361,15 +361,28 @@ describe("template-resolver :: draft beside the active version", () => {
     expect(working.content).toContain("Import");
   });
 
-  test("tenant-overrides counts an active override with a draft as active", async () => {
-    await saveMail("counted", "Aktiv", { status: "active" });
+  test("tenant-overrides counts an active override with a draft as active, with its served version", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      mailPayload("counted", "System"),
+      systemAdmin,
+    );
+    const id = await saveMail("counted", "Aktiv", { status: "active" });
+    const served = (await findWorking(id)).version;
     await saveMail("counted", "Entwurf");
-    const counts = await stack.http.queryOk(
+    const counts = await stack.http.queryOk<{
+      activeOverrides: number;
+      draftOverrides: number;
+      rows: readonly { version: number }[];
+      diff: { tenant: { templateVersion: number } } | null;
+    }>(
       TemplateResolverQueries.tenantOverrides,
-      { slug: slugOf("counted"), kind: "mail" },
+      { slug: slugOf("counted"), kind: "mail", diffTenantId: tenantId },
       systemAdmin,
     );
     expect(counts).toMatchObject({ activeOverrides: 1, draftOverrides: 0 });
+    expect(counts.rows.map((row) => row.version)).toEqual([served]);
+    expect(counts.diff?.tenant.templateVersion).toBe(served);
   });
 
   test("a row written before the draft columns gets its served version recorded on the first draft", async () => {
@@ -505,6 +518,15 @@ describe("template-resolver :: draft beside the active version", () => {
     expect(seenByTenant.meta).not.toContain("Quelle EN");
 
     expect(await findWorking(neverServedId)).toBeNull();
+    const listedIds = (
+      await stack.http.queryOk<readonly { id: string }[]>(
+        TemplateResolverQueries.list,
+        { kind: "mail" },
+        admin,
+      )
+    ).map((row) => row.id);
+    expect(listedIds).toContain(systemId);
+    expect(listedIds).not.toContain(neverServedId);
     const diffError = await stack.http.queryErr(
       TemplateResolverQueries.diffToSystem,
       { id: copied.id },

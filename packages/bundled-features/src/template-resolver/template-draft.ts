@@ -43,6 +43,11 @@ export function activeVersionOf(row: TemplateResourceRow): number {
   return row.activeVersion ?? row.version;
 }
 
+// `version` also counts draft saves, so only a row without a served version shows it as its number.
+export function servedVersionOf(row: TemplateResourceRow): number {
+  return row.status === "active" ? activeVersionOf(row) : row.version;
+}
+
 export function activeSinceOf(row: TemplateResourceRow): Temporal.Instant {
   return row.activeSince ?? row.modifiedAt ?? row.insertedAt;
 }

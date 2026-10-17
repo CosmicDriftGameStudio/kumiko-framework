@@ -3,6 +3,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { TEMPLATE_KINDS, TEMPLATE_STATUSES } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { isHiddenSystemDraft } from "../template-draft.js";
 
 // ctx.db is tenant-scoped even for SystemAdmin: every caller sees its own
 // tenant's rows plus the system defaults, never another tenant's rows.
@@ -43,16 +44,18 @@ export const listQuery = defineQueryHandler({
       limit: 500,
     })) as TemplateResourceRow[];
 
-    return rows.map((row) => ({
-      id: String(row.id),
-      tenantId: row.tenantId,
-      slug: row.slug,
-      kind: row.kind,
-      locale: row.locale,
-      scope: row.scope,
-      status: row.status,
-      contentFormat: row.contentFormat,
-      modifiedAt: row.modifiedAt,
-    }));
+    return rows
+      .filter((row) => !isHiddenSystemDraft(query.user, row))
+      .map((row) => ({
+        id: String(row.id),
+        tenantId: row.tenantId,
+        slug: row.slug,
+        kind: row.kind,
+        locale: row.locale,
+        scope: row.scope,
+        status: row.status,
+        contentFormat: row.contentFormat,
+        modifiedAt: row.modifiedAt,
+      }));
   },
 });

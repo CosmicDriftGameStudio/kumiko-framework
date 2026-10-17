@@ -9,6 +9,7 @@ import {
   draftViewerTenantId,
   isHiddenSystemDraft,
   parseTemplateDraft,
+  servedVersionOf,
 } from "../template-draft.js";
 import { collectTemplateUsage } from "../template-usage.js";
 import { storedRecord } from "./template-gates.js";
@@ -155,7 +156,7 @@ function versionFieldsOf(
     (row) => row.scope === "system" && row.locale === preferred.locale,
   );
   return {
-    version: isActive ? activeVersionOf(preferred) : preferred.version,
+    version: servedVersionOf(preferred),
     draftVersion: draftVersionFor(user, preferred),
     activeSince: isActive ? activeSinceOf(preferred).toString() : null,
     systemVersion: systemSameLocale === undefined ? null : activeVersionOf(systemSameLocale),

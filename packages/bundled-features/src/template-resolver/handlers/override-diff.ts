@@ -1,5 +1,6 @@
 import type { TemplateResourceRow } from "../table.js";
 import { diffTemplateBlocks, splitTemplateBlocks } from "../template-diff.js";
+import { servedVersionOf } from "../template-draft.js";
 
 function parseStoredMeta(raw: string | null): Readonly<Record<string, unknown>> {
   if (raw === null) return {};
@@ -33,12 +34,12 @@ export function buildOverrideDiff(tenantRow: TemplateResourceRow, systemRow: Tem
   return {
     tenant: {
       templateId: String(tenantRow.id),
-      templateVersion: tenantRow.version,
+      templateVersion: servedVersionOf(tenantRow),
       contentFormat: tenantRow.contentFormat,
     },
     system: {
       templateId: String(systemRow.id),
-      templateVersion: systemRow.version,
+      templateVersion: servedVersionOf(systemRow),
       contentFormat: systemRow.contentFormat,
     },
     identical: meta.length === 0 && blocks.every((block) => block.change === "same"),

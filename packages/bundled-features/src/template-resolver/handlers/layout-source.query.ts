@@ -98,10 +98,7 @@ function readEffectiveRegions(
     : EMPTY_REGIONS;
 }
 
-function readMjmlSource(
-  systemRow: WorkingRow | null,
-  isSystemAdmin: boolean,
-): string | null {
+function readMjmlSource(systemRow: WorkingRow | null, isSystemAdmin: boolean): string | null {
   const exposesMjml = isSystemAdmin && systemRow !== null && layoutFormat(systemRow) === "mjml";
   return exposesMjml ? (systemRow.content ?? "") : null;
 }

@@ -3,6 +3,7 @@ import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framew
 import * as z from "zod";
 import { TenantQueries } from "../../tenant/index.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { servedVersionOf } from "../template-draft.js";
 import { buildOverrideDiff } from "./override-diff.js";
 import { kindSchema, localeSchema, templateSlugSchema } from "./shared.js";
 
@@ -65,7 +66,7 @@ function toOverrideRow(
     templateId: String(row.id),
     locale: row.locale,
     status: statusOf(row),
-    version: row.version,
+    version: servedVersionOf(row),
     changedAt: (row.modifiedAt ?? row.insertedAt).toString(),
     changedBy: changedById === null ? null : (userLabels.get(changedById) ?? null),
   };
