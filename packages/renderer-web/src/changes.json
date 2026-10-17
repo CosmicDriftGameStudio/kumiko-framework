@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.367.0",
+    "type": "improvement",
+    "title": "Folder picker through the file Input primitive",
+    "detail": "Input kind \"file\" takes directory, onFilesPicked (files with webkitRelativePath, nothing is uploaded), pickLabel for the button text and testId (hidden input gets testId-input, button testId-pick). New platform-neutral type PickedFile. directory is web-only and ignored by native implementations."
+  },
+  {
+    "version": "0.367.0",
+    "type": "improvement",
+    "title": "FileUploadInput folder mode",
+    "detail": "FileUploadInput takes directory (sets webkitdirectory and multiple) and onFilesPicked. In directory mode it uploads nothing and hands the picked File[] with webkitRelativePath to the callback. Web-only: the input is not part of the cross-platform primitive contract."
+  },
+  {
     "version": "0.366.0",
     "type": "improvement",
     "title": "A throwing screen shows an error card instead of a blank page",

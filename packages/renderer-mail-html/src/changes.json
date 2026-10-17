@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.367.0",
+    "type": "improvement",
+    "title": "Mail header shows the branding logo address, band link falls back to an app site URL",
+    "detail": "Without an uploaded logo file the mail renderer now uses the https address from branding.logoUrl for the layout brand row (28 px high) and for a logo image in the body; the mail client loads it, the PDF renderer never does. New option siteUrl on createRendererMailHtmlFeature (type MailSiteUrlResolver) supplies the site link of the footer band when the tenant has no branding.siteUrl. Without either value the band shows only the unsubscribe link, never an empty link."
+  },
+  {
+    "version": "0.367.0",
+    "type": "breaking",
+    "title": "Mail footer texts come from the i18n system",
+    "detail": "The \"Sent by\" line of the default mail layout, the unsubscribe label and the imprint and privacy labels now come from the mail translations (mail.footer.sentBy, mail.footer.unsubscribe, mail.footer.imprint, mail.footer.privacy). English ships with the renderer, German and Spanish with locale-de and locale-es; an unknown locale falls back to its root language and then to English. MailFooterLink.label is optional and defaults to the framework text. The default layout renders the sender line through the new mailSentBy placeholder. MAIL_CHROME_EN exports the English source texts for translation tooling.",
+    "migration": "Apps that send German or Spanish mails mount localeDe() or localeEs(), otherwise the footer labels are English. A mail layout already stored from the old default keeps its fixed \"Sent by\" text until it is reseeded or edited."
+  },
+  {
     "version": "0.365.0",
     "type": "improvement",
     "title": "Structured mail layouts render as a card with a footer band",

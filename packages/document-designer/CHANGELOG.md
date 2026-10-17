@@ -1,5 +1,37 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.367.0
+
+### Patch Changes
+
+- f6b1803: Template conditions with data-if and a percent variable type
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Template conditions with data-if and a percent variable type
+  detail: A paragraph, heading or table row with data-if="name" renders only when the variable has a value (0 counts as a value); inside a repeat row the name refers to the row field, on the repeat row itself to the root variable. The sanitizer keeps the attribute, and template validation reports a condition on an undeclared variable. New variable type percent (templateVariable.percent()) takes percentage points and renders locale-aware, 12 as "12 %" in German and "12%" in English; the preview uses its example value. The document designer has no toolbar control for conditions yet; the attribute survives editing.
+  -->
+- Updated dependencies [f6b1803]
+- Updated dependencies [10de2c0]
+- Updated dependencies [a0db2ac]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [04bf143]
+- Updated dependencies [5f2cc2f]
+  - @cosmicdrift/kumiko-bundled-features@0.367.0
+  - @cosmicdrift/kumiko-renderer@0.367.0
+  - @cosmicdrift/kumiko-renderer-web@0.367.0
+  - @cosmicdrift/kumiko-types@0.367.0
+  - @cosmicdrift/kumiko-framework@0.367.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.367.0
+  - @cosmicdrift/kumiko-headless@0.367.0
+
 ## 0.366.0
 
 ### Patch Changes

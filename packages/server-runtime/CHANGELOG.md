@@ -1,5 +1,57 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.367.0
+
+### Minor Changes
+
+- f6b1803: Delivery signs unsubscribe links itself
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Delivery signs unsubscribe links itself
+  detail: r.notification(name, { unsubscribe: true }) makes delivery put a signed data.unsubscribeUrl into every email of that notification when the service has unsubscribeLinks. User recipients get a user token, route recipients an address token (only with a blind-index key, otherwise no link). The token is scoped to tenant, notification and channel; a link the caller passes in data.unsubscribeUrl wins. runProdApp option unsubscribe: { secret } mounts createUnsubscribeRoutes and wires the links; the base URL comes from auth.publicOrigin, auth.mail.baseUrl or APP_BASE_URL, and without one boot warns and no link is added.
+  -->
+- f6b1803: Seeds can store files and see why a write failed
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Seeds can store files and see why a write failed
+  detail: ProdSeedFn deps now carry createFileRef(tenantId, input), which stores bytes as a fileRef with the same validation and storage layout as POST /files, without a helper write handler. A seed write that fails with internal_error now names the handler and the cause message instead of a bare "internal error". The seed dispatcher gets the app's dispatcherOptions (and the job runner in all-in-one mode), like the HTTP dispatcher. The "ctx.files is unavailable" message of createFileRefFromBytes names the real cause: the dispatcher context has no file-provider resolver.
+  -->
+- 5f2cc2f: Unsubscribe links use the tenant's host and the mail's language, apps learn about address opt-outs
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Unsubscribe links use the tenant's host and the mail's language, apps learn about address opt-outs
+  detail: unsubscribeLinks and the runProdApp option unsubscribe take tenantOrigin, an app callback that returns the sending tenant's own origin (subdomain or custom domain) per send; null, a throw or a non-https value fall back to the app origin and never fail the send. The signed token now carries the mail's locale (notify option locale), so the confirmation, result and undo pages render in that language; tokens without it keep working and show English. A form post to the resubscribe route now answers with an HTML page, JSON callers are unchanged. After a committed address opt-out an app job declared with trigger on DeliveryHandlers.unsubscribeAddress receives addressHash, notificationType and channel (unsubscribeAddressPayloadSchema) with the tenant in ctx.triggeredBy.tenantId; hashUnsubscribeAddress(email) matches it to the app's own subscriber. UNSUBSCRIBE_PAGE_EN exports the English page texts, German and Spanish come with the locale packages.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [f6b1803]
+- Updated dependencies [10de2c0]
+- Updated dependencies [a0db2ac]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [04bf143]
+- Updated dependencies [5f2cc2f]
+  - @cosmicdrift/kumiko-bundled-features@0.367.0
+  - @cosmicdrift/kumiko-renderer-web@0.367.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.367.0
+  - @cosmicdrift/kumiko-types@0.367.0
+  - @cosmicdrift/kumiko-framework@0.367.0
+  - @cosmicdrift/kumiko-headless@0.367.0
+
 ## 0.366.0
 
 ### Minor Changes
