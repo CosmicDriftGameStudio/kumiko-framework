@@ -66,14 +66,13 @@ function layoutFormat(row: WorkingRow): "html" | "mjml" | null {
 
 function pickEditedRows(
   rows: readonly TemplateResourceRow[],
-  user: { readonly roles: readonly string[] },
-  isSystemAdmin: boolean,
+  user: { readonly tenantId: string; readonly roles: readonly string[] },
   locale: string | undefined,
 ): {
-  readonly tenantRow: TemplateResourceRow | null;
-  readonly systemRow: TemplateResourceRow | null;
+  readonly tenantRow: WorkingRow | null;
+  readonly systemRow: WorkingRow | null;
 } {
-  const tenantRow = isSystemAdmin
+  const tenantRow = user.roles.includes("SystemAdmin")
     ? null
     : pickByLocale(
         rows.filter((row) => row.scope === "tenant"),
@@ -83,7 +82,11 @@ function pickEditedRows(
     rows.filter((row) => row.scope === "system" && !isHiddenSystemDraft(user, row)),
     locale,
   );
-  return { tenantRow, systemRow };
+  return {
+    tenantRow: tenantRow && toWorkingRow(tenantRow, user.tenantId),
+    // Only a SystemAdmin works on the system draft; a tenant sees the served system version.
+    systemRow: systemRow && toWorkingRow(systemRow, draftViewerTenantId(user, systemRow)),
+  };
 }
 
 function readEffectiveRegions(
@@ -145,12 +148,7 @@ export const layoutSourceQuery = defineQueryHandler({
       kind,
       slug,
     });
-    const picked = pickEditedRows(rows, query.user, isSystemAdmin, locale);
-    const tenantRow = picked.tenantRow && toWorkingRow(picked.tenantRow, query.user.tenantId);
-    // Only a SystemAdmin works on the system draft; a tenant sees the served system version.
-    const systemRow =
-      picked.systemRow &&
-      toWorkingRow(picked.systemRow, draftViewerTenantId(query.user, picked.systemRow));
+    const { tenantRow, systemRow } = pickEditedRows(rows, query.user, locale);
     return buildLayoutSource({ kind, locale, isSystemAdmin, tenantRow, systemRow });
   },
 });

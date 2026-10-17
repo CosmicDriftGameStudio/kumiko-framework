@@ -135,6 +135,15 @@ function groupBySlugAndKind(
   return groups;
 }
 
+// Another tenant's draft, including a system draft seen by a tenant, is never announced.
+function draftVersionFor(
+  user: { readonly tenantId: string; readonly roles: readonly string[] },
+  row: TemplateResourceRow,
+): number | null {
+  const isOwnRow = row.tenantId === draftViewerTenantId(user, row);
+  return isOwnRow && parseTemplateDraft(row.draft) !== null ? row.version : null;
+}
+
 function buildDrafts(
   groups: ReadonlyMap<string, readonly TemplateResourceRow[]>,
   user: { readonly tenantId: string; readonly roles: readonly string[] },
@@ -168,11 +177,7 @@ function buildDrafts(
       locales: [...new Set(effective.rows.map((row) => row.locale))].sort(),
       status: preferred.status,
       version: isActive ? activeVersionOf(preferred) : preferred.version,
-      draftVersion:
-        preferred.tenantId === draftViewerTenantId(user, preferred) &&
-        parseTemplateDraft(preferred.draft) !== null
-          ? preferred.version
-          : null,
+      draftVersion: draftVersionFor(user, preferred),
       activeSince: isActive ? activeSinceOf(preferred).toString() : null,
       systemVersion: systemSameLocale === undefined ? null : activeVersionOf(systemSameLocale),
       layoutSlug,

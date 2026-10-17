@@ -203,6 +203,8 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "template-resolver:write:archive expose=true risk=mid",
   "template-resolver:write:archive-system expose=true risk=high",
   "template-resolver:write:copy-locale expose=true risk=mid",
+  "template-resolver:write:discard-draft expose=true risk=mid",
+  "template-resolver:write:discard-draft-system expose=true risk=high",
   "template-resolver:write:import-bundle expose=true risk=mid",
   "template-resolver:write:import-bundle-system expose=true risk=high",
   "template-resolver:write:publish expose=true risk=mid",
