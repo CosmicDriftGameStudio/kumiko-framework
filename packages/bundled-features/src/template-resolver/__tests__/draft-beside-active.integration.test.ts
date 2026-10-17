@@ -15,8 +15,10 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createTemplateResolverApi } from "../api.js";
 import { createTemplateResolverFeature } from "../feature.js";
 import type { LayoutSourceResponse, OverviewResponse } from "../index.js";
@@ -133,7 +135,14 @@ function validationCodes(err: { details?: unknown }): string[] {
 }
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createTemplateResolverFeature(), mailer] });
+  stack = await setupTestStack({
+    features: [
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createRendererMailHtmlFeature(),
+      mailer,
+    ],
+  });
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
 });
 
@@ -150,6 +159,13 @@ describe("template-resolver :: draft beside the active version", () => {
     await saveMail("lifecycle", "Entwurf");
 
     expect(await servedContent("lifecycle")).toContain("Aktiv");
+    const preview = await stack.http.queryOk<{ html: string }>(
+      TemplateResolverQueries.preview,
+      { slug: slugOf("lifecycle"), kind: "mail", locale: "de" },
+      admin,
+    );
+    expect(preview.html).toContain("Aktiv");
+    expect(preview.html).not.toContain("Entwurf");
     const working = await findWorking(id);
     expect(working.status).toBe("draft");
     expect(working.content).toContain("Entwurf");
