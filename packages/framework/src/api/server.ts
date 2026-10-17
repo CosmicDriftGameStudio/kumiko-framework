@@ -10,6 +10,10 @@ import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-nam
 import { projectAppSchemaForRoles } from "../engine/project-app-schema-for-roles.js";
 import { runsInLane } from "../engine/run-in.js";
 import {
+  resolveDisabledFeatureNames,
+  stripDisabledFeaturesFromAppSchema,
+} from "../engine/strip-disabled-features-from-app-schema.js";
+import {
   createAnonymousUser,
   createSystemUser,
   isAnonymousSessionUser,
@@ -1070,15 +1074,23 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // not the whole app's schema) and cached per role key. Tenant is
   // deliberately NOT part of the key: the projection depends only on
   // roles, and per-tenant caching would grow unboundedly across tenants
-  // that share the same role set.
+  // that share the same role set. What IS part of the key: the sorted set of
+  // features the caller's tenant has switched off (r.toggleable) — few
+  // distinct sets, so the cache stays small. The resolver is read per request
+  // because run{Dev,Prod}App fill it in after the server is built.
   let fullSchema: AppSchema | undefined;
   const projectedSchemaCache = new Map<string, { readonly json: string; readonly etag: string }>();
-  app.get(`/api${Routes.schema}`, (c) => {
+  app.get(`/api${Routes.schema}`, async (c) => {
     const user = getUser(c);
     if (isMissingOrAnonymousUser(user)) {
       return unauthenticatedResponse(c);
     }
-    const roleKey = JSON.stringify([...new Set(user?.roles ?? [])].sort());
+    const effectiveFeatures = options.dispatcherOptions?.effectiveFeatures;
+    const disabledFeatureNames =
+      effectiveFeatures === undefined
+        ? []
+        : await resolveDisabledFeatureNames(options.registry, effectiveFeatures, user.tenantId);
+    const roleKey = JSON.stringify([[...new Set(user?.roles ?? [])].sort(), disabledFeatureNames]);
     let cached = projectedSchemaCache.get(roleKey);
     if (cached === undefined) {
       if (fullSchema === undefined) {
@@ -1086,7 +1098,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
           searchAdapterMissing: !options.context.searchAdapter,
         });
       }
-      const projected = projectAppSchemaForRoles(fullSchema, user?.roles ?? []);
+      const projected = projectAppSchemaForRoles(
+        stripDisabledFeaturesFromAppSchema(fullSchema, options.registry, disabledFeatureNames),
+        user?.roles ?? [],
+      );
       const json = JSON.stringify(projected);
       cached = { json, etag: computeStrongEtag(json) };
       projectedSchemaCache.set(roleKey, cached);

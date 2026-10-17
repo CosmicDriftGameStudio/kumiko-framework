@@ -20,12 +20,9 @@
 //   Translations: verbatim feature.translations (raw r.translations keys,
 //                 unfiltered — see FeatureSchema.translations doc)
 //
-// Feature-Toggles: BISHER NICHT GEFILTERT. Wenn ein Feature über die
-// feature-toggles-bundled-feature global deaktiviert ist, erscheint es
-// trotzdem im AppSchema. Reason: die Toggle-Auflösung lebt im pipeline-
-// dispatcher, nicht in der Registry, und wir haben hier keinen TenantDb-
-// Kontext um sie zu lesen. TODO wenn das ein realer Use-Case wird:
-// `effectiveFeatures` Argument annehmen und über alle iterations filtern.
+// Feature-Toggles: dieses Schema ist tenant-unabhängig und enthält alle Features.
+// Die per-Tenant-Filterung (r.toggleable) passiert in der Schema-Route über
+// stripDisabledFeaturesFromAppSchema.
 
 import { ZodObject, type ZodType } from "zod";
 import type {
