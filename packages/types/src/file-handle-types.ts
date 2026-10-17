@@ -20,5 +20,8 @@ export type FileContext = {
   // the context's tenant prefix, but a tenant handover moves the row without moving the bytes,
   // so the key keeps the previous tenant's prefix.
   refFromFileRef(row: { readonly storageKey: string }): FileHandle;
+  // The row's key plus every key derive() produced from it, under the same trust as
+  // refFromFileRef; deleting a handed-over file needs it to reach the derivatives.
+  listFromFileRef(row: { readonly storageKey: string }): Promise<readonly string[]>;
   list(prefix: string): Promise<readonly string[]>;
 };

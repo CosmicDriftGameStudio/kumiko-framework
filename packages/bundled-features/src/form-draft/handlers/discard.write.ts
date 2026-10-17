@@ -93,7 +93,7 @@ export const discardDraftWrite = defineWriteHandler({
         await releaseDraftFileRefs(
           keys,
           async (key) => {
-            await files.ref(key).delete();
+            await files.refFromFileRef({ storageKey: key }).delete();
           },
           log,
         );

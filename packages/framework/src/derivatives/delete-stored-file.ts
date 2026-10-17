@@ -12,6 +12,7 @@
 // Used by both the user-data-rights-defaults forget hook and the
 // data-retention hardDelete cleanup — moved here so neither copies the logic.
 
+import type { FileContext } from "@cosmicdrift/kumiko-types/file-handle-types";
 import { assertSafeStorageKey } from "../files/types.js";
 import { derivativeListPrefix, isDerivativeKeyOf } from "./variant-key.js";
 
@@ -83,4 +84,22 @@ export async function deleteStoredFileAndDerivatives(
     }
   }
   return failedKeys;
+}
+
+// deleteStoredFileAndDerivatives through ctx.files for a key read from a tenant-filtered fileRef
+// row. After a tenant handover the key keeps the previous tenant's prefix, which ref() and list()
+// reject; every key the helper deletes is the original or one of its derivatives.
+export function deleteFileRefBytes(
+  files: FileContext,
+  row: { readonly storageKey: string },
+  errorContext: string,
+): Promise<readonly string[]> {
+  return deleteStoredFileAndDerivatives(
+    row.storageKey,
+    {
+      list: () => files.listFromFileRef(row),
+      delete: (key) => files.refFromFileRef({ storageKey: key }).delete(),
+    },
+    errorContext,
+  );
 }

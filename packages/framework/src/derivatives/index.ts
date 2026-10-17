@@ -1,5 +1,9 @@
 export type { StoredFileStore } from "./delete-stored-file.js";
-export { deleteStoredFileAndDerivatives, listDerivativeKeys } from "./delete-stored-file.js";
+export {
+  deleteFileRefBytes,
+  deleteStoredFileAndDerivatives,
+  listDerivativeKeys,
+} from "./delete-stored-file.js";
 export type { DerivativesContextDeps } from "./derivatives-context.js";
 export { createDerivativesContext, resolveRenderer } from "./derivatives-context.js";
 export { resolveFieldVariant } from "./field-variants.js";

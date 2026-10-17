@@ -2,7 +2,7 @@ import type { FileContext } from "@cosmicdrift/kumiko-types/file-handle-types";
 import type { Logger } from "@cosmicdrift/kumiko-types/logger";
 import { deleteMany, selectMany, type WhereObject } from "../db/query.js";
 import type { TenantDb } from "../db/tenant-db.js";
-import { deleteStoredFileAndDerivatives } from "../derivatives/delete-stored-file.js";
+import { deleteFileRefBytes } from "../derivatives/delete-stored-file.js";
 
 export const EXPIRED_FILE_REF_PURGE_BATCH = 500;
 
@@ -65,7 +65,6 @@ export async function purgeExpiredFileRefsWithBytes(args: {
     log?.warn("[soft-delete-cleanup] no file storage available, expired fileRef rows kept");
     return;
   }
-  const store = { list: files.list, delete: (key: string) => files.ref(key).delete() };
   let cursor: ExpiredRow | undefined;
   for (;;) {
     const rows = await selectNextPage({ db, table, where, expiredBefore, cursor, pageSize });
@@ -76,11 +75,7 @@ export async function purgeExpiredFileRefsWithBytes(args: {
     const purgedIds: string[] = [];
     for (const row of rows) {
       try {
-        const failedKeys = await deleteStoredFileAndDerivatives(
-          row.storageKey,
-          store,
-          "soft-delete-cleanup:fileRef",
-        );
+        const failedKeys = await deleteFileRefBytes(files, row, "soft-delete-cleanup:fileRef");
         if (failedKeys.length === 0) {
           purgedIds.push(row.id);
           continue;
