@@ -166,15 +166,41 @@ describe("createKumikoApp", () => {
 
   // kumiko-framework#3314: per-role projected schemas can legitimately omit
   // a screen a stale URL/deep-link still points at — pins the pre-existing
-  // (unchanged) "Screen not found" fallback rather than a crash.
-  test("screenQn pointing at a screen absent from the schema → Screen not found banner", async () => {
+  // a localized empty state rather than a crash or a raw QN banner.
+  test("screenQn pointing at a screen absent from the schema → unavailable empty state", async () => {
     mountRoot();
     await mountApp({
       schema: baseSchema,
       dispatcher: makeDispatcher(),
       screenQn: "tasks:screen:does-not-exist",
     });
-    expect(await screen.findByTestId("kumiko-screen-not-found")).toBeTruthy();
+    expect(await screen.findByTestId("kumiko-screen-missing")).toBeTruthy();
+    expect(screen.queryByTestId("kumiko-screen-not-found")).toBeNull();
+    expect(screen.queryByText(/does-not-exist/)).toBeNull();
+  });
+
+  test("route to an unknown screen id → unavailable empty state without a wrong QN, home button navigates to landing", async () => {
+    mountRoot();
+    const navigate = mock((_target: unknown) => {});
+    const memoryNav: NavApi = {
+      route: { screenId: "releases" },
+      navigate,
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+    await mountApp({
+      schema: baseSchema,
+      dispatcher: makeDispatcher(),
+      navAdapter: () => memoryNav,
+    });
+    expect(await screen.findByTestId("kumiko-screen-missing")).toBeTruthy();
+    expect(screen.queryByTestId("kumiko-screen-not-found")).toBeNull();
+    expect(screen.queryByText(/Screen not found/)).toBeNull();
+    expect(screen.queryByText(/tasks:screen:releases/)).toBeNull();
+    fireEvent.click(screen.getByTestId("kumiko-screen-missing-home"));
+    expect(navigate).toHaveBeenCalledWith({ screenId: "task-edit" });
   });
 
   test("rootId override: mounts into a different DOM id", async () => {

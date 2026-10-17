@@ -88,13 +88,13 @@ async function clickSubmitOnceEnabled(
 }
 
 describe("KumikoScreen", () => {
-  test("unknown qn → not-found placeholder", () => {
+  test("unknown qn → unavailable empty state", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>
         <KumikoScreen schema={schema} qn="tasks:screen:ghost" />
       </DispatcherProvider>,
     );
-    expect(screen.getByTestId("kumiko-screen-not-found")).toBeTruthy();
+    expect(screen.getByTestId("kumiko-screen-missing")).toBeTruthy();
   });
 
   test("role-gated screen, no UserRolesProvider mounted → access-denied placeholder", () => {

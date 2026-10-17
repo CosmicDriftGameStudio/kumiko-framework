@@ -1781,6 +1781,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // floating as a heading above the band.
   const titleInSettingsHeader = isSettingsList && !titleInShell;
   const usesFieldFlow = isScreenForm || insideDrawer;
+  // The caller's headerRegion already shows the record title in the shell page
+  // header, so the type title ("Release") above the form would repeat it.
+  const recordTitleInHeaderRegion =
+    headerRegion !== undefined &&
+    recordTitle !== undefined &&
+    PageHeader !== undefined &&
+    pageHeaderSlotAvailable;
   const allRequiredHint = (
     <Text variant="muted" testId="render-edit-all-required-hint">
       {translate("kumiko.form.all-required")}
@@ -1839,7 +1846,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         onSubmit={() => void handleSubmit()}
         {...(hideSectionTitles !== true &&
           !titleInShell &&
-          !titleInSettingsHeader && { title: formTitle })}
+          !titleInSettingsHeader &&
+          !recordTitleInHeaderRegion && { title: formTitle })}
         {...(formSubtitle !== undefined &&
           !stepRail &&
           !titleInSettingsHeader && { subtitle: formSubtitle })}

@@ -242,11 +242,7 @@ export function KumikoScreen({
   );
 
   if (!screen) {
-    return (
-      <Banner padded variant="error" testId="kumiko-screen-not-found">
-        Screen not found: <Text variant="code">{qn}</Text>
-      </Banner>
-    );
+    return <ScreenUnavailableState screenQn={qn} />;
   }
 
   if (!screenAccessAllows(screen.access, userRoles)) {
@@ -328,6 +324,46 @@ function ScreenVisibilityGate({
         <ScreenUnavailableBanner />
       )}
     </>
+  );
+}
+
+function ScreenMissingHomeButton({ homeScreenId }: { readonly homeScreenId: string }): ReactNode {
+  const { Button } = usePrimitives();
+  const t = useTranslation();
+  const nav = useNav();
+  return (
+    <Button
+      variant="secondary"
+      onClick={() => nav.navigate({ screenId: homeScreenId })}
+      testId="kumiko-screen-missing-home"
+    >
+      {t("kumiko.screen-unavailable.home")}
+    </Button>
+  );
+}
+
+/** Empty state for a screen QN that is not in the schema (feature disabled for
+ *  the tenant, stale link, miswired screen). The QN only goes to the console. */
+export function ScreenUnavailableState({
+  screenQn,
+  homeScreenId,
+}: {
+  readonly screenQn: string;
+  readonly homeScreenId?: string;
+}): ReactNode {
+  const { Card, Text } = usePrimitives();
+  const t = useTranslation();
+  useEffect(() => {
+    console.warn(
+      `[kumiko] screen "${screenQn}" is not in the schema (feature disabled, stale link or miswired screen).`,
+    );
+  }, [screenQn]);
+  return (
+    <Card options={{ padded: true }} testId="kumiko-screen-missing">
+      <Text testId="kumiko-screen-missing-title">{t("kumiko.screen-unavailable.title")}</Text>
+      <Text variant="muted">{t("kumiko.screen-unavailable.hint")}</Text>
+      {homeScreenId !== undefined && <ScreenMissingHomeButton homeScreenId={homeScreenId} />}
+    </Card>
   );
 }
 
@@ -2146,9 +2182,7 @@ function DrawerHost({
         <PageHeaderSlotAvailableProvider value={false}>
           <InsideDrawerProvider value={true}>
             {drawerScreen === undefined ? (
-              <Banner padded variant="error" testId="kumiko-toolbar-drawer-not-found">
-                Screen not found: <Text variant="code">{drawerAction.screen}</Text>
-              </Banner>
+              <ScreenUnavailableState screenQn={drawerAction.screen} />
             ) : !allowed ? (
               <Banner padded variant="error" testId="kumiko-toolbar-drawer-access-denied">
                 Access denied: <Text variant="code">{drawerAction.screen}</Text>
