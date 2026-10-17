@@ -56,7 +56,12 @@ function LayoutEditorLoader({
   const data = source.data;
   const rows = (overview.data?.rows ?? []).flatMap((row) => parseOverviewRow(row) ?? []);
   const reload = async (): Promise<void> => {
-    await Promise.all([source.refetch(), overview.refetch(), overrides.refetch()]);
+    // refetch() ignores `enabled`; a tenant admin would get access_denied.
+    await Promise.all([
+      source.refetch(),
+      overview.refetch(),
+      isSystemAdmin ? overrides.refetch() : undefined,
+    ]);
   };
   // A saved or reset layout is a new version: remount so the editors take the stored regions.
   const bodyKey = [kind, slug, data.tenant?.id, data.tenant?.version, data.system?.version].join(
