@@ -1,6 +1,6 @@
 // webhook-step integration test — drives r.step.webhook.send end-to-end:
 // handler appends step.dispatch-requested in TX, dispatcher subscription
-// drains after COMMIT and calls the (stubbed) fetch, follow-up
+// enqueues a delivery job after COMMIT, the job calls the (stubbed) fetch, follow-up
 // step.dispatched / step.dispatch-failed events land on the same stream.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -72,6 +72,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [createStepDispatcherFeature(), createSecretsFeature(), webhookDemoFeature],
     systemHooks: [],
+    jobs: { consumerLane: "worker" },
     extraContext: ({ db, registry }) => ({
       secrets: createSecretsContext({ db, masterKeyProvider, registry }),
     }),
@@ -116,6 +117,7 @@ describe("webhook-step Sample", () => {
 
     // Drain dispatcher (MSP runs async via runOnce in test mode)
     await stack.eventDispatcher?.runOnce();
+    await stack.drainJobs();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [calledUrl, init] = fetchMock.mock.calls[0]!;
@@ -134,6 +136,7 @@ describe("webhook-step Sample", () => {
     expect(id).toMatch(/^[0-9a-f-]{36}$/);
 
     await stack.eventDispatcher?.runOnce();
+    await stack.drainJobs();
 
     expect(mailMock).toHaveBeenCalledTimes(1);
     expect(mailMock).toHaveBeenCalledWith(
@@ -163,6 +166,7 @@ describe("webhook-step Sample", () => {
 
     // And the inner handler's webhook fired
     await stack.eventDispatcher?.runOnce();
+    await stack.drainJobs();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -175,6 +179,7 @@ describe("webhook-step Sample", () => {
     expect(res.status).toBe(500);
 
     await stack.eventDispatcher?.runOnce();
+    await stack.drainJobs();
 
     expect(fetchMock).not.toHaveBeenCalled();
     const rows = await selectMany(stack.db, incidentTable);
@@ -193,6 +198,7 @@ describe("access-denied — role-restricted handlers", () => {
     );
     expect(error.code).toBe("access_denied");
     await stack.eventDispatcher?.runOnce();
+    await stack.drainJobs();
     expect(mailMock).not.toHaveBeenCalled();
   });
 
@@ -219,6 +225,7 @@ describe("access-denied — role-restricted handlers", () => {
     );
     expect(error.code).toBe("access_denied");
     await stack.eventDispatcher?.runOnce();
+    await stack.drainJobs();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
@@ -249,6 +256,7 @@ describe("incident:open-authenticated — tenant-owned webhook auth secret", () 
       adminB,
     );
     await stack.eventDispatcher?.runOnce();
+    await stack.drainJobs();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [, init] = fetchMock.mock.calls[0]!;
@@ -280,6 +288,7 @@ describe("incident:open-authenticated — tenant-owned webhook auth secret", () 
       adminA,
     );
     await stack.eventDispatcher?.runOnce();
+    await stack.drainJobs();
 
     expect(fetchMock).not.toHaveBeenCalled();
 
@@ -310,6 +319,7 @@ describe("incident:open-authenticated — tenant-owned webhook auth secret", () 
       adminC,
     );
     await stack.eventDispatcher?.runOnce();
+    await stack.drainJobs();
 
     expect(fetchMock).not.toHaveBeenCalled();
     const failedEvents = await selectMany(stack.db, eventsTable, {

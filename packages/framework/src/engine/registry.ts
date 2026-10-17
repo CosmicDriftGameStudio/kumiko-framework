@@ -40,6 +40,7 @@ import {
   validateJobBackoff,
   validateLifecycleHookTargets,
   validateLiveEntities,
+  validateMaxPerTenant,
   validateNotificationRecordMappings,
   validateProjectionApplyKeys,
   validateRelationTargetsExist,
@@ -93,6 +94,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   validateBootGates(state);
   validateLiveEntities(state);
   validateJobBackoff(state);
+  validateMaxPerTenant(state);
   validateExtensionUsageTargets(state);
   computeHasRateLimitedHandler(state);
   publishEventPiiCatalog(state);

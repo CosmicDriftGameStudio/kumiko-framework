@@ -1,4 +1,5 @@
 import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
+import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-types/multi-stream-apply-context-types";
 import { Hono, type MiddlewareHandler } from "hono";
 import { ROLES } from "../auth/roles.js";
 import type { DbConnection, PgListenClient } from "../db/connection.js";
@@ -649,6 +650,13 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const searchConsumerEnabled = options.eventDispatcher?.systemConsumers?.search ?? true;
   const jobTriggerConsumerEnabled = options.eventDispatcher?.systemConsumers?.jobTrigger ?? true;
   const jobRunnerForTriggers = options.dispatcherOptions?.jobRunner;
+  const mspJobs: MultiStreamApplyContext["jobs"] | undefined = jobRunnerForTriggers?.dispatch
+    ? {
+        dispatch: async (jobName, payload, dispatchOptions) => {
+          await jobRunnerForTriggers.dispatch?.(jobName, payload, dispatchOptions);
+        },
+      }
+    : undefined;
 
   const systemConsumers: EventConsumer[] = [];
   if (sseConsumerEnabled) {
@@ -734,6 +742,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         ...(mspOwner && { callerFeature: mspOwner }),
         ...(mspFiles && { files: mspFiles }),
         ...(contextWithObservability.secrets && { secrets: contextWithObservability.secrets }),
+        ...(mspJobs && { jobs: mspJobs }),
         ...(mspFiles && {
           derivatives: createDerivativesContext({
             files: mspFiles,

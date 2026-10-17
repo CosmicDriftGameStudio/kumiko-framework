@@ -41,6 +41,7 @@ export type {
   JobHandlerFn,
   JobRunIn,
   JobTrigger,
+  MaxPerTenantOptions,
   NotificationDataFn,
   NotificationDefinition,
   NotificationLocalizedTemplate,

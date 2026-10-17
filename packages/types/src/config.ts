@@ -411,6 +411,19 @@ export type JobBackoff =
   | JobBackoffStrategy
   | { readonly type: JobBackoffStrategy; readonly delayMs?: number | undefined };
 
+// `skip`: an enqueue over the limit is dropped (dispatch returns
+// "skipped:max-per-tenant"). `defer`: nothing is dropped; the limit is checked
+// when a worker picks the job up, and over the limit the job is moved to delayed
+// for `deferMs` (default 1000) and re-checked without consuming a retry attempt.
+// The delay grows per deferral up to a cap (30 s) plus jitter. Pick-up order
+// (`processedOn`) keeps the cap; only clock skew between workers can briefly let
+// one job more through.
+export type MaxPerTenantOptions = {
+  readonly limit: number;
+  readonly onLimit: "skip" | "defer";
+  readonly deferMs?: number | undefined;
+};
+
 export type JobDefinition = {
   readonly name: string;
   readonly handler: JobHandlerFn;
@@ -420,7 +433,8 @@ export type JobDefinition = {
   // to the back of its queue, so a job dispatched later can still complete
   // before one dispatched earlier. Don't rely on dispatch order.
   readonly concurrency?: ConcurrencyMode | undefined;
-  readonly maxPerTenant?: number | undefined;
+  // A plain number means `{ limit, onLimit: "skip" }`.
+  readonly maxPerTenant?: number | MaxPerTenantOptions | undefined;
   readonly debounceMs?: number | undefined;
   readonly retries?: number | undefined;
   readonly backoff?: JobBackoff | undefined;

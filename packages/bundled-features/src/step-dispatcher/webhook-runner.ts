@@ -100,9 +100,21 @@ export const webhookSpecSchema = z.object({
 
 export type WebhookSpec = z.infer<typeof webhookSpecSchema>;
 
+// `retryable`: a repeat can succeed (network error, timeout, 5xx, 408, 429).
+// Everything else is final and must not be retried.
+type WebhookDispatchFailure = {
+  readonly ok: false;
+  readonly error: string;
+  readonly retryable: boolean;
+};
+
 export type WebhookDispatchResult =
   | { readonly ok: true; readonly status: number }
-  | { readonly ok: false; readonly error: string };
+  | WebhookDispatchFailure;
+
+function isRetryableHttpStatus(status: number): boolean {
+  return status >= 500 || status === 408 || status === 429;
+}
 
 let fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis);
 
@@ -118,8 +130,7 @@ export type WebhookDispatchDeps = {
   readonly requestTimeoutMs?: number;
 };
 
-// Bounds a single hanging tenant-controlled receiver to this long. The consumer
-// is sequential and shared, so N hanging requests still delay other tenants by N times this.
+// Bounds a single hanging tenant-controlled receiver to this long per attempt.
 export const WEBHOOK_REQUEST_TIMEOUT_MS = 10_000;
 
 // Never includes the secret name or value — spec.auth.secret is a
@@ -146,28 +157,30 @@ function setHeader(headers: Record<string, string>, name: string, value: string)
 async function buildWebhookHeaders(
   spec: WebhookSpec,
   deps: WebhookDispatchDeps,
-): Promise<{ ok: true; headers: Record<string, string> } | { ok: false; error: string }> {
+): Promise<{ ok: true; headers: Record<string, string> } | WebhookDispatchFailure> {
   const headers: Record<string, string> = { ...spec.headers };
   if (!hasHeader(headers, "content-type")) headers["content-type"] = "application/json";
   if (!hasHeader(headers, WEBHOOK_IDEMPOTENCY_KEY_HEADER)) {
     headers[WEBHOOK_IDEMPOTENCY_KEY_HEADER] = deps.idempotencyKey;
   }
   if (!spec.auth) return { ok: true, headers };
-  if (!deps.secrets) return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR };
+  if (!deps.secrets)
+    return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR, retryable: false };
   // A throwing get (corrupt envelope, rotated key, KMS error) must become a
-  // dispatch-failed event; rethrowing would retry and dead-letter the whole
-  // step-dispatcher consumer for every tenant.
+  // dispatch-failed event; rethrowing would burn the job's retries on a
+  // failure a retry cannot fix.
   let secret: string;
   try {
     const revealed = await deps.secrets.get(deps.tenantId, webhookAuthSecretKey(spec.auth.secret), {
       userId: deps.userId,
       handlerName: "step-dispatcher:webhook.send",
     });
-    if (!revealed) return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR };
+    if (!revealed)
+      return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR, retryable: false };
     secret = revealed.reveal();
   } catch {
     log.warn("webhook auth secret lookup failed", { tenantId: deps.tenantId });
-    return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR };
+    return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR, retryable: false };
   }
   if (spec.auth.kind === "bearer") {
     setHeader(headers, "authorization", `Bearer ${secret}`);
@@ -182,7 +195,7 @@ async function resolveWebhookFetchTarget(
   url: URL,
   headers: Record<string, string>,
 ): Promise<
-  { ok: true; fetchUrl: string | URL; requestInit: RequestInit } | { ok: false; error: string }
+  { ok: true; fetchUrl: string | URL; requestInit: RequestInit } | WebhookDispatchFailure
 > {
   if (isHostAllowlisted(url.hostname, readAllowedPrivateWebhookHostsFromEnv()))
     return { ok: true, fetchUrl: rawUrl, requestInit: { headers } };
@@ -194,7 +207,11 @@ async function resolveWebhookFetchTarget(
     const reason = err instanceof Error ? err.message : String(err);
     if (err instanceof BlockedHostError || err instanceof HostResolutionError) {
       log.warn("webhook host unreachable", { host: url.hostname, reason });
-      return { ok: false, error: "webhook host is not reachable or not allowed" };
+      return {
+        ok: false,
+        error: "webhook host is not reachable or not allowed",
+        retryable: false,
+      };
     }
     throw err;
   }
@@ -214,10 +231,14 @@ export async function performWebhookDispatch(
   try {
     url = new URL(spec.url);
   } catch {
-    return { ok: false, error: "invalid url" };
+    return { ok: false, error: "invalid url", retryable: false };
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return { ok: false, error: `unsupported url scheme "${url.protocol}"` };
+    return {
+      ok: false,
+      error: `unsupported url scheme "${url.protocol}"`,
+      retryable: false,
+    };
   }
 
   const headers = await buildWebhookHeaders(spec, deps);
@@ -237,7 +258,11 @@ export async function performWebhookDispatch(
     // Only the status is used; an unread body would pin the socket until the timeout fires.
     await res.body?.cancel().catch(() => {});
     if (!res.ok) {
-      return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` };
+      return {
+        ok: false,
+        error: `HTTP ${res.status}: ${res.statusText}`,
+        retryable: isRetryableHttpStatus(res.status),
+      };
     }
     return { ok: true, status: res.status };
   } catch (err) {
@@ -245,6 +270,7 @@ export async function performWebhookDispatch(
     return {
       ok: false,
       error: `webhook request failed (${err instanceof Error ? err.name : "unknown error"})`,
+      retryable: true,
     };
   }
 }

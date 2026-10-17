@@ -1,6 +1,7 @@
 import { configureEventPiiCatalog } from "../crypto/event-pii.js";
 import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption.js";
 import { type EntityLifecycleVerb, entityEventName } from "../db/event-store-executor-context.js";
+import { resolveMaxPerTenant } from "../jobs/max-per-tenant.js";
 import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.js";
 import { resolveName } from "./handler-helpers.js";
 import { parseRefTargetEntityName } from "./parse-ref-target.js";
@@ -920,6 +921,29 @@ export function validateJobBackoff(state: RegistryState): void {
       throw new Error(
         `Job "${jobName}" backoff.delayMs must be a positive integer (got ${delayMs})`,
       );
+    }
+  }
+}
+
+export function validateMaxPerTenant(state: RegistryState): void {
+  for (const [jobName, jobDef] of state.jobMap) {
+    const resolved = resolveMaxPerTenant(jobDef);
+    if (!resolved) continue;
+    if (!Number.isInteger(resolved.limit) || resolved.limit <= 0) {
+      throw new Error(
+        `Job "${jobName}" maxPerTenant limit must be a positive integer (got ${resolved.limit})`,
+      );
+    }
+    if (typeof jobDef.maxPerTenant !== "object") continue;
+    const { deferMs } = jobDef.maxPerTenant;
+    if (deferMs !== undefined && (!Number.isInteger(deferMs) || deferMs <= 0)) {
+      throw new Error(
+        `Job "${jobName}" maxPerTenant.deferMs must be a positive integer (got ${deferMs})`,
+      );
+    }
+    // The inline boot-gate path has no BullMQ token to move the job to delayed with.
+    if (resolved.onLimit === "defer" && jobDef.bootGate) {
+      throw new Error(`Job "${jobName}" cannot combine bootGate with maxPerTenant onLimit "defer"`);
     }
   }
 }

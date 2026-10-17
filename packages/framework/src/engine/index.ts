@@ -532,6 +532,7 @@ export type {
   ListSortSpec,
   LongTextFindability,
   ManyToManyRelation,
+  MaxPerTenantOptions,
   MemberReader,
   MetricNavigate,
   MetricSpec,
