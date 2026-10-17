@@ -167,6 +167,7 @@ const adminTenantG = tenantAdmin(37);
 const adminTenantH = tenantAdmin(38);
 const adminTenantI = tenantAdmin(39);
 const adminTenantJ = tenantAdmin(40);
+const adminTenantK = tenantAdmin(41);
 
 // Job failures only surface as a bare error code; the job's error log names the failing step.
 const loggedErrors: string[] = [];
@@ -454,6 +455,29 @@ describe("mail attachments: inline logo and file attachment", () => {
     expect(mail.attachments).toHaveLength(1);
     expect(mail.attachments?.[0]).toMatchObject({ kind: "file", fileName: "terms.pdf" });
     expect(Buffer.from(mail.attachments?.[0]?.content ?? [])).toEqual(Buffer.from(PDF_BYTES));
+  });
+
+  test("tenant override of a system mail keeps the system attachment", async () => {
+    const systemId = await systemTemplateId(SYSTEM_FILE);
+    await attachTemplateFile(
+      TestUsers.systemAdmin,
+      systemId,
+      "terms",
+      "terms.pdf",
+      SYSTEM_TENANT_ID,
+    );
+    const overrideId = await publishTenantOverride(adminTenantK, SYSTEM_FILE, {
+      content: "<p>Own text</p>",
+    });
+    await attachTemplateFile(adminTenantK, overrideId, "extra", "extra.pdf");
+
+    const mail = await sendMail(adminTenantK, SYSTEM_FILE);
+
+    expect(mail.html).toContain("Own text");
+    expect(mail.attachments?.map((a) => [a.kind, a.fileName])).toEqual([
+      ["file", "terms.pdf"],
+      ["file", "extra.pdf"],
+    ]);
   });
 
   test("a branding logo token pointing at another tenant's file is dropped", async () => {

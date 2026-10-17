@@ -228,6 +228,7 @@ export type {
   OpenToAllAccessRule,
   OpenToAllDeclaration,
   OpenToAllPersonalData,
+  PayloadBucketNormalization,
   PayloadRateLimitOption,
   PreparedWriteEvent,
   QualifiedEventName,

@@ -363,6 +363,12 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     }
   });
 
+  test("an empty or whitespace number param keeps the field default instead of becoming 0", () => {
+    const fields: Record<string, FieldDef> = { count: { type: "number", default: 7 } };
+    expect(mergeWithAllFieldsUrlPrefillable(fields, { count: "" })["count"]).toBe(7);
+    expect(mergeWithAllFieldsUrlPrefillable(fields, { count: "  " })["count"]).toBe(7);
+  });
+
   test("a non-finite number param keeps the field default", () => {
     const fields: Record<string, FieldDef> = { qty: { type: "number", default: 5 } };
     expect(mergeWithAllFieldsUrlPrefillable(fields, { qty: "1e999" })["qty"]).toBe(5);
@@ -441,6 +447,9 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
       ["a decimal with more places than its scale", { rate: 1.23456 }],
       ["a date that is not an ISO date", { due: "foo" }],
       ["a timestamp that is not an ISO instant", { seen: "yesterday" }],
+      ["a calendar-invalid date", { due: "2020-02-31" }],
+      ["a timestamp with a numeric offset instead of Z", { seen: "2020-06-01T10:00:00+02:00" }],
+      ["a decimal beyond the safe-integer range at its scale", { rate: 1e15 }],
     ])("%s rejects the whole prefill and warns", (_label, badRow) => {
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {

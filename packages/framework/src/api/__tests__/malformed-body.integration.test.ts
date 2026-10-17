@@ -46,3 +46,31 @@ describe("dispatch routes reject unusable request bodies with 400", () => {
     });
   }
 });
+
+describe("dispatch routes validate command shape and requestId", () => {
+  const badBatchBodies: Array<[string, unknown]> = [
+    ["a null command", { commands: [null] }],
+    ["a command with a numeric type", { commands: [{ type: 1 }] }],
+    ["a command with an empty type", { commands: [{ type: "" }] }],
+    ["a second command that is not an object", { commands: [{ type: "x:write:y" }, "oops"] }],
+    ["a non-string requestId", { commands: [], requestId: 5 }],
+  ];
+
+  for (const [name, body] of badBatchBodies) {
+    test(`${Routes.batch}: ${name}`, async () => {
+      const res = await post(Routes.batch, JSON.stringify(body));
+      expect(res.status).toBe(400);
+      const json = (await res.json()) as { error?: { code?: string } };
+      expect(json.error?.code).toBe("validation_error");
+    });
+  }
+
+  for (const route of [Routes.write, Routes.query, Routes.command, Routes.stream]) {
+    test(`${route}: non-string requestId`, async () => {
+      const res = await post(route, JSON.stringify({ type: "x:write:y", requestId: { a: 1 } }));
+      expect(res.status).toBe(400);
+      const json = (await res.json()) as { error?: { code?: string } };
+      expect(json.error?.code).toBe("validation_error");
+    });
+  }
+});

@@ -22,6 +22,21 @@ describe("renderer-mail-html :: document format", () => {
   });
 });
 
+describe("renderer-mail-html :: date helper", () => {
+  const hbs = createDocumentHandlebars({ locale: "de", currency: "EUR" });
+  const renderDate = (value: unknown) => compileDocumentSource(hbs, "{{date value}}")({ value });
+
+  test("a datetime with an offset keeps the calendar date of its wall clock", () => {
+    expect(renderDate("2026-10-18T00:30:00+02:00")).toBe("18. Oktober 2026");
+    expect(renderDate("2026-10-17T23:30:00-05:00")).toBe("17. Oktober 2026");
+  });
+
+  test("a UTC datetime and epoch milliseconds use the UTC date", () => {
+    expect(renderDate("2026-10-18T00:30:00Z")).toBe("18. Oktober 2026");
+    expect(renderDate(Date.UTC(2026, 9, 18, 0, 30))).toBe("18. Oktober 2026");
+  });
+});
+
 describe("renderer-mail-html :: richText helper", () => {
   const hbs = createDocumentHandlebars({ locale: "de", currency: "EUR" });
   const render = (source: string, data: Record<string, unknown>) =>

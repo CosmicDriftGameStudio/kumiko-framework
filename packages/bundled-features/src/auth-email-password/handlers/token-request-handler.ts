@@ -19,6 +19,7 @@ import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { UserQueries } from "../../user/index.js";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.js";
+import { AUTH_EMAIL_PAYLOAD_RATE_LIMITS } from "../email-rate-limits.js";
 import type { AuthMailLocale } from "../email-templates.js";
 import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
 
@@ -99,7 +100,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
     schema: RequestTokenSchema,
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
-    additionalRateLimits: [{ per: { payloadField: "email" }, limit: 5, windowSeconds: 86400 }],
+    additionalRateLimits: AUTH_EMAIL_PAYLOAD_RATE_LIMITS,
     escapeHatch: {
       grants: ["systemIdentity"],
       reason:

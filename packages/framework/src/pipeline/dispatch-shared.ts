@@ -1180,13 +1180,14 @@ export async function buildHandlerContext(
   // The payload-bucket digest is dispatcher-internal; handlers must not be
   // able to compute bucket keys.
   const {
-    _rateLimitPayloadDigest: _omitPayloadDigest,
+    _rateLimitPayloadDigest: payloadDigest,
     // Bound to this call's tx: an outer context's factory must not leak into a tx-less one.
     _notifyInTransactionFactory: _omitOuterNotifyInTransactionFactory,
     ...contextForHandler
   } = context;
   const handlerContext = {
     ...contextForHandler,
+    ...(payloadDigest && { rateLimitDigest: createHandlerBoundDigest(payloadDigest, type) }),
     ...(notifyInTransactionFactory && { _notifyInTransactionFactory: notifyInTransactionFactory }),
     registry,
     db: exposedDb,
@@ -1252,6 +1253,15 @@ export async function buildHandlerContext(
   return isMemberResolutionPrincipal(user)
     ? applyMemberResolutionReadOnly(scopedContext)
     : scopedContext;
+}
+
+// The handler-name prefix keeps a handler from reproducing the digests the
+// dispatcher uses for payload buckets (those hash the bare normalized value).
+export function createHandlerBoundDigest(
+  digest: (value: string) => string,
+  handlerName: string,
+): (value: string) => string {
+  return (value) => digest(`handler:${handlerName}:${value}`);
 }
 
 // Resolves the agent risk the irreversible-operation gate should attribute to
@@ -1592,7 +1602,7 @@ export async function enforcePayloadRateLimits(
       message: `Handler "${handlerName}" declares additionalRateLimits but its payload is not an object.`,
     });
   }
-  for (const { per, limit, windowSeconds, cost } of limits) {
+  for (const { per, limit, windowSeconds, cost, normalize } of limits) {
     const value = data[per.payloadField];
     // skip: optional field not sent — nothing to bucket on
     if (value === undefined) continue;
@@ -1602,9 +1612,10 @@ export async function enforcePayloadRateLimits(
       });
     }
     const key = buildPayloadBucketKey(
+      user.tenantId,
       handlerName,
       per.payloadField,
-      digest(normalizePayloadBucketValue(value)),
+      digest(normalizePayloadBucketValue(value, normalize)),
     );
     await context.rateLimit.enforce(key, { limit, windowSeconds, cost });
   }

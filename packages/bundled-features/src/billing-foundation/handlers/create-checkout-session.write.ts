@@ -23,7 +23,7 @@
 // hand-picked priceId.
 
 import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import {
   assertCheckoutAllowed,
@@ -32,6 +32,7 @@ import {
   startProviderCheckout,
 } from "../checkout-core.js";
 import {
+  assertValidOrderItem,
   type ConsentPayload,
   consentCheckoutFields,
   consentPayloadSchema,
@@ -104,11 +105,12 @@ export function createCheckoutSessionHandler(
 
       const mode = payload.mode ?? "subscription";
       const plugin = await assertCheckoutAllowed(ctx, openOptions, checkoutInput);
-      const price = await lookupPrice(ctx, plugin, payload.priceId);
+      const price = await lookupPrice(ctx, plugin, payload.providerName, payload.priceId);
       const orderItem =
         mode === "payment"
           ? await consumerProtection.oneOffItemLabel?.(ctx, payload.priceId)
           : undefined;
+      assertValidOrderItem(orderItem, payload.priceId);
       const consent = await prepareConsent(ctx, consumerProtection, payload.consent, mode);
       const result = await startProviderCheckout(ctx, plugin, {
         ...checkoutInput,
@@ -134,11 +136,17 @@ export function createCheckoutSessionHandler(
 async function lookupPrice(
   ctx: HandlerContext,
   plugin: SubscriptionProviderPlugin,
+  providerName: string,
   priceId: string,
 ): Promise<ProviderPrice> {
+  if (!plugin.retrievePrices) {
+    throw new InternalError({
+      message: `billing-foundation: provider "${providerName}" lacks retrievePrices, required by consumerProtection`,
+    });
+  }
   let price: ProviderPrice | undefined;
   try {
-    const prices = (await plugin.retrievePrices?.(ctx, [priceId])) ?? [];
+    const prices = await plugin.retrievePrices(ctx, [priceId]);
     price = prices.find((p) => p.priceId === priceId);
   } catch (cause) {
     throw priceUnavailable(priceId, cause);

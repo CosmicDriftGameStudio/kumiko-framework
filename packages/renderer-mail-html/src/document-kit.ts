@@ -28,6 +28,7 @@ const documentKitLogger = createFallbackLogger("renderer-mail-html");
 const FALLBACK_CURRENCY = "EUR";
 const SAFE_LINK_PROTOCOL = /^(https?:|mailto:)/i;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_TIME_WITH_OFFSET = /^\d{4}-\d{2}-\d{2}T.*[+-]\d{2}(:?\d{2})?$/;
 
 export type DocumentFormat = { readonly locale: string; readonly currency: string };
 
@@ -59,6 +60,13 @@ export function createDocumentHandlebars(format: DocumentFormat): typeof Handleb
       // previous day west of UTC.
       if (typeof value === "string" && DATE_ONLY.test(value)) {
         return Temporal.PlainDate.from(value).toLocaleString(locale, { dateStyle: "long" });
+      }
+      // An explicit offset names the sender's zone: the calendar date is the wall-clock
+      // date of the string, not the date at UTC.
+      if (typeof value === "string" && DATE_TIME_WITH_OFFSET.test(value)) {
+        return Temporal.PlainDateTime.from(value)
+          .toPlainDate()
+          .toLocaleString(locale, { dateStyle: "long" });
       }
       const instant =
         typeof value === "number"

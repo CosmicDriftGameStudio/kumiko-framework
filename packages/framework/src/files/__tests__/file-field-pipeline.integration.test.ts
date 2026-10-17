@@ -51,6 +51,7 @@ const documentEntity = createEntity({
     cover: createImageField(),
     photos: createImagesField(),
     docs: createFilesField(),
+    cappedDocs: createFilesField({ maxCount: 2 }),
   },
 });
 
@@ -260,5 +261,25 @@ describe("file/image field through the CRUD pipeline", () => {
       user,
     );
     expect(err.code).toBe("validation_error");
+  });
+  test("files field with maxCount rejects more ids than allowed and accepts exactly maxCount", async () => {
+    const ids = [
+      await uploadFile("1.pdf", PDF_BYTES, "application/pdf"),
+      await uploadFile("2.pdf", PDF_BYTES, "application/pdf"),
+      await uploadFile("3.pdf", PDF_BYTES, "application/pdf"),
+    ];
+    const err = await stack.http.writeErr(
+      "pipeline-documents:write:document:create",
+      { title: "Too many", cappedDocs: ids },
+      user,
+    );
+    expect(err.code).toBe("validation_error");
+
+    const created = await stack.http.writeOk<{ id: string }>(
+      "pipeline-documents:write:document:create",
+      { title: "At the cap", cappedDocs: ids.slice(0, 2) },
+      user,
+    );
+    expect(created.id).toBeTruthy();
   });
 });

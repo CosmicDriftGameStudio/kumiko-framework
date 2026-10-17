@@ -23,6 +23,7 @@ import {
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import {
@@ -102,6 +103,7 @@ const emailTransport = createInMemoryTransport();
 type CancelCall = { readonly providerSubscriptionId: string; readonly when: string };
 const cancelCalls: CancelCall[] = [];
 let providerCancelFails = false;
+let clockOffsetDays = 0;
 
 const mockProviderFeature = defineFeature("test-mock-termination-provider", (r) => {
   r.requires("billing-foundation");
@@ -126,6 +128,7 @@ type StackAnonymousAccess = NonNullable<Parameters<typeof setupTestStack>[0]["an
 
 type TerminationStackOptions = {
   readonly terminationScope?: TerminationScope;
+  readonly catalog?: BillingPlanCatalog;
   readonly extraFeatures?: readonly FeatureDefinition[];
   readonly terminationRoutes?: ReturnType<typeof createContractTerminationRoutes>;
 };
@@ -151,7 +154,8 @@ async function createTerminationStack(
       }),
       createBillingFoundationFeature({
         baseUrl: "https://app.example.com",
-        catalog,
+        catalog: stackOptions.catalog ?? catalog,
+        now: () => Temporal.Now.instant().add({ hours: clockOffsetDays * 24 }),
         consumerProtection: {
           ...consumerProtection,
           ...(stackOptions.terminationScope !== undefined && {
@@ -217,6 +221,7 @@ beforeEach(async () => {
   emailTransport.sent.length = 0;
   cancelCalls.length = 0;
   providerCancelFails = false;
+  clockOffsetDays = 0;
   await resetStack(stack);
 });
 
@@ -511,7 +516,7 @@ describe("public declaration through /api/write", () => {
     });
     const mails = mailsTo(email);
     expect(mails).toHaveLength(1);
-    expect(mails[0]?.html).toContain(DECLARANT_NAME);
+    expect(mails[0]?.html).not.toContain(DECLARANT_NAME);
     expect(mails[0]?.html).toContain(receipt.requestId);
     const receiptHtml = mails[0]?.html ?? "";
     expect(receiptHtml.indexOf("Hallo,")).toBeGreaterThan(-1);
@@ -671,7 +676,6 @@ describe("public declaration through /api/write", () => {
   test("the sixth request from one IP within the window is rejected", async () => {
     const ip = nextClientIp();
     for (let i = 0; i < 5; i += 1) {
-      // Distinct address per request, see the per-recipient limit (3/day).
       expect((await postDeclaration({ email: `ip-limit-${i}@example.com` }, ip)).status).toBe(200);
     }
     const sixth = await postDeclaration({ email: "ip-limit-5@example.com" }, ip);
@@ -754,6 +758,45 @@ describe("terminate-contract (account path)", () => {
     expect(mailsTo(OPERATOR_EMAIL)).toHaveLength(1);
   });
 
+  test("a withdrawal after the withdrawal period cancels at period end and tells the operator", async () => {
+    const admin = await adminOf(8113, "admin-late@example.com", ["TenantAdmin"]);
+    await seedSubscription(8113, "sub_account_late");
+    clockOffsetDays = 15;
+
+    const result = await stack.http.writeOk<{ providerCancel: string; effectiveAtIso: string }>(
+      SubscriptionFoundationHandlers.terminateContract,
+      { declarationType: "withdrawal", terminationKind: "ordinary" },
+      admin,
+    );
+    await stack.drainJobs();
+
+    expect(result.providerCancel).toBe("period-end");
+    expect(result.effectiveAtIso).toContain("2026-11-02");
+    expect(cancelCalls).toEqual([
+      { providerSubscriptionId: "sub_account_late", when: "period-end" },
+    ]);
+    const notices = mailsTo(OPERATOR_EMAIL);
+    expect(notices).toHaveLength(1);
+    expect(notices[0]?.html).toContain("Widerruf nach Ablauf der Widerrufsfrist");
+  });
+
+  test("a withdrawal on the last day of the withdrawal period still cancels immediately", async () => {
+    const admin = await adminOf(8114, "admin-edge@example.com", ["TenantAdmin"]);
+    await seedSubscription(8114, "sub_account_edge");
+    clockOffsetDays = 13;
+
+    const result = await stack.http.writeOk<{ providerCancel: string }>(
+      SubscriptionFoundationHandlers.terminateContract,
+      { declarationType: "withdrawal", terminationKind: "ordinary" },
+      admin,
+    );
+
+    expect(result.providerCancel).toBe("immediately");
+    expect(cancelCalls).toEqual([
+      { providerSubscriptionId: "sub_account_edge", when: "immediately" },
+    ]);
+  });
+
   test("a user without a purchase role is denied and nothing is cancelled", async () => {
     const member = await adminOf(8112, "plain@example.com", ["User"]);
     await seedSubscription(8112, "sub_denied");
@@ -833,6 +876,43 @@ async function expectBothPagesServed(target: TestStack, headers: Record<string, 
     expect(await res.text()).toContain('name="email"');
   }
 }
+
+describe("public declaration with custom purchase roles", () => {
+  let roleStack: TestStack;
+
+  beforeAll(async () => {
+    roleStack = await createTerminationStack(
+      { defaultTenantId: ANONYMOUS_TENANT },
+      { catalog: { ...catalog, purchaseRoles: ["Billing"] } },
+    );
+  });
+
+  afterAll(async () => {
+    await roleStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await resetStack(roleStack);
+  });
+
+  test("a member with the catalog's purchase role is matched, a TenantAdmin without it is not", async () => {
+    const billing = "billing-role@example.com";
+    const billingUser = await createUser(billing, roleStack);
+    await addMember(billingUser, 8120, ["Billing"], roleStack);
+    await seedSubscription(8120, "sub_billing_role", roleStack);
+    const tenantAdmin = "tenant-admin-only@example.com";
+    const adminUser = await createUser(tenantAdmin, roleStack);
+    await addMember(adminUser, 8121, ["TenantAdmin"], roleStack);
+    await seedSubscription(8121, "sub_admin_only", roleStack);
+
+    await declare({ email: billing }, roleStack);
+    await declare({ email: tenantAdmin }, roleStack);
+
+    expect(cancelCalls).toEqual([
+      { providerSubscriptionId: "sub_billing_role", when: "period-end" },
+    ]);
+  });
+});
 
 describe("public pages on a host-resolved tenant", () => {
   let hostStack: TestStack;

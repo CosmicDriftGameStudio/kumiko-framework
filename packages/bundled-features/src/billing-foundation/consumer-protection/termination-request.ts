@@ -33,10 +33,10 @@ import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from
 import { resolveConsentLocale } from "./consent-text.js";
 import { type TerminationDeclaration, terminationReceiptVariables } from "./termination-mail.js";
 import { notifyOperator, type OperatorNoticePlan, requireNotify } from "./termination-notify.js";
+import { mayMailReceipt } from "./termination-receipt-limit.js";
 import type { RecordContractTerminationResult } from "./termination-record.js";
 import type { OperatorNoticeReason } from "./termination-texts.js";
 
-const TENANT_ADMIN_ROLE = "TenantAdmin";
 const EXTRAORDINARY_REASON_MESSAGE = "reason is required for an extraordinary termination";
 
 const authUserRowSchema = z.object({
@@ -109,28 +109,38 @@ async function sendTerminationMails(
   consumerProtection: ConsumerProtectionOptions,
   plan: TerminationMailPlan,
 ): Promise<void> {
-  await requireNotify(ctx)(CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE, {
-    route: { email: plan.declaration.email },
-    data: terminationReceiptVariables({
+  const receiptAllowed = await mayMailReceipt(ctx, plan.declaration.email);
+  if (receiptAllowed) {
+    await requireNotify(ctx)(CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE, {
+      route: { email: plan.declaration.email },
+      data: terminationReceiptVariables({
+        locale: plan.locale,
+        requestId: plan.requestId,
+        receivedAtIso: plan.receivedAtIso,
+        declaration: {
+          declarationType: plan.declaration.declarationType,
+          terminationKind: plan.declaration.terminationKind,
+        },
+        operatorEmail: consumerProtection.operatorEmail,
+      }),
       locale: plan.locale,
-      requestId: plan.requestId,
-      receivedAtIso: plan.receivedAtIso,
-      declaration: plan.declaration,
-      operatorEmail: consumerProtection.operatorEmail,
-    }),
-    locale: plan.locale,
-    priority: "critical",
-  });
+      priority: "critical",
+    });
+  }
+  const reasons = receiptAllowed
+    ? plan.reasons
+    : [...plan.reasons, "receipt_rate_limited" as const];
   // skip: no operator notice needed for this declaration
-  if (plan.reasons.length === 0) return;
-  await notifyOperator(ctx, consumerProtection, plan);
+  if (reasons.length === 0) return;
+  await notifyOperator(ctx, consumerProtection, { ...plan, reasons });
 }
 
 // Tenants the entered email can terminate a contract for: tenants where the
-// user is TenantAdmin and the subscription is not terminal. Every identity
+// user holds a purchase role and the subscription is not terminal. Every identity
 // below comes from the trusted lookups, never from the payload.
 async function findTerminableTenantIds(
   ctx: HandlerContext,
+  options: ResolvedBillingFoundationOptions,
   requestTenantId: string,
   email: string,
 ): Promise<readonly string[]> {
@@ -148,10 +158,11 @@ async function findTerminableTenantIds(
     }),
   );
   if (!memberships.success) return [];
+  const purchaseRoles = purchaseRolesOf(options.catalog);
   const adminTenantIds = [
     ...new Set(
       memberships.data
-        .filter((membership) => membership.roles.includes(TENANT_ADMIN_ROLE))
+        .filter((membership) => membership.roles.some((role) => purchaseRoles.includes(role)))
         .map((membership) => membership.tenantId),
     ),
   ];
@@ -180,7 +191,6 @@ export function createRequestContractTerminationHandler(
     schema: requestContractTerminationSchema,
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 5, windowSeconds: 600 },
-    additionalRateLimits: [{ per: { payloadField: "email" }, limit: 3, windowSeconds: 86400 }],
     ...(consumerProtection.terminationScope === "platform" && { tenantlessAnonymous: true }),
     escapeHatch: {
       reason:
@@ -196,7 +206,12 @@ export function createRequestContractTerminationHandler(
       const locale = resolveConsentLocale(payload.locale);
       let matchedTenantId: string | undefined;
 
-      const candidates = await findTerminableTenantIds(ctx, event.user.tenantId, payload.email);
+      const candidates = await findTerminableTenantIds(
+        ctx,
+        options,
+        event.user.tenantId,
+        payload.email,
+      );
       const [onlyCandidate] = candidates;
       if (candidates.length === 1 && onlyCandidate !== undefined) {
         matchedTenantId = onlyCandidate;
@@ -257,7 +272,7 @@ export function createTerminateContractHandler(
   return {
     name: "terminate-contract",
     description:
-      "Terminates the tenant's subscription at the end of the billing period, or withdraws from the contract and cancels it immediately; sends a receipt to the caller's email.",
+      "Terminates the tenant's subscription at the end of the billing period, or withdraws from the contract and cancels it immediately within the 14-day withdrawal period (at period end after it); sends a receipt to the caller's email.",
     schema: terminateContractSchema,
     access: { roles: purchaseRolesOf(options.catalog) },
     escapeHatch: {
@@ -313,6 +328,7 @@ export function createTerminateContractHandler(
         },
         reasons: [
           ...(data.noticeReason !== null ? [data.noticeReason] : []),
+          ...(data.withdrawalPeriodExpired ? (["withdrawal_period_expired"] as const) : []),
           ...needsOperatorNotice(payload),
         ],
         tenantId,
