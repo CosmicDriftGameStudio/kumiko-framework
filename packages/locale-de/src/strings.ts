@@ -1649,6 +1649,22 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.props.marketing": "Marketing",
   "documentDesigner.mail.props.categoryHint":
     "Transaktionale Mails brauchen keinen Abmeldelink. Bei „Marketing“ muss das Layout den Abmeldelink liefern.",
+  "documentDesigner.mail.chrome.title": "Kopf und Fuß",
+  "documentDesigner.mail.chrome.headerChip": "Kennzeichen im Kopf",
+  "documentDesigner.mail.chrome.headerChipPlaceholder": "z. B. Neuer Incident",
+  "documentDesigner.mail.chrome.tone": "Farbton",
+  "documentDesigner.mail.chrome.toneAccent": "Akzentfarbe (Standard)",
+  "documentDesigner.mail.chrome.toneInfo": "Info (blaugrau)",
+  "documentDesigner.mail.chrome.toneSuccess": "Erfolg (grün)",
+  "documentDesigner.mail.chrome.toneWarning": "Warnung (gelb)",
+  "documentDesigner.mail.chrome.toneDanger": "Gefahr (rot)",
+  "documentDesigner.mail.chrome.toneNeutral": "Neutral (grau)",
+  "documentDesigner.mail.chrome.toneFromPlaceholder": "Aus Platzhalter: {value}",
+  "documentDesigner.mail.chrome.footerNote": "Hinweis im Fuß",
+  "documentDesigner.mail.chrome.footerNotePlaceholder":
+    "z. B. warum der Empfänger diese Mail bekommt",
+  "documentDesigner.mail.chrome.hint":
+    "Das Kennzeichen steht rechts neben dem Logo, der Farbton färbt es und die Linie oben. Der Hinweis steht über den Links zur Website und zum Abmelden. Layouts mit eigenem MJML-Code zeigen beides nicht.",
   "documentDesigner.mail.attachments.title": "Anhänge",
   "documentDesigner.mail.attachments.none": "Keine Anhänge",
   "documentDesigner.mail.attachments.addPdf": "+ Anhang aus PDF-Vorlage",

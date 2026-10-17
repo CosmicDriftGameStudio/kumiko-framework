@@ -2,7 +2,14 @@
 import type { DocumentEditorHandle } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useRef } from "react";
 
-export type InsertField = "subject" | "previewText" | "body" | "title" | "author";
+export type InsertField =
+  | "subject"
+  | "previewText"
+  | "headerChip"
+  | "footerNote"
+  | "body"
+  | "title"
+  | "author";
 
 export type InsertTargets = {
   readonly register: (field: InsertField) => (handle: DocumentEditorHandle) => void;

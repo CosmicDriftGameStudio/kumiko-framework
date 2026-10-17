@@ -1,11 +1,19 @@
 // @runtime client
-import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import {
+  MAIL_TONES,
+  type MailTone,
+  PlaceholderLineEditor,
+  TemplateResolverQueries,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ReactNode } from "react";
 import { DEFAULT_LAYOUT_SLUG } from "../constants.js";
+import type { EditorVocabulary } from "./mail-edit-center.js";
 import type { LinkedResourceView, MailCategory, MailDraft } from "./mail-types.js";
 import type { OverviewRowView } from "./overview-row.js";
 import { RailField, RailHint, RailRow, RailSection } from "./rail.js";
+import type { InsertTargets } from "./use-insert-targets.js";
 import { usageParts } from "./used-by-label.js";
 
 type Usage = { readonly feature: string; readonly notification: string };
@@ -207,6 +215,100 @@ export function PropertiesSection({
         </Field>
       </RailField>
       <RailHint>{t("documentDesigner.mail.props.categoryHint")}</RailHint>
+    </RailSection>
+  );
+}
+
+const TONE_LABEL_KEYS: Readonly<Record<MailTone, string>> = {
+  accent: "documentDesigner.mail.chrome.toneAccent",
+  info: "documentDesigner.mail.chrome.toneInfo",
+  success: "documentDesigner.mail.chrome.toneSuccess",
+  warning: "documentDesigner.mail.chrome.toneWarning",
+  danger: "documentDesigner.mail.chrome.toneDanger",
+  neutral: "documentDesigner.mail.chrome.toneNeutral",
+};
+
+// The stored tone may be a placeholder that resolves per mail; the select keeps it as its own
+// option so opening the template never silently drops it.
+function toneOptions(
+  t: (key: string, params?: Readonly<Record<string, unknown>>) => string,
+  current: string,
+): readonly { readonly value: string; readonly label: string }[] {
+  const fixed = MAIL_TONES.map((tone) => ({ value: tone, label: t(TONE_LABEL_KEYS[tone]) }));
+  return current === "" || isOneOf(MAIL_TONES, current)
+    ? fixed
+    : [
+        ...fixed,
+        {
+          value: current,
+          label: t("documentDesigner.mail.chrome.toneFromPlaceholder", { value: current }),
+        },
+      ];
+}
+
+export function ChromeSection({
+  draft,
+  vocabulary,
+  insert,
+  onChange,
+}: {
+  readonly draft: MailDraft;
+  readonly vocabulary: EditorVocabulary;
+  readonly insert: InsertTargets;
+  readonly onChange: (patch: Partial<MailDraft>) => void;
+}): ReactNode {
+  const t = useTranslation();
+  const { Field, Input } = usePrimitives();
+  // "accent" is the renderer default, so it is stored as an empty value.
+  const toneValue = draft.tone === "" ? "accent" : draft.tone;
+  return (
+    <RailSection title={t("documentDesigner.mail.chrome.title")} testId="mail-editor-chrome">
+      <RailField>
+        <Field id="mail-header-chip" label={t("documentDesigner.mail.chrome.headerChip")}>
+          <div onFocusCapture={insert.markFocused("headerChip")} data-testid="mail-header-chip">
+            <PlaceholderLineEditor
+              id="mail-header-chip"
+              value={draft.headerChip}
+              onChange={(headerChip) => onChange({ headerChip })}
+              variableLabels={vocabulary.labels}
+              systemVariables={vocabulary.system}
+              placeholder={t("documentDesigner.mail.chrome.headerChipPlaceholder")}
+              onEditorReady={insert.register("headerChip")}
+              aria-label={t("documentDesigner.mail.chrome.headerChip")}
+            />
+          </div>
+        </Field>
+      </RailField>
+      <RailField>
+        <Field id="mail-tone" label={t("documentDesigner.mail.chrome.tone")}>
+          <Input
+            kind="select"
+            id="mail-tone"
+            name="mail-tone"
+            value={toneValue}
+            display="dropdown"
+            onChange={(next) => onChange({ tone: next === "accent" ? "" : next })}
+            options={toneOptions(t, draft.tone)}
+          />
+        </Field>
+      </RailField>
+      <RailField>
+        <Field id="mail-footer-note" label={t("documentDesigner.mail.chrome.footerNote")}>
+          <div onFocusCapture={insert.markFocused("footerNote")} data-testid="mail-footer-note">
+            <PlaceholderLineEditor
+              id="mail-footer-note"
+              value={draft.footerNote}
+              onChange={(footerNote) => onChange({ footerNote })}
+              variableLabels={vocabulary.labels}
+              systemVariables={vocabulary.system}
+              placeholder={t("documentDesigner.mail.chrome.footerNotePlaceholder")}
+              onEditorReady={insert.register("footerNote")}
+              aria-label={t("documentDesigner.mail.chrome.footerNote")}
+            />
+          </div>
+        </Field>
+      </RailField>
+      <RailHint>{t("documentDesigner.mail.chrome.hint")}</RailHint>
     </RailSection>
   );
 }

@@ -45,6 +45,7 @@ import {
   compileDocumentSource,
   createDocumentHandlebars,
   mergeResourceFileRefs,
+  readBrandingAccentColor,
   readDocumentFormat,
   readTenantName,
   resolveResourceFileRefs,
@@ -396,9 +397,10 @@ async function assembleDocument(
   const layout = await resolvePdfLayout(tplApi, ctx, layoutSlug, locale);
 
   try {
-    const [format, tenantName] = await Promise.all([
+    const [format, tenantName, accentColor] = await Promise.all([
       readDocumentFormat(ctx, locale),
       readTenantName(ctx),
+      readBrandingAccentColor(ctx),
     ]);
     const hbs = createDocumentHandlebars(format);
     const context = { ...variables, tenantName, signature: "", imprint: "", page: "", pages: "" };
@@ -419,7 +421,7 @@ async function assembleDocument(
     const bodySource = compileDocumentBodyToHandlebars(
       template.content,
       resolveTemplateVariables(ctx.registry, slug, template.variableSchema),
-      { resourceSrc },
+      { resourceSrc, ...(accentColor !== undefined && { stepsColor: accentColor }) },
     );
     const bodyHtml = prepareDocumentForPrint(compileDocumentSource(hbs, bodySource)(context));
     const signatureHtml = renderRegion(hbs, layout.regions.signature, context, resourceSrc);

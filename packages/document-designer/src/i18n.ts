@@ -544,6 +544,62 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: 'Transactional mails need no unsubscribe link. With "Marketing" the layout must provide one.',
     de: "Transaktionale Mails brauchen keinen Abmeldelink. Bei „Marketing“ muss das Layout den Abmeldelink liefern.",
   },
+  "documentDesigner.mail.chrome.title": {
+    en: "Header and footer",
+    de: "Kopf und Fuß",
+  },
+  "documentDesigner.mail.chrome.headerChip": {
+    en: "Label in the header",
+    de: "Kennzeichen im Kopf",
+  },
+  "documentDesigner.mail.chrome.headerChipPlaceholder": {
+    en: "e.g. New incident",
+    de: "z. B. Neuer Incident",
+  },
+  "documentDesigner.mail.chrome.tone": {
+    en: "Tone",
+    de: "Farbton",
+  },
+  "documentDesigner.mail.chrome.toneAccent": {
+    en: "Accent colour (default)",
+    de: "Akzentfarbe (Standard)",
+  },
+  "documentDesigner.mail.chrome.toneInfo": {
+    en: "Info (blue grey)",
+    de: "Info (blaugrau)",
+  },
+  "documentDesigner.mail.chrome.toneSuccess": {
+    en: "Success (green)",
+    de: "Erfolg (grün)",
+  },
+  "documentDesigner.mail.chrome.toneWarning": {
+    en: "Warning (amber)",
+    de: "Warnung (gelb)",
+  },
+  "documentDesigner.mail.chrome.toneDanger": {
+    en: "Danger (red)",
+    de: "Gefahr (rot)",
+  },
+  "documentDesigner.mail.chrome.toneNeutral": {
+    en: "Neutral (grey)",
+    de: "Neutral (grau)",
+  },
+  "documentDesigner.mail.chrome.toneFromPlaceholder": {
+    en: "From placeholder: {value}",
+    de: "Aus Platzhalter: {value}",
+  },
+  "documentDesigner.mail.chrome.footerNote": {
+    en: "Note in the footer",
+    de: "Hinweis im Fuß",
+  },
+  "documentDesigner.mail.chrome.footerNotePlaceholder": {
+    en: "e.g. why the recipient gets this mail",
+    de: "z. B. warum der Empfänger diese Mail bekommt",
+  },
+  "documentDesigner.mail.chrome.hint": {
+    en: "The label sits right of the logo; the tone colours it and the line at the top. The note stands above the website and unsubscribe links. Layouts with their own MJML code show neither.",
+    de: "Das Kennzeichen steht rechts neben dem Logo, der Farbton färbt es und die Linie oben. Der Hinweis steht über den Links zur Website und zum Abmelden. Layouts mit eigenem MJML-Code zeigen beides nicht.",
+  },
   "documentDesigner.mail.attachments.title": {
     en: "Attachments",
     de: "Anhänge",

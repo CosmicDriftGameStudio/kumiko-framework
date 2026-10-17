@@ -37,7 +37,12 @@ import { MissingLocaleCanvas } from "./mail-missing-locale.js";
 import { MailOriginBar } from "./mail-origin-bar.js";
 import { PdfLinkModal } from "./mail-pdf-link-modal.js";
 import { MailPreviewMode } from "./mail-preview.js";
-import { AttachmentSection, PropertiesSection, UsageSection } from "./mail-right-rail.js";
+import {
+  AttachmentSection,
+  ChromeSection,
+  PropertiesSection,
+  UsageSection,
+} from "./mail-right-rail.js";
 import type { MailDraft, MailValidation, TemplateRowView } from "./mail-types.js";
 import { UploadModal } from "./mail-upload-modal.js";
 import { VersionsSection } from "./mail-versions.js";
@@ -319,6 +324,12 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
           right={
             <>
               <PropertiesSection draft={draft} layouts={layouts.rows} onChange={update} />
+              <ChromeSection
+                draft={draft}
+                vocabulary={vocabulary}
+                insert={insert}
+                onChange={update}
+              />
               <AttachmentSection
                 attachments={attachments}
                 pdfTitles={pdfTitles}

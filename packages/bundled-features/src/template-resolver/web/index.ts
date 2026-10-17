@@ -5,6 +5,7 @@
 // `@cosmicdrift/kumiko-bundled-features/template-resolver` and has no React or
 // DOM deps.
 
+export { MAIL_TONES, type MailTone } from "../mail-constants.js";
 export {
   PDF_DEFAULT_MARGIN_MM,
   PDF_FOOTER_MARGIN_MM,

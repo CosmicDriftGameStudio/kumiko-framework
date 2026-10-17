@@ -37,3 +37,17 @@ type: improvement
 title: composeRendererStack passes a mail brand suffix resolver
 detail: composeRendererStack({ mailBrandSuffix }) hands the resolver to createRendererMailHtmlFeature as brandSuffix.
 -->
+
+<!-- kumiko-changes
+feature: document-designer
+type: improvement
+title: Mail editor rail edits header chip, tone and footer note
+detail: The properties rail of the mail editor has a section "Kopf und Fuß" with the header chip and the footer note as placeholder lines and the tone as a select (accent, info, success, warning, danger, neutral). The values are saved in the mail meta and show in the preview right away. A tone stored as placeholder stays as its own option; the accent tone is stored as no tone. template-resolver/web exports MAIL_TONES and MailTone.
+-->
+
+<!-- kumiko-changes
+feature: renderer-puppeteer-client
+type: improvement
+title: PDF steps block uses the branding accent colour
+detail: The steps block in a PDF document is coloured with the accent colour from the tenant branding, like in mails, and falls back to #1f5468 when no branding colour is set.
+-->

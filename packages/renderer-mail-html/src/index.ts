@@ -5,6 +5,7 @@ export {
   createDocumentHandlebars,
   type DocumentFormat,
   mergeResourceFileRefs,
+  readBrandingAccentColor,
   readDocumentFormat,
   readTenantName,
   resolveResourceFileRefs,

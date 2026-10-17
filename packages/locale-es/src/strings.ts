@@ -1647,6 +1647,22 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.mail.props.marketing": "Marketing",
   "documentDesigner.mail.props.categoryHint":
     "Los correos transaccionales no necesitan enlace de baja. Con «Marketing» el diseño debe incluirlo.",
+  "documentDesigner.mail.chrome.title": "Cabecera y pie",
+  "documentDesigner.mail.chrome.headerChip": "Etiqueta en la cabecera",
+  "documentDesigner.mail.chrome.headerChipPlaceholder": "p. ej. Nueva incidencia",
+  "documentDesigner.mail.chrome.tone": "Tono",
+  "documentDesigner.mail.chrome.toneAccent": "Color de acento (predeterminado)",
+  "documentDesigner.mail.chrome.toneInfo": "Info (gris azulado)",
+  "documentDesigner.mail.chrome.toneSuccess": "Éxito (verde)",
+  "documentDesigner.mail.chrome.toneWarning": "Aviso (ámbar)",
+  "documentDesigner.mail.chrome.toneDanger": "Peligro (rojo)",
+  "documentDesigner.mail.chrome.toneNeutral": "Neutro (gris)",
+  "documentDesigner.mail.chrome.toneFromPlaceholder": "Desde marcador: {value}",
+  "documentDesigner.mail.chrome.footerNote": "Nota en el pie",
+  "documentDesigner.mail.chrome.footerNotePlaceholder":
+    "p. ej. por qué el destinatario recibe este correo",
+  "documentDesigner.mail.chrome.hint":
+    "La etiqueta aparece a la derecha del logo; el tono la colorea junto con la línea superior. La nota aparece sobre los enlaces al sitio web y de baja. Los diseños con código MJML propio no muestran ninguno de los dos.",
   "documentDesigner.mail.attachments.title": "Adjuntos",
   "documentDesigner.mail.attachments.none": "Sin adjuntos",
   "documentDesigner.mail.attachments.addPdf": "+ Adjunto desde plantilla PDF",
