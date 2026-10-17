@@ -98,6 +98,29 @@ describe("createPersonalAccessTokensFeature — tier gate on the screens", () =>
   });
 });
 
+describe("createPersonalAccessTokensFeature — listScreen option", () => {
+  function listScreenOf(feature: ReturnType<typeof createPersonalAccessTokensFeature>) {
+    const screen = feature.screens[PAT_SCREEN_ID];
+    if (screen?.type !== "projectionList") throw new Error("expected a projectionList screen");
+    return screen;
+  }
+
+  test("description and slots land on the list screen only when given", () => {
+    const plain = listScreenOf(createPersonalAccessTokensFeature({ scopes: {} }));
+    expect(plain.description).toBeUndefined();
+    expect(plain.slots).toBeUndefined();
+
+    const slots = { header: { react: { __component: "PatHowTo" } } };
+    const custom = createPersonalAccessTokensFeature({
+      scopes: {},
+      listScreen: { description: "app.pat.description", slots },
+    });
+    expect(listScreenOf(custom).description).toBe("app.pat.description");
+    expect(listScreenOf(custom).slots).toEqual(slots);
+    expect(custom.screens[PAT_MINT_SCREEN_ID]?.description).toBeUndefined();
+  });
+});
+
 describe("patGrantOptions (fw#2548 Teil B)", () => {
   test("a read-only domain yields only <domain>:read", () => {
     const scopes: PatScopeConfig = { billing: { label: "Billing", read: ["billing:query:*"] } };

@@ -4,7 +4,11 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
 import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  type FeatureDefinition,
+  type ProjectionListScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   API_TOKEN_ENTITY_NAME,
   PAT_DEFAULT_RATE_LIMIT,
@@ -68,6 +72,9 @@ export type PersonalAccessTokensOptions = {
    *  shown in place of the token screens when the tenant's tier excludes the
    *  feature, e.g. an upgrade notice. Default: the standard "unavailable" notice. */
   readonly lockedFallbackScreen?: string;
+  /** Description (i18n key) and slots rendered on the token list screen, e.g. an
+   *  explanatory text or a header component above the list. Default: neither. */
+  readonly listScreen?: Pick<ProjectionListScreenDefinition, "description" | "slots">;
   // Opt-in MFA re-auth gate for minting a token — wired via
   // mfaVerifierFromFeature (auth-mfa/feature.ts) at app-composition time. No
   // hard dependency on the optional auth-mfa feature.
@@ -176,7 +183,7 @@ export function createPersonalAccessTokensFeature(
     // places `patListScreen` via r.nav in its logged-in settings area.
     const lockedFallback =
       options.lockedFallbackScreen === undefined ? {} : { fallback: options.lockedFallbackScreen };
-    r.screen({ ...patListScreen, ...lockedFallback });
+    r.screen({ ...patListScreen, ...options.listScreen, ...lockedFallback });
     r.screen({ ...createPatMintScreen(scopes), ...lockedFallback });
     r.translations({ keys: { ...PAT_FEATURE_I18N, ...patScopeOptionTranslations(scopes) } });
 
