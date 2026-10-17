@@ -144,6 +144,24 @@ function draftVersionFor(
   return isOwnRow && parseTemplateDraft(row.draft) !== null ? row.version : null;
 }
 
+// Version columns of one overview row: the served version, a waiting draft and the system version it overrides.
+function versionFieldsOf(
+  user: { readonly tenantId: string; readonly roles: readonly string[] },
+  preferred: TemplateResourceRow,
+  groupRows: readonly TemplateResourceRow[],
+): Pick<OverviewDraft, "version" | "draftVersion" | "activeSince" | "systemVersion"> {
+  const isActive = preferred.status === "active";
+  const systemSameLocale = groupRows.find(
+    (row) => row.scope === "system" && row.locale === preferred.locale,
+  );
+  return {
+    version: isActive ? activeVersionOf(preferred) : preferred.version,
+    draftVersion: draftVersionFor(user, preferred),
+    activeSince: isActive ? activeSinceOf(preferred).toString() : null,
+    systemVersion: systemSameLocale === undefined ? null : activeVersionOf(systemSameLocale),
+  };
+}
+
 function buildDrafts(
   groups: ReadonlyMap<string, readonly TemplateResourceRow[]>,
   user: { readonly tenantId: string; readonly roles: readonly string[] },
@@ -158,10 +176,6 @@ function buildDrafts(
     const preferred = effective === null ? undefined : preferredRow(effective.rows);
     if (effective === null || preferred === undefined) continue;
     if (!isOverviewKind(preferred.kind) || !isTemplateStatus(preferred.status)) continue;
-    const systemSameLocale = groupRows.find(
-      (row) => row.scope === "system" && row.locale === preferred.locale,
-    );
-    const isActive = preferred.status === "active";
     const isDocument = preferred.kind === "mail" || preferred.kind === "document-pdf";
     const layoutSlug = isDocument ? layoutSlugOf(preferred) : null;
     if (layoutSlug !== null && preferred.kind === "document-pdf") {
@@ -176,10 +190,7 @@ function buildDrafts(
       origin: effective.origin,
       locales: [...new Set(effective.rows.map((row) => row.locale))].sort(),
       status: preferred.status,
-      version: isActive ? activeVersionOf(preferred) : preferred.version,
-      draftVersion: draftVersionFor(user, preferred),
-      activeSince: isActive ? activeSinceOf(preferred).toString() : null,
-      systemVersion: systemSameLocale === undefined ? null : activeVersionOf(systemSameLocale),
+      ...versionFieldsOf(user, preferred, groupRows),
       layoutSlug,
       modifiedAt: modifiedAtOf(preferred),
     });
