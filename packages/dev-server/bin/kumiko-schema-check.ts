@@ -22,17 +22,23 @@
 //   bunx kumiko-schema-check --run-config src/run-config.ts --generate drizzle/generate.ts
 //
 // Exit 0 wenn alles in sync, exit 1 wenn drift.
+//
+// Scaffold layout (kumiko/schema.ts, no generate.ts): there is no static
+// registry that could drift, so the check says so and points to
+// `kumiko-schema validate`.
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   implicitAuthModeFeatureNames,
   resolveGeneratePath,
+  usesDerivedSchemaLayout,
 } from "@cosmicdrift/kumiko-dev-server/cli";
 
 type Args = {
   readonly runConfigPath: string;
   readonly generatePath: string;
+  readonly generateExplicit: boolean;
 };
 
 function parseArgs(argv: readonly string[]): Args {
@@ -50,7 +56,11 @@ function parseArgs(argv: readonly string[]): Args {
       i++;
     }
   }
-  return { runConfigPath, generatePath: generatePath ?? resolveGeneratePath(cwd) };
+  return {
+    runConfigPath,
+    generatePath: generatePath ?? resolveGeneratePath(cwd),
+    generateExplicit: generatePath !== undefined,
+  };
 }
 
 function readRegistryFeatures(generateSrc: string): Set<string> {
@@ -106,6 +116,13 @@ async function main(): Promise<void> {
     process.exit(0);
   }
   const args = parseArgs(process.argv.slice(2));
+
+  if (!args.generateExplicit && usesDerivedSchemaLayout(process.cwd())) {
+    console.log(
+      "✓ kumiko/schema.ts derives ENTITY_METAS from APP_FEATURES, there is no import registry that could drift. Use `bun kumiko-schema validate` to check migrations against the features.",
+    );
+    process.exit(0);
+  }
 
   if (!existsSync(args.runConfigPath)) {
     console.error(`✗ run-config not found: ${args.runConfigPath}`);
