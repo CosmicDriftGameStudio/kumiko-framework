@@ -29,6 +29,8 @@ export type FileUploadInputProps = {
    *  `webkitRelativePath` to `onFilesPicked` and uploads nothing. */
   readonly directory?: boolean;
   readonly onFilesPicked?: (files: readonly File[]) => void;
+  readonly pickLabel?: string;
+  readonly testId?: string;
 };
 
 // React's input typings have no `webkitdirectory`; spreading keeps it typed-cast-free.
@@ -48,6 +50,8 @@ export function FileUploadInput({
   capture,
   directory,
   onFilesPicked,
+  pickLabel,
+  testId,
 }: FileUploadInputProps): ReactNode {
   const t = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -102,6 +106,7 @@ export function FileUploadInput({
       <input
         ref={inputRef}
         id={id}
+        {...(testId !== undefined && { "data-testid": `${testId}-input` })}
         type="file"
         className="hidden"
         {...(acceptAttr !== undefined && { accept: acceptAttr })}
@@ -118,15 +123,17 @@ export function FileUploadInput({
             size="sm"
             disabled={uploading}
             onClick={() => inputRef.current?.click()}
+            {...(testId !== undefined && { "data-testid": `${testId}-pick` })}
           >
             {uploading ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <Upload className="size-4" />
             )}
-            {value !== null
-              ? t("kumiko.field.file-upload.change")
-              : t("kumiko.field.file-upload.upload")}
+            {pickLabel ??
+              (value !== null
+                ? t("kumiko.field.file-upload.change")
+                : t("kumiko.field.file-upload.upload"))}
           </UiButton>
           {value !== null && (
             <UiButton type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>

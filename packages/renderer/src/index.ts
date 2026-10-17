@@ -262,6 +262,7 @@ export type {
   MetricProps,
   ModalProps,
   PageHeaderProps,
+  PickedFile,
   PrimitivesProviderProps,
   PrimitivesRegistry,
   ProgressProps,

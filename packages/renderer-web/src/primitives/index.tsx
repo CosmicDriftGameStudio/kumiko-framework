@@ -982,6 +982,10 @@ function DefaultInput(props: InputProps): ReactNode {
           {...(props.fieldName !== undefined && { fieldName: props.fieldName })}
           {...(props.imageVariant !== undefined && { imageVariant: props.imageVariant })}
           {...(props.capture !== undefined && { capture: props.capture })}
+          {...(props.directory !== undefined && { directory: props.directory })}
+          {...(props.onFilesPicked !== undefined && { onFilesPicked: props.onFilesPicked })}
+          {...(props.pickLabel !== undefined && { pickLabel: props.pickLabel })}
+          {...(props.testId !== undefined && { testId: props.testId })}
         />
       );
     case "date":

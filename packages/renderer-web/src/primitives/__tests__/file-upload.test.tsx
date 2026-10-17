@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import type { PickedFile } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { render } from "../../__tests__/test-utils.js";
 import { FileUploadInput } from "../file-upload.js";
+import { defaultPrimitives } from "../index.js";
 
 const noop = () => {};
 const FILE_ID = "11111111-2222-4333-8444-555555555555";
@@ -87,6 +89,37 @@ describe("FileUploadInput — directory mode", () => {
     expect(container.querySelector('input[type="file"]')?.hasAttribute("webkitdirectory")).toBe(
       false,
     );
+  });
+});
+
+describe("Input kind=file — folder picker through the primitive", () => {
+  test("directory + pickLabel + testId: labelled button, derived testIds, files delivered, no upload", () => {
+    const Input = defaultPrimitives.Input;
+    const picked: (readonly PickedFile[])[] = [];
+    const fetchSpy = spyOn(globalThis, "fetch");
+    const { getByTestId, getByText } = render(
+      <Input
+        kind="file"
+        id="folder"
+        name="folder"
+        value={null}
+        onChange={noop}
+        directory
+        pickLabel="Choose folder"
+        testId="studio-folder"
+        onFilesPicked={(files) => picked.push(files)}
+      />,
+    );
+    expect(getByText("Choose folder")).toBeTruthy();
+    expect(getByTestId("studio-folder-pick")).toBeTruthy();
+    const input = getByTestId("studio-folder-input");
+    expect(input.hasAttribute("webkitdirectory")).toBe(true);
+    const file = new File(["x"], "a.txt");
+    Object.defineProperty(file, "webkitRelativePath", { value: "dir/a.txt" });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(picked[0]?.[0]?.webkitRelativePath).toBe("dir/a.txt");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 });
 

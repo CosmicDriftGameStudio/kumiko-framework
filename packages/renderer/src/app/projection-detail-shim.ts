@@ -78,6 +78,7 @@ export function synthesizeProjectionDetailScreen(
     allowCreate: false,
     allowDelete: false,
     ...(screen.description !== undefined && { description: screen.description }),
+    ...(screen.recordTitleField !== undefined && { recordTitleField: screen.recordTitleField }),
     ...(screen.fieldLabels !== undefined && { fieldLabels: screen.fieldLabels }),
     ...(screen.slots !== undefined && { slots: screen.slots }),
     ...(screen.access !== undefined && { access: screen.access }),

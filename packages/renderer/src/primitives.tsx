@@ -255,6 +255,15 @@ export type TrailingInputAction = {
   readonly testId?: string;
 };
 
+/** Platform-neutral view of a picked file; the DOM `File` satisfies it. */
+export type PickedFile = {
+  readonly name: string;
+  readonly size: number;
+  readonly type: string;
+  readonly webkitRelativePath: string;
+  readonly arrayBuffer: () => Promise<ArrayBuffer>;
+};
+
 export type InputProps =
   | {
       readonly kind: "text";
@@ -400,6 +409,14 @@ export type InputProps =
       /** Only for kind:"image" — forwarded to the file input's `capture`
        *  attribute so a phone opens the camera instead of the file picker. */
       readonly capture?: "environment" | "user";
+      /** Web-only folder picker: the picked files (with `webkitRelativePath`)
+       *  go to `onFilesPicked` and nothing is uploaded. Native impls ignore it. */
+      readonly directory?: boolean;
+      readonly onFilesPicked?: (files: readonly PickedFile[]) => void;
+      /** Translated label of the pick button; absent → the upload/change default. */
+      readonly pickLabel?: string;
+      /** Hidden file input gets `${testId}-input`, the pick button `${testId}-pick`. */
+      readonly testId?: string;
     }
   | {
       readonly kind: "date";
