@@ -1,6 +1,7 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { currentNotificationType } from "../notification-type-aliases.js";
 import { upsertPreference } from "../upsert-preference.js";
 
 export const setPreferenceWrite = defineWriteHandler({
@@ -21,7 +22,8 @@ export const setPreferenceWrite = defineWriteHandler({
   description:
     "Enables or disables one notification type and channel combination for the calling user, where either side may be the wildcard * as a catch-all; use it when a user changes their own notification settings.",
   handler: async (event, ctx) => {
-    const { notificationType, channel, enabled } = event.payload;
+    const { channel, enabled } = event.payload;
+    const notificationType = currentNotificationType(ctx.registry, event.payload.notificationType);
     const { id: userId, tenantId } = event.user;
 
     // delivery runs in system-scope (feature.ts r.systemScope()) — ctx.systemDb

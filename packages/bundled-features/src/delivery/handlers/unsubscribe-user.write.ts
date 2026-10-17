@@ -1,6 +1,7 @@
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { currentNotificationType } from "../notification-type-aliases.js";
 import { upsertPreference } from "../upsert-preference.js";
 
 export const unsubscribeUserWrite = defineWriteHandler({
@@ -20,7 +21,8 @@ export const unsubscribeUserWrite = defineWriteHandler({
   handler: async (event, ctx) => {
     // userId comes from the payload, not event.user.id — the caller here is
     // the system user dispatchSystemWrite runs as, not the user unsubscribing.
-    const { userId, notificationType, channel } = event.payload;
+    const { userId, channel } = event.payload;
+    const notificationType = currentNotificationType(ctx.registry, event.payload.notificationType);
     const { tenantId } = event.user;
 
     if (!ctx.systemDb) {

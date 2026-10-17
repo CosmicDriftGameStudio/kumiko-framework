@@ -576,6 +576,8 @@ export type NotificationDefinition = {
   readonly record?: NotificationRecordMapping;
   readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
   readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
+  // Former qualified names: stored preferences and address opt-outs under them still apply.
+  readonly renamedFrom?: readonly string[];
   // Resolved into template + meta when the registry is built, never present on
   // a stored definition.
   readonly localizedTemplate?: () => NotificationLocalizedTemplate;

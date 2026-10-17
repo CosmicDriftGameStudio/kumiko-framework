@@ -2,6 +2,7 @@ import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { upsertAddressOptOut } from "../address-opt-out.js";
+import { currentNotificationType } from "../notification-type-aliases.js";
 
 export const unsubscribeAddressWrite = defineWriteHandler({
   name: "unsubscribeAddress",
@@ -18,7 +19,8 @@ export const unsubscribeAddressWrite = defineWriteHandler({
   description:
     "Records a no-account address opt-out for one notificationType/channel combination; dispatched by the signed unsubscribe route, not meant for UI callers.",
   handler: async (event, ctx) => {
-    const { addressHash, notificationType, channel } = event.payload;
+    const { addressHash, channel } = event.payload;
+    const notificationType = currentNotificationType(ctx.registry, event.payload.notificationType);
     const { tenantId } = event.user;
 
     if (!ctx.systemDb) {

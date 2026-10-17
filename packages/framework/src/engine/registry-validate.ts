@@ -695,6 +695,30 @@ export function validateNotificationRecordMappings(state: RegistryState): void {
   }
 }
 
+export function validateNotificationRenamedFrom(state: RegistryState): void {
+  const ownerByAlias = new Map<string, string>();
+  for (const [qualifiedName, notifDef] of state.notificationMap) {
+    for (const alias of notifDef.renamedFrom ?? []) {
+      const where = `Notification "${qualifiedName}" renamedFrom "${alias}"`;
+      if (alias === "*") {
+        throw new Error(`${where}: "*" is the preference wildcard, not a notification name`);
+      }
+      if (state.notificationMap.has(alias)) {
+        throw new Error(
+          `${where} is a current notification name; remove it from renamedFrom or rename the notification`,
+        );
+      }
+      const otherOwner = ownerByAlias.get(alias);
+      if (otherOwner !== undefined && otherOwner !== qualifiedName) {
+        throw new Error(
+          `${where} is also declared by notification "${otherOwner}"; an alias can have only one owner, remove it from one of them`,
+        );
+      }
+      ownerByAlias.set(alias, qualifiedName);
+    }
+  }
+}
+
 export function resolveNotificationTriggersAndRegisterHooks(state: RegistryState): void {
   // Resolve notification triggers and register postSave hooks
   // Done after all features are registered so cross-feature triggers work
