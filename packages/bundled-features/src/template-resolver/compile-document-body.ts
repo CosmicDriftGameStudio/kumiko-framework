@@ -108,6 +108,7 @@ function soleVariableName(block: ScanElement): string | null {
 // keeps an amount of 0.
 function wrapVariableOnlyBlock(block: ScanElement, state: CompileState): void {
   const name = soleVariableName(block);
+  // skip: a line with static content or several placeholders stays as it is
   if (name === null) return;
   const [path] = pathAndDef(name, block, state);
   const document = block.ownerDocument;

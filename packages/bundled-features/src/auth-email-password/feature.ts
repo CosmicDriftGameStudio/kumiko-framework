@@ -114,13 +114,8 @@ export type AccountLockoutOptions = {
   readonly lockoutDurationMinutes?: number;
 };
 
-// Magic-Link Self-Signup. Wenn gesetzt, registriert das Feature die
-// signup-request + signup-confirm-Handler. Der Token-Store (Redis)
-// kommt aus ctx.redis — tokenTtlMinutes ist der einzige Knopf
-// (Token-Material ist generateToken() = 256 Bit randomBytes, fest;
-// Memory feedback_no_options_without_need: keine Knöpfe ohne Bedarf).
-// Anders als reset/verify gibt's kein hmacSecret hier, weil der Token
-// opaque random ist (Redis ist Source of Truth).
+// Unlike reset/verify there is no hmacSecret: the signup token is opaque random
+// (256 bit) and Redis is the source of truth, so tokenTtlMinutes is the only knob.
 export type SignupOptions = SignupRequestOptions;
 
 // Tenant-Invite Magic-Link. Wenn gesetzt, registriert das Feature die
