@@ -40,7 +40,7 @@ const testEmail = (userId: string) => `user-${userId}@test.com`;
 const user = createTestUser({ id: 2, roles: ["User"] });
 
 const appFeature = defineFeature("app", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.notification("invoice-ready", { renamedFrom: [FORMER_TYPE] });
   r.writeHandler(
     defineWriteHandler({

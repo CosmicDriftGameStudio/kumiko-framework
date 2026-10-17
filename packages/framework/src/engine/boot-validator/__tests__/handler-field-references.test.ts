@@ -108,19 +108,19 @@ describe("validateBoot — handler field references meta", () => {
 describe("validateBoot — nested handler field references", () => {
   function nestedConsumer(references: unknown) {
     return defineFeature("planner", (r) => {
-      r.writeHandler(
-        "plan",
-        z.object({
+      r.writeHandler({
+        name: "plan",
+        schema: z.object({
           channels: z.array(z.object({ channelKey: z.string().meta({ references }) })),
         }),
-        noopHandler,
-        { access: OPEN_ACCESS },
-      );
+        handler: noopHandler,
+        access: OPEN_ACCESS,
+      });
     });
   }
 
   const channelFeature = defineFeature("channels", (r) => {
-    r.entity("channel", { fields: { key: { type: "text", required: true } } });
+    r.entity({ name: "channel", fields: { key: { type: "text", required: true } } });
   });
 
   test("names the nested path for an unknown entity", () => {
