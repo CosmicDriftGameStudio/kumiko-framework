@@ -1,4 +1,8 @@
-import { defineWriteHandler, type WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type BeforeTransactionResult,
+  defineWriteHandler,
+  type WriteResult,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   NotFoundError,
   UnprocessableError,
@@ -13,11 +17,14 @@ import {
 import { attachmentFileNameSchema } from "../../shared/index.js";
 import { TemplateResolverErrors } from "../qualified-names.js";
 import {
+  type PreparedTemplateFile,
+  prepareTemplateAttachmentBeforeTransaction,
+  prepareTemplateResourceBeforeTransaction,
   readTemplateResourceMaxBytes,
   type StoredTemplateAttachment,
   type StoredTemplateResource,
-  storeTemplateAttachment,
-  storeTemplateResource,
+  storePreparedTemplateAttachment,
+  storePreparedTemplateResource,
 } from "../store-template-resource.js";
 import { RESOURCE_PURPOSES, resourceKeySchema, resourceTargetTenantId } from "./resource-shared.js";
 
@@ -66,10 +73,7 @@ export const resourceUploadWrite = defineWriteHandler({
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
     "Turns a file uploaded via POST /api/files (multipart, no entityType) into a template resource. With purpose image (default) the upload is checked against the resource-max-bytes cap, re-encoded to a supported image format and stored as a new file; with templateId and key it is linked into that template under the key, without them only the file is created. With purpose attachment, templateId, key and fileName are required: a PDF, PNG or JPEG is stored unchanged and linked into a mail template as a file attached to every mail sent from it, at most 10 per template. A cap above the files route's maxUploadSize has no effect.",
-  handler: async (
-    event,
-    ctx,
-  ): Promise<WriteResult<StoredTemplateResource | StoredTemplateAttachment>> => {
+  beforeTransaction: async (event, ctx): Promise<BeforeTransactionResult<PreparedTemplateFile>> => {
     const { templateId, key, sourceFileRefId, purpose, fileName } = event.payload;
     const attachmentTarget =
       purpose === "attachment" ? attachmentTargetOf({ templateId, key, fileName }) : null;
@@ -113,7 +117,7 @@ export const resourceUploadWrite = defineWriteHandler({
     // The source upload stays as an unclaimed file: bundled-features cannot reach the fileRef executor to delete it.
     const tenantId = resourceTargetTenantId(event.payload.tenantIdOverride, event.user.tenantId);
     if (attachmentTarget !== null) {
-      return storeTemplateAttachment({
+      return prepareTemplateAttachmentBeforeTransaction({
         ctx,
         user: event.user,
         tenantId,
@@ -122,12 +126,47 @@ export const resourceUploadWrite = defineWriteHandler({
         ...attachmentTarget,
       });
     }
-    return storeTemplateResource({
+    return prepareTemplateResourceBeforeTransaction({
       ctx,
       user: event.user,
       tenantId,
       bytes: source.content,
       maxBytes,
+      ...(templateId !== undefined && { templateId }),
+      ...(key !== undefined && { key }),
+    });
+  },
+  handler: async (
+    event,
+    ctx,
+  ): Promise<WriteResult<StoredTemplateResource | StoredTemplateAttachment>> => {
+    const { templateId, key } = event.payload;
+    const tenantId = resourceTargetTenantId(event.payload.tenantIdOverride, event.user.tenantId);
+    const { prepared } = event;
+    if (prepared.kind === "attachment") {
+      // The phase accepts attachments only with a complete target, so these are set.
+      if (templateId === undefined || key === undefined) {
+        return writeFailure(
+          new UnprocessableError(TemplateResolverErrors.attachmentInvalid, {
+            i18nKey: "templateResolver.errors.attachment.invalid",
+            details: { code: "target_required" },
+          }),
+        );
+      }
+      return storePreparedTemplateAttachment({
+        ctx,
+        user: event.user,
+        tenantId,
+        prepared,
+        templateId,
+        key,
+      });
+    }
+    return storePreparedTemplateResource({
+      ctx,
+      user: event.user,
+      tenantId,
+      prepared,
       ...(templateId !== undefined && { templateId }),
       ...(key !== undefined && { key }),
     });

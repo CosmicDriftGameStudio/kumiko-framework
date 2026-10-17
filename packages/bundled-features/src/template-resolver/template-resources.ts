@@ -83,7 +83,7 @@ export async function duplicateLinkedResourceFiles(
 }
 
 // Replaces the whole key map of one row with files that are already stored (bundle import,
-// copy-locale). Single keys go through storeTemplateResource and resource-remove.
+// copy-locale). Single keys go through storePreparedTemplateResource and resource-remove.
 export async function attachTemplateResources(
   ctx: Pick<HandlerContext, "forTenant">,
   args: {

@@ -111,9 +111,11 @@ export {
 } from "./qualified-names.js";
 export { mapRecordToVariables } from "./record-mapping.js";
 export {
+  type PreparedTemplateImage,
+  prepareTemplateResourceBeforeTransaction,
   readTemplateResourceMaxBytes,
   type StoredTemplateResource,
-  storeTemplateResource,
+  storePreparedTemplateResource,
 } from "./store-template-resource.js";
 export {
   type TemplateResourceRow,

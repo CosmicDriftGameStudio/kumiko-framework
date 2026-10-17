@@ -132,9 +132,21 @@ export async function reserveBeforeTransaction(
 
       let prepared: unknown;
       if (handler.beforeTransaction) {
+        const phaseContext = await buildHandlerContext(
+          ctx,
+          command.type,
+          user,
+          origin,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          true,
+        );
         const phase = await handler.beforeTransaction(
           event,
-          applyBeforeTransactionReadOnly(handlerContext),
+          applyBeforeTransactionReadOnly(phaseContext),
         );
         if (!phase.isSuccess) {
           await releaseAll(ctx, releases);

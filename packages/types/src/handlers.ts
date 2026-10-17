@@ -1488,7 +1488,9 @@ export type WriteHandlerDef = {
   /** Runs after all pre-handler gates (and after reserveBeforeTransaction) and before the
    *  transaction opens: no transaction and no connection held, for external I/O and reads only.
    *  Its `data` reaches the handler as `event.prepared`; a failure result or throw rejects the
-   *  write before anything is written. A handler with this phase cannot run as a nested ctx.write. */
+   *  write before anything is written. A handler with this phase cannot run as a nested ctx.write.
+   *  `ctx.forTenant` is available but read-only here: its db denies writes for the own and a
+   *  foreign tenant alike (a foreign tenant stays gated by the SystemAdmin check). */
   readonly beforeTransaction?: BeforeTransactionPhase;
   /** `"perCommand"`: the handler runs without a transaction of its own. Every ctx.write/writeAs it
    *  issues runs as its own top-level command with its own transaction and afterCommit hooks;
