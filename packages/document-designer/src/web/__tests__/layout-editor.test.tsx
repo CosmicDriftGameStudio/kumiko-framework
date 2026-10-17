@@ -327,6 +327,25 @@ describe("LayoutEditor", () => {
     ).toMatchObject({ meta: { width: 640 }, status: "draft" });
   });
 
+  test("a tenant admin's save reloads the layout without asking for the platform-only override counts", async () => {
+    const calls: Call[] = [];
+    renderEditor(["TenantAdmin"], tenantSource, calls);
+    const width = await screen.findByLabelText("Width");
+    fireEvent.click(width);
+    fireEvent.click(await screen.findByRole("option", { name: "640 px" }));
+    const save = screen.getByTestId("document-designer-save");
+    await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(
+        calls.filter((call) => call.type === "template-resolver:query:layout-source"),
+      ).toHaveLength(2),
+    );
+    expect(calls.some((call) => call.type === "template-resolver:query:tenant-overrides")).toBe(
+      false,
+    );
+  });
+
   test("an invalid outer background blocks saving and publishing and says why", async () => {
     renderEditor(["TenantAdmin"], tenantSource, []);
     const background = await screen.findByLabelText("Outer background");
