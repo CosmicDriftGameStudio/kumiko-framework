@@ -1,6 +1,6 @@
 {
   "name": "@cosmicdrift/kumiko-sample-pdf-audit-export",
-  "description": "Exports an audit table as a PDF: a write handler renders rows with renderTablePdf and stores the bytes as a FileRef via createFileRefFromBytes.",
+  "description": "Exports an audit table as a PDF: a write handler renders rows with renderTablePdf and uploads the bytes before the transaction (uploadFileBytesBeforeTransaction) and stores them as a FileRef (createFileRefFromUploadedBytes).",
   "private": true,
   "dependencies": {
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
