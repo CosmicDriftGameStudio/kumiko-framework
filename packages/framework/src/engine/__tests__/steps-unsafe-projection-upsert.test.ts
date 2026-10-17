@@ -20,7 +20,7 @@ const testTable = table("test_projection", {
 const unsafeMock = mock(async (_sqlText: string, _params: unknown[]) => []);
 const beginMock = mock(async (fn: (tx: unknown) => Promise<unknown>) => fn({}));
 const rawDb = { unsafe: unsafeMock, begin: beginMock } as DbRunner;
-const ctxDb = createTenantDb(rawDb, testTenantId(1));
+const ctxDb = createTenantDb({ db: rawDb, tenantId: testTenantId(1) });
 
 const mockCtx = {
   db: ctxDb,

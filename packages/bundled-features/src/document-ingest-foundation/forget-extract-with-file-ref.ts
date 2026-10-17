@@ -57,7 +57,7 @@ export const forgetOrphanedDocumentExtractHook: MultiStreamApplyFn = async (even
   const parsed = documentExtractCreatedPayloadSchema.safeParse(event.payload);
   // skip: malformed payload — don't poison the consumer
   if (!parsed.success) return;
-  const tenantDb = createTenantDb(tx, event.tenantId);
+  const tenantDb = createTenantDb({ db: tx, tenantId: event.tenantId });
   // skip: fileRef still live — the extract is legitimate
   if (await isFileRefLive(tenantDb, parsed.data.fileRefId)) return;
   const user = createSystemUser(event.tenantId);
@@ -70,7 +70,7 @@ export const forgetOrphanedDocumentExtractHook: MultiStreamApplyFn = async (even
 };
 
 export const forgetExtractOnFileRefDeletedHook: MultiStreamApplyFn = async (event, tx) => {
-  const tenantDb = createTenantDb(tx, event.tenantId);
+  const tenantDb = createTenantDb({ db: tx, tenantId: event.tenantId });
   // skip: fileRef is live again — request-ingest and this consumer poll via
   // separate cursors, so a delete→restore round-trip can finish before this
   // consumer sees fileRef.deleted; forgetting would drop the live file's extract.
@@ -79,6 +79,6 @@ export const forgetExtractOnFileRefDeletedHook: MultiStreamApplyFn = async (even
 };
 
 export const forgetExtractOnFileRefForgottenHook: MultiStreamApplyFn = async (event, tx) => {
-  const tenantDb = createTenantDb(tx, event.tenantId);
+  const tenantDb = createTenantDb({ db: tx, tenantId: event.tenantId });
   await forgetExtractsForFileRef(event, tenantDb);
 };

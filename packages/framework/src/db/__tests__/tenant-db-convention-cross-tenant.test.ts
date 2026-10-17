@@ -26,7 +26,7 @@ function fakeRunner(): DbRunner {
 
 describe("acknowledgeConventionCrossTenant", () => {
   test("returns a system-mode TenantDb with the same tenantId", () => {
-    const tdb = createTenantDb(fakeRunner(), tenantId);
+    const tdb = createTenantDb({ db: fakeRunner(), tenantId });
     const result = acknowledgeConventionCrossTenant(tdb, REASON);
     expect(result.mode).toBe("system");
     expect(result.tenantId).toBe(tenantId);
@@ -34,9 +34,14 @@ describe("acknowledgeConventionCrossTenant", () => {
 
   test("reports acknowledge-cross-tenant exactly once via grants.report", () => {
     const reports: Array<{ kind: EscapeHatchKind; reason: string }> = [];
-    const tdb = createTenantDb(fakeRunner(), tenantId, "tenant", undefined, undefined, undefined, {
-      report: (kind, reason) => {
-        reports.push({ kind, reason });
+    const tdb = createTenantDb({
+      db: fakeRunner(),
+      tenantId,
+      mode: "tenant",
+      grants: {
+        report: (kind, reason) => {
+          reports.push({ kind, reason });
+        },
       },
     });
     acknowledgeConventionCrossTenant(tdb, REASON);
@@ -44,7 +49,7 @@ describe("acknowledgeConventionCrossTenant", () => {
   });
 
   test("throws for an empty reason", () => {
-    const tdb = createTenantDb(fakeRunner(), tenantId);
+    const tdb = createTenantDb({ db: fakeRunner(), tenantId });
     expect(() => acknowledgeConventionCrossTenant(tdb, "")).toThrow();
     expect(() => acknowledgeConventionCrossTenant(tdb, "   ")).toThrow();
   });
@@ -56,7 +61,7 @@ describe("acknowledgeConventionCrossTenant", () => {
 
   test("still resolves after withUnsafeRawGrant rebinds the TenantDb", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb(runner, tenantId);
+    const tdb = createTenantDb({ db: runner, tenantId });
     const regranted = withUnsafeRawGrant(tdb, { reason: "unrelated unsafeRaw grant" });
     const result = acknowledgeConventionCrossTenant(regranted, REASON);
     expect(result.mode).toBe("system");
@@ -65,7 +70,7 @@ describe("acknowledgeConventionCrossTenant", () => {
 
   test("tenantDbRunner(result) resolves to the original runner", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb(runner, tenantId);
+    const tdb = createTenantDb({ db: runner, tenantId });
     const result = acknowledgeConventionCrossTenant(tdb, REASON);
     expect(tenantDbRunner(result)).toBe(runner);
   });

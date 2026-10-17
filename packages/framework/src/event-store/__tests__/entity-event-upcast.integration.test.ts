@@ -115,7 +115,7 @@ beforeEach(async () => {
   await unsafeCreateEntityTable(testDb.db, legacyEntityV1, "legacy-note");
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { legacyNoteRefs: noteRefsTable });
-  tdb = createTenantDb(testDb.db, admin.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
 });
 
 afterEach(async () => {

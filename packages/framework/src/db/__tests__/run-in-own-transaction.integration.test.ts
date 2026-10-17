@@ -43,8 +43,8 @@ afterAll(async () => {
 
 describe("runInOwnTransaction", () => {
   test("the tenant filter holds on the tx-bound db", async () => {
-    const tdb1 = createTenantDb(testDb.db, tenant1.tenantId);
-    const tdb2 = createTenantDb(testDb.db, tenant2.tenantId);
+    const tdb1 = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
+    const tdb2 = createTenantDb({ db: testDb.db, tenantId: tenant2.tenantId });
     const marker = `shared-name-${crypto.randomUUID()}`;
     await tdb2.insertOne(table, { name: marker });
 
@@ -58,7 +58,7 @@ describe("runInOwnTransaction", () => {
   });
 
   test("a throw in fn rolls back the tx's own writes", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
     const marker = `rollback-${crypto.randomUUID()}`;
 
     await expect(
@@ -73,7 +73,7 @@ describe("runInOwnTransaction", () => {
   });
 
   test("commits the tx's writes on success", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
     const marker = `commit-${crypto.randomUUID()}`;
 
     await runInOwnTransaction(tdb, async (txDb) => {
@@ -111,21 +111,18 @@ describe("runInOwnTransaction", () => {
   });
 
   test("throws InternalError for a memberReadOnly TenantDb", async () => {
-    const tdb = createTenantDb(
-      testDb.db,
-      tenant1.tenantId,
-      "tenant",
-      undefined,
-      undefined,
-      undefined,
-      { memberReadOnly: true },
-    );
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "tenant",
+      grants: { memberReadOnly: true },
+    });
 
     await expect(runInOwnTransaction(tdb, async () => undefined)).rejects.toThrow(InternalError);
   });
 
   test("throws InternalError when the runner has no begin() (already inside a transaction)", async () => {
-    const tdb = createTenantDb(testDb.db, tenant1.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: tenant1.tenantId });
 
     await expect(
       runInOwnTransaction(tdb, async (txDb) => runInOwnTransaction(txDb, async () => undefined)),
@@ -138,19 +135,19 @@ describe("runInOwnTransaction", () => {
         throw new AccessDeniedError({ message: "personal data blocked" });
       }
     };
-    const tdb = createTenantDb(
-      testDb.db,
-      tenant1.tenantId,
-      "tenant",
-      undefined,
-      undefined,
-      undefined,
-      { personalDataGate: denyEmail, unsafeRaw: { reason: "test: derive runner-bound gate" } },
-    );
+    const tdb = createTenantDb({
+      db: testDb.db,
+      tenantId: tenant1.tenantId,
+      mode: "tenant",
+      grants: {
+        personalDataGate: denyEmail,
+        unsafeRaw: { reason: "test: derive runner-bound gate" },
+      },
+    });
     // Mirrors createTenantDb(ctx.db.unsafeRaw(), ...): the gate now lives on the
     // runner, not in this new TenantDb's own (unset) grants.
     const gatedRunner = tdb.unsafeRaw();
-    const runnerBoundTdb = createTenantDb(gatedRunner, tenant1.tenantId);
+    const runnerBoundTdb = createTenantDb({ db: gatedRunner, tenantId: tenant1.tenantId });
 
     expect(() =>
       assertPersonalDataWrite(runnerBoundTdb, "run_in_own_tx_items", ["email"], entity),

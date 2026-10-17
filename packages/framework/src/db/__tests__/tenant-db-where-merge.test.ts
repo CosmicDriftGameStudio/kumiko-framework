@@ -40,7 +40,7 @@ function recordingDb(captured: Captured[]): DbRunner {
 describe("tenant-db WHERE merge — caller cannot override tenant scope", () => {
   test("selectMany ignores a foreign where.tenantId and keeps the IN-scope filter", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.selectMany(table, { tenantId: foreign });
 
@@ -54,7 +54,7 @@ describe("tenant-db WHERE merge — caller cannot override tenant scope", () => 
 
   test("updateMany forces own tenantId even when where.tenantId is foreign", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.updateMany(table, { name: "x" }, { tenantId: foreign });
 
@@ -66,7 +66,7 @@ describe("tenant-db WHERE merge — caller cannot override tenant scope", () => 
 
   test("deleteMany forces own tenantId even when where.tenantId is foreign", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.deleteMany(table, { tenantId: foreign });
 
@@ -78,7 +78,7 @@ describe("tenant-db WHERE merge — caller cannot override tenant scope", () => 
 
   test("a non-tenantId where predicate is still applied alongside the scope", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.selectMany(table, { name: "needle" });
 
@@ -93,7 +93,7 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
 
   test("where.tenantId = own narrows to own only (excludes SYSTEM reference rows)", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.selectMany(table, { tenantId: own });
 
@@ -103,7 +103,7 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
 
   test("where.tenantId = [own, SYSTEM] keeps both", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.selectMany(table, { tenantId: [own, SYSTEM] });
 
@@ -113,7 +113,7 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
 
   test("operator form { in: [own] } narrows to own only, like the plain list", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.selectMany(table, { tenantId: { in: [own] } });
 
@@ -123,7 +123,7 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
 
   test("operator form { in: [foreign] } falls back to the full scope without leaking", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.selectMany(table, { tenantId: { in: [foreign] } });
 
@@ -134,7 +134,7 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
 
   test("operator form { eq: own } narrows to own only", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.selectMany(table, { tenantId: { eq: own } });
 
@@ -144,7 +144,7 @@ describe("tenant-db WHERE merge — narrowing within the enforced scope", () => 
 
   test("mixed [own, foreign] drops the foreign id, keeps own", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.selectMany(table, { tenantId: [own, foreign] });
 
@@ -170,7 +170,7 @@ describe("tenant-db WHERE merge — unmanaged EntityTableMeta tables (deriveEnti
 
   test("selectMany still applies the tenant scope (pre-fix: no WHERE at all)", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     // selectMany's Table param types the branded-EntityTable shape only;
     // EntityTableMeta reads work identically at runtime (both normalize via
@@ -184,7 +184,7 @@ describe("tenant-db WHERE merge — unmanaged EntityTableMeta tables (deriveEnti
 
   test("updateMany still forces own tenantId (pre-fix: no scope on writes either)", async () => {
     const captured: Captured[] = [];
-    const tdb = createTenantDb(recordingDb(captured), own);
+    const tdb = createTenantDb({ db: recordingDb(captured), tenantId: own });
 
     await tdb.updateMany(unmanagedTable, { name: "x" }, { tenantId: foreign });
 

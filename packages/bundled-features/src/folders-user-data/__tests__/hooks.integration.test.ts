@@ -86,7 +86,7 @@ describe("folderAssignmentExportHook", () => {
     );
 
     const snippet = await folderAssignmentExportHook({
-      db: createTenantDb(stack.db, admin.tenantId, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "tenant" }),
       registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,

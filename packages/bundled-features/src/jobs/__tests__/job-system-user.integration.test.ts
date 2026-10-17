@@ -80,7 +80,11 @@ const billingFeature = defineFeature("billing", (r) => {
           key: "billing:config:monthly-total",
           value: total,
         });
-        const tenantDb = createTenantDb(jobDb, systemUser.tenantId, "system");
+        const tenantDb = createTenantDb({
+          db: jobDb,
+          tenantId: systemUser.tenantId,
+          mode: "system",
+        });
         await handler.handler(
           { type: "config:write:set", payload: parsed, user: systemUser },
           {
@@ -170,7 +174,7 @@ describe("SYSTEM_USER in jobs", () => {
     });
 
     const adminUser = TestUsers.admin;
-    const adminTenantDb = createTenantDb(db, adminUser.tenantId, "system");
+    const adminTenantDb = createTenantDb({ db, tenantId: adminUser.tenantId, mode: "system" });
     const result = await handler.handler(
       { type: ConfigHandlers.set, payload: parsed, user: adminUser },
       {

@@ -211,8 +211,8 @@ beforeAll(async () => {
     "refSearchLabelRestrictedCustomer",
   );
   await unsafeCreateEntityTable(testDb.db, tenantMetaEntity, "tenant");
-  tdbA = createTenantDb(testDb.db, admin.tenantId);
-  tdbB = createTenantDb(testDb.db, otherTenantAdmin.tenantId);
+  tdbA = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
+  tdbB = createTenantDb({ db: testDb.db, tenantId: otherTenantAdmin.tenantId });
 });
 
 afterAll(async () => {
@@ -510,7 +510,11 @@ describe("event-store-executor.list — searchable reference fields (fw#2660)", 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(TestUsers.systemAdmin.tenantId, { searchableFields: ["note"] });
 
-    const systemDb = createTenantDb(testDb.db, TestUsers.systemAdmin.tenantId, "system");
+    const systemDb = createTenantDb({
+      db: testDb.db,
+      tenantId: TestUsers.systemAdmin.tenantId,
+      mode: "system",
+    });
     const res = await orderExec.list({ search: "acme" }, TestUsers.systemAdmin, systemDb, {
       searchAdapter,
       referenceSearch: referenceSearchWithTenant,

@@ -77,7 +77,7 @@ describe("noteEntryExportHook", () => {
     );
 
     const snippet = await noteEntryExportHook({
-      db: createTenantDb(stack.db, author.tenantId, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "tenant" }),
       registry: stack.registry,
       tenantId: author.tenantId,
       userId: author.id,
@@ -94,7 +94,7 @@ describe("noteEntryExportHook", () => {
   test("returns null when the user authored no notes", async () => {
     const lurker = createTestUser({ id: 3, roles: ["TenantMember"] });
     const snippet = await noteEntryExportHook({
-      db: createTenantDb(stack.db, lurker.tenantId, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: lurker.tenantId, mode: "tenant" }),
       registry: stack.registry,
       tenantId: lurker.tenantId,
       userId: lurker.id,
@@ -107,7 +107,7 @@ describe("noteEntryDeleteHook", () => {
   test("is a no-op — resolves without throwing", async () => {
     const result = await noteEntryDeleteHook(
       {
-        db: createTenantDb(stack.db, author.tenantId, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "tenant" }),
         registry: stack.registry,
         tenantId: author.tenantId,
         userId: author.id,

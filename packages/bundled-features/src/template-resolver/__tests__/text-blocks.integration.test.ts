@@ -255,7 +255,7 @@ describe("text-blocks :: write", () => {
         changes: { variableSchema: JSON.stringify({ firstName: "string" }), status: "archived" },
       },
       createSystemUser(tenantAdmin.tenantId),
-      createTenantDb(db, tenantAdmin.tenantId, "system"),
+      createTenantDb({ db, tenantId: tenantAdmin.tenantId, mode: "system" }),
     );
 
     await stack.http.writeOk(

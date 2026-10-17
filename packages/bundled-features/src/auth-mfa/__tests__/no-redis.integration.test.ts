@@ -94,7 +94,7 @@ const userMfaExecutor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
 });
 
 async function seedEnabledMfa(user: SessionUser): Promise<void> {
-  const tdb = createTenantDb(stack.db, user.tenantId, "system");
+  const tdb = createTenantDb({ db: stack.db, tenantId: user.tenantId, mode: "system" });
   const result = await userMfaExecutor.create(
     {
       userId: user.id,

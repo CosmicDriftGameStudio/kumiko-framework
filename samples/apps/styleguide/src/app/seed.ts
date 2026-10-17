@@ -26,7 +26,7 @@ export const seedStyleguideItems: SeedFn = async (stack) => {
   // Calling the executor directly is the framework's documented "seed
   // pattern" for a caller-chosen aggregate id (event-store-executor-write.ts).
   const { executor } = createEntityExecutor("item", demoEntity);
-  const tenantDb = createTenantDb(stack.db, TestUsers.admin.tenantId);
+  const tenantDb = createTenantDb({ db: stack.db, tenantId: TestUsers.admin.tenantId });
 
   for (let i = 0; i < 8; i++) {
     const payload = {

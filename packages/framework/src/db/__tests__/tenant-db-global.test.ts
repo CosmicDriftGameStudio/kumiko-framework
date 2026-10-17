@@ -108,7 +108,7 @@ void typeAssertions;
 
 describe("TenantDb.global()", () => {
   test("on a tenant-tenancy table throws AccessDeniedError at runtime (erased/unbranded table)", () => {
-    const tdb = createTenantDb(unreachableRunner(), own);
+    const tdb = createTenantDb({ db: unreachableRunner(), tenantId: own });
     expect(() =>
       tdb.global(tenantMeta as unknown as EntityTableMeta & TenancyBrand<"global">),
     ).toThrow(/tenancy: "global"/);
@@ -125,29 +125,26 @@ describe("TenantDb.global()", () => {
         throw new Error("begin not used in this test");
       },
     } as DbRunner;
-    const tdb = createTenantDb(db, own);
+    const tdb = createTenantDb({ db, tenantId: own });
     await tdb.global(globalUnmanagedTable).selectMany({ name: "x" });
     expect(captured).toHaveLength(1);
     expect(captured[0]?.sql).not.toMatch(/tenant_id/i);
   });
 
   test("write without escapeHatch rejects before touching the runner", async () => {
-    const tdb = createTenantDb(unreachableRunner(), own);
+    const tdb = createTenantDb({ db: unreachableRunner(), tenantId: own });
     await expect(tdb.global(globalUnmanagedTable).insertOne({ name: "x" })).rejects.toThrow(
       /escapeHatch/,
     );
   });
 
   test("write with an empty-reason escapeHatch rejects before touching the runner", async () => {
-    const tdb = createTenantDb(
-      unreachableRunner(),
-      own,
-      "tenant",
-      undefined,
-      undefined,
-      undefined,
-      { globalWrites: { reason: "   " } },
-    );
+    const tdb = createTenantDb({
+      db: unreachableRunner(),
+      tenantId: own,
+      mode: "tenant",
+      grants: { globalWrites: { reason: "   " } },
+    });
     await expect(tdb.global(globalUnmanagedTable).insertOne({ name: "x" })).rejects.toThrow(
       /escapeHatch/,
     );
@@ -164,8 +161,13 @@ describe("TenantDb.global()", () => {
         throw new Error("begin not used in this test");
       },
     } as DbRunner;
-    const tdb = createTenantDb(db, own, "tenant", undefined, undefined, undefined, {
-      globalWrites: { reason: "cross-tenant backfill job" },
+    const tdb = createTenantDb({
+      db,
+      tenantId: own,
+      mode: "tenant",
+      grants: {
+        globalWrites: { reason: "cross-tenant backfill job" },
+      },
     });
     await tdb.global(globalUnmanagedTable).insertOne({ name: "x" });
     expect(captured).toHaveLength(1);
@@ -182,8 +184,13 @@ describe("TenantDb.global()", () => {
         throw new Error("begin not used in this test");
       },
     } as DbRunner;
-    const tdb = createTenantDb(db, own, "tenant", undefined, undefined, undefined, {
-      globalWrites: { reason: "cross-tenant backfill job" },
+    const tdb = createTenantDb({
+      db,
+      tenantId: own,
+      mode: "tenant",
+      grants: {
+        globalWrites: { reason: "cross-tenant backfill job" },
+      },
     });
     const erased = tdb.global(
       globalManagedTable as unknown as EntityTableMeta & TenancyBrand<"global">,
@@ -204,9 +211,14 @@ describe("TenantDb.global()", () => {
       },
     } as DbRunner;
     const { report, calls } = recordingReporter();
-    const tdb = createTenantDb(db, own, "tenant", undefined, undefined, undefined, {
-      globalWrites: { reason: "cross-tenant backfill job" },
-      report,
+    const tdb = createTenantDb({
+      db,
+      tenantId: own,
+      mode: "tenant",
+      grants: {
+        globalWrites: { reason: "cross-tenant backfill job" },
+        report,
+      },
     });
     await tdb.global(globalUnmanagedTable).insertOne({ name: "x" });
     expect(calls).toEqual([
@@ -216,40 +228,34 @@ describe("TenantDb.global()", () => {
 
   test("denied global write (no grant) reports nothing", async () => {
     const { report, calls } = recordingReporter();
-    const tdb = createTenantDb(
-      unreachableRunner(),
-      own,
-      "tenant",
-      undefined,
-      undefined,
-      undefined,
-      {
+    const tdb = createTenantDb({
+      db: unreachableRunner(),
+      tenantId: own,
+      mode: "tenant",
+      grants: {
         report,
       },
-    );
+    });
     await expect(tdb.global(globalUnmanagedTable).insertOne({ name: "x" })).rejects.toThrow();
     expect(calls).toEqual([]);
   });
 
   test("write with an explicit non-SYSTEM tenantId rejects even with a valid escapeHatch", async () => {
-    const tdb = createTenantDb(
-      unreachableRunner(),
-      own,
-      "tenant",
-      undefined,
-      undefined,
-      undefined,
-      {
+    const tdb = createTenantDb({
+      db: unreachableRunner(),
+      tenantId: own,
+      mode: "tenant",
+      grants: {
         globalWrites: { reason: "cross-tenant backfill job" },
       },
-    );
+    });
     await expect(
       tdb.global(globalUnmanagedTable).insertOne({ name: "x", tenantId: own }),
     ).rejects.toThrow(/SYSTEM/);
   });
 
   test("tenant-mode updateMany/deleteMany on a global-tenancy table reject instead of silently matching nothing", async () => {
-    const tdb = createTenantDb(unreachableRunner(), own);
+    const tdb = createTenantDb({ db: unreachableRunner(), tenantId: own });
     const erasedTable = globalManagedTable as unknown as TableColumns;
     await expect(tdb.updateMany(erasedTable, { name: "y" }, { id: "x" })).rejects.toThrow(
       /db\.global/,
@@ -258,7 +264,7 @@ describe("TenantDb.global()", () => {
   });
 
   test("plain (non-global) insertOne on a global-tenancy managed table (has tenant_id) with a foreign tenant rejects before touching the runner", async () => {
-    const tdb = createTenantDb(unreachableRunner(), own);
+    const tdb = createTenantDb({ db: unreachableRunner(), tenantId: own });
     // insertOne's WritableTable param types out branded EntityTables — same
     // unbranded-view cast as tenant-db-global.integration.test.ts; runtime
     // behavior only reads the table's EntityTableMeta, not the type brand.
@@ -270,49 +276,48 @@ describe("TenantDb.global()", () => {
 
 describe("TenantDb.unsafeRaw()", () => {
   test("without a grant throws AccessDeniedError without touching the runner", () => {
-    const tdb = createTenantDb(unreachableRunner(), own);
+    const tdb = createTenantDb({ db: unreachableRunner(), tenantId: own });
     expect(() => tdb.unsafeRaw()).toThrow(AccessDeniedError);
   });
 
   test("with a valid grant returns the underlying DbRunner", () => {
     const rawDb = unreachableRunner();
-    const tdb = createTenantDb(rawDb, own, "tenant", undefined, undefined, undefined, {
-      unsafeRaw: { reason: "granted" },
+    const tdb = createTenantDb({
+      db: rawDb,
+      tenantId: own,
+      mode: "tenant",
+      grants: {
+        unsafeRaw: { reason: "granted" },
+      },
     });
     expect(tdb.unsafeRaw()).toBe(rawDb);
   });
 
   test("with a valid grant reports unsafe-raw once with the declared reason", () => {
     const { report, calls } = recordingReporter();
-    const tdb = createTenantDb(
-      unreachableRunner(),
-      own,
-      "tenant",
-      undefined,
-      undefined,
-      undefined,
-      {
+    const tdb = createTenantDb({
+      db: unreachableRunner(),
+      tenantId: own,
+      mode: "tenant",
+      grants: {
         unsafeRaw: { reason: "granted" },
         report,
       },
-    );
+    });
     tdb.unsafeRaw();
     expect(calls).toEqual([{ kind: "unsafe-raw", reason: "granted", target: undefined }]);
   });
 
   test("without a grant reports nothing", () => {
     const { report, calls } = recordingReporter();
-    const tdb = createTenantDb(
-      unreachableRunner(),
-      own,
-      "tenant",
-      undefined,
-      undefined,
-      undefined,
-      {
+    const tdb = createTenantDb({
+      db: unreachableRunner(),
+      tenantId: own,
+      mode: "tenant",
+      grants: {
         report,
       },
-    );
+    });
     expect(() => tdb.unsafeRaw()).toThrow(AccessDeniedError);
     expect(calls).toEqual([]);
   });
@@ -321,7 +326,7 @@ describe("TenantDb.unsafeRaw()", () => {
 describe("withUnsafeRawGrant", () => {
   test("rebinding to a grant makes unsafeRaw work", () => {
     const rawDb = unreachableRunner();
-    const tdb = createTenantDb(rawDb, own);
+    const tdb = createTenantDb({ db: rawDb, tenantId: own });
     expect(() => tdb.unsafeRaw()).toThrow(AccessDeniedError);
 
     const rebound = withUnsafeRawGrant(tdb, { reason: "narrower hook grant" });
@@ -330,8 +335,13 @@ describe("withUnsafeRawGrant", () => {
 
   test("rebinding to undefined makes unsafeRaw throw, even if the original had a grant", () => {
     const rawDb = unreachableRunner();
-    const tdb = createTenantDb(rawDb, own, "tenant", undefined, undefined, undefined, {
-      unsafeRaw: { reason: "handler grant" },
+    const tdb = createTenantDb({
+      db: rawDb,
+      tenantId: own,
+      mode: "tenant",
+      grants: {
+        unsafeRaw: { reason: "handler grant" },
+      },
     });
     expect(tdb.unsafeRaw()).toBe(rawDb);
 
@@ -347,7 +357,7 @@ describe("withUnsafeRawGrant", () => {
 
 describe("UncheckedSystemDb.unsafeRaw", () => {
   test("throws on an empty or whitespace-only reason", () => {
-    const tdb = createTenantDb(unreachableRunner(), own);
+    const tdb = createTenantDb({ db: unreachableRunner(), tenantId: own });
     const sysDb = createUncheckedSystemDb(tdb);
     expect(() => sysDb.unsafeRaw("")).toThrow();
     expect(() => sysDb.unsafeRaw("   ")).toThrow();
@@ -355,13 +365,13 @@ describe("UncheckedSystemDb.unsafeRaw", () => {
 
   test("returns the underlying DbRunner for a non-empty reason", () => {
     const rawDb = unreachableRunner();
-    const tdb = createTenantDb(rawDb, own);
+    const tdb = createTenantDb({ db: rawDb, tenantId: own });
     const sysDb = createUncheckedSystemDb(tdb);
     expect(sysDb.unsafeRaw("cleanup job")).toBe(rawDb);
   });
 
   test("reports unsafe-raw once with the reason", () => {
-    const tdb = createTenantDb(unreachableRunner(), own);
+    const tdb = createTenantDb({ db: unreachableRunner(), tenantId: own });
     const { report, calls } = recordingReporter();
     const sysDb = createUncheckedSystemDb(tdb, undefined, report);
     sysDb.unsafeRaw("cleanup job");
@@ -390,20 +400,17 @@ describe("unsafeRaw gate inheritance", () => {
   async function insertThroughDerivedHandle(
     derive: (raw: DbRunner) => Promise<DbRunner>,
   ): Promise<unknown> {
-    const tdb = createTenantDb(
-      driverWithDerivedHandles(),
-      own,
-      "system",
-      undefined,
-      undefined,
-      undefined,
-      {
+    const tdb = createTenantDb({
+      db: driverWithDerivedHandles(),
+      tenantId: own,
+      mode: "system",
+      grants: {
         unsafeRaw: { reason: "test: derived handles keep the gate" },
         personalDataGate: denyingGate,
       },
-    );
+    });
     const derived = await derive(tdb.unsafeRaw());
-    return createTenantDb(derived, own, "system")
+    return createTenantDb({ db: derived, tenantId: own, mode: "system" })
       .insertOne(tenantEntityTable as unknown as TableColumns, { name: "x" })
       .then(
         () => "inserted",

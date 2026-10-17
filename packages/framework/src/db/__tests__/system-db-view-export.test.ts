@@ -34,15 +34,12 @@ describe("createSystemDbView(...).unsafeRaw", () => {
   test("denies without a grant on the source TenantDb, without reporting on either side", () => {
     const sourceReports: Array<{ kind: string; reason: string }> = [];
     const viewReports: Array<{ kind: string; reason: string }> = [];
-    const source = createTenantDb(
-      fakeRunner(),
+    const source = createTenantDb({
+      db: fakeRunner(),
       tenantId,
-      "tenant",
-      undefined,
-      undefined,
-      undefined,
-      { report: (kind, reason) => sourceReports.push({ kind, reason }) },
-    );
+      mode: "tenant",
+      grants: { report: (kind, reason) => sourceReports.push({ kind, reason }) },
+    });
     const view = createSystemDbView(source, undefined, (kind, reason) =>
       viewReports.push({ kind, reason }),
     );
@@ -56,9 +53,14 @@ describe("createSystemDbView(...).unsafeRaw", () => {
     const runner = fakeRunner();
     const sourceReports: Array<{ kind: string; reason: string }> = [];
     const viewReports: Array<{ kind: string; reason: string }> = [];
-    const source = createTenantDb(runner, tenantId, "tenant", undefined, undefined, undefined, {
-      unsafeRaw: { reason: "handler declared unsafeRaw" },
-      report: (kind, reason) => sourceReports.push({ kind, reason }),
+    const source = createTenantDb({
+      db: runner,
+      tenantId,
+      mode: "tenant",
+      grants: {
+        unsafeRaw: { reason: "handler declared unsafeRaw" },
+        report: (kind, reason) => sourceReports.push({ kind, reason }),
+      },
     });
     const view = createSystemDbView(source, undefined, (kind, reason) =>
       viewReports.push({ kind, reason }),
@@ -70,15 +72,12 @@ describe("createSystemDbView(...).unsafeRaw", () => {
   });
 
   test("memberReadOnly on the source denies even with an unsafeRaw grant", () => {
-    const source = createTenantDb(
-      fakeRunner(),
+    const source = createTenantDb({
+      db: fakeRunner(),
       tenantId,
-      "tenant",
-      undefined,
-      undefined,
-      undefined,
-      { unsafeRaw: { reason: "handler declared unsafeRaw" }, memberReadOnly: true },
-    );
+      mode: "tenant",
+      grants: { unsafeRaw: { reason: "handler declared unsafeRaw" }, memberReadOnly: true },
+    });
     const view = createSystemDbView(source);
 
     expect(() => view.unsafeRaw("x")).toThrow(AccessDeniedError);
@@ -88,7 +87,7 @@ describe("createSystemDbView(...).unsafeRaw", () => {
 
 describe("unsafeRawForDeclaredStep(createSystemDbView(...))", () => {
   test("throws AccessDeniedError, not InternalError, without a grant on the source", () => {
-    const source = createTenantDb(fakeRunner(), tenantId, "tenant");
+    const source = createTenantDb({ db: fakeRunner(), tenantId, mode: "tenant" });
     const view = createSystemDbView(source);
 
     expect(() => unsafeRawForDeclaredStep(view, "x")).toThrow(AccessDeniedError);
@@ -97,7 +96,7 @@ describe("unsafeRawForDeclaredStep(createSystemDbView(...))", () => {
 
 describe("withSystemDbUnsafeRawGrant(createSystemDbView(...))", () => {
   test("returns the view unchanged — no rebind, so no rights upgrade over the source's own gate", () => {
-    const source = createTenantDb(fakeRunner(), tenantId, "tenant");
+    const source = createTenantDb({ db: fakeRunner(), tenantId, mode: "tenant" });
     const view = createSystemDbView(source);
 
     const rebound = withSystemDbUnsafeRawGrant(view, { reason: "hook grant" }, "some hook");

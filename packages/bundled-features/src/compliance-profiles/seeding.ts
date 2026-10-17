@@ -54,7 +54,7 @@ export async function seedComplianceProfile(
   // + Projection im selben Tenant-Bucket landen (Memory:
   // feedback_event_store_tenant_consistency).
   const by = opts.by ?? { ...TestUsers.systemAdmin, tenantId: opts.tenantId };
-  const tdb = createTenantDb(db, opts.tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId: opts.tenantId, mode: "system" });
   const overrideJson = opts.override !== undefined ? JSON.stringify(opts.override) : null;
 
   const existing = (await fetchOne(db, tenantComplianceProfileTable, {

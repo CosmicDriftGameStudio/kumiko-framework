@@ -275,7 +275,7 @@ describe("template-resolver :: preview query", () => {
         status: "active",
       },
       adminOf(26),
-      createTenantDb(stack.db, owner, "system"),
+      createTenantDb({ db: stack.db, tenantId: owner, mode: "system" }),
     );
     expect(created.isSuccess).toBe(true);
     const preview = await stack.http.queryOk<Preview>(

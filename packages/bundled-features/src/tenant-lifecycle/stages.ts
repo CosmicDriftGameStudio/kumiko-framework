@@ -143,9 +143,14 @@ async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<StageRunOut
       log: ctx.escapeHatchAuditLog ?? createFallbackLogger("tenant-lifecycle"),
     });
     const hookCtx: TenantDataHookCtx = {
-      db: createTenantDb(ctx.db, ctx.tenantId, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: reason !== undefined ? { reason } : undefined,
-        report,
+      db: createTenantDb({
+        db: ctx.db,
+        tenantId: ctx.tenantId,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: reason !== undefined ? { reason } : undefined,
+          report,
+        },
       }),
       registry: ctx.registry,
       tenantId: ctx.tenantId,
@@ -202,7 +207,7 @@ async function purgeTenantCache(ctx: DestructionStageCtx): Promise<StageRunOutco
 async function tombstoneTenantRow(ctx: DestructionStageCtx): Promise<StageRunOutcome> {
   const now = getTemporal().Now.instant();
   const user = createSystemUser(ctx.tenantId);
-  const db = createTenantDb(ctx.db, ctx.tenantId, "system");
+  const db = createTenantDb({ db: ctx.db, tenantId: ctx.tenantId, mode: "system" });
   // Per-row forget() through the executor, not a bulk deleteMany: memberships
   // are an ES-managed projection (add/remove/update-roles all go through
   // tenantMembershipCrud), so a store table write here is eventless — a future

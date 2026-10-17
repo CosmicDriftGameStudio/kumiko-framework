@@ -437,7 +437,7 @@ const featureA = defineFeature("intakea", (r) => {
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
       const raw = ctx.db.unsafeRaw();
-      await createTenantDb(raw, event.user.tenantId, "system").insertOne(
+      await createTenantDb({ db: raw, tenantId: event.user.tenantId, mode: "system" }).insertOne(
         contactTable as unknown as SchemaTable,
         { email: "leak-unsafe-raw@example.com", note: event.payload.note },
       );
@@ -453,7 +453,7 @@ const featureA = defineFeature("intakea", (r) => {
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
       const raw = ctx.db.unsafeRaw();
-      await createTenantDb(raw, event.user.tenantId, "system").insertOne(
+      await createTenantDb({ db: raw, tenantId: event.user.tenantId, mode: "system" }).insertOne(
         contactTable as unknown as SchemaTable,
         { email: "leak-unsafe-raw-declared@example.com", note: event.payload.note },
       );
@@ -474,10 +474,14 @@ const featureA = defineFeature("intakea", (r) => {
     handler: async (event, ctx) => {
       const raw = ctx.db.unsafeRaw();
       await runInSavepoint(raw, async (sp) => {
-        await createTenantDb(sp as DbRunner, event.user.tenantId, "system").insertOne(
-          contactTable as unknown as SchemaTable,
-          { email: "leak-unsafe-raw-tx@example.com", note: event.payload.note },
-        );
+        await createTenantDb({
+          db: sp as DbRunner,
+          tenantId: event.user.tenantId,
+          mode: "system",
+        }).insertOne(contactTable as unknown as SchemaTable, {
+          email: "leak-unsafe-raw-tx@example.com",
+          note: event.payload.note,
+        });
       });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
@@ -492,10 +496,14 @@ const featureA = defineFeature("intakea", (r) => {
     handler: async (event, ctx) => {
       const raw = ctx.db.unsafeRaw();
       await runInSavepoint(raw, async (sp) => {
-        await createTenantDb(sp as DbRunner, event.user.tenantId, "system").insertOne(
-          contactTable as unknown as SchemaTable,
-          { email: "leak-unsafe-raw-tx-declared@example.com", note: event.payload.note },
-        );
+        await createTenantDb({
+          db: sp as DbRunner,
+          tenantId: event.user.tenantId,
+          mode: "system",
+        }).insertOne(contactTable as unknown as SchemaTable, {
+          email: "leak-unsafe-raw-tx-declared@example.com",
+          note: event.payload.note,
+        });
       });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
@@ -520,7 +528,7 @@ const featureA = defineFeature("intakea", (r) => {
       ) => Promise<readonly Record<string, unknown>[]>;
       const rows = await tagged`SELECT 1 AS one`;
       if (rows[0]?.["one"] !== 1) throw new Error("tagged query through the proxy failed");
-      await createTenantDb(raw, event.user.tenantId, "system").insertOne(
+      await createTenantDb({ db: raw, tenantId: event.user.tenantId, mode: "system" }).insertOne(
         contactTable as unknown as SchemaTable,
         { email: "leak-unsafe-raw-tagged@example.com", note: event.payload.note },
       );
@@ -538,7 +546,7 @@ const featureA = defineFeature("intakea", (r) => {
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
       const raw = ctx.db.unsafeRaw();
-      await createTenantDb(raw, event.user.tenantId, "system").insertOne(
+      await createTenantDb({ db: raw, tenantId: event.user.tenantId, mode: "system" }).insertOne(
         contactTable as unknown as SchemaTable,
         { email: "leak-unsafe-raw-authenticated@example.com", note: event.payload.note },
       );
@@ -555,7 +563,11 @@ const featureA = defineFeature("intakea", (r) => {
     name: "unsafe-raw-executor-no-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      const scopedDb = createTenantDb(ctx.db.unsafeRaw(), event.user.tenantId, "system");
+      const scopedDb = createTenantDb({
+        db: ctx.db.unsafeRaw(),
+        tenantId: event.user.tenantId,
+        mode: "system",
+      });
       const crud = createEventStoreExecutor(contactTable, contactEntity, { entityName: "contact" });
       return crud.create(
         { email: "leak-unsafe-raw-executor@example.com", note: event.payload.note },
@@ -575,7 +587,11 @@ const featureA = defineFeature("intakea", (r) => {
     name: "unsafe-raw-executor-non-pii-no-declare",
     schema: z.object({ note: z.string() }),
     handler: async (event, ctx) => {
-      const scopedDb = createTenantDb(ctx.db.unsafeRaw(), event.user.tenantId, "system");
+      const scopedDb = createTenantDb({
+        db: ctx.db.unsafeRaw(),
+        tenantId: event.user.tenantId,
+        mode: "system",
+      });
       const crud = createEventStoreExecutor(probeTable, probeEntity, { entityName: "probe" });
       return crud.create({ note: event.payload.note }, event.user, scopedDb);
     },
@@ -729,7 +745,7 @@ describe("public-intake runtime gate", () => {
       }).create(
         { email: SEED_EMAIL, note: "seed" },
         TestUsers.admin,
-        createTenantDb(stack.db, TENANT_ID, "system"),
+        createTenantDb({ db: stack.db, tenantId: TENANT_ID, mode: "system" }),
       );
       if (!created.isSuccess) throw new Error("seed create failed");
       return String(created.data.id);

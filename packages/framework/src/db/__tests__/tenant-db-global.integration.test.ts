@@ -71,10 +71,10 @@ afterAll(async () => {
 
 describe("TenantDb.global() — reads, real Postgres", () => {
   test("selectMany returns the same rows to callers on different tenants, unfiltered by tenant", async () => {
-    const rowsForA = await createTenantDb(stack.db, tenantA)
+    const rowsForA = await createTenantDb({ db: stack.db, tenantId: tenantA })
       .global(globalItemsTable)
       .selectMany<{ id: string; someField: string }>({ someField: "match" });
-    const rowsForB = await createTenantDb(stack.db, tenantB)
+    const rowsForB = await createTenantDb({ db: stack.db, tenantId: tenantB })
       .global(globalItemsTable)
       .selectMany<{ id: string; someField: string }>({ someField: "match" });
 
@@ -83,7 +83,7 @@ describe("TenantDb.global() — reads, real Postgres", () => {
   });
 
   test("fetchOne finds a row for a caller whose own tenant never wrote it", async () => {
-    const row = await createTenantDb(stack.db, tenantA)
+    const row = await createTenantDb({ db: stack.db, tenantId: tenantA })
       .global(globalItemsTable)
       .fetchOne<{ someField: string }>({ someField: "no-match" });
 
@@ -93,7 +93,7 @@ describe("TenantDb.global() — reads, real Postgres", () => {
 
 describe("TenantDb — tenant-mode isolation on a normal tenant table", () => {
   test("db.selectMany only returns the caller's own tenant's rows", async () => {
-    const tdb = createTenantDb(stack.db, tenantA);
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
     // selectMany's Table param types the branded-EntityTable shape only;
     // EntityTableMeta reads work identically at runtime (both normalize via
     // asEntityTableMeta) — same unbranded-view cast as tenant-db-where-merge.test.ts.
@@ -109,15 +109,20 @@ describe("TenantDb — tenant-mode isolation on a normal tenant table", () => {
 
 describe("TenantDb.global() — writes, real Postgres", () => {
   test("insert/update/delete are rejected without a globalWrites grant", async () => {
-    const tdb = createTenantDb(stack.db, tenantA);
+    const tdb = createTenantDb({ db: stack.db, tenantId: tenantA });
     await expect(
       tdb.global(globalItemsTable).insertOne({ someField: "ungranted" }),
     ).rejects.toThrow(AccessDeniedError);
   });
 
   test("a hook's unsafeRaw rebind does not inherit the handler's globalWrites grant", async () => {
-    const handlerDb = createTenantDb(stack.db, tenantA, "tenant", undefined, undefined, undefined, {
-      globalWrites: { reason: "fw#2875 — handler-level global write grant" },
+    const handlerDb = createTenantDb({
+      db: stack.db,
+      tenantId: tenantA,
+      mode: "tenant",
+      grants: {
+        globalWrites: { reason: "fw#2875 — handler-level global write grant" },
+      },
     });
     const hookDb = withUnsafeRawGrant(handlerDb, { reason: "fw#2875 — hook's own raw grant" });
 
@@ -131,8 +136,13 @@ describe("TenantDb.global() — writes, real Postgres", () => {
   });
 
   test("insert/update/delete succeed when createTenantDb was given a globalWrites grant", async () => {
-    const tdb = createTenantDb(stack.db, tenantA, "tenant", undefined, undefined, undefined, {
-      globalWrites: { reason: "fw#2858 integration test — cross-tenant write via db.global()" },
+    const tdb = createTenantDb({
+      db: stack.db,
+      tenantId: tenantA,
+      mode: "tenant",
+      grants: {
+        globalWrites: { reason: "fw#2858 integration test — cross-tenant write via db.global()" },
+      },
     });
     const globalDb = tdb.global(globalItemsTable);
 

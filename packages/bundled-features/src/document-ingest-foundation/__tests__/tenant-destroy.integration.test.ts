@@ -91,7 +91,7 @@ async function seedTenant(user: typeof tenantA): Promise<void> {
 
 async function seedDocumentExtract(tenantId: TenantId, fileRefId: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const tdb = createTenantDb(db, tenantId);
+  const tdb = createTenantDb({ db, tenantId });
   const result = await documentExtractCrud.create(
     {
       fileRefId,

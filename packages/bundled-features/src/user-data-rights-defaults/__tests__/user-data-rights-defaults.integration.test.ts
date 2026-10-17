@@ -249,7 +249,7 @@ describe("S2.H1 :: userExportHook", () => {
     await seedUser(uuid(1001), { displayName: "Marc" });
 
     const result = await userExportHook({
-      db: createTenantDb(stack.db, TENANT_A, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: uuid(1001),
@@ -270,7 +270,7 @@ describe("S2.H1 :: userExportHook", () => {
 
   test("returns null wenn User nicht existiert", async () => {
     const result = await userExportHook({
-      db: createTenantDb(stack.db, TENANT_A, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: uuid(1002),
@@ -285,7 +285,7 @@ describe("S2.H1 :: userDeleteHook", () => {
 
     await userDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId: uuid(1003),
@@ -309,7 +309,7 @@ describe("S2.H1 :: userDeleteHook", () => {
 
     await userDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId: uuid(1004),
@@ -330,7 +330,7 @@ describe("S2.H1 :: userDeleteHook", () => {
 
     await userDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId: uuid(1005),
@@ -344,7 +344,7 @@ describe("S2.H1 :: userDeleteHook", () => {
     await expect(
       userDeleteHook(
         {
-          db: createTenantDb(stack.db, TENANT_A, "tenant"),
+          db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
           registry: stack.registry,
           tenantId: TENANT_A,
           userId: uuid(1005),
@@ -370,7 +370,7 @@ describe("S2.H2 :: fileRefExportHook", () => {
     await seedFileRef(uuid(102), TENANT_A, "user-files-1", "anschreiben.pdf");
 
     const result = await fileRefExportHook({
-      db: createTenantDb(stack.db, TENANT_A, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: "user-files-1",
@@ -385,7 +385,7 @@ describe("S2.H2 :: fileRefExportHook", () => {
 
   test("returns null wenn User keine Files hat", async () => {
     const result = await fileRefExportHook({
-      db: createTenantDb(stack.db, TENANT_A, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
       registry: stack.registry,
       tenantId: TENANT_A,
       userId: "ghost-user-no-files",
@@ -401,7 +401,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId: "user-delete-files",
@@ -418,7 +418,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId: "user-anon-files",
@@ -441,7 +441,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     // Tenant A loescht alle Files von "shared-user"
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId: "shared-user",
@@ -462,7 +462,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId: "user-idem-files",
@@ -476,7 +476,7 @@ describe("S2.H2 :: fileRefDeleteHook", () => {
     await expect(
       fileRefDeleteHook(
         {
-          db: createTenantDb(stack.db, TENANT_A, "tenant"),
+          db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
           registry: stack.registry,
           tenantId: TENANT_A,
           userId: "user-idem-files",
@@ -503,7 +503,7 @@ describe("S2.H2 :: fileRefDeleteHook — per-row PII decision (issue #3005)", ()
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId,
@@ -532,7 +532,7 @@ describe("S2.H2 :: fileRefDeleteHook — per-row PII decision (issue #3005)", ()
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId,
@@ -550,7 +550,7 @@ describe("S2.H2 :: fileRefDeleteHook — per-row PII decision (issue #3005)", ()
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId,
@@ -568,7 +568,7 @@ describe("S2.H2 :: fileRefDeleteHook — per-row PII decision (issue #3005)", ()
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId,
@@ -597,7 +597,7 @@ describe("S2.H2 :: fileRefDeleteHook — per-row PII decision (issue #3005)", ()
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId,
@@ -618,7 +618,7 @@ describe("S2.H2 :: fileRefDeleteHook — remaining personal-annotation branches"
   async function forgetUser(userId: string): Promise<void> {
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId,
@@ -718,7 +718,7 @@ describe("S2.H2 :: fileRefDeleteHook — GDPR derivatives survive forget (issue 
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId,
@@ -748,7 +748,7 @@ describe("S2.H2 :: fileRefDeleteHook — GDPR derivatives survive forget (issue 
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A,
         userId,
@@ -779,7 +779,7 @@ describe("S2.H2 :: fileRefDeleteHook — GDPR derivatives survive forget (issue 
     await expect(
       fileRefDeleteHook(
         {
-          db: createTenantDb(stack.db, TENANT_A, "tenant"),
+          db: createTenantDb({ db: stack.db, tenantId: TENANT_A, mode: "tenant" }),
           registry: stack.registry,
           tenantId: TENANT_A,
           userId,

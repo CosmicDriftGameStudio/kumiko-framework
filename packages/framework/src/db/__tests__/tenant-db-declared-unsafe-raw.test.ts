@@ -27,9 +27,14 @@ function fakeRunner(): DbRunner {
 describe("unsafeRawForDeclaredStep", () => {
   test("throws AccessDeniedError without a grant, without reporting", () => {
     const reports: Array<{ kind: EscapeHatchKind; reason: string }> = [];
-    const tdb = createTenantDb(fakeRunner(), tenantId, "tenant", undefined, undefined, undefined, {
-      report: (kind, reason) => {
-        reports.push({ kind, reason });
+    const tdb = createTenantDb({
+      db: fakeRunner(),
+      tenantId,
+      mode: "tenant",
+      grants: {
+        report: (kind, reason) => {
+          reports.push({ kind, reason });
+        },
       },
     });
 
@@ -40,10 +45,15 @@ describe("unsafeRawForDeclaredStep", () => {
   test("returns exactly the bound runner and reports unsafe-raw exactly once, with a grant", () => {
     const runner = fakeRunner();
     const reports: Array<{ kind: EscapeHatchKind; reason: string }> = [];
-    const tdb = createTenantDb(runner, tenantId, "tenant", undefined, undefined, undefined, {
-      unsafeRaw: { reason: "handler declared unsafeRaw" },
-      report: (kind, reason) => {
-        reports.push({ kind, reason });
+    const tdb = createTenantDb({
+      db: runner,
+      tenantId,
+      mode: "tenant",
+      grants: {
+        unsafeRaw: { reason: "handler declared unsafeRaw" },
+        report: (kind, reason) => {
+          reports.push({ kind, reason });
+        },
       },
     });
 
@@ -52,8 +62,13 @@ describe("unsafeRawForDeclaredStep", () => {
   });
 
   test("throws for an empty or whitespace-only reason", () => {
-    const tdb = createTenantDb(fakeRunner(), tenantId, "tenant", undefined, undefined, undefined, {
-      unsafeRaw: { reason: "handler declared unsafeRaw" },
+    const tdb = createTenantDb({
+      db: fakeRunner(),
+      tenantId,
+      mode: "tenant",
+      grants: {
+        unsafeRaw: { reason: "handler declared unsafeRaw" },
+      },
     });
 
     expect(() => unsafeRawForDeclaredStep(tdb, "")).toThrow(/non-empty reason/);
@@ -84,7 +99,7 @@ describe("unsafeRawForDeclaredStep", () => {
   test("resolves to the bound runner for a createUncheckedSystemDb holder, reporting once", () => {
     const runner = fakeRunner();
     const reports: Array<{ kind: EscapeHatchKind; reason: string }> = [];
-    const systemDb = createTenantDb(runner, tenantId, "system");
+    const systemDb = createTenantDb({ db: runner, tenantId, mode: "system" });
     const unchecked = createUncheckedSystemDb(systemDb, undefined, (kind, reason) => {
       reports.push({ kind, reason });
     });
@@ -95,8 +110,13 @@ describe("unsafeRawForDeclaredStep", () => {
 
   test("still resolves after withUnsafeRawGrant rebinds the TenantDb", () => {
     const runner = fakeRunner();
-    const tdb = createTenantDb(runner, tenantId, "tenant", undefined, undefined, undefined, {
-      unsafeRaw: { reason: "original grant" },
+    const tdb = createTenantDb({
+      db: runner,
+      tenantId,
+      mode: "tenant",
+      grants: {
+        unsafeRaw: { reason: "original grant" },
+      },
     });
     const regranted = withUnsafeRawGrant(tdb, { reason: "rebind grant" });
 
@@ -106,10 +126,15 @@ describe("unsafeRawForDeclaredStep", () => {
 
 describe("memberReadOnly grant", () => {
   function memberReadOnlyDb(report?: (kind: EscapeHatchKind, reason: string) => void): TenantDb {
-    return createTenantDb(fakeRunner(), tenantId, "tenant", undefined, undefined, undefined, {
-      unsafeRaw: { reason: "handler declared unsafeRaw" },
-      memberReadOnly: true,
-      ...(report && { report }),
+    return createTenantDb({
+      db: fakeRunner(),
+      tenantId,
+      mode: "tenant",
+      grants: {
+        unsafeRaw: { reason: "handler declared unsafeRaw" },
+        memberReadOnly: true,
+        ...(report && { report }),
+      },
     });
   }
 

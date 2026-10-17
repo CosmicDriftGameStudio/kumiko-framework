@@ -107,7 +107,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, itemEntity, "rebuild-item");
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { rebuildItemsPerGroup: itemsPerGroupTable });
-  tdb = createTenantDb(testDb.db, admin.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {

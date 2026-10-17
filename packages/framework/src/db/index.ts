@@ -205,7 +205,13 @@ export {
   toSnakeCase,
   toTableName,
 } from "./table-builder.js";
-export type { TenantDb, TenantDbGrants, TenantDbMode, UncheckedSystemDb } from "./tenant-db.js";
+export type {
+  CreateTenantDbOptions,
+  TenantDb,
+  TenantDbGrants,
+  TenantDbMode,
+  UncheckedSystemDb,
+} from "./tenant-db.js";
 export {
   castTenantRows,
   createSystemDbView,

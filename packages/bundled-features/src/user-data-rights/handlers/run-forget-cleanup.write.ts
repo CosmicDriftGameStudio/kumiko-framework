@@ -11,7 +11,7 @@
 // Rueckgabe: Stats fuer Operator-Monitoring (processed-count, error-list).
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { access, defineWriteHandler, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
@@ -58,7 +58,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
         registry: ctx.registry,
         configResolver: ctx.configResolver,
         db: forgetDb,
-        userId: ctx._userId ?? SYSTEM_USER_ID,
+        userId: ctx.user.id,
       });
       const result = await runForgetCleanup({
         db: runner,
@@ -71,7 +71,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
           configResolver: ctx.configResolver,
           secrets: ctx.secrets,
           db: forgetDb,
-          userId: ctx._userId ?? SYSTEM_USER_ID,
+          userId: ctx.user.id,
           handlerName: "user-data-rights:run-forget-cleanup",
         }),
         ...(opts.sendDeletionExecutedEmail && {

@@ -50,7 +50,7 @@ describe("formDraftDeleteHook — delete failure handling (#review-batch-fw-1)",
     await expect(
       formDraftDeleteHook(
         {
-          db: createTenantDb(stack.db, bob.tenantId, "tenant"),
+          db: createTenantDb({ db: stack.db, tenantId: bob.tenantId, mode: "tenant" }),
           registry: stack.registry,
           tenantId: bob.tenantId,
           userId: bob.id,

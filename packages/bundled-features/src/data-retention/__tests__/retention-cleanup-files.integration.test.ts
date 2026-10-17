@@ -170,7 +170,7 @@ async function seedFileRef(args: {
   readonly key: string;
 }): Promise<string> {
   await provider.write(args.key, new Uint8Array([1, 2, 3]), "application/octet-stream");
-  const tdb = createTenantDb(stack.db, args.tenantId, "system");
+  const tdb = createTenantDb({ db: stack.db, tenantId: args.tenantId, mode: "system" });
   const systemUser = createSystemUser(args.tenantId);
   const id = crypto.randomUUID();
   const res = await fileRefCrud.create(
@@ -554,8 +554,13 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
     if (!job) return;
 
     const ctx: JobContext = {
-      db: createTenantDb(stack.db, T1, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "per-tenant fan-out cleanup using raw helpers" },
+      db: createTenantDb({
+        db: stack.db,
+        tenantId: T1,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: { reason: "per-tenant fan-out cleanup using raw helpers" },
+        },
       }),
       registry: stack.registry,
       systemUser: { id: "system", tenantId: T1, roles: ["all"] },

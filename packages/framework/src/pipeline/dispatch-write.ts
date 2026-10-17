@@ -263,7 +263,7 @@ async function isParentRowHiddenFromCaller(
   const table = getTable(ctx, parentEntityName);
   const source = resolveDbSource(ctx, tx);
   if (!table || !source) return true;
-  const callerDb = createTenantDb(source, user.tenantId, "tenant");
+  const callerDb = createTenantDb({ db: source, tenantId: user.tenantId, mode: "tenant" });
   const visibleRow = await callerDb.fetchOne(table, { id: parentId });
   if (visibleRow === undefined) return true;
   return hasTenantColumn(table) && visibleRow["tenantId"] !== user.tenantId;
@@ -287,7 +287,11 @@ async function completeParentRow(
   const table = getTable(ctx, parentEntityName);
   const source = resolveDbSource(ctx, tx);
   if (!table || !source || typeof parentRow["id"] !== "string") return parentRow;
-  const stored = await createTenantDb(source, user.tenantId, "tenant").fetchOne(table, {
+  const stored = await createTenantDb({
+    db: source,
+    tenantId: user.tenantId,
+    mode: "tenant",
+  }).fetchOne(table, {
     id: parentRow["id"],
   });
   return stored ? { ...stored, ...parentRow } : parentRow;

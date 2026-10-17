@@ -110,8 +110,13 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
     };
 
     await job?.handler({}, {
-      db: createTenantDb(stack.db, TENANT_A, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+      db: createTenantDb({
+        db: stack.db,
+        tenantId: TENANT_A,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+        },
       }),
       registry: stack.registry,
       systemUser,

@@ -28,8 +28,8 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, entity, "tenantDbCountItem");
 
-  const tdbA = createTenantDb(testDb.db, tenantA.tenantId);
-  const tdbB = createTenantDb(testDb.db, tenantB.tenantId);
+  const tdbA = createTenantDb({ db: testDb.db, tenantId: tenantA.tenantId });
+  const tdbB = createTenantDb({ db: testDb.db, tenantId: tenantB.tenantId });
 
   await tdbA.insertOne(table, { name: "A1" });
   await tdbA.insertOne(table, { name: "A2" });
@@ -50,25 +50,25 @@ afterAll(async () => {
 
 describe("TenantDb.count() — tenant mode", () => {
   test("B's count returns only B's own rows plus the reference row, never A's rows", async () => {
-    const tdbB = createTenantDb(testDb.db, tenantB.tenantId);
+    const tdbB = createTenantDb({ db: testDb.db, tenantId: tenantB.tenantId });
     const count = await tdbB.count(table);
     expect(count).toBe(2); // B1 + Reference
   });
 
   test("A's count returns only A's own rows plus the reference row", async () => {
-    const tdbA = createTenantDb(testDb.db, tenantA.tenantId);
+    const tdbA = createTenantDb({ db: testDb.db, tenantId: tenantA.tenantId });
     const count = await tdbA.count(table);
     expect(count).toBe(4); // A1, A2, A3 + Reference
   });
 
   test("where filter narrows the count", async () => {
-    const tdbA = createTenantDb(testDb.db, tenantA.tenantId);
+    const tdbA = createTenantDb({ db: testDb.db, tenantId: tenantA.tenantId });
     const count = await tdbA.count(table, { name: "A1" });
     expect(count).toBe(1);
   });
 
   test("B's where: { tenantId: tenantA } cannot widen scope — falls back to B's own scope", async () => {
-    const tdbB = createTenantDb(testDb.db, tenantB.tenantId);
+    const tdbB = createTenantDb({ db: testDb.db, tenantId: tenantB.tenantId });
     const count = await tdbB.count(table, { tenantId: tenantA.tenantId });
     // The requested tenantId isn't in B's allowed set [B, SYSTEM], so it falls
     // back to B's full enforced scope rather than widening to A.
@@ -76,13 +76,13 @@ describe("TenantDb.count() — tenant mode", () => {
   });
 
   test("where: { tenantId: B } excludes the reference row", async () => {
-    const tdbB = createTenantDb(testDb.db, tenantB.tenantId);
+    const tdbB = createTenantDb({ db: testDb.db, tenantId: tenantB.tenantId });
     const count = await tdbB.count(table, { tenantId: tenantB.tenantId });
     expect(count).toBe(1); // B1 only
   });
 
   test("count matches selectMany(...).length for the same scope", async () => {
-    const tdbA = createTenantDb(testDb.db, tenantA.tenantId);
+    const tdbA = createTenantDb({ db: testDb.db, tenantId: tenantA.tenantId });
     const [count, rows] = await Promise.all([tdbA.count(table), tdbA.selectMany(table)]);
     expect(count).toBe(rows.length);
   });
@@ -90,7 +90,7 @@ describe("TenantDb.count() — tenant mode", () => {
 
 describe("TenantDb.count() — system mode", () => {
   test("counts all rows across every tenant, unfiltered", async () => {
-    const systemDb = createTenantDb(testDb.db, tenantA.tenantId, "system");
+    const systemDb = createTenantDb({ db: testDb.db, tenantId: tenantA.tenantId, mode: "system" });
     const count = await systemDb.count(table);
     expect(count).toBe(5); // A1, A2, A3, B1, Reference
   });

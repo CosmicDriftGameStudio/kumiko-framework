@@ -159,14 +159,14 @@ function scopeSeedHookContext(
   // afterCommit-phase hook would be dropped: that phase must notify inline.
   notifyTiming: "deferUntilCommit" | "inline",
 ): AppContext {
-  const db = createTenantDb(
-    runner,
-    targetTenantId,
-    "system",
-    context.tracer,
-    context.meter,
-    context.signal,
-  );
+  const db = createTenantDb({
+    db: runner,
+    tenantId: targetTenantId,
+    mode: "system",
+    tracer: context.tracer,
+    meter: context.meter,
+    signal: context.signal,
+  });
 
   // HandlerContext carries `user`; AppContext only `systemUser`. Prefer the
   // live handler user when present so notify/hasFeature keep a real SessionUser.
@@ -260,7 +260,7 @@ export async function seedTenant(
   // tenant-scoped ist, braucht der Wrap-Layer für die runtime-API zu
   // existieren. by.tenantId reicht — keine Override-Semantik wie bei
   // seedTenantMembership nötig.
-  const tdb = createTenantDb(db, by.tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
 
   const existing = await fetchOne(db, tenantTable, { id: options.id });
   if (existing) return { id: options.id };
@@ -323,7 +323,7 @@ export async function seedTenantMembership(
   const by = options.by ?? createSystemUser(options.tenantId);
   // System-scoped TenantDb: payload.tenantId may differ from an explicit
   // `by` override; stream tenant still follows `by` via streamTenantFor.
-  const tdb = createTenantDb(db, options.tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId: options.tenantId, mode: "system" });
 
   // Idempotency: duplicate seeds are common across beforeEach-resets where
   // only certain tables get truncated. A plain executor.create would trip

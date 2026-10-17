@@ -210,7 +210,7 @@ async function seedContactRetentionOverride(
       tenantId: author.tenantId,
     },
     by,
-    createTenantDb(stack.db, author.tenantId, "system"),
+    createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" }),
   );
   if (!result.isSuccess)
     throw new Error(`seedContactRetentionOverride failed: ${JSON.stringify(result)}`);
@@ -230,7 +230,7 @@ async function addNote(
 }
 
 async function bodyOf(noteId: string): Promise<unknown> {
-  const tenantDb = createTenantDb(stack.db, author.tenantId, "system");
+  const tenantDb = createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "system" });
   return (await noteEntryExecutor.detail({ id: noteId }, author, tenantDb))?.["body"];
 }
 
@@ -302,7 +302,7 @@ describe("forget-subject reaches note bodies", () => {
   test("the user's export lists the notes on the user as host entity", async () => {
     const attached = await addNote(CONTACT_X, "listed in the export");
     const snippet = await noteMentionExportHook({
-      db: createTenantDb(stack.db, author.tenantId, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: author.tenantId, mode: "tenant" }),
       registry: stack.registry,
       tenantId: author.tenantId,
       userId: CONTACT_X,

@@ -58,7 +58,7 @@ beforeAll(async () => {
     eventDispatcherPollIntervalMs: 60_000,
   });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db, admin.tenantId);
+  tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {

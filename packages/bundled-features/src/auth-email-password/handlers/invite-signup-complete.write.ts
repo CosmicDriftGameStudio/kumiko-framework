@@ -185,7 +185,11 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
         });
 
         // Invitation → accepted: TenantDb für invitation-tenant
-        const invitationTdb = createTenantDb(dbConn, invitationTenantId, "system");
+        const invitationTdb = createTenantDb({
+          db: dbConn,
+          tenantId: invitationTenantId,
+          mode: "system",
+        });
         const updateResult = await invitationExecutor.update(
           {
             id: invitationId,

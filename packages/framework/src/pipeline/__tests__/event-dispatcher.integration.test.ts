@@ -100,7 +100,7 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   await unsafePushTables(stack.db, { subscriberLog: subscriberLogTable });
-  tdb = createTenantDb(stack.db, admin.tenantId);
+  tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {

@@ -500,14 +500,14 @@ export async function buildHandlerContext(
     foreignTenantId?: TenantId,
     denyWrites = false,
   ) =>
-    createTenantDb(
-      source,
-      foreignTenantId ?? user.tenantId,
-      isSystem && foreignTenantId === undefined ? "system" : "tenant",
-      context.tracer,
-      context.meter,
+    createTenantDb({
+      db: source,
+      tenantId: foreignTenantId ?? user.tenantId,
+      mode: isSystem && foreignTenantId === undefined ? "system" : "tenant",
+      tracer: context.tracer,
+      meter: context.meter,
       signal,
-      {
+      grants: {
         ...(foreignTenantId === undefined && {
           globalWrites: escapeHatchFor(writeEscapeHatch, "globalWrites"),
           unsafeRaw: escapeHatchFor(handlerEscapeHatch, "unsafeRaw"),
@@ -518,7 +518,7 @@ export async function buildHandlerContext(
         projectionRegistry: registry,
         ...(denyWrites && { writesDeniedReason: "without an open transaction" }),
       },
-    );
+    });
   // Propagate the request's AbortSignal so every TenantDb query throws when
   // the client has disconnected — handlers with many sequential queries skip
   // the rest of the chain instead of burning DB-CPU for results no one reads.
@@ -655,15 +655,14 @@ export async function buildHandlerContext(
           const targetSystemUser = createSystemUser(targetTenantId);
           return configFactory({
             user: { id: targetSystemUser.id, tenantId: targetTenantId },
-            db: createTenantDb(
-              dbSource,
-              targetTenantId,
-              "tenant",
-              context.tracer,
-              context.meter,
-              undefined,
-              { projectionRegistry: registry },
-            ),
+            db: createTenantDb({
+              db: dbSource,
+              tenantId: targetTenantId,
+              mode: "tenant",
+              tracer: context.tracer,
+              meter: context.meter,
+              grants: { projectionRegistry: registry },
+            }),
             secrets: context.secrets,
           });
         }
@@ -1271,9 +1270,7 @@ export async function buildHandlerContext(
     // Finger an typo-resistenten ctx.user-Patterns. Identisch zum
     // event.user-Wert; Identity-Switches nutzen weiterhin queryAs/writeAs.
     user,
-    _userId: user.id,
     _tenantId: user.tenantId,
-    _handlerType: type,
     ...(hasLiveCommitSink && { scheduleAfterCommit }),
     ...(includeDeleted && { includeDeleted: true }),
     ...bridge,
@@ -1669,14 +1666,13 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
       message: "dispatcher.resolveAuthClaims requires a database connection — none is configured.",
     });
   }
-  const db = createTenantDb(
-    dbSource,
-    user.tenantId,
-    "tenant",
-    context.tracer,
-    context.meter,
-    undefined,
-    {
+  const db = createTenantDb({
+    db: dbSource,
+    tenantId: user.tenantId,
+    mode: "tenant",
+    tracer: context.tracer,
+    meter: context.meter,
+    grants: {
       report: createEscapeHatchReporter({
         handler: "r.authClaims hook",
         tenantId: user.tenantId,
@@ -1687,7 +1683,7 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
       }),
       projectionRegistry: ctx.registry,
     },
-  );
+  });
   const configAccessor = context._configAccessorFactory
     ? context._configAccessorFactory({
         user: { id: user.id, tenantId: user.tenantId },

@@ -178,8 +178,13 @@ export async function setupChatHarness(
       secrets,
       ...(jobRunner !== undefined && { jobRunner }),
       systemDb: createSystemDbView(
-        createTenantDb(db, tenantAdmin.tenantId, "system", undefined, undefined, undefined, {
-          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+        createTenantDb({
+          db,
+          tenantId: tenantAdmin.tenantId,
+          mode: "system",
+          grants: {
+            unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+          },
         }),
       ),
     } as unknown as JobContext; // @cast-boundary test-seam — fields the delivery jobs read

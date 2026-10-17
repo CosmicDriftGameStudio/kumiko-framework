@@ -400,7 +400,7 @@ describe("folders-user-data — tenantScopedDelete hooks", () => {
   test("multi-user tenant: no-op, rows survive", async () => {
     await seedOneFolderWithAssignment();
     const ctx = {
-      db: createTenantDb(stack.db, admin.tenantId, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "tenant" }),
       registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,
@@ -415,7 +415,7 @@ describe("folders-user-data — tenantScopedDelete hooks", () => {
   test("anonymize strategy: no-op even on a single-user tenant", async () => {
     await seedOneFolderWithAssignment();
     const ctx = {
-      db: createTenantDb(stack.db, admin.tenantId, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "tenant" }),
       registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,
@@ -430,7 +430,7 @@ describe("folders-user-data — tenantScopedDelete hooks", () => {
   test("single-user tenant + delete: rows are purged", async () => {
     await seedOneFolderWithAssignment();
     const ctx = {
-      db: createTenantDb(stack.db, admin.tenantId, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "tenant" }),
       registry: stack.registry,
       tenantId: admin.tenantId,
       userId: admin.id,

@@ -172,8 +172,13 @@ describe("run-export-jobs cron-context", () => {
 
     // EXAKT der prod-Job-Kontext: configResolver gesetzt, config undefined.
     const jobCtx = {
-      db: createTenantDb(stack.db, TENANT, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "processes pending export jobs across every tenant" },
+      db: createTenantDb({
+        db: stack.db,
+        tenantId: TENANT,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: { reason: "processes pending export jobs across every tenant" },
+        },
       }),
       registry: stack.registry,
       configResolver,

@@ -129,7 +129,7 @@ async function seedTenant(user: typeof tenantA): Promise<void> {
 
 async function seedFileRef(tenantId: TenantId, storageKey: string) {
   const user = createSystemUser(tenantId);
-  const tdb = createTenantDb(db, tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId, mode: "system" });
   const result = await fileRefCrud.create(
     { storageKey, fileName: "photo.jpg", mimeType: "image/jpeg", size: 10 },
     user,
@@ -214,8 +214,13 @@ describe("files-tenant-data :: job registration", () => {
       },
     };
     const ctx: JobContext = {
-      db: createTenantDb(stack.db, tenantA.tenantId, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: job?.escapeHatch,
+      db: createTenantDb({
+        db: stack.db,
+        tenantId: tenantA.tenantId,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: job?.escapeHatch,
+        },
       }),
       registry: stack.registry,
       systemUser: tenantA,
@@ -443,7 +448,7 @@ describe("files-tenant-data :: destroy hooks respect deadlineAt", () => {
     await seedFileRef(tenantA.tenantId, `${tenantA.tenantId}/second.bin`);
 
     const hookCtx = (deadlineAt: number) => ({
-      db: createTenantDb(db, tenantA.tenantId, "system"),
+      db: createTenantDb({ db, tenantId: tenantA.tenantId, mode: "system" }),
       registry: stack.registry,
       tenantId: tenantA.tenantId,
       deadlineAt,

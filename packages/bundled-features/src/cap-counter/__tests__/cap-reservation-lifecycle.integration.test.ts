@@ -256,7 +256,7 @@ async function readCounter(user: ReturnType<typeof userFor>, capName: string) {
 
 async function rollingUsage(tenantNumber: number, capName: string) {
   const tenantId = testTenantId(tenantNumber);
-  return readRollingCapUsage(createTenantDb(db, tenantId), tenantId, {
+  return readRollingCapUsage(createTenantDb({ db, tenantId }), tenantId, {
     capName,
     windowDays: ROLLING_WINDOW_DAYS,
   });

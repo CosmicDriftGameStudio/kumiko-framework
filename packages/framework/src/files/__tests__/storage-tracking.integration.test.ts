@@ -105,7 +105,11 @@ async function restoreFile(user: SessionUser, id: string): Promise<void> {
   const executor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
     entityName: "fileRef",
   });
-  const result = await executor.restore({ id }, user, createTenantDb(stack.db, user.tenantId));
+  const result = await executor.restore(
+    { id },
+    user,
+    createTenantDb({ db: stack.db, tenantId: user.tenantId }),
+  );
   if (!result.isSuccess) throw new Error(`restore failed: ${JSON.stringify(result)}`);
 }
 

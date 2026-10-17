@@ -140,7 +140,7 @@ async function seedDossier(
   const created = await executor.create(
     { title: "Dossier", ...fields },
     as,
-    createTenantDb(stack.db, as.tenantId),
+    createTenantDb({ db: stack.db, tenantId: as.tenantId }),
   );
   if (!created.isSuccess) throw new Error(`seed failed: ${created.error.message}`);
   return String((created.data as { id: string }).id);
@@ -163,7 +163,7 @@ async function seedSystemFileRef(pending: {
       fieldName: pending.fieldName ?? null,
     },
     system,
-    createTenantDb(stack.db, tenantOne),
+    createTenantDb({ db: stack.db, tenantId: tenantOne }),
   );
   if (!created.isSuccess) throw new Error(`seed failed: ${created.error.message}`);
   return id;

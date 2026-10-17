@@ -17,7 +17,7 @@ const testTable = table("test_projection", {
 // lands on asRawClient(runner).unsafe(sqlText, params).
 const unsafeMock = mock(async (_sqlText: string, _params: unknown[]): Promise<unknown[]> => []);
 const rawDb = { unsafe: unsafeMock, begin: mock() } as DbRunner;
-const ctxDb = createTenantDb(rawDb, testTenantId(1));
+const ctxDb = createTenantDb({ db: rawDb, tenantId: testTenantId(1) });
 
 const mockCtx = {
   db: ctxDb,

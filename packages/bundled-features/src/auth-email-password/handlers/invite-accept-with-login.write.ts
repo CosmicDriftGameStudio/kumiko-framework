@@ -238,7 +238,11 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         if (!globalGrant.isSuccess) return globalGrant;
 
         // Invitation → accepted: TenantDb for the invitation's tenant.
-        const invitationTdb = createTenantDb(dbConn, invitationTenantId, "system");
+        const invitationTdb = createTenantDb({
+          db: dbConn,
+          tenantId: invitationTenantId,
+          mode: "system",
+        });
         const updateResult = await invitationExecutor.update(
           {
             id: invitationId,

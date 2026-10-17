@@ -214,7 +214,7 @@ function generatedLease(index: number): BoardLease & { readonly terminated: bool
 export const seedRental: SeedFn = async (stack) => {
   const { tenantId } = TestUsers.admin;
   if ((await countRowsForTenant(stack.db, "read_ui_walkthrough_leases", tenantId)) > 0) return;
-  const db = createTenantDb(stack.db, tenantId);
+  const db = createTenantDb({ db: stack.db, tenantId });
 
   const createLease = async (lease: BoardLease, terminated: boolean, id?: string) => {
     const result = await leaseExecutor.create(

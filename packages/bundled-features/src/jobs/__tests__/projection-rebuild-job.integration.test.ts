@@ -135,7 +135,7 @@ beforeAll(async () => {
     jobRunsTable,
     jobRunLogsTable,
   });
-  tdb = createTenantDb(db, admin.tenantId);
+  tdb = createTenantDb({ db, tenantId: admin.tenantId });
 
   const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
   const logger = createJobRunLogger({ db, registry });

@@ -209,10 +209,15 @@ async function runResumeDueRunsJob(tenantId: string): Promise<void> {
 
   const systemUser = createSystemUser(tenantId);
   const ctx: JobContext = {
-    db: createTenantDb(stack.db, tenantId),
+    db: createTenantDb({ db: stack.db, tenantId }),
     systemDb: createSystemDbView(
-      createTenantDb(stack.db, tenantId, "system", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+      createTenantDb({
+        db: stack.db,
+        tenantId,
+        mode: "system",
+        grants: {
+          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+        },
       }),
     ),
     registry: stack.registry,

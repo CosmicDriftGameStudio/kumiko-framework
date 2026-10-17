@@ -81,7 +81,7 @@ beforeAll(async () => {
     systemHooks: [],
   });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db, admin.tenantId);
+  tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {

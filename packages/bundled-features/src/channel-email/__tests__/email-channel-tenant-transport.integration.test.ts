@@ -114,7 +114,7 @@ function configFor(tenantId: TenantId) {
   const systemUser = createSystemUser(tenantId);
   return accessorFactory({
     user: { id: systemUser.id, tenantId },
-    db: createTenantDb(stack.db, tenantId),
+    db: createTenantDb({ db: stack.db, tenantId }),
   });
 }
 

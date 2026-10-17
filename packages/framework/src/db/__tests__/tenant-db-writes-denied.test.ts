@@ -33,8 +33,13 @@ function recordingRunner(): DbRunner {
 }
 
 function deniedDb() {
-  return createTenantDb(recordingRunner(), tenantId, "tenant", undefined, undefined, undefined, {
-    writesDeniedReason,
+  return createTenantDb({
+    db: recordingRunner(),
+    tenantId,
+    mode: "tenant",
+    grants: {
+      writesDeniedReason,
+    },
   });
 }
 
@@ -87,7 +92,7 @@ describe("TenantDb with writesDeniedReason", () => {
   });
 
   test("a TenantDb without the grant keeps its write runner", () => {
-    const db = createTenantDb(recordingRunner(), tenantId);
+    const db = createTenantDb({ db: recordingRunner(), tenantId });
     expect(tenantDbWriteRunner(db, "write")).toBe(tenantDbRunner(db));
   });
 });

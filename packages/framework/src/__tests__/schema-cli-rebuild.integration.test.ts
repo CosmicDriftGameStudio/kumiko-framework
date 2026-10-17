@@ -102,7 +102,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, itemEntity, "apply-item");
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { applyItemsPerGroup: counterTable });
-  tdb = createTenantDb(testDb.db, admin.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
   prevDbUrl = process.env["DATABASE_URL"];
   const baseUrl =
     process.env["TEST_DATABASE_URL"] ??

@@ -101,20 +101,20 @@ describe("createTierResolver — resolveTier/resolveTierCaps", () => {
   test("unassigned tenant B resolves to defaultTier, not tenant A's assigned tier", async () => {
     await assignTier(tenantA, "pro");
 
-    const tierA = await resolveTier(createTenantDb(stack.db, tenantA));
+    const tierA = await resolveTier(createTenantDb({ db: stack.db, tenantId: tenantA }));
     expect(tierA).toBe("pro");
 
-    const tierB = await resolveTier(createTenantDb(stack.db, tenantB));
+    const tierB = await resolveTier(createTenantDb({ db: stack.db, tenantId: tenantB }));
     expect(tierB).toBe("free");
   });
 
   test("resolveTierCaps maps the resolved tier via capsForTier", async () => {
     await assignTier(tenantA, "pro");
 
-    const capsA = await resolveTierCaps(createTenantDb(stack.db, tenantA));
+    const capsA = await resolveTierCaps(createTenantDb({ db: stack.db, tenantId: tenantA }));
     expect(capsA).toEqual({ maxItems: 5 });
 
-    const capsB = await resolveTierCaps(createTenantDb(stack.db, tenantB));
+    const capsB = await resolveTierCaps(createTenantDb({ db: stack.db, tenantId: tenantB }));
     expect(capsB).toEqual({ maxItems: 1 });
   });
 

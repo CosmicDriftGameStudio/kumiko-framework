@@ -87,7 +87,7 @@ describe("sessions / store_user_sessions survives projection rebuild", () => {
   });
 
   test("direct-written rows (incl. revoked state) survive a rebuild", async () => {
-    await insertRevokedSession(createTenantDb(testDb.db, TENANT));
+    await insertRevokedSession(createTenantDb({ db: testDb.db, tenantId: TENANT }));
 
     const registry = createRegistry([
       authFoundationFeature,

@@ -159,7 +159,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, contactEntity);
   await unsafeCreateEntityTable(stack.db, ownedContactEntity);
   await unsafeCreateEntityTable(stack.db, unrestrictedContactEntity);
-  dbA = createTenantDb(stack.db, tenantA, "tenant");
+  dbA = createTenantDb({ db: stack.db, tenantId: tenantA, mode: "tenant" });
 
   await seedRows(stack.db, authorTable, [
     { id: A1, tenantId: tenantA, name: "Ada" },

@@ -314,7 +314,7 @@ const loadIngestSkippedEventsForFileRef = (fileRefId: string) =>
 
 async function seedDocumentExtract(tenantId: TenantId, fileRefId: string): Promise<string> {
   const user = createSystemUser(tenantId);
-  const tdb = createTenantDb(stack.db, tenantId);
+  const tdb = createTenantDb({ db: stack.db, tenantId });
   const result = await documentExtractExecutorForSeed.create(
     {
       fileRefId,
@@ -642,7 +642,7 @@ describe("fileRef delete/forget cleanup", () => {
     const otherExtractId = await seedDocumentExtract(admin.tenantId, otherFileRefId);
 
     const user = createSystemUser(admin.tenantId);
-    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
     const result = await fileRefExecutor.forget({ id: fileRefId }, user, tdb);
     if (!result.isSuccess) throw new Error(`fileRef forget failed: ${result.error.message}`);
 
@@ -701,7 +701,7 @@ async function deleteFileRef(fileRefId: string): Promise<void> {
 
 async function restoreFileRef(fileRefId: string): Promise<void> {
   const user = createSystemUser(admin.tenantId);
-  const tdb = createTenantDb(stack.db, admin.tenantId);
+  const tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
   const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
   if (!restoreResult.isSuccess) {
     throw new Error(`restore failed: ${restoreResult.error.message}`);
@@ -810,7 +810,7 @@ describe("fileRef.restored → re-ingest", () => {
     });
 
     const user = createSystemUser(admin.tenantId);
-    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
     const forgetResult = await fileRefExecutor.forget({ id: fileRefId }, user, tdb);
     if (!forgetResult.isSuccess) {
       throw new Error(`forget failed: ${forgetResult.error.message}`);
@@ -887,7 +887,7 @@ describe("orphan extract guard", () => {
   };
 
   test("writeDocumentExtractForLiveFileRef writes for a live fileRef, skips (no row) for a deleted or forgotten one", async () => {
-    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
     const actor = createSystemUser(admin.tenantId);
 
     const { id: liveFileRefId, storageKey: liveStorageKey } = await uploadFile(
@@ -961,7 +961,7 @@ describe("orphan extract guard", () => {
     await stack.eventDispatcher?.runOnce();
 
     const user = createSystemUser(admin.tenantId);
-    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
     const lateWriteResult = await documentExtractExecutorForSeed.create(
       {
         fileRefId,
@@ -989,7 +989,7 @@ describe("orphan extract guard", () => {
       "application/pdf",
     );
     const user = createSystemUser(admin.tenantId);
-    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
     const forgetResult = await fileRefExecutor.forget({ id: fileRefId }, user, tdb);
     if (!forgetResult.isSuccess) throw new Error(`forget failed: ${forgetResult.error.message}`);
     await stack.eventDispatcher?.runOnce();

@@ -65,7 +65,7 @@ export async function seedUser(
   // executor.create erwartet eine TenantDb (mit .insert()-API). User
   // ist zwar tenant-agnostic (kein tenant_id-Spalte), aber das runtime-
   // Interface braucht den Wrap.
-  const tdb = createTenantDb(db, by.tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
 
   const existing = await fetchOne(db, userTable, { email: options.email, isDeleted: false });
   // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
@@ -111,7 +111,7 @@ export async function reconcileSeededUserEmailVerified(
   // @cast-boundary db-row: users.id ist uuid-Spalte (string), fetchOne
   // liefert die Projection-Row als Record<string, unknown>.
   const id = existingRow["id"] as string;
-  const tdb = createTenantDb(db, by.tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
   const result = await userExecutor.update(
     { id, version: existingRow["version"] as number, changes: { emailVerified: true } },
     by,
@@ -157,7 +157,7 @@ export async function rewriteSeededUserEmail(
     // skip: the stored blind index already matches, a rewrite would only append a no-op event.
     if (indexed) return;
   }
-  const tdb = createTenantDb(db, by.tenantId, "system");
+  const tdb = createTenantDb({ db, tenantId: by.tenantId, mode: "system" });
   const result = await userExecutor.update({ id, version, changes: { email } }, by, tdb);
   // version_conflict: a concurrent write already changed the row — fine for a seed helper.
   // unique_violation: a duplicate row already holds the blind index; the repair

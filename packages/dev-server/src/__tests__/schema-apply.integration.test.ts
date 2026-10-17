@@ -158,7 +158,7 @@ describe("runSchemaApply", () => {
     await unsafeCreateEntityTable(conn.db, failItemEntity, "apply-fail-item");
     await unsafePushTables(conn.db, { readApplyFailCounts: failCountsTable });
 
-    const tdb = createTenantDb(conn.db, TestUsers.admin.tenantId);
+    const tdb = createTenantDb({ db: conn.db, tenantId: TestUsers.admin.tenantId });
     const executor = createEventStoreExecutor(failItemTable, failItemEntity, {
       entityName: "apply-fail-item",
     });

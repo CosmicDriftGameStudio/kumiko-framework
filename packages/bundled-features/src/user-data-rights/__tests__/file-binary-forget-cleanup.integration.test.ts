@@ -202,8 +202,13 @@ describe("run-forget-cleanup :: registered cron actually erases binaries (not ju
     if (!job) return;
 
     const ctx: JobContext = {
-      db: createTenantDb(db, TENANT, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+      db: createTenantDb({
+        db,
+        tenantId: TENANT,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: { reason: "executes overdue Art.17 forget requests across every tenant" },
+        },
       }),
       registry: stack.registry,
       configResolver: configResolverForJobCtx,

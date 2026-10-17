@@ -59,7 +59,7 @@ const testDbName = `kumiko_test_dboutage_${crypto.randomUUID().slice(0, 8)}`;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [feature], systemHooks: [], dbName: testDbName });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db, admin.tenantId);
+  tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {

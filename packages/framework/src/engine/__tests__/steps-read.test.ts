@@ -26,7 +26,7 @@ const unsafeMock = mock(
 );
 const rawDb = { unsafe: unsafeMock, begin: mock() } as DbRunner;
 const ownTenantId = testTenantId(1);
-const ctxDb = createTenantDb(rawDb, ownTenantId);
+const ctxDb = createTenantDb({ db: rawDb, tenantId: ownTenantId });
 
 const mockCtx = {
   db: ctxDb,
@@ -39,9 +39,14 @@ const reportCalls: Array<{ kind: string; reason: string }> = [];
 const recordingReport: EscapeHatchReporter = (kind, reason) => {
   reportCalls.push({ kind, reason });
 };
-const grantedDb = createTenantDb(rawDb, ownTenantId, "tenant", undefined, undefined, undefined, {
-  unsafeRaw: { reason: "fw#2914 unit test — declared cross-tenant read" },
-  report: recordingReport,
+const grantedDb = createTenantDb({
+  db: rawDb,
+  tenantId: ownTenantId,
+  mode: "tenant",
+  grants: {
+    unsafeRaw: { reason: "fw#2914 unit test — declared cross-tenant read" },
+    report: recordingReport,
+  },
 });
 const grantedCtx = {
   db: grantedDb,
@@ -341,7 +346,7 @@ describe("read steps in a systemScope handler", () => {
   const systemScopeCtx = {
     db: throwingDb,
     systemDb: createUncheckedSystemDb(
-      createTenantDb(rawDb, testTenantId(1), "system"),
+      createTenantDb({ db: rawDb, tenantId: testTenantId(1), mode: "system" }),
       undefined,
       systemScopeReporter,
     ),

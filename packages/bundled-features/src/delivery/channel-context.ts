@@ -148,7 +148,7 @@ export function buildChannelContext(
   filesForTenant?: (tenantId: string) => FileContext | undefined,
 ): ChannelContext {
   return {
-    db: createTenantDb(db, tenantId),
+    db: createTenantDb({ db, tenantId }),
     registry,
     sseBroker,
     tenantId,

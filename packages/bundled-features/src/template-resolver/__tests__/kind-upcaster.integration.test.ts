@@ -56,7 +56,7 @@ describe("template-resource kind upcaster (v1 -> v2)", () => {
     const executorV1 = createEventStoreExecutor(templateResourcesTable, entityV1, {
       entityName: "template-resource",
     });
-    const tdb = createTenantDb(testDb.db, admin.tenantId);
+    const tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
     const created = await executorV1.create(
       {
         slug: "legacy-welcome",

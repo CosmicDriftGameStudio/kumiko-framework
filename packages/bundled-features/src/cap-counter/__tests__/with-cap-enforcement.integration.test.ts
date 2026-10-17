@@ -572,14 +572,14 @@ describe("withCapEnforcement — calendar, TenantAdmin-only callers", () => {
     await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "a@x.de" }, tenantA);
 
     const usageA = await readRollingCapUsage(
-      createTenantDb(stack.db, tenantA.tenantId),
+      createTenantDb({ db: stack.db, tenantId: tenantA.tenantId }),
       tenantA.tenantId,
       { capName: "newsletter-rolling-cap", windowDays: 7 },
     );
     expect(usageA).toBe(1);
 
     const usageB = await readRollingCapUsage(
-      createTenantDb(stack.db, tenantB.tenantId),
+      createTenantDb({ db: stack.db, tenantId: tenantB.tenantId }),
       tenantB.tenantId,
       { capName: "newsletter-rolling-cap", windowDays: 7 },
     );

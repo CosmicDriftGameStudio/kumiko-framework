@@ -161,7 +161,7 @@ describe("sessionChecker refuses a soft-deleted user", () => {
     }).delete(
       { id: userId },
       createSystemUser(SYSTEM_TENANT_ID),
-      createTenantDb(stack.db, SYSTEM_TENANT_ID, "system"),
+      createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" }),
     );
     expect(deleted.isSuccess).toBe(true);
 

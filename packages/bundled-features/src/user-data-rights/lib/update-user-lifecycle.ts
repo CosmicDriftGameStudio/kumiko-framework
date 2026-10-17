@@ -65,7 +65,7 @@ export async function updateUserLifecycle(
   // (restrict/lift-restriction/grace-period/cancel/forget) that holds no row
   // version to pass as `payload.version`, which update() requires otherwise.
   // Callers needing a guard use `options.expect` instead.
-  const tenantDb = createTenantDb(conn, SYSTEM_TENANT_ID, "system");
+  const tenantDb = createTenantDb({ db: conn, tenantId: SYSTEM_TENANT_ID, mode: "system" });
   const result = await userExecutor.update(
     { id: userId, changes },
     createSystemUser(SYSTEM_TENANT_ID),

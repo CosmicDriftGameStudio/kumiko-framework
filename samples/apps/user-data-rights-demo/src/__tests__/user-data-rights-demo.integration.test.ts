@@ -215,8 +215,13 @@ describe("user-data-rights-demo :: end-to-end DSGVO-Story", () => {
     );
     await forgetCron?.handler({}, {
       // Mirrors the job runner: tenant-filtered db carrying the job's own escapeHatch grant.
-      db: createTenantDb(stack.db, SYSTEM_TENANT_ID, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: forgetCron?.escapeHatch,
+      db: createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: forgetCron?.escapeHatch,
+        },
       }),
       registry: stack.registry,
       systemUser: createSystemUser(SYSTEM_TENANT_ID),

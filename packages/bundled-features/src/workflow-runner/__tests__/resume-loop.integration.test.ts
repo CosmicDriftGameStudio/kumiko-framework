@@ -186,10 +186,15 @@ async function runResumeDueRunsJob(): Promise<void> {
 
   const systemUser = createSystemUser(admin.tenantId);
   const ctx: JobContext = {
-    db: createTenantDb(stack.db, admin.tenantId),
+    db: createTenantDb({ db: stack.db, tenantId: admin.tenantId }),
     systemDb: createSystemDbView(
-      createTenantDb(stack.db, admin.tenantId, "system", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+      createTenantDb({
+        db: stack.db,
+        tenantId: admin.tenantId,
+        mode: "system",
+        grants: {
+          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+        },
       }),
     ),
     registry: stack.registry,
@@ -292,7 +297,9 @@ describe("workflow-runner resume loop", () => {
       [otherTenantId, total],
     );
     try {
-      const due = await selectDueWorkflowRunPending(createTenantDb(stack.db, otherTenantId));
+      const due = await selectDueWorkflowRunPending(
+        createTenantDb({ db: stack.db, tenantId: otherTenantId }),
+      );
 
       expect(due).toHaveLength(DUE_RUNS_BATCH_SIZE);
       // step_index n has wake_at now - n minutes, so the oldest are the highest n.

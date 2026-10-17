@@ -661,8 +661,6 @@ export type AppContext = SharedContextFields & {
    *  die einzige Möglichkeit für den Handler zu wissen WELCHER Trigger
    *  gefeuert hat. Cron- und manual-Jobs lassen das Feld undefined. */
   readonly triggerName?: string;
-  readonly _userId?: string | undefined;
-  readonly _handlerType?: string | undefined;
   /** Optionaler Geo→Zone-Adapter. Wenn gesetzt (via buildServer-context oder
    *  runProdApp/runDevApp extraContext), reicht der Dispatcher ihn an
    *  ctx.tz.fromCoordinates / fromAddress weiter. Ohne Provider werfen diese. */
@@ -739,8 +737,6 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
-  readonly _userId?: string | undefined;
-  readonly _handlerType?: string | undefined;
   /** Keyed digest for handler-owned rate-limit keys, so Redis never holds a
    *  plaintext or plainly hashed identifier. Scoped to the running handler:
    *  the same input yields a different digest per handler and never matches a

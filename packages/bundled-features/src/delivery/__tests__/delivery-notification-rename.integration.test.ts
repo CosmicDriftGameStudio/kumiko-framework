@@ -111,7 +111,7 @@ beforeEach(() => {
   emailTransport.sent.length = 0;
 });
 
-const tenantDb = () => createTenantDb(stack.db, user.tenantId);
+const tenantDb = () => createTenantDb({ db: stack.db, tenantId: user.tenantId });
 const sentTo = (address: string) => emailTransport.sent.filter((m) => m.to === address);
 
 async function storeFormerNamePreference(enabled: boolean): Promise<void> {

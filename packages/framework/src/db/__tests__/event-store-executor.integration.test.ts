@@ -47,7 +47,7 @@ const adminUser = TestUsers.admin;
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, entity, "esExecUser");
-  tdb = createTenantDb(testDb.db, adminUser.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: adminUser.tenantId });
 });
 
 afterAll(async () => {
@@ -376,7 +376,7 @@ describe("event-store-executor — detail liefert die Stream-Version", () => {
         };
       },
     });
-    const tdbA = createTenantDb(hookedDb, adminUser.tenantId);
+    const tdbA = createTenantDb({ db: hookedDb, tenantId: adminUser.tenantId });
 
     afterNextStatement = async () => {
       const b = await crud.update({ id, version: 1, changes: { firstName: "B" } }, adminUser, tdb);
@@ -445,7 +445,7 @@ describe("event-store-executor — detail liefert die Stream-Version", () => {
         };
       },
     });
-    const tdbA = createTenantDb(hookedDb, adminUser.tenantId);
+    const tdbA = createTenantDb({ db: hookedDb, tenantId: adminUser.tenantId });
 
     afterNextStatement = async () => {
       const b = await crud.update({ id, version: 1, changes: { firstName: "B" } }, adminUser, tdb);

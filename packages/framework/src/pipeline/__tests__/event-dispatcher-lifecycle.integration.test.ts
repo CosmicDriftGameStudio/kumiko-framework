@@ -90,7 +90,7 @@ beforeAll(async () => {
     systemHooks: [],
   });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
-  tdb = createTenantDb(stack.db, admin.tenantId);
+  tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {
@@ -268,7 +268,7 @@ describe("E.1 — consumer-lag metric", () => {
     });
     try {
       await unsafeCreateEntityTable(recStack.db, sharedWidgetEntity, "widget");
-      const recTdb = createTenantDb(recStack.db, admin.tenantId);
+      const recTdb = createTenantDb({ db: recStack.db, tenantId: admin.tenantId });
       await executor.create({ name: "lag-check" }, admin, recTdb);
 
       await recStack.eventDispatcher?.runOnce();

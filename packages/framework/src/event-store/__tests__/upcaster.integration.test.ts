@@ -121,7 +121,7 @@ beforeAll(async () => {
   const { createProjectionStateTable } = await import("../../pipeline/index.js");
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { upcastOrderSummary: orderSummaryTable });
-  tdb = createTenantDb(testDb.db, admin.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {

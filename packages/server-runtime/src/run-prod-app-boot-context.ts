@@ -133,7 +133,7 @@ function buildDeliveryNotifyFactory(opts: {
         const systemUser = createSystemUser(tenantId);
         return configAccessorFactory({
           user: { id: systemUser.id, tenantId },
-          db: createTenantDb(opts.db, tenantId),
+          db: createTenantDb({ db: opts.db, tenantId }),
           ...(opts.secrets && { secrets: opts.secrets }),
         });
       },

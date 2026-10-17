@@ -43,20 +43,20 @@ afterAll(async () => {
 
 describe("global entity tenantId invariant (fw#2858)", () => {
   test("create with an explicit foreign tenantId throws AccessDeniedError", async () => {
-    const db = createTenantDb(testDb.db, user.tenantId);
+    const db = createTenantDb({ db: testDb.db, tenantId: user.tenantId });
     await expect(
       globalExec.create({ name: "a", tenantId: foreignTenantId }, user, db),
     ).rejects.toBeInstanceOf(AccessDeniedError);
   });
 
   test("create without a tenantId (or SYSTEM) succeeds", async () => {
-    const db = createTenantDb(testDb.db, user.tenantId);
+    const db = createTenantDb({ db: testDb.db, tenantId: user.tenantId });
     const res = await globalExec.create({ name: "a" }, user, db);
     expect(res.isSuccess).toBe(true);
   });
 
   test("update with an explicit foreign tenantId in changes throws AccessDeniedError", async () => {
-    const db = createTenantDb(testDb.db, user.tenantId);
+    const db = createTenantDb({ db: testDb.db, tenantId: user.tenantId });
     const created = await globalExec.create({ name: "a" }, user, db);
     if (!created.isSuccess) throw new Error("create failed");
 

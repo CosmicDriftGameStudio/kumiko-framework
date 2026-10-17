@@ -141,7 +141,7 @@ describe("personal file/image fields under an active subject KMS", () => {
 
     await fileRefDeleteHook(
       {
-        db: createTenantDb(stack.db, admin.tenantId, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: admin.tenantId, mode: "tenant" }),
         registry: stack.registry,
         tenantId: admin.tenantId,
         userId: admin.id,

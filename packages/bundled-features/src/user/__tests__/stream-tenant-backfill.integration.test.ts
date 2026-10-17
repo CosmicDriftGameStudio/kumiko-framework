@@ -104,7 +104,7 @@ describe("backfillUserStreamTenants (#762)", () => {
 
     // The actual #762 symptom: an optimistic-locked executor update with the
     // row version now targets a stream that HAS that version — no conflict.
-    const tdb = createTenantDb(testDb.db, SYSTEM_TENANT_ID, "system");
+    const tdb = createTenantDb({ db: testDb.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
     const writeRes = await executor.update(
       { id: LEGACY_USER, version: 2, changes: { displayName: "After" } },
       createSystemUser(SYSTEM_TENANT_ID),

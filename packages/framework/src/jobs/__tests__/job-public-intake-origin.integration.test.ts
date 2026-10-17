@@ -305,7 +305,11 @@ const systemJobFeature = defineFeature("systemjob", (r) => {
     const raw = ctx.systemDb?.unsafeRaw(UNSAFE_RAW_REASON);
     if (!raw) throw new Error("test setup error: ctx.systemDb missing on a systemScope() job");
     try {
-      await createTenantDb(raw, ctx.systemUser.tenantId, "system").insertOne(
+      await createTenantDb({
+        db: raw,
+        tenantId: ctx.systemUser.tenantId,
+        mode: "system",
+      }).insertOne(
         secretTable as unknown as SchemaTable, // @cast-boundary test-fixture
         { value: payload["value"] as string },
       );

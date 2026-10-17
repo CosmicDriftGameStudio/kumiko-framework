@@ -347,7 +347,7 @@ describe("auth flows with active KMS + blind index", () => {
     expect(isPiiCiphertext(rawInvitation["email"])).toBe(true);
 
     const result = await tenantInvitationExportHook({
-      db: createTenantDb(stack.db, TENANT_A_ID, "tenant"),
+      db: createTenantDb({ db: stack.db, tenantId: TENANT_A_ID, mode: "tenant" }),
       registry: stack.registry,
       tenantId: TENANT_A_ID,
       userId: bobId,
@@ -376,7 +376,7 @@ describe("auth flows with active KMS + blind index", () => {
 
     await tenantInvitationDeleteHook(
       {
-        db: createTenantDb(stack.db, TENANT_A_ID, "tenant"),
+        db: createTenantDb({ db: stack.db, tenantId: TENANT_A_ID, mode: "tenant" }),
         registry: stack.registry,
         tenantId: TENANT_A_ID,
         userId: aliceId,

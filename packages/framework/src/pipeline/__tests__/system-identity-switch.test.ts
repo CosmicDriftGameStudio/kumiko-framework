@@ -506,8 +506,13 @@ describe("withHookEscapeHatchGrant", () => {
       },
     } as DbRunner;
     // Simulates buildHandlerContext granting the HANDLER its own unsafeRaw escapeHatch.
-    const handlerDb = createTenantDb(rawDb, TENANT, "tenant", undefined, undefined, undefined, {
-      unsafeRaw: { reason: "handler's own grant" },
+    const handlerDb = createTenantDb({
+      db: rawDb,
+      tenantId: TENANT,
+      mode: "tenant",
+      grants: {
+        unsafeRaw: { reason: "handler's own grant" },
+      },
     });
     const handlerCtx = { db: handlerDb };
 

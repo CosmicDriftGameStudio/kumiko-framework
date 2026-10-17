@@ -35,7 +35,7 @@ const nonAdmin = TestUsers.user;
 
 beforeAll(async () => {
   testDb = await createTestDb();
-  tdb = createTenantDb(testDb.db, admin.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {
@@ -308,7 +308,7 @@ describe("event-store-executor write-verbs — update on soft-deleted rows", () 
 
   test("includeDeleted does not cross the tenant boundary", async () => {
     const row = await createDeletedRow();
-    const otherTenantDb = createTenantDb(testDb.db, testTenantId(99));
+    const otherTenantDb = createTenantDb({ db: testDb.db, tenantId: testTenantId(99) });
     const result = await crud.update(
       { id: row.id, version: row.version, changes: { teamId: "team-b" } },
       admin,
@@ -672,7 +672,7 @@ describe("event-store-executor write-verbs — expect precondition (#3024)", () 
         crud.update(
           { id, changes: { status: "Requested" } },
           admin,
-          createTenantDb(tx, admin.tenantId),
+          createTenantDb({ db: tx, tenantId: admin.tenantId }),
           options,
         ),
       ),
@@ -680,7 +680,7 @@ describe("event-store-executor write-verbs — expect precondition (#3024)", () 
         crud.update(
           { id, changes: { status: "Requested" } },
           admin,
-          createTenantDb(tx, admin.tenantId),
+          createTenantDb({ db: tx, tenantId: admin.tenantId }),
           options,
         ),
       ),
@@ -720,7 +720,7 @@ describe("event-store-executor write-verbs — explicit-id tenant isolation + so
 
   beforeAll(async () => {
     await unsafeCreateEntityTable(testDb.db, deletedIdEntity, "esWriteDeletedId");
-    otherTenantDb = createTenantDb(testDb.db, TestUsers.otherTenant.tenantId);
+    otherTenantDb = createTenantDb({ db: testDb.db, tenantId: TestUsers.otherTenant.tenantId });
   });
 
   beforeEach(async () => {
@@ -864,10 +864,18 @@ describe("event-store-executor write-verbs — concurrent version race + cache",
 
     const [a, b] = await Promise.all([
       transaction(testDb.db, (tx) =>
-        crud.create({ id, email: "a@test.de" }, admin, createTenantDb(tx, admin.tenantId)),
+        crud.create(
+          { id, email: "a@test.de" },
+          admin,
+          createTenantDb({ db: tx, tenantId: admin.tenantId }),
+        ),
       ),
       transaction(testDb.db, (tx) =>
-        crud.create({ id, email: "b@test.de" }, admin, createTenantDb(tx, admin.tenantId)),
+        crud.create(
+          { id, email: "b@test.de" },
+          admin,
+          createTenantDb({ db: tx, tenantId: admin.tenantId }),
+        ),
       ),
     ]);
 

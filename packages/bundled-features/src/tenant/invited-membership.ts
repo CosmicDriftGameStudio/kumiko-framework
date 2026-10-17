@@ -87,7 +87,7 @@ export async function grantInvitedMembershipRole(db: DbRunner, options: InvitedM
   const updateResult = await membershipExecutor.update(
     { id: existing.id, version: existing.version, changes: { roles: JSON.stringify(roles) } },
     createSystemUser(options.tenantId),
-    createTenantDb(db, options.tenantId, "system"),
+    createTenantDb({ db, tenantId: options.tenantId, mode: "system" }),
   );
   if (!updateResult.isSuccess) return updateResult;
   return grantedMembership(true, roles);

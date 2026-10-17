@@ -100,7 +100,7 @@ beforeAll(async () => {
   await asRawClient(testDb.db).unsafe(
     `CREATE TABLE IF NOT EXISTS read_bidx_drift (id uuid PRIMARY KEY, tenant_id uuid NOT NULL, email text, email_bidx text)`,
   );
-  tdb = createTenantDb(testDb.db, adminUser.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: adminUser.tenantId });
 });
 
 afterAll(async () => {

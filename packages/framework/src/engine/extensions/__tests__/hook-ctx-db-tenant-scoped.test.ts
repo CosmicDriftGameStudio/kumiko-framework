@@ -26,12 +26,12 @@ function fakeRunner(): DbRunner {
 describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner", () => {
   test("compile-time: ctx.db has no raw .unsafe()/.begin() surface", () => {
     const tenantCtx: TenantDataHookCtx = {
-      db: createTenantDb(fakeRunner(), tenantId),
+      db: createTenantDb({ db: fakeRunner(), tenantId }),
       registry: {} as TenantDataHookCtx["registry"],
       tenantId,
     };
     const userCtx: UserDataHookCtx = {
-      db: createTenantDb(fakeRunner(), tenantId),
+      db: createTenantDb({ db: fakeRunner(), tenantId }),
       registry: {} as UserDataHookCtx["registry"],
       tenantId,
       userId: "user-1",
@@ -49,7 +49,7 @@ describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner",
 
   test("compile-time: ctx.db does not structurally satisfy DbRunner", () => {
     const tenantCtx: TenantDataHookCtx = {
-      db: createTenantDb(fakeRunner(), tenantId),
+      db: createTenantDb({ db: fakeRunner(), tenantId }),
       registry: {} as TenantDataHookCtx["registry"],
       tenantId,
     };
@@ -63,8 +63,13 @@ describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner",
   test("declared escape hatch: ctx.db.unsafeRaw() returns a real DbRunner", () => {
     const runner = fakeRunner();
     const tenantCtx: TenantDataHookCtx = {
-      db: createTenantDb(runner, tenantId, "tenant", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "test: declared escape hatch" },
+      db: createTenantDb({
+        db: runner,
+        tenantId,
+        mode: "tenant",
+        grants: {
+          unsafeRaw: { reason: "test: declared escape hatch" },
+        },
       }),
       registry: {} as TenantDataHookCtx["registry"],
       tenantId,

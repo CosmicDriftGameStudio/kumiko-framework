@@ -109,7 +109,7 @@ export async function mfaReencryptJob(
   function tdbFor(tenantId: TenantId): TenantDb {
     let existing = tdbCache.get(tenantId);
     if (!existing) {
-      existing = createTenantDb(db, tenantId, "system");
+      existing = createTenantDb({ db, tenantId, mode: "system" });
       tdbCache.set(tenantId, existing);
     }
     return existing;

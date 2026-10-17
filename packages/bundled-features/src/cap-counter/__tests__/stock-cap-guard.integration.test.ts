@@ -60,7 +60,7 @@ async function seedCounterRow(tenantId: ReturnType<typeof testTenantId>): Promis
   const result = await executor.create(
     { tenantId, capName: "x", value: 0, periodStart: "2026-07-01T00:00:00Z" },
     seedUser(tenantId),
-    createTenantDb(db, tenantId),
+    createTenantDb({ db, tenantId }),
   );
   if (!result.isSuccess) throw new Error(`seed failed: ${JSON.stringify(result)}`);
 }
@@ -76,7 +76,7 @@ describe("checkStockCap tenant scoping", () => {
     }
 
     const guard = createStockCapGuard(async () => ({}));
-    const failure = await guard.checkStockCap(createTenantDb(db, realTenant), {
+    const failure = await guard.checkStockCap(createTenantDb({ db, tenantId: realTenant }), {
       table: capCounterTable,
       limit: () => 1,
       // A where object that (accidentally or maliciously) carries its own
@@ -98,7 +98,7 @@ describe("checkStockCap tenant scoping", () => {
     }
 
     const guard = createStockCapGuard(async () => ({}));
-    const failure = await guard.checkStockCap(createTenantDb(db, tenant), {
+    const failure = await guard.checkStockCap(createTenantDb({ db, tenantId: tenant }), {
       table: capCounterTable,
       limit: () => 1,
       where: { capName: "x" },
@@ -211,9 +211,12 @@ describe("withStockCap over HTTP — TenantAdmin-only caller, no escapeHatch", (
     );
     expect(created["data"]).toMatchObject({ capName: "http-stock-item" });
 
-    const otherCount = await createTenantDb(httpStack.db, other.tenantId).count(capCounterTable, {
-      capName: "http-stock-item",
-    });
+    const otherCount = await createTenantDb({ db: httpStack.db, tenantId: other.tenantId }).count(
+      capCounterTable,
+      {
+        capName: "http-stock-item",
+      },
+    );
     expect(otherCount).toBe(1);
   });
 });

@@ -146,7 +146,7 @@ beforeAll(async () => {
     labelRestrictedCustomerEntity,
     "refSortLabelRestrictedCustomer",
   );
-  tdbA = createTenantDb(testDb.db, admin.tenantId);
+  tdbA = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {

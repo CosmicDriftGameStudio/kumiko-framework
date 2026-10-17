@@ -104,7 +104,7 @@ const exprojFeature = defineFeature("exproj", (r) => {
     target: { allOf: "memo" },
     handler: async (result, ctx) => {
       if (!isTenantDb(ctx.db)) throw new Error("hook ctx.db is not a TenantDb");
-      const ownTenantDb = createTenantDb(ctx.db.unsafeRaw(), admin.tenantId);
+      const ownTenantDb = createTenantDb({ db: ctx.db.unsafeRaw(), tenantId: admin.tenantId });
       const outcome = await auditExecutor.create(
         { label: String(result.data["text"]) },
         createSystemUser(admin.tenantId),
@@ -128,7 +128,10 @@ const exprojFeature = defineFeature("exproj", (r) => {
     async (payload, ctx) => {
       const label = payload["label"];
       if (typeof label !== "string") throw new Error("make-audit-via-unsafe-raw needs a label");
-      const ownTenantDb = createTenantDb(ctx.db.unsafeRaw(), ctx.systemUser.tenantId);
+      const ownTenantDb = createTenantDb({
+        db: ctx.db.unsafeRaw(),
+        tenantId: ctx.systemUser.tenantId,
+      });
       const outcome = await auditExecutor.create({ label }, ctx.systemUser, ownTenantDb);
       if (!outcome.isSuccess) throw new Error("job audit write via unsafeRaw failed");
     },

@@ -57,7 +57,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, userEntity, "user");
   await createArchivedStreamsTable(testDb.db);
   await createProjectionStateTable(testDb.db);
-  tdb = createTenantDb(testDb.db, adminUser.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: adminUser.tenantId });
 });
 
 afterAll(async () => {

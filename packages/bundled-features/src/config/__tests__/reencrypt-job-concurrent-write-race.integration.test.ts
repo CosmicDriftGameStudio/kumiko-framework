@@ -102,7 +102,7 @@ async function seedV1Row(): Promise<void> {
     tenantId: SYSTEM_TENANT_ID,
   });
   const systemUser = createSystemUser(SYSTEM_TENANT_ID);
-  const tdb = createTenantDb(stack.db, SYSTEM_TENANT_ID, "system");
+  const tdb = createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
   const result = await executor.create(
     { key: KEY, value: envelope, tenantId: SYSTEM_TENANT_ID, userId: null },
     systemUser,
@@ -119,7 +119,7 @@ async function writeConcurrently(atVersion: number): Promise<void> {
     tenantId: SYSTEM_TENANT_ID,
   });
   const systemUser = createSystemUser(SYSTEM_TENANT_ID);
-  const tdb = createTenantDb(stack.db, SYSTEM_TENANT_ID, "system");
+  const tdb = createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID, mode: "system" });
   const row = await readRow();
   const result = await executor.update(
     { id: row.id, version: atVersion, changes: { value: envelope } },
@@ -157,10 +157,15 @@ function racyJobCtx(
     },
   };
   return {
-    db: createTenantDb(stack.db, SYSTEM_TENANT_ID),
+    db: createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID }),
     systemDb: createSystemDbView(
-      createTenantDb(stack.db, SYSTEM_TENANT_ID, "system", undefined, undefined, undefined, {
-        unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+      createTenantDb({
+        db: stack.db,
+        tenantId: SYSTEM_TENANT_ID,
+        mode: "system",
+        grants: {
+          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+        },
       }),
     ),
     registry: stack.registry,

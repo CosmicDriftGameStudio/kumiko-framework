@@ -115,7 +115,7 @@ describe("insertOnConflictDoNothing", () => {
 
   test("rejects a tenant-scoped db", async () => {
     await withTables([{ columns: slugCols }], async ({ db, metas }) => {
-      const tenantDb = createTenantDb(db as DbRunner, randomUUID() as TenantId);
+      const tenantDb = createTenantDb({ db: db as DbRunner, tenantId: randomUUID() as TenantId });
       await expect(
         insertOnConflictDoNothing(tenantDb, only(metas), { slug: "a", label: "b" }),
       ).rejects.toThrow(/insertOnConflictDoNothing/);
@@ -258,7 +258,7 @@ describe("selectInnerJoin", () => {
   test("rejects a tenant-scoped db", async () => {
     await withTables(joinTables, async ({ db, metas }) => {
       const [left, right] = pair(metas);
-      const tenantDb = createTenantDb(db as DbRunner, randomUUID() as TenantId);
+      const tenantDb = createTenantDb({ db: db as DbRunner, tenantId: randomUUID() as TenantId });
       await expect(selectInnerJoin(tenantDb, { left, right, on: ownerOn })).rejects.toThrow(
         /selectInnerJoin/,
       );
@@ -402,7 +402,7 @@ describe("where jsonText", () => {
       const mine = randomUUID();
       await seedDocs(db, table, mine);
       await seedDocs(db, table, randomUUID());
-      const tenantDb = createTenantDb(db as DbRunner, mine as TenantId);
+      const tenantDb = createTenantDb({ db: db as DbRunner, tenantId: mine as TenantId });
       const rows = await tenantDb.selectMany<{ tenantId: string }>(table, {
         payload: { jsonText: { keys: ["handlerName"], eq: "h1" } },
       });

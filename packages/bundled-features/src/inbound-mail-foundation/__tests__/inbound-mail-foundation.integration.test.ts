@@ -401,8 +401,13 @@ describe("scenario 2d: ingest-message — thread-rollup retry exhaustion (#1229)
     const accountId = await connectSharedAccount(admin);
     const messageIdHeader = "exhaustion-root@example.com";
 
-    const tenantDb = createTenantDb(db, admin.tenantId, "system", undefined, undefined, undefined, {
-      unsafeRaw: { reason: "test: hand-built ctx driving ingestMessageHandler directly" },
+    const tenantDb = createTenantDb({
+      db,
+      tenantId: admin.tenantId,
+      mode: "system",
+      grants: {
+        unsafeRaw: { reason: "test: hand-built ctx driving ingestMessageHandler directly" },
+      },
     });
     let threadAppendAttempts = 0;
     const ctx = {

@@ -46,7 +46,7 @@ beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, entity, "pagerItem");
-  tdb = createTenantDb(testDb.db, admin.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {
@@ -630,7 +630,7 @@ describe("event-store-executor.list — runtime SearchAdapter (Tier 2.7e Audit-F
   test("system-mode list: search still uses session tenantId (streamTenantFor)", async () => {
     // Non-systemStream entities are indexed under event.tenantId (= session),
     // even when listed via r.systemScope() — db.mode must not redirect search.
-    const systemTdb = createTenantDb(testDb.db, admin.tenantId, "system");
+    const systemTdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId, mode: "system" });
     let searchedTenant: string | undefined;
     const mockAdapter = {
       configure: async () => {},

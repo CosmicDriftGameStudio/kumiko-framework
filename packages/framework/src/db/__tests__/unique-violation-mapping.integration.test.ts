@@ -52,7 +52,7 @@ beforeAll(async () => {
   await ensureTemporalPolyfill();
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, userEntity, "unique-user");
-  tdb = createTenantDb(testDb.db, admin.tenantId);
+  tdb = createTenantDb({ db: testDb.db, tenantId: admin.tenantId });
 });
 
 afterAll(async () => {
@@ -157,7 +157,7 @@ describe("F8 — a projection violation must not poison the enclosing transactio
     // Without the savepoint around the projection INSERT the sibling write
     // below throws raw 25P02 instead of running cleanly.
     const outcome = await transaction(testDb.db, async (tx) => {
-      const txTdb = createTenantDb(tx, admin.tenantId);
+      const txTdb = createTenantDb({ db: tx, tenantId: admin.tenantId });
       const first = await exec.create({ email: "dup@x.de", displayName: "A" }, admin, txTdb);
       const dup = await exec.create({ email: "dup@x.de", displayName: "B" }, admin, txTdb);
       const sibling = await exec.create({ email: "fresh@x.de", displayName: "C" }, admin, txTdb);
