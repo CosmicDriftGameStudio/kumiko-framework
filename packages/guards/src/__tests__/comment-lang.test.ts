@@ -50,7 +50,7 @@ function addCommit(dir: string, file: string, content: string): void {
 
 describe("kumiko-guards comment-lang", () => {
   test("scanner flags German markers and honours the ignore tag", () => {
-    expect(isGermanComment("// wenn der Wert fehlt")).toBe(true);
+    expect(isGermanComment("// wenn der Wert nicht gesetzt ist")).toBe(true);
     expect(isGermanComment("// returns the value when present")).toBe(false);
     const sites = scanGermanComments(
       [
@@ -61,6 +61,18 @@ describe("kumiko-guards comment-lang", () => {
       "f.ts",
     );
     expect(sites.map((site) => site.line)).toEqual([1]);
+  });
+
+  test("a licence header and short English comments are not German", () => {
+    expect(isGermanComment("// SPDX-License-Identifier: MIT")).toBe(false);
+    expect(isGermanComment("// MIT License")).toBe(false);
+    expect(isGermanComment("// retry once, then bail")).toBe(false);
+    expect(isGermanComment("// the value is cached bei the caller")).toBe(false);
+  });
+
+  test("a real German sentence is flagged by markers or by an umlaut alone", () => {
+    expect(isGermanComment("// Der Wert wird nicht gespeichert, wenn er fehlt")).toBe(true);
+    expect(isGermanComment("// Prüfung")).toBe(true);
   });
 
   test("scanner honours the ignore tag inside a comma-separated slug list", () => {
@@ -92,6 +104,32 @@ describe("kumiko-guards comment-lang", () => {
       git(dir, "merge", "-q", "--ff-only", "feature");
       git(dir, "checkout", "-q", "-b", "next");
       addCommit(dir, "src/new.ts", "// Explains why the value is cached\nexport const x = 1;\n");
+
+      const result = await run(["bun", CLI_PATH, "comment-lang", "--touched", "--base=main"], dir);
+
+      expect(result.exitCode).toBe(0);
+    });
+  });
+
+  test("--touched reads committed content: a local uncommitted translation does not hide it", async () => {
+    await withFixtureRepo(async (dir) => {
+      addCommit(dir, "src/new.ts", "// Dieser Wert wird nicht benötigt\nexport const x = 1;\n");
+      writeFileSync(join(dir, "src/new.ts"), "// This value is unused\nexport const x = 1;\n");
+
+      const result = await run(["bun", CLI_PATH, "comment-lang", "--touched", "--base=main"], dir);
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toContain("src/new.ts");
+    });
+  });
+
+  test("--touched ignores an uncommitted German comment that is not in HEAD", async () => {
+    await withFixtureRepo(async (dir) => {
+      addCommit(dir, "src/new.ts", "// Explains why the value is cached\nexport const x = 1;\n");
+      writeFileSync(
+        join(dir, "src/new.ts"),
+        "// Dieser Wert wird nicht benötigt\nexport const x = 1;\n",
+      );
 
       const result = await run(["bun", CLI_PATH, "comment-lang", "--touched", "--base=main"], dir);
 
@@ -206,5 +244,36 @@ describe("kumiko-guards comment-lang — push root", () => {
       rmSync(cleanRepo, { recursive: true, force: true });
       rmSync(staleRepo, { recursive: true, force: true });
     }
+  });
+});
+
+describe("scanGermanComments — contextual keywords and non-null before a slash", () => {
+  const germanTail = "// deutscher Kommentar hier über die Breite";
+
+  test.each([
+    ["non-null postfix", `const half = width! / 2; ${germanTail}`],
+    ["member named from", `const half = range.from / 2; ${germanTail}`],
+    ["identifier named type", `const half = type / 2; ${germanTail}`],
+    ["chained non-null", `const half = a!! / 2; ${germanTail}`],
+  ])("%s: division is not scanned as a regex", (_name, line) => {
+    expect(scanGermanComments(`${line}\n`, "probe.ts")).toHaveLength(1);
+  });
+
+  test("negated regex literal is still scanned as a regex", () => {
+    const src = [
+      "const ok = !/\\{/.test(s);",
+      ["const s = `a $", "{ok}`; // deutscher Kommentar für den Test"].join(""),
+      "",
+    ].join("\n");
+    expect(scanGermanComments(src, "probe.ts")).toHaveLength(1);
+  });
+
+  test("regex after return is still scanned as a regex", () => {
+    const src = [
+      "function f(s: string) { return /\\{/.test(s); }",
+      ["const s = `a $", "{f}`; // deutscher Kommentar für den Test"].join(""),
+      "",
+    ].join("\n");
+    expect(scanGermanComments(src, "probe.ts")).toHaveLength(1);
   });
 });

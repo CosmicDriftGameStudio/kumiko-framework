@@ -291,6 +291,25 @@ describe("createEscapeHatchReporter with a process dedup (system cron hatches)",
     expect(t.events.map((e) => e.kind)).toEqual(["unsafe-raw", "global-write"]);
   });
 
+  test("global-write to different target tables is audited per target", () => {
+    const t = setup({ processDedup: createEscapeHatchProcessDedup(["global-write"]) });
+    t.report("global-write", "sweep", { id: "table_a", tenantId });
+    t.report("global-write", "sweep", { id: "table_b", tenantId });
+    t.report("global-write", "sweep", { id: "table_a", tenantId });
+    expect(t.events.map((e) => e.target?.id)).toEqual(["table_a", "table_b"]);
+  });
+
+  test("a long-lived process re-audits after 24 h so each retention window holds an event", () => {
+    const t = setup({ processDedup: createEscapeHatchProcessDedup(["unsafe-raw"]) });
+    t.report("unsafe-raw", "sweep");
+    t.advance(24 * 60 * MINUTE_MS - 1);
+    t.report("unsafe-raw", "sweep");
+    expect(t.events).toHaveLength(1);
+    t.advance(1);
+    t.report("unsafe-raw", "sweep");
+    expect(t.events).toHaveLength(2);
+  });
+
   test("kinds outside the process dedup stay on the 60 s window", () => {
     const t = setup({
       processDedup: createEscapeHatchProcessDedup(["unsafe-raw", "global-write"]),

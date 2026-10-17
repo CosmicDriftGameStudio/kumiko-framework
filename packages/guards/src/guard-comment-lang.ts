@@ -36,12 +36,16 @@ const SCAN: ScanSpec = {
 
 const EXCLUDE = /(\.d\.(ts|tsx)$|\/dist\/)/;
 
+// Case-sensitive lower case: an upper-case licence name or a capitalised name
+// must not count, and a single short marker that is also an English word is
+// not enough.
 const DE_MARKER_RE =
-  /\b(und|oder|für|wenn|nicht|dann|auch|noch|wird|sind|mit|zum|zur|bei|nach|ohne|über|kein|eine|einen|dieser|diese)\b/i;
+  /\b(und|oder|für|wenn|nicht|dann|auch|noch|wird|sind|mit|zum|zur|bei|nach|ohne|über|kein|eine|einen|dieser|diese)\b/g;
+const MIN_DE_MARKER_HITS = 2;
 const UMLAUT_RE = /[äöüÄÖÜß]/;
 
 export function isGermanComment(text: string): boolean {
-  return DE_MARKER_RE.test(text) || UMLAUT_RE.test(text);
+  return UMLAUT_RE.test(text) || (text.match(DE_MARKER_RE)?.length ?? 0) >= MIN_DE_MARKER_HITS;
 }
 
 export type Site = {
@@ -68,13 +72,8 @@ function germanCommentSite(
   };
 }
 
-// After these tokens a `/` is division, not the start of a regex literal.
-const DIVISION_PRECEDING_KINDS: ReadonlySet<ts.SyntaxKind> = new Set([
-  ts.SyntaxKind.Identifier,
-  ts.SyntaxKind.ThisKeyword,
-  ts.SyntaxKind.TrueKeyword,
-  ts.SyntaxKind.FalseKeyword,
-  ts.SyntaxKind.NullKeyword,
+// Tokens that end an operand without being identifiers or keywords.
+const OPERAND_END_PUNCTUATION_KINDS: ReadonlySet<ts.SyntaxKind> = new Set([
   ts.SyntaxKind.NumericLiteral,
   ts.SyntaxKind.BigIntLiteral,
   ts.SyntaxKind.StringLiteral,
@@ -87,6 +86,42 @@ const DIVISION_PRECEDING_KINDS: ReadonlySet<ts.SyntaxKind> = new Set([
   ts.SyntaxKind.PlusPlusToken,
   ts.SyntaxKind.MinusMinusToken,
 ]);
+
+// Reserved words after which an expression (so possibly a regex) starts.
+const EXPRESSION_INTRODUCING_KEYWORDS: ReadonlySet<ts.SyntaxKind> = new Set([
+  ts.SyntaxKind.ReturnKeyword,
+  ts.SyntaxKind.TypeOfKeyword,
+  ts.SyntaxKind.InstanceOfKeyword,
+  ts.SyntaxKind.InKeyword,
+  ts.SyntaxKind.CaseKeyword,
+  ts.SyntaxKind.VoidKeyword,
+  ts.SyntaxKind.DeleteKeyword,
+  ts.SyntaxKind.ThrowKeyword,
+  ts.SyntaxKind.NewKeyword,
+  ts.SyntaxKind.YieldKeyword,
+  ts.SyntaxKind.AwaitKeyword,
+  ts.SyntaxKind.ElseKeyword,
+  ts.SyntaxKind.DoKeyword,
+  ts.SyntaxKind.ExtendsKeyword,
+  ts.SyntaxKind.DefaultKeyword,
+]);
+
+function isIdentifierOrKeyword(kind: ts.SyntaxKind): boolean {
+  return (
+    kind === ts.SyntaxKind.Identifier ||
+    (kind >= ts.SyntaxKind.FirstKeyword && kind <= ts.SyntaxKind.LastKeyword)
+  );
+}
+
+// After an operand end a `/` is division, not the start of a regex literal.
+// Contextual keywords (`from`, `type`, `of`, ...) scan as keyword kinds but are
+// valid member and variable names, so every non-introducing keyword counts. A `!`
+// is the non-null postfix only when the token before it ended an operand.
+function isOperandEnd(kind: ts.SyntaxKind, previousEndedOperand: boolean): boolean {
+  if (kind === ts.SyntaxKind.ExclamationToken) return previousEndedOperand;
+  if (OPERAND_END_PUNCTUATION_KINDS.has(kind)) return true;
+  return isIdentifierOrKeyword(kind) && !EXPRESSION_INTRODUCING_KEYWORDS.has(kind);
+}
 
 const TRIVIA_KINDS: ReadonlySet<ts.SyntaxKind> = new Set([
   ts.SyntaxKind.SingleLineCommentTrivia,
@@ -101,11 +136,9 @@ const TRIVIA_KINDS: ReadonlySet<ts.SyntaxKind> = new Set([
 function rescanSlashAsRegex(
   scanner: ts.Scanner,
   kind: ts.SyntaxKind,
-  previousSignificant: ts.SyntaxKind | undefined,
+  previousEndedOperand: boolean,
 ): ts.SyntaxKind {
-  if (previousSignificant !== undefined && DIVISION_PRECEDING_KINDS.has(previousSignificant)) {
-    return kind;
-  }
+  if (previousEndedOperand) return kind;
   const reScanned = scanner.reScanSlashToken();
   return reScanned === ts.SyntaxKind.RegularExpressionLiteral ? reScanned : kind;
 }
@@ -135,7 +168,7 @@ export function scanGermanComments(fullText: string, file: string): Site[] {
 
   const templateBraceDepths: number[] = [];
   let braceDepth = 0;
-  let previousSignificant: ts.SyntaxKind | undefined;
+  let previousEndedOperand = false;
 
   let kind = scanner.scan();
   while (kind !== ts.SyntaxKind.EndOfFileToken) {
@@ -153,7 +186,7 @@ export function scanGermanComments(fullText: string, file: string): Site[] {
       }
       case ts.SyntaxKind.SlashToken:
       case ts.SyntaxKind.SlashEqualsToken:
-        kind = rescanSlashAsRegex(scanner, kind, previousSignificant);
+        kind = rescanSlashAsRegex(scanner, kind, previousEndedOperand);
         break;
       case ts.SyntaxKind.TemplateHead:
       case ts.SyntaxKind.TemplateMiddle:
@@ -173,7 +206,7 @@ export function scanGermanComments(fullText: string, file: string): Site[] {
       default:
         break;
     }
-    if (!TRIVIA_KINDS.has(kind)) previousSignificant = kind;
+    if (!TRIVIA_KINDS.has(kind)) previousEndedOperand = isOperandEnd(kind, previousEndedOperand);
     kind = scanner.scan();
   }
   return sites;
@@ -234,10 +267,9 @@ function gitOrFail(args: readonly string[], cwd: string, message: string): strin
 const REWRITE_HINT = `Translate new German comments to English (why, not what), or if deliberate:\n    // ${IGNORE_TAG} <reason>`;
 
 function runTouchedMode(
-  all: readonly Site[],
   argv: readonly string[],
   root: string,
-  repoLocalScannedFiles: number,
+  repoLocalScannedFiles: ReadonlySet<string>,
 ): number {
   const baseArg = argv.find((arg) => arg.startsWith(BASE_FLAG_PREFIX));
   const baseRef = baseArg ? baseArg.slice(BASE_FLAG_PREFIX.length) : "origin/main";
@@ -248,7 +280,7 @@ function runTouchedMode(
   }
 
   // No repo-local file scanned at all must not read as clean (vacuous pass).
-  if (repoLocalScannedFiles === 0) {
+  if (repoLocalScannedFiles.size === 0) {
     console.log("  Touched mode: 0 repo-local files scanned — not applicable, no failure.");
     return 0;
   }
@@ -265,35 +297,37 @@ function runTouchedMode(
   ).trim();
   // -z: NUL-terminated and unquoted, so non-ASCII paths still match the lookup below.
   const touchedFiles = gitOrFail(
-    ["diff", "--name-only", "-z", "--diff-filter=ACMR", mergeBase],
+    ["diff", "--name-only", "-z", "--diff-filter=ACMR", mergeBase, "HEAD"],
     gitToplevel,
     "Touched mode: git diff --name-only failed. Check the git error below and that the base ref is reachable.",
   )
     .split("\0")
     .filter(Boolean);
 
-  // Sites are keyed relative to root, git output relative to the toplevel;
-  // a silent mismatch would read as "no violations".
-  const sitesByGitFile = new Map<string, Site[]>();
-  for (const site of all.filter(isLocalFinding)) {
-    const gitRelPath = path.relative(gitToplevel, path.resolve(root, site.file));
-    sitesByGitFile.set(gitRelPath, [...(sitesByGitFile.get(gitRelPath) ?? []), site]);
-  }
-
+  // The commits being pushed are checked, not the working tree: contents come from
+  // HEAD so line numbers match the `mergeBase..HEAD` diff. Scan scope is keyed
+  // relative to root, git output relative to the toplevel.
   const violations: Array<{ file: string; sites: Site[] }> = [];
   for (const file of touchedFiles) {
-    const candidates = sitesByGitFile.get(file);
-    if (!candidates || candidates.length === 0) continue;
+    const rootRelFile = path.relative(root, path.resolve(gitToplevel, file));
+    if (!repoLocalScannedFiles.has(rootRelFile)) continue;
     // --literal-pathspecs: filenames with glob magic must match themselves.
+    const headContent = gitOrFail(
+      ["--literal-pathspecs", "show", `HEAD:${file}`],
+      gitToplevel,
+      `Touched mode: git show HEAD:${file} failed. Check the git error below.`,
+    );
+    const candidates = scanGermanComments(headContent, rootRelFile);
+    if (candidates.length === 0) continue;
     const addedLines = parseAddedLineRanges(
       gitOrFail(
-        ["--literal-pathspecs", "diff", "--unified=0", mergeBase, "--", file],
+        ["--literal-pathspecs", "diff", "--unified=0", mergeBase, "HEAD", "--", file],
         gitToplevel,
         `Touched mode: git diff --unified=0 failed for ${file}. Check the git error below.`,
       ),
     );
     const touchedSites = sitesTouchedByAddedLines(candidates, addedLines);
-    if (touchedSites.length > 0) violations.push({ file, sites: touchedSites });
+    if (touchedSites.length > 0) violations.push({ file: rootRelFile, sites: touchedSites });
   }
 
   if (violations.length === 0) {
@@ -470,12 +504,12 @@ export function runCommentLangCli(
   try {
     const all: Site[] = [];
     let scanned = 0;
-    let repoLocalScanned = 0;
+    const repoLocalScanned = new Set<string>();
     for (const absPath of scanFiles(SCAN, resolveRepoRoots(root))) {
       if (EXCLUDE.test(absPath)) continue;
       scanned++;
       const file = path.relative(root, absPath);
-      if (isLocalFinding({ file })) repoLocalScanned++;
+      if (isLocalFinding({ file })) repoLocalScanned.add(file);
       all.push(...scanGermanComments(readFileSync(absPath, "utf-8"), file));
     }
 
@@ -490,7 +524,7 @@ export function runCommentLangCli(
       `Comment-Language Audit: ${scanned} files checked, ${all.length} German comment(s) found.`,
     );
 
-    if (argv.includes("--touched")) return runTouchedMode(all, argv, root, repoLocalScanned);
+    if (argv.includes("--touched")) return runTouchedMode(argv, root, repoLocalScanned);
     if (argv.includes("--list")) {
       for (const site of all.slice(0, LIST_LIMIT)) {
         console.log(`  ${site.file}:${site.line}  ${site.snippet}`);

@@ -199,15 +199,15 @@ export async function appendSubscriptionEvent(
 // Tenant-Admin direkt.
 // One subscription aggregate exists per tenant, but a tenant can legitimately hold two provider
 // subscriptions over time (a stale `incomplete` one superseded by a fresh checkout). A late or
-// retried event of the old subscription must not overwrite the row of the live one, so only a
-// `created` event may replace a blocking row that belongs to a different provider subscription.
+// retried event of the old subscription must not overwrite the row of the live one, so an event of a
+// different provider subscription (a `created` included: delivery order is not guaranteed) only
+// replaces a row that no longer blocks a checkout.
 function isStaleSubscriptionEvent(
   current: SubscriptionView | null,
   payload: ProcessEventPayload,
   now: Temporal.Instant,
 ): boolean {
   if (current === null) return false;
-  if (payload.type === SubscriptionEventTypes.created) return false;
   const sameSubscription =
     current.providerName === payload.providerName &&
     current.providerSubscriptionId === payload.providerSubscriptionId;

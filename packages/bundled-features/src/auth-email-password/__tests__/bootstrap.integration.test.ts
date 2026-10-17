@@ -5,7 +5,9 @@
 // invite variant (a TenantAdmin can never hand out global roles).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   access,
   ConfigScopes,
@@ -15,13 +17,18 @@ import {
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { getSetCookieValue } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  createTestEnvelopeCipher,
+  getSetCookieValue,
+  resetPiiSubjectKmsForTests,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import { ConfigHandlers } from "../../config/constants.js";
@@ -61,7 +68,10 @@ const emailTransport = createInMemoryTransport();
 const GREETING_KEY = "bootstrap-probe:config:greeting";
 const LOCKED_KEY = "bootstrap-probe:config:locked";
 const TENANT_ROLE_KEY = "bootstrap-probe:config:tenant-role-only";
+const PII_NOTE_KEY = "bootstrap-probe:config:pii-note";
+const ENCRYPTED_NOTE_KEY = "bootstrap-probe:config:encrypted-note";
 const TENANT_ROLE = "TenantAdmin";
+const configCipher = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
 
 // One key with the default tenant write access (admin roles), one that only
 // the system may write — bootstrap config has to reach both.
@@ -77,6 +87,8 @@ const configProbeFeature = defineFeature("bootstrap-probe", (r) => {
   );
   // Gated on a tenant role without SystemAdmin, like an app that keeps
   // SystemAdmin out of tenant data.
+  r.config("pii-note", createTenantConfig("text", { default: "", piiEncrypted: true }));
+  r.config("encrypted-note", createTenantConfig("text", { default: "", encrypted: true }));
   r.config(
     "tenant-role-only",
     createTenantConfig("text", { default: "", write: access.roles(TENANT_ROLE) }),
@@ -107,7 +119,8 @@ beforeAll(async () => {
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
-      configResolver: createConfigResolver(),
+      configResolver: createConfigResolver({ cipher: configCipher }),
+      configEncryption: configCipher,
     }),
     authConfig: {
       membershipQuery: "tenant:query:memberships",
@@ -169,7 +182,13 @@ function launchPlan(): BootstrapPlan {
 
 function runBootstrapPlan(plan: BootstrapPlan): Promise<BootstrapReport> {
   return bootstrapTenants(
-    { db: stack.db, redis: stack.redis.redis, dispatcher: stack.dispatcher },
+    {
+      db: stack.db,
+      redis: stack.redis.redis,
+      dispatcher: stack.dispatcher,
+      registry: stack.registry,
+      configCipher,
+    },
     plan,
   );
 }
@@ -248,6 +267,47 @@ describe("bootstrapTenants", () => {
     const changed = await runBootstrapPlan(plan("servus"));
     expect(changed.tenants[0]?.configApplied).toEqual([GREETING_KEY]);
     expect(await storedConfig(tenantAId, GREETING_KEY)).toBe(JSON.stringify("servus"));
+  });
+
+  test("encrypted and piiEncrypted keys compare by plaintext: a matching rerun rewrites nothing", async () => {
+    const plan = (note: string): BootstrapPlan => ({
+      tenants: [
+        {
+          id: tenantAId,
+          key: `acme-${tenantAId.slice(0, 8)}`,
+          name: "Acme",
+          config: { [PII_NOTE_KEY]: note, [ENCRYPTED_NOTE_KEY]: note },
+        },
+      ],
+    });
+    const configEventCount = async (): Promise<number> =>
+      (await selectMany(stack.db, eventsTable, { aggregateType: "config-value" })).length;
+
+    // Scoped to this test: a configured subject KMS also encrypts user emails, which
+    // the other tests look up in plaintext.
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    try {
+      const first = await runBootstrapPlan(plan("alpha"));
+      expect(first.tenants[0]?.configApplied).toEqual([PII_NOTE_KEY, ENCRYPTED_NOTE_KEY]);
+      const storedBefore = [
+        await storedConfig(tenantAId, PII_NOTE_KEY),
+        await storedConfig(tenantAId, ENCRYPTED_NOTE_KEY),
+      ];
+      const eventsBefore = await configEventCount();
+
+      const rerun = await runBootstrapPlan(plan("alpha"));
+      expect(rerun.tenants[0]?.configApplied).toEqual([]);
+      expect(await configEventCount()).toBe(eventsBefore);
+      expect([
+        await storedConfig(tenantAId, PII_NOTE_KEY),
+        await storedConfig(tenantAId, ENCRYPTED_NOTE_KEY),
+      ]).toEqual(storedBefore);
+
+      const changed = await runBootstrapPlan(plan("beta"));
+      expect(changed.tenants[0]?.configApplied).toEqual([PII_NOTE_KEY, ENCRYPTED_NOTE_KEY]);
+    } finally {
+      resetPiiSubjectKmsForTests();
+    }
   });
 
   test("a config value the key rejects fails the run with a BootstrapWriteError", async () => {
@@ -478,5 +538,38 @@ describe("global roles can only come from the system-only invite", () => {
     const rerunAfterAccept = await runBootstrapPlan(launchPlan());
     expect(inviteOutcomes(rerunAfterAccept)[ROOT_EMAIL]).toBe("role-mismatch");
     expect(emailTransport.sent).toHaveLength(mailsBeforeRerun);
+  });
+
+  test("an address moved from systemAdmins to tenants[].invites gets its invitation re-issued without SystemAdmin", async () => {
+    await runBootstrapPlan(launchPlan());
+    const staleToken = tokenFromLastMailTo(ROOT_EMAIL);
+    const mailsBefore = emailTransport.sent.length;
+
+    const demoted = launchPlan();
+    const rerun = await runBootstrapPlan({
+      ...demoted,
+      systemAdmins: [],
+      tenants: demoted.tenants.map((tenant) =>
+        tenant.id === tenantAId
+          ? {
+              ...tenant,
+              invites: [...(tenant.invites ?? []), { email: ROOT_EMAIL, role: "TenantAdmin" }],
+            }
+          : tenant,
+      ),
+    });
+    expect(inviteOutcomes(rerun)[ROOT_EMAIL]).toBe("resent");
+    expect(emailTransport.sent).toHaveLength(mailsBefore + 1);
+    const [invitation] = await selectMany(stack.db, tenantInvitationsTable, { email: ROOT_EMAIL });
+    expect(parseRoles(invitation?.["globalRoles"])).toEqual([]);
+
+    const staleRes = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
+      token: staleToken,
+      password: ROOT_PASSWORD,
+    });
+    expect(staleRes.status).not.toBe(200);
+
+    await acceptAsNewUser(ROOT_EMAIL, ROOT_PASSWORD);
+    expect(await globalRolesOf(ROOT_EMAIL)).toEqual([]);
   });
 });

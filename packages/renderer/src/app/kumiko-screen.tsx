@@ -167,7 +167,7 @@ import { findEditScreenFor, navigateTargetAllows, screenAccessAllows } from "./s
 import { SecretMintBody } from "./secret-mint-body.js";
 import { SecretsEditBody } from "./secrets-edit-body.js";
 import { useEmbeddedScreen } from "./use-embedded-screen.js";
-import { evalVisibleWhen } from "./visible-when.js";
+import { evalVisibleWhenAfterShown } from "./visible-when.js";
 import { dispatcherErrorText, WriteFailedError } from "./write-failed-error.js";
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
@@ -303,7 +303,11 @@ function ScreenVisibilityGate({
   const { Banner, PageHeader } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const result = useQuery<Readonly<Record<string, unknown>>>(visibleWhen.query, {}, { live: true });
-  const verdict = evalVisibleWhen(visibleWhen, result);
+  const wasShown = useRef(false);
+  const verdict = evalVisibleWhenAfterShown(visibleWhen, result, wasShown.current);
+  useEffect(() => {
+    if (verdict === "visible") wasShown.current = true;
+  }, [verdict]);
   if (verdict === "visible") return children;
   if (verdict === "loading") {
     return (

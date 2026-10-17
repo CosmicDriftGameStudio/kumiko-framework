@@ -9,7 +9,6 @@ import {
   isRecordLocked,
   type UnavailableSelectOption,
 } from "../engine/screen-helpers.js";
-import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.js";
 import type { EntityId, SessionUser, TenantId } from "../engine/types/index.js";
 import {
   AccessDeniedError,
@@ -52,6 +51,7 @@ import {
   ownershipSubject,
   tryMapUniqueViolation,
 } from "./event-store-executor-context.js";
+import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.js";
 import { projectionRegistryOf } from "./projection-registry-binding.js";
 import { runInSavepointIfSupported } from "./query.js";
 import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.js";
@@ -71,13 +71,6 @@ async function projectEntityEvent(
   // skip: no live projection listens — avoid a SAVEPOINT round trip on every plain write
   if (!hasLiveProjectionsForEvent(event, registry)) return;
   await runInSavepointIfSupported(runner, (sp) => runProjectionsForEvent(event, registry, sp));
-}
-
-// Art. 17 erasure runs as the framework operator, not as a row owner; a
-// per-role ownership map can never cover it, and a silent deny means the
-// erasure never happened.
-function isFrameworkSystemUser(user: SessionUser): boolean {
-  return user.id === SYSTEM_USER_ID && user.roles.includes(SYSTEM_ROLE);
 }
 
 // The five write verbs (create/update/delete/forget/restore) of the event-
@@ -217,11 +210,7 @@ export function createWriteVerbs(
     user: SessionUser,
     options: LockGuardOption | undefined,
   ): WriteFailure | undefined {
-    if (
-      options?.unsafeSkipLockGuard === true ||
-      (options?.writePurpose !== undefined && isFrameworkSystemUser(user)) ||
-      !isRecordLocked(entity.lockedWhen, row)
-    ) {
+    if (isLockGuardBypassed(user, options) || !isRecordLocked(entity.lockedWhen, row)) {
       return undefined;
     }
     return writeFailure(new RecordLockedError({ entityName, entityId: id }));
@@ -891,6 +880,7 @@ export function createWriteVerbs(
           data: existing,
           entityName,
           event: echoEvent,
+          ...(isLockGuardBypassed(user, options) && { lockGuardBypassed: true }),
         },
       };
     },
@@ -997,6 +987,7 @@ export function createWriteVerbs(
           data: existing,
           entityName,
           event: echoEvent,
+          lockGuardBypassed: true,
         },
       };
     },

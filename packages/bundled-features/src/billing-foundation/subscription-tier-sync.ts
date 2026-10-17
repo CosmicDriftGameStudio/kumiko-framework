@@ -38,6 +38,10 @@ export type SubscriptionTierSyncDeps<TTier extends string> = {
   readonly onSyncError?: "log" | "fail-webhook";
 };
 
+// A manual grant that differs from what billing would assign is reported with this
+// code but never fails the webhook: a provider retry cannot resolve it.
+export const TIER_SYNC_MANUAL_GRANT_SKIPPED = "tier_sync_manual_grant_skipped";
+
 export function effectiveTierFromSubscription<TTier extends string>(
   status: string | undefined,
   tier: string | undefined,
@@ -82,7 +86,7 @@ export function createSubscriptionTierSync<TTier extends string>(
 ) {
   async function syncTierFromSubscription(
     tenantId: TenantId,
-    routeDeps: SignatureExtraRouteDeps,
+    routeDeps: Pick<SignatureExtraRouteDeps, "dispatchSystemQuery" | "dispatchSystemWrite">,
   ): Promise<{ code: string; message: string } | null> {
     try {
       const subscriptionId = subscriptionAggregateId(tenantId);
@@ -129,8 +133,13 @@ export function createSubscriptionTierSync<TTier extends string>(
         }
         return null;
       }
-      if (assignment.source === TierAssignmentSources.manual) return null;
       if (assignment.tier === effective) return null;
+      if (assignment.source === TierAssignmentSources.manual) {
+        return {
+          code: TIER_SYNC_MANUAL_GRANT_SKIPPED,
+          message: `manual tier grant "${String(assignment.tier)}" kept although the subscription yields "${effective}"`,
+        };
+      }
 
       const result = await routeDeps.dispatchSystemWrite({
         handlerQn: TierEngineHandlers.update,
@@ -169,9 +178,12 @@ export function createSubscriptionTierSync<TTier extends string>(
         if (syncError) {
           // biome-ignore lint/suspicious/noConsole: operator visibility for a post-commit sync failure
           console.warn(
-            `[subscription-tier-sync] tier sync failed for tenant ${tenantId} after successful webhook write: ${syncError.code} ${syncError.message}`,
+            `[subscription-tier-sync] tier sync for tenant ${tenantId} after successful webhook write: ${syncError.code} ${syncError.message}`,
           );
-          if (deps.onSyncError === "fail-webhook") {
+          if (
+            deps.onSyncError === "fail-webhook" &&
+            syncError.code !== TIER_SYNC_MANUAL_GRANT_SKIPPED
+          ) {
             return {
               isSuccess: false,
               error: {
@@ -188,5 +200,5 @@ export function createSubscriptionTierSync<TTier extends string>(
     });
   }
 
-  return { createWebhookRoute };
+  return { createWebhookRoute, syncTierFromSubscription };
 }

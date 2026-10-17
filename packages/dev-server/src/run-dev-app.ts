@@ -337,7 +337,13 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // die früher nur runProdApp fing und sonst erst den Prod-Pod im
   // CrashLoopBackOff sterben ließ (#359). Wirft synchron, bevor ein
   // Socket oder Watcher (codegen-Write) aufgeht.
-  validateBoot(features, bootOptions);
+  // Resolved before validateBoot: an app-supplied masterKey provider must satisfy the
+  // encrypted-field gate here exactly as it does in runProdApp.
+  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
+  validateBoot(features, {
+    ...(bootCrypto.entityFieldCipher && { entityFieldCipher: bootCrypto.entityFieldCipher }),
+    ...bootOptions,
+  });
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
 
@@ -402,7 +408,6 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   // throwaway-Registry hier extrahiert nur die config-Keys, weil der
   // configResolver vor dem Server-Boot konstruiert wird (stack.registry
   // gibt's erst onAfterSetup) — createKumikoServer baut intern seine eigene.
-  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   // App-wide cipher for `encrypted: true` entity fields (symmetrisch zu
   // runProdApp) — executors resolve it lazily.
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);

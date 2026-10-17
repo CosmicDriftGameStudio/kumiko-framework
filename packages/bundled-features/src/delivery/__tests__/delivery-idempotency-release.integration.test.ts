@@ -31,6 +31,7 @@ const admin = createTestUser({ roles: ["TenantAdmin"] });
 
 let failFlakyInline = false;
 let failQueued = false;
+let softFailQueued = false;
 const sentTo: string[] = [];
 let queuedAttempts = 0;
 
@@ -56,6 +57,14 @@ const idemProbeFeature = defineFeature("idem-probe", (r) => {
     send: async (address) => {
       queuedAttempts++;
       if (failQueued) throw new Error("transport down");
+      sentTo.push(address);
+      return { status: "sent" };
+    },
+  });
+  r.useExtension(DELIVERY_CHANNEL_EXTENSION, "idem-queued-soft", {
+    mode: "queued",
+    send: async (address) => {
+      if (softFailQueued) return { status: "failed", error: "send_failed" };
       sentTo.push(address);
       return { status: "sent" };
     },
@@ -139,6 +148,7 @@ async function keyExists(stack: TestStack, key: string): Promise<boolean> {
 beforeEach(() => {
   failFlakyInline = false;
   failQueued = false;
+  softFailQueued = false;
   queuedAttempts = 0;
   sentTo.length = 0;
 });
@@ -272,6 +282,20 @@ describe("job path", () => {
 
     failQueued = false;
     await ping(stack, key, ["idem-queued"]);
+    await stack.drainJobs();
+    expect(sentTo).toEqual(["addr"]);
+  });
+
+  test("a queued send that reports failed without throwing frees the key at once", async () => {
+    const key = freshKey();
+    softFailQueued = true;
+    await ping(stack, key, ["idem-queued-soft"]);
+    await stack.drainJobs();
+    expect(sentTo).toEqual([]);
+    expect(await keyExists(stack, key)).toBe(false);
+
+    softFailQueued = false;
+    await ping(stack, key, ["idem-queued-soft"]);
     await stack.drainJobs();
     expect(sentTo).toEqual(["addr"]);
   });

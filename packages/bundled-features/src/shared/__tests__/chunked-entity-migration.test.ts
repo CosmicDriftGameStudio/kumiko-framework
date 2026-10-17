@@ -142,4 +142,37 @@ describe("runChunkedMigration", () => {
     expect(nextBatchCalls).toBe(0);
     expect(result.stoppedReason).toBe("signal");
   });
+
+  test("minBatches processes that many batches although the deadline already passed", async () => {
+    const batches: readonly number[][] = [[1, 2], [3], []];
+    let call = 0;
+    const migrated: number[] = [];
+
+    const result = await runChunkedMigration<number>({
+      nextBatch: async () => batches[call++] ?? [],
+      migrateRow: async (row) => {
+        migrated.push(row);
+        return "migrated";
+      },
+      maxFailures: 10,
+      deadlineAt: Date.now() - 1,
+      minBatches: 1,
+    });
+
+    expect(migrated).toEqual([1, 2]);
+    expect(result.stoppedReason).toBe("timeout");
+    expect(result.batchesProcessed).toBe(1);
+  });
+
+  test("without minBatches an expired deadline stops before the first batch", async () => {
+    const result = await runChunkedMigration<number>({
+      nextBatch: async () => [1],
+      migrateRow: async () => "migrated",
+      maxFailures: 10,
+      deadlineAt: Date.now() - 1,
+    });
+
+    expect(result.migrated).toBe(0);
+    expect(result.stoppedReason).toBe("timeout");
+  });
 });

@@ -103,12 +103,12 @@ describe("postRender :: 4xx (kein Retry)", () => {
   });
 });
 
-describe("postRender :: 5xx (mit Retry)", () => {
-  test("500 → 500 → 200: succeeds on 3. attempt", async () => {
+describe("postRender :: 5xx", () => {
+  test("503 → 503 → 200: succeeds on 3. attempt", async () => {
     const pdfBytes = new Uint8Array([0x25]);
     const fetchMock = mock()
-      .mockResolvedValueOnce(mockResponse(500, { error: "render_failed" }))
-      .mockResolvedValueOnce(mockResponse(500, { error: "render_failed" }))
+      .mockResolvedValueOnce(mockResponse(503, { error: "busy" }))
+      .mockResolvedValueOnce(mockResponse(503, { error: "busy" }))
       .mockResolvedValueOnce(mockBytes(pdfBytes));
     installFetchMock(fetchMock);
     const result = await postRender(CONFIG, PAYLOAD);
@@ -116,8 +116,8 @@ describe("postRender :: 5xx (mit Retry)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  test("3x 500 → alle Retries erschöpft, RendererError code=unavailable", async () => {
-    const fetchMock = mock().mockResolvedValue(mockResponse(500, { error: "render_failed" }));
+  test("3x 502 → alle Retries erschöpft, RendererError code=unavailable", async () => {
+    const fetchMock = mock().mockResolvedValue(mockResponse(502, { error: "bad gateway" }));
     installFetchMock(fetchMock);
     try {
       await postRender(CONFIG, PAYLOAD);
@@ -126,21 +126,67 @@ describe("postRender :: 5xx (mit Retry)", () => {
       expect(e).toBeInstanceOf(RendererError);
       expect((e as RendererError).code).toBe("unavailable");
       expect((e as RendererError).message).toMatch(
-        /puppeteer-service is not reachable at .*: puppeteer-service 500/,
+        /puppeteer-service is not reachable at .*: puppeteer-service 502/,
       );
     }
     expect(fetchMock).toHaveBeenCalledTimes(3); // maxRetries=2 → 1 initial + 2 retries
   });
 
-  test("504 (timeout vom service) → retry", async () => {
-    const pdfBytes = new Uint8Array([0x25]);
-    const fetchMock = mock()
-      .mockResolvedValueOnce(mockResponse(504, { error: "render_failed" }))
-      .mockResolvedValueOnce(mockBytes(pdfBytes));
+  test("500 render_failed → final RendererError code=other, exactly one fetch", async () => {
+    const fetchMock = mock().mockResolvedValue(mockResponse(500, { error: "render_failed" }));
     installFetchMock(fetchMock);
-    const result = await postRender(CONFIG, PAYLOAD);
-    expect(result.bytes).toEqual(pdfBytes);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    try {
+      await postRender(CONFIG, PAYLOAD);
+      expect.unreachable("expected throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(RendererError);
+      expect((e as RendererError).code).toBe("other");
+      expect((e as RendererError).message).toMatch(/500 render_failed/);
+    }
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("504 (timeout vom service) → final, kein Retry", async () => {
+    const fetchMock = mock().mockResolvedValue(mockResponse(504, { error: "render_failed" }));
+    installFetchMock(fetchMock);
+    await expect(postRender(CONFIG, PAYLOAD)).rejects.toMatchObject({ code: "other" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("postRender :: client timeout", () => {
+  test("abort by the request timeout is final, no second render is started", async () => {
+    const fetchMock = mock().mockRejectedValue(new DOMException("aborted", "AbortError"));
+    installFetchMock(fetchMock);
+    await expect(postRender(CONFIG, PAYLOAD)).rejects.toMatchObject({
+      code: "unavailable",
+      message: "request timeout after 1000ms",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("a body that stalls after the headers is aborted by the same timer", async () => {
+    const fetchMock = mock().mockImplementation((_url: string, init?: RequestInit) => {
+      const stalledBody = new ReadableStream<Uint8Array>({
+        start(controller) {
+          init?.signal?.addEventListener("abort", () =>
+            controller.error(new DOMException("aborted", "AbortError")),
+          );
+        },
+      });
+      return Promise.resolve(new Response(stalledBody, { status: 200 }));
+    });
+    installFetchMock(fetchMock);
+    const timers: Array<() => void> = [];
+    globalThis.setTimeout = ((fn: () => void) => {
+      timers.push(fn);
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof setTimeout;
+    const pending = postRender(CONFIG, PAYLOAD);
+    await new Promise((resolve) => origSetTimeout(resolve, 10));
+    for (const fire of timers) fire();
+    await expect(pending).rejects.toMatchObject({ code: "unavailable" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

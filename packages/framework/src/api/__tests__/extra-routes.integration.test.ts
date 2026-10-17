@@ -102,6 +102,13 @@ describe("extraRoutes: entry:anonymous", () => {
     },
   };
 
+  const formRoute: AnonymousExtraRoute = {
+    method: "POST",
+    path: "/public/form",
+    entry: "anonymous",
+    handler: async (c) => c.json({ received: (await c.req.text()).length }),
+  };
+
   let stack: TestStack;
 
   beforeAll(async () => {
@@ -110,7 +117,7 @@ describe("extraRoutes: entry:anonymous", () => {
     // shared "unknown" per-ip bucket, bleeding rate-limit state between them.
     stack = await setupTestStack({
       features: [probeFeature],
-      extraRoutes: [pingRoute],
+      extraRoutes: [pingRoute, formRoute],
       trustedProxyHops: 1,
     });
   });
@@ -123,6 +130,20 @@ describe("extraRoutes: entry:anonymous", () => {
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ pong: true });
+  });
+
+  test("an oversized body on an anonymous route outside /api is rejected with 413", async () => {
+    const rawBody = "x".repeat(2_000_000);
+    const res = await stack.app.request("/public/form", {
+      method: "POST",
+      headers: {
+        "x-forwarded-for": "203.0.113.30",
+        "content-type": "text/plain",
+        "content-length": String(rawBody.length),
+      },
+      body: rawBody,
+    });
+    expect(res.status).toBe(413);
   });
 
   test("systemQuery wraps requestContext so a handler's per-ip rateLimit actually fires", async () => {

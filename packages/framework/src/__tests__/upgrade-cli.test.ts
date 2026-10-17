@@ -1047,6 +1047,8 @@ describe("upgrade command — filter baseline is the marker, not the installed v
     const ids = (readMarkerFile(cwd).pendingManual ?? []).map((entry) => entry.title);
     expect(ids).toEqual(["first", "second"]);
     expect(manualEntryId("0.311.0", "first")).not.toBe(manualEntryId("0.311.0", "second"));
+    // Pinned: kumiko-guards derives ids for legacy markers with a copy of this scheme.
+    expect(manualEntryId("0.305.0", "legacy entry")).toBe("0.305.0:14a7891a");
   });
 
   test("bare --apply with no marker (bootstrap): behaves as before, marker is written at the installed version", async () => {

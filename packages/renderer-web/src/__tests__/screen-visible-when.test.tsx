@@ -6,12 +6,21 @@ import {
   AppFeaturesProvider,
   DispatcherProvider,
   KumikoScreen,
+  type LiveEventSubscriber,
+  LiveEventsProvider,
   NavProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
 import { ShellHeader } from "../layout/shell-header.js";
-import { createMockDispatcher, render, renderWithSidebar, screen, waitFor } from "./test-utils.js";
+import {
+  act,
+  createMockDispatcher,
+  render,
+  renderWithSidebar,
+  screen,
+  waitFor,
+} from "./test-utils.js";
 
 const GATE_QUERY = "billing:query:tier:status";
 const OPEN = { openToAll: { reason: "test handler callable by any signed-in test user" } };
@@ -124,6 +133,62 @@ describe("KumikoScreen visibleWhen (direct access)", () => {
     const { queryTypes } = renderDirect({ kind: "error" });
     await waitFor(() => expect(screen.getByTestId("kumiko-screen-unavailable")).toBeTruthy());
     expect(queryTypes).not.toContain("billing:query:channel:list");
+  });
+});
+
+describe("KumikoScreen visibleWhen refetch", () => {
+  test("a failing live refetch keeps already shown content mounted while the last data matches", async () => {
+    const schema = buildSchema({});
+    let gateFails = false;
+    let gateCalls = 0;
+    let fireLiveEvent: (() => void) | undefined;
+    const subscribe: LiveEventSubscriber = (entity, listener) => {
+      if (entity !== "tier") return () => {};
+      fireLiveEvent = () =>
+        listener({
+          type: "event",
+          data: { aggregateType: "tier", eventType: "updated", createdAt: "2026-01-01T00:00:00Z" },
+        });
+      return () => {};
+    };
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string) => {
+        if (type === GATE_QUERY) {
+          gateCalls++;
+          return gateFails
+            ? {
+                isSuccess: false,
+                error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+              }
+            : { isSuccess: true, data: { chatAlertsAvailable: true } };
+        }
+        return {
+          isSuccess: true,
+          data: { rows: [{ id: "r1", name: "CHANNEL ROW" }], nextCursor: null },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <LiveEventsProvider value={subscribe}>
+          <AppFeaturesProvider features={[schema]}>
+            <UserRolesProvider roles={["User"]}>
+              <KumikoScreen schema={schema} qn="billing:screen:channels" />
+            </UserRolesProvider>
+          </AppFeaturesProvider>
+        </LiveEventsProvider>
+      </DispatcherProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("CHANNEL ROW")).toBeTruthy());
+
+    gateFails = true;
+    await act(async () => {
+      fireLiveEvent?.();
+    });
+    await waitFor(() => expect(gateCalls).toBe(2));
+    await act(async () => {});
+    expect(screen.getByText("CHANNEL ROW")).toBeTruthy();
+    expect(screen.queryByTestId("kumiko-screen-unavailable")).toBeNull();
   });
 });
 

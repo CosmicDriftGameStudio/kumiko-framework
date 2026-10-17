@@ -21,6 +21,7 @@
  *   bun guard-upgrade-state.ts
  */
 
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -84,19 +85,45 @@ export function isUpgradeJson(value: unknown): value is UpgradeJson {
   );
 }
 
-export function isPendingManualStep(value: unknown): value is PendingManualStep {
-  if (!isRecord(value)) return false;
-  return (
-    typeof value["id"] === "string" &&
-    value["id"].length > 0 &&
-    typeof value["version"] === "string" &&
-    typeof value["title"] === "string"
-  );
+// Same id scheme as manualEntryId in @cosmicdrift/kumiko-framework/upgrade-cli. Duplicated because
+// this package must stay installable without the framework; a test pins both to the same value.
+const MANUAL_ID_HASH_LENGTH = 8;
+
+export function manualEntryId(version: string, title: string): string {
+  const hash = createHash("sha256").update(title).digest("hex").slice(0, MANUAL_ID_HASH_LENGTH);
+  return `${version}:${hash}`;
 }
 
-function readPendingManual(parsed: unknown): readonly PendingManualStep[] {
+/** Markers written before entries carried an `id` get the id the CLI derives for them. */
+export function parsePendingManualStep(value: unknown): PendingManualStep | null {
+  if (!isRecord(value)) return null;
+  const { id, version, title } = value;
+  if (typeof version !== "string" || typeof title !== "string") return null;
+  return {
+    id: typeof id === "string" && id.length > 0 ? id : manualEntryId(version, title),
+    version,
+    title,
+  };
+}
+
+function readPendingManual(
+  parsed: unknown,
+): { readonly steps: readonly PendingManualStep[] } | { readonly error: string } {
   const raw = isRecord(parsed) ? parsed["pendingManual"] : undefined;
-  return Array.isArray(raw) ? raw.filter(isPendingManualStep) : [];
+  if (raw === undefined) return { steps: [] };
+  if (!Array.isArray(raw))
+    return { error: `${MARKER_REL} has a "pendingManual" that is not an array` };
+  const steps: PendingManualStep[] = [];
+  for (const [index, entry] of raw.entries()) {
+    const step = parsePendingManualStep(entry);
+    if (step === null) {
+      return {
+        error: `${MARKER_REL} has a malformed pendingManual entry at index ${index} (needs string "version" and "title")`,
+      };
+    }
+    steps.push(step);
+  }
+  return { steps };
 }
 
 export function readMarker(root: string): UpgradeMarker | { error: string } {
@@ -118,7 +145,9 @@ export function readMarker(root: string): UpgradeMarker | { error: string } {
       error: `${MARKER_REL} is missing a valid "version" field (expected semver x.y.z[-pre][+build]) — broken marker file`,
     };
   }
-  return { version, pendingManual: readPendingManual(parsed) };
+  const pendingManual = readPendingManual(parsed);
+  if ("error" in pendingManual) return pendingManual;
+  return { version, pendingManual: pendingManual.steps };
 }
 
 /** Pending changelog entries turned into guard violations — pure, testable without a subprocess. */

@@ -68,10 +68,13 @@ export function createCascadeDeleteHook(
           // block the parent delete here instead of changing with it. The error names
           // the parent only: the caller may delete the parent without reading the child.
           if (strategy === OnDeleteStrategies.cascade || strategy === OnDeleteStrategies.setNull) {
-            const childLock = registry.getEntity(relation.target)?.lockedWhen;
-            if (childLock !== undefined) {
+            const childEntity = registry.getEntity(relation.target);
+            const childLock = childEntity?.lockedWhen;
+            if (childLock !== undefined && payload.lockGuardBypassed !== true) {
+              // A soft-deleted child is invisible to the caller and must not block.
               const children = await selectMany(db, targetTable, {
                 [relation.foreignKey]: payload.id,
+                ...(childEntity?.softDelete === true && { isDeleted: false }),
               });
               if (children.some((child) => isRecordLocked(childLock, child))) {
                 throw new RecordLockedError({ entityName, entityId: payload.id });

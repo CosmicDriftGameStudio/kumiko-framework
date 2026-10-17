@@ -33,7 +33,12 @@ import {
 } from "./constants.js";
 import { parseStoredJson } from "./handlers/template-gates.js";
 import { validateTemplateDraft } from "./handlers/validate.query.js";
-import { type LayoutRegions, readLayoutRegions, sanitizeLayoutHtml } from "./layout-regions.js";
+import {
+  type LayoutRegions,
+  readLayoutRegions,
+  sanitizeLayoutHtml,
+  type TemplateWriteScope,
+} from "./layout-regions.js";
 import { type LinkedResourceEntry, parseLinkedResourceEntries } from "./linked-resources.js";
 import { buildDisplayHtml } from "./preview-display-html.js";
 import { TemplateResolverErrors } from "./qualified-names.js";
@@ -195,7 +200,7 @@ async function loadStoredDraft(
 async function describeAttachments(
   ctx: HandlerContext,
   refs: readonly MailAttachmentRef[],
-): Promise<PreviewAttachment[]> {
+): Promise<{ readonly attachments: PreviewAttachment[]; readonly missing: string[] }> {
   const fileRefIds = refs.flatMap((ref) => (ref.kind === "rendered-pdf" ? [] : [ref.fileRefId]));
   const rows =
     fileRefIds.length === 0
@@ -206,7 +211,14 @@ async function describeAttachments(
   const sizeById = new Map(rows.map((row) => [row.id, Number(row.size)]));
   // An inline image is named by its content id because the stored file name is personal data and
   // may be ciphertext; a file attachment carries the name the admin gave it.
-  return refs.map((ref) => previewAttachmentOf(ref, sizeById));
+  const attachments = refs.map((ref) => previewAttachmentOf(ref, sizeById));
+  // A fileRef without a row has no known size: it is reported, not counted as 0 bytes.
+  const missing = refs.flatMap((ref, index) =>
+    ref.kind !== "rendered-pdf" && !sizeById.has(ref.fileRefId)
+      ? [attachments[index]?.name ?? ""]
+      : [],
+  );
+  return { attachments, missing };
 }
 
 function previewAttachmentOf(
@@ -228,8 +240,28 @@ function previewAttachmentOf(
   }
 }
 
+// Part headers and multipart boundary lines around one attachment in the MIME message.
+export const MIME_PART_OVERHEAD_BYTES = 512;
+
+// The provider cap applies to the encoded message: attachments travel base64-encoded.
+export function encodedAttachmentBytes(rawBytes: number): number {
+  return Math.ceil(rawBytes / 3) * 4 + MIME_PART_OVERHEAD_BYTES;
+}
+
 const attachmentSizeOf = (attachment: PreviewAttachment): number =>
-  attachment.kind === "rendered-pdf" ? 0 : attachment.sizeBytes;
+  attachment.kind === "rendered-pdf" ? 0 : encodedAttachmentBytes(attachment.sizeBytes);
+
+export function estimateMailBytes(args: {
+  readonly html: string;
+  readonly text: string;
+  readonly attachments: readonly PreviewAttachment[];
+}): number {
+  return (
+    utf8Bytes(args.html) +
+    utf8Bytes(args.text) +
+    args.attachments.reduce((sum, attachment) => sum + attachmentSizeOf(attachment), 0)
+  );
+}
 
 // The row an editor is working on, whatever its status: the stored template only resolves when
 // active, so a draft would otherwise lose the images and attachments uploaded to it.
@@ -427,11 +459,12 @@ export type DocumentDraftOutcome =
     }
   | { readonly ok: false; readonly error: KumikoError };
 
-// A document draft is always tenant-scoped here, like in the preview: it passes the write gates
-// and a failing draft is rejected with the same problems as a save.
+// The caller derives `scope` once from the role (SystemAdmin edits the system row), so the write
+// gates and the print see the same row: a failing draft is rejected with the same problems as a save.
 export async function evaluateDocumentDraft(
   ctx: HandlerContext,
   user: SessionUser,
+  scope: TemplateWriteScope,
   draft: {
     readonly slug: string;
     readonly locale: string;
@@ -448,7 +481,7 @@ export async function evaluateDocumentDraft(
     meta: draft.meta,
     variableSchema: draft.variableSchema,
     locale: draft.locale,
-    scope: "tenant",
+    scope,
   });
   if (!evaluation.ok) {
     return { ok: false, error: new ValidationError({ fields: [...evaluation.issues] }) };
@@ -531,7 +564,10 @@ async function renderMailPreview(
 
   const mailAttachments = rendered.attachments ?? [];
   const inline = mailAttachments.filter((ref) => ref.kind === "inline");
-  const attachments = await describeAttachments(ctx, mailAttachments);
+  const { attachments, missing: missingAttachments } = await describeAttachments(
+    ctx,
+    mailAttachments,
+  );
   const displayHtml = await buildDisplayHtml(
     rendered.html,
     inline,
@@ -541,10 +577,7 @@ async function renderMailPreview(
   );
   const resolvedCids = new Set(inline.map((ref) => ref.cid));
   const unresolved = collectDocumentResourceKeys(content).filter((key) => !resolvedCids.has(key));
-  const totalBytes =
-    utf8Bytes(rendered.html) +
-    utf8Bytes(rendered.text) +
-    attachments.reduce((sum, attachment) => sum + attachmentSizeOf(attachment), 0);
+  const totalBytes = estimateMailBytes({ html: rendered.html, text: rendered.text, attachments });
   return {
     ok: true,
     mailAttachments,
@@ -571,7 +604,7 @@ async function renderMailPreview(
             },
       sampleValues,
       checks: [
-        missingResourceCheck(unresolved),
+        missingResourceCheck([...unresolved, ...missingAttachments]),
         {
           code: "text_present",
           ok: rendered.text.trim() !== "",

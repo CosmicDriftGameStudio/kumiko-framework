@@ -65,7 +65,7 @@ export type MailEditorBodyProps = {
   readonly onRefreshRow: () => Promise<void>;
 };
 
-function sortedUnique(values: readonly string[]): string[] {
+function uniqueValues(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
@@ -75,7 +75,7 @@ export function placeholderNames(validation: MailValidation | null): string[] {
     name,
     ...Object.keys(variable.item ?? {}).map((item) => `${name}.${item}`),
   ]);
-  return sortedUnique([...own, ...validation.systemPlaceholders]);
+  return uniqueValues([...own, ...validation.systemPlaceholders]);
 }
 
 export function MailEditorBody(props: MailEditorBodyProps): ReactNode {

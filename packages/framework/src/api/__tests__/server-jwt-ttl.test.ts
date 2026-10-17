@@ -56,3 +56,15 @@ describe("buildServer — jwtTtl default depends on sessionChecker wiring", () =
     expect(withoutChecker.jwt.ttlSeconds).toBe(42);
   });
 });
+
+describe("buildServer — jwt keyring", () => {
+  test("a signKid missing from keys fails at boot naming the kid, not the rate-limit digest", () => {
+    expect(() =>
+      buildServer({
+        registry,
+        context: {},
+        jwtSecret: { keys: { k1: JWT_SECRET }, signKid: "k2" },
+      }),
+    ).toThrow('signKid "k2" is not present in the keyring');
+  });
+});

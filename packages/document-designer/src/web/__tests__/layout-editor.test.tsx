@@ -140,6 +140,17 @@ describe("LayoutEditor", () => {
     expect(screen.queryByTestId("document-designer-paper")).toBeNull();
   });
 
+  test("the users of a layout are asked for server-side instead of cut from a page of all templates", async () => {
+    const calls: Call[] = [];
+    renderEditor(["TenantAdmin"], tenantSource, calls);
+    await screen.findByTestId("document-designer-paper");
+    const overviewCall = calls.find((call) => call.type === "template-resolver:query:overview");
+    expect(overviewCall?.payload).toMatchObject({
+      layoutSlug: "default",
+      filters: [{ field: "kind", op: "in", value: ["mail"] }],
+    });
+  });
+
   test("a tenant admin gets no MJML tab and a disabled save while nothing changed", async () => {
     renderEditor(["TenantAdmin"], tenantSource, []);
     await screen.findByTestId("document-designer-paper");

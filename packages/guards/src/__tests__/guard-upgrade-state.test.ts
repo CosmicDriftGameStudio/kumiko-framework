@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   isPendingEntry,
   isUpgradeJson,
+  manualEntryId,
   pendingManualViolations,
   pendingViolations,
   readMarker,
@@ -92,33 +93,60 @@ describe("readMarker", () => {
 });
 
 describe("readMarker pendingManual", () => {
-  test("keeps well-formed open steps and drops malformed ones", () => {
+  test("a legacy step without id gets the id the CLI derives, so it still blocks", () => {
     const app = withApp({
       ".kumiko/upgrade-state.json": JSON.stringify({
         version: "0.211.0",
         pendingManual: [
           { id: "a1b2c3d4", version: "0.210.0", title: "First" },
-          { version: "0.210.0", title: "no id" },
-          "junk",
+          { version: "0.305.0", title: "legacy entry" },
         ],
       }),
     });
     try {
-      expect(readMarker(app.dir)).toEqual({
+      const marker = readMarker(app.dir);
+      expect(marker).toEqual({
         version: "0.211.0",
-        pendingManual: [{ id: "a1b2c3d4", version: "0.210.0", title: "First" }],
+        pendingManual: [
+          { id: "a1b2c3d4", version: "0.210.0", title: "First" },
+          { id: "0.305.0:14a7891a", version: "0.305.0", title: "legacy entry" },
+        ],
+      });
+      if ("error" in marker) throw new Error(marker.error);
+      expect(pendingManualViolations(marker.pendingManual)).toHaveLength(2);
+    } finally {
+      app.cleanup();
+    }
+  });
+
+  test("manualEntryId keeps the scheme of the framework's upgrade-cli", () => {
+    expect(manualEntryId("0.305.0", "legacy entry")).toBe("0.305.0:14a7891a");
+  });
+
+  test("a structurally broken entry is reported, not silently dropped", () => {
+    const app = withApp({
+      ".kumiko/upgrade-state.json": JSON.stringify({
+        version: "0.211.0",
+        pendingManual: [{ id: "a1b2c3d4", version: "0.210.0", title: "First" }, "junk"],
+      }),
+    });
+    try {
+      expect(readMarker(app.dir)).toEqual({
+        error: expect.stringContaining("malformed pendingManual entry at index 1"),
       });
     } finally {
       app.cleanup();
     }
   });
 
-  test("a non-array pendingManual is tolerated as empty", () => {
+  test("a non-array pendingManual is reported", () => {
     const app = withApp({
       ".kumiko/upgrade-state.json": JSON.stringify({ version: "0.211.0", pendingManual: "x" }),
     });
     try {
-      expect(readMarker(app.dir)).toEqual({ version: "0.211.0", pendingManual: [] });
+      expect(readMarker(app.dir)).toEqual({
+        error: expect.stringContaining('"pendingManual" that is not an array'),
+      });
     } finally {
       app.cleanup();
     }

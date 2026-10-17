@@ -117,11 +117,16 @@ export const listQuery = defineQueryHandler({
       createdAt: unknown;
       createdBy: string;
     }>(ctx.db, eventsTable, where, {
-      // `id` as tie-breaker keeps the order total, so pages never overlap.
-      orderBy: [
-        { col: p.sort === "type" ? "type" : "createdAt", direction },
-        { col: "id", direction },
-      ],
+      // The id cursor only resumes an id-ordered listing. created_at comes from the
+      // transaction start and can run against insert order, so ordering by it would let
+      // a page boundary skip rows; only the type sort leaves id order (and is one page).
+      orderBy:
+        p.sort === "type"
+          ? [
+              { col: "type", direction },
+              { col: "id", direction },
+            ]
+          : [{ col: "id", direction }],
       limit: p.limit,
     });
 

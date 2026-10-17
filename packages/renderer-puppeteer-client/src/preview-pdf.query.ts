@@ -29,7 +29,8 @@ export const previewPdfQuery = defineQueryHandler({
   description:
     "Prints a document template draft to a real PDF with sample values taken from the declared variable examples, without saving anything: the draft passes the same write rules as a save and the stored template is not read for its body; returns the file name, the PDF as base64, the page count, the size and the render time. While the PDF service does not answer it fails with puppeteer_unavailable (HTTP 503).",
   handler: async (query, ctx) => {
-    const draft = await evaluateDocumentDraft(ctx, query.user, query.payload);
+    const draftScope = query.user.roles.includes("SystemAdmin") ? "system" : "tenant";
+    const draft = await evaluateDocumentDraft(ctx, query.user, draftScope, query.payload);
     if (!draft.ok) throw draft.error;
 
     const startedAt = Date.now();
@@ -40,7 +41,7 @@ export const previewPdfQuery = defineQueryHandler({
           slug,
           locale,
           variables: draft.sampleValues,
-          draftScope: query.user.roles.includes("SystemAdmin") ? "system" : "tenant",
+          draftScope,
           draft: {
             content: draft.content,
             meta: draft.meta,

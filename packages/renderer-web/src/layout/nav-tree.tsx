@@ -989,6 +989,8 @@ export function buildNavRegistrySliceForApp(
 
 // A parent absent from the (role-projected) schema is not a workspace
 // filter result: the child must not leak to the top level. Transitive.
+// Parents removed by an allowlist (filterAppSchemaNavsByAllowlist) are not
+// absent here: that helper already lifted their children to the top level.
 function dropNavsWithNonexistentParent(navs: readonly NavDefinition[]): NavDefinition[] {
   let current = [...navs];
   for (;;) {

@@ -4,12 +4,15 @@
 // record-lock suite does not have.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import * as z from "zod";
+import { createEventStoreExecutor, WritePurposes } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query-api.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import {
   createBooleanField,
   createEntity,
   createRegistry,
+  createSystemUser,
   createTextField,
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
@@ -49,12 +52,28 @@ const noteEntity = createEntity({
   lockedWhen: { field: "isFrozen", eq: true },
 });
 
+const choreEntity = createEntity({
+  table: "lock_cascade_chores",
+  softDelete: true,
+  fields: {
+    title: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    projectId: createTextField({ personal: false, reason: "test_fixture" }),
+    isDone: createBooleanField({ default: false }),
+  },
+  lockedWhen: { field: "isDone", eq: true },
+});
+
+const projectTable = buildEntityTable("project", projectEntity);
+
 const ROLES = { access: { roles: ["Admin"] } } as const;
+// A hard delete from a custom handler is irreversible and needs agent risk "high".
+const IRREVERSIBLE = { ...ROLES, agent: { risk: "high" } } as const;
 
 const cascadeFeature = defineFeature("lockcascade", (r) => {
   r.entity("project", projectEntity);
   r.entity("task", taskEntity);
   r.entity("note", noteEntity);
+  r.entity("chore", choreEntity);
   r.relation("project", "tasks", {
     type: "hasMany",
     target: "task",
@@ -67,10 +86,58 @@ const cascadeFeature = defineFeature("lockcascade", (r) => {
     foreignKey: "projectId",
     onDelete: "setNull",
   });
+  r.relation("project", "chores", {
+    type: "hasMany",
+    target: "chore",
+    foreignKey: "projectId",
+    onDelete: "cascade",
+  });
+
+  const projectExecutor = createEventStoreExecutor(projectTable, projectEntity, {
+    entityName: "project",
+  });
+  r.writeHandler(
+    "project:system-delete",
+    z.object({ id: z.uuid(), purpose: z.enum(["none", "retention"]) }),
+    async (event, ctx) =>
+      projectExecutor.delete(
+        { id: event.payload.id },
+        createSystemUser(event.user.tenantId),
+        ctx.db,
+        event.payload.purpose === "retention" ? { writePurpose: WritePurposes.retention } : {},
+      ),
+    IRREVERSIBLE,
+  );
+  r.writeHandler(
+    "project:unlocking-delete",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) =>
+      projectExecutor.delete({ id: event.payload.id }, event.user, ctx.db, {
+        unsafeSkipLockGuard: true,
+      }),
+    IRREVERSIBLE,
+  );
+
+  const choreExecutor = createEventStoreExecutor(
+    buildEntityTable("chore", choreEntity),
+    choreEntity,
+    { entityName: "chore" },
+  );
+  r.writeHandler(
+    "chore:unlocking-delete",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) =>
+      choreExecutor.delete({ id: event.payload.id }, event.user, ctx.db, {
+        unsafeSkipLockGuard: true,
+      }),
+    ROLES,
+  );
+
   for (const [name, entity] of [
     ["project", projectEntity],
     ["task", taskEntity],
     ["note", noteEntity],
+    ["chore", choreEntity],
   ] as const) {
     r.writeHandler(defineEntityCreateHandler(name, entity, ROLES));
     r.writeHandler(defineEntityDeleteHandler(name, entity, ROLES));
@@ -86,6 +153,7 @@ beforeAll(async () => {
   const tables = new Map();
   tables.set("task", buildEntityTable("task", taskEntity));
   tables.set("note", buildEntityTable("note", noteEntity));
+  tables.set("chore", buildEntityTable("chore", choreEntity));
   const hook = createCascadeDeleteHook(hookRegistry, tables);
   stack = await setupTestStack({
     features: [cascadeFeature],
@@ -95,6 +163,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, projectEntity, "project");
   await unsafeCreateEntityTable(stack.db, taskEntity, "task");
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
+  await unsafeCreateEntityTable(stack.db, choreEntity, "chore");
 });
 
 afterAll(async () => {
@@ -103,7 +172,7 @@ afterAll(async () => {
 
 afterEach(async () => {
   await asRawClient(stack.db).unsafe(
-    `TRUNCATE kumiko_events, lock_cascade_projects, lock_cascade_tasks, lock_cascade_notes, kumiko_event_consumers RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, lock_cascade_projects, lock_cascade_tasks, lock_cascade_notes, lock_cascade_chores, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
   await stack.eventDispatcher?.ensureRegistered();
 });
@@ -133,6 +202,20 @@ async function createNote(projectId: string, isFrozen: boolean): Promise<string>
     admin,
   );
   return created.id;
+}
+
+async function createChore(projectId: string, isDone: boolean): Promise<string> {
+  const created = await stack.http.writeOk<{ id: string }>(
+    "lockcascade:write:chore:create",
+    { title: "c", projectId, isDone },
+    admin,
+  );
+  return created.id;
+}
+
+async function countRows(table: string, id: string): Promise<number> {
+  const rows = await asRawClient(stack.db).unsafe(`SELECT id FROM ${table} WHERE id = $1`, [id]);
+  return rows.length;
 }
 
 async function expectParentLocked(projectId: string, childId: string): Promise<void> {
@@ -211,5 +294,60 @@ describe("lockedWhen children block a parent delete", () => {
     );
     expect(rows).toHaveLength(1);
     expect(rows[0]?.project_id).toBeNull();
+  });
+
+  test("a framework system delete with a writePurpose passes a locked cascade child", async () => {
+    const projectId = await createProject();
+    const taskId = await createTask(projectId, true);
+
+    await stack.http.writeOk(
+      "lockcascade:write:project:system-delete",
+      { id: projectId, purpose: "retention" },
+      admin,
+    );
+
+    expect(await countRows("lock_cascade_tasks", taskId)).toBe(0);
+    expect(await countRows("lock_cascade_projects", projectId)).toBe(0);
+  });
+
+  test("a framework system delete without a writePurpose stays blocked by a locked child", async () => {
+    const projectId = await createProject();
+    const taskId = await createTask(projectId, true);
+
+    const err = await stack.http.writeErr(
+      "lockcascade:write:project:system-delete",
+      { id: projectId, purpose: "none" },
+      admin,
+    );
+
+    expect(err.code).toBe("record_locked");
+    expect(await countRows("lock_cascade_tasks", taskId)).toBe(1);
+  });
+
+  test("an executor delete with unsafeSkipLockGuard passes a locked cascade child", async () => {
+    const projectId = await createProject();
+    const taskId = await createTask(projectId, true);
+
+    await stack.http.writeOk(
+      "lockcascade:write:project:unlocking-delete",
+      { id: projectId },
+      admin,
+    );
+
+    expect(await countRows("lock_cascade_tasks", taskId)).toBe(0);
+  });
+
+  test("a soft-deleted locked child does not block the parent delete", async () => {
+    const projectId = await createProject();
+    const choreId = await createChore(projectId, true);
+    await stack.http.writeOk("lockcascade:write:chore:unlocking-delete", { id: choreId }, admin);
+
+    await stack.http.writeOk(
+      "lockcascade:write:project:delete",
+      { id: projectId, version: 1 },
+      admin,
+    );
+
+    expect(await countRows("lock_cascade_projects", projectId)).toBe(0);
   });
 });
