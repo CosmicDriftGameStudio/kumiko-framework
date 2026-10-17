@@ -10,18 +10,26 @@ export function DefaultPageHeader({
   actions,
   overflowItems,
   hideBreadcrumb,
+  breadcrumbScreenId,
 }: PageHeaderProps): ReactNode {
   const slot = usePageHeaderSlot();
   const setOverflowItems = slot?.setOverflowItems;
   const setTitle = slot?.setTitle;
   const setRecordTitle = slot?.setRecordTitle;
   const setBreadcrumbHidden = slot?.setBreadcrumbHidden;
+  const setBreadcrumbScreenId = slot?.setBreadcrumbScreenId;
 
   useEffect(() => {
     if (setBreadcrumbHidden === undefined || hideBreadcrumb !== true) return;
     setBreadcrumbHidden(true);
     return () => setBreadcrumbHidden(false);
   }, [setBreadcrumbHidden, hideBreadcrumb]);
+
+  useEffect(() => {
+    if (setBreadcrumbScreenId === undefined || breadcrumbScreenId === undefined) return;
+    setBreadcrumbScreenId(breadcrumbScreenId);
+    return () => setBreadcrumbScreenId(undefined);
+  }, [setBreadcrumbScreenId, breadcrumbScreenId]);
 
   useEffect(() => {
     if (setRecordTitle === undefined || recordTitle === undefined) return;

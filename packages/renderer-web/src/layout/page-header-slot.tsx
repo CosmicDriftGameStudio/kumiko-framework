@@ -26,6 +26,8 @@ export type PageHeaderSlot = {
   readonly setRecordTitle: (recordTitle: string | undefined) => void;
   readonly breadcrumbHidden: boolean;
   readonly setBreadcrumbHidden: (hidden: boolean) => void;
+  readonly breadcrumbScreenId: string | undefined;
+  readonly setBreadcrumbScreenId: (screenId: string | undefined) => void;
   readonly overflowItems: readonly ActionMenuItemSpec[] | undefined;
   readonly setOverflowItems: (items: readonly ActionMenuItemSpec[] | undefined) => void;
 };
@@ -43,6 +45,7 @@ export function PageHeaderSlotProvider({ children }: { readonly children: ReactN
   const [title, setTitle] = useState<string | undefined>(undefined);
   const [recordTitle, setRecordTitle] = useState<string | undefined>(undefined);
   const [breadcrumbHidden, setBreadcrumbHidden] = useState(false);
+  const [breadcrumbScreenId, setBreadcrumbScreenId] = useState<string | undefined>(undefined);
   const [overflowItems, setOverflowItems] = useState<readonly ActionMenuItemSpec[] | undefined>(
     undefined,
   );
@@ -59,10 +62,20 @@ export function PageHeaderSlotProvider({ children }: { readonly children: ReactN
       setRecordTitle,
       breadcrumbHidden,
       setBreadcrumbHidden,
+      breadcrumbScreenId,
+      setBreadcrumbScreenId,
       overflowItems,
       setOverflowItems,
     }),
-    [statusElement, actionsElement, title, recordTitle, breadcrumbHidden, overflowItems],
+    [
+      statusElement,
+      actionsElement,
+      title,
+      recordTitle,
+      breadcrumbHidden,
+      breadcrumbScreenId,
+      overflowItems,
+    ],
   );
   return (
     <PageHeaderSlotContext.Provider value={value}>

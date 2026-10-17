@@ -4,10 +4,12 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import {
   AppFeaturesProvider,
+  createStaticLocaleResolver,
   DispatcherProvider,
   KumikoScreen,
   type LiveEventSubscriber,
   LiveEventsProvider,
+  LocaleProvider,
   NavProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
@@ -193,10 +195,20 @@ describe("KumikoScreen visibleWhen refetch", () => {
 });
 
 describe("KumikoScreen visibleWhen inside an app shell", () => {
-  function renderInShell(available: boolean, options: GateOptions = {}): void {
+  function renderInShell(
+    available: boolean,
+    options: GateOptions = {},
+    fallbackNavLabel?: string,
+    titleTranslations?: Readonly<Record<string, string>>,
+  ): void {
     const schema: FeatureSchema = {
       ...buildSchema(options),
-      navs: [{ id: "channels", label: "Channels", screen: "channels", order: 10 }],
+      navs: [
+        { id: "channels", label: "Channels", screen: "channels", order: 10 },
+        ...(fallbackNavLabel !== undefined
+          ? [{ id: "upgrade", label: fallbackNavLabel, screen: "upgrade", order: 20 }]
+          : []),
+      ],
     };
     const dispatcher = createMockDispatcher({
       query: (async (type: string) =>
@@ -221,10 +233,15 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
                 setSearchParams: () => {},
               }}
             >
-              <PageHeaderSlotProvider>
-                <ShellHeader schema={schema} />
-                <KumikoScreen schema={schema} qn="billing:screen:channels" />
-              </PageHeaderSlotProvider>
+              <LocaleProvider
+                resolver={createStaticLocaleResolver()}
+                fallbackBundles={[{ en: titleTranslations ?? {} }]}
+              >
+                <PageHeaderSlotProvider>
+                  <ShellHeader schema={schema} />
+                  <KumikoScreen schema={schema} qn="billing:screen:channels" />
+                </PageHeaderSlotProvider>
+              </LocaleProvider>
             </NavProvider>
           </UserRolesProvider>
         </AppFeaturesProvider>
@@ -245,6 +262,22 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
     renderInShell(false, { fallback: "upgrade" });
     await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
     expect(crumbCount()).toBe(0);
+  });
+
+  test("the fallback screen's nav label heads the page instead of the locked screen's", async () => {
+    renderInShell(false, { fallback: "upgrade" }, "Upgrade plan");
+    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    expect(crumbCount()).toBe(1);
+    expect(document.querySelector("h1")?.textContent).toBe("Upgrade plan");
+    expect(screen.queryByText("Channels")).toBeNull();
+  });
+
+  test("a fallback without nav entry is headed by its translated screen title", async () => {
+    renderInShell(false, { fallback: "upgrade" }, undefined, {
+      "screen:upgrade.title": "Upgrade your plan",
+    });
+    await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
+    expect(document.querySelector("h1")?.textContent).toBe("Upgrade your plan");
   });
 
   test("the standard notice leaves no breadcrumb for the locked screen", async () => {

@@ -98,6 +98,53 @@ describe("createPersonalAccessTokensFeature — tier gate on the screens", () =>
   });
 });
 
+describe("createPersonalAccessTokensFeature — agent exposure", () => {
+  test("neither the token list nor the mint screen is exposed to agents", () => {
+    const feature = createPersonalAccessTokensFeature({ scopes: {} });
+    for (const id of [PAT_SCREEN_ID, PAT_MINT_SCREEN_ID]) {
+      expect(feature.screens[id]?.agent).toEqual({ expose: false });
+    }
+  });
+});
+
+describe("createPersonalAccessTokensFeature — listScreen option", () => {
+  function listScreenOf(feature: ReturnType<typeof createPersonalAccessTokensFeature>) {
+    const screen = feature.screens[PAT_SCREEN_ID];
+    if (screen?.type !== "projectionList") throw new Error("expected a projectionList screen");
+    return screen;
+  }
+
+  test("description and slots land on the list screen only when given", () => {
+    const plain = listScreenOf(createPersonalAccessTokensFeature({ scopes: {} }));
+    expect(plain.description).toBeUndefined();
+    expect(plain.slots).toBeUndefined();
+
+    const slots = { header: { react: { __component: "PatHowTo" } } };
+    const custom = createPersonalAccessTokensFeature({
+      scopes: {},
+      listScreen: { description: "app.pat.description", slots },
+    });
+    expect(listScreenOf(custom).description).toBe("app.pat.description");
+    expect(listScreenOf(custom).slots).toEqual(slots);
+    expect(custom.screens[PAT_MINT_SCREEN_ID]?.description).toBeUndefined();
+  });
+
+  test("a wider listScreen object cannot override agent exposure or access", () => {
+    const wider = {
+      description: "app.pat.description",
+      agent: { expose: true },
+      access: { roles: ["Guest"] },
+    };
+    const screen = listScreenOf(
+      createPersonalAccessTokensFeature({ scopes: {}, listScreen: wider }),
+    );
+    const plain = listScreenOf(createPersonalAccessTokensFeature({ scopes: {} }));
+    expect(screen.description).toBe("app.pat.description");
+    expect(screen.agent).toEqual({ expose: false });
+    expect(screen.access).toEqual(plain.access);
+  });
+});
+
 describe("patGrantOptions (fw#2548 Teil B)", () => {
   test("a read-only domain yields only <domain>:read", () => {
     const scopes: PatScopeConfig = { billing: { label: "Billing", read: ["billing:query:*"] } };

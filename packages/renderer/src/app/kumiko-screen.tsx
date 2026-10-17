@@ -291,8 +291,7 @@ function ScreenVisibilityGate({
   readonly translate?: Translate;
   readonly children: ReactNode;
 }): ReactNode {
-  const { Banner, PageHeader } = usePrimitives();
-  const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
+  const { Banner } = usePrimitives();
   const result = useQuery<Readonly<Record<string, unknown>>>(visibleWhen.query, {}, { live: true });
   const wasShown = useRef(false);
   const verdict = evalVisibleWhenAfterShown(visibleWhen, result, wasShown.current);
@@ -307,18 +306,27 @@ function ScreenVisibilityGate({
       </Banner>
     );
   }
-  // The route still names the locked screen; its breadcrumb must not label what stands in for it.
-  const hideLockedBreadcrumb =
-    PageHeader !== undefined && pageHeaderSlotAvailable ? <PageHeader hideBreadcrumb /> : null;
+  if (fallback !== undefined) {
+    return <FallbackScreen featureName={featureName} fallback={fallback} translate={translate} />;
+  }
   return (
     <>
-      {hideLockedBreadcrumb}
-      {fallback !== undefined ? (
-        <FallbackScreen featureName={featureName} fallback={fallback} translate={translate} />
-      ) : (
-        <ScreenUnavailableBanner />
-      )}
+      <LockedScreenHeader />
+      <ScreenUnavailableBanner />
     </>
+  );
+}
+
+// The route still names the locked screen; its breadcrumb must not label what stands in for it.
+// With a stand-in the header is labelled with that screen instead, none if it has no title.
+function LockedScreenHeader({ standInScreenId }: { readonly standInScreenId?: string }): ReactNode {
+  const { PageHeader } = usePrimitives();
+  const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
+  if (PageHeader === undefined || !pageHeaderSlotAvailable) return null;
+  return standInScreenId !== undefined ? (
+    <PageHeader hideBreadcrumb breadcrumbScreenId={standInScreenId} />
+  ) : (
+    <PageHeader hideBreadcrumb />
   );
 }
 
@@ -413,8 +421,20 @@ function FallbackScreen({
   const target = useEmbeddedScreen(featureName, fallback);
   // Also undefined when the user lacks access to the fallback screen, which is
   // not a framework error.
-  if (target === undefined) return <ScreenUnavailableBanner />;
-  return <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />;
+  if (target === undefined) {
+    return (
+      <>
+        <LockedScreenHeader />
+        <ScreenUnavailableBanner />
+      </>
+    );
+  }
+  return (
+    <>
+      <LockedScreenHeader standInScreenId={lastSegment(target.qn)} />
+      <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />
+    </>
+  );
 }
 
 function renderScreenBody({

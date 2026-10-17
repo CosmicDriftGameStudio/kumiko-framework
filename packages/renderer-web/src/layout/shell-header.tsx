@@ -42,7 +42,11 @@ import { SidebarTrigger } from "../ui/sidebar.js";
 import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.js";
 import { buildNavRegistrySliceForApp, lastSegment } from "./nav-tree.js";
 import { usePageHeaderSlot } from "./page-header-slot.js";
-import { type BreadcrumbCrumb, resolveDetailBreadcrumb } from "./shell-breadcrumb.js";
+import {
+  type BreadcrumbCrumb,
+  resolveDetailBreadcrumb,
+  screenTitleKey,
+} from "./shell-breadcrumb.js";
 
 type ShellHeaderUser = {
   readonly id: string;
@@ -70,8 +74,10 @@ export function ShellHeader({
     () => appSchema.features.flatMap((f) => f.screens),
     [appSchema.features],
   );
-  const screenId = nav.route?.screenId;
-  const entityId = nav.route?.entityId;
+  const slot = usePageHeaderSlot();
+  const standInScreenId = slot?.breadcrumbScreenId;
+  const screenId = standInScreenId ?? nav.route?.screenId;
+  const entityId = standInScreenId !== undefined ? undefined : nav.route?.entityId;
   const crumbs = useMemo((): readonly BreadcrumbCrumb[] | undefined => {
     if (screenId === undefined) return undefined;
     // A nav entry on an edit screen means "create"; an existing record (entityId in
@@ -85,7 +91,6 @@ export function ShellHeader({
     return resolveDetailBreadcrumb(allScreens, screenId, t);
   }, [allScreens, screenId, entityId, t, tree]);
 
-  const slot = usePageHeaderSlot();
   const setStatusElement = slot?.setStatusElement;
   const setActionsElement = slot?.setActionsElement;
   const titleOverride = slot?.title;
@@ -93,8 +98,11 @@ export function ShellHeader({
   const compact = usePageHeaderCompact();
   const overflowItems = slot?.overflowItems ?? [];
   const hasOverflow = compact && (overflowItems.length > 0 || headerActions !== undefined);
+  // A stand-in without a translated title must not surface the raw i18n key.
+  const standInUntitled =
+    standInScreenId !== undefined && crumbs?.at(-1)?.label === screenTitleKey(standInScreenId);
   const shownCrumbs =
-    slot?.breadcrumbHidden === true
+    (slot?.breadcrumbHidden === true && standInScreenId === undefined) || standInUntitled
       ? undefined
       : crumbs !== undefined && recordTitle !== undefined && crumbs.length > 0
         ? [...crumbs.slice(0, -1), { label: recordTitle }, ...crumbs.slice(-1)]
