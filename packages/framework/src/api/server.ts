@@ -105,6 +105,7 @@ import {
   ExtraRouteEntries,
   type ExtraRouteEntry,
   ExtraRouteRejection,
+  type RoleDispatchArgs,
   type SystemDispatchArgs,
 } from "./extra-route.js";
 import { computeStrongEtag, etagMatches } from "./http-cache.js";
@@ -540,11 +541,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // Master for the payload-bucket HMAC: the current signing secret (the
   // keyring's signKid for rotation setups). buildServer always has one, so
   // the digest is available whenever a handler declares additionalRateLimits.
-  const payloadDigest = createPayloadDigest(
-    typeof options.jwtSecret === "string"
-      ? options.jwtSecret
-      : (options.jwtSecret.keys[options.jwtSecret.signKid] ?? ""),
-  );
+  const payloadDigest = createPayloadDigest(payloadDigestMasterSecret(options.jwtSecret));
   const rateLimitResolver =
     options.context.rateLimit ??
     (wrappedRedis && wantsResolver ? createRateLimitResolver({ redis: wrappedRedis }) : undefined);
@@ -1263,9 +1260,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         route.method,
         route.path,
         honoHandler,
-        route.entry === ExtraRouteEntries.signature
-          ? bodyLimitForRoutePath(route.path, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES)
-          : [],
+        bodyLimitForRoutePath(route.path, options.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES),
       );
     }
   }
@@ -1400,6 +1395,17 @@ export function makeDispatchSystemWrite(
 ): (args: SystemDispatchArgs) => Promise<WriteResult> {
   return ({ handlerQn, payload, tenantId }) =>
     dispatcher.write(handlerQn, payload, createSystemUser(tenantId, [ROLES.SystemAdmin]));
+}
+
+// Privilege-scope: the system user gets exactly the roles the caller names —
+// no implicit SystemAdmin — so a seed can write data gated on app roles.
+// Same trust requirement as makeDispatchSystemWrite: never expose to a raw
+// request, only to code that already proved its own authenticity.
+export function makeDispatchWriteAs(
+  dispatcher: Dispatcher,
+): (args: RoleDispatchArgs) => Promise<WriteResult> {
+  return ({ handlerQn, payload, tenantId, roles }) =>
+    dispatcher.write(handlerQn, payload, createSystemUser(tenantId, roles));
 }
 
 export function makeDispatchSystemQuery(
@@ -1732,4 +1738,15 @@ function entitiesWithSearchableScreen(registry: Registry): readonly string[] {
     }
   }
   return [...entities];
+}
+
+function payloadDigestMasterSecret(jwtSecret: ServerOptions["jwtSecret"]): string {
+  if (typeof jwtSecret === "string") return jwtSecret;
+  const signingSecret = jwtSecret.keys[jwtSecret.signKid];
+  if (signingSecret === undefined) {
+    throw new Error(
+      `[kumiko] jwtSecret.signKid "${jwtSecret.signKid}" not found in jwtSecret.keys`,
+    );
+  }
+  return signingSecret;
 }

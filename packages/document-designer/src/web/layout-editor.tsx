@@ -6,13 +6,17 @@ import { type ReactNode, useState } from "react";
 import { DEFAULT_LAYOUT_SLUG } from "../constants.js";
 import { LayoutEditorBody } from "./layout-editor-body.js";
 import type { LayoutKind, LayoutSourceView, TenantOverrideCounts } from "./layout-types.js";
+import { layoutUserKind } from "./layout-users.js";
 import { parseOverviewRow } from "./overview-row.js";
 
 function parseLayoutKind(raw: string | undefined): LayoutKind {
   return raw === "pdf-layout" ? "pdf-layout" : "mail-layout";
 }
 
-type OverviewResponse = { readonly rows: readonly Readonly<Record<string, unknown>>[] };
+type OverviewResponse = {
+  readonly rows: readonly Readonly<Record<string, unknown>>[];
+  readonly total: number;
+};
 
 function LayoutEditorLoader({
   kind,
@@ -26,7 +30,11 @@ function LayoutEditorLoader({
   readonly onKindChange: (kind: LayoutKind) => void;
 }): ReactNode {
   const source = useQuery<LayoutSourceView>(TemplateResolverQueries.layoutSource, { kind, slug });
-  const overview = useQuery<OverviewResponse>(TemplateResolverQueries.overview, { limit: 200 });
+  const overview = useQuery<OverviewResponse>(TemplateResolverQueries.overview, {
+    limit: 200,
+    layoutSlug: slug,
+    filters: [{ field: "kind", op: "in", value: [layoutUserKind(kind)] }],
+  });
   const overrides = useQuery<TenantOverrideCounts>(
     TemplateResolverQueries.tenantOverrides,
     { slug, kind },
@@ -62,6 +70,7 @@ function LayoutEditorLoader({
       isSystemAdmin={isSystemAdmin}
       source={data}
       overviewRows={rows}
+      usedByCount={overview.data?.total ?? rows.length}
       overrides={isSystemAdmin ? overrides.data : null}
       onKindChange={onKindChange}
       onReload={reload}

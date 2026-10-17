@@ -47,18 +47,23 @@ export function createEscapeHatchReportWindow(opts?: {
   };
 }
 
-// Declared escape hatches of system crons are audited once per process and
-// (handler, kind, tenant), never again: the declaration, the system actor and the
-// reason are identical on every run, so repeats carry no information.
+// A long-lived worker must leave an audit event inside every retention window
+// (90 days), or its crons vanish from the log once the first event is pruned.
+const PROCESS_REAUDIT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+// Declared escape hatches of system crons are audited once per day and process for each
+// (handler, kind, tenant, target): the declaration, the system actor and the reason are
+// identical on every run, so repeats carry no information. The target is part of the
+// key because one run can write several global tables.
 export type EscapeHatchProcessDedup = {
   readonly kinds: ReadonlySet<EscapeHatchKind>;
-  readonly seen: Set<string>;
+  readonly lastAuditedAt: Map<string, number>;
 };
 
 export function createEscapeHatchProcessDedup(
   kinds: readonly EscapeHatchKind[],
 ): EscapeHatchProcessDedup {
-  return { kinds: new Set(kinds), seen: new Set() };
+  return { kinds: new Set(kinds), lastAuditedAt: new Map() };
 }
 
 // Default window for createEscapeHatchReporter callers that don't pass their own.
@@ -164,10 +169,20 @@ export function createEscapeHatchReporter(opts: {
     if (opts.meter) emitEscapeHatchUse(opts.meter, opts.handler, kind);
     const { processDedup } = opts;
     if (processDedup?.kinds.has(kind)) {
-      const processKey = JSON.stringify([opts.handler, kind, opts.tenantId]);
-      // skip: this (handler, kind, tenant) was already audited by this process
-      if (processDedup.seen.has(processKey)) return;
-      processDedup.seen.add(processKey);
+      const processKey = JSON.stringify([
+        opts.handler,
+        kind,
+        opts.tenantId,
+        target?.id ?? null,
+        target?.tenantId ?? null,
+      ]);
+      const nowMs = now();
+      const lastAuditedAt = processDedup.lastAuditedAt.get(processKey);
+      // skip: audited by this process within the re-audit interval
+      if (lastAuditedAt !== undefined && nowMs - lastAuditedAt < PROCESS_REAUDIT_INTERVAL_MS) {
+        return;
+      }
+      processDedup.lastAuditedAt.set(processKey, nowMs);
       reportEscapeHatchUse(eventFor(kind, reason, target), deps);
       // skip: audited above, the window dedup below only serves the other kinds
       return;

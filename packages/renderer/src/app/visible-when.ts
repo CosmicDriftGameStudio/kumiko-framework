@@ -14,3 +14,15 @@ export function evalVisibleWhen(
   if (result.data === null) return result.loading ? "loading" : "hidden";
   return result.data[visibleWhen.field] === visibleWhen.eq ? "visible" : "hidden";
 }
+
+// Once the content was shown, a failed refetch must not unmount it (and drop unsaved
+// form input) while the last good data still matches; the first evaluation stays fail-closed.
+export function evalVisibleWhenAfterShown(
+  visibleWhen: DashboardPanelVisibility,
+  result: UseQueryResult<Readonly<Record<string, unknown>>> | undefined,
+  wasShown: boolean,
+): VisibleWhenVerdict {
+  const verdict = evalVisibleWhen(visibleWhen, result);
+  const lastGoodDataMatches = result?.data?.[visibleWhen.field] === visibleWhen.eq;
+  return verdict === "error" && wasShown && lastGoodDataMatches ? "visible" : verdict;
+}

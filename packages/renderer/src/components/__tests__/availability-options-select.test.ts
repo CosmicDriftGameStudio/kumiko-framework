@@ -62,14 +62,20 @@ describe("filterUnavailableOptions", () => {
         { value: "pro", disabled: true, hint: "ignored" },
         { value: "max", disabled: false },
       ],
-      [],
+      new Set(),
     );
     expect(filtered.map((option) => option.value)).toEqual(["free", "max"]);
   });
 
-  test("a currently selected value stays listed even when disabled", () => {
-    const filtered = filterUnavailableOptions(OPTIONS, [{ value: "pro", disabled: true }], ["pro"]);
+  test("a value held at mount stays listed but disabled", () => {
+    const filtered = filterUnavailableOptions(
+      OPTIONS,
+      [{ value: "pro", disabled: true }],
+      new Set(["pro"]),
+    );
     expect(filtered.map((option) => option.value)).toEqual(["free", "pro", "max"]);
+    expect(filtered.find((option) => option.value === "pro")?.disabled).toBe(true);
+    expect(filtered.find((option) => option.value === "free")?.disabled).toBeUndefined();
   });
 
   test("unknown values, malformed rows and no rows leave every option", () => {
@@ -82,9 +88,9 @@ describe("filterUnavailableOptions", () => {
           null,
           { value: "pro", disabled: "yes" },
         ],
-        [],
+        new Set(),
       ),
     ).toEqual([...OPTIONS]);
-    expect(filterUnavailableOptions(OPTIONS, [], [])).toEqual([...OPTIONS]);
+    expect(filterUnavailableOptions(OPTIONS, [], new Set())).toEqual([...OPTIONS]);
   });
 });

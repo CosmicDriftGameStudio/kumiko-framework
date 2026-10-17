@@ -83,7 +83,13 @@ export async function runBootstrap(
   let report: BootstrapReport;
   try {
     report = await bootstrapTenants(
-      { db: boot.db, redis: boot.redis, dispatcher: boot.entrypoint.dispatcher },
+      {
+        db: boot.db,
+        redis: boot.redis,
+        dispatcher: boot.entrypoint.dispatcher,
+        registry: boot.registry,
+        ...(boot.configCipher && { configCipher: boot.configCipher }),
+      },
       {
         tenants: options.tenants,
         ...(options.systemAdmins && { systemAdmins: options.systemAdmins }),

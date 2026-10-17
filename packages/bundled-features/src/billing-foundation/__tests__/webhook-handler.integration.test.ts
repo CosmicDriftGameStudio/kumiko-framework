@@ -199,6 +199,12 @@ describe("webhook-handler — late events of a superseded subscription", () => {
       status: SubscriptionStatuses.incomplete,
     });
     await post({
+      providerEventId: "evt_old_cancel",
+      type: SubscriptionEventTypes.canceled,
+      providerSubscriptionId: "sub_old",
+      status: SubscriptionStatuses.canceled,
+    });
+    await post({
       providerEventId: "evt_new_created",
       type: SubscriptionEventTypes.created,
       providerSubscriptionId: "sub_new",
@@ -231,22 +237,26 @@ describe("webhook-handler — late events of a superseded subscription", () => {
     expect(await currentRow()).toMatchObject({ status: SubscriptionStatuses.pastDue });
   });
 
-  test("a created event of another subscription still replaces the tracked row", async () => {
-    await post({
+  test("a first-delivered created event of another subscription does not replace a live row", async () => {
+    const late = await post({
       providerEventId: "evt_third_created",
       type: SubscriptionEventTypes.created,
       providerSubscriptionId: "sub_third",
-      status: SubscriptionStatuses.active,
+      status: SubscriptionStatuses.incomplete,
     });
 
-    expect(await currentRow()).toMatchObject({ providerSubscriptionId: "sub_third" });
+    expect(late.stale).toBe(true);
+    expect(await currentRow()).toMatchObject({
+      providerSubscriptionId: "sub_new",
+      status: SubscriptionStatuses.pastDue,
+    });
   });
 
   test("once the tracked subscription is canceled, an event of another subscription applies", async () => {
     await post({
-      providerEventId: "evt_third_cancel",
+      providerEventId: "evt_new_cancel",
       type: SubscriptionEventTypes.canceled,
-      providerSubscriptionId: "sub_third",
+      providerSubscriptionId: "sub_new",
       status: SubscriptionStatuses.canceled,
     });
     const next = await post({

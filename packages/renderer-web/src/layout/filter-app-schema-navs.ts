@@ -36,23 +36,50 @@ export function reparentAppSchemaNavs(
 // unchanged, and a feature whose every nav gets stripped ends up with an
 // empty `navs` array, never `undefined` turned into something broken.
 //
+// An allowed nav whose parent exists but is not on the allowlist (and which has
+// no reparent override) loses its `parent` and surfaces at the top level, the same
+// as with `allowedNavQns` in buildNavRegistrySliceForApp; without that,
+// dropNavsWithNonexistentParent would drop it silently.
+//
 // `reparentOverrides` re-parents the surviving navs (see reparentAppSchemaNavs).
 export function filterAppSchemaNavsByAllowlist(
   schema: AppSchema,
   allowedNavQns: ReadonlySet<string>,
   reparentOverrides: ReadonlyMap<string, NavReparentOverride> = new Map(),
 ): AppSchema {
+  const existingNavQns = new Set(
+    schema.features.flatMap((feature) =>
+      (feature.navs ?? []).map((nav) => qualifyNavId(feature.featureName, nav.id)),
+    ),
+  );
+  const parentFilteredOut = (featureName: string, nav: NavOf): boolean => {
+    if (nav.parent === undefined) return false;
+    const parentQn = qualifyNavId(featureName, nav.parent);
+    return existingNavQns.has(parentQn) && !allowedNavQns.has(parentQn);
+  };
   const allowed: AppSchema = {
     ...schema,
     features: schema.features.map((feature): FeatureSchema => {
       if (feature.navs === undefined) return feature;
       return {
         ...feature,
-        navs: feature.navs.filter((nav) =>
-          allowedNavQns.has(qualifyNavId(feature.featureName, nav.id)),
-        ),
+        navs: feature.navs
+          .filter((nav) => allowedNavQns.has(qualifyNavId(feature.featureName, nav.id)))
+          .map((nav) =>
+            parentFilteredOut(feature.featureName, nav) &&
+            !reparentOverrides.has(qualifyNavId(feature.featureName, nav.id))
+              ? withoutParent(nav)
+              : nav,
+          ),
       };
     }),
   };
   return reparentAppSchemaNavs(allowed, reparentOverrides);
+}
+
+type NavOf = NonNullable<FeatureSchema["navs"]>[number];
+
+function withoutParent(nav: NavOf): NavOf {
+  const { parent: _filteredOutParent, ...topLevelNav } = nav;
+  return topLevelNav;
 }

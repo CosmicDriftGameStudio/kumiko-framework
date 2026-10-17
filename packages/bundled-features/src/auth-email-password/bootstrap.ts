@@ -7,23 +7,26 @@
 
 import {
   makeDispatchSystemWrite,
-  type SystemDispatchArgs,
+  makeDispatchWriteAs,
+  type RoleDispatchArgs,
 } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   ConfigScopes,
   createSystemUser,
+  type Registry,
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
+import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 // kumiko-lint-ignore cross-feature-import bootstrap sets per-tenant config through the config feature's write handler
 import { ConfigHandlers } from "../config/constants.js";
 // kumiko-lint-ignore cross-feature-import bootstrap compares against the stored config row to stay idempotent
-import { findConfigRow } from "../config/write-helpers.js";
+import { configRowHoldsValue, findConfigRow } from "../config/write-helpers.js";
 // kumiko-lint-ignore cross-feature-import bootstrap provisions tenant + invitation rows owned by the tenant feature
 import { TenantHandlers } from "../tenant/constants.js";
 // kumiko-lint-ignore cross-feature-import bootstrap provisions tenant + invitation rows owned by the tenant feature
@@ -55,9 +58,7 @@ export type BootstrapSeedDeps = {
   /** Writes as the system user with the given tenant roles in the seeded
    *  tenant; use it when the app gates tenant data on its own roles rather
    *  than SystemAdmin. */
-  readonly dispatchWriteAs: (
-    args: Pick<SystemDispatchArgs, "handlerQn" | "payload"> & { readonly roles: readonly string[] },
-  ) => Promise<WriteResult>;
+  readonly dispatchWriteAs: (args: Omit<RoleDispatchArgs, "tenantId">) => Promise<WriteResult>;
 };
 
 export type BootstrapConfigValue = string | number | boolean;
@@ -96,6 +97,10 @@ export type BootstrapDeps = {
   readonly db: DbConnection;
   readonly redis: Redis;
   readonly dispatcher: Dispatcher;
+  /** With these, a rerun can compare `encrypted`/`piiEncrypted` config keys by
+   *  their decrypted value; without them such keys are rewritten on every run. */
+  readonly registry?: Registry;
+  readonly configCipher?: EnvelopeCipher;
 };
 
 export type BootstrapTenantOutcome = "created" | "exists";
@@ -216,7 +221,18 @@ async function applyTenantConfig(
   const applied: string[] = [];
   for (const [key, value] of Object.entries(tenant.config ?? {})) {
     const existing = await findConfigRow(deps.db, key, tenant.id, null);
-    if (existing?.value === JSON.stringify(value)) continue;
+    const serialized = JSON.stringify(value);
+    if (
+      await configRowHoldsValue(
+        existing,
+        deps.registry?.getConfigKey(key),
+        deps.configCipher,
+        key,
+        serialized,
+      )
+    ) {
+      continue;
+    }
     const result = await deps.dispatcher.write(
       ConfigHandlers.set,
       { key, value, scope: ConfigScopes.tenant },
@@ -266,6 +282,11 @@ async function decideInvite(
     return "role-mismatch";
   }
   if (invitation.status === INVITATION_STATUS.accepted) return "active";
+  // The plan dropped a global role (e.g. an admin moved to tenants[].invites):
+  // the stored invitation would still grant it on accept, so it is re-issued.
+  if (storedGlobalRoles.some((role) => !invite.globalRoles.some((planned) => planned === role))) {
+    return "resent";
+  }
   if (await hasLiveInviteToken(deps.redis, invitation.id)) return "pending";
   return "resent";
 }
@@ -280,6 +301,7 @@ export async function bootstrapTenants(
 ): Promise<BootstrapReport> {
   const plannedInvites = planInvites(plan);
   const dispatchSystemWrite = makeDispatchSystemWrite(deps.dispatcher);
+  const dispatchWriteAsRoles = makeDispatchWriteAs(deps.dispatcher);
 
   const tenants: Array<BootstrapReport["tenants"][number]> = [];
   for (const tenant of plan.tenants) {
@@ -290,8 +312,7 @@ export async function bootstrapTenants(
         tenantId: tenant.id,
         db: deps.db,
         dispatchSystemWrite,
-        dispatchWriteAs: ({ handlerQn, payload, roles }) =>
-          deps.dispatcher.write(handlerQn, payload, createSystemUser(tenant.id, roles)),
+        dispatchWriteAs: (args) => dispatchWriteAsRoles({ ...args, tenantId: tenant.id }),
       });
     }
     const configApplied = await applyTenantConfig(deps, tenant);

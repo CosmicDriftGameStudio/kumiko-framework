@@ -1,6 +1,7 @@
-// HTTP client for puppeteer-service. Retry strategy: only on 5xx + network
-// errors (4xx is a client bug, not a retry candidate). Exponential backoff with
-// jitter to avoid thundering-herd effects.
+// HTTP client for puppeteer-service. Retry strategy: only network errors and
+// 502/503 (4xx is a client bug, 500/504 a deterministic render failure, neither
+// is a retry candidate). Exponential backoff with jitter to avoid
+// thundering-herd effects.
 
 import { RendererError } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { egress } from "@cosmicdrift/kumiko-framework/http";
@@ -56,12 +57,10 @@ export async function postRender(config: ClientConfig, body: unknown): Promise<F
     try {
       return await tryFetch(config, body, postToService);
     } catch (e) {
+      // A RendererError is final (4xx, deterministic render failure, client timeout);
+      // only plain Errors (network failure, 502/503) fall through to the next attempt.
+      if (e instanceof RendererError) throw e;
       lastError = e instanceof Error ? e : new Error(String(e));
-      if (e instanceof RendererError && e.code === "invalid_payload") {
-        // Client-side validation error or 4xx from the service: NO retry.
-        throw e;
-      }
-      // 5xx or network error: continue to the next attempt
     }
   }
   throw new RendererError(
@@ -70,6 +69,12 @@ export async function postRender(config: ClientConfig, body: unknown): Promise<F
   );
 }
 
+// 502/503 mean the service (or its proxy) could not take the job at all. A 500/504 means
+// the render ran and failed or timed out: repeating it only burns Chromium time again.
+const RETRYABLE_STATUSES: ReadonlySet<number> = new Set([502, 503]);
+
+// The timer covers headers AND body: a service that sends headers and then stalls
+// must not block the caller forever.
 async function tryFetch(
   config: ClientConfig,
   body: unknown,
@@ -77,9 +82,8 @@ async function tryFetch(
 ): Promise<FetchResult> {
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), config.requestTimeoutMs);
-  let response: Response;
   try {
-    response = await postToService(`${config.serviceUrl}/render`, {
+    const response = await postToService(`${config.serviceUrl}/render`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.authToken}`,
@@ -88,15 +92,20 @@ async function tryFetch(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
+    return await readRenderResponse(response);
   } catch (e) {
+    // The service keeps rendering after the client gives up; a retry would start a
+    // second parallel render on the same pod.
     if (e instanceof Error && e.name === "AbortError") {
-      throw new Error(`request timeout after ${config.requestTimeoutMs}ms`);
+      throw new RendererError(`request timeout after ${config.requestTimeoutMs}ms`, "unavailable");
     }
     throw e instanceof Error ? e : new Error(String(e));
   } finally {
     clearTimeout(timeoutHandle);
   }
+}
 
+async function readRenderResponse(response: Response): Promise<FetchResult> {
   if (response.status >= 200 && response.status < 300) {
     const buffer = await response.arrayBuffer();
     return {
@@ -105,18 +114,17 @@ async function tryFetch(
     };
   }
 
-  // 4xx: no retry (see postRender's catch logic via the RendererError throw)
+  const detail = await safeReadErrorJson(response);
   if (response.status >= 400 && response.status < 500) {
-    const detail = await safeReadErrorJson(response);
     throw new RendererError(
       `puppeteer-service rejected request: ${response.status} ${detail}`,
       "invalid_payload",
     );
   }
-
-  // 5xx: continue to retry (caught in postRender)
-  const detail = await safeReadErrorJson(response);
-  throw new Error(`puppeteer-service ${response.status}: ${detail}`);
+  if (RETRYABLE_STATUSES.has(response.status)) {
+    throw new Error(`puppeteer-service ${response.status}: ${detail}`);
+  }
+  throw new RendererError(`puppeteer-service failed: ${response.status} ${detail}`, "other");
 }
 
 async function safeReadErrorJson(response: Response): Promise<string> {

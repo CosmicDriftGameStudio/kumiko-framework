@@ -16,6 +16,7 @@ import {
 
 const USER_KEY = "pipelineUser";
 const AUTH_TRANSPORT_KEY = "authTransport";
+const STALE_CREDENTIAL_KEY = "staleCredentialCode";
 const AUTH_TOKEN_EXPIRY_KEY = "authTokenExpiry";
 
 export const CSRF_HEADER_NAME = "X-CSRF-Token";
@@ -363,6 +364,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       rejection: RejectArgs,
     ): Promise<Response | undefined> => {
       if (isStaleCookieDowngradable(c, transport, anonymousAccess)) {
+        c.set(STALE_CREDENTIAL_KEY, rejection.code);
         return await handleAnonymous(c, anonymousAccess, next, resolveTenantLifecycleStatus, {
           staleCredential: { rejectionIfTenantUnresolved: rejection },
         });
@@ -443,6 +445,12 @@ export function getUser(c: Context): SessionUser {
 export function getAuthTransport(c: Context): AuthTransport | undefined {
   // @cast-boundary engine-bridge — Hono context.get returns unknown
   return c.get(AUTH_TRANSPORT_KEY) as AuthTransport | undefined;
+}
+
+/** Rejection code of the stale auth cookie this request was downgraded to anonymous from; undefined otherwise. */
+export function getStaleCredentialCode(c: Context): string | undefined {
+  const code: unknown = c.get(STALE_CREDENTIAL_KEY);
+  return typeof code === "string" ? code : undefined;
 }
 
 /** JWT `exp` (epoch seconds) of the request's token; undefined for anonymous and verified-bearer (PAT) callers. */

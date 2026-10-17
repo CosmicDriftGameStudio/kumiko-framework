@@ -4,7 +4,8 @@ import { tenantChannel } from "../engine/constants.js";
 import { isAnonymousSessionUser } from "../engine/system-user.js";
 import type { SessionUser } from "../engine/types/index.js";
 import { Routes } from "./api-constants.js";
-import { getAuthTokenExpiry, getUser } from "./auth-middleware.js";
+import { getAuthTokenExpiry, getStaleCredentialCode, getUser } from "./auth-middleware.js";
+import { clearSessionCookies, getSessionCookies } from "./session-cookies.js";
 import { accessInvalidationCredentialFor, type SseBroker, type SseEvent } from "./sse-broker.js";
 import { scheduleTokenExpiry } from "./token-expiry-timer.js";
 
@@ -38,6 +39,11 @@ export const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
 function isEntityEventData(data: Record<string, unknown>): data is { aggregateType: string } {
   return typeof data["aggregateType"] === "string";
 }
+
+// First frame on a stream that was downgraded to anonymous because the browser's auth
+// cookie is stale. A downgraded stream answers 200, so EventSource never reports the
+// session end by itself.
+const SESSION_ENDED_SSE_EVENT = "session-ended";
 
 export type SseRouteOptions = {
   readonly anonymousLiveEntities: ReadonlySet<string>;
@@ -131,8 +137,17 @@ export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
     // JWT expiry raises no access-invalidation event, so the stream must end
     // itself when the token it was opened with expires.
     const tokenExpiresAtSec = getAuthTokenExpiry(c);
+    const staleCredentialCode = getStaleCredentialCode(c);
+    // JS cannot remove the HttpOnly auth cookie, so the response does.
+    if (staleCredentialCode !== undefined) clearSessionCookies(c, getSessionCookies(c));
 
     return streamSSE(c, async (stream) => {
+      if (staleCredentialCode !== undefined) {
+        await stream.writeSSE({
+          event: SESSION_ENDED_SSE_EVENT,
+          data: JSON.stringify({ code: staleCredentialCode }),
+        });
+      }
       let resolveEnded!: () => void;
       const ended = new Promise<void>((resolve) => {
         resolveEnded = resolve;

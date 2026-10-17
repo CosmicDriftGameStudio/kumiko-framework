@@ -119,6 +119,19 @@ async function decryptPiiEncrypted(raw: string, qualifiedKey: string): Promise<s
   return decryptPiiValueForSubject(kms, raw, kmsCtx, qualifiedKey);
 }
 
+// Plaintext form of a stored config_values.value for every read path (resolver,
+// bootstrap idempotency check).
+export async function decryptStoredValue(
+  raw: string,
+  keyDef: ConfigKeyDefinition,
+  cipher: EnvelopeCipher | undefined,
+  qualifiedKey: string,
+): Promise<string> {
+  if (keyDef.encrypted) return decryptEncrypted(cipher, raw, qualifiedKey);
+  if (keyDef.piiEncrypted) return decryptPiiEncrypted(raw, qualifiedKey);
+  return raw;
+}
+
 // backing="secrets" keys store their value in the secrets store (flat per
 // (tenant,key) at SYSTEM_TENANT_ID), not in config_values. Both read paths
 // (getWithSource + buildCascade) route the system rung here. Missing reader =
@@ -230,12 +243,7 @@ async function buildCascade(
 
     const row = await fetchRow(lookup.tenantId, lookup.userId);
     if (row?.value !== null && row?.value !== undefined) {
-      let raw = row.value;
-      if (keyDef.encrypted) {
-        raw = await decryptEncrypted(cipher, raw, qualifiedKey);
-      } else if (keyDef.piiEncrypted) {
-        raw = await decryptPiiEncrypted(raw, qualifiedKey);
-      }
+      const raw = await decryptStoredValue(row.value, keyDef, cipher, qualifiedKey);
       if (activeIndex === -1) activeIndex = levels.length;
       levels.push({
         label: lookup.label,
@@ -409,12 +417,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       for (const lookup of lookups) {
         const row = await findRow(qualifiedKey, lookup.tenantId, lookup.userId, db);
         if (row?.value !== null && row?.value !== undefined) {
-          let raw = row.value;
-          if (keyDef.encrypted) {
-            raw = await decryptEncrypted(cipher, raw, qualifiedKey);
-          } else if (keyDef.piiEncrypted) {
-            raw = await decryptPiiEncrypted(raw, qualifiedKey);
-          }
+          const raw = await decryptStoredValue(row.value, keyDef, cipher, qualifiedKey);
           return { value: deserializeValue(raw, keyDef.type), source: lookup.source };
         }
       }

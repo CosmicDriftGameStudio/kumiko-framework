@@ -45,7 +45,7 @@ import {
   createRedisCacheSyncBus,
   redisClientOptionsFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
-import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
+import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Redis } from "ioredis";
@@ -85,6 +85,8 @@ export type BootedWorkerProcess = {
   /** ctx.secrets as wired into the entrypoint (auto-wired when the secrets
    *  feature is mounted and a master key exists, or from `extraContext`). */
   readonly secrets?: SecretsContext;
+  /** Envelope cipher for `encrypted` config keys, when a master key is wired. */
+  readonly configCipher?: EnvelopeCipher;
   readonly close: () => Promise<void>;
 };
 
@@ -306,6 +308,7 @@ export async function bootWorkerProcess(
     envSource,
     entrypoint,
     ...(isSecretsContext(extraContext["secrets"]) && { secrets: extraContext["secrets"] }),
+    ...(bootCrypto.configCipher && { configCipher: bootCrypto.configCipher }),
     close: async () => {
       await entrypoint.stop();
       await closeDb();

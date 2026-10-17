@@ -73,15 +73,16 @@ The same plan can run again safely:
 | `config` value already matches | nothing is written |
 | invitation pending (link still valid) | `pending`, no mail |
 | invitation expired unused | `resent`, a new link goes out |
+| open invitation still carries a global role the plan no longer lists | `resent`, the old link stops working and the new one carries the planned roles |
 | invitation accepted, or the user already has access | `active`, no mail |
 | invitation cancelled by an admin | `cancelled`, nothing is re-sent |
 | a tenant admin re-invited the address without the planned SystemAdmin role | `role-mismatch`, nothing is sent; decide by hand |
 
 `config` is declarative and converges on every run, so a later run also changes
 a value you edited in the plan. Keys that only the system may write (for example
-`auth-mfa:config:required`) can be set this way and nowhere else. Encrypted keys
-are re-encrypted and rewritten on each run, because their stored value cannot be
-compared.
+`auth-mfa:config:required`) can be set this way and nowhere else. Encrypted
+and PII-encrypted keys are compared by their decrypted value, so an unchanged
+value is not rewritten.
 
 A seed that fails after the tenant was created is not retried by a second run.
 Fix the data through the app or a migration instead.

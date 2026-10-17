@@ -44,7 +44,6 @@ import type {
   UpsertResponse,
   ValidationIssue,
 } from "./layout-types.js";
-import { layoutUsers } from "./layout-users.js";
 import { systemLabelMap } from "./mail-draft.js";
 import { OriginBar } from "./origin-bar.js";
 import type { OverviewRowView } from "./overview-row.js";
@@ -113,6 +112,7 @@ export function LayoutEditorBody({
   isSystemAdmin,
   source,
   overviewRows,
+  usedByCount,
   overrides,
   onKindChange,
   onReload,
@@ -122,6 +122,7 @@ export function LayoutEditorBody({
   readonly isSystemAdmin: boolean;
   readonly source: LayoutSourceView;
   readonly overviewRows: readonly OverviewRowView[];
+  readonly usedByCount: number;
   readonly overrides: TenantOverrideCounts | null;
   readonly onKindChange: (kind: LayoutKind) => void;
   readonly onReload: () => Promise<void>;
@@ -178,7 +179,7 @@ export function LayoutEditorBody({
   const checked = validation.data;
 
   const shownRow = isSystemAdmin ? source.system : (source.tenant ?? source.system);
-  const userCount = layoutUsers(overviewRows, kind, slug).length;
+  const userCount = usedByCount;
   const placeholders = checked?.systemPlaceholders ?? [];
   const placeholderLabels = systemLabelMap(t, placeholders);
 

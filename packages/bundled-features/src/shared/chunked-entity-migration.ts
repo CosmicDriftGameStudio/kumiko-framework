@@ -33,6 +33,9 @@ export type ChunkedMigrationOptions<Row> = {
   readonly maxFailures: number;
   // Epoch ms; Number.POSITIVE_INFINITY for no time bound.
   readonly deadlineAt: number;
+  // Batches processed even when the deadline already passed. Callers whose setup before the
+  // loop can eat the whole budget set 1, so every run makes progress instead of timing out empty.
+  readonly minBatches?: number;
   readonly signal?: AbortSignal | undefined;
   readonly onRowError?: (row: Row, err: unknown) => void;
 };
@@ -51,7 +54,7 @@ export async function runChunkedMigration<Row>(
       stoppedReason = "signal";
       break;
     }
-    if (Date.now() >= opts.deadlineAt) {
+    if (batchesProcessed >= (opts.minBatches ?? 0) && Date.now() >= opts.deadlineAt) {
       stoppedReason = "timeout";
       break;
     }

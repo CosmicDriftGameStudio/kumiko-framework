@@ -741,7 +741,7 @@ function renderInput({
             {...common}
             multiple
             value={arrayValue}
-            onChange={(v) => onChange(v)}
+            onChange={(v) => onChange(withPinnedValues(v, options, arrayValue))}
             options={options}
           />
         );
@@ -750,7 +750,7 @@ function renderInput({
           <AvailabilityOptionsMultiSelect
             field={field}
             query={field.selectOptionsAvailabilityQuery.query}
-            currentValues={arrayValue}
+            initialValues={arrayValue}
           >
             {renderMultiSelect}
           </AvailabilityOptionsMultiSelect>
@@ -964,7 +964,10 @@ const ISO_CURRENCY_CODE = /^[A-Z]{3}$/;
 function resolveMoneyCurrency(value: unknown, fieldCurrency: string | undefined): string {
   if (typeof value === "object" && value !== null && "currency" in value) {
     const { currency } = value;
-    if (typeof currency === "string" && ISO_CURRENCY_CODE.test(currency)) return currency;
+    if (typeof currency === "string") {
+      const normalized = currency.toUpperCase();
+      if (ISO_CURRENCY_CODE.test(normalized)) return normalized;
+    }
   }
   return fieldCurrency ?? "EUR";
 }
@@ -989,7 +992,24 @@ function resolveNumberUnit(
 }
 
 function stringArrayOf(value: unknown): readonly string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+// The combobox cannot disable a single option, so removals of disabled options
+// the form already holds are merged back.
+function withPinnedValues(
+  next: readonly string[],
+  options: readonly SelectOptionEntry[],
+  current: readonly string[],
+): readonly string[] {
+  const missingPinned = options
+    .filter(
+      (opt) => opt.disabled === true && current.includes(opt.value) && !next.includes(opt.value),
+    )
+    .map((opt) => opt.value);
+  return missingPinned.length === 0 ? next : [...next, ...missingPinned];
 }
 
 function stringPropertyOf(value: unknown, key: string): string | undefined {

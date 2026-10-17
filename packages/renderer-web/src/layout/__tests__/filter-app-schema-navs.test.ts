@@ -4,6 +4,7 @@ import {
   filterAppSchemaNavsByAllowlist,
   reparentAppSchemaNavs,
 } from "../filter-app-schema-navs.js";
+import { buildNavRegistrySliceForApp } from "../nav-tree.js";
 
 function feature(overrides: Partial<FeatureSchema> & { featureName: string }): FeatureSchema {
   return {
@@ -74,6 +75,61 @@ describe("filterAppSchemaNavsByAllowlist", () => {
 
     expect(filtered.features[0]?.navs).toEqual([]);
     expect(filtered.features).toHaveLength(1);
+  });
+
+  test("an allowed child of a parent that is not allowlisted surfaces at the top level", () => {
+    const schema: AppSchema = {
+      features: [
+        feature({
+          featureName: "shell",
+          navs: [
+            { id: "group", label: "x" },
+            { id: "child", label: "x", parent: "group" },
+            { id: "grandchild", label: "x", parent: "child" },
+          ],
+        }),
+      ],
+    };
+
+    const filtered = filterAppSchemaNavsByAllowlist(
+      schema,
+      new Set(["shell:nav:child", "shell:nav:grandchild"]),
+    );
+
+    const navs = filtered.features[0]?.navs ?? [];
+    expect(navs.find((nav) => nav.id === "child")?.parent).toBeUndefined();
+    expect(navs.find((nav) => nav.id === "grandchild")?.parent).toBe("child");
+    const slice = buildNavRegistrySliceForApp(filtered);
+    expect(slice.topLevel.map((nav) => nav.id)).toEqual(["shell:nav:child"]);
+    expect(slice.byParent("shell:nav:child").map((nav) => nav.id)).toEqual([
+      "shell:nav:grandchild",
+    ]);
+  });
+
+  test("a parent that is allowlisted keeps its children, and an override wins over the lift", () => {
+    const schema: AppSchema = {
+      features: [
+        feature({
+          featureName: "shell",
+          navs: [
+            { id: "group", label: "x" },
+            { id: "child", label: "x", parent: "group" },
+            { id: "moved", label: "x", parent: "group" },
+            { id: "target", label: "x" },
+          ],
+        }),
+      ],
+    };
+
+    const filtered = filterAppSchemaNavsByAllowlist(
+      schema,
+      new Set(["shell:nav:group", "shell:nav:child", "shell:nav:moved", "shell:nav:target"]),
+      new Map([["shell:nav:moved", { parent: "shell:nav:target", order: 1 }]]),
+    );
+
+    const navs = filtered.features[0]?.navs ?? [];
+    expect(navs.find((nav) => nav.id === "child")?.parent).toBe("group");
+    expect(navs.find((nav) => nav.id === "moved")?.parent).toBe("shell:nav:target");
   });
 
   test("reparents an adopted foreign nav onto the given section, leaving other fields intact", () => {
