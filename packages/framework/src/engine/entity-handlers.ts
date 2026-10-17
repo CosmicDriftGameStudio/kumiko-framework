@@ -14,6 +14,7 @@ import {
   reportConventionCrossTenantUse,
   type TenantDb,
 } from "../db/tenant-db.js";
+import { InternalError } from "../errors/index.js";
 import { isSystemIdentity } from "../pipeline/system-identity-switch.js";
 import { assertUnreachable } from "../utils/index.js";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.js";
@@ -123,8 +124,8 @@ const idSchema = z.object({ id: z.uuid() });
 
 const SYSTEM_ADMIN_ROLE = "SystemAdmin";
 
-// A write handler with escapeHatch reads/writes rows of every tenant, so only an operator
-// role may reach it — otherwise any tenant-level role holder could mutate foreign tenants.
+// A handler with escapeHatch reads/writes rows of every tenant, so only an operator
+// role may reach it — otherwise any tenant-level role holder could read or mutate foreign tenants.
 function isSystemAdminOnly(access: AccessRule): boolean {
   return (
     "roles" in access &&
@@ -144,9 +145,9 @@ function resolveCrossTenantReason(
   }
   const placeholderProblem = codemodPlaceholderReasonProblem(options.escapeHatch.reason);
   if (placeholderProblem !== undefined) throw new Error(`"${name}": ${placeholderProblem}`);
-  if (kind === "write" && !isSystemAdminOnly(options.access)) {
+  if (!isSystemAdminOnly(options.access)) {
     throw new Error(
-      `"${name}": a write handler with escapeHatch reaches across every tenant, so its access must be SystemAdmin-only ({ roles: ["${SYSTEM_ADMIN_ROLE}"] }); got ${JSON.stringify(options.access)}.`,
+      `"${name}": a ${kind} handler with escapeHatch reaches across every tenant, so its access must be SystemAdmin-only ({ roles: ["${SYSTEM_ADMIN_ROLE}"] }); got ${JSON.stringify(options.access)}.`,
     );
   }
   return options.escapeHatch.reason;
@@ -379,7 +380,13 @@ export function defineEntityWriteHandler(
       );
     }
     if (typeof rowTenantId !== "string" || rowTenantId === user.tenantId) return undefined;
-    return parseTenantId(rowTenantId) ?? undefined;
+    const streamTenantId = parseTenantId(rowTenantId);
+    if (streamTenantId === null) {
+      throw new InternalError({
+        message: `"${name}": row ${String(id)} has tenantId "${rowTenantId}" which is not a TenantId; refusing to append to the wrong stream.`,
+      });
+    }
+    return streamTenantId;
   };
 
   let schema: ZodType;
@@ -803,7 +810,7 @@ export function registerEntityCrud(
       ...writeOpts,
       access: requireAccess(verb, options?.verbAccess?.[verb] ?? writeOpts?.access),
       description: options?.descriptions?.[verb] ?? writeOpts?.description,
-      ...(verbAgent !== undefined && { agent: verbAgent }),
+      ...(verbAgent !== undefined && { agent: { ...writeOpts?.agent, ...verbAgent } }),
       ...(excludeFields !== undefined && { excludeFields }),
     };
   };
@@ -813,7 +820,7 @@ export function registerEntityCrud(
       ...readOpts,
       access: requireAccess(verb, options?.verbAccess?.[verb] ?? readOpts?.access),
       description: options?.descriptions?.[verb] ?? readOpts?.description,
-      ...(verbAgent !== undefined && { agent: verbAgent }),
+      ...(verbAgent !== undefined && { agent: { ...readOpts?.agent, ...verbAgent } }),
     };
   };
 

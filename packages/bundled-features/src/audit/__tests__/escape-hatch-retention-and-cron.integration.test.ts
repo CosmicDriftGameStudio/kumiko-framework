@@ -33,6 +33,7 @@ import {
   ESCAPE_HATCH_USED_EVENT,
 } from "../escape-hatch-audit-sink.js";
 import { createAuditFeature } from "../feature.js";
+import { runEscapeHatchRetention } from "../run-escape-hatch-retention.js";
 
 const RETENTION_OVERRIDE_DAYS = 30;
 const CRON_PROBE_JOB = "cron-probe:job:touch-raw";
@@ -170,6 +171,35 @@ describe("audit escape-hatch retention job", () => {
     );
     expect(remaining.has(oldest)).toBe(false);
     expect(remaining.has(old)).toBe(false);
+    expect(remaining.has(young)).toBe(true);
+  });
+
+  test("prunes a backlog larger than one batch and keeps younger events", async () => {
+    const BATCH_SIZE = 2;
+    const oldIds = [];
+    for (let i = 0; i < BATCH_SIZE * 2 + 1; i++) oldIds.push(await seedEscapeHatchEvent(200));
+    const young = await seedEscapeHatchEvent(RETENTION_OVERRIDE_DAYS - 20);
+    await drainEventConsumers(stack, ["system:consumer:sse-broadcast"]);
+
+    const { deletedCount } = await runEscapeHatchRetention({
+      db: stack.db,
+      registry: stack.registry,
+      configResolver: createConfigResolver({
+        appOverrides: new Map([[ESCAPE_HATCH_RETENTION_DAYS_KEY, RETENTION_OVERRIDE_DAYS]]),
+      }),
+      userId: "system",
+      batchSize: BATCH_SIZE,
+    });
+
+    const remaining = new Set(
+      (
+        await selectMany<{ aggregateId: string }>(stack.db, eventsTable, {
+          aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE,
+        })
+      ).map((row) => row.aggregateId),
+    );
+    expect(deletedCount).toBe(oldIds.length);
+    expect(oldIds.some((id) => remaining.has(id))).toBe(false);
     expect(remaining.has(young)).toBe(true);
   });
 });

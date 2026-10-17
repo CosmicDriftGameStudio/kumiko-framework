@@ -17,9 +17,11 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  append,
   eventsTable,
   runSeedWritesAt,
   SeedModeDisabledError,
+  SeedTimeOrderError,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   ConsumerLagError,
@@ -251,6 +253,36 @@ describe("seed stream order", () => {
 
     expect(result.isSuccess).toBe(false);
     expect(await eventsOf(h, old.id)).toHaveLength(2);
+  });
+});
+
+describe("seed stream order: typed error", () => {
+  test("append rejects a back-dated version with SeedTimeOrderError naming the stream", async () => {
+    const h = await boot();
+    const tenant = await seedTenantVia(h);
+    const old = await runSeeder(h, tenant.id, "backdated", { daysAgo: 10 });
+    const events = await eventsOf(h, old.id);
+    const predecessor = events[events.length - 1];
+    if (!predecessor) throw new Error("expected events");
+
+    const attempt = runSeedWritesAt(predecessor.createdAt.subtract({ hours: 1 }), () =>
+      append(h.stack.db, {
+        aggregateId: old.id,
+        aggregateType: "note",
+        tenantId: tenant.id as TenantId,
+        expectedVersion: events.length,
+        type: "note.touched",
+        payload: {},
+        metadata: { userId: "system" },
+      }),
+    );
+
+    await expect(attempt).rejects.toBeInstanceOf(SeedTimeOrderError);
+    await expect(attempt).rejects.toMatchObject({
+      aggregateId: old.id,
+      version: events.length + 1,
+    });
+    expect(await eventsOf(h, old.id)).toHaveLength(events.length);
   });
 });
 

@@ -601,16 +601,20 @@ export async function buildHandlerContext(
             context._fileProviderResolver,
           )
       : undefined;
+  const notifyAfterCommitFactory = notifyFactory
+    ? (notifyUser: SessionUser, notifyTenantId: TenantId): NotifyFn =>
+        notifyFactory(
+          notifyUser,
+          notifyTenantId,
+          notifyJobDispatcher,
+          undefined,
+          context._fileProviderResolver,
+        )
+    : undefined;
   const notify = buildNotify();
   function buildNotify(): NotifyFn | undefined {
-    if (!notifyFactory) return undefined;
-    const notifyAfterCommit = notifyFactory(
-      user,
-      user.tenantId,
-      notifyJobDispatcher,
-      undefined,
-      context._fileProviderResolver,
-    );
+    if (!notifyAfterCommitFactory) return undefined;
+    const notifyAfterCommit = notifyAfterCommitFactory(user, user.tenantId);
     if (!notifyInTransactionFactory) return notifyAfterCommit;
     const notifyInTransaction = notifyInTransactionFactory(user, user.tenantId);
     // A rolled-back write must leave no notification behind. Without any commit to wait for (a
@@ -1217,12 +1221,14 @@ export async function buildHandlerContext(
     _rateLimitPayloadDigest: payloadDigest,
     // Bound to this call's tx: an outer context's factory must not leak into a tx-less one.
     _notifyInTransactionFactory: _omitOuterNotifyInTransactionFactory,
+    _notifyAfterCommitFactory: _omitOuterNotifyAfterCommitFactory,
     ...contextForHandler
   } = context;
   const handlerContext = {
     ...contextForHandler,
     ...(payloadDigest && { rateLimitDigest: createHandlerBoundDigest(payloadDigest, type) }),
     ...(notifyInTransactionFactory && { _notifyInTransactionFactory: notifyInTransactionFactory }),
+    ...(notifyAfterCommitFactory && { _notifyAfterCommitFactory: notifyAfterCommitFactory }),
     registry,
     db: exposedDb,
     dbOutsideTransaction,

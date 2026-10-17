@@ -43,7 +43,11 @@
 //   unresolvable subject still fails loud into `failures`, as before.
 //   4. owner re-key ({@link PiiBackfillOptions.rekeyTenantKeyedOwnerFields}) —
 //   tenant-keyed ciphertext of a userOwned field moves under the user the
-//   strict chain (stages 1+2, never whenAbsent) names.
+//   strict chain (stages 1+2, never whenAbsent) names; user-keyed ciphertext
+//   moves under the projection's current owner when that is another user (an
+//   owner change made before owner transitions re-keyed the value). An owner
+//   cleared again (owner → none) is not recoverable from the projection: such
+//   values stay tenant-keyed, unlike the live path that keeps the last owner.
 //
 // Snapshots of touched aggregates are dropped per batch (they may cache
 // plaintext); the next snapshotting load recreates them. AFTER a run, rebuild the
@@ -62,6 +66,7 @@ import {
   type LocalKeyKmsAdapter,
   type SubjectId,
 } from "../../crypto/kms-adapter.js";
+import { isPlainUserOwnedField } from "../../crypto/owner-transition-rekey.js";
 import {
   configuredPiiSubjectKms,
   decryptPiiValueForSubject,
@@ -72,6 +77,7 @@ import {
 } from "../../crypto/pii-field-encryption.js";
 import {
   collectPiiEncryptedFields,
+  nonEmptyString,
   type ResolveSubjectOptions,
   resolveEventSubject,
   resolveSubjectForField,
@@ -671,34 +677,20 @@ type RekeyTarget = {
   readonly projectionOwnerRow: Record<string, unknown> | undefined;
 };
 
-function isPlainUserOwnedField(entity: EntityDefinition, field: string): boolean {
-  const fieldDef = entity.fields[field];
-  if (fieldDef === undefined || !("userOwned" in fieldDef) || fieldDef.userOwned === undefined) {
-    return false;
-  }
-  return !("recordOwned" in fieldDef && fieldDef.recordOwned === true);
-}
-
 // Stage 4. In dryRun the "rekeyed" value is the untouched ciphertext (nothing is written).
 async function rekeyTenantKeyedValue(deps: RekeyDeps, target: RekeyTarget): Promise<RekeyOutcome> {
   const { entity, field, ciphertext } = target;
-  if (!isPlainUserOwnedField(entity, field) || !isTenantKeyedUnder(ciphertext, target.tenantId)) {
-    return { kind: "unchanged" };
-  }
+  const fieldDef = entity.fields[field];
+  if (fieldDef === undefined || !isPlainUserOwnedField(fieldDef)) return { kind: "unchanged" };
 
-  const resolution = resolveOwnerSubject(
-    entity,
-    field,
-    target.subjectSource,
-    target.ownerFallback,
-    target.projectionOwnerRow,
-    target.tenantId,
-    target.aggregateType,
-  );
-  if (resolution.kind !== "resolved" || resolution.subject.kind !== "user") {
-    return { kind: "unchanged" };
-  }
-  const userSubject = resolution.subject;
+  const keyedUnder = ciphertextSubjectOrNull(ciphertext);
+  const userSubject =
+    keyedUnder?.kind === "tenant" && keyedUnder.tenantId === target.tenantId
+      ? ownerOfTenantKeyedValue(target)
+      : keyedUnder?.kind === "user"
+        ? currentProjectionOwnerIfOther(target, keyedUnder.userId)
+        : null;
+  if (userSubject === null) return { kind: "unchanged" };
 
   if (await deps.isForgottenSubject(userSubject)) return { kind: "erased" };
   if (deps.dryRun) {
@@ -728,15 +720,40 @@ async function rekeyTenantKeyedValue(deps: RekeyDeps, target: RekeyTarget): Prom
   }
 }
 
-// Only the row's own tenant key counts: another tenant's or a user's key is
+// Strict chain (payload, then projection), never whenAbsent.
+function ownerOfTenantKeyedValue(target: RekeyTarget): SubjectId | null {
+  const resolution = resolveOwnerSubject(
+    target.entity,
+    target.field,
+    target.subjectSource,
+    target.ownerFallback,
+    target.projectionOwnerRow,
+    target.tenantId,
+    target.aggregateType,
+  );
+  return resolution.kind === "resolved" && resolution.subject.kind === "user"
+    ? resolution.subject
+    : null;
+}
+
+// A value keyed under a previous owner moves to the owner the row has now. The
+// projection of the event's own tenant is authoritative here: the payload of
+// an old created event still names the owner the row had back then.
+function currentProjectionOwnerIfOther(target: RekeyTarget, keyedUserId: string): SubjectId | null {
+  const fieldDef = target.entity.fields[target.field];
+  if (fieldDef === undefined || !("userOwned" in fieldDef) || !fieldDef.userOwned) return null;
+  const owner = nonEmptyString(target.projectionOwnerRow?.[fieldDef.userOwned.ownerField]);
+  return owner === null || owner === keyedUserId ? null : { kind: "user", userId: owner };
+}
+
+// Only the row's own tenant key or a user key counts: another tenant's key is
 // never decrypted here.
-function isTenantKeyedUnder(ciphertext: string, tenantId: string): boolean {
+function ciphertextSubjectOrNull(ciphertext: string): SubjectId | null {
   try {
-    const subject = piiCiphertextSubject(ciphertext);
-    return subject.kind === "tenant" && subject.tenantId === tenantId;
+    return piiCiphertextSubject(ciphertext);
   } catch {
     // skip: a malformed ciphertext prefix is not ours to re-key
-    return false;
+    return null;
   }
 }
 
@@ -763,6 +780,24 @@ function attemptResolve(
   }
 }
 
+// An explicit owner key (even null) means the event itself knows the row had no
+// owner then; only a missing key predates the owner field and may use the
+// projection's current owner.
+function payloadNamesOwnerKey(
+  entity: EntityDefinition,
+  field: string,
+  subjectSource: Record<string, unknown>,
+  ownerFallback: Record<string, unknown> | undefined,
+): boolean {
+  const fieldDef = entity.fields[field];
+  if (fieldDef === undefined || !("userOwned" in fieldDef) || !fieldDef.userOwned) return false;
+  const { ownerField } = fieldDef.userOwned;
+  return (
+    Object.hasOwn(subjectSource, ownerField) ||
+    (ownerFallback !== undefined && Object.hasOwn(ownerFallback, ownerField))
+  );
+}
+
 // Stage 1 (payload) and stage 2 (projection row, when supplied) resolve the
 // owner strictly, ignoring whenAbsent — an ownerless payload must not shadow
 // an owner the projection knows. Stage 2b then applies whenAbsent to the
@@ -786,7 +821,7 @@ function resolveOwnerSubject(
       : { kind: "resolved", subject: payloadAttempt.subject, viaProjection: false };
   }
 
-  if (projectionOwnerRow) {
+  if (projectionOwnerRow && !payloadNamesOwnerKey(entity, field, subjectSource, ownerFallback)) {
     const augmented = { ...subjectSource, ...projectionOwnerRow };
     const projectionAttempt = attemptResolve(entity, field, augmented, strictOpts);
     if (projectionAttempt.ok && projectionAttempt.subject !== null) {

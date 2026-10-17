@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import {
+  type CacheSyncBus,
   type ClosableCacheSyncBus,
   createDefaultCacheSyncBus,
 } from "@cosmicdrift/kumiko-framework/redis";
@@ -40,9 +41,11 @@ export type ToggleSyncSignal = {
 // per-instance behavior for the only process there is.
 export class GlobalFeatureToggleRuntime {
   private snapshot = new Map<string, boolean>();
-  // Flips applied while a snapshot load is in flight. The load's SELECT may have
-  // started before the flip committed, so its rows can be older than these.
-  private appliedDuringLoad: Map<string, boolean> | undefined;
+  // One buffer per requested load, open from the call until its SELECT finished: the SELECT
+  // may have started before a flip committed, so its rows can be older than the flips collected.
+  private readonly pendingFlipBuffers = new Set<Map<string, boolean>>();
+  // Loads run one at a time so the older rows of one cannot overwrite the result of another.
+  private loadInFlight: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly db: DbConnection,
@@ -69,10 +72,16 @@ export class GlobalFeatureToggleRuntime {
     await this.ownedBus?.close();
   }
 
-  async initialize(): Promise<void> {
-    type Row = { featureName: string; enabled: boolean };
+  initialize(): Promise<void> {
     const pendingFlips = new Map<string, boolean>();
-    this.appliedDuringLoad = pendingFlips;
+    this.pendingFlipBuffers.add(pendingFlips);
+    const load = this.loadInFlight.then(() => this.loadSnapshot(pendingFlips));
+    this.loadInFlight = load.catch(() => undefined);
+    return load;
+  }
+
+  private async loadSnapshot(pendingFlips: Map<string, boolean>): Promise<void> {
+    type Row = { featureName: string; enabled: boolean };
     try {
       const rows = await selectMany<Row>(this.db, globalFeatureStateTable);
       this.snapshot = new Map([
@@ -80,7 +89,7 @@ export class GlobalFeatureToggleRuntime {
         ...pendingFlips,
       ]);
     } finally {
-      this.appliedDuringLoad = undefined;
+      this.pendingFlipBuffers.delete(pendingFlips);
     }
   }
 
@@ -98,7 +107,7 @@ export class GlobalFeatureToggleRuntime {
   // lock. Kept alongside refresh() so both options are explicit.
   apply(featureName: string, enabled: boolean): void {
     this.snapshot.set(featureName, enabled);
-    this.appliedDuringLoad?.set(featureName, enabled);
+    for (const pendingFlips of this.pendingFlipBuffers) pendingFlips.set(featureName, enabled);
   }
 
   // Called by the toggle-cache-sync MSP handler (feature.ts) — the one
@@ -144,15 +153,20 @@ export class GlobalFeatureToggleRuntime {
 
 // Factory for app-boot wiring: instantiate, initialize, return the runtime (for the
 // set-handler to refresh; its effectiveFeatures feeds createDispatcher). Without an explicit
-// syncSignal the runtime builds one on the framework cache-sync bus: Redis-backed when
-// REDIS_URL is set, process-local otherwise. close() releases a bus it created.
+// syncSignal the signal runs on the given cacheSyncBus or, failing that, on a bus the runtime
+// creates itself (Redis-backed when REDIS_URL is set, process-local otherwise). close() releases
+// only a bus the runtime created.
 export async function createFeatureToggleRuntime(
   db: DbConnection,
   registry: Registry,
   syncSignal?: ToggleSyncSignal,
+  // The server's own bus (the one handed to the dispatcher): reusing it avoids a second set of
+  // Redis connections that nothing closes at shutdown.
+  cacheSyncBus?: CacheSyncBus,
 ): Promise<GlobalFeatureToggleRuntime> {
-  const ownedBus = syncSignal ? undefined : createDefaultCacheSyncBus();
-  const signal = syncSignal ?? (ownedBus ? createCacheSyncToggleSignal(ownedBus) : undefined);
+  const ownedBus = syncSignal || cacheSyncBus ? undefined : createDefaultCacheSyncBus();
+  const sharedBus = cacheSyncBus ?? ownedBus;
+  const signal = syncSignal ?? (sharedBus ? createCacheSyncToggleSignal(sharedBus) : undefined);
   const runtime = new GlobalFeatureToggleRuntime(db, registry, signal, ownedBus);
   try {
     await runtime.initialize();

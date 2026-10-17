@@ -191,7 +191,16 @@ const wrappedRolling = withRollingCapEnforcement(rollingHandler, () => ({
 }));
 const ROLLING_QN = "capgate:write:rolling-send";
 
+const nestedCaller: WriteHandlerDef = {
+  name: "nested-caller",
+  schema: z.object({}),
+  access: { roles: ["TenantAdmin"] },
+  handler: async (_event, ctx) => ctx.write(ROLLING_QN, {}),
+};
+const NESTED_CALLER_QN = "capgate:write:nested-caller";
+
 const capGateFeature = defineFeature("capgate", (r) => {
+  r.writeHandler(nestedCaller);
   r.writeHandler(wrappedRolling);
   r.writeHandler(wrappedGated);
   r.writeHandler(capturingUnknownCommit);
@@ -492,6 +501,18 @@ describe("withRollingCapEnforcement - reservation lifecycle", () => {
 
     // 2 orphaned - 2 expired + 1 new
     expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(1);
+    expect(await reservationRows(tenantNumber)).toHaveLength(0);
+  });
+});
+
+describe("withRollingCapEnforcement - nested write", () => {
+  test("a nested ctx.write of a rolling-capped handler is rejected and books nothing", async () => {
+    const tenantNumber = 3406;
+
+    const error = await stack.http.writeErr(NESTED_CALLER_QN, {}, userFor(tenantNumber, 1));
+
+    expect(error.httpStatus).toBe(500);
+    expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(0);
     expect(await reservationRows(tenantNumber)).toHaveLength(0);
   });
 });

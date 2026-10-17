@@ -1,11 +1,9 @@
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createSystemUser,
   defineWriteHandler,
   type HandlerContext,
   parseTenantId,
-  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   InternalError,
@@ -18,13 +16,12 @@ import {
   cancelPendingInvitation,
   INVITATION_STATUS,
   tenantInvitationsTable,
-  tenantMembershipsTable,
 } from "../../tenant/index.js";
-import { userTable } from "../../user/index.js";
 import { WAITLIST_STATUS, WaitlistErrors } from "../constants.js";
 import { isOpenWaitlistStatus } from "../entity.js";
 import {
   adminAccess,
+  isTenantMember,
   normalizeEmail,
   platformActor,
   waitlistDb,
@@ -33,18 +30,6 @@ import {
 import { WaitlistIdSchema } from "../payloads.js";
 
 export type WaitlistRejectData = { readonly kind: "rejected"; readonly id: string };
-
-// An admin re-invite can flip an accepted invitation back to pending, so the
-// invitation status alone cannot prove the person holds no access.
-async function isTenantMember(db: TenantDb, email: string, tenantId: TenantId): Promise<boolean> {
-  const user = await fetchOne<{ id: string }>(db, userTable, {
-    email: normalizeEmail(email),
-    isDeleted: false,
-  });
-  if (!user) return false;
-  const membership = await fetchOne(db, tenantMembershipsTable, { userId: user.id, tenantId });
-  return membership !== undefined && membership !== null;
-}
 
 // An invited entry already has a live invitation link; rejecting must kill it,
 // otherwise the rejected person can still sign up. Once accepted they hold

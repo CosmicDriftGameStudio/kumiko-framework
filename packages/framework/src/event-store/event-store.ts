@@ -23,7 +23,11 @@ import {
 import { insertOne, selectMany } from "../db/query.js";
 import type { TenantId } from "../engine/types/index.js";
 import { isStreamArchived } from "./archive.js";
-import { IdempotentAppendConflictError, VersionConflictError } from "./errors.js";
+import {
+  IdempotentAppendConflictError,
+  SeedTimeOrderError,
+  VersionConflictError,
+} from "./errors.js";
 import { eventsTable } from "./events-schema.js";
 import { toStoredEvent } from "./row-to-stored-event.js";
 import { currentSeedCreatedAt } from "./seed-clock.js";
@@ -90,15 +94,17 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
   });
   const toStore = stampOrigin(payload === event.payload ? event : { ...event, payload });
   const seedCreatedAt = currentSeedCreatedAt();
-  if (seedCreatedAt !== undefined && toStore.expectedVersion > 0) {
-    await assertSeedTimeNotBeforePredecessor(db, toStore, seedCreatedAt);
-  }
   const newVersion = toStore.expectedVersion + 1;
   const eventVersion = toStore.eventVersion ?? 1;
 
   try {
     const row = await runAtomicEventWrite(db, async (runner) => {
       await claimXactId(runner);
+      // Inside the write transaction so a concurrent live append cannot slip
+      // between the check and the insert.
+      if (seedCreatedAt !== undefined && toStore.expectedVersion > 0) {
+        await assertSeedTimeNotBeforePredecessor(runner, toStore, seedCreatedAt);
+      }
       const inserted =
         toStore.expectedVersion === 0
           ? await insertFirstEvent(runner, toStore, newVersion, eventVersion, seedCreatedAt)
@@ -159,8 +165,12 @@ async function assertSeedTimeNotBeforePredecessor(
     version: event.expectedVersion,
   });
   if (predecessor && predecessor.createdAt.epochMilliseconds > seedCreatedAt.epochMilliseconds) {
-    throw new Error(
-      `Seed write for ${event.aggregateType} ${event.aggregateId} v${event.expectedVersion + 1} is dated ${seedCreatedAt.toString()}, before its predecessor (${predecessor.createdAt.toString()}). Write a stream's events in ascending time.`,
+    throw new SeedTimeOrderError(
+      event.aggregateType,
+      event.aggregateId,
+      event.expectedVersion + 1,
+      seedCreatedAt,
+      predecessor.createdAt,
     );
   }
 }

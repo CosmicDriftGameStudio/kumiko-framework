@@ -8,7 +8,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { getFlag, getStringFlag, type ParsedArgs, parseArgs } from "./arg-parser.js";
 import {
   type ChangelogEntry,
@@ -20,6 +20,7 @@ import {
 import { ensureTemporalPolyfill } from "./time/index.js";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
+const SEMVER_CORE_RE = /^(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?$/;
 const CODEMOD_SUBDIR = "scripts/codemod";
 
 export type UpgradeCliOut = {
@@ -40,24 +41,52 @@ function readPackageJsonVersion(packageJsonPath: string): string | null {
 
 // bun.lock pins transitive packages too, so a repo that only depends on
 // kumiko-cli/-guards still records the bundled-features version it resolved.
-function readLockfileVersion(root: string, pkgName: string): string | null {
-  const lockPath = join(root, "bun.lock");
+// Prerelease and snapshot pins (0.364.0-next.1, 0.0.0-pr-123) are reduced to
+// their x.y.z core, the only shape the rest of the CLI compares.
+function readLockfileVersion(dir: string, pkgName: string): string | null {
+  const lockPath = join(dir, "bun.lock");
   if (!existsSync(lockPath)) return null;
-  const pinned = new RegExp(
-    `"@cosmicdrift/${pkgName}": \\["@cosmicdrift/${pkgName}@(\\d+\\.\\d+\\.\\d+)"`,
-  ).exec(readFileSync(lockPath, "utf-8"));
-  return pinned?.[1] ?? null;
+  const pinned = new RegExp(`"@cosmicdrift/${pkgName}": \\["@cosmicdrift/${pkgName}@([^"]+)"`).exec(
+    readFileSync(lockPath, "utf-8"),
+  );
+  return pinned?.[1] === undefined ? null : (SEMVER_CORE_RE.exec(pinned[1])?.[1] ?? null);
 }
 
-// Only the repo's own install, package dir and lockfile count. Walking up
-// from a worktree nested in a parent workspace read that workspace's version,
-// and the isolated linker keeps transitive packages out of node_modules.
-function readPackageVersion(root: string, pkgName: string, repoLocalPath: string): string | null {
+function declaresWorkspaces(packageJsonPath: string): boolean {
+  if (!existsSync(packageJsonPath)) return false;
+  try {
+    const pkg: unknown = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+    return typeof pkg === "object" && pkg !== null && "workspaces" in pkg;
+  } catch {
+    return false;
+  }
+}
+
+function isRepoBoundary(dir: string): boolean {
+  return existsSync(join(dir, ".git")) || declaresWorkspaces(join(dir, "package.json"));
+}
+
+function readPackageVersionAt(dir: string, pkgName: string, repoLocalPath: string): string | null {
   return (
-    readPackageJsonVersion(join(root, `node_modules/@cosmicdrift/${pkgName}/package.json`)) ??
-    readPackageJsonVersion(join(root, repoLocalPath)) ??
-    readLockfileVersion(root, pkgName)
+    readPackageJsonVersion(join(dir, `node_modules/@cosmicdrift/${pkgName}/package.json`)) ??
+    readPackageJsonVersion(join(dir, repoLocalPath)) ??
+    readLockfileVersion(dir, pkgName)
   );
+}
+
+// Walks up from a workspace member to the repo's own root (.git or a
+// package.json with workspaces) but never past it: walking on from a worktree
+// nested in a parent workspace read that workspace's version, and the
+// isolated linker keeps transitive packages out of node_modules.
+function readPackageVersion(root: string, pkgName: string, repoLocalPath: string): string | null {
+  let dir = root;
+  for (;;) {
+    const version = readPackageVersionAt(dir, pkgName, repoLocalPath);
+    if (version !== null || isRepoBoundary(dir)) return version;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
 }
 
 // Changelog entries come from @cosmicdrift/kumiko-bundled-features (see
@@ -642,6 +671,7 @@ function parseResolveInput(
   args: ParsedArgs,
 ): { readonly refs: readonly string[]; readonly reason: string } | { readonly error: string } {
   if (getFlag(args, "apply")) return { error: "--resolve cannot be combined with --apply." };
+  if (getFlag(args, "dry-run")) return { error: "--resolve cannot be combined with --dry-run." };
   const refs = (getStringFlag(args, "resolve") ?? "")
     .split(",")
     .map((ref) => ref.trim())
@@ -699,9 +729,9 @@ function resolveManualMigrations(out: UpgradeCliOut, args: ParsedArgs, targetDir
   if (errors.length > 0) return fail(...errors, "Nothing was written.");
   const { reason } = input;
 
-  const notApplicableFlag = args.flags.get("not-applicable");
-  const resolution: ManualResolution =
-    notApplicableFlag !== undefined && notApplicableFlag !== false ? "not-applicable" : "migrated";
+  const resolution: ManualResolution = getFlag(args, "not-applicable")
+    ? "not-applicable"
+    : "migrated";
   const resolvedAt = Temporal.Now.instant().toString();
   const newlyResolved = open
     .filter((entry) => resolvedIds.has(entry.id))

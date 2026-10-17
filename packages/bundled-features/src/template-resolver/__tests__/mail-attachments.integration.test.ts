@@ -23,6 +23,7 @@ import {
   expectErrorIncludes,
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-framework/testing";
+import sharp from "sharp";
 import { createTemplateResolverFeature } from "../feature.js";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
 import { templateResourceEntity } from "../table.js";
@@ -215,6 +216,49 @@ describe("template-resolver :: mail attachments", () => {
     expect(Object.keys(await linkedOf(templateId, tenantA))).toHaveLength(10);
   });
 
+  test("an attachment cannot replace the inline image under its key, nor an image the attachment", async () => {
+    const templateId = await createTemplate(tenantA, "att-key-in-use");
+    const logo = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
+      .png()
+      .toBuffer();
+    const imagePayload = async (key: string) => ({
+      sourceFileRefId: await upload(tenantA, logo, { name: "logo.png", type: "image/png" }),
+      templateId,
+      key,
+      purpose: "image",
+    });
+    await stack.http.writeOk(
+      TemplateResolverHandlers.resourceUpload,
+      await imagePayload("logo"),
+      tenantA,
+    );
+    await attach(tenantA, templateId, "offer");
+    const before = await linkedOf(templateId, tenantA);
+
+    const attachOverImage = await stack.http.writeErr(
+      TemplateResolverHandlers.resourceUpload,
+      {
+        sourceFileRefId: await uploadPdf(tenantA),
+        templateId,
+        key: "logo",
+        purpose: "attachment",
+        fileName: "a.pdf",
+      },
+      tenantA,
+    );
+    const imageOverAttachment = await stack.http.writeErr(
+      TemplateResolverHandlers.resourceUpload,
+      await imagePayload("offer"),
+      tenantA,
+    );
+
+    expectErrorIncludes(attachOverImage, '"code":"key_in_use"');
+    expectErrorIncludes(imageOverAttachment, '"code":"key_in_use"');
+    expect(await linkedOf(templateId, tenantA)).toEqual(before);
+  });
+
   test("an upload of another tenant is not found", async () => {
     const templateId = await createTemplate(tenantB, "att-foreign");
     const foreign = await uploadPdf(tenantA);
@@ -369,6 +413,20 @@ describe("template-resolver :: linked PDF template", () => {
       fileName: "a.pdf",
     });
     expectErrorIncludes(res, '"reason":"template_attachment_pdf_template_missing"');
+  });
+
+  test("an archived document template does not count as linkable", async () => {
+    const docId = await createTemplate(systemAdmin, "link-archived-doc", "document-pdf");
+    await stack.http.writeOk(TemplateResolverHandlers.archiveSystem, { id: docId }, systemAdmin);
+    const templateId = await createTemplate(tenantA, "link-archived");
+    const res = await link(tenantA, {
+      templateId,
+      key: "invoice",
+      templateSlug: "link-archived-doc",
+      fileName: "a.pdf",
+    });
+    expectErrorIncludes(res, '"reason":"template_attachment_pdf_template_missing"');
+    expect(await linkedOf(templateId, tenantA)).toEqual({});
   });
 
   test("a bad file name pattern or slug is refused as invalid", async () => {

@@ -33,8 +33,10 @@ import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-sta
 const PARALLEL_SIGNUPS = 2;
 const NOTIFICATION_TYPE = "app:notify:signup-welcome";
 const IMMEDIATE_NOTIFICATION_TYPE = "app:notify:signup-welcome-immediate";
+const AFTER_COMMIT_NOTIFICATION_TYPE = "app:notify:signup-welcome-after-commit";
 const emailTransport = createInMemoryTransport();
 let notifyImmediately = false;
+let notifyFromAfterCommitHook = false;
 const notifyOutcomeKinds: string[] = [];
 
 function createBarrier(parties: number): () => Promise<void> {
@@ -60,6 +62,8 @@ const welcomeHookFeature = defineFeature("signup-welcome-hook-test", (r) => {
     { allOf: "tenant-membership" },
     async (result, context) => {
       if (!result.isNew) return;
+      // skip: the afterCommit-phase hook below covers this run
+      if (notifyFromAfterCommitHook) return;
       await waitForAllSignups();
       const notify = context.notify as NotifyFn;
       const notificationType = notifyImmediately ? IMMEDIATE_NOTIFICATION_TYPE : NOTIFICATION_TYPE;
@@ -75,6 +79,22 @@ const welcomeHookFeature = defineFeature("signup-welcome-hook-test", (r) => {
       notifyOutcomeKinds.push(outcome.kind);
     },
     { phase: HookPhases.inTransaction },
+  );
+  r.hook(
+    "postSave",
+    { allOf: "tenant-membership" },
+    async (result, context) => {
+      if (!result.isNew) return;
+      // skip: only the afterCommit test run exercises this hook
+      if (!notifyFromAfterCommitHook) return;
+      const notify = context.notify as NotifyFn;
+      const outcome = await notify(AFTER_COMMIT_NOTIFICATION_TYPE, {
+        to: { tenant: result.data["tenantId"] as string },
+        data: { title: AFTER_COMMIT_NOTIFICATION_TYPE },
+      });
+      notifyOutcomeKinds.push(outcome.kind);
+    },
+    { phase: HookPhases.afterCommit },
   );
 });
 
@@ -178,6 +198,7 @@ async function confirmSignupsInParallel(emailPrefix: string): Promise<void> {
 describe("self-signup with seed-hook notifications and an exhausted app pool", () => {
   test("parallel signups complete and deliver the hook notification after commit", async () => {
     notifyImmediately = false;
+    notifyFromAfterCommitHook = false;
     await confirmSignupsInParallel("hook");
 
     expect(notifyOutcomeKinds).toEqual(Array(PARALLEL_SIGNUPS).fill("deferred"));
@@ -191,6 +212,7 @@ describe("self-signup with seed-hook notifications and an exhausted app pool", (
 
   test("parallel signups with immediate: true deliver inside the signup tx on the outside-tx pool", async () => {
     notifyImmediately = true;
+    notifyFromAfterCommitHook = false;
     await confirmSignupsInParallel("hook-immediate");
 
     expect(notifyOutcomeKinds).toEqual(Array(PARALLEL_SIGNUPS).fill("dispatched"));
@@ -198,6 +220,20 @@ describe("self-signup with seed-hook notifications and an exhausted app pool", (
     await waitFor(async () => {
       const inbox = await selectMany(stack.db, inAppMessagesTable, {
         notificationType: IMMEDIATE_NOTIFICATION_TYPE,
+      });
+      expect(inbox).toHaveLength(PARALLEL_SIGNUPS);
+    });
+  });
+
+  test("a notify from an afterCommit-phase seed hook is delivered, not dropped with the flushed sink", async () => {
+    notifyImmediately = false;
+    notifyFromAfterCommitHook = true;
+    await confirmSignupsInParallel("hook-after-commit");
+
+    expect(notifyOutcomeKinds).toHaveLength(PARALLEL_SIGNUPS);
+    await waitFor(async () => {
+      const inbox = await selectMany(stack.db, inAppMessagesTable, {
+        notificationType: AFTER_COMMIT_NOTIFICATION_TYPE,
       });
       expect(inbox).toHaveLength(PARALLEL_SIGNUPS);
     });

@@ -284,10 +284,39 @@ describe("upgrade command — installed version comes from the repo's own packag
       "node_modules/@cosmicdrift/kumiko-bundled-features/package.json": JSON.stringify({
         version: "0.999.0",
       }),
+      "consumer/.git": "gitdir: ../.git/worktrees/consumer",
       "consumer/node_modules/@cosmicdrift/kumiko-cli/src/changes.json": CLI_ENTRY,
     });
 
     expect(await installedVersionAt(join(workspace, "consumer"))).toBeNull();
+  });
+
+  test("workspace member: walks up to the repo's workspace root but not beyond", async () => {
+    const parentWorkspace = tmp({
+      "node_modules/@cosmicdrift/kumiko-bundled-features/package.json": JSON.stringify({
+        version: "0.999.0",
+      }),
+      ".wt/consumer/package.json": JSON.stringify({ name: "root", workspaces: ["apps/*"] }),
+      ".wt/consumer/bun.lock": LOCKFILE,
+      ".wt/consumer/node_modules/@cosmicdrift/kumiko-cli/src/changes.json": CLI_ENTRY,
+      ".wt/consumer/apps/web/package.json": JSON.stringify({ name: "web" }),
+    });
+
+    expect(await installedVersionAt(join(parentWorkspace, ".wt/consumer/apps/web"))).toBe(
+      "0.345.0",
+    );
+  });
+
+  test("prerelease lockfile pin resolves to its x.y.z core", async () => {
+    const cwd = tmp({
+      ...ISOLATED_CONSUMER,
+      "bun.lock": LOCKFILE.replace(
+        "kumiko-bundled-features@0.345.0",
+        "kumiko-bundled-features@0.364.0-next.1",
+      ),
+    });
+
+    expect(await installedVersionAt(cwd)).toBe("0.364.0");
   });
 
   test("changelog entries newer than the installed version are not pending", async () => {
@@ -822,7 +851,7 @@ describe("upgrade command — --apply", () => {
     const cwd = tmp({
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
       "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
-      "other/placeholder.txt": "x",
+      "other/.git": "gitdir: elsewhere",
     });
     const spy = makeSpyOutput();
 
@@ -1299,6 +1328,23 @@ describe("upgrade command — --resolve", () => {
 
     expect(exit).toBe(1);
     expect(spy.errs.join("\n")).toContain("--apply");
+  });
+
+  test("--resolve cannot be combined with --dry-run and writes nothing", async () => {
+    const cwd = fixture();
+    const before = readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8");
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(
+      ["--resolve", "0.312.0", "--reason", "x", "--dry-run"],
+      cwd,
+      spy.out,
+      { repoRoot: REAL_REPO_ROOT },
+    );
+
+    expect(exit).toBe(1);
+    expect(spy.errs.join("\n")).toContain("--dry-run");
+    expect(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8")).toBe(before);
   });
 
   test("without a marker there is nothing to resolve", async () => {

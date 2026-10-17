@@ -40,6 +40,9 @@ export type PruneEventsOptions = {
   readonly aggregateIds?: readonly string[];
   // Dry-run: compute what would be deleted, return count, delete nothing.
   readonly dryRun?: boolean;
+  // Delete at most this many events (lowest ids first) per call. Callers with a large backlog
+  // loop until deletedCount < batchSize, so each batch is its own short transaction.
+  readonly batchSize?: number;
 };
 
 export type PruneEventsResult = {
@@ -88,6 +91,12 @@ export async function pruneEvents(
   if (options.aggregateIds !== undefined && options.aggregateIds.length === 0) {
     throw new Error("pruneEvents: aggregateIds must be non-empty when set.");
   }
+  if (
+    options.batchSize !== undefined &&
+    (!Number.isInteger(options.batchSize) || options.batchSize < 1)
+  ) {
+    throw new Error("pruneEvents: batchSize must be a positive integer.");
+  }
   const aggregateTypes = options.aggregateTypes;
   const aggregateIds = options.aggregateIds;
   const dryRun = options.dryRun === true;
@@ -108,11 +117,18 @@ export async function pruneEvents(
     await lockEventConsumersShareMode(tx);
 
     // Step 1 — collect candidate event ids.
-    const candidates = await selectMany<{ id: bigint }>(tx, eventsTable, {
-      aggregateType: [...aggregateTypes],
-      ...(aggregateIds ? { aggregateId: [...aggregateIds] } : {}),
-      createdAt: { lt: cutoff },
-    });
+    const candidates = await selectMany<{ id: bigint }>(
+      tx,
+      eventsTable,
+      {
+        aggregateType: [...aggregateTypes],
+        ...(aggregateIds ? { aggregateId: [...aggregateIds] } : {}),
+        createdAt: { lt: cutoff },
+      },
+      options.batchSize === undefined
+        ? undefined
+        : { orderBy: { col: "id", direction: "asc" }, limit: options.batchSize },
+    );
 
     if (candidates.length === 0) {
       return { deletedCount: 0, cutoff, aggregateTypes, dryRun };

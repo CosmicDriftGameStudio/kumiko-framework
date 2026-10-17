@@ -20,6 +20,7 @@ export {
 export {
   ArchivedStreamError,
   IdempotentAppendConflictError,
+  SeedTimeOrderError,
   VersionConflictError,
 } from "./errors.js";
 export {

@@ -21,13 +21,16 @@ import {
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles/feature.js";
 import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { createUserFeature } from "../../user/index.js";
+import { ESCAPE_HATCH_RETENTION_DAYS_KEY } from "../constants.js";
 import {
   ESCAPE_HATCH_USE_AGGREGATE_TYPE,
   ESCAPE_HATCH_USED_EVENT,
 } from "../escape-hatch-audit-sink.js";
 import { createAuditFeature } from "../feature.js";
+import { runEscapeHatchRetention } from "../run-escape-hatch-retention.js";
 
 const RETENTION_JOB = "audit:job:escape-hatch-retention";
 const SET_PROFILE = "compliance-profiles:write:set-profile";
@@ -148,5 +151,30 @@ describe("escape-hatch retention with compliance-profiles", () => {
     expect(remaining.has(targeted100)).toBe(true);
     expect(remaining.has(untargeted100)).toBe(false);
     expect(remaining.has(targeted800)).toBe(false);
+  });
+
+  test("an operator-set retention key is a floor for tenants whose profile retains less", async () => {
+    const kept = await seedEvent(tenantB, 100);
+    const expired = await seedEvent(tenantB, 400);
+    await drainEventConsumers(stack, ["system:consumer:sse-broadcast"]);
+
+    await runEscapeHatchRetention({
+      db: stack.db,
+      registry: stack.registry,
+      configResolver: createConfigResolver({
+        appOverrides: new Map([[ESCAPE_HATCH_RETENTION_DAYS_KEY, 365]]),
+      }),
+      userId: "system",
+    });
+
+    const remaining = new Set(
+      (
+        await selectMany<{ aggregateId: string }>(stack.db, eventsTable, {
+          aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE,
+        })
+      ).map((row) => row.aggregateId),
+    );
+    expect(remaining.has(kept)).toBe(true);
+    expect(remaining.has(expired)).toBe(false);
   });
 });
