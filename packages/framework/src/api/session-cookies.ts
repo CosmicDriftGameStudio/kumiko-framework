@@ -4,6 +4,7 @@ import {
   isHostPrefixedCookieName,
   resolveSessionCookieNames,
   type SessionCookieNames,
+  sessionCookieName,
 } from "@cosmicdrift/kumiko-types/session-cookies";
 import type { Context, MiddlewareHandler } from "hono";
 import { deleteCookie } from "hono/cookie";
@@ -80,6 +81,29 @@ export function hostOnlyDeleteOptions(name: string): { path: "/"; secure?: true 
   return isHostPrefixedCookieName(name) ? { path: "/", secure: true } : { path: "/" };
 }
 
+// Expires the name variant the current config does not write, in both
+// directions: unprefixed leftovers when names are `__Host-` prefixed, and the
+// `__Host-` cookies when a later cookieDomain or secureCookies:false resolves
+// to unprefixed names. Browsers prefer the prefixed csrf cookie when reading
+// the token, so a leftover one would 403 every write until it expires.
+export function expireLegacySessionCookieVariants(
+  c: Context,
+  cookies: ResolvedSessionCookies,
+): void {
+  if (isHostPrefixedCookieName(cookies.names.auth)) {
+    deleteCookie(c, AUTH_COOKIE_BASE, { path: "/" });
+    deleteCookie(c, CSRF_COOKIE_BASE, { path: "/" });
+    // skip: the unprefixed names are the only legacy variant when the config writes __Host- names.
+    return;
+  }
+  if (cookies.secure) {
+    deleteCookie(c, sessionCookieName(AUTH_COOKIE_BASE, { secure: true }), hostPrefixedDelete);
+    deleteCookie(c, sessionCookieName(CSRF_COOKIE_BASE, { secure: true }), hostPrefixedDelete);
+  }
+}
+
+const hostPrefixedDelete = { path: "/", secure: true } as const;
+
 // Expire every variant: the Domain cookie (current) and the host-only one
 // (from before cookieDomain), otherwise a cookie left over from an earlier
 // config keeps the session alive after logout. With __Host- names the
@@ -89,10 +113,7 @@ export function clearSessionCookies(c: Context, cookies: ResolvedSessionCookies)
   const { names, domain } = cookies;
   deleteCookie(c, names.auth, hostOnlyDeleteOptions(names.auth));
   deleteCookie(c, names.csrf, hostOnlyDeleteOptions(names.csrf));
-  if (isHostPrefixedCookieName(names.auth)) {
-    deleteCookie(c, AUTH_COOKIE_BASE, { path: "/" });
-    deleteCookie(c, CSRF_COOKIE_BASE, { path: "/" });
-  }
+  expireLegacySessionCookieVariants(c, cookies);
   if (domain !== undefined) {
     deleteCookie(c, AUTH_COOKIE_BASE, { path: "/", domain });
     deleteCookie(c, CSRF_COOKIE_BASE, { path: "/", domain });

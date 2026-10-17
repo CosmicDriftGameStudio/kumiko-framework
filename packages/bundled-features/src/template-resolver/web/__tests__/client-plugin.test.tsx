@@ -9,6 +9,7 @@ import {
   type ContentEditorComponent,
   ContentEditorsProvider,
   createStaticLocaleResolver,
+  kumikoDefaultTranslations,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
@@ -49,6 +50,20 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
           contentFormat: "plain",
           variableSchema: { customerName: "Jane" },
           nav: { label: "mail:nav.prompts" },
+        },
+        {
+          id: "pdfDocs",
+          kind: "document-pdf",
+          contentFormat: "document",
+          variableSchema: {},
+          nav: { label: "mail:nav.pdfDocs" },
+        },
+        {
+          id: "mailDocs",
+          kind: "mail",
+          contentFormat: "document",
+          variableSchema: {},
+          nav: { label: "mail:nav.mailDocs" },
         },
         {
           id: "richDocs",
@@ -337,5 +352,49 @@ describe("textBlocksClient — findContentFormat resolves collectionId to the re
     // plain textarea instead — no red test without this assertion.
     expect(screen.getByTestId("rich-stub-editor")).toBeTruthy();
     expect(document.getElementById(CONTENT_EDITOR_ELEMENT_ID)).toBeNull();
+  });
+});
+
+describe("textBlocksClient — document editor block set follows the collection kind", () => {
+  const localeResolver = createStaticLocaleResolver({ locale: "en" });
+
+  function DocumentWrapper({ children }: { readonly children: ReactNode }): ReactNode {
+    return (
+      <LocaleProvider
+        resolver={localeResolver}
+        fallbackBundles={[kumikoDefaultTranslations, defaultTranslations]}
+      >
+        <PrimitivesProvider value={defaultPrimitives}>
+          <ContentEditorsProvider value={textBlocksClient().contentEditors ?? {}}>
+            {children}
+          </ContentEditorsProvider>
+        </PrimitivesProvider>
+      </LocaleProvider>
+    );
+  }
+
+  function renderEditorFor(collectionId: string): void {
+    // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
+    (useShellUser as any).mockReturnValue({ id: "u1", roles: ["TenantAdmin"] });
+    const Editor = textBlocksClient().resolvers?.["template-resolver:edit"];
+    if (Editor === undefined) throw new Error("Editor not registered");
+    const target = {
+      featureId: "template-resolver",
+      action: "edit",
+      args: { slug: "reminder", locale: "de", collectionId },
+    } as const;
+    render(<Editor target={target} onClose={() => {}} />, { wrapper: DocumentWrapper });
+  }
+
+  test("a document-pdf collection offers Page break and no Button block", async () => {
+    renderEditorFor("pdfDocs");
+    expect(await screen.findByRole("button", { name: "Page break" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Button" })).toBeNull();
+  });
+
+  test("a mail collection offers the Button block and no Page break", async () => {
+    renderEditorFor("mailDocs");
+    expect(await screen.findByRole("button", { name: "Button" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Page break" })).toBeNull();
   });
 });

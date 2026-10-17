@@ -438,14 +438,98 @@ describe("tenant run state in the run-logger", () => {
   test("a dropped queued job disappears, a running one does not", async () => {
     const cb = logger(registry);
     await cb.onJobQueued?.(job, "drop-1", { tenantId: tenantA, subject: null });
-    await cb.onJobDropped?.(job, "drop-1");
+    await cb.onJobDropped?.(job, "drop-1", { tenantId: tenantA });
     expect(await rowOf("drop-1")).toBeUndefined();
 
     await cb.onJobStart?.(job, "drop-2", {
       tenantVisibleRun: { tenantId: tenantA, subject: null },
     });
-    await cb.onJobDropped?.(job, "drop-2");
+    await cb.onJobDropped?.(job, "drop-2", { tenantId: tenantA });
     expect((await rowOf("drop-2"))?.status).toBe("running");
+  });
+
+  // BullMQ ids count per queue (api and worker lane both start at 1), so two
+  // tenants, or two jobs of one tenant, routinely share a bullJobId.
+  describe("the same bullJobId in different tenants or jobs", () => {
+    const jobOfA = "app:job:key-probe-a";
+    const jobOfB = "app:job:key-probe-b";
+    const statusesOf = async (user: SessionUser, jobName: string) =>
+      (await runs(user, { jobName })).map((row) => row.status);
+
+    test("each tenant sees only its own status and a foreign row is never overwritten", async () => {
+      const cb = logger(registry);
+      await cb.onJobQueued?.(jobOfA, "7", { tenantId: tenantA, subject: null });
+      await cb.onJobQueued?.(jobOfA, "7", { tenantId: tenantB, subject: null });
+
+      await cb.onJobStart?.(jobOfA, "7", {
+        tenantVisibleRun: { tenantId: tenantA, subject: null },
+      });
+      expect(await statusesOf(userA, jobOfA)).toEqual(["running"]);
+      expect(await statusesOf(userB, jobOfA)).toEqual(["queued"]);
+
+      await cb.onJobComplete?.(jobOfA, "7", 5, [], {
+        tenantId: tenantA,
+        finalAttempt: true,
+        tenantVisibleRun: { subject: null },
+      });
+      expect(await statusesOf(userA, jobOfA)).toEqual(["completed"]);
+      expect(await statusesOf(userB, jobOfA)).toEqual(["queued"]);
+
+      await cb.onJobDropped?.(jobOfA, "7", { tenantId: tenantA });
+      expect(await statusesOf(userB, jobOfA)).toEqual(["queued"]);
+    });
+
+    test("two jobs of one tenant with the same id keep separate rows", async () => {
+      const cb = logger(registry);
+      await cb.onJobQueued?.(jobOfA, "8", { tenantId: tenantA, subject: null });
+      await cb.onJobQueued?.(jobOfB, "8", { tenantId: tenantA, subject: null });
+      await cb.onJobStart?.(jobOfB, "8", {
+        tenantVisibleRun: { tenantId: tenantA, subject: null },
+      });
+
+      expect(await statusesOf(userA, jobOfA)).toEqual(expect.arrayContaining(["queued"]));
+      expect(await statusesOf(userA, jobOfB)).toEqual(["running"]);
+    });
+  });
+
+  test("an id reused after a Redis reset replaces the old finished row, a job's own fast finish stays", async () => {
+    const cb = logger(registry);
+    const reusedJob = "app:job:key-probe-reset";
+    const done = {
+      tenantId: tenantA,
+      finalAttempt: true,
+      tenantVisibleRun: { subject: null },
+    };
+    await cb.onJobQueued?.(reusedJob, "1", { tenantId: tenantA, subject: null });
+    await cb.onJobStart?.(reusedJob, "1", {
+      tenantVisibleRun: { tenantId: tenantA, subject: null },
+    });
+    await cb.onJobComplete?.(reusedJob, "1", 5, [], done);
+    const finishedRows = await selectMany<{ status: string }>(db, tenantJobRunsTable, {
+      bullJobId: "1",
+      jobName: reusedJob,
+    });
+    expect(finishedRows.map((row) => row.status)).toEqual(["completed"]);
+
+    await cb.onJobQueued?.(reusedJob, "1", { tenantId: tenantA, subject: null });
+    const requeued = await selectMany<{ status: string; jobName: string }>(db, tenantJobRunsTable, {
+      bullJobId: "1",
+      jobName: reusedJob,
+    });
+    expect(requeued.map((row) => row.status)).toEqual(["queued"]);
+
+    // Worker finished before the enqueue hook ran: no queued row exists yet.
+    const racedJob = "app:job:key-probe-raced";
+    await cb.onJobStart?.(racedJob, "2", {
+      tenantVisibleRun: { tenantId: tenantA, subject: null },
+    });
+    await cb.onJobComplete?.(racedJob, "2", 5, [], done);
+    await cb.onJobQueued?.(racedJob, "2", { tenantId: tenantA, subject: null });
+    const raced = await selectMany<{ status: string }>(db, tenantJobRunsTable, {
+      bullJobId: "2",
+      jobName: racedJob,
+    });
+    expect(raced.map((row) => row.status)).toEqual(["completed"]);
   });
 });
 

@@ -244,7 +244,7 @@ describe("egress internal: headers across origin-changing redirects", () => {
     const before = echoCounts.get("/echo") ?? 0;
     const fetchIt = egress({ kind: "internal", allowOrigins: [`http://127.0.0.1:${hopPort}`] });
     await expect(fetchIt(`http://127.0.0.1:${hopPort}/to-echo`, credentials)).rejects.toThrow(
-      /not in allowlist/,
+      /^egress\(internal\): redirect target not in allowlist/,
     );
     expect(echoCounts.get("/echo") ?? 0).toBe(before);
   });

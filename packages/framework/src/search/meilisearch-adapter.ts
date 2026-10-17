@@ -35,6 +35,44 @@ const INDEX_LIST_PAGE_SIZE = 100;
 // What an unconfigured Meilisearch index reports as searchableAttributes.
 const MEILI_ALL_ATTRIBUTES = "*";
 
+const DEFAULT_FILTERABLE_ATTRIBUTES: readonly string[] = ["_type", "_weight"];
+const DEFAULT_SORTABLE_ATTRIBUTES: readonly string[] = ["_weight"];
+
+function defaultSearchableAttributes(config: SearchAdapterConfig): readonly string[] {
+  return config.rankingFields ?? config.searchableFields;
+}
+
+// Meilisearch may return granular filterable objects; those are never part of our default.
+function isSubsetOf(stored: readonly unknown[], wanted: readonly string[]): boolean {
+  return stored.every((attribute) => typeof attribute === "string" && wanted.includes(attribute));
+}
+
+// A stored list that lies inside the current default and misses attributes is an
+// older default that gained fields since; anything with a foreign attribute is
+// an explicit configure() and stays untouched.
+function isOutdatedDefault(
+  stored: {
+    searchable: readonly unknown[];
+    filterable: readonly unknown[];
+    sortable: readonly unknown[];
+  },
+  wanted: {
+    searchable: readonly string[];
+    filterable: readonly string[];
+    sortable: readonly string[];
+  },
+): boolean {
+  const pairs = [
+    [stored.searchable, wanted.searchable],
+    [stored.filterable, wanted.filterable],
+    [stored.sortable, wanted.sortable],
+  ] as const;
+  return (
+    pairs.every(([have, want]) => isSubsetOf(have, want)) &&
+    pairs.some(([have, want]) => want.some((attribute) => !have.includes(attribute)))
+  );
+}
+
 function isIndexNotFound(err: unknown): boolean {
   const cause = typeof err === "object" && err !== null && "cause" in err ? err.cause : null;
   return errorCodeOf(cause) === ErrorStatusCode.INDEX_NOT_FOUND;
@@ -78,10 +116,11 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
 
   async function applyConfig(tenantId: TenantId, config: SearchAdapterConfig): Promise<void> {
     const index = client.index(meilisearchTenantIndex(prefix, tenantId));
-    const fields = config.rankingFields ?? config.searchableFields;
-    await awaitSucceededTask(index.updateSearchableAttributes([...fields]));
-    await awaitSucceededTask(index.updateFilterableAttributes(["_type", "_weight"]));
-    await awaitSucceededTask(index.updateSortableAttributes(["_weight"]));
+    await awaitSucceededTask(
+      index.updateSearchableAttributes([...defaultSearchableAttributes(config)]),
+    );
+    await awaitSucceededTask(index.updateFilterableAttributes([...DEFAULT_FILTERABLE_ATTRIBUTES]));
+    await awaitSucceededTask(index.updateSortableAttributes([...DEFAULT_SORTABLE_ATTRIBUTES]));
   }
 
   // Lazily configures a tenant's index off the default config on its first
@@ -92,16 +131,30 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
   // Meili outage doesn't permanently poison the tenant for the process.
   // The configured-tenants map is process memory only: after a restart a stored explicit
   // configure() must not be overwritten by the registry default, so the default is applied only
-  // to an index that is missing or still carries Meilisearch's factory settings.
-  async function indexNeedsDefaultConfig(tenantId: TenantId): Promise<boolean> {
+  // to an index that is missing, carries Meilisearch's factory settings, or holds an older
+  // default that is a strict subset of the current one (fields were added by a deploy).
+  async function indexNeedsDefaultConfig(
+    tenantId: TenantId,
+    config: SearchAdapterConfig,
+  ): Promise<boolean> {
     try {
       const settings = await client.index(meilisearchTenantIndex(prefix, tenantId)).getSettings();
       const searchable = settings.searchableAttributes ?? [MEILI_ALL_ATTRIBUTES];
       const filterable = settings.filterableAttributes ?? [];
-      return (
+      const factorySettings =
         searchable.length === 1 &&
         searchable[0] === MEILI_ALL_ATTRIBUTES &&
-        !filterable.includes("_type")
+        !filterable.includes("_type");
+      return (
+        factorySettings ||
+        isOutdatedDefault(
+          { searchable, filterable, sortable: settings.sortableAttributes ?? [] },
+          {
+            searchable: defaultSearchableAttributes(config),
+            filterable: DEFAULT_FILTERABLE_ATTRIBUTES,
+            sortable: DEFAULT_SORTABLE_ATTRIBUTES,
+          },
+        )
       );
     } catch (err) {
       if (isIndexNotFound(err)) return true;
@@ -120,7 +173,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     }
     const config = defaultConfig;
     await trackConfigure(tenantId, async () => {
-      if (await indexNeedsDefaultConfig(tenantId)) await applyConfig(tenantId, config);
+      if (await indexNeedsDefaultConfig(tenantId, config)) await applyConfig(tenantId, config);
     });
   }
 

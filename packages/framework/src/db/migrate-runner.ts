@@ -19,7 +19,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 
-import { asRawClient } from "../bun-db/query.js";
+import { asRawClient, hasBegin, type RawClientWithBegin } from "../bun-db/query.js";
 import type { DbConnection, DbRunner } from "./connection.js";
 
 export type Migration = {
@@ -205,18 +205,18 @@ export function readMigrationSqlTexts(dir: string): readonly string[] {
 // begin(), because runMigrations wraps every file in a transaction. Handles
 // without it fall through to the drizzle wrappers and otherwise fail here,
 // before any SQL runs, with the migrate-runner message.
-function migrationClient(db: DbRunner): ReturnType<typeof asRawClient> {
-  const hasDirectClient =
-    typeof propertyOf(db, "unsafe") === "function" && typeof propertyOf(db, "begin") === "function";
-  if (hasDirectClient) return asRawClient(db);
-  for (const wrapped of [
+function migrationClient(db: DbRunner): RawClientWithBegin {
+  for (const candidate of [
+    db,
     propertyOf(db, "$client"),
     propertyOf(propertyOf(db, "session"), "client"),
   ]) {
-    if (typeof propertyOf(wrapped, "unsafe") === "function") return asRawClient(wrapped);
+    if (typeof propertyOf(candidate, "unsafe") !== "function") continue;
+    const client = asRawClient(candidate);
+    if (hasBegin(client)) return client;
   }
   throw new Error(
-    "migrate-runner: db argument has no .unsafe() (need Bun.SQL or drizzle DbConnection)",
+    "migrate-runner: db argument has no .unsafe() and .begin() (need Bun.SQL or drizzle DbConnection)",
   );
 }
 

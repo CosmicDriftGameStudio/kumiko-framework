@@ -168,7 +168,14 @@ async function fetchWithAllowlistedRedirects(
         `egress(internal): redirect crosses host (${current.hostname} -> ${next.hostname}), not followed`,
       );
     }
-    assertAllowedTarget(next, policy);
+    try {
+      assertAllowedTarget(next, policy);
+    } catch {
+      // Prefix is the contract consumers match on (chat-webhook-sender); origins only, no path/query.
+      throw new Error(
+        `egress(internal): redirect target not in allowlist (${current.origin} -> ${next.origin}), not followed`,
+      );
+    }
     if (next.origin !== url.origin) {
       strippedInit ??= stripToSafeHeaders(init);
       hopInit = strippedInit;

@@ -336,6 +336,15 @@ function InsertPanel({ editor, editorId, kind, variables, onClose }: PanelProps)
     const chain = editor.chain().focus();
     if (!editor.state.selection.empty) chain.setLink({ href }).run();
     else if (editor.isActive("link")) chain.extendMarkRange("link").setLink({ href }).run();
+    else if (isDocumentPlaceholderHref(href))
+      // Placeholders are never inserted as {{name}} text; the link shows the variable's value.
+      chain
+        .insertContent({
+          type: "variable",
+          attrs: { name: href.slice(2, -2) },
+          marks: [{ type: "link", attrs: { href } }],
+        })
+        .run();
     else
       chain
         .insertContent({ type: "text", text: href, marks: [{ type: "link", attrs: { href } }] })

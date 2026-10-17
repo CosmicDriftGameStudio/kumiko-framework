@@ -149,6 +149,7 @@ function panelPayload(
 }
 
 type DashboardFormats = {
+  readonly timeZone: string;
   readonly formatNumber: (value: number) => string;
   readonly formatPercent: (fraction: number) => string;
   readonly formatDay: (atMs: number) => string;
@@ -196,6 +197,7 @@ function useDashboardFormats(): DashboardFormats {
   const formatMinor = (amountMinor: number, currency: string, fractionDigits?: number): string =>
     formatMoney(amountMinor, currency, locale, fractionDigits);
   return {
+    timeZone,
     formatMedium: (atMs) => medium.format(atMs),
     formatMinor,
     formatPanelValue: (valueFormat) =>
@@ -878,6 +880,7 @@ function ChartPanelBody({
               formatAxisValue={formats.formatPanelAxisValue(panel.valueFormat)}
               markerLabels={panel.markerLabels === true}
               formatMarkerTime={formatDateByFormat}
+              timeZone={formats.timeZone}
               {...(panel.dateFormat !== undefined && { dateFormat: panel.dateFormat })}
               {...(panel.markerLegend !== undefined && { markerLegend: panel.markerLegend })}
               scrollable={panel.scrollable === true}

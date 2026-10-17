@@ -166,9 +166,9 @@ const MONTH_TICK_STEPS = [1, 2, 3, 6, 12, 24, 36, 60, 120] as const;
 const DAY_TICK_STEPS = [1, 2, 7, 14] as const;
 const DAY_MS = 86_400_000;
 
-function monthTicks(window: ChartWindow, step: number): readonly number[] {
+function monthTicks(window: ChartWindow, step: number, timeZone: string): readonly number[] {
   const startOfMonth = Temporal.Instant.fromEpochMilliseconds(window.startMs)
-    .toZonedDateTimeISO("UTC")
+    .toZonedDateTimeISO(timeZone)
     .startOfDay()
     .with({ day: 1 });
   const ticks: number[] = [];
@@ -182,14 +182,18 @@ function monthTicks(window: ChartWindow, step: number): readonly number[] {
   return ticks;
 }
 
-function dayTicks(window: ChartWindow, step: number): readonly number[] {
+// Local day starts: DST days are not 24h, so the cursor advances by calendar
+// day. The step phase uses the local day number, not epoch-ms modulo.
+function dayTicks(window: ChartWindow, step: number, timeZone: string): readonly number[] {
   const ticks: number[] = [];
-  for (
-    let atMs = Math.ceil(window.startMs / DAY_MS) * DAY_MS;
-    atMs < window.endMs;
-    atMs += DAY_MS
-  ) {
-    if (atMs > window.startMs && (atMs / DAY_MS) % step === 0) ticks.push(atMs);
+  const firstDay = Temporal.Instant.fromEpochMilliseconds(window.startMs)
+    .toZonedDateTimeISO(timeZone)
+    .startOfDay();
+  for (let cursor = firstDay; ; cursor = cursor.add({ days: 1 }).startOfDay()) {
+    const atMs = cursor.epochMilliseconds;
+    if (atMs >= window.endMs) break;
+    const localDayNumber = Math.round((atMs + cursor.offsetNanoseconds / 1e6) / DAY_MS);
+    if (atMs > window.startMs && localDayNumber % step === 0) ticks.push(atMs);
   }
   return ticks;
 }
@@ -223,7 +227,8 @@ function thinToSlots(
 // ticks are centred, so the edge gap needs 1.5 slots for the same clearance.
 const EDGE_GAP_SLOTS = 1.5;
 
-/** Calendar-aligned (UTC) tick times strictly inside the window: the smallest
+/** Calendar-aligned tick times (month/day starts in `timeZone`, default UTC)
+ *  strictly inside the window: the smallest
  *  step whose inner ticks fit `maxLabels - 2`, keep one label slot
  *  (`span / maxLabels`) between inner neighbours and `EDGE_GAP_SLOTS` to the
  *  start/end labels. If no step fits, the coarsest one is thinned greedily. */
@@ -231,6 +236,7 @@ export function stackedAreaAxisTicks(
   window: ChartWindow,
   maxLabels: number,
   format: StackedAreaDateFormat,
+  timeZone = "UTC",
 ): readonly number[] {
   const span = window.endMs - window.startMs;
   if (span <= 0) return [];
@@ -238,8 +244,10 @@ export function stackedAreaAxisTicks(
   const edgeGapMs = slotMs * EDGE_GAP_SLOTS;
   const innerBudget = Math.max(0, maxLabels - 2);
   const candidates: readonly (() => readonly number[])[] = [
-    ...(format === "day" ? DAY_TICK_STEPS.map((step) => () => dayTicks(window, step)) : []),
-    ...MONTH_TICK_STEPS.map((step) => () => monthTicks(window, step)),
+    ...(format === "day"
+      ? DAY_TICK_STEPS.map((step) => () => dayTicks(window, step, timeZone))
+      : []),
+    ...MONTH_TICK_STEPS.map((step) => () => monthTicks(window, step, timeZone)),
   ];
   let ticks: readonly number[] = [];
   for (const candidate of candidates) {

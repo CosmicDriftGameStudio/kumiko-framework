@@ -402,6 +402,42 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
     const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
     expect(await index.getSearchableAttributes()).toEqual(["a"]);
   });
+
+  test("an index holding an older default gains the fields a later default added", async () => {
+    const tenant = uuid();
+    const options = { url: MEILI_URL, apiKey: MEILI_KEY, indexPrefix: lazyPrefix };
+    await createMeilisearchAdapter(options).configure(tenant, { searchableFields: ["a"] });
+
+    const afterDeploy = createMeilisearchAdapter(options);
+    afterDeploy.setDefaultConfig?.({ searchableFields: ["a", "b"] });
+    await afterDeploy.index(tenant, {
+      entityType: "user",
+      entityId: 1,
+      weight: 1,
+      fields: { a: "value", b: "other" },
+    });
+
+    const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
+    expect(await index.getSearchableAttributes()).toEqual(["a", "b"]);
+  });
+
+  test("an index with an attribute outside the current default is left alone", async () => {
+    const tenant = uuid();
+    const options = { url: MEILI_URL, apiKey: MEILI_KEY, indexPrefix: lazyPrefix };
+    await createMeilisearchAdapter(options).configure(tenant, { searchableFields: ["a", "x"] });
+
+    const afterDeploy = createMeilisearchAdapter(options);
+    afterDeploy.setDefaultConfig?.({ searchableFields: ["a", "b"] });
+    await afterDeploy.index(tenant, {
+      entityType: "user",
+      entityId: 1,
+      weight: 1,
+      fields: { a: "value" },
+    });
+
+    const index = lazyClient.index(meilisearchTenantIndex(lazyPrefix, tenant));
+    expect(await index.getSearchableAttributes()).toEqual(["a", "x"]);
+  });
 });
 
 describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {

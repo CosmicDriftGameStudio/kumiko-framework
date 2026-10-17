@@ -77,14 +77,22 @@ export { asEntityTableMeta, requireEntityTableMeta };
 //      raw postgres-js client sits under `db.$client.unsafe / .begin`
 //   3. drizzle tx-handle — client sits under `tx.session.client`
 // The shim extracts a `{unsafe, begin}` surface in every case.
-// begin is declared required for historical callers although postgres-js
-// TransactionSql lacks it (see asRawClient); savepoint/release exist only on tx handles.
-type RawClient = {
+// begin is optional: postgres-js TransactionSql lacks it (see asRawClient);
+// savepoint/release exist only on tx handles.
+export type RawClient = {
   unsafe: <TRow = unknown>(sql: string, params?: readonly unknown[]) => Promise<readonly TRow[]>;
-  begin: <T>(fn: (tx: BunDbRunner) => Promise<T>) => Promise<T>;
+  begin?: <T>(fn: (tx: BunDbRunner) => Promise<T>) => Promise<T>;
   savepoint?: <T>(fn: (sp: unknown) => Promise<T>) => Promise<T>;
   release?: unknown;
 };
+
+export type RawClientWithBegin = RawClient & {
+  begin: NonNullable<RawClient["begin"]>;
+};
+
+export function hasBegin(client: RawClient): client is RawClientWithBegin {
+  return typeof client.begin === "function";
+}
 
 function isRawClient(value: unknown): value is RawClient {
   return typeof propertyOf(value, "unsafe") === "function";
@@ -114,6 +122,10 @@ export function asRawClient(db: unknown): RawClient {
   throw new Error(
     "bun-db: db argument has no .unsafe() — pass Bun.SQL, postgres-js Sql, or a transaction handle.",
   );
+}
+
+export function runnerCanBeginTransaction(db: unknown): boolean {
+  return hasBegin(asRawClient(db));
 }
 
 // postgres.js / Bun.SQL reject the WHOLE begin() when any statement inside
@@ -1698,7 +1710,13 @@ export async function deleteManyBatched(
 }
 
 export async function transaction<T>(db: AnyDb, fn: (tx: BunDbRunner) => Promise<T>): Promise<T> {
-  return asRawClient(db).begin(fn);
+  const raw = asRawClient(db);
+  if (!hasBegin(raw)) {
+    throw new InternalError({
+      message: "transaction: runner has no begin() — already inside a transaction or savepoint.",
+    });
+  }
+  return raw.begin(fn);
 }
 
 // A tx/savepoint handle has no begin(); fail closed instead of nesting silently or TypeError-ing.
@@ -1707,7 +1725,7 @@ export async function runInNewTransaction<T>(
   fn: (tx: DbRunner) => Promise<T>,
 ): Promise<T> {
   const raw = asRawClient(db);
-  if (typeof raw.begin !== "function") {
+  if (!hasBegin(raw)) {
     throw new InternalError({
       message:
         "runInNewTransaction: runner has no begin() — already inside a transaction or savepoint.",

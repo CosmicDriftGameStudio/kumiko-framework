@@ -37,8 +37,8 @@ import {
   AUTH_COOKIE_BASE,
   CSRF_COOKIE_BASE,
   clearSessionCookies,
+  expireLegacySessionCookieVariants,
   getSessionCookies,
-  isHostPrefixedCookieName,
   type ResolvedSessionCookies,
   resolveSessionCookies,
 } from "./session-cookies.js";
@@ -83,11 +83,13 @@ function setAuthCookies(
   // would coexist with the new Domain cookie (RFC 6265 treats name+domain as
   // distinct) and the server could bind to the stale host-only token. With
   // __Host- names the unprefixed host-only cookie is a leftover from before
-  // the prefix and is expired too.
-  if (opts.domain !== undefined || isHostPrefixedCookieName(names.auth)) {
+  // the prefix and is expired too (and vice versa, see
+  // expireLegacySessionCookieVariants).
+  if (opts.domain !== undefined) {
     deleteCookie(c, AUTH_COOKIE_BASE, { path: "/" });
     deleteCookie(c, CSRF_COOKIE_BASE, { path: "/" });
   }
+  expireLegacySessionCookieVariants(c, opts.cookies);
   // Must precede the setCookie calls: browsers apply Set-Cookie in order and
   // a retired domain equal to the new one is rejected at config time.
   // Retired domains only ever carried unprefixed names (a __Host- cookie has no

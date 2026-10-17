@@ -1115,7 +1115,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.resource.unsupportedImage":
     "This file is not a supported image. Use PNG, JPEG, WebP or GIF.",
   "templateResolver.errors.template.systemResourcesNeedSystemTenant":
-    "Resource files can only be imported as system templates by a user of the system tenant.",
+    "Resource files of system templates can only be imported or exported by a user of the system tenant.",
   "templateResolver.errors.collection.kindNotAllowed":
     "“{detail}” templates are written through their own editor, not through a collection.",
   "templateResolver.errors.noSystemTemplate": "There is no active system template to reset to.",

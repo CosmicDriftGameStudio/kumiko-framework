@@ -112,6 +112,28 @@ describe("contractConfirmationVariables", () => {
     ]);
   });
 
+  test("terms Markdown is reduced to plain text: emphasis, links and list items", () => {
+    const terms = [
+      "## §1",
+      "",
+      "Der **Anbieter** ist [ACME](https://acme.test) und *zuverlässig*.",
+      "Zweite Zeile im selben Absatz.",
+      "",
+      "- Erster Punkt",
+      "- Zweiter [Link](https://example.test/a)",
+      "  - Unterpunkt",
+    ].join("\n");
+    expect(variablesFor("de", terms).termsParagraphs).toEqual([
+      { text: "§1" },
+      {
+        text: "Der Anbieter ist ACME (https://acme.test) und zuverlässig. Zweite Zeile im selben Absatz.",
+      },
+      { text: "Erster Punkt" },
+      { text: "Zweiter Link (https://example.test/a)" },
+      { text: "Unterpunkt" },
+    ]);
+  });
+
   test("omits the period end when the trigger did not carry one", () => {
     const variables = contractConfirmationVariables({
       consent: consentFor("en"),

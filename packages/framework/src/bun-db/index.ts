@@ -41,6 +41,7 @@ export {
   requireEntityTableMeta,
   runInSavepoint,
   runInSavepointIfSupported,
+  runnerCanBeginTransaction,
   selectInnerJoin,
   selectMany,
   transaction,

@@ -19,6 +19,7 @@ import {
 import { acquireNamespacedAdvisoryLock, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type {
+  JobDroppedMeta,
   JobLogEntry,
   JobMeta,
   JobOutcomeMeta,
@@ -169,6 +170,7 @@ async function encryptStartedPayload(
 const TENANT_JOB_FAILURE_LOCK_NAMESPACE = 0x746a666c;
 // 'tjrl': serialises the finished-row write + prune per tenant run key.
 const TENANT_JOB_RUN_LOCK_NAMESPACE = 0x746a726c;
+const TENANT_RUN_CONFLICT_KEYS = ["tenantId", "jobName", "bullJobId"] as const;
 
 // fw#3079 — which row the tenant-visible failure record lives in: one per
 // (tenant, job, subject), so the next outcome of the same work replaces or
@@ -227,8 +229,11 @@ async function clearTenantJobFailure(
 }
 
 // fw#3616 — tenant-visible run state. One row per BullMQ job in
-// store_tenant_job_runs; the writes below only ever touch rows of the same
-// bullJobId, except pruning older finished rows of the same key.
+// store_tenant_job_runs, addressed by (tenant, job name, bullJobId): BullMQ
+// ids are only unique per queue (api and worker lane both count from 1) and
+// restart after a Redis reset, so the id alone must never pick a row. The
+// writes below only touch rows of that triple, except pruning older finished
+// rows of the same key.
 type TenantRunKey = {
   readonly tenantId: string;
   readonly jobName: string;
@@ -255,14 +260,27 @@ async function recordTenantRunQueued(
   // skip: system-tenant run, no tenant-scoped query reads it
   if (!key) return;
   const now = Temporal.Now.instant();
-  // DO NOTHING: a fast worker can report the start before this enqueue hook
-  // returns, and a repeated jobId (debounce, fan-out dedup) is the same job.
-  await insertOnConflictDoNothing(
-    db,
-    tenantJobRunsTable,
-    { ...key, bullJobId, status: "queued", queuedAt: now, updatedAt: now },
-    { conflictKeys: ["bullJobId"] },
-  );
+  await transaction(db, async (tx) => {
+    // A finished row under the same id is left over from before a Redis reset
+    // (ids restart at 1), not this job. Only rows that went through this hook
+    // (queuedAt set) qualify: a fast worker can finish before the hook runs,
+    // and that row is this job's own and must stay.
+    await deleteMany(tx, tenantJobRunsTable, {
+      tenantId: key.tenantId,
+      jobName,
+      bullJobId,
+      status: { in: ["completed", "failed"] },
+      queuedAt: { gt: Temporal.Instant.fromEpochMilliseconds(0) },
+    });
+    // DO NOTHING: a fast worker can report the start before this enqueue hook
+    // returns, and a repeated jobId (debounce, fan-out dedup) is the same job.
+    await insertOnConflictDoNothing(
+      tx,
+      tenantJobRunsTable,
+      { ...key, bullJobId, status: "queued", queuedAt: now, updatedAt: now },
+      { conflictKeys: [...TENANT_RUN_CONFLICT_KEYS] },
+    );
+  });
 }
 
 async function recordTenantRunStarted(
@@ -282,7 +300,7 @@ async function recordTenantRunStarted(
     tenantJobRunsTable,
     { ...key, bullJobId, status: "running", startedAt: now, updatedAt: now },
     {
-      conflictKeys: ["bullJobId"],
+      conflictKeys: [...TENANT_RUN_CONFLICT_KEYS],
       update: { status: "running", startedAt: now, finishedAt: null, updatedAt: now },
     },
   );
@@ -308,7 +326,7 @@ async function recordTenantRunOutcome(
       db,
       tenantJobRunsTable,
       { status: "queued", startedAt: null, finishedAt: null, updatedAt: now },
-      { bullJobId },
+      { tenantId: key.tenantId, jobName, bullJobId },
     );
     // skip: retry pending, the row stays active until the final attempt
     return;
@@ -327,7 +345,10 @@ async function recordTenantRunOutcome(
       tx,
       tenantJobRunsTable,
       { ...key, bullJobId, status: result, finishedAt: now, updatedAt: now },
-      { conflictKeys: ["bullJobId"], update: { status: result, finishedAt: now, updatedAt: now } },
+      {
+        conflictKeys: [...TENANT_RUN_CONFLICT_KEYS],
+        update: { status: result, finishedAt: now, updatedAt: now },
+      },
     );
     await deleteMany(tx, tenantJobRunsTable, {
       ...key,
@@ -337,8 +358,18 @@ async function recordTenantRunOutcome(
   });
 }
 
-async function dropTenantRunQueued(db: DbConnection, bullJobId: string): Promise<void> {
-  await deleteMany(db, tenantJobRunsTable, { bullJobId, status: "queued" });
+async function dropTenantRunQueued(
+  db: DbConnection,
+  jobName: string,
+  bullJobId: string,
+  meta: JobDroppedMeta,
+): Promise<void> {
+  await deleteMany(db, tenantJobRunsTable, {
+    tenantId: meta.tenantId,
+    jobName,
+    bullJobId,
+    status: "queued",
+  });
 }
 
 const log = createFallbackLogger("job-run-logger");
@@ -458,8 +489,12 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       );
     },
 
-    onJobDropped: async (jobName: string, bullJobId: string) => {
-      await isolateTenantRunWrite(() => dropTenantRunQueued(db, bullJobId), jobName, bullJobId);
+    onJobDropped: async (jobName: string, bullJobId: string, meta: JobDroppedMeta) => {
+      await isolateTenantRunWrite(
+        () => dropTenantRunQueued(db, jobName, bullJobId, meta),
+        jobName,
+        bullJobId,
+      );
     },
 
     onJobStart: async (jobName: string, bullJobId: string, meta: JobMeta) => {

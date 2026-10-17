@@ -176,7 +176,9 @@ export const scheduleEntity = createEntity({
   },
   // Find-then-create by sourceRef races across tabs/devices; only the DB closes
   // that gap. Partial because sourceRef is optional. A new name (not the old
-  // non-unique default) keeps the migration an in-place CREATE UNIQUE INDEX.
+  // non-unique default) keeps the migration an in-place CREATE UNIQUE INDEX;
+  // that statement, like a projection rebuild, fails on existing duplicate
+  // (tenant_id, source_ref) pairs, so duplicates must be cleaned up beforehand.
   indexes: [
     { columns: ["tenantId", "subjectType", "subjectId"] },
     {

@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   decryptPiiFieldValues,
+  encryptPiiFieldValues,
   InMemoryKmsAdapter,
   isPiiCiphertext,
   type KmsContext,
 } from "../../crypto/index.js";
-import { createEntity, createTextField } from "../../engine/index.js";
+import { createEntity, createFileField, createTextField } from "../../engine/index.js";
 import { createTestUser, testUserId } from "../../stack/test-users.js";
 import { createTestEnvelopeCipher } from "../../testing/index.js";
 import { buildExecutorContext, type Table } from "../event-store-executor-context.js";
@@ -63,5 +64,43 @@ describe("event-store-executor-context — encryptForStorage/decryptForRead laye
     // to the envelope cipher (skipping the PII unwrap) has to fail — this is
     // the ordering bug the roundtrip guards against.
     await expect(encryption.decrypt(storedNote as string)).rejects.toThrow();
+  });
+});
+
+describe("event-store-executor-context — file-reference fields", () => {
+  const entity = createEntity({
+    table: "pii_file_ref_test",
+    fields: {
+      userId: createTextField({ personal: false, reason: "test_fixture", required: true }),
+      attachment: createFileField({ personal: { of: "userId" } }),
+    },
+  });
+  const kms = new InMemoryKmsAdapter();
+  const context = buildExecutorContext({} as Table, entity, {
+    entityName: "piiFileRefTest",
+    encryption: createTestEnvelopeCipher(TEST_KEY),
+    kms,
+  });
+  const user = createTestUser({ id: testUserId(2) });
+  const fileId = "11111111-1111-4111-8111-111111111111";
+
+  test("new writes keep the file uuid plaintext", async () => {
+    const stored = await context.encryptForStorage({ userId: user.id, attachment: fileId }, user);
+    expect(stored["attachment"]).toBe(fileId);
+  });
+
+  test("reads decrypt a uuid that an older backfill stored as ciphertext", async () => {
+    const legacy = await encryptPiiFieldValues(
+      { userId: user.id, attachment: fileId },
+      entity,
+      ["attachment"],
+      kms,
+      { requestId: "test" },
+      { entityName: "piiFileRefTest" },
+    );
+    expect(isPiiCiphertext(legacy["attachment"])).toBe(true);
+
+    const read = await context.decryptForRead(legacy);
+    expect(read["attachment"]).toBe(fileId);
   });
 });

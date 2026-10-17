@@ -96,4 +96,33 @@ describe("bucketIndexAtFraction", () => {
     expect(bucketIndexAtFraction(times, window, -2)).toBe(0);
     expect(bucketIndexAtFraction(times, window, 5)).toBe(3);
   });
+
+  test("ticks align to month starts in the given time zone", () => {
+    const window = { startMs: utc(2023, 6), endMs: utc(2048, 3) };
+    const monthLabel = new Intl.DateTimeFormat("en-US", {
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "America/New_York",
+    });
+    const ticks = stackedAreaAxisTicks(window, 12, "month", "America/New_York");
+    expect(ticks.length).toBeGreaterThan(2);
+    for (const tick of ticks) {
+      expect(monthLabel.format(tick)).toMatch(/^01\//);
+    }
+  });
+
+  test("day ticks fall on local day starts in the given time zone", () => {
+    const window = { startMs: utc(2026, 2, 3), endMs: utc(2026, 3, 14) };
+    const dayLabel = new Intl.DateTimeFormat("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone: "America/New_York",
+    });
+    const ticks = stackedAreaAxisTicks(window, 12, "day", "America/New_York");
+    expect(ticks.length).toBeGreaterThan(0);
+    for (const tick of ticks) {
+      expect(dayLabel.format(tick)).toBe("00:00");
+    }
+  });
 });

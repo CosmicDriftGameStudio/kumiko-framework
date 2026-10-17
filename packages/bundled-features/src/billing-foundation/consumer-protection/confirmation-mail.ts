@@ -1,4 +1,5 @@
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { Marked } from "marked";
 import type { CheckoutConsentRecordedPayload } from "../events.js";
 import { type ConsentLocale, resolveConsentLocale } from "./consent-text.js";
 
@@ -138,13 +139,60 @@ function formatDate(iso: string, locale: ConsentLocale, timeZone: string): strin
   }).format(epochMilliseconds);
 }
 
-// The mail template only knows plain text variables, so the Markdown terms
-// become one row per paragraph; heading markers are dropped.
+// The mail template only knows plain text variables, so the Markdown terms are
+// rendered to plain text: emphasis and code lose their markers, links become
+// "label (url)", and each block (paragraph, heading, list item) is one row.
+const ROW_END = "\n\n";
+const plainTextMarkdown = new Marked({ gfm: false, breaks: false });
+plainTextMarkdown.use({
+  renderer: {
+    heading({ tokens }) {
+      return `${this.parser.parseInline(tokens)}${ROW_END}`;
+    },
+    paragraph({ tokens }) {
+      return `${this.parser.parseInline(tokens)}${ROW_END}`;
+    },
+    code: ({ text }) => `${text}${ROW_END}`,
+    blockquote({ tokens }) {
+      return this.parser.parse(tokens);
+    },
+    list({ items }) {
+      return items.map((item) => this.parser.parse(item.tokens)).join("");
+    },
+    hr: () => "",
+    space: () => "",
+    strong({ tokens }) {
+      return this.parser.parseInline(tokens);
+    },
+    em({ tokens }) {
+      return this.parser.parseInline(tokens);
+    },
+    del({ tokens }) {
+      return this.parser.parseInline(tokens);
+    },
+    codespan: ({ text }) => text,
+    br: () => " ",
+    html: ({ text }) => text,
+    image: ({ text }) => text,
+    text(token) {
+      // Only block-level text (a list item's own text) carries inline child tokens.
+      return "tokens" in token && token.tokens
+        ? `${this.parser.parseInline(token.tokens)}${ROW_END}`
+        : token.text;
+    },
+    link({ href, tokens }) {
+      const label = this.parser.parseInline(tokens);
+      return label === href ? href : `${label} (${href})`;
+    },
+  },
+});
+
 function termsParagraphsOf(markdown: string): readonly TextRow[] {
-  return markdown
+  return plainTextMarkdown
+    .parse(markdown, { async: false })
     .split(/\n\s*\n/)
-    .map((paragraph) => paragraph.replace(/^#{1,6}\s+/gm, "").trim())
-    .filter((paragraph) => paragraph.length > 0)
+    .map((row) => row.replace(/\s+/g, " ").trim())
+    .filter((row) => row.length > 0)
     .map((text) => ({ text }));
 }
 

@@ -11,6 +11,7 @@
 // das Event UND schreibt die Projection-Zeile in einer TX.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { computeBlindIndex, configuredBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEventStoreExecutor,
   createTenantDb,
@@ -139,12 +140,25 @@ export async function rewriteSeededUserEmail(
   if (typeof id !== "string") {
     throw new Error("rewriteSeededUserEmail: existing user row has no string id");
   }
+  const version = existingRow["version"];
+  if (typeof version !== "number") {
+    throw new Error("rewriteSeededUserEmail: existing user row has no numeric version");
+  }
+  // Every executor.update appends a user:updated event; skip when the stored
+  // blind index already matches so repeated boots do not grow the stream.
+  // Queried by the bidx column itself: fetchOne does not return it, and an
+  // `email` condition would also match a plaintext row with a blank index.
+  const blindIndexKey = configuredBlindIndexKey();
+  if (blindIndexKey !== undefined) {
+    const indexed = await fetchOne(db, userTable, {
+      id,
+      emailBidx: computeBlindIndex(blindIndexKey, email),
+    });
+    // skip: the stored blind index already matches, a rewrite would only append a no-op event.
+    if (indexed) return;
+  }
   const tdb = createTenantDb(db, by.tenantId, "system");
-  const result = await userExecutor.update(
-    { id, version: existingRow["version"] as number, changes: { email } },
-    by,
-    tdb,
-  );
+  const result = await userExecutor.update({ id, version, changes: { email } }, by, tdb);
   // version_conflict: a concurrent write already changed the row — fine for a seed helper.
   // unique_violation: a duplicate row already holds the blind index; the repair
   // has to wait for a manual duplicate cleanup.

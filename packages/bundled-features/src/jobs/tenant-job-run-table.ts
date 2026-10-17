@@ -21,7 +21,7 @@ export type TenantJobRunStatus = "queued" | "running" | "completed" | "failed";
 // job is invisible there. This table holds no payload, error text or logs by
 // design — the tenant learns only that work is waiting, running or finished.
 //
-// One row per BullMQ job. Active rows (queued/running) are kept as they are;
+// One row per BullMQ job and (tenant, job name). Active rows (queued/running) are kept as they are;
 // a finished row replaces earlier finished rows of the same (tenant, job,
 // subject), so only the latest outcome stays. `subject` is the canonical JSON
 // of the job's declared subjectFields, or NULL for none — stored in clear, so
@@ -41,7 +41,12 @@ export const tenantJobRunsTable = pgTable(
     updatedAt: instant("updated_at").default(sql`now()`).notNull(),
   },
   (t) => [
-    uniqueIndex("store_tenant_job_runs_bull_job_id_unique").on(t.bullJobId),
+    // BullMQ ids are unique per queue only; the id alone would let two tenants collide.
+    uniqueIndex("store_tenant_job_runs_tenant_job_bull_job_id_unique").on(
+      t.tenantId,
+      t.jobName,
+      t.bullJobId,
+    ),
     // Finishing a run prunes older outcomes by this key; the tenant query reads by it.
     index("store_tenant_job_runs_tenant_job_subject_idx").on(t.tenantId, t.jobName, t.subject),
     // Stale sweep and retention filter on age alone.

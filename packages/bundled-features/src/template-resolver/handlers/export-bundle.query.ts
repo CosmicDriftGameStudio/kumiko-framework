@@ -1,6 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError } from "@cosmicdrift/kumiko-framework/errors";
+import { NotFoundError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import {
   isFileAttachmentEntry,
@@ -13,6 +13,31 @@ import type { TemplateBundle } from "../template-bundle.js";
 import { readTemplateResource } from "../template-resources.js";
 import { kindSchema, templateSlugSchema } from "./shared.js";
 import { parseStoredJson, storedRecord } from "./template-gates.js";
+
+// The files live in the system tenant's key space; readTemplateResource only
+// serves the caller's own tenant, so anyone else would end in a misleading NotFound.
+function assertSystemFilesReadable(
+  scope: "tenant" | "system",
+  entries: Iterable<LinkedResourceEntry>,
+  callerTenantId: string,
+): void {
+  // skip: tenant exports read the caller's own files.
+  if (scope === "tenant") return;
+  // skip: the system tenant reads its own key space.
+  if (callerTenantId === SYSTEM_TENANT_ID) return;
+  const hasFileResources = [...entries].some((entry) => !isPdfAttachmentLink(entry));
+  // skip: PDF attachment links carry no file to read.
+  if (!hasFileResources) return;
+  throw new ValidationError({
+    fields: [
+      {
+        path: "scope",
+        code: "system_resources_need_system_tenant",
+        i18nKey: "templateResolver.errors.template.systemResourcesNeedSystemTenant",
+      },
+    ],
+  });
+}
 
 export const exportBundleQuery = defineQueryHandler({
   name: "export-bundle",
@@ -48,6 +73,8 @@ export const exportBundleQuery = defineQueryHandler({
         if (!entryByKey.has(key)) entryByKey.set(key, entry);
       }
     }
+
+    assertSystemFilesReadable(scope, entryByKey.values(), query.user.tenantId);
 
     const resources: TemplateBundle["resources"] = {};
     const pdfAttachments: TemplateBundle["pdfAttachments"] = {};

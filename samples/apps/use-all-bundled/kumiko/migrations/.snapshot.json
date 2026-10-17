@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-16T05:12:39.233Z",
+  "generatedAt": "2026-10-16T23:18:37.379Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -4145,8 +4145,8 @@
       ],
       "indexes": [
         {
-          "name": "store_tenant_job_runs_bull_job_id_unique",
-          "columns": ["bull_job_id"],
+          "name": "store_tenant_job_runs_tenant_job_bull_job_id_unique",
+          "columns": ["tenant_id", "job_name", "bull_job_id"],
           "unique": true
         },
         {

@@ -122,6 +122,34 @@ describe("postChatWebhook allowlist (checked on the parsed URL)", () => {
   });
 });
 
+describe("postChatWebhook redirect refusal through egress(internal)", () => {
+  test("a 307 to another port of the same host maps to redirect_blocked", async () => {
+    const detour = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response("ok") });
+    const origin = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () =>
+        new Response(null, {
+          status: 307,
+          headers: { location: `http://127.0.0.1:${detour.port}/hook` },
+        }),
+    });
+    try {
+      const result = await postChatWebhook({
+        url: `http://127.0.0.1:${origin.port}/hook`,
+        allowedHosts: ["127.0.0.1"],
+        requireHttps: false,
+        timeoutMs: 1000,
+        body: {},
+      });
+      expect(result).toEqual({ ok: false, code: "redirect_blocked" });
+    } finally {
+      origin.stop(true);
+      detour.stop(true);
+    }
+  });
+});
+
 describe("chatWebhookUrlSchema (write-time check, same rules as postChatWebhook)", () => {
   const slackTarget: ChatWebhookTarget = { allowedHosts: slackHosts, requireHttps: true };
   const discordTarget: ChatWebhookTarget = {

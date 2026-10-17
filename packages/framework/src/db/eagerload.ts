@@ -19,7 +19,7 @@
 // never skipped silently.
 import { requestContext } from "../api/request-context.js";
 import {
-  collectPiiEncryptedFields,
+  collectPiiSubjectFields,
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
 } from "../crypto/index.js";
@@ -276,7 +276,7 @@ export async function enrichWithReferences(
         scope.kind === "restricted"
           ? lookedUpRows.filter((r) => scope.readableIds.has(String(r["id"])))
           : lookedUpRows;
-      const piiFields = collectPiiEncryptedFields(refEntity);
+      const piiFields = collectPiiSubjectFields(refEntity);
       const encryptedFields = collectEncryptedFieldNames(refEntity);
       const kms = configuredPiiSubjectKms();
       const map = await buildRefLookupMap(
