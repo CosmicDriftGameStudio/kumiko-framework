@@ -147,6 +147,9 @@ Value exports of `@cosmicdrift/kumiko-renderer-web`.
 | `createKumikoApp` |  |
 | `createPublicSurface` |  |
 | `createStaticLocaleResolver` | Default-Resolver für Apps ohne eigene i18n-Schicht. |
+| `downloadFileRef` |  |
+| `fetchFileRefBlob` |  |
+| `fileNameFromContentDisposition` |  |
 | `filterAppSchemaNavsByAllowlist` |  |
 | `filterByAccess` |  |
 | `formatMoney` |  |
@@ -158,6 +161,7 @@ Value exports of `@cosmicdrift/kumiko-renderer-web`.
 | `readLoadedBuild` |  |
 | `reparentAppSchemaNavs` |  |
 | `resolveDefaultId` |  |
+| `saveBlobAsFile` |  |
 | `smoothPath` | Quadratic-durch-Mittelpunkte-Trick: glättet die Zick-Zack-Linie ohne Overshoot (~5 Zeilen statt Catmull-Rom/Bezier-Fit). |
 | `synthesizeActionFormEntity` | Baut eine minimale EntityDefinition aus den Inline-Fields eines ActionForm- oder SecretMint-Screens. |
 | `synthesizeActionFormScreen` | Wandelt ein ActionFormScreenDefinition oder SecretMintScreenDefinition in die EntityEditScreen-Shape die RenderEdit erwartet. |
@@ -178,4 +182,5 @@ Value exports of `@cosmicdrift/kumiko-renderer-web`.
 
 | Name | Description |
 | --- | --- |
+| `FileDownloadFailedError` |  |
 | `FileUploadFailedError` | Carries the server's own `error` message when the upload endpoint sent one. |
