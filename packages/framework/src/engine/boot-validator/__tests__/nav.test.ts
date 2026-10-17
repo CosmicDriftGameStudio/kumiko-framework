@@ -20,6 +20,15 @@ function workspaceMap(
   return new Map(entries);
 }
 
+// Other test files in the same bun process emit async warnings while a console spy is active,
+// so "no warning" assertions only count the messages the nav validators themselves produce.
+function warningsMentioning(
+  spy: { readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> } },
+  fragment: string,
+): ReadonlyArray<ReadonlyArray<unknown>> {
+  return spy.mock.calls.filter((args) => args.some((arg) => String(arg).includes(fragment)));
+}
+
 describe("warnOnUnreachableNavScreens", () => {
   let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
 
@@ -55,7 +64,7 @@ describe("warnOnUnreachableNavScreens", () => {
 
     warnOnUnreachableNavScreens(allNavQns, new Set(["vehicles:nav:a"]));
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(warningsMentioning(warnSpy, "unreachable via")).toHaveLength(0);
   });
 
   test("warns only for the unallowlisted nav whose screen nobody else reaches", () => {
@@ -91,8 +100,9 @@ describe("warnOnUnreachableNavScreens", () => {
 
     warnOnUnreachableNavScreens(allNavQns, new Set(["vehicles:nav:a"]));
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    const msg = warnSpy.mock.calls[0]![0] as string;
+    const unreachableWarnings = warningsMentioning(warnSpy, "unreachable via");
+    expect(unreachableWarnings).toHaveLength(1);
+    const msg = unreachableWarnings[0]![0] as string;
     expect(msg).toContain("vehicles:nav:c");
     expect(msg).toContain("vehicles");
     expect(msg).toContain("vehicles:screen:title");
@@ -126,7 +136,7 @@ describe("warnOnUnreachableNavScreens", () => {
       new Set(["vehicles:nav:c"]),
     );
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(warningsMentioning(warnSpy, "unreachable via")).toHaveLength(0);
   });
 
   test("never warns for a nav without a screen (pure grouping entry)", () => {
@@ -143,7 +153,7 @@ describe("warnOnUnreachableNavScreens", () => {
 
     warnOnUnreachableNavScreens(allNavQns, new Set());
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(warningsMentioning(warnSpy, "unreachable via")).toHaveLength(0);
   });
 });
 
@@ -168,7 +178,7 @@ describe("warnOnUnreachableNavScreens remedy text", () => {
   test("workspace-derived allowlist points at workspace nav assignment", () => {
     warnOnUnreachableNavScreens(unreachable, new Set(), new Set(), "workspaces");
 
-    const msg = warnSpy.mock.calls[0]![0] as string;
+    const msg = warningsMentioning(warnSpy, "unreachable via")[0]![0] as string;
     expect(msg).toContain("add it to a workspace's `nav` array");
     expect(msg).not.toContain("add it to the allowlist");
   });
@@ -176,7 +186,7 @@ describe("warnOnUnreachableNavScreens remedy text", () => {
   test("explicit allowlist points at the allowlist", () => {
     warnOnUnreachableNavScreens(unreachable, new Set());
 
-    const msg = warnSpy.mock.calls[0]![0] as string;
+    const msg = warningsMentioning(warnSpy, "unreachable via")[0]![0] as string;
     expect(msg).toContain("add it to the allowlist");
   });
 });
@@ -208,7 +218,7 @@ describe("warnOnNavAccessInversion", () => {
       ]),
     );
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warningsMentioning(warnSpy, "requires roles")).toHaveLength(1);
   });
 
   test("does not emit a misleading 'requires roles []' warning for an invalid openToAll leaf", () => {
@@ -228,7 +238,7 @@ describe("warnOnNavAccessInversion", () => {
       ]),
     );
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(warningsMentioning(warnSpy, "requires roles")).toHaveLength(0);
   });
 });
 
@@ -260,7 +270,7 @@ describe("resolveNavAllowlist (fw#3019 solon#113: workspace-derived allowlist)",
     const allowlist = resolveNavAllowlist(undefined, allNavQns, allWorkspaceQns);
     warnOnUnreachableNavScreens(allNavQns, allowlist ?? new Set());
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(warningsMentioning(warnSpy, "unreachable via")).toHaveLength(0);
   });
 
   test("does not warn for a nav that self-assigns via workspaces", () => {
@@ -283,7 +293,7 @@ describe("resolveNavAllowlist (fw#3019 solon#113: workspace-derived allowlist)",
     const allowlist = resolveNavAllowlist(undefined, allNavQns, allWorkspaceQns);
     warnOnUnreachableNavScreens(allNavQns, allowlist ?? new Set());
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(warningsMentioning(warnSpy, "unreachable via")).toHaveLength(0);
   });
 
   test("warns for a nav in no workspace whose screen nobody else reaches (solon#113)", () => {
@@ -307,8 +317,9 @@ describe("resolveNavAllowlist (fw#3019 solon#113: workspace-derived allowlist)",
     const allowlist = resolveNavAllowlist(undefined, allNavQns, allWorkspaceQns);
     warnOnUnreachableNavScreens(allNavQns, allowlist ?? new Set());
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(warnSpy.mock.calls[0]![0] as string).toContain("vehicles:nav:orphan");
+    const unreachableWarnings = warningsMentioning(warnSpy, "unreachable via");
+    expect(unreachableWarnings).toHaveLength(1);
+    expect(unreachableWarnings[0]![0] as string).toContain("vehicles:nav:orphan");
   });
 
   test("does not warn when the app has no workspaces at all", () => {
@@ -343,8 +354,9 @@ describe("resolveNavAllowlist (fw#3019 solon#113: workspace-derived allowlist)",
     warnOnUnreachableNavScreens(allNavQns, allowlist ?? new Set());
 
     expect(allowlist).toEqual(new Set());
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(warnSpy.mock.calls[0]![0] as string).toContain("vehicles:nav:a");
+    const unreachableWarnings = warningsMentioning(warnSpy, "unreachable via");
+    expect(unreachableWarnings).toHaveLength(1);
+    expect(unreachableWarnings[0]![0] as string).toContain("vehicles:nav:a");
   });
 });
 

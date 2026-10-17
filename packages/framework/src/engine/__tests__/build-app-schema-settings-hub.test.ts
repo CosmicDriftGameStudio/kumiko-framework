@@ -238,7 +238,12 @@ describe("buildAppSchema — dangling audience-ref dev-warning (#408/3)", () => 
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
       buildAppSchema(createRegistry([placingShell("system"), billing]));
-      expect(warn).not.toHaveBeenCalled();
+      // Other test files in the same bun process emit async warnings while this spy is active,
+      // so only the settings-hub authoring warnings count.
+      const settingsHubWarnings = warn.mock.calls.filter((args) =>
+        args.some((arg) => String(arg).includes("[kumiko] Settings-Hub:")),
+      );
+      expect(settingsHubWarnings).toHaveLength(0);
     } finally {
       warn.mockRestore();
     }

@@ -11,6 +11,16 @@ function fakeFeature(overrides: Partial<FeatureDefinition> & { name: string }): 
   } as unknown as FeatureDefinition;
 }
 
+// Other test files in the same bun process emit async warnings while this spy is active,
+// so "no warning" assertions only count the messages the validator under test produces.
+function uniqueRoleWarnings(spy: {
+  readonly mock: { readonly calls: ReadonlyArray<ReadonlyArray<unknown>> };
+}) {
+  return spy.mock.calls.filter((args) =>
+    args.some((arg) => String(arg).includes("is only used by one handler")),
+  );
+}
+
 describe("warnOnUniqueAccessRoles", () => {
   let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
 
@@ -34,8 +44,9 @@ describe("warnOnUniqueAccessRoles", () => {
 
     warnOnUniqueAccessRoles(features);
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    const msg = warnSpy.mock.calls[0]![0] as string;
+    const warnings = uniqueRoleWarnings(warnSpy);
+    expect(warnings).toHaveLength(1);
+    const msg = warnings[0]![0] as string;
     expect(msg).toContain("Admin");
     expect(msg).toContain("users:write:create-user");
   });
@@ -58,7 +69,7 @@ describe("warnOnUniqueAccessRoles", () => {
 
     warnOnUniqueAccessRoles(features);
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(uniqueRoleWarnings(warnSpy)).toHaveLength(0);
   });
 
   test("does NOT warn for built-in roles 'all' or 'system' even when used by one handler", () => {
@@ -79,6 +90,6 @@ describe("warnOnUniqueAccessRoles", () => {
 
     warnOnUniqueAccessRoles(features);
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(uniqueRoleWarnings(warnSpy)).toHaveLength(0);
   });
 });
