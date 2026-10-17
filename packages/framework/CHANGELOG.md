@@ -1,5 +1,56 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.365.1
+
+### Patch Changes
+
+- 93e1a7d: App and worker boot wait for Postgres instead of crashing
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: App and worker boot wait for Postgres instead of crashing
+  detail: runProdApp and worker processes now probe the database before the schema-drift check and retry with exponential backoff (1s to 15s, up to 90s) on transient connection errors such as too_many_connections or ECONNREFUSED. The KMS health check at boot retries the same way. Non-transient errors like auth failures still abort immediately.
+  -->
+- 9a8abc9: eraseKey tombstones never-keyed subjects
+  
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: eraseKey leaves a tombstone for subjects that never had a key
+  detail: eraseKey now records an erased entry even when the subject has no key (pre-KMS plaintext). A later createKey or write for that subject fails with subject_erased instead of minting a fresh key and re-encrypting the plaintext. Erase flows must write with writePurpose erasure after eraseKey. kumiko_subject_keys now gets one tombstone row per forgotten record subject and per step dispatch. The tenant destruction stage tenant-row now fails loudly when marking the tenant destroyed does not succeed.
+  migration: Run backfill-pii before erasing Pre-KMS data, otherwise untouched plaintext stays readable after eraseKey.
+  -->
+- 34530bf: restore no longer fails on entities with money fields
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Restoring a soft-deleted row with a money field no longer fails with a 500
+  detail: restore() wrote the raw stored row (money as bigint minor units) into payload.previous, and the jsonb bind threw. It now builds previous in the same domain form as delete(), so the restored event carries { amount, currency, ... } for money fields.
+  -->
+- 8633239: step-dispatcher delivers through a BullMQ job
+  
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: fix
+  title: step-dispatcher delivers each dispatch as a retried job, so a slow receiver no longer delays other tenants
+  detail: The step-dispatcher projection now only enqueues one `step-dispatcher:job:deliver` job per dispatch request, and the job performs the webhook or mail delivery. Redis holds only the dispatch stream id and the tenant, never the request payload. Transient failures (network error, timeout, 5xx, 408, 429, any mail adapter failure) are retried 3 times with exponential backoff; the outcome event and the payload key erase follow after the final attempt. Permanent failures (invalid url, blocked host, other 4xx, unavailable auth secret) are recorded at once. At most 2 deliveries per tenant run at the same time, so one tenant's slow receivers cannot hold up the others. This corrects the 0.346.0 note that a hanging receiver no longer stalls the dispatcher for every tenant: the shared consumer still delivered one request at a time.
+  migration: step-dispatcher now needs a job runner (Redis) and a worker consuming the default worker lane. Without a job runner the projection throws instead of delivering. Test stacks must pass `jobs` to setupTestStack and call `drainJobs()` after the event dispatcher ran. `r.job` accepts `maxPerTenant: { limit, onLimit: "defer", deferMs? }`; a plain number still drops excess enqueues. A `webhook.send` request that gets a retryable status (5xx, 408, 429) is now sent up to 4 times under the same Idempotency-Key. Worker pods must know the deliver job before the projection enqueues it, so deploy worker and API together or the worker first. A dev server only consumes jobs when the app mounts `createJobsFeature()`.
+  -->
+- 34530bf: version_conflict reports the real stream version
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: version_conflict from delete, restore, forget and update reports the actual stream version
+  detail: After a lost append race, delete, restore and forget returned currentVersion -1 and update returned the version read before the race, so expectedVersion and currentVersion looked equal. They now look up the stream version after the conflict; -1 remains only when that lookup fails.
+  -->
+- Updated dependencies [8633239]
+- Updated dependencies [34530bf]
+  - @cosmicdrift/kumiko-types@0.365.1
+  - @cosmicdrift/kumiko-http@0.365.1
+
 ## 0.365.0
 
 ### Minor Changes
