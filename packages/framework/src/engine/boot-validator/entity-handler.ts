@@ -161,6 +161,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
   for (const [name, handler] of Object.entries(feature.writeHandlers)) {
     validateTenantlessAnonymous(feature.name, name, handler);
     validateAdditionalRateLimits(feature.name, name, handler);
+    validatePerCommandTransaction(feature.name, name, handler);
   }
 }
 
@@ -230,6 +231,24 @@ function validatePayloadBucket(
       `${where} for "${field}" with windowSeconds ${entry.windowSeconds} — must be a positive integer.`,
     );
   }
+}
+
+export function validatePerCommandTransaction(
+  featureName: string,
+  handlerName: string,
+  handler: FeatureDefinition["writeHandlers"][string],
+): void {
+  if (handler.transaction !== "perCommand") return;
+  const conflicting = handler.beforeTransaction
+    ? "beforeTransaction"
+    : handler.reserveBeforeTransaction
+      ? "reserveBeforeTransaction"
+      : undefined;
+  if (conflicting === undefined) return;
+  throw new Error(
+    `write handler "${featureName}:write:${handlerName}" declares transaction: "perCommand" together with ${conflicting} — ` +
+      "a perCommand handler holds no transaction, so move the phase into the commands it issues via ctx.write.",
+  );
 }
 
 export function validateTenantlessAnonymous(

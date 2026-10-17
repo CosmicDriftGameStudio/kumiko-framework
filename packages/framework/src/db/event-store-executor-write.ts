@@ -55,7 +55,7 @@ import {
 import { projectionRegistryOf } from "./projection-registry-binding.js";
 import { runInSavepointIfSupported } from "./query.js";
 import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.js";
-import { tenantDbRunner } from "./tenant-db-runner.js";
+import { tenantDbWriteRunner } from "./tenant-db-runner.js";
 
 // Custom projections for a write that did not go through the dispatcher (hook or
 // job writing a second aggregate). Savepoint like applyEntityEvent: a throwing
@@ -284,7 +284,7 @@ export function createWriteVerbs(
       const streamTenantId = options?.streamTenantId;
       const streamTenantMismatch = streamTenantCreateFailure(db, payload, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
-      const runner = tenantDbRunner(db);
+      const runner = tenantDbWriteRunner(db, "ctx.db executor create");
       // Respect an explicit id in the payload (seed pattern, SCIM import). Without
       // one the framework mints a fresh UUIDv7 via generateId. Strip it out of the
       // event payload so defaults + downstream consumers don't see a redundant id field.
@@ -497,7 +497,7 @@ export function createWriteVerbs(
     },
 
     async update(payload, user, db, updateOptions) {
-      const runner = tenantDbRunner(db);
+      const runner = tenantDbWriteRunner(db, "ctx.db executor update");
       if (isForeignTenantOnGlobalEntity(entity, payload.changes["tenantId"])) {
         throw new AccessDeniedError({
           message:
@@ -783,7 +783,7 @@ export function createWriteVerbs(
       if (isIrreversibleEntityVerb("delete", entity)) {
         assertIrreversibleOperationAllowed(`${entityName}.delete (entity has no softDelete)`);
       }
-      const runner = tenantDbRunner(db);
+      const runner = tenantDbWriteRunner(db, "ctx.db executor delete");
       const existing = await loadById(payload.id, db);
       if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
       const streamTenantId = options?.streamTenantId;
@@ -901,7 +901,7 @@ export function createWriteVerbs(
     // without the isDeleted filter so trashed (soft-deleted) rows are erased too.
     async forget(payload, user, db, options) {
       assertIrreversibleOperationAllowed(`${entityName}.forget`);
-      const runner = tenantDbRunner(db);
+      const runner = tenantDbWriteRunner(db, "ctx.db executor forget");
       const raw = await db.fetchOne<Record<string, unknown>>(table, { id: payload.id });
       if (!raw) return writeFailure(new NotFoundError(entityName, payload.id));
       const streamTenantId = options?.streamTenantId;
@@ -1009,7 +1009,7 @@ export function createWriteVerbs(
           }),
         );
       }
-      const runner = tenantDbRunner(db);
+      const runner = tenantDbWriteRunner(db, "ctx.db executor restore");
       const streamTenantId = options?.streamTenantId;
       const target = await loadSoftDeletedRow(db, payload.id, streamTenantId);
       if ("failure" in target) return target.failure;

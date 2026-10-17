@@ -108,6 +108,7 @@ export function defineWriteHandler<
     ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
     ...pickPreTransactionPhases(def),
     ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
+    ...(def.transaction && { transaction: def.transaction }),
   };
 
   if ("perform" in def && def.perform !== undefined) {

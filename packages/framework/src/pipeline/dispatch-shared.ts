@@ -51,6 +51,7 @@ import {
   RateLimitUnavailableError,
   VersionConflictError,
   type WriteErrorInfo,
+  writeFailure,
 } from "../errors/index.js";
 import {
   archiveStream as archiveStreamHelper,
@@ -389,9 +390,37 @@ function beforeTransactionDenied(surface: string): InternalError {
   });
 }
 
-function denyBeforeTransaction(surface: string): () => never {
+function withoutTransactionDenied(surface: string): InternalError {
+  return new InternalError({
+    message: `ctx.${surface} is not available without an open transaction; run the write through ctx.write so it gets its own transaction`,
+  });
+}
+
+export function perCommandNestedDenied(targetType: string): InternalError {
+  return new InternalError({
+    message: `handler "${targetType}" runs without a transaction (transaction: "perCommand") and cannot run as a nested write inside an open transaction`,
+  });
+}
+
+function denySurface(buildError: (surface: string) => InternalError, surface: string): () => never {
   return () => {
-    throw beforeTransactionDenied(surface);
+    throw buildError(surface);
+  };
+}
+
+function denyEventStoreSurfaces(
+  handlerContext: HandlerContext,
+  buildError: (surface: string) => InternalError,
+): HandlerContext {
+  return {
+    ...handlerContext,
+    appendEvent: denySurface(buildError, "appendEvent"),
+    unsafeAppendEvent: denySurface(buildError, "unsafeAppendEvent"),
+    tryAppendEvent: denySurface(buildError, "tryAppendEvent"),
+    fetchForWriting: denySurface(buildError, "fetchForWriting"),
+    archiveStream: denySurface(buildError, "archiveStream"),
+    restoreStream: denySurface(buildError, "restoreStream"),
+    snapshotAggregate: denySurface(buildError, "snapshotAggregate"),
   };
 }
 
@@ -399,18 +428,11 @@ function denyBeforeTransaction(surface: string): () => never {
 // lose every surface bound to the not-yet-open transaction.
 export function denyTransactionBoundSurfaces(handlerContext: HandlerContext): HandlerContext {
   return {
-    ...handlerContext,
-    write: denyBeforeTransaction("write"),
-    writeAs: denyBeforeTransaction("writeAs"),
-    appendEvent: denyBeforeTransaction("appendEvent"),
-    unsafeAppendEvent: denyBeforeTransaction("unsafeAppendEvent"),
-    tryAppendEvent: denyBeforeTransaction("tryAppendEvent"),
-    fetchForWriting: denyBeforeTransaction("fetchForWriting"),
-    archiveStream: denyBeforeTransaction("archiveStream"),
-    restoreStream: denyBeforeTransaction("restoreStream"),
-    snapshotAggregate: denyBeforeTransaction("snapshotAggregate"),
-    scheduleAfterCommit: denyBeforeTransaction("scheduleAfterCommit"),
-    ...(handlerContext.notify && { notify: denyBeforeTransaction("notify") }),
+    ...denyEventStoreSurfaces(handlerContext, beforeTransactionDenied),
+    write: denySurface(beforeTransactionDenied, "write"),
+    writeAs: denySurface(beforeTransactionDenied, "writeAs"),
+    scheduleAfterCommit: denySurface(beforeTransactionDenied, "scheduleAfterCommit"),
+    ...(handlerContext.notify && { notify: denySurface(beforeTransactionDenied, "notify") }),
     ...(handlerContext.jobRunner && {
       jobRunner: denyingJobRunnerProxy(() => beforeTransactionDenied("jobRunner")),
     }),
@@ -427,6 +449,11 @@ export function applyBeforeTransactionReadOnly(handlerContext: HandlerContext): 
   };
 }
 
+// inTransaction: ctx.write nests in the open transaction. withoutTransaction: no transaction is open,
+// so ctx.write runs as its own command and ctx.db/event-store writes are denied. postCommit: afterCommit
+// hooks, which may write legitimately.
+export type HandlerTransactionScope = "inTransaction" | "withoutTransaction" | "postCommit";
+
 export async function buildHandlerContext(
   ctx: DispatchContext,
   type: string,
@@ -435,7 +462,7 @@ export async function buildHandlerContext(
   tx?: DbTx,
   afterCommitHooks?: AfterCommitHook[],
   includeDeleted?: boolean,
-  isPostCommit?: boolean,
+  transactionScope: HandlerTransactionScope = tx ? "inTransaction" : "withoutTransaction",
 ): Promise<HandlerContext> {
   const { registry, appContext: context, effectiveFeatures, jobRunner, lifecycle } = ctx;
   const isSystem = registry.isHandlerSystemScoped(type);
@@ -445,7 +472,10 @@ export async function buildHandlerContext(
   const dbSource = resolveDbSource(ctx, tx);
   const reqCtx = requestContext.get();
   // global() writes are write-handler-only; SYSTEM identity switch and unsafeRaw accept write, query or stream escapeHatch.
-  const writeEscapeHatch = registry.getWriteHandler(type)?.escapeHatch;
+  const writeHandler = registry.getWriteHandler(type);
+  const writeEscapeHatch = writeHandler?.escapeHatch;
+  const isPerCommand = writeHandler?.transaction === "perCommand";
+  const denyDbWrites = transactionScope === "withoutTransaction";
   const handlerEscapeHatch =
     writeEscapeHatch ??
     registry.getQueryHandler(type)?.escapeHatch ??
@@ -468,6 +498,7 @@ export async function buildHandlerContext(
     source: DbConnection | DbTx,
     signal: AbortSignal | undefined,
     foreignTenantId?: TenantId,
+    denyWrites = false,
   ) =>
     createTenantDb(
       source,
@@ -485,12 +516,15 @@ export async function buildHandlerContext(
         memberReadOnly: isMemberResolutionPrincipal(user),
         personalDataGate: buildPersonalDataGate(registry, origin),
         projectionRegistry: registry,
+        ...(denyWrites && { writesDeniedReason: "without an open transaction" }),
       },
     );
   // Propagate the request's AbortSignal so every TenantDb query throws when
   // the client has disconnected — handlers with many sequential queries skip
   // the rest of the chain instead of burning DB-CPU for results no one reads.
-  const db = dbSource ? buildTenantScopedDb(dbSource, reqCtx?.signal) : undefined;
+  const db = dbSource
+    ? buildTenantScopedDb(dbSource, reqCtx?.signal, undefined, denyDbWrites)
+    : undefined;
   // Unbound pool, tenant-scoped like `db` but never tx-bound — writes
   // through it survive a rollback of the handler's own transaction. No
   // AbortSignal here: a client disconnect must not abort a durability write
@@ -545,7 +579,7 @@ export async function buildHandlerContext(
   // queryAs/writeAs to anyone but the caller itself needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
   const bridgeSink = afterCommitHooks ?? [];
   // Query bridges and post-commit contexts get a throwaway sink: hooks pushed there never run.
-  const hasLiveCommitSink = afterCommitHooks !== undefined && isPostCommit !== true;
+  const hasLiveCommitSink = afterCommitHooks !== undefined && transactionScope !== "postCommit";
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     bridgeSink.push(hook);
   };
@@ -634,7 +668,12 @@ export async function buildHandlerContext(
     !isSystem && dbSource && registry.getWriteHandler(type) !== undefined
       ? (targetTenantId: TenantId): TenantWriteTarget => {
           if (targetTenantId === user.tenantId && exposedDb) {
-            return { db: exposedDb, streamTenantId: undefined };
+            // Only perCommand handlers lose forTenant writes; reservations keep their pre-transaction contract.
+            const ownTenantDb =
+              denyDbWrites && !isPerCommand
+                ? buildTenantScopedDb(dbSource, reqCtx?.signal)
+                : exposedDb;
+            return { db: ownTenantDb, streamTenantId: undefined };
           }
           if (!mayOverrideTenant(user)) {
             throw new AccessDeniedError({
@@ -642,7 +681,12 @@ export async function buildHandlerContext(
             });
           }
           return {
-            db: buildTenantScopedDb(dbSource, reqCtx?.signal, targetTenantId),
+            db: buildTenantScopedDb(
+              dbSource,
+              reqCtx?.signal,
+              targetTenantId,
+              denyDbWrites && isPerCommand,
+            ),
             streamTenantId: targetTenantId,
           };
         }
@@ -688,6 +732,9 @@ export async function buildHandlerContext(
     targetType: string,
     payload: unknown,
   ): Promise<WriteResult> => {
+    if (registry.getWriteHandler(targetType)?.transaction === "perCommand") {
+      return writeFailure(perCommandNestedDenied(targetType));
+    }
     if (!tx) return executeWrite(ctx, targetType, payload, asUser, origin, tx, bridgeSink);
     const innerAfterCommitHooks: AfterCommitHook[] = [];
     try {
@@ -711,16 +758,16 @@ export async function buildHandlerContext(
       throw e;
     }
   };
-  // Post-commit hooks have no transaction left, so a bare executeWrite would
-  // auto-commit event append, projections and inTransaction hooks separately
-  // and its afterCommit hooks would land in an already-flushed sink. A
-  // batch-of-one gives the write its own transaction and its own flush.
+  // Without an open transaction (post-commit hooks, stream/query handlers, perCommand handlers) a bare
+  // executeWrite would auto-commit event append, projections and inTransaction hooks separately and its
+  // afterCommit hooks would land in a sink nobody flushes. A batch-of-one gives the write its own
+  // transaction and its own flush.
   const writeAsUser = async (asUser: SessionUser, targetType: string, payload: unknown) =>
-    isPostCommit
-      ? unwrapSingle(
+    transactionScope === "inTransaction"
+      ? executeNestedWriteInSavepoint(asUser, targetType, payload)
+      : unwrapSingle(
           await runBatch(ctx, [{ type: targetType, payload }], asUser, undefined, origin),
-        )
-      : executeNestedWriteInSavepoint(asUser, targetType, payload);
+        );
   const identitySwitchAudit = { reason: identitySwitchGrantReason, report: reportEscapeHatch };
   const identitySwitch = createGatedIdentitySwitch(
     `handler "${type}"`,
@@ -1196,10 +1243,15 @@ export async function buildHandlerContext(
     ...bridge,
   } as HandlerContext; // @cast-boundary engine-bridge
 
+  const scopedContext =
+    transactionScope === "withoutTransaction"
+      ? denyEventStoreSurfaces(handlerContext, withoutTransactionDenied)
+      : handlerContext;
+
   // A resolved member principal is read-only by construction.
   return isMemberResolutionPrincipal(user)
-    ? applyMemberResolutionReadOnly(handlerContext)
-    : handlerContext;
+    ? applyMemberResolutionReadOnly(scopedContext)
+    : scopedContext;
 }
 
 // Resolves the agent risk the irreversible-operation gate should attribute to

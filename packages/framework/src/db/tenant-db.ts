@@ -46,7 +46,12 @@ import {
 import type { DbRunner } from "./connection.js";
 import { bindProjectionRegistry, projectionRegistryOf } from "./projection-registry-binding.js";
 import { hasFieldProperty, tableNameOf } from "./table-introspection.js";
-import { bindTenantDbRunner, tenantDbRunner } from "./tenant-db-runner.js";
+import {
+  bindTenantDbRunner,
+  denyTenantDbWrites,
+  tenantDbRunner,
+  tenantDbWritesDeniedError,
+} from "./tenant-db-runner.js";
 
 type Table = SchemaTable;
 
@@ -383,6 +388,9 @@ export type TenantDbGrants = {
   // Registry whose custom projections the EventStoreExecutor runs after each write
   // made through this TenantDb. Falls back to a registry bound to the runner.
   readonly projectionRegistry?: Registry;
+  // Set for contexts that hold no open transaction: insertOne/updateMany/deleteMany, db.global() writes
+  // and the executor's runner-based writes reject. unsafeRaw stays open as the audited escape hatch.
+  readonly writesDeniedReason?: string;
 };
 
 export type PersonalDataGate = (
@@ -590,6 +598,11 @@ export function createTenantDb(
     });
   }
 
+  function writesDenied(operation: string): InternalError | undefined {
+    const reason = grants?.writesDeniedReason;
+    return reason === undefined ? undefined : tenantDbWritesDeniedError(operation, reason);
+  }
+
   function globalWriteReason(): string {
     return grants?.globalWrites?.reason ?? "";
   }
@@ -654,6 +667,7 @@ export function createTenantDb(
         values: Record<string, unknown>,
       ): Promise<T | undefined> {
         const denied =
+          writesDenied("ctx.db.global().insertOne") ??
           missingEscapeHatch(table) ??
           executorManagedWriteDenied(table) ??
           foreignTenantOnGlobalWrite(table, values["tenantId"]) ??
@@ -667,6 +681,7 @@ export function createTenantDb(
         where: WhereObject,
       ): Promise<readonly T[]> {
         const denied =
+          writesDenied("ctx.db.global().updateMany") ??
           missingEscapeHatch(table) ??
           executorManagedWriteDenied(table) ??
           foreignTenantOnGlobalWrite(table, set["tenantId"]) ??
@@ -683,7 +698,10 @@ export function createTenantDb(
         return withDbSpan("update", table, async () => bunUpdateMany<T>(db, table, set, where));
       },
       deleteMany(where: WhereObject): Promise<void> {
-        const denied = missingEscapeHatch(table) ?? executorManagedWriteDenied(table);
+        const denied =
+          writesDenied("ctx.db.global().deleteMany") ??
+          missingEscapeHatch(table) ??
+          executorManagedWriteDenied(table);
         if (denied) return Promise.reject(denied);
         if (!where || Object.keys(where).length === 0) {
           return Promise.reject(
@@ -758,6 +776,8 @@ export function createTenantDb(
       table: Table,
       values: Record<string, unknown>,
     ): Promise<T | undefined> {
+      const writeDenied = writesDenied("ctx.db.insertOne");
+      if (writeDenied) return Promise.reject(writeDenied);
       if (
         mode === "tenant" &&
         hasTenantColumn(table) &&
@@ -782,6 +802,8 @@ export function createTenantDb(
       set: Record<string, unknown>,
       where: WhereObject,
     ): Promise<readonly T[]> {
+      const writeDenied = writesDenied("ctx.db.updateMany");
+      if (writeDenied) return Promise.reject(writeDenied);
       if (!where || Object.keys(where).length === 0) {
         return Promise.reject(
           new Error(
@@ -798,6 +820,8 @@ export function createTenantDb(
     },
 
     deleteMany(table: Table, where: WhereObject): Promise<void> {
+      const writeDenied = writesDenied("ctx.db.deleteMany");
+      if (writeDenied) return Promise.reject(writeDenied);
       if (!where || Object.keys(where).length === 0) {
         return Promise.reject(
           new Error(
@@ -852,6 +876,9 @@ export function createTenantDb(
     );
   });
   bindTenantDbRunner(tenantDb, db);
+  if (grants?.writesDeniedReason !== undefined) {
+    denyTenantDbWrites(tenantDb, grants.writesDeniedReason);
+  }
   if (personalDataGate) personalDataGates.set(tenantDb, personalDataGate);
   if (projectionRegistry) bindProjectionRegistry(tenantDb, projectionRegistry);
   return tenantDb;

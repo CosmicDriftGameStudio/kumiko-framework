@@ -12,6 +12,7 @@ import type {
   PreTransactionReservation,
   QueryEvent,
   RateLimitDeclaration,
+  WriteHandlerTransactionMode,
   WriteResult,
 } from "./handlers.js";
 import type { PipelineDef } from "./step.js";
@@ -52,6 +53,7 @@ export type WriteHandlerDefinition<
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   readonly tenantlessAnonymous?: boolean;
+  readonly transaction?: WriteHandlerTransactionMode;
   readonly handler: (
     event: PreparedWriteEvent<z.infer<TSchema>, TPrepared>,
     context: HandlerContext<TMap>,
@@ -85,6 +87,7 @@ export type WriteHandlerInput<
   readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly beforeTransaction?: BeforeTransactionPhase<z.infer<TSchema>, TPrepared>;
   readonly tenantlessAnonymous?: boolean;
+  readonly transaction?: WriteHandlerTransactionMode;
 } & (
   | {
       readonly handler: (
