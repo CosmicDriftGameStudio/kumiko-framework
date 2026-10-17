@@ -33,6 +33,7 @@ import {
   createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
   createEscapeHatchReportWindow,
+  createMetricsForFactory,
   emitJobLastSuccess,
   emitJobQueueDepth,
   flushEscapeHatchAudits,
@@ -1286,6 +1287,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       attempt,
       finalAttempt,
       log: createJobLogger(logs),
+      metricsFor: createMetricsForFactory(context.meter),
       ...(triggerName !== undefined && { triggerName }),
       ...(triggerEvent !== undefined && { triggerEvent }),
       write: (qn: string, payload: unknown) => {

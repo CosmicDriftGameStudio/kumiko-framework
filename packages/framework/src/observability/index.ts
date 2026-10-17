@@ -26,6 +26,7 @@ export {
 export {
   createMetricsHandle,
   createNoopMetricsHandle,
+  createMetricsForFactory,
   createSafeMetricsHandle,
   createUnboundMetricsHandle,
 } from "./metrics-handle.js";

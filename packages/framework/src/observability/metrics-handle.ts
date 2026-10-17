@@ -103,3 +103,13 @@ export function createNoopMetricsHandle(): MetricsHandle {
     set(_name: string, _value: number, _labels?: MetricLabels): void {},
   };
 }
+
+// Shared factory behind ctx.metricsFor for handler and job contexts, so both
+// keep the same no-op-on-unregistered contract (framework#1844).
+export function createMetricsForFactory(
+  meter: Meter | undefined,
+): (featureName: string) => MetricsHandle {
+  return meter
+    ? (featureName) => createSafeMetricsHandle(meter, featureName)
+    : () => createNoopMetricsHandle();
+}
