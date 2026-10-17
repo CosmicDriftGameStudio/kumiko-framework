@@ -1,5 +1,93 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.367.0
+
+### Minor Changes
+
+- f6b1803: Email channel can send through the tenant's own mail provider
+  
+  <!-- kumiko-changes
+  feature: channel-email
+  type: improvement
+  title: Email channel can send through the tenant's own mail provider
+  detail: EmailChannelOptions gets tenantTransport, a resolver called per send with the delivery channel context. mail-foundation exports tenantMailTransport for it: a tenant with a provider configured sends through its own transport, a broken provider fails the send, a tenant without a provider uses the app transport. The transport is built per send and never cached, and the tenant comes from the server-side delivery context only. ChannelContext now carries the tenant's config accessor as config. Without tenantTransport nothing changes.
+  -->
+- f6b1803: Notifications can keep their mail template system-only
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Notifications can keep their mail template system-only
+  detail: r.notification(name, { systemOnly: true }) marks the stored mail template as a platform text. Tenant admins no longer see it in the template overview, list or detail, and creating a tenant version (upsert-tenant, copy-locale, import-bundle, also a SystemAdmin writing for a tenant) is refused with access_denied and templateResolver.errors.systemOnlyTemplate. SystemAdmins edit the system template as before, and the mail renderer always uses it, even if a tenant row exists from before.
+  -->
+- f6b1803: Delivery signs unsubscribe links itself
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Delivery signs unsubscribe links itself
+  detail: r.notification(name, { unsubscribe: true }) makes delivery put a signed data.unsubscribeUrl into every email of that notification when the service has unsubscribeLinks. User recipients get a user token, route recipients an address token (only with a blind-index key, otherwise no link). The token is scoped to tenant, notification and channel; a link the caller passes in data.unsubscribeUrl wins. runProdApp option unsubscribe: { secret } mounts createUnsubscribeRoutes and wires the links; the base URL comes from auth.publicOrigin, auth.mail.baseUrl or APP_BASE_URL, and without one boot warns and no link is added.
+  -->
+- f6b1803: Template bundles with a logo can be seeded
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Template bundles with a logo can be seeded
+  detail: seedSystemTemplateBundle(db, bundle, { dispatcher }) now seeds bundles that carry resources such as a logo by running the import-bundle-system write on the given seed dispatcher. With ifExists "skip" (default) nothing is written when every locale row already exists; if only some exist, the whole bundle is imported again. Without a dispatcher such a bundle still fails with a message that names the missing option.
+  -->
+- f6b1803: Template conditions with data-if and a percent variable type
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Template conditions with data-if and a percent variable type
+  detail: A paragraph, heading or table row with data-if="name" renders only when the variable has a value (0 counts as a value); inside a repeat row the name refers to the row field, on the repeat row itself to the root variable. The sanitizer keeps the attribute, and template validation reports a condition on an undeclared variable. New variable type percent (templateVariable.percent()) takes percentage points and renders locale-aware, 12 as "12 %" in German and "12%" in English; the preview uses its example value. The document designer has no toolbar control for conditions yet; the attribute survives editing.
+  -->
+- 5f2cc2f: Unsubscribe links use the tenant's host and the mail's language, apps learn about address opt-outs
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Unsubscribe links use the tenant's host and the mail's language, apps learn about address opt-outs
+  detail: unsubscribeLinks and the runProdApp option unsubscribe take tenantOrigin, an app callback that returns the sending tenant's own origin (subdomain or custom domain) per send; null, a throw or a non-https value fall back to the app origin and never fail the send. The signed token now carries the mail's locale (notify option locale), so the confirmation, result and undo pages render in that language; tokens without it keep working and show English. A form post to the resubscribe route now answers with an HTML page, JSON callers are unchanged. After a committed address opt-out an app job declared with trigger on DeliveryHandlers.unsubscribeAddress receives addressHash, notificationType and channel (unsubscribeAddressPayloadSchema) with the tenant in ctx.triggeredBy.tenantId; hashUnsubscribeAddress(email) matches it to the app's own subscriber. UNSUBSCRIBE_PAGE_EN exports the English page texts, German and Spanish come with the locale packages.
+  -->
+
+### Patch Changes
+
+- f6b1803: Rich text placeholders no longer nest paragraphs
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Rich text placeholders no longer nest paragraphs
+  detail: A richText placeholder alone in a paragraph compiles into a div that keeps the paragraph attributes, and one inside other text renders inline with line breaks instead of its own paragraphs. Mails and PDFs no longer contain <p><p>. richText and stepIs are now reserved template variable names, like the other renderer helpers.
+  migration: A notification that declares a template variable called richText, stepIs or percent fails at boot; rename the variable.
+  -->
+- 04bf143: Tests no longer write kumiko_events or membership projections by hand
+  
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Tests seed tenant memberships and events through the framework
+  detail: Test-only change. Integration tests create read_tenant_memberships from tenantMembershipEntity and seed rows with seedRow instead of hand-written DDL and raw INSERTs. Fake events go through the event-store append, and backdated audit events are written with runSeedWritesAt instead of an UPDATE on created_at. No runtime behavior changes.
+  -->
+- Updated dependencies [10de2c0]
+- Updated dependencies [a0db2ac]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [04bf143]
+  - @cosmicdrift/kumiko-renderer@0.367.0
+  - @cosmicdrift/kumiko-renderer-web@0.367.0
+  - @cosmicdrift/kumiko-types@0.367.0
+  - @cosmicdrift/kumiko-framework@0.367.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.367.0
+  - @cosmicdrift/kumiko-headless@0.367.0
+
 ## 0.366.0
 
 ### Minor Changes

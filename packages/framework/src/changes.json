@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.367.0",
+    "type": "fix",
+    "title": "Seed context finds template resources again",
+    "detail": "findTemplateResources in the seed context filtered on an is_deleted column that the template resource table does not have, so every seed that read template resources failed. The query now reads the live rows only."
+  },
+  {
+    "version": "0.367.0",
+    "type": "improvement",
+    "title": "Seeds can store files and see why a write failed",
+    "detail": "ProdSeedFn deps now carry createFileRef(tenantId, input), which stores bytes as a fileRef with the same validation and storage layout as POST /files, without a helper write handler. A seed write that fails with internal_error now names the handler and the cause message instead of a bare \"internal error\". The seed dispatcher gets the app's dispatcherOptions (and the job runner in all-in-one mode), like the HTTP dispatcher. The \"ctx.files is unavailable\" message of createFileRefFromBytes names the real cause: the dispatcher context has no file-provider resolver."
+  },
+  {
     "version": "0.366.0",
     "type": "breaking",
     "title": "One injectable Clock for ctx.tz in handlers and jobs",

@@ -1,5 +1,69 @@
 # @cosmicdrift/kumiko-renderer-mail-html
 
+## 0.367.0
+
+### Minor Changes
+
+- f6b1803: Mail header shows the branding logo address, band link falls back to an app site URL
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: improvement
+  title: Mail header shows the branding logo address, band link falls back to an app site URL
+  detail: Without an uploaded logo file the mail renderer now uses the https address from branding.logoUrl for the layout brand row (28 px high) and for a logo image in the body; the mail client loads it, the PDF renderer never does. New option siteUrl on createRendererMailHtmlFeature (type MailSiteUrlResolver) supplies the site link of the footer band when the tenant has no branding.siteUrl. Without either value the band shows only the unsubscribe link, never an empty link.
+  -->
+- f6b1803: Mail footer texts come from the i18n system
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: breaking
+  title: Mail footer texts come from the i18n system
+  detail: The "Sent by" line of the default mail layout, the unsubscribe label and the imprint and privacy labels now come from the mail translations (mail.footer.sentBy, mail.footer.unsubscribe, mail.footer.imprint, mail.footer.privacy). English ships with the renderer, German and Spanish with locale-de and locale-es; an unknown locale falls back to its root language and then to English. MailFooterLink.label is optional and defaults to the framework text. The default layout renders the sender line through the new mailSentBy placeholder. MAIL_CHROME_EN exports the English source texts for translation tooling.
+  migration: Apps that send German or Spanish mails mount localeDe() or localeEs(), otherwise the footer labels are English. A mail layout already stored from the old default keeps its fixed "Sent by" text until it is reseeded or edited.
+  -->
+- f6b1803: Notifications can keep their mail template system-only
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Notifications can keep their mail template system-only
+  detail: r.notification(name, { systemOnly: true }) marks the stored mail template as a platform text. Tenant admins no longer see it in the template overview, list or detail, and creating a tenant version (upsert-tenant, copy-locale, import-bundle, also a SystemAdmin writing for a tenant) is refused with access_denied and templateResolver.errors.systemOnlyTemplate. SystemAdmins edit the system template as before, and the mail renderer always uses it, even if a tenant row exists from before.
+  -->
+- f6b1803: Template conditions with data-if and a percent variable type
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Template conditions with data-if and a percent variable type
+  detail: A paragraph, heading or table row with data-if="name" renders only when the variable has a value (0 counts as a value); inside a repeat row the name refers to the row field, on the repeat row itself to the root variable. The sanitizer keeps the attribute, and template validation reports a condition on an undeclared variable. New variable type percent (templateVariable.percent()) takes percentage points and renders locale-aware, 12 as "12 %" in German and "12%" in English; the preview uses its example value. The document designer has no toolbar control for conditions yet; the attribute survives editing.
+  -->
+
+### Patch Changes
+
+- f6b1803: Rich text placeholders no longer nest paragraphs
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Rich text placeholders no longer nest paragraphs
+  detail: A richText placeholder alone in a paragraph compiles into a div that keeps the paragraph attributes, and one inside other text renders inline with line breaks instead of its own paragraphs. Mails and PDFs no longer contain <p><p>. richText and stepIs are now reserved template variable names, like the other renderer helpers.
+  migration: A notification that declares a template variable called richText, stepIs or percent fails at boot; rename the variable.
+  -->
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [04bf143]
+- Updated dependencies [5f2cc2f]
+  - @cosmicdrift/kumiko-bundled-features@0.367.0
+  - @cosmicdrift/kumiko-types@0.367.0
+  - @cosmicdrift/kumiko-framework@0.367.0
+  - @cosmicdrift/kumiko-headless@0.367.0
+
 ## 0.366.0
 
 ### Patch Changes

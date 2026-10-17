@@ -1,5 +1,61 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.367.0
+
+### Minor Changes
+
+- a0db2ac: Unavailable-screen empty state, projectionDetail title, folder picker
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A route to a screen missing from the schema shows an empty state
+  detail: A tenant-disabled feature, stale link or typo no longer falls back to the first feature or shows "Screen not found: <qn>". The app renders "This page is not available" with a button to the landing screen; the qualified name only goes to the console. New i18n keys kumiko.screen-missing.title, .hint and .home (en, de, es). The access-denied banner of KumikoScreen and the toolbar drawer is now translated too (kumiko.screen-access-denied.title) and no longer prints the qualified name.
+  migration: e2e checks on the text "Screen not found" should use the testId kumiko-screen-not-found; the testIds are unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: projectionDetail drops the duplicate title block
+  detail: A screen with recordTitleField no longer repeats the screen title above the form when the page header already shows the record title.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: FileUploadInput folder mode
+  detail: FileUploadInput takes directory (sets webkitdirectory and multiple) and onFilesPicked. In directory mode it uploads nothing and hands the picked File[] with webkitRelativePath to the callback. Web-only: the input is not part of the cross-platform primitive contract.
+  -->
+
+### Patch Changes
+
+- f6b1803: Mail footer texts come from the i18n system
+  
+  <!-- kumiko-changes
+  feature: renderer-mail-html
+  type: breaking
+  title: Mail footer texts come from the i18n system
+  detail: The "Sent by" line of the default mail layout, the unsubscribe label and the imprint and privacy labels now come from the mail translations (mail.footer.sentBy, mail.footer.unsubscribe, mail.footer.imprint, mail.footer.privacy). English ships with the renderer, German and Spanish with locale-de and locale-es; an unknown locale falls back to its root language and then to English. MailFooterLink.label is optional and defaults to the framework text. The default layout renders the sender line through the new mailSentBy placeholder. MAIL_CHROME_EN exports the English source texts for translation tooling.
+  migration: Apps that send German or Spanish mails mount localeDe() or localeEs(), otherwise the footer labels are English. A mail layout already stored from the old default keeps its fixed "Sent by" text until it is reseeded or edited.
+  -->
+- 5f2cc2f: Unsubscribe links use the tenant's host and the mail's language, apps learn about address opt-outs
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Unsubscribe links use the tenant's host and the mail's language, apps learn about address opt-outs
+  detail: unsubscribeLinks and the runProdApp option unsubscribe take tenantOrigin, an app callback that returns the sending tenant's own origin (subdomain or custom domain) per send; null, a throw or a non-https value fall back to the app origin and never fail the send. The signed token now carries the mail's locale (notify option locale), so the confirmation, result and undo pages render in that language; tokens without it keep working and show English. A form post to the resubscribe route now answers with an HTML page, JSON callers are unchanged. After a committed address opt-out an app job declared with trigger on DeliveryHandlers.unsubscribeAddress receives addressHash, notificationType and channel (unsubscribeAddressPayloadSchema) with the tenant in ctx.triggeredBy.tenantId; hashUnsubscribeAddress(email) matches it to the app's own subscriber. UNSUBSCRIBE_PAGE_EN exports the English page texts, German and Spanish come with the locale packages.
+  -->
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [f6b1803]
+- Updated dependencies [04bf143]
+  - @cosmicdrift/kumiko-framework@0.367.0
+
 ## 0.366.0
 
 ### Patch Changes

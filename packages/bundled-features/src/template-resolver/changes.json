@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.367.0",
+    "type": "improvement",
+    "title": "Notifications can keep their mail template system-only",
+    "detail": "r.notification(name, { systemOnly: true }) marks the stored mail template as a platform text. Tenant admins no longer see it in the template overview, list or detail, and creating a tenant version (upsert-tenant, copy-locale, import-bundle, also a SystemAdmin writing for a tenant) is refused with access_denied and templateResolver.errors.systemOnlyTemplate. SystemAdmins edit the system template as before, and the mail renderer always uses it, even if a tenant row exists from before."
+  },
+  {
+    "version": "0.367.0",
+    "type": "fix",
+    "title": "Rich text placeholders no longer nest paragraphs",
+    "detail": "A richText placeholder alone in a paragraph compiles into a div that keeps the paragraph attributes, and one inside other text renders inline with line breaks instead of its own paragraphs. Mails and PDFs no longer contain <p><p>. richText and stepIs are now reserved template variable names, like the other renderer helpers.",
+    "migration": "A notification that declares a template variable called richText, stepIs or percent fails at boot; rename the variable."
+  },
+  {
+    "version": "0.367.0",
+    "type": "improvement",
+    "title": "Template bundles with a logo can be seeded",
+    "detail": "seedSystemTemplateBundle(db, bundle, { dispatcher }) now seeds bundles that carry resources such as a logo by running the import-bundle-system write on the given seed dispatcher. With ifExists \"skip\" (default) nothing is written when every locale row already exists; if only some exist, the whole bundle is imported again. Without a dispatcher such a bundle still fails with a message that names the missing option."
+  },
+  {
+    "version": "0.367.0",
+    "type": "improvement",
+    "title": "Template conditions with data-if and a percent variable type",
+    "detail": "A paragraph, heading or table row with data-if=\"name\" renders only when the variable has a value (0 counts as a value); inside a repeat row the name refers to the row field, on the repeat row itself to the root variable. The sanitizer keeps the attribute, and template validation reports a condition on an undeclared variable. New variable type percent (templateVariable.percent()) takes percentage points and renders locale-aware, 12 as \"12 %\" in German and \"12%\" in English; the preview uses its example value. The document designer has no toolbar control for conditions yet; the attribute survives editing."
+  },
+  {
     "version": "0.365.0",
     "type": "breaking",
     "title": "copy-locale copies the system default's files in a beforeTransaction phase and can no longer run as a nested write",
