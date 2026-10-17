@@ -1161,6 +1161,15 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "mail.footer.unsubscribe": "Darse de baja",
   "mail.footer.imprint": "Aviso legal",
   "mail.footer.privacy": "Política de privacidad",
+  "mail.unsubscribe.confirmTitle": "Darse de baja",
+  "mail.unsubscribe.confirmQuestion": "¿Dejar de recibir estos correos?",
+  "mail.unsubscribe.confirmButton": "Darse de baja",
+  "mail.unsubscribe.doneTitle": "Baja confirmada",
+  "mail.unsubscribe.doneMessage": "Ya no recibirás estos correos.",
+  "mail.unsubscribe.undoButton": "Deshacer",
+  "mail.unsubscribe.resubscribedTitle": "Suscripción restablecida",
+  "mail.unsubscribe.resubscribedMessage": "Volverás a recibir estos correos.",
+  "mail.unsubscribe.failed": "No ha funcionado. Inténtalo de nuevo más tarde.",
   "templateResolver.errors.systemOnlyTemplate":
     "Solo la plataforma mantiene esta plantilla; no se puede sobrescribir por cliente.",
   "templateResolver.errors.template.targetExists":

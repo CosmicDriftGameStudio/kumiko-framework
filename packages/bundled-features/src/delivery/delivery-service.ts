@@ -60,6 +60,7 @@ import {
   buildUnsubscribeUrl,
   type UnsubscribeLinkConfig,
   type UnsubscribeLinkRecipient,
+  unsubscribeLinkOrigin,
 } from "./unsubscribe-link.js";
 
 export function redactedMessageOf(err: unknown): string {
@@ -470,7 +471,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     message: ChannelMessage,
     channelName: string,
     recipient: UnsubscribeLinkRecipient,
-    tenantId: TenantId,
+    channelCtx: ChannelContext,
   ): Promise<ChannelMessage> {
     if (!unsubscribeLinks || channelName !== EMAIL_CHANNEL_NAME) return message;
     if (registry.getAllNotifications().get(message.notificationType)?.unsubscribe !== true) {
@@ -478,10 +479,17 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     }
     const supplied = message.data?.["unsubscribeUrl"];
     if (typeof supplied === "string" && supplied !== "") return message;
-    const unsubscribeUrl = await buildUnsubscribeUrl(unsubscribeLinks, recipient, {
-      tenantId,
+    const origin = await unsubscribeLinkOrigin(unsubscribeLinks, channelCtx, (reason) =>
+      logError.warn(`unsubscribe link falls back to the app origin: ${reason}`, {
+        tenantId: channelCtx.tenantId,
+        notificationType: message.notificationType,
+      }),
+    );
+    const unsubscribeUrl = await buildUnsubscribeUrl(unsubscribeLinks, origin, recipient, {
+      tenantId: channelCtx.tenantId,
       notificationType: message.notificationType,
       channel: channelName,
+      locale: message.locale,
     });
     return unsubscribeUrl === undefined
       ? message
@@ -782,7 +790,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             message,
             channel.name,
             { kind: "user", userId },
-            tenantId,
+            channelCtx,
           ),
           channelCtx,
           tenantId,
@@ -885,7 +893,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
             message,
             channel.name,
             { kind: "address", address },
-            tenantId,
+            channelCtx,
           ),
           channelCtx,
           tenantId,

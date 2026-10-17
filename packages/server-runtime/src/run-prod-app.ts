@@ -64,7 +64,10 @@ import {
   resolveTokenVerifier,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { AUTH_MFA_FEATURE, AuthMfaHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
-import { createUnsubscribeRoutes } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import {
+  createUnsubscribeRoutes,
+  type UnsubscribeLinkConfig,
+} from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   PAT_FEATURE,
   patRateLimitFromFeature,
@@ -683,8 +686,15 @@ export type RunProdAppOptions = {
    *  session JWT secret. Links point at the origin of `auth.publicOrigin`, then `auth.mail.baseUrl`,
    *  then the `APP_BASE_URL` env; with none of them no link is added (boot warning). Address
    *  recipients need a blind-index key, otherwise they get no link. Do not also mount
-   *  `createUnsubscribeRoutes` via `extraRoutes`. */
-  readonly unsubscribe?: { readonly secret: string };
+   *  `createUnsubscribeRoutes` via `extraRoutes`. `tenantOrigin` points a tenant's links at
+   *  its own subdomain or custom domain (the host must serve this app's `/api` routes); null,
+   *  a throw or a non-https value fall back to the app origin. The link carries the mail's
+   *  locale, so the confirmation pages speak the mail's language. An app reacts to an address
+   *  opt-out with an `r.job` triggered on `DeliveryHandlers.unsubscribeAddress`. */
+  readonly unsubscribe?: {
+    readonly secret: string;
+    readonly tenantOrigin?: UnsubscribeLinkConfig["tenantOrigin"];
+  };
   /** Hook for app-wired co-running components that need the system-write
    *  dispatcher (e.g. wiring a webhook plugin's system-scoped secrets, or
    *  starting a co-running supervisor) — runs after buildServer, before
@@ -962,7 +972,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   }
   const unsubscribeLinks =
     options.unsubscribe && unsubscribeBaseUrl !== undefined
-      ? { secret: options.unsubscribe.secret, baseUrl: unsubscribeBaseUrl }
+      ? {
+          secret: options.unsubscribe.secret,
+          baseUrl: unsubscribeBaseUrl,
+          ...(options.unsubscribe.tenantOrigin !== undefined && {
+            tenantOrigin: options.unsubscribe.tenantOrigin,
+          }),
+        }
       : undefined;
   const unsubscribeRoutes = options.unsubscribe
     ? createUnsubscribeRoutes({ secret: options.unsubscribe.secret })

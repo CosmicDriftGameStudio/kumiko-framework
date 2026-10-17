@@ -6,6 +6,7 @@ import {
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { mailT, resolveMailLocale } from "@cosmicdrift/kumiko-framework/i18n";
 import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as jose from "jose";
@@ -17,6 +18,14 @@ import {
   DeliveryErrors,
   DeliveryHandlers,
 } from "./constants.js";
+import "./unsubscribe-page-strings.js";
+
+// The mail's locale, so the pages behind the link speak the mail's language. Optional: links
+// signed before the claim existed keep verifying and fall back to English.
+const localeClaimSchema = z
+  .string()
+  .regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{1,8})*$/)
+  .optional();
 
 // Shape des verified-JWT-payloads. tenantId kommt als string aus jose und
 // wird NACH erfolgreichem parse() zur Branded TenantId — kein blind-cast.
@@ -32,6 +41,7 @@ const unsubscribeJwtPayloadSchema = z.object({
   tenantId: z.string().min(1),
   notificationType: z.string().min(1),
   channel: z.string().min(1),
+  locale: localeClaimSchema,
 });
 
 // Address-token payload. `sub` and `addressHash` are the same value (the
@@ -45,6 +55,7 @@ const addressUnsubscribeJwtPayloadSchema = z.object({
   notificationType: z.string().min(1),
   channel: z.string().min(1),
   addressHash: z.string().min(1),
+  locale: localeClaimSchema,
 });
 
 export type UnsubscribeTokenPayload = {
@@ -52,6 +63,7 @@ export type UnsubscribeTokenPayload = {
   readonly tenantId: TenantId;
   readonly notificationType: string;
   readonly channel: string;
+  readonly locale?: string | undefined;
 };
 
 export type AddressUnsubscribeTokenPayload = {
@@ -59,6 +71,7 @@ export type AddressUnsubscribeTokenPayload = {
   readonly address: string;
   readonly notificationType: string;
   readonly channel: string;
+  readonly locale?: string | undefined;
 };
 
 /**
@@ -87,6 +100,11 @@ function assertUnsubscribeSecret(secret: string, caller: string): void {
   }
 }
 
+// An unusable locale is left out instead of failing the send; the pages then fall back to English.
+function localeClaim(locale: string | undefined): { locale?: string } {
+  return locale !== undefined && localeClaimSchema.safeParse(locale).success ? { locale } : {};
+}
+
 const UNSUBSCRIBE_TOKEN_INVALID_BODY = {
   error: { code: "unsubscribe_token_invalid", message: "Invalid or expired token" },
 } as const;
@@ -101,6 +119,7 @@ export async function signUnsubscribeToken(
     tenantId: payload.tenantId,
     notificationType: payload.notificationType,
     channel: payload.channel,
+    ...localeClaim(payload.locale),
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(String(payload.userId))
@@ -136,6 +155,7 @@ export async function signAddressUnsubscribeToken(
       channel: payload.channel,
       addressHash,
       kind: "address",
+      ...localeClaim(payload.locale),
     })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(addressHash)
@@ -154,6 +174,7 @@ type VerifiedUnsubscribe =
       readonly addressHash: string;
       readonly notificationType: string;
       readonly channel: string;
+      readonly locale: string | undefined;
     }
   | {
       readonly kind: "user";
@@ -161,6 +182,7 @@ type VerifiedUnsubscribe =
       readonly userId: string;
       readonly notificationType: string;
       readonly channel: string;
+      readonly locale: string | undefined;
     };
 
 // RFC 8058 fixed value — both the List-Unsubscribe-Post header and the body a
@@ -183,6 +205,7 @@ async function signResubscribeToken(
     tenantId: verified.tenantId,
     notificationType: verified.notificationType,
     channel: verified.channel,
+    ...localeClaim(verified.locale),
   };
   const jwt =
     verified.kind === "address"
@@ -254,6 +277,7 @@ async function verifyUnsubscribeToken(
         addressHash: parsed.addressHash,
         notificationType: parsed.notificationType,
         channel: parsed.channel,
+        locale: parsed.locale,
       };
     }
 
@@ -274,6 +298,7 @@ async function verifyUnsubscribeToken(
       userId: parsed.sub,
       notificationType: parsed.notificationType,
       channel: parsed.channel,
+      locale: parsed.locale,
     };
   } catch (err) {
     if (err instanceof ExtraRouteRejection) throw err;
@@ -358,40 +383,68 @@ async function dispatchResubscribeWrite(
   return isResubscribeLimitReached(dispatched.error) ? "limit_reached" : "failed";
 }
 
-function confirmationPage(token: string): string {
+function pageLocale(locale: string | undefined): string {
+  return resolveMailLocale(locale ?? "en");
+}
+
+function htmlPage(locale: string, title: string, bodyHtml: string): string {
   return `<!doctype html>
-<html>
+<html lang="${escapeHtmlAttr(locale)}">
 <head>
 <meta charset="utf-8">
 <meta name="robots" content="noindex">
-<title>Unsubscribe</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtmlAttr(title)}</title>
 </head>
 <body>
-<p>Unsubscribe from these emails?</p>
-<form method="post" action="${DELIVERY_UNSUBSCRIBE_PATH}">
-<input type="hidden" name="token" value="${escapeHtmlAttr(token)}">
-<button type="submit">Unsubscribe</button>
-</form>
+${bodyHtml}
 </body>
 </html>`;
 }
 
-function unsubscribedPage(resubscribeToken: string): string {
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="robots" content="noindex">
-<title>Unsubscribed</title>
-</head>
-<body>
-<p>You have been unsubscribed.</p>
+function confirmationPage(token: string, locale: string | undefined): string {
+  const lang = pageLocale(locale);
+  return htmlPage(
+    lang,
+    mailT(lang, "mail.unsubscribe.confirmTitle"),
+    `<p>${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.confirmQuestion"))}</p>
+<form method="post" action="${DELIVERY_UNSUBSCRIBE_PATH}">
+<input type="hidden" name="token" value="${escapeHtmlAttr(token)}">
+<button type="submit">${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.confirmButton"))}</button>
+</form>`,
+  );
+}
+
+function unsubscribedPage(resubscribeToken: string, locale: string | undefined): string {
+  const lang = pageLocale(locale);
+  return htmlPage(
+    lang,
+    mailT(lang, "mail.unsubscribe.doneTitle"),
+    `<p>${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.doneMessage"))}</p>
 <form method="post" action="${DELIVERY_RESUBSCRIBE_PATH}">
 <input type="hidden" name="token" value="${escapeHtmlAttr(resubscribeToken)}">
-<button type="submit">Undo</button>
-</form>
-</body>
-</html>`;
+<button type="submit">${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.undoButton"))}</button>
+</form>`,
+  );
+}
+
+function resubscribedPage(locale: string | undefined): string {
+  const lang = pageLocale(locale);
+  return htmlPage(
+    lang,
+    mailT(lang, "mail.unsubscribe.resubscribedTitle"),
+    `<p>${escapeHtmlAttr(mailT(lang, "mail.unsubscribe.resubscribedMessage"))}</p>`,
+  );
+}
+
+function failedPage(locale: string | undefined): string {
+  const lang = pageLocale(locale);
+  const message = mailT(lang, "mail.unsubscribe.failed");
+  return htmlPage(lang, message, `<p>${escapeHtmlAttr(message)}</p>`);
+}
+
+function isFormRequest(contentType: string | undefined): boolean {
+  return contentType?.includes("application/x-www-form-urlencoded") === true;
 }
 
 // One-click clients put the token in the query string; only the
@@ -431,7 +484,7 @@ export function createUnsubscribeRoutes(
   assertUnsubscribeSecret(options.secret, "createUnsubscribeRoutes");
   const encodedSecret = new TextEncoder().encode(options.secret);
 
-  const confirmRoute = signatureRoute<{ token: string }>({
+  const confirmRoute = signatureRoute<{ token: string; locale: string | undefined }>({
     method: "GET",
     path: DELIVERY_UNSUBSCRIBE_PATH,
     entry: "signature",
@@ -444,11 +497,11 @@ export function createUnsubscribeRoutes(
           "missing unsubscribe token",
         );
       }
-      await verifyUnsubscribeToken(token, encodedSecret, "unsubscribe");
-      return { token };
+      const verified = await verifyUnsubscribeToken(token, encodedSecret, "unsubscribe");
+      return { token, locale: verified.locale };
     },
-    handler: async (c, { token }) =>
-      c.html(confirmationPage(token), 200, CONFIRMATION_PAGE_HEADERS),
+    handler: async (c, { token, locale }) =>
+      c.html(confirmationPage(token, locale), 200, CONFIRMATION_PAGE_HEADERS),
   });
 
   const writeRoute = signatureRoute<VerifiedUnsubscribe>({
@@ -463,11 +516,13 @@ export function createUnsubscribeRoutes(
       // (e.g. events-table missing, DB down) behind a misleading 400.
       const succeeded = await dispatchUnsubscribeWrite(verified, deps);
       if (!succeeded) {
-        return c.html("Unsubscribe failed", 500, { "Cache-Control": "no-store" });
+        return c.html(failedPage(verified.locale), 500, { "Cache-Control": "no-store" });
       }
-      return c.html(unsubscribedPage(await signResubscribeToken(verified, encodedSecret)), 200, {
-        "Cache-Control": "no-store",
-      });
+      return c.html(
+        unsubscribedPage(await signResubscribeToken(verified, encodedSecret), verified.locale),
+        200,
+        { "Cache-Control": "no-store" },
+      );
     },
   });
 
@@ -482,6 +537,14 @@ export function createUnsubscribeRoutes(
       verifyUnsubscribeToken(tokenFromRequestBody(request), encodedSecret, "resubscribe"),
     handler: async (c, verified, deps) => {
       const outcome = await dispatchResubscribeWrite(verified, deps);
+      // The undo button on the unsubscribed page posts a form; a browser should land on a page.
+      if (isFormRequest(c.req.header("content-type"))) {
+        return outcome === "success"
+          ? c.html(resubscribedPage(verified.locale), 200, { "Cache-Control": "no-store" })
+          : c.html(failedPage(verified.locale), outcome === "limit_reached" ? 409 : 500, {
+              "Cache-Control": "no-store",
+            });
+      }
       if (outcome === "limit_reached") {
         return c.json({ error: { code: DeliveryErrors.resubscribeLimitReached } }, 409, {
           "Cache-Control": "no-store",
