@@ -2,8 +2,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { append, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
@@ -57,6 +56,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  eventVersionByTenant.clear();
   await resetTestTables(stack.db, [
     userTable,
     tenantComplianceProfileTable,
@@ -79,32 +79,24 @@ async function seedUser(u: typeof alice, email: string): Promise<void> {
   });
 }
 
-let _eventVersion = 0;
+const eventVersionByTenant = new Map<string, number>();
 async function seedEvent(
   createdBy: string,
   tenantId: string,
   type: string,
-  payload: object,
+  payload: Record<string, unknown>,
 ): Promise<void> {
-  _eventVersion += 1;
-  await asRawClient(stack.db).unsafe(
-    `
-    INSERT INTO kumiko_events
-    (tenant_id, aggregate_type, aggregate_id, version, type, payload, metadata, created_at, created_by)
-    VALUES ($1, $2, $3,
-            $4, $5, $6, $7, now(), $8)
-  `,
-    [
-      tenantId,
-      "test-aggregate",
-      "00000000-0000-4000-8000-00000000aaaa",
-      _eventVersion,
-      type,
-      JSON.stringify(payload),
-      "{}",
-      createdBy,
-    ],
-  );
+  const expectedVersion = eventVersionByTenant.get(tenantId) ?? 0;
+  await append(stack.db, {
+    tenantId,
+    aggregateType: "test-aggregate",
+    aggregateId: "00000000-0000-4000-8000-00000000aaaa",
+    expectedVersion,
+    type,
+    payload,
+    metadata: { userId: createdBy },
+  });
+  eventVersionByTenant.set(tenantId, expectedVersion + 1);
 }
 
 describe("my-audit-log", () => {
