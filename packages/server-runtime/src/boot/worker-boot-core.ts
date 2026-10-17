@@ -60,6 +60,7 @@ import {
 import type { RunWorkerAppOptions, WorkerDeps } from "../run-worker-app.js";
 import { resolveBootCrypto } from "./boot-crypto.js";
 import { jobRunLoggerCallbacks } from "./job-run-logger.js";
+import { waitForDatabase, waitUntilDatabaseReachable } from "./wait-for-database.js";
 import { assertWorkerMetricsOptions } from "./worker-metrics-server.js";
 
 export type WorkerBootCoreOptions = Omit<RunWorkerAppOptions, "wireComponents">;
@@ -195,7 +196,10 @@ export async function bootWorkerProcess(
 
   // Before the connections, so an abort leaks nothing.
   if (options.kms) {
-    const kmsHealth = await options.kms.health();
+    const kms = options.kms;
+    const kmsHealth = await waitUntilDatabaseReachable(() => kms.health(), {
+      processName: processName,
+    });
     if (!kmsHealth.ok) {
       throw new Error(
         `[${processName}] BOOT ABORTED — KMS health check failed (latency ${kmsHealth.latencyMs}ms)`,
@@ -217,6 +221,16 @@ export async function bootWorkerProcess(
     redisUrl,
     clientOptions: redisClientOptionsFromEnv(envSource),
   });
+  try {
+    await waitForDatabase(db, { processName });
+  } catch (err) {
+    await closeDb();
+    await closeOutsideTransactionDb();
+    redis.disconnect();
+    await cacheSync.close();
+    throw err;
+  }
+
   const resolvedEffectiveFeatures =
     options.effectiveFeatures ??
     (await buildTierEffectiveFeatures(features, db, registry, cacheSync));
