@@ -10,13 +10,28 @@ import { Routes } from "../api-constants.js";
 
 const SCHEMA_PATH = `/api${Routes.schema}`;
 const TENANT_WITHOUT_ADDON = "00000000-0000-4000-8000-0000000000a1" as TenantId;
+const TENANT_IN_TRIAL = "00000000-0000-4000-8000-0000000000a4" as TenantId;
 const TENANT_WITH_ADDON = "00000000-0000-4000-8000-0000000000a2" as TenantId;
 const ADDON_FEATURE = "toggle-addon";
 
 const coreFeature = defineFeature("toggle-core", (r) => {
   r.entity("note", createEntity({ fields: {} }));
-  r.screen({ id: "note-list", type: "entityList", entity: "note", columns: ["id"] });
+  r.screen({
+    id: "note-list",
+    type: "entityList",
+    entity: "note",
+    columns: ["id"],
+    rowActions: [
+      { kind: "navigate", id: "open-gadget", label: "Open gadget", screen: "gadget-list" },
+    ],
+  });
   r.nav({ id: "note-list", label: "Notes", screen: "note-list" });
+  r.nav({
+    id: "note-under-gadget",
+    label: "Notes under gadgets",
+    screen: "note-list",
+    parent: `${ADDON_FEATURE}:nav:gadget-list`,
+  });
 });
 
 const addonFeature = defineFeature(ADDON_FEATURE, (r) => {
@@ -29,8 +44,8 @@ const addonFeature = defineFeature(ADDON_FEATURE, (r) => {
 type SchemaBody = {
   features: Array<{
     featureName: string;
-    screens: Array<{ id: string }>;
-    navs?: Array<{ id: string }>;
+    screens: Array<{ id: string; rowActions?: Array<{ id: string }> }>;
+    navs?: Array<{ id: string; parent?: string }>;
   }>;
 };
 
@@ -39,11 +54,17 @@ let stack: TestStack;
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [coreFeature, addonFeature],
-    effectiveFeatures: (tenantId) => {
-      const all = new Set<string>(stack.registry.features.keys());
-      if (tenantId !== TENANT_WITH_ADDON) all.delete(ADDON_FEATURE);
-      return all;
-    },
+    effectiveFeatures: Object.assign(
+      (tenantId: TenantId): ReadonlySet<string> => {
+        const all = new Set<string>(stack.registry.features.keys());
+        if (tenantId !== TENANT_WITH_ADDON) all.delete(ADDON_FEATURE);
+        return all;
+      },
+      {
+        trialGate: (tenantId: TenantId, featureName: string): Promise<boolean> =>
+          Promise.resolve(tenantId === TENANT_IN_TRIAL && featureName === ADDON_FEATURE),
+      },
+    ),
   });
 });
 
@@ -73,6 +94,27 @@ describe("GET /api/schema with r.toggleable features", () => {
     const core = body.features.find((f) => f.featureName === "toggle-core");
     expect(core?.screens.map((s) => s.id)).toEqual(["note-list"]);
     expect(core?.navs?.map((n) => n.id)).toEqual(["note-list"]);
+  });
+
+  test("references from enabled features to the disabled feature's screens and navs are removed", async () => {
+    const { body } = await fetchSchema(TENANT_WITHOUT_ADDON);
+    const core = body.features.find((f) => f.featureName === "toggle-core");
+    expect(core?.screens[0]?.rowActions).toBeUndefined();
+    expect(core?.navs?.some((n) => n.id === "note-under-gadget")).toBe(false);
+  });
+
+  test("tenant with the add-on keeps those references", async () => {
+    const { body } = await fetchSchema(TENANT_WITH_ADDON);
+    const core = body.features.find((f) => f.featureName === "toggle-core");
+    expect(core?.screens[0]?.rowActions?.map((a) => a.id)).toEqual(["open-gadget"]);
+    expect(core?.navs?.some((n) => n.id === "note-under-gadget")).toBe(true);
+  });
+
+  test("tenant whose trial unlocks the add-on gets it although the resolver reports it off", async () => {
+    const { body } = await fetchSchema(TENANT_IN_TRIAL);
+    const addon = addonSchemaOf(body);
+    expect(addon?.screens.map((s) => s.id)).toEqual(["gadget-list"]);
+    expect(addon?.navs?.map((n) => n.id)).toEqual(["gadget-list"]);
   });
 
   test("tenant with the add-on gets its screens and navs, under a different ETag", async () => {
