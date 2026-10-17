@@ -442,6 +442,3 @@ export const AUTH_COMPOSE_OPTIONS = {
     tokenTtlMinutes: 60,
   },
 } as const;
-
-/** check-coverage: auth-self-registration is mounted when signup is set. */
-export const HAS_SIGNUP = true;

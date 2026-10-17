@@ -8,8 +8,7 @@
 // Auto-mount via ts-morph: opens src/run-config.ts, finds
 // `export const APP_FEATURES = [...]`, prepends import + appends entry.
 // User's promise "defineFeature → nichts woanders eintragen" is met
-// for the run-config side. Drizzle FEATURE_IMPORT_REGISTRY is NOT
-// touched here — DX-4 auto-discovery resolves that.
+// for the run-config side; the schema is derived from the mounted features.
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";

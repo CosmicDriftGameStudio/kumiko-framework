@@ -1,21 +1,13 @@
 #!/usr/bin/env bun
 // biome-ignore-all lint/suspicious/noConsole: CLI-Script, console ist Feature.
 //
-// C1 M5 coverage lint. Diffs bundled-features-Exports gegen den
-// FEATURE_IMPORT_REGISTRY in samples/apps/use-all-bundled/schema/
-// generate.ts, und APP_FEATURES (src/run-config.ts) gegen denselben Registry.
-// Fängt vier Drifts:
+// Coverage lint. Diffs die Top-Level-Exports von bundled-features gegen die Features, die
+// use-all-bundled mountet (FEATURES aus kumiko/schema.ts: APP_FEATURES plus die von
+// composeFeatures ergänzten Auth-/Signup-Features). Fängt drei Drifts:
 //
-//   1. Ein neuer feature-export ohne Aufnahme in use-all-bundled
-//      → unreferenced exports
-//   2. Ein removed feature-export der noch im Registry steht
-//      → stale registry
-//   3. Ein gemountetes Feature ohne Registry-Eintrag
-//   4. Ein Registry-Eintrag ohne Mount
-//
-// Held-back features für M0.1 (subscription-stripe, channel-email, …)
-// stehen in EXPECTED_HELD_BACK. Sobald sie mit stub-options gemountet
-// werden, müssen sie aus dieser Liste raus.
+//   1. Ein Export, der weder gemountet ist noch in EXPECTED_HELD_BACK steht
+//   2. Ein EXPECTED_HELD_BACK-Eintrag, der kein Export mehr ist
+//   3. Ein EXPECTED_HELD_BACK-Eintrag, der inzwischen gemountet ist (stale)
 //
 // Usage:
 //   bun samples/apps/use-all-bundled/scripts/check-coverage.ts
@@ -23,8 +15,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
-import { APP_FEATURES, HAS_SIGNUP } from "../src/run-config";
+import { FEATURES } from "../kumiko/schema";
 
 const ROOT = resolve(import.meta.dir, "..");
 const FRAMEWORK_ROOT = resolve(ROOT, "..", "..", "..");
@@ -32,33 +23,13 @@ const FRAMEWORK_ROOT = resolve(ROOT, "..", "..", "..");
 // Held-back exports: existieren in bundled-features, sind aber nicht
 // als runtime-feature in use-all-bundled mountbar.
 //
-// Nach M0.1 nur noch utilities + auto-mounted:
-// - utilities: kein r.defineFeature (foundation-shared, files-provider-s3
-//   sind pure helpers).
-// - auto-mounted: kommt via composeFeatures(includeBundled:true) automatisch
-//   (auth-email-password) — wäre doppelt-mount wenn explizit gelistet.
+// Nur Utilities ohne defineFeature (foundation-shared, files-provider-s3 sind pure helpers)
+// und scaffold-only Features. Gemountete Features gehören nicht hierher.
 const EXPECTED_HELD_BACK = new Set([
-  "auth-email-password", // auto-mounted via composeFeatures(authOptions)
-  "agent-tools", // utility (buildToolCatalog: Registry -> ToolDefinition[]), kein defineFeature
   "files-provider-s3", // utility (createS3Provider helpers), kein defineFeature
   "foundation-shared", // utilities (requireDefined/requireNonEmpty), kein feature
   "page-render", // shared HTML render/cache helpers (legal/managed-pages), kein defineFeature
   "presets", // feature-bundle helpers (dsgvoSelfServiceFeatures, securityBaselineFeatures), kein defineFeature
-  "auth-foundation", // scaffold-only (#1368): bootCheck wirft ohne gemountete auth-provider-*, die es noch nicht gibt
-]);
-
-// Registry-only: mounted features that are NOT top-level package exports
-// (companion features living under another export path). check-coverage still
-// needs them in FEATURE_IMPORT_REGISTRY; coverage must not flag them stale.
-const EXPECTED_REGISTRY_ONLY = new Set([
-  "auth-self-registration", // from ./auth-email-password, auto-mounted with signup (#1521)
-  "collection-labels", // app-local (src/app/), nav labels for this app's content collections
-  "cap-overview-labels", // app-local (src/app/), labels for this app's example cap-overview caps
-  "metrics-system", // from ./metrics, companion of createMetricsFeature (platform-wide scope)
-  "locale-de", // @cosmicdrift/kumiko-locale-de, not a bundled-features export
-  "renderer-mail-html", // @cosmicdrift/kumiko-renderer-mail-html, auto-mounted with auth by composeFeatures
-  "renderer-puppeteer-client", // @cosmicdrift/kumiko-renderer-puppeteer-client, not a bundled-features export
-  "document-designer", // @cosmicdrift/kumiko-document-designer, not a bundled-features export
 ]);
 
 // Sub-paths in bundled-features's package.json exports (./tenant/seeding,
@@ -92,89 +63,28 @@ function readBundledExports(): Set<string> {
   return out;
 }
 
-function extractRegistryBlock(src: string): string {
-  // Anchor auf den FEATURE_IMPORT_REGISTRY-Object-Body. Ohne diesen Anchor
-  // würde die kind-Regex jedes `<ident>: { kind: "factory"|"named" }` im File
-  // matchen (z.B. eine künftige Hilfsvariable) → false positive/negative.
-  const startMatch = /FEATURE_IMPORT_REGISTRY[^=]*=\s*\{/.exec(src);
-  if (!startMatch) {
-    throw new Error("check-coverage: FEATURE_IMPORT_REGISTRY block not found in generate.ts");
-  }
-  const bodyStart = startMatch.index + startMatch[0].length;
-  // Top-level-Close ist das erste `};` am Zeilenanfang nach bodyStart.
-  const closeMatch = /\n};/.exec(src.slice(bodyStart));
-  if (!closeMatch) {
-    throw new Error("check-coverage: FEATURE_IMPORT_REGISTRY closing `};` not found");
-  }
-  return src.slice(bodyStart, bodyStart + closeMatch.index);
-}
-
-function readRegistryFeatures(): Set<string> {
-  const generateSrc = readFileSync(resolve(ROOT, "schema", "generate.ts"), "utf-8");
-  const registryBlock = extractRegistryBlock(generateSrc);
-  // Match object-keys mit Discriminator `kind: "factory" | "named"`.
-  // Property-Keys können quoted ("billing-foundation") oder unquoted
-  // (config, user) sein — beides ist gültig wenn kebab-segment-free.
-  const re = /(?:"([a-z][a-z0-9-]*)"|([a-z][a-z0-9]*)):\s*\{\s*kind:\s*"(factory|named)"/g;
-  const out = new Set<string>();
-  for (const m of registryBlock.matchAll(re)) {
-    const name = m[1] ?? m[2];
-    if (name) out.add(name);
-  }
-  return out;
-}
-
 const exports = readBundledExports();
-const registry = readRegistryFeatures();
+const mounted = new Set<string>(FEATURES.map((feature) => feature.name));
 
-const unreferenced: string[] = [];
-const stale: string[] = [];
-// Held-back-Einträge, die kein bundled-Export mehr sind → stale Konfig.
-// Ohne diese Prüfung hätte der Drift-Guard in seiner eigenen Konfig einen
-// Blind-Spot: ein umbenanntes/entferntes Feature bliebe still in der Liste.
-const staleHeldBack: string[] = [];
-
-for (const name of exports) {
-  if (registry.has(name)) continue;
-  if (EXPECTED_HELD_BACK.has(name)) continue;
-  unreferenced.push(name);
-}
-
-for (const name of registry) {
-  if (!exports.has(name) && !EXPECTED_REGISTRY_ONLY.has(name)) stale.push(name);
-}
-
-for (const name of EXPECTED_HELD_BACK) {
-  if (!exports.has(name)) staleHeldBack.push(name);
-}
+const unreferenced = [...exports].filter(
+  (name) => !mounted.has(name) && !EXPECTED_HELD_BACK.has(name),
+);
+// Ohne diese Prüfungen hätte der Guard in seiner eigenen Konfig einen Blind-Spot: ein
+// umbenanntes oder entferntes Feature bliebe still in der Liste, ein gemountetes ebenso.
+const staleHeldBack = [...EXPECTED_HELD_BACK].filter((name) => !exports.has(name));
+const mountedHeldBack = [...EXPECTED_HELD_BACK].filter((name) => mounted.has(name));
 
 let ok = true;
 
 if (unreferenced.length > 0) {
   console.error(
-    `\n❌ ${unreferenced.length} bundled-feature export(s) NICHT in use-all-bundled/schema/generate.ts:`,
+    `\n❌ ${unreferenced.length} bundled-feature export(s) nicht in use-all-bundled gemountet:`,
   );
   for (const name of unreferenced.sort()) {
     console.error(`   - ${name}`);
   }
   console.error(
-    "\n  Action: in src/run-config.ts + schema/generate.ts FEATURE_IMPORT_REGISTRY aufnehmen,",
-  );
-  console.error(
-    "  oder (wenn mount-options noch fehlen) zu EXPECTED_HELD_BACK in dieser Datei hinzufügen.",
-  );
-  ok = false;
-}
-
-if (stale.length > 0) {
-  console.error(
-    `\n❌ ${stale.length} FEATURE_IMPORT_REGISTRY entry/entries ohne Match in bundled-features exports:`,
-  );
-  for (const name of stale.sort()) {
-    console.error(`   - ${name}`);
-  }
-  console.error(
-    "\n  Action: aus schema/generate.ts FEATURE_IMPORT_REGISTRY entfernen, ggf. App-eigenes Feature.",
+    "\n  Action: in src/run-config.ts mounten, oder (wenn mount-options noch fehlen) zu EXPECTED_HELD_BACK in dieser Datei hinzufügen.",
   );
   ok = false;
 }
@@ -192,56 +102,21 @@ if (staleHeldBack.length > 0) {
   ok = false;
 }
 
-// Mount-vs-registry: every feature the app mounts needs a registry entry (else
-// schema.generated misses its tables), every registry entry needs a mount (else
-// dead schema mapping). The auth-mode features composeFeatures prepends are
-// derived from composeFeatures itself; the app mounts auth, and
-// auth-self-registration comes in only with signup.
-const mounted = new Set<string>(APP_FEATURES.map((feature) => feature.name));
-for (const feature of composeFeatures([], { includeBundled: true })) mounted.add(feature.name);
-if (HAS_SIGNUP) mounted.add("auth-self-registration");
-
-const mountedWithoutEntry = [...mounted].filter((name) => !registry.has(name));
-const staleEntries = [...registry].filter((name) => !mounted.has(name));
-
-if (mountedWithoutEntry.length > 0) {
+if (mountedHeldBack.length > 0) {
   console.error(
-    `\n❌ ${mountedWithoutEntry.length} feature(s) in APP_FEATURES ohne Eintrag in FEATURE_IMPORT_REGISTRY:`,
+    `\n❌ ${mountedHeldBack.length} EXPECTED_HELD_BACK entry/entries sind gemountet (stale):`,
   );
-  for (const name of mountedWithoutEntry.sort()) {
+  for (const name of mountedHeldBack.sort()) {
     console.error(`   - ${name}`);
   }
-  console.error("\n  Action: in schema/generate.ts FEATURE_IMPORT_REGISTRY ergänzen.");
+  console.error("\n  Action: aus EXPECTED_HELD_BACK in dieser Datei entfernen.");
   ok = false;
 }
 
-if (staleEntries.length > 0) {
-  console.error(
-    `\n❌ ${staleEntries.length} FEATURE_IMPORT_REGISTRY entry/entries ohne Mount in APP_FEATURES:`,
-  );
-  for (const name of staleEntries.sort()) {
-    console.error(`   - ${name}`);
-  }
-  console.error(
-    "\n  Action: aus schema/generate.ts entfernen oder das Feature in src/run-config.ts mounten.",
-  );
-  ok = false;
-}
+if (!ok) process.exit(1);
 
-if (ok) {
-  // Disjunkte Zahlen: `mountable` = exports ohne held-back; `coveredCount`
-  // zählt nur Registry-Einträge, die ein echter mountbarer Export sind
-  // (auth-email-password steht im Registry für die Mount-Konsistenz,
-  // ist aber held-back — würde sonst die Ratio >1 verfälschen).
-  const mountable = exports.size - EXPECTED_HELD_BACK.size;
-  let coveredCount = 0;
-  for (const name of registry) {
-    if (exports.has(name) && !EXPECTED_HELD_BACK.has(name)) coveredCount++;
-  }
-  console.log(
-    `✓ Coverage: ${coveredCount}/${mountable} mountable bundled-features im Registry, ${EXPECTED_HELD_BACK.size} held-back (M0.1).`,
-  );
-  process.exit(0);
-} else {
-  process.exit(1);
-}
+const mountable = exports.size - EXPECTED_HELD_BACK.size;
+const mountedExports = [...exports].filter((name) => mounted.has(name)).length;
+console.log(
+  `✓ Coverage: ${mountedExports}/${mountable} mountable bundled-features gemountet, ${EXPECTED_HELD_BACK.size} held-back.`,
+);

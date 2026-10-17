@@ -6,9 +6,8 @@ import { defineCommand } from "./registry";
 // `kumiko new app <name>` (DX-1, scaffolds the App itself).
 //
 // User-promise: "defineFeature → nichts woanders eintragen". Auto-mount
-// via ts-morph erfüllt das für die run-config-Seite. (FEATURE_IMPORT_REGISTRY
-// in drizzle/generate.ts ist DX-4's Refactor — gibt's bei DX-2 noch nicht
-// wenn die App via DX-1 scaffolded wurde.)
+// via ts-morph erfüllt das für die run-config-Seite; das Schema leitet
+// kumiko/schema.ts aus den gemounteten Features ab.
 
 export const addCommand = defineCommand({
   id: "add",

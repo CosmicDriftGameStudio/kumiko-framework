@@ -121,7 +121,6 @@ const ALLOWLIST: readonly AllowEntry[] = [
   { repo: "kumiko-framework", pattern: /^packages\/create-kumiko-app\/src\/manifest\.ts$/ },
 
   // Sample apps: codegen/screenshot-mount helper, no request input.
-  { repo: "kumiko-framework", pattern: /^samples\/apps\/use-all-bundled\/schema\/generate\.ts$/ },
   {
     repo: "kumiko-framework",
     pattern: /^samples\/apps\/showcase\/src\/app\/mount-public-screenshots\.ts$/,
