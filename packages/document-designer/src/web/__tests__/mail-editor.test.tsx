@@ -239,7 +239,11 @@ describe("MailEditor", () => {
     expect(screen.getByTestId("mail-create-blank")).toBeTruthy();
     expect(screen.queryByTestId("mail-subject")).toBeNull();
     expect(screen.getByTestId("mail-sender")).toBeTruthy();
-    expect(screen.getByTestId("mail-placeholder-dueDate").getAttribute("data-bad")).toBeNull();
+    // The placeholder rail comes from the validate query, which settles independently
+    // of the missing-locale canvas, so it has to be awaited on its own.
+    expect(
+      (await screen.findByTestId("mail-placeholder-dueDate")).getAttribute("data-bad"),
+    ).toBeNull();
     const text = document.body.textContent ?? "";
     expect(text).not.toContain("Too small");
     expect(text).not.toContain("expected string");
