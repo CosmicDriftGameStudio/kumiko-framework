@@ -47,6 +47,7 @@ import {
   entityEventName,
   executeRawQuery,
   nullBlindIndexesForSubject,
+  WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   type EscapeHatchAuditSink,
@@ -531,7 +532,12 @@ async function processUser(args: {
       // geworfen hat, kommen wir hier nicht an — die Tx rollback'd
       // alles, der User bleibt im DeletionRequested-Status, naechster
       // Run retried.
-      await updateUserLifecycle(tx, userId, { status: USER_STATUS.Deleted });
+      await updateUserLifecycle(
+        tx,
+        userId,
+        { status: USER_STATUS.Deleted },
+        { writePurpose: WritePurposes.erasure },
+      );
       txSucceeded = true;
     });
   } catch (e) {

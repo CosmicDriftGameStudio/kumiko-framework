@@ -45,11 +45,12 @@ import { billingFoundationFeature } from "../feature.js";
 import { createSubscriptionTierSync } from "../subscription-tier-sync.js";
 import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.js";
 
-type TestTier = "free" | "pro";
-const isTierName = (v: string): v is TestTier => v === "free" || v === "pro";
+type TestTier = "free" | "pro" | "enterprise";
+const isTierName = (v: string): v is TestTier => v === "free" || v === "pro" || v === "enterprise";
 const TEST_TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   free: { features: [], caps: { maxItems: 1 } },
   pro: { features: [], caps: { maxItems: 100 } },
+  enterprise: { features: [], caps: { maxItems: 1000 } },
 };
 
 function mockProviderFeature() {
@@ -275,6 +276,45 @@ describe("createSubscriptionTierSync — tier-sync effect", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["tier"]).toBe("pro");
     expect(rows[0]?.["source"]).toBe(TierAssignmentSources.manual);
+  });
+
+  test("handing a manual grant back to billing lets the next sync overwrite it", async () => {
+    const tenantId = testTenantId(9105);
+    const admin = createTestUser({ id: 9105, tenantId, roles: ["SystemAdmin"] });
+    await stack.http.writeOk(TierEngineHandlers.setTenantTier, { tenantId, tier: "pro" }, admin);
+
+    await postWebhook(
+      stack,
+      webhookPath,
+      buildEvent(tenantId, "evt_create_5", {
+        status: SubscriptionStatuses.active,
+        tier: "enterprise",
+      }),
+    );
+    let rows = await listAssignmentRows(tenantId, 9105);
+    expect(rows[0]?.["tier"]).toBe("pro");
+    expect(rows[0]?.["source"]).toBe(TierAssignmentSources.manual);
+
+    await stack.http.writeOk(
+      TierEngineHandlers.setTenantTier,
+      { tenantId, tier: "pro", source: TierAssignmentSources.billing },
+      admin,
+    );
+    await postWebhook(
+      stack,
+      webhookPath,
+      buildEvent(tenantId, "evt_update_5", {
+        type: SubscriptionEventTypes.updated,
+        status: SubscriptionStatuses.active,
+        tier: "enterprise",
+        providerSubscriptionId: "sub_evt_create_5",
+      }),
+    );
+
+    rows = await listAssignmentRows(tenantId, 9105);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["tier"]).toBe("enterprise");
+    expect(rows[0]?.["source"]).toBe(TierAssignmentSources.billing);
   });
 
   test("without a manual grant the tier follows the subscription and is marked as billing", async () => {

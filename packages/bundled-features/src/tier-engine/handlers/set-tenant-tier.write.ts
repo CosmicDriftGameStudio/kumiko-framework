@@ -4,7 +4,7 @@ import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.js";
 import { tierAssignmentAggregateId } from "../aggregate-id.js";
-import { TierAssignmentSources } from "../constants.js";
+import { type TierAssignmentSource, TierAssignmentSources } from "../constants.js";
 import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
 
 // SystemAdmin setzt das Tier eines BELIEBIGEN Tenants — manueller Grant ohne
@@ -14,7 +14,8 @@ import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
 // Cross-tenant mechanics: ctx.forTenant(tenantId) yields a tenant-mode db bound to the target plus
 // the streamTenantId, so the event lands in the target's stream with the operator as actor.
 //
-// `source: TierAssignmentSources.manual` marks the grant so the billing sync skips it.
+// `source` defaults to manual and marks the grant so the billing sync skips it; passing
+// `billing` hands the row back to the sync, which overwrites it on the next webhook.
 // Upsert: one aggregate per tenant (deterministic aggregate id).
 //
 // Effective-set invalidation: the executor write does not fire the
@@ -47,7 +48,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
   return defineWriteHandler({
     name: "set-tenant-tier",
     description:
-      "Assigns a tier to any tenant as a manual grant without a billing purchase, marking it so a later billing sync will not overwrite it, and applies the new feature set immediately.",
+      "Assigns a tier to any tenant as a manual grant without a billing purchase, marking it so a later billing sync will not overwrite it (or, with source billing, handing the row back to the sync), and applies the new feature set immediately.",
     schema: z.object({
       tenantId: z.string().min(1),
       tier: z
@@ -55,6 +56,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
         .min(1)
         .max(50)
         .refine((t) => !opts.validTiers || opts.validTiers.has(t), { message: "unknown tier" }),
+      source: z.enum(TierAssignmentSources).default(TierAssignmentSources.manual),
     }),
     access: { roles: ["SystemAdmin"] },
     agent: { risk: "high" },
@@ -68,6 +70,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
       const tenantId = event.payload.tenantId as TenantId; // @cast-boundary engine-bridge
       const { db: tdb, streamTenantId } = requireForTenant(ctx, tenantId);
       const tier = event.payload.tier;
+      const source: TierAssignmentSource = event.payload.source;
 
       const existing = await fetchOne<TierAssignmentRow>(tdb, tierAssignmentTable, { tenantId });
 
@@ -76,7 +79,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
           {
             id: existing.id,
             version: existing.version,
-            changes: { tier, source: TierAssignmentSources.manual },
+            changes: { tier, source },
           },
           event.user,
           tdb,
@@ -91,7 +94,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
         {
           id: tierAssignmentAggregateId(tenantId),
           tier,
-          source: TierAssignmentSources.manual,
+          source,
           tenantId,
         },
         event.user,

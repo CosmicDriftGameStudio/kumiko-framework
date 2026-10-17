@@ -44,7 +44,11 @@ import { generateId } from "../utils/index.js";
 import { applyEntityEvent } from "./apply-entity-event.js";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.js";
 import type { DbRow, DbRunner } from "./connection.js";
-import type { EventStoreExecutor, LockGuardOption } from "./event-store-executor.js";
+import {
+  type EventStoreExecutor,
+  type LockGuardOption,
+  WritePurposes,
+} from "./event-store-executor.js";
 import {
   buildEventMetadata,
   type ExecutorContext,
@@ -202,6 +206,13 @@ export function createWriteVerbs(
       return undefined;
     }
     return writeFailure(new RecordLockedError({ entityName, entityId: id }));
+  }
+  // Erasure writes run after the subject key is gone; they store the erased
+  // sentinel for that subject's fields instead of failing on re-encrypt.
+  function erasureSentinelOption(
+    options: LockGuardOption | undefined,
+  ): { readonly onErasedSubject: "sentinel" } | Record<string, never> {
+    return options?.writePurpose === WritePurposes.erasure ? { onErasedSubject: "sentinel" } : {};
   }
   const eventVersion = entity.eventVersion ?? 1;
   let insertSchema: ZodType | undefined;
@@ -706,6 +717,7 @@ export function createWriteVerbs(
           onlyKeys: Object.keys(changesToPersist),
           subjectSource: mergedNew,
           keyTenantId: streamTenantId,
+          ...erasureSentinelOption(updateOptions),
         });
 
         // The event payload carries BOTH `changes` (what the user asked for) AND
@@ -722,6 +734,7 @@ export function createWriteVerbs(
         const encryptedPrevious = await encryptForStorage(previous, user, {
           keyTenantId: streamTenantId,
           ownerFallback: submittedChanges,
+          ...erasureSentinelOption(updateOptions),
         });
         // Savepoint-scoped — see the create() append() above for why:
         // confines a losing writer's unique-violation to a nested scope
@@ -882,7 +895,10 @@ export function createWriteVerbs(
             type: entityEventName(entityName, "deleted"),
             eventVersion,
             payload: {
-              previous: await encryptForStorage(existing, user, { keyTenantId: streamTenantId }),
+              previous: await encryptForStorage(existing, user, {
+                keyTenantId: streamTenantId,
+                ...erasureSentinelOption(options),
+              }),
             },
             metadata: buildEventMetadata(user),
           }),
@@ -990,7 +1006,10 @@ export function createWriteVerbs(
             // Re-encrypt like delete(): `existing` came decrypted from loadById —
             // plaintext must not land in the immutable log, least of all on forget.
             payload: {
-              previous: await encryptForStorage(existing, user, { keyTenantId: streamTenantId }),
+              previous: await encryptForStorage(existing, user, {
+                keyTenantId: streamTenantId,
+                onErasedSubject: "sentinel",
+              }),
             },
             metadata: buildEventMetadata(user),
           }),

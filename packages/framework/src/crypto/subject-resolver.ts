@@ -251,6 +251,14 @@ export function collectPiiEncryptedFields(entity: EntityDefinition): readonly st
     .map(([name]) => name);
 }
 
+// The annotated file-reference fields: never ciphertext today, but events from the
+// old backfill (which encrypted them) still carry it and must replay.
+export function collectPiiFileReferenceFields(entity: EntityDefinition): readonly string[] {
+  return Object.entries(entity.fields)
+    .filter(([, field]) => hasSubjectAnnotation(field) && isFileReferenceField(field))
+    .map(([name]) => name);
+}
+
 /** Subject-annotated fields that may be plaintext in the derived search index (#1610). */
 export function collectSearchableSubjectFields(entity: EntityDefinition): readonly string[] {
   return Object.entries(entity.fields)
