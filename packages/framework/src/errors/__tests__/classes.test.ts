@@ -62,9 +62,15 @@ describe("KumikoError: abstract base", () => {
       expect(resolveErrorDocsUrl(err)).toBe("https://docs.kumiko.rocks/errors/conflict");
     });
 
-    test("app reason without errorDocs has no link", () => {
+    test("app reason without errorDocs falls back to the code page", () => {
       const err = new ConflictError({ details: { reason: "order_locked" } });
-      expect(resolveErrorDocsUrl(err)).toBeUndefined();
+      expect(resolveErrorDocsUrl(err)).toBe("https://docs.kumiko.rocks/errors/conflict");
+    });
+
+    test("NotFoundError with entity links to the not_found page", () => {
+      expect(resolveErrorDocsUrl(new NotFoundError("Invoice", "inv-1"))).toBe(
+        "https://docs.kumiko.rocks/errors/not_found",
+      );
     });
 
     test("app reason listed in errorDocs.reasons links to the app docs", () => {
@@ -75,10 +81,10 @@ describe("KumikoError: abstract base", () => {
       );
     });
 
-    test("app reason not in errorDocs.reasons has no link", () => {
+    test("app reason not in errorDocs.reasons falls back to the code page", () => {
       const err = new ConflictError({ details: { reason: "order_locked" } });
       const errorDocs = { baseUrl: "https://docs.acme.example", reasons: ["other"] };
-      expect(resolveErrorDocsUrl(err, errorDocs)).toBeUndefined();
+      expect(resolveErrorDocsUrl(err, errorDocs)).toBe("https://docs.kumiko.rocks/errors/conflict");
     });
 
     test('errorDocs.reasons "all" covers every app reason', () => {
@@ -95,9 +101,9 @@ describe("KumikoError: abstract base", () => {
       expect(resolveErrorDocsUrl(err)).toBe("https://docs.acme.example/errors/conflict");
     });
 
-    test("serializeError exposes docsUrl only when resolvable", () => {
+    test("serializeError links app reasons to errorDocs when covered, else to the code page", () => {
       const app = new ConflictError({ details: { reason: "order_locked" } });
-      expect(serializeError(app).error.docsUrl).toBeUndefined();
+      expect(serializeError(app).error.docsUrl).toBe("https://docs.kumiko.rocks/errors/conflict");
       expect(
         serializeError(app, undefined, { baseUrl: "https://d.example", reasons: "all" }).error
           .docsUrl,
@@ -375,7 +381,7 @@ describe("UnprocessableError", () => {
       details: { orderId: 7 },
     });
     expect(err.details).toEqual({ reason: "order.already_cancelled", orderId: 7 });
-    expect(resolveErrorDocsUrl(err)).toBeUndefined();
+    expect(resolveErrorDocsUrl(err)).toBe("https://docs.kumiko.rocks/errors/unprocessable");
   });
 });
 
