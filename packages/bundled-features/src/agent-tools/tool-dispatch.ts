@@ -1,5 +1,7 @@
 import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import { isKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { runAsDirectCallEntry } from "@cosmicdrift/kumiko-framework/internal/request-context";
+import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { FILTER_OPS, isRecord } from "./filter-ops.js";
 import type { ToolDispatchDescriptor } from "./types.js";
@@ -23,7 +25,13 @@ export type ToolDispatcher = {
 
 export type ToolCallResult =
   | { readonly ok: true; readonly data: unknown }
-  | { readonly ok: false; readonly error: string };
+  | {
+      readonly ok: false;
+      readonly error: string;
+      readonly code?: string;
+      readonly retryable?: boolean;
+      readonly retryAfterSeconds?: number;
+    };
 
 export type ToolCallRequest = {
   readonly dispatcher: ToolDispatcher;
@@ -37,7 +45,61 @@ export type ToolCallRequest = {
   /** Idempotency scope: `${runId}:${toolCallId}` becomes the write requestId. */
   readonly runId: string;
   readonly toolCallId: string;
+  /** Receives the cause of unexpected (5xx) failures, which the tool result never carries. */
+  readonly log?: Pick<Logger, "error">;
 };
+
+type ToolFailure = {
+  readonly code: string;
+  readonly httpStatus: number;
+  readonly message: string;
+  readonly retryAfterSeconds: number | undefined;
+};
+
+type FailureClassifier = (failure: ToolFailure, cause: unknown) => ToolCallResult;
+
+const HTTP_TOO_MANY_REQUESTS = 429;
+const HTTP_SERVER_ERROR = 500;
+const UNEXPECTED_FAILURE_MESSAGE = "Tool failed unexpectedly";
+const fallbackLog = createFallbackLogger("agent-tools");
+
+function toolFailureOf(err: unknown): ToolFailure {
+  if (isKumikoError(err)) {
+    return {
+      code: err.code,
+      httpStatus: err.httpStatus,
+      message: err.message,
+      retryAfterSeconds: err.retryAfterSeconds,
+    };
+  }
+  return {
+    code: "internal_error",
+    httpStatus: HTTP_SERVER_ERROR,
+    message: err instanceof Error ? err.message : String(err),
+    retryAfterSeconds: undefined,
+  };
+}
+
+function createFailureClassifier(toolName: string, log: Pick<Logger, "error">): FailureClassifier {
+  return (failure, cause) => {
+    if (failure.httpStatus === HTTP_TOO_MANY_REQUESTS) {
+      return {
+        ok: false,
+        error: failure.message,
+        code: failure.code,
+        retryable: true,
+        ...(failure.retryAfterSeconds !== undefined && {
+          retryAfterSeconds: failure.retryAfterSeconds,
+        }),
+      };
+    }
+    if (failure.httpStatus < HTTP_SERVER_ERROR) {
+      return { ok: false, error: failure.message, code: failure.code };
+    }
+    log.error("agent tool call failed unexpectedly", { toolName, code: failure.code, cause });
+    return { ok: false, error: UNEXPECTED_FAILURE_MESSAGE, code: failure.code };
+  };
+}
 
 const SEARCH_RESULT_LIMIT = 10;
 const DEFAULT_LIST_LIMIT = 10;
@@ -216,6 +278,7 @@ async function dispatchServerWrite(
   input: Readonly<Record<string, unknown>>,
   runId: string,
   toolCallId: string,
+  classifyFailure: FailureClassifier,
 ): Promise<ToolCallResult> {
   let payload: Readonly<Record<string, unknown>> = input;
 
@@ -240,7 +303,15 @@ async function dispatchServerWrite(
   const result = await dispatcher.write(descriptor.qn, payload, user, requestId);
 
   if (!result.isSuccess) {
-    return { ok: false, error: result.error.message };
+    return classifyFailure(
+      {
+        code: result.error.code,
+        httpStatus: result.error.httpStatus,
+        message: result.error.message,
+        retryAfterSeconds: result.error.retryAfterSeconds,
+      },
+      result.error,
+    );
   }
 
   const { id, version } = extractIdAndVersion(result.data);
@@ -343,10 +414,13 @@ function dispatchClient(
 /** Executes one LLM-issued tool call. Never throws — a missing tool, a missing argument, a
  *  disallowed filter field, or a rejected handler call (cap check, validation, ...) all come
  *  back as `{ ok: false }` so the agent loop can feed the error back to the model instead of
- *  crashing. `request.user` must be the caller's real identity — every server-kind tool runs
+ *  crashing. Client errors (< 500) keep their message and carry a `code`; 429 adds
+ *  `retryable`. Server-side failures (>= 500, unknown throws) are logged and returned as a
+ *  generic message so internals never reach the model. `request.user` must be the caller's real identity — every server-kind tool runs
  *  through the same permission-checked dispatcher pipeline as a normal HTTP request. */
 export async function dispatchToolCall(request: ToolCallRequest): Promise<ToolCallResult> {
   const { dispatcher, user, toolName, input, dispatchTable, runId, toolCallId } = request;
+  const classifyFailure = createFailureClassifier(toolName, request.log ?? fallbackLog);
   const descriptor = dispatchTable.get(toolName);
   if (!descriptor) {
     return { ok: false, error: `Unknown tool "${toolName}"` };
@@ -366,10 +440,18 @@ export async function dispatchToolCall(request: ToolCallRequest): Promise<ToolCa
         case "server":
           return descriptor.op === "query"
             ? await dispatchServerQuery(descriptor, dispatcher, user, input)
-            : await dispatchServerWrite(descriptor, dispatcher, user, input, runId, toolCallId);
+            : await dispatchServerWrite(
+                descriptor,
+                dispatcher,
+                user,
+                input,
+                runId,
+                toolCallId,
+                classifyFailure,
+              );
       }
     });
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return classifyFailure(toolFailureOf(err), err);
   }
 }

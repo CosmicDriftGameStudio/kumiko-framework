@@ -10,6 +10,7 @@ import {
   createTextField,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { reraiseAsKumikoError, type WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createTestUser,
   setupTestStack,
@@ -85,20 +86,24 @@ function catalogFor(roles: readonly string[]) {
  *  confirmed against `packages/framework/src/api/routes.ts`: query success is `{ data }`,
  *  query failure is `{ error }` with a non-2xx status (must throw here, or an access-denied
  *  body comes back as `ok: true` and every rejection assertion below would pass vacuously);
- *  write success/failure both already match the `WriteResult` wire shape 1:1. */
+ *  write success/failure match the `WriteResult` wire shape except for `httpStatus`, which
+ *  the wire error body leaves out and the response status carries. */
 function buildHttpDispatcher(): ToolDispatcher {
   return {
     async query(type, payload, user) {
       const res = await stack.http.query(type, payload, user);
-      const body = (await res.json()) as { data?: unknown; error?: unknown };
+      const body = (await res.json()) as { data?: unknown; error?: WriteErrorInfo };
       if (!res.ok) {
-        throw new Error(`query "${type}" failed: ${JSON.stringify(body.error ?? body)}`);
+        if (body.error === undefined) throw new Error(`query "${type}" failed (${res.status})`);
+        throw reraiseAsKumikoError({ ...body.error, httpStatus: res.status });
       }
       return body.data;
     },
     async write(type, payload, user, requestId) {
       const res = await stack.http.write(type, payload, user, requestId);
-      return (await res.json()) as WriteResult;
+      const body = (await res.json()) as WriteResult;
+      if (body.isSuccess) return body;
+      return { ...body, error: { ...body.error, httpStatus: res.status } };
     },
   };
 }
