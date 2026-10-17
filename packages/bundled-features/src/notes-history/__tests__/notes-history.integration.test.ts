@@ -45,7 +45,7 @@ const contactEntity = createEntity({
   },
 });
 const contactFixtureFeature = defineFeature("notes-history-test-contact-fixture", (r) => {
-  r.entity("contact", contactEntity);
+  r.entity({ name: "contact", ...contactEntity });
 });
 
 let stack: TestStack;

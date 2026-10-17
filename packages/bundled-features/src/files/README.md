@@ -5,7 +5,7 @@ Sprint-1.5 Refactor (Pre-Sprint-2).
 
 ## Was es macht
 
-Deklariert `r.entity("fileRef", ...)` für die DB-Tabelle die das
+Deklariert `r.entity({ name: "fileRef", ... })` für die DB-Tabelle die das
 Framework via `createFileRoutes` (multipart-Upload + binary-Download)
 bewirtschaftet. Das öffnet die Tür für Cross-Feature-Hooks:
 

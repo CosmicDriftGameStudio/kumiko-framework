@@ -41,17 +41,17 @@ const neighborFeature = defineFeature("neighbor", (r) => {
 });
 
 const emitterFeature = defineFeature("emitter", (r) => {
-  r.entity("widget", sharedWidgetEntity);
+  r.entity({ name: "widget", ...sharedWidgetEntity });
 
   const welcome = r.defineEvent("user.welcomed", z.object({ userId: z.uuid(), email: z.email() }), {
     piiFields: "none",
   });
   welcomeEventName = welcome.name;
 
-  r.writeHandler(
-    "emit:valid",
-    z.object({ userId: z.uuid(), email: z.email() }),
-    async (cmd, ctx) => {
+  r.writeHandler({
+    name: "emit:valid",
+    schema: z.object({ userId: z.uuid(), email: z.email() }),
+    handler: async (cmd, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: cmd.payload.userId,
         aggregateType: "user",
@@ -60,13 +60,13 @@ const emitterFeature = defineFeature("emitter", (r) => {
       });
       return { isSuccess: true, data: { kind: "save", id: cmd.payload.userId } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "emit:unknown-event-name",
-    z.object({ userId: z.uuid() }),
-    async (cmd, ctx) => {
+  r.writeHandler({
+    name: "emit:unknown-event-name",
+    schema: z.object({ userId: z.uuid() }),
+    handler: async (cmd, ctx) => {
       // Deliberately NOT passing welcome.name — "emitter:event:not-registered"
       // was never registered. ctx.appendEvent must reject at the append site.
       await ctx.unsafeAppendEvent({
@@ -77,13 +77,13 @@ const emitterFeature = defineFeature("emitter", (r) => {
       });
       return { isSuccess: true, data: { kind: "save", id: cmd.payload.userId } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "emit:bad-payload",
-    z.object({ userId: z.uuid() }),
-    async (cmd, ctx) => {
+  r.writeHandler({
+    name: "emit:bad-payload",
+    schema: z.object({ userId: z.uuid() }),
+    handler: async (cmd, ctx) => {
       // userId is correct but email is missing / not an email string.
       await ctx.unsafeAppendEvent({
         aggregateId: cmd.payload.userId,
@@ -93,13 +93,13 @@ const emitterFeature = defineFeature("emitter", (r) => {
       });
       return { isSuccess: true, data: { kind: "save", id: cmd.payload.userId } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "emit:foreign-event",
-    z.object({ userId: z.uuid() }),
-    async (cmd, ctx) => {
+  r.writeHandler({
+    name: "emit:foreign-event",
+    schema: z.object({ userId: z.uuid() }),
+    handler: async (cmd, ctx) => {
       // "neighbor:event:neighbor-signal" is owned by the neighbor feature.
       // The ownership guard in appendDomainEventCore must reject this append
       // at emit-site — cross-feature emission silently breaks encapsulation.
@@ -111,8 +111,8 @@ const emitterFeature = defineFeature("emitter", (r) => {
       });
       return { isSuccess: true, data: { kind: "save", id: cmd.payload.userId } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 const admin = TestUsers.admin;

@@ -36,7 +36,7 @@ const BILLING_ADDRESS_KEY = "pii-cfg-test:config:billing-address";
 const PHONE_NUMBER_KEY = "pii-cfg-test:config:phone-number";
 
 const piiFeature = defineFeature("pii-cfg-test", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
 
   r.config({
     keys: {

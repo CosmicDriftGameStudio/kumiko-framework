@@ -19,9 +19,9 @@ function featureWith(
   withRecordOwnedField: boolean,
 ): FeatureDefinition {
   return defineFeature("notes", (r) => {
-    r.entity(
-      "note",
-      createEntity({
+    r.entity({
+      name: "note",
+      ...createEntity({
         table: "fw2809_guard_notes",
         idType,
         fields: {
@@ -30,7 +30,7 @@ function featureWith(
             : { ...unannotatedText },
         },
       }),
-    );
+    });
   });
 }
 

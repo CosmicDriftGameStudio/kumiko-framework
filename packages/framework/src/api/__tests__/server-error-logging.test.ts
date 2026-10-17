@@ -21,36 +21,36 @@ const openToAll = {
 let midRequestController = new AbortController();
 
 const boomFeature = defineFeature("boom", (r) => {
-  r.queryHandler(
-    "explode",
-    z.object({}),
-    async () => {
+  r.queryHandler({
+    name: "explode",
+    schema: z.object({}),
+    handler: async () => {
       throw new Error("disk on fire");
     },
-    openToAll,
-  );
-  r.writeHandler(
-    "explode",
-    z.object({}),
-    async () => {
+    ...openToAll,
+  });
+  r.writeHandler({
+    name: "explode",
+    schema: z.object({}),
+    handler: async () => {
       throw new Error("disk on fire during write");
     },
-    openToAll,
-  );
-  r.queryHandler(
-    "decode",
-    z.object({}),
-    async () => {
+    ...openToAll,
+  });
+  r.queryHandler({
+    name: "decode",
+    schema: z.object({}),
+    handler: async () => {
       throw new UnprocessableError("vin_not_decodable", {
         details: { vin: "WDB0000000SECRET" },
       });
     },
-    openToAll,
-  );
-  r.queryHandler(
-    "throttled",
-    z.object({}),
-    async () => {
+    ...openToAll,
+  });
+  r.queryHandler({
+    name: "throttled",
+    schema: z.object({}),
+    handler: async () => {
       throw new RateLimitError({
         bucket: "ip:203.0.113.7",
         limit: 1,
@@ -60,35 +60,35 @@ const boomFeature = defineFeature("boom", (r) => {
         resetAt: "2026-01-01T00:00:00.000Z",
       });
     },
-    openToAll,
-  );
-  r.queryHandler(
-    "login",
-    z.object({ email: z.email(), password: z.string().min(8) }),
-    async () => ({ ok: true }),
-    openToAll,
-  );
+    ...openToAll,
+  });
+  r.queryHandler({
+    name: "login",
+    schema: z.object({ email: z.email(), password: z.string().min(8) }),
+    handler: async () => ({ ok: true }),
+    ...openToAll,
+  });
   // Same abort path TenantDb uses (signal.throwIfAborted()), without a DB.
-  r.queryHandler(
-    "abort-probe",
-    z.object({}),
-    async (_query, ctx) => {
+  r.queryHandler({
+    name: "abort-probe",
+    schema: z.object({}),
+    handler: async (_query, ctx) => {
       ctx.signal?.throwIfAborted();
       return { ok: true };
     },
-    openToAll,
-  );
-  r.queryHandler(
-    "abort-mid-request",
-    z.object({}),
-    async (_query, ctx) => {
+    ...openToAll,
+  });
+  r.queryHandler({
+    name: "abort-mid-request",
+    schema: z.object({}),
+    handler: async (_query, ctx) => {
       await Promise.resolve();
       midRequestController.abort();
       ctx.signal?.throwIfAborted();
       return { ok: true };
     },
-    openToAll,
-  );
+    ...openToAll,
+  });
   r.streamHandler(
     "abort-before-first-yield",
     z.object({}),

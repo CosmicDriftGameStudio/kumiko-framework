@@ -55,8 +55,8 @@ need an access rule for both sides, `write: { access }` and
 overrides a single verb. Without them boot stops. Turn single
 verbs off with `verbs: { delete: false }` and register them yourself when
 they need different access or logic. Custom logic goes into
-`r.writeHandler(qn, schema, fn, { access })` and
-`r.queryHandler(qn, schema, fn, { access })`; inside, use the entity
+`r.writeHandler({ name, schema, handler, access })` and
+`r.queryHandler({ name, schema, handler, access })`; inside, use the entity
 executor from `createEntityExecutor(name, entity)`.
 
 **Screen.** A declarative page: `r.screen({ id, type, ... })`. Types include

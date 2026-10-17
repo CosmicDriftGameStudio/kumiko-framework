@@ -52,41 +52,37 @@ export const productTable = buildEntityTable("product", productEntity);
 export const guestOrderTable = buildEntityTable("guest-order", guestOrderEntity);
 
 export const anonymousAccessFeature = defineFeature("shop", (r) => {
-  r.entity("product", productEntity);
-  r.entity("guest-order", guestOrderEntity);
+  r.entity({ name: "product", ...productEntity });
+  r.entity({ name: "guest-order", ...guestOrderEntity });
 
   // Public listing: anonymous + authenticated customers see it. Combining
   // the roles in one handler is preferred over duplicating the read path —
   // the handler body can branch on `event.user.id === "anonymous"` if it
   // needs to personalise (e.g. show a sign-in CTA, hide a wishlist button).
-  r.queryHandler(
-    "product:list",
-    z.object({}),
-    async (_event, ctx) => ctx.db.selectMany(productTable),
-    {
-      access: { roles: [...access.anonymous, "User", "Admin"] },
-      rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
-    },
-  );
+  r.queryHandler({
+    name: "product:list",
+    schema: z.object({}),
+    handler: async (_event, ctx) => ctx.db.selectMany(productTable),
+    access: { roles: [...access.anonymous, "User", "Admin"] },
+    rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
+  });
 
   // Authenticated-only listing — same data, different access rule. The
   // openToAll declaration here is the regression-guard: even with
   // anonymousAccess enabled on the server, this endpoint stays gated to
   // logged-in users.
-  r.queryHandler(
-    "product:authenticated-only",
-    z.object({}),
-    async (_event, ctx) => ctx.db.selectMany(productTable),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "any signed-in (non-anonymous) user may list products here; this handler is " +
-            "the regression-guard proving anonymousAccess never silently exposes an authenticated-only endpoint",
-        },
+  r.queryHandler({
+    name: "product:authenticated-only",
+    schema: z.object({}),
+    handler: async (_event, ctx) => ctx.db.selectMany(productTable),
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in (non-anonymous) user may list products here; this handler is " +
+          "the regression-guard proving anonymousAccess never silently exposes an authenticated-only endpoint",
       },
     },
-  );
+  });
 
   // Anonymous + authenticated guest checkout. Stores the synthesised user-id
   // ("anonymous") in `placedBy` so audit-trail / support queries can tell
@@ -97,36 +93,33 @@ export const anonymousAccessFeature = defineFeature("shop", (r) => {
   const guestOrderExecutor = createEventStoreExecutor(guestOrderTable, guestOrderEntity, {
     entityName: "guest-order",
   });
-  r.writeHandler(
-    "guest-order:place",
-    z.object({
+  r.writeHandler({
+    name: "guest-order:place",
+    schema: z.object({
       productId: z.uuid(),
       email: z.string().email(),
     }),
-    async (event, ctx) =>
-      guestOrderExecutor.create({ ...event.payload, placedBy: event.user.id }, event.user, ctx.db),
-    {
-      // `email` is recordOwned PII (personal: { of: "id" }) written by an
-      // anonymous root handler — the runtime personal-data gate
-      // (write-origin.ts) requires this explicit opt-in, the same way the
-      // boot validator would reject an openToAll declaration missing it.
-      access: { roles: [...access.anonymous, "User"], personalData: "public-intake" },
-      rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
-    },
-  );
+    handler: async (event, ctx) =>
+      guestOrderExecutor.create({ ...event.payload, placedBy: event.user.id }, event.user, ctx.db), // `email` is recordOwned PII (personal: { of: "id" }) written by an
+    // anonymous root handler — the runtime personal-data gate
+    // (write-origin.ts) requires this explicit opt-in, the same way the
+    // boot validator would reject an openToAll declaration missing it.
+    access: { roles: [...access.anonymous, "User"], personalData: "public-intake" },
+    rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
+  });
 
   // Admin-only product CRUD — proves role-gated handlers still reject
   // anonymous callers. Same shape as any other handler in the framework:
   // anonymous is just a regular role, not a special case.
-  r.writeHandler(
-    "product:create",
-    z.object({ name: z.string().min(1), priceCents: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "product:create",
+    schema: z.object({ name: z.string().min(1), priceCents: z.string() }),
+    handler: async (event, ctx) => {
       const exec = createEventStoreExecutor(productTable, productEntity, {
         entityName: "product",
       });
       return exec.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });

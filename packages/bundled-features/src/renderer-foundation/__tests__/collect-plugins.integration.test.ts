@@ -15,7 +15,7 @@ let stack: TestStack;
 // renderer-plugin (renderer-mail-html, renderer-puppeteer-client) sich registriert.
 function createTestPluginFeature(name: string, kinds: ReadonlyArray<RenderKind>) {
   return defineFeature(`renderer-${name}`, (r) => {
-    r.requires("renderer-foundation");
+    r.requires({ features: ["renderer-foundation"] });
     r.useExtension(RENDERER_EXTENSION, name, {
       kinds,
       render: async (req: RenderRequest): Promise<RenderResponse> => {
@@ -87,7 +87,7 @@ describe("renderer-foundation :: Plugin-Pool aus Registry", () => {
         createTemplateResolverFeature(),
         createRendererFoundationFeature(),
         defineFeature("renderer-broken", (r) => {
-          r.requires("renderer-foundation");
+          r.requires({ features: ["renderer-foundation"] });
           // @ts-expect-error kinds/render are required — proves the guard rejects an empty options bag instead of silently dropping the plugin
           r.useExtension(RENDERER_EXTENSION, "broken", {});
         }),

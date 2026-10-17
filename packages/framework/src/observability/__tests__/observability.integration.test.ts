@@ -26,26 +26,26 @@ const productFeature = defineFeature("product", (r) => {
     labels: ["kind"],
   });
 
-  r.writeHandler(
-    "track",
-    z.object({ kind: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "track",
+    schema: z.object({ kind: z.string() }),
+    handler: async (event, ctx) => {
       ctx.metrics.inc("tracked_total", { kind: event.payload.kind });
       return { isSuccess: true, data: { ok: true } };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 const errorFeature = defineFeature("err", (r) => {
-  r.writeHandler(
-    "boom",
-    z.object({}),
-    async () => {
+  r.writeHandler({
+    name: "boom",
+    schema: z.object({}),
+    handler: async () => {
       throw new Error("boom from handler");
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 // Feature with a real DB-backed entity + custom handler + postSave hook.
@@ -69,12 +69,12 @@ const todoFeature = defineFeature("todo", (r) => {
   // Brand (#742) is compile-time-only; the unbranded TableColumns view keeps the
   // method-form insert (and its observability span) working — runtime shape is identical.
   const todoTable: TableColumns = buildEntityTable("todo", todoEntity);
-  r.entity("todo", todoEntity);
+  r.entity({ name: "todo", ...todoEntity });
 
-  r.writeHandler(
-    "create",
-    z.object({ title: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "create",
+    schema: z.object({ title: z.string() }),
+    handler: async (event, ctx) => {
       const rows = await ctx.db.insertOne(todoTable, { title: event.payload.title });
       const row = rows as { id: number; title: string };
       return {
@@ -90,11 +90,15 @@ const todoFeature = defineFeature("todo", (r) => {
         },
       };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.hook("postSave", "create", async (_save: SaveContext) => {
-    postSaveInvocations++;
+  r.hook({
+    type: "postSave",
+    target: "create",
+    handler: async (_save: SaveContext) => {
+      postSaveInvocations++;
+    },
   });
 });
 
@@ -279,17 +283,17 @@ describe("Observability (integration) — Redis wrapper", () => {
   let provider: RecordingProvider;
 
   const redisFeature = defineFeature("redis-cmds", (r) => {
-    r.writeHandler(
-      "ping",
-      z.object({}),
-      async (_event, ctx) => {
+    r.writeHandler({
+      name: "ping",
+      schema: z.object({}),
+      handler: async (_event, ctx) => {
         if (!ctx.redis) throw new Error("ctx.redis unavailable");
         await ctx.redis.set("session:abc123:token", "value");
         await ctx.redis.get("session:abc123:token");
         return { isSuccess: true, data: { ok: true } };
       },
-      { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-    );
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    });
   });
 
   beforeEach(async () => {
@@ -345,15 +349,15 @@ describe("Observability (integration) — Pino trace bridge", () => {
   let capturedLines: string[];
 
   const logFeature = defineFeature("pino-bridge", (r) => {
-    r.writeHandler(
-      "say",
-      z.object({ msg: z.string() }),
-      async (event, ctx) => {
+    r.writeHandler({
+      name: "say",
+      schema: z.object({ msg: z.string() }),
+      handler: async (event, ctx) => {
         ctx.log?.info(event.payload.msg, { custom: "field" });
         return { isSuccess: true, data: { ok: true } };
       },
-      { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-    );
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+    });
   });
 
   beforeEach(async () => {
@@ -574,28 +578,28 @@ const sharedLibFeature = defineFeature("shared-lib", (r) => {
 });
 
 const consumerAFeature = defineFeature("consumer-a", (r) => {
-  r.writeHandler(
-    "run",
-    z.object({}),
-    async (_event, ctx) => {
+  r.writeHandler({
+    name: "run",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       recordSharedCall(ctx);
       return { isSuccess: true, data: { ok: true } };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 const consumerBFeature = defineFeature("consumer-b", (r) => {
-  r.writeHandler(
-    "run",
-    z.object({}),
-    async (_event, ctx) => {
+  r.writeHandler({
+    name: "run",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       recordSharedCall(ctx);
       ctx.metricsFor("unregistered-lib").inc("never_total");
       return { isSuccess: true, data: { ok: true } };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 describe("Observability (integration) — ctx.metricsFor", () => {

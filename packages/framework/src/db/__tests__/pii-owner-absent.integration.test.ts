@@ -29,7 +29,7 @@ const itemEntity = createEntity({
 });
 
 const feature = defineFeature("ownerabsent", (r) => {
-  r.entity("item", itemEntity);
+  r.entity({ name: "item", ...itemEntity });
   r.crud("item", itemEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },

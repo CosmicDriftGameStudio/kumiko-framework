@@ -13,15 +13,15 @@ import { withClearedBootEnv } from "./boot-probe-fixture.js";
 const MASTER_KEY = Buffer.alloc(32, 7).toString("base64");
 
 const encryptedFeature = defineFeature("kms-slots-probe", (r) => {
-  r.entity(
-    "note",
-    createEntity({
+  r.entity({
+    name: "note",
+    ...createEntity({
       table: "kms_slots_probe_note",
       fields: {
         body: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
       },
     }),
-  );
+  });
 });
 
 const envSchema: ComposedEnvSchema = {

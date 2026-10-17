@@ -39,7 +39,7 @@ export type EntityQueryHandlerOptions = EntityHandlerOptions;
 
 export type EntityCrudVerb = "create" | "update" | "delete" | "restore" | "list" | "detail";
 
-// `access` stays optional here — registerEntityCrud resolves it per-verb from `verbAccess`, falling back to this default.
+// `access` stays optional here — r.crud resolves it per-verb from `verbAccess`, falling back to this default.
 export type EntityCrudHandlerDefaults = Omit<EntityHandlerOptions, "access"> & {
   readonly access?: AccessRule;
 };
@@ -66,7 +66,7 @@ export type RegisterEntityCrudOptions = {
 
 /** Minimal registrar surface — keeps entity-handlers free of define-feature imports. */
 export type EntityCrudRegistrar = {
-  entity(name: string, definition: EntityDefinition): unknown;
+  entity(definition: { readonly name: string } & EntityDefinition): unknown;
   writeHandler(def: WriteHandlerDef): unknown;
   queryHandler(def: QueryHandlerDef): unknown;
 };

@@ -212,6 +212,11 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare function defineWriteHandler(cfg: unknown): unknown;\nconst h = defineWriteHandler({ name: "approve-invoice", access: { roles: ["TenantAdmin"] }, handler: async () => ({}) });',
     expectedMessage: /has no access-denied test/,
   },
+  "API-Object-Form Guard": {
+    path: `${FEAT}/x/feature.ts`,
+    code: 'export const f = defineFeature("x", (r) => { r.requires("users"); });',
+    expectedMessage: /positional r\.requires\(…\) removed in 0\.366/,
+  },
   "Open-To-All-Reason Guard": {
     path: `${FEAT}/x/handlers/ack.write.ts`,
     code: 'export const a = { access: { openToAll: { reason: "todo" } } };',

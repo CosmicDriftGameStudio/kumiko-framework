@@ -43,7 +43,7 @@ const ROLES = { access: { roles: ["Admin"] } } as const;
 const IRREVERSIBLE = { ...ROLES, agent: { risk: "high" } } as const;
 
 const lockFeature = defineFeature("lock", (r) => {
-  r.entity("ticket", ticketEntity);
+  r.entity({ name: "ticket", ...ticketEntity });
   r.writeHandler(defineEntityCreateHandler("ticket", ticketEntity, ROLES));
   r.writeHandler(defineEntityUpdateHandler("ticket", ticketEntity, ROLES));
   r.writeHandler(defineEntityDeleteHandler("ticket", ticketEntity, ROLES));
@@ -51,10 +51,10 @@ const lockFeature = defineFeature("lock", (r) => {
 
   const executor = createEventStoreExecutor(ticketTable, ticketEntity, { entityName: "ticket" });
 
-  r.writeHandler(
-    "ticket:rename",
-    z.object({ id: z.uuid(), version: z.number(), title: z.string() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "ticket:rename",
+    schema: z.object({ id: z.uuid(), version: z.number(), title: z.string() }),
+    handler: async (event, ctx) =>
       executor.update(
         {
           id: event.payload.id,
@@ -64,21 +64,21 @@ const lockFeature = defineFeature("lock", (r) => {
         event.user,
         ctx.db,
       ),
-    ROLES,
-  );
+    ...ROLES,
+  });
 
-  r.writeHandler(
-    "ticket:rename-nested",
-    z.object({ id: z.uuid(), version: z.number(), title: z.string() }),
-    async (event, ctx) => ctx.write("lock:write:ticket:rename", event.payload),
-    ROLES,
-  );
+  r.writeHandler({
+    name: "ticket:rename-nested",
+    schema: z.object({ id: z.uuid(), version: z.number(), title: z.string() }),
+    handler: async (event, ctx) => ctx.write("lock:write:ticket:rename", event.payload),
+    ...ROLES,
+  });
 
   // Return something other than the lifecycle result: the guard must not depend on it.
-  r.writeHandler(
-    "ticket:rename-quiet",
-    z.object({ id: z.uuid(), version: z.number(), title: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "ticket:rename-quiet",
+    schema: z.object({ id: z.uuid(), version: z.number(), title: z.string() }),
+    handler: async (event, ctx) => {
       const result = await executor.update(
         {
           id: event.payload.id,
@@ -91,36 +91,36 @@ const lockFeature = defineFeature("lock", (r) => {
       if (!result.isSuccess) return result;
       return { isSuccess: true as const, data: { ok: true } };
     },
-    ROLES,
-  );
+    ...ROLES,
+  });
 
-  r.writeHandler(
-    "ticket:purge-quiet",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "ticket:purge-quiet",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       const result = await executor.delete({ id: event.payload.id }, event.user, ctx.db);
       if (!result.isSuccess) return result;
       return { isSuccess: true as const, data: { ok: true } };
     },
-    IRREVERSIBLE,
-  );
+    ...IRREVERSIBLE,
+  });
 
-  r.writeHandler(
-    "ticket:erase",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "ticket:erase",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       const result = await executor.forget({ id: event.payload.id }, event.user, ctx.db);
       if (!result.isSuccess) return result;
       return { isSuccess: true as const, data: { ok: true } };
     },
-    IRREVERSIBLE,
-  );
+    ...IRREVERSIBLE,
+  });
 
   // Framework system-user writes: the purpose decides whether the lock applies.
-  r.writeHandler(
-    "ticket:system-rename",
-    z.object({ id: z.uuid(), title: z.string(), purpose: z.enum(["none", "erasure"]) }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "ticket:system-rename",
+    schema: z.object({ id: z.uuid(), title: z.string(), purpose: z.enum(["none", "erasure"]) }),
+    handler: async (event, ctx) =>
       executor.update(
         { id: event.payload.id, changes: { title: event.payload.title } },
         createSystemUser(event.user.tenantId),
@@ -130,26 +130,26 @@ const lockFeature = defineFeature("lock", (r) => {
           ...(event.payload.purpose === "erasure" && { writePurpose: WritePurposes.erasure }),
         },
       ),
-    ROLES,
-  );
+    ...ROLES,
+  });
 
-  r.writeHandler(
-    "ticket:user-rename-with-purpose",
-    z.object({ id: z.uuid(), title: z.string() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "ticket:user-rename-with-purpose",
+    schema: z.object({ id: z.uuid(), title: z.string() }),
+    handler: async (event, ctx) =>
       executor.update(
         { id: event.payload.id, changes: { title: event.payload.title } },
         event.user,
         ctx.db,
         { skipOptimisticLock: true, writePurpose: WritePurposes.erasure },
       ),
-    ROLES,
-  );
+    ...ROLES,
+  });
 
-  r.writeHandler(
-    "ticket:reopen",
-    z.object({ id: z.uuid(), version: z.number() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "ticket:reopen",
+    schema: z.object({ id: z.uuid(), version: z.number() }),
+    handler: async (event, ctx) =>
       executor.update(
         {
           id: event.payload.id,
@@ -160,8 +160,8 @@ const lockFeature = defineFeature("lock", (r) => {
         ctx.db,
         { unsafeSkipLockGuard: true },
       ),
-    ROLES,
-  );
+    ...ROLES,
+  });
 });
 
 let stack: TestStack;

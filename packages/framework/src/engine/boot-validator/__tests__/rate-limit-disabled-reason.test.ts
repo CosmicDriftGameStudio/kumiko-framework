@@ -6,18 +6,16 @@ import { validateHandlerAccess } from "../entity-handler.js";
 describe("validateHandlerAccess — rateLimit: { disabled: true } reason", () => {
   test("an empty reason throws, naming the handler", () => {
     const feature = defineFeature("rl-guard", (r) => {
-      r.writeHandler(
-        "note:create",
-        z.object({ title: z.string() }),
-        async () => ({
+      r.writeHandler({
+        name: "note:create",
+        schema: z.object({ title: z.string() }),
+        handler: async () => ({
           isSuccess: true as const,
           data: {},
         }),
-        {
-          access: { roles: ["Admin"] },
-          rateLimit: { disabled: true, reason: "" },
-        },
-      );
+        access: { roles: ["Admin"] },
+        rateLimit: { disabled: true, reason: "" },
+      });
     });
 
     expect(() => validateHandlerAccess(feature)).toThrow(/rl-guard:write:note:create/);
@@ -26,18 +24,16 @@ describe("validateHandlerAccess — rateLimit: { disabled: true } reason", () =>
 
   test("a non-empty reason boots fine", () => {
     const feature = defineFeature("rl-guard", (r) => {
-      r.writeHandler(
-        "note:create",
-        z.object({ title: z.string() }),
-        async () => ({
+      r.writeHandler({
+        name: "note:create",
+        schema: z.object({ title: z.string() }),
+        handler: async () => ({
           isSuccess: true as const,
           data: {},
         }),
-        {
-          access: { roles: ["Admin"] },
-          rateLimit: { disabled: true, reason: "ops replay path" },
-        },
-      );
+        access: { roles: ["Admin"] },
+        rateLimit: { disabled: true, reason: "ops replay path" },
+      });
     });
 
     expect(() => validateHandlerAccess(feature)).not.toThrow();

@@ -197,7 +197,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       category: "compliance",
       recommended: false,
     });
-    r.requires("user", "data-retention", "compliance-profiles", "sessions");
+    r.requires({ features: ["user", "data-retention", "compliance-profiles", "sessions"] });
     r.usesApi("compliance.forTenant");
     r.usesApi("retention.policyFor");
     // S2.U6 — restrict-account ruft sessions.revokeAllForUser cross-feature.
@@ -242,15 +242,15 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     );
 
     // S2.U3 Atom 1b — ExportJob-Lifecycle-Entity.
-    r.entity("export-job", exportJobEntity);
+    r.entity({ name: "export-job", ...exportJobEntity });
 
     // S2.U3 Atom 4a — Download-Token-Entity. Worker generiert Token beim
     // Flip auf done (siehe run-export-jobs.ts). Hash in DB, plain im
     // RunExportJobsResult fuer Atom 5 (Notification per Email).
-    r.entity("export-download-token", exportDownloadTokenEntity);
+    r.entity({ name: "export-download-token", ...exportDownloadTokenEntity });
 
     // S2.U7 — Audit-Trail invalid Download-Attempts (DPO Brute-Force-Detection).
-    r.entity("download-attempt", downloadAttemptEntity);
+    r.entity({ name: "download-attempt", ...downloadAttemptEntity });
 
     // S2.U6 — DSGVO Art. 18 Account-Freeze (Verarbeitungs-Pause).
     // Endpoints fuer Restrict + Lift. Login-Block fuer Restricted Users

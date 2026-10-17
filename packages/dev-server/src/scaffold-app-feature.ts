@@ -111,7 +111,7 @@ import { ${camel}TranslationKeys } from "./i18n";
 import { ${camel}ItemEntity } from "./schema";
 
 export const ${camel}Feature = defineFeature(${constName(name)}, (r) => {
-  r.entity("${name}-item", ${camel}ItemEntity);
+  r.entity({ name: "${name}-item", ...${camel}ItemEntity });
 
   // Deklarativer List-Screen — CRUD-Query kommt aus der Entity.
   // Für query-getriebene Tabellen: type "projectionList"; für

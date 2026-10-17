@@ -44,8 +44,8 @@ export function customFieldsField(): JsonbFieldDef {
 // Consumer-side:
 //
 //   defineFeature("property-mgmt", (r) => {
-//     r.entity("property", propertyEntity);  // muss customFieldsField() haben
-//     r.requires(CUSTOM_FIELDS_FEATURE_NAME);
+//     r.entity({ name: "property", ...propertyEntity });  // muss customFieldsField() haben
+//     r.requires({ features: [CUSTOM_FIELDS_FEATURE_NAME] });
 //     wireCustomFieldsFor(r, "property", propertyTable);
 //   });
 //
@@ -198,18 +198,22 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
 
   // postQuery-hook: flatten row.customFields jsonb auf root-level der
   // API-response. Spec-Promise Z.4 "indistinguishable von Stammfeldern".
-  r.hook("postQuery", { allOf: entityName }, async ({ rows }) => ({
-    rows: rows.map((row) => {
-      const customFields = row["customFields"];
-      if (customFields && typeof customFields === "object" && !Array.isArray(customFields)) {
-        return {
-          ...(customFields as Record<string, unknown>), // @cast-boundary db-row jsonb runtime-untyped
-          ...row, // base fields win: a custom fieldKey named `id`/`name` must not shadow the real column
-        };
-      }
-      return row;
+  r.hook({
+    type: "postQuery",
+    target: { allOf: entityName },
+    handler: async ({ rows }) => ({
+      rows: rows.map((row) => {
+        const customFields = row["customFields"];
+        if (customFields && typeof customFields === "object" && !Array.isArray(customFields)) {
+          return {
+            ...(customFields as Record<string, unknown>), // @cast-boundary db-row jsonb runtime-untyped
+            ...row, // base fields win: a custom fieldKey named `id`/`name` must not shadow the real column
+          };
+        }
+        return row;
+      }),
     }),
-  }));
+  });
 
   // Search-Payload-Extension: customFields-keys flach ins Index-Doc.
   // Anders als postQuery-hook (der ALLE keys merged) trägt der Search-

@@ -41,15 +41,18 @@ describe("validateBoot — projectionDetail actions (fw#2166)", () => {
 
   test("valid navigate + writeHandler actions boot cleanly", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
+      r.queryHandler({
+        name: "rent:detail",
+        schema: z.object({}),
+        handler: async () => ({ description: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.writeHandler(
-        "archive",
-        z.object({ id: z.string() }),
-        async () => ({ isSuccess: true as const, data: {} }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.writeHandler({
+        name: "archive",
+        schema: z.object({ id: z.string() }),
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -87,12 +90,12 @@ describe("validateBoot — projectionDetail actions (fw#2166)", () => {
 
   test("navigate action with params targeting an entityEdit of the SAME entity (via detailFor) throws — params are a no-op on an update target (review finding 3b)", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity(
-        "rent",
-        createEntity({
+      r.entity({
+        name: "rent",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",

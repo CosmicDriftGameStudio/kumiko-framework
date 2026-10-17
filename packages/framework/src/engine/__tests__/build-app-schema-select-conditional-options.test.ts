@@ -6,7 +6,8 @@ import { createRegistry } from "../registry.js";
 describe("buildAppSchema — select conditionalOptions", () => {
   test("an entity select field keeps its conditional option rules in the client schema", () => {
     const monitoring = defineFeature("monitoring", (r) => {
-      r.entity("monitor", {
+      r.entity({
+        name: "monitor",
         fields: {
           kind: { type: "select", options: ["http", "heartbeat"] },
           interval: {

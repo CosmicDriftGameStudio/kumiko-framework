@@ -8,7 +8,7 @@ import {
 import { buildNavRegistrySliceForApp } from "../index.js";
 
 const adopter = defineFeature("adopter", (r) => {
-  r.entity("thing", { fields: { label: { type: "text" } } });
+  r.entity({ name: "thing", fields: { label: { type: "text" } } });
   r.screen({ id: "home", type: "entityList", entity: "thing", columns: ["label"] });
   r.nav({ id: "home", label: "Home", screen: "home" });
   r.nav({ id: "orphan", label: "Orphan", screen: "home", parent: "app-shell:nav:missing" });

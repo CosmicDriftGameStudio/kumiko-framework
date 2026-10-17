@@ -69,16 +69,16 @@ const secretEntity = createEntity({
 const secretTable = buildEntityTable("secret", secretEntity);
 
 const secretsFeature = defineFeature("secrets", (r) => {
-  r.entity("secret", secretEntity);
-  r.writeHandler(
-    "create",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+  r.entity({ name: "secret", ...secretEntity });
+  r.writeHandler({
+    name: "create",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(secretTable, secretEntity, { entityName: "secret" });
       return crud.create({ value: event.payload.value }, event.user, ctx.db);
     },
-    { access: { roles: [SYSTEM_ROLE] } },
-  );
+    access: { roles: [SYSTEM_ROLE] },
+  });
 });
 
 // --- Feature owning the jobs under test ---
@@ -156,88 +156,96 @@ const jobsFeature = defineFeature("jobsx", (r) => {
     },
   );
 
-  r.writeHandler(
-    "dispatch-no-declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "dispatch-no-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await manualDispatch(ctx)?.dispatch("jobsx:job:write-direct", { value: event.payload.value });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["anonymous"] }, rateLimit: RATE_LIMIT },
-  );
-  r.writeHandler(
-    "dispatch-declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+    access: { roles: ["anonymous"] },
+    rateLimit: RATE_LIMIT,
+  });
+  r.writeHandler({
+    name: "dispatch-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await manualDispatch(ctx)?.dispatch("jobsx:job:write-direct", { value: event.payload.value });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["anonymous"], personalData: "public-intake" }, rateLimit: RATE_LIMIT },
-  );
+    access: { roles: ["anonymous"], personalData: "public-intake" },
+    rateLimit: RATE_LIMIT,
+  });
 
-  r.writeHandler(
-    "foreign-no-declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "foreign-no-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await manualDispatch(ctx)?.dispatch("jobsx:job:write-foreign", {
         value: event.payload.value,
       });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["anonymous"] }, rateLimit: RATE_LIMIT },
-  );
-  r.writeHandler(
-    "foreign-declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+    access: { roles: ["anonymous"] },
+    rateLimit: RATE_LIMIT,
+  });
+  r.writeHandler({
+    name: "foreign-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await manualDispatch(ctx)?.dispatch("jobsx:job:write-foreign", {
         value: event.payload.value,
       });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["anonymous"], personalData: "public-intake" }, rateLimit: RATE_LIMIT },
-  );
+    access: { roles: ["anonymous"], personalData: "public-intake" },
+    rateLimit: RATE_LIMIT,
+  });
 
-  r.writeHandler(
-    "chain-no-declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "chain-no-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await manualDispatch(ctx)?.dispatch("jobsx:job:chain-dispatch", {
         value: event.payload.value,
       });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["anonymous"] }, rateLimit: RATE_LIMIT },
-  );
-  r.writeHandler(
-    "chain-declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+    access: { roles: ["anonymous"] },
+    rateLimit: RATE_LIMIT,
+  });
+  r.writeHandler({
+    name: "chain-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await manualDispatch(ctx)?.dispatch("jobsx:job:chain-dispatch", {
         value: event.payload.value,
       });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["anonymous"], personalData: "public-intake" }, rateLimit: RATE_LIMIT },
-  );
+    access: { roles: ["anonymous"], personalData: "public-intake" },
+    rateLimit: RATE_LIMIT,
+  });
 
-  r.writeHandler(
-    "trigger-source-no-declare",
-    z.object({ value: z.string() }),
-    async (event) => ({ isSuccess: true as const, data: { value: event.payload.value } }),
-    { access: { roles: ["anonymous"] }, rateLimit: RATE_LIMIT },
-  );
-  r.writeHandler(
-    "trigger-source-declare",
-    z.object({ value: z.string() }),
-    async (event) => ({ isSuccess: true as const, data: { value: event.payload.value } }),
-    { access: { roles: ["anonymous"], personalData: "public-intake" }, rateLimit: RATE_LIMIT },
-  );
+  r.writeHandler({
+    name: "trigger-source-no-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event) => ({ isSuccess: true as const, data: { value: event.payload.value } }),
+    access: { roles: ["anonymous"] },
+    rateLimit: RATE_LIMIT,
+  });
+  r.writeHandler({
+    name: "trigger-source-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event) => ({ isSuccess: true as const, data: { value: event.payload.value } }),
+    access: { roles: ["anonymous"], personalData: "public-intake" },
+    rateLimit: RATE_LIMIT,
+  });
 
-  r.writeHandler(
-    "definedevent-no-declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "definedevent-no-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: crypto.randomUUID(),
         aggregateType: "jobsx-leak",
@@ -246,12 +254,13 @@ const jobsFeature = defineFeature("jobsx", (r) => {
       });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["anonymous"] }, rateLimit: RATE_LIMIT },
-  );
-  r.writeHandler(
-    "definedevent-declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+    access: { roles: ["anonymous"] },
+    rateLimit: RATE_LIMIT,
+  });
+  r.writeHandler({
+    name: "definedevent-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: crypto.randomUUID(),
         aggregateType: "jobsx-leak",
@@ -260,28 +269,30 @@ const jobsFeature = defineFeature("jobsx", (r) => {
       });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["anonymous"], personalData: "public-intake" }, rateLimit: RATE_LIMIT },
-  );
+    access: { roles: ["anonymous"], personalData: "public-intake" },
+    rateLimit: RATE_LIMIT,
+  });
 
-  r.queryHandler(
-    "query-dispatch-no-declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+  r.queryHandler({
+    name: "query-dispatch-no-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await manualDispatch(ctx)?.dispatch("jobsx:job:write-direct", { value: event.payload.value });
       return { ok: true as const };
     },
-    { access: { roles: ["anonymous"] }, rateLimit: RATE_LIMIT },
-  );
+    access: { roles: ["anonymous"] },
+    rateLimit: RATE_LIMIT,
+  });
 
-  r.writeHandler(
-    "authenticated-dispatch",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "authenticated-dispatch",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await manualDispatch(ctx)?.dispatch("jobsx:job:write-direct", { value: event.payload.value });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 // --- Feature-level r.systemScope() job: proves ctx.systemDb.unsafeRaw()'s
@@ -305,28 +316,30 @@ const systemJobFeature = defineFeature("systemjob", (r) => {
 });
 
 const dispatchSystemDbFeature = defineFeature("systemjobdispatch", (r) => {
-  r.writeHandler(
-    "no-declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "no-declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await manualDispatch(ctx)?.dispatch("systemjob:job:write-systemdb", {
         value: event.payload.value,
       });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["anonymous"] }, rateLimit: RATE_LIMIT },
-  );
-  r.writeHandler(
-    "declare",
-    z.object({ value: z.string() }),
-    async (event, ctx) => {
+    access: { roles: ["anonymous"] },
+    rateLimit: RATE_LIMIT,
+  });
+  r.writeHandler({
+    name: "declare",
+    schema: z.object({ value: z.string() }),
+    handler: async (event, ctx) => {
       await manualDispatch(ctx)?.dispatch("systemjob:job:write-systemdb", {
         value: event.payload.value,
       });
       return { isSuccess: true as const, data: { ok: true as const } };
     },
-    { access: { roles: ["anonymous"], personalData: "public-intake" }, rateLimit: RATE_LIMIT },
-  );
+    access: { roles: ["anonymous"], personalData: "public-intake" },
+    rateLimit: RATE_LIMIT,
+  });
 });
 
 describe("job/event write-origin inheritance", () => {

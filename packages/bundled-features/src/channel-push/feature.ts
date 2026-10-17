@@ -14,7 +14,7 @@ export function createChannelPushFeature(options: PushChannelOptions): FeatureDe
       category: "notifications",
       recommended: false,
     });
-    r.requires("delivery");
+    r.requires({ features: ["delivery"] });
 
     r.translations({ keys: { "delivery.channel.push": { en: "Push" } } });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, "push", {

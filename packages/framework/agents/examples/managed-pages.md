@@ -332,7 +332,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
-// managed-pages declares `r.requires("config")` for its branding keys — the
+// managed-pages declares `r.requires({ features: ["config"] })` for its branding keys — the
 // config feature must be in the stack (runProdApp auto-mounts it; setupTestStack
 // does not, so the recipe lists it explicitly).
 export const configFeature = createConfigFeature();

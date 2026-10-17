@@ -19,19 +19,19 @@ const noteEntity = createEntity({
 const noteTable = buildEntityTable("note", noteEntity);
 
 const noteFeature = defineFeature("vchttp", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   const executor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
 
-  r.writeHandler(
-    "note:create",
-    z.object({ title: z.string() }),
-    async (event, ctx) => executor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
-  r.writeHandler(
-    "note:update",
-    z.object({ id: z.uuid(), version: z.number(), title: z.string() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "note:create",
+    schema: z.object({ title: z.string() }),
+    handler: async (event, ctx) => executor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
+  r.writeHandler({
+    name: "note:update",
+    schema: z.object({ id: z.uuid(), version: z.number(), title: z.string() }),
+    handler: async (event, ctx) =>
       executor.update(
         {
           id: event.payload.id,
@@ -41,8 +41,8 @@ const noteFeature = defineFeature("vchttp", (r) => {
         event.user,
         ctx.db,
       ),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 type ErrorBody = {

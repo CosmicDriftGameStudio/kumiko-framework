@@ -55,7 +55,7 @@ const billingTable = pgTable("read_domain_shipment_billing", {
 // --- Feature ---
 
 const shippingFeature = defineFeature("shipping", (r) => {
-  r.entity("domain-shipment", shipmentEntity);
+  r.entity({ name: "domain-shipment", ...shipmentEntity });
 
   // Domain event. Qualified name is "shipping:event:billed".
   const shipmentBilled = r.defineEvent("billed", z.object({ cost: z.number() }), {
@@ -97,17 +97,17 @@ const shippingFeature = defineFeature("shipping", (r) => {
     entityName: "domain-shipment",
   });
 
-  r.writeHandler(
-    "shipment:create",
-    z.object({ cargo: z.string(), status: z.string() }),
-    async (event, ctx) => shipmentExecutor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "shipment:create",
+    schema: z.object({ cargo: z.string(), status: z.string() }),
+    handler: async (event, ctx) => shipmentExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "shipment:bill",
-    z.object({ id: z.uuid(), cost: z.number() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "shipment:bill",
+    schema: z.object({ id: z.uuid(), cost: z.number() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "domain-shipment",
@@ -116,44 +116,44 @@ const shippingFeature = defineFeature("shipping", (r) => {
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "shipment:list",
-    z.object({ limit: z.number().optional() }),
-    async (query, ctx) => shipmentExecutor.list(query.payload, query.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.queryHandler({
+    name: "shipment:list",
+    schema: z.object({ limit: z.number().optional() }),
+    handler: async (query, ctx) => shipmentExecutor.list(query.payload, query.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "shipment:detail",
-    z.object({ id: z.uuid() }),
-    async (query, ctx) => shipmentExecutor.detail(query.payload, query.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.queryHandler({
+    name: "shipment:detail",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => shipmentExecutor.detail(query.payload, query.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
   // CRUD update — used by the regression test to prove that a CRUD write
   // *after* a ctx.appendEvent (which bumped the aggregate stream version)
   // still finds the right expectedVersion.
-  r.writeHandler(
-    "shipment:update",
-    z.object({
+  r.writeHandler({
+    name: "shipment:update",
+    schema: z.object({
       id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
-    async (event, ctx) => shipmentExecutor.update(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+    handler: async (event, ctx) => shipmentExecutor.update(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
   // Misuse probes — only exist so the tests below can exercise the rejection
   // paths without spinning up a second feature (that would duplicate the
   // entity and fail at registry build time).
-  r.writeHandler(
-    "shipment:bill-unregistered",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "shipment:bill-unregistered",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "domain-shipment",
@@ -162,13 +162,13 @@ const shippingFeature = defineFeature("shipping", (r) => {
       });
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "shipment:bill-bad-payload",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "shipment:bill-bad-payload",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "domain-shipment",
@@ -178,8 +178,8 @@ const shippingFeature = defineFeature("shipping", (r) => {
       });
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 // --- Test stack ---

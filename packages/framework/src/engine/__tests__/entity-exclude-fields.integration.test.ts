@@ -46,7 +46,7 @@ const defaultedEntity = createEntity({
 });
 
 const defaultedFeature = defineFeature("exclude-defaulted", (r) => {
-  r.entity("thing", defaultedEntity);
+  r.entity({ name: "thing", ...defaultedEntity });
   r.writeHandler(
     defineEntityWriteHandler("thing:create", defaultedEntity, {
       access: { roles: ["User"] },

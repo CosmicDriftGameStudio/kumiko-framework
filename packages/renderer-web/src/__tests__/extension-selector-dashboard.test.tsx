@@ -34,12 +34,12 @@ import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
 const TENANT_ADMIN_WRITE = access.roles("TenantAdmin");
 
 const secretsMount = defineFeature("secrets", (r) => {
-  r.writeHandler(
-    "set",
-    z.object({ key: z.string(), value: z.string() }),
-    async () => ({ isSuccess: true, data: null }),
-    { access: { roles: ["TenantAdmin"] } },
-  );
+  r.writeHandler({
+    name: "set",
+    schema: z.object({ key: z.string(), value: z.string() }),
+    handler: async () => ({ isSuccess: true, data: null }),
+    access: { roles: ["TenantAdmin"] },
+  });
 });
 
 const mailFoundation = defineFeature("mail-foundation", (r) => {

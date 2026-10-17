@@ -38,7 +38,7 @@ const contactEntity = createEntity({
   fields: { email: createTextField({ required: true, personal: "self", find: "exact" }) },
 });
 const crmFeature = defineFeature("crm", (r) => {
-  r.entity("contact", contactEntity);
+  r.entity({ name: "contact", ...contactEntity });
   r.writeHandler(
     defineEntityWriteHandler("contact:create", contactEntity, { access: { roles: ["Admin"] } }),
   );

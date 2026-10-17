@@ -12,15 +12,15 @@ import { createEntity, createTimestampField, createTzField } from "../factories.
 describe("validateBoot — locatedBy markers", () => {
   test("manuelle Konstruktion mit korrektem Pair passiert (positive case)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "order",
-        createEntity({
+      r.entity({
+        name: "order",
+        ...createEntity({
           fields: {
             customAt: createTimestampField({ locatedBy: "customTz" }),
             customTz: createTzField(),
           },
         }),
-      );
+      });
     });
 
     expect(() => validateBoot([feature])).not.toThrow();
@@ -28,15 +28,15 @@ describe("validateBoot — locatedBy markers", () => {
 
   test("locatedBy zeigt auf nicht-existierendes Feld → Fehler beim Boot", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "order",
-        createEntity({
+      r.entity({
+        name: "order",
+        ...createEntity({
           fields: {
             pickupAt: createTimestampField({ locatedBy: "pickupTz" }),
             // pickupTz fehlt komplett!
           },
         }),
-      );
+      });
     });
 
     expect(() => validateBoot([feature])).toThrow(/no field with that name exists/);
@@ -44,16 +44,16 @@ describe("validateBoot — locatedBy markers", () => {
 
   test("locatedBy zeigt auf falschen Feld-Typ → Fehler beim Boot", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "order",
-        createEntity({
+      r.entity({
+        name: "order",
+        ...createEntity({
           fields: {
             pickupAt: createTimestampField({ locatedBy: "pickupTz" }),
             // text statt tz — typo-Falle die der Validator fängt
             pickupTz: { type: "text", maxLength: 100 },
           },
         }),
-      );
+      });
     });
 
     expect(() => validateBoot([feature])).toThrow(/expected "tz"/);
@@ -61,14 +61,14 @@ describe("validateBoot — locatedBy markers", () => {
 
   test("Fehlermeldung verweist auf createLocatedTimestampField als Fix", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "order",
-        createEntity({
+      r.entity({
+        name: "order",
+        ...createEntity({
           fields: {
             pickupAt: createTimestampField({ locatedBy: "pickupTz" }),
           },
         }),
-      );
+      });
     });
 
     expect(() => validateBoot([feature])).toThrow(/createLocatedTimestampField/);
@@ -76,15 +76,15 @@ describe("validateBoot — locatedBy markers", () => {
 
   test("Timestamp ohne locatedBy ist OK (reiner UTC-Instant)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "order",
-        createEntity({
+      r.entity({
+        name: "order",
+        ...createEntity({
           fields: {
             createdAt: createTimestampField(),
             actualPickupAt: createTimestampField({ required: true }),
           },
         }),
-      );
+      });
     });
 
     expect(() => validateBoot([feature])).not.toThrow();

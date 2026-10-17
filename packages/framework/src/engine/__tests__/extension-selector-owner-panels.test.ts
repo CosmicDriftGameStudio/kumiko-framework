@@ -38,11 +38,17 @@ function mailFoundation(panels: readonly ExtensionSelectorPanel[], withStatusQue
       },
     });
     r.extendsRegistrar("mailTransport", { onRegister: () => undefined });
-    r.queryHandler("queue:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+    r.queryHandler({
+      name: "queue:list",
+      schema: z.object({}),
+      handler: async () => ({ rows: [], nextCursor: null }),
       access: OPEN,
     });
     if (withStatusQuery) {
-      r.queryHandler("queue:status", z.object({}), async () => ({ enabled: true }), {
+      r.queryHandler({
+        name: "queue:status",
+        schema: z.object({}),
+        handler: async () => ({ enabled: true }),
         access: OPEN,
       });
     }
@@ -80,7 +86,7 @@ function validateBootWithHub(owner: FeatureDefinition): void {
 }
 
 const smtp = defineFeature("mail-smtp", (r) => {
-  r.requires("mail-foundation");
+  r.requires({ features: ["mail-foundation"] });
   r.useExtension("mailTransport", "smtp");
   r.config({
     keys: {

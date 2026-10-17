@@ -30,7 +30,7 @@ const admin = createTestUser({ roles: ["TenantAdmin"] });
 let sendCount = 0;
 
 const countingChannelFeature = defineFeature("counting-inline", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.useExtension(DELIVERY_CHANNEL_EXTENSION, "counting-inline", {
     mode: "inline",
     send: async () => {
@@ -41,7 +41,7 @@ const countingChannelFeature = defineFeature("counting-inline", (r) => {
 });
 
 const probeFeature = defineFeature("boot-idempotency-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.writeHandler(
     defineWriteHandler({
       name: "ping",

@@ -16,16 +16,14 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 defineFeature("todoList", (r) => {
-  r.requires("auth", "tenant");
+  r.requires({ features: ["auth", "tenant"] });
   r.toggleable({ default: true });
 
-  r.entity("task", {
-    fields: {
+  r.entity({ name: "task", fields: {
       title: { type: "text", required: true, searchable: true },
       done: { type: "boolean", default: false },
       priority: { type: "select", options: ["low", "medium", "high"], default: "medium" },
-    },
-  });
+    } });
 
   r.relation("task", "owner", { kind: "belongsTo", to: "user" });
 
@@ -44,14 +42,9 @@ defineFeature("todoList", (r) => {
 
   r.defineEvent("taskCompleted", z.object({ id: z.string() }), { piiFields: "none", version: 1 });
 
-  r.writeHandler(
-    "task:create",
-    z.object({ title: z.string(), priority: z.string().optional() }),
-    async (event, ctx) => {
+  r.writeHandler({ name: "task:create", schema: z.object({ title: z.string(), priority: z.string().optional() }), handler: async (event, ctx) => {
       return { isSuccess: true, data: { id: "x" } };
-    },
-    { access: { roles: ["user"] } },
-  );
+    }, access: { roles: ["user"] } });
 
   r.writeHandler({
     name: "task:complete",
@@ -60,20 +53,15 @@ defineFeature("todoList", (r) => {
     access: { roles: ["user"] },
   });
 
-  r.queryHandler(
-    "task:list",
-    z.object({}),
-    async (q, ctx) => [],
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.queryHandler({ name: "task:list", schema: z.object({}), handler: async (q, ctx) => [], access: { openToAll: { reason: "test handler callable by any signed-in test user" } } });
 
-  r.hook("postSave", "task", async (event, ctx) => {
+  r.hook({ type: "postSave", target: "task", handler: async (event, ctx) => {
     console.log("task saved");
-  });
+  } });
 
-  r.hook("postDelete", { allOf: "task" }, async (event, ctx) => {
+  r.hook({ type: "postDelete", target: { allOf: "task" }, handler: async (event, ctx) => {
     console.log("task deleted");
-  });
+  } });
 
   r.metric("requests", { type: "counter" });
   r.secret("apiKey", { description: "Stripe API key" });

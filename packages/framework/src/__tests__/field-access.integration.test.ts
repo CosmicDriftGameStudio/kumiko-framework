@@ -59,55 +59,55 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, employeeEntity);
 
   const feature = defineFeature("employees", (r) => {
-    r.entity("employee", employeeEntity);
+    r.entity({ name: "employee", ...employeeEntity });
 
-    r.writeHandler(
-      "employee:create",
-      z.object({
+    r.writeHandler({
+      name: "employee:create",
+      schema: z.object({
         email: z.string(),
         firstName: z.string().optional(),
         salary: z.number().optional(),
         notes: z.string().optional(),
       }),
-      async (event, ctx) => {
+      handler: async (event, ctx) => {
         const db = ctx.db;
         const crud = createEventStoreExecutor(employeeTable, employeeEntity, {
           entityName: "employee",
         });
         return crud.create(event.payload, event.user, db);
       },
-      { access: { roles: ["Admin", "Accounting", "Employee"] } },
-    );
+      access: { roles: ["Admin", "Accounting", "Employee"] },
+    });
 
-    r.writeHandler(
-      "employee:update",
-      z.object({
+    r.writeHandler({
+      name: "employee:update",
+      schema: z.object({
         id: z.uuid(),
         version: z.number().optional(),
         changes: z.record(z.string(), z.unknown()),
       }),
-      async (event, ctx) => {
+      handler: async (event, ctx) => {
         const db = ctx.db;
         const crud = createEventStoreExecutor(employeeTable, employeeEntity, {
           entityName: "employee",
         });
         return crud.update(event.payload, event.user, db);
       },
-      { access: { roles: ["Admin", "Accounting", "Employee"] } },
-    );
+      access: { roles: ["Admin", "Accounting", "Employee"] },
+    });
 
-    r.queryHandler(
-      "employee:detail",
-      z.object({ id: z.uuid() }),
-      async (query, ctx) => {
+    r.queryHandler({
+      name: "employee:detail",
+      schema: z.object({ id: z.uuid() }),
+      handler: async (query, ctx) => {
         const db = ctx.db;
         const crud = createEventStoreExecutor(employeeTable, employeeEntity, {
           entityName: "employee",
         });
         return crud.detail(query.payload, query.user, db);
       },
-      { access: { roles: ["Admin", "Accounting", "Employee"] } },
-    );
+      access: { roles: ["Admin", "Accounting", "Employee"] },
+    });
   });
 
   const registry = createRegistry([feature]);

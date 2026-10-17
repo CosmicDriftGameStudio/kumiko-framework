@@ -13,8 +13,8 @@ const itemEntity = {
 } as unknown as EntityDefinition;
 
 const leasesFeature = defineFeature("leases", (r) => {
-  r.entity("lease", leaseEntity);
-  r.entity("item", itemEntity);
+  r.entity({ name: "lease", ...leaseEntity });
+  r.entity({ name: "item", ...itemEntity });
   r.screen({
     id: "lease-list",
     type: "entityList",
@@ -195,7 +195,10 @@ const leasesFeature = defineFeature("leases", (r) => {
 });
 
 const billingFeature = defineFeature("billing", (r) => {
-  r.entity("invoice", { fields: { payee: { type: "text" } } } as unknown as EntityDefinition);
+  r.entity({
+    name: "invoice",
+    ...({ fields: { payee: { type: "text" } } } as unknown as EntityDefinition),
+  });
   r.screen({
     id: "invoice-list",
     type: "entityList",

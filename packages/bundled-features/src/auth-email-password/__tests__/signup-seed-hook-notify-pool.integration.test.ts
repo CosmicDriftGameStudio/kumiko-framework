@@ -55,12 +55,12 @@ function createBarrier(parties: number): () => Promise<void> {
 let waitForAllSignups = createBarrier(PARALLEL_SIGNUPS);
 
 const welcomeHookFeature = defineFeature("signup-welcome-hook-test", (r) => {
-  r.requires("tenant");
-  r.requires("delivery");
-  r.hook(
-    "postSave",
-    { allOf: "tenant-membership" },
-    async (result, context) => {
+  r.requires({ features: ["tenant"] });
+  r.requires({ features: ["delivery"] });
+  r.hook({
+    type: "postSave",
+    target: { allOf: "tenant-membership" },
+    handler: async (result, context) => {
       if (!result.isNew) return;
       // skip: the afterCommit-phase hook below covers this run
       if (notifyFromAfterCommitHook) return;
@@ -78,12 +78,12 @@ const welcomeHookFeature = defineFeature("signup-welcome-hook-test", (r) => {
       });
       notifyOutcomeKinds.push(outcome.kind);
     },
-    { phase: HookPhases.inTransaction },
-  );
-  r.hook(
-    "postSave",
-    { allOf: "tenant-membership" },
-    async (result, context) => {
+    phase: HookPhases.inTransaction,
+  });
+  r.hook({
+    type: "postSave",
+    target: { allOf: "tenant-membership" },
+    handler: async (result, context) => {
       if (!result.isNew) return;
       // skip: only the afterCommit test run exercises this hook
       if (!notifyFromAfterCommitHook) return;
@@ -94,8 +94,8 @@ const welcomeHookFeature = defineFeature("signup-welcome-hook-test", (r) => {
       });
       notifyOutcomeKinds.push(outcome.kind);
     },
-    { phase: HookPhases.afterCommit },
-  );
+    phase: HookPhases.afterCommit,
+  });
 });
 
 let stack: TestStack;

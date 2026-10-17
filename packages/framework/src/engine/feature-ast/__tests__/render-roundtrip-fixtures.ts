@@ -7,16 +7,14 @@ export const STATIC_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("inventory", (r) => {
-  r.requires("auth", "tenant");
+  r.requires({ features: ["auth", "tenant"] });
   r.toggleable({ default: true });
 
-  r.entity("item", {
-    fields: {
+  r.entity({ name: "item", fields: {
       name: { type: "text", required: true },
       sku: { type: "text" },
       onHand: { type: "number" },
-    },
-  });
+    } });
 
   r.relation("item", "supplier", { type: "belongsTo", target: "user", foreignKey: "supplierId" });
 

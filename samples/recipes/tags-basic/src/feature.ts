@@ -47,9 +47,9 @@ export const noteFeature = defineFeature("note-management", (r) => {
   // tags is non-optional for this recipe: the demo tags notes. The note
   // feature itself stays completely tag-agnostic — it only declares the
   // dependency so the bundle is mounted.
-  r.requires("tags");
+  r.requires({ features: ["tags"] });
 
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
 
   r.writeHandler({
     name: "note:create",

@@ -21,7 +21,7 @@ never mounted, and nothing caught it — until now.
   feature-prefixed message.
 - **Conditional invariants `r.requires` can't express** — the check only
   fails when *this* feature's own shape demands it (has a PII field), not
-  unconditionally. A plain `r.requires("user-data-hook")` would fail even
+  unconditionally. A plain `r.requires({ features: ["user-data-hook"] })` would fail even
   for a prompt-store variant with no PII fields at all.
 - **`validateBoot`** — the framework's boot-time validator, run directly
   against a feature list. `bootCheck` has no DB dependency, so this is the
@@ -98,7 +98,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 
 // A prompt-store integration trap: a feature with a PII field was mounted
 // without its required companion feature, and nothing caught it at boot.
-// r.requires("user-data-hook") can't express this — it would
+// r.requires({ features: ["user-data-hook"] }) can't express this — it would
 // fail even for a prompt-store variant with no PII fields at all.
 const promptFields = {
   text: createTextField({
@@ -108,7 +108,7 @@ const promptFields = {
 };
 
 export const promptStoreFeature = defineFeature("prompt-store", (r) => {
-  r.entity("prompt", createEntity({ fields: promptFields }));
+  r.entity({ name: "prompt", ...createEntity({ fields: promptFields }) });
   r.bootCheck(({ features }) => {
     const hasPiiField = Object.values(promptFields).some((field) => field.pii);
     const hasUserDataHook = features.some((f) => f.name === "user-data-hook");

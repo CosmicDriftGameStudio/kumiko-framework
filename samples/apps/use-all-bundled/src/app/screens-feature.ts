@@ -9,7 +9,7 @@ import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-frame
 
 export const appScreensFeature: FeatureDefinition = defineFeature("app-screens", (r) => {
   r.describe("App-side nav placement for the user-profile self-service page.");
-  r.requires("user-profile");
+  r.requires({ features: ["user-profile"] });
   r.nav({
     id: "profile",
     label: "screen:profile.title",

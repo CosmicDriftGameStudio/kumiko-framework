@@ -106,7 +106,7 @@ let providerCancelFails = false;
 let clockOffsetDays = 0;
 
 const mockProviderFeature = defineFeature("test-mock-termination-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent | null,
     priceToTier: { price_starter: "starter", price_pro: "pro" },

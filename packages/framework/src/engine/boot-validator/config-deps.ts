@@ -4,7 +4,7 @@ import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.js";
 
 // --- Toggleable-dependency warnings ---
 //
-// When feature A declares r.requires("B") and B is toggleable with
+// When feature A declares r.requires({ features: ["B"] }) and B is toggleable with
 // default=false, A is effectively disabled out-of-the-box until someone
 // flips B on globally. That's usually an oversight — the dev either meant
 // optionalRequires, or forgot to ship B with default=true. We warn (not

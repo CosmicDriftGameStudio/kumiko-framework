@@ -11,20 +11,18 @@ async function noopHandler() {
 
 function vehicleFeature() {
   return defineFeature("fleet", (r) => {
-    r.entity("vehicle", { fields: { name: { type: "text", required: true } } });
+    r.entity({ name: "vehicle", fields: { name: { type: "text", required: true } } });
   });
 }
 
 function consumerFeature(references: string) {
   return defineFeature("planner", (r) => {
-    r.writeHandler(
-      "plan",
-      z.object({ vehicleId: z.string().meta({ references }).optional() }),
-      noopHandler,
-      {
-        access: OPEN_ACCESS,
-      },
-    );
+    r.writeHandler({
+      name: "plan",
+      schema: z.object({ vehicleId: z.string().meta({ references }).optional() }),
+      handler: noopHandler,
+      access: OPEN_ACCESS,
+    });
   });
 }
 
@@ -41,33 +39,31 @@ describe("validateBoot — handler field references meta", () => {
 
   test("accepts a local entity reference", () => {
     const feature = defineFeature("fleet", (r) => {
-      r.entity("vehicle", { fields: { name: { type: "text", required: true } } });
-      r.queryHandler(
-        "find",
-        z.object({ vehicleId: z.string().meta({ references: "vehicle" }) }),
-        async () => ({}),
-        {
-          access: OPEN_ACCESS,
-        },
-      );
+      r.entity({ name: "vehicle", fields: { name: { type: "text", required: true } } });
+      r.queryHandler({
+        name: "find",
+        schema: z.object({ vehicleId: z.string().meta({ references: "vehicle" }) }),
+        handler: async () => ({}),
+        access: OPEN_ACCESS,
+      });
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
   function keyedConsumer(references: unknown, wrap: (field: z.ZodString) => z.ZodType = (f) => f) {
     return defineFeature("planner", (r) => {
-      r.writeHandler(
-        "plan",
-        z.object({ channelKeys: wrap(z.string().meta({ references })) }),
-        noopHandler,
-        { access: OPEN_ACCESS },
-      );
+      r.writeHandler({
+        name: "plan",
+        schema: z.object({ channelKeys: wrap(z.string().meta({ references })) }),
+        handler: noopHandler,
+        access: OPEN_ACCESS,
+      });
     });
   }
 
   function channelFeature() {
     return defineFeature("channels", (r) => {
-      r.entity("channel", { fields: { key: { type: "text", required: true } } });
+      r.entity({ name: "channel", fields: { key: { type: "text", required: true } } });
     });
   }
 
@@ -79,16 +75,16 @@ describe("validateBoot — handler field references meta", () => {
 
   test("accepts an array field with by and a cross-feature entity", () => {
     const feature = defineFeature("planner", (r) => {
-      r.writeHandler(
-        "plan",
-        z.object({
+      r.writeHandler({
+        name: "plan",
+        schema: z.object({
           channelKeys: z.array(z.string()).meta({
             references: { entity: "channels:channel", by: "key" },
           }),
         }),
-        noopHandler,
-        { access: OPEN_ACCESS },
-      );
+        handler: noopHandler,
+        access: OPEN_ACCESS,
+      });
     });
     expect(() => validateBoot([channelFeature(), feature])).not.toThrow();
   });
@@ -112,19 +108,19 @@ describe("validateBoot — handler field references meta", () => {
 describe("validateBoot — nested handler field references", () => {
   function nestedConsumer(references: unknown) {
     return defineFeature("planner", (r) => {
-      r.writeHandler(
-        "plan",
-        z.object({
+      r.writeHandler({
+        name: "plan",
+        schema: z.object({
           channels: z.array(z.object({ channelKey: z.string().meta({ references }) })),
         }),
-        noopHandler,
-        { access: OPEN_ACCESS },
-      );
+        handler: noopHandler,
+        access: OPEN_ACCESS,
+      });
     });
   }
 
   const channelFeature = defineFeature("channels", (r) => {
-    r.entity("channel", { fields: { key: { type: "text", required: true } } });
+    r.entity({ name: "channel", fields: { key: { type: "text", required: true } } });
   });
 
   test("names the nested path for an unknown entity", () => {

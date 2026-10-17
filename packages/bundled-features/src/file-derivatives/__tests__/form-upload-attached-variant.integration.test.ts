@@ -95,8 +95,8 @@ const stubRenderer: DerivativeRendererPlugin = {
 };
 
 const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
-  r.requires("file-derivatives");
-  r.entity("fieldGadget", gadgetEntity);
+  r.requires({ features: ["file-derivatives"] });
+  r.entity({ name: "fieldGadget", ...gadgetEntity });
   r.writeHandler(
     defineEntityCreateHandler("fieldGadget", gadgetEntity, { access: { roles: ["Admin"] } }),
   );
@@ -117,10 +117,10 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
       return `https://example.com/gadget/${args.entityId}`;
     },
   });
-  r.writeHandler(
-    "attach-generated-photo",
-    z.object({ gadgetId: z.uuid(), version: z.number() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "attach-generated-photo",
+    schema: z.object({ gadgetId: z.uuid(), version: z.number() }),
+    handler: async (event, ctx) => {
       const stored = await createFileRefFromBytes(ctx, {
         fileName: "generated.jpg",
         mimeType: "image/jpeg",
@@ -136,12 +136,12 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
       if (!updated.isSuccess) return updated;
       return { isSuccess: true as const, data: { fileRefId: stored.data.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
-  r.writeHandler(
-    "render-card",
-    z.object({ fileRefId: z.uuid() }),
-    async (event, ctx) => {
+    access: { roles: ["Admin"] },
+  });
+  r.writeHandler({
+    name: "render-card",
+    schema: z.object({ fileRefId: z.uuid() }),
+    handler: async (event, ctx) => {
       if (!ctx.derivatives) {
         return writeFailure(new InternalError({ message: "ctx.derivatives missing" }));
       }
@@ -159,8 +159,8 @@ const gadgetFeature = defineFeature("form-upload-gadget", (r) => {
         };
       }
     },
-    { access: { openToAll: { reason: "test fixture: any signed-in user may render" } } },
-  );
+    access: { openToAll: { reason: "test fixture: any signed-in user may render" } },
+  });
 });
 
 const editScreen: EntityEditScreenDefinition = {

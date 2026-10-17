@@ -28,12 +28,12 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const orderFeature = defineFeature("orders", (r) => {
-      r.entity("order", orderEntity);
+      r.entity({ name: "order", ...orderEntity });
       r.screen({ id: "list", type: "entityList", entity: "order", columns: ["label"] });
       r.nav({ id: "list", label: "Order List" });
     });
     const fleetFeature = defineFeature("fleet", (r) => {
-      r.entity("vehicle", fleetEntity);
+      r.entity({ name: "vehicle", ...fleetEntity });
       r.screen({ id: "list", type: "entityList", entity: "vehicle", columns: ["plate"] });
       r.nav({ id: "list", label: "Fleet List" });
     });
@@ -160,10 +160,13 @@ describe("buildAppSchema", () => {
   // schema rather than a hand-rolled FeatureSchema literal.
   test("custom screen's `detailFor` survives the buildAppSchema projection, screen id stays unqualified (#2163)", () => {
     const propertyFeature = defineFeature("property", (r) => {
-      r.entity("lease", {
-        table: "leases",
-        fields: { name: { type: "text" } },
-      } as unknown as EntityDefinition);
+      r.entity({
+        name: "lease",
+        ...({
+          table: "leases",
+          fields: { name: { type: "text" } },
+        } as unknown as EntityDefinition),
+      });
       r.screen({
         id: "lease-detail",
         type: "custom",
@@ -269,7 +272,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const projectedEntity = app.features[0]?.entities["thing"] as unknown as {
@@ -292,7 +295,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const thingEntity = app.features[0]?.entities["thing"] as unknown as {
@@ -317,7 +320,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -343,7 +346,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -364,7 +367,7 @@ describe("buildAppSchema", () => {
       },
     } as unknown as EntityDefinition;
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -385,7 +388,7 @@ describe("buildAppSchema", () => {
       },
     } as unknown as EntityDefinition;
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -407,7 +410,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -438,7 +441,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -469,7 +472,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -559,7 +562,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const projected = (
@@ -590,7 +593,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -612,7 +615,7 @@ describe("buildAppSchema", () => {
         fields: { notes: { type: "text", multiline: { rows } } },
       } as unknown as EntityDefinition;
       const f = defineFeature("ent", (r) => {
-        r.entity("thing", entity);
+        r.entity({ name: "thing", ...entity });
       });
       expect(() => buildAppSchema(createRegistry([f]))).toThrow(
         /"thing" field "notes": multiline\.rows must be a positive integer/,
@@ -646,7 +649,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -728,7 +731,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -760,7 +763,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -790,7 +793,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const projected = app.features[0]!.entities["thing"] as unknown as {
@@ -814,7 +817,7 @@ describe("buildAppSchema", () => {
       },
     } as unknown as EntityDefinition;
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const projected = app.features[0]!.entities["thing"] as unknown as {
@@ -826,10 +829,13 @@ describe("buildAppSchema", () => {
 
   test("entity lockedWhen survives the projection so the client can show locked records read-only", () => {
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", {
-        fields: { status: { type: "text" } },
-        lockedWhen: { field: "status", eq: "closed" },
-      } as unknown as EntityDefinition);
+      r.entity({
+        name: "thing",
+        ...({
+          fields: { status: { type: "text" } },
+          lockedWhen: { field: "status", eq: "closed" },
+        } as unknown as EntityDefinition),
+      });
     });
     const app = buildAppSchema(createRegistry([f]));
     expect(app.features[0]!.entities["thing"]!.lockedWhen).toEqual({
@@ -840,7 +846,10 @@ describe("buildAppSchema", () => {
 
   test("entity without lockedWhen omits the key", () => {
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", { fields: { label: { type: "text" } } } as unknown as EntityDefinition);
+      r.entity({
+        name: "thing",
+        ...({ fields: { label: { type: "text" } } } as unknown as EntityDefinition),
+      });
     });
     const app = buildAppSchema(createRegistry([f]));
     expect("lockedWhen" in app.features[0]!.entities["thing"]!).toBe(false);
@@ -848,7 +857,10 @@ describe("buildAppSchema", () => {
 
   test("entity without defaultCurrency omits the key", () => {
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", { fields: { label: { type: "text" } } } as unknown as EntityDefinition);
+      r.entity({
+        name: "thing",
+        ...({ fields: { label: { type: "text" } } } as unknown as EntityDefinition),
+      });
     });
     const app = buildAppSchema(createRegistry([f]));
     expect("defaultCurrency" in app.features[0]!.entities["thing"]!).toBe(false);
@@ -864,7 +876,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const projected = app.features[0]!.entities["thing"] as unknown as {
@@ -883,7 +895,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const projected = app.features[0]!.entities["thing"] as unknown as {
@@ -919,7 +931,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -967,7 +979,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -1013,7 +1025,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -1049,7 +1061,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -1080,7 +1092,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
     });
     const app = buildAppSchema(createRegistry([f]));
     const fields = (
@@ -1111,7 +1123,7 @@ describe("buildAppSchema", () => {
       },
     } as unknown as EntityDefinition;
     const f = defineFeature("ent", (r) => {
-      r.entity("thing", entity);
+      r.entity({ name: "thing", ...entity });
       r.nav({ id: "n", label: "N" });
       r.workspace({
         id: "ws",
@@ -1145,7 +1157,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("ev", (r) => {
-      r.entity("event", entity);
+      r.entity({ name: "event", ...entity });
       r.screen({
         id: "list",
         type: "entityList",
@@ -1236,7 +1248,7 @@ describe("buildAppSchema", () => {
     } as unknown as EntityDefinition;
 
     const f = defineFeature("credit", (r) => {
-      r.entity("contract", contractEntity);
+      r.entity({ name: "contract", ...contractEntity });
       r.screen({
         id: "list",
         type: "entityList",
@@ -1261,16 +1273,16 @@ describe("buildAppSchema", () => {
   // deriveProjectionListCapabilities in build-app-schema.ts.
   test("projectionList: search/sort/cursor in the query schema become derived capabilities (fw#2165)", () => {
     const f = defineFeature("ledger", (r) => {
-      r.queryHandler(
-        "schedule:list",
-        z.object({
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({
           search: z.string().optional(),
           sort: z.string().optional(),
           cursor: z.string().optional(),
         }),
-        async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -1288,7 +1300,10 @@ describe("buildAppSchema", () => {
 
   test("projectionList: a query schema without search/sort/cursor derives no capability", () => {
     const f = defineFeature("ledger", (r) => {
-      r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -1308,12 +1323,12 @@ describe("buildAppSchema", () => {
 
   test("projectionList: a non-ZodObject query schema (z.union) derives no capability and doesn't throw", () => {
     const f = defineFeature("ledger", (r) => {
-      r.queryHandler(
-        "schedule:list",
-        z.union([z.object({ a: z.string() }), z.object({ b: z.string() })]),
-        async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.union([z.object({ a: z.string() }), z.object({ b: z.string() })]),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -1334,15 +1349,15 @@ describe("buildAppSchema", () => {
 
   test("projectionList: author-written searchable:false survives even when the schema accepts search", () => {
     const f = defineFeature("ledger", (r) => {
-      r.queryHandler(
-        "schedule:list",
-        z.object({ search: z.string().optional() }),
-        async () => ({
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({ search: z.string().optional() }),
+        handler: async () => ({
           rows: [],
           nextCursor: null,
         }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",

@@ -49,7 +49,7 @@ async function setupFixture(name: string) {
     fields: { attachment: createFileField({ personal: "self" }) },
   });
   const feature = defineFeature(`${name}feature`, (r) => {
-    r.entity(name, entity);
+    r.entity({ name, ...entity });
   });
   await unsafeCreateEntityTable(testDb.db, entity, name);
   return {

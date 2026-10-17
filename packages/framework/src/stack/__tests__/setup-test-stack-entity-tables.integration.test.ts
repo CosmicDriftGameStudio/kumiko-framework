@@ -22,12 +22,12 @@ const gadgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("widget", (r) => {
-  r.entity("widget", widgetEntity);
+  r.entity({ name: "widget", ...widgetEntity });
 });
 
 const twoEntityFeature = defineFeature("gadgetbox", (r) => {
-  r.entity("widget", widgetEntity);
-  r.entity("gadget", gadgetEntity);
+  r.entity({ name: "widget", ...widgetEntity });
+  r.entity({ name: "gadget", ...gadgetEntity });
 });
 
 async function tableExistsInInformationSchema(

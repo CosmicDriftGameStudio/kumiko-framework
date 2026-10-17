@@ -21,9 +21,9 @@ logic is yours.
 
 ## What it shows
 
-- **`r.writeHandler(name, schema, handler, options)`** — the positional
-  inline form, useful when the handler body is short and stays close to
-  its registration.
+- **`r.writeHandler({ name, schema, handler, access })`** — the inline
+  form, useful when the handler body is short and stays close to its
+  registration.
 - **Read-modify-write with optimistic locking** — `increment` reads the
   current count, computes the new one, and updates with the version it
   read. Two concurrent increments cannot both succeed.
@@ -341,7 +341,7 @@ export const counterEntity = createEntity({
 });
 
 export const counterFeature = defineFeature("counters", (r) => {
-  r.entity("counter", counterEntity);
+  r.entity({ name: "counter", ...counterEntity });
 
   // createEntityExecutor bundles buildEntityTable + createEventStoreExecutor —
   // the same pair every custom write-handler opens with. Collapses 3 lines
@@ -349,19 +349,19 @@ export const counterFeature = defineFeature("counters", (r) => {
   const { executor: counterExecutor } = createEntityExecutor("counter", counterEntity);
 
   // Standard create
-  r.writeHandler(
-    "counter:create",
-    z.object({ name: z.string().min(1) }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "counter:create",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async (event, ctx) =>
       counterExecutor.create({ ...event.payload, count: 0 }, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Custom handler: increment with business logic
-  r.writeHandler(
-    "counter:increment",
-    z.object({ id: z.uuid(), amount: z.number().min(1).max(100) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "counter:increment",
+    schema: z.object({ id: z.uuid(), amount: z.number().min(1).max(100) }),
+    handler: async (event, ctx) => {
       const current = await counterExecutor.detail({ id: event.payload.id }, event.user, ctx.db);
       if (!current) {
         return failNotFound("counter", event.payload.id);
@@ -381,14 +381,14 @@ export const counterFeature = defineFeature("counters", (r) => {
         ctx.db,
       );
     },
-    { access: { roles: ["Admin", "User"] } },
-  );
+    access: { roles: ["Admin", "User"] },
+  });
 
   // Custom handler: reset to zero
-  r.writeHandler(
-    "counter:reset",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "counter:reset",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
       // Admin reset: last-writer-wins is intentional — there's no useful
       // concurrent-reset race to guard against.
       counterExecutor.update(
@@ -397,16 +397,16 @@ export const counterFeature = defineFeature("counters", (r) => {
         ctx.db,
         { skipOptimisticLock: true },
       ),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Custom query: only counters above a threshold. list() returns one page
   // (default 50, max 200, MAX_LIST_LIMIT), so a JS filter would miss rows after
   // page 1; filter in the query instead. totalCount counts over the whole WHERE.
-  r.queryHandler(
-    "counter:active",
-    z.object({ minCount: z.number().int().default(1), cursor: z.string().optional() }),
-    async (query, ctx) =>
+  r.queryHandler({
+    name: "counter:active",
+    schema: z.object({ minCount: z.number().int().default(1), cursor: z.string().optional() }),
+    handler: async (query, ctx) =>
       counterExecutor.list(
         {
           filter: { field: "count", op: "gte", value: query.payload.minCount },
@@ -416,29 +416,25 @@ export const counterFeature = defineFeature("counters", (r) => {
         query.user,
         ctx.db,
       ),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "any signed-in user may list active counters; the sample has no per-user counter ownership",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in user may list active counters; the sample has no per-user counter ownership",
       },
     },
-  );
+  });
 
   // Standard detail
-  r.queryHandler(
-    "counter:detail",
-    z.object({ id: z.uuid() }),
-    async (query, ctx) => counterExecutor.detail(query.payload, query.user, ctx.db),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "any signed-in user may read a counter by id; the sample has no per-user counter ownership",
-        },
+  r.queryHandler({
+    name: "counter:detail",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => counterExecutor.detail(query.payload, query.user, ctx.db),
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in user may read a counter by id; the sample has no per-user counter ownership",
       },
     },
-  );
+  });
 });
 ```

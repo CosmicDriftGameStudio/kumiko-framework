@@ -76,7 +76,7 @@ const contractEntity = createEntity({
 const allRoles = ["Admin", "Manager", "TeamMember", "Driver", "Guest"] as const;
 
 const contractsFeature = defineFeature("h2contracts", (r) => {
-  r.entity("contract", contractEntity);
+  r.entity({ name: "contract", ...contractEntity });
   for (const verb of ["create", "update", "delete", "restore"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`contract:${verb}`, contractEntity, {

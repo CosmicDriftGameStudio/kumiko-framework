@@ -162,8 +162,8 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
       category: "content",
       recommended: false,
     });
-    r.requires("config");
-    r.entity("page", pageEntity);
+    r.requires({ features: ["config"] });
+    r.entity({ name: "page", ...pageEntity });
 
     // Per-tenant branding config keys (scope: tenant). Write-validated via
     // keyDef.pattern (hex / https) — see branding.ts. read:all so the

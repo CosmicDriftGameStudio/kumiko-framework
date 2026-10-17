@@ -63,7 +63,7 @@ const projectEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("tags-pv-test-fixtures", (r) => {
-  r.entity("project", projectEntity);
+  r.entity({ name: "project", ...projectEntity });
 });
 
 type TestUser = ReturnType<typeof createTestUser>;

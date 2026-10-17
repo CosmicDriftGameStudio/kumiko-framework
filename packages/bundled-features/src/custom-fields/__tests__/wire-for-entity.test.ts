@@ -20,7 +20,7 @@ const propertyTable = buildEntityTable("property", propertyEntity);
 describe("wireCustomFieldsFor", () => {
   test("registers useExtension + MSP + postQuery-entity-hook + search-payload-extension", () => {
     const feature = defineFeature("test-property", (r) => {
-      r.entity("property", propertyEntity);
+      r.entity({ name: "property", ...propertyEntity });
       wireCustomFieldsFor(r, "property", propertyTable);
     });
 
@@ -48,7 +48,7 @@ describe("wireCustomFieldsFor", () => {
 
   test("postQuery-hook flattens row.customFields onto root", async () => {
     const feature = defineFeature("test-property", (r) => {
-      r.entity("property", propertyEntity);
+      r.entity({ name: "property", ...propertyEntity });
       wireCustomFieldsFor(r, "property", propertyTable);
     });
 
@@ -78,7 +78,7 @@ describe("wireCustomFieldsFor", () => {
 
   test("postQuery-hook lets base columns win over shadowing custom fieldKeys", async () => {
     const feature = defineFeature("test-property", (r) => {
-      r.entity("property", propertyEntity);
+      r.entity({ name: "property", ...propertyEntity });
       wireCustomFieldsFor(r, "property", propertyTable);
     });
 
@@ -107,7 +107,7 @@ describe("wireCustomFieldsFor", () => {
 
   test("postQuery-hook handles missing/invalid customFields gracefully", async () => {
     const feature = defineFeature("test-property", (r) => {
-      r.entity("property", propertyEntity);
+      r.entity({ name: "property", ...propertyEntity });
       wireCustomFieldsFor(r, "property", propertyTable);
     });
 
@@ -132,7 +132,7 @@ describe("wireCustomFieldsFor", () => {
 
   test("search-payload-extension returns customFields keys flat", async () => {
     const feature = defineFeature("test-property", (r) => {
-      r.entity("property", propertyEntity);
+      r.entity({ name: "property", ...propertyEntity });
       wireCustomFieldsFor(r, "property", propertyTable);
     });
 

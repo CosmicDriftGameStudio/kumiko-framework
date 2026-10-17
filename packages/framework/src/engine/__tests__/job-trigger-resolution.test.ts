@@ -14,13 +14,18 @@ function triggerOnOf(registry: ReturnType<typeof createRegistry>, jobQn: string)
 describe("job trigger resolution", () => {
   test("short write-handler, query-handler and event names resolve to the feature's QNs", () => {
     const feature = defineFeature("shop", (r) => {
-      r.writeHandler(
-        "place-order",
-        z.object({}),
-        async () => ({ isSuccess: true as const, data: null }),
-        { access: signedInAccess },
-      );
-      r.queryHandler("order-report", z.object({}), async () => [], { access: signedInAccess });
+      r.writeHandler({
+        name: "place-order",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: null }),
+        access: signedInAccess,
+      });
+      r.queryHandler({
+        name: "order-report",
+        schema: z.object({}),
+        handler: async () => [],
+        access: signedInAccess,
+      });
       r.defineEvent("order-shipped", z.object({ orderId: z.string() }), { piiFields: "none" });
       r.job("on-write", { trigger: { on: "place-order" } }, async () => {});
       r.job("on-query", { trigger: { on: "order-report" } }, async () => {});
@@ -45,12 +50,12 @@ describe("job trigger resolution", () => {
 
   test("a fully qualified cross-feature trigger stays as declared", () => {
     const orders = defineFeature("orders", (r) => {
-      r.writeHandler(
-        "create",
-        z.object({}),
-        async () => ({ isSuccess: true as const, data: null }),
-        { access: signedInAccess },
-      );
+      r.writeHandler({
+        name: "create",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: null }),
+        access: signedInAccess,
+      });
     });
     const mailer = defineFeature("mailer", (r) => {
       r.job("confirm", { trigger: { on: "orders:write:create" } }, async () => {});

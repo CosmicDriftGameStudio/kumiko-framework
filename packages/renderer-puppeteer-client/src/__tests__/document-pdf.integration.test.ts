@@ -141,7 +141,7 @@ const ITEMS = [
 ];
 
 const invoiceFeature = defineFeature(FEATURE, (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.notification("invoice", {
     variables: {},
     localizedTemplate: () => ({

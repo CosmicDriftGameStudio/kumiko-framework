@@ -47,7 +47,7 @@ const PRICES: readonly ProviderPrice[] = [
 const checkoutCalls: Array<{ priceId: string }> = [];
 
 const adminOnlyProviderFeature = defineFeature("test-mock-admin-only-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     priceToTier: PRICE_TO_TIER,

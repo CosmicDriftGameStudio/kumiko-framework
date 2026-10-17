@@ -7,7 +7,10 @@ import { createEntity, createTextField } from "../factories.js";
 describe("validateBoot — projectionList screens", () => {
   test("rejects hand-written searchable:true when the query schema has no search param (3a)", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -26,12 +29,12 @@ describe("validateBoot — projectionList screens", () => {
 
   test("requires defaultSort when the query schema accepts search (3b)", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler(
-        "schedule:list",
-        z.object({ search: z.string().optional() }),
-        async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({ search: z.string().optional() }),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -47,12 +50,12 @@ describe("validateBoot — projectionList screens", () => {
 
   test("requires defaultSort when the query schema accepts sort (3b)", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler(
-        "schedule:list",
-        z.object({ sort: z.string().optional() }),
-        async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({ sort: z.string().optional() }),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -68,12 +71,12 @@ describe("validateBoot — projectionList screens", () => {
 
   test("passes when search/sort are active and defaultSort is set", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler(
-        "schedule:list",
-        z.object({ search: z.string().optional(), sort: z.string().optional() }),
-        async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({ search: z.string().optional(), sort: z.string().optional() }),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -91,7 +94,10 @@ describe("validateBoot — projectionList screens", () => {
 
   test("passes when the schema offers neither search nor sort and no defaultSort is set", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -109,12 +115,12 @@ describe("validateBoot — projectionList screens", () => {
 
   test("rejects hand-written searchable:false when the query schema accepts search and the screen isn't whitelisted", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler(
-        "schedule:list",
-        z.object({ search: z.string().optional() }),
-        async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({ search: z.string().optional() }),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -132,12 +138,12 @@ describe("validateBoot — projectionList screens", () => {
 
   test("passes hand-written searchable:false on a whitelisted screen id even when the schema accepts search", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler(
-        "schedule:list",
-        z.object({ search: z.string().optional() }),
-        async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({ search: z.string().optional() }),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "download-attempt-list",
         type: "projectionList",
@@ -154,7 +160,10 @@ describe("validateBoot — projectionList screens", () => {
 
   test("rejects hand-authored sortable on a projectionList screen (fw#2165 review)", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -173,7 +182,10 @@ describe("validateBoot — projectionList screens", () => {
 
   test("rejects hand-authored paginated on a projectionList screen (fw#2165 review)", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler("schedule:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -198,14 +210,12 @@ describe("validateBoot — projectionList screens", () => {
   describe("projectionList rowAction rowClick", () => {
     function makeFeature(rowClickCount: number) {
       return defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({}),
-          async () => ({ rows: [], nextCursor: null }),
-          {
-            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-          },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({ id: "schedule-detail", type: "custom", renderer: { react: "stub" } });
         r.screen({
           id: "schedule-list",
@@ -248,12 +258,12 @@ describe("validateBoot — projectionList screens", () => {
   describe("projectionList filter + facets (fw#2224)", () => {
     test('filter.op "in" requires an array value', () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({ filter: z.unknown().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ filter: z.unknown().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -270,14 +280,12 @@ describe("validateBoot — projectionList screens", () => {
 
     test('filter declared but the query schema has no "filter" parameter', () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({}),
-          async () => ({ rows: [], nextCursor: null }),
-          {
-            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-          },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -294,12 +302,12 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a facet referencing a field that isn't a declared column is rejected", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({ filters: z.unknown().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ filters: z.unknown().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -323,12 +331,12 @@ describe("validateBoot — projectionList screens", () => {
 
     test("duplicate facet fields are rejected", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({ filters: z.unknown().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ filters: z.unknown().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -360,12 +368,12 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a select facet with an empty options list is rejected", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({ filters: z.unknown().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ filters: z.unknown().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -382,14 +390,12 @@ describe("validateBoot — projectionList screens", () => {
 
     test('facets declared but the query schema has no "filters" parameter', () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({}),
-          async () => ({ rows: [], nextCursor: null }),
-          {
-            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-          },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -414,12 +420,12 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a valid filter + facets declaration on a schema that accepts both passes boot", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({ filter: z.unknown().optional(), filters: z.unknown().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ filter: z.unknown().optional(), filters: z.unknown().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -448,12 +454,12 @@ describe("validateBoot — projectionList screens", () => {
     // param names are.
     test("a dateRange facet on a query that can't narrow by time is rejected at boot", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({ from: z.iso.datetime().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ from: z.iso.datetime().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -477,15 +483,15 @@ describe("validateBoot — projectionList screens", () => {
 
     test('a dateRange facet does NOT require a "filters" parameter', () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({
             since: z.iso.datetime().optional(),
             until: z.iso.datetime().optional(),
           }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -509,12 +515,12 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a dateRange facet naming a reserved list-payload key is rejected", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({ limit: z.number().optional(), to: z.iso.datetime().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ limit: z.number().optional(), to: z.iso.datetime().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -540,17 +546,17 @@ describe("validateBoot — projectionList screens", () => {
       facets: ReadonlyArray<{ field: string; from: string; to: string }>,
     ): ReturnType<typeof defineFeature> {
       return defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({
             from: z.iso.datetime().optional(),
             to: z.iso.datetime().optional(),
             since: z.iso.datetime().optional(),
             until: z.iso.datetime().optional(),
           }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -587,12 +593,12 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a reference facet targeting an unknown entity is rejected", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.queryHandler(
-          "schedule:list",
-          z.object({ filters: z.unknown().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ filters: z.unknown().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -609,22 +615,25 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a reference facet targeting a known entity passes boot", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.entity(
-          "tenant",
-          createEntity({
+        r.entity({
+          name: "tenant",
+          ...createEntity({
             table: "Tenants",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
-        r.queryHandler("tenant:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        });
+        r.queryHandler({
+          name: "tenant:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
-        r.queryHandler(
-          "schedule:list",
-          z.object({ filters: z.unknown().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ filters: z.unknown().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -644,19 +653,19 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a reference facet whose target entity has no list query handler throws", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.entity(
-          "tenant",
-          createEntity({
+        r.entity({
+          name: "tenant",
+          ...createEntity({
             table: "Tenants",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
-        r.queryHandler(
-          "schedule:list",
-          z.object({ filters: z.unknown().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        });
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ filters: z.unknown().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",
@@ -678,27 +687,25 @@ describe("validateBoot — projectionList screens", () => {
 
     test("a reference facet filtering by an id field with no same-named column boots (displays a different label column)", () => {
       const feature = defineFeature("ledger", (r) => {
-        r.entity(
-          "property",
-          createEntity({
+        r.entity({
+          name: "property",
+          ...createEntity({
             table: "Properties",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
-        r.queryHandler(
-          "property:list",
-          z.object({}),
-          async () => ({ rows: [], nextCursor: null }),
-          {
-            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
-          },
-        );
-        r.queryHandler(
-          "schedule:list",
-          z.object({ filters: z.unknown().optional() }),
-          async () => ({ rows: [], nextCursor: null }),
-          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-        );
+        });
+        r.queryHandler({
+          name: "property:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({ filters: z.unknown().optional() }),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.screen({
           id: "schedule-list",
           type: "projectionList",

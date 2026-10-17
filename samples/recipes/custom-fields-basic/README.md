@@ -36,7 +36,7 @@ property-management    → our feature: opts the `property` entity into
                          custom-fields via wireCustomFieldsFor
 ```
 
-The `property-management` feature `r.requires("custom-fields")` — the
+The `property-management` feature `r.requires({ features: ["custom-fields"] })` — the
 bundle is non-optional for this recipe because the wired entity would
 otherwise have an empty jsonb column and no way to write into it.
 

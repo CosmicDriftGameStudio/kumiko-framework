@@ -86,7 +86,7 @@ const providerAProcessed: Array<{ readonly fileRefId: string }> = [];
 const providerBProcessed: Array<{ readonly fileRefId: string }> = [];
 
 const testProviderAFeature = defineFeature("test-document-ingest-provider-a", (r) => {
-  r.requires("document-ingest-foundation");
+  r.requires({ features: ["document-ingest-foundation"] });
   r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, PROVIDER_A_NAME, {
     mimeTypes: ["application/pdf", "image/png"],
     maxFileBytes: PROVIDER_A_MAX_BYTES,
@@ -118,7 +118,7 @@ const testProviderAFeature = defineFeature("test-document-ingest-provider-a", (r
 });
 
 const testProviderBFeature = defineFeature("test-document-ingest-provider-b", (r) => {
-  r.requires("document-ingest-foundation");
+  r.requires({ features: ["document-ingest-foundation"] });
   r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, PROVIDER_B_NAME, {
     mimeTypes: [DOCX_MIME_TYPE],
     maxFileBytes: PROVIDER_B_MAX_BYTES,
@@ -135,7 +135,7 @@ const testProviderBFeature = defineFeature("test-document-ingest-provider-b", (r
 const PROVIDER_XML_NAME = "test-provider-xml";
 
 const testProviderXmlFeature = defineFeature("test-document-ingest-provider-xml", (r) => {
-  r.requires("document-ingest-foundation");
+  r.requires({ features: ["document-ingest-foundation"] });
   r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, PROVIDER_XML_NAME, {
     mimeTypes: ["application/xml", "text/xml"],
     maxFileBytes: PROVIDER_B_MAX_BYTES,
@@ -156,7 +156,7 @@ const attachmentNoteEntity = createEntity({
 });
 
 const attachmentNoteFeature = defineFeature("ingest-attachment-notes", (r) => {
-  r.entity("note", attachmentNoteEntity);
+  r.entity({ name: "note", ...attachmentNoteEntity });
   r.writeHandler(
     defineEntityCreateHandler("note", attachmentNoteEntity, {
       access: { roles: ["Admin", "User", "SystemAdmin"] },
@@ -204,15 +204,14 @@ const documentExtractExecutorForSeed = createEventStoreExecutor(
 const AGENT_DELETE_FILEREF_QN = "agent-tools-test-delete-fileref:write:delete-fileref-mid";
 
 const agentDeleteFileRefFeature = defineFeature("agent-tools-test-delete-fileref", (r) => {
-  r.writeHandler(
-    "delete-fileref-mid",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => fileRefExecutor.delete({ id: event.payload.id }, event.user, ctx.db),
-    {
-      access: { roles: ["Admin"] },
-      description: "Soft-delete a fileRef (mid risk, default agent exposure).",
-    },
-  );
+  r.writeHandler({
+    name: "delete-fileref-mid",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
+      fileRefExecutor.delete({ id: event.payload.id }, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+    description: "Soft-delete a fileRef (mid risk, default agent exposure).",
+  });
 });
 
 beforeAll(async () => {

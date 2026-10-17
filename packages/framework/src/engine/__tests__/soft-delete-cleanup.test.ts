@@ -23,7 +23,8 @@ const globalTableMeta = {
 
 function featureWith(softDelete: boolean | undefined) {
   return defineFeature("probe-sd", (r) => {
-    r.entity("thing", {
+    r.entity({
+      name: "thing",
       fields: { label: { type: "text" } },
       ...(softDelete !== undefined && { softDelete }),
     });

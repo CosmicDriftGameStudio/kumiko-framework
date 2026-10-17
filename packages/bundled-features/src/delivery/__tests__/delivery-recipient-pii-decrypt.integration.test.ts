@@ -55,7 +55,7 @@ const emailTransport = createInMemoryTransport();
 const BIDX_KEY = Buffer.alloc(32, 9).toString("base64");
 
 const appFeature = defineFeature("app", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   const open = { openToAll: { reason: "test handler callable by any signed-in test user" } };
 
   r.writeHandler(

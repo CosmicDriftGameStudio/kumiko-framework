@@ -39,7 +39,7 @@ and why the combination is the production-realistic shape (not just
 an API tour).
 
 If you've only ever seen the free-form handler signature
-(`r.writeHandler(name, schema, async fn, opts)`), compare:
+(`r.writeHandler({ name, schema, handler, access })`), compare:
 
 - `samples/recipes/custom-handlers/src/feature.ts` — a similar
   domain, written in the free-form style.

@@ -6,10 +6,10 @@
 // DSGVO-Endpoints kommen vollstaendig aus user-data-rights.
 //
 // Dieses Feature zeigt:
-//   - r.entity("todo", todoEntity)            → Drizzle-Tabelle wird gebaut
-//   - r.writeHandler("create")                → User legt Todo an
-//   - r.queryHandler("list")                  → User sieht seine Todos
-//   - r.useExtension(EXT_USER_DATA, "todo")   → Forget + Export integration
+//   - r.entity({ name: "todo", ...todoEntity })  → Drizzle-Tabelle wird gebaut
+//   - r.writeHandler({ name: "create", … })      → User legt Todo an
+//   - r.queryHandler({ name: "list", … })        → User sieht seine Todos
+//   - r.useExtension(EXT_USER_DATA, "todo")      → Forget + Export integration
 //
 // Was passiert wenn der User dann request-export aufruft:
 //   1. user-data-rights.request-export.write triggert einen Job
@@ -122,7 +122,7 @@ const listTodosHandler = defineQueryHandler({
 });
 
 export const todosFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.requires("user-data-rights");
+  r.requires({ features: ["user-data-rights"] });
 
   // store_todos is a direct-write store: the create handler `insertOne`s and
   // the forget hook `updateMany`/`deleteMany`s rows WITHOUT emitting lifecycle

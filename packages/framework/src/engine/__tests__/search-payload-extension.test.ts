@@ -18,7 +18,7 @@ const noop: SearchPayloadContributorFn = () => ({});
 describe("searchPayloadExtension registration", () => {
   test("r.searchPayloadExtension(entity, fn) lands in feature.searchPayloadExtensions", () => {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       r.searchPayloadExtension(thing, noop);
     });
 
@@ -31,7 +31,7 @@ describe("searchPayloadExtension registration", () => {
     const c2: SearchPayloadContributorFn = () => ({ b: 2 });
 
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       r.searchPayloadExtension(thing, c1);
       r.searchPayloadExtension(thing, c2);
     });
@@ -45,7 +45,7 @@ describe("Registry getter", () => {
     const fn: SearchPayloadContributorFn = ({ state }) => ({ extra: state["id"] });
 
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       r.searchPayloadExtension(thing, fn);
     });
 
@@ -57,7 +57,7 @@ describe("Registry getter", () => {
 
   test("getSearchPayloadExtensions empty for unknown entity", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("thing", createEntity({ table: "things", fields: {} }));
+      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
     });
 
     const registry = createRegistry([feature]);
@@ -76,7 +76,7 @@ describe("Contributor-Function-Signature", () => {
     });
 
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
+      const thing = r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       r.searchPayloadExtension(thing, contributor);
     });
 
@@ -97,7 +97,7 @@ describe("effectiveFeatures filtering", () => {
     const fnB: SearchPayloadContributorFn = () => ({ b: 2 });
 
     const featureA = defineFeature("bundleA", (r) => {
-      r.entity("thing", createEntity({ table: "things", fields: {} }));
+      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       r.searchPayloadExtension("thing", fnA);
     });
     const featureB = defineFeature("bundleB", (r) => {
@@ -137,15 +137,15 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   function registryWith(contributor: SearchPayloadContributorFn) {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity(
-        "thing",
-        createEntity({
+      const thing = r.entity({
+        name: "thing",
+        ...createEntity({
           table: "things",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.searchPayloadExtension(thing, contributor);
     });
     return createRegistry([feature]);
@@ -167,15 +167,15 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   test("collision dedup — same collision warns exactly once across calls", async () => {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity(
-        "thing-dedup",
-        createEntity({
+      const thing = r.entity({
+        name: "thing-dedup",
+        ...createEntity({
           table: "things_dedup",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.searchPayloadExtension(thing, () => ({ title: "from-contributor" }));
     });
     const registry = createRegistry([feature]);
@@ -197,15 +197,15 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   test("contributor-vs-contributor collision warns with the right message", async () => {
     const feature = defineFeature("test", (r) => {
-      const thing = r.entity(
-        "thing",
-        createEntity({
+      const thing = r.entity({
+        name: "thing",
+        ...createEntity({
           table: "things",
           fields: {
             title: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.searchPayloadExtension(thing, () => ({ overlap: "first" }));
       r.searchPayloadExtension(thing, () => ({ overlap: "second" }));
     });
@@ -225,9 +225,9 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 describe("buildSearchDocument — searchable embedded sub-fields", () => {
   function registryWithLines(multiple: boolean) {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "invoices",
           fields: {
             lines: {
@@ -237,7 +237,7 @@ describe("buildSearchDocument — searchable embedded sub-fields", () => {
             },
           },
         }),
-      );
+      });
     });
     return createRegistry([feature]);
   }
@@ -272,7 +272,7 @@ describe("Boot-Validation", () => {
   test("rejects searchPayloadExtension on unknown entity-name (sibling to entity-hooks)", () => {
     expect(() =>
       defineFeature("test", (r) => {
-        r.entity("thing", createEntity({ table: "things", fields: {} }));
+        r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
         // Typo: "propery" doesn't exist
         r.searchPayloadExtension("propery", noop);
       }),
@@ -280,7 +280,7 @@ describe("Boot-Validation", () => {
 
     expect(() => {
       const feature = defineFeature("test", (r) => {
-        r.entity("thing", createEntity({ table: "things", fields: {} }));
+        r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
         r.searchPayloadExtension("propery", noop);
       });
       createRegistry([feature]);
@@ -289,7 +289,7 @@ describe("Boot-Validation", () => {
 
   test("error message calls a searchPayloadExtension an 'extension', not a 'hook'", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("thing", createEntity({ table: "things", fields: {} }));
+      r.entity({ name: "thing", ...createEntity({ table: "things", fields: {} }) });
       r.searchPayloadExtension("propery", noop);
     });
     let message = "";

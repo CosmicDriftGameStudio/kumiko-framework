@@ -154,7 +154,7 @@ export function createSubscriptionMollieFeature(
       category: "billing",
       recommended: false,
     });
-    r.requires("billing-foundation");
+    r.requires({ features: ["billing-foundation"] });
     r.envSchema(subscriptionMollieEnvSchema);
 
     const plugin: SubscriptionProviderPlugin = {

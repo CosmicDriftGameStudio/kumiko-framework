@@ -374,7 +374,7 @@ describe("legacy positional → canonical Object-Form on replace", () => {
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("legacy", (r) => {
-  r.entity("item", { fields: { name: { type: "text", required: true } } });
+  r.entity({ name: "item", fields: { name: { type: "text", required: true } } });
 });
 `;
     const sf = makeSourceFile(legacyFile);
@@ -418,15 +418,15 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 defineFeature("legacy", (r) => {
   r.relation("task", "owner", { kind: "belongsTo", to: "user" });
 
-  r.hook("postSave", "task", () => {});
+  r.hook({ type: "postSave", target: "task", handler: () => {} });
 
-  r.hook("preDelete", { allOf: "task" }, () => {});
+  r.hook({ type: "preDelete", target: { allOf: "task" }, handler: () => {} });
 
   r.job("nightly", { trigger: { cron: "0 0 * * *" } }, async () => {});
 
-  r.writeHandler("task:create", z.object({}), async () => ({}));
+  r.writeHandler({ name: "task:create", schema: z.object({}), handler: async () => ({}) });
 
-  r.queryHandler("task:list", z.object({}), async () => []);
+  r.queryHandler({ name: "task:list", schema: z.object({}), handler: async () => [] });
 
   r.notification("taskCreated", {
     trigger: { on: "task" },
@@ -593,7 +593,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 const ENTITY = "task";
 
 defineFeature("inventory", (r) => {
-  r.entity(ENTITY, { fields: { name: { type: "text", required: true } } });
+  r.entity({ name: ENTITY, fields: { name: { type: "text", required: true } } });
 });
 `;
 
@@ -698,7 +698,7 @@ defineFeature("inventory", (r) => {
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("hooks", (r) => {
-  r.hook("postSave", { name: "task" }, () => {});
+  r.hook({ type: "postSave", target: { name: "task" }, handler: () => {} });
 });
 `);
     removePattern(sf, { kind: "hook", hookType: "postSave", target: "task" });

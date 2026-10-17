@@ -776,8 +776,8 @@ function defaultCrudVerbs(entity: EntityDefinition): Record<EntityCrudVerb, bool
   };
 }
 
-/** Register standard entity CRUD handlers in one call. Access stays explicit — no openToAll default. */
-export function registerEntityCrud(
+/** Backs `r.crud`: registers the standard entity CRUD handlers. Access stays explicit — no openToAll default. */
+export function registerCrudHandlers(
   r: EntityCrudRegistrar,
   entityName: string,
   entity: EntityDefinition,
@@ -789,15 +789,15 @@ export function registerEntityCrud(
   }
 
   if (options?.registerEntity !== false) {
-    r.entity(entityName, entity);
+    r.entity({ name: entityName, ...entity });
   }
   const writeOpts = options?.write;
   const readOpts = options?.read;
   const requireAccess = (verb: EntityCrudVerb, access: AccessRule | undefined): AccessRule => {
     if (!access) {
       throw new Error(
-        `registerEntityCrud("${entityName}", verb: "${verb}"): no access rule resolved. ` +
-          `Set write.access/read.access on registerEntityCrud's options, or verbAccess.${verb}.`,
+        `r.crud("${entityName}", …): no access rule resolved for verb "${verb}". ` +
+          `Set write.access/read.access in r.crud's options, or verbAccess.${verb}.`,
       );
     }
     return access;

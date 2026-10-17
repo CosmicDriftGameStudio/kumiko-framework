@@ -34,3 +34,26 @@ at — fix those by hand. The report also lists every field that newly
 gains `lookupable` (searchable-only fields resolving to `find: "fuzzy"`)
 — each of those needs a `_bidx` column migration, which this script does
 not write.
+
+## object-form.ts
+
+Rewrites the positional registrar calls `r.writeHandler(name, schema, handler, options)`,
+`r.queryHandler(…)`, `r.entity(name, definition, { table })`, `r.requires("a", "b")` and
+`r.hook(type, target, fn, options?)` to their object form, and
+`registerEntityCrud(r, name, entity, options?)` to `r.crud(name, entity, options?)`
+(the now-unused import is removed). Idempotent — object-form calls are left alone.
+
+A call is only touched when its receiver is provably a feature registrar: a parameter of
+the `defineFeature(name, (r) => …)` callback, or a binding typed `FeatureRegistrar`.
+Anything else (`sessions.requires("x")`, `foo.entity(…)`) stays untouched. A call on an
+untyped `r`/`registrar` it cannot resolve, a spread argument, too few arguments or
+`entity` options other than `{ table }` are reported as `manual` instead of guessed at.
+
+```bash
+bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/object-form.ts <dir> [--check | --dry-run | --write] [--no-format]
+```
+
+Runs automatically via `bun kumiko-upgrade --apply`. Without a mode flag it writes, then
+formats the changed files with the Biome binary found in `node_modules/.bin` (`--no-format`
+skips that). `--dry-run` only reports; `--check` reports and exits 1 while any rewritable
+or manual site is left.

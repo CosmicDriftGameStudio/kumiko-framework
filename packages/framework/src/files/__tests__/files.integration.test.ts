@@ -85,7 +85,7 @@ const RECORD_EDITOR_ROLE = "RecordEditor";
 function tenantFeatureFor(roles: readonly string[]) {
   const access = { access: { roles } };
   return defineFeature("tenant", (r) => {
-    r.entity("tenant", testTenantEntity);
+    r.entity({ name: "tenant", ...testTenantEntity });
     r.writeHandler(defineEntityCreateHandler("tenant", testTenantEntity, access));
     r.writeHandler(defineEntityUpdateHandler("tenant", testTenantEntity, access));
     r.queryHandler(defineEntityDetailHandler("tenant", testTenantEntity, access));

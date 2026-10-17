@@ -22,7 +22,7 @@ const counterTable = table("read_unit_counters", {
 describe("collectTableMetas (#255)", () => {
   test("collects entity, projection, MSP and storeTable tables — same sources as the test-stack auto-push", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       r.projection({
         name: "unit-counters",
         source: "unit",
@@ -67,7 +67,7 @@ describe("collectTableMetas (#255)", () => {
   test("dedupes a projection that materializes into an entity table — entity meta wins", () => {
     const entity = exampleEntity();
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", entity);
+      r.entity({ name: "unit", ...entity });
       r.projection({
         name: "unit-alt",
         source: "unit",
@@ -82,7 +82,7 @@ describe("collectTableMetas (#255)", () => {
 
   test("throws when two table-bearing registrations declare the same table with diverging columns", () => {
     const a = defineFeature("feat-a", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       r.projection({
         name: "conflict-a",
         source: "unit",
@@ -94,7 +94,7 @@ describe("collectTableMetas (#255)", () => {
       });
     });
     const b = defineFeature("feat-b", (r) => {
-      r.entity("thing", exampleEntity("read_things"));
+      r.entity({ name: "thing", ...exampleEntity("read_things") });
       r.projection({
         name: "conflict-b",
         source: "thing",
@@ -111,7 +111,7 @@ describe("collectTableMetas (#255)", () => {
 
   test("throws when a projection table carries no EntityTableMeta", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("unit", exampleEntity());
+      r.entity({ name: "unit", ...exampleEntity() });
       r.projection({
         name: "broken",
         source: "unit",
@@ -148,7 +148,7 @@ describe("collectTableMetas — r.entity backing table (#347)", () => {
 
   test("ride-along column + index from the backing table reach the generated meta", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("widget", widgetEntity(), { table: richWidgetTable });
+      r.entity({ name: "widget", ...widgetEntity(), backingTable: richWidgetTable });
     });
     const meta = collectTableMetas([feature]).find((m) => m.tableName === "read_widgets");
     expect(meta?.columns.map((c) => c.name)).toContain("tag");
@@ -157,7 +157,7 @@ describe("collectTableMetas — r.entity backing table (#347)", () => {
 
   test("generate draws from the backing table itself — one source (the #255 invariant)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("widget", widgetEntity(), { table: richWidgetTable });
+      r.entity({ name: "widget", ...widgetEntity(), backingTable: richWidgetTable });
     });
     const meta = collectTableMetas([feature]).find((m) => m.tableName === "read_widgets");
     // Identical to the table the test-stack push + executor use → they cannot drift.
@@ -181,7 +181,7 @@ describe("collectTableMetas — r.entity backing table (#347)", () => {
     // Backing table built from the THIN entity lacks the `extra` column.
     const backing = buildEntityTable("widget", thin) as unknown as SchemaTable;
     const feature = defineFeature("test", (r) => {
-      r.entity("widget", rich, { table: backing });
+      r.entity({ name: "widget", ...rich, backingTable: backing });
     });
     expect(() => collectTableMetas([feature])).toThrow(/missing column "extra"/);
   });

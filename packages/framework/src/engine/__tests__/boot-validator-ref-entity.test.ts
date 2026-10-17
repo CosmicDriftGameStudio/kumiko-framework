@@ -20,19 +20,19 @@ const openToAllAccess = {
 describe("validateBoot — refEntity targets (fw#3108)", () => {
   test("projectionList column with a typo'd refEntity throws", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.entity(
-        "tenant",
-        createEntity({
+      r.entity({
+        name: "tenant",
+        ...createEntity({
           table: "Tenants",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.queryHandler(
-        "schedule:list",
-        z.object({}),
-        async () => ({ rows: [], nextCursor: null }),
-        openToAllAccess,
-      );
+      });
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        ...openToAllAccess,
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -47,12 +47,12 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
 
   test("projectionList column refEntity targeting an unmounted feature names the missing feature", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler(
-        "schedule:list",
-        z.object({}),
-        async () => ({ rows: [], nextCursor: null }),
-        openToAllAccess,
-      );
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        ...openToAllAccess,
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -61,27 +61,27 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
       });
     });
     expect(() => validateBoot([feature])).toThrow(
-      /column "ownerId" \(refEntity\) targets entity "owners:owner", but feature "owners" is not mounted.*r\.requires\("owners"\)/,
+      /column "ownerId" \(refEntity\) targets entity "owners:owner", but feature "owners" is not mounted.*r\.requires\(\{ features: \["owners"\] \}\)/,
     );
   });
 
   test("projectionList column refEntity typo on a mounted feature lists that feature's entities", () => {
     const owners = defineFeature("owners", (r) => {
-      r.entity(
-        "owner",
-        createEntity({
+      r.entity({
+        name: "owner",
+        ...createEntity({
           table: "Owners",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
     });
     const feature = defineFeature("ledger", (r) => {
-      r.queryHandler(
-        "schedule:list",
-        z.object({}),
-        async () => ({ rows: [], nextCursor: null }),
-        openToAllAccess,
-      );
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        ...openToAllAccess,
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -96,18 +96,18 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
 
   test("projectionDetail relatedList column with an unknown refEntity throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler(
-        "rent:detail",
-        z.object({}),
-        async () => ({ description: "x" }),
-        openToAllAccess,
-      );
-      r.queryHandler(
-        "rent:payments",
-        z.object({}),
-        async () => ({ rows: [], nextCursor: null }),
-        openToAllAccess,
-      );
+      r.queryHandler({
+        name: "rent:detail",
+        schema: z.object({}),
+        handler: async () => ({ description: "x" }),
+        ...openToAllAccess,
+      });
+      r.queryHandler({
+        name: "rent:payments",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        ...openToAllAccess,
+      });
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -131,12 +131,12 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
 
   test("projectionDetail field-section field with an unknown refEntity throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler(
-        "rent:detail",
-        z.object({}),
-        async () => ({ description: "x" }),
-        openToAllAccess,
-      );
+      r.queryHandler({
+        name: "rent:detail",
+        schema: z.object({}),
+        handler: async () => ({ description: "x" }),
+        ...openToAllAccess,
+      });
       r.screen({
         id: "rent-detail",
         type: "projectionDetail",
@@ -159,28 +159,28 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
 
   test("same-feature shorthand and cross-feature refEntity targets pass boot", () => {
     const owners = defineFeature("owners", (r) => {
-      r.entity(
-        "owner",
-        createEntity({
+      r.entity({
+        name: "owner",
+        ...createEntity({
           table: "Owners",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
     });
     const feature = defineFeature("ledger", (r) => {
-      r.entity(
-        "tenant",
-        createEntity({
+      r.entity({
+        name: "tenant",
+        ...createEntity({
           table: "Tenants",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.queryHandler(
-        "schedule:list",
-        z.object({}),
-        async () => ({ rows: [], nextCursor: null }),
-        openToAllAccess,
-      );
+      });
+      r.queryHandler({
+        name: "schedule:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        ...openToAllAccess,
+      });
       r.screen({
         id: "schedule-list",
         type: "projectionList",
@@ -196,15 +196,15 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
 
   test("entityList column with a typo'd refEntity throws", () => {
     const feature = defineFeature("ledger", (r) => {
-      r.entity(
-        "tenant",
-        createEntity({
+      r.entity({
+        name: "tenant",
+        ...createEntity({
           table: "Tenants",
           fields: {
             ownerId: createTextField({ personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.screen({
         id: "tenant-list",
         type: "entityList",
@@ -220,19 +220,19 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
   test("dashboard list-panel column with a typo'd refEntity throws, a valid one boots", () => {
     const build = (refEntity: string) =>
       defineFeature("ledger", (r) => {
-        r.entity(
-          "tenant",
-          createEntity({
+        r.entity({
+          name: "tenant",
+          ...createEntity({
             table: "Tenants",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
-        r.queryHandler(
-          "schedule:list",
-          z.object({}),
-          async () => ({ rows: [], nextCursor: null }),
-          openToAllAccess,
-        );
+        });
+        r.queryHandler({
+          name: "schedule:list",
+          schema: z.object({}),
+          handler: async () => ({ rows: [], nextCursor: null }),
+          ...openToAllAccess,
+        });
         r.screen({
           id: "overview",
           type: "dashboard",

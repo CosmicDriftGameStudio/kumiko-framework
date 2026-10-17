@@ -12,7 +12,7 @@ let harness: ChatHarness;
 let secretsSeenByRender: SecretsContext | undefined;
 
 const renderProbeFeature = defineFeature("render-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.useExtension(DELIVERY_CHANNEL_EXTENSION, "render-probe", {
     mode: "queued",
     render: async (_message, ctx) => {

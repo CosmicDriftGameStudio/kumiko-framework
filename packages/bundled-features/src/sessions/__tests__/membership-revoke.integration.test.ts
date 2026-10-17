@@ -47,7 +47,7 @@ import { makeSessionHelpers } from "./test-helpers.js";
 
 const SELF_EDIT_ROLE = "PropertyManager";
 const appFeature = defineFeature("membership-revoke-app", (r) => {
-  r.requires("tenant");
+  r.requires({ features: ["tenant"] });
   r.useExtension(EXT_ASSIGNABLE_ROLE, SELF_EDIT_ROLE);
 });
 

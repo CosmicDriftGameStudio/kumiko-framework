@@ -159,7 +159,7 @@ export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureD
     // uniqueIndex are not expressible via the field-DSL (jsonb-without-default,
     // now()-default), so the physical table is the DDL truth. Without this the
     // generated migration omitted those columns → prod-500 (publicstatus#116).
-    r.entity("tenant-secret", tenantSecretEntity, { table: tenantSecretsTable });
+    r.entity({ name: "tenant-secret", ...tenantSecretEntity, backingTable: tenantSecretsTable });
 
     // Read-audit domain-event. Registered here so ops tools + MSPs can
     // discover the type; secrets-context.get parses payloads against

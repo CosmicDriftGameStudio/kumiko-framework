@@ -40,7 +40,7 @@ const LIST_CAP = "platform:config:list-cap";
 const configFeature = createConfigFeature();
 
 const platformFeature = defineFeature("platform", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   return r.config({
     keys: {
       // Hidden, plaintext: a tenant may read the key but not its system value.

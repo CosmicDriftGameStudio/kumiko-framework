@@ -26,15 +26,15 @@ import { createAllInOneEntrypoint } from "../index.js";
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];
 
 const wiringFeature = defineFeature("wiring", (r) => {
-  r.writeHandler(
-    "order:create",
-    z.object({ sku: z.string() }),
-    async (event) => ({
+  r.writeHandler({
+    name: "order:create",
+    schema: z.object({ sku: z.string() }),
+    handler: async (event) => ({
       isSuccess: true as const,
       data: { id: 1, sku: event.payload.sku },
     }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   r.job(
     "record-order",
     { trigger: { on: "wiring:write:order:create" }, runIn: "worker" },
@@ -50,15 +50,15 @@ const wiringFeature = defineFeature("wiring", (r) => {
 // createAllInOneEntrypoint actually consumes both lanes — not just that
 // enqueue routing works.
 const mixedLaneFeature = defineFeature("mixed", (r) => {
-  r.writeHandler(
-    "ping",
-    z.object({ msg: z.string() }),
-    async (event) => ({
+  r.writeHandler({
+    name: "ping",
+    schema: z.object({ msg: z.string() }),
+    handler: async (event) => ({
       isSuccess: true as const,
       data: { id: 1, msg: event.payload.msg },
     }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   r.job(
     "handle-on-worker",
     { trigger: { on: "mixed:write:ping" }, runIn: "worker" },
@@ -232,15 +232,15 @@ describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME mete
 const featuresSeenByJob: Array<ReadonlySet<string> | undefined> = [];
 
 const featureGateJobFeature = defineFeature("featuregate", (r) => {
-  r.writeHandler(
-    "ping",
-    z.object({ msg: z.string() }),
-    async (event) => ({
+  r.writeHandler({
+    name: "ping",
+    schema: z.object({ msg: z.string() }),
+    handler: async (event) => ({
       isSuccess: true as const,
       data: { id: 1, msg: event.payload.msg },
     }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   r.job(
     "record-features",
     { trigger: { on: "featuregate:write:ping" }, runIn: "worker" },

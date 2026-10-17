@@ -52,7 +52,7 @@ const contactEntity = createEntity({
 const contactTable = buildEntityTable("contact", contactEntity);
 
 const crmFeature = defineFeature("crm", (r) => {
-  r.entity("contact", contactEntity);
+  r.entity({ name: "contact", ...contactEntity });
 });
 
 // Qualified event-type strings are kebab-case (qn/toKebab, feature-config-
@@ -109,8 +109,8 @@ const memoEntity = createEntity({
 const memoTable = buildEntityTable("memo", memoEntity);
 
 const notesFeature = defineFeature("notes", (r) => {
-  r.entity("note", noteEntity);
-  r.entity("memo", memoEntity);
+  r.entity({ name: "note", ...noteEntity });
+  r.entity({ name: "memo", ...memoEntity });
 });
 
 // personal: { of: "id" } → recordOwned (kumiko-framework#2786): the row
@@ -124,7 +124,7 @@ const surveyEntity = createEntity({
 });
 const surveyTable = buildEntityTable("survey", surveyEntity);
 const surveyFeature = defineFeature("survey", (r) => {
-  r.entity("survey", surveyEntity);
+  r.entity({ name: "survey", ...surveyEntity });
 });
 
 let testDb: TestDb;

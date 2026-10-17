@@ -69,45 +69,42 @@ const GIZMO_FORGET_HIGH_QN = "agent-tools-test-gizmo:write:forget-gizmo-high";
 const GIZMO_DELEGATE_FORGET_MID_QN = "agent-tools-test-gizmo:write:delegate-forget-gizmo-mid";
 
 const gizmoFeature = defineFeature("agent-tools-test-gizmo", (r) => {
-  r.entity("gizmo", gizmoEntity);
+  r.entity({ name: "gizmo", ...gizmoEntity });
 
-  r.writeHandler(
-    "gizmo:create",
-    z.object({ label: z.string() }),
-    async (event, ctx) => gizmoExecutor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "gizmo:create",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => gizmoExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "forget-gizmo-high",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => gizmoExecutor.forget({ id: event.payload.id }, event.user, ctx.db),
-    {
-      access: { roles: ["Admin"] },
-      description: "Permanently forget a gizmo (GDPR erasure).",
-      agent: { risk: "high" },
-    },
-  );
+  r.writeHandler({
+    name: "forget-gizmo-high",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
+      gizmoExecutor.forget({ id: event.payload.id }, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+    description: "Permanently forget a gizmo (GDPR erasure).",
+    agent: { risk: "high" },
+  });
 
-  r.writeHandler(
-    "delegate-forget-gizmo-mid",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "delegate-forget-gizmo-mid",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
       ctx.write("agent-tools-test-gizmo:write:forget-gizmo-high", { id: event.payload.id }),
-    {
-      access: { roles: ["Admin"] },
-      description: "Delegates to forget-gizmo-high via ctx.write.",
-    },
-  );
+    access: { roles: ["Admin"] },
+    description: "Delegates to forget-gizmo-high via ctx.write.",
+  });
 
   // Simulates the enterprise "approve" write handler: an outer, mid-risk
   // handler that itself runs the real dispatchToolCall path against a
   // tool name given as input, the way an AI-agent turn approves a queued
   // tool call.
-  r.writeHandler(
-    "approve",
-    z.object({ toolName: z.string(), id: z.string() }),
-    async (event) => {
+  r.writeHandler({
+    name: "approve",
+    schema: z.object({ toolName: z.string(), id: z.string() }),
+    handler: async (event) => {
       const manifest = buildAgentManifest(stack.registry, {
         locale: "en",
         roles: event.user.roles,
@@ -130,8 +127,8 @@ const gizmoFeature = defineFeature("agent-tools-test-gizmo", (r) => {
         data: result.ok ? { ok: true } : { ok: false, error: result.error },
       };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 // prompt-store-like entity: `note` is read by a later run as an instruction —
@@ -153,17 +150,15 @@ const { executor: scribeExecutor } = createEntityExecutor("scribe", scribeEntity
 const SCRIBE_WRITE_NOTE_MID_QN = "agent-tools-test-scribe:write:write-note-mid";
 
 const scribeFeature = defineFeature("agent-tools-test-scribe", (r) => {
-  r.entity("scribe", scribeEntity);
+  r.entity({ name: "scribe", ...scribeEntity });
 
-  r.writeHandler(
-    "write-note-mid",
-    z.object({ label: z.string(), note: z.string() }),
-    async (event, ctx) => scribeExecutor.create(event.payload, event.user, ctx.db),
-    {
-      access: { roles: ["Admin"] },
-      description: "Writes a scribe's note field directly, no agent.risk override.",
-    },
-  );
+  r.writeHandler({
+    name: "write-note-mid",
+    schema: z.object({ label: z.string(), note: z.string() }),
+    handler: async (event, ctx) => scribeExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+    description: "Writes a scribe's note field directly, no agent.risk override.",
+  });
 });
 
 let stack: TestStack;

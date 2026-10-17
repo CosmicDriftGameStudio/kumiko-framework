@@ -82,7 +82,7 @@ const probeDeleteHook: UserDataDeleteHook = async (ctx) => {
 };
 
 const probeFeature = defineFeature("erasure-probe-host", (r) => {
-  r.entity(PROBE_ENTITY, probeEntity);
+  r.entity({ name: PROBE_ENTITY, ...probeEntity });
   r.useExtension(EXT_USER_DATA, PROBE_ENTITY, {
     export: async () => null,
     delete: probeDeleteHook,

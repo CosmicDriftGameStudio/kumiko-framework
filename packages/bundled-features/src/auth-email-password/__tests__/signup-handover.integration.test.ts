@@ -86,9 +86,9 @@ const noteEntity: EntityDefinition = createEntity({
 });
 
 const handoverFixturesFeature = defineFeature("signup-handover-fixtures", (r) => {
-  r.entity("run", runEntity);
-  r.entity("photo", photoEntity);
-  r.entity("note", noteEntity);
+  r.entity({ name: "run", ...runEntity });
+  r.entity({ name: "photo", ...photoEntity });
+  r.entity({ name: "note", ...noteEntity });
 });
 
 const runTable = buildEntityTable("run", runEntity);

@@ -32,10 +32,10 @@ export const vehiclesFeature = defineFeature("vehicles", (r) => {
   r.crud("campaign", campaignEntity, { write: open, read: open });
   r.crud("campaignPost", campaignPostEntity, { write: open, read: open });
 
-  r.writeHandler(
-    "campaign-post:mark-posted",
-    markPostedPayloadSchema,
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "campaign-post:mark-posted",
+    schema: markPostedPayloadSchema,
+    handler: async (event, ctx) => {
       const current = await campaignPostExecutor.detail(
         { id: event.payload.id },
         event.user,
@@ -62,8 +62,8 @@ export const vehiclesFeature = defineFeature("vehicles", (r) => {
         { skipOptimisticLock: true },
       );
     },
-    open,
-  );
+    ...open,
+  });
 
   r.screen(vehicleListScreen);
   r.screen(vehicleEditScreen);

@@ -36,7 +36,7 @@ channel-inApp / channel-email / channel-push
 support           → our business logic (tickets + the notification declaration)
 ```
 
-The `support` feature `r.requires("delivery")`: channels are features that attach to delivery, but `support` doesn't need to know them.
+The `support` feature `r.requires({ features: ["delivery"] })`: channels are features that attach to delivery, but `support` doesn't need to know them.
 
 ## Flow
 
@@ -364,9 +364,9 @@ function ticketExecutor() {
 export const TICKET_ASSIGNED = qn("support", QnTypes.notify, "ticket-assigned");
 
 export const supportFeature = defineFeature("support", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
 
-  r.entity("ticket", ticketEntity);
+  r.entity({ name: "ticket", ...ticketEntity });
 
   r.notification("ticket-assigned", {
     variables: {
@@ -396,16 +396,16 @@ export const supportFeature = defineFeature("support", (r) => {
     },
   });
 
-  r.writeHandler(
-    "ticket:create",
-    z.object({
+  r.writeHandler({
+    name: "ticket:create",
+    schema: z.object({
       title: z.string().min(1),
       description: z.string().optional(),
       assigneeId: z.uuid().optional(),
       priority: z.enum(["low", "normal", "critical"]),
       status: z.string().default("open"),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const created = await ticketExecutor().create(event.payload, event.user, ctx.db);
       const assigneeId = event.payload.assigneeId;
       // No assignee, no notification.
@@ -426,7 +426,7 @@ export const supportFeature = defineFeature("support", (r) => {
       });
       return created;
     },
-    { access: { roles: ["Admin", "Support"] } },
-  );
+    access: { roles: ["Admin", "Support"] },
+  });
 });
 ```

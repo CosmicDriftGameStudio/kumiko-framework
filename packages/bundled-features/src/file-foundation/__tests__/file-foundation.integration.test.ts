@@ -54,8 +54,8 @@ import { createFileProviderForTenant, fileFoundationFeature } from "../feature.j
 const TEST_HANDLER_QN = "file-test:write:build-provider";
 const PROBE_SECRET_KEY = "file-test:config:probe-secret";
 const testProbeFeature = defineFeature("file-test", (r) => {
-  r.requires("config");
-  r.requires("secrets");
+  r.requires({ features: ["config"] });
+  r.requires({ features: ["secrets"] });
   // Envelope-cipher round-trip partner: proves the resolver still decrypts
   // once it also carries ENV-bridged app-overrides.
   r.config({

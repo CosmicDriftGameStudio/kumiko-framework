@@ -65,7 +65,7 @@ const keyDef = createTenantConfig("text", {
 });
 
 const tenantCheckFeature = defineFeature("tenant-check-rot", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({ keys: { "secret-pass": keyDef } });
 });
 

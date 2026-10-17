@@ -26,7 +26,7 @@ const noteEntity = createEntity({
 const noteTable = buildEntityTable("removed-note", noteEntity);
 
 const feature = defineFeature("removedcol", (r) => {
-  r.entity("removed-note", noteEntity);
+  r.entity({ name: "removed-note", ...noteEntity });
 });
 
 const admin = TestUsers.admin;

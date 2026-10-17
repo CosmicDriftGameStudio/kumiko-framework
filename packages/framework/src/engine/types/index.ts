@@ -96,10 +96,12 @@ export type {
 export type {
   BootCheckContext,
   BootCheckFn,
+  EntityObjectDefinition,
   FeatureDefinition,
   FeatureMetricDef,
   FeatureMetricType,
   FeatureRegistrar,
+  HookDefinition,
   MetricOptions,
   Registry,
   SecretKeyDefinition,

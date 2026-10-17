@@ -113,7 +113,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // sessions-without-user wiring fails validateBoot instead of 500ing live.
       // auth-foundation owns EXT_SESSION_STORE, which the useExtension below
       // registers against.
-      r.requires("user", "auth-foundation");
+      r.requires({ features: ["user", "auth-foundation"] });
       // store_user_sessions is a hot-path direct-write store: sessionCreator
       // inserts and the revoke handlers update rows WITHOUT emitting lifecycle
       // events (the row columns ARE the audit trail). Registering it as
@@ -212,18 +212,22 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // regardless.
       const REVOKE_TRIGGERING_FIELDS = ["passwordHash"] as const;
       let autoRevoke = options?.autoRevokeOnPasswordChange;
-      r.hook("postSave", { allOf: "user" }, async (ctx) => {
-        // skip: nothing bound — stateless-JWT deployments without a runtime
-        // that calls bindAutoRevokeOnPasswordChange keep the old behavior.
-        if (!autoRevoke) return;
-        // skip: brand-new user, no sessions can possibly exist yet. The
-        // initial passwordHash on a user:create would trip the second guard
-        // otherwise — every registration would do a mass-revoke roundtrip
-        // for a user who literally has no rows in user_sessions.
-        if (ctx.isNew) return;
-        // skip: handler didn't touch any revoke-triggering field
-        if (!REVOKE_TRIGGERING_FIELDS.some((field) => ctx.changes[field] !== undefined)) return;
-        await autoRevoke(String(ctx.id));
+      r.hook({
+        type: "postSave",
+        target: { allOf: "user" },
+        handler: async (ctx) => {
+          // skip: nothing bound — stateless-JWT deployments without a runtime
+          // that calls bindAutoRevokeOnPasswordChange keep the old behavior.
+          if (!autoRevoke) return;
+          // skip: brand-new user, no sessions can possibly exist yet. The
+          // initial passwordHash on a user:create would trip the second guard
+          // otherwise — every registration would do a mass-revoke roundtrip
+          // for a user who literally has no rows in user_sessions.
+          if (ctx.isNew) return;
+          // skip: handler didn't touch any revoke-triggering field
+          if (!REVOKE_TRIGGERING_FIELDS.some((field) => ctx.changes[field] !== undefined)) return;
+          await autoRevoke(String(ctx.id));
+        },
       });
 
       const bindAutoRevokeOnPasswordChange: BindAutoRevokeOnPasswordChange = (revoker) => {

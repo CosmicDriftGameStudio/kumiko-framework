@@ -128,7 +128,7 @@ export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
     category: "notifications",
     recommended: false,
   });
-  r.requires("config");
+  r.requires({ features: ["config"] });
 
   // Plugin extension-point. Provider-features register here. The
   // entityName at registration time becomes the value tenants pick in

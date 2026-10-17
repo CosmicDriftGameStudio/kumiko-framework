@@ -68,42 +68,40 @@ let lastParallelResults: { rejected: WriteResult; kept: WriteResult } | undefine
 
 const nestedFeature = defineFeature("nws", (r) => {
   r.requires.step("callFeature");
-  const inner = r.entity("inner", innerEntity);
-  const mid = r.entity("mid", midEntity);
-  r.entity("outer", outerEntity);
+  const inner = r.entity({ name: "inner", ...innerEntity });
+  const mid = r.entity({ name: "mid", ...midEntity });
+  r.entity({ name: "outer", ...outerEntity });
 
-  r.writeHandler(
-    "inner:create",
-    z.object({ label: z.string() }),
-    async (event, ctx) => innerCrud.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "inner:create",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => innerCrud.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "mid:create",
-    z.object({ label: z.string() }),
-    async (event, ctx) => midCrud.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "mid:create",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => midCrud.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "inner:create-then-sql-error",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "inner:create-then-sql-error",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       await innerCrud.create(event.payload, event.user, ctx.db);
       await asRawClient(ctx.db.unsafeRaw()).unsafe("SELECT 1 FROM nws_no_such_table");
       return { isSuccess: true as const, data: {} };
     },
-    {
-      access: { roles: ["Admin"] },
-      escapeHatch: { reason: "test fixture: provoke a SQL error inside a nested write" },
-    },
-  );
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: "test fixture: provoke a SQL error inside a nested write" },
+  });
 
-  r.writeHandler(
-    "outer:create",
-    z.object({ label: z.string(), innerHandler: z.string(), innerLabel: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "outer:create",
+    schema: z.object({ label: z.string(), innerHandler: z.string(), innerLabel: z.string() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(outerTable, outerEntity, { entityName: "outer" });
       const created = await crud.create({ label: event.payload.label }, event.user, ctx.db);
       if (!created.isSuccess) return created;
@@ -114,14 +112,14 @@ const nestedFeature = defineFeature("nws", (r) => {
 
       return crud.create({ label: `${event.payload.label}-after` }, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // ctx.writeAs goes through the gated identity switch; the handler swallows the inner result.
-  r.writeHandler(
-    "outer:write-as",
-    z.object({ label: z.string(), innerLabel: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "outer:write-as",
+    schema: z.object({ label: z.string(), innerLabel: z.string() }),
+    handler: async (event, ctx) => {
       lastInnerResult = await ctx.writeAs(
         createSystemUser(event.user.tenantId),
         "nws:write:inner:create",
@@ -130,11 +128,9 @@ const nestedFeature = defineFeature("nws", (r) => {
       const crud = createEventStoreExecutor(outerTable, outerEntity, { entityName: "outer" });
       return crud.create({ label: event.payload.label }, event.user, ctx.db);
     },
-    {
-      access: { roles: ["Admin"] },
-      escapeHatch: { reason: "test fixture: write as system inside a nested savepoint" },
-    },
-  );
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: "test fixture: write as system inside a nested savepoint" },
+  });
 
   // The workflow step variant: callFeature throws on a failed inner write.
   r.writeHandler(
@@ -155,10 +151,10 @@ const nestedFeature = defineFeature("nws", (r) => {
   );
 
   // Both writes start in the same tick on the one transaction connection.
-  r.writeHandler(
-    "outer:parallel",
-    z.object({ label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "outer:parallel",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => {
       const [rejected, kept] = await Promise.all([
         ctx.write("nws:write:inner:create", { label: `${event.payload.label}-${REJECTED_MARKER}` }),
         ctx.write("nws:write:inner:create", { label: `${event.payload.label}-kept` }),
@@ -166,40 +162,48 @@ const nestedFeature = defineFeature("nws", (r) => {
       lastParallelResults = { rejected, kept };
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.hook(
-    "postSave",
-    { allOf: inner },
-    async (result) => {
+  r.hook({
+    type: "postSave",
+    target: { allOf: inner },
+    handler: async (result) => {
       if (String(result.data["label"]).includes(REJECTED_MARKER)) {
         throw new Error("inner write rejected");
       }
     },
-    { phase: HookPhases.inTransaction },
-  );
+    phase: HookPhases.inTransaction,
+  });
 
   // Second nesting level: mid's in-transaction hook writes an inner row and swallows its failure.
-  r.hook(
-    "postSave",
-    { allOf: mid },
-    async (result, ctx) => {
+  r.hook({
+    type: "postSave",
+    target: { allOf: mid },
+    handler: async (result, ctx) => {
       // Hooks are typed against AppContext; the runtime object is the full HandlerContext. @cast-boundary
       const handlerCtx = ctx as unknown as HandlerContext;
       lastHookWriteResult = await handlerCtx.write("nws:write:inner:create", {
         label: `${result.data["label"]}-${REJECTED_MARKER}`,
       });
     },
-    { phase: HookPhases.inTransaction },
-  );
-
-  r.hook("postSave", { allOf: mid }, async (result) => {
-    afterCommitLog.push(`mid:${result.data["label"]}`);
+    phase: HookPhases.inTransaction,
   });
 
-  r.hook("postSave", { allOf: inner }, async (result) => {
-    afterCommitLog.push(`inner:${result.data["label"]}`);
+  r.hook({
+    type: "postSave",
+    target: { allOf: mid },
+    handler: async (result) => {
+      afterCommitLog.push(`mid:${result.data["label"]}`);
+    },
+  });
+
+  r.hook({
+    type: "postSave",
+    target: { allOf: inner },
+    handler: async (result) => {
+      afterCommitLog.push(`inner:${result.data["label"]}`);
+    },
   });
 });
 

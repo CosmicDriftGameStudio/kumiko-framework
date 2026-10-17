@@ -48,9 +48,9 @@ export const taskFeature = defineFeature("task-management", (r) => {
   // notes-history is non-optional for this recipe: the demo notes tasks.
   // The task feature itself stays completely notes-agnostic — it only
   // declares the dependency so the bundle is mounted.
-  r.requires("notes-history");
+  r.requires({ features: ["notes-history"] });
 
-  r.entity("task", taskEntity);
+  r.entity({ name: "task", ...taskEntity });
 
   r.writeHandler({
     name: "task:create",

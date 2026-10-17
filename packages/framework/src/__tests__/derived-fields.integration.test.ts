@@ -51,7 +51,7 @@ const gadgetEntity = createEntity({
 const gadgetTable = buildEntityTable("gadget", gadgetEntity);
 
 const shopFeature = defineFeature("gadgetshop", (r) => {
-  r.entity("gadget", gadgetEntity);
+  r.entity({ name: "gadget", ...gadgetEntity });
   r.writeHandler(
     defineEntityCreateHandler("gadget", gadgetEntity, { access: { roles: ["Admin"] } }),
   );

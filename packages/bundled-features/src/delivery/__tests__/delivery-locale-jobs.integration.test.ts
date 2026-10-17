@@ -13,7 +13,7 @@ const localesSeenByRender: (string | undefined)[] = [];
 const localesSeenBySend: (string | undefined)[] = [];
 
 const localeProbeFeature = defineFeature("locale-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.useExtension(DELIVERY_CHANNEL_EXTENSION, "locale-probe", {
     mode: "queued",
     render: async (message: ChannelMessage) => {

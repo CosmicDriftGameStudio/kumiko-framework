@@ -51,12 +51,12 @@ const secretEntity = createEntity({
 });
 
 const feature = defineFeature("ownertransition", (r) => {
-  r.entity("item", itemEntity);
+  r.entity({ name: "item", ...itemEntity });
   r.crud("item", itemEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
-  r.entity("secretitem", secretEntity);
+  r.entity({ name: "secretitem", ...secretEntity });
   r.crud("secretitem", secretEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },

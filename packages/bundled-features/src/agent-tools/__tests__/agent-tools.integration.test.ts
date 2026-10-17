@@ -45,17 +45,18 @@ const widgetFeature = defineFeature(FEATURE_NAME, (r) => {
     read: { access: { roles: ["Admin", "Reader"] } },
   });
 
-  r.writeHandler(
-    "widget:approve",
-    z.object({ id: z.string(), version: z.number() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "widget:approve",
+    schema: z.object({ id: z.string(), version: z.number() }),
+    handler: async (event, ctx) =>
       ctx.write(`${FEATURE_NAME}:write:widget:update`, {
         id: event.payload.id,
         version: event.payload.version,
         changes: { status: "approved" },
       }),
-    { access: { roles: ["Admin"] }, description: "Approve a widget." },
-  );
+    access: { roles: ["Admin"] },
+    description: "Approve a widget.",
+  });
 });
 
 const WIDGET_CREATE_QN = `${FEATURE_NAME}:write:widget:create`;

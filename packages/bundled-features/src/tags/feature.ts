@@ -68,8 +68,8 @@ function registerTags(
   if (toggleable !== undefined) r.toggleable(toggleable);
 
   const tagAssignmentEntity = createTagAssignmentEntity(ownership, parents);
-  r.entity("tag", tagEntity);
-  r.entity("tag-assignment", tagAssignmentEntity);
+  r.entity({ name: "tag", ...tagEntity });
+  r.entity({ name: "tag-assignment", ...tagAssignmentEntity });
 
   r.writeHandler(createCreateTagHandler(access));
   r.writeHandler(createUpdateTagHandler(access));

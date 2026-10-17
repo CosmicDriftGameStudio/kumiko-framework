@@ -59,105 +59,125 @@ const afterCommitThirdHookRan: string[] = [];
 let slowHandlerDelayMs = 0;
 
 const itemFeature = defineFeature("batch", (r) => {
-  const item = r.entity("item", itemEntity);
+  const item = r.entity({ name: "item", ...itemEntity });
 
-  r.writeHandler(
-    "item:create",
-    z.object({ name: z.string().min(1), counter: z.number().optional() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "item:create",
+    schema: z.object({ name: z.string().min(1), counter: z.number().optional() }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Handler that always fails validation — used to trigger rollback mid-batch
-  r.writeHandler(
-    "item:fail",
-    z.object({ name: z.string().min(1) }),
-    async () => writeFailure(new UnprocessableError("intentional_failure")),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "item:fail",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async () => writeFailure(new UnprocessableError("intentional_failure")),
+    access: { roles: ["Admin"] },
+  });
 
   // Handler that always throws — used to verify unexpected throws surface as failures
-  r.writeHandler(
-    "item:throw",
-    z.object({ name: z.string().min(1) }),
-    async () => {
+  r.writeHandler({
+    name: "item:throw",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async () => {
       throw new Error("handler_crashed");
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Handler with a controllable delay — used to simulate a slow in-flight
   // handler for the parallel-idempotency race test.
-  r.writeHandler(
-    "item:create-slow",
-    z.object({ name: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "item:create-slow",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async (event, ctx) => {
       if (slowHandlerDelayMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, slowHandlerDelayMs));
       }
       const crud = createEventStoreExecutor(itemTable, itemEntity, { entityName: "item" });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Entity hook: inTransaction — records in memory
-  r.hook(
-    "postSave",
-    { allOf: item },
-    async (result: SaveContext) => {
+  r.hook({
+    type: "postSave",
+    target: { allOf: item },
+    handler: async (result: SaveContext) => {
       inTxHookLog.push({ id: result.id, name: (result.data["name"] as string) ?? "" });
     },
-    { phase: HookPhases.inTransaction },
-  );
+    phase: HookPhases.inTransaction,
+  });
 
   // Entity hook: inTransaction — writes to DB via ctx.db (the tx-scoped TenantDb).
   // Proves that hook DB writes roll back with the main transaction on failure.
-  r.hook(
-    "postSave",
-    { allOf: item },
-    async (result, ctx) => {
+  r.hook({
+    type: "postSave",
+    target: { allOf: item },
+    handler: async (result, ctx) => {
       if (!ctx.db || !("insertOne" in ctx.db)) return;
       await ctx.db.insertOne(auditTable, { action: "item_saved", itemId: result.id });
     },
-    { phase: HookPhases.inTransaction },
-  );
+    phase: HookPhases.inTransaction,
+  });
 
   // Entity hook: afterCommit — records in memory (default phase)
-  r.hook("postSave", { allOf: item }, async (result: SaveContext) => {
-    afterCommitHookLog.push({ id: result.id, name: (result.data["name"] as string) ?? "" });
+  r.hook({
+    type: "postSave",
+    target: { allOf: item },
+    handler: async (result: SaveContext) => {
+      afterCommitHookLog.push({ id: result.id, name: (result.data["name"] as string) ?? "" });
+    },
   });
 
   // Entity hook: afterCommit — may throw, used to verify error isolation
-  r.hook("postSave", { allOf: item }, async () => {
-    if (afterCommitShouldThrow) throw new Error("afterCommit_boom");
+  r.hook({
+    type: "postSave",
+    target: { allOf: item },
+    handler: async () => {
+      if (afterCommitShouldThrow) throw new Error("afterCommit_boom");
+    },
   });
 
   // Entity hook: afterCommit — runs AFTER the throwing one. Used to prove the
   // next hooks still fire despite the earlier failure.
-  r.hook("postSave", { allOf: item }, async (result: SaveContext) => {
-    afterCommitThirdHookRan.push((result.data["name"] as string) ?? "");
+  r.hook({
+    type: "postSave",
+    target: { allOf: item },
+    handler: async (result: SaveContext) => {
+      afterCommitThirdHookRan.push((result.data["name"] as string) ?? "");
+    },
   });
 
   // Two hooks used by the parallelism test. Each records its start+end
   // timestamps so the assertion can compare intervals rather than elapsed
   // wall-clock time (which is timing-flaky on loaded CI boxes).
-  r.hook("postSave", { allOf: item }, async (result: SaveContext) => {
-    const name = result.data["name"] as string;
-    if (!name?.startsWith("slowness-")) return;
-    parallelismWindows.push({ hook: "A", start: Date.now() });
-    await new Promise((r) => setTimeout(r, 80));
-    parallelismWindows.push({ hook: "A", end: Date.now() });
+  r.hook({
+    type: "postSave",
+    target: { allOf: item },
+    handler: async (result: SaveContext) => {
+      const name = result.data["name"] as string;
+      if (!name?.startsWith("slowness-")) return;
+      parallelismWindows.push({ hook: "A", start: Date.now() });
+      await new Promise((r) => setTimeout(r, 80));
+      parallelismWindows.push({ hook: "A", end: Date.now() });
+    },
   });
-  r.hook("postSave", { allOf: item }, async (result: SaveContext) => {
-    const name = result.data["name"] as string;
-    if (!name?.startsWith("slowness-")) return;
-    parallelismWindows.push({ hook: "B", start: Date.now() });
-    await new Promise((r) => setTimeout(r, 80));
-    parallelismWindows.push({ hook: "B", end: Date.now() });
+  r.hook({
+    type: "postSave",
+    target: { allOf: item },
+    handler: async (result: SaveContext) => {
+      const name = result.data["name"] as string;
+      if (!name?.startsWith("slowness-")) return;
+      parallelismWindows.push({ hook: "B", start: Date.now() });
+      await new Promise((r) => setTimeout(r, 80));
+      parallelismWindows.push({ hook: "B", end: Date.now() });
+    },
   });
 });
 

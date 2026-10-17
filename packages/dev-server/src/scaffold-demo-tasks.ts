@@ -76,7 +76,7 @@ const TASKS_I18N = {
 export function createDemoTasksFeature(): FeatureDefinition {
   return defineFeature("tasks", (r) => {
     r.translations({ keys: TASKS_I18N });
-    r.entity("task", taskEntity);
+    r.entity({ name: "task", ...taskEntity });
     r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
     r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
     r.writeHandler(defineEntityDeleteHandler("task", taskEntity, open));
@@ -160,7 +160,7 @@ const open = {
 
 export const tasksFeature = defineFeature("tasks", (r) => {
   r.translations({ keys: tasksTranslationKeys });
-  r.entity("task", taskEntity);
+  r.entity({ name: "task", ...taskEntity });
   r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
   r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
   r.writeHandler(defineEntityDeleteHandler("task", taskEntity, open));

@@ -43,7 +43,7 @@ const userEntity = createEntity({
 });
 
 const userFeature = defineFeature("implicittest", (r) => {
-  r.entity("user", userEntity);
+  r.entity({ name: "user", ...userEntity });
 });
 
 const userTable = buildEntityTable("user", userEntity);
@@ -219,7 +219,7 @@ describe("implicit-projection / Live==Rebuild equivalence", () => {
       },
     });
     const hardFeature = defineFeature("implicithard", (r) => {
-      r.entity("widget", hardDeleteEntity);
+      r.entity({ name: "widget", ...hardDeleteEntity });
     });
     const registry = createRegistry([hardFeature]);
     const projection = registry.getAllProjections().get("implicithard:projection:widget-entity");
@@ -267,7 +267,7 @@ const sensitiveEntity = createEntity({
 });
 
 const sensitiveFeature = defineFeature("implicitsensitive", (r) => {
-  r.entity("sensitive-user", sensitiveEntity);
+  r.entity({ name: "sensitive-user", ...sensitiveEntity });
 });
 
 const sensitiveEntityTable = buildEntityTable("sensitive-user", sensitiveEntity);

@@ -46,7 +46,7 @@ export const bookEntity = createEntity({
 export function createBookshopFeature(): FeatureDefinition {
   return defineFeature("bookshop", (r) => {
     r.systemScope();
-    r.entity("book", bookEntity);
+    r.entity({ name: "book", ...bookEntity });
 
     // entityList — columns carry string shorthand and the object form
     // side by side; the framework normalizes both through

@@ -17,7 +17,7 @@ import { createConfigResolver } from "../resolver.js";
 import { configValuesTable } from "../table.js";
 
 const tenantFeature = defineFeature("tenant", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({
     keys: {
       timezone: createTenantConfig("select", {
@@ -30,9 +30,12 @@ const tenantFeature = defineFeature("tenant", (r) => {
 });
 
 const probeFeature = defineFeature("probe", (r) => {
-  r.requires("tenant");
+  r.requires({ features: ["tenant"] });
   // A query, not a write: only tx-free reads populate the timezone cache.
-  r.queryHandler("read-tz", z.object({}), async (_event, ctx) => ({ tenant: ctx.tz.tenant }), {
+  r.queryHandler({
+    name: "read-tz",
+    schema: z.object({}),
+    handler: async (_event, ctx) => ({ tenant: ctx.tz.tenant }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });

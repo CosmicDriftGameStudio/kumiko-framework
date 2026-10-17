@@ -15,13 +15,16 @@ function buildFeature(options: {
   readonly via: "entityEditSection" | "entityListRowAction";
 }) {
   return defineFeature("app", (r) => {
-    r.entity(
-      "vehicle",
-      createEntity({
+    r.entity({
+      name: "vehicle",
+      ...createEntity({
         fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
       }),
-    );
-    r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+    });
+    r.queryHandler({
+      name: "vehicle:detail",
+      schema: z.object({}),
+      handler: async () => ({ name: "x" }),
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
     r.screen({

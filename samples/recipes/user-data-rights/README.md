@@ -11,8 +11,8 @@ forget logic:
 
 ```ts illustration
 defineFeature("notes", (r) => {
-  r.requires("user-data-rights");
-  r.entity("note", noteEntity);
+  r.requires({ features: ["user-data-rights"] });
+  r.entity({ name: "note", ...noteEntity });
 
   r.useExtension(EXT_USER_DATA, "note", {
     export: async (ctx) => ({

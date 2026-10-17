@@ -85,7 +85,7 @@ See the [tags feature reference](/en/bundled-features/tags/) for the full set.
 tags             → core bundle: tag + tag-assignment entities,
                    create/assign/remove handlers, list queries
 note-management  → our feature: a plain `note` entity. Declares
-                   r.requires("tags") only so the bundle is mounted —
+                   r.requires({ features: ["tags"] }) only so the bundle is mounted —
                    the note itself is completely tag-agnostic.
 ```
 
@@ -321,9 +321,9 @@ export const noteFeature = defineFeature("note-management", (r) => {
   // tags is non-optional for this recipe: the demo tags notes. The note
   // feature itself stays completely tag-agnostic — it only declares the
   // dependency so the bundle is mounted.
-  r.requires("tags");
+  r.requires({ features: ["tags"] });
 
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
 
   r.writeHandler({
     name: "note:create",

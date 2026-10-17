@@ -36,7 +36,7 @@ const projectEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("tags-ow-test-fixtures", (r) => {
-  r.entity("project", projectEntity);
+  r.entity({ name: "project", ...projectEntity });
 });
 
 const owner = createTestUser({ id: 80, roles: ["TenantMember"] });

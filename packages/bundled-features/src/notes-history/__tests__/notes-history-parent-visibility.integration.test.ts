@@ -98,9 +98,9 @@ const ticketEntity = createEntity({
 });
 
 const fixturesFeature = defineFeature("notes-pv-test-fixtures", (r) => {
-  r.entity("project", guardedProjectEntity);
-  r.entity("contact", contactEntity);
-  r.entity("ticket", ticketEntity);
+  r.entity({ name: "project", ...guardedProjectEntity });
+  r.entity({ name: "contact", ...contactEntity });
+  r.entity({ name: "ticket", ...ticketEntity });
 });
 
 type TestUser = ReturnType<typeof createTestUser>;

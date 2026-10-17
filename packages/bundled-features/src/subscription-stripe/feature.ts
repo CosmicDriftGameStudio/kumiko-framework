@@ -155,9 +155,9 @@ export function createSubscriptionStripeFeature(
     // Hard-deps: billing-foundation (plugin-host) + config (billing-live +
     // backing:"secrets" credentials) + secrets (the store the backing:secrets
     // dispatch reads/writes + its tenant_secrets table).
-    r.requires("billing-foundation");
-    r.requires("config");
-    r.requires("secrets");
+    r.requires({ features: ["billing-foundation"] });
+    r.requires({ features: ["config"] });
+    r.requires({ features: ["secrets"] });
     r.envSchema(subscriptionStripeEnvSchema);
 
     // Runtime config. api-key + webhook-secret declare backing:"secrets" —

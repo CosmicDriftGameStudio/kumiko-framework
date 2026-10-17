@@ -31,8 +31,8 @@ const taskEntity = createEntity({
 const taskTable = buildEntityTable("task", taskEntity);
 
 const nestedFeature = defineFeature("nested", (r) => {
-  r.entity("project", projectEntity);
-  r.entity("task", taskEntity);
+  r.entity({ name: "project", ...projectEntity });
+  r.entity({ name: "task", ...taskEntity });
 
   r.relation("project", "tasks", {
     type: "hasMany",
@@ -41,32 +41,32 @@ const nestedFeature = defineFeature("nested", (r) => {
     nestedWrite: true,
   });
 
-  r.writeHandler(
-    "project:create",
-    z.object({ name: z.string().min(1) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "project:create",
+    schema: z.object({ name: z.string().min(1) }),
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(projectTable, projectEntity, {
         entityName: "project",
       });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "task:create",
-    z.object({
+  r.writeHandler({
+    name: "task:create",
+    schema: z.object({
       projectId: z.string().uuid(),
       title: z.string().min(1),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const crud = createEventStoreExecutor(taskTable, taskEntity, {
         entityName: "task",
       });
       return crud.create(event.payload, event.user, ctx.db);
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

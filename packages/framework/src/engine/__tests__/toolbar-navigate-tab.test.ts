@@ -12,7 +12,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 describe("validateBoot — ToolbarAction.tab", () => {
   test("entityList toolbar navigate + unknown tab throws with the action id", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "vehicle:detail",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -27,12 +30,12 @@ describe("validateBoot — ToolbarAction.tab", () => {
           ],
         },
       });
-      r.entity(
-        "car",
-        createEntity({
+      r.entity({
+        name: "car",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "car-list",
         type: "entityList",
@@ -56,7 +59,10 @@ describe("validateBoot — ToolbarAction.tab", () => {
 
   test("entityList toolbar navigate + known tab boots cleanly", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "vehicle:detail",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -71,12 +77,12 @@ describe("validateBoot — ToolbarAction.tab", () => {
           ],
         },
       });
-      r.entity(
-        "car",
-        createEntity({
+      r.entity({
+        name: "car",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "car-list",
         type: "entityList",
@@ -98,7 +104,10 @@ describe("validateBoot — ToolbarAction.tab", () => {
 
   test("entityList toolbar navigate targeting a non-tabs projectionDetail throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "vehicle:detail",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -107,12 +116,12 @@ describe("validateBoot — ToolbarAction.tab", () => {
         query: "app:query:vehicle:detail",
         layout: { sections: [{ title: "Overview", fields: ["name"] }] },
       });
-      r.entity(
-        "car",
-        createEntity({
+      r.entity({
+        name: "car",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "car-list",
         type: "entityList",
@@ -136,7 +145,10 @@ describe("validateBoot — ToolbarAction.tab", () => {
 
   test("projectionList toolbar navigate + unknown tab throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "vehicle:detail",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -151,7 +163,10 @@ describe("validateBoot — ToolbarAction.tab", () => {
           ],
         },
       });
-      r.queryHandler("car:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "car:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -177,7 +192,10 @@ describe("validateBoot — ToolbarAction.tab", () => {
 
   test("relatedList section toolbar navigate + unknown tab throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "vehicle:detail",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -192,15 +210,18 @@ describe("validateBoot — ToolbarAction.tab", () => {
           ],
         },
       });
-      r.queryHandler("lease:detail", z.object({}), async () => ({ id: "1" }), {
+      r.queryHandler({
+        name: "lease:detail",
+        schema: z.object({}),
+        handler: async () => ({ id: "1" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.queryHandler(
-        "lease:positions",
-        z.object({}),
-        async () => ({ rows: [], nextCursor: null }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+      r.queryHandler({
+        name: "lease:positions",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       r.screen({
         id: "lease-detail",
         type: "projectionDetail",

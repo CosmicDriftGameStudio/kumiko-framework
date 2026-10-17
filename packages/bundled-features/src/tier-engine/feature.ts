@@ -206,10 +206,10 @@ export function createTierEngineFeature<
       category: "billing",
       recommended: false,
     });
-    r.requires("config");
-    r.requires("tenant");
+    r.requires({ features: ["config"] });
+    r.requires({ features: ["tenant"] });
 
-    r.entity("tier-assignment", tierAssignmentEntity);
+    r.entity({ name: "tier-assignment", ...tierAssignmentEntity });
 
     // Standard-CRUD via Helper.
     r.writeHandler(
@@ -369,25 +369,33 @@ export function createTierEngineFeature<
     onTierAssigned.fn = applyAssignment;
 
     // Invalidation: tier-assignment CRUD events (e.g. the billing webhook) update the cache.
-    r.hook("postSave", { allOf: "tier-assignment" }, async (result) => {
-      // result.data has tenantId + tier (after entity-update merge)
-      const data = result.data as { tenantId?: unknown; tier?: unknown }; // @cast-boundary engine-payload
-      // skip: defensive type-guard auf payload-shape. Bei korrekt gerenderten
-      // entity-events sind beide fields immer strings; ein malformed-payload
-      // (custom-handler-bug) würde hier silent zum cache-skip führen statt
-      // throwing — der lifecycle-pipeline darf nicht durch hook-fehler
-      // blocken (afterCommit-pattern, side-effect-best-effort).
-      if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
-      applyAssignment(data.tenantId as TenantId, data.tier);
+    r.hook({
+      type: "postSave",
+      target: { allOf: "tier-assignment" },
+      handler: async (result) => {
+        // result.data has tenantId + tier (after entity-update merge)
+        const data = result.data as { tenantId?: unknown; tier?: unknown }; // @cast-boundary engine-payload
+        // skip: defensive guard on the payload shape. Correct entity events
+        // always carry both fields as strings; a malformed payload (a custom
+        // handler bug) skips the cache update instead of throwing, because a
+        // hook error must not block the lifecycle pipeline (afterCommit,
+        // best-effort side effect).
+        if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
+        applyAssignment(data.tenantId as TenantId, data.tier);
+      },
     });
-    r.hook("postDelete", { allOf: "tier-assignment" }, async (payload) => {
-      const data = payload.data as { tenantId?: unknown }; // @cast-boundary engine-payload
-      // skip: gleiche type-guard semantik wie postSave-hook oben.
-      if (typeof data.tenantId !== "string") return;
-      const tenantId = data.tenantId as TenantId;
-      takeTicket(tenantId);
-      cache.delete(tenantId);
-      publishAssignmentChange(tenantId);
+    r.hook({
+      type: "postDelete",
+      target: { allOf: "tier-assignment" },
+      handler: async (payload) => {
+        const data = payload.data as { tenantId?: unknown }; // @cast-boundary engine-payload
+        // skip: gleiche type-guard semantik wie postSave-hook oben.
+        if (typeof data.tenantId !== "string") return;
+        const tenantId = data.tenantId as TenantId;
+        takeTicket(tenantId);
+        cache.delete(tenantId);
+        publishAssignmentChange(tenantId);
+      },
     });
 
     // Auto-default-tier-on-tenant-signup: hook fires inTransaction (atomic
@@ -406,10 +414,10 @@ export function createTierEngineFeature<
       const defaultTier = opts.defaultTier;
       const autoDefaultTierHookReason =
         "seeds the default tier-assignment stream of the tenant just created";
-      r.hook(
-        "postSave",
-        { allOf: "tenant" },
-        async (result, ctx) => {
+      r.hook({
+        type: "postSave",
+        target: { allOf: "tenant" },
+        handler: async (result, ctx) => {
           // result-shape: kumiko-framework's SaveContext mit isNew + data
           const saveResult = result as { isNew?: unknown; data?: unknown }; // @cast-boundary engine-payload
           // skip: nur bei tenant-create (initial) — tenant-updates feuern
@@ -462,8 +470,9 @@ export function createTierEngineFeature<
             tdb,
           );
         },
-        { phase: HookPhases.inTransaction, escapeHatch: { reason: autoDefaultTierHookReason } },
-      );
+        phase: HookPhases.inTransaction,
+        escapeHatch: { reason: autoDefaultTierHookReason },
+      });
     }
 
     // Extension-point declaration + self-registration. Pattern analog

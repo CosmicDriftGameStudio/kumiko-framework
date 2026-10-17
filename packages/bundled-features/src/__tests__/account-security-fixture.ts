@@ -19,8 +19,8 @@ export const testAuthMfaOptions: AuthMfaFeatureOptions = {
 };
 
 export const accountSecurityFeature = defineFeature("account-security", (r) => {
-  r.requires("sessions");
-  r.requires("auth-mfa");
+  r.requires({ features: ["sessions"] });
+  r.requires({ features: ["auth-mfa"] });
   r.screen({
     id: ACCOUNT_SECURITY_SCREEN_ID,
     type: "dashboard",

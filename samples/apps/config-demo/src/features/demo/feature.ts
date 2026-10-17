@@ -37,8 +37,8 @@ const REQUIRED_I18N = {
 // mask.title ist der i18n-Key des Feld-Labels, mask.order die Reihenfolge.
 export const configDemoFeature = defineFeature("config-demo", (r) => {
   r.translations({ keys: REQUIRED_I18N });
-  r.requires("config");
-  r.requires("secrets");
+  r.requires({ features: ["config"] });
+  r.requires({ features: ["secrets"] });
 
   r.config({
     keys: {

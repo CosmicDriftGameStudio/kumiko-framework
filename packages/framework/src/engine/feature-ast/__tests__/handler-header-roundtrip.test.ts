@@ -281,7 +281,7 @@ import { ADMIN } from "./access-consts";
 import { LIMIT } from "./rate-limits";
 
 defineFeature("f", (r) => {
-  r.writeHandler("x", z.object({}), async () => {}, { access: ADMIN, rateLimit: LIMIT });
+  r.writeHandler({ name: "x", schema: z.object({}), handler: async () => {}, access: ADMIN, rateLimit: LIMIT });
 });
 `;
   const result = parse(source);
@@ -482,7 +482,7 @@ import { z } from "zod";
 import { REASON } from "./reasons";
 
 defineFeature("f", (r) => {
-  r.hook("postSave", "task", async (event, ctx) => {}, { escapeHatch: { reason: REASON } });
+  r.hook({ type: "postSave", target: "task", handler: async (event, ctx) => {}, escapeHatch: { reason: REASON } });
 });
 `;
   const result = parse(source);
@@ -515,7 +515,7 @@ import { z } from "zod";
 const escapeHatch = { reason: "bulk reindex" };
 
 defineFeature("f", (r) => {
-  r.hook("postSave", "task", async (event, ctx) => {}, { escapeHatch });
+  r.hook({ type: "postSave", target: "task", handler: async (event, ctx) => {}, escapeHatch });
 });
 `;
   const result = parse(source);
@@ -603,7 +603,7 @@ const BASE_OPTS = { description: "shared" };
 const ADMIN = { roles: ["Admin"] };
 
 defineFeature("f", (r) => {
-  r.writeHandler("x", z.object({}), async () => {}, { ...BASE_OPTS, access: ADMIN });
+  r.writeHandler({ name: "x", schema: z.object({}), handler: async () => {}, ...BASE_OPTS, access: ADMIN });
 });
 `;
   const result = parse(source);
@@ -815,7 +815,7 @@ defineFeature("f", (r) => {
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("f", (r) => {
-  r.hook("postSave", "task", async (event, ctx) => {}, { escapeHatch: { reason: 1 } });
+  r.hook({ type: "postSave", target: "task", handler: async (event, ctx) => {}, escapeHatch: { reason: 1 } });
 });
 `);
     expect(result.patterns.some((p) => p.kind === "hook")).toBe(false);

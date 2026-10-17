@@ -66,7 +66,7 @@ async function emitUserCreated(
 }
 
 const userFeature = defineFeature("users", (r) => {
-  const user = r.entity("user", userEntity);
+  const user = r.entity({ name: "user", ...userEntity });
 
   const userCreated = r.defineEvent("user.created", z.object({ id: z.any(), email: z.string() }), {
     piiFields: "none",
@@ -84,118 +84,126 @@ const userFeature = defineFeature("users", (r) => {
     },
   });
 
-  const createHandler = r.writeHandler(
-    "user:create",
-    z.object({
+  const createHandler = r.writeHandler({
+    name: "user:create",
+    schema: z.object({
       email: z.email(),
       firstName: z.string().optional(),
       lastName: z.string().optional(),
     }),
-    async (event, ctx) => userExecutor(ctx).create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+    handler: async (event, ctx) => userExecutor(ctx).create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
   // Variant used by the ctx.appendEvent test block — creates the user AND
   // appends a domain event (`users:event:user.created`) to the user's own
   // aggregate stream. Separate from `user:create` so the CRUD-only happy-path
   // tests don't unnecessarily bump the stream version past what the client
   // sees in the response.
-  r.writeHandler(
-    "user:create-and-signal",
-    z.object({
+  r.writeHandler({
+    name: "user:create-and-signal",
+    schema: z.object({
       email: z.email(),
       firstName: z.string().optional(),
       lastName: z.string().optional(),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const result = await userExecutor(ctx).create(event.payload, event.user, ctx.db);
       if (result.isSuccess) {
         await emitUserCreated(ctx, result.data.id, event.payload.email);
       }
       return result;
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Rollback via controlled failure: writes to the user table AND appends a
   // domain event, then deliberately returns isSuccess:false. The dispatcher
   // raises BatchRollback, the surrounding tx rolls back — so NEITHER the user
   // row NOR the domain event survive. Proves the controlled-failure path.
-  r.writeHandler(
-    "user:create-rollback",
-    z.object({ email: z.email() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "user:create-rollback",
+    schema: z.object({ email: z.email() }),
+    handler: async (event, ctx) => {
       const created = await userExecutor(ctx).create(event.payload, event.user, ctx.db);
       if (created.isSuccess) {
         await emitUserCreated(ctx, created.data.id, event.payload.email);
       }
       return writeFailure(new UnprocessableError("intentional_rollback"));
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Rollback via uncaught throw: appends TWICE, then throws. Exercises a
   // different dispatcher branch than isSuccess:false — the generic catch block
   // that wraps BatchRollback. Proves that:
   //   (a) an uncaught error rolls the tx back just like a controlled failure,
   //   (b) multiple domain event rows from the same handler roll back together.
-  r.writeHandler(
-    "user:create-throw",
-    z.object({ email: z.email() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "user:create-throw",
+    schema: z.object({ email: z.email() }),
+    handler: async (event, ctx) => {
       const created = await userExecutor(ctx).create(event.payload, event.user, ctx.db);
       if (!created.isSuccess) return created;
       await emitUserCreated(ctx, created.data.id, event.payload.email);
       await emitUserCreated(ctx, created.data.id, `${event.payload.email}.secondary`);
       throw new Error("unexpected_handler_failure");
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "user:update",
-    z.object({
+  r.writeHandler({
+    name: "user:update",
+    schema: z.object({
       id: z.uuid(),
       version: z.number().optional(),
       changes: z.record(z.string(), z.unknown()),
     }),
-    async (event, ctx) => userExecutor(ctx).update(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+    handler: async (event, ctx) => userExecutor(ctx).update(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "user:delete",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => userExecutor(ctx).delete(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "user:delete",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => userExecutor(ctx).delete(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "user:list",
-    z.object({
+  r.queryHandler({
+    name: "user:list",
+    schema: z.object({
       search: z.string().optional(),
       limit: z.number().optional(),
       sort: z.string().optional(),
       sortDirection: z.enum(["asc", "desc"]).optional(),
     }),
-    async (query, ctx) => userExecutor(ctx).list(query.payload, query.user, ctx.db),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
-
-  r.queryHandler(
-    "user:detail",
-    z.object({ id: z.uuid() }),
-    async (query, ctx) => userExecutor(ctx).detail(query.payload, query.user, ctx.db),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
-
-  r.hook("postSave", { allOf: user }, async (result) => {
-    featurePostSaveLog.push(result);
+    handler: async (query, ctx) => userExecutor(ctx).list(query.payload, query.user, ctx.db),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
-  r.hook("validation", createHandler, (data) => {
-    if (data["email"] === "banned@evil.com") return [{ field: "email", error: "banned_domain" }];
-    return null;
+  r.queryHandler({
+    name: "user:detail",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => userExecutor(ctx).detail(query.payload, query.user, ctx.db),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
+
+  r.hook({
+    type: "postSave",
+    target: { allOf: user },
+    handler: async (result) => {
+      featurePostSaveLog.push(result);
+    },
+  });
+
+  r.hook({
+    type: "validation",
+    target: createHandler,
+    handler: (data) => {
+      if (data["email"] === "banned@evil.com") return [{ field: "email", error: "banned_domain" }];
+      return null;
+    },
   });
 });
 

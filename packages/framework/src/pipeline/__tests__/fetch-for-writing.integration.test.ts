@@ -37,7 +37,7 @@ const cartEntity = createEntity({
 const cartTable = buildEntityTable("f4wCart", cartEntity);
 
 const cartFeature = defineFeature("f4w", (r) => {
-  r.entity("f4wCart", cartEntity);
+  r.entity({ name: "f4wCart", ...cartEntity });
 
   const itemAdded = r.defineEvent("itemAdded", z.object({ sku: z.string(), qty: z.number() }), {
     piiFields: "none",
@@ -51,18 +51,18 @@ const cartFeature = defineFeature("f4w", (r) => {
   });
 
   // Root: create a cart.
-  r.writeHandler(
-    "cart:create",
-    z.object({ customer: z.string() }),
-    async (event, ctx) => cartExecutor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "cart:create",
+    schema: z.object({ customer: z.string() }),
+    handler: async (event, ctx) => cartExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
   // Fetch handle, inspect events, append one atom.
-  r.writeHandler(
-    "cart:add-item",
-    z.object({ id: z.uuid(), sku: z.string(), qty: z.number() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "cart:add-item",
+    schema: z.object({ id: z.uuid(), sku: z.string(), qty: z.number() }),
+    handler: async (event, ctx) => {
       const stream = await ctx.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
@@ -78,14 +78,14 @@ const cartFeature = defineFeature("f4w", (r) => {
       });
       return { isSuccess: true as const, data: { version: stream.version } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Fetch + multi-append in one handler (proves local version bumping).
-  r.writeHandler(
-    "cart:bulk-add",
-    z.object({ id: z.uuid(), skus: z.array(z.string()) }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "cart:bulk-add",
+    schema: z.object({ id: z.uuid(), skus: z.array(z.string()) }),
+    handler: async (event, ctx) => {
       const stream = await ctx.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
@@ -95,15 +95,15 @@ const cartFeature = defineFeature("f4w", (r) => {
       }
       return { isSuccess: true as const, data: { finalVersion: stream.version } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Drives the cart to checked-out state — lets the add-item handler's
   // business-rule branch be exercised in a test.
-  r.writeHandler(
-    "cart:checkout",
-    z.object({ id: z.uuid(), totalCents: z.number() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "cart:checkout",
+    schema: z.object({ id: z.uuid(), totalCents: z.number() }),
+    handler: async (event, ctx) => {
       const stream = await ctx.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
@@ -114,16 +114,16 @@ const cartFeature = defineFeature("f4w", (r) => {
       });
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Reports the raw event types + a hasEvent probe seen through the handle —
   // lets a test assert on both aggregateType-scoping and idempotency-checks
   // without adding another executor.
-  r.writeHandler(
-    "cart:fetch-info",
-    z.object({ id: z.uuid(), probeType: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "cart:fetch-info",
+    schema: z.object({ id: z.uuid(), probeType: z.string() }),
+    handler: async (event, ctx) => {
       const stream = await ctx.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
@@ -136,14 +136,14 @@ const cartFeature = defineFeature("f4w", (r) => {
         },
       };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Probes hasEvent before and after an appendOne in the same handler run.
-  r.writeHandler(
-    "cart:checkout-probe",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "cart:checkout-probe",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       const stream = await ctx.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
@@ -155,14 +155,14 @@ const cartFeature = defineFeature("f4w", (r) => {
         data: { beforeAppend, afterAppend: stream.hasEvent(checkedOut.name) },
       };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Fetch, let a concurrent writer in, then append through the stale handle.
-  r.writeHandler(
-    "cart:add-after-race",
-    z.object({ id: z.uuid(), sku: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "cart:add-after-race",
+    schema: z.object({ id: z.uuid(), sku: z.string() }),
+    handler: async (event, ctx) => {
       const stream = await ctx.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
@@ -174,18 +174,18 @@ const cartFeature = defineFeature("f4w", (r) => {
       });
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Fetch with expectedVersion — OCC gate for external callers.
-  r.writeHandler(
-    "cart:add-with-occ",
-    z.object({
+  r.writeHandler({
+    name: "cart:add-with-occ",
+    schema: z.object({
       id: z.uuid(),
       expectedVersion: z.number(),
       sku: z.string(),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const stream = await ctx.fetchForWriting({
         aggregateId: event.payload.id,
         aggregateType: "f4wCart",
@@ -197,8 +197,8 @@ const cartFeature = defineFeature("f4w", (r) => {
       });
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 // --- Stack ---

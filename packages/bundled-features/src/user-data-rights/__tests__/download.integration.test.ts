@@ -73,7 +73,7 @@ const testEncryptionKey = randomBytes(32).toString("base64");
 // generic 404. Memory `feedback_no_fake_tests`: Code-Fix ohne Test
 // waere theatre.
 const noSignedUrlProviderFeature = defineFeature("test-no-signed-url-provider", (r) => {
-  r.requires("file-foundation");
+  r.requires({ features: ["file-foundation"] });
   r.useExtension("fileProvider", "no-signed-url", {
     build: async () => ({
       async write() {

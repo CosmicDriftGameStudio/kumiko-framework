@@ -182,6 +182,49 @@ describe("upgrade command — framework core changelog", () => {
     expect(result.pending).toEqual([]);
   });
 
+  test("breaking entries that need hand work carry the manual id in --json and in the text list", async () => {
+    const entries = JSON.stringify([
+      { version: "0.167.0", type: "breaking", title: "by hand", migration: "edit it" },
+      {
+        version: "0.168.0",
+        type: "breaking",
+        title: "fully codemodded",
+        codemod: "scripts/codemod/x.ts",
+      },
+      {
+        version: "0.169.0",
+        type: "breaking",
+        title: "codemod plus hand work",
+        codemod: "scripts/codemod/y.ts",
+        manualAfterCodemod: true,
+      },
+      { version: "0.170.0", type: "fix", title: "plain fix" },
+    ]);
+    const cwd = tmp({ "packages/framework/src/changes.json": entries });
+
+    const json = makeSpyOutput();
+    expect(await runUpgradeCli(["--from", "0.165.0", "--json"], cwd, json.out)).toBe(0);
+    const manualIdByTitle = Object.fromEntries(
+      JSON.parse(json.logs.join("\n")).pending.map((e: { title: string; manualId?: string }) => [
+        e.title,
+        e.manualId,
+      ]),
+    );
+    expect(manualIdByTitle).toEqual({
+      "by hand": manualEntryId("0.167.0", "by hand"),
+      "fully codemodded": undefined,
+      "codemod plus hand work": manualEntryId("0.169.0", "codemod plus hand work"),
+      "plain fix": undefined,
+    });
+
+    const text = makeSpyOutput();
+    expect(await runUpgradeCli(["--from", "0.165.0"], cwd, text.out)).toBe(0);
+    const lines = text.logs.join("\n");
+    expect(lines).toContain(`0.167.0 · by hand  [${manualEntryId("0.167.0", "by hand")}]`);
+    expect(lines).toContain("0.168.0 · fully codemodded\n");
+    expect(lines).not.toContain("fully codemodded  [");
+  });
+
   test("--from is rejected when it isn't a valid semver — no silent 'nothing new'", async () => {
     const cwd = tmp({ "packages/framework/src/changes.json": CORE_ENTRY });
     const spy = makeSpyOutput();

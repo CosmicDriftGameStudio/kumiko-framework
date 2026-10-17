@@ -29,10 +29,10 @@ const writeProbeFeature = defineFeature("writeProbe", (r) => {
     piiFields: "none",
     version: 1,
   });
-  r.writeHandler(
-    "note",
-    z.object({ note: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "note",
+    schema: z.object({ note: z.string() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: crypto.randomUUID(),
         aggregateType: "write-probe-note",
@@ -41,8 +41,8 @@ const writeProbeFeature = defineFeature("writeProbe", (r) => {
       });
       return { isSuccess: true as const, data: { note: event.payload.note } };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   r.job("write-via-job", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     try {
       const result = await ctx.write("write-probe:write:note", {

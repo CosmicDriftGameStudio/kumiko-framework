@@ -51,7 +51,7 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("audit-sec-widgets", (r) => {
-  r.entity("widget", widgetEntity);
+  r.entity({ name: "widget", ...widgetEntity });
   r.writeHandler(
     defineEntityWriteHandler("widget:create", widgetEntity, {
       access: { roles: ["Admin", "User", "SystemAdmin", "TenantAdmin"] },

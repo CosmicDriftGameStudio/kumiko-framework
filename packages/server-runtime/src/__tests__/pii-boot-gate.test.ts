@@ -5,22 +5,22 @@ import * as z from "zod";
 import { assertPiiBootInvariants } from "../pii-boot-gate.js";
 
 const piiFeature = defineFeature("gate-pii", (r) => {
-  r.entity(
-    "person",
-    createEntity({
+  r.entity({
+    name: "person",
+    ...createEntity({
       table: "read_gate_persons",
       fields: { email: createTextField({ required: true, personal: "self", find: "exact" }) },
     }),
-  );
+  });
 });
 const plainFeature = defineFeature("gate-plain", (r) => {
-  r.entity(
-    "thing",
-    createEntity({
+  r.entity({
+    name: "thing",
+    ...createEntity({
       table: "read_gate_things",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     }),
-  );
+  });
 });
 
 // Entity-free features: the gate must react to the event stance on its own,

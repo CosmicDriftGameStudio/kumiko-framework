@@ -72,12 +72,18 @@ describe("default-deny: refuses handlers without access", () => {
     expect(() =>
       defineFeature("broken-feature", (r) => {
         // @ts-expect-error — No { access: ... }: registration must reject this.
-        r.writeHandler("forgotAccess", z.object({ name: z.string() }), async () => ({
-          isSuccess: true as const,
-          data: {},
-        }));
+        r.writeHandler({
+          name: "forgotAccess",
+          schema: z.object({ name: z.string() }),
+          handler: async () => ({
+            isSuccess: true as const,
+            data: {},
+          }),
+        });
       }),
-    ).toThrow(/requires schema \+ handler \+ options\.access/);
+    ).toThrow(
+      /\[Feature broken-feature\] r\.writeHandler\(\{ name: "forgotAccess" \}\) requires an access rule/,
+    );
   });
 });
 
@@ -273,8 +279,8 @@ export const taskTable = buildEntityTable("task", taskEntity, {
 });
 
 export const accessControlFeature = defineFeature("access-control", (r) => {
-  r.entity("project", projectEntity);
-  r.entity("task", taskEntity);
+  r.entity({ name: "project", ...projectEntity });
+  r.entity({ name: "task", ...taskEntity });
   r.relation("task", "project", taskRelations.project);
 
   // Admin-only: standard create — no business logic, helper handles schema +
@@ -289,14 +295,14 @@ export const accessControlFeature = defineFeature("access-control", (r) => {
   // hand-write this handler instead of using the helper. The framework helpers
   // are deliberately scope-limited — opt out the moment you need defaults.
   const taskExecutor = createEventStoreExecutor(taskTable, taskEntity, { entityName: "task" });
-  r.writeHandler(
-    "task:create",
-    z.object({
+  r.writeHandler({
+    name: "task:create",
+    schema: z.object({
       title: z.string().min(1),
       projectId: z.uuid(),
       assigneeId: z.uuid().optional(),
     }),
-    async (event, ctx) =>
+    handler: async (event, ctx) =>
       taskExecutor.create(
         {
           ...event.payload,
@@ -305,22 +311,20 @@ export const accessControlFeature = defineFeature("access-control", (r) => {
         event.user,
         ctx.db,
       ),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "any signed-in tenant user may create a task; assigneeId defaults to the caller when omitted",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in tenant user may create a task; assigneeId defaults to the caller when omitted",
       },
     },
-  );
+  });
 
   // Update requires version — optimistic locking is the default and this
   // narrowed schema (only title + assigneeId mutable) is stricter than the
   // helper's generic update schema, so we keep it hand-written.
-  r.writeHandler(
-    "task:update",
-    z.object({
+  r.writeHandler({
+    name: "task:update",
+    schema: z.object({
       id: z.uuid(),
       version: z.number(),
       changes: z.object({
@@ -328,17 +332,15 @@ export const accessControlFeature = defineFeature("access-control", (r) => {
         assigneeId: z.uuid().optional(),
       }),
     }),
-    async (event, ctx) => taskExecutor.update(event.payload, event.user, ctx.db),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "any signed-in tenant user may update a task; optimistic locking (version) " +
-            "guards against concurrent overwrites, not caller identity",
-        },
+    handler: async (event, ctx) => taskExecutor.update(event.payload, event.user, ctx.db),
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in tenant user may update a task; optimistic locking (version) " +
+          "guards against concurrent overwrites, not caller identity",
       },
     },
-  );
+  });
 
   // Self-service list — no custom logic.
   r.queryHandler(

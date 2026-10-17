@@ -3587,7 +3587,7 @@ function assertRefTargetRegistered(
   if (targetFeature === undefined) {
     throw new Error(
       `${prefix} ${subject} targets entity "${refTarget}", but feature "${target.featureName}" is not ` +
-        `mounted — mount it and declare r.requires("${target.featureName}").`,
+        `mounted — mount it and declare r.requires({ features: ["${target.featureName}"] }).`,
     );
   }
   if (targetFeature.entities?.[target.entityName] === undefined) {

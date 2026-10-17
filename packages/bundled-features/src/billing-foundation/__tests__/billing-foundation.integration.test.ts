@@ -70,7 +70,7 @@ const mockCheckoutCalls: Array<{
 const mockPortalCalls: Array<{ providerCustomerId: string; returnUrl: string }> = [];
 
 const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     // Only the two tiers scenario 6's subscription-mode checkouts actually
@@ -104,7 +104,7 @@ const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
 // (no real Stripe-signing needed here, that's subscription-stripe's job).
 // Exercises the webhook-handler's payment branch end-to-end (scenario 11).
 const mockPaymentProviderFeature = defineFeature("test-mock-payment-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async (rawBody): Promise<PaymentEvent | null> => {
       const parsed = JSON.parse(rawBody) as Record<string, string>;

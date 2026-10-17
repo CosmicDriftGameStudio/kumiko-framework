@@ -20,21 +20,24 @@ import { configValuesTable } from "../../config/table.js";
 import { createTenantFeature } from "../feature.js";
 
 const probeFeature = defineFeature("tz-probe", (r) => {
-  r.requires("tenant");
-  r.writeHandler(
-    "read-tz",
-    z.object({}),
-    async (_event, ctx) => ({ isSuccess: true, data: { tenant: ctx.tz.tenant } }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.requires({ features: ["tenant"] });
+  r.writeHandler({
+    name: "read-tz",
+    schema: z.object({}),
+    handler: async (_event, ctx) => ({ isSuccess: true, data: { tenant: ctx.tz.tenant } }),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 // Query (not write) probe for the caching tests below: dispatcher.query()
 // never opens a transaction, which is the hot path fw#2462 targets and the
 // only path buildHandlerContext is allowed to populate the cache from.
 const queryProbeFeature = defineFeature("tz-cache-probe", (r) => {
-  r.requires("tenant");
-  r.queryHandler("read-tz", z.object({}), async (_query, ctx) => ({ tenant: ctx.tz.tenant }), {
+  r.requires({ features: ["tenant"] });
+  r.queryHandler({
+    name: "read-tz",
+    schema: z.object({}),
+    handler: async (_query, ctx) => ({ tenant: ctx.tz.tenant }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 });

@@ -44,7 +44,7 @@ export function createRendererPdfFeature(): FeatureDefinition {
       category: "notifications",
       recommended: false,
     });
-    r.requires("renderer-foundation");
+    r.requires({ features: ["renderer-foundation"] });
 
     r.useExtension(RENDERER_EXTENSION, "pdf", {
       kinds: ["document-pdf"] as const,

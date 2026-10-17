@@ -34,7 +34,7 @@ const noteTable = buildEntityTable("note", noteEntity);
 // Die Handler reichen eine CALLER-KONTROLLIERTE where.tenantId in die
 // TenantDb — genau der Angriffsvektor, den der Merge neutralisieren muss.
 const probeFeature = defineFeature("where-merge-probe", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access: { roles: ["User"] } }));
 
   r.queryHandler({

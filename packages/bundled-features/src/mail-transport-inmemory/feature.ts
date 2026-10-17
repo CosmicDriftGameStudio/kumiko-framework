@@ -80,11 +80,11 @@ export const mailTransportInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
     'Registers an in-process `"inmemory"` provider for `mail-foundation` that buffers sent mails per tenant instead of contacting an SMTP server. Use `getInbox(tenantId)` and `clearInbox(tenantId)` in demo apps and tests; not for production (buffer is process-memory, lost on restart).',
   );
-  // Kein r.requires("config") + kein r.requires("secrets") — der
+  // Kein requires auf "config" oder "secrets" — der
   // In-Memory-Transport hat keine Config (nichts zu konfigurieren) und
   // kein Secret. Der einzige hard-require ist mail-foundation, das den
   // extension-point "mailTransport" definiert.
-  r.requires("mail-foundation");
+  r.requires({ features: ["mail-foundation"] });
 
   const plugin: MailTransportPlugin = {
     build: async (_ctx: MailTransportContext, tenantId: string): Promise<EmailTransport> => {

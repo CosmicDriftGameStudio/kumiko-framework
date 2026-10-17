@@ -78,7 +78,10 @@ describe("perTenant job on a runner without a db connection", () => {
   test("with the tenant feature mounted the failure names the missing context.db, not the tenant feature", async () => {
     const failures: string[] = [];
     const tenantFeature = defineFeature("tenant", (r) => {
-      r.queryHandler("active-tenant-ids", z.object({}), async () => [], {
+      r.queryHandler({
+        name: "active-tenant-ids",
+        schema: z.object({}),
+        handler: async () => [],
         access: { roles: ["system"] },
       });
     });

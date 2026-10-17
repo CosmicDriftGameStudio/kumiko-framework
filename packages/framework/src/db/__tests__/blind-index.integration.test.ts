@@ -45,7 +45,7 @@ const personEntity = createEntity({
   },
 });
 const personFeature = defineFeature("bidxtest", (r) => {
-  r.entity("person", personEntity);
+  r.entity({ name: "person", ...personEntity });
 });
 const personTable = buildEntityTable("person", personEntity);
 
@@ -58,7 +58,7 @@ const ghostEntity = createEntity({
   },
 });
 const ghostFeature = defineFeature("bidxghost", (r) => {
-  r.entity("ghost", ghostEntity);
+  r.entity({ name: "ghost", ...ghostEntity });
 });
 
 // Migrated table that predates the `phone` lookupable field: `phone` and
@@ -71,7 +71,7 @@ const driftEntity = createEntity({
   },
 });
 const driftFeature = defineFeature("bidxdrift", (r) => {
-  r.entity("drift", driftEntity);
+  r.entity({ name: "drift", ...driftEntity });
 });
 
 // Self-PII entity with a serial id: a uuid subject id can never match it, and
@@ -84,7 +84,7 @@ const serialEntity = createEntity({
   },
 });
 const serialFeature = defineFeature("bidxserial", (r) => {
-  r.entity("serialrow", serialEntity);
+  r.entity({ name: "serialrow", ...serialEntity });
 });
 
 let testDb: TestDb;

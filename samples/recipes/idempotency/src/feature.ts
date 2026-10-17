@@ -19,32 +19,30 @@ export const orderEntity = createEntity({
 
 const orderTable = buildEntityTable("order", orderEntity);
 export const orderFeature = defineFeature("orders", (r) => {
-  r.entity("order", orderEntity);
+  r.entity({ name: "order", ...orderEntity });
 
   const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, { entityName: "order" });
 
-  r.writeHandler(
-    "order:place",
-    z.object({
+  r.writeHandler({
+    name: "order:place",
+    schema: z.object({
       customerName: z.string().min(1),
       product: z.string().min(1),
     }),
-    async (event, ctx) =>
+    handler: async (event, ctx) =>
       orderExecutor.create({ ...event.payload, status: "pending" }, event.user, ctx.db),
-    { access: { roles: ["Admin", "Customer"] } },
-  );
+    access: { roles: ["Admin", "Customer"] },
+  });
 
-  r.queryHandler(
-    "order:list",
-    z.object({ limit: z.number().optional() }),
-    async (query, ctx) => orderExecutor.list(query.payload, query.user, ctx.db),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "any signed-in user may list orders in this recipe; placing an order still requires a role above",
-        },
+  r.queryHandler({
+    name: "order:list",
+    schema: z.object({ limit: z.number().optional() }),
+    handler: async (query, ctx) => orderExecutor.list(query.payload, query.user, ctx.db),
+    access: {
+      openToAll: {
+        reason:
+          "any signed-in user may list orders in this recipe; placing an order still requires a role above",
       },
     },
-  );
+  });
 });

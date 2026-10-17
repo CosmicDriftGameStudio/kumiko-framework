@@ -19,8 +19,8 @@ export { currencyEntity } from "./entities/currency";
 export { invoiceEntity } from "./entities/invoice";
 
 export const currenciesPerTenantFeature = defineFeature("currenciesPerTenant", (r) => {
-  r.entity("currency", currencyEntity);
-  r.entity("invoice", invoiceEntity);
+  r.entity({ name: "currency", ...currencyEntity });
+  r.entity({ name: "invoice", ...invoiceEntity });
 
   // No r.referenceData() — tenants create currencies themselves
   r.writeHandler(currencyCreate);

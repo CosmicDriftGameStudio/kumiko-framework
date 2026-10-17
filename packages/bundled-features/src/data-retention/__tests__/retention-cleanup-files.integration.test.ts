@@ -89,10 +89,10 @@ const otherDocEntity = createEntity({
 });
 
 const c8Feature = defineFeature("c8-retention-file-fixtures", (r) => {
-  r.entity("c8-other-doc", otherDocEntity);
-  r.entity("c8-doc", docEntity);
-  r.entity("c8-soft-doc", softDocEntity);
-  r.entity("c8-anon-doc", anonDocEntity);
+  r.entity({ name: "c8-other-doc", ...otherDocEntity });
+  r.entity({ name: "c8-doc", ...docEntity });
+  r.entity({ name: "c8-soft-doc", ...softDocEntity });
+  r.entity({ name: "c8-anon-doc", ...anonDocEntity });
 });
 
 const noopLogger: JobContext["log"] = {

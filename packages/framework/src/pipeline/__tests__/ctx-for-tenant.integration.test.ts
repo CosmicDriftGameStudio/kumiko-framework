@@ -35,7 +35,7 @@ const systemAdmin = TestUsers.systemAdmin;
 const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
 
 const fortenantFeature = defineFeature("fortenant", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
 
   r.writeHandler(
     defineWriteHandler({
@@ -78,12 +78,12 @@ const fortenantFeature = defineFeature("fortenant", (r) => {
     }),
   );
 
-  r.queryHandler(
-    "has-for-tenant",
-    z.object({}),
-    async (_query, ctx) => ({ offered: ctx.forTenant !== undefined }),
-    { access: { roles: ["SystemAdmin"] } },
-  );
+  r.queryHandler({
+    name: "has-for-tenant",
+    schema: z.object({}),
+    handler: async (_query, ctx) => ({ offered: ctx.forTenant !== undefined }),
+    access: { roles: ["SystemAdmin"] },
+  });
 });
 
 let stack: TestStack;

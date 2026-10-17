@@ -17,7 +17,7 @@ describe("entityTableFromRegistry", () => {
   test("returns the table the registry booted, not one derived from the definition", () => {
     const registry = createRegistry([
       defineFeature("housing", (r) => {
-        r.entity("unit", unitEntity());
+        r.entity({ name: "unit", ...unitEntity() });
       }),
     ]);
 
@@ -49,7 +49,7 @@ describe("entityTableFromRegistry", () => {
   test("ignores implicit projections of other entities", () => {
     const registry = createRegistry([
       defineFeature("housing", (r) => {
-        r.entity("unit", unitEntity());
+        r.entity({ name: "unit", ...unitEntity() });
       }),
     ]);
 
@@ -69,7 +69,7 @@ describe("entityTableFromRegistry", () => {
 test("the registry table carries a physical name", () => {
   const registry = createRegistry([
     defineFeature("housing", (r) => {
-      r.entity("unit", unitEntity());
+      r.entity({ name: "unit", ...unitEntity() });
     }),
   ]);
 

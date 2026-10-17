@@ -190,7 +190,7 @@ export const shareByTokenQuery = defineQueryHandler({
 });
 
 export const publicShareTokenFeature = defineFeature("public-share", (r) => {
-  r.entity("share-link", shareLinkEntity);
+  r.entity({ name: "share-link", ...shareLinkEntity });
   r.writeHandler(shareLinkCreateWrite);
   r.writeHandler(shareLinkRevokeWrite);
   r.queryHandler(shareByTokenQuery);

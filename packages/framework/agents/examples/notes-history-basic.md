@@ -76,7 +76,7 @@ The component itself is `notes-history/web/notes-section.tsx`
 ```
 notes-history    → core bundle: note-entry entity, add-note handler, list query
 task-management  → our feature: a plain `task` entity. Declares
-                   r.requires("notes-history") only so the bundle is
+                   r.requires({ features: ["notes-history"] }) only so the bundle is
                    mounted — the task itself is completely notes-agnostic.
 ```
 
@@ -274,9 +274,9 @@ export const taskFeature = defineFeature("task-management", (r) => {
   // notes-history is non-optional for this recipe: the demo notes tasks.
   // The task feature itself stays completely notes-agnostic — it only
   // declares the dependency so the bundle is mounted.
-  r.requires("notes-history");
+  r.requires({ features: ["notes-history"] });
 
-  r.entity("task", taskEntity);
+  r.entity({ name: "task", ...taskEntity });
 
   r.writeHandler({
     name: "task:create",

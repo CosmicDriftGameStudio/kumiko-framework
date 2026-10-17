@@ -20,8 +20,8 @@ export const readinessFeature = defineFeature("readiness", (r) => {
     category: "operations",
     recommended: false,
   });
-  r.requires("config");
-  r.requires("secrets");
+  r.requires({ features: ["config"] });
+  r.requires({ features: ["secrets"] });
 
   const queries = {
     status: r.queryHandler(statusQuery),

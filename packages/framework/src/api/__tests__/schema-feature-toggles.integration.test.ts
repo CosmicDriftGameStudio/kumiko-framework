@@ -15,7 +15,7 @@ const TENANT_WITH_ADDON = "00000000-0000-4000-8000-0000000000a2" as TenantId;
 const ADDON_FEATURE = "toggle-addon";
 
 const coreFeature = defineFeature("toggle-core", (r) => {
-  r.entity("note", createEntity({ fields: {} }));
+  r.entity({ name: "note", ...createEntity({ fields: {} }) });
   r.screen({
     id: "note-list",
     type: "entityList",
@@ -36,7 +36,7 @@ const coreFeature = defineFeature("toggle-core", (r) => {
 
 const addonFeature = defineFeature(ADDON_FEATURE, (r) => {
   r.toggleable({ default: false });
-  r.entity("gadget", createEntity({ fields: {} }));
+  r.entity({ name: "gadget", ...createEntity({ fields: {} }) });
   r.screen({ id: "gadget-list", type: "entityList", entity: "gadget", columns: ["id"] });
   r.nav({ id: "gadget-list", label: "Gadgets", screen: "gadget-list" });
 });

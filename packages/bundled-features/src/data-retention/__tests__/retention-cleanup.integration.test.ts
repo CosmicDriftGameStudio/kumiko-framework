@@ -145,16 +145,16 @@ const subjectRefHoldEntity = createEntity({
 });
 
 const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
-  r.entity("c7-widget", widgetEntity);
-  r.entity("c7-gadget", gadgetEntity);
-  r.entity("c7-plain", plainEntity);
-  r.entity("c7-stale", staleEntity);
-  r.entity("c7-retained", retainedEntity);
-  r.entity("c7-anon", anonEntity);
-  r.entity("c7-bare", bareEntity);
-  r.entity("c7-barehold", bareHoldEntity);
-  r.entity("c7-personalhold", personalHoldEntity);
-  r.entity("c7-holdsubjectref", subjectRefHoldEntity);
+  r.entity({ name: "c7-widget", ...widgetEntity });
+  r.entity({ name: "c7-gadget", ...gadgetEntity });
+  r.entity({ name: "c7-plain", ...plainEntity });
+  r.entity({ name: "c7-stale", ...staleEntity });
+  r.entity({ name: "c7-retained", ...retainedEntity });
+  r.entity({ name: "c7-anon", ...anonEntity });
+  r.entity({ name: "c7-bare", ...bareEntity });
+  r.entity({ name: "c7-barehold", ...bareHoldEntity });
+  r.entity({ name: "c7-personalhold", ...personalHoldEntity });
+  r.entity({ name: "c7-holdsubjectref", ...subjectRefHoldEntity });
 });
 
 const noopLogger: JobContext["log"] = {

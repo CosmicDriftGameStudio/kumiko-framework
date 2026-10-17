@@ -12,9 +12,9 @@ function bootWith(
   indexes?: readonly EntityIndexDef[],
 ): void {
   const feature = defineFeature("test", (r) => {
-    r.entity(
-      "golden",
-      createEntity({
+    r.entity({
+      name: "golden",
+      ...createEntity({
         table: "boot_jsonb_goldens",
         fields: {
           label: createTextField({ personal: false, reason: "test_fixture" }),
@@ -22,7 +22,7 @@ function bootWith(
         },
         ...(indexes && { indexes }),
       }),
-    );
+    });
   });
   validateBoot([feature]);
 }

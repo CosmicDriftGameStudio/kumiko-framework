@@ -56,7 +56,7 @@ const carEntity: EntityDefinition = createEntity({
 });
 
 const fixturesFeature = defineFeature("handover-erasure-fixtures", (r) => {
-  r.entity("car", carEntity);
+  r.entity({ name: "car", ...carEntity });
 });
 
 const carCrud = createEventStoreExecutor(buildEntityTable("car", carEntity), carEntity, {

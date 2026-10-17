@@ -229,7 +229,7 @@ import * as z from "zod";
 export const OPS_ANNOUNCEMENT_TYPE = qn("ops", "notify", "announcement");
 
 export const opsFeature = defineFeature("ops", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
 
   r.writeHandler(
     defineWriteHandler({

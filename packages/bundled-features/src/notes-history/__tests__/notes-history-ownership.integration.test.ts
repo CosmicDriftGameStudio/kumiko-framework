@@ -78,7 +78,7 @@ const projectEntity: EntityDefinition = createEntity({
   },
 });
 const projectFixtureFeature = defineFeature("notes-ownership-test-project-fixture", (r) => {
-  r.entity("project", projectEntity);
+  r.entity({ name: "project", ...projectEntity });
 });
 
 const PROJ_1 = "20000000-0000-4000-8000-000000000001";

@@ -32,7 +32,7 @@ const goldenEntity = createEntity({
 });
 
 const feature = defineFeature("jsonbpii", (r) => {
-  r.entity("golden", goldenEntity);
+  r.entity({ name: "golden", ...goldenEntity });
   r.crud("golden", goldenEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },

@@ -53,7 +53,7 @@ const probeEntity = createEntity({
 });
 
 const probeFeature = defineFeature("dev-server-probe", (r) => {
-  r.entity("probe", probeEntity);
+  r.entity({ name: "probe", ...probeEntity });
   // Anonymous query for hostDispatch's deps.systemQuery — proves the
   // dev path gets the same anonymous-role dispatch-deps shape as prod.
   r.queryHandler({

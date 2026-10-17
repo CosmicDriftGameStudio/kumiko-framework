@@ -100,24 +100,24 @@ const vaultTable = buildEntityTable("vault", vaultEntity);
 const ROW_LABEL = "row-projection-value";
 
 const namedSearchFeature = defineFeature("named-search", (r) => {
-  r.entity("note", noteEntity);
-  r.entity("ghost", ghostEntity);
-  r.entity("secret", secretEntity);
-  const extOnly = r.entity("ext-only", extOnlyEntity);
+  r.entity({ name: "note", ...noteEntity });
+  r.entity({ name: "ghost", ...ghostEntity });
+  r.entity({ name: "secret", ...secretEntity });
+  const extOnly = r.entity({ name: "ext-only", ...extOnlyEntity });
   r.searchPayloadExtension(extOnly, ({ state }) => ({ extIndexed: state["marker"] }));
 
   const relabeled = r.defineEvent("relabeled", z.object({ label: z.string() }), {
     piiFields: "none",
   });
-  const vault = r.entity("vault", vaultEntity);
+  const vault = r.entity({ name: "vault", ...vaultEntity });
   r.searchPayloadExtension(vault, ({ state }) => ({ stateKeys: Object.keys(state).join(" ") }));
 
   const poked = r.defineEvent("poked", z.object({}), { piiFields: "none" });
 
-  r.writeHandler(
-    "vault:poke",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "vault:poke",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "vault",
@@ -126,13 +126,13 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "note:relabel",
-    z.object({ id: z.uuid(), label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "note:relabel",
+    schema: z.object({ id: z.uuid(), label: z.string() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "note",
@@ -149,16 +149,14 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
       );
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    {
-      access: { roles: ["Admin"] },
-      escapeHatch: { reason: "test: raw row update bypassing the executor" },
-    },
-  );
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: "test: raw row update bypassing the executor" },
+  });
 
-  r.writeHandler(
-    "ext-only:poke",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "ext-only:poke",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "ext-only",
@@ -172,16 +170,14 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
       );
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    {
-      access: { roles: ["Admin"] },
-      escapeHatch: { reason: "test: raw row update bypassing the executor" },
-    },
-  );
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: "test: raw row update bypassing the executor" },
+  });
 
-  r.writeHandler(
-    "secret:poke",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "secret:poke",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "secret",
@@ -190,13 +186,13 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "ghost:poke",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "ghost:poke",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "ghost",
@@ -205,8 +201,8 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

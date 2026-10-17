@@ -41,7 +41,7 @@ const noteFeature = defineFeature("update-null-clear", (r) => {
     write: { access: { roles: ["User"] } },
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   });
-  r.hook("preSave", "note:update", clearEndpointWhenArmed);
+  r.hook({ type: "preSave", target: "note:update", handler: clearEndpointWhenArmed });
 });
 
 const CREATE = "update-null-clear:write:note:create";

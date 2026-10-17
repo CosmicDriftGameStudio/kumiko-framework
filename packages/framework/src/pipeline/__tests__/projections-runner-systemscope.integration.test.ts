@@ -40,7 +40,7 @@ const auditTable = pgTable("read_sysproj_item_audit", {
 
 const sysProjFeature = defineFeature("sysproj", (r) => {
   r.systemScope();
-  r.entity("sysproj-item", sysItemEntity);
+  r.entity({ name: "sysproj-item", ...sysItemEntity });
 
   r.projection({
     name: "item-audit",

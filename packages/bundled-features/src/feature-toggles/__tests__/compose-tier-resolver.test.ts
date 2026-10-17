@@ -210,7 +210,7 @@ describe("composeTierResolverWithGlobalToggles — non-toggleable + requires() i
     // feature — its own eligibility must still respect that dependency.
     defineFeature("pat-companion", (r) => {
       r.toggleable({ default: true });
-      r.requires("personal-access-tokens");
+      r.requires({ features: ["personal-access-tokens"] });
     }),
   ]);
 

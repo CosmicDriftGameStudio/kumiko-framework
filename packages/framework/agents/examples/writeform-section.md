@@ -127,10 +127,16 @@ describe("writeform-section sample — boot-validator catches author mistakes", 
   test("a writeForm field without its pseudo-entity translation key fails boot", () => {
     const broken = defineFeature("broken-note-desk", (r) => {
       r.translations({ keys: { "screen:x.title": { en: "X" } } });
-      r.queryHandler("foo:detail", z.object({ id: z.string() }), async () => ({}), {
+      r.queryHandler({
+        name: "foo:detail",
+        schema: z.object({ id: z.string() }),
+        handler: async () => ({}),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.writeHandler("save", z.object({}), async () => ({ isSuccess: true as const, data: null }), {
+      r.writeHandler({
+        name: "save",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -249,19 +255,19 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
     access: open.access,
   });
 
-  r.queryHandler(
-    "note:summary",
-    z.object({ id: z.string() }),
-    async (query) => ({ id: query.payload.id, ...NOTE_DETAIL_FIELDS }),
-    open,
-  );
+  r.queryHandler({
+    name: "note:summary",
+    schema: z.object({ id: z.string() }),
+    handler: async (query) => ({ id: query.payload.id, ...NOTE_DETAIL_FIELDS }),
+    ...open,
+  });
 
-  r.writeHandler(
-    "note:comment",
-    commentPayloadSchema,
-    async () => ({ isSuccess: true as const, data: null }),
-    open,
-  );
+  r.writeHandler({
+    name: "note:comment",
+    schema: commentPayloadSchema,
+    handler: async () => ({ isSuccess: true as const, data: null }),
+    ...open,
+  });
 
   r.screen({
     id: "note-detail",

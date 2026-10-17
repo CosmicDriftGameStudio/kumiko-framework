@@ -295,7 +295,7 @@ const newsletterFeature = defineFeature("newsletter", (r) => {
   r.writeHandler(nestedAtomicCaller);
   r.writeHandler(wrappedCommitFailing);
   r.writeHandler(wrappedPoolSlot);
-  r.entity("commit-probe", commitProbeEntity);
+  r.entity({ name: "commit-probe", ...commitProbeEntity });
   r.writeHandler(bookOutsideTxThenFailHandler);
   r.writeHandler(bookCapUsageInTxHandler);
   r.writeHandler(bookCapUsageOutsideTxHandler);

@@ -23,7 +23,7 @@ const SELECTOR_KEY = "probe-transport:config:provider";
 const OPEN_SELECTOR_KEY = "probe-open-transport:config:provider";
 
 const transportFoundation = defineFeature("probe-transport", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.extendsRegistrar("probeTransport", { onRegister: () => undefined });
   const keys = r.config({
     keys: {
@@ -38,7 +38,7 @@ const transportFoundation = defineFeature("probe-transport", (r) => {
 });
 
 const openFoundation = defineFeature("probe-open-transport", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.extendsRegistrar("probeOpenTransport", { onRegister: () => undefined });
   const keys = r.config({
     keys: {
@@ -53,7 +53,7 @@ const openFoundation = defineFeature("probe-open-transport", (r) => {
 });
 
 const platformFoundation = defineFeature("probe-platform-transport", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.extendsRegistrar("probePlatformTransport", { onRegister: () => undefined });
   const keys = r.config({
     keys: {

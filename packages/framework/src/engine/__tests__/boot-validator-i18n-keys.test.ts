@@ -6,15 +6,15 @@ import { createEntity, createTextField } from "../factories.js";
 describe("validateBoot — i18n surface keys", () => {
   test("passes when screen-derived keys are in r.translations", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: {
             name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -34,15 +34,15 @@ describe("validateBoot — i18n surface keys", () => {
 
   test("throws when screen title key is missing", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: {
             name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -63,15 +63,15 @@ describe("validateBoot — i18n surface keys", () => {
 
   test("throws when feature has screens but no r.translations", () => {
     const feature = defineFeature("legacy", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: {
             name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -101,15 +101,15 @@ describe("validateBoot — i18n surface keys", () => {
 describe("validateBoot — i18n surface keys from section.groups (fw#2986)", () => {
   function groupsFeature(keys: Record<string, { de: string; en: string }>) {
     return defineFeature("demo", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: {
             name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.screen({
         id: "item-edit",
         type: "entityEdit",

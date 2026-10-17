@@ -28,7 +28,7 @@ task-management → single feature, single `task` entity, six CRUD handlers
 ```
 
 No bundled features required — this is the baseline before you add
-`r.requires("tenant")`, auth, or cross-feature extensions.
+`r.requires({ features: ["tenant"] })`, auth, or cross-feature extensions.
 
 ## Flow
 

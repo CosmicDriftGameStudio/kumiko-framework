@@ -47,7 +47,7 @@ const TENANT_C = testTenantId(9303);
 const READ_FOR_QUERY = "cap-seats-probe:query:read-for";
 
 const seatsFeature = defineFeature("cap-seats-probe", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({
     keys: {
       seats: createTenantConfig("number", {
@@ -57,16 +57,16 @@ const seatsFeature = defineFeature("cap-seats-probe", (r) => {
       }),
     },
   });
-  r.queryHandler(
-    "read-for",
-    z.object({ tenantId: z.string() }),
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "read-for",
+    schema: z.object({ tenantId: z.string() }),
+    handler: async (query, ctx) => {
       const configFor = ctx.configFor;
       if (!configFor) throw new Error("ctx.configFor missing");
       return { value: await configFor(query.payload.tenantId as TenantId)(SEATS_KEY) }; // @cast-boundary test payload
     },
-    { access: { openToAll: { reason: "probe exercises the configFor gate itself" } } },
-  );
+    access: { openToAll: { reason: "probe exercises the configFor gate itself" } },
+  });
 });
 
 const seatsCap: CapSpec = {

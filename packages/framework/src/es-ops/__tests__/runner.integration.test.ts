@@ -50,35 +50,35 @@ const probeExecutor = createEventStoreExecutor(probeTable, probeEntity, {
 });
 
 const seedTestFeature = defineFeature("esopstest", (r) => {
-  r.entity("esops-probe", probeEntity);
+  r.entity({ name: "esops-probe", ...probeEntity });
   // openToAll: reachable by the seed's system user (roles ["system"]) —
   // hasAccess has no system-bypass, so a role-gated handler would be denied.
-  r.writeHandler(
-    "probe:create",
-    z.object({ label: z.string().min(1) }),
-    async (event, ctx) => probeExecutor.create(event.payload, event.user, ctx.db),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
-  r.writeHandler(
-    "probe:fail",
-    z.object({ label: z.string() }),
-    async () => {
+  r.writeHandler({
+    name: "probe:create",
+    schema: z.object({ label: z.string().min(1) }),
+    handler: async (event, ctx) => probeExecutor.create(event.payload, event.user, ctx.db),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
+  r.writeHandler({
+    name: "probe:fail",
+    schema: z.object({ label: z.string() }),
+    handler: async () => {
       throw new VersionConflictError({
         entityId: "esops-probe",
         expectedVersion: 1,
         currentVersion: 2,
       });
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
   // Role-gated handler (no openToAll): the bare system actor has no bypass
   // for explicit role gates — only systemWriteAs' extraRoles reaches it.
-  r.writeHandler(
-    "probe:admin-only",
-    z.object({ label: z.string().min(1) }),
-    async (event, ctx) => probeExecutor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["SystemAdmin"] } },
-  );
+  r.writeHandler({
+    name: "probe:admin-only",
+    schema: z.object({ label: z.string().min(1) }),
+    handler: async (event, ctx) => probeExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["SystemAdmin"] },
+  });
 });
 
 let testDb: TestDb;

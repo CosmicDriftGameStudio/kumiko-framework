@@ -52,7 +52,7 @@ type ReqCtxSnapshot = {
 const applyObservations: ReqCtxSnapshot[] = [];
 
 const causationFeature = defineFeature("causation", (r) => {
-  r.entity("causation-order", orderEntity);
+  r.entity({ name: "causation-order", ...orderEntity });
 
   const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }), {
     piiFields: "none",
@@ -62,10 +62,10 @@ const causationFeature = defineFeature("causation", (r) => {
     entityName: "causation-order",
   });
 
-  r.writeHandler(
-    "order:place",
-    z.object({ item: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "order:place",
+    schema: z.object({ item: z.string() }),
+    handler: async (event, ctx) => {
       const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
       await ctx.unsafeAppendEvent({
@@ -76,8 +76,8 @@ const causationFeature = defineFeature("causation", (r) => {
       });
       return created;
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // Observation-only MSP — records what the dispatcher's requestContext.run
   // wrap set for each event. Proves that the wrap is live and carries the

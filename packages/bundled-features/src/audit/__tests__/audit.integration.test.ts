@@ -37,7 +37,7 @@ const widgetEntity = createEntity({
 });
 
 const widgetFeature = defineFeature("widgets", (r) => {
-  r.entity("widget", widgetEntity);
+  r.entity({ name: "widget", ...widgetEntity });
   for (const verb of ["create", "update", "delete"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`widget:${verb}`, widgetEntity, {

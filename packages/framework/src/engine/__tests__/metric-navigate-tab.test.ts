@@ -12,7 +12,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
   test("metric navigate.screen + valid tab boots cleanly", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "vehicle:detail",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -27,7 +30,10 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
           ],
         },
       });
-      r.queryHandler("fleet:summary", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "fleet:summary",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -49,7 +55,10 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
 
   test("metric navigate.screen + unknown tab throws with the metric field name", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "vehicle:detail",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -64,7 +73,10 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
           ],
         },
       });
-      r.queryHandler("fleet:summary", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "fleet:summary",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -88,13 +100,16 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
 
   test("metric navigate.entity + entityId + unknown tab throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.entity(
-        "vehicle",
-        createEntity({
+      r.entity({
+        name: "vehicle",
+        ...createEntity({
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+      });
+      r.queryHandler({
+        name: "vehicle:detail",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -110,7 +125,10 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
           ],
         },
       });
-      r.queryHandler("fleet:summary", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "fleet:summary",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -134,7 +152,10 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
 
   test("metric navigate.screen targeting a non-tabs projectionDetail throws", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "vehicle:detail",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -143,7 +164,10 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
         query: "app:query:vehicle:detail",
         layout: { sections: [{ title: "Overview", fields: ["name"] }] },
       });
-      r.queryHandler("fleet:summary", z.object({}), async () => ({ name: "x" }), {
+      r.queryHandler({
+        name: "fleet:summary",
+        schema: z.object({}),
+        handler: async () => ({ name: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -168,14 +192,17 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
   describe("metric navigate without tab", () => {
     function featureWithMetricNavigate(navigate: Record<string, string>) {
       return defineFeature("app", (r) => {
-        r.entity(
-          "vehicle",
-          createEntity({
+        r.entity({
+          name: "vehicle",
+          ...createEntity({
             table: "Vehicles",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
-        );
-        r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+        });
+        r.queryHandler({
+          name: "vehicle:detail",
+          schema: z.object({}),
+          handler: async () => ({ name: "x" }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({
@@ -185,7 +212,10 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
           query: "app:query:vehicle:detail",
           layout: { sections: [{ title: "Main", fields: ["name"] }] },
         });
-        r.queryHandler("fleet:summary", z.object({}), async () => ({ name: "x", vehicleId: "1" }), {
+        r.queryHandler({
+          name: "fleet:summary",
+          schema: z.object({}),
+          handler: async () => ({ name: "x", vehicleId: "1" }),
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         });
         r.screen({

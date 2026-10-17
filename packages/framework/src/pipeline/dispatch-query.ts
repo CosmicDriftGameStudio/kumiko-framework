@@ -136,7 +136,7 @@ async function runQueryHandler(
   // below only knows the entity's stammfields).
   //
   // Two firing-pfade kombiniert in dieser Reihenfolge:
-  //   1. Handler-keyed hooks via r.hook("postQuery", "ns:query:list", fn)
+  //   1. Handler-keyed hooks via r.hook({ type: "postQuery", target: "ns:query:list", handler })
   //      — feuern nur für genau diesen handler
   //   2. Entity-keyed hooks via r.entityHook("postQuery", "property", fn)
   //      — feuern für ALLE query-handlers des entity

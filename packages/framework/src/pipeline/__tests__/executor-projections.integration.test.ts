@@ -55,9 +55,9 @@ const FAILING_LABEL = "projection-explodes";
 const projectionCalls: string[] = [];
 
 const exprojFeature = defineFeature("exproj", (r) => {
-  r.entity("order", orderEntity);
-  r.entity("audit", auditEntity);
-  r.entity("memo", memoEntity);
+  r.entity({ name: "order", ...orderEntity });
+  r.entity({ name: "audit", ...auditEntity });
+  r.entity({ name: "memo", ...memoEntity });
 
   r.projection({
     name: "audit-log",
@@ -84,10 +84,10 @@ const exprojFeature = defineFeature("exproj", (r) => {
   const auditExecutor = createEventStoreExecutor(auditTable, auditEntity, { entityName: "audit" });
 
   // The second aggregate is written straight through the executor, as apps do.
-  r.hook(
-    "postSave",
-    { allOf: "order" },
-    async (result, ctx) => {
+  r.hook({
+    type: "postSave",
+    target: { allOf: "order" },
+    handler: async (result, ctx) => {
       if (!isTenantDb(ctx.db)) throw new Error("hook ctx.db is not a TenantDb");
       const outcome = await auditExecutor.create(
         { label: String(result.data["title"]) },
@@ -96,13 +96,13 @@ const exprojFeature = defineFeature("exproj", (r) => {
       );
       if (!outcome.isSuccess) throw new Error("hook audit write failed");
     },
-    { phase: HookPhases.inTransaction },
-  );
+    phase: HookPhases.inTransaction,
+  });
 
-  r.hook(
-    "postSave",
-    { allOf: "memo" },
-    async (result, ctx) => {
+  r.hook({
+    type: "postSave",
+    target: { allOf: "memo" },
+    handler: async (result, ctx) => {
       if (!isTenantDb(ctx.db)) throw new Error("hook ctx.db is not a TenantDb");
       const ownTenantDb = createTenantDb(ctx.db.unsafeRaw(), admin.tenantId);
       const outcome = await auditExecutor.create(
@@ -112,11 +112,9 @@ const exprojFeature = defineFeature("exproj", (r) => {
       );
       if (!outcome.isSuccess) throw new Error("hook audit write via unsafeRaw failed");
     },
-    {
-      phase: HookPhases.inTransaction,
-      escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw" },
-    },
-  );
+    phase: HookPhases.inTransaction,
+    escapeHatch: { reason: "test: TenantDb rebuilt from unsafeRaw" },
+  });
 
   // A job dispatched without a write origin builds its TenantDb without a personal-data gate;
   // a TenantDb rebuilt from its unsafeRaw() grant must still run the custom projections.

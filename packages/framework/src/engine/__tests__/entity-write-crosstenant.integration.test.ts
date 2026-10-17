@@ -75,7 +75,7 @@ function crossTenantOptionsFor(mode: CrossTenantMode) {
 
 function buildFeature(mode: CrossTenantMode) {
   return defineFeature("ctwrite", (r) => {
-    r.entity("thing", thingEntity);
+    r.entity({ name: "thing", ...thingEntity });
     r.writeHandler(
       // create always writes into the acting tenant, so it never carries the cross-tenant option
       defineEntityCreateHandler("thing", thingEntity, {
@@ -100,7 +100,7 @@ function buildFeature(mode: CrossTenantMode) {
         ...crossTenantOptionsFor(mode),
       }),
     );
-    r.entity("globalthing", globalThingEntity);
+    r.entity({ name: "globalthing", ...globalThingEntity });
     r.writeHandler(
       defineEntityCreateHandler("globalthing", globalThingEntity, {
         access: { roles: ["Admin", "SystemAdmin"] },

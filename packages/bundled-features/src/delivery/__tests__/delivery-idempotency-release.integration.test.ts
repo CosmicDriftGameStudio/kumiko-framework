@@ -36,7 +36,7 @@ const sentTo: string[] = [];
 let queuedAttempts = 0;
 
 const idemProbeFeature = defineFeature("idem-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.useExtension(DELIVERY_CHANNEL_EXTENSION, "idem-inline-ok", {
     mode: "inline",
     send: async (address) => {

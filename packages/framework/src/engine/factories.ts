@@ -465,34 +465,34 @@ export function createTzField<R extends true | false = false>(
 }
 
 /**
- * Wall-Clock-Termin an einem Ort als ATOMARES Field. Empfohlene Form für
- * jeden Date-Wert mit Location-Bezug (Pickup, Delivery, Meeting, Schedule).
+ * Wall-clock time at a place as one atomic field. Use it for every date
+ * value tied to a location (pickup, delivery, meeting, schedule).
  *
- * EIN Schema-Feld → ZWEI DB-Spalten (`<name>_utc TIMESTAMPTZ` + `<name>_tz TEXT`)
- * → DREI API-Felder beim Read (`{ at, tz, utc }`).
+ * One schema field maps to two DB columns (`<name>_utc TIMESTAMPTZ` +
+ * `<name>_tz TEXT`) and to three API fields on read (`{ at, tz, utc }`).
  *
  * ```ts
- * r.entity("order", {
+ * r.entity({
+ *   name: "order",
  *   fields: {
  *     pickup: createLocatedTimestampField(),
  *     delivery: createLocatedTimestampField(),
  *   },
  * });
  *
- * // Write — Caller schickt at+tz, Framework rechnet utc aus
+ * // Write: the caller sends at+tz, the framework computes utc
  * await create({ pickup: { at: "2026-04-15T10:00:00", tz: "Europe/Lisbon" } });
  *
- * // Read — Framework liefert alle drei Felder zurück
+ * // Read: the framework returns all three fields
  * // → { pickup: { at: "10:00", tz: "Europe/Lisbon", utc: "09:00Z" } }
  *
- * // Sort/Filter über die UTC-Spalte
+ * // Sort/filter on the UTC column
  * orderBy(asc(orderTable.pickupUtc))
  * where(between(orderTable.pickupUtc, start, end))
  * ```
  *
- * Default-Sicht für `at` ist Pickup-Ort-lokal (was eingegeben wurde, kommt
- * mit demselben Tag zurück). User-lokale Sicht kommt aus `utc` per
- * separater Berechnung.
+ * `at` is local to the place (what was entered comes back on the same day).
+ * A user-local view is computed separately from `utc`.
  */
 export function createLocatedTimestampField<R extends true | false = false>(
   overrides?: Partial<

@@ -12,7 +12,8 @@ import { z } from "zod";
 defineFeature("designerDemo", (r) => {
   r.optionalRequires("analytics");
 
-  r.entity("task", {
+  r.entity({
+    name: "task",
     fields: {
       title: { type: "text", required: true },
       done: { type: "boolean", default: false },

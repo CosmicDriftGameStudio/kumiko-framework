@@ -30,7 +30,7 @@ export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefini
     );
     r.uiHints({ displayLabel: "Waitlist", category: "data", recommended: false });
     r.systemScope();
-    r.requires("tenant", "auth-email-password", "user-data-rights");
+    r.requires({ features: ["tenant", "auth-email-password", "user-data-rights"] });
     r.translations({ keys: WAITLIST_I18N });
 
     r.notification("confirmation", {
@@ -43,7 +43,7 @@ export function createWaitlistFeature(opts: WaitlistOptions = {}): FeatureDefini
       localizedTemplate: waitlistAdminNoticeTemplate,
     });
 
-    r.entity("waitlistEntry", waitlistEntryEntity);
+    r.entity({ name: "waitlistEntry", ...waitlistEntryEntity });
     r.writeHandler(createSubmitHandler(opts));
     r.writeHandler(createInviteHandler(opts.invite));
     r.writeHandler(rejectHandler);

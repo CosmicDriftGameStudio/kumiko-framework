@@ -80,7 +80,7 @@ describe("composeFeatures", () => {
 
   test("includeBundled threads app-declared assignable roles into the tenant screens", () => {
     const appWithRole = defineFeature("role-app", (r) => {
-      r.requires("tenant");
+      r.requires({ features: ["tenant"] });
       r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
       r.useExtension(EXT_ASSIGNABLE_ROLE, "Auditor", { assignableFrom: "TenantAdmin" });
     });

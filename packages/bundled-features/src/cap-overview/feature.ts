@@ -70,9 +70,9 @@ export function createCapOverviewFeature(opts: CreateCapOverviewOptions): Featur
       recommended: false,
     });
     r.systemScope();
-    r.requires("tenant");
-    r.requires("tier-engine");
-    r.requires("billing-foundation");
+    r.requires({ features: ["tenant"] });
+    r.requires({ features: ["tier-engine"] });
+    r.requires({ features: ["billing-foundation"] });
 
     r.queryHandler(createTenantCapsListQuery(opts.caps, listCaps));
     r.queryHandler(createCapsUsageQuery(opts.caps, usageRoles));

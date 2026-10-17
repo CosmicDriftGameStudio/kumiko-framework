@@ -198,10 +198,10 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
     ],
   });
 
-  r.queryHandler(
-    "metrics:portfolio-stat",
-    z.object({ region: z.string().optional() }),
-    async ({ payload: { region } }, ctx) => ({
+  r.queryHandler({
+    name: "metrics:portfolio-stat",
+    schema: z.object({ region: z.string().optional() }),
+    handler: async ({ payload: { region } }, ctx) => ({
       value:
         region === "us"
           ? demoMoney(38120, "USD", ctx.locale)
@@ -212,86 +212,76 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       deltaDirection: "up",
       deltaTone: "positive",
     }),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo dashboard widget: returns static canned data with no per-user or " +
-            "tenant scoping; any signed-in user may query it",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo dashboard widget: returns static canned data with no per-user or " +
+          "tenant scoping; any signed-in user may query it",
       },
     },
-  );
-  r.queryHandler(
-    "metrics:net-worth-assets",
-    z.object({ region: z.string().optional() }),
-    async (_query, ctx) => ({ value: demoMoney(120000, "EUR", ctx.locale) }),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo dashboard widget: returns static canned data with no per-user or " +
-            "tenant scoping; any signed-in user may query it",
-        },
+  });
+  r.queryHandler({
+    name: "metrics:net-worth-assets",
+    schema: z.object({ region: z.string().optional() }),
+    handler: async (_query, ctx) => ({ value: demoMoney(120000, "EUR", ctx.locale) }),
+    access: {
+      openToAll: {
+        reason:
+          "demo dashboard widget: returns static canned data with no per-user or " +
+          "tenant scoping; any signed-in user may query it",
       },
     },
-  );
-  r.queryHandler(
-    "metrics:net-worth-debts",
-    z.object({ region: z.string().optional() }),
-    async (_query, ctx) => ({ value: demoMoney(65370, "EUR", ctx.locale) }),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo dashboard widget: returns static canned data with no per-user or " +
-            "tenant scoping; any signed-in user may query it",
-        },
+  });
+  r.queryHandler({
+    name: "metrics:net-worth-debts",
+    schema: z.object({ region: z.string().optional() }),
+    handler: async (_query, ctx) => ({ value: demoMoney(65370, "EUR", ctx.locale) }),
+    access: {
+      openToAll: {
+        reason:
+          "demo dashboard widget: returns static canned data with no per-user or " +
+          "tenant scoping; any signed-in user may query it",
       },
     },
-  );
-  r.queryHandler(
-    "metrics:response-times",
-    z.object({}),
-    async () => ({
+  });
+  r.queryHandler({
+    name: "metrics:response-times",
+    schema: z.object({}),
+    handler: async () => ({
       points: RESPONSE_POINTS,
       windowStartMs: 0,
       windowEndMs: 24 * 60 * 60 * 1000,
     }),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo dashboard widget: returns static canned data with no per-user or " +
-            "tenant scoping; any signed-in user may query it",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo dashboard widget: returns static canned data with no per-user or " +
+          "tenant scoping; any signed-in user may query it",
       },
     },
-  );
-  r.queryHandler(
-    "metrics:loan",
-    z.object({}),
-    async () => ({
+  });
+  r.queryHandler({
+    name: "metrics:loan",
+    schema: z.object({}),
+    handler: async () => ({
       series: LOAN_SERIES,
       markers: LOAN_MARKERS,
       windowStartMs: LOAN_START_MS,
       windowEndMs: loanMonthMs(LOAN_MONTHS),
       todayMs: LOAN_TODAY_MS,
     }),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo dashboard widget: returns static canned data with no per-user or " +
-            "tenant scoping; any signed-in user may query it",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo dashboard widget: returns static canned data with no per-user or " +
+          "tenant scoping; any signed-in user may query it",
       },
     },
-  );
-  r.queryHandler(
-    "metrics:latest-items",
-    z.object({}),
-    async (_query, ctx) => ({
+  });
+  r.queryHandler({
+    name: "metrics:latest-items",
+    schema: z.object({}),
+    handler: async (_query, ctx) => ({
       rows: [
         {
           id: "i1",
@@ -306,25 +296,23 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       ],
       nextCursor: null,
     }),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo dashboard widget: returns static canned data with no per-user or " +
-            "tenant scoping; any signed-in user may query it",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo dashboard widget: returns static canned data with no per-user or " +
+          "tenant scoping; any signed-in user may query it",
       },
     },
-  );
-  r.queryHandler(
-    "metrics:inbox-messages",
-    z.object({
+  });
+  r.queryHandler({
+    name: "metrics:inbox-messages",
+    schema: z.object({
       cursor: z.coerce.number().int().min(0).optional(),
       limit: z.number().int().min(1).max(100).optional(),
       unreadOnly: z.boolean().optional(),
       search: z.string().optional(),
     }),
-    async ({ payload: { cursor, limit, unreadOnly, search } }) => {
+    handler: async ({ payload: { cursor, limit, unreadOnly, search } }) => {
       const term = search?.trim().toLowerCase() ?? "";
       const filtered = INBOX_MESSAGES.filter(
         (m) =>
@@ -339,20 +327,18 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
       const nextCursor = start + pageSize < filtered.length ? String(start + pageSize) : null;
       return { rows, nextCursor };
     },
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo dashboard widget: returns static canned data with no per-user or " +
-            "tenant scoping; any signed-in user may query it",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo dashboard widget: returns static canned data with no per-user or " +
+          "tenant scoping; any signed-in user may query it",
       },
     },
-  );
-  r.queryHandler(
-    "metrics:upcoming-events",
-    z.object({}),
-    async (_query, ctx) => ({
+  });
+  r.queryHandler({
+    name: "metrics:upcoming-events",
+    schema: z.object({}),
+    handler: async (_query, ctx) => ({
       rows: [
         {
           primary: demoText("widgets:dashboard:demo-event-rate-adjustment", ctx.locale),
@@ -364,20 +350,18 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
         },
       ],
     }),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo dashboard widget: returns static canned data with no per-user or " +
-            "tenant scoping; any signed-in user may query it",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo dashboard widget: returns static canned data with no per-user or " +
+          "tenant scoping; any signed-in user may query it",
       },
     },
-  );
-  r.queryHandler(
-    "metrics:goal-progress",
-    z.object({}),
-    async (_query, ctx) => ({
+  });
+  r.queryHandler({
+    name: "metrics:goal-progress",
+    schema: z.object({}),
+    handler: async (_query, ctx) => ({
       rows: [
         {
           label: demoText("widgets:dashboard:demo-goal-mortgage", ctx.locale),
@@ -391,16 +375,14 @@ export const widgetsFeature = defineFeature("widgets", (r) => {
         },
       ],
     }),
-    {
-      access: {
-        openToAll: {
-          reason:
-            "demo dashboard widget: returns static canned data with no per-user or " +
-            "tenant scoping; any signed-in user may query it",
-        },
+    access: {
+      openToAll: {
+        reason:
+          "demo dashboard widget: returns static canned data with no per-user or " +
+          "tenant scoping; any signed-in user may query it",
       },
     },
-  );
+  });
 
   r.translations({ keys: WIDGETS_I18N });
 

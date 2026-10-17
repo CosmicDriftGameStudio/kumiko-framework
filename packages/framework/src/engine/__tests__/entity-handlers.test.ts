@@ -12,7 +12,7 @@ import {
   defineEntityWriteHandler,
   defineProjectionQueryHandler,
   type EntityCrudRegistrar,
-  registerEntityCrud,
+  registerCrudHandlers,
 } from "../entity-handlers.js";
 import { createEntity, createLongTextField, createTextField } from "../factories.js";
 // Barrel import, not "../entity-handlers": covers that entityListSchema is
@@ -456,8 +456,8 @@ function createCrudRegistrarMock(): {
   const writes: WriteHandlerDef[] = [];
   const queries: QueryHandlerDef[] = [];
   const r: EntityCrudRegistrar = {
-    entity(name, definition) {
-      entities[name] = definition;
+    entity(definition) {
+      entities[definition.name] = definition;
     },
     writeHandler(def) {
       writes.push(def);
@@ -469,16 +469,16 @@ function createCrudRegistrarMock(): {
   return { r, entities, writes, queries };
 }
 
-describe("registerEntityCrud", () => {
+describe("registerCrudHandlers", () => {
   test("registers entity + standard handlers (restore only when softDelete)", () => {
     const { r, entities, writes, queries } = createCrudRegistrarMock();
-    registerEntityCrud(r, "note", noteEntitySoftDelete, {
+    registerCrudHandlers(r, "note", noteEntitySoftDelete, {
       write: { access: { roles: ["Admin"] } },
       read: {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       },
     });
-    expect(entities["note"]).toBe(noteEntitySoftDelete);
+    expect(entities["note"]).toEqual({ name: "note", ...noteEntitySoftDelete });
     expect(writes.map((w) => w.name)).toEqual([
       "note:create",
       "note:update",
@@ -494,7 +494,7 @@ describe("registerEntityCrud", () => {
 
   test("verbs.delete: false skips delete handler", () => {
     const { r, writes } = createCrudRegistrarMock();
-    registerEntityCrud(r, "note", noteEntity, {
+    registerCrudHandlers(r, "note", noteEntity, {
       write: adminAccess,
       read: adminAccess,
       verbs: { delete: false },
@@ -504,20 +504,20 @@ describe("registerEntityCrud", () => {
 
   test("no options → registration throws (no implicit openToAll)", () => {
     const { r } = createCrudRegistrarMock();
-    expect(() => registerEntityCrud(r, "note", noteEntity)).toThrow(/no access rule resolved/);
+    expect(() => registerCrudHandlers(r, "note", noteEntity)).toThrow(/no access rule resolved/);
   });
 
   test("restore verb on entity without softDelete throws", () => {
     const { r } = createCrudRegistrarMock();
-    expect(() => registerEntityCrud(r, "note", noteEntity, { verbs: { restore: true } })).toThrow(
+    expect(() => registerCrudHandlers(r, "note", noteEntity, { verbs: { restore: true } })).toThrow(
       /softDelete/,
     );
   });
 
   test("registerEntity: false skips r.entity when already registered", () => {
     const { r, entities, writes } = createCrudRegistrarMock();
-    r.entity("note", noteEntity);
-    registerEntityCrud(r, "note", noteEntity, {
+    r.entity({ name: "note", ...noteEntity });
+    registerCrudHandlers(r, "note", noteEntity, {
       write: adminAccess,
       registerEntity: false,
       verbs: { update: false, delete: false, restore: false, list: false, detail: false },
@@ -527,7 +527,7 @@ describe("registerEntityCrud", () => {
   });
   test("descriptions: per-verb text lands on that verb only, and drives agent exposure", () => {
     const { r, writes, queries } = createCrudRegistrarMock();
-    registerEntityCrud(r, "note", noteEntity, {
+    registerCrudHandlers(r, "note", noteEntity, {
       write: adminAccess,
       read: adminAccess,
       descriptions: {
@@ -557,7 +557,7 @@ describe("registerEntityCrud", () => {
 
   test("descriptions: per-verb entry wins over the write/read fallback", () => {
     const { r, writes } = createCrudRegistrarMock();
-    registerEntityCrud(r, "note", noteEntity, {
+    registerCrudHandlers(r, "note", noteEntity, {
       write: { access: { roles: ["Admin"] }, description: "Shared write text." },
       descriptions: { create: "Files a new note." },
       verbs: { list: false, detail: false },
@@ -569,7 +569,7 @@ describe("registerEntityCrud", () => {
 
   test("agents: per-verb hints raise risk on that verb only", () => {
     const { r, writes } = createCrudRegistrarMock();
-    registerEntityCrud(r, "note", noteEntity, {
+    registerCrudHandlers(r, "note", noteEntity, {
       write: { access: { roles: ["Admin"] }, description: "Writes notes." },
       agents: { delete: { risk: "high" } },
       verbs: { list: false, detail: false },
@@ -587,7 +587,7 @@ describe("registerEntityCrud", () => {
 
   test("agents: a per-verb hint merges into write.agent instead of replacing it", () => {
     const { r, writes } = createCrudRegistrarMock();
-    registerEntityCrud(r, "note", noteEntity, {
+    registerCrudHandlers(r, "note", noteEntity, {
       write: { access: { roles: ["Admin"] }, agent: { expose: true } },
       agents: { delete: { risk: "high" } },
       verbs: { list: false, detail: false },
@@ -600,7 +600,7 @@ describe("registerEntityCrud", () => {
 
   test("agents: a per-verb hint merges into read.agent instead of replacing it", () => {
     const { r, queries } = createCrudRegistrarMock();
-    registerEntityCrud(r, "note", noteEntity, {
+    registerCrudHandlers(r, "note", noteEntity, {
       read: { access: { roles: ["Admin"] }, agent: { expose: true } },
       agents: { list: { risk: "low" } },
       verbs: { create: false, update: false, delete: false, restore: false },

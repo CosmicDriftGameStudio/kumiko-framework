@@ -453,7 +453,7 @@ const bulkLogHandler = defineWriteHandler({
 
 const demoPipelineFeature = defineFeature("demoPipeline", (r) => {
   r.requires.projection("pipeline_demo_log");
-  r.entity("widget", widgetEntity);
+  r.entity({ name: "widget", ...widgetEntity });
   r.defineEvent("annotated", z.object({ note: z.string() }), { piiFields: "none" });
   r.writeHandler(echoHandler);
   r.writeHandler(explodeHandler);

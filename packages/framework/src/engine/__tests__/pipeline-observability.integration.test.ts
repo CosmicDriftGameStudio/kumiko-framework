@@ -61,7 +61,7 @@ const obsEntity = createEntity({
 });
 
 const obsFeature = defineFeature("obstest", (r) => {
-  r.entity("obs-thing", obsEntity);
+  r.entity({ name: "obs-thing", ...obsEntity });
   // Pre-register the counter the step body emits — feature-scoped
   // metric names get a `kumiko_<feature>_` prefix at boot.
   r.metric("test_step_counter_total", {

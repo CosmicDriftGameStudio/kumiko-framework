@@ -110,7 +110,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
       category: "content",
       recommended: false,
     });
-    r.requires("template-resolver");
+    r.requires({ features: ["template-resolver"] });
 
     // Public HTML routes (default: 4 DACH routes, configurable via opts.routes)
     for (const route of routes) {

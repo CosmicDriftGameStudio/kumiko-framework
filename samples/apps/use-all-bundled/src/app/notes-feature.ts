@@ -120,9 +120,9 @@ export const notesFeature: FeatureDefinition = defineFeature("notes-demo", (r) =
   r.describe(
     "Dev-only host entity demonstrating tags, custom-fields, and folders on a real entityEdit screen.",
   );
-  r.requires("tags");
-  r.requires("custom-fields");
-  r.requires("folders");
+  r.requires({ features: ["tags"] });
+  r.requires({ features: ["custom-fields"] });
+  r.requires({ features: ["folders"] });
 
   wireCustomFieldsFor(r, "note", noteTable);
 

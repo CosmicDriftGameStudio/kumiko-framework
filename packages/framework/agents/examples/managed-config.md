@@ -326,7 +326,7 @@ describe("managed config — tenant cascade override", () => {
 
 describe("feature contract — backing:secrets declares the secrets dependency", () => {
   test("registry build rejects integrationsFeature without the secrets feature", () => {
-    // r.requires("secrets") is what makes this throw: without the dependency a
+    // r.requires({ features: ["secrets"] }) is what makes this throw: without the dependency a
     // consumer would only discover the missing tenant_secrets table at runtime.
     // config is registered so the failure isolates the secrets requirement.
     expect(() => createRegistry([createConfigFeature(), integrationsFeature])).toThrow(/secrets/);
@@ -375,12 +375,12 @@ export const smtpHostHandle: ConfigKeyHandle<"text"> = {
 };
 
 export const integrationsFeature = defineFeature(FEATURE, (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   // backing:"secrets" stores payment-api-key in the secrets envelope, which
   // the secrets feature provisions — declare the dependency so registry-build
   // enforces it instead of leaving a consumer to discover the missing
   // tenant_secrets table at runtime.
-  r.requires("secrets");
+  r.requires({ features: ["secrets"] });
 
   r.config({
     keys: {
@@ -407,15 +407,15 @@ export const integrationsFeature = defineFeature(FEATURE, (r) => {
 
   // Internal-read probe: the owning feature reads its own secrets-backed key
   // via ctx.config and receives the revealed plaintext, never the mask.
-  r.queryHandler(
-    "peek-payment-key",
-    z.object({}),
-    async (_query, ctx) => {
+  r.queryHandler({
+    name: "peek-payment-key",
+    schema: z.object({}),
+    handler: async (_query, ctx) => {
       if (!ctx.config) throw new Error("ctx.config not wired");
       return { value: await ctx.config(paymentApiKeyHandle) };
     },
-    { access: { roles: ["SystemAdmin"] } },
-  );
+    access: { roles: ["SystemAdmin"] },
+  });
 
   r.translations({
     keys: {

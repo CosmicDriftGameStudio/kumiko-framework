@@ -1,7 +1,7 @@
 // cap-counter — Counter-Storage + Increment-API + Soft-Warn-State.
 //
 // **Was diese Feature liefert:**
-//   1. r.entity("cap-counter") — Counter-Rows pro (tenant, capName,
+//   1. r.entity({ name: "cap-counter" }) — Counter-Rows pro (tenant, capName,
 //      period) für Calendar-Period-Caps (Mails/Monat, Egress/Monat).
 //   2. increment-Handler — atomic counter increment via deterministic
 //      aggregate-id (try-create / executor-update). Race-frei via
@@ -77,7 +77,7 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
     category: "operations",
     recommended: false,
   });
-  r.entity("cap-counter", capCounterEntity);
+  r.entity({ name: "cap-counter", ...capCounterEntity });
   r.storeTable(capReservationsTableMeta, {
     reason: "coordination.cap_reservation_ledger",
   });

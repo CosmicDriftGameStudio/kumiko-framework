@@ -141,7 +141,7 @@ const RATE_KEY_EMAIL = `test:delivery:rate:${admin.tenantId}:email`;
 
 // App feature that uses ctx.notify() in a handler
 const appFeature = defineFeature("app", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
 
   // Declared with a stored template so the async render job does a real mail render.
   r.notification("async-e2e", {
@@ -270,21 +270,21 @@ function ticketExecutor() {
 }
 
 const ticketFeature = defineFeature("tickets", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
 
-  r.entity("ticket", ticketEntity);
+  r.entity({ name: "ticket", ...ticketEntity });
 
   // Real CRUD handler with CrudExecutor (not stub)
-  const createHandler = r.writeHandler(
-    "ticket:create",
-    z.object({
+  const createHandler = r.writeHandler({
+    name: "ticket:create",
+    schema: z.object({
       title: z.string(),
       assigneeId: z.uuid().optional(),
       status: z.string(),
     }),
-    async (event, ctx) => ticketExecutor().create(event.payload, event.user, ctx.db),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    handler: async (event, ctx) => ticketExecutor().create(event.payload, event.user, ctx.db),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
   // Declarative: notify assignee when ticket is created with assigneeId
   // Uses handler ref + per-channel templates

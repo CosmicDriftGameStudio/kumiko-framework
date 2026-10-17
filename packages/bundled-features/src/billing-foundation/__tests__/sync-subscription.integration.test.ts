@@ -47,7 +47,7 @@ const retrieveSnapshotsById = new Map<string, ProviderSubscriptionSnapshot>();
 const retrieveCalls: string[] = [];
 
 const mockSyncProviderFeature = defineFeature("test-mock-sync-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     retrieveSubscription: async (_ctx, providerSubscriptionId) => {
@@ -60,7 +60,7 @@ const mockSyncProviderFeature = defineFeature("test-mock-sync-provider", (r) => 
 
 // No `retrieveSubscription` — exercises the "provider_cannot_retrieve" branch.
 const mockNoRetrieveProviderFeature = defineFeature("test-mock-no-retrieve-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = { verifyAndParseWebhook: async () => null };
   r.useExtension("subscriptionProvider", "mock-no-retrieve-provider", plugin);
 });

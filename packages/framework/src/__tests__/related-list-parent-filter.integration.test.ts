@@ -36,7 +36,7 @@ const itemEntity = createEntity({
 });
 
 const ordersFeature = defineFeature("akteorders", (r) => {
-  r.entity("item", itemEntity);
+  r.entity({ name: "item", ...itemEntity });
   r.writeHandler(defineEntityCreateHandler("item", itemEntity, { access: { roles: ["Admin"] } }));
   r.queryHandler(defineEntityListHandler("item", itemEntity, { access: { roles: ["Admin"] } }));
 });

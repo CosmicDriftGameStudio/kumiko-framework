@@ -48,15 +48,15 @@ describe("validateProjectionAllowlist", () => {
   it("rejects unsafeProjectionUpsert on an aggregate-table (registered via r.entity)", () => {
     // Feature A registers `widget` as an aggregate (with table "widgets").
     const ownerFeature = defineFeature("vproj-owner", (r) => {
-      r.entity(
-        "widget",
-        createEntity({
+      r.entity({
+        name: "widget",
+        ...createEntity({
           table: "widgets",
           fields: {
             label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
     });
 
     // Feature B tries to upsert directly into the widgets table — bypassing
@@ -95,15 +95,15 @@ describe("validateProjectionAllowlist", () => {
     // too — without this test, a future kind-set narrowing could break
     // delete's protection silently.
     const ownerFeature = defineFeature("vproj-delete-owner", (r) => {
-      r.entity(
-        "widget",
-        createEntity({
+      r.entity({
+        name: "widget",
+        ...createEntity({
           table: "widgets-delete",
           fields: {
             label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
     });
 
     const trespasserFeature = defineFeature("vproj-delete-trespasser", (r) => {
@@ -353,26 +353,26 @@ describe("validateProjectionAllowlist", () => {
     // unsafeProjection error against that table would name the WRONG
     // feature as owner. Surfacing the collision here names both parties.
     const featureA = defineFeature("dup-aggregate-a", (r) => {
-      r.entity(
-        "thing",
-        createEntity({
+      r.entity({
+        name: "thing",
+        ...createEntity({
           table: "shared_table",
           fields: {
             label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
     });
     const featureB = defineFeature("dup-aggregate-b", (r) => {
-      r.entity(
-        "thing",
-        createEntity({
+      r.entity({
+        name: "thing",
+        ...createEntity({
           table: "shared_table",
           fields: {
             label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
     });
 
     expect(() => validateProjectionAllowlist([featureA, featureB])).toThrow(

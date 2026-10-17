@@ -59,7 +59,7 @@ const vaultNoteEntity = createEntity({
 });
 
 const vaultFeature = defineFeature("vault", (r) => {
-  r.entity("note", vaultNoteEntity);
+  r.entity({ name: "note", ...vaultNoteEntity });
   r.writeHandler(
     defineEntityCreateHandler("note", vaultNoteEntity, { access: { roles: ["User"] } }),
   );

@@ -45,12 +45,15 @@ const PATTERNS: readonly PatternDoc[] = [
       body: `Registriert eine Entity. Aus einer einzigen Definition leitet das Framework Drizzle-Tabelle, Zod-Schema und ViewModel für Form/Liste ab.
 
 \`\`\`typescript
-r.entity("note", createEntity({
-  fields: {
-    title: createTextField({ required: true, sortable: true }),
-    pinned: createBooleanField({ default: false }),
-  },
-}));
+r.entity({
+  name: "note",
+  ...createEntity({
+    fields: {
+      title: createTextField({ required: true, sortable: true }),
+      pinned: createBooleanField({ default: false }),
+    },
+  }),
+});
 \`\`\`
 
 **Siehe auch:** [Walkthrough](/de/walkthrough/) · [Schema-System](/de/framework/#schema-system) · Recipe [\`basic-entity\`](/de/samples/recipes/basic-entity/)`,
@@ -60,12 +63,15 @@ r.entity("note", createEntity({
       body: `Registers an entity. From a single definition the framework derives the Drizzle table, the Zod schema and the form/list view-model.
 
 \`\`\`typescript
-r.entity("note", createEntity({
-  fields: {
-    title: createTextField({ required: true, sortable: true }),
-    pinned: createBooleanField({ default: false }),
-  },
-}));
+r.entity({
+  name: "note",
+  ...createEntity({
+    fields: {
+      title: createTextField({ required: true, sortable: true }),
+      pinned: createBooleanField({ default: false }),
+    },
+  }),
+});
 \`\`\`
 
 **See also:** [Walkthrough](/en/walkthrough/) · [Schema system](/en/framework/#schema-system) · Recipe [\`basic-entity\`](/en/samples/recipes/basic-entity/)`,
@@ -249,7 +255,7 @@ r.translations({
       body: `Erklärt eine Pflicht-Abhängigkeit. Boot-Validation lehnt das App-Setup ab, wenn ein \`requires\`-Eintrag fehlt — kein Silent-Skip, kein Runtime-Crash.
 
 \`\`\`typescript
-r.requires(["user", "tenant"]);
+r.requires({ features: ["user", "tenant"] });
 \`\`\`
 
 **Siehe auch:** [\`optionalRequires\`](/de/patterns/optionalrequires/) für weiche Abhängigkeit`,
@@ -259,7 +265,7 @@ r.requires(["user", "tenant"]);
       body: `Declares a mandatory dependency. Boot validation refuses the app setup when a \`requires\` entry is missing — no silent skip, no runtime crash.
 
 \`\`\`typescript
-r.requires(["user", "tenant"]);
+r.requires({ features: ["user", "tenant"] });
 \`\`\`
 
 **See also:** [\`optionalRequires\`](/en/patterns/optionalrequires/) for soft dependencies`,
@@ -275,8 +281,12 @@ r.requires(["user", "tenant"]);
 
 \`\`\`typescript
 r.optionalRequires(["audit"]);
-r.hook("postSave", "post.create", async (ctx) => {
-  if (ctx.has("audit")) { /* ... */ }
+r.hook({
+  type: "postSave",
+  target: "post.create",
+  handler: async (ctx) => {
+    if (ctx.has("audit")) { /* ... */ }
+  },
 });
 \`\`\`
 
@@ -288,8 +298,12 @@ r.hook("postSave", "post.create", async (ctx) => {
 
 \`\`\`typescript
 r.optionalRequires(["audit"]);
-r.hook("postSave", "post.create", async (ctx) => {
-  if (ctx.has("audit")) { /* ... */ }
+r.hook({
+  type: "postSave",
+  target: "post.create",
+  handler: async (ctx) => {
+    if (ctx.has("audit")) { /* ... */ }
+  },
 });
 \`\`\`
 
@@ -372,7 +386,7 @@ const incidentsOpened = r.metric("incidents_opened", {
   description: "Anzahl neu eröffneter Incidents",
 });
 
-r.hook("postSave", "incident.create", () => incidentsOpened.inc());
+r.hook({ type: "postSave", target: "incident.create", handler: () => incidentsOpened.inc() });
 \`\`\``,
     },
     en: {
@@ -385,7 +399,7 @@ const incidentsOpened = r.metric("incidents_opened", {
   description: "Number of newly opened incidents",
 });
 
-r.hook("postSave", "incident.create", () => incidentsOpened.inc());
+r.hook({ type: "postSave", target: "incident.create", handler: () => incidentsOpened.inc() });
 \`\`\``,
     },
   },
@@ -583,7 +597,7 @@ r.screen({
 
 \`\`\`typescript
 r.writeHandler({
-  qn: "note:archive",
+  name: "note:archive",
   schema: z.object({ id: z.string() }),
   access: { roles: ["User", "Admin"] },
   handler: async (ctx, { id }) => {
@@ -600,7 +614,7 @@ r.writeHandler({
 
 \`\`\`typescript
 r.writeHandler({
-  qn: "note:archive",
+  name: "note:archive",
   schema: z.object({ id: z.string() }),
   access: { roles: ["User", "Admin"] },
   handler: async (ctx, { id }) => {
@@ -622,7 +636,7 @@ r.writeHandler({
 
 \`\`\`typescript
 r.queryHandler({
-  qn: "note:list",
+  name: "note:list",
   schema: z.object({ tag: z.string().optional() }),
   access: { roles: ["User"] },
   handler: async (ctx, { tag }) => ctx.db.list("note", { where: { tag } }),
@@ -637,7 +651,7 @@ r.queryHandler({
 
 \`\`\`typescript
 r.queryHandler({
-  qn: "note:list",
+  name: "note:list",
   schema: z.object({ tag: z.string().optional() }),
   access: { roles: ["User"] },
   handler: async (ctx, { tag }) => ctx.db.list("note", { where: { tag } }),
@@ -695,11 +709,15 @@ r.streamHandler({
       body: `Hängt Custom-Logik in die Pipeline. Drei Phasen: \`validation\` (vor DB), \`preSave\` (Daten anpassen), \`postSave\` (Side-Effects, läuft in derselben TX).
 
 \`\`\`typescript
-r.hook("preSave", "post.create", async (ctx, { data, changes }) => {
-  if (!changes.slug && changes.title) {
-    return { ...data, slug: slugify(changes.title) };
-  }
-  return data;
+r.hook({
+  type: "preSave",
+  target: "post.create",
+  handler: async (ctx, { data, changes }) => {
+    if (!changes.slug && changes.title) {
+      return { ...data, slug: slugify(changes.title) };
+    }
+    return data;
+  },
 });
 \`\`\`
 
@@ -710,11 +728,15 @@ r.hook("preSave", "post.create", async (ctx, { data, changes }) => {
       body: `Hooks custom logic into the pipeline. Three phases: \`validation\` (pre-DB), \`preSave\` (mutate data), \`postSave\` (side effects, runs in the same TX).
 
 \`\`\`typescript
-r.hook("preSave", "post.create", async (ctx, { data, changes }) => {
-  if (!changes.slug && changes.title) {
-    return { ...data, slug: slugify(changes.title) };
-  }
-  return data;
+r.hook({
+  type: "preSave",
+  target: "post.create",
+  handler: async (ctx, { data, changes }) => {
+    if (!changes.slug && changes.title) {
+      return { ...data, slug: slugify(changes.title) };
+    }
+    return data;
+  },
 });
 \`\`\`
 

@@ -281,8 +281,8 @@ export const inboundProviderImapFeature = defineFeature(FEATURE_NAME, (r) => {
     category: "notifications",
     recommended: false,
   });
-  r.requires("inbound-mail-foundation");
-  r.requires("secrets");
+  r.requires({ features: ["inbound-mail-foundation"] });
+  r.requires({ features: ["secrets"] });
   r.envSchema(mailAllowedPrivateHostsEnvSchema);
   r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, IMAP_PROVIDER_KEY, imapInboundMailPlugin);
 });

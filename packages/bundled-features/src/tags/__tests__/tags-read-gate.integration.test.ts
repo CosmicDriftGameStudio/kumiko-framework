@@ -57,7 +57,7 @@ const projectEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("tags-rg-test-fixtures", (r) => {
-  r.entity("project", projectEntity);
+  r.entity({ name: "project", ...projectEntity });
 });
 
 type TestUser = ReturnType<typeof createTestUser>;
@@ -283,7 +283,7 @@ describe("tags read-gate — ownership narrows further, it does not replace the 
     },
   });
   const ownedFixtures = defineFeature("tags-rg-owned-fixtures", (r) => {
-    r.entity("project", ownedEntity);
+    r.entity({ name: "project", ...ownedEntity });
   });
   const HOST = "c0000000-0000-4000-8000-00000000002a";
   // Same team (so the host gate passes for both), but only `tagger` carries

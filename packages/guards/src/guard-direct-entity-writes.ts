@@ -10,13 +10,13 @@
  *   1. **Collect ES tables.** Two sources:
  *      a) All `createEventStoreExecutor(<tableExpr>, <entity>, ...)` calls;
  *         `<tableExpr>` is the projection table (identifier).
- *      b) All `r.entity(<name>, <entityDef>)` registrations: every `r.entity`
- *         is a rebuildable implicit projection. The corresponding Drizzle
- *         table is linked via the SHARED entity-def identifier, NOT via a
- *         name string — `r.entity("user-session", ent)` and
+ *      b) All `r.entity({ name, ...<entityDef> })` registrations: every
+ *         `r.entity` is a rebuildable implicit projection. The corresponding
+ *         Drizzle table is linked via the SHARED entity-def identifier, NOT via
+ *         a name string — `r.entity({ name: "user-session", ...ent })` and
  *         `buildEntityTable("user_session", ent)` disagree on the name
  *         (dash vs. underscore) but share the `ent` symbol. Plus an explicit
- *         `{ table }` override. Tables that are NOT statically resolvable
+ *         `backingTable` override. Tables that are NOT statically resolvable
  *         are skipped (a miss is preferable to a false block).
  *
  *   2. **Find direct writes.** Two forms:
@@ -44,7 +44,14 @@
  */
 
 import * as path from "node:path";
-import { type CallExpression, type Identifier, Node, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  type CallExpression,
+  type Identifier,
+  Node,
+  type ObjectLiteralExpression,
+  type SourceFile,
+  SyntaxKind,
+} from "ts-morph";
 import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
 const ROOT = process.cwd();
@@ -188,14 +195,25 @@ function unwrappedIdentifierDeclId(node: Node | undefined): TableId | undefined 
   return identifier ? declIdOf(identifier) : undefined;
 }
 
-// The `{ table }` override of `r.entity(name, def, { table })`.
-function entityTableOverrideId(opts: Node | undefined): TableId | undefined {
-  if (opts?.getKind() !== SyntaxKind.ObjectLiteralExpression) return undefined;
-  const tableProp = opts.asKindOrThrow(SyntaxKind.ObjectLiteralExpression).getProperty("table");
+// The `backingTable` override of `r.entity({ name, ...def, backingTable })`.
+function entityTableOverrideId(definition: ObjectLiteralExpression): TableId | undefined {
+  const tableProp = definition.getProperty("backingTable");
   if (tableProp?.getKind() !== SyntaxKind.PropertyAssignment) return undefined;
   return unwrappedIdentifierDeclId(
     tableProp.asKindOrThrow(SyntaxKind.PropertyAssignment).getInitializer(),
   );
+}
+
+// The entity definition spread into `r.entity({ name, ...def })`.
+function spreadEntityDefinitionId(definition: ObjectLiteralExpression): TableId | undefined {
+  for (const property of definition.getProperties()) {
+    if (property.getKind() !== SyntaxKind.SpreadAssignment) continue;
+    const spreadId = unwrappedIdentifierDeclId(
+      property.asKindOrThrow(SyntaxKind.SpreadAssignment).getExpression(),
+    );
+    if (spreadId) return spreadId;
+  }
+  return undefined;
 }
 
 type EntityRegistration = {
@@ -209,11 +227,14 @@ function entityRegistrationOf(call: CallExpression): EntityRegistration | undefi
   if (expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName() !== "entity") {
     return undefined;
   }
-  const args = call.getArguments();
-  if (!args[0] || args[0].getKind() !== SyntaxKind.StringLiteral) return undefined;
+  const definition = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
+  const nameProp = definition?.getProperty("name");
+  if (!definition || nameProp?.getKind() !== SyntaxKind.PropertyAssignment) return undefined;
+  const nameValue = nameProp.asKindOrThrow(SyntaxKind.PropertyAssignment).getInitializer();
+  if (nameValue?.getKind() !== SyntaxKind.StringLiteral) return undefined;
   return {
-    entityDid: unwrappedIdentifierDeclId(args[1]),
-    overrideTableDid: entityTableOverrideId(args[2]),
+    entityDid: spreadEntityDefinitionId(definition),
+    overrideTableDid: entityTableOverrideId(definition),
   };
 }
 
@@ -230,7 +251,7 @@ function rebuildableEntityTableDeclId(
   return declIdOf(nameNode.asKindOrThrow(SyntaxKind.Identifier));
 }
 
-// Tables registered via `r.entity(name, entityDef)` as a rebuildable implicit
+// Tables registered via `r.entity({ name, ...entityDef })` as a rebuildable implicit
 // projection, linked entity→table via the shared entity-def symbol (see header), not by name string.
 export function collectEntityProjectionTables(files: readonly SourceFile[]): Set<TableId> {
   const rebuildableEntities = new Set<TableId>();

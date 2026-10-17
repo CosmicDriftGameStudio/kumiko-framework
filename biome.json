@@ -20,7 +20,8 @@
       "!**/renderer-web/src/ui",
       "!**/__tests__/fixtures/migrate-db-raw",
       "!**/__tests__/fixtures/migrate-open-to-all",
-      "!**/__tests__/fixtures/migrate-cross-tenant"
+      "!**/__tests__/fixtures/migrate-cross-tenant",
+      "!**/__tests__/fixtures/object-form"
     ]
   },
   "assist": {

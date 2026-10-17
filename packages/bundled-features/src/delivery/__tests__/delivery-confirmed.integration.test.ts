@@ -38,7 +38,7 @@ import { type ProviderStub, startProviderStub } from "./chat-channel-harness.js"
 const admin = createTestUser({ roles: ["TenantAdmin"] });
 
 const probeFeature = defineFeature("confirmed-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.writeHandler(
     defineWriteHandler({
       name: "ping",

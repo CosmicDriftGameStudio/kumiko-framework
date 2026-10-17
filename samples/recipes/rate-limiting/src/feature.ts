@@ -13,14 +13,12 @@ export function createRateLimitShowcaseFeature(): FeatureDefinition {
     // Per-user budget. Real apps tune `limit` to actual handler cost — a
     // search call against a sharded index might warrant 5/min, a full
     // export 1/min. The bucket is `user:<userId>` (see rate-limit/bucket.ts).
-    r.queryHandler(
-      "expensive-search",
-      z.object({ q: z.string().min(1) }),
-      async ({ payload }) => ({ q: payload.q, hits: 0 }),
-      {
-        access: { roles: ["Admin", "User"] },
-        rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
-      },
-    );
+    r.queryHandler({
+      name: "expensive-search",
+      schema: z.object({ q: z.string().min(1) }),
+      handler: async ({ payload }) => ({ q: payload.q, hits: 0 }),
+      access: { roles: ["Admin", "User"] },
+      rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
+    });
   });
 }

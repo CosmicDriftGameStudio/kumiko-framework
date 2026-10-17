@@ -300,7 +300,7 @@ function buildLegacyFeature(featureName: string): string {
   // an inline object-literal form), so it produces a ParseError and the
   // corpus marks the entry as authoringStyle: "legacy".
   //
-  // Note: a captured-const *entity definition* (`r.entity("x", xEntity)`)
+  // Note: a captured-const *entity definition* (`r.entity({ name: "x", ...xEntity })`)
   // used to be the legacy example here, but #998 taught the parser to
   // resolve such references via a raw-ref sentinel — that idiom parses
   // cleanly now and no longer exercises the legacy path.

@@ -23,7 +23,7 @@
 //   // feature.ts  (server-only — imports defineFeature)
 //   import { taskEntity, editScreen, ... } from "./feature-schema.js";
 //   export const taskFeature = defineFeature("tasks", (r) => {
-//     r.entity("task", taskEntity);
+//     r.entity({ name: "task", ...taskEntity });
 //     r.writeHandler(...);
 //     r.screen(editScreen);
 //     ...

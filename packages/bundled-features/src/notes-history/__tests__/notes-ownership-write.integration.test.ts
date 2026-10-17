@@ -35,7 +35,7 @@ const contactEntity = createEntity({
 });
 
 const contactFixtureFeature = defineFeature("notes-ow-test-contact-fixture", (r) => {
-  r.entity("contact", contactEntity);
+  r.entity({ name: "contact", ...contactEntity });
 });
 
 const owner = createTestUser({ id: 90, roles: ["TenantMember"] });

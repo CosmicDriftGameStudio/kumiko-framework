@@ -20,7 +20,7 @@ export const NOTE_CREATE = "testing-notes:write:note:create";
 export const NOTE_LIST = "testing-notes:query:list";
 
 export const noteFeature = defineFeature("testing-notes", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, {
       // SystemAdmin: the seed routes' extraSeeders write as the tenant's system user.

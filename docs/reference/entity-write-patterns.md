@@ -63,7 +63,7 @@ columns still go through `defineUnmanagedTable`.
 ### Event-sourced (`user` feature)
 
 ```ts
-r.entity("user", userEntity);
+r.entity({ name: "user", ...userEntity });
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 // handlers call crud.create / crud.update — events appended, rebuild-safe
 ```

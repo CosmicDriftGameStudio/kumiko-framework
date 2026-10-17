@@ -292,7 +292,7 @@ export async function seedTenant(
 
   // "tenant:seed" matches no handler-scoped hook, only entity-scoped ones
   // (keyed by result.entityName === "tenant") — that's exactly what
-  // tier-engine's `r.hook("postSave", { allOf: "tenant" }, ...)` needs.
+  // tier-engine's `r.hook({ type: "postSave", target: { allOf: "tenant" }, ... })` needs.
   await fireEntityPostSave(hooks, "tenant:seed", result.data, { tenantId: options.id, db });
 
   return { id: options.id };

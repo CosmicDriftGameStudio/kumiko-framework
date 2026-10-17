@@ -22,7 +22,7 @@ const bareCreate = {
 describe("defineFeature — bare CRUD verb → entity mapping", () => {
   test("single-entity fallback maps when the feature name differs from the entity name", () => {
     const f = defineFeature("mynotes", (r) => {
-      r.entity("note", noteEntity);
+      r.entity({ name: "note", ...noteEntity });
       r.writeHandler(bareCreate);
     });
     expect(f.handlerEntityMappings?.["create"]).toBe("note");
@@ -35,8 +35,8 @@ describe("defineFeature — bare CRUD verb → entity mapping", () => {
     // fallback (entityKeys.length !== 1), so success here can only come
     // from entities[name] matching — the branch this test claims to cover.
     const f = defineFeature("note", (r) => {
-      r.entity("note", noteEntity);
-      r.entity("tag", tagEntity);
+      r.entity({ name: "note", ...noteEntity });
+      r.entity({ name: "tag", ...tagEntity });
       r.writeHandler(bareCreate);
     });
     expect(f.handlerEntityMappings?.["create"]).toBe("note");
@@ -44,8 +44,8 @@ describe("defineFeature — bare CRUD verb → entity mapping", () => {
 
   test("no fallback when the feature owns more than one entity", () => {
     const f = defineFeature("mixed", (r) => {
-      r.entity("note", noteEntity);
-      r.entity("tag", tagEntity);
+      r.entity({ name: "note", ...noteEntity });
+      r.entity({ name: "tag", ...tagEntity });
       r.writeHandler(bareCreate);
     });
     expect(f.handlerEntityMappings?.["create"]).toBeUndefined();

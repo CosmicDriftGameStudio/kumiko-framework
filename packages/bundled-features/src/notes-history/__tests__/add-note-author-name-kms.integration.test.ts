@@ -53,7 +53,7 @@ const contactEntity = createEntity({
   },
 });
 const contactFixtureFeature = defineFeature("notes-kms-test-contact-fixture", (r) => {
-  r.entity("contact", contactEntity);
+  r.entity({ name: "contact", ...contactEntity });
 });
 const CONTACT_KMS_AUTHOR = "40000000-0000-4000-8000-000000000001";
 

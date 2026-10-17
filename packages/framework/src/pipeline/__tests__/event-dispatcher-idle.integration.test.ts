@@ -37,7 +37,7 @@ const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity,
 let observed: Array<{ name: string }> = [];
 
 const idleFeature = defineFeature("idletest", (r) => {
-  r.entity("widget", sharedWidgetEntity);
+  r.entity({ name: "widget", ...sharedWidgetEntity });
 
   r.multiStreamProjection({
     name: "observer",

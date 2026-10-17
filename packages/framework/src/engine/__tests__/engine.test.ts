@@ -59,15 +59,15 @@ describe("defineFeature", () => {
 
   test("collects entities", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           table: "Users",
           fields: {
             email: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
     });
 
     expect(feature.entities?.["user"]).toBeDefined();
@@ -79,16 +79,16 @@ describe("defineFeature", () => {
     const schema = z.object({ email: z.email() });
 
     const feature = defineFeature("test", (r) => {
-      r.writeHandler(
-        "user:invite",
+      r.writeHandler({
+        name: "user:invite",
         schema,
-        async (event) => {
+        handler: async (event) => {
           // event.payload.email is inferred as string
           const _email: string = event.payload.email;
           return { isSuccess: true, data: { id: 1 } };
         },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
 
     expect(feature.writeHandlers["user:invite"]).toBeDefined();
@@ -98,15 +98,15 @@ describe("defineFeature", () => {
   test("writeHandler returns typed HandlerRef", () => {
     let ref: { name: string } | undefined;
     defineFeature("test", (r) => {
-      ref = r.writeHandler(
-        "order:create",
-        z.object({}),
-        async () => ({
+      ref = r.writeHandler({
+        name: "order:create",
+        schema: z.object({}),
+        handler: async () => ({
           isSuccess: true,
           data: null,
         }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
     expect(ref?.name).toBe("order:create");
   });
@@ -114,7 +114,10 @@ describe("defineFeature", () => {
   test("queryHandler returns typed HandlerRef", () => {
     let ref: { name: string } | undefined;
     defineFeature("test", (r) => {
-      ref = r.queryHandler("order:list", z.object({}), async () => [], {
+      ref = r.queryHandler({
+        name: "order:list",
+        schema: z.object({}),
+        handler: async () => [],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -220,15 +223,15 @@ describe("defineFeature", () => {
     const schema = z.object({ userId: z.number() });
 
     const feature = defineFeature("test", (r) => {
-      r.queryHandler(
-        "user:detail",
+      r.queryHandler({
+        name: "user:detail",
         schema,
-        async (query) => {
+        handler: async (query) => {
           const _id: number = query.payload.userId;
           return { id: _id, email: "test@test.de" };
         },
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
 
     expect(feature.queryHandlers["user:detail"]).toBeDefined();
@@ -267,12 +270,12 @@ describe("defineFeature", () => {
 
   test("handlers can have access rules", () => {
     const feature = defineFeature("test", (r) => {
-      r.writeHandler(
-        "user:invite",
-        z.object({ email: z.string() }),
-        async () => ({ isSuccess: true, data: null }),
-        { access: { roles: ["Admin", "SystemAdmin"] } },
-      );
+      r.writeHandler({
+        name: "user:invite",
+        schema: z.object({ email: z.string() }),
+        handler: async () => ({ isSuccess: true, data: null }),
+        access: { roles: ["Admin", "SystemAdmin"] },
+      });
     });
 
     expect(rolesOf(feature.writeHandlers["user:invite"]?.access)).toEqual(["Admin", "SystemAdmin"]);
@@ -372,15 +375,15 @@ describe("field factories", () => {
 describe("createRegistry", () => {
   test("creates registry from features", () => {
     const feature = defineFeature("admin", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           table: "Users",
           fields: {
             email: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
     });
 
     const registry = createRegistry([feature]);
@@ -389,10 +392,10 @@ describe("createRegistry", () => {
 
   test("looks up entities across features", () => {
     const f1 = defineFeature("admin", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
     });
     const f2 = defineFeature("blog", (r) => {
-      r.entity("post", createEntity({ table: "Posts", fields: {} }));
+      r.entity({ name: "post", ...createEntity({ table: "Posts", fields: {} }) });
     });
 
     const registry = createRegistry([f1, f2]);
@@ -403,12 +406,18 @@ describe("createRegistry", () => {
 
   test("looks up handlers across features", () => {
     const f1 = defineFeature("admin", (r) => {
-      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.writeHandler({
+        name: "user:invite",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const f2 = defineFeature("profile", (r) => {
-      r.queryHandler("profile:me", z.object({}), async () => ({ id: 1 }), {
+      r.queryHandler({
+        name: "profile:me",
+        schema: z.object({}),
+        handler: async () => ({ id: 1 }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -420,10 +429,10 @@ describe("createRegistry", () => {
 
   test("throws on duplicate entity names (same feature name)", () => {
     const f1 = defineFeature("shared", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
     });
     const f2 = defineFeature("shared", (r) => {
-      r.entity("user", createEntity({ table: "Users2", fields: {} }));
+      r.entity({ name: "user", ...createEntity({ table: "Users2", fields: {} }) });
     });
 
     // Duplicate feature name throws first
@@ -432,10 +441,10 @@ describe("createRegistry", () => {
 
   test("duplicate entity name across features throws", () => {
     const f1 = defineFeature("a", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
     });
     const f2 = defineFeature("b", (r) => {
-      r.entity("user", createEntity({ table: "Users2", fields: {} }));
+      r.entity({ name: "user", ...createEntity({ table: "Users2", fields: {} }) });
     });
 
     expect(() => createRegistry([f1, f2])).toThrow(/duplicate entity.*user/i);
@@ -443,12 +452,18 @@ describe("createRegistry", () => {
 
   test("different features can have same handler short name (prefixed differently)", () => {
     const f1 = defineFeature("a", (r) => {
-      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.writeHandler({
+        name: "user:invite",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
     const f2 = defineFeature("b", (r) => {
-      r.writeHandler("user:invite", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.writeHandler({
+        name: "user:invite",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -515,9 +530,9 @@ describe("createRegistry", () => {
 
   test("throws when write handler is not entity-mapped in feature with field-access", () => {
     const feature = defineFeature("hr", (r) => {
-      r.entity(
-        "employee",
-        createEntity({
+      r.entity({
+        name: "employee",
+        ...createEntity({
           table: "employees",
           fields: {
             name: createTextField({ personal: false, reason: "test_fixture" }),
@@ -528,9 +543,12 @@ describe("createRegistry", () => {
             }),
           },
         }),
-      );
+      });
       // Handler name "promote" has no entity prefix → can't be mapped
-      r.writeHandler("promote", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.writeHandler({
+        name: "promote",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -540,15 +558,18 @@ describe("createRegistry", () => {
 
   test("allows unmapped write handlers when feature has no field-access rules", () => {
     const feature = defineFeature("admin", (r) => {
-      r.entity(
-        "setting",
-        createEntity({
+      r.entity({
+        name: "setting",
+        ...createEntity({
           table: "settings",
           fields: { key: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       // No field-access rules on entity → "reset" without entity prefix is fine
-      r.writeHandler("reset", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.writeHandler({
+        name: "reset",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -558,9 +579,9 @@ describe("createRegistry", () => {
 
   test("entity-mapped handlers pass validation with field-access", () => {
     const feature = defineFeature("hr", (r) => {
-      r.entity(
-        "employee",
-        createEntity({
+      r.entity({
+        name: "employee",
+        ...createEntity({
           table: "employees",
           fields: {
             name: createTextField({ personal: false, reason: "test_fixture" }),
@@ -571,17 +592,17 @@ describe("createRegistry", () => {
             }),
           },
         }),
-      );
+      });
       // "employee:promote" follows convention → mapped to entity "employee"
-      r.writeHandler(
-        "employee:promote",
-        z.object({}),
-        async () => ({
+      r.writeHandler({
+        name: "employee:promote",
+        schema: z.object({}),
+        handler: async () => ({
           isSuccess: true,
           data: null,
         }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
     });
 
     expect(() => createRegistry([feature])).not.toThrow();
@@ -589,9 +610,9 @@ describe("createRegistry", () => {
 
   test("throws when dotted query handler references unknown entity (typo protection)", () => {
     const feature = defineFeature("hr", (r) => {
-      r.entity(
-        "employee",
-        createEntity({
+      r.entity({
+        name: "employee",
+        ...createEntity({
           table: "employees",
           fields: {
             salary: createTextField({
@@ -601,18 +622,21 @@ describe("createRegistry", () => {
             }),
           },
         }),
-      );
-      r.writeHandler(
-        "employee:create",
-        z.object({}),
-        async () => ({
+      });
+      r.writeHandler({
+        name: "employee:create",
+        schema: z.object({}),
+        handler: async () => ({
           isSuccess: true,
           data: null,
         }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
       // Typo: "emp" instead of "employee"
-      r.queryHandler("emp:list", z.object({}), async () => [], {
+      r.queryHandler({
+        name: "emp:list",
+        schema: z.object({}),
+        handler: async () => [],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -622,9 +646,9 @@ describe("createRegistry", () => {
 
   test("allows standalone query handlers without dot in features with field-access", () => {
     const feature = defineFeature("hr", (r) => {
-      r.entity(
-        "employee",
-        createEntity({
+      r.entity({
+        name: "employee",
+        ...createEntity({
           table: "employees",
           fields: {
             salary: createTextField({
@@ -634,21 +658,27 @@ describe("createRegistry", () => {
             }),
           },
         }),
-      );
-      r.writeHandler(
-        "employee:create",
-        z.object({}),
-        async () => ({
+      });
+      r.writeHandler({
+        name: "employee:create",
+        schema: z.object({}),
+        handler: async () => ({
           isSuccess: true,
           data: null,
         }),
-        { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-      );
-      // Standalone queries — no dot, intentionally not entity-bound
-      r.queryHandler("dashboard", z.object({}), async () => ({ total: 42 }), {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.queryHandler("orgChart", z.object({}), async () => [], {
+      // Standalone queries — no dot, intentionally not entity-bound
+      r.queryHandler({
+        name: "dashboard",
+        schema: z.object({}),
+        handler: async () => ({ total: 42 }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.queryHandler({
+        name: "orgChart",
+        schema: z.object({}),
+        handler: async () => [],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });
@@ -658,9 +688,9 @@ describe("createRegistry", () => {
 
   test("returns searchable fields for entity", () => {
     const feature = defineFeature("admin", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           table: "Users",
           fields: {
             email: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
@@ -673,7 +703,7 @@ describe("createRegistry", () => {
             isEnabled: createBooleanField(),
           },
         }),
-      );
+      });
     });
 
     const registry = createRegistry([feature]);
@@ -683,16 +713,16 @@ describe("createRegistry", () => {
 
   test("returns searchable reference fields for entity, without leaking them into getSearchableFields (fw#2660)", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "customer",
-        createEntity({
+      r.entity({
+        name: "customer",
+        ...createEntity({
           table: "Customers",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "order",
-        createEntity({
+      });
+      r.entity({
+        name: "order",
+        ...createEntity({
           table: "Orders",
           fields: {
             note: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
@@ -704,7 +734,7 @@ describe("createRegistry", () => {
             },
           },
         }),
-      );
+      });
     });
 
     const registry = createRegistry([feature]);
@@ -720,22 +750,22 @@ describe("createRegistry", () => {
 
   test("throws at boot when a searchable reference field has no explicit labelField (fw#2660)", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "customer",
-        createEntity({
+      r.entity({
+        name: "customer",
+        ...createEntity({
           table: "Customers",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "order",
-        createEntity({
+      });
+      r.entity({
+        name: "order",
+        ...createEntity({
           table: "Orders",
           fields: {
             customerId: { type: "reference", entity: "customer", searchable: true },
           },
         }),
-      );
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/labelField/);
@@ -743,16 +773,16 @@ describe("createRegistry", () => {
 
   test("throws at boot when searchable is combined with multiple on a reference field (fw#2660)", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "tag",
-        createEntity({
+      r.entity({
+        name: "tag",
+        ...createEntity({
           table: "Tags",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "post",
-        createEntity({
+      });
+      r.entity({
+        name: "post",
+        ...createEntity({
           table: "Posts",
           fields: {
             tagIds: {
@@ -764,7 +794,7 @@ describe("createRegistry", () => {
             },
           },
         }),
-      );
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/multiple/);
@@ -772,18 +802,18 @@ describe("createRegistry", () => {
 
   test("throws at boot when a searchable reference targets an encrypted labelField", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "customer",
-        createEntity({
+      r.entity({
+        name: "customer",
+        ...createEntity({
           table: "Customers",
           fields: {
             name: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
           },
         }),
-      );
-      r.entity(
-        "order",
-        createEntity({
+      });
+      r.entity({
+        name: "order",
+        ...createEntity({
           table: "Orders",
           fields: {
             customerId: {
@@ -794,7 +824,7 @@ describe("createRegistry", () => {
             },
           },
         }),
-      );
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/encrypted\/PII/);
@@ -802,16 +832,16 @@ describe("createRegistry", () => {
 
   test('throws at boot when a searchable reference targets a PII labelField without find: "fuzzy" (no plaintext index)', () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "contact",
-        createEntity({
+      r.entity({
+        name: "contact",
+        ...createEntity({
           table: "Contacts",
           fields: { displayName: createTextField({ personal: "self", find: "exact" }) },
         }),
-      );
-      r.entity(
-        "order",
-        createEntity({
+      });
+      r.entity({
+        name: "order",
+        ...createEntity({
           table: "Orders",
           fields: {
             contactId: {
@@ -822,7 +852,7 @@ describe("createRegistry", () => {
             },
           },
         }),
-      );
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/encrypted\/PII/);
@@ -830,16 +860,16 @@ describe("createRegistry", () => {
 
   test('does not throw when a searchable reference targets a PII labelField with find: "fuzzy" (derived search index)', () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "contact",
-        createEntity({
+      r.entity({
+        name: "contact",
+        ...createEntity({
           table: "Contacts",
           fields: { displayName: createTextField({ personal: "self", find: "fuzzy" }) },
         }),
-      );
-      r.entity(
-        "order",
-        createEntity({
+      });
+      r.entity({
+        name: "order",
+        ...createEntity({
           table: "Orders",
           fields: {
             contactId: {
@@ -850,7 +880,7 @@ describe("createRegistry", () => {
             },
           },
         }),
-      );
+      });
     });
 
     expect(() => createRegistry([feature])).not.toThrow();
@@ -858,16 +888,16 @@ describe("createRegistry", () => {
 
   test("returns sortable reference fields for entity, without leaking them into getSortableFields (fw#2741)", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "customer",
-        createEntity({
+      r.entity({
+        name: "customer",
+        ...createEntity({
           table: "Customers",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "order",
-        createEntity({
+      });
+      r.entity({
+        name: "order",
+        ...createEntity({
           table: "Orders",
           fields: {
             note: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
@@ -879,7 +909,7 @@ describe("createRegistry", () => {
             },
           },
         }),
-      );
+      });
     });
 
     const registry = createRegistry([feature]);
@@ -894,18 +924,18 @@ describe("createRegistry", () => {
 
   test("resolves a cross-feature sortable reference to its bare entity name (fw#2741)", () => {
     const users = defineFeature("users", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           table: "Users",
           fields: { email: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
     });
     const crm = defineFeature("crm", (r) => {
-      r.entity(
-        "ticket",
-        createEntity({
+      r.entity({
+        name: "ticket",
+        ...createEntity({
           table: "Tickets",
           fields: {
             ownerId: {
@@ -916,7 +946,7 @@ describe("createRegistry", () => {
             },
           },
         }),
-      );
+      });
     });
 
     const registry = createRegistry([users, crm]);
@@ -927,19 +957,22 @@ describe("createRegistry", () => {
 
   test("optionsQuery leaves searchable/sortable on the labelField column (fw#2780)", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "customer",
-        createEntity({
+      r.entity({
+        name: "customer",
+        ...createEntity({
           table: "Customers",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.queryHandler("customer:options", z.object({}), async () => [], {
+      });
+      r.queryHandler({
+        name: "customer:options",
+        schema: z.object({}),
+        handler: async () => [],
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.entity(
-        "order",
-        createEntity({
+      r.entity({
+        name: "order",
+        ...createEntity({
           table: "Orders",
           fields: {
             customerId: {
@@ -952,7 +985,7 @@ describe("createRegistry", () => {
             },
           },
         }),
-      );
+      });
     });
 
     const registry = createRegistry([feature]);
@@ -966,22 +999,22 @@ describe("createRegistry", () => {
 
   test("throws at boot when a sortable reference field has no explicit labelField (fw#2741)", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "customer",
-        createEntity({
+      r.entity({
+        name: "customer",
+        ...createEntity({
           table: "Customers",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "order",
-        createEntity({
+      });
+      r.entity({
+        name: "order",
+        ...createEntity({
           table: "Orders",
           fields: {
             customerId: { type: "reference", entity: "customer", sortable: true },
           },
         }),
-      );
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/labelField/);
@@ -989,16 +1022,16 @@ describe("createRegistry", () => {
 
   test("throws at boot when a sortable reference field uses labelField: 'id' (fw#2741)", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "customer",
-        createEntity({
+      r.entity({
+        name: "customer",
+        ...createEntity({
           table: "Customers",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "order",
-        createEntity({
+      });
+      r.entity({
+        name: "order",
+        ...createEntity({
           table: "Orders",
           fields: {
             customerId: {
@@ -1009,7 +1042,7 @@ describe("createRegistry", () => {
             },
           },
         }),
-      );
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/labelField/);
@@ -1017,16 +1050,16 @@ describe("createRegistry", () => {
 
   test("throws at boot when sortable is combined with multiple on a reference field (fw#2741)", () => {
     const feature = defineFeature("crm", (r) => {
-      r.entity(
-        "tag",
-        createEntity({
+      r.entity({
+        name: "tag",
+        ...createEntity({
           table: "Tags",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "post",
-        createEntity({
+      });
+      r.entity({
+        name: "post",
+        ...createEntity({
           table: "Posts",
           fields: {
             tagIds: {
@@ -1038,7 +1071,7 @@ describe("createRegistry", () => {
             },
           },
         }),
-      );
+      });
     });
 
     expect(() => createRegistry([feature])).toThrow(/multiple/);
@@ -1126,9 +1159,9 @@ describe("sortable fields", () => {
 
   test("registry returns sortable fields for entity", () => {
     const feature = defineFeature("sortTest", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: {
             name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
@@ -1136,7 +1169,7 @@ describe("sortable fields", () => {
             rank: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
     });
 
     const registry = createRegistry([feature]);
@@ -1150,7 +1183,10 @@ describe("sortable fields", () => {
 describe("createApp", () => {
   test("validates feature roles against app-defined roles", () => {
     const feature = defineFeature("admin", (r) => {
-      r.writeHandler("admin.action", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.writeHandler({
+        name: "admin.action",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { roles: ["SuperAdmin"] },
       });
     });
@@ -1165,7 +1201,10 @@ describe("createApp", () => {
 
   test("passes when all roles are valid", () => {
     const feature = defineFeature("admin", (r) => {
-      r.writeHandler("admin.action", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.writeHandler({
+        name: "admin.action",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { roles: ["Admin"] },
       });
     });
@@ -1216,13 +1255,13 @@ describe("createApp", () => {
 
   test("softDeleteDefault is true by default, configurable via softDelete", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
     });
 
     const app1 = createApp({ roles: ["Admin"], features: [feature] });
@@ -1246,13 +1285,13 @@ describe("createApp", () => {
 
   test("rejects money field without defaultCurrency on entity", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: { total: createMoneyField({ required: true }) },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       "has money fields but no defaultCurrency",
@@ -1263,14 +1302,14 @@ describe("createApp", () => {
   // knows — a typo would otherwise render and submit an unformattable amount.
   function literalCurrencyFeature(code: string) {
     return defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           defaultCurrency: "EUR",
           fields: { total: { type: "money", currency: { kind: "literal", code } } },
         } as never),
-      );
+      });
     });
   }
 
@@ -1288,14 +1327,14 @@ describe("createApp", () => {
 
   test("rejects a money currency source with an unknown kind", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           defaultCurrency: "EUR",
           fields: { total: { type: "money", currency: { kind: "literall", code: "CHF" } } },
         } as never),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       /unknown currency kind "literall"/,
@@ -1304,14 +1343,14 @@ describe("createApp", () => {
 
   test("accepts currency: { kind: 'tenant' }", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           defaultCurrency: "EUR",
           fields: { total: { type: "money", currency: { kind: "tenant" } } },
         } as never),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
   });
@@ -1344,15 +1383,15 @@ describe("createApp", () => {
   // regardless of the app's actual currency.
   test("rejects an entity whose only money field is nested in an embedded list", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: {
             lines: createEmbeddedListField({ amount: { type: "money", required: true } }),
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       "has money fields but no defaultCurrency",
@@ -1361,14 +1400,14 @@ describe("createApp", () => {
 
   test("rejects unknown defaultCurrency", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: { total: createMoneyField() },
           defaultCurrency: "FAKE",
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       'defaultCurrency "FAKE" which is not in the currencies list',
@@ -1377,28 +1416,28 @@ describe("createApp", () => {
 
   test("accepts money field with valid defaultCurrency", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: { total: createMoneyField({ required: true }) },
           defaultCurrency: "EUR",
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
   });
 
   test("accepts custom currency when added to app config", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: { total: createMoneyField() },
           defaultCurrency: "BHD",
         }),
-      );
+      });
     });
     expect(() =>
       createApp({ roles: ["Admin"], features: [feature], currencies: ["BHD"] }),
@@ -1407,25 +1446,25 @@ describe("createApp", () => {
 
   test("rejects embedded field with empty schema", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: {
             // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
             meta: createEmbeddedField({} as any),
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow("empty schema");
   });
 
   test("rejects embedded sub-field with invalid type", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: {
             address: createEmbeddedField({
@@ -1434,7 +1473,7 @@ describe("createApp", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       'invalid type "embedded"',
@@ -1443,9 +1482,9 @@ describe("createApp", () => {
 
   test("rejects embedded sub-field with unknown type", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: {
             address: createEmbeddedField({
@@ -1454,7 +1493,7 @@ describe("createApp", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       'invalid type "uuid"',
@@ -1464,9 +1503,9 @@ describe("createApp", () => {
   test("rejects decimal sub-field with invalid scale", () => {
     const featureWithScale = (scale: number) =>
       defineFeature("test", (r) => {
-        r.entity(
-          "doc",
-          createEntity({
+        r.entity({
+          name: "doc",
+          ...createEntity({
             table: "Docs",
             fields: {
               items: createEmbeddedField({
@@ -1474,7 +1513,7 @@ describe("createApp", () => {
               }),
             },
           }),
-        );
+        });
       });
     for (const scale of [-1, 1.5, 16]) {
       expect(() => createApp({ roles: ["Admin"], features: [featureWithScale(scale)] })).toThrow(
@@ -1486,9 +1525,9 @@ describe("createApp", () => {
 
   test("accepts valid embedded field with all sub-field types", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: {
             meta: createEmbeddedField({
@@ -1504,16 +1543,16 @@ describe("createApp", () => {
           // defaultCurrency the same as a top-level money field would.
           defaultCurrency: "EUR",
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
   });
 
   test("rejects embedded select sub-field with empty options", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: {
             lines: createEmbeddedListField({
@@ -1521,16 +1560,16 @@ describe("createApp", () => {
             }),
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow("has empty options");
   });
 
   test("rejects embedded-list minItems greater than maxItems", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: {
             lines: createEmbeddedListField(
@@ -1539,7 +1578,7 @@ describe("createApp", () => {
             ),
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       "greater than maxItems",
@@ -1548,9 +1587,9 @@ describe("createApp", () => {
 
   test("rejects embedded-list required:true combined with minItems:0", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: {
             lines: createEmbeddedListField(
@@ -1559,7 +1598,7 @@ describe("createApp", () => {
             ),
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       "required:true and minItems:0",
@@ -1568,9 +1607,9 @@ describe("createApp", () => {
 
   test("rejects derived cell referencing an unknown sub-field", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: {
             lines: createEmbeddedListField(
@@ -1579,7 +1618,7 @@ describe("createApp", () => {
             ),
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       'derived cell "total" reading unknown sub-field "unknownField"',
@@ -1588,9 +1627,9 @@ describe("createApp", () => {
 
   test("rejects totals referencing a non-numeric sub-field", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: {
             lines: createEmbeddedListField(
@@ -1599,7 +1638,7 @@ describe("createApp", () => {
             ),
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       'lists "label" in totals, but it is not a number/money/decimal sub-field',
@@ -1608,9 +1647,9 @@ describe("createApp", () => {
 
   test("rejects totalsMatch entry whose sub-field is not a money sub-field (fw#1839)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: {
             total: createMoneyField({ required: true }),
@@ -1621,7 +1660,7 @@ describe("createApp", () => {
           },
           defaultCurrency: "EUR",
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       'has a totalsMatch entry for "qty", which is not a money sub-field',
@@ -1630,9 +1669,9 @@ describe("createApp", () => {
 
   test("rejects totalsMatch entry whose sibling field is not a money field on the entity (fw#1839)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: {
             title: createTextField({ personal: false, reason: "test_fixture" }),
@@ -1643,7 +1682,7 @@ describe("createApp", () => {
           },
           defaultCurrency: "EUR",
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       'mapping "amount" to sibling field "title", which is not a money field on entity "invoice"',
@@ -1652,9 +1691,9 @@ describe("createApp", () => {
 
   test("rejects totalsMatch entry whose sibling field does not exist on the entity (fw#1839)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: {
             lines: createEmbeddedListField(
@@ -1664,7 +1703,7 @@ describe("createApp", () => {
           },
           defaultCurrency: "EUR",
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       'mapping "amount" to sibling field "ghostTotal", which is not a money field on entity "invoice"',
@@ -1673,9 +1712,9 @@ describe("createApp", () => {
 
   test("accepts a valid totalsMatch entry (fw#1839)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: {
             total: createMoneyField({ required: true }),
@@ -1686,16 +1725,16 @@ describe("createApp", () => {
           },
           defaultCurrency: "EUR",
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
   });
 
   test("rejects totalsMatch on a plain (non-list) embedded field", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: {
             total: createMoneyField({ required: true }),
@@ -1706,7 +1745,7 @@ describe("createApp", () => {
           },
           defaultCurrency: "EUR",
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       "which is only valid on an embedded LIST field (multiple: true)",
@@ -1715,16 +1754,16 @@ describe("createApp", () => {
 
   test("rejects transitions on non-select field", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
           transitions: {
             title: { a: ["b"] },
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       'type is "text" (must be "select")',
@@ -1733,9 +1772,9 @@ describe("createApp", () => {
 
   test("rejects transitions with unknown state", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: {
             status: createSelectField({ options: ["draft", "sent", "paid"] as const }),
@@ -1748,23 +1787,23 @@ describe("createApp", () => {
             },
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow('"unknown_state"');
   });
 
   test("rejects transitions for unknown field", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "doc",
-        createEntity({
+      r.entity({
+        name: "doc",
+        ...createEntity({
           table: "Docs",
           fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
           transitions: {
             nonExistent: { a: ["b"] },
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
       'unknown field "nonExistent"',
@@ -1773,9 +1812,9 @@ describe("createApp", () => {
 
   test("accepts valid transitions matching select options", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "invoice",
-        createEntity({
+      r.entity({
+        name: "invoice",
+        ...createEntity({
           table: "Invoices",
           fields: {
             status: createSelectField({
@@ -1791,7 +1830,7 @@ describe("createApp", () => {
             },
           },
         }),
-      );
+      });
     });
     expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
   });
@@ -1803,7 +1842,7 @@ describe("r.requires()", () => {
   test("feature with satisfied dependency boots fine", () => {
     const config = defineFeature("config", () => {});
     const invoicing = defineFeature("invoicing", (r) => {
-      r.requires("config");
+      r.requires({ features: ["config"] });
     });
 
     expect(() => createRegistry([config, invoicing])).not.toThrow();
@@ -1811,7 +1850,7 @@ describe("r.requires()", () => {
 
   test("feature with missing dependency fails at boot", () => {
     const invoicing = defineFeature("invoicing", (r) => {
-      r.requires("config");
+      r.requires({ features: ["config"] });
     });
 
     expect(() => createRegistry([invoicing])).toThrow(
@@ -1821,7 +1860,7 @@ describe("r.requires()", () => {
 
   test("multiple requires all validated", () => {
     const invoicing = defineFeature("invoicing", (r) => {
-      r.requires("config", "files");
+      r.requires({ features: ["config", "files"] });
     });
     const config = defineFeature("config", () => {});
 
@@ -1832,7 +1871,7 @@ describe("r.requires()", () => {
 
   test("requires stores dependency names on feature", () => {
     const feature = defineFeature("invoicing", (r) => {
-      r.requires("config", "files");
+      r.requires({ features: ["config", "files"] });
     });
 
     expect(feature.requires).toEqual(["config", "files"]);
@@ -1840,7 +1879,7 @@ describe("r.requires()", () => {
 
   test("optionalRequires stores optional dependency names", () => {
     const feature = defineFeature("invoicing", (r) => {
-      r.requires("config");
+      r.requires({ features: ["config"] });
       r.optionalRequires("tags", "customFields");
     });
 
@@ -1859,7 +1898,7 @@ describe("r.requires()", () => {
 
   test("missing required feature still throws in registry", () => {
     const f1 = defineFeature("a", (r) => {
-      r.requires("nonexistent");
+      r.requires({ features: ["nonexistent"] });
     });
 
     expect(() => createRegistry([f1])).toThrow(/requires.*nonexistent/i);
@@ -2108,20 +2147,20 @@ describe("r.config() single-key overload", () => {
 describe("r.relation()", () => {
   test("registers belongsTo relation", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           table: "Users",
           fields: { departmentId: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
-      r.entity(
-        "department",
-        createEntity({
+      });
+      r.entity({
+        name: "department",
+        ...createEntity({
           table: "Departments",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.relation("user", "department", {
         type: "belongsTo",
         target: "department",
@@ -2135,14 +2174,14 @@ describe("r.relation()", () => {
 
   test("registers manyToMany relation", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.entity(
-        "role",
-        createEntity({
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity({
+        name: "role",
+        ...createEntity({
           table: "Roles",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.relation("user", "roles", {
         type: "manyToMany",
         target: "role",
@@ -2159,8 +2198,8 @@ describe("r.relation()", () => {
 
   test("registers hasMany relation", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("department", createEntity({ table: "Departments", fields: {} }));
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity({ name: "department", ...createEntity({ table: "Departments", fields: {} }) });
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
       r.relation("department", "users", {
         type: "hasMany",
         target: "user",
@@ -2175,14 +2214,14 @@ describe("r.relation()", () => {
 describe("registry relations", () => {
   test("getRelations returns relations within same feature", () => {
     const f1 = defineFeature("users", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.entity(
-        "role",
-        createEntity({
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity({
+        name: "role",
+        ...createEntity({
           table: "Roles",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.relation("user", "roles", {
         type: "manyToMany",
         target: "role",
@@ -2197,7 +2236,7 @@ describe("registry relations", () => {
 
   test("throws on relation to non-existent entity", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
       r.relation("user", "ghost", {
         type: "belongsTo",
         target: "nonexistent",
@@ -2211,8 +2250,8 @@ describe("registry relations", () => {
   test("second relation with same name on same entity overwrites in feature definition", () => {
     // Within a single feature, the second r.relation() call overwrites the first
     const f1 = defineFeature("a", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.entity("role", createEntity({ table: "Roles", fields: {} }));
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity({ name: "role", ...createEntity({ table: "Roles", fields: {} }) });
       r.relation("user", "roles", {
         type: "manyToMany",
         target: "role",
@@ -2233,8 +2272,8 @@ describe("registry relations", () => {
 
   test("getRelations aggregates relations on the same entity from two different features", () => {
     const core = defineFeature("core", (r) => {
-      r.entity("user", createEntity({ table: "Users", fields: {} }));
-      r.entity("role", createEntity({ table: "Roles", fields: {} }));
+      r.entity({ name: "user", ...createEntity({ table: "Users", fields: {} }) });
+      r.entity({ name: "role", ...createEntity({ table: "Roles", fields: {} }) });
       r.relation("user", "roles", {
         type: "manyToMany",
         target: "role",
@@ -2242,7 +2281,7 @@ describe("registry relations", () => {
       });
     });
     const billing = defineFeature("billing", (r) => {
-      r.entity("invoice", createEntity({ table: "Invoices", fields: {} }));
+      r.entity({ name: "invoice", ...createEntity({ table: "Invoices", fields: {} }) });
       r.relation("user", "invoices", {
         type: "hasMany",
         target: "invoice",
@@ -2320,7 +2359,7 @@ describe("global search", () => {
 describe("registry boot validation", () => {
   test("throws for lifecycle hook targeting non-existent handler", () => {
     const feature = defineFeature("test", (r) => {
-      r.hook("postSave", "nonexistent.handler", async () => {});
+      r.hook({ type: "postSave", target: "nonexistent.handler", handler: async () => {} });
     });
 
     expect(() => createRegistry([feature])).toThrow(/postSave.*nonexistent.*never fire/i);
@@ -2336,11 +2375,17 @@ describe("registry boot validation", () => {
 
   test("multi-trigger: r.job akzeptiert ein Array von Trigger-Refs", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("order", createEntity({ table: "Orders", fields: {} }));
-      r.writeHandler("order:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.entity({ name: "order", ...createEntity({ table: "Orders", fields: {} }) });
+      r.writeHandler({
+        name: "order:create",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.writeHandler("order:cancel", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.writeHandler({
+        name: "order:cancel",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       // Ein Job-Body, zwei Trigger — DRY-Pattern für Fanout-Cases.
@@ -2360,8 +2405,11 @@ describe("registry boot validation", () => {
 
   test("multi-trigger: einer der Targets fehlt → Boot-Reject", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity("order", createEntity({ table: "Orders", fields: {} }));
-      r.writeHandler("order:create", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.entity({ name: "order", ...createEntity({ table: "Orders", fields: {} }) });
+      r.writeHandler({
+        name: "order:create",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       // create existiert, cancel nicht — zweiter Trigger ist Geist
@@ -2384,11 +2432,14 @@ describe("registry boot validation", () => {
 
   test("allows valid hook targets", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("item", createEntity({ table: "Items", fields: {} }));
-      r.writeHandler("item.create", z.object({}), async () => ({ isSuccess: true, data: null }), {
+      r.entity({ name: "item", ...createEntity({ table: "Items", fields: {} }) });
+      r.writeHandler({
+        name: "item.create",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true, data: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
-      r.hook("postSave", "item.create", async () => {});
+      r.hook({ type: "postSave", target: "item.create", handler: async () => {} });
     });
 
     expect(() => createRegistry([feature])).not.toThrow();

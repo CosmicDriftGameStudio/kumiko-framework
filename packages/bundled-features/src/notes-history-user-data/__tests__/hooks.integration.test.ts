@@ -40,7 +40,7 @@ const contactEntity = createEntity({
   },
 });
 const contactFixtureFeature = defineFeature("notes-user-data-test-contact-fixture", (r) => {
-  r.entity("contact", contactEntity);
+  r.entity({ name: "contact", ...contactEntity });
 });
 
 // author and other share the same tenantId (both from TestUsers.admin), so

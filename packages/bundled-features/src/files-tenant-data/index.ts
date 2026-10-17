@@ -39,7 +39,7 @@ export function createFilesTenantDataFeature(): FeatureDefinition {
       category: "compliance",
       recommended: false,
     });
-    r.requires("tenant-lifecycle");
+    r.requires({ features: ["tenant-lifecycle"] });
     r.optionalRequires("files");
 
     r.useExtension(EXT_TENANT_DATA, "fileRef", { destroy: fileRefTenantDestroyHook });

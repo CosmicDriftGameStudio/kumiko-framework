@@ -58,7 +58,7 @@ const gadgetEntity = createEntity({
 });
 
 const gadgetPredicateFeature = defineFeature("crosstenantpublicvarianttest", (r) => {
-  r.entity("gadget", gadgetEntity);
+  r.entity({ name: "gadget", ...gadgetEntity });
   const adminOnly = { access: { roles: ["Admin"] } } as const;
   r.writeHandler(defineEntityCreateHandler("gadget", gadgetEntity, adminOnly));
   r.writeHandler(defineEntityUpdateHandler("gadget", gadgetEntity, adminOnly));

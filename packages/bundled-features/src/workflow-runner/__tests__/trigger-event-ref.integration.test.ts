@@ -109,16 +109,16 @@ const sourceFeature = defineFeature(FEATURE, (r) => {
     { piiFields: { from: { personal: { of: "subjectId" } } } },
   );
 
-  r.writeHandler(
-    "emit-signup",
-    z.object({
+  r.writeHandler({
+    name: "emit-signup",
+    schema: z.object({
       aggregateId: z.uuid(),
       runKey: z.string(),
       subjectId: z.string(),
       email: z.string(),
       note: z.string(),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const { aggregateId, ...payload } = event.payload;
       await ctx.unsafeAppendEvent({
         aggregateId,
@@ -128,18 +128,18 @@ const sourceFeature = defineFeature(FEATURE, (r) => {
       });
       return { isSuccess: true as const, data: { aggregateId } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "emit-replied",
-    z.object({
+  r.writeHandler({
+    name: "emit-replied",
+    schema: z.object({
       runKey: z.string(),
       subjectId: z.string(),
       from: z.string(),
       body: z.string(),
     }),
-    async (event, ctx) => {
+    handler: async (event, ctx) => {
       const aggregateId = crypto.randomUUID();
       await ctx.unsafeAppendEvent({
         aggregateId,
@@ -149,20 +149,20 @@ const sourceFeature = defineFeature(FEATURE, (r) => {
       });
       return { isSuccess: true as const, data: { aggregateId } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "archive-source",
-    z.object({ aggregateId: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "archive-source",
+    schema: z.object({ aggregateId: z.uuid() }),
+    handler: async (event, ctx) => {
       await ctx.archiveStream(event.payload.aggregateId, {
         aggregateType: SOURCE_AGGREGATE_TYPE,
       });
       return { isSuccess: true as const, data: { aggregateId: event.payload.aggregateId } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   registerEventTrigger(r, refWorkflow as unknown as WorkflowDefinition);
 });

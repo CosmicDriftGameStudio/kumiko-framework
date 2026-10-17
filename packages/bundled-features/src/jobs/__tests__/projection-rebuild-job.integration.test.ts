@@ -95,7 +95,7 @@ const MSP_PROJECTION = "rebuildtest:projection:rebuild-item-names";
 const GROUP = "00000000-0000-4000-8000-000000000001";
 
 const appFeature = defineFeature("rebuildtest", (r) => {
-  r.entity("rebuild-item", itemEntity);
+  r.entity({ name: "rebuild-item", ...itemEntity });
   r.projection(countsProjection);
   r.multiStreamProjection({
     name: "rebuild-item-names",

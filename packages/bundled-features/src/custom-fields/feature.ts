@@ -10,7 +10,7 @@
 // (crypto-shredding, event ciphertext, forget pipeline).
 //
 // **Was diese Feature liefert (B1 + B2, 2026-05-23):**
-//   1. r.entity("field-definition") — Definition-Storage (event-sourced).
+//   1. r.entity({ name: "field-definition" }) — Definition-Storage (event-sourced).
 //   2. define-tenant-field / define-system-field — RBAC write-handlers für
 //      Definition-CRUD.
 //   3. delete-tenant-field / delete-system-field — RBAC write-handlers.
@@ -123,7 +123,7 @@ function registerCustomFields(
     category: "data",
     recommended: false,
   });
-  r.entity("field-definition", fieldDefinitionEntity);
+  r.entity({ name: "field-definition", ...fieldDefinitionEntity });
 
   // Event-types — qualified als "custom-fields:event:<short-name>".
   // Returned EventDefs liefern .name als compile-time literal-typed string,

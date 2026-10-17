@@ -34,8 +34,8 @@ const softExecutor = createEventStoreExecutor(softTable, softEntity, { entityNam
 const jobForgetRuns: Array<{ readonly id: string }> = [];
 
 const gateFeature = defineFeature("gatetest", (r) => {
-  r.entity("hard", hardEntity);
-  r.entity("soft", softEntity);
+  r.entity({ name: "hard", ...hardEntity });
+  r.entity({ name: "soft", ...softEntity });
 
   r.crud("hard", hardEntity, {
     write: { access: { roles: ["Admin"] } },
@@ -46,48 +46,54 @@ const gateFeature = defineFeature("gatetest", (r) => {
     read: { access: { roles: ["Admin"] } },
   });
 
-  r.writeHandler(
-    "forget-hard-mid",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => hardExecutor.forget({ id: event.payload.id }, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "forget-hard-mid",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
+      hardExecutor.forget({ id: event.payload.id }, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "forget-hard-high",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => hardExecutor.forget({ id: event.payload.id }, event.user, ctx.db),
-    { access: { roles: ["Admin"] }, agent: { risk: "high" } },
-  );
+  r.writeHandler({
+    name: "forget-hard-high",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
+      hardExecutor.forget({ id: event.payload.id }, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+    agent: { risk: "high" },
+  });
 
-  r.writeHandler(
-    "delete-hard-mid",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => hardExecutor.delete({ id: event.payload.id }, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "delete-hard-mid",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
+      hardExecutor.delete({ id: event.payload.id }, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "delete-soft-mid",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => softExecutor.delete({ id: event.payload.id }, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "delete-soft-mid",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
+      softExecutor.delete({ id: event.payload.id }, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "delegate-write-to-forget-high",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => ctx.write("gatetest:write:forget-hard-high", { id: event.payload.id }),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "delegate-write-to-forget-high",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
+      ctx.write("gatetest:write:forget-hard-high", { id: event.payload.id }),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "delegate-write-as-to-forget-high",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "delegate-write-as-to-forget-high",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) =>
       ctx.writeAs(event.user, "gatetest:write:forget-hard-high", { id: event.payload.id }),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   r.streamHandler(
     "delete-hard",

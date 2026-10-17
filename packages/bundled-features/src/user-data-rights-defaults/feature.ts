@@ -40,7 +40,7 @@ import {
 // `user` (S2.H1) und `fileRef` (S2.H2).
 //
 // Architektur-Entscheidung (S2.H1+H2): user-data-rights selbst kann
-// nicht r.requires("user", "files") + r.useExtension(EXT_USER_DATA, ...)
+// nicht r.requires({ features: ["user", "files"] }) + r.useExtension(EXT_USER_DATA, ...)
 // machen weil es selbst Provider von EXT_USER_DATA ist (Boot-Validator
 // lehnt self-extension ab). Lösung: drittes optional-mountbares Feature
 // das requires beide Sources + die useExtension-Calls macht.
@@ -68,7 +68,7 @@ export function createUserDataRightsDefaultsFeature(): FeatureDefinition {
       category: "compliance",
       recommended: false,
     });
-    r.requires("user", "files", "user-data-rights");
+    r.requires({ features: ["user", "files", "user-data-rights"] });
     // Optional sources: hooks are registered unconditionally but each one
     // no-ops at runtime when its source feature isn't mounted (see
     // hooks/feature-mounted.ts) — the export runner has no per-hook

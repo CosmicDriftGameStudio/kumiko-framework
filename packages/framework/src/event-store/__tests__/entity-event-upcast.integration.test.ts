@@ -88,13 +88,13 @@ const refProjection = {
 
 const registryWithMigration = createRegistry([
   defineFeature("legacyv2", (r) => {
-    r.entity("legacy-note", legacyEntityV2);
+    r.entity({ name: "legacy-note", ...legacyEntityV2 });
     r.projection(refProjection);
   }),
 ]);
 const registryWithoutMigration = createRegistry([
   defineFeature("legacyv1", (r) => {
-    r.entity("legacy-note", legacyEntityV1);
+    r.entity({ name: "legacy-note", ...legacyEntityV1 });
     r.projection(refProjection);
   }),
 ]);
@@ -200,7 +200,7 @@ describe("eventMigrations renaming a pii field", () => {
   });
   const registryRenamed = createRegistry([
     defineFeature("piiv2", (r) => {
-      r.entity("pii-note", piiNoteV2);
+      r.entity({ name: "pii-note", ...piiNoteV2 });
       r.projection({
         name: "note-names",
         source: "pii-note",

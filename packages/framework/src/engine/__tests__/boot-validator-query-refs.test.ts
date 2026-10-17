@@ -35,7 +35,10 @@ describe("validateBoot — query QN refs (fw#2178)", () => {
   // actually reachable.
   test("projectionDetail relatedList section with a dead query QN throws (b)", () => {
     const feature = defineFeature("app", (r) => {
-      r.queryHandler("rent:detail", z.object({}), async () => ({ description: "x" }), {
+      r.queryHandler({
+        name: "rent:detail",
+        schema: z.object({}),
+        handler: async () => ({ description: "x" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -95,7 +98,10 @@ describe("validateBoot — query QN refs (fw#2178)", () => {
 
   test("dashboard filter optionsQuery with a dead query QN throws", () => {
     const feature = defineFeature("demo", (r) => {
-      r.queryHandler("open-count", z.object({}), async () => ({ value: "0" }), {
+      r.queryHandler({
+        name: "open-count",
+        schema: z.object({}),
+        handler: async () => ({ value: "0" }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -131,7 +137,10 @@ describe("validateBoot — query QN refs (fw#2178)", () => {
 
   test("a screen referencing a query registered by a different mounted feature does not throw (d)", () => {
     const provider = defineFeature("catalog", (r) => {
-      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "items:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
     });

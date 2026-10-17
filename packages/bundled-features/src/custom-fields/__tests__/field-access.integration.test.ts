@@ -40,8 +40,8 @@ const propertyEntity = createEntity({
 const propertyTable = buildEntityTable("property", propertyEntity);
 
 const propertyFeature = defineFeature("property-t15b", (r) => {
-  r.entity("property", propertyEntity);
-  r.requires("custom-fields");
+  r.entity({ name: "property", ...propertyEntity });
+  r.requires({ features: ["custom-fields"] });
   wireCustomFieldsFor(r, "property", propertyTable);
 
   const { executor } = createEntityExecutor("property", propertyEntity);

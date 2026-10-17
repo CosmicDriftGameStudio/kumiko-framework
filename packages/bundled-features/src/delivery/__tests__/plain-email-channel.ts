@@ -10,7 +10,7 @@ import { DELIVERY_CHANNEL_EXTENSION } from "../constants.js";
 export function createPlainFallbackEmailFeature(options: EmailChannelOptions): FeatureDefinition {
   const channel = createEmailChannel(options);
   return defineFeature("channel-email", (r) => {
-    r.requires("delivery");
+    r.requires({ features: ["delivery"] });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, "email", {
       mode: channel.mode,
       resolve: channel.resolve,

@@ -42,7 +42,7 @@ const testEncryptionKey = randomBytes(32).toString("base64");
 
 // Feature with a system-only config key and a job that sets it
 const billingFeature = defineFeature("billing", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
 
   r.config({
     keys: {

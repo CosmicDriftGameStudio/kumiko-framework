@@ -427,6 +427,22 @@ defineFeature("f", (r) => {
     });
   });
 
+  test("reads `{ name, ...ref, backingTable }` as a raw-ref definition and ignores the table wiring", () => {
+    const result = parseInline(`
+const eventEntity = { fields: { name: { type: "text" } } };
+defineFeature("f", (r) => {
+  r.entity({ name: "event", ...eventEntity, backingTable: eventsTable });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "entity",
+      entityName: "event",
+      definition: { __raw: "eventEntity" },
+    });
+  });
+
   test("keeps a factory call reference inside a nested property as a raw-ref sentinel", () => {
     const result = parseInline(`
 function buildFields() {

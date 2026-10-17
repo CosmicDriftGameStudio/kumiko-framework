@@ -23,7 +23,7 @@ export function createTestFileProviderFeature(
   name = "test",
 ): FeatureDefinition {
   return defineFeature(`test-file-provider-${name}`, (r) => {
-    r.requires("file-foundation");
+    r.requires({ features: ["file-foundation"] });
     r.useExtension("fileProvider", name, { build: async () => provider });
   });
 }

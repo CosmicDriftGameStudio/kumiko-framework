@@ -39,7 +39,7 @@ const userEntity = createEntity({
 });
 
 const userFeature = defineFeature("unreachabletest", (r) => {
-  r.entity("user", userEntity);
+  r.entity({ name: "user", ...userEntity });
 });
 
 const userTable = buildEntityTable("user", userEntity);

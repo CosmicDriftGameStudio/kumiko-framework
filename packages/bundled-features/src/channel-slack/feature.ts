@@ -21,8 +21,8 @@ export function createChannelSlackFeature(options: SlackChannelOptions = {}): Fe
       category: "notifications",
       recommended: false,
     });
-    r.requires("delivery");
-    r.requires("secrets");
+    r.requires({ features: ["delivery"] });
+    r.requires({ features: ["secrets"] });
 
     const webhookTarget = resolveChatWebhookTarget(
       { defaultAllowedHosts: SLACK_DEFAULT_ALLOWED_HOSTS },

@@ -18,7 +18,7 @@ export function createManagedPagesCssFeature(): FeatureDefinition {
     r.describe(
       'Per-tenant toggle gate for the managed-pages custom-CSS (raw tenant CSS-inject) capability. Handler-less: composing it makes `managed-pages-css` a toggleable feature defaulting OFF, so an operator/tier can grant raw CSS-inject per tenant. managed-pages reads `ctx.hasFeature("managed-pages-css")` in its branding query and emits tenant CSS only when this toggle is on AND the app passed `allowCustomCss: true`. The tenant CSS is allowlist-sanitized + scoped at render regardless; this gate is the commercial/operator control, not the safety boundary.',
     );
-    r.requires("managed-pages");
+    r.requires({ features: ["managed-pages"] });
     r.toggleable({ default: false });
   });
 }

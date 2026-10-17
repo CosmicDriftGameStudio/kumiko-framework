@@ -9,13 +9,22 @@ async function noopWriteHandler() {
 
 function undocumentedHandlersFeature() {
   return defineFeature("doc-gap-demo", (r) => {
-    r.writeHandler("do-a", z.object({}), noopWriteHandler, {
+    r.writeHandler({
+      name: "do-a",
+      schema: z.object({}),
+      handler: noopWriteHandler,
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
-    r.writeHandler("do-b", z.object({}), noopWriteHandler, {
+    r.writeHandler({
+      name: "do-b",
+      schema: z.object({}),
+      handler: noopWriteHandler,
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
-    r.writeHandler("do-c", z.object({}), noopWriteHandler, {
+    r.writeHandler({
+      name: "do-c",
+      schema: z.object({}),
+      handler: noopWriteHandler,
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     });
   });
@@ -46,7 +55,10 @@ describe("createAgentToolsFeature", () => {
 
   test("boot check stays silent for a fully-described registry", () => {
     const describedFeature = defineFeature("doc-clean-demo", (r) => {
-      r.writeHandler("do-a", z.object({}), noopWriteHandler, {
+      r.writeHandler({
+        name: "do-a",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
         description: "Does A.",
       });
@@ -65,7 +77,10 @@ describe("createAgentToolsFeature", () => {
   test("missing handler translations produce one summary line, not one line per handler", () => {
     const untranslated = defineFeature("doc-tr-demo", (r) => {
       for (const name of ["do-a", "do-b"]) {
-        r.writeHandler(name, z.object({}), noopWriteHandler, {
+        r.writeHandler({
+          name,
+          schema: z.object({}),
+          handler: noopWriteHandler,
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
           description: "Does it.",
         });

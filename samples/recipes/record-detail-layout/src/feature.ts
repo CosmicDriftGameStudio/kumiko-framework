@@ -27,10 +27,10 @@ export function createOrderDeskFeature(): FeatureDefinition {
   return defineFeature("order-desk", (r) => {
     r.systemScope();
 
-    r.queryHandler(
-      "order:detail",
-      rowIdSchema,
-      async (query) => ({
+    r.queryHandler({
+      name: "order:detail",
+      schema: rowIdSchema,
+      handler: async (query) => ({
         id: query.payload.id,
         customerName: "Aiko Tanaka",
         orderNumber: "SO-10482",
@@ -43,33 +43,33 @@ export function createOrderDeskFeature(): FeatureDefinition {
         billingAddress: "Karl-Marx-Straße 12, 12043 Berlin",
         salesRep: "Jonas Weber",
       }),
-      { access: { roles: ["Support", "Admin"] } },
-    );
+      access: { roles: ["Support", "Admin"] },
+    });
 
-    r.queryHandler(
-      "order:items",
-      rowIdSchema,
-      async () => ({
+    r.queryHandler({
+      name: "order:items",
+      schema: rowIdSchema,
+      handler: async () => ({
         rows: [
           { sku: "KB-100", description: "Mechanical keyboard", quantity: 1, unitPrice: 148 },
           { sku: "MS-220", description: "Wireless mouse", quantity: 2, unitPrice: 45 },
           { sku: "PAD-01", description: "Desk mat", quantity: 1, unitPrice: 22 },
         ],
       }),
-      { access: { roles: ["Support", "Admin"] } },
-    );
+      access: { roles: ["Support", "Admin"] },
+    });
 
-    r.queryHandler(
-      "order:payments",
-      rowIdSchema,
-      async () => ({
+    r.queryHandler({
+      name: "order:payments",
+      schema: rowIdSchema,
+      handler: async () => ({
         rows: [
           { paidAt: "2026-08-21", amount: 936, method: "card", status: "settled" },
           { paidAt: "2026-08-25", amount: 312, method: "invoice", status: "pending" },
         ],
       }),
-      { access: { roles: ["Support", "Admin"] } },
-    );
+      access: { roles: ["Support", "Admin"] },
+    });
 
     r.screen({
       id: "order-detail",

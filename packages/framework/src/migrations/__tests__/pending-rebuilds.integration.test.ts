@@ -94,7 +94,7 @@ const countsProjection: ProjectionDefinition = {
 };
 
 const feature = defineFeature("pendingtest", (r) => {
-  r.entity("pending-item", itemEntity);
+  r.entity({ name: "pending-item", ...itemEntity });
   r.projection(countsProjection);
   r.multiStreamProjection({
     name: "pending-item-names",

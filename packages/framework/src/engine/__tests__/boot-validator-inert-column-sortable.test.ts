@@ -12,7 +12,10 @@ function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
 describe("validateBoot — column sortable only applies to relatedList columns", () => {
   test("projectionList column with sortable → Throw", () => {
     const feature = defineFeature("shop", (r) => {
-      r.queryHandler("products", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+      r.queryHandler({
+        name: "products",
+        schema: z.object({}),
+        handler: async () => ({ rows: [], nextCursor: null }),
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
       });
       r.screen({
@@ -27,14 +30,14 @@ describe("validateBoot — column sortable only applies to relatedList columns",
 
   test("entityList column with sortable → Throw naming the entity-field flag", () => {
     const feature = defineFeature("shop", (r) => {
-      r.entity(
-        "product",
-        createEntity({
+      r.entity({
+        name: "product",
+        ...createEntity({
           fields: {
             name: createTextField({ personal: false, reason: "test_fixture", sortable: true }),
           },
         }),
-      );
+      });
       r.screen({
         id: "product-list",
         type: "entityList",

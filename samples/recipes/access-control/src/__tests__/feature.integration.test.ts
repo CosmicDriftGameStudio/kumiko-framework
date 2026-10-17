@@ -37,12 +37,18 @@ describe("default-deny: refuses handlers without access", () => {
     expect(() =>
       defineFeature("broken-feature", (r) => {
         // @ts-expect-error — No { access: ... }: registration must reject this.
-        r.writeHandler("forgotAccess", z.object({ name: z.string() }), async () => ({
-          isSuccess: true as const,
-          data: {},
-        }));
+        r.writeHandler({
+          name: "forgotAccess",
+          schema: z.object({ name: z.string() }),
+          handler: async () => ({
+            isSuccess: true as const,
+            data: {},
+          }),
+        });
       }),
-    ).toThrow(/requires schema \+ handler \+ options\.access/);
+    ).toThrow(
+      /\[Feature broken-feature\] r\.writeHandler\(\{ name: "forgotAccess" \}\) requires an access rule/,
+    );
   });
 });
 

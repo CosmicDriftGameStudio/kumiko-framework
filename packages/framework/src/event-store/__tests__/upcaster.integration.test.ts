@@ -55,7 +55,7 @@ const orderSummaryTable = pgTable("read_upcast_order_summary", {
 // --- Feature: version 3 event with v1→v2 and v2→v3 migrations registered ---
 
 const orderFeature = defineFeature("upcastshop", (r) => {
-  r.entity("upcast-order", orderEntity);
+  r.entity({ name: "upcast-order", ...orderEntity });
 
   // v3 shape: { totalCents: int, currency: string }
   const orderPriced = r.defineEvent(
@@ -321,7 +321,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
 
     // Feature with async upcaster v1 → v2: enrich payload with segment from DB.
     const asyncFeature = defineFeature("upcastasync", (r) => {
-      r.entity("upcast-async-order", orderEntity);
+      r.entity({ name: "upcast-async-order", ...orderEntity });
       const placed = r.defineEvent(
         "placed",
         z.object({ customerId: z.string(), segment: z.string() }),
@@ -410,7 +410,7 @@ describe("upcaster: async (Marten AsyncOnlyEventUpcaster — DB-Lookups)", () =>
 describe("upcaster: boot-time validation", () => {
   test("defineEvent with version=N and only partial migrations fails at registry build", () => {
     const incomplete = defineFeature("holes", (r) => {
-      r.entity("hole-order", orderEntity);
+      r.entity({ name: "hole-order", ...orderEntity });
       // Only 1→2 registered — the 2→3 gap must be rejected.
       r.defineEvent("bad", z.object({ v3: z.string() }), {
         piiFields: "none",
@@ -429,7 +429,7 @@ describe("upcaster: boot-time validation", () => {
 
   test("migration toVersion > defineEvent version → rejected", () => {
     const future = defineFeature("future", (r) => {
-      r.entity("future-order", orderEntity);
+      r.entity({ name: "future-order", ...orderEntity });
       r.defineEvent("early", z.object({ x: z.number() }), {
         piiFields: "none",
         version: 1,
@@ -441,7 +441,7 @@ describe("upcaster: boot-time validation", () => {
 
   test("non-contiguous (1→2 and 3→4 without 2→3) → rejected", () => {
     const gaps = defineFeature("gaps", (r) => {
-      r.entity("gap-order", orderEntity);
+      r.entity({ name: "gap-order", ...orderEntity });
       r.defineEvent("jumpy", z.object({ v: z.number() }), {
         piiFields: "none",
         version: 4,
@@ -459,7 +459,7 @@ describe("upcaster: registrar input validation", () => {
   test("defineEvent migrations reject multi-step jumps", () => {
     expect(() =>
       defineFeature("bigstep", (r) => {
-        r.entity("bigstep-order", orderEntity);
+        r.entity({ name: "bigstep-order", ...orderEntity });
         r.defineEvent("biz", z.object({ x: z.number() }), {
           piiFields: "none",
           version: 3,
@@ -472,7 +472,7 @@ describe("upcaster: registrar input validation", () => {
   test("defineEvent migrations reject duplicate step", () => {
     expect(() =>
       defineFeature("dupestep", (r) => {
-        r.entity("dup-order", orderEntity);
+        r.entity({ name: "dup-order", ...orderEntity });
         r.defineEvent("dup", z.object({ x: z.number() }), {
           piiFields: "none",
           version: 2,
@@ -488,7 +488,7 @@ describe("upcaster: registrar input validation", () => {
   test("r.defineEvent rejects non-positive version", () => {
     expect(() =>
       defineFeature("badver", (r) => {
-        r.entity("badver-order", orderEntity);
+        r.entity({ name: "badver-order", ...orderEntity });
         r.defineEvent("neg", z.object({ x: z.number() }), { piiFields: "none", version: 0 });
       }),
     ).toThrow(/positive integer/);

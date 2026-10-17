@@ -22,7 +22,7 @@ export function createTenantSettingsFeature(
   opts: TenantSettingsFeatureOptions = {},
 ): FeatureDefinition {
   return defineFeature(TENANT_SETTINGS_FEATURE_NAME, (r) => {
-    r.requires("config");
+    r.requires({ features: ["config"] });
     r.describe(
       "Per-tenant Currency + Locale defaults, exposed as two config keys (tenant-settings:config:currency, tenant-settings:config:locale) that surface in the self-populating Settings-Hub via `mask`. Pair with defineCreateWithTenantDefaults to auto-fill a money field's currency or a locale field on create instead of hard-coding a literal per entity.",
     );

@@ -83,7 +83,7 @@ const probePlugin: InboundMailProviderPlugin = {
 };
 
 const probeProviderFeature = defineFeature("inbound-provider-probe", (r) => {
-  r.requires("inbound-mail-foundation");
+  r.requires({ features: ["inbound-mail-foundation"] });
   r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, PROBE_PROVIDER_KEY, probePlugin);
 });
 

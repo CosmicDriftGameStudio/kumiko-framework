@@ -40,7 +40,7 @@ const strictObserved: string[] = [];
 const lenientObserved: string[] = [];
 
 const z2Feature = defineFeature("errmode", (r) => {
-  r.entity("widget", sharedWidgetEntity);
+  r.entity({ name: "widget", ...sharedWidgetEntity });
 
   r.multiStreamProjection({
     name: "strict",

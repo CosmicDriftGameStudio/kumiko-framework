@@ -47,9 +47,9 @@ export const fileProviderS3Feature = defineFeature(FEATURE_NAME, (r) => {
     category: "storage",
     recommended: false,
   });
-  r.requires("config");
-  r.requires("secrets");
-  r.requires("file-foundation");
+  r.requires({ features: ["config"] });
+  r.requires({ features: ["secrets"] });
+  r.requires({ features: ["file-foundation"] });
 
   const secretAccessKey = r.secret("s3.secretAccessKey", {
     label: { en: "S3 secret access key" },

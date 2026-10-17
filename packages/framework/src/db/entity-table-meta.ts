@@ -417,8 +417,8 @@ function sqlExpressionText(where: unknown): string | undefined {
   return isSqlExpression(where) ? where.text : undefined;
 }
 
-// Validates that a backing Drizzle table (declared via `r.entity(name, def,
-// { table })`) is a SUPERSET of the field-derived meta: every column the
+// Validates that a backing Drizzle table (declared via `r.entity({ name, ...def,
+// backingTable })`) is a SUPERSET of the field-derived meta: every column the
 // entity fields produce must exist on the table with the same pgType +
 // notNull. Ride-along columns/indexes the table adds on top (envelope,
 // uniqueIndex, …) are exactly the point — they pass. A field with no matching
@@ -435,7 +435,7 @@ export function assertBackingTableSuperset(
     const tableCol = tableCols.get(fieldCol.name);
     if (!tableCol) {
       throw new Error(
-        `r.entity("${entityName}", …, { table }): the backing table ` +
+        `r.entity({ name: "${entityName}", …, backingTable }): the backing table ` +
           `"${tableMeta.tableName}" is missing column "${fieldCol.name}" that the ` +
           "entity field declares. The table must be a superset of the entity's " +
           "fields — add the column to the table or remove the field.",
@@ -443,7 +443,7 @@ export function assertBackingTableSuperset(
     }
     if (tableCol.pgType !== fieldCol.pgType || tableCol.notNull !== fieldCol.notNull) {
       throw new Error(
-        `r.entity("${entityName}", …, { table }): column "${fieldCol.name}" ` +
+        `r.entity({ name: "${entityName}", …, backingTable }): column "${fieldCol.name}" ` +
           `disagrees between entity field (${fieldCol.pgType}, ` +
           `notNull=${fieldCol.notNull}) and backing table "${tableMeta.tableName}" ` +
           `(${tableCol.pgType}, notNull=${tableCol.notNull}). Align them.`,

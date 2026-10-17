@@ -7,7 +7,10 @@ import type { EntityDefinition } from "../types/index.js";
 function bootWith(lockedWhen: EntityDefinition["lockedWhen"], fields: EntityDefinition["fields"]) {
   validateBoot([
     defineFeature("test", (r) => {
-      r.entity("ticket", createEntity({ fields, ...(lockedWhen !== undefined && { lockedWhen }) }));
+      r.entity({
+        name: "ticket",
+        ...createEntity({ fields, ...(lockedWhen !== undefined && { lockedWhen }) }),
+      });
     }),
   ]);
 }

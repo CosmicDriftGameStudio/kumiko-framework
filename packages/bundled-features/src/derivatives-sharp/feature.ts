@@ -15,7 +15,7 @@ export const derivativesSharpFeature = defineFeature(FEATURE_NAME, (r) => {
     category: "storage",
     recommended: false,
   });
-  r.requires("file-derivatives");
+  r.requires({ features: ["file-derivatives"] });
 
   const plugin: DerivativeRendererPlugin = { render: renderImage };
   r.useExtension(EXT_DERIVATIVE_RENDERER, "image/*", plugin);

@@ -37,7 +37,7 @@ const personEntity = createEntity({
   },
 });
 const personFeature = defineFeature("bidxguardtest", (r) => {
-  r.entity("person", personEntity);
+  r.entity({ name: "person", ...personEntity });
 });
 const personTable = buildEntityTable("person", personEntity);
 const implicitName = "bidxguardtest:projection:person-entity";

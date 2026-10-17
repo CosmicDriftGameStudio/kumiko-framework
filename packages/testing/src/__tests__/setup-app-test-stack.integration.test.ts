@@ -93,7 +93,7 @@ describe("setupAppTestStack", () => {
       fields: { a: createTextField({ personal: false, reason: "test_fixture" }) },
     });
     const brokenFeature = defineFeature("testing-broken", (r) => {
-      r.entity("thing", brokenEntity);
+      r.entity({ name: "thing", ...brokenEntity });
     });
     const dbName = `kumiko_test_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
 
@@ -107,7 +107,7 @@ describe("setupAppTestStack", () => {
   test('presets: ["config"] wires ctx.config in a write handler to the value set through config:write:set', async () => {
     const CONFIG_PROBE_KEY = "config-probe:config:greeting";
     const configProbeFeature = defineFeature("config-probe", (r) => {
-      r.requires("config");
+      r.requires({ features: ["config"] });
       r.config({
         keys: {
           greeting: createSystemConfig("text", {
@@ -117,15 +117,15 @@ describe("setupAppTestStack", () => {
           }),
         },
       });
-      r.writeHandler(
-        "read-config",
-        z.object({}),
-        async (_event, ctx) => {
+      r.writeHandler({
+        name: "read-config",
+        schema: z.object({}),
+        handler: async (_event, ctx) => {
           if (!ctx.config) throw new Error("ctx.config missing — fw#3313 regressed");
           return { isSuccess: true, data: { value: await ctx.config(CONFIG_PROBE_KEY) } };
         },
-        { access: { openToAll: { reason: "fw#3313 regression probe" } } },
-      );
+        access: { openToAll: { reason: "fw#3313 regression probe" } },
+      });
     });
 
     const stack = await setupAppTestStack([configProbeFeature], { presets: ["config"] });

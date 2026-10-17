@@ -184,7 +184,7 @@ describe("createRegistry — storeTable aggregation", () => {
       columns: [{ name: "id", pgType: "text", notNull: true, primaryKey: true }],
     });
     const entityFeature = defineFeature("shop", (r) => {
-      r.entity("widget", widget);
+      r.entity({ name: "widget", ...widget });
     });
     const tableFeature = defineFeature("other", (r) => {
       r.storeTable(clashing, { reason: "clash" });

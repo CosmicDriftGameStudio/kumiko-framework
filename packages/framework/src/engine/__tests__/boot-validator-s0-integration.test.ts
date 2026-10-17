@@ -49,7 +49,7 @@ describe("S0 Integration — full surface stack", () => {
     });
 
     const userDataRights = defineFeature("user-data-rights", (r) => {
-      r.requires("compliance-profiles");
+      r.requires({ features: ["compliance-profiles"] });
       r.usesApi("compliance.forTenant");
       r.extendsRegistrar(EXT_USER_DATA, {
         hooks: {},
@@ -57,11 +57,11 @@ describe("S0 Integration — full surface stack", () => {
     });
 
     const tenantFeature = defineFeature("tenant-app", (r) => {
-      r.requires("user-data-rights", "compliance-profiles");
+      r.requires({ features: ["user-data-rights", "compliance-profiles"] });
 
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: {
             email: createTextField({
               personal: "self",
@@ -81,11 +81,11 @@ describe("S0 Integration — full surface stack", () => {
             reference: "createdAt",
           },
         }),
-      );
+      });
 
-      r.entity(
-        "comment",
-        createEntity({
+      r.entity({
+        name: "comment",
+        ...createEntity({
           fields: {
             body: createLongTextField({
               personal: { of: "authorId", whenAbsent: "tenant" },
@@ -95,7 +95,7 @@ describe("S0 Integration — full surface stack", () => {
             authorId: { type: "reference", entity: "user" },
           },
         }),
-      );
+      });
 
       r.queryHandler({
         name: "user:list",
@@ -124,20 +124,20 @@ describe("S0 Integration — full surface stack", () => {
     });
 
     const userDataRights = defineFeature("user-data-rights", (r) => {
-      // VERGESSEN: r.requires("compliance-profiles")
+      // VERGESSEN: r.requires({ features: ["compliance-profiles"] })
       r.usesApi("compliance.forTenant");
     });
 
     expect(() => validateBoot([complianceProfiles, userDataRights])).toThrow(
-      /not in requires\/optionalRequires\. Add r\.requires\("compliance-profiles"\)/,
+      /not in requires\/optionalRequires\. Add r\.requires\(\{ features: \["compliance-profiles"\] \}\)/,
     );
   });
 
   test("retention.reference pointing to non-existent field throws even with valid PII annotations", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity(
-        "user",
-        createEntity({
+      r.entity({
+        name: "user",
+        ...createEntity({
           fields: {
             email: createTextField({
               personal: "self",
@@ -150,7 +150,7 @@ describe("S0 Integration — full surface stack", () => {
             reference: "notARealField",
           },
         }),
-      );
+      });
     });
     expect(() => validateBoot([feature])).toThrow(
       /retention\.reference "notARealField" does not exist/,
@@ -159,7 +159,7 @@ describe("S0 Integration — full surface stack", () => {
 
   test("ROLES.TenantAdmin works as handler-access role string (no Admin/TenantAdmin drift)", () => {
     const feature = defineFeature("test", (r) => {
-      r.entity("thing", createEntity({ fields: { ts: createTimestampField() } }));
+      r.entity({ name: "thing", ...createEntity({ fields: { ts: createTimestampField() } }) });
       r.writeHandler({
         name: "thing:create",
         schema: z.object({}),

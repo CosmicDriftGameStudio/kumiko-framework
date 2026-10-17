@@ -40,7 +40,7 @@ export function createMailTriageFeature(): FeatureDefinition {
     r.describe(
       "Sample consumer for inbound-mail-foundation: a worker-lane job triggered by the ingest-message write-handler turns every inbound mail into a triage item.",
     );
-    r.requires("inbound-mail-foundation");
+    r.requires({ features: ["inbound-mail-foundation"] });
 
     // The job receives the dispatcher-validated ingest payload — i.e.
     // the PLAINTEXT normalized mail (PII encryption happens inside the

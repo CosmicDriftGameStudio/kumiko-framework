@@ -72,7 +72,7 @@ const NOTE_UPDATE = "seed-created-at-notes:write:note:update";
 const writeAccess = { roles: ["TenantAdmin", "Member", "SystemAdmin"] };
 
 const noteFeature = defineFeature("seed-created-at-notes", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access: writeAccess }));
   r.writeHandler(defineEntityUpdateHandler("note", noteEntity, { access: writeAccess }));
 });

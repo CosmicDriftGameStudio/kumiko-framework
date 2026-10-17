@@ -54,8 +54,8 @@ const customerBalanceTable = pgTable("read_msp_customer_balance", {
 });
 
 const mspFeature = defineFeature("msptest", (r) => {
-  r.entity("msp-shipment", shipmentEntity);
-  r.entity("msp-refund", refundEntity);
+  r.entity({ name: "msp-shipment", ...shipmentEntity });
+  r.entity({ name: "msp-refund", ...refundEntity });
 
   const shipmentBilled = r.defineEvent(
     "shipment-billed",
@@ -98,10 +98,10 @@ const mspFeature = defineFeature("msptest", (r) => {
     entityName: "msp-refund",
   });
 
-  r.writeHandler(
-    "shipment:bill",
-    z.object({ customer: z.uuid(), cents: z.number().int() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "shipment:bill",
+    schema: z.object({ customer: z.uuid(), cents: z.number().int() }),
+    handler: async (event, ctx) => {
       const res = await shipmentExecutor.create(
         { customer: event.payload.customer },
         event.user,
@@ -116,13 +116,13 @@ const mspFeature = defineFeature("msptest", (r) => {
       });
       return res;
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "refund:issue",
-    z.object({ customer: z.uuid(), cents: z.number().int() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "refund:issue",
+    schema: z.object({ customer: z.uuid(), cents: z.number().int() }),
+    handler: async (event, ctx) => {
       const res = await refundExecutor.create(
         { customer: event.payload.customer },
         event.user,
@@ -137,8 +137,8 @@ const mspFeature = defineFeature("msptest", (r) => {
       });
       return res;
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;
@@ -282,7 +282,7 @@ describe("r.multiStreamProjection — registrar validation", () => {
   test("empty apply map is rejected", () => {
     expect(() =>
       defineFeature("mspbad", (r) => {
-        r.entity("msp-shipment", shipmentEntity);
+        r.entity({ name: "msp-shipment", ...shipmentEntity });
         r.multiStreamProjection({
           name: "empty",
           table: customerBalanceTable,
@@ -295,7 +295,7 @@ describe("r.multiStreamProjection — registrar validation", () => {
   test("name collision with single-stream projection is rejected", () => {
     expect(() =>
       defineFeature("mspcollision", (r) => {
-        r.entity("msp-shipment", shipmentEntity);
+        r.entity({ name: "msp-shipment", ...shipmentEntity });
         r.projection({
           name: "shared",
           source: "msp-shipment",

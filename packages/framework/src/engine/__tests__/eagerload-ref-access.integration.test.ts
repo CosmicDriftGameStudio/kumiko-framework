@@ -46,8 +46,8 @@ const leaseEntity = createEntity({
   table: "elref_leases",
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
-    propertyId: { type: "reference", entity: "property" },
-    extraIds: { type: "reference", entity: "property", multiple: true },
+    propertyId: { type: "reference", entity: "property" } as const,
+    extraIds: { type: "reference", entity: "property", multiple: true } as const,
   },
   access: { write: { Admin: "all" } },
 });
@@ -55,8 +55,8 @@ const leaseEntity = createEntity({
 const openRead = { access: { openToAll: { reason: "test handler callable by any test user" } } };
 
 const feature = defineFeature("elref", (r) => {
-  r.entity("property", propertyEntity);
-  r.entity("lease", leaseEntity);
+  r.entity({ name: "property", ...propertyEntity });
+  r.entity({ name: "lease", ...leaseEntity });
   r.crud("property", propertyEntity, { write: { access: { roles: ["Admin"] } }, read: openRead });
   r.crud("lease", leaseEntity, { write: { access: { roles: ["Admin"] } }, read: openRead });
 });

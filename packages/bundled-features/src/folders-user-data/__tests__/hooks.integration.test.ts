@@ -36,7 +36,7 @@ const creditEntity = createEntity({
   },
 });
 const hostFixturesFeature = defineFeature("folders-export-test-host-fixtures", (r) => {
-  r.entity("credit", creditEntity);
+  r.entity({ name: "credit", ...creditEntity });
 });
 
 const CREDIT_KEPT = "d0000000-0000-4000-8000-000000000001";

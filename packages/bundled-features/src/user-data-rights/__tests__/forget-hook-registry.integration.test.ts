@@ -54,7 +54,7 @@ const probeEntity = createEntity({
 });
 
 const probeFeature = defineFeature(PROBE, (r) => {
-  r.entity(PROBE, probeEntity);
+  r.entity({ name: PROBE, ...probeEntity });
   r.useExtension(EXT_USER_DATA, PROBE, {
     export: async () => null,
     delete: captureHook,

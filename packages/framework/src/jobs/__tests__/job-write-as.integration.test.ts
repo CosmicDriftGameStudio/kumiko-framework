@@ -53,10 +53,10 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
     version: 1,
   });
 
-  r.writeHandler(
-    "adminNote",
-    z.object({ note: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "adminNote",
+    schema: z.object({ note: z.string() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: crypto.randomUUID(),
         aggregateType: "write-as-probe-note",
@@ -65,10 +65,13 @@ const writeAsProbeFeature = defineFeature("writeAsProbe", (r) => {
       });
       return { isSuccess: true as const, data: { note: event.payload.note } };
     },
-    { access: { roles: [ROLES.TenantAdmin] } },
-  );
+    access: { roles: [ROLES.TenantAdmin] },
+  });
 
-  r.queryHandler("whoami", z.object({}), async (query) => ({ roles: query.user.roles }), {
+  r.queryHandler({
+    name: "whoami",
+    schema: z.object({}),
+    handler: async (query) => ({ roles: query.user.roles }),
     access: { roles: ["system"] },
   });
 

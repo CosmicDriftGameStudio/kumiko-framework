@@ -132,11 +132,17 @@ describe("credential-carrying bundled handlers opt out of agent exposure", () =>
 
 function buildDenyTestFeature() {
   return defineFeature("deny-test", (r) => {
-    r.queryHandler("alpha", z.object({}), async () => ({ ok: true }), {
+    r.queryHandler({
+      name: "alpha",
+      schema: z.object({}),
+      handler: async () => ({ ok: true }),
       access: { roles: ["Admin"] },
       description: "Alpha query handler.",
     });
-    r.queryHandler("beta", z.object({}), async () => ({ ok: true }), {
+    r.queryHandler({
+      name: "beta",
+      schema: z.object({}),
+      handler: async () => ({ ok: true }),
       access: { roles: ["Admin"] },
       description: "Beta query handler.",
     });
@@ -296,7 +302,7 @@ function buildExposureTestFeature() {
       write: { access: { roles: ["Admin"] } },
     });
 
-    r.entity("cloaked-item", cloakedItemEntity);
+    r.entity({ name: "cloaked-item", ...cloakedItemEntity });
     r.queryHandler(
       defineEntityListHandler("cloaked-item", cloakedItemEntity, {
         access: { roles: ["Admin"] },
@@ -373,7 +379,7 @@ const salaryItemEntity = createEntity({
 
 function buildRiskAndFieldAccessFeature() {
   return defineFeature("risk-test", (r) => {
-    r.entity("risky-item", riskyItemEntity);
+    r.entity({ name: "risky-item", ...riskyItemEntity });
     r.queryHandler(
       defineEntityListHandler("risky-item", riskyItemEntity, {
         access: { roles: ["Admin"] },

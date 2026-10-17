@@ -28,7 +28,7 @@ export function createUserFeature(): FeatureDefinition {
       recommended: true,
     });
     r.systemScope();
-    r.entity("user", userEntity);
+    r.entity({ name: "user", ...userEntity });
 
     // Self-extension: `user` declares AND fulfils principalStatus (precedent:
     // tier-engine/feature.ts) — wires the blocked-principal check into every stack that mounts `user`.

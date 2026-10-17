@@ -46,7 +46,7 @@ export function registerConsumerProtection(
   options: ResolvedBillingFoundationOptions,
   consumerProtection: ConsumerProtectionOptions,
 ): void {
-  r.requires("template-resolver", "delivery", "user", "tenant");
+  r.requires({ features: ["template-resolver", "delivery", "user", "tenant"] });
   registerConsumerProtectionMails(r);
   registerContractTermination(r, options, consumerProtection);
   r.defineEvent(CHECKOUT_CONSENT_RECORDED_EVENT_SHORT, checkoutConsentRecordedPayloadSchema, {

@@ -36,7 +36,7 @@ const HOOK_TOKEN_KEY = "billing:config:hook-token";
 const systemAdmin = TestUsers.systemAdmin; // roles ["SystemAdmin"]
 
 const billingFeature = defineFeature("billing", (r) => {
-  r.requires("config");
+  r.requires({ features: ["config"] });
   r.config({
     keys: {
       // backing:"secrets" — value lives in the secrets store, not config_values.
@@ -61,15 +61,15 @@ const billingFeature = defineFeature("billing", (r) => {
   });
   // Internal-read probe: a handler that reads its own secrets-backed key via
   // ctx.config — must receive the revealed plaintext, not the mask.
-  r.queryHandler(
-    "peek-api-key",
-    z.object({}),
-    async (_query, ctx) => {
+  r.queryHandler({
+    name: "peek-api-key",
+    schema: z.object({}),
+    handler: async (_query, ctx) => {
       if (!ctx.config) throw new Error("ctx.config not wired");
       return { value: await ctx.config(API_KEY) };
     },
-    { access: { roles: ["SystemAdmin"] } },
-  );
+    access: { roles: ["SystemAdmin"] },
+  });
 });
 
 let stack: TestStack;

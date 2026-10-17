@@ -9,10 +9,11 @@ import { createRegistry } from "../registry.js";
 describe("buildAppSchema — reference optionsQuery", () => {
   test("a reference field's optionsQuery reaches the client schema entity field", () => {
     const leases = defineFeature("leases", (r) => {
-      r.entity("lease", { fields: { startDate: { type: "text" } } });
+      r.entity({ name: "lease", fields: { startDate: { type: "text" } } });
     });
     const deposits = defineFeature("deposits", (r) => {
-      r.entity("deposit", {
+      r.entity({
+        name: "deposit",
         fields: {
           leaseId: {
             type: "reference",

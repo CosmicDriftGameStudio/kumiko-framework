@@ -63,10 +63,14 @@ let failAlwaysCalls = 0;
 const titlePayload = z.object({ title: z.string() });
 
 const feature = defineFeature(FEATURE, (r) => {
-  const note = r.entity("note", noteEntity);
+  const note = r.entity({ name: "note", ...noteEntity });
 
-  r.hook("postSave", { allOf: note }, async (result) => {
-    afterCommitTitles.push(String(result.data["title"]));
+  r.hook({
+    type: "postSave",
+    target: { allOf: note },
+    handler: async (result) => {
+      afterCommitTitles.push(String(result.data["title"]));
+    },
   });
 
   r.writeHandler(
@@ -257,12 +261,13 @@ const feature = defineFeature(FEATURE, (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  r.queryHandler(
-    "query-user-write",
-    titlePayload,
-    async (query, ctx) => ctx.write(type("write", "create-note"), { title: query.payload.title }),
-    { access: { roles: ["User"] } },
-  );
+  r.queryHandler({
+    name: "query-user-write",
+    schema: titlePayload,
+    handler: async (query, ctx) =>
+      ctx.write(type("write", "create-note"), { title: query.payload.title }),
+    access: { roles: ["User"] },
+  });
 
   r.streamHandler(
     "stream-write",
@@ -309,27 +314,28 @@ const feature = defineFeature(FEATURE, (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  r.queryHandler(
-    "query-write",
-    titlePayload,
-    async (query, ctx) => ctx.write(type("write", "create-note"), { title: query.payload.title }),
-    { access: { roles: ["Admin"] } },
-  );
+  r.queryHandler({
+    name: "query-write",
+    schema: titlePayload,
+    handler: async (query, ctx) =>
+      ctx.write(type("write", "create-note"), { title: query.payload.title }),
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "query-db-write",
-    titlePayload,
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "query-db-write",
+    schema: titlePayload,
+    handler: async (query, ctx) => {
       await noteExecutor.create({ title: query.payload.title }, ctx.user, ctx.db);
       return {};
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.queryHandler(
-    "query-append",
-    titlePayload,
-    async (_query, ctx) => {
+  r.queryHandler({
+    name: "query-append",
+    schema: titlePayload,
+    handler: async (_query, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: "00000000-0000-4000-8000-000000000003",
         aggregateType: "note",
@@ -338,8 +344,8 @@ const feature = defineFeature(FEATURE, (r) => {
       });
       return {};
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

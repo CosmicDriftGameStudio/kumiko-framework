@@ -47,7 +47,7 @@ const contactEntity = createEntity({
 const contactTable = buildEntityTable("contact", contactEntity);
 
 const contactFeature = defineFeature("search-pii-probe", (r) => {
-  r.entity("contact", contactEntity);
+  r.entity({ name: "contact", ...contactEntity });
 });
 
 const ghostSearchEntity = createEntity({
@@ -57,7 +57,7 @@ const ghostSearchEntity = createEntity({
   },
 });
 const ghostSearchFeature = defineFeature("search-pii-ghost", (r) => {
-  r.entity("ghost", ghostSearchEntity);
+  r.entity({ name: "ghost", ...ghostSearchEntity });
 });
 
 let stack: TestStack;

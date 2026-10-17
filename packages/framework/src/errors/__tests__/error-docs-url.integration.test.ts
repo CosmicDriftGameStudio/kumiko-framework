@@ -8,12 +8,12 @@ import { UnprocessableError, writeFailure } from "../index.js";
 const APP_REASON = "order_locked";
 
 const feature = defineFeature("docsdemo", (r) => {
-  r.writeHandler(
-    "fail",
-    z.object({}),
-    async () => writeFailure(new UnprocessableError(APP_REASON)),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "fail",
+    schema: z.object({}),
+    handler: async () => writeFailure(new UnprocessableError(APP_REASON)),
+    access: { roles: ["Admin"] },
+  });
 });
 
 type ErrorBody = { error: { docsUrl?: string; details?: { reason?: string } } };

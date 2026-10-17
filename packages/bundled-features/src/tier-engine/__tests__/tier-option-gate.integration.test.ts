@@ -95,7 +95,7 @@ const countedCreate = withCapEnforcement(
 );
 
 const siteFeature = defineFeature("gated-site", (r) => {
-  r.entity("site", siteEntity);
+  r.entity({ name: "site", ...siteEntity });
   r.writeHandler(
     withTierOptionGate(defineEntityCreateHandler("site", siteEntity, access), layoutSpec),
   );

@@ -58,7 +58,7 @@ const documentEntity = createEntity({
 const ROLES = { access: { roles: ["Admin", "User"] } } as const;
 
 const documentFeature = defineFeature("pipeline-documents", (r) => {
-  r.entity("document", documentEntity);
+  r.entity({ name: "document", ...documentEntity });
   r.writeHandler(defineEntityCreateHandler("document", documentEntity, ROLES));
   r.writeHandler(defineEntityUpdateHandler("document", documentEntity, ROLES));
   r.queryHandler(defineEntityDetailHandler("document", documentEntity, ROLES));

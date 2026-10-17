@@ -45,27 +45,27 @@ const entityKeyedHook: PostQueryHookFn = async ({ rows }) => {
 };
 
 const postQueryFeature = defineFeature("postquerytest", (r) => {
-  const widget = r.entity("widget", widgetEntity);
+  const widget = r.entity({ name: "widget", ...widgetEntity });
 
   // Returns 2 rows in {rows}-Shape (the dominant case for list-handlers)
-  r.queryHandler(
-    "widget:list",
-    z.object({}),
-    async () => ({
+  r.queryHandler({
+    name: "widget:list",
+    schema: z.object({}),
+    handler: async () => ({
       rows: [
         { id: "w1", name: "Alpha" },
         { id: "w2", name: "Beta" },
       ],
       nextCursor: null,
     }),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
   // Handler-keyed: fires only for widget:list
-  r.hook("postQuery", "widget:list", handlerKeyedHook);
+  r.hook({ type: "postQuery", target: "widget:list", handler: handlerKeyedHook });
 
   // Entity-keyed: fires for ALL query-handlers of widget-entity
-  r.hook("postQuery", { allOf: widget }, entityKeyedHook);
+  r.hook({ type: "postQuery", target: { allOf: widget }, handler: entityKeyedHook });
 });
 
 // --- Single-object-result invariant fixtures ---
@@ -89,17 +89,23 @@ const dropRowHook: PostQueryHookFn = async () => ({ rows: [] });
 const duplicateRowHook: PostQueryHookFn = async ({ rows }) => ({ rows: [...rows, ...rows] });
 
 const singleObjectFeature = defineFeature("singleobjtest", (r) => {
-  const gadget = r.entity("gadget", gadgetEntity);
-  r.queryHandler("gadget:get", z.object({}), async () => ({ id: "g1", name: "Gadget" }), {
+  const gadget = r.entity({ name: "gadget", ...gadgetEntity });
+  r.queryHandler({
+    name: "gadget:get",
+    schema: z.object({}),
+    handler: async () => ({ id: "g1", name: "Gadget" }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.hook("postQuery", { allOf: gadget }, dropRowHook);
+  r.hook({ type: "postQuery", target: { allOf: gadget }, handler: dropRowHook });
 
-  const gizmo = r.entity("gizmo", gizmoEntity);
-  r.queryHandler("gizmo:get", z.object({}), async () => ({ id: "z1", name: "Gizmo" }), {
+  const gizmo = r.entity({ name: "gizmo", ...gizmoEntity });
+  r.queryHandler({
+    name: "gizmo:get",
+    schema: z.object({}),
+    handler: async () => ({ id: "z1", name: "Gizmo" }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.hook("postQuery", { allOf: gizmo }, duplicateRowHook);
+  r.hook({ type: "postQuery", target: { allOf: gizmo }, handler: duplicateRowHook });
 });
 
 // --- Test stack ---

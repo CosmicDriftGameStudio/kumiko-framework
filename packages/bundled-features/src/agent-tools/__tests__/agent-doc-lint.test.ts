@@ -28,7 +28,10 @@ async function noopQueryHandler() {
 describe("findAgentDocGaps", () => {
   test("exposed handler with a schema that has no JSON Schema form -> schema gap", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
-      r.writeHandler("do-a", z.object({ at: z.instanceof(Date) }), noopWriteHandler, {
+      r.writeHandler({
+        name: "do-a",
+        schema: z.object({ at: z.instanceof(Date) }),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "Does A.",
       });
@@ -43,9 +46,24 @@ describe("findAgentDocGaps", () => {
 
   test("R1: exactly three undescribed handlers -> exactly three gaps with the expected QNs", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
-      r.writeHandler("do-a", z.object({}), noopWriteHandler, { access: OPEN_ACCESS });
-      r.writeHandler("do-b", z.object({}), noopWriteHandler, { access: OPEN_ACCESS });
-      r.queryHandler("get-c", z.object({}), noopQueryHandler, { access: OPEN_ACCESS });
+      r.writeHandler({
+        name: "do-a",
+        schema: z.object({}),
+        handler: noopWriteHandler,
+        access: OPEN_ACCESS,
+      });
+      r.writeHandler({
+        name: "do-b",
+        schema: z.object({}),
+        handler: noopWriteHandler,
+        access: OPEN_ACCESS,
+      });
+      r.queryHandler({
+        name: "get-c",
+        schema: z.object({}),
+        handler: noopQueryHandler,
+        access: OPEN_ACCESS,
+      });
     });
 
     const gaps = findAgentDocGaps([feature]);
@@ -60,7 +78,10 @@ describe("findAgentDocGaps", () => {
 
   test("R1: handler exposed via agent.expose:true without description -> exposed-without-description gap", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
-      r.writeHandler("do-a", z.object({}), noopWriteHandler, {
+      r.writeHandler({
+        name: "do-a",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         agent: { expose: true },
       });
@@ -77,7 +98,10 @@ describe("findAgentDocGaps", () => {
 
   test("R1: blank description -> gap", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
-      r.writeHandler("do-a", z.object({}), noopWriteHandler, {
+      r.writeHandler({
+        name: "do-a",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "   ",
       });
@@ -88,7 +112,10 @@ describe("findAgentDocGaps", () => {
 
   test("R1: handler with description -> no gap", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
-      r.writeHandler("do-a", z.object({}), noopWriteHandler, {
+      r.writeHandler({
+        name: "do-a",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "Does A.",
       });
@@ -99,7 +126,10 @@ describe("findAgentDocGaps", () => {
 
   test("R1: handler with agent.expose:false opt-out -> no gap", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
-      r.writeHandler("do-a", z.object({}), noopWriteHandler, {
+      r.writeHandler({
+        name: "do-a",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         agent: { expose: false },
       });
@@ -221,7 +251,7 @@ describe("findAgentDocGaps", () => {
 
   test("R2: non-custom screen without description -> no gap (only custom screens are linted)", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
-      r.entity("widget", { fields: {}, description: "A widget." });
+      r.entity({ name: "widget", fields: {}, description: "A widget." });
       r.screen({ id: "widget-list", type: "entityList", entity: "widget", columns: [] });
     });
 
@@ -230,12 +260,18 @@ describe("findAgentDocGaps", () => {
 
   test("R3: entity without description with two agent-visible handlers -> exactly one gap", () => {
     const feature = defineFeature("widgets", (r) => {
-      r.entity("widget", { fields: {} });
-      r.writeHandler("widget:create", z.object({}), noopWriteHandler, {
+      r.entity({ name: "widget", fields: {} });
+      r.writeHandler({
+        name: "widget:create",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "Creates a widget.",
       });
-      r.writeHandler("widget:update", z.object({}), noopWriteHandler, {
+      r.writeHandler({
+        name: "widget:update",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "Updates a widget.",
       });
@@ -248,8 +284,11 @@ describe("findAgentDocGaps", () => {
 
   test("R3: entity WITH description -> no entity gap", () => {
     const feature = defineFeature("widgets", (r) => {
-      r.entity("widget", { fields: {}, description: "A widget." });
-      r.writeHandler("widget:create", z.object({}), noopWriteHandler, {
+      r.entity({ name: "widget", fields: {}, description: "A widget." });
+      r.writeHandler({
+        name: "widget:create",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "Creates a widget.",
       });
@@ -260,8 +299,11 @@ describe("findAgentDocGaps", () => {
 
   test("R3: entity whose only mapped handler opts out via agent.expose:false -> no entity gap", () => {
     const feature = defineFeature("widgets", (r) => {
-      r.entity("widget", { fields: {} });
-      r.writeHandler("widget:create", z.object({}), noopWriteHandler, {
+      r.entity({ name: "widget", fields: {} });
+      r.writeHandler({
+        name: "widget:create",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         agent: { expose: false },
       });
@@ -272,8 +314,11 @@ describe("findAgentDocGaps", () => {
 
   test("R3: fires for an agent-visible QUERY handler too (handlerEntityMappings can't distinguish namespaces)", () => {
     const feature = defineFeature("widgets", (r) => {
-      r.entity("widget", { fields: {} });
-      r.queryHandler("widget:list", z.object({}), noopQueryHandler, {
+      r.entity({ name: "widget", fields: {} });
+      r.queryHandler({
+        name: "widget:list",
+        schema: z.object({}),
+        handler: noopQueryHandler,
         access: OPEN_ACCESS,
         description: "Lists widgets.",
       });
@@ -285,8 +330,11 @@ describe("findAgentDocGaps", () => {
 
   test("R3: camelCase entity name -> qn keeps the raw name, not kebab-cased", () => {
     const feature = defineFeature("document-ingest", (r) => {
-      r.entity("documentExtract", { fields: {} });
-      r.writeHandler("documentExtract:create", z.object({}), noopWriteHandler, {
+      r.entity({ name: "documentExtract", fields: {} });
+      r.writeHandler({
+        name: "documentExtract:create",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "Creates a document extract.",
       });
@@ -302,8 +350,11 @@ describe("findAgentDocGaps", () => {
 
   test("clean registry (everything described) -> empty array", () => {
     const feature = defineFeature("widgets", (r) => {
-      r.entity("widget", { fields: {}, description: "A widget." });
-      r.writeHandler("widget:create", z.object({}), noopWriteHandler, {
+      r.entity({ name: "widget", fields: {}, description: "A widget." });
+      r.writeHandler({
+        name: "widget:create",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "Creates a widget.",
       });
@@ -320,8 +371,18 @@ describe("findAgentDocGaps", () => {
 
   test("result is sorted by qn", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
-      r.queryHandler("get-z", z.object({}), noopQueryHandler, { access: OPEN_ACCESS });
-      r.writeHandler("do-a", z.object({}), noopWriteHandler, { access: OPEN_ACCESS });
+      r.queryHandler({
+        name: "get-z",
+        schema: z.object({}),
+        handler: noopQueryHandler,
+        access: OPEN_ACCESS,
+      });
+      r.writeHandler({
+        name: "do-a",
+        schema: z.object({}),
+        handler: noopWriteHandler,
+        access: OPEN_ACCESS,
+      });
       r.screen({ id: "widget-editor", type: "custom", renderer: { react: "stub" } });
     });
 
@@ -331,7 +392,12 @@ describe("findAgentDocGaps", () => {
 
   test("formatAgentDocGap includes the qn and the reason", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
-      r.writeHandler("do-a", z.object({}), noopWriteHandler, { access: OPEN_ACCESS });
+      r.writeHandler({
+        name: "do-a",
+        schema: z.object({}),
+        handler: noopWriteHandler,
+        access: OPEN_ACCESS,
+      });
     });
 
     const [gap] = findAgentDocGaps([feature]);
@@ -352,7 +418,10 @@ describe("findAgentDocGaps — handler-without-translation", () => {
     extra?: (r: Parameters<Parameters<typeof defineFeature>[1]>[0]) => void,
   ) {
     return defineFeature("tr-demo", (r) => {
-      r.writeHandler("do-x", z.object({ vehicleId: z.string() }), noopWriteHandler, {
+      r.writeHandler({
+        name: "do-x",
+        schema: z.object({ vehicleId: z.string() }),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "Does X.",
       });
@@ -407,12 +476,15 @@ describe("findAgentDocGaps — handler-without-translation", () => {
 
   test("system-only input fields need no label", () => {
     const feature = defineFeature("tr-demo", (r) => {
-      r.writeHandler(
-        "do-x",
-        z.object({ tenantIdOverride: z.string().meta({ [SYSTEM_ONLY_JSON_SCHEMA_KEY]: true }) }),
-        noopWriteHandler,
-        { access: OPEN_ACCESS, description: "Does X." },
-      );
+      r.writeHandler({
+        name: "do-x",
+        schema: z.object({
+          tenantIdOverride: z.string().meta({ [SYSTEM_ONLY_JSON_SCHEMA_KEY]: true }),
+        }),
+        handler: noopWriteHandler,
+        access: OPEN_ACCESS,
+        description: "Does X.",
+      });
       r.translations({ keys: { "tr-demo:write:do-x:title": { en: "Do X" } } });
     });
     expect(translationGaps([feature])).toEqual([]);
@@ -420,8 +492,11 @@ describe("findAgentDocGaps — handler-without-translation", () => {
 
   test("handler mapped to an entity -> no gap", () => {
     const feature = defineFeature("tr-demo", (r) => {
-      r.entity("vehicle", { fields: { name: { type: "text", required: true } } });
-      r.writeHandler("vehicle:do-x", z.object({}), noopWriteHandler, {
+      r.entity({ name: "vehicle", fields: { name: { type: "text", required: true } } });
+      r.writeHandler({
+        name: "vehicle:do-x",
+        schema: z.object({}),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "Does X.",
       });
@@ -445,7 +520,10 @@ describe("findAgentDocGaps — handler-without-translation", () => {
 
   test("handler not exposed to the agent -> no gap", () => {
     const feature = defineFeature("tr-demo", (r) => {
-      r.writeHandler("do-x", z.object({ a: z.string() }), noopWriteHandler, {
+      r.writeHandler({
+        name: "do-x",
+        schema: z.object({ a: z.string() }),
+        handler: noopWriteHandler,
         access: OPEN_ACCESS,
         description: "Does X.",
         agent: { expose: false },

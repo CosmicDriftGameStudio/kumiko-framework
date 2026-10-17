@@ -34,7 +34,7 @@ const linkEntity = createEntity({
   table: "wo_links",
   fields: {
     label: createTextField({ personal: false, reason: "test_fixture", required: true }),
-    connection: { type: "reference", entity: "connection" },
+    connection: { type: "reference", entity: "connection" } as const,
   },
 });
 
@@ -55,30 +55,34 @@ const connectionExecutor = createEventStoreExecutor(
 const hookSawApiKeys: unknown[] = [];
 
 const feature = defineFeature("wo", (r) => {
-  const connection = r.entity("connection", connectionEntity);
-  r.hook("postSave", { allOf: connection }, async (result) => {
-    hookSawApiKeys.push(result.data["apiKey"]);
+  const connection = r.entity({ name: "connection", ...connectionEntity });
+  r.hook({
+    type: "postSave",
+    target: { allOf: connection },
+    handler: async (result) => {
+      hookSawApiKeys.push(result.data["apiKey"]);
+    },
   });
   // Returns only a boolean so the secret itself never leaves the server.
-  r.queryHandler(
-    "stored-key-matches",
-    z.object({ id: z.uuid(), candidate: z.string() }),
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "stored-key-matches",
+    schema: z.object({ id: z.uuid(), candidate: z.string() }),
+    handler: async (query, ctx) => {
       const row = await connectionExecutor.detail({ id: query.payload.id }, query.user, ctx.db);
       return { matches: row?.["apiKey"] === query.payload.candidate };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
   r.crud("connection", connectionEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
-  r.entity("link", linkEntity);
+  r.entity({ name: "link", ...linkEntity });
   r.crud("link", linkEntity, {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
-  r.entity("vault", vaultEntity);
+  r.entity({ name: "vault", ...vaultEntity });
   r.relation("vault", "connections", {
     type: "hasMany",
     target: "connection",

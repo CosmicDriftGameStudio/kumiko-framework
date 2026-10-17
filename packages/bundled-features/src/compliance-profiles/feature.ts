@@ -63,7 +63,7 @@ export function createComplianceProfilesFeature(
     // Context, Profile-Selection ist eigene Entity, sub-processor-Liste
     // sind Constants. Wenn S1.4+ Cross-Feature-Reads dazukommen, kommt
     // r.requires hier rein.
-    r.entity("tenant-compliance-profile", tenantComplianceProfileEntity);
+    r.entity({ name: "tenant-compliance-profile", ...tenantComplianceProfileEntity });
 
     r.exposesApi("compliance.forTenant");
 

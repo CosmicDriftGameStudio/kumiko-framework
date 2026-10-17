@@ -4,7 +4,10 @@ import * as z from "zod";
 import { setupTestStack, type TestStack, TestUsers } from "../index.js";
 
 const limitedFeature = defineFeature("shared-redis-test", (r) => {
-  r.queryHandler("ping", z.object({}), async () => ({ ok: true }), {
+  r.queryHandler({
+    name: "ping",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }),
     access: { roles: ["Admin"] },
     rateLimit: { per: "user", limit: 2, windowSeconds: 60 },
   });

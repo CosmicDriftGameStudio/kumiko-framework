@@ -196,12 +196,12 @@ export function createAuthEmailPasswordFeature(
         { key: "accountUnlock", label: "Account-Unlock-Flow", type: "boolean", default: false },
       ],
     });
-    r.requires("user");
-    r.requires("tenant");
+    r.requires({ features: ["user"] });
+    r.requires({ features: ["tenant"] });
     // All five magic-link flows (reset/verify/signup/invite/unlock) dispatch
     // via ctx.notify → delivery must be mounted. Fail closed at boot instead
     // of silently dropping the mail.
-    if (sendsMagicLinkMail(opts)) r.requires("delivery");
+    if (sendsMagicLinkMail(opts)) r.requires({ features: ["delivery"] });
     r.envSchema(authEmailPasswordEnvSchema);
     r.translations({ keys: AUTH_EMAIL_PASSWORD_MAIL_I18N });
 

@@ -38,7 +38,7 @@ const noteEntity = createEntity({
 });
 
 const noteFeature = defineFeature("unclaimed-notes", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   // Clerk may create notes but not read other people's: the record rule must not leak files.
   r.writeHandler(
     defineEntityCreateHandler("note", noteEntity, {
@@ -54,17 +54,17 @@ const noteFeature = defineFeature("unclaimed-notes", (r) => {
 
 // A system-generated document without attachTo, like a rendered letter: unclaimed, but not an inbox upload.
 const systemDocFeature = defineFeature("unclaimed-sysdoc", (r) => {
-  r.writeHandler(
-    "render",
-    z.object({}),
-    (_event, ctx) =>
+  r.writeHandler({
+    name: "render",
+    schema: z.object({}),
+    handler: (_event, ctx) =>
       createFileRefFromBytes(ctx, {
         fileName: "rendered.pdf",
         mimeType: "application/pdf",
         data: new TextEncoder().encode("%PDF-1.4 rendered"),
       }),
-    { access: { roles: [SYSTEM_ROLE] } },
-  );
+    access: { roles: [SYSTEM_ROLE] },
+  });
 });
 
 const NOTE_CREATE = "unclaimed-notes:write:note:create";

@@ -47,7 +47,7 @@ function memoEntity(access: Parameters<typeof createEntity>[0]["access"]) {
 function featureWith(access: Parameters<typeof createEntity>[0]["access"]) {
   const entity = memoEntity(access);
   return defineFeature("fwbootguard", (r) => {
-    r.entity("memo", entity);
+    r.entity({ name: "memo", ...entity });
     r.queryHandler(
       defineEntityQueryHandler("memo:detail", entity, { access: { roles: ["Member"] } }),
     );

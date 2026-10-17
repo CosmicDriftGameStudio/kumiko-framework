@@ -1,9 +1,7 @@
-// Shared helper for registrar methods that accept an Object-Form call
-// (`r.entity({ name: "item", ... })`) alongside the classic positional form
-// (`r.entity("item", { ... })`). Object-Form is the shape the feature-ast
-// renderer emits for Designer/AI-generated code — a single object argument
-// with named fields is easier to generate correctly than positional args
-// whose count/order vary per method.
+// Shared helpers for registrar methods that take a single object argument
+// (`r.entity({ name: "item", ... })`). The positional overloads are gone; the
+// runtime check below turns a leftover positional call into a pointer at the codemod.
+
 export function splitNamedDefinition<T extends { readonly name: string }>(
   definition: T,
 ): [string, Omit<T, "name">] {
@@ -11,10 +9,8 @@ export function splitNamedDefinition<T extends { readonly name: string }>(
   return [name, rest];
 }
 
-// Shared helper for registrar methods that accept either variadic strings
-// (hand-written call sites) or a single Object-Form object wrapping the
-// same string array under `key` (the feature-ast renderer's canonical
-// shape for Designer/AI-generated code).
+// `optionalRequires` and `readConfig` still accept variadic strings next to a
+// single object wrapping the same string array under `key`.
 export function unwrapArrayForm<K extends string>(
   args: readonly [Record<K, readonly string[]>] | readonly string[],
   key: K,
@@ -24,4 +20,16 @@ export function unwrapArrayForm<K extends string>(
     return (first as Record<K, readonly string[]>)[key];
   }
   return args as readonly string[];
+}
+
+export function isObjectArgument(value: unknown): boolean {
+  return typeof value === "object" && value !== null;
+}
+
+// Removed in the first release after 2026-10-29; until then a positional call fails with
+// a pointer at the codemod instead of an obscure "undefined is not a function".
+export function throwPositionalFormRemoved(featureName: string, method: string): never {
+  throw new Error(
+    `[Feature ${featureName}] positional r.${method}(…) removed in 0.366, run \`bun kumiko-upgrade --apply\``,
+  );
 }

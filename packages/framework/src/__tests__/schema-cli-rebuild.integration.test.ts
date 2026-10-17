@@ -62,7 +62,7 @@ const counterProjection: ProjectionDefinition = {
 };
 
 const feature = defineFeature("applyrebuildtest", (r) => {
-  r.entity("apply-item", itemEntity);
+  r.entity({ name: "apply-item", ...itemEntity });
   r.projection(counterProjection);
 });
 

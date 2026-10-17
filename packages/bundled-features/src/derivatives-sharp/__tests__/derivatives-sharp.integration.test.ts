@@ -27,11 +27,11 @@ import { derivativesSharpFeature } from "../feature.js";
 import { imageMetadata } from "../render.js";
 
 const variantTestFeature = defineFeature("derivativessharptest", (r) => {
-  r.requires("file-derivatives");
-  r.writeHandler(
-    "make-thumb",
-    z.object({ fileRefId: z.string() }),
-    async (event, ctx) => {
+  r.requires({ features: ["file-derivatives"] });
+  r.writeHandler({
+    name: "make-thumb",
+    schema: z.object({ fileRefId: z.string() }),
+    handler: async (event, ctx) => {
       if (!ctx.derivatives || !ctx.files) {
         return writeFailure(
           new InternalError({ message: "no ctx.derivatives/ctx.files on write-handler ctx" }),
@@ -46,8 +46,8 @@ const variantTestFeature = defineFeature("derivativessharptest", (r) => {
       const meta = await imageMetadata(bytes);
       return { isSuccess: true as const, data: { ...result, ...meta } };
     },
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 let stack: TestStack;

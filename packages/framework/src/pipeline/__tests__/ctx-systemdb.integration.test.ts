@@ -9,10 +9,10 @@ import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js"
 const systemScopedFeature = defineFeature("ctxsystemdb-system", (r) => {
   r.systemScope();
 
-  r.queryHandler(
-    "check",
-    z.object({}),
-    async (query, ctx) => {
+  r.queryHandler({
+    name: "check",
+    schema: z.object({}),
+    handler: async (query, ctx) => {
       if (!ctx.systemDb)
         return {
           present: false as const,
@@ -61,21 +61,21 @@ const systemScopedFeature = defineFeature("ctxsystemdb-system", (r) => {
         outsideTransactionTenantIdMatches: checkedOutsideTx.tenantId === query.user.tenantId,
       };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 const tenantScopedFeature = defineFeature("ctxsystemdb-tenant", (r) => {
-  r.queryHandler(
-    "check",
-    z.object({}),
-    async (query, ctx) => ({
+  r.queryHandler({
+    name: "check",
+    schema: z.object({}),
+    handler: async (query, ctx) => ({
       present: ctx.systemDb !== undefined,
       dbWorks: ctx.db.tenantId === query.user.tenantId,
       dbOutsideTransactionWorks: ctx.dbOutsideTransaction?.tenantId === query.user.tenantId,
     }),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 });
 
 let stack: TestStack;

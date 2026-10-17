@@ -6,15 +6,15 @@ import { createEntity, createTextField } from "../factories.js";
 describe("validateBoot — entityList screens", () => {
   test("requires defaultSort when searchable", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: {
             name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -33,13 +33,13 @@ describe("validateBoot — entityList screens", () => {
 
   test("rejects searchable:false on operator lists not on whitelist", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -59,13 +59,13 @@ describe("validateBoot — entityList screens", () => {
 
   test("allows searchable:false on download-attempt-list whitelist", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity(
-        "attempt",
-        createEntity({
+      r.entity({
+        name: "attempt",
+        ...createEntity({
           table: "Attempts",
           fields: { id: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "download-attempt-list",
         type: "entityList",
@@ -85,15 +85,15 @@ describe("validateBoot — entityList screens", () => {
 
   test("requires navigate rowAction when entityEdit exists", () => {
     const feature = defineFeature("demo", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: {
             name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -120,15 +120,15 @@ describe("validateBoot — entityList screens", () => {
 
   function featureWithCreateScreen(createScreen: string) {
     return defineFeature("demo", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: {
             name: createTextField({ sortable: true, personal: false, reason: "test_fixture" }),
           },
         }),
-      );
+      });
       r.screen({
         id: "item-list",
         type: "entityList",
@@ -168,13 +168,13 @@ describe("validateBoot — entityList screens", () => {
 describe("validateBoot — entityEdit recordTitleField", () => {
   function featureWithRecordTitleField(recordTitleField: string) {
     return defineFeature("demo", (r) => {
-      r.entity(
-        "item",
-        createEntity({
+      r.entity({
+        name: "item",
+        ...createEntity({
           table: "Items",
           fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
         }),
-      );
+      });
       r.screen({
         id: "item-edit",
         type: "entityEdit",

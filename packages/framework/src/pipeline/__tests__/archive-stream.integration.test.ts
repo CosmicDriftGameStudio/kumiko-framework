@@ -30,7 +30,7 @@ const itemEntity = createEntity({
 const itemTable = buildEntityTable("arch-item", itemEntity);
 
 const archFeature = defineFeature("archtest", (r) => {
-  r.entity("arch-item", itemEntity);
+  r.entity({ name: "arch-item", ...itemEntity });
 
   const labelChanged = r.defineEvent("label-changed", z.object({ label: z.string() }), {
     piiFields: "none",
@@ -40,17 +40,17 @@ const archFeature = defineFeature("archtest", (r) => {
     entityName: "arch-item",
   });
 
-  r.writeHandler(
-    "item:create",
-    z.object({ label: z.string() }),
-    async (event, ctx) => executor.create(event.payload, event.user, ctx.db),
-    { access: { roles: ["Admin"] } },
-  );
+  r.writeHandler({
+    name: "item:create",
+    schema: z.object({ label: z.string() }),
+    handler: async (event, ctx) => executor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "item:relabel",
-    z.object({ id: z.uuid(), label: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "item:relabel",
+    schema: z.object({ id: z.uuid(), label: z.string() }),
+    handler: async (event, ctx) => {
       await ctx.unsafeAppendEvent({
         aggregateId: event.payload.id,
         aggregateType: "arch-item",
@@ -59,67 +59,66 @@ const archFeature = defineFeature("archtest", (r) => {
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "item:archive",
-    z.object({ id: z.uuid(), reason: z.string().optional() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "item:archive",
+    schema: z.object({ id: z.uuid(), reason: z.string().optional() }),
+    handler: async (event, ctx) => {
       await ctx.archiveStream(event.payload.id, {
         aggregateType: "arch-item",
         reason: event.payload.reason,
       });
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "item:restore",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "item:restore",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => {
       await ctx.restoreStream(event.payload.id);
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "item:update",
-    z.object({ id: z.uuid(), label: z.string() }),
-    async (event, ctx) =>
+  r.writeHandler({
+    name: "item:update",
+    schema: z.object({ id: z.uuid(), label: z.string() }),
+    handler: async (event, ctx) =>
       executor.update(
         { id: event.payload.id, changes: { label: event.payload.label } },
         event.user,
         ctx.db,
         { skipOptimisticLock: true },
       ),
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
-  r.writeHandler(
-    "item:delete",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => executor.delete({ id: event.payload.id }, event.user, ctx.db),
-    // arch-item has no softDelete — a hard delete needs agent.risk: "high"
-    // to pass the irreversible-operation gate.
-    { access: { roles: ["Admin"] }, agent: { risk: "high" } },
-  );
+  r.writeHandler({
+    name: "item:delete",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (event, ctx) => executor.delete({ id: event.payload.id }, event.user, ctx.db),
+    access: { roles: ["Admin"] },
+    agent: { risk: "high" },
+  });
 
-  r.queryHandler(
-    "item:events",
-    z.object({ id: z.uuid() }),
-    async (query, ctx) => ctx.loadAggregate(query.payload.id),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.queryHandler({
+    name: "item:events",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => ctx.loadAggregate(query.payload.id),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 
-  r.queryHandler(
-    "item:is-archived",
-    z.object({ id: z.uuid() }),
-    async (query, ctx) => ctx.isStreamArchived(query.payload.id),
-    { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
-  );
+  r.queryHandler({
+    name: "item:is-archived",
+    schema: z.object({ id: z.uuid() }),
+    handler: async (query, ctx) => ctx.isStreamArchived(query.payload.id),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
 });
 
 let stack: TestStack;

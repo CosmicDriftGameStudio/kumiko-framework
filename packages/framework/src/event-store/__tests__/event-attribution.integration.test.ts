@@ -58,7 +58,7 @@ const CONFIRMER_MSP = "attribution:projection:confirmer";
 const TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
 
 const attributionFeature = defineFeature("attribution", (r) => {
-  r.entity("attr-order", orderEntity);
+  r.entity({ name: "attr-order", ...orderEntity });
 
   const placed = r.defineEvent("placed", z.object({ orderId: z.uuid() }), { piiFields: "none" });
   const confirmed = r.defineEvent("confirmed", z.object({ orderId: z.uuid() }), {
@@ -69,10 +69,10 @@ const attributionFeature = defineFeature("attribution", (r) => {
     entityName: "attr-order",
   });
 
-  r.writeHandler(
-    "order:place",
-    z.object({ item: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "order:place",
+    schema: z.object({ item: z.string() }),
+    handler: async (event, ctx) => {
       const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
       await ctx.unsafeAppendEvent({
@@ -83,16 +83,16 @@ const attributionFeature = defineFeature("attribution", (r) => {
       });
       return created;
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   const probed = r.defineEvent("probed", z.object({ orderId: z.uuid() }), { piiFields: "none" });
 
   // Anonymous, no public-intake declared, no PII field written (nothing to gate).
-  r.writeHandler(
-    "order:probe",
-    z.object({ item: z.string() }),
-    async (event, ctx) => {
+  r.writeHandler({
+    name: "order:probe",
+    schema: z.object({ item: z.string() }),
+    handler: async (event, ctx) => {
       const created = await orderExecutor.create({ item: event.payload.item }, event.user, ctx.db);
       if (!created.isSuccess) return created;
       await ctx.unsafeAppendEvent({
@@ -103,17 +103,17 @@ const attributionFeature = defineFeature("attribution", (r) => {
       });
       return created;
     },
-    { access: { roles: ["anonymous"] } },
-  );
+    access: { roles: ["anonymous"] },
+  });
 
   const streamed = r.defineEvent("streamed", z.object({ orderId: z.uuid() }), {
     piiFields: "none",
   });
 
-  r.writeHandler(
-    "order:emit-streamed",
-    z.object({}),
-    async (_event, ctx) => {
+  r.writeHandler({
+    name: "order:emit-streamed",
+    schema: z.object({}),
+    handler: async (_event, ctx) => {
       const aggregateId = uuid();
       await ctx.unsafeAppendEvent({
         aggregateId,
@@ -123,8 +123,8 @@ const attributionFeature = defineFeature("attribution", (r) => {
       });
       return { isSuccess: true as const, data: {} };
     },
-    { access: { roles: ["Admin"] } },
-  );
+    access: { roles: ["Admin"] },
+  });
 
   // The write happens after the first yield, i.e. in a later it.next() pull; a stream holds no
   // transaction, so ctx.write runs it as its own command.

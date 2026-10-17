@@ -43,7 +43,7 @@ const ESCAPE_HATCH_REASON = "fw#2915 integration test — operator restores a fo
 
 function buildFeature(escapeHatch: boolean) {
   return defineFeature("ctrestore", (r) => {
-    r.entity("thing", thingEntity);
+    r.entity({ name: "thing", ...thingEntity });
     r.writeHandler(
       defineEntityCreateHandler("thing", thingEntity, {
         access: { roles: ["Admin", "SystemAdmin"] },

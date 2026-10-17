@@ -107,7 +107,7 @@ const configResolver = createConfigResolver();
 let lastConsentId: string | undefined;
 
 const mockProviderFeature = defineFeature("test-mock-confirm-provider", (r) => {
-  r.requires("billing-foundation");
+  r.requires({ features: ["billing-foundation"] });
   r.translations({
     keys: {
       "plan.pro.label": { en: "Pro plan" },

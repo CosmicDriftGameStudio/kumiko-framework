@@ -33,7 +33,7 @@ const taskEntity = createEntity({
 function createTasksFeature() {
   return defineFeature("tasks", (r) => {
     r.systemScope();
-    r.entity("task", taskEntity);
+    r.entity({ name: "task", ...taskEntity });
     r.writeHandler(
       defineEntityCreateHandler("task", taskEntity, {
         access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -100,7 +100,7 @@ describe("generateE2ESpec", () => {
   test("groups-only sections liefern Required-Felder, Fill-Ops und Text-Assertion", () => {
     const feature = defineFeature("tasks", (r) => {
       r.systemScope();
-      r.entity("task", taskEntity);
+      r.entity({ name: "task", ...taskEntity });
       r.writeHandler(
         defineEntityCreateHandler("task", taskEntity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -158,7 +158,7 @@ describe("generateE2ESpec", () => {
     });
     const feature = defineFeature("events", (r) => {
       r.systemScope();
-      r.entity("event", entity);
+      r.entity({ name: "event", ...entity });
       r.writeHandler(
         defineEntityCreateHandler("event", entity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -207,7 +207,7 @@ describe("generateE2ESpec", () => {
     // Test wird gespart statt falsch generiert.
     const readOnly = defineFeature("read-only", (r) => {
       r.systemScope();
-      r.entity("task", taskEntity);
+      r.entity({ name: "task", ...taskEntity });
       r.screen({ id: "list", type: "entityList", entity: "task", columns: ["title"] });
     });
     const specs = generateE2ESpec(createRegistry([readOnly]));
@@ -221,7 +221,7 @@ describe("generateE2ESpec", () => {
     // verifiziert dann im Edit-View selbst).
     const editOnly = defineFeature("edit-only", (r) => {
       r.systemScope();
-      r.entity("task", taskEntity);
+      r.entity({ name: "task", ...taskEntity });
       r.writeHandler(
         defineEntityCreateHandler("task", taskEntity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -259,7 +259,7 @@ describe("generateE2ESpec", () => {
     });
     const feature = defineFeature("contacts", (r) => {
       r.systemScope();
-      r.entity("contact", contactEntity);
+      r.entity({ name: "contact", ...contactEntity });
       r.writeHandler(
         defineEntityCreateHandler("contact", contactEntity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
@@ -285,7 +285,7 @@ describe("generateE2ESpec", () => {
     // ihre jeweiligen Spec-Kinds.
     const mixed = defineFeature("mixed", (r) => {
       r.systemScope();
-      r.entity("task", taskEntity);
+      r.entity({ name: "task", ...taskEntity });
       r.writeHandler(
         defineEntityCreateHandler("task", taskEntity, {
           access: { openToAll: { reason: "test handler callable by any signed-in test user" } },

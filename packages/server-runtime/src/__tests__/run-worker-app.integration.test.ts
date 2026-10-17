@@ -64,7 +64,7 @@ const workerProbeEntity = createEntity({
 });
 
 const workerProbeFeature = defineFeature("worker-probe", (r) => {
-  r.entity("probe", workerProbeEntity);
+  r.entity({ name: "probe", ...workerProbeEntity });
   r.writeHandler({
     name: "ping",
     schema: z.object({ note: z.string() }),

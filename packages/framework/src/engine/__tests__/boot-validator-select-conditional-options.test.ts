@@ -16,7 +16,8 @@ const heartbeatOnly = (options: readonly string[]) => ({
 
 function monitorFeature(interval: Omit<SelectFieldDef, "type">) {
   return defineFeature("monitoring", (r) => {
-    r.entity("monitor", {
+    r.entity({
+      name: "monitor",
       fields: {
         kind: { type: "select", options: ["http", "heartbeat"] },
         interval: { type: "select", ...interval },

@@ -1,7 +1,7 @@
 // Single source of truth für die Feature-Komposition der Demo-App.
 //
 // **Mount-Order matters:** mail-foundation MUSS vor mail-transport-
-// inmemory stehen (`r.requires("mail-foundation")` im Plugin); das
+// inmemory stehen (`r.requires({ features: ["mail-foundation"] })` im Plugin); das
 // newsletter-feature kommt danach (es nutzt mail-foundation +
 // cap-counter). composeFeatures (auth-mode) ergänzt config + secrets +
 // auth-email-password automatisch.

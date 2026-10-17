@@ -97,8 +97,8 @@ const noPredicateEntity = createEntity({
 
 let predicateCalls = 0;
 const widgetPredicateFeature = defineFeature("publicvariantroutetest", (r) => {
-  r.entity("widget", widgetEntity);
-  r.entity("nopredicate", noPredicateEntity);
+  r.entity({ name: "widget", ...widgetEntity });
+  r.entity({ name: "nopredicate", ...noPredicateEntity });
   const adminOnly = { access: { roles: ["Admin"] } } as const;
   for (const [name, entity] of [
     ["widget", widgetEntity],

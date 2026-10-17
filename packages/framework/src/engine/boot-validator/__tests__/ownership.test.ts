@@ -29,9 +29,9 @@ type AccessMaps = { readonly read?: OwnershipMap; readonly write?: OwnershipMap 
 
 function featureWith(entityAccess: AccessMaps, fieldAccess?: AccessMaps): FeatureDefinition {
   return defineFeature("memos", (r) => {
-    r.entity(
-      "memo",
-      createEntity({
+    r.entity({
+      name: "memo",
+      ...createEntity({
         table: "fw2626_guard_memos",
         fields: {
           ownerId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
@@ -39,7 +39,7 @@ function featureWith(entityAccess: AccessMaps, fieldAccess?: AccessMaps): Featur
         },
         access: entityAccess,
       }),
-    );
+    });
   });
 }
 
@@ -89,15 +89,15 @@ describe("validateOwnershipRules — probe renders the rule with the runtime tab
       },
     };
     const feature = defineFeature("memos", (r) => {
-      r.entity(
-        "user-mfa",
-        createEntity({
+      r.entity({
+        name: "user-mfa",
+        ...createEntity({
           fields: {
             ownerId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
           },
           access: { read: { Member: recordingWhere } },
         }),
-      );
+      });
     });
 
     validate(feature);
@@ -122,9 +122,9 @@ describe("validateOwnershipRules — where-rules on access.read", () => {
 
   test("an embedded sub-field with a where-rule on access.read fails the boot", () => {
     const feature = defineFeature("memos", (r) => {
-      r.entity(
-        "memo",
-        createEntity({
+      r.entity({
+        name: "memo",
+        ...createEntity({
           fields: {
             detail: createEmbeddedField(
               {
@@ -138,7 +138,7 @@ describe("validateOwnershipRules — where-rules on access.read", () => {
             ),
           },
         }),
-      );
+      });
     });
     expect(() => validate(feature)).toThrow(/memo\.detail\.note\.access\.read/);
   });

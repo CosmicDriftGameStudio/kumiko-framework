@@ -88,7 +88,7 @@ const tenantScopedDeleteHook: UserDataDeleteHook = async (ctx) => {
 };
 
 const contributorFeature = defineFeature("dsgvo-tenant-scoped", (r) => {
-  r.entity("tenant-scoped", scopedEntity);
+  r.entity({ name: "tenant-scoped", ...scopedEntity });
   r.useExtension(EXT_USER_DATA, "tenant-scoped", {
     export: async () => null,
     delete: tenantScopedDeleteHook,

@@ -597,7 +597,7 @@ export function validateProjectionApplyKeys(state: RegistryState): void {
     const validEventTypes = new Set<string>();
     // Two source-modes are legal:
     //
-    //  (a) Registered entity (r.entity(src, ...)) — the "normal" case:
+    //  (a) Registered entity (r.entity({ name: src, ... })) — the "normal" case:
     //      auto-lifecycle events `<src>.created/.updated/.deleted/.restored`
     //      fire when the event-store-executor writes, and any domain-event
     //      (r.defineEvent) appended onto an aggregate of that type is
@@ -632,7 +632,7 @@ export function validateProjectionApplyKeys(state: RegistryState): void {
           `Projection "${projName}" declares source(s) [${unregistered.join(", ")}] that are not registered entities, ` +
             `and has no domain-event apply-keys. This is either a typo or a missing r.defineEvent registration. ` +
             `Events-only projections need at least one apply-key from r.defineEvent; ` +
-            `CRUD-style projections need r.entity("${unregistered[0]}", ...).`,
+            `CRUD-style projections need r.entity({ name: "${unregistered[0]}", ... }).`,
         );
       }
     }

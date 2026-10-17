@@ -12,19 +12,19 @@ back.
 
 ## What it shows
 
-- **`r.hook("validation", handlerRef, fn)`** — runs before the
+- **`r.hook({ type: "validation", target: handlerRef, handler })`** — runs before the
   handler body executes. Returns either `null` (pass) or an array of
   `{ field, error }` objects (fail). Used here to reject titles
   containing the word "spam" and titles longer than 200 characters.
-- **`r.hook("postSave", { allOf: entityRef }, fn)`** — fires after every
+- **`r.hook({ type: "postSave", target: { allOf: entityRef }, handler })`** — fires after every
   successful save (create or update) in the same transaction.
   `result.isNew` distinguishes create from update; `result.changes`
   carries the changed fields only.
-- **`r.hook("preDelete", { allOf: entityRef }, fn)`** — fires inside the
+- **`r.hook({ type: "preDelete", target: { allOf: entityRef }, handler })`** — fires inside the
   delete transaction. Throws on invariant violations (here: "published
   articles cannot be deleted") to roll the delete back. The handler
   receives the full row snapshot — no extra load needed.
-- **`r.hook("postDelete", { allOf: entityRef }, fn)`** — fires after commit.
+- **`r.hook({ type: "postDelete", target: { allOf: entityRef }, handler })`** — fires after commit.
   External side effects (logs, notifications) belong here because
   failures cannot roll the delete back.
 

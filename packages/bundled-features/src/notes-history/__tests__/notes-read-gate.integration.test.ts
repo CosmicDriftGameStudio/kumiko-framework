@@ -50,7 +50,7 @@ const projectEntity = createEntity({
 });
 
 const hostFixturesFeature = defineFeature("notes-rg-test-fixtures", (r) => {
-  r.entity("project", projectEntity);
+  r.entity({ name: "project", ...projectEntity });
 });
 
 type TestUser = ReturnType<typeof createTestUser>;
@@ -185,8 +185,8 @@ describe("notes-history read-gate — parents allowlist narrows both paths", () 
     },
   });
   const fixtures = defineFeature("notes-rg-parents-fixtures", (r) => {
-    r.entity("project", projectEntity);
-    r.entity("widget", otherEntity);
+    r.entity({ name: "project", ...projectEntity });
+    r.entity({ name: "widget", ...otherEntity });
   });
   const WIDGET = "d0000000-0000-4000-8000-00000000002a";
 

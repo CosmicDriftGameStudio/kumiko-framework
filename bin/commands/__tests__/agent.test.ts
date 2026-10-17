@@ -34,7 +34,10 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 const feature = defineFeature("agent-lint-fixture", (r) => {
-  r.queryHandler("widget:agentLintGapHandler", z.object({ id: z.string() }), async () => ({}), {
+  r.queryHandler({
+    name: "widget:agentLintGapHandler",
+    schema: z.object({ id: z.string() }),
+    handler: async () => ({}),
     access: { roles: ["admin"] },
     agent: { expose: true },
   });
@@ -48,7 +51,10 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 const feature = defineFeature("agent-lint-fixture-clean", (r) => {
-  r.queryHandler("widget:agentLintCleanHandler", z.object({ id: z.string() }), async () => ({}), {
+  r.queryHandler({
+    name: "widget:agentLintCleanHandler",
+    schema: z.object({ id: z.string() }),
+    handler: async () => ({}),
     access: { roles: ["admin"] },
     description: "Looks up a widget by id.",
   });

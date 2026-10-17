@@ -26,7 +26,7 @@ const thingEntity = createEntity({
 const CREATE_QN = "callerid:write:thing:create";
 
 const feature = defineFeature("callerid", (r) => {
-  r.entity("thing", thingEntity);
+  r.entity({ name: "thing", ...thingEntity });
   r.writeHandler(defineEntityCreateHandler("thing", thingEntity, { access: { roles: ["Admin"] } }));
 });
 

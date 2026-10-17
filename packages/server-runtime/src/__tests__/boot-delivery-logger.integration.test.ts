@@ -41,7 +41,7 @@ const spyLogger: Logger = {
 };
 
 const leakyChannelFeature = defineFeature("leaky-inline", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.useExtension(DELIVERY_CHANNEL_EXTENSION, "leaky-inline", {
     mode: "inline",
     send: async () => {
@@ -51,7 +51,7 @@ const leakyChannelFeature = defineFeature("leaky-inline", (r) => {
 });
 
 const probeFeature = defineFeature("boot-logger-probe", (r) => {
-  r.requires("delivery");
+  r.requires({ features: ["delivery"] });
   r.writeHandler(
     defineWriteHandler({
       name: "ping",

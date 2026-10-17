@@ -71,7 +71,7 @@ const hardDeleteNoteHook: UserDataDeleteHook = async (ctx, strategy) => {
 };
 
 const noteFeature = defineFeature("forget-purge-notes", (r) => {
-  r.entity("note", noteEntity);
+  r.entity({ name: "note", ...noteEntity });
   r.useExtension(EXT_USER_DATA, "note", {
     export: async () => null,
     delete: hardDeleteNoteHook,
