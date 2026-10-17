@@ -70,12 +70,13 @@ function resolveUserOwnedSubject(
   const userId =
     nonEmptyString(row[ownerField]) ?? nonEmptyString(opts.ownerFallback?.[ownerField]);
   if (userId !== null) return { kind: "user", userId };
-  if (userOwned.whenAbsent === "tenant" && opts.ignoreWhenAbsent !== true) {
-    return resolveTenantSubject(fieldName, row, opts);
+  if (opts.ignoreWhenAbsent !== true) {
+    if (userOwned.whenAbsent === "tenant") return resolveTenantSubject(fieldName, row, opts);
+    if (userOwned.whenAbsent === "self") return resolveRecordSubject(fieldName, row, opts);
   }
   throw new SubjectResolutionError(
     fieldName,
-    `owner field "${ownerField}" is empty on the row and the field declares no whenAbsent — declare { personal: { of: "${ownerField}", whenAbsent: "tenant" } } (fw#3654)`,
+    `owner field "${ownerField}" is empty on the row and the field declares no whenAbsent — declare { personal: { of: "${ownerField}", whenAbsent: "tenant" } } or whenAbsent: "self" to key it on the row itself (fw#3654)`,
   );
 }
 
@@ -156,6 +157,31 @@ function resolveEnvelopeTenant(fieldName: string, envelope: EventSubjectEnvelope
   return { kind: "tenant", tenantId: envelope.tenantId };
 }
 
+function resolveEnvelopeRecordSubject(
+  fieldName: string,
+  envelope: EventSubjectEnvelope,
+): SubjectId {
+  if (
+    nonEmptyString(envelope.aggregateType) === null ||
+    nonEmptyString(envelope.aggregateId) === null
+  ) {
+    throw new SubjectResolutionError(
+      fieldName,
+      "event envelope aggregateType/aggregateId is empty",
+    );
+  }
+  // aggregate_type is a free-form text column (events-schema.ts) — reject
+  // here rather than mint a record key that subjectIdSchema (kms-adapter.ts)
+  // would later refuse to shred.
+  if (!RECORD_ENTITY_PATTERN.test(envelope.aggregateType)) {
+    throw new SubjectResolutionError(
+      fieldName,
+      `event aggregateType "${envelope.aggregateType}" does not match ${RECORD_ENTITY_PATTERN} — not a shreddable record subject`,
+    );
+  }
+  return { kind: "record", entity: envelope.aggregateType, id: envelope.aggregateId };
+}
+
 // Same resolver for the live-append path (encryptEventPayloadPii) and the
 // backfill catalog path (backfillEventPiiEncryption) — the reason the two
 // can never encrypt the same field under different subjects. A "user"
@@ -174,6 +200,7 @@ export function resolveEventSubject(
     const userId = nonEmptyString(payload[normalized.ownerField]);
     if (userId !== null) return { kind: "user", userId };
     if (normalized.whenAbsent === "tenant") return resolveEnvelopeTenant(fieldName, envelope);
+    if (normalized.whenAbsent === "self") return resolveEnvelopeRecordSubject(fieldName, envelope);
     if (normalized.whenAbsent === "plaintext") {
       // skip: author declared whenAbsent: "plaintext" — value ships unencrypted by decision
       return null;
@@ -182,7 +209,8 @@ export function resolveEventSubject(
       fieldName,
       `owner field "${normalized.ownerField}" carries no id and the event declares no whenAbsent fallback — ` +
         `refusing to append plaintext PII. Declare { personal: { of: "${normalized.ownerField}", ` +
-        `whenAbsent: "tenant" } } to encrypt under the envelope tenant key, or whenAbsent: "plaintext" ` +
+        `whenAbsent: "tenant" } } to encrypt under the envelope tenant key, whenAbsent: "self" to encrypt ` +
+        `under the event's own record key, or whenAbsent: "plaintext" ` +
         "to acknowledge that this value cannot be crypto-shredded (fw#2776).",
     );
   }
@@ -192,29 +220,17 @@ export function resolveEventSubject(
   }
 
   if (normalized.kind === "self") {
-    if (
-      nonEmptyString(envelope.aggregateType) === null ||
-      nonEmptyString(envelope.aggregateId) === null
-    ) {
-      throw new SubjectResolutionError(
-        fieldName,
-        "event envelope aggregateType/aggregateId is empty",
-      );
-    }
-    // aggregate_type is a free-form text column (events-schema.ts) — reject
-    // here rather than mint a record key that subjectIdSchema (kms-adapter.ts)
-    // would later refuse to shred.
-    if (!RECORD_ENTITY_PATTERN.test(envelope.aggregateType)) {
-      throw new SubjectResolutionError(
-        fieldName,
-        `event aggregateType "${envelope.aggregateType}" does not match ${RECORD_ENTITY_PATTERN} — not a shreddable record subject`,
-      );
-    }
-    return { kind: "record", entity: envelope.aggregateType, id: envelope.aggregateId };
+    return resolveEnvelopeRecordSubject(fieldName, envelope);
   }
 
   const exhaustiveCheck: never = normalized;
   throw new Error(`Unhandled normalized event PII subject: ${JSON.stringify(exhaustiveCheck)}`);
+}
+
+/** True when the field can be keyed on the row's own `record:<entity>:<id>` subject. */
+export function isRecordKeyedField(field: EntityDefinition["fields"][string]): boolean {
+  if ("recordOwned" in field && field.recordOwned === true) return true;
+  return "userOwned" in field && field.userOwned?.whenAbsent === "self";
 }
 
 function hasSubjectAnnotation(field: EntityDefinition["fields"][string]): boolean {

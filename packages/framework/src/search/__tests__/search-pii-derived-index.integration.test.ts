@@ -26,7 +26,9 @@ import {
   createTextField,
   defineFeature,
 } from "../../engine/index.js";
+import type { ReferenceFieldDef } from "../../engine/types/index.js";
 import { TestUsers } from "../../seeding/seed-users.js";
+import { generateId } from "../../utils/index.js";
 import { purgeSearchDocumentsForSubject } from "../purge-subject.js";
 
 const contactEntity = createEntity({
@@ -50,6 +52,24 @@ const contactFeature = defineFeature("search-pii-probe", (r) => {
   r.entity({ name: "contact", ...contactEntity });
 });
 
+// whenAbsent: "self" with a uuid (reference) owner column: only ownerless rows are record-keyed.
+const ownerReference: ReferenceFieldDef = { type: "reference", entity: "user" };
+const slipEntity = createEntity({
+  table: "read_search_pii_slips",
+  fields: {
+    ownerId: ownerReference,
+    label: createTextField({
+      maxLength: 100,
+      personal: { of: "ownerId", whenAbsent: "self" },
+      find: "fuzzy",
+    }),
+  },
+});
+const slipTable = buildEntityTable("slip", slipEntity);
+const slipFeature = defineFeature("search-pii-slip", (r) => {
+  r.entity({ name: "slip", ...slipEntity });
+});
+
 const ghostSearchEntity = createEntity({
   table: "read_search_pii_ghosts_missing",
   fields: {
@@ -65,8 +85,9 @@ let kms: InMemoryKmsAdapter;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [contactFeature] });
+  stack = await setupTestStack({ features: [contactFeature, slipFeature] });
   await unsafeCreateEntityTable(stack.db, contactEntity, "contact");
+  await unsafeCreateEntityTable(stack.db, slipEntity, "slip");
 });
 
 afterAll(async () => {
@@ -219,5 +240,41 @@ describe("searchable PII derived index (#1610)", () => {
 
     const after = await stack.search.search(admin.tenantId, plain, { filterType: "contact" });
     expect(after.some((h) => String(h.entityId) === id)).toBe(false);
+  });
+
+  test('record purge removes the ownerless whenAbsent "self" row and keeps an owned row with the same label', async () => {
+    const plain = "OwnerlessSelfPurge3811";
+    const slipExecutor = createEventStoreExecutor(slipTable, slipEntity, {
+      entityName: "slip",
+      searchAdapter: stack.search,
+    });
+    const ownerless = await slipExecutor.create({ label: plain }, admin, tenantDb());
+    const owned = await slipExecutor.create(
+      { label: plain, ownerId: generateId() },
+      admin,
+      tenantDb(),
+    );
+    if (!ownerless.isSuccess || !owned.isSuccess) throw new Error("create failed");
+    const ownerlessId = String(ownerless.data.id);
+    const ownedId = String(owned.data.id);
+    await stack.eventDispatcher?.runOnce();
+
+    // Anonymize rewrote the ciphertext, so only the ownership path can still find the row.
+    await asRawClient(stack.db).unsafe(`UPDATE read_search_pii_slips SET label = $1`, [
+      "[[erased]]",
+    ]);
+
+    const subject = { kind: "record" as const, entity: "slip", id: ownerlessId };
+    await purgeSearchDocumentsForSubject(
+      stack.db,
+      stack.registry.features,
+      stack.search,
+      subjectIdToKey(subject),
+      subject,
+    );
+
+    const hits = await stack.search.search(admin.tenantId, plain, { filterType: "slip" });
+    expect(hits.some((h) => String(h.entityId) === ownerlessId)).toBe(false);
+    expect(hits.some((h) => String(h.entityId) === ownedId)).toBe(true);
   });
 });

@@ -81,6 +81,7 @@ export {
   collectPiiEncryptedFields,
   collectPiiSubjectFields,
   collectSearchableSubjectFields,
+  isRecordKeyedField,
   type ResolveSubjectOptions,
   resolveSubjectForField,
   SubjectResolutionError,

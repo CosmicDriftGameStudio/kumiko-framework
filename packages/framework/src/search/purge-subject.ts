@@ -11,7 +11,7 @@
 import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.js";
 import { isSelfPiiField } from "../crypto/is-self-pii-field.js";
 import type { SubjectId } from "../crypto/kms-adapter.js";
-import { collectSearchableSubjectFields } from "../crypto/subject-resolver.js";
+import { collectSearchableSubjectFields, isRecordKeyedField } from "../crypto/subject-resolver.js";
 import type { DbRunner } from "../db/connection.js";
 import { resolveTableName } from "../db/entity-table-meta.js";
 import { executeRawQueryRead } from "../db/queries/raw-sql.js";
@@ -92,21 +92,30 @@ function recordOwnershipPredicates(
   subjectId: string,
   nextParam: () => number,
 ): { sql: string; params: unknown[] } | null {
-  const parts: string[] = [];
-  const params: unknown[] = [];
-  let recordIdN: number | undefined;
+  const ownerlessColumns = new Set<string>();
+  let hasRecordOwnedField = false;
 
   for (const fieldName of searchableFields) {
     const field = entity.fields[fieldName];
-    if (!field) continue;
-    const isMatchingRecordField =
-      entityName === subjectEntity && "recordOwned" in field && field.recordOwned === true;
-    if (isMatchingRecordField && recordIdN === undefined) {
-      recordIdN = nextParam();
-      params.push(subjectId);
-      parts.push(`${quoteIdent("id")} = $${recordIdN}`);
+    if (!field || entityName !== subjectEntity || !isRecordKeyedField(field)) continue;
+    if ("recordOwned" in field && field.recordOwned === true) {
+      hasRecordOwnedField = true;
+    } else if ("userOwned" in field && field.userOwned !== undefined) {
+      ownerlessColumns.add(toSnakeCase(field.userOwned.ownerField));
     }
   }
+  if (!hasRecordOwnedField && ownerlessColumns.size === 0) return null;
+
+  const idN = nextParam();
+  const parts: string[] = [];
+  if (hasRecordOwnedField) parts.push(`${quoteIdent("id")} = $${idN}`);
+  // whenAbsent: "self" keys a row on itself only while its owner is empty
+  for (const col of ownerlessColumns) {
+    parts.push(
+      `(${quoteIdent("id")} = $${idN} AND (${quoteIdent(col)} IS NULL OR ${quoteIdent(col)}::text = ''))`,
+    );
+  }
+  const params: unknown[] = [subjectId];
   return finalizePredicateParts(parts, params);
 }
 

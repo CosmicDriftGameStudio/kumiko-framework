@@ -35,8 +35,8 @@
 //   2. projection ({@link PiiBackfillOptions.resolveOwnerFromProjection}) —
 //      pre-owner-field-addition events don't carry it; read it from the
 //      entity's current projection row instead.
-//   2b. whenAbsent — the payload again, now falling back to the tenant key for
-//      fields that declare it.
+//   2b. whenAbsent — the payload again, now falling back to the tenant key (or
+//      the row's own record key for whenAbsent: "self") for fields that declare it.
 //   3. erase ({@link PiiBackfillOptions.eraseUnresolvableSubjects}) — still
 //      unresolvable (hard-deleted aggregate, no projection) → PII_ERASED_SENTINEL.
 //   Stages 2 and 3 are opt-in and off by default; without them an
@@ -48,6 +48,10 @@
 //   owner change made before owner transitions re-keyed the value). An owner
 //   cleared again (owner → none) is not recoverable from the projection: such
 //   values stay tenant-keyed, unlike the live path that keeps the last owner.
+//   For whenAbsent: "self" fields the same stage moves tenant-keyed ciphertext
+//   of a still-ownerless row under its record key (written before the field
+//   declared "self"); a later owner assignment keeps the created event
+//   record-keyed, like the tenant-keyed case.
 //
 // Snapshots of touched aggregates are dropped per batch (they may cache
 // plaintext); the next snapshotting load recreates them. AFTER a run, rebuild the
@@ -696,7 +700,7 @@ async function rekeyTenantKeyedValue(deps: RekeyDeps, target: RekeyTarget): Prom
   const keyedUnder = ciphertextSubjectOrNull(ciphertext);
   const userSubject =
     keyedUnder?.kind === "tenant" && keyedUnder.tenantId === target.tenantId
-      ? ownerOfTenantKeyedValue(target)
+      ? rekeyTargetOfTenantKeyedValue(target)
       : keyedUnder?.kind === "user"
         ? currentProjectionOwnerIfOther(target, keyedUnder.userId)
         : null;
@@ -730,8 +734,10 @@ async function rekeyTenantKeyedValue(deps: RekeyDeps, target: RekeyTarget): Prom
   }
 }
 
-// Strict chain (payload, then projection), never whenAbsent.
-function ownerOfTenantKeyedValue(target: RekeyTarget): SubjectId | null {
+// Strict chain (payload, then projection) names the owner; an ownerless row of a
+// whenAbsent: "self" field falls through to its record key. A whenAbsent: "tenant"
+// result is the key the value already sits under — nothing to move.
+function rekeyTargetOfTenantKeyedValue(target: RekeyTarget): SubjectId | null {
   const resolution = resolveOwnerSubject(
     target.entity,
     target.field,
@@ -741,9 +747,9 @@ function ownerOfTenantKeyedValue(target: RekeyTarget): SubjectId | null {
     target.tenantId,
     target.aggregateType,
   );
-  return resolution.kind === "resolved" && resolution.subject.kind === "user"
-    ? resolution.subject
-    : null;
+  if (resolution.kind !== "resolved") return null;
+  const { subject } = resolution;
+  return subject.kind === "user" || subject.kind === "record" ? subject : null;
 }
 
 // A value keyed under a previous owner moves to the owner the row has now. The

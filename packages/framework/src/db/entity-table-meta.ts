@@ -17,7 +17,7 @@
 //      `store_` table name — `read_` is reserved for managed projections (#1208/#1220).
 
 import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
-import { collectPiiEncryptedFields } from "../crypto/index.js";
+import { collectPiiEncryptedFields, isRecordKeyedField } from "../crypto/index.js";
 import type { EntityDefinition, FieldDefinition } from "../engine/types/index.js";
 import { isSqlExpression } from "./dialect.js";
 import type {
@@ -269,14 +269,15 @@ export function deriveEntityTableMeta(
   const idType = entity.idType ?? "uuid";
   if (source === "unmanaged" && idType === "serial") {
     // Unmanaged direct-write stores bypass validateRecordOwnedSubjects (it only walks
-    // feature.entities), yet encryptForDirectWrite still keys recordOwned fields as
-    // `record:<entity>:<id>`; forgetSubject requires a UUID, so the value could never be shredded.
-    const recordOwnedField = Object.entries(entity.fields).find(
-      ([, field]) => "recordOwned" in field && field.recordOwned === true,
+    // feature.entities), yet encryptForDirectWrite still keys recordOwned and
+    // whenAbsent: "self" fields as `record:<entity>:<id>`; forgetSubject requires a UUID,
+    // so the value could never be shredded.
+    const recordOwnedField = Object.entries(entity.fields).find(([, field]) =>
+      isRecordKeyedField(field),
     );
     if (recordOwnedField) {
       throw new Error(
-        `deriveEntityTableMeta("${entityName}", { source: "unmanaged" }): field "${recordOwnedField[0]}" is recordOwned but the entity declares idType: "serial" — the record subject key is "record:${entityName}:<id>" and forgetSubject validates that id as a UUID, so this field could never be shredded. Use idType: "uuid", or give the field a different personal stance.`,
+        `deriveEntityTableMeta("${entityName}", { source: "unmanaged" }): field "${recordOwnedField[0]}" is recordOwned (or whenAbsent: "self") but the entity declares idType: "serial" — the record subject key is "record:${entityName}:<id>" and forgetSubject validates that id as a UUID, so this field could never be shredded. Use idType: "uuid", or give the field a different personal stance.`,
       );
     }
   }

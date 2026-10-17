@@ -104,6 +104,20 @@ describe("deriveEntityTableMeta — recordOwned on a serial unmanaged store", ()
     );
   });
 
+  test('unmanaged + idType serial + whenAbsent "self" field throws — it keys ownerless rows on the record', () => {
+    const selfEntity = createEntity({
+      table: "store_serial_when_absent_self",
+      idType: "serial",
+      fields: {
+        ownerId: createTextField({ personal: "ref" }),
+        body: createTextField({ personal: { of: "ownerId", whenAbsent: "self" }, find: "none" }),
+      },
+    });
+    expect(() => deriveEntityTableMeta("x", selfEntity, { source: "unmanaged" })).toThrow(
+      /"x".*"body".*whenAbsent: "self"/,
+    );
+  });
+
   test("the same entity with a uuid id derives fine", () => {
     const uuidEntity = createEntity({
       table: "store_uuid_record_owned",

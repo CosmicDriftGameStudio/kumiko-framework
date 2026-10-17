@@ -104,7 +104,7 @@ export function piiAnnotationEntries(registry: Registry): readonly string[] {
 // Bump when the backfill gains a transform stage: completed states keyed by the
 // old fingerprint must run one more full pass. Kept out of piiAnnotationEntries,
 // whose emptiness gates no_pii.
-const PII_BACKFILL_TRANSFORM_VERSION = "owner-rekey-v1";
+const PII_BACKFILL_TRANSFORM_VERSION = "owner-rekey-v2";
 
 export function piiAnnotationFingerprint(registry: Registry): string {
   return createHash("sha256")
