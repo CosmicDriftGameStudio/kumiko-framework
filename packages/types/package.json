@@ -305,6 +305,10 @@
         "types": "./dist/identifiers.d.ts",
         "default": "./dist/identifiers.js"
       },
+      "./error-boundary": {
+        "types": "./dist/error-boundary.d.ts",
+        "default": "./dist/error-boundary.js"
+      },
       "./type-guards": {
         "types": "./dist/type-guards.d.ts",
         "default": "./dist/type-guards.js"
