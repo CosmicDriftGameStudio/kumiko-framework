@@ -32,6 +32,17 @@ describe("mail chrome", () => {
     expect(html).not.toContain("<img");
   });
 
+  test("an accent color that is not a hex value falls back to the default tile color", () => {
+    const html = brandHeaderHtml({
+      tenantName: "Acme",
+      suffix: "",
+      logoSrc: undefined,
+      accentColor: "red;background-image:url(https://evil.example)",
+    });
+    expect(html).toContain("background:#1f5468");
+    expect(html).not.toContain("evil.example");
+  });
+
   test("with a logo the brand row shows the logo at 28px height", () => {
     const html = brandHeaderHtml({
       tenantName: "Acme",

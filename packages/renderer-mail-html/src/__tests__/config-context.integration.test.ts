@@ -152,7 +152,12 @@ async function renderIncidentDraft(tenantId: TenantId, stage: string) {
       payload: {
         slug: SLUG,
         locale: "de",
-        variables: { stage, eventLabel: "Neuer Incident", tone: "warning", title: "API langsam" },
+        variables: {
+          stage,
+          eventLabel: "Neuer Incident <A&B>",
+          tone: "warning",
+          title: "API langsam",
+        },
         unsubscribeUrl: "https://demo.example/unsub?t=1",
         draft: {
           content:
@@ -234,7 +239,9 @@ describe("renderer-mail-html :: in-code layout and platform footer", () => {
       configuredAdmin,
     );
     const html = await renderIncidentDraft(configuredAdmin.tenantId, "identified");
-    expect(html).toContain("Neuer Incident");
+    expect(html).toContain("Neuer Incident &lt;A&amp;B&gt;</span>");
+    expect(html).not.toContain("&amp;amp;");
+    expect(html).not.toContain("<A&B>");
     expect(html).toContain("background-color:#F2B53A");
     expect(html).toContain(">M</span>");
     expect(html).toContain(">Status</span>");

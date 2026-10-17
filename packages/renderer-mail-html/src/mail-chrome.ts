@@ -56,12 +56,13 @@ export function brandHeaderHtml(input: {
   readonly accentColor: string;
 }): string {
   const initial = tenantInitial(input.tenantName);
+  const tileColor = isHexColor(input.accentColor) ? input.accentColor : DEFAULT_ACCENT_COLOR;
   const mark =
     input.logoSrc !== undefined
       ? `<img src="${escapeHtmlAttr(input.logoSrc)}" alt="" height="${LOGO_HEIGHT_PX}" style="height:${LOGO_HEIGHT_PX}px;width:auto;max-width:140px;border:0;vertical-align:middle;margin:0 10px 0 0">`
       : initial === ""
         ? ""
-        : `<span style="display:inline-block;width:${LOGO_HEIGHT_PX}px;height:${LOGO_HEIGHT_PX}px;line-height:${LOGO_HEIGHT_PX}px;text-align:center;border-radius:8px;background:${escapeHtmlAttr(input.accentColor)};color:#ffffff;font-weight:700;font-size:14px;vertical-align:middle;margin:0 10px 0 0">${escapeHtml(initial)}</span>`;
+        : `<span style="display:inline-block;width:${LOGO_HEIGHT_PX}px;height:${LOGO_HEIGHT_PX}px;line-height:${LOGO_HEIGHT_PX}px;text-align:center;border-radius:8px;background:${escapeHtmlAttr(tileColor)};color:#ffffff;font-weight:700;font-size:14px;vertical-align:middle;margin:0 10px 0 0">${escapeHtml(initial)}</span>`;
   const name =
     input.tenantName.trim() === ""
       ? ""
