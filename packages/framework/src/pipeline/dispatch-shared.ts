@@ -1199,6 +1199,7 @@ export async function buildHandlerContext(
     user.timezone !== undefined && isValidIanaTimeZone(user.timezone) ? user.timezone : undefined;
   const tz = createTzContext({
     ...(context.geoTzProvider !== undefined ? { geoTz: context.geoTzProvider } : {}),
+    ...(context.clock !== undefined ? { clock: context.clock } : {}),
     tenant: safeTenantTz,
     ...(safeUserTz !== undefined && { user: safeUserTz }),
   });

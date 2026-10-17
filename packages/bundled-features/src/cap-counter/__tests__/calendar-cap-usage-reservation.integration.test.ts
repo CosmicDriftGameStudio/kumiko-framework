@@ -26,7 +26,11 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { bookCapUsage } from "../book-cap-usage.js";
 import { reserveCalendarCapUsage } from "../calendar-cap-usage-reservation.js";
-import { releaseCapReservation, settleCalendarCapReservation } from "../cap-reservation.js";
+import {
+  releaseCapReservation,
+  reserveCalendarCap,
+  settleCalendarCapReservation,
+} from "../cap-reservation.js";
 import { CapCounterQueries } from "../constants.js";
 import { CAP_TOLERANCES, type SoftHitNotifier } from "../enforce-cap.js";
 import { capCounterEntity } from "../entity.js";
@@ -154,11 +158,58 @@ const settleForeignRowHandler: WriteHandlerDef = {
   },
 };
 
+const lifecyclePayload = z.object({
+  capName: z.string(),
+  amount: z.number().int().min(1),
+  actual: z.number().int().min(0),
+  scenario: z.enum([
+    "settle-twice",
+    "settle-then-release",
+    "release-then-settle-twice",
+    "settle-once",
+  ]),
+});
+
+// Drives the low-level settle/release directly: the handle's in-memory state would reject a second
+// settle before it reaches the row logic under test.
+const settleLifecycleHandler: WriteHandlerDef = {
+  name: "settle-lifecycle",
+  schema: lifecyclePayload,
+  access: { roles: ["TenantAdmin"] },
+  handler: async (event, ctx) => {
+    const payload = lifecyclePayload.parse(event.payload);
+    const reservation = await reserveCalendarCap(ctx, {
+      capName: payload.capName,
+      periodStartIso: PERIOD,
+      amount: payload.amount,
+    });
+    const settle = () =>
+      settleCalendarCapReservation(ctx, reservation.reservationId, {
+        capName: payload.capName,
+        periodStartIso: PERIOD,
+        actualAmount: payload.actual,
+      });
+    if (payload.scenario === "release-then-settle-twice") {
+      await releaseCapReservation(ctx, reservation.reservationId);
+    }
+    await settle();
+    if (payload.scenario === "settle-twice" || payload.scenario === "release-then-settle-twice") {
+      await settle();
+    }
+    if (payload.scenario === "settle-then-release") {
+      await reservation.release();
+      await releaseCapReservation(ctx, reservation.reservationId);
+    }
+    return { isSuccess: true as const, data: {} };
+  },
+};
+
 const jobPayload = z.object({ capName: z.string(), amount: z.number(), actual: z.number() });
 const JOB_CAP = "job-cap";
 
 const tenantFeature = defineFeature("capres", (r) => {
   r.writeHandler(reserveSettleHandler("reserve-settle"));
+  r.writeHandler(settleLifecycleHandler);
 });
 
 const systemFeature = defineFeature("capsys", (r) => {
@@ -224,6 +275,7 @@ const meteringJobFeature = defineFeature("capmeter", (r) => {
 });
 
 const RESERVE_SETTLE_QN = "capres:write:reserve-settle";
+const SETTLE_LIFECYCLE_QN = "capres:write:settle-lifecycle";
 const METER_JOB_QN = "capmeter:job:meter-other-tenant";
 const SYSTEM_RESERVE_SETTLE_QN = "capsys:write:reserve-settle";
 const WRAPPED_STORAGE_QN = "capsys:write:wrapped-storage";
@@ -272,7 +324,17 @@ async function readCounterValue(
 }
 
 async function reservationRows(tenantNumber: number) {
-  return selectMany(stack.db, capReservationsTable, { tenantId: testTenantId(tenantNumber) });
+  return selectMany(stack.db, capReservationsTable, {
+    tenantId: testTenantId(tenantNumber),
+    settledAt: null,
+  });
+}
+
+async function settledTombstones(tenantNumber: number) {
+  return selectMany<{ id: string }>(stack.db, capReservationsTable, {
+    tenantId: testTenantId(tenantNumber),
+    settledAt: { ne: null },
+  });
 }
 
 describe("reserveCalendarCapUsage", () => {
@@ -379,6 +441,74 @@ describe("reserveCalendarCapUsage", () => {
   });
 });
 
+describe("settle tombstone", () => {
+  test("a repeated settle books once and leaves one settled row", async () => {
+    const user = adminFor(3131);
+
+    await stack.http.writeOk(
+      SETTLE_LIFECYCLE_QN,
+      { capName: "twice-cap", amount: 3, actual: 5, scenario: "settle-twice" },
+      user,
+    );
+
+    expect(await readCounterValue(user, "twice-cap")).toBe(5);
+    expect(await reservationRows(3131)).toHaveLength(0);
+    expect(await settledTombstones(3131)).toHaveLength(1);
+  });
+
+  test("a release after a settle gives nothing back", async () => {
+    const user = adminFor(3132);
+
+    await stack.http.writeOk(
+      SETTLE_LIFECYCLE_QN,
+      { capName: "late-release-cap", amount: 3, actual: 4, scenario: "settle-then-release" },
+      user,
+    );
+
+    expect(await readCounterValue(user, "late-release-cap")).toBe(4);
+  });
+
+  test("a settle after a release books the full amount, a second settle books nothing", async () => {
+    const user = adminFor(3133);
+
+    await stack.http.writeOk(
+      SETTLE_LIFECYCLE_QN,
+      { capName: "released-cap", amount: 3, actual: 2, scenario: "release-then-settle-twice" },
+      user,
+    );
+
+    expect(await readCounterValue(user, "released-cap")).toBe(2);
+    expect(await settledTombstones(3133)).toHaveLength(1);
+  });
+
+  test("the sweep deletes an expired tombstone without giving its amount back", async () => {
+    const user = adminFor(3134);
+    await stack.http.writeOk(
+      SETTLE_LIFECYCLE_QN,
+      { capName: "sweep-tombstone-cap", amount: 3, actual: 3, scenario: "settle-once" },
+      user,
+    );
+    const [expiredTombstone] = await settledTombstones(3134);
+    await updateMany(
+      stack.db,
+      capReservationsTable,
+      { expiresAt: Temporal.Now.instant().subtract({ minutes: 1 }) },
+      { tenantId: testTenantId(3134), capName: "sweep-tombstone-cap" },
+    );
+
+    await stack.http.writeOk(
+      RESERVE_SETTLE_QN,
+      { capName: "sweep-tombstone-cap", limit: 100, amount: 1, actual: 1 },
+      user,
+    );
+
+    const remaining = (await settledTombstones(3134)).map((row) => row.id);
+    expect(remaining).toHaveLength(1);
+    expect(remaining).not.toContain(expiredTombstone?.id);
+    expect(await readCounterValue(user, "sweep-tombstone-cap")).toBe(4);
+  });
+});
+
 describe("systemScope handlers", () => {
   test("the public API reserves and settles", async () => {
     const user = adminFor(3111);
@@ -476,7 +606,9 @@ describe("systemScope handlers", () => {
       createdAt: now,
     });
 
-    await stack.http.writeOk(
+    // The id is taken by the owner's row, so the tombstone insert for the other tenant cannot be
+    // created and the settle fails without booking.
+    await stack.http.writeErr(
       FOREIGN_ROW_QN,
       { otherTenantId: testTenantId(3117), reservationId, capName: "foreign-cap" },
       caller,

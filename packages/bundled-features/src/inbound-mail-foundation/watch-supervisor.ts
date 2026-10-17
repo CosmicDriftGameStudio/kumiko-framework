@@ -14,7 +14,7 @@
 // app owner still wires the supervisor in bin/server.ts:
 //
 //   const supervisor = createInboundMailSupervisor({
-//     providerCtx: { registry: deps.registry, secrets },
+//     providerCtx: { registry: deps.registry, secrets, metricsFor: deps.metricsFor },
 //     db,
 //     dispatchWrite: ({ handlerQn, payload, tenantId }) =>
 //       deps.dispatchSystemWrite({ handlerQn, payload, tenantId: tenantId as TenantId }),
@@ -54,7 +54,7 @@ import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.js";
-import { MAIL_ACCOUNT_PII_FIELDS, syncCursorTable } from "./entities.js";
+import { MAIL_ACCOUNT_PII_FIELDS, seenMessageTable, syncCursorTable } from "./entities.js";
 import {
   createOAuthAccessTokenManager,
   type OAuthAccessTokenManager,
@@ -398,6 +398,24 @@ export function createInboundMailSupervisor(
   // ---------------------------------------------------------------
   // Poll (Reconciliation).
   // ---------------------------------------------------------------
+  function unknownMessageIdsFilterFor(account: MailAccountRecord) {
+    return async (providerMessageIds: readonly string[]): Promise<ReadonlySet<string>> => {
+      if (providerMessageIds.length === 0) return new Set();
+      const seen = await selectMany<{ providerMessageId: string }>(
+        deps.db,
+        seenMessageTable,
+        {
+          tenantId: account.tenantId,
+          accountId: account.id,
+          providerMessageId: { in: providerMessageIds },
+        },
+        { fields: ["providerMessageId"] },
+      );
+      const seenIds = new Set(seen.map((row) => row.providerMessageId));
+      return new Set(providerMessageIds.filter((id) => !seenIds.has(id)));
+    };
+  }
+
   async function pollAccount(
     account: MailAccountRecord,
     plugin: InboundMailProviderPlugin,
@@ -411,6 +429,7 @@ export function createInboundMailSupervisor(
         const result = await plugin.fetch(deps.providerCtx, account, cursor, {
           backfillWindowDays,
           maxMessages: budget,
+          filterUnknownMessageIds: unknownMessageIdsFilterFor(account),
           ...(accessToken !== undefined && { accessToken }),
         });
         await ingestBatch(account, result.messages, JSON.stringify(result.nextCursor));

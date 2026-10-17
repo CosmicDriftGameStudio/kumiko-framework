@@ -16,6 +16,9 @@ export type LocatedTimestampJson = {
   readonly tz: string;
 };
 
+/** Source of "now" for ctx.tz; tests inject a fixed or advancing one. */
+export type Clock = { readonly now: () => Temporal.Instant };
+
 export type TzContext = {
   /** Default TZ of the tenant (from tenant.timezone, default "UTC"). */
   readonly tenant: string;
@@ -61,4 +64,6 @@ export type TzContextOptions = {
   /** Optional geo→zone adapter for ctx.tz.fromCoordinates / fromAddress.
    *  Without a provider those methods throw. */
   readonly geoTz?: GeoTzProvider;
+  /** Default: the system clock. */
+  readonly clock?: Clock;
 };

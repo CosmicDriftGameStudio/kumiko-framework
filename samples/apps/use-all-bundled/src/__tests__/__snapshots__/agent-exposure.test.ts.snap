@@ -10,7 +10,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "auth-email-password:write:confirm-account-unlock expose=false risk=mid",
   "auth-email-password:write:invite-accept expose=false risk=mid",
   "auth-email-password:write:invite-accept-with-login expose=false risk=mid",
-  "auth-email-password:write:invite-create expose=true risk=mid",
+  "auth-email-password:write:invite-create expose=false risk=mid",
   "auth-email-password:write:invite-signup-complete expose=false risk=mid",
   "auth-email-password:write:login expose=false risk=mid",
   "auth-email-password:write:logout expose=true risk=mid",

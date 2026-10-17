@@ -14,8 +14,9 @@ const CAP_RESERVATIONS_TENANT_CAP_EXPIRES_INDEX =
 
 // One row per capacity that was booked before a handler transaction and is not settled yet. The
 // handler transaction deletes it on its own commit (confirm); a release or the TTL sweep deletes it
-// together with the counter decrement. Unmanaged: the rows are a coordination aid, not state with
-// an event history.
+// together with the counter decrement. A settle keeps the row as a tombstone (settled_at set) until
+// its shortened TTL passes, so a repeated settle or a late release finds it and does nothing.
+// Unmanaged: the rows are a coordination aid, not state with an event history.
 export const capReservationsTable = pgTable(
   "store_cap_reservations",
   {
@@ -28,6 +29,7 @@ export const capReservationsTable = pgTable(
     amount: integer("amount").notNull(),
     expiresAt: instant("expires_at").notNull(),
     createdAt: instant("created_at").notNull(),
+    settledAt: instant("settled_at"),
   },
   (t) => [index(CAP_RESERVATIONS_TENANT_CAP_EXPIRES_INDEX).on(t.tenantId, t.capName, t.expiresAt)],
 );
@@ -49,5 +51,6 @@ export const capReservationsTableMeta: EntityTableMeta = defineUnmanagedTable({
     { name: "amount", pgType: "integer", notNull: true },
     { name: "expires_at", pgType: "timestamptz", notNull: true },
     { name: "created_at", pgType: "timestamptz", notNull: true },
+    { name: "settled_at", pgType: "timestamptz", notNull: false },
   ],
 });

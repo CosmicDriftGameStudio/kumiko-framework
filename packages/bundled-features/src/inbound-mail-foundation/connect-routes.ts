@@ -30,6 +30,7 @@ import {
 } from "./oauth-access-token.js";
 import { type OAuthStatePayload, signOAuthState, verifyOAuthState } from "./oauth-state.js";
 import { resolveInboundProviderForKey } from "./provider-factory.js";
+import type { InboundMailContext } from "./types.js";
 
 const DEFAULT_STATE_TTL_MINUTES = 15;
 const DEFAULT_CONNECT_PATH = "/api/inbound-mail/connect";
@@ -56,6 +57,8 @@ export type InboundMailConnectRoutesOptions = {
    *  lock and primes the access-token cache from the code exchange. Omitted
    *  → plain secret write, no cache priming. */
   readonly oauthTokens?: OAuthAccessTokenManager;
+  /** Handed to the provider plugin's context (`InboundMailContext.metricsFor`). */
+  readonly metricsFor?: InboundMailContext["metricsFor"];
 };
 
 function errorJson(c: Context, status: 400 | 401 | 404 | 500 | 502, code: string, message: string) {
@@ -172,7 +175,12 @@ export function createInboundMailConnectRoutes(
           `${INBOUND_MAIL_FOUNDATION_FEATURE}: no secrets context wired for the oauth callback route — the refresh token cannot be persisted`,
         );
       }
-      const providerCtx = { registry: deps.registry, secrets: deps.secrets, config: undefined };
+      const providerCtx: InboundMailContext = {
+        registry: deps.registry,
+        secrets: deps.secrets,
+        config: undefined,
+        ...(options.metricsFor && { metricsFor: options.metricsFor }),
+      };
 
       let plugin: ReturnType<typeof resolveInboundProviderForKey>;
       try {

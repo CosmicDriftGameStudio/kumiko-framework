@@ -136,9 +136,10 @@ import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
 } from "@cosmicdrift/kumiko-framework/migrations";
-import type {
-  ObservabilityOptions,
-  ObservabilityProvider,
+import {
+  createMetricsForFactory,
+  type ObservabilityOptions,
+  type ObservabilityProvider,
 } from "@cosmicdrift/kumiko-framework/observability";
 import {
   createDispatcher,
@@ -1379,6 +1380,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       db,
       redis,
       registry,
+      metricsFor: createMetricsForFactory(entrypoint.observability.meter),
       dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
     });
   }

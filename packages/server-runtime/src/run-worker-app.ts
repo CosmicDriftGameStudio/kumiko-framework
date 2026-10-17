@@ -27,9 +27,10 @@ import type {
 import type { WorkerEntrypoint } from "@cosmicdrift/kumiko-framework/entrypoint";
 import { assertSeedModeNotInProduction } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
-import type {
-  ObservabilityOptions,
-  ObservabilityProvider,
+import {
+  createMetricsForFactory,
+  type ObservabilityOptions,
+  type ObservabilityProvider,
 } from "@cosmicdrift/kumiko-framework/observability";
 import type { MasterKeyProvider, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
@@ -194,6 +195,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
       db,
       redis,
       registry,
+      metricsFor: createMetricsForFactory(entrypoint.observability.meter),
       dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
       lifecycle: entrypoint.lifecycle,
       ...(boot.secrets && { secrets: boot.secrets }),

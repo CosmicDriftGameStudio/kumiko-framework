@@ -1,5 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
 import type { Redis } from "ioredis";
 
 export type { SystemDispatchArgs } from "@cosmicdrift/kumiko-framework/api";
@@ -23,6 +24,8 @@ export type SystemWireDeps = {
   /** Feature-registry — e.g. for plugin-lookups via
    *  `registry.getExtensionUsages("subscriptionProvider")`. */
   readonly registry: Registry;
+  /** Same contract as `ctx.metricsFor`: unregistered metric names no-op. */
+  readonly metricsFor: (featureName: string) => MetricsHandle;
   /** Writes through the /api/*-command-dispatcher (same idempotency/job
    *  hooks) as an auto-constructed SystemAdmin of the target tenant,
    *  WITHOUT the route's own access-check. Privilege-scope: SystemAdmin is
