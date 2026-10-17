@@ -1,8 +1,8 @@
 // Shared seeders for the forget-cleanup integration tests
 // (file-binary-forget-cleanup + file-binary-forget-failure). Both drive
 // runForgetCleanup against the same fileRef + membership shape — keeping the
-// DDL and seed logic in one place so a file_refs/user-schema change updates
-// both at once instead of drifting.
+// seed logic in one place so a file_refs/user-schema change updates both at
+// once instead of drifting.
 
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -10,6 +10,7 @@ import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-frame
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { USER_STATUS, userTable } from "../../user/index.js";
 
 export const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
@@ -32,24 +33,6 @@ type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 export const nowInstant = (): Instant => getTemporal().Now.instant();
 export const pastInstant = (): Instant =>
   getTemporal().Instant.fromEpochMilliseconds(Date.now() - 60_000);
-
-export const READ_TENANT_MEMBERSHIPS_DDL = `
-  CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID NOT NULL,
-    user_id TEXT NOT NULL,
-    version INTEGER NOT NULL DEFAULT 0,
-    inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    inserted_by_id TEXT,
-    modified_by_id TEXT,
-    is_deleted BOOLEAN NOT NULL DEFAULT false,
-    deleted_at TIMESTAMPTZ,
-    deleted_by_id TEXT,
-    roles TEXT NOT NULL DEFAULT '[]',
-    UNIQUE(user_id, tenant_id)
-  )
-`;
 
 interface FileWriter {
   write(key: string, bytes: Uint8Array, mimeType: string): Promise<void>;
@@ -82,11 +65,7 @@ export function createForgetSeeders(db: DbConnection, writer: FileWriter): Forge
     },
 
     async seedMembership(userId, tenantId) {
-      await asRawClient(db).unsafe(
-        `INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
-         VALUES ($1, $2, '["Member"]') ON CONFLICT (user_id, tenant_id) DO NOTHING`,
-        [tenantId, userId],
-      );
+      await seedRow(db, tenantMembershipsTable, { tenantId, userId, roles: '["Member"]' });
     },
 
     async seedFile(id, tenantId, insertedById) {

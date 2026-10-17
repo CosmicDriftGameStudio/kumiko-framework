@@ -9,7 +9,6 @@
 
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEntity,
   createTextField,
@@ -29,15 +28,11 @@ import {
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
+import { tenantMembershipEntity } from "../../tenant/membership-table.js";
 import { createUserFeature, userEntity } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import { runForgetCleanup } from "../run-forget-cleanup.js";
-import {
-  createForgetSeeders,
-  nowInstant,
-  READ_TENANT_MEMBERSHIPS_DDL,
-  TENANT_SYSTEM,
-} from "./forget-test-helpers.js";
+import { createForgetSeeders, nowInstant, TENANT_SYSTEM } from "./forget-test-helpers.js";
 
 const PROBE = "forget-registry-probe";
 let capturedRegistry: Registry | undefined;
@@ -82,7 +77,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, probeEntity);
-  await asRawClient(stack.db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 
 afterAll(async () => {

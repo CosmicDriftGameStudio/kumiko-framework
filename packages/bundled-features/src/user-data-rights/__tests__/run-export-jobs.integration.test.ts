@@ -41,7 +41,7 @@ import {
 } from "../../compliance-profiles/index.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { tenantMembershipsTable } from "../../tenant/index.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import {
@@ -75,25 +75,8 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
-  // tenant-membership-table fuer runUserExport's Cross-Tenant-Iteration.
-  // Pattern matched user-data-rights-defaults integration-test.
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      inserted_by_id TEXT,
-      modified_by_id TEXT,
-      is_deleted BOOLEAN NOT NULL DEFAULT false,
-      deleted_at TIMESTAMPTZ,
-      deleted_by_id TEXT,
-      roles TEXT NOT NULL DEFAULT '[]',
-      UNIQUE(user_id, tenant_id)
-    )
-  `);
+  // runUserExport iterates the user's memberships across tenants.
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 
 afterAll(async () => {
@@ -1108,23 +1091,7 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
     await unsafeCreateEntityTable(localStack.db, exportJobEntity);
     await unsafeCreateEntityTable(localStack.db, exportDownloadTokenEntity);
     await unsafeCreateEntityTable(localStack.db, tenantComplianceProfileEntity);
-    await asRawClient(localStack.db).unsafe(`
-      CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        tenant_id UUID NOT NULL,
-        user_id TEXT NOT NULL,
-        version INTEGER NOT NULL DEFAULT 0,
-        inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        inserted_by_id TEXT,
-        modified_by_id TEXT,
-        is_deleted BOOLEAN NOT NULL DEFAULT false,
-        deleted_at TIMESTAMPTZ,
-        deleted_by_id TEXT,
-        roles TEXT NOT NULL DEFAULT '[]',
-        UNIQUE(user_id, tenant_id)
-      )
-    `);
+    await unsafeCreateEntityTable(localStack.db, tenantMembershipEntity);
   });
 
   afterAll(async () => {
@@ -1145,14 +1112,11 @@ describe("runExportJobs :: Atom 3c file-binaries", () => {
   });
 
   async function seedMembership(tenantId: string, userId: string | number) {
-    await asRawClient(localStack.db).unsafe(
-      `
-      INSERT INTO read_tenant_memberships (tenant_id, user_id)
-      VALUES ($1, $2)
-      ON CONFLICT (user_id, tenant_id) DO NOTHING
-    `,
-      [tenantId, String(userId)],
-    );
+    await seedRow(localStack.db, tenantMembershipsTable, {
+      tenantId: tenantId,
+      userId: String(userId),
+      roles: "[]",
+    });
   }
 
   async function seedPendingJobLocal(user: typeof aliceUser): Promise<string> {

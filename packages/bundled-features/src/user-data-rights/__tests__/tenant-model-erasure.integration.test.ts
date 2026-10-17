@@ -14,7 +14,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
@@ -47,18 +47,14 @@ import {
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/index.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { seedTenantMembership } from "../../tenant/seeding.js";
 import { createUserFeature, userEntity } from "../../user/index.js";
 import { TENANT_MODEL_CONFIG_KEY } from "../constants.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import { resolveAppTenantModel } from "../lib/resolve-tenant-model.js";
 import { runForgetCleanup } from "../run-forget-cleanup.js";
-import {
-  createForgetSeeders,
-  nowInstant,
-  READ_TENANT_MEMBERSHIPS_DDL,
-} from "./forget-test-helpers.js";
+import { createForgetSeeders, nowInstant } from "./forget-test-helpers.js";
 
 const TENANT = "00000000-0000-4000-8000-0000000000c1";
 const FORGET_USER = "cccccccc-cccc-4ccc-8ccc-0000000000c1";
@@ -126,7 +122,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, configValueEntity);
   await unsafeCreateEntityTable(stack.db, scopedEntity);
-  await asRawClient(stack.db).unsafe(READ_TENANT_MEMBERSHIPS_DDL);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 
 afterAll(async () => {
@@ -258,7 +254,7 @@ describe("forget pipeline honours the effective tenant model", () => {
     await seedScopedRow("dddddddd-dddd-4ddd-8ddd-0000000000c5");
     await seed(stack.db).seedForgetUser(FORGET_USER);
     // Both memberships go through the REAL event-store executor (not the
-    // raw-INSERT seedMembership() helper) — the historical check reads
+    // eventless seedMembership() projection seed) — the historical check reads
     // `tenant-membership.created` events, so FORGET_USER needs its own
     // `.created` event too, or the tenant would only ever show 1 distinct
     // historical member (CO_MEMBER) even after it truly had 2.
@@ -292,10 +288,9 @@ describe("forget pipeline honours the effective tenant model", () => {
     // Pins the test's premise: exactly 1 live membership row, so a live-count-
     // only check would call this tenant single-user (and the fix must reject
     // that call via history instead).
-    const liveMemberships = await asRawClient(stack.db).unsafe(
-      "SELECT id FROM read_tenant_memberships WHERE tenant_id = $1",
-      [TENANT],
-    );
+    const liveMemberships = await selectMany(stack.db, tenantMembershipsTable, {
+      tenantId: TENANT,
+    });
     expect(liveMemberships.length).toBe(1);
 
     const result = await runForgetCleanup({
@@ -389,10 +384,9 @@ describe("forget pipeline honours the effective tenant model", () => {
       [entityEventName("tenant-membership", "created"), TENANT],
     );
     expect(createdEvents.length).toBe(2);
-    const liveMemberships = await asRawClient(stack.db).unsafe(
-      "SELECT id FROM read_tenant_memberships WHERE tenant_id = $1",
-      [TENANT],
-    );
+    const liveMemberships = await selectMany(stack.db, tenantMembershipsTable, {
+      tenantId: TENANT,
+    });
     expect(liveMemberships.length).toBe(1);
 
     const result = await runForgetCleanup({
@@ -442,10 +436,9 @@ describe("forget pipeline honours the effective tenant model", () => {
 
     // Without exactly one live member the live gate would answer multi-user
     // before the history latch runs, and this test would prove nothing.
-    const liveMemberships = await asRawClient(stack.db).unsafe(
-      "SELECT id FROM read_tenant_memberships WHERE tenant_id = $1",
-      [TENANT],
-    );
+    const liveMemberships = await selectMany(stack.db, tenantMembershipsTable, {
+      tenantId: TENANT,
+    });
     expect(liveMemberships.length).toBe(1);
 
     const result = await runForgetCleanup({

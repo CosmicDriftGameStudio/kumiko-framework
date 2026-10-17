@@ -51,6 +51,7 @@ import { fileFoundationFeature } from "../../file-foundation/index.js";
 import { fileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import { exportDownloadTokenEntity } from "../schema/download-token.js";
@@ -108,23 +109,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, userEntity);
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      inserted_by_id TEXT,
-      modified_by_id TEXT,
-      is_deleted BOOLEAN NOT NULL DEFAULT false,
-      deleted_at TIMESTAMPTZ,
-      deleted_by_id TEXT,
-      roles TEXT NOT NULL DEFAULT '[]',
-      UNIQUE(user_id, tenant_id)
-    )
-  `);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 
 afterAll(async () => {
@@ -147,9 +132,11 @@ beforeEach(async () => {
     roles: '["Member"]',
     status: USER_STATUS.Active,
   });
-  await raw.unsafe(
-    `INSERT INTO read_tenant_memberships (tenant_id, user_id, roles) VALUES ('${TENANT}', '${USER_ID}', '["Member"]')`,
-  );
+  await seedRow(stack.db, tenantMembershipsTable, {
+    tenantId: TENANT,
+    userId: USER_ID,
+    roles: '["Member"]',
+  });
   emailTransport.sent.length = 0;
 });
 

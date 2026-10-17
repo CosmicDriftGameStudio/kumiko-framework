@@ -42,7 +42,7 @@ import {
 } from "../../data-retention/index.js";
 import { createFilesFeature } from "../../files/index.js";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
-import { tenantMembershipsTable } from "../../tenant/index.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
@@ -125,23 +125,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userSessionEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      inserted_by_id TEXT,
-      modified_by_id TEXT,
-      is_deleted BOOLEAN NOT NULL DEFAULT false,
-      deleted_at TIMESTAMPTZ,
-      deleted_by_id TEXT,
-      roles TEXT NOT NULL DEFAULT '[]',
-      UNIQUE(user_id, tenant_id)
-    )
-  `);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
   // fileRef ist buildEntityTable-getrieben (softDelete) — echte Entity-Tabelle
   // pushen statt hand-CREATE, damit is_deleted/deleted_at/deleted_by_id da sind.
   await unsafePushTables(stack.db, { fileRefsTable });
@@ -193,14 +177,11 @@ async function seedUser(
 }
 
 async function seedMembership(userId: string, tenantId: string): Promise<void> {
-  await asRawClient(stack.db).unsafe(
-    `
-    INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
-    VALUES ($1, $2, '["Member"]')
-    ON CONFLICT (user_id, tenant_id) DO NOTHING
-  `,
-    [tenantId, userId],
-  );
+  await seedRow(stack.db, tenantMembershipsTable, {
+    tenantId: tenantId,
+    userId: userId,
+    roles: '["Member"]',
+  });
 }
 
 async function seedFileRef(

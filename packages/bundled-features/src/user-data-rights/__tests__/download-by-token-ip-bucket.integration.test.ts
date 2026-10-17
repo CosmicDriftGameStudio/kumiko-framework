@@ -13,7 +13,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
   type TestStack,
@@ -34,6 +33,7 @@ import { createDataRetentionFeature } from "../../data-retention/index.js";
 import { fileFoundationFeature } from "../../file-foundation/index.js";
 import { fileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
+import { tenantMembershipEntity } from "../../tenant/membership-table.js";
 import { createUserFeature } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import { exportDownloadTokenEntity } from "../schema/download-token.js";
@@ -69,23 +69,7 @@ async function buildStack(trustedProxyHops: number): Promise<TestStack> {
   await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafePushTables(stack.db, { configValuesTable });
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      inserted_by_id TEXT,
-      modified_by_id TEXT,
-      is_deleted BOOLEAN NOT NULL DEFAULT false,
-      deleted_at TIMESTAMPTZ,
-      deleted_by_id TEXT,
-      roles TEXT NOT NULL DEFAULT '[]',
-      UNIQUE(user_id, tenant_id)
-    )
-  `);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
   return stack;
 }
 

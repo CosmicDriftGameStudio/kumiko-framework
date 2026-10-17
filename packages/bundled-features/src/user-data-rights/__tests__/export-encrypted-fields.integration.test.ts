@@ -15,15 +15,21 @@ import {
   EXT_USER_DATA,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  unsafeCreateEntityTable,
+} from "@cosmicdrift/kumiko-framework/stack";
 import {
   createTestEnvelopeCipher,
   resetEntityFieldEncryptionCacheForTests,
+  seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { createUserFeature } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
 import { runUserExport } from "../run-user-export.js";
@@ -82,27 +88,12 @@ beforeAll(async () => {
     vaultFeature,
   ]);
 
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      inserted_by_id TEXT,
-      modified_by_id TEXT,
-      is_deleted BOOLEAN NOT NULL DEFAULT false,
-      deleted_at TIMESTAMPTZ,
-      deleted_by_id TEXT,
-      roles TEXT NOT NULL DEFAULT '[]',
-      UNIQUE(user_id, tenant_id)
-    )
-  `);
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO read_tenant_memberships (tenant_id, user_id) VALUES ('${TENANT}', '${USER_ID}')
-     ON CONFLICT DO NOTHING`,
-  );
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
+  await seedRow(stack.db, tenantMembershipsTable, {
+    tenantId: TENANT,
+    userId: USER_ID,
+    roles: "[]",
+  });
 
   await asRawClient(stack.db).unsafe(`
     CREATE TABLE IF NOT EXISTS read_vault_notes (

@@ -4,7 +4,7 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
@@ -52,7 +52,7 @@ import { createSessionsFeature, userSessionEntity } from "../../sessions/index.j
 import { TenantHandlers } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantInvitationEntity } from "../../tenant/invitation-table.js";
-import { tenantMembershipEntity } from "../../tenant/membership-table.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { seedTenantMembership } from "../../tenant/seeding.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
@@ -212,10 +212,10 @@ describe("forget reaches tenants the user already left", () => {
       { userId: SUBJECT_X, tenantId: TENANT_T },
       TestUsers.systemAdmin,
     );
-    const liveInT = await asRawClient(stack.db).unsafe(
-      "SELECT id FROM read_tenant_memberships WHERE tenant_id = $1 AND user_id = $2",
-      [TENANT_T, SUBJECT_X],
-    );
+    const liveInT = await selectMany(stack.db, tenantMembershipsTable, {
+      tenantId: TENANT_T,
+      userId: SUBJECT_X,
+    });
     expect(liveInT.length).toBe(0);
 
     const result = await forgetNow();

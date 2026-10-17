@@ -134,6 +134,10 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import {
+  tenantMembershipEntity,
+  tenantMembershipsTable,
+} from "@cosmicdrift/kumiko-bundled-features/tenant";
+import {
   createUserFeature,
   USER_STATUS,
   userEntity,
@@ -144,7 +148,7 @@ import {
   runForgetCleanup,
   runUserExport,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-import { asRawClient, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -185,23 +189,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, noteEntity);
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      inserted_by_id TEXT,
-      modified_by_id TEXT,
-      is_deleted BOOLEAN NOT NULL DEFAULT false,
-      deleted_at TIMESTAMPTZ,
-      deleted_by_id TEXT,
-      roles TEXT NOT NULL DEFAULT '[]',
-      UNIQUE(user_id, tenant_id)
-    )
-  `);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 
 afterAll(async () => {
@@ -233,14 +221,11 @@ async function seedAlice(opts: { gracePeriodEnd?: Instant; status?: string } = {
     status: opts.status ?? USER_STATUS.Active,
     gracePeriodEnd: opts.gracePeriodEnd ?? null,
   });
-  await asRawClient(stack.db).unsafe(
-    `
-    INSERT INTO read_tenant_memberships (tenant_id, user_id, roles)
-    VALUES ($1, $2, '["Member"]')
-    ON CONFLICT DO NOTHING
-  `,
-    [TENANT_A, ALICE_ID],
-  );
+  await seedRow(stack.db, tenantMembershipsTable, {
+    tenantId: TENANT_A,
+    userId: ALICE_ID,
+    roles: '["Member"]',
+  });
 }
 
 async function seedNote(id: string, title: string): Promise<void> {

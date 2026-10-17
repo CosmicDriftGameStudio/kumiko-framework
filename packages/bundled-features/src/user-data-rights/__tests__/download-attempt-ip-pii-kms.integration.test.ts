@@ -59,7 +59,7 @@ import { fileFoundationFeature } from "../../file-foundation/index.js";
 import { fileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
 import { createFilesFeature } from "../../files/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
-import { tenantMembershipsTable } from "../../tenant/index.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { createUserFeature, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.js";
 import { createUserDataRightsFeature } from "../feature.js";
@@ -131,23 +131,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await createProjectionStateTable(stack.db);
   await unsafePushTables(stack.db, { configValuesTable, fileRefsTable });
-  await asRawClient(stack.db).unsafe(`
-    CREATE TABLE IF NOT EXISTS read_tenant_memberships (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tenant_id UUID NOT NULL,
-      user_id TEXT NOT NULL,
-      version INTEGER NOT NULL DEFAULT 0,
-      inserted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      modified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      inserted_by_id TEXT,
-      modified_by_id TEXT,
-      is_deleted BOOLEAN NOT NULL DEFAULT false,
-      deleted_at TIMESTAMPTZ,
-      deleted_by_id TEXT,
-      roles TEXT NOT NULL DEFAULT '[]',
-      UNIQUE(user_id, tenant_id)
-    )
-  `);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
 });
 
 afterAll(async () => {
