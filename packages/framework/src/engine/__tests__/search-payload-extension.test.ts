@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { buildSearchDocument } from "../../pipeline/system-hooks.js";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index.js";
 import type { SearchPayloadContributorFn } from "../types/index.js";
@@ -117,8 +117,13 @@ describe("effectiveFeatures filtering", () => {
 });
 
 describe("buildSearchDocument — contributor precedence (base fields win)", () => {
-  const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
-  afterEach(() => warnSpy.mockClear());
+  // A describe-body spy is installed at collection time and never removed; under
+  // `--no-isolate` it outlives this file and later files inherit its call count.
+  let warnSpy: ReturnType<typeof spyOn<typeof console, "warn">>;
+  beforeEach(() => {
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => warnSpy.mockRestore());
 
   function registryWith(contributor: SearchPayloadContributorFn) {
     const feature = defineFeature("test", (r) => {
