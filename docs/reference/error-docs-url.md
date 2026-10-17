@@ -4,19 +4,19 @@ verified: 2026-10-04
 evidence: "kumiko-framework#3541; errors/docs-url.ts, errors/serialize.ts"
 ---
 
-# Error-`docsUrl` und `errorDocs`
+# Error `docsUrl` and `errorDocs`
 
-Fehlerantworten tragen optional `error.docsUrl`, einen Link auf eine Doku-Seite zum Fehler.
-Aufgelöst wird er beim Serialisieren durch `resolveErrorDocsUrl(err, errorDocs?)`.
+Error responses optionally carry `error.docsUrl`, a link to a documentation page for the error.
+It is resolved during serialization by `resolveErrorDocsUrl(err, errorDocs?)`.
 
-| Fall | `docsUrl` |
+| Case | `docsUrl` |
 | --- | --- |
-| Kein `details.reason`, Reason == Code oder Framework-Reason (`FrameworkReasons`, `AgentReasons`) | `<KUMIKO_DOCS_URL>/errors/<reason oder code>` |
-| App-eigener Reason, von `errorDocs` abgedeckt | `<errorDocs.baseUrl>/errors/<reason>` |
-| App-eigener Reason, nicht abgedeckt | `<KUMIKO_DOCS_URL>/errors/<code>` (Seite des Fehler-Codes) |
+| No `details.reason`, reason equals code, or framework reason (`FrameworkReasons`, `AgentReasons`) | `<KUMIKO_DOCS_URL>/errors/<reason or code>` |
+| App-specific reason covered by `errorDocs` | `<errorDocs.baseUrl>/errors/<reason>` |
+| App-specific reason not covered | `<KUMIKO_DOCS_URL>/errors/<code>` (page of the error code) |
 
-`KUMIKO_DOCS_URL` (Default `https://docs.kumiko.rocks`) überschreibt nur die Basis für
-Framework-Reasons, z. B. für Self-Hosting.
+`KUMIKO_DOCS_URL` (default `https://docs.kumiko.rocks`) only overrides the base for
+framework reasons, for example for self-hosting.
 
 ## `errorDocs`
 
@@ -27,8 +27,8 @@ runProdApp({
 });
 ```
 
-- `baseUrl`: Basis der App-Doku; die Seite liegt unter `<baseUrl>/errors/<reason>`.
-- `reasons`: Liste der Reasons mit Doku-Seite, oder `"all"`. Ohne Angabe ist kein App-Reason abgedeckt.
+- `baseUrl`: base of the app docs; the page lives at `<baseUrl>/errors/<reason>`.
+- `reasons`: list of reasons that have a docs page, or `"all"`. Without it no app reason is covered.
 
-Die Option gibt es auch bei `runDevApp`, `createKumikoServer`, `buildServer` und `setupTestStack`.
-Clients behandeln `docsUrl` als optional (`ErrorResponseBody.docsUrl?`).
+The option is also available on `runDevApp`, `createKumikoServer`, `buildServer` and `setupTestStack`.
+Clients treat `docsUrl` as optional (`ErrorResponseBody.docsUrl?`).

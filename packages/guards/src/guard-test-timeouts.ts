@@ -177,9 +177,13 @@ function declarationBaseCallee(callee: Node): Node {
   return Node.isCallExpression(callee) ? declarationBaseCallee(callee.getExpression()) : callee;
 }
 
+// An identifier can be the Playwright test body (`test(title, details, body)`) or an options
+// variable like `{ retry: 2 }`, so it only counts when its type is a number or carries `timeout`.
 function isTimeoutArgument(arg: Node): boolean {
   if (Node.isObjectLiteralExpression(arg)) return hasTimeoutProperty(arg);
-  return !Node.isArrowFunction(arg) && !Node.isFunctionExpression(arg);
+  if (Node.isArrowFunction(arg) || Node.isFunctionExpression(arg)) return false;
+  const type = arg.getType();
+  return type.isNumber() || type.isNumberLiteral() || type.getProperty("timeout") !== undefined;
 }
 
 function declarationTimeoutReason(

@@ -200,6 +200,22 @@ describe("LanguageSwitcher", () => {
       expect(menu.closest("header")).not.toBeNull();
     });
 
+    test("the menu is rendered inside a footer landmark", async () => {
+      const user = userEvent.setup();
+      renderWithResolver(
+        makeStatefulResolver("de"),
+        <div>
+          <main>content</main>
+          <footer>
+            <LanguageSwitcher locales={locales} testId="lang" />
+          </footer>
+        </div>,
+      );
+      await user.click(screen.getByRole("button", { name: "Sprache" }));
+      const menu = await screen.findByRole("menu");
+      expect(menu.closest("footer")).not.toBeNull();
+    });
+
     test("Escape closes the menu and returns focus to the trigger", async () => {
       const { user } = await openInsideLandmarks();
       await user.keyboard("{Escape}");

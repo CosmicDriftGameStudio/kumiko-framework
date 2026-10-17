@@ -241,21 +241,26 @@ export function RenderList(props: RenderListProps): ReactNode {
   // mount and can flush after a keystroke landing in the same commit,
   // resetting localQ and swallowing the input.
   const [syncedSearchValue, setSyncedSearchValue] = useState(searchValue);
-  // The parent may echo our own debounced emit back late (router/URL round
-  // trip); adopting that stale echo would erase keys typed in between.
-  const lastEmittedRef = useRef<string | undefined>(undefined);
+  // The parent may echo our own debounced emits back late (router/URL round
+  // trip), possibly after a newer emit already went out; adopting such a stale
+  // echo would erase keys typed in between. All unechoed emits are kept, and a
+  // matching echo drops itself and every older one.
+  const pendingEmitsRef = useRef<string[]>([]);
   if (searchValue !== syncedSearchValue) {
     setSyncedSearchValue(searchValue);
-    if (searchValue !== lastEmittedRef.current) {
+    const echoIndex = pendingEmitsRef.current.indexOf(searchValue ?? "");
+    if (echoIndex >= 0) {
+      pendingEmitsRef.current.splice(0, echoIndex + 1);
+    } else {
       setLocalQ(searchValue ?? "");
-      lastEmittedRef.current = undefined;
+      pendingEmitsRef.current = [];
     }
   }
   useEffect(() => {
     if (onSearchChange === undefined) return;
     if (localQ === (searchValue ?? "")) return;
     const timer = setTimeout(() => {
-      lastEmittedRef.current = localQ;
+      pendingEmitsRef.current.push(localQ);
       onSearchChange(localQ);
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);

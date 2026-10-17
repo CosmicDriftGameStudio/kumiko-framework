@@ -240,6 +240,12 @@ describe("kumiko-guards comment-lang — push root", () => {
           KUMIKO_CLI_SCOPE: "clean-fixture",
         }),
       ).toContain("0 German comment(s) found");
+      expect(
+        listedCounts(cleanRepo, {
+          KUMIKO_PUSH_REPO_ROOT: staleRepo,
+          KUMIKO_CLI_SCOPE: "stale-fixture",
+        }),
+      ).toContain("1 German comment(s) found");
     } finally {
       rmSync(cleanRepo, { recursive: true, force: true });
       rmSync(staleRepo, { recursive: true, force: true });

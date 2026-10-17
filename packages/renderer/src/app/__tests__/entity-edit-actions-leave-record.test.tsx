@@ -342,7 +342,7 @@ describe("entityEdit actions that leave the shown record", () => {
   });
 
   test("singleton: a non-delete redirect does not report a deletion", async () => {
-    const { calls } = await runAction(
+    const { navigated, calls } = await runAction(
       schemaWith({
         actions: [{ ...archiveAction, redirect: "rent-overview" }],
         withList: true,
@@ -350,7 +350,10 @@ describe("entityEdit actions that leave the shown record", () => {
       }),
       "archive",
     );
-    await new Promise((r) => setTimeout(r, 50));
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "rent-overview" }]));
+    // Awaiting full act ticks lets any in-flight refetch land, so the count is a barrier, not a sleep.
+    await act(async () => {});
+    await act(async () => {});
     expect(calls.listQueries).toBe(1);
   });
 });

@@ -50,7 +50,9 @@ export type NavTarget = ScreenTarget | ObjectTarget;
 
 export type NavigateOptions = {
   /** Search params of the target route, set in the same history entry as
-   *  the path. Without them the target starts with an empty query. */
+   *  the path. Without them a different target starts with an empty query;
+   *  navigating to the current path keeps the current query (pass
+   *  `searchParams: {}` to clear it). */
   readonly searchParams?: Readonly<Record<string, string>>;
 };
 

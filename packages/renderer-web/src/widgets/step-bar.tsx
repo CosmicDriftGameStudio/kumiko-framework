@@ -120,7 +120,7 @@ function CompactStepPicker({
         ref={toggleRef}
         type="button"
         aria-expanded={open}
-        aria-controls={listId}
+        aria-controls={open ? listId : undefined}
         data-testid={compactTestId}
         onClick={() => setOpen((wasOpen) => !wasOpen)}
         className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md border border-border bg-card px-3 text-left text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

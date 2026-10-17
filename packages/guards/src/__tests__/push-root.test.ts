@@ -62,6 +62,12 @@ describe("resolvePushRepoRoot", () => {
       expect(
         resolvePushRepoRoot({ KUMIKO_CLI_SCOPE: "solon", KUMIKO_PUSH_REPO_ROOT: worktree }),
       ).toBeUndefined();
+
+      const lookalike = join(base, "parked", "solon");
+      git(canonical, "worktree", "add", "-q", "-b", "lookalike", lookalike);
+      expect(
+        resolvePushRepoRoot({ KUMIKO_CLI_SCOPE: "solon", KUMIKO_PUSH_REPO_ROOT: lookalike }),
+      ).toBeUndefined();
     } finally {
       rmSync(base, { recursive: true, force: true });
     }

@@ -572,6 +572,32 @@ describe("EmbeddedListInput — auto-focus into wrapped cell types (#1839)", () 
     expect(document.activeElement).toBe(focusable);
   });
 
+  test("a readOnly leading column is skipped: focus lands on the first editable cell of the new row", () => {
+    const columns: readonly EmbeddedListColumn[] = [
+      {
+        field: "label",
+        label: "Label",
+        type: "text",
+        required: false,
+        derived: false,
+        readOnly: true,
+      },
+      { field: "note", label: "Note", type: "text", required: false, derived: false },
+    ];
+    renderWithLocale(
+      <ControlledFocusHarness columns={columns} initialRows={[{ label: "A", note: "x" }]} />,
+    );
+    const desktop = within(screen.getByTestId("lines-desktop"));
+    const lastInput = desktop.getByTestId("lines-cell-0-note").querySelector("input");
+    const lastControl = lastInput ?? desktop.getByTestId("lines-cell-0-note");
+    fireEvent.keyDown(lastControl, { key: "Tab", code: "Tab" });
+
+    const newNoteCell = desktop.getByTestId("lines-cell-1-note");
+    const focusable =
+      newNoteCell.tagName === "INPUT" ? newNoteCell : newNoteCell.querySelector("input");
+    expect(document.activeElement).toBe(focusable);
+  });
+
   test("a timestamp first-column focuses the inner TimestampInput date field, not the wrapper div (#1839)", () => {
     const columns: readonly EmbeddedListColumn[] = [
       { field: "loggedAt", label: "Logged at", type: "timestamp", required: false, derived: false },

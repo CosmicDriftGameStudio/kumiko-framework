@@ -325,10 +325,16 @@ describe("StepBar", () => {
       const toggle = screen.getByTestId("steps-compact");
       expect(toggle.tagName).toBe("BUTTON");
       expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      expect(toggle.getAttribute("aria-controls")).toBeNull();
       expect(screen.queryByTestId("steps-compact-step-0")).toBeNull();
 
       fireEvent.click(toggle);
       expect(toggle.getAttribute("aria-expanded")).toBe("true");
+      const listId = toggle.getAttribute("aria-controls");
+      expect(listId).not.toBeNull();
+      expect(screen.getByTestId("steps-compact-step-0").closest("ol")?.id).toBe(
+        listId ?? undefined,
+      );
       expect(screen.getByTestId("steps-compact-step-0").textContent).toContain("Done");
       expect(screen.getByTestId("steps-compact-step-1").getAttribute("aria-current")).toBe("step");
 
