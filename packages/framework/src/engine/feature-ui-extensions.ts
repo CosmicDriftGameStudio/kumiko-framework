@@ -356,12 +356,12 @@ export function buildUiExtensionsMethods<TName extends string>(
       });
     },
     /**
-     * Marker-Deklaration: dieses Feature stellt eine Cross-Feature-API
-     * unter dem genannten Namen bereit. Die eigentliche Implementation
-     * wird separat als Query- oder Write-Handler unter dem QN-Pattern
-     * registriert; r.exposesApi ist reine Boot-Check-Surface.
+     * Marker declaration: this feature provides a cross-feature API under
+     * the given name. The implementation is registered separately as a query
+     * or write handler under the QN pattern; r.exposesApi only feeds the
+     * boot check.
      *
-     * Beispiel:
+     * Example:
      *   defineFeature("compliance-profiles", (r) => {
      *     r.exposesApi("compliance.forTenant");
      *     r.queryHandler({ name: "compliance:query:for-tenant", ... });
@@ -369,7 +369,7 @@ export function buildUiExtensionsMethods<TName extends string>(
      *   defineFeature("user-data-rights", (r) => {
      *     r.requires({ features: ["compliance-profiles"] });
      *     r.usesApi("compliance.forTenant");
-     *     // ruft im Handler: ctx.callQuery("compliance:query:for-tenant", ...)
+     *     // in a handler: ctx.callQuery("compliance:query:for-tenant", ...)
      *   });
      */
     exposesApi(apiName: string): void {

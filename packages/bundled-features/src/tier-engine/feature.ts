@@ -375,11 +375,11 @@ export function createTierEngineFeature<
       handler: async (result) => {
         // result.data has tenantId + tier (after entity-update merge)
         const data = result.data as { tenantId?: unknown; tier?: unknown }; // @cast-boundary engine-payload
-        // skip: defensive type-guard auf payload-shape. Bei korrekt gerenderten
-        // entity-events sind beide fields immer strings; ein malformed-payload
-        // (custom-handler-bug) würde hier silent zum cache-skip führen statt
-        // throwing — der lifecycle-pipeline darf nicht durch hook-fehler
-        // blocken (afterCommit-pattern, side-effect-best-effort).
+        // skip: defensive guard on the payload shape. Correct entity events
+        // always carry both fields as strings; a malformed payload (a custom
+        // handler bug) skips the cache update instead of throwing, because a
+        // hook error must not block the lifecycle pipeline (afterCommit,
+        // best-effort side effect).
         if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
         applyAssignment(data.tenantId as TenantId, data.tier);
       },
