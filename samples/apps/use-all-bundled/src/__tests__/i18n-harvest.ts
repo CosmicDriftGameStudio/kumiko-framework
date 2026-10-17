@@ -8,6 +8,7 @@ import { GDPR_MAIL_EN } from "@cosmicdrift/kumiko-bundled-features/user-data-rig
 import { buildAppSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
 import { kumikoDefaultTranslations } from "@cosmicdrift/kumiko-renderer";
+import { MAIL_CHROME_EN } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES, AUTH_COMPOSE_OPTIONS } from "../run-config";
 
@@ -107,6 +108,7 @@ export async function harvestEnglish(): Promise<EnHarvest> {
   });
   sources.push({ origin: "mail:auth", entries: Object.entries(AUTH_MAIL_EN) });
   sources.push({ origin: "mail:gdpr", entries: Object.entries(GDPR_MAIL_EN) });
+  sources.push({ origin: "mail:chrome", entries: Object.entries(MAIL_CHROME_EN) });
 
   const entryCountByOrigin: Record<string, number> = {};
   for (const { origin, entries } of sources) {

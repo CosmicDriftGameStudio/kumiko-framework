@@ -153,6 +153,7 @@ export function buildChannelContext(
     sseBroker,
     tenantId,
     secrets,
+    config: tenantConfig,
     renderMail: createTemplateMailRenderer(db, registry, tenantId, tenantConfig),
     ...(filesForTenant !== undefined && {
       readAttachment: createEmailAttachmentReader(

@@ -64,6 +64,7 @@ import {
   resolveTokenVerifier,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { AUTH_MFA_FEATURE, AuthMfaHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import { createUnsubscribeRoutes } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   PAT_FEATURE,
   patRateLimitFromFeature,
@@ -81,6 +82,7 @@ import {
   loadJwtSecretOrKeyring,
   type PostAuthLandingResolver,
   parseTrustedProxyHopsEnv,
+  publicOriginOf,
   type SseBroker,
   type TokenVerifier,
   TRUSTED_PROXY_HOPS_ENV,
@@ -132,6 +134,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/es-ops";
 import { assertSeedModeNotInProduction } from "@cosmicdrift/kumiko-framework/event-store";
 import type { JobRunnerOptions } from "@cosmicdrift/kumiko-framework/jobs";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
@@ -170,7 +173,7 @@ import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-se
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
 import { assertPiiBootInvariants } from "./pii-boot-gate.js";
-import { resolveAuthPublicOrigin } from "./resolve-auth-public-origin.js";
+import { APP_BASE_URL_ENV, resolveAuthPublicOrigin } from "./resolve-auth-public-origin.js";
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
@@ -181,6 +184,11 @@ import {
 } from "./run-prod-app-boot-context.js";
 import { buildStaticFallback } from "./run-prod-app-static-files.js";
 import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers.js";
+import {
+  makeSeedCreateFileRef,
+  type SeedCreateFileRef,
+  withSeedErrorContext,
+} from "./seed-dispatcher.js";
 import { assertSessionBootInvariants } from "./session-boot-gate.js";
 import { shouldWireProdSessions } from "./session-wiring.js";
 import { stripNoRouteMatchHeader } from "./try-hono-first.js";
@@ -438,6 +446,9 @@ export type ProdSeedFn = (deps: {
   db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
   registry: import("@cosmicdrift/kumiko-framework/engine").Registry;
   dispatcher: import("@cosmicdrift/kumiko-framework/pipeline").Dispatcher;
+  /** Stores bytes as a fileRef of `tenantId` (same validation and storage
+   *  layout as POST /files) without a helper write handler. */
+  createFileRef: SeedCreateFileRef;
 }) => Promise<void>;
 
 /** Boot-Time-Deps die `extraContext` + `anonymousAccess` Factories als
@@ -665,6 +676,15 @@ export type RunProdAppOptions = {
    *  inside buildServer, right after the r.httpRoute loop, before seeds
    *  (kumiko-framework#3050). */
   readonly extraRoutes?: readonly ExtraRouteDefinition[];
+  /** Framework-managed unsubscribe links. Mounts `createUnsubscribeRoutes({ secret })` and makes
+   *  delivery sign `data.unsubscribeUrl` (path `DELIVERY_UNSUBSCRIBE_PATH`) for every email
+   *  notification declared with `unsubscribe: true`, for user and `route` recipients; a link the
+   *  caller put into `data.unsubscribeUrl` wins. `secret` must be dedicated (≥32 chars), not the
+   *  session JWT secret. Links point at the origin of `auth.publicOrigin`, then `auth.mail.baseUrl`,
+   *  then the `APP_BASE_URL` env; with none of them no link is added (boot warning). Address
+   *  recipients need a blind-index key, otherwise they get no link. Do not also mount
+   *  `createUnsubscribeRoutes` via `extraRoutes`. */
+  readonly unsubscribe?: { readonly secret: string };
   /** Hook for app-wired co-running components that need the system-write
    *  dispatcher (e.g. wiring a webhook plugin's system-scoped secrets, or
    *  starting a co-running supervisor) — runs after buildServer, before
@@ -927,6 +947,27 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
       })
     : undefined;
 
+  const unsubscribeBaseUrl = options.unsubscribe
+    ? publicOriginOf(
+        effectiveAuth?.publicOrigin ??
+          effectiveAuth?.mail?.baseUrl ??
+          envSource[APP_BASE_URL_ENV] ??
+          "",
+      )
+    : undefined;
+  if (options.unsubscribe && unsubscribeBaseUrl === undefined) {
+    createFallbackLogger("runProdApp").warn(
+      `unsubscribe is enabled but no valid public app URL is known (auth.publicOrigin, auth.mail.baseUrl or ${APP_BASE_URL_ENV}), so mails get no unsubscribe link.`,
+    );
+  }
+  const unsubscribeLinks =
+    options.unsubscribe && unsubscribeBaseUrl !== undefined
+      ? { secret: options.unsubscribe.secret, baseUrl: unsubscribeBaseUrl }
+      : undefined;
+  const unsubscribeRoutes = options.unsubscribe
+    ? createUnsubscribeRoutes({ secret: options.unsubscribe.secret })
+    : [];
+
   // 3. Feature registry. Auth-mode auto-mixes config/user/tenant/auth-email-
   //    password via composeFeatures — same source-of-truth as runDevApp
   //    AND the per-app drizzle-Schema-Generator, so Migration und Runtime
@@ -1111,6 +1152,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
     ...(bootLogger && { log: bootLogger }),
+    ...(unsubscribeLinks && { unsubscribeLinks }),
   });
   const extraContext = {
     ...addConfigAccessorFactory({ ...autoExtraContext, ...resolvedExtraContext }, registry),
@@ -1208,7 +1250,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(options.rateLimit && { rateLimit: options.rateLimit }),
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),
     ...(options.errorDocs && { errorDocs: options.errorDocs }),
-    ...(options.extraRoutes && { extraRoutes: options.extraRoutes }),
+    ...((options.extraRoutes || options.unsubscribe) && {
+      extraRoutes: [...(options.extraRoutes ?? []), ...unsubscribeRoutes],
+    }),
     ...(effectiveAuth && {
       auth: {
         membershipQuery: TenantQueries.memberships,
@@ -1398,20 +1442,26 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     db,
     ...(bootCrypto.configCipher && { cipher: bootCrypto.configCipher }),
   });
-  const seedDispatcher =
-    (options.seeds?.length ?? 0) > 0 || options.seedsDir !== undefined
-      ? createDispatcher(
-          registry,
-          withFileProviderResolver(
-            registry,
-            { db, redis, entityCache, registry, ...extraContext },
-            cacheSync,
-          ),
-        )
-      : undefined;
-  if (seedDispatcher) {
+  const hasSeeds = (options.seeds?.length ?? 0) > 0 || options.seedsDir !== undefined;
+  const seedContext = hasSeeds
+    ? withFileProviderResolver(
+        registry,
+        { db, redis, entityCache, registry, ...extraContext },
+        cacheSync,
+      )
+    : undefined;
+  const seedDispatcher = seedContext
+    ? withSeedErrorContext(
+        createDispatcher(registry, seedContext, {
+          ...baseEntrypointOptions.dispatcherOptions,
+          ...(entrypoint.mode === "all-in-one" && { jobRunner: entrypoint.jobRunner }),
+        }),
+      )
+    : undefined;
+  if (seedDispatcher && seedContext) {
+    const createFileRef = makeSeedCreateFileRef({ db, registry, context: seedContext });
     for (const seed of options.seeds ?? []) {
-      await seed({ db, registry, dispatcher: seedDispatcher });
+      await seed({ db, registry, dispatcher: seedDispatcher, createFileRef });
     }
   }
 

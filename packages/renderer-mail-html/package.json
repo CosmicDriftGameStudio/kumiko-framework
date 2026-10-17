@@ -28,6 +28,7 @@
     "mjml": "^5.2.2"
   },
   "devDependencies": {
+    "@cosmicdrift/kumiko-locale-de": "workspace:*",
     "@cosmicdrift/kumiko-testing": "workspace:*",
     "@types/html-to-text": "^9.0.4",
     "@types/mjml": "^5.0.0"

@@ -12,8 +12,10 @@ export {
 } from "./document-kit.js";
 export { createRendererMailHtmlFeature } from "./feature.js";
 export type { MailFooter, MailFooterLink, MailFooterResolver } from "./mail-footer.js";
+export { MAIL_CHROME_EN } from "./mail-strings.js";
 export {
   type MailBrandSuffixResolver,
   type MailHtmlRenderOptions,
+  type MailSiteUrlResolver,
   mailHtmlRender,
 } from "./render.js";

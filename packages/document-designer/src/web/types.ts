@@ -43,7 +43,7 @@ export type TemplateDetail = {
 /** The version the resolver serves while a draft is open beside it. */
 export type ServedVersionView = { readonly version: number; readonly since: string };
 
-export type VariableType = "text" | "link" | "money" | "date" | "list";
+export type VariableType = "text" | "link" | "money" | "date" | "percent" | "list";
 
 export type VariableInfo = {
   readonly type: VariableType;

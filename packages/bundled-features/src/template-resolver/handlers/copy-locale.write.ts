@@ -30,7 +30,11 @@ import { resolveTemplateVariables } from "../template-validation.js";
 import { targetExistsIssue } from "./bundle-import.js";
 import { kindSchema, localeSchema, templateSlugSchema } from "./shared.js";
 import { parseStoredJson, storedRecord } from "./template-gates.js";
-import { refuseTenantScopeUnderSystemTenant, writeTemplateRow } from "./template-write.js";
+import {
+  refuseSystemOnlyTenantOverride,
+  refuseTenantScopeUnderSystemTenant,
+  writeTemplateRow,
+} from "./template-write.js";
 
 type CopyScope = "tenant" | "system";
 type WriteCtx = HandlerContext;
@@ -108,7 +112,9 @@ async function checkCopyRequest(
     );
   }
   const tenantId = scope === "system" ? SYSTEM_TENANT_ID : event.user.tenantId;
-  const refused = refuseTenantScopeUnderSystemTenant(scope, tenantId);
+  const refused =
+    refuseTenantScopeUnderSystemTenant(scope, tenantId) ??
+    refuseSystemOnlyTenantOverride(ctx.registry, scope, slug, kind);
   if (refused !== null) return refused;
 
   const readDb = readDbFor(ctx, scope);

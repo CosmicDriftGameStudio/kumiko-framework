@@ -3,8 +3,9 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Element as ScanElement } from "happy-dom";
 import { isResourceImageContentType } from "../shared/index.js";
 import { rewriteStepsBlock } from "./compile-steps-block.js";
-import { withParsedDocument } from "./document-sanitizer.js";
+import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.js";
 import {
+  DOCUMENT_CONDITION_ATTRIBUTE,
   DOCUMENT_TEXT_ALIGNMENTS,
   isAllowedDocumentLinkHref,
   isDocumentPlaceholderHref,
@@ -25,6 +26,8 @@ type RowScope = { readonly listName: string; readonly itemFields: TemplateVariab
 type CompileState = {
   readonly variables: TemplateVariables;
   readonly expressions: string[];
+  // richText spans that fill a whole block; their value brings its own paragraphs.
+  readonly blockRichTextSpans: Set<ScanElement>;
 };
 
 function marker(state: CompileState, expression: string): string {
@@ -59,10 +62,19 @@ function resolveReference(
   return { path: scope === null ? name : `@root.${name}`, def: ownVariable(variables, name) };
 }
 
-function valueExpression(path: string, def: TemplateVariableDef | undefined): string {
+// The sanitized rich text value always consists of blocks; inside a line of
+// other text it renders inline so no paragraph ends up inside a paragraph.
+function valueExpression(
+  path: string,
+  def: TemplateVariableDef | undefined,
+  isWholeBlock: boolean,
+): string {
   if (def?.type === "money") return `{{money ${path}}}`;
   if (def?.type === "date") return `{{date ${path}}}`;
-  if (def?.type === "richText") return `{{richText ${path}}}`;
+  if (def?.type === "percent") return `{{percent ${path}}}`;
+  if (def?.type === "richText") {
+    return isWholeBlock ? `{{richText ${path}}}` : `{{richText ${path} inline=true}}`;
+  }
   return `{{${path}}}`;
 }
 
@@ -70,7 +82,13 @@ function rewriteVariable(element: ScanElement, state: CompileState): void {
   const name = element.getAttribute("data-variable") ?? "";
   const replacement = element.ownerDocument.createTextNode(
     isDocumentReferenceName(name)
-      ? marker(state, valueExpression(...pathAndDef(name, element, state)))
+      ? marker(
+          state,
+          valueExpression(
+            ...pathAndDef(name, element, state),
+            state.blockRichTextSpans.has(element),
+          ),
+        )
       : "",
   );
   element.replaceWith(replacement);
@@ -112,10 +130,27 @@ function wrapVariableOnlyBlock(block: ScanElement, state: CompileState): void {
   const name = soleVariableName(block);
   // skip: a line with static content or several placeholders stays as it is
   if (name === null) return;
-  const [path] = pathAndDef(name, block, state);
-  const document = block.ownerDocument;
-  block.before(document.createTextNode(marker(state, `{{#if ${path} includeZero=true}}`)));
-  block.after(document.createTextNode(marker(state, "{{/if}}")));
+  const [path, def] = pathAndDef(name, block, state);
+  const host =
+    def?.type === "richText" && block.tagName === "P" ? richTextBlockHost(block, state) : block;
+  const document = host.ownerDocument;
+  host.before(document.createTextNode(marker(state, `{{#if ${path} includeZero=true}}`)));
+  host.after(document.createTextNode(marker(state, "{{/if}}")));
+}
+
+// A paragraph cannot hold the paragraphs of a rich text value, a div can; it
+// keeps the paragraph's attributes so alignment and size still apply.
+function richTextBlockHost(paragraph: ScanElement, state: CompileState): ScanElement {
+  const host = paragraph.ownerDocument.createElement("div");
+  for (const attribute of Array.from(paragraph.attributes)) {
+    host.setAttribute(attribute.name, attribute.value ?? "");
+  }
+  for (const span of Array.from(paragraph.querySelectorAll("span[data-variable]"))) {
+    state.blockRichTextSpans.add(span);
+  }
+  host.append(...Array.from(paragraph.childNodes));
+  paragraph.replaceWith(host);
+  return host;
 }
 
 function rewriteLink(element: ScanElement, state: CompileState): void {
@@ -144,6 +179,20 @@ function rewriteRepeatRow(row: ScanElement, state: CompileState): void {
     row.removeAttribute("data-each");
     row.removeAttribute("data-repeat-header");
   }
+}
+
+function rewriteConditionalBlock(block: ScanElement, state: CompileState): void {
+  const name = block.getAttribute(DOCUMENT_CONDITION_ATTRIBUTE) ?? "";
+  block.removeAttribute(DOCUMENT_CONDITION_ATTRIBUTE);
+  if (!isDocumentReferenceName(name)) {
+    block.remove();
+    // skip: a condition on a name that cannot be a variable never shows
+    return;
+  }
+  const [path] = pathAndDef(name, conditionScopeElement(block), state);
+  const document = block.ownerDocument;
+  block.before(document.createTextNode(marker(state, `{{#if ${path} includeZero=true}}`)));
+  block.after(document.createTextNode(marker(state, "{{/if}}")));
 }
 
 function stripActiveContent(element: ScanElement): void {
@@ -311,7 +360,7 @@ export function compileDocumentBodyToHandlebars(
   variables: TemplateVariables,
   options: CompileDocumentBodyOptions = {},
 ): string {
-  const state: CompileState = { variables, expressions: [] };
+  const state: CompileState = { variables, expressions: [], blockRichTextSpans: new Set() };
   const scrubbed = html.replaceAll(EXPRESSION_OPEN, "").replaceAll(EXPRESSION_CLOSE, "");
   const compiled = withParsedDocument(scrubbed, (root) => {
     stripScriptsAndActiveContent(root, options);
@@ -324,6 +373,9 @@ export function compileDocumentBodyToHandlebars(
         pathOf: (name, at) => pathAndDef(name, at, state)[0],
         color: options.stepsColor,
       });
+    }
+    for (const block of Array.from(root.querySelectorAll(`[${DOCUMENT_CONDITION_ATTRIBUTE}]`))) {
+      rewriteConditionalBlock(block, state);
     }
     for (const block of Array.from(root.querySelectorAll(VARIABLE_ONLY_BLOCK_SELECTOR))) {
       wrapVariableOnlyBlock(block, state);

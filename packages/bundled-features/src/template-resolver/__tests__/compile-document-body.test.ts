@@ -237,8 +237,26 @@ describe("compileDocumentBodyToHandlebars :: richText", () => {
       '<p><span data-variable="note"></span> <span data-variable="name"></span></p>',
       { note: templateVariable.richText(), name: templateVariable.text() },
     );
-    expect(out).toContain("{{richText note}}");
+    expect(out).toContain("{{richText note inline=true}}");
     expect(out).toContain("{{name}}");
+  });
+
+  test("a paragraph holding only a richText variable becomes a div that keeps its attributes", () => {
+    const out = compileDocumentBodyToHandlebars(
+      '<p data-size="small"><span data-variable="note"></span></p>',
+      { note: templateVariable.richText() },
+      { alignmentAsInlineStyle: true },
+    );
+    expect(out).toBe(
+      '{{#if note includeZero=true}}<div style="font-size:13px;color:#4A515E">{{richText note}}</div>{{/if}}',
+    );
+  });
+
+  test("a heading holding only a richText variable renders it inline", () => {
+    const out = compileDocumentBodyToHandlebars('<h2><span data-variable="note"></span></h2>', {
+      note: templateVariable.richText(),
+    });
+    expect(out).toBe("{{#if note includeZero=true}}<h2>{{richText note inline=true}}</h2>{{/if}}");
   });
 });
 
@@ -283,5 +301,20 @@ describe("compileDocumentBodyToHandlebars :: steps block", () => {
     expect(
       compileDocumentBodyToHandlebars("<h1>T</h1>", variables, { headingAsInlineStyle: true }),
     ).toContain('<h1 style="margin:0 0 12px 0;font-size:30px');
+  });
+});
+
+describe("compileDocumentBodyToHandlebars :: data-if", () => {
+  test("a condition on a list row wraps the whole list and reads the root variable", () => {
+    const out = compile(
+      '<table><tbody><tr data-each="lines" data-if="name"><td><p>x</p></td></tr></tbody></table>',
+    );
+    expect(out).toContain("{{#if name includeZero=true}}{{#each lines}}<tr>");
+    expect(out).toContain("</tr>{{/each}}{{/if}}");
+    expect(out).not.toContain("data-if");
+  });
+
+  test("a condition with an invalid name drops the block", () => {
+    expect(compile('<p data-if="a b">hidden</p><p>shown</p>')).toBe("<p>shown</p>");
   });
 });

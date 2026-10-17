@@ -369,3 +369,15 @@ describe("steps block", () => {
     ).toBe('<div data-steps="stage"><span data-step="a">A</span></div>');
   });
 });
+
+describe("sanitizeDocumentHtml :: data-if", () => {
+  test("a condition on a paragraph, heading and table row survives the round trip", () => {
+    const html =
+      '<p data-if="discount">a</p><h2 data-if="note">b</h2><table><tbody><tr data-if="discount"><td><p>c</p></td></tr></tbody></table>';
+    expect(sanitizeDocumentHtml(html)).toEqual({ ok: true, html });
+  });
+
+  test("a condition with an invalid name is rejected", () => {
+    expect(violationCodes('<p data-if="a b">x</p>')).toContain("invalid_reference_name");
+  });
+});

@@ -1,3 +1,4 @@
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 // The renderer reads locale, currency and the tenant name through ctx.config.
 // Values are set over the normal config write handler and read back through the
 // real accessor factory, so the cascade (tenant value over feature default) is
@@ -48,6 +49,9 @@ import { setupAppTestStack } from "@cosmicdrift/kumiko-testing";
 import * as z from "zod";
 import { createRendererMailHtmlFeature } from "../feature";
 
+// The German footer labels come from the locale package, as in an app that mounts it.
+localeDe();
+
 const SLUG = "mail-config-demo:notify:invoice";
 
 const mailConfigDemo = defineFeature("mail-config-demo", (r) => {
@@ -80,6 +84,10 @@ const configuredAdmin = createTestUser({
   tenantId: testTenantId(41),
 });
 const untouchedTenant: TenantId = testTenantId(42);
+const siteUrlFallbackTenant: TenantId = testTenantId(43);
+const logoUrlAdmin = createTestUser({ id: 44, roles: ["TenantAdmin"], tenantId: testTenantId(44) });
+const FALLBACK_SITE_URL = "https://fallback.muster.example/status";
+const BRANDING_LOGO_URL = "https://cdn.muster.example/logo.png";
 
 const resolver = createConfigResolver();
 let stack: TestStack;
@@ -103,6 +111,7 @@ beforeAll(async () => {
           privacy: { label: "Datenschutz", url: "javascript:alert(1)" },
         }),
         brandSuffix: () => "Status",
+        siteUrl: ({ ctx }) => (ctx.tenantId === siteUrlFallbackTenant ? FALLBACK_SITE_URL : null),
       }),
       mailConfigDemo,
     ],
@@ -143,6 +152,24 @@ function configFor(tenantId: TenantId) {
     user: { id: systemUser.id, tenantId },
     db: createTenantDb(stack.db, tenantId, "tenant"),
   });
+}
+
+async function renderDraftBody(tenantId: TenantId, content: string) {
+  const result = await plugin.render(
+    {
+      kind: "mail",
+      payload: {
+        slug: SLUG,
+        locale: "de",
+        variables: {},
+        unsubscribeUrl: "https://demo.example/unsub?t=1",
+        draft: { content, meta: { subject: "Hinweis" } },
+      },
+    },
+    { db: stack.db, registry: stack.registry, tenantId, config: configFor(tenantId) },
+  );
+  if (result.kind !== "mail") throw new Error(`unexpected render kind ${result.kind}`);
+  return result;
 }
 
 async function renderIncidentDraft(tenantId: TenantId, stage: string) {
@@ -261,6 +288,37 @@ describe("renderer-mail-html :: in-code layout and platform footer", () => {
     expect(html).toContain("Impressum");
     expect(html).not.toContain("javascript:");
     expect(html).not.toContain("#ab12cd");
+  });
+});
+
+describe("renderer-mail-html :: branding logo address and site link fallback", () => {
+  test("the logo address the branding mask stores shows in the brand row at 28px and in a body logo image", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.logoUrl, value: BRANDING_LOGO_URL, scope: "tenant" },
+      logoUrlAdmin,
+    );
+    const result = await renderDraftBody(
+      logoUrlAdmin.tenantId,
+      '<p>Hallo</p><p><img data-resource="logo" alt="Logo"></p>',
+    );
+    expect(result.html).toContain(`<img src="${BRANDING_LOGO_URL}" alt="" height="28"`);
+    expect(result.html.split(`src="${BRANDING_LOGO_URL}"`)).toHaveLength(3);
+    expect(result.attachments ?? []).toHaveLength(0);
+  });
+
+  test("without a branding site URL the site URL resolver supplies the card's site link", async () => {
+    const result = await renderDraftBody(siteUrlFallbackTenant, "<p>Hallo</p>");
+    expect(result.html).toContain(`href="${FALLBACK_SITE_URL}"`);
+    expect(result.html).toContain(">fallback.muster.example</a>");
+  });
+
+  test("without any site URL the card footer keeps only the unsubscribe link", async () => {
+    const result = await renderDraftBody(untouchedTenant, "<p>Hallo</p>");
+    expect(result.html).not.toContain('href=""');
+    expect(result.html).toContain(">Abmelden</a>");
+    expect(result.html).not.toMatch(/·\s*<a[^>]*>Abmelden/);
+    expect(result.html).not.toContain("<img");
   });
 });
 

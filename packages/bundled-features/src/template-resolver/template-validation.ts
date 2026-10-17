@@ -6,8 +6,12 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Element as ScanElement } from "happy-dom";
 import * as z from "zod";
-import { withParsedDocument } from "./document-sanitizer.js";
-import { isDocumentPlaceholderHref, isDocumentReferenceName } from "./document-schema.js";
+import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.js";
+import {
+  DOCUMENT_CONDITION_ATTRIBUTE,
+  isDocumentPlaceholderHref,
+  isDocumentReferenceName,
+} from "./document-schema.js";
 import type { TemplateMeta } from "./template-meta.js";
 
 export const SYSTEM_PLACEHOLDERS: ReadonlySet<string> = new Set([
@@ -56,6 +60,7 @@ const scalarVariableSchema = z.discriminatedUnion("type", [
       .optional(),
   }),
   z.object({ ...variableCommon, type: z.literal("date"), example: textLikeExample }),
+  z.object({ ...variableCommon, type: z.literal("percent"), example: z.number().optional() }),
 ]);
 
 const variableDefSchema = z.union([
@@ -154,30 +159,49 @@ const NAME_ATTRIBUTE_BY_TAG: Readonly<Record<string, string>> = {
   div: "data-steps",
 };
 
+function scanRepeatRows(root: ScanElement, scope: PlaceholderScope): void {
+  for (const element of Array.from(root.querySelectorAll("tr[data-each]"))) {
+    const listName = element.getAttribute("data-each") ?? "";
+    const def = Object.hasOwn(scope.variables, listName) ? scope.variables[listName] : undefined;
+    if (def?.type === "list") scope.used.add(listName);
+    else scope.unknown.add(listName);
+  }
+}
+
+function scanConditions(root: ScanElement, scope: PlaceholderScope): void {
+  for (const element of Array.from(root.querySelectorAll(`[${DOCUMENT_CONDITION_ATTRIBUTE}]`))) {
+    const itemFields = listItemFields(
+      scope.variables,
+      enclosingEachName(conditionScopeElement(element)),
+    );
+    recordName(element.getAttribute(DOCUMENT_CONDITION_ATTRIBUTE) ?? "", itemFields, scope);
+  }
+}
+
+function scanReferences(root: ScanElement, scope: PlaceholderScope): void {
+  for (const element of Array.from(
+    root.querySelectorAll("span[data-variable], div[data-steps], a[href], img[data-resource]"),
+  )) {
+    const itemFields = listItemFields(scope.variables, enclosingEachName(element));
+    const tag = element.tagName.toLowerCase();
+    const nameAttribute = NAME_ATTRIBUTE_BY_TAG[tag];
+    if (nameAttribute !== undefined) {
+      recordName(element.getAttribute(nameAttribute) ?? "", itemFields, scope);
+    } else if (tag === "a") {
+      const href = element.getAttribute("href") ?? "";
+      if (isDocumentPlaceholderHref(href)) recordName(href.slice(2, -2), itemFields, scope);
+    } else {
+      const key = element.getAttribute("data-resource") ?? "";
+      if (!scope.resourceKeys.has(key)) scope.unknownResources.add(key);
+    }
+  }
+}
+
 function scanBodyPlaceholders(body: string, scope: PlaceholderScope): void {
   withParsedDocument(body, (root) => {
-    for (const element of Array.from(root.querySelectorAll("tr[data-each]"))) {
-      const listName = element.getAttribute("data-each") ?? "";
-      const def = Object.hasOwn(scope.variables, listName) ? scope.variables[listName] : undefined;
-      if (def?.type === "list") scope.used.add(listName);
-      else scope.unknown.add(listName);
-    }
-    for (const element of Array.from(
-      root.querySelectorAll("span[data-variable], div[data-steps], a[href], img[data-resource]"),
-    )) {
-      const itemFields = listItemFields(scope.variables, enclosingEachName(element));
-      const tag = element.tagName.toLowerCase();
-      const nameAttribute = NAME_ATTRIBUTE_BY_TAG[tag];
-      if (nameAttribute !== undefined) {
-        recordName(element.getAttribute(nameAttribute) ?? "", itemFields, scope);
-      } else if (tag === "a") {
-        const href = element.getAttribute("href") ?? "";
-        if (isDocumentPlaceholderHref(href)) recordName(href.slice(2, -2), itemFields, scope);
-      } else {
-        const key = element.getAttribute("data-resource") ?? "";
-        if (!scope.resourceKeys.has(key)) scope.unknownResources.add(key);
-      }
-    }
+    scanRepeatRows(root, scope);
+    scanConditions(root, scope);
+    scanReferences(root, scope);
   });
 }
 

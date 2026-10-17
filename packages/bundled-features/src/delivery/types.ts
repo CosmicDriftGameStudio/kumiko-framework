@@ -1,6 +1,7 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  ConfigAccessor,
   DeliveryErrorCode,
   NotifyDeliveryStatus,
   NotifyDispatched,
@@ -39,6 +40,9 @@ export type ChannelContext = {
   // Chat channels read their per-tenant webhook URL / bot token from it.
   // Absent when no secrets feature/KEK is wired.
   readonly secrets?: SecretsContext | undefined;
+  // The tenant's own config accessor, built server-side for this tenantId. Absent when the
+  // delivery service has no tenantConfigFor and the job context carries no config.
+  readonly config?: ConfigAccessor | undefined;
   // Renders a stored mail template, the tenant's own or the system fallback.
   readonly renderMail?: (payload: MailPayload) => Promise<RenderedMail>;
   // Reads the bytes behind an attachment ref at send time. Absent when no file storage is wired.

@@ -32,6 +32,9 @@ export const templateVariable = {
     type: "date",
     ...opts,
   }),
+  percent: (
+    opts: CommonOptions & { readonly example?: number } = {},
+  ): TemplateScalarVariableDef => ({ type: "percent", ...opts }),
   list: (
     item: Readonly<Record<string, TemplateScalarVariableDef>>,
     opts: CommonOptions & { readonly example?: readonly Readonly<Record<string, unknown>>[] } = {},
@@ -72,6 +75,8 @@ function scalarToZod(def: TemplateScalarVariableDef): z.ZodType {
       return moneySchema;
     case "date":
       return dateSchema;
+    case "percent":
+      return z.number().finite();
   }
 }
 

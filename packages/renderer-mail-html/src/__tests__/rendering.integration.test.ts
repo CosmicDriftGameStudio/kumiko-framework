@@ -1,3 +1,4 @@
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 // Integration: plugin -> foundation pool roundtrip and end-to-end render against
 // a real test DB. Templates are written through the real handlers (HTTP) or the
 // boot seed, never straight into the event tables.
@@ -43,6 +44,9 @@ import * as z from "zod";
 import { DEFAULT_MAIL_LAYOUT_MJML } from "../default-layout";
 import { createRendererMailHtmlFeature } from "../feature";
 import { seedSystemMailLayout } from "../seeding";
+
+// The German footer labels come from the locale package, as in an app that mounts it.
+localeDe();
 
 const SLUG = "mail-demo:notify:welcome";
 const LOCALE = "de";

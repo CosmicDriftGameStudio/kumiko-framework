@@ -422,23 +422,17 @@ describe("SeedMigrationContext.findTemplateResources (integration)", () => {
     readonly kind: string;
     readonly locale: string;
     readonly status: string;
-    readonly isDeleted?: boolean;
   }): Promise<void> {
     await asRawClient(testDb.db).unsafe(
-      `INSERT INTO read_template_resources (id, tenant_id, slug, kind, locale, status, is_deleted)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7)`,
-      [
-        args.id,
-        args.tenantId,
-        args.slug,
-        args.kind,
-        args.locale,
-        args.status,
-        args.isDeleted ?? false,
-      ],
+      `INSERT INTO read_template_resources (id, tenant_id, slug, kind, locale, status)
+       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6)`,
+      [args.id, args.tenantId, args.slug, args.kind, args.locale, args.status],
     );
   }
 
+  // framework cannot import template-resolver; the real-schema test lives in
+  // bundled-features (template-resolver/__tests__/seed-context-templates).
+  // Like the real table, this one has no is_deleted column.
   async function createTemplateTable(): Promise<void> {
     await asRawClient(testDb.db).unsafe(`
       CREATE TABLE read_template_resources (
@@ -447,8 +441,7 @@ describe("SeedMigrationContext.findTemplateResources (integration)", () => {
         slug      text NOT NULL,
         kind      text NOT NULL,
         locale    text NOT NULL,
-        status    text NOT NULL,
-        is_deleted boolean NOT NULL DEFAULT false
+        status    text NOT NULL
       )
     `);
   }
@@ -532,19 +525,6 @@ describe("SeedMigrationContext.findTemplateResources (integration)", () => {
       expect(
         await buildContext().findTemplateResources({ slug: "welcome", status: "archived" }),
       ).toEqual([]);
-    });
-
-    test("soft-deleted rows are not returned", async () => {
-      await insertTemplate({
-        id: "00000000-0000-4000-8000-0000000000d1",
-        tenantId: SYSTEM_TENANT_ID,
-        slug: "deleted-template",
-        kind: "ai-prompt",
-        locale: "en",
-        status: "active",
-        isDeleted: true,
-      });
-      expect(await buildContext().findTemplateResources({ slug: "deleted-template" })).toEqual([]);
     });
 
     test("tenantId selects another tenant's rows", async () => {

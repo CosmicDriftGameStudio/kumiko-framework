@@ -69,6 +69,8 @@ function sampleScalar(name: string, def: TemplateScalarVariableDef): unknown {
       return 0;
     case "date":
       return SAMPLE_DATE;
+    case "percent":
+      return 0;
   }
 }
 

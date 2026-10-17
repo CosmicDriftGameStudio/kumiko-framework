@@ -7,6 +7,7 @@ import { type Element as ScanElement, Window } from "happy-dom";
 import type { ContentFormat } from "./constants.js";
 import { DOCUMENT_HTML_KINDS } from "./constants.js";
 import {
+  DOCUMENT_CONDITION_ATTRIBUTE,
   documentExtensions,
   isAllowedDocumentLinkHref,
   isDocumentPlaceholderHref,
@@ -138,6 +139,7 @@ function scanImage(element: ScanElement, out: DocumentViolation[]): void {
 const REFERENCE_ATTRIBUTES: ReadonlyArray<readonly [string, (value: string) => boolean]> = [
   ["data-variable", isDocumentReferenceName],
   ["data-each", isDocumentReferenceName],
+  [DOCUMENT_CONDITION_ATTRIBUTE, isDocumentReferenceName],
   ["data-resource", isDocumentResourceKey],
   ["data-steps", isDocumentReferenceName],
   ["data-step", isDocumentStepKey],
@@ -270,6 +272,17 @@ export function sanitizeDocumentHtml(html: string): SanitizeHtmlResult {
   };
 }
 
+// For a sanitized value placed inside a line of text: paragraphs become line
+// breaks. Other blocks (lists, headings) cannot be made inline and stay as they are.
+export function flattenParagraphsToLineBreaks(sanitizedHtml: string): string {
+  return withParsedDocument(sanitizedHtml, (body) => {
+    const blocks = Array.from(body.children);
+    const isParagraphsOnly =
+      blocks.length === body.childNodes.length && blocks.every((block) => block.tagName === "P");
+    return isParagraphsOnly ? blocks.map((block) => block.innerHTML).join("<br>") : sanitizedHtml;
+  });
+}
+
 // Snippets accept any format, but their html is as untrusted as a mail body.
 function isSanitizedHtmlKind(kind: string): boolean {
   return kind === "snippet" || isOneOf(DOCUMENT_HTML_KINDS, kind);
@@ -335,4 +348,10 @@ export function documentViolationsToFieldIssues(
     i18nKey: VIOLATION_I18N_KEYS[item.code],
     params: { detail: item.detail },
   }));
+}
+
+// A repeat row's own data-if is decided per list, outside the row's item scope,
+// because the compiled {{#if}} lands outside its {{#each}}.
+export function conditionScopeElement(block: ScanElement): ScanElement {
+  return block.matches("tr[data-each]") ? (block.parentElement ?? block) : block;
 }

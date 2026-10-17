@@ -529,7 +529,9 @@ export type TemplateScalarVariableDef =
       readonly type: "money";
       readonly example?: number | { readonly amount: number; readonly currency: string };
     })
-  | (TemplateVariableCommon & { readonly type: "date"; readonly example?: string });
+  | (TemplateVariableCommon & { readonly type: "date"; readonly example?: string })
+  // Percentage points: 12 renders as "12 %" (de) or "12%" (en).
+  | (TemplateVariableCommon & { readonly type: "percent"; readonly example?: number });
 
 export type TemplateListVariableDef = TemplateVariableCommon & {
   readonly type: "list";
@@ -581,6 +583,11 @@ export type NotificationDefinition = {
   // Resolved into template + meta when the registry is built, never present on
   // a stored definition.
   readonly localizedTemplate?: () => NotificationLocalizedTemplate;
+  // The stored mail template stays the system default: tenant admins neither see nor override it.
+  readonly systemOnly?: boolean;
+  // delivery adds a signed data.unsubscribeUrl per recipient, so the mail carries List-Unsubscribe
+  // (and one-click) without app code; a caller-supplied unsubscribeUrl wins.
+  readonly unsubscribe?: boolean;
 };
 
 // --- Translations ---

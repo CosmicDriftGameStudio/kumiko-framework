@@ -1163,6 +1163,12 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Das Layout braucht seinen Inhaltsplatz: {detail}.",
   "templateResolver.errors.document.layoutSourceSystemOnly":
     "Nur System-Layouts dürfen {detail}-Quelltext verwenden; nutze das strukturierte html-Layout.",
+  "mail.footer.sentBy": "Gesendet von {sender}",
+  "mail.footer.unsubscribe": "Abmelden",
+  "mail.footer.imprint": "Impressum",
+  "mail.footer.privacy": "Datenschutz",
+  "templateResolver.errors.systemOnlyTemplate":
+    "Diese Vorlage pflegt nur die Plattform; sie lässt sich nicht pro Mandant überschreiben.",
   "templateResolver.errors.template.targetExists":
     "Für die Sprache „{detail}“ gibt es schon eine Vorlage; überschreibe sie ausdrücklich, um sie zu ersetzen.",
   "templateResolver.warnings.resourceNotUploaded": "Bild nicht hochgeladen: {detail}",

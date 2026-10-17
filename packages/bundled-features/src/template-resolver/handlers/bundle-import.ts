@@ -32,6 +32,7 @@ import { resolveTemplateVariables } from "../template-validation.js";
 import { MAX_FILE_ATTACHMENTS_PER_TEMPLATE } from "./resource-shared.js";
 import { evaluateTemplateWrite } from "./template-gates.js";
 import {
+  refuseSystemOnlyTenantOverride,
   refuseTenantScopeUnderSystemTenant,
   type TemplateRowPayload,
   writeTemplateRow,
@@ -113,7 +114,14 @@ function checkBundleAttachments(bundle: TemplateBundle): WriteResult<null> {
 export async function prepareTemplateBundleBeforeTransaction(
   args: BundleImport & { readonly status: BundleImportStatus },
 ): Promise<BeforeTransactionResult<PreparedBundleResources>> {
-  const refused = refuseTenantScopeUnderSystemTenant(args.scope, args.tenantId);
+  const refused =
+    refuseTenantScopeUnderSystemTenant(args.scope, args.tenantId) ??
+    refuseSystemOnlyTenantOverride(
+      args.ctx.registry,
+      args.scope,
+      args.bundle.slug,
+      args.bundle.kind,
+    );
   if (refused !== null) return refused;
   const issues = await collectBundleIssues(args, args.status);
   if (issues.length > 0) return writeFailure(new ValidationError({ fields: [...issues] }));

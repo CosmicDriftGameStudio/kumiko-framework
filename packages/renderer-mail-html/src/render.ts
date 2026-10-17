@@ -27,6 +27,7 @@ import {
   fileAttachmentsOf,
   imageLinksOf,
   isMailTemplateMeta,
+  isSystemOnlyTemplate,
   type MailLayoutAppearance,
   type MailTemplateMeta,
   mailLayoutAppearance,
@@ -52,6 +53,7 @@ import {
   mergeResourceFileRefs,
   readBrandingAccentColor,
   readBrandingLogo,
+  readBrandingLogoUrl,
   readBrandingSiteUrl,
   readDocumentFormat,
   readTenantName,
@@ -77,9 +79,15 @@ import {
   type MailFooterResolver,
   safeFooterUrl,
 } from "./mail-footer.js";
+import { mailChromeText } from "./mail-strings.js";
 import { MAIL_IMAGE_MAX_WIDTH_PX, renderStructuredLayoutMjml } from "./structured-layout.js";
 
 export type MailBrandSuffixResolver = (input: {
+  readonly locale: string;
+  readonly ctx: RendererContext;
+}) => string | null | Promise<string | null>;
+
+export type MailSiteUrlResolver = (input: {
   readonly locale: string;
   readonly ctx: RendererContext;
 }) => string | null | Promise<string | null>;
@@ -88,6 +96,8 @@ export type MailHtmlRenderOptions = {
   readonly footer?: MailFooterResolver;
   /** Text after the tenant name in the in-code layout's brand row, e.g. "Status". */
   readonly brandSuffix?: MailBrandSuffixResolver;
+  /** Site link in the mail band when the tenant's branding has no site URL. */
+  readonly siteUrl?: MailSiteUrlResolver;
 };
 
 const LINE_BREAKS = /[\r\n]+/g;
@@ -114,6 +124,18 @@ const IN_CODE_LAYOUT_META = {
   width: 640,
   outerBackground: "#ecedea",
 } as const;
+
+function mailResourceSrc(
+  resourceFileRefs: ReadonlyMap<string, string>,
+  brandingLogoUrl: string | undefined,
+): (key: string) => string | undefined {
+  return (key) =>
+    resourceFileRefs.has(key)
+      ? `cid:${key}`
+      : key === LOGO_RESOURCE_KEY
+        ? brandingLogoUrl
+        : undefined;
+}
 
 async function inCodeLayout(ctx: RendererContext): Promise<ResolvedLayout> {
   const logoFileRefId = await readBrandingLogo(ctx);
@@ -195,7 +217,10 @@ async function findStoredMailTemplate(
   locale: string,
 ): Promise<TemplateResource | null> {
   try {
-    return await tplApi.resolveTemplate({ tenantId: ctx.tenantId, slug, kind: "mail", locale });
+    const tenantId = isSystemOnlyTemplate(ctx.registry, slug, "mail")
+      ? SYSTEM_TENANT_ID
+      : ctx.tenantId;
+    return await tplApi.resolveTemplate({ tenantId, slug, kind: "mail", locale });
   } catch (e) {
     if (e instanceof TemplateNotFoundError) return null;
     throw new RendererError(
@@ -327,6 +352,7 @@ async function renderMailBody(
   context: Readonly<Record<string, unknown>>,
   buttonInlineStyle: string | undefined,
   stepsColor: string,
+  brandingLogoUrl: string | undefined,
 ): Promise<MailBody> {
   try {
     const resourceFileRefs = await resolveResourceFileRefs(
@@ -339,7 +365,7 @@ async function renderMailBody(
       template.content,
       resolveTemplateVariables(ctx.registry, template.slug, template.variableSchema),
       {
-        resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined),
+        resourceSrc: mailResourceSrc(resourceFileRefs, brandingLogoUrl),
         resourceImageMaxWidthPx: MAIL_IMAGE_MAX_WIDTH_PX,
         alignmentAsInlineStyle: true,
         buttonAsInlineStyle: true,
@@ -517,6 +543,7 @@ function compileLayoutMjml(args: {
   readonly appearance: MailLayoutAppearance | undefined;
   readonly accentColor: string | undefined;
   readonly resourceFileRefs: ReadonlyMap<string, string>;
+  readonly brandingLogoUrl: string | undefined;
   readonly layoutContext: Readonly<Record<string, unknown>>;
   readonly footerHtml: string;
   readonly chrome: MailChrome;
@@ -532,7 +559,7 @@ function compileLayoutMjml(args: {
           contentHtml,
           context: layoutContext,
           compile: (source) => compileDocumentSource(hbs, source),
-          resourceSrc: (key) => (resourceFileRefs.has(key) ? `cid:${key}` : undefined),
+          resourceSrc: mailResourceSrc(resourceFileRefs, args.brandingLogoUrl),
           ...(appearance !== undefined && { appearance }),
           ...(accentColor !== undefined && { accentColor }),
           ...(args.chrome.tone !== undefined && { tone: args.chrome.tone }),
@@ -677,6 +704,23 @@ async function resolveBrandSuffix(
   }
 }
 
+async function resolveMailSiteUrl(
+  options: MailHtmlRenderOptions,
+  ctx: RendererContext,
+  locale: string,
+): Promise<string | undefined> {
+  const brandingSiteUrl = await readBrandingSiteUrl(ctx);
+  if (brandingSiteUrl !== undefined || options.siteUrl === undefined) return brandingSiteUrl;
+  try {
+    return (await options.siteUrl({ locale, ctx })) ?? undefined;
+  } catch (e) {
+    throw new RendererError(
+      `renderer-mail-html: the site URL resolver failed — ${describe(e)}`,
+      "other",
+    );
+  }
+}
+
 type MailFooterParts = { readonly footerHtml: string; readonly bandLinksHtml: string };
 
 // A structured layout shows the site and unsubscribe links inside the card and only the
@@ -728,12 +772,13 @@ export async function mailHtmlRender(
 
   const tplApi = createTemplateResolverApi(ctx.db);
   const { template, meta } = await resolveMailTemplate(tplApi, ctx, slug, locale, draft);
-  const [format, tenantName, footer, siteUrl, brandSuffix] = await Promise.all([
+  const [format, tenantName, footer, siteUrl, brandSuffix, brandingLogoUrl] = await Promise.all([
     readDocumentFormat(ctx, locale),
     readTenantName(ctx),
     resolveMailFooter(options, ctx, locale),
-    readBrandingSiteUrl(ctx),
+    resolveMailSiteUrl(options, ctx, locale),
     resolveBrandSuffix(options, ctx, locale),
+    readBrandingLogoUrl(ctx),
   ]);
   const layout = (await resolveLayout(tplApi, ctx, meta, locale)) ?? (await inCodeLayout(ctx));
   const hbs = createDocumentHandlebars(format);
@@ -755,6 +800,7 @@ export async function mailHtmlRender(
     context,
     appearance?.buttonStyle,
     chrome.tone?.bar ?? brandColor ?? DEFAULT_ACCENT_COLOR,
+    brandingLogoUrl,
   );
   const { contentHtml } = body;
   const layoutFileRefs = await resolveLayoutFileRefs(tplApi, ctx, layout);
@@ -777,8 +823,13 @@ export async function mailHtmlRender(
     appearance,
     accentColor,
     resourceFileRefs,
+    brandingLogoUrl,
     layoutContext: {
       ...systemPlaceholders,
+      mailSentBy:
+        tenantName === ""
+          ? ""
+          : mailChromeText(locale, "mail.footer.sentBy", { sender: tenantName }),
       lang: locale,
       subject,
       previewText: previewText ?? "",
@@ -790,7 +841,7 @@ export async function mailHtmlRender(
         : brandHeaderHtml({
             tenantName,
             suffix: brandSuffix,
-            logoSrc: layout.brandHeader.hasLogo ? `cid:${LOGO_RESOURCE_KEY}` : undefined,
+            logoSrc: layout.brandHeader.hasLogo ? `cid:${LOGO_RESOURCE_KEY}` : brandingLogoUrl,
             accentColor: brandColor ?? DEFAULT_ACCENT_COLOR,
           }),
     ...renderFooterParts({

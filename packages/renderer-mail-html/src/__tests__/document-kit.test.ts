@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { compileDocumentBodyToHandlebars } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { templateVariable } from "@cosmicdrift/kumiko-framework/engine";
 import { compileDocumentSource, createDocumentHandlebars } from "../document-kit";
 
 function renderInvoiceLine(locale: string): string {
@@ -87,6 +88,33 @@ describe("renderer-mail-html :: richText helper", () => {
     expect(render("{{body}}", { body: "<b>x</b>" })).toBe("&lt;b&gt;x&lt;/b&gt;");
   });
 
+  const variables = { body: templateVariable.richText() };
+  const renderBody = (documentHtml: string, body: string) =>
+    render(compileDocumentBodyToHandlebars(documentHtml, variables), { body });
+
+  test("a paragraph holding only the value renders the value's paragraphs, never nested", () => {
+    expect(renderBody('<p><span data-variable="body"></span></p>', "Wir prüfen das.")).toBe(
+      "<div><p>Wir prüfen das.</p></div>",
+    );
+    expect(
+      renderBody('<p><span data-variable="body"></span></p>', "<p>Erstens.</p><p>Zweitens.</p>"),
+    ).toBe("<div><p>Erstens.</p><p>Zweitens.</p></div>");
+  });
+
+  test("inside a line of text the value's paragraphs become line breaks", () => {
+    const out = renderBody(
+      '<p>Hinweis: <span data-variable="body"></span></p>',
+      "<p>Erstens.</p><p><strong>Zweitens.</strong></p>",
+    );
+    expect(out).toBe("<p>Hinweis: Erstens.<br><strong>Zweitens.</strong></p>");
+  });
+
+  test("a missing value leaves no empty block behind", () => {
+    expect(renderBody('<p><span data-variable="body"></span></p><p>Danke</p>', "")).toBe(
+      "<p>Danke</p>",
+    );
+  });
+
   test("a missing or non-string value renders nothing", () => {
     expect(render("{{richText body}}", {})).toBe("");
     expect(render("{{richText body}}", { body: 5 })).toBe("");
@@ -124,5 +152,45 @@ describe("renderer-mail-html :: steps block", () => {
       "#ECEDEA",
       "#ECEDEA",
     ]);
+  });
+});
+
+describe("renderer-mail-html :: author conditions and percent", () => {
+  const variables = {
+    discount: templateVariable.percent(),
+    note: templateVariable.text(),
+    lines: templateVariable.list({
+      label: templateVariable.text(),
+      extra: templateVariable.text(),
+    }),
+  };
+  const body =
+    '<p>Total</p><p data-if="discount">Discount <span data-variable="discount"></span> applies.</p><p data-if="note">Note</p><table><tbody><tr data-each="lines"><td><p><span data-variable="label"></span></p><p data-if="extra">+</p></td></tr></tbody></table>';
+
+  function render(locale: string, values: Record<string, unknown>): string {
+    const source = compileDocumentBodyToHandlebars(body, variables);
+    return compileDocumentSource(
+      createDocumentHandlebars({ locale, currency: "EUR" }),
+      source,
+    )(values);
+  }
+
+  test("a conditional block shows only with a value, a percent of 0 still counts", () => {
+    expect(render("en", { discount: 12, lines: [] })).toContain("Discount 12% applies.");
+    expect(render("en", { discount: 0, lines: [] })).toContain("Discount 0% applies.");
+    const withoutValues = render("en", { lines: [] });
+    expect(withoutValues).not.toContain("Discount");
+    expect(withoutValues).not.toContain("Note");
+    expect(withoutValues).toContain("Total");
+  });
+
+  test("percent follows the mail locale", () => {
+    expect(render("de", { discount: 12, lines: [] })).toContain("Discount 12 % applies.");
+    expect(render("de", { discount: 7.5, lines: [] })).toContain("7,5 %");
+  });
+
+  test("a condition inside a list row checks the row field", () => {
+    const html = render("en", { lines: [{ label: "A", extra: "y" }, { label: "B" }] });
+    expect(html.match(/<p>\+<\/p>/g)?.length).toBe(1);
   });
 });

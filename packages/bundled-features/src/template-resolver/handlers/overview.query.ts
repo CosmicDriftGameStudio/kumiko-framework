@@ -11,6 +11,7 @@ import {
   parseTemplateDraft,
   servedVersionOf,
 } from "../template-draft.js";
+import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.js";
 import { collectTemplateUsage, type EffectiveMailLayoutSlugs } from "../template-usage.js";
 import { storedRecord } from "./template-gates.js";
 
@@ -284,7 +285,7 @@ export const overviewQuery = defineQueryHandler({
   }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant (optionally only the mails and PDFs using one layout slug): where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; use it to browse and filter all templates at a glance.",
+    "Lists mail, PDF and layout templates as one row per slug and kind for the caller's tenant (optionally only the mails and PDFs using one layout slug): where the effective version comes from (own override or system), its locales, status and version (the served one; `draftVersion` is set when an unpublished draft waits beside it, `activeSince` says since when the served version applies), the system version it overrides, the layout it uses and which notifications or templates use it; templates of notifications registered with `systemOnly` are listed for SystemAdmins only; use it to browse and filter all templates at a glance.",
   handler: async (query, ctx) => {
     const payload = query.payload;
     const fetchedRows = await selectMany<TemplateResourceRow>(
@@ -301,7 +302,11 @@ export const overviewQuery = defineQueryHandler({
       });
     }
 
-    const visibleRows = rows.filter((row) => !isHiddenSystemDraft(query.user, row));
+    const visibleRows = rows.filter(
+      (row) =>
+        !isHiddenSystemDraft(query.user, row) &&
+        !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row),
+    );
     const { drafts, layoutSlugByDocument } = buildDrafts(
       groupBySlugAndKind(visibleRows),
       query.user,

@@ -1,6 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   type HandlerContext,
+  type Registry,
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TemplateVariables,
@@ -16,8 +17,10 @@ import {
 import { requireForTenant } from "../../shared/index.js";
 import type { ContentFormat, TemplateKind } from "../constants.js";
 import type { TemplateWriteScope } from "../layout-regions.js";
+import { TemplateResolverErrors } from "../qualified-names.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import { activationChanges, serializeTemplateDraft } from "../template-draft.js";
+import { isSystemOnlyTemplate } from "../template-system-only.js";
 import type { TemplateValidation } from "../template-validation.js";
 import { executor } from "./shared.js";
 import {
@@ -67,6 +70,21 @@ export function refuseTenantScopeUnderSystemTenant(
     new AccessDeniedError({
       i18nKey: "templateResolver.errors.useUpsertSystemForSystemTenant",
       details: { reason: "system_tenant_override_not_allowed_use_upsert_system" },
+    }),
+  );
+}
+
+export function refuseSystemOnlyTenantOverride(
+  registry: Registry,
+  scope: TemplateWriteScope,
+  slug: string,
+  kind: string,
+): WriteFailure | null {
+  if (scope !== "tenant" || !isSystemOnlyTemplate(registry, slug, kind)) return null;
+  return writeFailure(
+    new AccessDeniedError({
+      i18nKey: "templateResolver.errors.systemOnlyTemplate",
+      details: { reason: TemplateResolverErrors.systemOnlyTemplate },
     }),
   );
 }
@@ -141,7 +159,9 @@ export async function writeTemplateRow(
   args: TemplateRowWrite,
 ): Promise<WriteResult<WrittenTemplateRow>> {
   const { ctx, user, tenantId, scope, status, payload } = args;
-  const refused = refuseTenantScopeUnderSystemTenant(scope, tenantId);
+  const refused =
+    refuseTenantScopeUnderSystemTenant(scope, tenantId) ??
+    refuseSystemOnlyTenantOverride(ctx.registry, scope, payload.slug, payload.kind);
   if (refused !== null) return refused;
   const { db, streamTenantId } = requireForTenant(ctx, tenantId);
 
