@@ -199,11 +199,15 @@ export function resolveType(type: HandlerType): string {
 // A custom write losing an append race (ctx.appendEvent, stream.append) is a
 // retryable 409 like the CRUD executor's, not an internal error. Mapped here
 // because errors/ is client code and must not import the event store.
-// currentVersion -1 is the executor's "not looked up" sentinel.
+// currentVersion -1 is the "not looked up" sentinel for a bare 23505 fallback.
 export function wrapToKumiko(e: unknown): KumikoError {
   if (e instanceof EventStoreVersionConflictError) {
     return new VersionConflictError(
-      { entityId: e.aggregateId, expectedVersion: e.expectedVersion, currentVersion: -1 },
+      {
+        entityId: e.aggregateId,
+        expectedVersion: e.expectedVersion,
+        currentVersion: e.currentVersion ?? -1,
+      },
       { cause: e },
     );
   }
