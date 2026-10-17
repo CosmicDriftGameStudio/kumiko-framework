@@ -2,7 +2,7 @@
 // widget form-examples show English copy, not the static German content
 // they used to have.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("gallery renders the translated custom-screen demo blocks", async ({ page }) => {
   await page.goto("/gallery");

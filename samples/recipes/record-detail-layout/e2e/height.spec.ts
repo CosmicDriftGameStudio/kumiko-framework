@@ -10,7 +10,8 @@
 // `?items=<n>` (read by fixtures/mock-dispatcher.ts) switches between the
 // short-list and long-list scenario without needing two fixtures.
 
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Page } from "@playwright/test";
 
 async function gotoOrderDetail(page: Page, items: number): Promise<void> {
   await page.goto(`/?items=${items}`);

@@ -4,8 +4,8 @@
 // ui-walkthrough has no puppeteer service, so the preview state shows the
 // "not available" notice instead of a rendered page.
 
-import { captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, type Page, test } from "@playwright/test";
+import { captureScreenshot, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Page } from "@playwright/test";
 import {
   PLATFORM_ADMIN_EMAIL,
   PLATFORM_ADMIN_PASSWORD,

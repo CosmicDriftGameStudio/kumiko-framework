@@ -6,7 +6,7 @@
 // Interface erfüllt. Wenn die Sample-E2Es brennen ist's oft DB/Auth —
 // dieser Test isoliert auf den Renderer-Layer.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("submit-flow: Form-Submit → Dispatcher.write → List-Refresh zeigt neuen Eintrag", async ({
   page,

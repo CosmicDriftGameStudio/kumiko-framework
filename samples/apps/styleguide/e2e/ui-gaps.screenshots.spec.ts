@@ -4,8 +4,7 @@
 // SCREENSHOT_DIR set.
 
 import { deflateSync } from "node:zlib";
-import { captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, test } from "@playwright/test";
+import { captureScreenshot, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n;

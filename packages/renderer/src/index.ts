@@ -112,6 +112,11 @@ export type { VariableChipsProps } from "./app/variable-chips.js";
 export { VariableChips } from "./app/variable-chips.js";
 export { evalVisibleWhen, type VisibleWhenVerdict } from "./app/visible-when.js";
 export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error.js";
+export type {
+  ErrorBoundaryFallbackProps,
+  ErrorBoundaryProps,
+} from "./components/error-boundary.js";
+export { ErrorBoundary } from "./components/error-boundary.js";
 export { RelatedListSection } from "./components/related-list-section.js";
 export type {
   RenderEditAction,

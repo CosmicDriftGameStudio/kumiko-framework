@@ -2,7 +2,7 @@
 // jsdom/happy-dom unit tests cover branches; this pins the browser mount
 // (public surface + auth client i18n + form submit) against a mocked API.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("signup happy-path: email submit → success banner", async ({ page }) => {
   await page.route("**/api/auth/signup-request", async (route) => {

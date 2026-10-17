@@ -1,7 +1,7 @@
 // excludeFields per verb: the edit form shows an excluded field read-only
 // and keeps it out of the submit payload; the create form hides it.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("update: excluded field is read-only, create: excluded field is missing", async ({
   page,

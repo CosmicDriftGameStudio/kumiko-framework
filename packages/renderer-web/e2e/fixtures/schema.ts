@@ -7,6 +7,7 @@
 
 import type {
   ActionFormScreenDefinition,
+  CustomScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
@@ -75,11 +76,22 @@ export const rolesAvailabilityScreen = rolesFormScreen(
   ROLE_AVAILABILITY_QUERY,
 );
 
+export const BOOM_SCREEN_ID = "boom";
+
+export const boomScreen: CustomScreenDefinition = {
+  id: BOOM_SCREEN_ID,
+  type: "custom",
+  renderer: { react: { __component: "Boom" } },
+};
+
 export const e2eSchema: AppSchema = {
   features: [
     {
       featureName: "test",
-      translations: { "screen:debt-dashboard.title": { en: "Debts", de: "Schulden" } },
+      translations: {
+        "screen:debt-dashboard.title": { en: "Debts", de: "Schulden" },
+        "screen:boom.title": { en: "Broken screen", de: "Kaputter Screen" },
+      },
       entities: { thing: thingEntity },
       screens: [
         thingEditScreen,
@@ -87,6 +99,7 @@ export const e2eSchema: AppSchema = {
         rolesPlainScreen,
         rolesAvailabilityScreen,
         dashboardScreen,
+        boomScreen,
       ],
       navs: [
         { id: "thing-list", label: "Things", screen: "thing-list", order: 10 },

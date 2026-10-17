@@ -13,13 +13,17 @@ import { ComboboxTestPage } from "./combobox-page";
 import { DateTestPage } from "./date-page";
 import { createMockDispatcher } from "./mock-dispatcher";
 import { MoneyTestPage } from "./money-page";
-import { e2eSchema } from "./schema";
+import { BOOM_SCREEN_ID, e2eSchema } from "./schema";
 
 function mountReact(node: ReactNode): void {
   const root = document.getElementById("root");
   if (root === null) throw new Error("renderer-web/e2e: #root not found");
   createRoot(root).render(<StrictMode>{node}</StrictMode>);
 }
+function BoomScreen(): ReactNode {
+  throw new Error("e2e-screen-boom");
+}
+
 async function boot(): Promise<void> {
   const path = window.location.pathname;
 
@@ -72,6 +76,7 @@ async function boot(): Promise<void> {
     schema: e2eSchema,
     dispatcher,
     shell: AppShell,
+    clientFeatures: [{ name: "test", components: { [BOOM_SCREEN_ID]: BoomScreen } }],
   });
 }
 

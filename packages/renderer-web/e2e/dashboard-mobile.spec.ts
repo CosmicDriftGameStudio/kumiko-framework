@@ -2,7 +2,8 @@
 // document.scrollWidth alone proves nothing (an ancestor clips overflow), so
 // every dashboard panel and the shell's scroll container are measured too.
 
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Locator, Page } from "@playwright/test";
 import { DASHBOARD_PATH } from "./fixtures/dashboard-fixture";
 
 test.use({ locale: "de-DE", timezoneId: "UTC" });

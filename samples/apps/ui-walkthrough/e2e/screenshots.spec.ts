@@ -4,8 +4,13 @@
 // (defineAppE2eConfig ignores this file otherwise).
 
 import { resolve } from "node:path";
-import { applyDefaultTheme, captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import {
+  applyDefaultTheme,
+  captureScreenshot,
+  expect,
+  test,
+} from "@cosmicdrift/kumiko-testing/e2e";
+import type { Locator, Page } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
 const DESKTOP = { width: 1440, height: 900 } as const;

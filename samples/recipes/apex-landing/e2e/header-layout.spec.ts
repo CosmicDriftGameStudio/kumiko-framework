@@ -4,7 +4,7 @@
 // the inline padding `.container` set. Verified against a real narrow
 // viewport, not derived from source — matches how the bug was first found.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 import { renderLanding, SAMPLE_PLANS } from "../src/feature";
 
 test("header keeps the page's horizontal padding below 1120px (#2038)", async ({ page }) => {

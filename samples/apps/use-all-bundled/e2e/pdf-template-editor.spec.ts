@@ -5,8 +5,7 @@
 // counts the seeded tenant customisations, and the bundle export downloads.
 
 import { PDF_TEMPLATE_EDITOR_SCREEN_ID } from "@cosmicdrift/kumiko-document-designer";
-import { captureScreenshot, E2E_TIMEOUT_MS } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, test } from "@playwright/test";
+import { captureScreenshot, E2E_TIMEOUT_MS, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 import { INVOICE_TEMPLATE_SLUG } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
 

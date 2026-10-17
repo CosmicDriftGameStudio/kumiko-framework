@@ -22,6 +22,10 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./error-boundary": {
+      "types": "./src/error-boundary.ts",
+      "default": "./src/error-boundary.ts"
+    },
     "./identifiers": {
       "types": "./src/identifiers.ts",
       "default": "./src/identifiers.ts"

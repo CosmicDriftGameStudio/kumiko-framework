@@ -2,7 +2,8 @@
 // The pager sits at the same spot on a 300+ row list and on a 3 row list,
 // and scrolling the table body never moves it.
 
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Page } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
 const VIEWPORT = { width: 1440, height: 900 } as const;

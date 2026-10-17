@@ -13,7 +13,8 @@
 // comment) — without real CSS, the layout assertions here would be fake
 // assertions against unstyled browser default flow.
 
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Locator, Page } from "@playwright/test";
 import { selectCombobox } from "./_helpers/select-combobox";
 
 async function gotoWizard(page: Page): Promise<void> {

@@ -4,7 +4,7 @@
 // die neue Seite LIVE im Sidebar-Tree (SSE über treeEntities ["page"]) —
 // ohne Reload. Genau der „Content + → pricing"-Flow.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test("Content +: neue Seite anlegen → erscheint live im Nav-Tree", async ({ page }) => {
   await page.goto("/item-list");

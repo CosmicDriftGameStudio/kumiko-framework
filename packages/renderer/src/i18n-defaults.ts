@@ -154,6 +154,9 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "kumiko.widget.loading": "Loading…",
     "kumiko.widget.error.title": "Couldn't load.",
+    "kumiko.screen-error.title": "This screen failed to render.",
+    "kumiko.screen-error.detail": "Screen: {screen}. {message}",
+    "kumiko.screen-error.screen": "Screen: {screen}",
 
     "kumiko.widget.upload.uploading": "Uploading…",
     "kumiko.widget.upload.done": "Uploaded",

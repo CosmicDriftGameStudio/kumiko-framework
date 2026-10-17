@@ -4,7 +4,7 @@
 // the new value on that kind of swap — a synthetic fireEvent.change never
 // hits this browser-native selection mechanic.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 
 test.describe("MoneyInput im echten Browser (#1856)", () => {
   test.beforeEach(async ({ page }) => {

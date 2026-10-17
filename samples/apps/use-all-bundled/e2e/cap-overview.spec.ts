@@ -12,8 +12,7 @@
 // $SCREENSHOT_DIR/e2e-cap-overview/ (a name no docs feature preview uses) and
 // does nothing when SCREENSHOT_DIR is unset.
 
-import { captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, test } from "@playwright/test";
+import { captureScreenshot, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 import { DEV_TENANT_ID } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
 

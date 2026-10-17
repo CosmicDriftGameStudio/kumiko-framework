@@ -4,8 +4,8 @@
 // mail-editor.spec.ts walks its own draft "Korrigierte Rechnung", so nothing
 // here depends on spec order. No test mail is sent from this spec.
 
-import { captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, type Page, test } from "@playwright/test";
+import { captureScreenshot, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Page } from "@playwright/test";
 import { TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD } from "../src/app/auth-constants";
 import { loginAs } from "./_helpers/login";
 
