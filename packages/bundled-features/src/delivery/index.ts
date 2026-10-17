@@ -94,3 +94,4 @@ export {
   type UnsubscribeRouteOptions,
   type UnsubscribeTokenPayload,
 } from "./unsubscribe.js";
+export type { UnsubscribeLinkConfig } from "./unsubscribe-link.js";

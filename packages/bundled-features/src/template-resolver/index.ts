@@ -46,15 +46,18 @@ export {
   type DocumentViolation,
   type DocumentViolationCode,
   documentViolationsToFieldIssues,
+  flattenParagraphsToLineBreaks,
   type SanitizeBodyResult,
   type SanitizeHtmlResult,
   sanitizeDocumentHtml,
   sanitizeTemplateBody,
 } from "./document-sanitizer.js";
 export {
+  DOCUMENT_CONDITION_ATTRIBUTE,
   DOCUMENT_NODE_NAMES,
   DOCUMENT_TEXT_ALIGNMENTS,
   DocumentButton,
+  DocumentCondition,
   DocumentDivider,
   DocumentLink,
   DocumentPageBreak,
@@ -144,6 +147,7 @@ export {
 } from "./template-meta.js";
 export { type DocumentDraftOutcome, evaluateDocumentDraft } from "./template-preview.js";
 export { readTemplateResource, type TemplateResourceFile } from "./template-resources.js";
+export { isSystemOnlyTemplate } from "./template-system-only.js";
 export { collectTemplateUsage, type TemplateUsageEntry } from "./template-usage.js";
 export {
   hasPlaceholderProblems,

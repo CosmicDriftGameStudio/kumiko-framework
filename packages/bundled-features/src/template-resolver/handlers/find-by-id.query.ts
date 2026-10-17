@@ -3,6 +3,7 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import { draftViewerTenantId, isHiddenSystemDraft, toWorkingRow } from "../template-draft.js";
+import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.js";
 
 // Admin-Lookup für UI-Edit-Flow. Returnt das raw Template inkl. draft/
 // archived Status. Tenant-Isolation: User sieht nur Templates des
@@ -19,7 +20,13 @@ export const findByIdQuery = defineQueryHandler({
     const stored = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
       id: query.payload.id,
     });
-    if (!stored || isHiddenSystemDraft(query.user, stored)) return null;
+    if (
+      !stored ||
+      isHiddenSystemDraft(query.user, stored) ||
+      isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, stored)
+    ) {
+      return null;
+    }
     const row = toWorkingRow(stored, draftViewerTenantId(query.user, stored));
     const isOwnTenant = row.tenantId === query.user.tenantId;
     const isSystemTemplate = row.scope === "system";

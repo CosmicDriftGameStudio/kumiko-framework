@@ -37,6 +37,7 @@ import {
   DeliveryJobs,
   deliveryIdempotencyRedisKey,
   deliveryPriorityRank,
+  EMAIL_CHANNEL_NAME,
 } from "./constants.js";
 import {
   type AddressOptOutKey,
@@ -55,6 +56,11 @@ import {
   isDeliveryChannelPlugin,
   type RenderedMessage,
 } from "./types.js";
+import {
+  buildUnsubscribeUrl,
+  type UnsubscribeLinkConfig,
+  type UnsubscribeLinkRecipient,
+} from "./unsubscribe-link.js";
 
 export function redactedMessageOf(err: unknown): string {
   return redactErrorText(err instanceof Error ? err.message : String(err));
@@ -97,6 +103,9 @@ export type DeliveryServiceOptions = {
   // absent means an unattributed warn log (see fallbackEscapeHatchReporter).
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly log?: Logger;
+  // Signs `data.unsubscribeUrl` for email notifications declared with `unsubscribe: true`.
+  // The secret must be the one `createUnsubscribeRoutes` verifies with.
+  readonly unsubscribeLinks?: UnsubscribeLinkConfig;
 };
 
 // Build channel list from registry extension usages
@@ -128,6 +137,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     tenantConfigFor,
     escapeHatchAuditSink,
     log,
+    unsubscribeLinks,
   } = options;
   const idemRedis = idempotencyRedis ?? rateLimit?.redis;
   const logError = createFallbackLogger("delivery", log);
@@ -454,6 +464,30 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     }
   }
 
+  // A caller-supplied unsubscribeUrl wins; the recipient comes from the server-side notify
+  // context, never from the notification data.
+  async function withUnsubscribeUrl(
+    message: ChannelMessage,
+    channelName: string,
+    recipient: UnsubscribeLinkRecipient,
+    tenantId: TenantId,
+  ): Promise<ChannelMessage> {
+    if (!unsubscribeLinks || channelName !== EMAIL_CHANNEL_NAME) return message;
+    if (registry.getAllNotifications().get(message.notificationType)?.unsubscribe !== true) {
+      return message;
+    }
+    const supplied = message.data?.["unsubscribeUrl"];
+    if (typeof supplied === "string" && supplied !== "") return message;
+    const unsubscribeUrl = await buildUnsubscribeUrl(unsubscribeLinks, recipient, {
+      tenantId,
+      notificationType: message.notificationType,
+      channel: channelName,
+    });
+    return unsubscribeUrl === undefined
+      ? message
+      : { ...message, data: { ...message.data, unsubscribeUrl } };
+  }
+
   function buildMessage(
     notificationType: string,
     data: Readonly<Record<string, unknown>> | undefined,
@@ -744,7 +778,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           run,
           channel,
           address,
-          message,
+          message: await withUnsubscribeUrl(
+            message,
+            channel.name,
+            { kind: "user", userId },
+            tenantId,
+          ),
           channelCtx,
           tenantId,
           recipientId: userId,
@@ -842,7 +881,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
           run,
           channel,
           address,
-          message,
+          message: await withUnsubscribeUrl(
+            message,
+            channel.name,
+            { kind: "address", address },
+            tenantId,
+          ),
           channelCtx,
           tenantId,
           recipientId,

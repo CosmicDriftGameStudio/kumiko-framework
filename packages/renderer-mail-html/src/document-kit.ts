@@ -1,7 +1,9 @@
 import { BRANDING_QN } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import { isSafeHttpsUrl } from "@cosmicdrift/kumiko-bundled-features/page-render";
 import type { RendererContext } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   collectDocumentResourceKeys,
+  flattenParagraphsToLineBreaks,
   isHexColor,
   type LayoutRegions,
   sanitizeDocumentHtml,
@@ -77,16 +79,34 @@ export function createDocumentHandlebars(format: DocumentFormat): typeof Handleb
       return String(value);
     }
   });
-  hbs.registerHelper("richText", (value: unknown): Handlebars.SafeString | string => {
-    if (typeof value !== "string") return "";
-    const sanitized = sanitizeDocumentHtml(value);
-    if (sanitized.ok) return new hbs.SafeString(sanitized.html);
-    // Rejected markup renders as visible text (escaped by Handlebars) instead of vanishing.
-    documentKitLogger.warn("richText value rejected by sanitizer, rendered as escaped text", {
-      violations: sanitized.violations.map((item) => item.code),
-    });
-    return value;
+  hbs.registerHelper("percent", (value: unknown): string => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return new Intl.NumberFormat(resolveSafeMoneyLocale(format.locale), {
+        style: "percent",
+        maximumFractionDigits: 2,
+      }).format(value / 100);
+    }
+    return value === undefined || value === null ? "" : String(value);
   });
+  hbs.registerHelper(
+    "richText",
+    (value: unknown, options: Handlebars.HelperOptions): Handlebars.SafeString | string => {
+      if (typeof value !== "string") return "";
+      const sanitized = sanitizeDocumentHtml(value);
+      if (sanitized.ok) {
+        return new hbs.SafeString(
+          options.hash["inline"] === true
+            ? flattenParagraphsToLineBreaks(sanitized.html)
+            : sanitized.html,
+        );
+      }
+      // Rejected markup renders as visible text (escaped by Handlebars) instead of vanishing.
+      documentKitLogger.warn("richText value rejected by sanitizer, rendered as escaped text", {
+        violations: sanitized.violations.map((item) => item.code),
+      });
+      return value;
+    },
+  );
   hbs.registerHelper("link", (value: unknown): string =>
     typeof value === "string" && SAFE_LINK_PROTOCOL.test(value.trim()) ? value : "#",
   );
@@ -125,6 +145,7 @@ const KNOWN_HELPERS = {
   link: true,
   richText: true,
   stepIs: true,
+  percent: true,
 } as const;
 
 export function compileDocumentSource(
@@ -221,6 +242,13 @@ export async function readBrandingLogo(ctx: RendererContext): Promise<string | u
     isDeleted: false,
   });
   return row === undefined ? undefined : fileRefId;
+}
+
+// The branding mask also stores a logo address instead of an upload. Mail clients load it
+// themselves; the PDF renderer must not, since the server would fetch an arbitrary URL.
+export async function readBrandingLogoUrl(ctx: RendererContext): Promise<string | undefined> {
+  const value = await readConfigText(ctx, BRANDING_QN.logoUrl);
+  return value !== undefined && isSafeHttpsUrl(value) ? value : undefined;
 }
 
 function ownLink(links: Readonly<Record<string, string>>, key: string): string | undefined {

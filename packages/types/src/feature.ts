@@ -625,6 +625,8 @@ export type FeatureRegistrar<TFeature extends string = string> = {
       readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
       readonly localizedTemplate?: () => NotificationLocalizedTemplate;
       readonly renamedFrom?: readonly string[];
+      readonly systemOnly?: boolean;
+      readonly unsubscribe?: boolean;
     },
   ): void;
   notification(definition: {
@@ -639,6 +641,8 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
     readonly localizedTemplate?: () => NotificationLocalizedTemplate;
     readonly renamedFrom?: readonly string[];
+    readonly systemOnly?: boolean;
+    readonly unsubscribe?: boolean;
   }): void;
 
   translations(def: TranslationsDef): void;

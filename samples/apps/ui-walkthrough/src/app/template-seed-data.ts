@@ -276,6 +276,18 @@ export const INVOICE_CORRECTED_DRAFT: SeedTemplate = {
   meta: invoiceIssuedMeta("Ihre Rechnung {{invoiceNumber}} von {{tenantName}}"),
 };
 
+export const SYSTEM_TERMS_CHANGED: SeedTemplate = {
+  slug: "billing:notify:terms-changed",
+  kind: "mail",
+  locale: "de",
+  title: "AGB-Änderung",
+  content: [
+    `<p>Guten Tag ${v("customerName")},</p>`,
+    `<p>zum ${v("effectiveDate")} ändern sich die Allgemeinen Geschäftsbedingungen des Mieterportals.</p>`,
+  ].join(""),
+  meta: { subject: "Änderung der Geschäftsbedingungen" },
+};
+
 export const PAYMENT_REMINDER_TEMPLATES: readonly SeedTemplate[] = [
   {
     slug: "billing:notify:payment-reminder",

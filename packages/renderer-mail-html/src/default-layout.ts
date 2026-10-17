@@ -3,7 +3,8 @@
 // structured layout instead, which also shows the branding logo and accent.
 //
 // **Variables the layout receives (nothing else):**
-//   - {{tenantName}}      - header + footer
+//   - {{tenantName}}      - header
+//   - {{mailSentBy}}      - "Sent by <tenant>" in the mail locale, empty without a tenant name
 //   - {{{content}}}       - the rendered mail body (escaped values), triple-stash.
 //                           It sits in mj-text: mj-raw would put block HTML straight into
 //                           the column tbody, where browsers move it out of the table into
@@ -46,7 +47,7 @@ export const DEFAULT_MAIL_LAYOUT_MJML = `<mjml lang="{{lang}}">
     <mj-section background-color="#f5f5f5" padding="20px">
       <mj-column>
         <mj-text font-size="11px" color="#888" align="center">
-          {{#if tenantName}}<p>Sent by {{tenantName}}</p>{{/if}}{{#if mailFooterHtml}}<p>{{{mailFooterHtml}}}</p>{{/if}}
+          {{#if mailSentBy}}<p>{{mailSentBy}}</p>{{/if}}{{#if mailFooterHtml}}<p>{{{mailFooterHtml}}}</p>{{/if}}
         </mj-text>
       </mj-column>
     </mj-section>

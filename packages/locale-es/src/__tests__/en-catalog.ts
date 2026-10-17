@@ -1125,6 +1125,12 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "The layout needs its content slot: {detail}.",
   "templateResolver.errors.document.layoutSourceSystemOnly":
     "Only system layouts may use {detail} source; use the structured html layout.",
+  "mail.footer.sentBy": "Sent by {sender}",
+  "mail.footer.unsubscribe": "Unsubscribe",
+  "mail.footer.imprint": "Imprint",
+  "mail.footer.privacy": "Privacy policy",
+  "templateResolver.errors.systemOnlyTemplate":
+    "Only the platform maintains this template; it cannot be overridden per tenant.",
   "templateResolver.errors.template.targetExists":
     "A template for locale “{detail}” already exists; overwrite it explicitly to replace it.",
   "templateResolver.warnings.resourceNotUploaded": "Image not uploaded: {detail}",

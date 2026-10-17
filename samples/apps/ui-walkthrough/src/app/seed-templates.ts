@@ -32,6 +32,7 @@ import {
   SYSTEM_INVOICE_ISSUED,
   SYSTEM_PDF_LAYOUT,
   SYSTEM_TENANCY_CERTIFICATE,
+  SYSTEM_TERMS_CHANGED,
   TENANT_INVOICE_OVERRIDES,
   TENANT_MAIL_LAYOUT_VERSIONS,
   TENANT_UTILITY_STATEMENT,
@@ -165,6 +166,7 @@ export const seedTemplates: SeedFn = async (stack) => {
   await upsertSystem(SYSTEM_PDF_LAYOUT);
   for (const mail of SYSTEM_AUTH_MAILS) await upsertSystem(mail);
   await upsertSystem(SYSTEM_INVOICE_ISSUED);
+  await upsertSystem(SYSTEM_TERMS_CHANGED);
   for (const document of SYSTEM_INVOICE_DOCUMENTS) await upsertSystem(document);
   const certificate = await upsertSystem(SYSTEM_TENANCY_CERTIFICATE);
   await stack.http.writeOk(

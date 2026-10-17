@@ -25,6 +25,7 @@ export const PLACEHOLDER_SYMBOL: Readonly<Record<PlaceholderType, string>> = {
   text: "T",
   money: "€",
   date: "D",
+  percent: "%",
   link: "↗",
   list: "≡",
 };

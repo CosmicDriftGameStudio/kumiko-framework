@@ -133,3 +133,18 @@ describe("variablesFromSchema", () => {
     });
   });
 });
+
+describe("validateTemplatePlaceholders :: data-if", () => {
+  test("a condition on an undeclared variable is reported, a declared one counts as used", () => {
+    const result = validate('<p data-if="total">x</p><p data-if="vanished">y</p>');
+    expect(result.unknown).toEqual(["vanished"]);
+    expect(result.used).toEqual(["total"]);
+  });
+
+  test("a condition inside a list row checks item fields, on the row itself the root", () => {
+    const result = validate(
+      '<table><tr data-each="lines" data-if="label"><td><p data-if="label">x</p></td></tr></table>',
+    );
+    expect(result.unknown).toEqual(["label"]);
+  });
+});

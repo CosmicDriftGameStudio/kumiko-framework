@@ -24,6 +24,7 @@ import {
   createDeliveryNotifyFactory,
   createDeliveryService,
   DELIVERY_FEATURE,
+  type UnsubscribeLinkConfig,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
   bindPatAutoRevokeOnPasswordChangeFromFeature,
@@ -112,6 +113,7 @@ function buildDeliveryNotifyFactory(opts: {
   readonly tenantUserIdsQuery?: string;
   readonly configResolver: ConfigResolver | undefined;
   readonly deliverQueuedInline: boolean | undefined;
+  readonly unsubscribeLinks: UnsubscribeLinkConfig | undefined;
 }): NotifyFactory {
   const configAccessorFactory =
     opts.configResolver && createConfigAccessorFactory(opts.registry, opts.configResolver);
@@ -125,6 +127,7 @@ function buildDeliveryNotifyFactory(opts: {
     ...(opts.escapeHatchAuditSink && { escapeHatchAuditSink: opts.escapeHatchAuditSink }),
     ...(opts.log && { log: opts.log }),
     ...(opts.tenantUserIdsQuery && { tenantUserIdsQuery: opts.tenantUserIdsQuery }),
+    ...(opts.unsubscribeLinks && { unsubscribeLinks: opts.unsubscribeLinks }),
     ...(configAccessorFactory && {
       tenantConfigFor: (tenantId: TenantId) => {
         const systemUser = createSystemUser(tenantId);
@@ -236,6 +239,8 @@ export function buildBootExtraContext(opts: {
   readonly deliverQueuedInline?: boolean;
   /** Receives redacted delivery failures; without it they go to the console. */
   readonly log?: Logger;
+  /** Signs `unsubscribe: true` notifications' mail links; see runProdApp `unsubscribe`. */
+  readonly unsubscribeLinks?: UnsubscribeLinkConfig;
 }): Record<string, unknown> {
   const crypto = opts.crypto ?? resolveBootCrypto(opts.envSource, opts.masterKey);
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
@@ -260,6 +265,7 @@ export function buildBootExtraContext(opts: {
         ...(hasTenantFeature && { tenantUserIdsQuery: TenantQueries.resolveUserIds }),
         configResolver: bootConfigResolver,
         deliverQueuedInline: opts.deliverQueuedInline,
+        unsubscribeLinks: opts.unsubscribeLinks,
       }),
     }),
     // Top-level provider so feature jobs (secrets rotate, config reencrypt)

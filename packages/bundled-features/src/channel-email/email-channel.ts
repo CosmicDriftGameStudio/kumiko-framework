@@ -164,7 +164,11 @@ async function resolveAttachments(
 }
 
 export type EmailChannelOptions = {
+  /** The app-wide transport, used for every tenant `tenantTransport` returns null for. */
   readonly transport: EmailTransport;
+  /** Resolves the sending tenant's own transport, null when it has none. Built per send and
+   *  never cached, so a provider change applies to the next mail; a throw fails the send. */
+  readonly tenantTransport?: (ctx: ChannelContext) => Promise<EmailTransport | null>;
   readonly resolveEmail: (
     userId: string,
     ctx: { db: unknown; tenantId: TenantId },
@@ -172,7 +176,7 @@ export type EmailChannelOptions = {
 };
 
 export function createEmailChannel(options: EmailChannelOptions): DeliveryChannel {
-  const { transport, resolveEmail } = options;
+  const { transport, resolveEmail, tenantTransport } = options;
 
   // Render runs in the delivery.render job, decoupled from the SMTP send so
   // each can retry independently. Extracted so the inline path (no job runner)
@@ -207,6 +211,11 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
       ...(replyTo !== undefined && { replyTo }),
       ...(attachments !== undefined && { attachments }),
     };
+  }
+
+  async function transportFor(ctx: ChannelContext): Promise<EmailTransport> {
+    if (tenantTransport === undefined) return transport;
+    return (await tenantTransport(ctx)) ?? transport;
   }
 
   return {
@@ -251,7 +260,8 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
         return { status: "failed", error: "send_failed", address };
       }
       const resolvedAttachments = resolution.attachments;
-      await transport.send(
+      const sendTransport = await transportFor(ctx);
+      await sendTransport.send(
         guardEmailMessage({
           to: address,
           subject,

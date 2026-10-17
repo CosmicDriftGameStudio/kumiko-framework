@@ -314,6 +314,38 @@ export const DocumentTextSize = Extension.create({
   },
 });
 
+// A block shown only when the named variable has a value (data-if, the
+// conditional counterpart of data-each). Table rows qualify so an invoice can
+// drop a discount line; tiptap merges the attribute into paragraph, heading
+// and row markup only.
+export const DOCUMENT_CONDITION_ATTRIBUTE = "data-if";
+
+export const DocumentCondition = Extension.create({
+  name: "documentCondition",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["paragraph", "heading", "tableRow"],
+        attributes: {
+          showIf: {
+            default: null,
+            parseHTML: (element) => {
+              const name = element.getAttribute(DOCUMENT_CONDITION_ATTRIBUTE);
+              return name !== null && isDocumentReferenceName(name) ? name : null;
+            },
+            renderHTML: (attributes) => {
+              const name: unknown = attributes["showIf"];
+              return typeof name === "string" && isDocumentReferenceName(name)
+                ? { [DOCUMENT_CONDITION_ATTRIBUTE]: name }
+                : {};
+            },
+          },
+        },
+      },
+    ];
+  },
+});
+
 export const documentExtensions: Extensions = [
   StarterKit.configure({
     blockquote: false,
@@ -348,4 +380,5 @@ export const documentExtensions: Extensions = [
   DocumentSteps,
   DocumentTextAlign,
   DocumentTextSize,
+  DocumentCondition,
 ];

@@ -15,6 +15,7 @@ import type { KillSwitchResolver, RateLimitConfig } from "./delivery-service.js"
 import { collectChannels, createDeliveryService } from "./delivery-service.js";
 import { createDeliveryNotifyFactory } from "./notify-factory.js";
 import type { DeliveryService } from "./types.js";
+import type { UnsubscribeLinkConfig } from "./unsubscribe-link.js";
 
 export type CreateDeliveryTestContextOptions = {
   readonly tenantUserIdsQuery?: string;
@@ -27,6 +28,7 @@ export type CreateDeliveryTestContextOptions = {
   readonly idempotencyRedis?: Redis;
   readonly filesForTenant?: (tenantId: string) => FileContext | undefined;
   readonly tenantConfigFor?: (tenantId: TenantId) => ConfigAccessor;
+  readonly unsubscribeLinks?: UnsubscribeLinkConfig;
 };
 
 /**

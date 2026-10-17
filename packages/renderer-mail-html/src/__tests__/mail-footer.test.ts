@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import {
   buildMailBandLinksHtml,
   buildMailFooterHtml,
   layoutLinksToPlaceholder,
 } from "../mail-footer";
+import { mailChromeText } from "../mail-strings";
+
+// The German footer labels come from the locale package, as in an app that mounts it.
+localeDe();
 
 const FOOTER = {
   text: "Sent via <b>Demo</b>",
@@ -53,6 +58,26 @@ describe("mail footer", () => {
 
   test("an unknown language falls back to the English unsubscribe label", () => {
     expect(build({ footer: null, locale: "fr" })).toContain("Unsubscribe");
+  });
+
+  test("imprint and privacy without a label use the framework text of the mail language", () => {
+    const footer = {
+      imprint: { url: "https://demo.example/impressum" },
+      privacy: { url: "https://demo.example/datenschutz" },
+    };
+    const german = build({ footer, unsubscribeUrl: "", locale: "de-AT" });
+    expect(german).toContain(">Impressum</a>");
+    expect(german).toContain(">Datenschutz</a>");
+    const english = build({ footer, unsubscribeUrl: "", locale: "en" });
+    expect(english).toContain(">Imprint</a>");
+    expect(english).toContain(">Privacy policy</a>");
+  });
+
+  test("the sender line follows the mail language and falls back to English", () => {
+    expect(mailChromeText("de-DE", "mail.footer.sentBy", { sender: "Acme" })).toBe(
+      "Gesendet von Acme",
+    );
+    expect(mailChromeText("fr", "mail.footer.sentBy", { sender: "Acme" })).toBe("Sent by Acme");
   });
 
   test("layoutLinksToPlaceholder only matches a link to that placeholder", () => {

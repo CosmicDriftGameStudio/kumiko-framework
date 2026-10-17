@@ -45,6 +45,12 @@ export type CreateFileRefInput = {
   };
 };
 
+// The handler context has no HTTP/job/seed marker to name, so the message states the actual
+// cause: the dispatcher's AppContext carries no file-provider resolver.
+export function filesUnavailableMessage(caller: string): string {
+  return `${caller}: ctx.files is unavailable because no file-provider resolver is wired on this dispatcher context. Mount a file-provider-* feature and build the dispatcher context with withFileProviderResolver (HTTP, job and seed dispatchers each need it)`;
+}
+
 // Server-side counterpart of POST /files for handlers/jobs that produce bytes
 // themselves (generated PDFs, exports). Same validation, storage layout and
 // fileRef.created event as an upload; the tenant is always ctx.user.tenantId.
@@ -56,8 +62,7 @@ export async function createFileRefFromBytes(
   if (!files) {
     return writeFailure(
       new InternalError({
-        message:
-          "createFileRefFromBytes: ctx.files is unavailable — mount a file-provider feature to store files",
+        message: filesUnavailableMessage("createFileRefFromBytes"),
       }),
     );
   }
@@ -112,8 +117,7 @@ export async function uploadFileBytesBeforeTransaction(
   if (!files) {
     return writeFailure(
       new InternalError({
-        message:
-          "uploadFileBytesBeforeTransaction: ctx.files is unavailable — mount a file-provider feature to store files",
+        message: filesUnavailableMessage("uploadFileBytesBeforeTransaction"),
       }),
     );
   }

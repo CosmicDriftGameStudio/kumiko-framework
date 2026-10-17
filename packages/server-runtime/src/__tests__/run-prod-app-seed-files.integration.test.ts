@@ -1,5 +1,5 @@
-// A prod seed that writes through a handler using createFileRefFromBytes needs
-// ctx.files on the seed dispatcher's context, same as on the HTTP path.
+// A prod seed gets the same file-provider context and dispatcher options as the HTTP
+// path: it can store files directly, sees handler failures, and honours effectiveFeatures.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -42,6 +42,14 @@ const TEST_DB_URL = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4 seeded");
 
 const seedFilesProbeFeature = defineFeature("seed-files-probe", (r) => {
+  r.writeHandler({
+    name: "explode",
+    schema: z.object({}),
+    handler: () => {
+      throw new Error("handler blew up on purpose");
+    },
+    access: { roles: ["SystemAdmin"] },
+  });
   r.writeHandler({
     name: "store",
     schema: z.object({}),
@@ -91,54 +99,113 @@ afterAll(async () => {
   }
 });
 
+type SeedFn = NonNullable<Parameters<typeof runProdApp>[0]["seeds"]>[number];
+
+async function bootWithSeed(
+  seed: SeedFn,
+  extra: Partial<Parameters<typeof runProdApp>[0]> = {},
+): Promise<void> {
+  handle = await runProdApp({
+    features: [
+      createConfigFeature(),
+      fileFoundationFeature,
+      fileProviderInMemoryFeature,
+      createFilesFeature(),
+      seedFilesProbeFeature,
+    ],
+    envSource: {
+      DATABASE_URL: TEST_DB_URL,
+      REDIS_URL: process.env["REDIS_URL"] ?? "redis://localhost:16379",
+      JWT_SECRET: "test-runprod-secret-32-chars-min!!",
+      PORT: "0",
+    },
+    allowPlaintextPii: "test: file storage wiring, not PII crypto",
+    extraContext: {
+      configResolver: createConfigResolver({
+        appOverrides: new Map([["file-foundation:config:provider", "inmemory"]]),
+      }),
+    },
+    autoListen: false,
+    migrations: false,
+    seeds: [seed],
+    ...extra,
+  });
+}
+
+async function storedFileNames(): Promise<string[]> {
+  const { db, close } = createDbConnection(TEST_DB_URL);
+  try {
+    const rows = await selectMany(db, fileRefsTable, { tenantId: TENANT_ID });
+    return rows.map((row) => row.fileName).sort();
+  } finally {
+    await close();
+  }
+}
+
 describe("runProdApp seeds with file storage", () => {
   test("a seed can create a fileRef through a handler that uses createFileRefFromBytes", async () => {
     let seedResult: { isSuccess: boolean; message?: string } | undefined;
-
-    handle = await runProdApp({
-      features: [
-        createConfigFeature(),
-        fileFoundationFeature,
-        fileProviderInMemoryFeature,
-        createFilesFeature(),
-        seedFilesProbeFeature,
-      ],
-      envSource: {
-        DATABASE_URL: TEST_DB_URL,
-        REDIS_URL: process.env["REDIS_URL"] ?? "redis://localhost:16379",
-        JWT_SECRET: "test-runprod-secret-32-chars-min!!",
-        PORT: "0",
-      },
-      allowPlaintextPii: "test: file storage wiring, not PII crypto",
-      extraContext: {
-        configResolver: createConfigResolver({
-          appOverrides: new Map([["file-foundation:config:provider", "inmemory"]]),
-        }),
-      },
-      autoListen: false,
-      migrations: false,
-      seeds: [
-        async ({ dispatcher }) => {
-          const result = await dispatcher.write(
-            "seed-files-probe:write:store",
-            {},
-            createSystemUser(TENANT_ID, ["SystemAdmin"]),
-          );
-          seedResult = result.isSuccess
-            ? { isSuccess: true }
-            : { isSuccess: false, message: result.error.message };
-        },
-      ],
+    await bootWithSeed(async ({ dispatcher }) => {
+      const result = await dispatcher.write(
+        "seed-files-probe:write:store",
+        {},
+        createSystemUser(TENANT_ID, ["SystemAdmin"]),
+      );
+      seedResult = result.isSuccess
+        ? { isSuccess: true }
+        : { isSuccess: false, message: result.error.message };
     });
 
     expect(seedResult).toEqual({ isSuccess: true });
+    expect(await storedFileNames()).toContain("seeded.pdf");
+  });
 
-    const { db, close } = createDbConnection(TEST_DB_URL);
-    try {
-      const rows = await selectMany(db, fileRefsTable, { tenantId: TENANT_ID });
-      expect(rows.map((row) => row.fileName)).toEqual(["seeded.pdf"]);
-    } finally {
-      await close();
-    }
+  test("a seed creates a fileRef through deps.createFileRef without a helper handler", async () => {
+    let created: { isSuccess: boolean; fileName?: string } | undefined;
+    await bootWithSeed(async ({ createFileRef }) => {
+      const result = await createFileRef(TENANT_ID, {
+        fileName: "direct.pdf",
+        mimeType: "application/pdf",
+        data: PDF_BYTES,
+      });
+      created = result.isSuccess
+        ? { isSuccess: true, fileName: result.data.fileName }
+        : { isSuccess: false };
+    });
+
+    expect(created).toEqual({ isSuccess: true, fileName: "direct.pdf" });
+    expect(await storedFileNames()).toContain("direct.pdf");
+  });
+
+  test("a throwing seed handler surfaces its qualified name and cause to the seed", async () => {
+    let message: string | undefined;
+    await bootWithSeed(async ({ dispatcher }) => {
+      const result = await dispatcher.write(
+        "seed-files-probe:write:explode",
+        {},
+        createSystemUser(TENANT_ID, ["SystemAdmin"]),
+      );
+      message = result.isSuccess ? undefined : result.error.message;
+    });
+
+    expect(message).toContain("seed-files-probe:write:explode");
+    expect(message).toContain("handler blew up on purpose");
+  });
+
+  test("the seed dispatcher honours the app's effectiveFeatures like the entrypoint dispatcher", async () => {
+    let code: string | undefined;
+    await bootWithSeed(
+      async ({ dispatcher }) => {
+        const result = await dispatcher.write(
+          "seed-files-probe:write:store",
+          {},
+          createSystemUser(TENANT_ID, ["SystemAdmin"]),
+        );
+        code = result.isSuccess ? undefined : result.error.code;
+      },
+      { effectiveFeatures: () => new Set(["config"]) },
+    );
+
+    expect(code).toBe("feature_disabled");
   });
 });

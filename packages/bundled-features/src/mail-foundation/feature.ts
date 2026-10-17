@@ -39,9 +39,11 @@ import { requireDefined } from "@cosmicdrift/kumiko-bundled-features/foundation-
 import {
   access,
   type ConfigAccessor,
+  createSystemUser,
   createTenantConfig,
   defineFeature,
   type Registry,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 const FEATURE_NAME = "mail-foundation";
@@ -121,7 +123,7 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
 
 export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
   r.describe(
-    "Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime. Call `createTransportForTenant(ctx, tenantId)` to get an `EmailTransport` ready for sending \u2014 use this feature together with at least one `mail-transport-*` feature; use `delivery` + `channel-email` instead when you need the full notification pipeline with delivery attempts and user preferences.",
+    "Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime. Call `createTransportForTenant(ctx, tenantId)` to get an `EmailTransport` ready for sending \u2014 use this feature together with at least one `mail-transport-*` feature; use `delivery` + `channel-email` instead when you need the full notification pipeline with delivery attempts and user preferences. Pass `tenantMailTransport` as `tenantTransport` to `createChannelEmailFeature` so a tenant with a provider configured sends delivery mails through its own transport and other tenants through the app transport.",
   );
   r.uiHints({
     displayLabel: "Mail Transport Foundation",
@@ -187,6 +189,28 @@ export async function createTransportForTenant(
   tenantId: string,
   handlerName = "mail-foundation:transport-factory",
 ): Promise<EmailTransport> {
+  const transport = await createTransportForTenantIfConfigured(ctx, tenantId, handlerName);
+  if (transport === null) {
+    const usages = ctx.registry?.getExtensionUsages(MAIL_TRANSPORT_EXTENSION) ?? [];
+    const known = usages.map((u) => u.entityName).join(", ") || "<none>";
+    throw new Error(
+      `${FEATURE_NAME}: no provider selected — set the 'provider' config-key to one of: ${known}. ` +
+        `Mount a mail-transport-* feature first if no plugins are registered.`,
+    );
+  }
+  return transport;
+}
+
+/**
+ * Like createTransportForTenant, but an empty `provider` key means "this tenant has no
+ * mail provider" and yields null. Every other problem (unknown provider, plugin build
+ * failure) still throws, so a configured tenant never silently falls back.
+ */
+export async function createTransportForTenantIfConfigured(
+  ctx: MailTransportContext,
+  tenantId: string,
+  handlerName = "mail-foundation:transport-factory",
+): Promise<EmailTransport | null> {
   const ctxConfig = ctx.config;
   if (!ctxConfig) {
     throw new Error(
@@ -204,14 +228,7 @@ export async function createTransportForTenant(
     FEATURE_NAME,
     "provider",
   ) as string; // @cast-boundary engine-payload
-  if (provider.length === 0) {
-    const usages = ctx.registry.getExtensionUsages(MAIL_TRANSPORT_EXTENSION);
-    const known = usages.map((u) => u.entityName).join(", ") || "<none>";
-    throw new Error(
-      `${FEATURE_NAME}: no provider selected — set the 'provider' config-key to one of: ${known}. ` +
-        `Mount a mail-transport-* feature first if no plugins are registered.`,
-    );
-  }
+  if (provider.length === 0) return null;
 
   const usages = ctx.registry.getExtensionUsages(MAIL_TRANSPORT_EXTENSION);
   const usage = usages.find((u) => u.entityName === provider);
@@ -230,4 +247,28 @@ export async function createTransportForTenant(
     );
   }
   return withPiiCiphertextGuard(await usage.options.build(ctx, tenantId));
+}
+
+export type TenantMailTransportScope = {
+  readonly tenantId: TenantId;
+  readonly config?: ConfigAccessor | undefined;
+  readonly registry: Registry;
+  readonly secrets?: import("@cosmicdrift/kumiko-framework/secrets").SecretsContext | undefined;
+};
+
+/** The `tenantTransport` resolver for `createChannelEmailFeature`: the tenant's configured
+ *  provider, or null so the channel falls back to its app transport. */
+export function tenantMailTransport(
+  scope: TenantMailTransportScope,
+): Promise<EmailTransport | null> {
+  return createTransportForTenantIfConfigured(
+    {
+      config: scope.config,
+      registry: scope.registry,
+      secrets: scope.secrets,
+      _userId: createSystemUser(scope.tenantId).id,
+    },
+    scope.tenantId,
+    "channel-email",
+  );
 }

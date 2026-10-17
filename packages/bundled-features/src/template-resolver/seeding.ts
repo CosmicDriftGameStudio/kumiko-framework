@@ -28,11 +28,13 @@ import {
   getStreamVersion,
   getUnscopedStreamMaxVersionForSeed,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants.js";
 import { executor } from "./handlers/shared.js";
 import { evaluateTemplateWrite } from "./handlers/template-gates.js";
-import { TEMPLATE_RESOLVER_FEATURE } from "./qualified-names.js";
+import { TEMPLATE_RESOLVER_FEATURE, TemplateResolverHandlers } from "./qualified-names.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 import type { TemplateBundle } from "./template-bundle.js";
 import { activeStampChanges, servedStampChanges } from "./template-draft.js";
@@ -233,20 +235,21 @@ export async function seedSystemTemplate(
 export type SeedSystemTemplateBundleOptions = {
   readonly by?: SessionUser;
   readonly ifExists?: SeedIfExists;
+  /** Required for bundles with resources (e.g. a `logo`): the files go through the
+   *  import-bundle-system write, which needs the file provider of the system tenant. */
+  readonly dispatcher?: Dispatcher;
 };
 
-// Seeds one system row per bundle locale. Bundled resources need a file
-// provider and the system tenant's file space, which a boot seed does not
-// have, so those go through the import-bundle-system write instead.
+// Seeds one system row per bundle locale. Bundled resources need a file provider and
+// the system tenant's file space, so those bundles are written through the
+// import-bundle-system handler on the seed dispatcher instead of directly.
 export async function seedSystemTemplateBundle(
   db: DbConnection,
   bundle: TemplateBundle,
   opts: SeedSystemTemplateBundleOptions = {},
 ): Promise<{ ids: Record<string, string> }> {
   if (Object.keys(bundle.resources).length > 0) {
-    throw new Error(
-      `seedSystemTemplateBundle ${bundle.slug}/${bundle.kind}: bundles with resources cannot be seeded; use the import-bundle-system write`,
-    );
+    return seedSystemTemplateBundleWithResources(db, bundle, opts);
   }
   const ids: Record<string, string> = {};
   for (const [locale, entry] of Object.entries(bundle.locales)) {
@@ -264,6 +267,50 @@ export async function seedSystemTemplateBundle(
     ids[locale] = seeded.id;
   }
   return { ids };
+}
+
+async function seedSystemTemplateBundleWithResources(
+  db: DbConnection,
+  bundle: TemplateBundle,
+  opts: SeedSystemTemplateBundleOptions,
+): Promise<{ ids: Record<string, string> }> {
+  const label = `seedSystemTemplateBundle ${bundle.slug}/${bundle.kind}`;
+  const { dispatcher } = opts;
+  if (!dispatcher) {
+    throw new Error(
+      `${label}: bundles with resources need a file provider; pass opts.dispatcher (the dispatcher of the seed deps) so the files are stored through the import-bundle-system write`,
+    );
+  }
+  if ((opts.ifExists ?? "skip") === "skip") {
+    const existingIds: Record<string, string> = {};
+    for (const locale of Object.keys(bundle.locales)) {
+      const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+        tenantId: SYSTEM_TENANT_ID,
+        slug: bundle.slug,
+        kind: bundle.kind,
+        locale,
+      });
+      if (row) existingIds[locale] = String(row.id);
+    }
+    if (Object.keys(existingIds).length === Object.keys(bundle.locales).length) {
+      return { ids: existingIds };
+    }
+  }
+  const result = await dispatcher.write(
+    TemplateResolverHandlers.importBundleSystem,
+    { bundle },
+    opts.by ?? createSystemUser(SYSTEM_TENANT_ID, ["SystemAdmin"]),
+  );
+  if (!result.isSuccess) {
+    throw new Error(`${label} failed: ${result.error.code}: ${result.error.message}`);
+  }
+  return { ids: importedIds(result.data) };
+}
+
+function importedIds(data: unknown): Record<string, string> {
+  const ids = isPlainObject(data) ? data["ids"] : undefined;
+  if (!isPlainObject(ids)) throw new Error("seedSystemTemplateBundle: import returned no ids");
+  return Object.fromEntries(Object.entries(ids).map(([locale, id]) => [locale, String(id)]));
 }
 
 export function hasNotificationTemplates(registry: Registry): boolean {

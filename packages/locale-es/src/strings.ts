@@ -1153,6 +1153,12 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "El diseño necesita su hueco de contenido: {detail}.",
   "templateResolver.errors.document.layoutSourceSystemOnly":
     "Solo los diseños del sistema pueden usar código {detail}; usa el diseño html estructurado.",
+  "mail.footer.sentBy": "Enviado por {sender}",
+  "mail.footer.unsubscribe": "Darse de baja",
+  "mail.footer.imprint": "Aviso legal",
+  "mail.footer.privacy": "Política de privacidad",
+  "templateResolver.errors.systemOnlyTemplate":
+    "Solo la plataforma mantiene esta plantilla; no se puede sobrescribir por cliente.",
   "templateResolver.errors.template.targetExists":
     "Ya existe una plantilla para el idioma «{detail}»; sobrescríbela de forma explícita para reemplazarla.",
   "templateResolver.warnings.resourceNotUploaded": "Imagen no subida: {detail}",

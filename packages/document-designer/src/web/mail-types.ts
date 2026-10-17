@@ -2,7 +2,7 @@
 import type { ValidationIssue } from "./layout-types.js";
 import type { ServedVersionView } from "./types.js";
 
-export type PlaceholderType = "text" | "money" | "date" | "link" | "list";
+export type PlaceholderType = "text" | "money" | "date" | "percent" | "link" | "list";
 
 export type MailVariable = {
   readonly type: PlaceholderType;

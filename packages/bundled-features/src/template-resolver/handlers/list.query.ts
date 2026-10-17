@@ -4,6 +4,7 @@ import * as z from "zod";
 import { TEMPLATE_KINDS, TEMPLATE_STATUSES } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 import { isHiddenSystemDraft } from "../template-draft.js";
+import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.js";
 
 // ctx.db is tenant-scoped even for SystemAdmin: every caller sees its own
 // tenant's rows plus the system defaults, never another tenant's rows.
@@ -45,7 +46,11 @@ export const listQuery = defineQueryHandler({
     })) as TemplateResourceRow[];
 
     return rows
-      .filter((row) => !isHiddenSystemDraft(query.user, row))
+      .filter(
+        (row) =>
+          !isHiddenSystemDraft(query.user, row) &&
+          !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row),
+      )
       .map((row) => ({
         id: String(row.id),
         tenantId: row.tenantId,

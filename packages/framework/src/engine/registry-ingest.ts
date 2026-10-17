@@ -124,6 +124,9 @@ const RESERVED_TEMPLATE_VARIABLE_NAMES = new Set([
   "link",
   "money",
   "date",
+  "richText",
+  "stepIs",
+  "percent",
 ]);
 const KEBAB_NOTIFICATION_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
