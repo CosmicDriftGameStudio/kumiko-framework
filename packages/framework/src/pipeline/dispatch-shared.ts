@@ -63,9 +63,9 @@ import {
   VersionConflictError as EventStoreVersionConflictError,
 } from "../event-store/errors.js";
 import {
-  getStreamVersion,
   loadAggregate,
   loadAggregateAsOf,
+  loadAggregateForWriting,
   type StoredEvent,
 } from "../event-store/event-store.js";
 import {
@@ -463,6 +463,9 @@ export async function buildHandlerContext(
   afterCommitHooks?: AfterCommitHook[],
   includeDeleted?: boolean,
   transactionScope: HandlerTransactionScope = tx ? "inTransaction" : "withoutTransaction",
+  // A query bridge has no commit sink of its own, but ctx.notify inside it must still wait for
+  // the outer write's commit: the outer sink is lent to notify only, not to scheduleAfterCommit.
+  outerNotifySink?: AfterCommitHook[],
 ): Promise<HandlerContext> {
   const { registry, appContext: context, effectiveFeatures, jobRunner, lifecycle } = ctx;
   const isSystem = registry.isHandlerSystemScoped(type);
@@ -610,14 +613,18 @@ export async function buildHandlerContext(
     );
     if (!notifyInTransactionFactory) return notifyAfterCommit;
     const notifyInTransaction = notifyInTransactionFactory(user, user.tenantId);
-    // A rolled-back write must leave no notification behind.
-    if (!hasLiveCommitSink) return notifyInTransaction;
+    // A rolled-back write must leave no notification behind. Without any commit to wait for (a
+    // post-commit context) delivery stays immediate.
+    const notifyCommitSink = hasLiveCommitSink ? bridgeSink : outerNotifySink;
+    if (notifyCommitSink === undefined) return notifyInTransaction;
     return createDeferringNotify({
       registry,
       tenantId: user.tenantId,
       notifyAfterCommit,
       notifyNow: notifyInTransaction,
-      scheduleAfterCommit,
+      scheduleAfterCommit: (hook) => {
+        notifyCommitSink.push(hook);
+      },
     });
   }
   // Mirror notify: only built when the config feature wired its factory.
@@ -727,7 +734,7 @@ export async function buildHandlerContext(
   // step (e.g. an inTransaction hook) fails, and the outer handler may swallow the
   // failure result. The savepoint makes the failure undo exactly the inner write; the
   // inner afterCommit hooks only reach the outer sink if it succeeded.
-  const executeNestedWriteInSavepoint = async (
+  const runNestedWriteInSavepoint = async (
     asUser: SessionUser,
     targetType: string,
     payload: unknown,
@@ -758,6 +765,19 @@ export async function buildHandlerContext(
       throw e;
     }
   };
+  // Savepoints on one connection are not serialized by the driver: two parallel nested writes would
+  // interleave their statements and a ROLLBACK TO of the first would also discard the second's rows.
+  // Writes nested one level deeper run on their own savepoint handle and therefore their own chain.
+  let nestedWriteChain: Promise<unknown> = Promise.resolve();
+  const executeNestedWriteInSavepoint = (
+    asUser: SessionUser,
+    targetType: string,
+    payload: unknown,
+  ): Promise<WriteResult> => {
+    const run = nestedWriteChain.then(() => runNestedWriteInSavepoint(asUser, targetType, payload));
+    nestedWriteChain = run.catch(() => undefined);
+    return run;
+  };
   // Without an open transaction (post-commit hooks, stream/query handlers, perCommand handlers) a bare
   // executeWrite would auto-commit event append, projections and inTransaction hooks separately and its
   // afterCommit hooks would land in a sink nobody flushes. A batch-of-one gives the write its own
@@ -776,7 +796,15 @@ export async function buildHandlerContext(
     {
       // Inherits the caller's origin, so switching to SYSTEM cannot shed an anonymous root.
       queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-        executeQuery(ctx, targetType, payload, asUser, origin, tx), // @wrapper-known semantic-alias
+        executeQuery(
+          ctx,
+          targetType,
+          payload,
+          asUser,
+          origin,
+          tx,
+          hasLiveCommitSink ? bridgeSink : outerNotifySink,
+        ), // @wrapper-known semantic-alias
       writeAs: writeAsUser,
     },
     identitySwitchAudit,
@@ -842,7 +870,15 @@ export async function buildHandlerContext(
   );
   const bridge = {
     query: (targetType: string, payload: unknown) =>
-      executeQuery(ctx, targetType, payload, user, origin, tx), // @wrapper-known semantic-alias
+      executeQuery(
+        ctx,
+        targetType,
+        payload,
+        user,
+        origin,
+        tx,
+        hasLiveCommitSink ? bridgeSink : outerNotifySink,
+      ), // @wrapper-known semantic-alias
     queryAs: identitySwitch.queryAs,
     write: (targetType: string, payload: unknown) => writeAsUser(user, targetType, payload),
     writeAs: identitySwitch.writeAs,
@@ -901,16 +937,14 @@ export async function buildHandlerContext(
           message: `ctx.fetchForWriting("${args.aggregateId}") requires a database connection — none is configured.`,
         });
       }
-      // Stream-version authoritative (same policy as CRUD executor + Block 0).
-      // A single SELECT MAX(version) is cheaper than loading the full stream
-      // when the caller just wants to append — but most callers also want
-      // the events (business-rule checks), so fetch both in parallel.
-      const [storedEvents, fetchedVersion] = await Promise.all([
-        loadAggregate(dbSource, args.aggregateId, user.tenantId, {
-          aggregateType: args.aggregateType,
-        }),
-        getStreamVersion(dbSource, args.aggregateId, user.tenantId),
-      ]);
+      // Stream-version authoritative (same policy as CRUD executor + Block 0), read together
+      // with the events so the pinned version covers exactly what the handler's rules saw.
+      const { events: storedEvents, streamVersion: fetchedVersion } = await loadAggregateForWriting(
+        dbSource,
+        args.aggregateId,
+        user.tenantId,
+        { aggregateType: args.aggregateType },
+      );
       const events = await upcastStoredEvents(storedEvents, registry.getEventUpcasters(), {
         db: dbSource,
         tenantId: user.tenantId,

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,10 +10,13 @@ import {
   evaluatePublicExportsChangelog,
   exportNamesForEntry,
   isCoveredByChangelog,
+  isCoveredByPendingChangeset,
   loadChangesetParser,
   loadPendingBreakingChanges,
+  mentionsExportName,
   owningChangelogPath,
   pendingBreakingChangesIn,
+  readBaseBaseline,
   runPublicExportsChangelogCli,
   writeBaseline,
 } from "../guard-public-exports-changelog";
@@ -692,6 +696,223 @@ describe("evaluatePublicExportsChangelog — format drift + empty cwd", () => {
       });
       expect(result.scans).toEqual([]);
       expect(result.findings.length).toBeGreaterThan(0);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("mentionsExportName", () => {
+  test("a longer identifier containing the name does not mention it", () => {
+    expect(mentionsExportName("getUserById removed", "getUser")).toBe(false);
+    expect(mentionsExportName("AUTH_COOKIE_BASE_URL renamed", "AUTH_COOKIE_BASE")).toBe(false);
+    expect(mentionsExportName("FooBarConfig renamed", "Foo")).toBe(false);
+  });
+
+  test("the exact identifier next to punctuation or whitespace is mentioned", () => {
+    expect(mentionsExportName("removed `getUser`, use getUserById", "getUser")).toBe(true);
+    expect(mentionsExportName("getUser", "getUser")).toBe(true);
+  });
+
+  test("names with regex metacharacters are matched literally", () => {
+    expect(mentionsExportName("$ctx and more", "$ctx")).toBe(true);
+    expect(mentionsExportName("xctx", "$ctx")).toBe(false);
+  });
+});
+
+describe("coverage requires every dropped export to be named", () => {
+  test("changelog: one named export of two does not cover the drop", () => {
+    const entries = [{ type: "breaking", version: "1.0.0", title: "createX removed" }];
+    expect(isCoveredByChangelog(entries, "1.0.0", ["createX", "createY"])).toBe(false);
+  });
+
+  test("changelog: names spread over several qualifying entries cover the drop", () => {
+    const entries = [
+      { type: "breaking", version: "1.0.0", title: "createX removed" },
+      { type: "breaking", version: "1.0.0", detail: "createY removed too" },
+    ];
+    expect(isCoveredByChangelog(entries, "1.0.0", ["createX", "createY"])).toBe(true);
+  });
+
+  test("changelog: a substring mention (FooBarConfig) does not cover Foo", () => {
+    const entries = [{ type: "breaking", version: "1.0.0", title: "FooBarConfig renamed" }];
+    expect(isCoveredByChangelog(entries, "1.0.0", ["Foo"])).toBe(false);
+  });
+
+  test("open changeset: getUserById does not cover a dropped getUser", () => {
+    const pending = new Map([["framework", ["getUserById removed"]]]);
+    expect(isCoveredByPendingChangeset(pending, "framework", ["getUser"])).toBe(false);
+  });
+
+  test("open changeset: naming only some of the dropped exports does not cover", () => {
+    const pending = new Map([["framework", ["getUser removed"]]]);
+    expect(isCoveredByPendingChangeset(pending, "framework", ["getUser", "getTenant"])).toBe(false);
+    expect(isCoveredByPendingChangeset(pending, "framework", ["getUser"])).toBe(true);
+  });
+});
+
+describe("check mode ratchets drops against the baseline of the merge-base", () => {
+  const baseBaseline = {
+    format: 1,
+    generated: "2026-01-01",
+    asOfVersion: "1.0.0",
+    packages: { framework: { "./auth": ["login", "logout"] } },
+  };
+
+  // Current code exports only `login`; the PR baseline is whatever the PR made of it.
+  function buildFixture(prBaseline: unknown | undefined): {
+    cwd: string;
+    project: Project;
+    baselinePath: string;
+  } {
+    const cwd = tmpDir("public-exports-base-");
+    const baselinePath = join(cwd, ".kumiko-public-exports-baseline.json");
+    const pkgDir = join(cwd, "packages/framework");
+    mkdirSync(join(pkgDir, "src/auth"), { recursive: true });
+    writeFileSync(
+      join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: "@cosmicdrift/kumiko-framework",
+        version: "1.5.0",
+        exports: { "./auth": { types: "./src/auth/index.ts", default: "./src/auth/index.ts" } },
+      }),
+    );
+    writeFileSync(join(pkgDir, "src/auth/index.ts"), "export const login = () => 1;\n");
+    if (prBaseline !== undefined) writeFileSync(baselinePath, JSON.stringify(prBaseline));
+    return { cwd, project: new Project({ useInMemoryFileSystem: false }), baselinePath };
+  }
+
+  test("a baseline hand-edited to omit the dropped name is still a finding", () => {
+    const edited = { ...baseBaseline, packages: { framework: { "./auth": ["login"] } } };
+    const { cwd, project, baselinePath } = buildFixture(edited);
+    try {
+      const withoutBase = evaluatePublicExportsChangelog({
+        cwd,
+        project,
+        mode: "check",
+        baselinePath,
+      });
+      expect(withoutBase.findings).toEqual([]);
+
+      const result = evaluatePublicExportsChangelog({
+        cwd,
+        project,
+        mode: "check",
+        baselinePath,
+        baseBaseline,
+      });
+      expect(result.findings.map((f) => f.names)).toEqual([["logout"]]);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("a deleted baseline re-frozen as bootstrap is still a finding", () => {
+    const { cwd, project, baselinePath } = buildFixture(undefined);
+    try {
+      expect(writeBaseline(cwd, project, baselinePath)).toBe(0);
+      const result = evaluatePublicExportsChangelog({
+        cwd,
+        project,
+        mode: "check",
+        baselinePath,
+        baseBaseline,
+      });
+      expect(result.findings.map((f) => f.names)).toEqual([["logout"]]);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("a drop named by an open breaking changeset passes the ratchet", () => {
+    const edited = { ...baseBaseline, packages: { framework: { "./auth": ["login"] } } };
+    const { cwd, project, baselinePath } = buildFixture(edited);
+    try {
+      const result = evaluatePublicExportsChangelog({
+        cwd,
+        project,
+        mode: "check",
+        baselinePath,
+        baseBaseline,
+        pendingBreakingChanges: new Map([["framework", ["logout removed"]]]),
+      });
+      expect(result.findings).toEqual([]);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("a baseline refrozen with the drop is reported once, not twice", () => {
+    const { cwd, project, baselinePath } = buildFixture(baseBaseline);
+    try {
+      const result = evaluatePublicExportsChangelog({
+        cwd,
+        project,
+        mode: "check",
+        baselinePath,
+        baseBaseline,
+      });
+      expect(result.findings).toHaveLength(1);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("readBaseBaseline", () => {
+  function git(cwd: string, ...args: string[]): void {
+    const res = spawnSync("git", args, { cwd, encoding: "utf-8" });
+    if (res.status !== 0) throw new Error(`git ${args.join(" ")}: ${res.stderr}`);
+  }
+
+  function repoWithCommit(files: Record<string, string>): string {
+    const cwd = tmpDir("public-exports-git-");
+    git(cwd, "init", "-q", "-b", "main");
+    git(cwd, "config", "user.email", "t@example.com");
+    git(cwd, "config", "user.name", "t");
+    git(cwd, "config", "commit.gpgsign", "false");
+    writeFileSync(join(cwd, "README.md"), "x");
+    for (const [name, content] of Object.entries(files)) writeFileSync(join(cwd, name), content);
+    git(cwd, "add", ".");
+    git(cwd, "commit", "-q", "-m", "base");
+    return cwd;
+  }
+
+  const baselineJson = JSON.stringify({
+    format: 1,
+    generated: "2026-01-01",
+    asOfVersion: "1.0.0",
+    packages: { framework: { "./auth": ["login"] } },
+  });
+
+  test("reads the baseline committed on the base, not the working-tree copy", () => {
+    const cwd = repoWithCommit({ ".kumiko-public-exports-baseline.json": baselineJson });
+    try {
+      writeFileSync(join(cwd, ".kumiko-public-exports-baseline.json"), "{}");
+      const read = readBaseBaseline(cwd, "main");
+      expect(read.kind).toBe("ok");
+      expect(read.kind === "ok" ? read.baseline.packages : undefined).toEqual({
+        framework: { "./auth": ["login"] },
+      });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("a base without a baseline is absent (bootstrap)", () => {
+    const cwd = repoWithCommit({});
+    try {
+      expect(readBaseBaseline(cwd, "main")).toEqual({ kind: "absent" });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("an unknown ref or an option-looking ref is an error, not a silent pass", () => {
+    const cwd = repoWithCommit({});
+    try {
+      expect(readBaseBaseline(cwd, "no-such-ref").kind).toBe("error");
+      expect(readBaseBaseline(cwd, "--all").kind).toBe("error");
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }

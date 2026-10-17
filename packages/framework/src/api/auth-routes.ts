@@ -113,7 +113,7 @@ function normalizeCookieDomain(domain: string): string {
 
 // A malformed entry would corrupt the Set-Cookie header; an entry equal to the
 // current cookieDomain would make login delete the cookie it just sets.
-export function assertRetiredCookieDomains(
+function assertRetiredCookieDomains(
   retiredCookieDomains: readonly string[] | undefined,
   cookieDomain: string | undefined,
 ): void {
@@ -359,7 +359,8 @@ export type AuthRoutesConfig = {
   mfaVerifyHandler?: string;
   // Optional: qualified write handler that runs the login's MFA gate for a
   // tenant switch. Dispatched with the system identity and { userId, tenantId };
-  // the handler resolves membership and roles itself; returns { kind: "mfa-gate-clear" } or the same
+  // the handler resolves membership and roles itself; returns { kind: "mfa-gate-clear", roles } (the
+  // roles the session is minted with) or the same
   // mfa-challenge / mfa-setup-required shapes as /auth/login. Without it a
   // switch into a tenant where the user holds an MFA-gated role mints a
   // session with no second factor.
@@ -775,6 +776,12 @@ export function createAuthRoutes(
     retiredCookieDomains: config.retiredCookieDomains,
   });
   assertRetiredCookieDomains(config.retiredCookieDomains, cookieDomain);
+  if (config.mfaVerifyHandler && !config.switchTenantMfaGateHandler) {
+    throw new Error(
+      "createAuthRoutes: mfaVerifyHandler is set but switchTenantMfaGateHandler is not; " +
+        "POST /auth/switch-tenant would mint admin sessions without the second factor",
+    );
+  }
   const retiredCookieDomains = config.retiredCookieDomains ?? [];
   // Single hop-count-aware IP getter for every rate-limit call site below —
   // see AuthRoutesConfig.trustedProxyHops and client-ip.ts's resolveClientIp
@@ -786,11 +793,15 @@ export function createAuthRoutes(
   const getClientIp = (c: Context): string =>
     clientIpResolver.resolve(clientIpSourceFromHonoContext(c));
 
-  async function switchTenantMfaGateResponse(
+  // undefined = no gate wired (setup without MFA). "clearedRoles" are the roles the gate decided on,
+  // so the minted session cannot differ from what the gate checked.
+  async function switchTenantMfaGate(
     c: Context,
     user: SessionUser,
     targetTenantId: TenantId,
-  ): Promise<Response | undefined> {
+  ): Promise<
+    { readonly response: Response } | { readonly clearedRoles: readonly string[] } | undefined
+  > {
     if (!config.switchTenantMfaGateHandler) return undefined;
     const gate = await dispatcher.write(
       config.switchTenantMfaGateHandler,
@@ -799,12 +810,45 @@ export function createAuthRoutes(
     );
     if (!gate.isSuccess) {
       const status = gate.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
-      return c.json({ isSuccess: false, error: gate.error }, status);
+      return { response: c.json({ isSuccess: false, error: gate.error }, status) };
     }
     // @cast-boundary engine-payload — the gate handler's three-shape result
-    const gateData = gate.data as { kind: "mfa-gate-clear" } | PendingMfaStep;
-    if (gateData.kind === "mfa-gate-clear") return undefined;
-    return pendingMfaStepResponse(c, gateData);
+    const gateData = gate.data as
+      | { kind: "mfa-gate-clear"; roles: readonly string[] }
+      | PendingMfaStep;
+    if (gateData.kind === "mfa-gate-clear") return { clearedRoles: gateData.roles };
+    return { response: pendingMfaStepResponse(c, gateData) };
+  }
+
+  // Global roles (SystemAdmin etc.) come from the user feature when userQuery is wired, so they survive
+  // the tenant switch. buildSessionRoles calls stripForbiddenMembershipRoles on the membership side only — a backstop
+  // for a role a projection rebuild resurrected past command-time validation (engine/membership-roles).
+  async function resolveSwitchTenantRoles(
+    user: SessionUser,
+    membership: { readonly roles: readonly string[] },
+  ): Promise<readonly string[]> {
+    let globalRoles: readonly string[] = [];
+    if (config.userQuery) {
+      try {
+        // @cast-boundary engine-payload — dispatcher.query returnt unknown,
+        // Per the AuthUserRow contract, userQuery returns a row with a roles column.
+        const userRow = (await dispatcher.query(
+          config.userQuery,
+          { id: user.id },
+          createSystemUser(user.tenantId),
+        )) as { roles?: unknown } | null;
+        // roles is jsonb string[] (multiSelect); parseRoles also accepts legacy
+        // JSON-encoded text from pre-0.217.0 rows.
+        globalRoles = parseRoles(userRow?.roles ?? null);
+      } catch (e) {
+        // Non-fatal: when global roles cannot be resolved the switch continues with tenant roles
+        // only. A server error carrying just the cause would hurt the UX more than a switch without
+        // SystemAdmin, which the user notices and reports.
+        if (!isUnknownHandlerError(e)) throw e;
+      }
+    }
+
+    return buildSessionRoles(globalRoles, membership.roles);
   }
 
   // Shared tail of every route that ends a request logged-in: create the
@@ -1246,12 +1290,10 @@ export function createAuthRoutes(
 
       // @cast-boundary engine-payload — generic dispatcher.write result for signup-confirm
       const data = result.data as
-        | {
-            kind: "auth-session";
-            session: SessionUser;
-            tenantKey: string;
-            handover?: { entityType: string; id: string };
-          }
+        | ({ kind: "auth-session"; session: SessionUser } & Pick<
+            SignupOutcome,
+            "tenantKey" | "handover"
+          >)
         | (PendingMfaStep & { signup: SignupOutcome });
 
       if (data.kind !== "auth-session") {
@@ -1267,13 +1309,13 @@ export function createAuthRoutes(
 
       // Session creation + JWT sign + cookies — see mintSessionAndRespond.
       const token = await mintSessionAndRespond(c, data.session);
-      const landingPath = landingPathFragment({
-        flow: "signup",
+      const signupOutcome: SignupOutcome = {
         roles: data.session.roles,
         tenantId: data.session.tenantId,
         tenantKey: data.tenantKey,
         ...(data.handover !== undefined && { handover: data.handover }),
-      });
+      };
+      const landingPath = landingPathFragment({ flow: "signup", ...signupOutcome });
 
       return c.json({
         isSuccess: true,
@@ -1562,51 +1604,20 @@ export function createAuthRoutes(
     }
     const membership = activeMembership.membership;
 
-    // Globale Rollen aus user-feature lesen wenn userQuery wired —
-    // tenant-unabhängige Rollen (SystemAdmin etc.) überleben so den
-    // tenant-switch. `parseRoles` liegt utils-side, hier inline-deserialize
-    // damit das Framework keine bundled-features-Imports kriegt.
-    let globalRoles: readonly string[] = [];
-    if (config.userQuery) {
-      try {
-        // @cast-boundary engine-payload — dispatcher.query returnt unknown,
-        // userQuery liefert per AuthUserRow-Contract eine row mit roles-spalte.
-        const userRow = (await dispatcher.query(
-          config.userQuery,
-          { id: user.id },
-          createSystemUser(user.tenantId),
-        )) as { roles?: unknown } | null;
-        // roles is jsonb string[] (multiSelect); parseRoles also accepts legacy
-        // JSON-encoded text from pre-0.217.0 rows.
-        globalRoles = parseRoles(userRow?.roles ?? null);
-      } catch (e) {
-        // Non-fatal: globale Rollen kann nicht aufgelöst werden → switch
-        // läuft weiter mit nur tenant-rollen. Server-error mit nur dem
-        // Cause ohne Stack hochwerfen wäre für die UX schlimmer als ein
-        // Tenant-Switch ohne SystemAdmin (User merkt's und meldet's). Log
-        // it via the dispatcher so Ops sieht's.
-        if (!isUnknownHandlerError(e)) throw e;
-      }
-    }
-
+    const gate = await switchTenantMfaGate(c, user, targetTenantId);
+    if (gate !== undefined && "response" in gate) return gate.response;
+    const sessionRoles =
+      gate !== undefined ? gate.clearedRoles : await resolveSwitchTenantRoles(user, membership);
     // Issue new JWT with the target tenant and its roles. Claims MUST be
     // recomputed for the new tenant — stale claims from the previous
     // tenant would leak identity facts across tenancies (e.g. teamId from
     // tenant A accidentally surviving into tenant B's session). The
     // resolver runs each feature's r.authClaims() hook under the new
     // TenantDb scope.
-    // buildSessionRoles calls stripForbiddenMembershipRoles internally and
-    // strips reserved roles from the membership side only — globalRoles
-    // (where SystemAdmin legitimately lives) is never filtered. Backstop for a
-    // membership role that a projection rebuild resurrected past command-time
-    // validation (see engine/membership-roles).
-    const mergedRoles = buildSessionRoles(globalRoles, membership.roles);
-    const pendingMfaStep = await switchTenantMfaGateResponse(c, user, targetTenantId);
-    if (pendingMfaStep !== undefined) return pendingMfaStep;
     const targetSession: SessionUser = {
       id: user.id,
       tenantId: targetTenantId,
-      roles: mergedRoles,
+      roles: sessionRoles,
       // Tenant-independent prefs must survive the switch (fw#2343).
       ...tenantIndependentPrefs(user),
     };
@@ -1628,7 +1639,7 @@ export function createAuthRoutes(
     // value can't cross a tenant boundary.
     const newToken = await mintSessionAndRespond(c, sessionForJwt);
 
-    return c.json({ token: newToken, tenantId: targetTenantId, roles: mergedRoles });
+    return c.json({ token: newToken, tenantId: targetTenantId, roles: sessionRoles });
   });
 
   return api;

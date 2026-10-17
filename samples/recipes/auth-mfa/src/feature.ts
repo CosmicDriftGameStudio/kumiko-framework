@@ -37,6 +37,7 @@
 //       membershipQuery: "tenant:query:memberships",
 //       loginHandler: "auth-email-password:[REDACTED:API key param]",
 //       mfaVerifyHandler: AuthMfaHandlers.verify,
+//       switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
 //       sessionCreator: sessionCallbacks.sessionCreator,
 //       sessionRevoker: sessionCallbacks.sessionRevoker,
 //       sessionChecker: sessionCallbacks.sessionChecker,

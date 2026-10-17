@@ -1128,6 +1128,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // über die auth-routes.
   // Secure-by-default (#1372): sessionStore provider → resolveSessionStore.
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
+  if (mfaFeature && registry.getWriteHandler(AuthHandlers.switchTenantMfaGate) === undefined) {
+    throw new Error(
+      `[runProdApp] auth-mfa is mounted but ${AuthHandlers.switchTenantMfaGate} is not registered: ` +
+        "createAuthEmailPasswordFeature registers it only when mfaStatusChecker is set, and without it " +
+        "POST /auth/switch-tenant would mint sessions without the second factor",
+    );
+  }
   // Hoisted above buildProdSessionAuth: that call also wires MFA-enable/
   // disable → PAT-revoke (bindRevokeAllPatTokensFromFeature), so it needs
   // patFeature too.

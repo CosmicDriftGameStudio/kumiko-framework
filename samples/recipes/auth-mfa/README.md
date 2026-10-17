@@ -10,7 +10,7 @@ The production wiring shape: mount `createAuthMfaFeature()` next to `createAuthE
 
 1. `createAuthMfaFeature({ setupTokenSecret, challengeTokenSecret, issuer })` builds the feature; `mfaStatusCheckerFromFeature(mfaFeature)` reads its login-status callback back off.
 2. That callback goes into `createAuthEmailPasswordFeature({ mfaStatusChecker: ... })` — `login.write.ts` calls it after the password check to decide whether to mint a JWT or a challenge.
-3. `buildServer({ auth: { mfaVerifyHandler: AuthMfaHandlers.verify } })` mounts `POST /auth/mfa/verify`, a framework route (not a dispatcher write-handler) with its own rate limiter, since it runs before a JWT exists.
+3. `buildServer({ auth: { mfaVerifyHandler: AuthMfaHandlers.verify, switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate } })` (the gate is required with `mfaVerifyHandler`, so a tenant switch asks for the second factor too) mounts `POST /auth/mfa/verify`, a framework route (not a dispatcher write-handler) with its own rate limiter, since it runs before a JWT exists.
 4. If `sessions` is mounted too, `bindMfaRevokeAllOtherSessionsFromFeature(mfaFeature)?.(sessionCallbacks.sessionRevokeAllOthers)` wires "enable/disable/regenerate signs out every other session."
 
 ## What to copy into your app
@@ -43,6 +43,7 @@ const server = buildServer({
     membershipQuery: "tenant:query:memberships",
     loginHandler: "auth-email-password:[REDACTED:API key param]",
     mfaVerifyHandler: AuthMfaHandlers.verify,
+    switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
     sessionCreator: sessionCallbacks.sessionCreator,
     sessionRevoker: sessionCallbacks.sessionRevoker,
     sessionChecker: sessionCallbacks.sessionChecker,

@@ -21,6 +21,7 @@ import { createJwtHelper } from "../jwt.js";
 
 const JWT_SECRET = "test-secret-at-least-32-bytes-long-for-hs256";
 const MFA_VERIFY_QN = "auth-mfa:write:verify";
+const SWITCH_TENANT_GATE_QN = "auth-email-password:write:switch-tenant-mfa-gate";
 
 function failingDispatcher(): Dispatcher {
   return {
@@ -56,6 +57,7 @@ async function buildApp(overrides: Partial<AuthRoutesConfig> = {}): Promise<Hono
   const config: AuthRoutesConfig = {
     membershipQuery: "tenant:query:memberships",
     mfaVerifyHandler: MFA_VERIFY_QN,
+    switchTenantMfaGateHandler: SWITCH_TENANT_GATE_QN,
     mfaVerifyRateLimit: createInMemoryLoginRateLimiter(2, 60_000),
     ...overrides,
   };

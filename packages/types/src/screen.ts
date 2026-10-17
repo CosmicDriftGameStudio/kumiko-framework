@@ -952,6 +952,9 @@ export type DashboardPanelEmptyState = {
 // "default" | "positive" | "ok" | "warn" | "negative".
 // `visibleWhen` only on a top-level stat; the boot validator rejects it on a
 // stat-group child (gate the whole group instead).
+export const DASHBOARD_STAT_TONES = ["default", "positive", "ok", "warn", "negative"] as const;
+export type DashboardStatTone = (typeof DASHBOARD_STAT_TONES)[number];
+
 export type DashboardStatPanel = DashboardPanelQueryOptions &
   DashboardPanelGate & {
     readonly kind: "stat";
@@ -966,7 +969,7 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     /** Formats a numeric value as currency (minor units); ignored for string values. The sparkline is not formatted. */
     readonly valueFormat?: DashboardValueFormat;
     /** Fixed tone when `toneField` is unset or yields none; not applied while the value is 0. */
-    readonly tone?: "default" | "positive" | "ok" | "warn" | "negative";
+    readonly tone?: DashboardStatTone;
     /** Record field holding `{ atMs, value | null }[]` (MetricResult.points),
      *  drawn as a sparkline next to the value. */
     readonly sparklineField?: string;

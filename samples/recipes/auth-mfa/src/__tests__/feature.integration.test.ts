@@ -77,6 +77,7 @@ beforeAll(async () => {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       mfaVerifyHandler: AuthMfaHandlers.verify,
+      switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
     },
   });
 

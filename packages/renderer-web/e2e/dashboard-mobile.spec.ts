@@ -207,7 +207,7 @@ test.describe("dashboard at 390px (mobile)", () => {
     ).toBeVisible();
   });
 
-  test("marker pins never overlap each other", async ({ page }) => {
+  test("marker pins of this fixture never overlap each other", async ({ page }) => {
     const pins = page.getByTestId("chart-marker-pin");
     const boxes = [];
     for (const pin of await pins.all()) boxes.push(await pin.boundingBox());

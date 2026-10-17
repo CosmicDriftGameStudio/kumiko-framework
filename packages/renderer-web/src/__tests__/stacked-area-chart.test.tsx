@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { StackedAreaChart } from "../widgets/charts.js";
+import { assignPinRows, StackedAreaChart } from "../widgets/charts.js";
 import { fireEvent, render, screen, within } from "./test-utils.js";
 
 const jan = (year: number): number => Date.UTC(year, 0, 1);
@@ -93,6 +93,31 @@ describe("StackedAreaChart", () => {
     expect(screen.getByTestId("chart-legend-marker-Payoff-red")).toBeTruthy();
   });
 
+  test("markerLabels with the default list legend hides the numbered list from @2xl too", () => {
+    renderChart({
+      markerLabels: true,
+      markers: [{ atMs: jan(2028), label: "Loan A paid" }],
+    });
+    expect(screen.getByTestId("chart-marker-item").parentElement?.className).toContain(
+      "@2xl:hidden",
+    );
+  });
+
+  test("without markerLabels the list legend stays visible", () => {
+    renderChart({ markers: [{ atMs: jan(2028), label: "Loan A paid" }] });
+    expect(screen.getByTestId("chart-marker-item").parentElement?.className).not.toContain(
+      "@2xl:hidden",
+    );
+  });
+
+  test("a line sharing its key with a series gets its own legend entry", () => {
+    renderChart({
+      lines: [{ key: "a", label: "Plan line", points: points([900, 800, 700, 600, 500]) }],
+    });
+    expect(screen.getByTestId("chart-legend-a").textContent).toContain("Plan");
+    expect(screen.getByTestId("chart-legend-line-a").textContent).toBe("Plan line");
+  });
+
   describe("tooltip", () => {
     function plotOverlay(): HTMLElement {
       const overlay = screen.getByTestId("chart-tooltip-overlay");
@@ -146,6 +171,34 @@ describe("StackedAreaChart", () => {
       expect(screen.getByTestId("chart-tooltip").textContent).toContain("d2030");
     });
 
+    test("a shifted window keeps the card on the same date, and closes it once that date is gone", () => {
+      const view = renderChart();
+      tap(plotOverlay(), 200);
+      expect(screen.getByTestId("chart-tooltip").textContent).toContain("d2028");
+      const rerenderFrom = (firstYear: number): void =>
+        view.rerender(
+          <StackedAreaChart
+            series={[
+              {
+                key: "a",
+                label: "Plan",
+                points: [1, 2, 3, 4, 5].map((value, i) => ({ atMs: jan(firstYear + i), value })),
+              },
+            ]}
+            windowStartMs={jan(firstYear)}
+            windowEndMs={jan(firstYear + 4)}
+            ariaLabel="Plan chart"
+            todayLabel="Today"
+            formatBucketLabel={(atMs) => `d${new Date(atMs).getUTCFullYear()}`}
+            testId="chart"
+          />,
+        );
+      rerenderFrom(2027);
+      expect(screen.getByTestId("chart-tooltip").textContent).toContain("d2028");
+      rerenderFrom(2029);
+      expect(screen.queryByTestId("chart-tooltip")).toBeNull();
+    });
+
     test("a swipe over the plot does not open the card", () => {
       renderChart();
       const overlay = plotOverlay();
@@ -195,6 +248,12 @@ describe("StackedAreaChart", () => {
     });
     expect(screen.getAllByTestId("stacked-area-single-point").length).toBeGreaterThan(0);
     expect(screen.queryByTestId("chart-band-edge-a")).toBeNull();
+  });
+
+  test("assignPinRows puts pins closer than the minimum gap on separate rows and falls back to the last row past three", () => {
+    expect(assignPinRows([0.5, 0.52, 0.9])).toEqual([0, 1, 0]);
+    // Documents the limit: a fourth close pin shares the last row and overlaps there.
+    expect(assignPinRows([0.5, 0.51, 0.52, 0.53])).toEqual([0, 1, 2, 2]);
   });
 
   test("close marker pins stagger into separate rows, distant ones share row 0", () => {

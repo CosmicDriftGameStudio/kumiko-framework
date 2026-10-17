@@ -18,7 +18,15 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { WebDashboardBody } from "../app/dashboard-body.js";
 import { useBrowserNavApi } from "../app/nav.js";
-import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.js";
+import {
+  act,
+  createMockDispatcher,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "./test-utils.js";
 
 type Handler = (payload: Readonly<Record<string, unknown>>) => unknown | Promise<unknown>;
 
@@ -1080,6 +1088,20 @@ describe("dashboard panel gates (visibleWhen)", () => {
     }
   });
 
+  test("retrying a failed gate query reveals the gated panel", async () => {
+    let gateCalls = 0;
+    renderDashboard(gatedScreen, {
+      ...panelHandlers,
+      "demo:query:portfolio:state": () => {
+        gateCalls += 1;
+        return gateCalls === 1 ? failure : ok({ state: "filled" });
+      },
+    });
+    const cell = await waitFor(() => screen.getByTestId("dashboard-panel-events"));
+    await userEvent.click(within(cell).getByRole("button"));
+    await waitFor(() => expect(screen.getByText("event-row")).toBeTruthy());
+  });
+
   test("a failing gate query shows the error in the panel's cell instead of dropping it", async () => {
     renderDashboard(gatedScreen, {
       ...panelHandlers,
@@ -1268,7 +1290,7 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
     await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
     expect(screen.getByTestId("chart-line-rent").getAttribute("stroke")).toBe("var(--color-rent)");
     expect(screen.getByTestId("chart-line-rent-min").getAttribute("stroke-dasharray")).toBe("6 4");
-    expect(screen.getByTestId("chart-legend-rent").textContent).toBe("demo:rent");
+    expect(screen.getByTestId("chart-legend-line-rent").textContent).toBe("demo:rent");
     expect(screen.getByTestId("chart-legend-remaining").textContent).toBe("demo:remaining");
     const guides = screen.getAllByTestId("chart-marker-guide");
     expect(guides.map((g) => g.getAttribute("stroke"))).toEqual([
@@ -1301,6 +1323,74 @@ describe("dashboard stacked-area lines, marker kinds and ranges", () => {
     expect(screen.getByTestId("chart-line-rent").getAttribute("d")?.match(/L /g)).toHaveLength(
       MONTH_COUNT - 1,
     );
+  });
+
+  test("a filter change that adds a gate query keeps the range selection of the chart", async () => {
+    window.history.replaceState(null, "", "/charts");
+    const gate = { query: "demo:query:portfolio:state", field: "state", eq: "filled" } as const;
+    const base = chartScreen("stacked-area", {
+      ranges: {
+        options: [
+          { value: "1y", label: "demo:range-1y", months: 12 },
+          { value: "max", label: "demo:range-max" },
+        ],
+        default: "1y",
+      },
+    });
+    const screenWithGates: DashboardScreenDefinition = {
+      ...base,
+      filter: {
+        id: "region",
+        label: "demo:filter-region",
+        kind: "select",
+        options: [{ value: "eu", label: "demo:region-eu" }],
+      },
+      panels: [
+        ...base.panels,
+        {
+          kind: "stat",
+          id: "scoped",
+          label: "demo:scoped",
+          query: "demo:query:kpi:scoped",
+          valueField: "value",
+          visibleWhen: gate,
+        },
+        {
+          kind: "stat",
+          id: "global",
+          label: "demo:global",
+          query: "demo:query:kpi:global",
+          valueField: "value",
+          ignoreScreenFilter: true,
+          visibleWhen: gate,
+        },
+      ],
+    };
+    const { calls } = renderDashboard(screenWithGates, {
+      "demo:query:metric:chart": () => ok(planPayload),
+      "demo:query:portfolio:state": () => ok({ state: "filled" }),
+      "demo:query:kpi:scoped": () => ok({ value: "scoped-value" }),
+      "demo:query:kpi:global": () => ok({ value: "global-value" }),
+    });
+    await waitFor(() => expect(screen.getByTestId("chart-line-rent")).toBeTruthy());
+    const rangeSwitch = screen.getByTestId("dashboard-chart-range-main");
+    const max = within(rangeSwitch).getByRole("button", { name: "demo:range-max" });
+    await userEvent.click(max);
+    await waitFor(() => expect(max.getAttribute("aria-pressed")).toBe("true"));
+
+    act(() => {
+      window.history.pushState(null, "", "/charts?region=eu");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await waitFor(() =>
+      expect(calls.some((c) => c.type === gate.query && c.payload["region"] === "eu")).toBe(true),
+    );
+    await waitFor(() => expect(screen.getByText("scoped-value")).toBeTruthy());
+    expect(
+      within(screen.getByTestId("dashboard-chart-range-main"))
+        .getByRole("button", { name: "demo:range-max" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
   });
 
   test("the brush scrubs the window by keyboard and deselects the header range switch", async () => {

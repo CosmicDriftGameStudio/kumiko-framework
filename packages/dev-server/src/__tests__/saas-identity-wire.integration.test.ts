@@ -158,6 +158,7 @@ beforeAll(async () => {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       mfaVerifyHandler: AuthMfaHandlers.verify,
+      switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
       loginErrorStatusMap: {
         [AuthErrors.invalidCredentials]: 401,
         [AuthErrors.noMembership]: 403,

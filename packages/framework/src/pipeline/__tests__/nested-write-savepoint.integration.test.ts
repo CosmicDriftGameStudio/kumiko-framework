@@ -60,6 +60,7 @@ const admin = TestUsers.admin;
 const afterCommitLog: string[] = [];
 let lastInnerResult: WriteResult | undefined;
 let lastHookWriteResult: WriteResult | undefined;
+let lastParallelResults: { rejected: WriteResult; kept: WriteResult } | undefined;
 
 const nestedFeature = defineFeature("nws", (r) => {
   const inner = r.entity("inner", innerEntity);
@@ -107,6 +108,21 @@ const nestedFeature = defineFeature("nws", (r) => {
       });
 
       return crud.create({ label: `${event.payload.label}-after` }, event.user, ctx.db);
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // Both writes start in the same tick on the one transaction connection.
+  r.writeHandler(
+    "outer:parallel",
+    z.object({ label: z.string() }),
+    async (event, ctx) => {
+      const [rejected, kept] = await Promise.all([
+        ctx.write("nws:write:inner:create", { label: `${event.payload.label}-${REJECTED_MARKER}` }),
+        ctx.write("nws:write:inner:create", { label: `${event.payload.label}-kept` }),
+      ]);
+      lastParallelResults = { rejected, kept };
+      return { isSuccess: true as const, data: {} };
     },
     { access: { roles: ["Admin"] } },
   );
@@ -178,6 +194,7 @@ beforeEach(async () => {
   afterCommitLog.length = 0;
   lastInnerResult = undefined;
   lastHookWriteResult = undefined;
+  lastParallelResults = undefined;
   await stack.redis.flushNamespace();
 });
 
@@ -246,5 +263,17 @@ describe("nested ctx.write failure is confined to a savepoint", () => {
     expect(await eventsMentioning("t4-mid")).toHaveLength(1);
     expect(await labelsOf(outerTable, "t4-outer")).toEqual(["t4-outer", "t4-outer-after"]);
     expect(afterCommitLog).toEqual(["mid:t4-mid"]);
+  });
+
+  test("parallel nested writes are serialized: the failing one cannot discard the other's rows", async () => {
+    const res = await stack.http.write("nws:write:outer:parallel", { label: "t5" }, admin);
+    expect((await res.json()).isSuccess).toBe(true);
+
+    expect(lastParallelResults?.rejected.isSuccess).toBe(false);
+    expect(lastParallelResults?.kept.isSuccess).toBe(true);
+    expect(await labelsOf(innerTable, "t5-")).toEqual(["t5-kept"]);
+    expect(await eventsMentioning("t5-kept")).toHaveLength(1);
+    expect(await eventsMentioning("t5-rejected")).toHaveLength(0);
+    expect(afterCommitLog).toEqual(["inner:t5-kept"]);
   });
 });

@@ -381,6 +381,33 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
     expect(info.hasProbe).toBe(false);
   });
 
+  test("a foreign-type event still occupies its version: the handle pins the stream version, not its own last event", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "judy" },
+      admin,
+    );
+    await append(stack.db, {
+      aggregateId: created.id,
+      aggregateType: "reservation",
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
+      type: "reservation:event:created",
+      payload: {},
+      metadata: { userId: String(admin.id) },
+    });
+
+    const result = await stack.http.writeOk<{ version: number }>(
+      "f4w:write:cart:add-item",
+      { id: created.id, sku: "fig", qty: 1 },
+      admin,
+    );
+
+    expect(result.version).toBe(3);
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
+    expect(events.map((e) => e.version)).toEqual([1, 2, 3]);
+  });
+
   test("#2979: hasEvent reflects the fetch-time snapshot for the handle's own aggregateType", async () => {
     const created = await stack.http.writeOk<{ id: string }>(
       "f4w:write:cart:create",

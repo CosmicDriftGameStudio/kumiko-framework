@@ -289,6 +289,36 @@ export async function loadAggregate(
   return rows.map(toStoredEvent);
 }
 
+// Events and the stream's latest version from ONE read, so both come from the same
+// snapshot: a commit landing between two separate statements would leave the caller
+// pinning a version its loaded events never covered. The aggregateType filter is applied
+// after the read because a foreign type sharing the aggregateId still occupies versions
+// the next append has to stack on. Archived streams load empty but keep their real version.
+export async function loadAggregateForWriting(
+  db: DbRunner,
+  aggregateId: string,
+  tenantId: TenantId,
+  options: { readonly aggregateType: string },
+): Promise<{ readonly events: readonly StoredEvent[]; readonly streamVersion: number }> {
+  if (options.aggregateType === "") {
+    throw new Error("loadAggregateForWriting: aggregateType must be a non-empty string");
+  }
+  if (await isStreamArchived(db, tenantId, aggregateId)) {
+    return { events: [], streamVersion: await getStreamVersion(db, aggregateId, tenantId) };
+  }
+  const rows = await selectMany<SelectedEvent>(
+    db,
+    eventsTable,
+    { aggregateId, tenantId },
+    { orderBy: { col: "version", direction: "asc" } },
+  );
+  const all = rows.map(toStoredEvent);
+  return {
+    events: all.filter((e) => e.aggregateType === options.aggregateType),
+    streamVersion: all.at(-1)?.version ?? 0,
+  };
+}
+
 // Load events up to a point in time. Used for asOf queries that reconstruct
 // historical state. Includes events whose created_at is <= asOf. Same
 // archive semantics as loadAggregate.
