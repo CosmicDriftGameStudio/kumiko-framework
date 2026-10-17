@@ -14,6 +14,7 @@ import type {
   TemplateDiff,
   TenantOverrideCounts,
 } from "./layout-types.js";
+import { draftBesideActiveSentence } from "./status-label.js";
 
 const DIFF_MARK: Readonly<Record<TemplateDiff["blocks"][number]["change"], string>> = {
   same: " ",
@@ -167,6 +168,8 @@ export function OriginBar({
   const [resetOpen, setResetOpen] = useState(false);
   const resetToSystem = useMutation(TemplateResolverHandlers.resetToSystem);
   const { tenant, system } = source;
+  const besideActive =
+    isSystemAdmin || tenant === null ? null : draftBesideActiveSentence(t, tenant);
   const canDiff = tenant !== null && system?.contentFormat === "html";
   const canReset = tenant !== null && system !== null && !isSystemAdmin;
 
@@ -220,6 +223,7 @@ export function OriginBar({
       }
     >
       {originText(t, { isSystemAdmin, source, kind, userCount, overrides })}
+      {besideActive !== null && ` ${besideActive}`}
     </EditorInfoBar>
   );
 }

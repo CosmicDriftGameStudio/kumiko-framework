@@ -135,7 +135,6 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   };
 
   const dirty = isDraftDirty(draft, baseline);
-  const isActiveTenantRow = row?.scope === "tenant" && row.status === "active";
   const busy = persistence.busy;
   const canSave = !locked && !busy && validation?.canSave === true && (dirty || creating);
   const canPublish =
@@ -148,10 +147,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
   const saveAndReload = async (publish: boolean): Promise<void> => {
     if (await persist(publish)) await onReload();
   };
-  const requestSave = (): void => {
-    if (isActiveTenantRow) setDialog({ kind: "activeSave" });
-    else void saveAndReload(false);
-  };
+  const saveDraft = (): void => void saveAndReload(false);
 
   const perform = (target: LeaveTarget): void => props.onLocaleChange(target.locale);
   const leave = (target: LeaveTarget): void => {
@@ -237,12 +233,8 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
     <EditorFrame testId="document-designer-mail-editor">
       <EditorHeader
         title={title}
-        stored={
-          row === null
-            ? null
-            : { status: row.status, version: row.version, active: row.active ?? null }
-        }
-        actions={{ busy, canSave, canPublish, onSave: requestSave, onPublish: publish }}
+        stored={row === null ? null : { status: row.status, version: row.version }}
+        actions={{ busy, canSave, canPublish, onSave: saveDraft, onPublish: publish }}
       >
         <EditorModeSwitch testIdPrefix="mail" mode={mode} onMode={setMode} />
       </EditorHeader>
@@ -371,7 +363,7 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
           canSave={canSave}
           canPublish={canPublish}
           onDiscard={() => setDialog({ kind: "discard" })}
-          onSave={requestSave}
+          onSave={saveDraft}
           onPublish={publish}
         />
       )}
@@ -406,9 +398,6 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
         onDiscard={() => {
           reset();
           setDialog({ kind: "none" });
-        }}
-        onSaveDraft={async () => {
-          await saveAndReload(false);
         }}
         onRemove={removeResource}
         onLeaveSave={async (target) => {

@@ -47,12 +47,14 @@ test("tenant admin sees the own mail template and edits the mail layout without 
 
   // The draft sits beside the served layout instead of replacing it.
   const draftBadge = page.getByTestId("document-designer-editor-status");
-  const activeBadge = page.getByTestId("document-designer-editor-active-status");
   await expect(draftBadge).toHaveText(/^Entwurf v\d+$/);
-  await expect(activeBadge).toHaveText(/^Aktiv v\d+$/);
   const draftLabel = (await draftBadge.textContent()) ?? "";
-  const activeLabel = (await activeBadge.textContent()) ?? "";
-  expect(draftLabel.replace("Entwurf", "")).not.toBe(activeLabel.replace("Aktiv", ""));
+  const draftVersion = draftLabel.replace("Entwurf v", "");
+  const activeVersion = String(Number(draftVersion) - 1);
+  await expect(page.getByTestId("document-designer-origin-bar")).toContainText(
+    `Verschickt wird Version ${activeVersion}, Ihr Entwurf (Version ${draftVersion}) ist noch nicht veröffentlicht.`,
+  );
+  const activeLabel = `Aktiv v${activeVersion}`;
 
   await page.goto("/templates");
   const savedLayoutRow = await rowOf(page, "Mail-Layout");

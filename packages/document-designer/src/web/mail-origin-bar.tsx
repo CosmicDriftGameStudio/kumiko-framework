@@ -11,6 +11,7 @@ import { originOf } from "./editor-header.js";
 import { EditorInfoBar } from "./editor-shell.js";
 import type { TemplateRowView } from "./mail-types.js";
 import { DiffDrawer } from "./origin-bar.js";
+import { draftBesideActiveSentence } from "./status-label.js";
 
 type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
@@ -21,6 +22,8 @@ export function languageName(t: Translate, locale: string): string {
 }
 
 function statusSentence(t: Translate, row: TemplateRowView): string {
+  const besideActive = draftBesideActiveSentence(t, row);
+  if (besideActive !== null) return besideActive;
   if (row.status === "active") {
     return t("documentDesigner.mail.origin.activeSince", {
       when: row.modifiedAt === null ? "–" : formatWhen(row.modifiedAt),

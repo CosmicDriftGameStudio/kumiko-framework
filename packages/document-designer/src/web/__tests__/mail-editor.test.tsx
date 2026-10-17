@@ -343,15 +343,20 @@ describe("MailEditor", () => {
     });
   });
 
-  test("saving an active row asks before it goes back to draft", async () => {
+  test("saving an active row writes a draft without asking", async () => {
     const calls: Call[] = [];
     renderEditor(fakeDispatcher("active", calls));
     await makeDirty();
     const save = screen.getByTestId("document-designer-save");
     await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
     fireEvent.click(save);
-    await screen.findByText(/takes the active customisation offline/);
-    expect(calls.some((call) => call.type === "template-resolver:write:upsert-tenant")).toBe(false);
+    await waitFor(() =>
+      expect(calls.some((call) => call.type === "template-resolver:write:upsert-tenant")).toBe(
+        true,
+      ),
+    );
+    const upsert = calls.find((call) => call.type === "template-resolver:write:upsert-tenant");
+    expect(upsert?.payload).toMatchObject({ status: "draft" });
   });
 
   test("switching the language with unsaved changes asks first", async () => {

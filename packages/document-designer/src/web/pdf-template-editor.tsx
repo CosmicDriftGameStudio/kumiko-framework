@@ -34,6 +34,7 @@ import { PdfResourceSection, visibleSystemPlaceholders } from "./pdf-left-rail.j
 import { EMPTY_PDF_META, type PdfMetaDraft, parsePdfMeta, serializePdfMeta } from "./pdf-meta.js";
 import { PdfPreview } from "./pdf-preview.js";
 import { SettingsPanel } from "./settings-panel.js";
+import { draftBesideActiveSentence } from "./status-label.js";
 import { localesOf, parseJsonObject, pickRow, resolveLocale } from "./template-rows.js";
 import {
   DEFAULT_LAYOUT_SLUG,
@@ -418,13 +419,14 @@ export function PdfTemplateEditor({
       : systemVersion === null
         ? t("documentDesigner.mail.origin.tenantOnly")
         : t("documentDesigner.mail.origin.overrides", { version: systemVersion });
+  const besideActiveSentence = draftBesideActiveSentence(t, detail);
   const pdfUnavailableNote = !pdfAvailable && statusQuery.loading === false;
 
   return (
     <EditorFrame testId="pdf-template-editor">
       <EditorHeader
         title={title}
-        stored={{ status: detail.status, version: detail.version, active: detail.active ?? null }}
+        stored={{ status: detail.status, version: detail.version }}
         actions={{
           busy: busy === "save",
           canSave: busy === null && validation?.canSave !== false,
@@ -483,6 +485,7 @@ export function PdfTemplateEditor({
         }
       >
         {originText}
+        {besideActiveSentence !== null && ` ${besideActiveSentence}`}
         {pdfUnavailableNote && (
           <>
             {" "}

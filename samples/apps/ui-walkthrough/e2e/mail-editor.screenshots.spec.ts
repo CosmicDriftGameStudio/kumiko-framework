@@ -66,3 +66,33 @@ test("mail-editor-edit-en-missing", async ({ page }) => {
   await expectTitleFits(page);
   await shot(page, "mail-editor-edit-en-missing");
 });
+
+// Saving an edit of the served "Zahlungserinnerung" leaves it active and opens a newer draft beside it.
+test("mail-editor-draft-beside-active", async ({ page }) => {
+  await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  await page.goto("/templates");
+  const row = page.getByRole("row").filter({ hasText: "Zahlungserinnerung" });
+  await expect(row).toHaveCount(1);
+  await row.getByRole("button", { name: "Bearbeiten" }).click();
+  await expect(page.getByTestId("document-designer-editor-status")).toContainText("Aktiv");
+
+  const subject = page.locator("#mail-subject[contenteditable='true']");
+  await expect(subject).toBeVisible();
+  await subject.click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" (freundlicher)");
+  await page.getByTestId("document-designer-save").click();
+  await expect(page.getByTestId("document-designer-editor-status")).toContainText("Entwurf");
+  await expect(page.getByTestId("document-designer-editor-active-status")).toHaveCount(0);
+  await expect(page.getByTestId("mail-origin-bar")).toContainText(
+    "Verschickt wird Version 1, Ihr Entwurf (Version 2) ist noch nicht veröffentlicht.",
+  );
+  await expectTitleFits(page);
+  await shot(page, "mail-editor-draft-beside-active");
+
+  await page.goto("/templates");
+  await expect(
+    page.getByRole("row").filter({ hasText: "Zahlungserinnerung" }).getByText("Entwurf"),
+  ).toBeVisible();
+  await shot(page, "document-designer-overview-draft-beside-active");
+});

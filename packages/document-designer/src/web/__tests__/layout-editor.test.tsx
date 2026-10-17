@@ -167,8 +167,9 @@ describe("LayoutEditor", () => {
     );
     await screen.findByTestId("document-designer-paper");
     expect(screen.getByTestId("document-designer-editor-status").textContent).toBe("Draft v5");
-    expect(screen.getByTestId("document-designer-editor-active-status").textContent).toBe(
-      "Active v4",
+    expect(screen.queryByTestId("document-designer-editor-active-status")).toBeNull();
+    expect(screen.getByTestId("document-designer-origin-bar").textContent).toContain(
+      "Version 4 is sent, your draft (version 5) is not published yet.",
     );
   });
 

@@ -7,7 +7,6 @@ export type LeaveTarget = { readonly kind: "locale"; readonly locale: string };
 export type ConfirmDialog =
   | { readonly kind: "none" }
   | { readonly kind: "discard" }
-  | { readonly kind: "activeSave" }
   | { readonly kind: "remove"; readonly key: string }
   | { readonly kind: "leave"; readonly target: LeaveTarget };
 
@@ -15,7 +14,6 @@ export function MailConfirmDialogs({
   dialog,
   onClose,
   onDiscard,
-  onSaveDraft,
   onRemove,
   onLeaveSave,
   onLeaveDiscard,
@@ -23,7 +21,6 @@ export function MailConfirmDialogs({
   readonly dialog: ConfirmDialog;
   readonly onClose: () => void;
   readonly onDiscard: () => void;
-  readonly onSaveDraft: () => Promise<void>;
   readonly onRemove: (key: string) => Promise<void>;
   readonly onLeaveSave: (target: LeaveTarget) => Promise<void>;
   readonly onLeaveDiscard: (target: LeaveTarget) => void;
@@ -44,15 +41,6 @@ export function MailConfirmDialogs({
         variant="danger"
         testId="mail-discard-dialog"
         onConfirm={onDiscard}
-      />
-      <Dialog
-        open={dialog.kind === "activeSave"}
-        onOpenChange={closeUnless}
-        title={t("documentDesigner.mail.activeSave.title")}
-        description={t("documentDesigner.mail.activeSave.description")}
-        confirmLabel={t("documentDesigner.mail.activeSave.confirm")}
-        testId="mail-active-save-dialog"
-        onConfirm={onSaveDraft}
       />
       <Dialog
         open={dialog.kind === "remove"}

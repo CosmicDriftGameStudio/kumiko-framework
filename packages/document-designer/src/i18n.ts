@@ -636,17 +636,9 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
     en: "Discard",
     de: "Verwerfen",
   },
-  "documentDesigner.mail.activeSave.title": {
-    en: "Save as draft?",
-    de: "Als Entwurf speichern?",
-  },
-  "documentDesigner.mail.activeSave.description": {
-    en: "Saving as a draft takes the active customisation offline until you publish. Publish instead?",
-    de: "Speichern als Entwurf nimmt die aktive Anpassung offline, bis Sie veröffentlichen. Stattdessen veröffentlichen?",
-  },
-  "documentDesigner.mail.activeSave.confirm": {
-    en: "Save as draft",
-    de: "Als Entwurf speichern",
+  "documentDesigner.origin.draftBesideActive": {
+    en: "Version {active} is sent, your draft (version {draft}) is not published yet.",
+    de: "Verschickt wird Version {active}, Ihr Entwurf (Version {draft}) ist noch nicht veröffentlicht.",
   },
   "documentDesigner.mail.leave.title": {
     en: "Unsaved changes",
