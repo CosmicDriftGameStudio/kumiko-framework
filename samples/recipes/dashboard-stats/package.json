@@ -1,0 +1,8 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-dashboard-stats",
+  "description": "Key figures on a dashboard: stat panels backed by one counting query.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}
