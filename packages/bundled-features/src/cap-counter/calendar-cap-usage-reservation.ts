@@ -144,6 +144,7 @@ export function calendarCapReservationHandle(
       );
     },
     async release() {
+      // skip: release is idempotent, a second call has nothing left to give back
       if (released) return;
       await releaseCapReservation(ctx, reservationId, outsideTransaction);
       released = true;

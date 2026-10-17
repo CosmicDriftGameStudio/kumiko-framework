@@ -1,7 +1,7 @@
 // calendarCapReservationHandle over real HTTP: a handler reserves, later requests consume per unit.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEntityExecutor,
   defineFeature,

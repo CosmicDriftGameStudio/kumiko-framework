@@ -77,7 +77,12 @@ let pastIso: string;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createDataRetentionFeature(), c9Feature] });
-  for (const e of [tenantRetentionOverrideEntity, recordOwnedEntity, userOwnedEntity, selfFallbackEntity]) {
+  for (const e of [
+    tenantRetentionOverrideEntity,
+    recordOwnedEntity,
+    userOwnedEntity,
+    selfFallbackEntity,
+  ]) {
     await unsafeCreateEntityTable(stack.db, e);
   }
   now = getTemporal().Now.instant();
