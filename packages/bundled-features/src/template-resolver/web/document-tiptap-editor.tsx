@@ -583,7 +583,7 @@ export default function DocumentTiptapEditor({
   const activeState = useEditorState({
     editor,
     selector: ({ editor: e }) =>
-      e === null
+      e === null || e.isDestroyed
         ? null
         : {
             blockStyle: e.isActive("heading", { level: 1 })
@@ -614,16 +614,19 @@ export default function DocumentTiptapEditor({
 
   // The entry loads asynchronously, so `value` arrives after useEditor read
   // its initial content; the guard keeps in-flight typing from being clobbered.
+  // When new labels rebuild the editor in the same commit, useEditor's effect
+  // has already destroyed the instance this closure holds (its schema is null,
+  // getHTML throws and unmounts the whole app); the rebuilt one reads `value`.
   // kumiko-lint-ignore no-raw-hooks DOM integration: syncs the controlled value into the imperative tiptap editor
   useEffect(() => {
-    if (editor && value !== editor.getHTML()) {
+    if (editor && !editor.isDestroyed && value !== editor.getHTML()) {
       editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
 
   // kumiko-lint-ignore no-raw-hooks DOM integration: tiptap exposes editability only imperatively via setEditable
   useEffect(() => {
-    editor?.setEditable(!readOnly);
+    if (editor && !editor.isDestroyed) editor.setEditable(!readOnly);
   }, [readOnly, editor]);
 
   // Read-only without chips: a textarea would insert {{name}} text and plaintext into a document body.

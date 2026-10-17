@@ -279,3 +279,50 @@ describe("DocumentTiptapEditor asynchronously loaded value", () => {
     expectCanonical(currentHtml());
   });
 });
+
+// Validation placeholders and the stored entry often arrive in the same render.
+// New labels rebuild the editor; the value sync must not touch the destroyed one.
+function EntryAndLabelsTogether(): ReactNode {
+  const [loaded, setLoaded] = useState<{
+    readonly value: string;
+    readonly labels: Readonly<Record<string, string>>;
+  }>({ value: "", labels: {} });
+  return (
+    <LocaleProvider
+      resolver={localeResolver}
+      fallbackBundles={[kumikoDefaultTranslations, defaultTranslations]}
+    >
+      <PrimitivesProvider value={defaultPrimitives}>
+        <DocumentTiptapEditor
+          id={CONTENT_EDITOR_ELEMENT_ID}
+          value={loaded.value}
+          onChange={() => {}}
+          variables={VARIABLES}
+          variableLabels={loaded.labels}
+          readOnly={false}
+        />
+        <button
+          type="button"
+          onClick={() =>
+            setLoaded({
+              value: "<p>Gespeicherter Footer</p>",
+              labels: { "recipient.name": "Empfänger" },
+            })
+          }
+        >
+          Load entry and labels
+        </button>
+      </PrimitivesProvider>
+    </LocaleProvider>
+  );
+}
+
+describe("DocumentTiptapEditor rebuilt by new labels", () => {
+  test("a value arriving together with new labels is shown in the rebuilt editor", async () => {
+    render(<EntryAndLabelsTogether />);
+    await screen.findByRole("button", { name: "Bold" });
+    fireEvent.click(screen.getByRole("button", { name: "Load entry and labels" }));
+    expect(await screen.findByText("Gespeicherter Footer")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Bold" })).toBeTruthy();
+  });
+});
