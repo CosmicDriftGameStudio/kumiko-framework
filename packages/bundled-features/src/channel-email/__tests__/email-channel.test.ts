@@ -358,7 +358,7 @@ describe("email channel attachments", () => {
     });
   });
 
-  test("a missing inline image is skipped, a missing file fails the send", async () => {
+  test("a missing inline image is skipped, a missing file ends the send as failed without sending", async () => {
     const transport = createInMemoryTransport();
     const readNothing = withReader(async () => null);
     await channelWith(transport).send(
@@ -368,9 +368,11 @@ describe("email channel attachments", () => {
       { ...rendered, attachments: [{ kind: "inline", cid: "logo", fileRefId: FILE_REF_ID }] },
     );
     expect(transport.sent[0]?.attachments).toBeUndefined();
+    const sentBefore = transport.sent.length;
     await expect(
       channelWith(transport).send("u@example.com", baseMessage, readNothing, rendered),
-    ).rejects.toThrow(/not found/);
+    ).resolves.toEqual({ status: "failed", error: "send_failed", address: "u@example.com" });
+    expect(transport.sent).toHaveLength(sentBefore);
   });
 
   test("refs without a channel context that can read files fail loudly", async () => {
