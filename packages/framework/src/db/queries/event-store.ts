@@ -6,7 +6,13 @@ import {
   isUniqueViolation,
 } from "../pg-error.js";
 import type { AnyDb } from "../query.js";
-import { asRawClient, runInNewTransaction, unsafeReadRetrying } from "../query.js";
+import {
+  asRawClient,
+  runInNewTransaction,
+  runnerCanBeginTransaction,
+  unsafeReadRetrying,
+} from "../query.js";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
 
 // Gap-finality (event-dispatcher pending_gaps) needs every holder of an
 // event id to already have a *real* xact id by the time it inserts — Postgres
@@ -21,15 +27,12 @@ export async function claimXactId(db: AnyDb): Promise<void> {
 // notify would be three commits and the claimed xact id would be released before
 // the insert's. A pool runner (has begin()) therefore gets one transaction around
 // the whole write; inside a caller's tx or savepoint the caller's tx already is
-// that unit. Bun.SQL's TransactionSQL extends SQL and still exposes begin(), so
-// only a runner without savepoint() counts as a pool.
+// that unit.
 export async function runAtomicEventWrite<T>(
   db: DbRunner,
   write: (runner: DbRunner) => Promise<T>,
 ): Promise<T> {
-  const raw = asRawClient(db);
-  const isPool = typeof raw.begin === "function" && typeof raw.savepoint !== "function";
-  if (!isPool) return write(db);
+  if (!runnerCanBeginTransaction(db)) return write(db);
   return runInNewTransaction(db, (tx) => write(tx));
 }
 
@@ -254,7 +257,7 @@ export async function selectStreamMaxVersions(
   const rows = await unsafeReadRetrying<{ id: string; v: number | null }>(
     db,
     `SELECT "aggregate_id" AS id, MAX("version") AS v FROM "kumiko_events" WHERE "tenant_id" = $1 AND "aggregate_id" = ANY($2::uuid[]) GROUP BY "aggregate_id"`,
-    [tenantId, [...aggregateIds]],
+    [tenantId, toPostgresArrayLiteral(aggregateIds)],
   );
   for (const row of rows) {
     if (row.v !== null) versions.set(row.id, row.v);
@@ -396,8 +399,8 @@ export async function selectPendingAndNewEventRows(
      ORDER BY "id" ASC LIMIT $4`,
     [
       cursor,
-      pendingRanges.map((r) => r.from.toString()),
-      pendingRanges.map((r) => r.to.toString()),
+      toPostgresArrayLiteral(pendingRanges.map((r) => r.from)),
+      toPostgresArrayLiteral(pendingRanges.map((r) => r.to)),
       batchSize,
     ],
   );
@@ -417,7 +420,10 @@ export async function selectSmallestVisibleIdInRanges(
      WHERE EXISTS (
        SELECT 1 FROM unnest($1::bigint[], $2::bigint[]) AS g(f, t) WHERE "id" BETWEEN g.f AND g.t
      )`,
-    [pendingRanges.map((r) => r.from.toString()), pendingRanges.map((r) => r.to.toString())],
+    [
+      toPostgresArrayLiteral(pendingRanges.map((r) => r.from)),
+      toPostgresArrayLiteral(pendingRanges.map((r) => r.to)),
+    ],
   );
   const id = rows[0]?.id;
   return id === null || id === undefined ? null : BigInt(id);

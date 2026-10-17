@@ -88,6 +88,7 @@ import type { DbRunner } from "../connection.js";
 import { resolveTableName } from "../entity-table-meta.js";
 import { tableExists } from "../schema-inspection.js";
 import { toSnakeCase } from "../table-builder.js";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
 
 const LIFECYCLE_VERBS = ["created", "updated", "deleted", "restored", "forgotten"] as const;
 
@@ -284,7 +285,11 @@ export async function backfillEventPiiEncryptionBatch(
            FROM "kumiko_events"
           WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" = ANY($3::bigint[])
           ORDER BY "id" ASC`,
-        [aggregateTypes, catalogTypes, [...options.eventIds]],
+        [
+          toPostgresArrayLiteral(aggregateTypes),
+          toPostgresArrayLiteral(catalogTypes),
+          toPostgresArrayLiteral([...options.eventIds]),
+        ],
       )
     : raw.unsafe<EventRow>(
         `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
@@ -292,7 +297,12 @@ export async function backfillEventPiiEncryptionBatch(
           WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" > $3::bigint
           ORDER BY "id" ASC
           LIMIT $4`,
-        [aggregateTypes, catalogTypes, String(options.afterEventId ?? 0), batchSize],
+        [
+          toPostgresArrayLiteral(aggregateTypes),
+          toPostgresArrayLiteral(catalogTypes),
+          String(options.afterEventId ?? 0),
+          batchSize,
+        ],
       ));
   const last = rows[rows.length - 1];
   if (last === undefined) return emptyBatch();
@@ -342,7 +352,7 @@ export async function backfillEventPiiEncryptionBatch(
   if (!options.dryRun && touchedAggregates.size > 0) {
     const deleted = await raw.unsafe(
       `DELETE FROM "kumiko_snapshots" WHERE "aggregate_id" = ANY($1::uuid[]) RETURNING "aggregate_id"`,
-      [[...touchedAggregates]],
+      [toPostgresArrayLiteral([...touchedAggregates])],
     );
     result.deletedSnapshots = deleted.length;
   }
@@ -395,7 +405,7 @@ export async function backfillEventPiiEncryptionBatch(
       if (await tableExists(db, `public.${tableName}`)) {
         const projectionRows = await raw.unsafe<Record<string, unknown>>(
           `SELECT * FROM ${quoteIdent(tableName)} WHERE "id" = ANY($1::uuid[])`,
-          [[...ids]],
+          [toPostgresArrayLiteral([...ids])],
         );
         for (const projectionRow of projectionRows) {
           const id = projectionRow["id"];

@@ -1,6 +1,7 @@
 import type { ConsumerStatuses, PendingGapEntry } from "../../pipeline/event-consumer-state.js";
 import type { AnyDb } from "../query.js";
 import { asRawClient } from "../query.js";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
 
 // Per-turn snapshot bounds for pending-gap finality (event-dispatcher.ts's
 // processConsumer). pg_current_snapshot() is this transaction's MVCC view;
@@ -160,7 +161,7 @@ export async function selectProvablyIdleConsumerPairs(
        AND NOT EXISTS (
          SELECT 1 FROM "kumiko_events" e WHERE e."id" > c."last_processed_event_id"
        )`,
-    [names, instanceIds, deadStatus],
+    [toPostgresArrayLiteral(names), toPostgresArrayLiteral(instanceIds), deadStatus],
   );
   return rows.map((r) => ({ name: r.name, instanceId: r.instance_id }));
 }

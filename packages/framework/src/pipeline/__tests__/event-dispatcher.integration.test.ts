@@ -13,7 +13,7 @@
 // production would take once ops wires CreateApp. No createEventDispatcher
 // calls in the test — only the registry round-trip.
 
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { integer, table as pgTable, uuid } from "../../db/dialect.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { selectMany } from "../../db/query.js";
@@ -101,6 +101,10 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
   await unsafePushTables(stack.db, { subscriberLog: subscriberLogTable });
   tdb = createTenantDb(stack.db, admin.tenantId);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
 });
 
 afterEach(async () => {

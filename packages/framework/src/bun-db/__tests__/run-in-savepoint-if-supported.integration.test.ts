@@ -43,4 +43,24 @@ describe("runInSavepointIfSupported — already-committed transaction", () => {
     expect(message).toContain("dbOutsideTransaction");
     expect(fnCalls).toBe(0);
   });
+
+  test("an error thrown inside fn is not remapped, even with a closed-connection code", async () => {
+    const db = await getDb();
+    const original = Object.assign(new Error("Connection closed"), {
+      code: "ERR_POSTGRES_CONNECTION_CLOSED",
+    });
+
+    let caught: unknown;
+    await transaction(db, async (tx) => {
+      try {
+        await runInSavepointIfSupported(tx, async () => {
+          throw original;
+        });
+      } catch (e) {
+        caught = e;
+      }
+    });
+
+    expect(caught).toBe(original);
+  });
 });

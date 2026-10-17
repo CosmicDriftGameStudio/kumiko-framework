@@ -19,6 +19,7 @@ import type { FeatureDefinition } from "../engine/types/index.js";
 import { toSnakeCase } from "../utils/case.js";
 import type { DbRunner } from "./connection.js";
 import { resolveTableName } from "./entity-table-meta.js";
+import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.js";
 import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.js";
 import { columnNamesOf, tableExists } from "./schema-inspection.js";
 
@@ -74,7 +75,7 @@ async function existingTableNames(
   const rows = await executeRawQueryRead<{ name: string }>(
     db,
     `SELECT t.name FROM unnest($1::text[]) AS t(name) WHERE to_regclass('public.' || quote_ident(t.name)) IS NOT NULL`,
-    [tableNames],
+    [toPostgresArrayLiteral(tableNames)],
   );
   return new Set(rows.map((r) => r.name));
 }

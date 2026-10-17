@@ -10,7 +10,7 @@
 //      it hits the events-table. Mismatches throw ValidationError.
 //   3. r.defineEvent returns `{ name: qualifiedName, schema }` — callers
 //      pass `def.name` to ctx.appendEvent without building the qn manually.
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { selectMany } from "../../db/query.js";
 import { defineFeature } from "../../engine/index.js";
@@ -124,6 +124,10 @@ beforeAll(async () => {
     systemHooks: [],
   });
   await unsafeCreateEntityTable(stack.db, sharedWidgetEntity, "widget");
+});
+
+afterAll(async () => {
+  await stack.cleanup();
 });
 
 afterEach(async () => {

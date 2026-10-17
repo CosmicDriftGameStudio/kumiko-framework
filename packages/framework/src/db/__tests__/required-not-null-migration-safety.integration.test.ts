@@ -20,6 +20,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient } from "../../db/query.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { extractPgError } from "../pg-error.js";
 
 let testDb: BunTestDb;
 
@@ -56,9 +57,7 @@ describe("ALTER TABLE SET NOT NULL — Daten-Sicherheits-Verhalten", () => {
       caught = err;
     }
     expect(caught).toBeDefined();
-    // Postgres-js throws PostgresError directly (no drizzle wrapper anymore).
-    const code = (caught as { code?: string } | undefined)?.code;
-    expect(code).toBe("23502");
+    expect(extractPgError(caught)?.code).toBe("23502");
   });
 
   test("SET NOT NULL läuft sauber durch wenn alle Zeilen Werte haben", async () => {

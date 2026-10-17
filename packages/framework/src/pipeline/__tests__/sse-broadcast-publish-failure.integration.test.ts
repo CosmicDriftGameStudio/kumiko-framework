@@ -38,6 +38,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await stack.cleanup();
   await testRedis.cleanup();
 });
 

@@ -11,6 +11,7 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   executeRawQuery,
+  toPostgresArrayLiteral,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
@@ -512,7 +513,7 @@ describe("tenant-handover :: claim", () => {
     const fileRows = await executeRawQuery<{ tenantId: string; entityId: string }>(
       stack.db,
       `SELECT tenant_id AS "tenantId", entity_id AS "entityId" FROM file_refs WHERE entity_id = ANY($1)`,
-      [[runId, photoId]],
+      [toPostgresArrayLiteral([runId, photoId])],
     );
     expect(fileRows).toHaveLength(2);
     for (const row of fileRows) expect(row.tenantId).toBe(dest.tenantId);

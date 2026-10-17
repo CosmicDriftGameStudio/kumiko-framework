@@ -6,6 +6,7 @@
 
 import type { AnyDb } from "../query.js";
 import { asRawClient } from "../query.js";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
 
 export type TransferEventRowsParams = {
   readonly sourceTenantId: string;
@@ -22,9 +23,14 @@ export async function transferEventRows(
 ): Promise<readonly string[]> {
   const rows = await asRawClient(db).unsafe<{ id: string }>(
     `UPDATE "kumiko_events" SET "tenant_id" = $1 ` +
-      `WHERE "tenant_id" = $2 AND "aggregate_type" = $3 AND "aggregate_id" = ANY($4) ` +
+      `WHERE "tenant_id" = $2 AND "aggregate_type" = $3 AND "aggregate_id" = ANY($4::uuid[]) ` +
       `RETURNING "aggregate_id" AS id`,
-    [params.destinationTenantId, params.sourceTenantId, params.aggregateType, params.aggregateIds],
+    [
+      params.destinationTenantId,
+      params.sourceTenantId,
+      params.aggregateType,
+      toPostgresArrayLiteral(params.aggregateIds),
+    ],
   );
   return [...new Set(rows.map((row) => row.id))];
 }
@@ -43,8 +49,8 @@ export async function deleteSnapshotsForAggregates(
   params: DeleteSnapshotsForAggregatesParams,
 ): Promise<void> {
   await asRawClient(db).unsafe(
-    `DELETE FROM "kumiko_snapshots" WHERE "tenant_id" = $1 AND "aggregate_id" = ANY($2)`,
-    [params.tenantId, params.aggregateIds],
+    `DELETE FROM "kumiko_snapshots" WHERE "tenant_id" = $1 AND "aggregate_id" = ANY($2::uuid[])`,
+    [params.tenantId, toPostgresArrayLiteral(params.aggregateIds)],
   );
 }
 
@@ -67,7 +73,12 @@ export async function transferArchivedStreamRows(
 ): Promise<void> {
   await asRawClient(db).unsafe(
     `UPDATE "kumiko_archived_streams" SET "tenant_id" = $1 ` +
-      `WHERE "tenant_id" = $2 AND "aggregate_type" = $3 AND "aggregate_id" = ANY($4)`,
-    [params.destinationTenantId, params.sourceTenantId, params.aggregateType, params.aggregateIds],
+      `WHERE "tenant_id" = $2 AND "aggregate_type" = $3 AND "aggregate_id" = ANY($4::uuid[])`,
+    [
+      params.destinationTenantId,
+      params.sourceTenantId,
+      params.aggregateType,
+      toPostgresArrayLiteral(params.aggregateIds),
+    ],
   );
 }

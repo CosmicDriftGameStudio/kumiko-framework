@@ -1,5 +1,8 @@
-import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import {
+  instantToTimestamptzParam,
+  unsafeReadRetrying,
+} from "@cosmicdrift/kumiko-framework/bun-db";
+import { type DbRunner, toPostgresArrayLiteral } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 
@@ -68,7 +71,13 @@ export async function filterOwnedFileRefs(
      WHERE "tenant_id" = $1 AND "inserted_by_id" = $2
        AND "storage_key" = ANY($3::text[]) AND "is_deleted" = false
        AND ($5::boolean OR "inserted_at" > $4::timestamptz)`,
-    [tenantId, ownerId, candidateKeys, draftInsertedAt.toString(), isCreateMode],
+    [
+      tenantId,
+      ownerId,
+      toPostgresArrayLiteral(candidateKeys),
+      instantToTimestamptzParam(draftInsertedAt),
+      isCreateMode,
+    ],
   );
   return rows.map((row) => ({ id: row.id, storageKey: row.storage_key }));
 }

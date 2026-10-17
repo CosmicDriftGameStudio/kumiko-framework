@@ -22,6 +22,7 @@ export {
   runInNewTransaction,
   runInSavepoint,
   runInSavepointIfSupported,
+  runnerCanBeginTransaction,
   type SelectOptions,
   selectMany,
   type TableInfo,

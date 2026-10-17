@@ -22,4 +22,16 @@ export type DbRunner = DbConnection | DbTx;
 export type DbRow = Record<string, unknown>;
 export type PgClient = ReturnType<typeof postgres>;
 
-export type PgListenClient = ReturnType<typeof postgres>;
+export type PgListenSubscription = {
+  unlisten(): Promise<void>;
+};
+
+// Driver-neutral LISTEN surface: postgres-js and Bun.SQL (>= 1.4.0) both
+// re-issue LISTEN after a dropped connection and call onlisten again then.
+export type PgListenClient = {
+  listen(
+    channel: string,
+    onnotify: (payload: string) => void,
+    onlisten?: () => void,
+  ): Promise<PgListenSubscription>;
+};
