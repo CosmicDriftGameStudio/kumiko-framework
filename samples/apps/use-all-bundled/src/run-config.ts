@@ -443,5 +443,5 @@ export const AUTH_COMPOSE_OPTIONS = {
   },
 } as const;
 
-/** schema-check: auth-self-registration is mounted when signup is set. */
+/** check-coverage: auth-self-registration is mounted when signup is set. */
 export const HAS_SIGNUP = true;

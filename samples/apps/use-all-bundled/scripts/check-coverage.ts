@@ -3,12 +3,15 @@
 //
 // C1 M5 coverage lint. Diffs bundled-features-Exports gegen den
 // FEATURE_IMPORT_REGISTRY in samples/apps/use-all-bundled/schema/
-// generate.ts. Fängt zwei Drifts:
+// generate.ts, und APP_FEATURES (src/run-config.ts) gegen denselben Registry.
+// Fängt vier Drifts:
 //
 //   1. Ein neuer feature-export ohne Aufnahme in use-all-bundled
 //      → unreferenced exports
 //   2. Ein removed feature-export der noch im Registry steht
 //      → stale registry
+//   3. Ein gemountetes Feature ohne Registry-Eintrag
+//   4. Ein Registry-Eintrag ohne Mount
 //
 // Held-back features für M0.1 (subscription-stripe, channel-email, …)
 // stehen in EXPECTED_HELD_BACK. Sobald sie mit stub-options gemountet
@@ -20,6 +23,8 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { APP_FEATURES, HAS_SIGNUP } from "../src/run-config";
 
 const ROOT = resolve(import.meta.dir, "..");
 const FRAMEWORK_ROOT = resolve(ROOT, "..", "..", "..");
@@ -43,7 +48,7 @@ const EXPECTED_HELD_BACK = new Set([
 ]);
 
 // Registry-only: mounted features that are NOT top-level package exports
-// (companion features living under another export path). schema-check still
+// (companion features living under another export path). check-coverage still
 // needs them in FEATURE_IMPORT_REGISTRY; coverage must not flag them stale.
 const EXPECTED_REGISTRY_ONLY = new Set([
   "auth-self-registration", // from ./auth-email-password, auto-mounted with signup (#1521)
@@ -187,10 +192,46 @@ if (staleHeldBack.length > 0) {
   ok = false;
 }
 
+// Mount-vs-registry: every feature the app mounts needs a registry entry (else
+// schema.generated misses its tables), every registry entry needs a mount (else
+// dead schema mapping). The auth-mode features composeFeatures prepends are
+// derived from composeFeatures itself; the app mounts auth, and
+// auth-self-registration comes in only with signup.
+const mounted = new Set<string>(APP_FEATURES.map((feature) => feature.name));
+for (const feature of composeFeatures([], { includeBundled: true })) mounted.add(feature.name);
+if (HAS_SIGNUP) mounted.add("auth-self-registration");
+
+const mountedWithoutEntry = [...mounted].filter((name) => !registry.has(name));
+const staleEntries = [...registry].filter((name) => !mounted.has(name));
+
+if (mountedWithoutEntry.length > 0) {
+  console.error(
+    `\n❌ ${mountedWithoutEntry.length} feature(s) in APP_FEATURES ohne Eintrag in FEATURE_IMPORT_REGISTRY:`,
+  );
+  for (const name of mountedWithoutEntry.sort()) {
+    console.error(`   - ${name}`);
+  }
+  console.error("\n  Action: in schema/generate.ts FEATURE_IMPORT_REGISTRY ergänzen.");
+  ok = false;
+}
+
+if (staleEntries.length > 0) {
+  console.error(
+    `\n❌ ${staleEntries.length} FEATURE_IMPORT_REGISTRY entry/entries ohne Mount in APP_FEATURES:`,
+  );
+  for (const name of staleEntries.sort()) {
+    console.error(`   - ${name}`);
+  }
+  console.error(
+    "\n  Action: aus schema/generate.ts entfernen oder das Feature in src/run-config.ts mounten.",
+  );
+  ok = false;
+}
+
 if (ok) {
   // Disjunkte Zahlen: `mountable` = exports ohne held-back; `coveredCount`
   // zählt nur Registry-Einträge, die ein echter mountbarer Export sind
-  // (auth-email-password steht im Registry für schema-check-Konsistenz,
+  // (auth-email-password steht im Registry für die Mount-Konsistenz,
   // ist aber held-back — würde sonst die Ratio >1 verfälschen).
   const mountable = exports.size - EXPECTED_HELD_BACK.size;
   let coveredCount = 0;
