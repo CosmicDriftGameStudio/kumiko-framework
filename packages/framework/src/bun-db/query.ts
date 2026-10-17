@@ -124,6 +124,10 @@ export function asRawClient(db: unknown): RawClient {
   );
 }
 
+export function runnerCanBeginTransaction(db: unknown): boolean {
+  return hasBegin(asRawClient(db));
+}
+
 // postgres.js / Bun.SQL reject the WHOLE begin() when any statement inside
 // it errored — even if the JS error was caught (the driver tracks per-block
 // query failures). Error confinement therefore must go through the driver's

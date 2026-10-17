@@ -1,10 +1,9 @@
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
-  asRawClient,
   fetchOne,
-  hasBegin,
   runInSavepointIfSupported,
+  runnerCanBeginTransaction,
   transaction,
 } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
@@ -366,7 +365,7 @@ async function closeUserLoginDoor(
       await revokeAllPatTokensForUser(runner, userId);
     }
   };
-  if (outsideRunner && hasBegin(asRawClient(outsideRunner))) {
+  if (outsideRunner && runnerCanBeginTransaction(outsideRunner)) {
     await transaction(outsideRunner, closeDoor);
   } else {
     await runInSavepointIfSupported(handlerTxRunner, closeDoor);
