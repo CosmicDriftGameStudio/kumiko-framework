@@ -39,7 +39,7 @@ import {
   GlobalFeatureToggleRuntime,
   globalFeatureStateTable,
 } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
@@ -89,21 +89,36 @@ afterAll(async () => {
   await stack?.cleanup();
 });
 
-beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${productAuditTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${productTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${globalFeatureStateTable.tableName}"`);
-  await runtime.refresh();
-});
-
 const admin = createTestUser({
   id: "11111111-1111-1111-1111-111111111111",
   tenantId: SYSTEM_TENANT_ID,
   roles: ["SystemAdmin"],
 });
 
+// Products and audit rows are system-wide by design, so tests isolate through
+// product names that are unique per test instead of per tenant.
+let testNumber = 0;
+let suffix = "";
+
+beforeEach(() => {
+  testNumber += 1;
+  suffix = `-t${testNumber}`;
+  runtime.apply("product", true);
+  runtime.apply("product-audit", true);
+});
+
+async function auditNames(): Promise<string[]> {
+  const rows = await selectMany(stack.db, productAuditTable);
+  return rows.map((row) => String(row["productName"])).filter((name) => name.endsWith(suffix));
+}
+
+async function productNames(): Promise<string[]> {
+  const rows = await selectMany(stack.db, productTable);
+  return rows.map((row) => String(row["name"])).filter((name) => name.endsWith(suffix));
+}
+
 async function createProduct(name: string) {
-  return stack.http.write("product:write:product:create", { name }, admin);
+  return stack.http.write("product:write:product:create", { name: `${name}${suffix}` }, admin);
 }
 
 describe("feature-toggles showcase", () => {
@@ -111,8 +126,7 @@ describe("feature-toggles showcase", () => {
     // ON
     const ok = await createProduct("alpha");
     expect((await ok.json()).isSuccess).toBe(true);
-    const auditRowsAfterOn = await selectMany(stack.db, productAuditTable);
-    expect(auditRowsAfterOn.length).toBe(1);
+    expect(await auditNames()).toHaveLength(1);
 
     // OFF
     runtime.apply("product", false);
@@ -127,8 +141,7 @@ describe("feature-toggles showcase", () => {
     runtime.apply("product", true);
     const again = await createProduct("gamma");
     expect((await again.json()).isSuccess).toBe(true);
-    const auditRowsAfterReEnable = await selectMany(stack.db, productAuditTable);
-    expect(auditRowsAfterReEnable.length).toBe(2);
+    expect(await auditNames()).toHaveLength(2);
   });
 
   test("cross-feature hook: disabling product-audit skips its hook but product keeps working", async () => {
@@ -137,11 +150,9 @@ describe("feature-toggles showcase", () => {
     const ok = await createProduct("delta");
     expect((await ok.json()).isSuccess).toBe(true);
     // Product row written — handler unaffected.
-    const productRows = await selectMany(stack.db, productTable);
-    expect(productRows.length).toBe(1);
+    expect(await productNames()).toHaveLength(1);
     // Audit hook owned by product-audit — silently skipped.
-    const auditRows = await selectMany(stack.db, productAuditTable);
-    expect(auditRows.length).toBe(0);
+    expect(await auditNames()).toHaveLength(0);
   });
 });
 ```
