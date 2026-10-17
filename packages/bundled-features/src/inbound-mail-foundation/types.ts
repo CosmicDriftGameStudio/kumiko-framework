@@ -15,14 +15,14 @@ import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability"
 import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "./constants.js";
 
 /**
- * Slim-Context für Provider-Plugins.
+ * Slim context for provider plugins.
  *
- * **Felder:**
- *   config   — tenant-config-reads (host/port/... der Plugins)
- *   registry — extension-Lookup in der Factory (nicht plugin-intern)
- *   secrets  — tenant-secret-reads (IMAP-Passwort, OAuth-Refresh-Token)
- *   _userId  — Audit-Identity für secret-reads. Handler-Pfad: dispatcher
- *              setzt Caller-User-ID; Worker-Pfad: System-Identity.
+ * **Fields:**
+ *   config   — tenant config reads (host/port/... of the plugins)
+ *   registry — extension lookup in the factory (not plugin-internal)
+ *   secrets  — tenant secret reads (IMAP password, OAuth refresh token)
+ *   _userId  — audit identity for secret reads. Handler path: the dispatcher
+ *              sets the caller user ID; worker path: system identity.
  *   metricsFor — metrics handle of a feature by name, same behavior as
  *              HandlerContext.metricsFor: unregistered metrics are a silent
  *              no-op instead of a throw.
