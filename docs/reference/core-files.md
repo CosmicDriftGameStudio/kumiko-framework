@@ -180,7 +180,10 @@ createFilesFeature({ unclaimedUploadReaders: ["Clerk"] });
 
 The roles may read (GET, `/meta`, signed URLs, variants) uploads with neither
 `entityType` nor `entityId`. They never delete, and pending uploads (target
-field set) and bound files keep their normal rules. Use binding when the
+field set) and bound files keep their normal rules. Files the system generated
+without `attachTo` (uploader is the system user, for example rendered
+documents) are not covered: they stay with their uploader and the privileged
+roles. Use binding when the
 reference is a file field, `unclaimedUploadReaders` when it is not.
 
 ## Signed-URL default expiry

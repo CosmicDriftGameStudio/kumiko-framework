@@ -455,6 +455,7 @@ describe("kumiko-pre-push", () => {
         "guards",
         "checks",
         "comment-lang --touched --base=origin/main",
+        "public-exports-changelog --base=origin/main",
       ]);
     });
 

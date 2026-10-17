@@ -113,6 +113,54 @@ describe("buildServer — rateLimit resolver guard", () => {
   });
 });
 
+describe("buildServer — payload rate limits need a resolver", () => {
+  const payloadLimitedFeature = defineFeature("payload-limited", (r) => {
+    r.writeHandler(
+      "request",
+      z.object({ email: z.string() }),
+      async () => ({ isSuccess: true as const, data: {} }),
+      {
+        access: { roles: ["anonymous"] },
+        rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
+        additionalRateLimits: [{ per: { payloadField: "email" }, limit: 3, windowSeconds: 86400 }],
+      },
+    );
+  });
+
+  test("throws at boot naming the handler when no resolver can be built", () => {
+    expect(() =>
+      buildServer({
+        registry: createRegistry([payloadLimitedFeature]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+      }),
+    ).toThrow(/payload-limited:write:request/);
+  });
+
+  test("boots when the caller supplies a resolver", () => {
+    const decision = {
+      allowed: true,
+      limit: 1,
+      remaining: 1,
+      retryAfterSeconds: 0,
+      windowSeconds: 60,
+      resetAt: Temporal.Now.instant(),
+    };
+    const resolver = {
+      enforce: async () => decision,
+      check: async () => decision,
+      peek: async () => decision,
+    };
+    expect(() =>
+      buildServer({
+        registry: createRegistry([payloadLimitedFeature]),
+        context: { rateLimit: resolver },
+        jwtSecret: JWT_SECRET,
+      }),
+    ).not.toThrow();
+  });
+});
+
 describe("buildServer — feature httpRoute PUT mounting", () => {
   const putFeature = defineFeature("put-route", (r) => {
     r.httpRoute({

@@ -486,6 +486,17 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   let tokenVerifier: TokenVerifier | undefined;
   const patFeature = features.find((f) => f.name === PAT_FEATURE);
   const mfaFeature = features.find((f) => f.name === AUTH_MFA_FEATURE);
+  if (
+    effectiveAuth &&
+    mfaFeature &&
+    registry?.getWriteHandler(AuthHandlers.switchTenantMfaGate) === undefined
+  ) {
+    throw new Error(
+      `[runDevApp] auth-mfa is mounted but ${AuthHandlers.switchTenantMfaGate} is not registered: ` +
+        "createAuthEmailPasswordFeature registers it only when mfaStatusChecker is set, and without it " +
+        "POST /auth/switch-tenant would mint sessions without the second factor",
+    );
+  }
   const patAuthFragment = patFeature
     ? {
         tokenVerifier: (rawToken: string) => {

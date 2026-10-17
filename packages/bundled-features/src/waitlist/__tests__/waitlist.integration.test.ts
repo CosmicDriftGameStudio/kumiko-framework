@@ -343,6 +343,49 @@ describe("waitlist reject revokes the invitation", () => {
   });
 });
 
+describe("waitlist submit options", () => {
+  async function submitOn(target: TestStack, email: string, ip: string) {
+    return target.http.raw(
+      "POST",
+      "/api/write",
+      { type: WaitlistHandlers.submit, payload: validBody(email) },
+      { "x-forwarded-for": ip },
+    );
+  }
+
+  test("emailRateLimits: [] boots and leaves repeated submits for one address unlimited", async () => {
+    const openStack = await createWaitlistTestStack({ appName: "Acme", emailRateLimits: [] });
+    try {
+      const statuses: number[] = [];
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const res = await submitOn(openStack, "open@example.com", `198.51.100.${attempt + 1}`);
+        statuses.push(res.status);
+      }
+      expect(statuses).toEqual([200, 200, 200, 200]);
+    } finally {
+      await openStack.cleanup();
+    }
+  });
+
+  test("a notifyRecipient that throws still stores the entry and answers success", async () => {
+    const failingStack = await createWaitlistTestStack({
+      appName: "Acme",
+      notifyRecipient: async () => {
+        throw new Error("config read failed");
+      },
+    });
+    try {
+      const res = await submitOn(failingStack, "resolver-fail@example.com", "198.51.100.50");
+      expect(res.status).toBe(200);
+      const rows = await selectMany(failingStack.db, waitlistEntryTable, {});
+      expect(rows.map((row) => row["email"])).toEqual(["resolver-fail@example.com"]);
+      expect(mailsTo("resolver-fail@example.com")).toHaveLength(1);
+    } finally {
+      await failingStack.cleanup();
+    }
+  });
+});
+
 describe("waitlist submit while the rate-limit backend is down", () => {
   test("answers 503 rate_limit_unavailable and stores nothing", async () => {
     const outage = async () => {

@@ -295,7 +295,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guards comment-lang" });
   steps.push({
     name: "Public-Exports-Changelog Guard",
-    cmd: "bunx kumiko-guards public-exports-changelog",
+    cmd: "bunx kumiko-guards public-exports-changelog --base=origin/main",
   });
   // Agent-Manifest Guard (infra#702). The parent workspace's cross-repo guard also
   // flags apps without a kumiko.config.ts. A standalone checkout lints this repo's own

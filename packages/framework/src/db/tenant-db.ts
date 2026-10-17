@@ -891,4 +891,22 @@ export function createTenantDb(
   return tenantDb;
 }
 
+// Tenant-mode TenantDb whose writes reach the registry's custom projections. The positional
+// undefineds of createTenantDb would hide a moved grants parameter from the type checker.
+export function createProjectingTenantDb(
+  db: DbRunner,
+  tenantId: TenantId,
+  projectionRegistry: Registry | undefined,
+): TenantDb {
+  return createTenantDb(
+    db,
+    tenantId,
+    "tenant",
+    undefined,
+    undefined,
+    undefined,
+    projectionRegistry ? { projectionRegistry } : undefined,
+  );
+}
+
 export { asRawClient };

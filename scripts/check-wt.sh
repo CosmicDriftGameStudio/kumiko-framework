@@ -66,6 +66,10 @@ echo "→ comment-lang guard --touched (base=$MERGE_BASE)"
 bun packages/guards/src/cli.ts comment-lang --touched --base="$MERGE_BASE" || fail=1
 
 echo
+echo "→ public-exports-changelog guard (ratchet against the baseline at base=$MERGE_BASE)"
+bun packages/guards/src/cli.ts public-exports-changelog --base="$MERGE_BASE" || fail=1
+
+echo
 echo "→ bun test (unit suite)"
 cfg=(); [ -f bunfig.ci.toml ] && cfg=(--config=bunfig.ci.toml)
 

@@ -2,7 +2,7 @@ import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { Hono, type MiddlewareHandler } from "hono";
 import { ROLES } from "../auth/roles.js";
 import type { DbConnection, PgClient } from "../db/connection.js";
-import { createTenantDb } from "../db/tenant-db.js";
+import { createProjectingTenantDb } from "../db/tenant-db.js";
 import { createDerivativesContext } from "../derivatives/derivatives-context.js";
 import { buildAppSchema } from "../engine/build-app-schema.js";
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.js";
@@ -364,6 +364,26 @@ export function withFileProviderResolver(
   };
 }
 
+// A payload-bucket handler without a resolver would answer every call with a
+// 500 at request time; fail at boot instead.
+function assertNoPayloadRateLimitsWithoutResolver(registry: Registry): void {
+  const offenders: string[] = [];
+  for (const feature of registry.features.values()) {
+    for (const [name, handler] of Object.entries(feature.writeHandlers)) {
+      if (handler.additionalRateLimits !== undefined) {
+        offenders.push(`${feature.name}:write:${name}`);
+      }
+    }
+  }
+  // skip: every handler's payload buckets are covered by the resolver
+  if (offenders.length === 0) return;
+  throw new Error(
+    `Handlers declare additionalRateLimits but no RateLimitResolver is configured: ${offenders.join(", ")}. ` +
+      "Wire a Redis client on context.redis (or pass context.rateLimit), or drop the payload buckets " +
+      "(for the waitlist: emailRateLimits: []).",
+  );
+}
+
 export function buildServer(options: ServerOptions): KumikoServer {
   assertSeedModeNotInProduction();
   // Single effective hop-count for every IP-derived rate-limit + requestMeta
@@ -546,6 +566,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     options.context.rateLimit ??
     (wrappedRedis && wantsResolver ? createRateLimitResolver({ redis: wrappedRedis }) : undefined);
   if (!rateLimitResolver) {
+    assertNoPayloadRateLimitsWithoutResolver(options.registry);
     // The systemScope default limit only exists once a resolver does, and an app that
     // declared no explicit rateLimit anywhere never gets one auto-wired (wantsL3 stays
     // false) — so its cross-tenant handlers are silently unlimited.
@@ -1093,10 +1114,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         canWriteRecord: createRecordWriteCheck({
           registry: options.registry,
           canReadRecord,
-          tenantDbFor: (tenantId) =>
-            createTenantDb(fileDb, tenantId, "tenant", undefined, undefined, undefined, {
-              projectionRegistry: options.registry,
-            }),
+          tenantDbFor: (tenantId) => createProjectingTenantDb(fileDb, tenantId, options.registry),
         }),
         ...(routeOptions.accessGuard ? { accessGuard: routeOptions.accessGuard } : {}),
         ...(routeOptions.privilegedRoles ? { privilegedRoles: routeOptions.privilegedRoles } : {}),

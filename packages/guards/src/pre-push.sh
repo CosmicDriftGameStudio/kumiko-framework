@@ -195,6 +195,7 @@ if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] 
   run_guard_bin guards kumiko-guards guards
   run_guard_bin checks kumiko-guards checks
   run_guard_bin comment-lang kumiko-guards comment-lang --touched --base=origin/main
+  run_guard_bin public-exports-changelog kumiko-guards public-exports-changelog --base=origin/main
   if [ -n "$FAILED" ]; then
     echo "[pre-push] worktree check failed:$FAILED" >&2
     exit 1

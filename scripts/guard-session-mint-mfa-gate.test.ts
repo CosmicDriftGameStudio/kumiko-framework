@@ -27,7 +27,7 @@ const MINTING_ROUTES: Record<string, MintGate> = {
   authInviteAcceptWithLogin: { kind: "handler-gate", evidence: "mfaSetupRequired" },
   authSignupConfirm: { kind: "handler-gate", evidence: "pendingMfaStepResponse(" },
   authInviteSignupComplete: { kind: "handler-gate", evidence: "pendingMfaStepResponse(" },
-  authSwitchTenant: { kind: "route-gate", evidence: "switchTenantMfaGateResponse(" },
+  authSwitchTenant: { kind: "route-gate", evidence: "switchTenantMfaGate(" },
   authMfaVerify: { kind: "second-factor" },
   authMfaPreauthConfirm: { kind: "second-factor" },
 };

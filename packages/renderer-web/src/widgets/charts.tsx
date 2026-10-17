@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -20,6 +21,7 @@ import {
   type StackedAreaRanges,
   type StackedAreaWindowSelection,
   snapBrushWindow,
+  snapMovedBrushWindow,
   stackedAreaAxisTicks,
   stackedAreaDateFormatFor,
 } from "./chart-window.js";
@@ -574,7 +576,8 @@ function fineNiceCeil(max: number): number {
 function niceYTicks(max: number, tickCount: number): readonly number[] {
   const count = clampTickCount(tickCount);
   const step = niceCeil(max / (count - 1));
-  return Array.from({ length: count }, (_, i) => i * step);
+  // toPrecision strips float noise such as 3 * 0.2 = 0.6000000000000001 from labels and keys.
+  return Array.from({ length: count }, (_, i) => Number((i * step).toPrecision(12)));
 }
 
 function bucketTimes(series: readonly ChartSeries[]): readonly number[] {
@@ -621,6 +624,8 @@ function ChartLegend({
 }: {
   readonly items: readonly {
     readonly key: string;
+    /** Defaults to the key; set when the key is prefixed to avoid collisions. */
+    readonly testIdKey?: string;
     readonly label: string;
     readonly color: string;
     /** Omitted: no sum next to the label. */
@@ -634,7 +639,7 @@ function ChartLegend({
       {items.map((item) => (
         <li
           key={item.key}
-          data-testid={`chart-legend-${item.key}`}
+          data-testid={`chart-legend-${item.testIdKey ?? item.key}`}
           className="flex items-center gap-1.5"
         >
           {item.swatch === undefined || item.swatch === "area" ? (
@@ -663,12 +668,16 @@ function ChartLegend({
   );
 }
 
+function evenYTickValues(max: number): readonly number[] {
+  return Array.from({ length: Y_TICK_COUNT }, (_, i) => (max / (Y_TICK_COUNT - 1)) * i);
+}
+
 function YTicks({
-  max,
+  values,
   formatValue,
   className,
 }: {
-  readonly max: number;
+  readonly values: readonly number[];
   readonly formatValue: (value: number) => string;
   readonly className?: string;
 }): ReactNode {
@@ -680,9 +689,9 @@ function YTicks({
         className,
       )}
     >
-      {Array.from({ length: Y_TICK_COUNT }, (_, i) => (
+      {values.map((value, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: statische Tick-Liste
-        <span key={i}>{formatValue((max / (Y_TICK_COUNT - 1)) * i)}</span>
+        <span key={i}>{formatValue(value)}</span>
       ))}
     </div>
   );
@@ -710,7 +719,7 @@ type ChartTooltipRow = {
   readonly value: number;
 };
 
-function assignPinRows(fractions: readonly number[]): readonly number[] {
+export function assignPinRows(fractions: readonly number[]): readonly number[] {
   const lastFractionPerRow: number[] = [];
   return fractions.map((fraction) => {
     let row = lastFractionPerRow.findIndex(
@@ -799,7 +808,11 @@ export function StackedBarChart({
   return (
     <div data-testid={testId} className="flex flex-col gap-3">
       <div className="flex gap-2">
-        <YTicks max={max} formatValue={formatAxisValue} className="h-40 pb-5 pt-0" />
+        <YTicks
+          values={evenYTickValues(max)}
+          formatValue={formatAxisValue}
+          className="h-40 pb-5 pt-0"
+        />
         <div
           role="img"
           aria-label={ariaLabel}
@@ -1130,7 +1143,7 @@ function StackedAreaBrush({
         firstMs - drag.originStartMs,
         Math.min(lastMs - drag.originEndMs, deltaMs),
       );
-      commit(drag.originStartMs + shift, drag.originEndMs + shift, "start");
+      onChange(snapMovedBrushWindow(times, drag.originStartMs, drag.originEndMs, shift));
     } else if (drag.mode === "start") {
       commit(drag.originStartMs + deltaMs, drag.originEndMs, "start");
     } else {
@@ -1321,6 +1334,18 @@ export function StackedAreaChart({
   const windowEndMs = visibleWindow.endMs;
   const effectiveDateFormat = dateFormat ?? stackedAreaDateFormatFor(visibleWindow);
   const formatBucket = (atMs: number): string => formatBucketLabel(atMs, effectiveDateFormat);
+  const tierTicks = useMemo(
+    () =>
+      AXIS_TIERS.map((tier) =>
+        stackedAreaAxisTicks(
+          { startMs: windowStartMs, endMs: windowEndMs },
+          tier.maxLabels,
+          effectiveDateFormat,
+          timeZone,
+        ),
+      ),
+    [windowStartMs, windowEndMs, effectiveDateFormat, timeZone],
+  );
   const formatMarkerTimeInWindow =
     formatMarkerTime === undefined
       ? undefined
@@ -1340,20 +1365,26 @@ export function StackedAreaChart({
   const fractionOf = (atMs: number): number =>
     Math.max(0, Math.min(1, (atMs - windowStartMs) / span));
   const todayFraction = todayMs !== undefined ? fractionOf(todayMs) : undefined;
-  const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
+  const [selectedTooltipAtMs, setSelectedTooltipAtMs] = useState<number | null>(null);
+  // Stored as a time, not an index: a shifted window must not retarget the card to another bucket.
+  const tooltipAtMs =
+    selectedTooltipAtMs !== null && times.includes(selectedTooltipAtMs)
+      ? selectedTooltipAtMs
+      : undefined;
   const tooltipOverlayRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{ readonly x: number; readonly y: number } | null>(null);
 
+  const isTooltipOpen = tooltipAtMs !== undefined;
   useEffect(() => {
-    if (tooltipIndex === null) return;
+    if (!isTooltipOpen) return;
     const closeOnEscape = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === "Escape") setTooltipIndex(null);
+      if (event.key === "Escape") setSelectedTooltipAtMs(null);
     };
     const closeOnOutsidePointerDown = (event: globalThis.PointerEvent): void => {
       const overlay = tooltipOverlayRef.current;
       if (overlay !== null && event.target instanceof Node && overlay.contains(event.target))
         return;
-      setTooltipIndex(null);
+      setSelectedTooltipAtMs(null);
     };
     document.addEventListener("keydown", closeOnEscape);
     document.addEventListener("pointerdown", closeOnOutsidePointerDown);
@@ -1361,7 +1392,7 @@ export function StackedAreaChart({
       document.removeEventListener("keydown", closeOnEscape);
       document.removeEventListener("pointerdown", closeOnOutsidePointerDown);
     };
-  }, [tooltipIndex]);
+  }, [isTooltipOpen]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1381,8 +1412,12 @@ export function StackedAreaChart({
     line.points.flatMap((p) => (p.value === null ? [] : [p.value])),
   );
   const isSingleBucket = times.length === 1;
+  if (isSingleBucket && totals[0] === 0) {
+    return <div data-testid={testId}>{emptyContent}</div>;
+  }
   // Doubling keeps a lone bucket away from the top edge of the y-scale.
   const max = fineNiceCeil(Math.max(...totals, ...lineValues) * (isSingleBucket ? 2 : 1));
+  const yTickValues = evenYTickValues(max);
   const yOf = (value: number): number => height - (value / max) * height;
 
   const lower = times.map(() => 0);
@@ -1455,7 +1490,6 @@ export function StackedAreaChart({
       ),
     );
 
-  const tooltipAtMs = tooltipIndex === null ? undefined : times[tooltipIndex];
   const tooltipFraction = tooltipAtMs === undefined ? 0 : fractionOf(tooltipAtMs);
   const tooltipRows: readonly ChartTooltipRow[] =
     tooltipAtMs === undefined
@@ -1489,13 +1523,17 @@ export function StackedAreaChart({
   const tooltipEdge = `${percent(tooltipFraction)} ${tooltipOnLeft ? "-" : "+"} ${TOOLTIP_OFFSET_PX}px`;
   const tooltipLeft = tooltipOnLeft
     ? `max(0px, calc(${tooltipEdge} - ${TOOLTIP_WIDTH_REM}rem))`
-    : `min(calc(${tooltipEdge}), calc(100% - ${TOOLTIP_WIDTH_REM}rem))`;
-  const bucketIndexUnderPointer = (event: PointerEvent<HTMLDivElement>): number => {
+    : `max(0px, min(calc(${tooltipEdge}), calc(100% - ${TOOLTIP_WIDTH_REM}rem)))`;
+  const bucketAtMsUnderPointer = (event: PointerEvent<HTMLDivElement>): number | null => {
     const rect = event.currentTarget.getBoundingClientRect();
-    return bucketIndexAtFraction(
-      times,
-      visibleWindow,
-      rect.width === 0 ? 0 : (event.clientX - rect.left) / rect.width,
+    return (
+      times[
+        bucketIndexAtFraction(
+          times,
+          visibleWindow,
+          rect.width === 0 ? 0 : (event.clientX - rect.left) / rect.width,
+        )
+      ] ?? null
     );
   };
   const tooltipOverlay = (
@@ -1504,10 +1542,10 @@ export function StackedAreaChart({
       data-testid="chart-tooltip-overlay"
       className={cn("absolute inset-x-0 top-0", STACKED_AREA_PLOT_HEIGHT_CLASS)}
       onPointerMove={(event) => {
-        if (event.pointerType === "mouse") setTooltipIndex(bucketIndexUnderPointer(event));
+        if (event.pointerType === "mouse") setSelectedTooltipAtMs(bucketAtMsUnderPointer(event));
       }}
       onPointerLeave={(event) => {
-        if (event.pointerType === "mouse") setTooltipIndex(null);
+        if (event.pointerType === "mouse") setSelectedTooltipAtMs(null);
       }}
       onPointerDown={(event) => {
         if (event.pointerType === "mouse") return;
@@ -1522,8 +1560,8 @@ export function StackedAreaChart({
         if (event.pointerType === "mouse" || start === null) return;
         const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
         if (moved >= TOOLTIP_TAP_MAX_MOVEMENT_PX) return;
-        const next = bucketIndexUnderPointer(event);
-        setTooltipIndex((current) => (current === next ? null : next));
+        const next = bucketAtMsUnderPointer(event);
+        setSelectedTooltipAtMs((current) => (current === next ? null : next));
       }}
     >
       {tooltipAtMs !== undefined && (
@@ -1536,8 +1574,8 @@ export function StackedAreaChart({
           <div
             data-testid="chart-tooltip"
             data-side={tooltipOnLeft ? "left" : "right"}
-            className="pointer-events-none absolute top-2 max-w-[14rem] rounded-md border bg-popover p-2 text-xs text-popover-foreground shadow-sm"
-            style={{ left: tooltipLeft, width: `${TOOLTIP_WIDTH_REM}rem` }}
+            className="pointer-events-none absolute top-2 rounded-md border bg-popover p-2 text-xs text-popover-foreground shadow-sm"
+            style={{ left: tooltipLeft, width: `min(${TOOLTIP_WIDTH_REM}rem, 100%)` }}
           >
             <div className="mb-1 font-medium">{formatBucket(tooltipAtMs)}</div>
             {tooltipRows.map((row) => (
@@ -1601,7 +1639,7 @@ export function StackedAreaChart({
             <rect x={todayX} y={0} width={width - todayX} height={height} />
           </clipPath>
         </defs>
-        {[0, max / 2, max].map((tickValue) => (
+        {yTickValues.map((tickValue) => (
           <line
             key={tickValue}
             data-testid="chart-grid-line"
@@ -1683,14 +1721,9 @@ export function StackedAreaChart({
         <div className="relative mt-1 h-4 text-[11px] text-muted-foreground">
           <span className="absolute left-0 whitespace-nowrap">{formatBucket(windowStartMs)}</span>
           <span className="absolute right-0 whitespace-nowrap">{formatBucket(windowEndMs)}</span>
-          {AXIS_TIERS.map((tier) => (
+          {AXIS_TIERS.map((tier, tierIndex) => (
             <div key={tier.maxLabels} className={cn("absolute inset-0", tier.visibilityClass)}>
-              {stackedAreaAxisTicks(
-                visibleWindow,
-                tier.maxLabels,
-                effectiveDateFormat,
-                timeZone,
-              ).map((tickMs) => (
+              {(tierTicks[tierIndex] ?? []).map((tickMs) => (
                 <span
                   key={tickMs}
                   data-testid="chart-axis-tick"
@@ -1776,7 +1809,7 @@ export function StackedAreaChart({
       {ownRangeSwitch}
       <div className="flex gap-2">
         <YTicks
-          max={max}
+          values={yTickValues}
           formatValue={formatAxisValue}
           className={cn("shrink-0 pb-0", STACKED_AREA_PLOT_HEIGHT_CLASS, scrollable && "mt-4")}
         />
@@ -1812,7 +1845,8 @@ export function StackedAreaChart({
             ...(showLegendTotals && { total: seriesTotal(s) }),
           })),
           ...linePaths.map((line) => ({
-            key: line.key,
+            key: `line:${line.key}`,
+            testIdKey: `line-${line.key}`,
             label: line.label,
             color: line.color,
             swatch: line.dashed ? ("dashed-line" as const) : ("line" as const),
@@ -1829,7 +1863,7 @@ export function StackedAreaChart({
         <MarkerLegend
           markers={markers}
           formatMarkerTime={formatMarkerTimeInWindow}
-          {...(markerLegend !== "list" && { className: "@2xl:hidden" })}
+          {...(markerLabels && { className: "@2xl:hidden" })}
         />
       )}
     </div>

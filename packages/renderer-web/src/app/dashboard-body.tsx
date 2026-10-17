@@ -82,15 +82,9 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { DASHBOARD_STAT_TONES } from "@cosmicdrift/kumiko-types/screen";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { cn } from "../lib/cn.js";
 import { EmbeddedFormProvider } from "../primitives/index.js";
 import { PageSection } from "../primitives/layout.js";
@@ -123,7 +117,6 @@ import { StatCard, type StatDelta, StatStripCell, type StatTone } from "../widge
 import { EmptyState, LoadingState } from "../widgets/states.js";
 import { StatusBadge } from "../widgets/status-badge.js";
 
-const STAT_TONES: ReadonlySet<string> = new Set(["default", "positive", "ok", "warn", "negative"]);
 const SKELETON_SEGMENT_WIDTHS = ["100%", "72%", "48%"] as const;
 const WIDE_PANEL = "sm:col-span-2 lg:col-span-4";
 const HALF_PANEL = "sm:col-span-2 lg:col-span-2";
@@ -471,7 +464,7 @@ function readSparkline(
 }
 
 function readTone(raw: unknown): StatTone | undefined {
-  return typeof raw === "string" && STAT_TONES.has(raw) ? (raw as StatTone) : undefined;
+  return isOneOf(DASHBOARD_STAT_TONES, raw) ? raw : undefined;
 }
 
 function fallbackText<T extends string | undefined>(raw: unknown, placeholder: T): string | T {
@@ -1246,10 +1239,8 @@ function PanelBody({
   );
 }
 
-type VisibilityQueryResults = ReadonlyMap<
-  string,
-  UseQueryResult<Readonly<Record<string, unknown>>>
->;
+type VisibilityQueryResult = UseQueryResult<Readonly<Record<string, unknown>>>;
+type VisibilityQueryResults = ReadonlyMap<string, VisibilityQueryResult>;
 
 const VisibilityQueryContext = createContext<VisibilityQueryResults>(new Map());
 
@@ -1282,38 +1273,63 @@ function panelVisibilityGate(
 
 // One live query per distinct gate (query + payload), shared by every panel
 // that gates on it — N panels on the same status query would otherwise each
-// open their own request, SSE subscription and refetch per event.
-function VisibilityQueryScope({
+// open their own request, SSE subscription and refetch per event. The queries
+// run as keyed siblings of the grid so a changing gate count never changes the
+// grid's position in the tree (which would remount every panel).
+function VisibilityGateQuery({
   gate,
-  children,
+  onResult,
+  onForget,
 }: {
   readonly gate: VisibilityGate;
-  readonly children: ReactNode;
-}): ReactNode {
-  const parent = useContext(VisibilityQueryContext);
-  const result = useQuery<Readonly<Record<string, unknown>>>(gate.query, gate.payload, {
-    live: true,
-  });
-  const value = useMemo(() => new Map(parent).set(gate.key, result), [parent, gate.key, result]);
-  return (
-    <VisibilityQueryContext.Provider value={value}>{children}</VisibilityQueryContext.Provider>
+  readonly onResult: (key: string, result: VisibilityQueryResult) => void;
+  readonly onForget: (key: string) => void;
+}): null {
+  const { data, error, loading, refetch } = useQuery<Readonly<Record<string, unknown>>>(
+    gate.query,
+    gate.payload,
+    { live: true },
   );
+  const { key } = gate;
+  useEffect(() => {
+    onResult(key, { data, error, loading, refetch });
+  }, [key, data, error, loading, refetch, onResult]);
+  useEffect(() => () => onForget(key), [key, onForget]);
+  return null;
 }
 
-function VisibilityQueryScopes({
+function VisibilityGateQueries({
   gates,
-  children,
+  onResult,
+  onForget,
 }: {
   readonly gates: readonly VisibilityGate[];
-  readonly children: ReactNode;
+  readonly onResult: (key: string, result: VisibilityQueryResult) => void;
+  readonly onForget: (key: string) => void;
 }): ReactNode {
-  const [first, ...rest] = gates;
-  if (first === undefined) return children;
-  return (
-    <VisibilityQueryScope gate={first}>
-      <VisibilityQueryScopes gates={rest}>{children}</VisibilityQueryScopes>
-    </VisibilityQueryScope>
-  );
+  return gates.map((gate) => (
+    <VisibilityGateQuery key={gate.key} gate={gate} onResult={onResult} onForget={onForget} />
+  ));
+}
+
+function useVisibilityGateResults(): {
+  readonly results: VisibilityQueryResults;
+  readonly report: (key: string, result: VisibilityQueryResult) => void;
+  readonly forget: (key: string) => void;
+} {
+  const [results, setResults] = useState<VisibilityQueryResults>(new Map());
+  const report = useCallback((key: string, result: VisibilityQueryResult) => {
+    setResults((prev) => new Map(prev).set(key, result));
+  }, []);
+  const forget = useCallback((key: string) => {
+    setResults((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Map(prev);
+      next.delete(key);
+      return next;
+    });
+  }, []);
+  return { results, report, forget };
 }
 
 function distinctVisibilityGates(
@@ -1461,6 +1477,7 @@ export function WebDashboardBody({
   const screenParams: ScreenParams = { filterParams, rangeParams };
   const { loadedAtMs, reportLoaded } = useLoadedAt(screenParams);
   const visibilityGates = distinctVisibilityGates(screen.panels, screenParams);
+  const gateResults = useVisibilityGateResults();
   const scope = screen.scope;
   // A raw description is agent-facing prose; only an i18n key is user-facing copy.
   const translatedDescription =
@@ -1506,7 +1523,12 @@ export function WebDashboardBody({
             {effectiveTranslate(scope.notice)}
           </Banner>
         )}
-        <VisibilityQueryScopes gates={visibilityGates}>
+        <VisibilityQueryContext.Provider value={gateResults.results}>
+          <VisibilityGateQueries
+            gates={visibilityGates}
+            onResult={gateResults.report}
+            onForget={gateResults.forget}
+          />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {screen.panels.map((panel) => {
               if (panel.kind === "screen") {
@@ -1542,7 +1564,7 @@ export function WebDashboardBody({
               );
             })}
           </div>
-        </VisibilityQueryScopes>
+        </VisibilityQueryContext.Provider>
       </PageSection>
     </PanelLoadedContext.Provider>
   );

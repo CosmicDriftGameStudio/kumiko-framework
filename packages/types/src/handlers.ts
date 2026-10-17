@@ -1266,6 +1266,11 @@ export type AggregateStreamHandle = {
   // Append an event on this stream. Derives aggregateId/aggregateType/
   // expectedVersion from the handle automatically. Multiple calls in a
   // row bump the handle's internal version and the events-table in order.
+  // Only this handle's own appendOne calls advance the pinned version: if the
+  // same handler also writes to this aggregateId another way (ctx.appendEvent,
+  // a second handle, a CRUD write or a nested ctx.write), the next appendOne
+  // fails with VersionConflictError against that handler's own write. Route
+  // every append for the aggregate through one handle.
   readonly appendOne: (args: { readonly type: string; readonly payload: unknown }) => Promise<void>;
   // Idempotency check against `events` (fetch-time snapshot only — an
   // appendOne in the same handler isn't reflected). Guards a handler that

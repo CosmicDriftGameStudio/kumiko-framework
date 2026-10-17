@@ -2,9 +2,11 @@ import { describe, expect, test } from "bun:test";
 import {
   addUtcMonths,
   initialWindowSelection,
+  rangeWindow,
   resolveStackedAreaWindow,
   type StackedAreaRanges,
   snapBrushWindow,
+  snapMovedBrushWindow,
   stackedAreaDateFormatFor,
 } from "../chart-window.js";
 
@@ -146,5 +148,47 @@ describe("snapBrushWindow", () => {
       startMs: monthAt(2),
       endMs: monthAt(3),
     });
+  });
+});
+
+describe("snapMovedBrushWindow", () => {
+  // Month buckets are 28 to 31 days apart, so independent edge snapping can resize the window.
+  const times = Array.from({ length: 12 }, (_, i) => monthAt(i));
+
+  test("keeps the width in buckets constant while only the start snaps", () => {
+    const originStartMs = monthAt(2);
+    const originEndMs = monthAt(5);
+    for (let shiftDays = 0; shiftDays <= 200; shiftDays += 7) {
+      const moved = snapMovedBrushWindow(times, originStartMs, originEndMs, shiftDays * 86_400_000);
+      const startIndex = times.indexOf(moved.startMs);
+      const endIndex = times.indexOf(moved.endMs);
+      expect(startIndex).toBeGreaterThanOrEqual(0);
+      expect(endIndex - startIndex).toBe(3);
+    }
+  });
+
+  test("stops at the last bucket instead of shrinking", () => {
+    expect(snapMovedBrushWindow(times, monthAt(2), monthAt(5), 400 * 86_400_000)).toEqual({
+      startMs: monthAt(8),
+      endMs: monthAt(11),
+    });
+  });
+});
+
+describe("rangeWindow", () => {
+  test("an anchor so far before the data that the window ends ahead of it shows the full window", () => {
+    expect(rangeWindow(12, monthAt(-30), firstMs, lastMs)).toEqual({
+      startMs: firstMs,
+      endMs: lastMs,
+    });
+  });
+
+  test("a window never starts after it ends", () => {
+    const window = rangeWindow(12, monthAt(-12), firstMs, lastMs);
+    expect(window.startMs).toBeLessThanOrEqual(window.endMs);
+  });
+
+  test("month-end anchors constrain to the last day of the shorter month", () => {
+    expect(addUtcMonths(Date.UTC(2026, 0, 31), 1)).toBe(Date.UTC(2026, 1, 28));
   });
 });

@@ -10,7 +10,7 @@ import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
 import { InternalError, UnprocessableError } from "../../errors/index.js";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
-import { TestUsers } from "../../stack/index.js";
+import { TestUsers, testTenantId } from "../../stack/index.js";
 import { getSetCookies } from "../../testing/http-cookies.js";
 import { PUBLIC_API_PATHS } from "../api-constants.js";
 import { authMiddleware } from "../auth-middleware.js";
@@ -24,6 +24,7 @@ import { AUTH_COOKIE_BASE, CSRF_COOKIE_BASE } from "../session-cookies.js";
 
 const JWT_SECRET = "auth-routes-mfa-verify-test-secret-min-32-characters";
 const MFA_VERIFY_QN = "auth-mfa:write:verify";
+const SWITCH_TENANT_GATE_QN = "auth-email-password:write:switch-tenant-mfa-gate";
 
 function createStubDispatcher(overrides?: Partial<Dispatcher>): Dispatcher {
   const base: Dispatcher = {
@@ -68,6 +69,7 @@ async function buildApp(
   const config: AuthRoutesConfig = {
     membershipQuery: "tenant:query:memberships",
     mfaVerifyHandler: MFA_VERIFY_QN,
+    switchTenantMfaGateHandler: SWITCH_TENANT_GATE_QN,
     mfaVerifyRateLimit: null,
     ...overrides,
   };
@@ -218,5 +220,38 @@ describe("POST /auth/mfa/verify", () => {
     expect((await attempt()).status).toBe(200);
     // Without a reset-on-success this would be 429 (cap=1 already spent).
     expect((await attempt()).status).toBe(200);
+  });
+});
+
+describe("POST /auth/switch-tenant MFA gate wiring", () => {
+  test("createAuthRoutes refuses mfaVerifyHandler without a switch-tenant gate handler", async () => {
+    await expect(buildApp({ switchTenantMfaGateHandler: undefined })).rejects.toThrow(
+      /switchTenantMfaGateHandler/,
+    );
+  });
+
+  test("the session is minted with the roles the gate cleared, not a second lookup", async () => {
+    const targetTenantId = testTenantId(2);
+    const dispatcher = createStubDispatcher({
+      async resolveActiveMembership() {
+        return { kind: "active", membership: { tenantId: targetTenantId, roles: ["Member"] } };
+      },
+      async write(qn): Promise<WriteResult> {
+        expect(qn).toBe(SWITCH_TENANT_GATE_QN);
+        return { isSuccess: true, data: { kind: "mfa-gate-clear", roles: ["Member", "GateRole"] } };
+      },
+    });
+    const { app } = await buildApp({}, dispatcher);
+    const token = await createJwtHelper(JWT_SECRET).sign(TestUsers.user);
+    const res = await app.request(
+      new Request("http://localhost/api/auth/switch-tenant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenantId: targetTenantId }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { roles: readonly string[] };
+    expect(body.roles).toEqual(["Member", "GateRole"]);
   });
 });

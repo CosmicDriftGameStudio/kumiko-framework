@@ -17,6 +17,7 @@ export type FilesFeatureOptions = {
   // Roles that may read uploads without a target field (entityType and entityId null, e.g.
   // inbox or dropzone files): they belong to no record, so the app declares who reads them
   // in the tenant. Read only, no delete; attached files stay behind their record's access.
+  // Files the system generated (uploader = system user) are excluded.
   readonly unclaimedUploadReaders?: readonly string[];
   // Global upload size default (per-field `maxSize` still wins). e.g. "10mb".
   readonly maxUploadSize?: string;

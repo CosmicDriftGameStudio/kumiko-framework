@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as z from "zod";
 import { selectMany } from "../../bun-db/index.js";
 import {
   createEntity,
@@ -14,6 +15,7 @@ import {
   defineEntityDetailHandler,
   defineFeature,
 } from "../../engine/index.js";
+import { createSystemUser, SYSTEM_ROLE } from "../../engine/system-user.js";
 import {
   createTestUser,
   setupTestStack,
@@ -22,6 +24,7 @@ import {
   unsafeCreateEntityTable,
 } from "../../stack/index.js";
 import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { createFileRefFromBytes } from "../create-file-ref-from-bytes.js";
 import { createFilesFeature, type FilesFeatureOptions } from "../feature.js";
 import { fileRefsTable } from "../file-ref-table.js";
 import { createLocalProvider } from "../local-provider.js";
@@ -49,6 +52,21 @@ const noteFeature = defineFeature("unclaimed-notes", (r) => {
   );
 });
 
+// A system-generated document without attachTo, like a rendered letter: unclaimed, but not an inbox upload.
+const systemDocFeature = defineFeature("unclaimed-sysdoc", (r) => {
+  r.writeHandler(
+    "render",
+    z.object({}),
+    (_event, ctx) =>
+      createFileRefFromBytes(ctx, {
+        fileName: "rendered.pdf",
+        mimeType: "application/pdf",
+        data: new TextEncoder().encode("%PDF-1.4 rendered"),
+      }),
+    { access: { roles: [SYSTEM_ROLE] } },
+  );
+});
+
 const NOTE_CREATE = "unclaimed-notes:write:note:create";
 
 const tenant = testTenantId(1);
@@ -64,7 +82,7 @@ const stacks: TestStack[] = [];
 
 async function startStack(options: FilesFeatureOptions): Promise<TestStack> {
   const stack = await setupTestStack({
-    features: [createFilesFeature(options), noteFeature],
+    features: [createFilesFeature(options), noteFeature, systemDocFeature],
     files: {
       storageProvider: {
         ...createLocalProvider(storagePath),
@@ -177,6 +195,21 @@ describe("unclaimedUploadReaders", () => {
 
     expect(await request(stack, outsider, fileRefId)).toBe(404);
     expect(await request(stack, otherTenantClerk, fileRefId)).toBe(404);
+  });
+
+  test("a system-generated document without a target stays out of reach of the reader role", async () => {
+    const rendered = await stack.dispatcher.write(
+      "unclaimed-sysdoc:write:render",
+      {},
+      createSystemUser(tenant),
+    );
+    if (!rendered.isSuccess) throw new Error("system document fixture failed to render");
+    const { id: fileRefId } = z.object({ id: z.string() }).parse(rendered.data);
+    const admin = createTestUser({ id: 5, tenantId: tenant, roles: ["Admin"] });
+
+    expect(await request(stack, clerk, fileRefId)).toBe(404);
+    expect(await request(stack, clerk, fileRefId, "/meta")).toBe(404);
+    expect(await request(stack, admin, fileRefId)).toBe(200);
   });
 
   test("a pending upload for a target field stays private to its uploader", async () => {

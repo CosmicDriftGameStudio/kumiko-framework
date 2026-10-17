@@ -656,6 +656,23 @@ describe("TimeseriesChart axes and height", () => {
     expect(labels).toEqual(["0 ms", "200 ms", "400 ms", "600 ms"]);
   });
 
+  test("fractional y ticks carry no float noise in their labels", () => {
+    const { container } = render(
+      <TimeseriesChart
+        points={[
+          { atMs: 0, value: 0.3 },
+          { atMs: 2000, value: 1 },
+        ]}
+        windowStartMs={0}
+        windowEndMs={2000}
+        ariaLabel="Fehlerrate"
+        yAxis={{ ticks: 6 }}
+      />,
+    );
+    const labels = [...container.querySelectorAll("[data-y-label]")].map((n) => n.textContent);
+    expect(labels).toEqual(["0", "0.2", "0.4", "0.6", "0.8", "1"]);
+  });
+
   test("xAxis renders n date labels across the window", () => {
     const { container } = render(
       <TimeseriesChart {...base} xAxis={{ ticks: 5, format: (ms) => `t${ms}` }} />,
@@ -894,6 +911,18 @@ describe("StackedAreaChart", () => {
     expect(container.querySelectorAll('[data-testid="chart-band-edge-a"]').length).toBe(1);
   });
 
+  test("ein einzelner Bucket mit Summe 0 rendert emptyContent", () => {
+    const { container } = render(
+      <StackedAreaChart
+        {...baseProps}
+        series={[{ key: "a", label: "A", points: [point(1000, 0)] }]}
+        emptyContent={<span>Keine Daten</span>}
+      />,
+    );
+    expect(screen.getByText("Keine Daten")).toBeTruthy();
+    expect(container.querySelector("svg")).toBeNull();
+  });
+
   const areaSeries = [
     { key: "debt", label: "Restschuld", points: [point(0, 10), point(2000, 20)] },
   ];
@@ -923,7 +952,7 @@ describe("StackedAreaChart", () => {
     expect(rent.getAttribute("stroke-dasharray")).toBeNull();
     expect(screen.getByTestId("chart-line-rent-min").getAttribute("stroke-dasharray")).toBe("6 4");
     expect(screen.getByText("100")).toBeTruthy();
-    const legend = screen.getByTestId("chart-legend-rent");
+    const legend = screen.getByTestId("chart-legend-line-rent");
     expect(legend.textContent).toBe("Miete");
   });
 

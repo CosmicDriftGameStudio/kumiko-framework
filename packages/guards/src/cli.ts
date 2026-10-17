@@ -36,7 +36,7 @@ const SUBCOMMAND_FLAGS: Record<Subcommand, readonly string[]> = {
   ui: UI_GUARD_FLAGS,
   checks: REPO_CHECK_FLAGS,
   "comment-lang": [...COMMENT_LANG_FLAGS, "--base=<ref>"],
-  "public-exports-changelog": PUBLIC_EXPORTS_CHANGELOG_FLAGS,
+  "public-exports-changelog": [...PUBLIC_EXPORTS_CHANGELOG_FLAGS, "--base=<ref>"],
   licenses: DEPENDENCY_CHECK_FLAGS,
   security: DEPENDENCY_CHECK_FLAGS,
   outdated: DEPENDENCY_CHECK_FLAGS,

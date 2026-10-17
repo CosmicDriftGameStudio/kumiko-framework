@@ -21,7 +21,7 @@ const SwitchTenantMfaGateSchema = z.object({
 });
 
 export type SwitchTenantMfaGateData =
-  | { readonly kind: "mfa-gate-clear" }
+  | { readonly kind: "mfa-gate-clear"; readonly roles: readonly string[] }
   | NonNullable<Awaited<ReturnType<typeof gateEnforceMfa>>>;
 
 // Dispatched by POST /auth/switch-tenant with the system identity. The handler
@@ -54,7 +54,7 @@ export function createSwitchTenantMfaGateHandler(
       );
       const roles = buildSessionRoles(parseRoles(userRow?.roles ?? null), active.membership.roles);
       const mfaGate = await gateEnforceMfa(ctx, opts, userId, tenantId, roles);
-      return { isSuccess: true, data: mfaGate ?? { kind: "mfa-gate-clear" } };
+      return { isSuccess: true, data: mfaGate ?? { kind: "mfa-gate-clear", roles } };
     },
   });
 }
