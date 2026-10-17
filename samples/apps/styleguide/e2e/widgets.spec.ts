@@ -183,6 +183,7 @@ test("declarative dashboard screen renders stat, chart and list panels", async (
   // Stacked-area panel: range switch and brush from the panel config.
   await expect(page.getByRole("img", { name: "Kreditverlauf" })).toBeVisible();
   await expect(page.getByTestId("dashboard-chart-range-loan")).toBeVisible();
+  await expect(page.getByTestId("dashboard-chart-loan-brush")).toBeVisible();
   await expect(page.getByText("3 Jahre")).toBeVisible();
   // List panel: row from the paged envelope.
   await expect(page.getByText("API-Timeout eu-central")).toBeVisible();

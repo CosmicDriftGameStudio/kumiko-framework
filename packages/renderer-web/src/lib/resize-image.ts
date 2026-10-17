@@ -42,13 +42,13 @@ export async function resizeImageBeforeUpload(
     const width = Math.round(bitmap.width * scale);
     const height = Math.round(bitmap.height * scale);
     const canvas = new OffscreenCanvas(width, height);
-    const ctx = canvas.getContext("2d");
-    if (ctx === null) {
+    try {
+      const ctx = canvas.getContext("2d");
+      if (ctx === null) return file;
+      ctx.drawImage(bitmap, 0, 0, width, height);
+    } finally {
       bitmap.close();
-      return file;
     }
-    ctx.drawImage(bitmap, 0, 0, width, height);
-    bitmap.close();
     const blob = await canvas.convertToBlob({ type: pickOutputType(file.type), quality: 0.85 });
     // Name off the blob's actual type, not the requested one — a browser
     // without webp encoding support silently falls back to png, and naming

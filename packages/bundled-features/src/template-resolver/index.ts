@@ -16,6 +16,7 @@ export {
   CONTENT_FORMATS,
   type ContentFormat,
   DEFAULT_MAIL_LAYOUT_SLUG,
+  DEFAULT_PDF_LAYOUT_SLUG,
   DOCUMENT_HTML_KINDS,
   type DocumentHtmlKind,
   FALLBACK_LOCALE,

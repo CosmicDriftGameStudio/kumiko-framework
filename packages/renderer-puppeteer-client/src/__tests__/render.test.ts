@@ -59,6 +59,32 @@ describe("puppeteerRender — image-snapshot", () => {
   });
 });
 
+function pngHeader(width: number, height: number): Uint8Array {
+  const bytes = new Uint8Array(33);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(8, 13);
+  bytes.set([0x49, 0x48, 0x44, 0x52], 12);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  return bytes;
+}
+
+describe("puppeteerRender — image-snapshot dimensions", () => {
+  test("reports the real image size of a full-page screenshot, not the requested viewport", async () => {
+    installFetchMock(mock().mockResolvedValueOnce(mockPngResponse(pngHeader(800, 3200))));
+    const result = await puppeteerRender(
+      {
+        kind: "image-snapshot",
+        payload: { content: "<div>tall</div>" },
+        options: { width: 800, height: 600 },
+      },
+      STUB_CTX,
+    );
+    expect(result.kind === "image-snapshot" && [result.width, result.height]).toEqual([800, 3200]);
+  });
+});
+
 describe("puppeteerRender — Validation", () => {
   test("wrong kind (mail) → RendererError invalid_payload", async () => {
     const req: RenderRequest = {

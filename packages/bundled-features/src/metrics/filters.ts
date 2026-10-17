@@ -7,26 +7,34 @@ export const RESERVED_PAYLOAD_KEYS: readonly string[] = ["range", "timeZone", "t
 
 // Dashboard select options always send strings.
 const NUMERIC_STRING = /^-?\d+(\.\d+)?$/;
+const INTEGER_STRING = /^-?\d+$/;
 const MAX_FILTER_STRING_LENGTH = 200;
-const NUMERIC_PG_TYPES: ReadonlySet<string> = new Set([
-  "integer",
-  "int4",
-  "smallint",
-  "int2",
-  "bigint",
-  "serial",
-  "bigserial",
-  "double precision",
-]);
+const INTEGER_RANGES = {
+  smallint: { min: -32_768, max: 32_767 },
+  integer: { min: -2_147_483_648, max: 2_147_483_647 },
+  // bigint is bound as a JS number, so only the exactly representable range is accepted.
+  bigint: { min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER },
+} as const;
+const PG_INTEGER_KINDS: Readonly<Record<string, keyof typeof INTEGER_RANGES>> = {
+  smallint: "smallint",
+  int2: "smallint",
+  integer: "integer",
+  int4: "integer",
+  serial: "integer",
+  bigint: "bigint",
+  bigserial: "bigint",
+};
 
-export type FilterValueKind = "uuid" | "number" | "string";
+export type FilterValueKind = "uuid" | "number" | "string" | keyof typeof INTEGER_RANGES;
 
 /** Undefined = the column type cannot be filtered by a payload value without risking a Postgres cast error. */
 export function filterValueKindOf(pgType: string | undefined): FilterValueKind | undefined {
   if (pgType === undefined) return undefined;
   if (pgType === "uuid") return "uuid";
   if (pgType === "text") return "string";
-  if (NUMERIC_PG_TYPES.has(pgType) || pgType.startsWith("numeric")) return "number";
+  const integerKind = PG_INTEGER_KINDS[pgType];
+  if (integerKind !== undefined) return integerKind;
+  if (pgType === "double precision" || pgType.startsWith("numeric")) return "number";
   return undefined;
 }
 
@@ -44,8 +52,16 @@ export function metricFilterEntries(metric: MetricDefinition): readonly MetricFi
   );
 }
 
+function integerValueSchema(range: { readonly min: number; readonly max: number }): z.ZodType {
+  const bounded = z.number().int().min(range.min).max(range.max);
+  return z.union([bounded, z.string().regex(INTEGER_STRING).transform(Number).pipe(bounded)]);
+}
+
 function filterValueSchema(kind: FilterValueKind): z.ZodType {
   if (kind === "uuid") return z.uuid();
+  if (kind === "smallint" || kind === "integer" || kind === "bigint") {
+    return integerValueSchema(INTEGER_RANGES[kind]);
+  }
   if (kind === "number")
     return z.union([z.number(), z.string().regex(NUMERIC_STRING).transform(Number)]);
   return z.string().min(1).max(MAX_FILTER_STRING_LENGTH);

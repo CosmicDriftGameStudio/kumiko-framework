@@ -27,7 +27,13 @@ export type SecurityBaselineLoad =
       readonly findings: SecurityBaseline["findings"];
       readonly hardFail: readonly string[];
     }
-  | { readonly kind: "invalid"; readonly file: string; readonly reason: string };
+  | {
+      readonly kind: "invalid";
+      readonly file: string;
+      readonly reason: string;
+      /** Prose shown after the reason when the reason alone is only a code. */
+      readonly detail?: string;
+    };
 
 // Compared only against the baseline file's `repo` field — a scoped npm
 // package name (`@x/y`) is no longer a path segment, so it needs no
@@ -127,7 +133,12 @@ export function loadSecurityBaseline(repo: string, repoDir: string): SecurityBas
   }
   const parsed = parseSecurityBaseline(raw);
   if (!parsed) {
-    return { kind: "invalid", file, reason: "unexpected_baseline_shape" };
+    return {
+      kind: "invalid",
+      file,
+      reason: "unexpected_baseline_shape",
+      detail: "expected format/repo/generated/total/findings and a valid hardFail",
+    };
   }
   if (parsed.repo !== repo) {
     return {
@@ -202,7 +213,7 @@ function invalidBaselineViolation(
   return {
     file: baseline.file,
     line: 1,
-    message: `Security baseline unreadable or invalid: ${baseline.reason}. Fix the file; a broken baseline must not release any findings.`,
+    message: `Security baseline unreadable or invalid: ${baseline.reason}${baseline.detail === undefined ? "" : ` (${baseline.detail})`}. Fix the file; a broken baseline must not release any findings.`,
   };
 }
 

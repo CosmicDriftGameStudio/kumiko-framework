@@ -27,8 +27,10 @@ import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.js"
 const SWEEP_ORPHANED_DERIVATIVES_ESCAPE_HATCH_REASON =
   "iterates every tenant and checks fileRef owners per tenant";
 
+export const FILES_TENANT_DATA_FEATURE = "files-tenant-data" as const;
+
 export function createFilesTenantDataFeature(): FeatureDefinition {
-  return defineFeature("files-tenant-data", (r) => {
+  return defineFeature(FILES_TENANT_DATA_FEATURE, (r) => {
     r.describe(
       "GDPR coverage for the `files` feature's `fileRef` entity: tenant-destroy row purge (EXT_TENANT_DATA) and full storage-prefix binary wipe (EXT_STORAGE_PROVIDER), plus a manual backfill/GC job that sweeps derivatives orphaned by a forget/tenant-destroy that ran before #2461 wired binary cleanup into those flows. Requires `tenant-lifecycle`, optionalRequires `files`.",
     );

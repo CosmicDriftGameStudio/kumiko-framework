@@ -111,4 +111,19 @@ describe("export-audit", () => {
     const { text } = await extractText(proxy, { mergePages: true });
     expect(text).toContain("Keine Prüfungen im Zeitraum");
   });
+
+  test("a period with more inspections than the export holds is rejected instead of cut off", async () => {
+    const assetName = "Großanlage";
+    for (let day = 0; day < 101; day += 1) {
+      const inspectedOn = new Date(Date.UTC(2025, 0, 1 + day)).toISOString().slice(0, 10);
+      await addInspection(inspectedOn, "ok", `Prüfer-${day}`, assetName);
+    }
+
+    const err = await stack.http.writeErr(
+      "pdf-audit-export:write:export-audit",
+      { assetName, from: "2025-01-01", to: "2025-12-31" },
+      userA,
+    );
+    expect(err.httpStatus).toBe(422);
+  });
 });

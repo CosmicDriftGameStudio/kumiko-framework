@@ -4,11 +4,16 @@
 // bundled-features' bootstrap.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { AuthHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   createChannelEmailFeature,
   createInMemoryTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
-import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
+import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
+import {
+  createDeliveryFeature,
+  createDeliveryTestContext,
+} from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { seedNotificationTemplates } from "@cosmicdrift/kumiko-bundled-features/template-resolver/seeding";
@@ -50,6 +55,11 @@ beforeAll(async () => {
       authOptions: buildComposeAuthOptions(auth) ?? {},
     }),
     dbName: DB_NAME,
+    // The invite-create call in the role-mismatch test mails via ctx.notify.
+    extraContext: (deps) => ({
+      ...createDeliveryTestContext(deps),
+      configResolver: createConfigResolver(),
+    }),
   });
   await seedNotificationTemplates(schemaStack.db, schemaStack.registry);
 });
@@ -58,7 +68,7 @@ afterAll(async () => {
   await schemaStack.cleanup();
 });
 
-function bootstrapOnce() {
+function bootstrapOnce(adminEmail = ROOT_EMAIL) {
   return runBootstrap({
     features: appFeatures,
     migrations: false,
@@ -70,7 +80,7 @@ function bootstrapOnce() {
     },
     auth,
     tenants: [{ id: TENANT_ID, key: `acme-${TENANT_ID.slice(0, 8)}`, name: "Acme" }],
-    systemAdmins: [{ email: ROOT_EMAIL, tenantId: TENANT_ID, role: "TenantAdmin" }],
+    systemAdmins: [{ email: adminEmail, tenantId: TENANT_ID, role: "TenantAdmin" }],
   });
 }
 
@@ -99,5 +109,17 @@ describe("runBootstrap", () => {
     ]);
     expect(second?.invites.map((i) => i.outcome)).toEqual(["pending"]);
     expect(emailTransport.sent).toHaveLength(1);
+  });
+
+  test("a SystemAdmin invite that lost its global role fails the run instead of finishing green", async () => {
+    const lockedOutEmail = "locked-out@example.com";
+    await bootstrapOnce(lockedOutEmail);
+    await schemaStack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: lockedOutEmail, role: "User" },
+      { id: crypto.randomUUID(), tenantId: TENANT_ID, roles: ["TenantAdmin"] },
+    );
+
+    await expect(bootstrapOnce(lockedOutEmail)).rejects.toThrow(/role-mismatch/);
   });
 });

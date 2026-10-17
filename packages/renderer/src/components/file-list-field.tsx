@@ -30,6 +30,10 @@ export function FileListField({
   const { Input, Button, Grid, GridCell, Text } = usePrimitives();
   const t = useTranslation();
   const fileIds = readFileIds(field.value);
+  // The server accepts repeated ids, so the id alone is not a unique key.
+  const keys = fileIds.map(
+    (fileId, index) => `${fileId}#${fileIds.slice(0, index).filter((x) => x === fileId).length}`,
+  );
   const disabled = field.readOnly;
   const canAdd = !disabled && (field.maxCount === undefined || fileIds.length < field.maxCount);
 
@@ -60,7 +64,7 @@ export function FileListField({
     <Grid columns={1} testId={`${id}-file-list`}>
       {fileIds.length === 0 && <Text variant="muted">{t("kumiko.field.file-list.empty")}</Text>}
       {fileIds.map((fileId, index) => (
-        <GridCell key={fileId}>
+        <GridCell key={keys[index]}>
           <Input
             {...inputProps}
             id={`${id}-${index}`}

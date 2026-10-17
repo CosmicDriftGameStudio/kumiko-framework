@@ -315,15 +315,19 @@ export function clampDateRange(
 // starts at that day's first instant, "to the 14th" includes everything up to
 // its last. Going through the next day's start keeps both ends right across a
 // DST boundary, where the day is not 24h long.
-function dayBoundInstant(date: string, bound: DateRangeBound, timeZone: string): string | null {
-  let plainDate: Temporal.PlainDate;
+function parsePlainDate(date: string): Temporal.PlainDate | null {
   try {
-    plainDate = Temporal.PlainDate.from(date);
+    return Temporal.PlainDate.from(date);
   } catch {
-    // Half-typed or hand-crafted URL value — drop the bound rather than send
-    // something the handler's ISO-datetime schema would reject.
     return null;
   }
+}
+
+function dayBoundInstant(date: string, bound: DateRangeBound, timeZone: string): string | null {
+  // Half-typed or hand-crafted URL value — drop the bound rather than send
+  // something the handler's ISO-datetime schema would reject.
+  const plainDate = parsePlainDate(date);
+  if (plainDate === null) return null;
   const start = plainDate.toZonedDateTime(timeZone).toInstant();
   return bound === "from"
     ? start.toString()
@@ -340,7 +344,10 @@ function dayBoundInstant(date: string, bound: DateRangeBound, timeZone: string):
 // A shared or hand-built URL can carry from > to; the handler's `from <= to`
 // refine would answer 422, so the bounds are put in order before conversion.
 function swapInvertedRange(range: DateRangeValue): DateRangeValue {
-  const inverted = range.from !== "" && range.to !== "" && range.from > range.to;
+  // Comparing raw strings would swap a valid bound against garbage and flip the filter's meaning.
+  const from = parsePlainDate(range.from);
+  const to = parsePlainDate(range.to);
+  const inverted = from !== null && to !== null && Temporal.PlainDate.compare(from, to) > 0;
   return inverted ? { from: range.to, to: range.from } : range;
 }
 

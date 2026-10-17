@@ -14,7 +14,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { cn, ModeSwitch, TextareaField } from "@cosmicdrift/kumiko-renderer-web";
-import { type ReactNode, useDeferredValue, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { BRANDING_QUERY_QN } from "../constants.js";
 import { composeLayoutHtml } from "./compose-layout.js";
 import { EditorHeader } from "./editor-header.js";
@@ -48,6 +48,10 @@ import { systemLabelMap } from "./mail-draft.js";
 import { OriginBar } from "./origin-bar.js";
 import type { OverviewRowView } from "./overview-row.js";
 import { asRowStatus } from "./status-label.js";
+import { useDebouncedValue } from "./use-debounced-value.js";
+
+// Server-side validation compiles the whole layout (mjml), so wait for a pause in typing.
+const VALIDATE_DEBOUNCE_MS = 400;
 
 type EditorTab = "draft" | "mjml";
 type Region = "header" | "signature" | "footer";
@@ -167,12 +171,12 @@ export function LayoutEditorBody({
   const content = mjmlMode
     ? mjml
     : composeLayoutHtml({ header, signature: isMail ? signature : "", footer });
-  const deferredContent = useDeferredValue(content);
+  const debouncedContent = useDebouncedValue(content, VALIDATE_DEBOUNCE_MS);
   const validation = useQuery<LayoutValidation>(TemplateResolverQueries.validate, {
     slug,
     kind,
     contentFormat: mjmlMode ? "mjml" : "html",
-    content: deferredContent,
+    content: debouncedContent,
     locale: source.locale,
     scope: isSystemAdmin ? "system" : "tenant",
   });

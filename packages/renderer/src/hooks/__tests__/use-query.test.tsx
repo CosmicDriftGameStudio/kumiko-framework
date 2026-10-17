@@ -409,4 +409,60 @@ describe("useQuery concurrency", () => {
     await settleNext(fake);
     expect(view.getByTestId("probe-1").textContent).toBe("1");
   });
+
+  test("a waiting hook whose payload changes leaves the queue and queues again with the new payload", async () => {
+    const fake = deferredDispatcher();
+    const tree = (waitingId: number) => (
+      <DispatcherProvider dispatcher={fake.dispatcher}>
+        <Probe key="running" id={0} concurrency={1} />
+        <Probe key="waiting" id={waitingId} concurrency={1} />
+      </DispatcherProvider>
+    );
+    const view = render(tree(1));
+    await act(async () => {});
+    expect(fake.started()).toBe(1);
+
+    view.rerender(tree(2));
+    await act(async () => {});
+    expect(fake.started()).toBe(1);
+
+    await settleNext(fake);
+    expect(fake.started()).toBe(2);
+    expect(fake.pending.map((call) => call.payload)).toEqual([{ id: 2 }]);
+    expect(fake.inFlight()).toBe(1);
+    await settleNext(fake);
+    expect(fake.maxInFlight()).toBe(1);
+    expect(view.getByTestId("probe-2").textContent).toBe("2");
+  });
+
+  test("refetch() of a waiting hook does not take a second queue position or a slot", async () => {
+    const fake = deferredDispatcher();
+    let refetchWaiting: () => Promise<void> = async () => {};
+    function Waiting() {
+      const { refetch } = useQuery<{ id: number }>(QUERY_TYPE, { id: 1 }, { concurrency: 1 });
+      refetchWaiting = refetch;
+      return null;
+    }
+    render(
+      <DispatcherProvider dispatcher={fake.dispatcher}>
+        <Probe id={0} concurrency={1} />
+        <Waiting />
+      </DispatcherProvider>,
+    );
+    await act(async () => {});
+    expect(fake.started()).toBe(1);
+
+    await act(async () => {
+      void refetchWaiting();
+    });
+    expect(fake.started()).toBe(1);
+
+    await settleNext(fake);
+    expect(fake.started()).toBe(2);
+    expect(fake.inFlight()).toBe(1);
+    await settleNext(fake);
+    expect(fake.started()).toBe(2);
+    expect(fake.inFlight()).toBe(0);
+    expect(fake.maxInFlight()).toBe(1);
+  });
 });
