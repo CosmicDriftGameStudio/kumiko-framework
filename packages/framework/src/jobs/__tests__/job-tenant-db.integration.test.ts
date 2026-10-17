@@ -6,7 +6,7 @@ import {
   type TestRedis,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
 import type { DbRunner } from "../../db/connection.js";
 import { table, text, uuid } from "../../db/dialect.js";
 import { insertOne, selectMany } from "../../db/query.js";

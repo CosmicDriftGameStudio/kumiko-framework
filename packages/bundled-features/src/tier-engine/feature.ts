@@ -41,11 +41,12 @@
 // **Boot-Dependencies:** config + tenant.
 
 // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312 (feature.ts > 300 lines)
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildEntityTable,
   createEventStoreExecutor,
   createTenantDb,
+  fetchOne,
+  selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineEntityCreateHandler,

@@ -983,8 +983,11 @@ export function startCronScheduler(
 ### src/db/queries/suspended-runs.ts
 
 ```ts
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { type DbRunner, toPostgresArrayLiteral } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  type DbRunner,
+  toPostgresArrayLiteral,
+} from "@cosmicdrift/kumiko-framework/db";
 
 export async function selectExpiredSuspensionEvents(
   db: DbRunner,

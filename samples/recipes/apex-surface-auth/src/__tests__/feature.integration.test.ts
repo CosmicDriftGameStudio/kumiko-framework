@@ -9,7 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { USER_STATUS, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { SendDeletionVerificationEmailFn } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createEventsTable, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";

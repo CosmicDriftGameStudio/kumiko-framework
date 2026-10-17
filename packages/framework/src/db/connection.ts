@@ -1,33 +1,54 @@
-// DB-Connection-Types: provider-agnostic via db/api.ts.
-// createConnection delegiert an postgres-provider (default) oder bun-provider (DB_PROVIDER=bun).
 import type { DbConnection, PgClient } from "@cosmicdrift/kumiko-types/db-connection";
 import postgres from "postgres";
 import { readPositiveIntEnv } from "../utils/env-parse.js";
-import { DEFAULT_DB_CLOSE_TIMEOUT_SECONDS } from "./api.js";
 
-// Raw client types (postgres-js | Bun.SQL) — the name used across query/
-// event-store/pipeline call sites. The structural pool handle from ./api is
-// `DbPoolHandle` (createConnection's return type) to avoid colliding with this.
 export type * from "@cosmicdrift/kumiko-types/db-connection";
-export type { DbConnectionOptions, DbPoolHandle } from "./api.js";
-export { createConnection } from "./api.js";
 
-// Legacy: postgres-js only. Neue Aufrufer: createConnection() aus api.ts.
-// guard:dup-ok — andere Layer als createPgConnection (gibt DbConnection zurück, nicht postgres-Instanz)
-export function createDbConnection(
-  url: string,
-  options: import("./api.js").DbConnectionOptions = {},
-): {
+type PostgresDriverOptions = NonNullable<Parameters<typeof postgres>[1]>;
+
+export type DbConnectionOptions = {
+  readonly maxConnections?: number;
+  readonly idleTimeoutSeconds?: number;
+  readonly connectTimeoutSeconds?: number;
+  readonly closeTimeoutSeconds?: number;
+  readonly ssl?: PostgresDriverOptions["ssl"];
+  readonly onNotice?: (notice: postgres.Notice) => void;
+};
+
+export type CreateDbConnectionOptions = DbConnectionOptions & { readonly url: string };
+
+export type DbConnectionHandle = {
   db: DbConnection;
   client: PgClient;
   close: () => Promise<void>;
-} {
-  const pgOptions: Parameters<typeof postgres>[1] = {};
+};
+
+// A DB outage can leave an in-flight query referenced on a dead connection,
+// so a plain end() (no timeout = wait for queries to finish) hangs forever —
+// close() must always bound how long shutdown waits.
+export const DEFAULT_DB_CLOSE_TIMEOUT_SECONDS = 5;
+
+export function createDbConnection(options: CreateDbConnectionOptions): DbConnectionHandle;
+/**
+ * @deprecated Positional form, use `createDbConnection({ url, ... })`. Run
+ * `bun kumiko-upgrade --apply` to rewrite call sites. Removed in the first release after 2026-10-29.
+ */
+export function createDbConnection(url: string, options?: DbConnectionOptions): DbConnectionHandle;
+export function createDbConnection(
+  urlOrOptions: string | CreateDbConnectionOptions,
+  legacyOptions: DbConnectionOptions = {},
+): DbConnectionHandle {
+  const { url, ...options }: CreateDbConnectionOptions =
+    typeof urlOrOptions === "string" ? { ...legacyOptions, url: urlOrOptions } : urlOrOptions;
+
+  const pgOptions: PostgresDriverOptions = {};
   if (options.maxConnections !== undefined) pgOptions.max = options.maxConnections;
   if (options.idleTimeoutSeconds !== undefined) pgOptions.idle_timeout = options.idleTimeoutSeconds;
   if (options.connectTimeoutSeconds !== undefined) {
     pgOptions.connect_timeout = options.connectTimeoutSeconds;
   }
+  if (options.ssl !== undefined) pgOptions.ssl = options.ssl;
+  if (options.onNotice !== undefined) pgOptions.onnotice = options.onNotice;
 
   const client = postgres(url, pgOptions);
 
@@ -41,11 +62,9 @@ export function createDbConnection(
 
 export function dbConnectionOptionsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
-): import("./api.js").DbConnectionOptions {
-  const opts: import("./api.js").DbConnectionOptions & {
-    maxConnections?: number;
-    idleTimeoutSeconds?: number;
-    connectTimeoutSeconds?: number;
+): DbConnectionOptions {
+  const opts: {
+    -readonly [K in keyof DbConnectionOptions]: DbConnectionOptions[K];
   } = {};
   const max = readPositiveIntEnv(env, "DATABASE_POOL_MAX");
   const idle = readPositiveIntEnv(env, "DATABASE_POOL_IDLE_TIMEOUT");
@@ -62,7 +81,7 @@ export const DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX = 3;
 
 export function outsideTransactionPoolOptionsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
-): import("./api.js").DbConnectionOptions {
+): DbConnectionOptions {
   return {
     ...dbConnectionOptionsFromEnv(env),
     maxConnections:

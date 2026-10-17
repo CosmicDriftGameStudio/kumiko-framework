@@ -14,8 +14,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineUnmanagedTable } from "@cosmicdrift/kumiko-framework/db";
+
+import { asRawClient, defineUnmanagedTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   EXT_USER_DATA,

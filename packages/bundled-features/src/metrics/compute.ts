@@ -1,4 +1,4 @@
-import type { WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import type {
   AggregateDimension,
   AggregateKey,

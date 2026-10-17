@@ -3,7 +3,7 @@
 // that touched the app pool would deadlock; it must defer until after the commit instead.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, HookPhases, type NotifyFn } from "@cosmicdrift/kumiko-framework/engine";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {

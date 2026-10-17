@@ -10,7 +10,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { testDatabaseUrl } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
 import postgres from "postgres";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
 import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
 import { asRawClient } from "../../db/query.js";
 import {

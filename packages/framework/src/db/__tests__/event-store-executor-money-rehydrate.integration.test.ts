@@ -8,7 +8,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient } from "../../db/query.js";
 import { createEntity, createMoneyField, createTextField, from } from "../../engine/index.js";
 import { TestUsers } from "../../seeding/seed-users.js";
@@ -20,6 +19,7 @@ import {
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb, type TenantDb } from "../tenant-db.js";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
 
 const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
 const cipher = createTestEnvelopeCipher(TEST_KEY);

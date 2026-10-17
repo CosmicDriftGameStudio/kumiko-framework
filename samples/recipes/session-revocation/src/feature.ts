@@ -8,7 +8,7 @@
 //
 // What to copy into your own app:
 //
-//   const db = createDbConnection(config.databaseUrl);
+//   const db = createDbConnection({ url: config.databaseUrl });
 //   const callbacks = createSessionCallbacks({ db });
 //   const server = buildServer({
 //     registry: buildRegistry([

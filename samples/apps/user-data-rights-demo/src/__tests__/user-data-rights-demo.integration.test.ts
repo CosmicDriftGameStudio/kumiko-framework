@@ -41,8 +41,8 @@ import {
   runForgetCleanup,
   runUserExport,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb, extractTableName } from "@cosmicdrift/kumiko-framework/db";
+
+import { asRawClient, createTenantDb, extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createSystemUser,

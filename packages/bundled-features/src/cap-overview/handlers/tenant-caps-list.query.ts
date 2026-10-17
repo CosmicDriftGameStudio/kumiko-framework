@@ -1,5 +1,9 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable, decodeCursor, encodeCursor } from "@cosmicdrift/kumiko-framework/db";
+import {
+  buildEntityTable,
+  decodeCursor,
+  encodeCursor,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigAccessor,
   definePagedQueryHandler,

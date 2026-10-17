@@ -1,4 +1,4 @@
-import { fetchOne } from "../bun-db/query.js";
+import { fetchOne } from "../db/query.js";
 import type { TenantDb } from "../db/tenant-db.js";
 import type {
   BeforeTransactionResult,

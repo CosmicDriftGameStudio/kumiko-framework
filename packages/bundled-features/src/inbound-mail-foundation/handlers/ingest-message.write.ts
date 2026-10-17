@@ -20,12 +20,11 @@
 // SystemAdmin-only: Aufrufer ist der Watch/Sync-Supervisor bzw. der
 // Poll-Cron mit programmatic SystemUser — nie ein Tenant-Request.
 
-import { countWhere } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { acquireNamespacedAdvisoryLock } from "@cosmicdrift/kumiko-framework/db";
+import { acquireNamespacedAdvisoryLock, countWhere } from "@cosmicdrift/kumiko-framework/db";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";

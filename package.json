@@ -25,7 +25,6 @@
     "typescript",
     "bun",
     "hono",
-    "drizzle",
     "postgres"
   ],
   "workspaces": [
@@ -49,7 +48,6 @@
     "packages/document-designer",
     "packages/renderer-mail-html",
     "packages/renderer-puppeteer-client",
-    "packages/document-designer",
     "apps/puppeteer-service",
     "packages/samples",
     "samples/recipes/*",

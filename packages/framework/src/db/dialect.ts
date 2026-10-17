@@ -374,7 +374,7 @@ export function primaryKey(opts: {
 // `sql\`${other}\``) — schema-files use single-level expressions only.
 
 // Unforgeable via JSON — a client-supplied jsonb value can fake `kind:
-// "sql-expr"` but can never carry a Symbol, so isSqlExpression() (bun-db/query.ts)
+// "sql-expr"` but can never carry a Symbol, so isSqlExpression() (db/query.ts)
 // can't be tricked into treating request data as a raw SQL literal. The same
 // brand gate is enforced here in the schema DSL (sql`...` interpolation +
 // literalDefault) and in entity-table-meta's sqlExpressionText — a duck-typed

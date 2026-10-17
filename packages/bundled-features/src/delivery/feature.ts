@@ -1,5 +1,5 @@
-import { updateMany, upsertByPk } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { updateMany, upsertByPk } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   defineFeature,

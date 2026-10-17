@@ -3,7 +3,7 @@
 // per outage, and a matching "recovered" line must fire once the DB answers
 // again, so ops can see the return without restarting the process. Routes the
 // dispatcher's own db connection through a TCP proxy (same pattern as
-// bun-db/__tests__/postgres-closed-socket-write.integration.test.ts) so the
+// db/__tests__/query/postgres-closed-socket-write.integration.test.ts) so the
 // outage can be simulated without touching the shared test DB other suites
 // depend on.
 
@@ -150,7 +150,8 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
     const proxiedUrl = new URL(dbUrl.toString());
     proxiedUrl.hostname = "127.0.0.1";
     proxiedUrl.port = String(proxyPort);
-    const proxiedDb = createDbConnection(proxiedUrl.toString(), {
+    const proxiedDb = createDbConnection({
+      url: proxiedUrl.toString(),
       maxConnections: 1,
       closeTimeoutSeconds: 0,
     });

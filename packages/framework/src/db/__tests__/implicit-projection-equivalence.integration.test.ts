@@ -17,7 +17,6 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import {
   createBooleanField,
   createEntity,
@@ -32,6 +31,7 @@ import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { buildEntityTable } from "../table-builder.js";
 import { createTenantDb, type TenantDb } from "../tenant-db.js";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
 
 const userEntity = createEntity({
   table: "read_implicit_users",

@@ -22,7 +22,7 @@
  *   2. **Find direct writes.** Two forms:
  *      - Method form `<receiver>.insert(<tableIdent>)` / `.update` / `.delete`.
  *      - Function form `insertOne|updateMany|deleteMany|...(<db>, <tableIdent>,
- *        ...)` from `@cosmicdrift/kumiko-framework/bun-db` (table = arg[1]) —
+ *        ...)` from `@cosmicdrift/kumiko-framework/db` (table = arg[1]) —
  *        exactly the path that created the sessions-instance bug
  *        (`updateMany(ctx.db.raw, userSessionTable, ...)` without a
  *        lifecycle event).
@@ -81,7 +81,7 @@ const EXCLUDE =
 // projection apply.
 const TX_RECEIVER_NAMES = new Set(["tx", "trx", "handle"]);
 
-// bun-db function helpers with signature `(db, table, ...)` — table is
+// db/query function helpers with signature `(db, table, ...)` — table is
 // always arg[1]. A direct write on an ES table goes through these just as
 // often as through the Drizzle method form. Maps to the coarse op bucket
 // for the violation message.
@@ -340,7 +340,7 @@ function isInsideProjectionApply(callNode: Node): boolean {
 
 // Extracts (table identifier, db/receiver expression, op) from a write
 // call — both forms: the Drizzle method `<recv>.insert(table)` and the
-// bun-db function `updateMany(db, table, ...)`. Casts around the table arg are
+// db/query function `updateMany(db, table, ...)`. Casts around the table arg are
 // unwrapped; undefined for non-writes or when the table arg is still no plain
 // identifier (computed tables are not resolvable → skip, never a false block).
 function resolveWrite(

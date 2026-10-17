@@ -12,7 +12,7 @@
 // Event payloads hold PII as subject-KMS ciphertext; it is replaced by
 // REDACTED_PII_PLACEHOLDER before returning, since the API leak guard refuses ciphertext.
 
-import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";

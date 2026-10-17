@@ -1,11 +1,6 @@
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import {
-  fetchOne,
-  runInSavepointIfSupported,
-  runnerCanBeginTransaction,
-  transaction,
-} from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   computeBlindIndex,
   configuredBlindIndexKey,
@@ -16,11 +11,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   type DbRunner,
+  fetchOne,
   nullBlindIndexesForSubject,
   recordEventsOwnedExclusivelyByTenant,
   recordRowExistsInTenant,
   recordRowOwningTenantId,
+  runInSavepointIfSupported,
+  runnerCanBeginTransaction,
   subjectRowExistsInTenant,
+  transaction,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
 import {

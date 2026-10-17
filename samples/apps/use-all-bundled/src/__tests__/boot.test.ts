@@ -12,10 +12,11 @@
 // scripts/check-coverage.ts, not in a brittle hardcoded count-assert.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { extractTableInfo } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configureEntityFieldEncryption,
   enumerateFeatureTableSources,
+  extractTableInfo,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";

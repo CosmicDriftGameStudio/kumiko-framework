@@ -6,7 +6,7 @@
 // makes the payload unreadable ([[erased]]) without touching the row.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configurePiiSubjectKms,
   decryptPiiFieldValues,
@@ -14,7 +14,7 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, selectMany, sql } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
   defineFeature,

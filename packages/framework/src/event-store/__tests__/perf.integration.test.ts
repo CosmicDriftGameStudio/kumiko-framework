@@ -19,7 +19,7 @@
 // default-config Postgres.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
 import { asRawClient } from "../../db/query.js";
 import type { TenantId } from "../../engine/types/index.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";

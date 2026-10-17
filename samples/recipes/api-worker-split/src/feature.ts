@@ -12,8 +12,7 @@
 //     dispatcher — JobContext has no write/query (fw#1717), so the app
 //     wires a write-bridge at boot (see setOrderFulfillWrite below).
 
-import { insertOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { table, text, uuid } from "@cosmicdrift/kumiko-framework/db";
+import { insertOne, table, text, uuid } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createNumberField,

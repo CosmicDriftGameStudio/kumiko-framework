@@ -1,4 +1,4 @@
-import { extractTableInfo, isTimestamptzType } from "@cosmicdrift/kumiko-framework/bun-db";
+import { extractTableInfo, isTimestamptzType } from "@cosmicdrift/kumiko-framework/db";
 import { METRIC_RANGES } from "./constants.js";
 import { filterValueKindOf, metricFilterEntries, RESERVED_PAYLOAD_KEYS } from "./filters.js";
 import type { MetricDefinition } from "./types.js";

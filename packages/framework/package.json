@@ -67,8 +67,8 @@
       "default": "./src/errors/index.ts"
     },
     "./bun-db": {
-      "types": "./src/bun-db/index.ts",
-      "default": "./src/bun-db/index.ts"
+      "types": "./src/db/bun-db-deprecated.ts",
+      "default": "./src/db/bun-db-deprecated.ts"
     },
     "./db": {
       "types": "./src/db/index.ts",
@@ -288,8 +288,8 @@
         "default": "./dist/errors/index.js"
       },
       "./bun-db": {
-        "types": "./dist/bun-db/index.d.ts",
-        "default": "./dist/bun-db/index.js"
+        "types": "./dist/db/bun-db-deprecated.d.ts",
+        "default": "./dist/db/bun-db-deprecated.js"
       },
       "./db": {
         "types": "./dist/db/index.d.ts",

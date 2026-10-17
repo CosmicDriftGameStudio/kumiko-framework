@@ -50,8 +50,8 @@ import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config
 import { derivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
 import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
 import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { entityEventName } from "@cosmicdrift/kumiko-framework/db";
+
+import { asRawClient, entityEventName } from "@cosmicdrift/kumiko-framework/db";
 import {
   createFilesFeature,
   createInMemoryFileProvider,

@@ -59,7 +59,6 @@
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { asRawClient } from "../../bun-db/index.js";
 import { quoteIdent } from "../../crypto/ciphertext-pattern.js";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii.js";
 import {
@@ -90,6 +89,7 @@ import {
 import type { EntityDefinition, Registry, TenantId } from "../../engine/types/index.js";
 import type { DbRunner } from "../connection.js";
 import { resolveTableName } from "../entity-table-meta.js";
+import { asRawClient } from "../query.js";
 import { tableExists } from "../schema-inspection.js";
 import { toSnakeCase } from "../table-builder.js";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.js";

@@ -19,8 +19,8 @@ import {
   tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable, createDbConnection } from "@cosmicdrift/kumiko-framework/db";
+
+import { buildEntityTable, createDbConnection, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -101,7 +101,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.end();
   }
-  const { db, close } = createDbConnection(TEST_DB_URL);
+  const { db, close } = createDbConnection({ url: TEST_DB_URL });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);
@@ -199,7 +199,7 @@ describe("runProdApp with masterKey and no env KEK", () => {
     expect(listed.status).toBe(200);
     expect(JSON.stringify(listed.body.data)).toContain(NOTE_PLAINTEXT);
 
-    const { db, close } = createDbConnection(TEST_DB_URL);
+    const { db, close } = createDbConnection({ url: TEST_DB_URL });
     try {
       const rows = await selectMany<Record<string, unknown>>(
         db,

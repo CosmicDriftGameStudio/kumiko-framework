@@ -2,8 +2,8 @@ import type { CapSpec } from "@cosmicdrift/kumiko-bundled-features/cap-overview"
 import { noteEntryTable } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { tagEntity } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 const tagTable = buildEntityTable("tag", tagEntity);

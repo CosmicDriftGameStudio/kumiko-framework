@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import { createArchivedStreamsTable } from "../../event-store/index.js";
 import { createNoopProvider, createPrometheusMeter } from "../../observability/index.js";

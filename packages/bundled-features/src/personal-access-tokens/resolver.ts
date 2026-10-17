@@ -1,6 +1,6 @@
 import type { TokenVerifier } from "@cosmicdrift/kumiko-framework/api";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { isExpiredAt } from "./expiry.js";
 import { hashPatToken } from "./hash.js";

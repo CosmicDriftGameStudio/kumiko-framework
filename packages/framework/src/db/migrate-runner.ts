@@ -18,15 +18,14 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-
+import type { DbConnection, DbRunner } from "./connection.js";
 import {
   asRawClient,
   hasBegin,
   type RawClient,
   type RawClientWithBegin,
   type ReservedClient,
-} from "../bun-db/query.js";
-import type { DbConnection, DbRunner } from "./connection.js";
+} from "./query.js";
 
 export type Migration = {
   readonly id: string; // filename ohne .sql

@@ -22,8 +22,9 @@
 // projection itself.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
+  asRawClient,
   createSystemDbView,
   createTenantDb,
   insertOne,

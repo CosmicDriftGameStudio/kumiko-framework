@@ -1,5 +1,5 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { isUuid, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFileContext,

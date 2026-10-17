@@ -10,8 +10,8 @@
 // noise but tight enough that an index-miss regression would fail loudly.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
-import { insertMany } from "../../bun-db/query.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
+import { insertMany } from "../../db/query.js";
 import type { TenantId } from "../../engine/types/index.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { generateId as uuid } from "../../utils/index.js";

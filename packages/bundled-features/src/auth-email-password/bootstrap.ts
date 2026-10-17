@@ -10,8 +10,8 @@ import {
   makeDispatchWriteAs,
   type RoleDispatchArgs,
 } from "@cosmicdrift/kumiko-framework/api";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   ConfigScopes,
   createSystemUser,

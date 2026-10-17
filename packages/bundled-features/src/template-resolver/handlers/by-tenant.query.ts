@@ -1,5 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { castTenantRows } from "@cosmicdrift/kumiko-framework/db";
+import { castTenantRows, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";

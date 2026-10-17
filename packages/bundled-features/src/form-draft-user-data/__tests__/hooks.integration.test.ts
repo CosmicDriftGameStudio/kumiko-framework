@@ -4,8 +4,8 @@
 // (and other tenants') rows untouched.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+
+import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,

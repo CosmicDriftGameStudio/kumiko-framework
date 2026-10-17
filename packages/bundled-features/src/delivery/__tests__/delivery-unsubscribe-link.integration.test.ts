@@ -3,8 +3,8 @@
 // real route opts the recipient out of the next send.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,

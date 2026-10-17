@@ -12,8 +12,12 @@
 //   - the registered cron handler forwards ctx.files, not just direct calls
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+
+import {
+  asRawClient,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   bridgeStub,
   createEntity,

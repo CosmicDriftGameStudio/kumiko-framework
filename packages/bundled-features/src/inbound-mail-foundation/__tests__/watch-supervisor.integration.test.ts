@@ -5,7 +5,6 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
@@ -13,6 +12,7 @@ import {
   InMemoryKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";

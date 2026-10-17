@@ -17,11 +17,11 @@
 // that landed the row on the new kekVersion first surfaces here as a
 // version_conflict error (counted as "skipped", not "failed").
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
+  selectMany,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";

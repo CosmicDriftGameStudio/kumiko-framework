@@ -40,7 +40,7 @@ function bootWith(extraEnv: Record<string, string>): Promise<ProdAppHandle> {
 }
 
 async function loadAppStartedEvents() {
-  const { db, close } = createDbConnection(TEST_DB_URL);
+  const { db, close } = createDbConnection({ url: TEST_DB_URL });
   try {
     const events = await loadAllEventsByType(db, APP_INSTANCE_STREAM_TYPE);
     return events.filter((event) => event.type === APP_STARTED_EVENT_TYPE);
@@ -57,7 +57,7 @@ beforeAll(async () => {
   } finally {
     await adminClient.end();
   }
-  const { db, close } = createDbConnection(TEST_DB_URL);
+  const { db, close } = createDbConnection({ url: TEST_DB_URL });
   try {
     await createEventsTable(db);
     await createArchivedStreamsTable(db);

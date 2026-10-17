@@ -23,7 +23,7 @@ The production wiring shape: an app builds `createSessionCallbacks()` against a 
 ## What to copy into your app
 
 ```ts illustration
-const db = createDbConnection(config.databaseUrl);
+const db = createDbConnection({ url: config.databaseUrl });
 const callbacks = createSessionCallbacks({ db });
 
 const server = buildServer({
@@ -206,7 +206,7 @@ describe("session-revocation sample wiring", () => {
 //
 // What to copy into your own app:
 //
-//   const db = createDbConnection(config.databaseUrl);
+//   const db = createDbConnection({ url: config.databaseUrl });
 //   const callbacks = createSessionCallbacks({ db });
 //   const server = buildServer({
 //     registry: buildRegistry([

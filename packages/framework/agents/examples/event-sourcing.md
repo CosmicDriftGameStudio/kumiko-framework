@@ -96,8 +96,8 @@ Six integration tests pin everything at once:
 //   - getAllProjectionProgress (projection lag for ops dashboards)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbTx } from "@cosmicdrift/kumiko-framework/db";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   append,
   loadAggregate as loadAggregateRaw,
@@ -851,18 +851,17 @@ import {
   defineProjectionQueryHandler,
   typedPayload,
 } from "@app/define";
-import {
-  fetchOne,
-  incrementCounter,
-  insertOne,
-  updateMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   buildEntityTable,
   createEventStoreExecutor,
+  fetchOne,
+  incrementCounter,
+  insertOne,
   integer,
   table,
   text,
+  updateMany,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 import { z } from "zod";

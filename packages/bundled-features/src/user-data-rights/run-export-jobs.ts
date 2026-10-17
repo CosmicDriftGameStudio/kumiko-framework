@@ -45,11 +45,15 @@ import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 // (`expiresAt + exportStorageCleanupGraceHours < now`) — abgelaufene ZIPs
 // auf S3 sollen nicht ewig liegen.
 
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { addDurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  fetchOne,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import type {
   EscapeHatchAuditSink,
   Registry,

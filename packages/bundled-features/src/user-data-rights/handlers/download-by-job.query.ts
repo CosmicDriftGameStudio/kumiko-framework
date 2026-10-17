@@ -24,7 +24,7 @@
 //   7. Return {url, expiresAt}
 
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineQueryHandler,
   SYSTEM_USER_ID,

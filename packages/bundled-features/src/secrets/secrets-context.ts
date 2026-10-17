@@ -12,12 +12,13 @@
 //           read logged") now sits on the events-table instead of a
 //           dedicated audit-table.
 
-import { fetchOne, transaction } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
   type DbRunner,
+  fetchOne,
+  transaction,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, type WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";

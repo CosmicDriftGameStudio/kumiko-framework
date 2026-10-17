@@ -6,8 +6,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { sql } from "@cosmicdrift/kumiko-framework/db";
+
+import { selectMany, sql } from "@cosmicdrift/kumiko-framework/db";
 import type { AppContext } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-testing/helpers";

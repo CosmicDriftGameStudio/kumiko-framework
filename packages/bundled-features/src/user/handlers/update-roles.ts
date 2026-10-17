@@ -1,8 +1,9 @@
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   acquireNamespacedAdvisoryLock,
   createEventStoreExecutor,
   type DbRunner,
+  fetchOne,
+  selectMany,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {

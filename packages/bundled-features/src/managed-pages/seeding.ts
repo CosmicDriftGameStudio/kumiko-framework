@@ -2,11 +2,11 @@
 // Event-Store-Executor an — gleicher Pfad wie der echte set-Handler, aber
 // ohne Access-Check. Default ifExists="skip".
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
+  fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {

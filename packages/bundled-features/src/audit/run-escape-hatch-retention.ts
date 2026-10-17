@@ -1,13 +1,13 @@
 import {
-  aggregateWhere,
-  runnerCanBeginTransaction,
-  selectMany,
-} from "@cosmicdrift/kumiko-framework/bun-db";
-import {
   COMPLIANCE_PROFILES,
   subtractRetentionSpec,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import {
+  aggregateWhere,
+  runnerCanBeginTransaction,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigResolver,
   parseTenantId,

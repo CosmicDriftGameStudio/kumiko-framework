@@ -13,8 +13,11 @@
 // fall through to update, or no-op if the winner already set the target
 // `enabled` state.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  fetchOne,
+  type TenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
 import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables.js";

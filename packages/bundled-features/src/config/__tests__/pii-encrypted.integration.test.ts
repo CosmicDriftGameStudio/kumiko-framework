@@ -5,7 +5,6 @@
 // regardless of role (see config/handlers/values.query.ts).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
@@ -13,6 +12,7 @@ import {
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
 } from "@cosmicdrift/kumiko-framework/crypto";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createTenantConfig,

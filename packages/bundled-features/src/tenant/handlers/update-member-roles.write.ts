@@ -1,5 +1,4 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, type DbRow, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   assignableAppRolesOf,

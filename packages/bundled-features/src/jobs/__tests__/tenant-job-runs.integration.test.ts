@@ -8,8 +8,8 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildServer, type JwtHelper } from "@cosmicdrift/kumiko-framework/api";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
   defineFeature,

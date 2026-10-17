@@ -10,12 +10,12 @@
 // (audit, search-index) sehen den Seed. Der Executor-Pfad emittiert
 // das Event UND schreibt die Projection-Zeile in einer TX.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { computeBlindIndex, configuredBlindIndexKey } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
+  fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";

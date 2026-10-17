@@ -1,5 +1,5 @@
-import { deleteManyBatched } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { deleteManyBatched } from "@cosmicdrift/kumiko-framework/db";
 import { type PruneEventsOptions, pruneEvents } from "@cosmicdrift/kumiko-framework/pipeline";
 import { deliveryAttemptsTable } from "./tables.js";
 

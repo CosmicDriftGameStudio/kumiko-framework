@@ -2,8 +2,8 @@
 // settle against actual usage, swept rows, systemScope handlers, tenant stamping, tenant isolation.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { insertOne } from "@cosmicdrift/kumiko-framework/db";
+
+import { insertOne, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   createSystemUser,

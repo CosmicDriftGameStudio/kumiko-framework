@@ -53,9 +53,6 @@ const ALLOWLIST = [
   // DB layer: drizzle column wrapper, migration tooling — Date is a
   // primitive wire format there
   /packages\/framework\/src\/db\//,
-  // Bun.SQL layer (post-Drizzle replacement) — same boundary as db/,
-  // converts Date→Temporal at the driver boundary.
-  /packages\/framework\/src\/bun-db\//,
   // Event-store internals: createdAt stamps, snapshot time, archive time
   /packages\/framework\/src\/event-store\//,
   // Pipeline: system hooks, idempotency cache (low-level timestamps)
@@ -111,7 +108,7 @@ const ALLOWLIST = [
   // Date object from fs.Stats.mtimeMs — wire boundary, not a Temporal format.
   /packages\/server-runtime\/src\/run-prod-app-static-files\.ts$/,
   // Bun.SQL timestamptz columns arrive as native Date (driver wire format,
-  // same reason as packages/framework/src/bun-db/ above).
+  // same reason as packages/framework/src/db/ above).
   /packages\/publish\/src\/rollback\.ts$/,
 ];
 

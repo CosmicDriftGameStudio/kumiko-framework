@@ -15,8 +15,8 @@
 //      dispatcher (dispatchSystemWrite → orders:write:fulfillment:create).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+
+import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createApiEntrypoint,

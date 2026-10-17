@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
 import { asRawClient } from "../../db/query.js";
 import {
   createEntity,
@@ -16,6 +15,7 @@ import { createEnvelopeCipher } from "../../secrets/envelope-cipher.js";
 import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { seedConfigValues } from "../config-seed.js";
 import { buildEntityTable } from "../table-builder.js";
+import { type BunTestDb, createTestDb } from "./query/bun-test-db.js";
 
 // --- Test Entity ---
 // Mirrors the config-value entity from bundled-features with a unique

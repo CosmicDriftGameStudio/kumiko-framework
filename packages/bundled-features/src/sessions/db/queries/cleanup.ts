@@ -1,5 +1,5 @@
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 
 export async function deleteStaleSessionsBatch(
   db: DbConnection,

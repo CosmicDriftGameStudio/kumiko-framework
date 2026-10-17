@@ -21,7 +21,6 @@ import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework
 // landen. user-data-rights-defaults/hooks/user.userdata-hook expose
 // expliziert KEIN passwordHash + KEINE roles (privileged columns).
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
@@ -33,6 +32,7 @@ import {
   configuredEntityFieldEncryption,
   createTenantDb,
   decryptEntityFieldValues,
+  selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   type EscapeHatchAuditSink,

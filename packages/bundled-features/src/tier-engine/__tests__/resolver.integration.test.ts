@@ -20,8 +20,8 @@ import { tenantSecretsTable } from "@cosmicdrift/kumiko-bundled-features/secrets
 import { tenantMembershipsTable, tenantTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenant } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+
+import { asRawClient, buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   findTierResolverUsage,

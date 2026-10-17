@@ -11,7 +11,7 @@
 // **Read-Only-Endpoint:** Pollt nur, kein State-Flip. Idempotent + cache-
 // fest. UI poll-Intervall typisch 2-5s waehrend running.
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";

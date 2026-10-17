@@ -13,7 +13,7 @@ import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { ROLES } from "../../auth/roles.js";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.js";
 import { asRawClient } from "../../db/query.js";
 import {
   createRegistry,

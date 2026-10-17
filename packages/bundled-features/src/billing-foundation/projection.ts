@@ -15,11 +15,12 @@
 // import). setupTestStack pusht sie automatisch via r.projection.table.
 
 import {
+  buildEntityTable,
+  type EntityTableMeta,
   insertOnConflictDoNothing,
   requireEntityTableMeta,
   upsertOnConflict,
-} from "@cosmicdrift/kumiko-framework/bun-db";
-import { buildEntityTable, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+} from "@cosmicdrift/kumiko-framework/db";
 import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
 import { paymentRowId } from "./aggregate-id.js";
 import { paymentEntity, subscriptionEntity } from "./entities.js";

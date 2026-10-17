@@ -16,7 +16,7 @@ import {
   requestContext,
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createBooleanField,
   createEntity,

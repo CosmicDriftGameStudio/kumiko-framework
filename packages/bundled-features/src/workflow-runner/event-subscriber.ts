@@ -24,7 +24,7 @@
 // existing resume-due-runs job (Phase 2) picks the row up on its next
 // cron tick — the one resume path stays exactly the one Phase 2 built.
 
-import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type {
   FeatureRegistrar,
   MultiStreamApplyFn,

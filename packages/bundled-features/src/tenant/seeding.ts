@@ -28,11 +28,11 @@
 // a no-op on the second call. Memberships have no update-semantic — to
 // change roles, write a new event via the regular handler path.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbRunner,
+  fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   type AppContext,

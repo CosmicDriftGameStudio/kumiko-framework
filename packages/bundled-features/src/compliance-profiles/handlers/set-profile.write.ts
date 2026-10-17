@@ -1,9 +1,8 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   complianceProfileOverrideSchema,
   SELECTABLE_PROFILE_KEYS,
 } from "@cosmicdrift/kumiko-framework/compliance";
-import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { createEventStoreExecutor, fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   UnprocessableError,

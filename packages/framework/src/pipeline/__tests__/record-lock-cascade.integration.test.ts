@@ -11,7 +11,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createEventStoreExecutor, WritePurposes } from "../../db/event-store-executor.js";
-import { asRawClient } from "../../db/query-api.js";
+import { asRawClient } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import {
   createBooleanField,

@@ -12,7 +12,7 @@ import {
   GlobalFeatureToggleRuntime,
   globalFeatureStateTable,
 } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-testing/helpers";
 import {

@@ -15,8 +15,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient, selectMany } from "../../bun-db/index.js";
 import { createEventStoreExecutor, createTenantDb } from "../../db/index.js";
+import { asRawClient, selectMany } from "../../db/query.js";
 import {
   createEntity,
   createFileField,

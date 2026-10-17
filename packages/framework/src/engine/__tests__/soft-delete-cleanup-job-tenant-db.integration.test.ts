@@ -7,8 +7,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { asRawClient } from "../../bun-db/query.js";
-import { selectMany } from "../../db/query.js";
+
+import { asRawClient, selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import { TestUsers } from "../../seeding/seed-users.js";
 import {

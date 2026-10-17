@@ -1,10 +1,10 @@
-import { requireEntityTableMeta } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   boolean,
   type EntityTableMeta,
   index,
   instant,
   table as pgTable,
+  requireEntityTableMeta,
   serial,
   sql,
   text,

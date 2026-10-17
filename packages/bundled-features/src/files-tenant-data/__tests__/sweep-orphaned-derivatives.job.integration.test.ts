@@ -7,8 +7,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/engine";
 import {

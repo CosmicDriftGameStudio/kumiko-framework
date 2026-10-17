@@ -17,11 +17,11 @@
 //      e. Invitation → accepted, Token gelöscht
 //   5. Response: SessionUser + tenantId für Auto-Login
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
+  fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildSessionRoles,

@@ -1050,14 +1050,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     }
   }
 
-  const { db, close: closeDb } = createDbConnection(
-    databaseUrl,
-    dbConnectionOptionsFromEnv(envSource),
-  );
-  const { db: outsideTransactionDb, close: closeOutsideTransactionDb } = createDbConnection(
-    databaseUrl,
-    outsideTransactionPoolOptionsFromEnv(envSource),
-  );
+  const { db, close: closeDb } = createDbConnection({
+    url: databaseUrl,
+    ...dbConnectionOptionsFromEnv(envSource),
+  });
+  const { db: outsideTransactionDb, close: closeOutsideTransactionDb } = createDbConnection({
+    url: databaseUrl,
+    ...outsideTransactionPoolOptionsFromEnv(envSource),
+  });
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
   await waitForDatabase(db, { processName: "runProdApp" });

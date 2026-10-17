@@ -9,8 +9,8 @@ import type {
 
 export type { SessionMassRevoker } from "@cosmicdrift/kumiko-framework/api";
 
-import { fetchOne, insertOne, transaction, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, insertOne, transaction, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { buildSessionRoles, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { append } from "@cosmicdrift/kumiko-framework/event-store";

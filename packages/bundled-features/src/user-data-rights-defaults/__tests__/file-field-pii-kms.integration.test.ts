@@ -4,13 +4,13 @@
 // writes go through real HTTP; the DB is only read for the raw-storage asserts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createFileField,

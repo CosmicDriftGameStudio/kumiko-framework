@@ -1,4 +1,3 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   type SubjectId,
@@ -8,6 +7,7 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   type DbRunner,
+  selectMany,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
 import {

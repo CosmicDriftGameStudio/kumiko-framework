@@ -6,7 +6,7 @@ import {
   templateResourceEntity,
   templateResourcesTable,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
   defineFeature,

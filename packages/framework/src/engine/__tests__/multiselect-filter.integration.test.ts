@@ -156,11 +156,11 @@ describe("multiSelect filterable — jsonb containment, not scalar equality (fw#
   });
 
   // The issue's own diagnosis (fw#2490) points at buildWhereClause in
-  // bun-db/query.ts, not the screen-filter path above — that generic query
+  // db/query.ts, not the screen-filter path above — that generic query
   // API is what direct app/handler code hits when it filters a multiSelect
   // column without going through a screen filter. Same jsonb-array bug,
   // separate WHERE-builder, must be covered independently.
-  describe("generic selectMany() query API (bun-db/query.ts buildWhereClause)", () => {
+  describe("generic selectMany() query API (db/query.ts buildWhereClause)", () => {
     const meta = deriveEntityTableMeta("equipment", equipmentEntity);
 
     test("scalar equality uses jsonb containment, not `=`", async () => {

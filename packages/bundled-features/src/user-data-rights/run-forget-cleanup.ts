@@ -35,7 +35,6 @@ import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework
 // gefailten Hooks bleibt im DeletionRequested-Status (next Lauf
 // retried automatisch).
 
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configuredPiiSubjectKms,
   type KmsAdapter,
@@ -46,7 +45,9 @@ import {
   type DbRunner,
   entityEventName,
   executeRawQuery,
+  fetchOne,
   nullBlindIndexesForSubject,
+  selectMany,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
 import {

@@ -1,4 +1,4 @@
-import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";

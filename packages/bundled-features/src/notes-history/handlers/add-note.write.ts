@@ -1,4 +1,4 @@
-import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/db";
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { decryptStoredPii, denyUnlessJoinRowParentVisible } from "../../shared/index.js";

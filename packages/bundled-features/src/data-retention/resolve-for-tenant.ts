@@ -2,8 +2,8 @@
 // the forget runner and the `policy-for` query all go through here, so a caller
 // cannot skip a layer (e.g. the tenant preset) by accident.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { isTenantDb } from "../shared/index.js";
 import { parseRetentionOverrideOrNull } from "./_internal/parse-override.js";

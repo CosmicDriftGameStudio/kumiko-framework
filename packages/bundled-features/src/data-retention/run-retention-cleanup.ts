@@ -38,7 +38,6 @@
 // Rows weiter (reference bleibt alt), deshalb id-Cursor-Paging statt einer
 // einzelnen Page — sonst verstopfen erledigte Rows das batchLimit-Fenster.
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
@@ -54,6 +53,7 @@ import {
   createTenantDb,
   type DbRunner,
   nullBlindIndexesForSubject,
+  selectMany,
   type TenantDb,
   type WhereObject,
   WritePurposes,

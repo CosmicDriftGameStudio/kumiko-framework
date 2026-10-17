@@ -15,7 +15,7 @@
 //   5. DB-State + Membership + Cookies/JWT verifizieren
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createAnonymousUser,
   createSystemUser,

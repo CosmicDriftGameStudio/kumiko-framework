@@ -1,5 +1,5 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { decryptStoredPii, mapWithConcurrency } from "../shared/index.js";
 import { userTable } from "./schema/user.js";
 

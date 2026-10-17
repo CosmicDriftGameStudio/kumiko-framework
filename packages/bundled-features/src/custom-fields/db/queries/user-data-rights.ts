@@ -1,5 +1,5 @@
-import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
 
 function quoteTable(tableName: string): string {
   return `"${tableName.replace(/"/g, '""')}"`;

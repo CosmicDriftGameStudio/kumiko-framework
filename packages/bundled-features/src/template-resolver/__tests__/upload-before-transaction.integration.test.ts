@@ -4,8 +4,13 @@
 // binaries when the transaction does not commit. Real stack, real HTTP calls.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { executeRawQuery, table as pgTable, uuid } from "@cosmicdrift/kumiko-framework/db";
+
+import {
+  executeRawQuery,
+  table as pgTable,
+  selectMany,
+  uuid,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   defineWriteHandler,

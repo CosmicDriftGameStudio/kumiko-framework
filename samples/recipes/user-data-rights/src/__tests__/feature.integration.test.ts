@@ -34,7 +34,7 @@ import {
   runForgetCleanup,
   runUserExport,
 } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
-import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { insertOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { seedRow } from "@cosmicdrift/kumiko-testing/helpers";

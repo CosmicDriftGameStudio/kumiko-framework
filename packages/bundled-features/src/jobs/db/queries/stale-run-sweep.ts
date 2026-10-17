@@ -12,8 +12,8 @@
 // the run becomes retriable via the existing jobs:write:retry gate
 // (retry.write.ts only allows retry from "failed").
 
-import { deleteManyBatched, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { deleteManyBatched, selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { mapWithConcurrency } from "../../../shared/index.js";
 import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../../handlers/retention-cleanup.job.js";
 import { encryptFailureError } from "../../job-run-logger.js";

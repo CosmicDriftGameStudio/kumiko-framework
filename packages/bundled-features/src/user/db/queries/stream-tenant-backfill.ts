@@ -24,8 +24,8 @@
 // the stream move: rebuildProjection("user:projection:user-entity", ...) or
 // the jobs:job:projection-rebuild job.
 
-import { asRawClient, transaction, unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, transaction, unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 
 export type UserStreamBackfillResult = {

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { insertMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, createRegistry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";

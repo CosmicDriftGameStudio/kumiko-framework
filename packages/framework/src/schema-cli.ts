@@ -394,7 +394,7 @@ export async function runSchemaCli(
         out.err(`  ${migrationsDir} fehlt — erst schema generate <name>.`);
         return 1;
       }
-      const { db, close } = createDbConnection(dbUrl);
+      const { db, close } = createDbConnection({ url: dbUrl });
       let wiring: KmsWiring | undefined;
       try {
         const result = await runMigrationsFromDir(db, migrationsDir);
@@ -474,7 +474,7 @@ export async function runSchemaCli(
         out.err(`  ${migrationsDir} fehlt — erst schema generate <name>.`);
         return 1;
       }
-      const { db, close } = createDbConnection(dbUrl);
+      const { db, close } = createDbConnection({ url: dbUrl });
       try {
         const result = await baselineMigrations(db, loadMigrationsFromDir(migrationsDir));
         out.log("");
@@ -504,7 +504,7 @@ export async function runSchemaCli(
         return 0;
       }
       const local = loadMigrationsFromDir(migrationsDir);
-      const { db, close } = createDbConnection(dbUrl);
+      const { db, close } = createDbConnection({ url: dbUrl });
       try {
         // Frische DB ohne je gelaufenes `kumiko schema apply` → tracking-table
         // fehlt = "nichts applied". Connection-/Permission-Fehler dagegen

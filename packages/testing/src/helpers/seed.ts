@@ -7,14 +7,14 @@
 // seam — the signatures mirror the query helpers so a call-site migration is a
 // plain identifier rename.
 
+import type { EntityTable, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   deleteMany,
   insertMany,
   insertOne,
   updateMany,
   type WhereObject,
-} from "@cosmicdrift/kumiko-framework/bun-db";
-import type { EntityTable, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+} from "@cosmicdrift/kumiko-framework/db";
 import type { AnyDb } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 
 type SeedTable = EntityTable | EntityTableMeta;

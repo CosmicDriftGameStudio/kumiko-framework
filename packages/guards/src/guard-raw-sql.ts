@@ -7,7 +7,7 @@
  * on the call's own line or the line directly above (one hit per marker). A bare tag with no
  * reason text after it does NOT suppress the finding — production code
  * should otherwise route SQL through `db/queries/*` or typed
- * `bun-db/query` helpers.
+ * `db/query` helpers.
  *
  * A marker only suppresses while its (file, reason) pair is frozen in
  * `.kumiko-raw-sql-baseline.json` at the repo root, so every new or reworded
@@ -116,7 +116,7 @@ export async function collectRawSqlFindings(
 }
 
 const MARKER_REMEDIATION =
-  "New or reworded raw-sql marker. Use a typed bun-db helper (selectMany, selectInnerJoin, " +
+  "New or reworded raw-sql marker. Use a typed db/query helper (selectMany, selectInnerJoin, " +
   "insertOnConflictDoNothing, upsertOnConflict, aggregateWhere, where jsonText …) if one fits; " +
   "otherwise freeze the exception with `kumiko-guards checks --write-baseline --guard=guard-raw-sql` " +
   "so the baseline diff shows up in review.";
@@ -124,7 +124,7 @@ const MARKER_REMEDIATION =
 export const check: RepoCheck = {
   name: "guard-raw-sql",
   hint:
-    "Rule: runtime SQL only in db/queries/*, bun-db/query.ts, testing/*, or with " +
+    "Rule: runtime SQL only in db/queries/*, db/query.ts, testing/*, or with " +
     "// kumiko-lint-ignore raw-sql <reason> on the line or the line above — and that " +
     "(file, reason) must be frozen in .kumiko-raw-sql-baseline.json " +
     "(`kumiko-guards checks --write-baseline --guard=guard-raw-sql`).",

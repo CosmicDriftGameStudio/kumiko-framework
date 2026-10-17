@@ -18,9 +18,10 @@ function makeRepo(files: Record<string, string>): string {
 }
 
 describe("isRawSqlAllowed", () => {
-  test("permits framework db/queries and bun-db/query", () => {
+  test("permits framework db/queries and db/query", () => {
     expect(isRawSqlAllowed("/repo/packages/framework/src/db/queries/event-store.ts")).toBe(true);
-    expect(isRawSqlAllowed("/repo/packages/framework/src/bun-db/query.ts")).toBe(true);
+    expect(isRawSqlAllowed("/repo/packages/framework/src/db/query.ts")).toBe(true);
+    expect(isRawSqlAllowed("/repo/packages/framework/src/bun-db/query.ts")).toBe(false);
   });
 
   test("blocks handlers and feature production code", () => {

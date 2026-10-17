@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { tenantChannel } from "@cosmicdrift/kumiko-framework/engine";
 import { SSE_BROADCAST_CONSUMER_NAME } from "@cosmicdrift/kumiko-framework/pipeline";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";

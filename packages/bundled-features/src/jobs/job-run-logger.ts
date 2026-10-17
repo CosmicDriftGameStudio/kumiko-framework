@@ -1,4 +1,14 @@
 import {
+  configuredPiiSubjectKms,
+  encryptPiiValueForSubject,
+  KeyErasedError,
+  type LocalKeyKmsAdapter,
+  PII_ERASED_SENTINEL,
+  type SubjectId,
+} from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  acquireNamespacedAdvisoryLock,
+  type DbConnection,
   deleteMany,
   fetchOne,
   insertMany,
@@ -7,16 +17,7 @@ import {
   transaction,
   updateMany,
   upsertOnConflict,
-} from "@cosmicdrift/kumiko-framework/bun-db";
-import {
-  configuredPiiSubjectKms,
-  encryptPiiValueForSubject,
-  KeyErasedError,
-  type LocalKeyKmsAdapter,
-  PII_ERASED_SENTINEL,
-  type SubjectId,
-} from "@cosmicdrift/kumiko-framework/crypto";
-import { acquireNamespacedAdvisoryLock, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+} from "@cosmicdrift/kumiko-framework/db";
 import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   JobDroppedMeta,

@@ -12,7 +12,6 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { selectMany } from "../../bun-db/index.js";
 import {
   createEntity,
   createTextField,
@@ -20,6 +19,7 @@ import {
   defineFeature,
 } from "../../engine/index.js";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.js";
+import { selectMany } from "../query.js";
 import { buildEntityTable } from "../table-builder.js";
 
 const noteEntity = createEntity({

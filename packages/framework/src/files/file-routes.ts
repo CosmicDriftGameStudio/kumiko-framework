@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getUser } from "../api/auth-middleware.js";
 import { requestContext } from "../api/request-context.js";
-import { selectMany } from "../bun-db/index.js";
 import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
@@ -12,6 +11,7 @@ import {
   PII_ERASED_SENTINEL,
 } from "../crypto/index.js";
 import type { DbConnection } from "../db/connection.js";
+import { selectMany } from "../db/query.js";
 import { createProjectingTenantDb, type TenantDb } from "../db/tenant-db.js";
 import {
   createDerivativesContext,

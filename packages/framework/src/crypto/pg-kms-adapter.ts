@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import postgres from "postgres";
-import { DEFAULT_DB_CLOSE_TIMEOUT_SECONDS } from "../db/api.js";
+import { DEFAULT_DB_CLOSE_TIMEOUT_SECONDS } from "../db/connection.js";
 import {
   KeyAlreadyExistsError,
   KeyErasedError,

@@ -12,7 +12,7 @@
 //   - Crypto-Shredding: Subject-Key-Erase macht Payload unlesbar (#800)
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+
 import {
   configuredPiiSubjectKms,
   configurePiiSubjectKms,
@@ -21,7 +21,12 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import {
+  asRawClient,
+  createTenantDb,
+  type DbConnection,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/engine";
 import {

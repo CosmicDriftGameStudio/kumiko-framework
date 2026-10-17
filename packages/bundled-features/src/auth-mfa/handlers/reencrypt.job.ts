@@ -23,7 +23,6 @@
 // an old-KEK wrap would happen if rotation only touched the read-side
 // projection instead of appending a real `.updated` event).
 
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
@@ -34,6 +33,7 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
+  selectMany,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";

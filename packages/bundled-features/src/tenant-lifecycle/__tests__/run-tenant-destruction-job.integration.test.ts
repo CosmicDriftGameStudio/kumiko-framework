@@ -2,7 +2,7 @@
 // through ctx.crossTenantReads and reports a cross-tenant-read instead of an unsafe-raw.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { EscapeHatchUseEvent, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {

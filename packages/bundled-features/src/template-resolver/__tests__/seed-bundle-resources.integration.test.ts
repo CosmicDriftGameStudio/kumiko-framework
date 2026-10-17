@@ -2,7 +2,7 @@
 // dispatcher: the file lands in the system tenant's file space and a re-seed writes nothing.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,

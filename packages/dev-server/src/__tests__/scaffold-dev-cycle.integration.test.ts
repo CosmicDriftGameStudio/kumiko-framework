@@ -49,7 +49,7 @@ afterAll(async () => {
   const base = process.env["TEST_DATABASE_URL"];
   if (!base) return;
   const adminUrl = base.replace(/\/[^/]+$/, "/postgres");
-  const admin = createDbConnection(adminUrl, { maxConnections: 1 });
+  const admin = createDbConnection({ url: adminUrl, maxConnections: 1 });
   try {
     await asRawClient(admin.db).unsafe(`DROP DATABASE IF EXISTS "${dbName}"`);
   } finally {

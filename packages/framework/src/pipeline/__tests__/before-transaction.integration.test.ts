@@ -10,8 +10,8 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { selectMany } from "../../bun-db/index.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import {
   createEntity,

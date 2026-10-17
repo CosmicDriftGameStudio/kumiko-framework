@@ -4,7 +4,7 @@ import {
   GlobalFeatureToggleRuntime,
   globalFeatureStateTable,
 } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { createLateBoundHolder } from "@cosmicdrift/kumiko-testing/helpers";

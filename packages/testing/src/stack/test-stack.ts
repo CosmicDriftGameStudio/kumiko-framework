@@ -355,7 +355,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     let metas = collectTableMetas(options.features);
     if (options.entityTables === false) {
       const { enumerateFeatureTableSources } = await import("@cosmicdrift/kumiko-framework/db");
-      const { extractTableInfo } = await import("@cosmicdrift/kumiko-framework/bun-db");
+      const { extractTableInfo } = await import("@cosmicdrift/kumiko-framework/db");
       const nonEntityNames = new Set(
         options.features.flatMap((f) =>
           enumerateFeatureTableSources(f).map((s) => extractTableInfo(s.table).name),

@@ -3,7 +3,7 @@
 // field-mapping the query handler now owns (see log.query.ts).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { insertMany } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,

@@ -23,7 +23,7 @@
 // but this handler's own isPublic gate runs exactly the same either way.
 
 import { computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { resolveFieldVariant } from "@cosmicdrift/kumiko-framework/derivatives";
 import {
   defineQueryHandler,

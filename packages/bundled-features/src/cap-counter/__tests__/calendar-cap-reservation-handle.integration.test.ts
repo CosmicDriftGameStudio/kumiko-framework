@@ -10,7 +10,7 @@ import {
   setSystemTime,
   test,
 } from "bun:test";
-import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { updateMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   defineFeature,

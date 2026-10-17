@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
-import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db.js";
+import { type BunTestDb, createTestDb } from "../db/__tests__/query/bun-test-db.js";
 import { integer, table as pgTable, serial, text, timestamp } from "../db/dialect.js";
 import { selectMany } from "../db/query.js";
 import { seedReferenceData } from "../db/reference-data.js";
