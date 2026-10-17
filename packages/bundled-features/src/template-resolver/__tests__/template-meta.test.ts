@@ -24,6 +24,18 @@ describe("parseTemplateMeta", () => {
     expect(parseTemplateMeta("mail", { subject: "ok", previewText: "a\nb" }).ok).toBe(false);
   });
 
+  test("chip, tone and footer note are optional single lines", () => {
+    const ok = parseTemplateMeta("mail", {
+      subject: "S",
+      headerChip: "{{eventLabel}}",
+      tone: "warning",
+      footerNote: "Du erhältst diese Mail, weil du abonniert hast.",
+    });
+    expect(ok.ok).toBe(true);
+    expect(parseTemplateMeta("mail", { subject: "S", headerChip: "a\nb" }).ok).toBe(false);
+    expect(parseTemplateMeta("mail", { subject: "S", footerNote: "x".repeat(301) }).ok).toBe(false);
+  });
+
   test("unknown keys and bad category are rejected", () => {
     expect(parseTemplateMeta("mail", { subject: "Hi", extra: 1 }).ok).toBe(false);
     expect(parseTemplateMeta("mail", { subject: "Hi", category: "spam" }).ok).toBe(false);

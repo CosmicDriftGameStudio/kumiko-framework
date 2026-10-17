@@ -8,7 +8,16 @@ const variables = {
   lines: templateVariable.list({ label: templateVariable.text() }),
 };
 
-function validate(body: string, meta: { subject: string; previewText?: string } | null = null) {
+function validate(
+  body: string,
+  meta: {
+    subject: string;
+    previewText?: string;
+    headerChip?: string;
+    tone?: string;
+    footerNote?: string;
+  } | null = null,
+) {
   return validateTemplatePlaceholders({ kind: "mail", body, meta, variables });
 }
 
@@ -67,6 +76,27 @@ describe("validateTemplatePlaceholders", () => {
     expect(validate("<p>x</p>", { subject: "Hi {{nope}}" }).unknown).toEqual(["nope"]);
     expect(validate("<p>x</p>", { subject: "{{#each lines}}" }).unknown).not.toEqual([]);
     expect(validate("<p>x</p>", { subject: "{{{name}}}" }).unknown).not.toEqual([]);
+  });
+
+  test("chip, tone and footer note are checked like the subject", () => {
+    const result = validate("<p>x</p>", {
+      subject: "S",
+      headerChip: "{{name}}",
+      tone: "{{nope}}",
+      footerNote: "{{#if name}}",
+    });
+    expect(result.used).toEqual(["name"]);
+    expect(result.unknown).toContain("nope");
+    expect(result.unknown).toContain("{{#if name}}");
+  });
+
+  test("a steps block counts its variable as used and reports an unknown one", () => {
+    expect(validate('<div data-steps="name"><span data-step="a">A</span></div>').used).toEqual([
+      "name",
+    ]);
+    expect(validate('<div data-steps="stage"><span data-step="a">A</span></div>').unknown).toEqual([
+      "stage",
+    ]);
   });
 
   test("prototype names are not declared variables", () => {

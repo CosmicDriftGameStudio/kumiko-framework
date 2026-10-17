@@ -13,6 +13,7 @@ import {
   isDocumentReferenceName,
   isDocumentResourceKey,
 } from "./document-schema.js";
+import { isDocumentStepKey } from "./document-steps.js";
 
 export type DocumentViolationCode =
   | "script_element"
@@ -138,6 +139,8 @@ const REFERENCE_ATTRIBUTES: ReadonlyArray<readonly [string, (value: string) => b
   ["data-variable", isDocumentReferenceName],
   ["data-each", isDocumentReferenceName],
   ["data-resource", isDocumentResourceKey],
+  ["data-steps", isDocumentReferenceName],
+  ["data-step", isDocumentStepKey],
 ];
 
 function scanReferences(tag: string, element: ScanElement, out: DocumentViolation[]): void {

@@ -1,6 +1,7 @@
 import type { TemplateVariableDef, TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Element as ScanElement } from "happy-dom";
+import { rewriteStepsBlock } from "./compile-steps-block.js";
 import { withParsedDocument } from "./document-sanitizer.js";
 import {
   DOCUMENT_TEXT_ALIGNMENTS,
@@ -170,6 +171,10 @@ export type CompileDocumentBodyOptions = {
   readonly tableAsInlineStyle?: boolean;
   // Replaces the default button look; only values from the layout appearance belong here.
   readonly buttonInlineStyle?: string;
+  // Mail clients ignore document CSS, so headings get their size and weight inline.
+  readonly headingAsInlineStyle?: boolean;
+  // Bar color of reached stages in a steps block; ignored unless it is a #rrggbb hex.
+  readonly stepsColor?: string;
 };
 
 const MAIL_BUTTON_STYLE =
@@ -178,7 +183,12 @@ const MAIL_BUTTON_STYLE =
 const MAIL_TABLE_STYLE = "width:100%;border-collapse:collapse";
 const MAIL_TABLE_CELL_STYLE = "padding:6px 12px;vertical-align:top;border-bottom:1px solid #e5e5e5";
 const MAIL_TABLE_HEAD_STYLE = "font-size:12px;font-weight:600;color:#6b7280;text-align:left";
-const MAIL_SMALL_STYLE = "font-size:12px;color:#6b7280";
+const MAIL_SMALL_STYLE = "font-size:13px;color:#4A515E";
+const MAIL_HEADING_STYLES: Readonly<Record<string, string>> = {
+  h1: "margin:0 0 12px 0;font-size:30px;line-height:1.15;font-weight:700;letter-spacing:-0.035em;color:#0B0D12",
+  h2: "margin:0 0 12px 0;font-size:24px;line-height:1.2;font-weight:700;letter-spacing:-0.02em;color:#0B0D12",
+  h3: "margin:20px 0 8px 0;font-size:17px;line-height:1.3;font-weight:600;color:#0B0D12",
+};
 
 // Appended after an existing style (data-align) so the alignment survives.
 function appendStyle(element: ScanElement, style: string): void {
@@ -267,6 +277,13 @@ function applyAlignmentInlineStyles(root: ScanElement): void {
   }
 }
 
+function applyHeadingInlineStyles(root: ScanElement): void {
+  for (const heading of Array.from(root.querySelectorAll("h1, h2, h3"))) {
+    const style = MAIL_HEADING_STYLES[heading.tagName.toLowerCase()];
+    if (style !== undefined) appendStyle(heading, style);
+  }
+}
+
 function applyTableInlineStyles(root: ScanElement): void {
   for (const table of Array.from(root.querySelectorAll("table"))) {
     appendStyle(table, MAIL_TABLE_STYLE);
@@ -305,7 +322,15 @@ export function compileDocumentBodyToHandlebars(
   const compiled = withParsedDocument(scrubbed, (root) => {
     stripScriptsAndActiveContent(root, options);
     if (options.alignmentAsInlineStyle === true) applyAlignmentInlineStyles(root);
+    if (options.headingAsInlineStyle === true) applyHeadingInlineStyles(root);
     if (options.tableAsInlineStyle === true) applyTableInlineStyles(root);
+    for (const element of Array.from(root.querySelectorAll("div[data-steps]"))) {
+      rewriteStepsBlock(element, {
+        expression: (source) => marker(state, source),
+        pathOf: (name, at) => pathAndDef(name, at, state)[0],
+        color: options.stepsColor,
+      });
+    }
     for (const block of Array.from(root.querySelectorAll(VARIABLE_ONLY_BLOCK_SELECTOR))) {
       wrapVariableOnlyBlock(block, state);
     }

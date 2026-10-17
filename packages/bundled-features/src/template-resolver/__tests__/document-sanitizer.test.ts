@@ -338,3 +338,34 @@ describe("underline", () => {
     });
   });
 });
+
+describe("steps block", () => {
+  const steps =
+    '<div data-steps="stage"><span data-step="reported">Gemeldet</span><span data-step="resolved">Behoben</span></div>';
+
+  test("keeps a steps block byte for byte", () => {
+    expect(sanitizeDocumentHtml(steps)).toEqual({ ok: true, html: steps });
+  });
+
+  test("rejects an invalid variable or step key", () => {
+    expect(violationCodes('<div data-steps="a b"><span data-step="x">X</span></div>')).toContain(
+      "invalid_reference_name",
+    );
+    expect(
+      violationCodes('<div data-steps="stage"><span data-step="a b">X</span></div>'),
+    ).toContain("invalid_reference_name");
+  });
+
+  test("the schema alone drops a block with duplicate keys or markup in a label", () => {
+    const rebuild = (html: string): string =>
+      generateHTML(generateJSON(html, documentExtensions), documentExtensions);
+    expect(
+      rebuild(
+        '<div data-steps="stage"><span data-step="a">A</span><span data-step="a">B</span></div>',
+      ),
+    ).not.toContain("data-steps");
+    expect(
+      rebuild('<div data-steps="stage"><span data-step="a"><b>A</b><img src="x"></span></div>'),
+    ).toBe('<div data-steps="stage"><span data-step="a">A</span></div>');
+  });
+});

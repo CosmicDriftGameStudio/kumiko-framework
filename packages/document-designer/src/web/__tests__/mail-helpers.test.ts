@@ -29,6 +29,9 @@ const row: TemplateRowView = {
     layoutSlug: "brand",
     senderName: "Nordlicht",
     replyTo: "buchhaltung@example.org",
+    headerChip: "{{eventLabel}}",
+    tone: "{{tone}}",
+    footerNote: "Du erhältst diese Mail, weil du den Status abonniert hast.",
   }),
   modifiedAt: null,
 };
@@ -42,6 +45,9 @@ describe("mail draft", () => {
       category: "",
       senderName: "Nordlicht",
       replyTo: "buchhaltung@example.org",
+      headerChip: "{{eventLabel}}",
+      tone: "{{tone}}",
+      footerNote: "Du erhältst diese Mail, weil du den Status abonniert hast.",
       body: "<p>Hi</p>",
     });
   });
@@ -49,7 +55,16 @@ describe("mail draft", () => {
   test("meta leaves out empty optional fields", () => {
     const draft = loadedMailOf(row);
     expect(
-      buildMeta({ ...draft, previewText: "", layoutSlug: "", senderName: "", replyTo: "" }),
+      buildMeta({
+        ...draft,
+        previewText: "",
+        layoutSlug: "",
+        senderName: "",
+        replyTo: "",
+        headerChip: "",
+        tone: "",
+        footerNote: "",
+      }),
     ).toEqual({ subject: "S" });
     expect(buildMeta({ ...draft, category: "marketing" })).toEqual({
       subject: "S",
@@ -58,6 +73,9 @@ describe("mail draft", () => {
       category: "marketing",
       senderName: "Nordlicht",
       replyTo: "buchhaltung@example.org",
+      headerChip: "{{eventLabel}}",
+      tone: "{{tone}}",
+      footerNote: "Du erhältst diese Mail, weil du den Status abonniert hast.",
     });
   });
 
@@ -68,6 +86,7 @@ describe("mail draft", () => {
     expect(isDraftDirty({ ...draft, category: "marketing" }, draft)).toBe(true);
     expect(isDraftDirty({ ...draft, senderName: "Other" }, draft)).toBe(true);
     expect(isDraftDirty({ ...draft, replyTo: "other@example.org" }, draft)).toBe(true);
+    expect(isDraftDirty({ ...draft, tone: "success" }, draft)).toBe(true);
   });
 });
 

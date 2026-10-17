@@ -77,7 +77,7 @@ describe("compileDocumentBodyToHandlebars", () => {
     expect(out).toContain('<table style="width:100%;border-collapse:collapse">');
     expect(out).toContain('<th style="padding:6px 12px;');
     expect(out).toContain('<td style="text-align:right;padding:6px 12px;');
-    expect(out).toContain('<p style="text-align:right;font-size:12px;color:#6b7280">x</p>');
+    expect(out).toContain('<p style="text-align:right;font-size:13px;color:#4A515E">x</p>');
   });
 
   test("a data-button link gets button styling inline for mail only", () => {
@@ -239,5 +239,49 @@ describe("compileDocumentBodyToHandlebars :: richText", () => {
     );
     expect(out).toContain("{{richText note}}");
     expect(out).toContain("{{name}}");
+  });
+});
+
+describe("compileDocumentBodyToHandlebars :: steps block", () => {
+  const steps =
+    '<div data-steps="stage"><span data-step="reported">Gemeldet</span><span data-step="resolved">Behoben {{x}}</span></div>';
+
+  test("a steps block becomes an inline-styled table whose state comes from the stepIs helper", () => {
+    const out = compileDocumentBodyToHandlebars(steps, variables, { stepsColor: "#F2B53A" });
+    expect(out).toContain('<table role="presentation"');
+    expect(out).toContain(
+      '{{#stepIs stage 0 "reported,resolved" "reached"}}#F2B53A{{else}}#ECEDEA{{/stepIs}}',
+    );
+    expect(out).toContain(
+      '{{#stepIs stage 1 "reported,resolved" "current"}}600{{else}}400{{/stepIs}}',
+    );
+    expect(out).toContain(">Gemeldet</div>");
+    expect(out).not.toContain("data-steps");
+  });
+
+  test("labels stay inert text and an invalid color falls back to the default", () => {
+    const out = compileDocumentBodyToHandlebars(steps, variables, { stepsColor: "red;x:y" });
+    expect(out).toContain("Behoben &#123;&#123;x&#125;&#125;");
+    expect(out).toContain("#1f5468{{else}}");
+    expect(out).not.toContain("red;x");
+  });
+
+  test("a block with an invalid variable or duplicate keys renders nothing", () => {
+    expect(compile('<div data-steps="__proto__"><span data-step="a">A</span></div><p>z</p>')).toBe(
+      "<p>z</p>",
+    );
+    expect(
+      compile(
+        '<div data-steps="stage"><span data-step="a">A</span><span data-step="a">B</span></div>',
+      ),
+    ).toBe("");
+    expect(compile('<div data-steps="stage"><span data-step="a&quot;b">A</span></div>')).toBe("");
+  });
+
+  test("headings get their size inline for mail only", () => {
+    expect(compile("<h1>T</h1>")).toBe("<h1>T</h1>");
+    expect(
+      compileDocumentBodyToHandlebars("<h1>T</h1>", variables, { headingAsInlineStyle: true }),
+    ).toContain('<h1 style="margin:0 0 12px 0;font-size:30px');
   });
 });

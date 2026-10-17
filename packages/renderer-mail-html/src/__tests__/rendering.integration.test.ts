@@ -409,7 +409,7 @@ describe("renderer-mail-html :: layout resolution", () => {
     );
     const result = await renderMail(tenantId(21));
     expect(result.html).toContain("max-width:640px");
-    expect(result.html).toContain("background:#112233");
+    expect(result.html).toContain("background-color:#112233");
     expect(result.html).toContain("Georgia");
     expect(result.html).not.toContain("#f5f5f5");
     const source = await stack.http.queryOk<{ meta: unknown }>(
@@ -451,7 +451,7 @@ describe("renderer-mail-html :: layout resolution", () => {
   test("a layout without appearance meta renders the previous look", async () => {
     const result = await renderMail(tenantId(4));
     expect(result.html).toContain("max-width:600px");
-    expect(result.html).toContain("background:#f5f5f5");
+    expect(result.html).toContain("background-color:#f5f5f5");
   });
 
   test.each([

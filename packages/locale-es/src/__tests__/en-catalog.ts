@@ -1088,6 +1088,13 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Remove link",
   "template-resolver.documentEditor.repeat": "Repeat",
   "template-resolver.documentEditor.repeatList": "List to repeat",
+  "template-resolver.documentEditor.steps": "Steps",
+  "template-resolver.documentEditor.stepsVariable": "Current step from",
+  "template-resolver.documentEditor.stepsList": "Steps, separated by commas (value=label)",
+  "template-resolver.documentEditor.stepsDefault":
+    "reported=Reported, investigating=Investigating, resolved=Resolved",
+  "template-resolver.documentEditor.invalidSteps":
+    "Enter 1 to 8 different steps; values use letters, digits, - and _.",
   "template-resolver.documentEditor.resourceKey": "Resource key",
   "template-resolver.documentEditor.table": "Table",
   "template-resolver.editor.contentLabel": "Content",

@@ -15,6 +15,9 @@ export const EMPTY_DRAFT: MailDraft = {
   category: "",
   senderName: "",
   replyTo: "",
+  headerChip: "",
+  tone: "",
+  footerNote: "",
   body: "",
 };
 
@@ -87,6 +90,9 @@ export function loadedMailOf(row: TemplateRowView | null): MailDraft {
     category: categoryOf(meta["category"]),
     senderName: textOf(meta["senderName"]),
     replyTo: textOf(meta["replyTo"]),
+    headerChip: textOf(meta["headerChip"]),
+    tone: textOf(meta["tone"]),
+    footerNote: textOf(meta["footerNote"]),
     body: row.content,
   };
 }
@@ -99,6 +105,9 @@ export function buildMeta(draft: MailDraft): Record<string, unknown> {
     ...(draft.category !== "" && { category: draft.category }),
     ...(draft.senderName !== "" && { senderName: draft.senderName }),
     ...(draft.replyTo !== "" && { replyTo: draft.replyTo }),
+    ...(draft.headerChip !== "" && { headerChip: draft.headerChip }),
+    ...(draft.tone !== "" && { tone: draft.tone }),
+    ...(draft.footerNote !== "" && { footerNote: draft.footerNote }),
   };
 }
 
@@ -110,6 +119,9 @@ export function isDraftDirty(current: MailDraft, saved: MailDraft): boolean {
     current.category !== saved.category ||
     current.senderName !== saved.senderName ||
     current.replyTo !== saved.replyTo ||
+    current.headerChip !== saved.headerChip ||
+    current.tone !== saved.tone ||
+    current.footerNote !== saved.footerNote ||
     current.body !== saved.body
   );
 }

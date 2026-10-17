@@ -20,6 +20,9 @@ export const templateSlugSchema = z
 export const MAIL_CATEGORIES = ["transactional", "marketing"] as const;
 export type MailCategory = (typeof MAIL_CATEGORIES)[number];
 
+export const MAIL_TONES = ["accent", "info", "success", "warning", "danger", "neutral"] as const;
+export type MailTone = (typeof MAIL_TONES)[number];
+
 // Header values: a CR/LF would let an author inject extra mail headers.
 const singleLine = (max: number) =>
   z
@@ -44,6 +47,11 @@ const mailMetaSchema = z.preprocess(
       category: z.enum(MAIL_CATEGORIES).optional(),
       senderName: singleLine(80).min(1).optional(),
       replyTo: singleLine(254).pipe(z.email()).optional(),
+      // Placeholder lines like the subject. The tone renders to a MAIL_TONES member;
+      // anything else falls back to the accent tone.
+      headerChip: singleLine(80).optional(),
+      tone: singleLine(80).optional(),
+      footerNote: singleLine(300).optional(),
     })
     .strict(),
 );

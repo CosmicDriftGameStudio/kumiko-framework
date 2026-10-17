@@ -109,6 +109,34 @@ describe("DocumentTiptapEditor toolbar", () => {
     expectCanonical(currentHtml());
   });
 
+  test("steps block stores the chosen variable and the stages from value=label entries", async () => {
+    await renderEditor();
+    await click("Steps");
+    await chooseOption(`${PANEL}-steps-variable`, "lines");
+    fireEvent.change(screen.getByLabelText("Steps, separated by commas (value=label)"), {
+      target: { value: "open=Open, In progress, done=Done" },
+    });
+    await click("Insert");
+    await waitFor(() =>
+      expect(currentHtml()).toBe(
+        '<div data-steps="lines"><span data-step="open">Open</span><span data-step="in-progress">In progress</span><span data-step="done">Done</span></div>',
+      ),
+    );
+    expectCanonical(currentHtml());
+    expect(document.querySelector("[data-document-block]")?.textContent).toContain("In progress");
+  });
+
+  test("steps with a duplicate value show an error and insert nothing", async () => {
+    await renderEditor();
+    await click("Steps");
+    fireEvent.change(screen.getByLabelText("Steps, separated by commas (value=label)"), {
+      target: { value: "a=A, a=B" },
+    });
+    await click("Insert");
+    expect((await screen.findByRole("alert")).textContent).toContain("1 to 8 different steps");
+    expect(currentHtml()).not.toContain("data-steps");
+  });
+
   test("image block inserts a resource node", async () => {
     await renderEditor();
     await click("Image");

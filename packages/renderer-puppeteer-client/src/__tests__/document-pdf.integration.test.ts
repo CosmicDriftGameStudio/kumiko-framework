@@ -670,6 +670,25 @@ describe("preview-pdf", () => {
     expect(html).toContain("[data-align=center]{text-align:center}");
   });
 
+  test("a steps block prints as a table with the stages up to the sample value filled", async () => {
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({
+        content:
+          '<div data-steps="stage"><span data-step="ordered">Bestellt</span><span data-step="shipped">Versandt</span><span data-step="delivered">Zugestellt</span></div>',
+        variableSchema: { stage: { type: "text", example: "shipped" } },
+      }),
+      adminTenantA,
+    );
+
+    const { html } = onlyStubRequest();
+    expect(html).toContain('<table role="presentation"');
+    expect(html.match(/border-radius:2px;background-color:#1f5468/g)).toHaveLength(2);
+    expect(html.match(/border-radius:2px;background-color:#ECEDEA/g)).toHaveLength(1);
+    expect(html).toMatch(/font-weight:600">Versandt/);
+    expect(html).not.toContain("stepIs");
+  });
+
   test("a user without an admin role is refused and nothing is printed", async () => {
     const error = await stack.http.queryErr(
       RendererPuppeteerClientQueries.previewPdf,

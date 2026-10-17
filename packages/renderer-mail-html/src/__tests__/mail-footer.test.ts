@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { buildMailFooterHtml, layoutLinksToPlaceholder } from "../mail-footer";
+import {
+  buildMailBandLinksHtml,
+  buildMailFooterHtml,
+  layoutLinksToPlaceholder,
+} from "../mail-footer";
 
 const FOOTER = {
   text: "Sent via <b>Demo</b>",
@@ -57,5 +61,30 @@ describe("mail footer", () => {
       false,
     );
     expect(layoutLinksToPlaceholder('<a href="{{unsubscribeUrl}}">U</a>', "imprint")).toBe(false);
+  });
+});
+
+describe("mail band links", () => {
+  test("shows the tenant host and the unsubscribe link, escaped", () => {
+    const html = buildMailBandLinksHtml({
+      siteUrl: "https://status.acme.example/?a=1&b=2",
+      unsubscribeUrl: "https://demo.example/unsub?token=a&b=1",
+      locale: "de",
+      layoutLinksUnsubscribe: false,
+    });
+    expect(html).toBe(
+      '<a href="https://status.acme.example/?a=1&amp;b=2" style="color:#4A515E">status.acme.example</a> · <a href="https://demo.example/unsub?token=a&amp;b=1" style="color:#4A515E">Abmelden</a>',
+    );
+  });
+
+  test("drops a non-web site url and an unsubscribe link the layout already carries", () => {
+    expect(
+      buildMailBandLinksHtml({
+        siteUrl: "javascript:alert(1)",
+        unsubscribeUrl: "https://demo.example/unsub",
+        locale: "en",
+        layoutLinksUnsubscribe: true,
+      }),
+    ).toBe("");
   });
 });

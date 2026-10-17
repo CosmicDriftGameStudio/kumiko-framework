@@ -1122,6 +1122,13 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Link entfernen",
   "template-resolver.documentEditor.repeat": "Wiederholung",
   "template-resolver.documentEditor.repeatList": "Liste für die Wiederholung",
+  "template-resolver.documentEditor.steps": "Stufen",
+  "template-resolver.documentEditor.stepsVariable": "Aktuelle Stufe aus",
+  "template-resolver.documentEditor.stepsList": "Stufen, durch Komma getrennt (Wert=Beschriftung)",
+  "template-resolver.documentEditor.stepsDefault":
+    "reported=Gemeldet, investigating=Untersucht, resolved=Behoben",
+  "template-resolver.documentEditor.invalidSteps":
+    "Bitte 1 bis 8 verschiedene Stufen angeben; Werte nur mit Buchstaben, Ziffern, - und _.",
   "template-resolver.documentEditor.resourceKey": "Ressourcenschlüssel",
   "template-resolver.documentEditor.table": "Tabelle",
   "template-resolver.editor.contentLabel": "Inhalt",

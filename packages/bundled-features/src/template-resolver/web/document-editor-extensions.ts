@@ -7,9 +7,11 @@ import {
   DocumentButton,
   DocumentPageBreak,
   DocumentResource,
+  DocumentSteps,
   DocumentVariable,
   documentExtensions,
 } from "../document-schema.js";
+import { readDocumentStepsAttribute } from "../document-steps.js";
 import type { DocumentResourcePreview } from "./document-toolbar-blocks.js";
 
 const DOCUMENT_RESOURCE_SIZE_TOKEN = "{size}";
@@ -20,6 +22,7 @@ export type DocumentEditorLabels = {
   readonly image: string;
   readonly pageBreak: string;
   readonly button?: string;
+  readonly steps?: string;
   /** Canvas block label of an image, e.g. "Image · inline". */
   readonly imageBlock?: string;
   readonly variableLabels?: Readonly<Record<string, string>>;
@@ -175,6 +178,35 @@ function createPageBreakView(pageBreakLabel: string): NodeViewRenderer {
   };
 }
 
+// A static sketch of the row: which stage is reached is only known at render time.
+function createStepsView(labels: DocumentEditorLabels): NodeViewRenderer {
+  return ({ node }) => {
+    const dom = createElementWithClass(
+      "div",
+      "relative my-3 rounded border border-dashed border-input px-3 pb-2 pt-3",
+    );
+    dom.setAttribute(DOCUMENT_BLOCK_ATTRIBUTE, "");
+    dom.contentEditable = "false";
+    const variable = String(node.attrs["variable"]);
+    const variableLabels = labels.variableLabels ?? {};
+    const variableLabel = Object.hasOwn(variableLabels, variable)
+      ? variableLabels[variable]
+      : undefined;
+    dom.append(createBlockLabel(`${labels.steps ?? "Steps"} · ${variableLabel ?? variable}`));
+    const row = createElementWithClass("div", "flex gap-1.5");
+    for (const step of readDocumentStepsAttribute(node.attrs["steps"])) {
+      const cell = createElementWithClass("div", "min-w-0 flex-1");
+      cell.append(
+        createElementWithClass("div", "h-1 rounded-full bg-primary/40"),
+        createElementWithClass("div", "truncate pt-1.5 text-xs text-muted-foreground", step.label),
+      );
+      row.append(cell);
+    }
+    dom.append(row);
+    return { dom };
+  };
+}
+
 // Replaced by name, not appended: the schema must keep exactly one node per
 // name, and only the editor view differs from the shared document schema.
 export function createDocumentEditorExtensions(labels: DocumentEditorLabels): Extensions {
@@ -195,6 +227,8 @@ export function createDocumentEditorExtensions(labels: DocumentEditorLabels): Ex
         return labels.blockLabels
           ? DocumentButton.extend({ addNodeView: () => createButtonView(labels.button ?? "") })
           : extension;
+      case DocumentSteps.name:
+        return DocumentSteps.extend({ addNodeView: () => createStepsView(labels) });
       case DocumentPageBreak.name:
         return DocumentPageBreak.extend({
           addNodeView: () => createPageBreakView(labels.pageBreak),

@@ -44,6 +44,7 @@ import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createRendererMailHtmlFeature,
+  type MailBrandSuffixResolver,
   type MailFooterResolver,
 } from "@cosmicdrift/kumiko-renderer-mail-html";
 
@@ -121,15 +122,18 @@ export function composePagesStack(options: PagesStackOptions = {}): FeatureDefin
 export type RendererStackOptions = {
   /** Platform imprint, privacy link and footer text under every mail; see createRendererMailHtmlFeature. */
   readonly mailFooter?: MailFooterResolver;
+  /** Word after the tenant name in the mail's brand row, e.g. "Status". */
+  readonly mailBrandSuffix?: MailBrandSuffixResolver;
 };
 
 export function composeRendererStack(options: RendererStackOptions = {}): FeatureDefinition[] {
   return [
     createTemplateResolverFeature(),
     createRendererFoundationFeature(),
-    createRendererMailHtmlFeature(
-      options.mailFooter !== undefined ? { footer: options.mailFooter } : {},
-    ),
+    createRendererMailHtmlFeature({
+      ...(options.mailFooter !== undefined && { footer: options.mailFooter }),
+      ...(options.mailBrandSuffix !== undefined && { brandSuffix: options.mailBrandSuffix }),
+    }),
   ];
 }
 

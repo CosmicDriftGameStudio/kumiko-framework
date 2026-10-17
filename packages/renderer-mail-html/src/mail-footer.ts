@@ -15,6 +15,7 @@ export type MailFooterResolver = (input: {
 }) => MailFooter | null | Promise<MailFooter | null>;
 
 const SAFE_FOOTER_URL = /^(https?:|mailto:)/i;
+const BAND_LINK_COLOR = "#4A515E";
 
 const UNSUBSCRIBE_LABEL_BY_LANGUAGE: Readonly<Record<string, string>> = {
   de: "Abmelden",
@@ -27,10 +28,41 @@ function unsubscribeLabel(locale: string): string {
   return UNSUBSCRIBE_LABEL_BY_LANGUAGE[language] ?? "Unsubscribe";
 }
 
-function linkHtml(link: MailFooterLink): string | null {
+function linkHtml(link: MailFooterLink, color = "#888"): string | null {
   const url = link.url.trim();
   if (!SAFE_FOOTER_URL.test(url) || link.label.trim() === "") return null;
-  return `<a href="${escapeHtmlAttr(url)}" style="color:#888">${escapeHtml(link.label)}</a>`;
+  return `<a href="${escapeHtmlAttr(url)}" style="color:${escapeHtmlAttr(color)}">${escapeHtml(link.label)}</a>`;
+}
+
+function webHost(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.host : null;
+  } catch {
+    return null;
+  }
+}
+
+// The card's own footer line: the tenant's site and the unsubscribe link.
+export function buildMailBandLinksHtml(input: {
+  readonly siteUrl: string | undefined;
+  readonly unsubscribeUrl: string;
+  readonly locale: string;
+  readonly layoutLinksUnsubscribe: boolean;
+}): string {
+  const host = input.siteUrl === undefined ? null : webHost(input.siteUrl);
+  const links = [
+    host === null || input.siteUrl === undefined
+      ? null
+      : linkHtml({ label: host, url: input.siteUrl }, BAND_LINK_COLOR),
+    input.unsubscribeUrl === "" || input.layoutLinksUnsubscribe
+      ? null
+      : linkHtml(
+          { label: unsubscribeLabel(input.locale), url: input.unsubscribeUrl },
+          BAND_LINK_COLOR,
+        ),
+  ];
+  return links.filter((link) => link !== null).join(" · ");
 }
 
 export function safeFooterUrl(link: MailFooterLink | undefined): string {

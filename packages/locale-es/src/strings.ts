@@ -1116,6 +1116,13 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver.documentEditor.removeLink": "Quitar enlace",
   "template-resolver.documentEditor.repeat": "Repetición",
   "template-resolver.documentEditor.repeatList": "Lista a repetir",
+  "template-resolver.documentEditor.steps": "Pasos",
+  "template-resolver.documentEditor.stepsVariable": "Paso actual de",
+  "template-resolver.documentEditor.stepsList": "Pasos separados por comas (valor=etiqueta)",
+  "template-resolver.documentEditor.stepsDefault":
+    "reported=Notificado, investigating=En investigación, resolved=Resuelto",
+  "template-resolver.documentEditor.invalidSteps":
+    "Indica de 1 a 8 pasos distintos; los valores usan letras, cifras, - y _.",
   "template-resolver.documentEditor.resourceKey": "Clave de recurso",
   "template-resolver.documentEditor.table": "Tabla",
   "template-resolver.editor.contentLabel": "Contenido",
