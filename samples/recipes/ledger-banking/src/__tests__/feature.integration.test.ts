@@ -11,17 +11,19 @@ import {
   createLedgerFeature,
   transactionEntity,
 } from "@cosmicdrift/kumiko-bundled-features/ledger";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
+  testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bankingFlow, type LedgerClient } from "../usage";
 
-const admin = createTestUser({ roles: ["TenantAdmin"] });
+// Each test runs in its own tenant, so rows from other tests never show up.
+let admin = createTestUser({ roles: ["TenantAdmin"], tenantId: testTenantId(1) });
+let nextTenant = 1;
 const ledger = createLedgerFeature();
 
 let stack: TestStack;
@@ -43,10 +45,9 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-beforeEach(async () => {
-  await asRawClient(stack.db).unsafe("DELETE FROM kumiko_events");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_accounts");
-  await asRawClient(stack.db).unsafe("DELETE FROM read_ledger_transactions");
+beforeEach(() => {
+  nextTenant += 1;
+  admin = createTestUser({ roles: ["TenantAdmin"], tenantId: testTenantId(nextTenant) });
 });
 
 describe("ledger-banking recipe — transfer + derived balance", () => {

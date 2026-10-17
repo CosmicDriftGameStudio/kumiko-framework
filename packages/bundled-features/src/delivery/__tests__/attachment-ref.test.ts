@@ -74,6 +74,16 @@ describe("rendered-pdf attachment refs", () => {
     expect(emailAttachmentRefSchema.safeParse(tooBig).success).toBe(false);
   });
 
+  test("rejects variables that cannot be serialized to JSON instead of throwing", () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic["self"] = cyclic;
+
+    expect(emailAttachmentRefSchema.safeParse({ ...valid, variables: { n: 1n } }).success).toBe(
+      false,
+    );
+    expect(emailAttachmentRefSchema.safeParse({ ...valid, variables: cyclic }).success).toBe(false);
+  });
+
   test("rejects a file name with a path separator or without .pdf", () => {
     expect(emailAttachmentRefSchema.safeParse({ ...valid, fileName: "a/b.pdf" }).success).toBe(
       false,

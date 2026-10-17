@@ -1,5 +1,6 @@
 import type { TenantDb } from "../db/tenant-db.js";
 import {
+  type FieldDefinition,
   isFileField,
   type Registry,
   type SaveContext,
@@ -21,6 +22,19 @@ function isBoundTo(
     row["entityId"] === entityId &&
     row["fieldName"] === fieldName
   );
+}
+
+// Across all file fields: an id moved from one field to another is still in use.
+function fileRefIdsStoredInAnyField(
+  fields: Readonly<Record<string, FieldDefinition>>,
+  data: Readonly<Record<string, unknown>>,
+): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    if (!isFileField(fieldDef)) continue;
+    for (const fileRefId of fileRefIdsOf(data[fieldName])) ids.add(fileRefId);
+  }
+  return ids;
 }
 
 // An update that drops or replaces a file id leaves the fileRef readable to
@@ -50,11 +64,11 @@ export async function disposeRemovedFileRefs(args: {
 
   const entityId = String(result.id);
   const executor = getFileRefExecutor();
+  const keptAnywhere = fileRefIdsStoredInAnyField(entity.fields, result.data);
   for (const [fieldName, fieldDef] of Object.entries(entity.fields)) {
     if (!isFileField(fieldDef) || !(fieldName in result.changes)) continue;
-    const kept = new Set(fileRefIdsOf(result.data[fieldName]));
     for (const fileRefId of fileRefIdsOf(result.previous[fieldName])) {
-      if (kept.has(fileRefId)) continue;
+      if (keptAnywhere.has(fileRefId)) continue;
       const row = await executor.detail({ id: fileRefId }, user, db);
       if (row === null || !isBoundTo(row, entityName, entityId, fieldName)) continue;
       const removed = await executor.delete({ id: fileRefId }, user, db);

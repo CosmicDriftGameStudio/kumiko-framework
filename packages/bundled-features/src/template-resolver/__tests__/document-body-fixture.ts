@@ -7,7 +7,7 @@ export const documentBodyFixture = [
   "<ul><li><p>one</p></li><li><p>two</p></li></ul>",
   "<ol><li><p>first</p></li></ol>",
   '<p><a href="https://example.com/a">site</a> <a href="{{unsubscribeUrl}}">unsubscribe</a></p>',
-  '<p>Dear <span data-variable="customer.name"></span></p>',
+  '<p>Dear <span data-variable="customer"></span></p>',
   '<img data-resource="logo" alt="Company logo">',
   '<a data-button="" href="{{confirmUrl}}">Bestätigen</a>',
   "<hr>",

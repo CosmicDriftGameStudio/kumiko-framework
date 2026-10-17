@@ -547,7 +547,8 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       (appContext.redis === undefined || options.rateLimitNowMs !== undefined);
     const rateLimitFallback = needsOwnRateLimitResolver
       ? createRateLimitResolver({
-          redis: testRedis.redis,
+          // An app-supplied redis keeps buckets and app redis on the same instance.
+          redis: appContext.redis ?? testRedis.redis,
           ...(options.rateLimitNowMs ? { nowMs: options.rateLimitNowMs } : {}),
         })
       : undefined;

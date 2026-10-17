@@ -38,11 +38,17 @@ const OPT_IN_SERVICE_ENV_KEYS: readonly string[] = [
 
 // Bun never overrides a variable that is already set, so a default placed in
 // webServer.env would beat the same key in the app's `.env`. Keys the app's
-// `.env` defines are therefore left out and stay with the server's own loading.
+// dotenv files define are therefore left out and stay with the server's own loading.
 function keysDefinedInAppDotenv(): ReadonlySet<string> {
-  const dotenvPath = join(process.cwd(), ".env");
-  if (!existsSync(dotenvPath)) return new Set();
-  return new Set(Object.keys(parseEnv(readFileSync(dotenvPath, "utf-8"))));
+  // Same files Bun loads: .env, .env.<NODE_ENV>, .env.local. Only the key set matters, not precedence.
+  const nodeEnv = process.env["NODE_ENV"] ?? "development";
+  const keys = new Set<string>();
+  for (const fileName of [".env", `.env.${nodeEnv}`, ".env.local"]) {
+    const dotenvPath = join(process.cwd(), fileName);
+    if (!existsSync(dotenvPath)) continue;
+    for (const key of Object.keys(parseEnv(readFileSync(dotenvPath, "utf-8")))) keys.add(key);
+  }
+  return keys;
 }
 
 // Precedence per key: shell/CI environment, then the app's `.env`, then the local-dev default.

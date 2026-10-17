@@ -10,6 +10,7 @@ export type DeclaredSecretKeys = {
   readonly systemOnly: SecretKeyHandle;
   readonly extra: SecretKeyHandle;
   readonly namespace: SecretNamespaceHandle;
+  readonly systemOnlyNamespace: SecretNamespaceHandle;
 };
 
 // Test feature declaring the keys the secrets handlers accept: `plain` has no
@@ -35,6 +36,11 @@ export function createDeclaredKeysFeature(): {
           .string()
           .min(1)
           .regex(/^[a-z][a-z0-9-]*$/),
+      }),
+      systemOnlyNamespace: r.secretNamespace("operator-hooks", {
+        label: { en: "Operator hook tokens" },
+        scope: "tenant",
+        writeRoles: ["SystemAdmin"],
       }),
     };
   });

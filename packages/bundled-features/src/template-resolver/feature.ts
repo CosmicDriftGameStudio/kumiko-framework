@@ -3,6 +3,7 @@ import {
   createSystemConfig,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { isCollectionRefusedKind } from "./constants.js";
 import { bySlugQuery } from "./handlers/by-slug.query.js";
 import { byTenantQuery } from "./handlers/by-tenant.query.js";
 import { makeCollectionItemQuery } from "./handlers/collection-item.query.js";
@@ -60,8 +61,19 @@ export type TemplateResolverOptions = {
   readonly collections?: readonly ContentCollectionDefinition[];
 };
 
+function assertCollectionKindsAllowed(collections: readonly ContentCollectionDefinition[]): void {
+  for (const collection of collections) {
+    if (isCollectionRefusedKind(collection.kind)) {
+      throw new Error(
+        `template-resolver: collection "${collection.id}" uses kind "${collection.kind}", which collections may not write`,
+      );
+    }
+  }
+}
+
 export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}) {
   const collections = opts.collections ?? [];
+  assertCollectionKindsAllowed(collections);
   const hasUserOwned = collections.some((c) => c.ownership === "user");
   return defineFeature("template-resolver", (r) => {
     r.describe(

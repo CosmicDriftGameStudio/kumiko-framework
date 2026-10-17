@@ -238,7 +238,14 @@ export function createRecordContractTerminationHandler(
         effectiveAtIso,
         providerCancel,
       };
-      await stream.appendOne({
+      // Re-fetch after the external call: a webhook appended meanwhile would
+      // otherwise fail the append on a stale expectedVersion although the
+      // provider already cancelled.
+      const streamAfterProviderCall = await ctx.fetchForWriting({
+        aggregateId: subscriptionAggregateId(tenantId),
+        aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
+      });
+      await streamAfterProviderCall.appendOne({
         type: CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
         payload: recorded,
       });

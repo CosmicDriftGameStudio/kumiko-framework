@@ -72,8 +72,8 @@ import {
   FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
   FILE_STORAGE_PROVIDER_ENV,
   findTierResolverUsage,
-  isTierResolverPlugin,
   type Registry,
+  requireTierResolverPlugin,
   type SessionUser,
   type TenantId,
   type ValidateBootOptions,
@@ -629,11 +629,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
       // on the resolver being live (e.g. seed that writes a SystemAdmin's
       // tier-assignment can immediately read tier-cuts).
       if (tierResolverUsage) {
-        const plugin = tierResolverUsage.options;
-        if (!isTierResolverPlugin(plugin)) {
-          throw new Error("tier-resolver registration options must provide a build() factory");
-        }
-        tierResolverHolder.resolver = await plugin.build({
+        tierResolverHolder.resolver = await requireTierResolverPlugin(tierResolverUsage).build({
           db: stack.db,
           registry: stack.registry,
           cacheSync: stack.cacheSync,

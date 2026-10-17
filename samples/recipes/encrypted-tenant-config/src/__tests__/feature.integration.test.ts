@@ -10,7 +10,7 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   setupTestStack,
   type TestStack,
@@ -21,10 +21,10 @@ import {
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { billingFeature, stripeApiKeyHandle } from "../feature";
 
-const TENANT_A = testTenantId(1);
-const TENANT_B = testTenantId(2);
-const acmeAdmin = { ...TestUsers.admin, tenantId: TENANT_A };
-const globexAdmin = { ...TestUsers.admin, tenantId: TENANT_B, id: "globex-admin" };
+// Each test gets its own pair of tenants, so config rows from other tests never show up.
+let acmeAdmin = { ...TestUsers.admin, tenantId: testTenantId(1) };
+let globexAdmin = { ...TestUsers.admin, tenantId: testTenantId(2), id: "globex-admin" };
+let nextTenantPair = 0;
 
 let stack: TestStack;
 
@@ -45,8 +45,14 @@ beforeAll(async () => {
 
 afterAll(async () => stack?.cleanup());
 
-beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${configValuesTable.tableName}"`);
+beforeEach(() => {
+  nextTenantPair += 1;
+  acmeAdmin = { ...TestUsers.admin, tenantId: testTenantId(nextTenantPair * 2 + 1) };
+  globexAdmin = {
+    ...TestUsers.admin,
+    tenantId: testTenantId(nextTenantPair * 2 + 2),
+    id: "globex-admin",
+  };
 });
 
 describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
@@ -58,7 +64,10 @@ describe("encrypted tenant-config: per-tenant Stripe-API-key", () => {
       acmeAdmin,
     );
 
-    const rows = await selectMany(stack.db, configValuesTable, { key: stripeApiKeyHandle.name });
+    const rows = await selectMany(stack.db, configValuesTable, {
+      key: stripeApiKeyHandle.name,
+      tenantId: acmeAdmin.tenantId,
+    });
     expect(rows.length).toBe(1);
     const stored = rows[0]?.["value"];
     expect(typeof stored).toBe("string");

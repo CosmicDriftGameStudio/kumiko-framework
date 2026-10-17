@@ -31,20 +31,20 @@ function errorsUrl(baseUrl: string, slug: string): string {
   return `${baseUrl}/errors/${encodeURIComponent(slug)}`;
 }
 
-// A reason the framework documents (or the error code itself) links to the framework docs,
-// overridable via KUMIKO_DOCS_URL. An app's own reason links only where `errorDocs` covers it —
-// otherwise the framework docs would have no page for it.
+// A reason the framework documents (or no reason, or the code itself) links to the framework docs, overridable via
+// KUMIKO_DOCS_URL. An app's own reason links to the app docs where `errorDocs` covers it; every
+// other reason falls back to the framework page of the error code, which exists for each code.
 export function resolveErrorDocsUrl(
   err: KumikoError,
   errorDocs?: ErrorDocsConfig,
 ): string | undefined {
   const reason = reasonOf(err);
+  const frameworkBaseUrl = process.env["KUMIKO_DOCS_URL"] ?? DEFAULT_DOCS_BASE_URL;
   if (reason === undefined || reason === err.code || frameworkReasons.has(reason)) {
-    const baseUrl = process.env["KUMIKO_DOCS_URL"] ?? DEFAULT_DOCS_BASE_URL;
-    return errorsUrl(baseUrl, reason ?? err.code);
+    return errorsUrl(frameworkBaseUrl, reason ?? err.code);
   }
   if (errorDocs && isCoveredByConfig(reason, errorDocs)) {
     return errorsUrl(errorDocs.baseUrl, reason);
   }
-  return undefined;
+  return errorsUrl(frameworkBaseUrl, err.code);
 }

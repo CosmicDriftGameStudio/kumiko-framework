@@ -24,6 +24,7 @@ export const diffToSystemQuery = defineQueryHandler({
       slug: tenantRow.slug,
       kind: tenantRow.kind,
       locale: tenantRow.locale,
+      status: "active",
     });
     if (!systemRow || isHiddenSystemDraft(query.user, systemRow))
       throw new NotFoundError("template-resource", tenantRow.slug);

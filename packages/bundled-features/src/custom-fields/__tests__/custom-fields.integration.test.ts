@@ -880,7 +880,14 @@ describe("custom-fields integration — update-tenant-field (Bug-Bash D2)", () =
       { entityName: "property", entityId: propertyId, fieldKey: "budget", value: 11 },
       admin,
     );
-    expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(err.httpStatus).toBe(422);
+    expect(err.code).toBe("unprocessable");
+    expect(err.details).toMatchObject({
+      reason: "custom_field_value_invalid",
+      fieldKey: "budget",
+    });
+    // The boundary value still passes, so the rejection comes from the stored max.
+    await setCustomField("property", propertyId, "budget", 10);
   });
 
   test("define-tenant-field ohne serializedField.type → Validierungsfehler, nichts gespeichert", async () => {

@@ -669,15 +669,10 @@ export default function DocumentTiptapEditor({
     editor?.setEditable(!readOnly);
   }, [readOnly, editor]);
 
+  // Read-only without chips: a textarea would insert {{name}} text and plaintext into a document body.
   if (!editor)
     return (
-      <TextareaContentEditor
-        id={id}
-        value={value}
-        onChange={onChange}
-        variables={variables}
-        readOnly={readOnly}
-      />
+      <TextareaContentEditor id={id} value={value} onChange={onChange} variables={[]} readOnly />
     );
 
   const togglePanel = (kind: PanelKind): void =>

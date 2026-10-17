@@ -15,7 +15,7 @@ import {
   type RenderedMessage,
   renderedPdfAttachmentRefSchema,
 } from "../delivery/index.js";
-import { decryptStoredPii } from "../shared/index.js";
+import { decryptStoredPii, extensionForResourceContentType } from "../shared/index.js";
 import { guardEmailMessage } from "./pii-guard.js";
 import type { EmailAttachment, EmailTransport } from "./types.js";
 
@@ -113,14 +113,12 @@ export function fileAttachmentsFrom(
     );
 }
 
-const INLINE_EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/gif": "gif",
-  "image/webp": "webp",
-};
-
 type AttachmentSource = { readonly ref: EmailAttachmentRef; readonly origin: AttachmentOrigin };
+
+function inlineFileName(cid: string, contentType: string): string {
+  const extension = extensionForResourceContentType(contentType);
+  return extension === undefined ? cid : `${cid}.${extension}`;
+}
 
 async function resolveAttachments(
   sources: readonly AttachmentSource[],
@@ -154,11 +152,7 @@ async function resolveAttachments(
       throw new Error(`email channel: attachment file ${ref.fileRefId} was not found`);
     }
     const fileName =
-      ref.kind === "file"
-        ? ref.fileName
-        : INLINE_EXTENSION_BY_CONTENT_TYPE[found.contentType]
-          ? `${ref.cid}.${INLINE_EXTENSION_BY_CONTENT_TYPE[found.contentType]}`
-          : ref.cid;
+      ref.kind === "file" ? ref.fileName : inlineFileName(ref.cid, found.contentType);
     resolved.push({ ...ref, fileName, content: found.content, contentType: found.contentType });
   }
   return resolved;

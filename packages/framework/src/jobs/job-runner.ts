@@ -1579,7 +1579,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       const expectedSchedulerIds = cronSchedulerIdsForLane(consumerLane);
       // Before the upserts: a seen entry without a scheduler is harmless, a
       // scheduler a concurrent older runner finds without one gets deleted.
-      await markSchedulersSeen(consumerQueue, expectedSchedulerIds);
+      // Best-effort like the periodic refresh: a failed stamp must not stop the start.
+      await markSchedulersSeen(consumerQueue, expectedSchedulerIds).catch((err: unknown) => {
+        errorLogger.warn("scheduler seen stamp failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
       for (const [name, jobDef] of allJobs) {
         if (laneForJob(jobDef) !== consumerLane) continue;
         if ("cron" in jobDef.trigger) {

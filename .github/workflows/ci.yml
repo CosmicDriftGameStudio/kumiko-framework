@@ -396,6 +396,7 @@ jobs:
           REDIS_URL: redis://127.0.0.1:1
           JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
+          DEMO_ADMIN_PASSWORD: smoke-admin-password-0001
           # KMS-active path: createPgKmsAdapter is lazy (no connect in ctor);
           # boot exits before any KMS query. Catches RunProdAppOptions wiring
           # regressions the plaintext-only smoke would miss (#2317).

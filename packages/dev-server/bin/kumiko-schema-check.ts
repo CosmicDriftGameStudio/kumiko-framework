@@ -1,38 +1,35 @@
 #!/usr/bin/env bun
-// biome-ignore-all lint/suspicious/noConsole: CLI-Script, console ist Feature.
+// biome-ignore-all lint/suspicious/noConsole: CLI script, console output is the feature.
 //
-// kumiko schema check — Empfehlung 3 aus Sprint-9.8-Retro
-// (luminous-watching-moler.md). Diff't APP_FEATURES (runtime, aus
-// `src/run-config.ts`) gegen FEATURE_IMPORT_REGISTRY (statisch, aus
-// `drizzle/generate.ts`). Catches:
+// kumiko schema check: diffs APP_FEATURES (runtime, from `src/run-config.ts`)
+// against FEATURE_IMPORT_REGISTRY (static, from `drizzle/generate.ts`).
+// Catches:
 //
-//   1. Mount-without-registry: ein neues feature in APP_FEATURES ohne
-//      Entry in FEATURE_IMPORT_REGISTRY. Resultiert in Schema-Drift:
-//      Runtime mountet feature, Migration kennt seine Tabellen nicht.
-//   2. Stale-registry: ein Entry in FEATURE_IMPORT_REGISTRY ohne
-//      matching mount in APP_FEATURES. Dead-code; im Schema entsteht
-//      eine Tabelle ohne Runtime-Konsument.
+//   1. Mount without registry: a feature in APP_FEATURES with no entry in
+//      FEATURE_IMPORT_REGISTRY. Causes schema drift: the runtime mounts the
+//      feature but the migration does not know its tables.
+//   2. Stale registry: an entry in FEATURE_IMPORT_REGISTRY with no matching
+//      mount in APP_FEATURES. Dead code; the schema gets a table without a
+//      runtime consumer.
 //
-// Studio's 9.8-Drama: FEATURE_IMPORT_REGISTRY war 18 features hinter
-// APP_FEATURES. Hätte mit diesem check eine Sekunde Lokal gefangen.
+// Exit 0 when in sync, exit 1 on drift.
 //
-// Usage (aus dem app-workspace):
-//   bunx kumiko-schema-check
-//   # oder mit explicit pfaden:
-//   bunx kumiko-schema-check --run-config src/run-config.ts --generate drizzle/generate.ts
-//
-// Exit 0 wenn alles in sync, exit 1 wenn drift.
+// Scaffold layout (kumiko/schema.ts, no generate.ts): there is no static
+// registry that could drift, so the check says so and points to
+// `kumiko-schema validate`.
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   implicitAuthModeFeatureNames,
   resolveGeneratePath,
+  usesDerivedSchemaLayout,
 } from "@cosmicdrift/kumiko-dev-server/cli";
 
 type Args = {
   readonly runConfigPath: string;
   readonly generatePath: string;
+  readonly generateExplicit: boolean;
 };
 
 function parseArgs(argv: readonly string[]): Args {
@@ -50,7 +47,11 @@ function parseArgs(argv: readonly string[]): Args {
       i++;
     }
   }
-  return { runConfigPath, generatePath: generatePath ?? resolveGeneratePath(cwd) };
+  return {
+    runConfigPath,
+    generatePath: generatePath ?? resolveGeneratePath(cwd),
+    generateExplicit: generatePath !== undefined,
+  };
 }
 
 function readRegistryFeatures(generateSrc: string): Set<string> {
@@ -106,6 +107,13 @@ async function main(): Promise<void> {
     process.exit(0);
   }
   const args = parseArgs(process.argv.slice(2));
+
+  if (!args.generateExplicit && usesDerivedSchemaLayout(process.cwd())) {
+    console.log(
+      "✓ kumiko/schema.ts derives ENTITY_METAS from APP_FEATURES, there is no import registry that could drift. Use `bun kumiko-schema validate` to check migrations against the features.",
+    );
+    process.exit(0);
+  }
 
   if (!existsSync(args.runConfigPath)) {
     console.error(`✗ run-config not found: ${args.runConfigPath}`);

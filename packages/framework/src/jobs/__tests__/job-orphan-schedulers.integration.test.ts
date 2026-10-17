@@ -157,6 +157,19 @@ describe("orphan job schedulers", () => {
     );
   });
 
+  test("a failing orphan cleanup does not stop the start, the own scheduler is still registered", async () => {
+    await withOrphanRunner(
+      async (s) => {
+        // WRONGTYPE on the seen hash: both the stamp and the orphan scan fail.
+        const client = await s.workerQueue.client;
+        await client.set(s.seenKey, "not-a-hash");
+      },
+      async (s) => {
+        expect(await schedulerKeys(s.workerQueue)).toEqual([s.keptId]);
+      },
+    );
+  });
+
   test("a running runner keeps its schedulers alive across a mixed-version restart longer than the grace period", async () => {
     const prefix = uniquePrefix();
     const withKept = defineFeature("orphan", (r) => {

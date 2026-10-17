@@ -285,6 +285,25 @@ describe("defineAppE2eConfig defaults", () => {
     }
   });
 
+  test("webServer env also leaves keys defined only in .env.local to the server's own loading", () => {
+    const appDir = mkdtempSync(join(tmpdir(), "e2e-config-dotenv-local-"));
+    writeFileSync(join(appDir, ".env.local"), 'REDIS_URL="redis://local-host:6379"\n');
+    const originalCwd = process.cwd();
+    const savedRedisUrl = process.env["REDIS_URL"];
+    delete process.env["REDIS_URL"];
+    try {
+      process.chdir(appDir);
+      const server = defineAppE2eConfig({ port: 1 }).webServer;
+      if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
+      expect(server.env).not.toHaveProperty("REDIS_URL");
+    } finally {
+      process.chdir(originalCwd);
+      rmSync(appDir, { recursive: true, force: true });
+      if (savedRedisUrl === undefined) delete process.env["REDIS_URL"];
+      else process.env["REDIS_URL"] = savedRedisUrl;
+    }
+  });
+
   test("webServer env leaves Meilisearch unset unless the environment or the app env asks for it", () => {
     const server = defineAppE2eConfig({ port: 1 }).webServer;
     if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");

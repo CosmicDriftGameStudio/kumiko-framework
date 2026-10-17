@@ -11,11 +11,24 @@ import { requireKmsWiring, resolveKmsWiring } from "@cosmicdrift/kumiko-framewor
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
+import { z } from "zod";
 import { APP_FEATURES, HAS_AUTH } from "../src/run-config";
 
 const DEFAULT_TENANT_ID = "aefd3536-85bf-485b-b325-00006f8a57a1" as TenantId;
 const bootFeatures = composeFeatures(APP_FEATURES, { includeBundled: HAS_AUTH });
-const envSchema = composeEnvSchema({ core: frameworkCoreEnvSchema, features: bootFeatures });
+const envSchema = composeEnvSchema({
+  core: frameworkCoreEnvSchema,
+  features: bootFeatures,
+  extend: z.object({
+    DEMO_ADMIN_PASSWORD: z
+      .string()
+      .min(12)
+      .describe(
+        "Password of the admin seeded on first boot (admin@demo.local). Generate with: openssl rand -hex 24",
+      )
+      .meta({ kumiko: { pulumi: { secret: true } } }),
+  }),
+});
 
 // Subject-key KMS for the pii-annotated fields (user, tenant-invitation,
 // fileRef). Local/dev may omit the PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL /
@@ -42,7 +55,8 @@ await runProdApp({
   auth: {
     admin: {
       email: "admin@demo.local",
-      password: "change-me-on-first-deploy",
+      // runProdApp validates envSchema before seeding: a missing or short value aborts the boot.
+      password: process.env["DEMO_ADMIN_PASSWORD"] ?? "",
       displayName: "Admin",
       memberships: [
         {

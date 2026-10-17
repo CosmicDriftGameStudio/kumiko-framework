@@ -635,7 +635,14 @@ export function buildEntityTable<E extends EntityDefinition>(
         // entity.indexes[].where is now a SqlExpression (was drizzle SQL).
         // Pass through to the IndexBuilderWithCols.where()-API.
         if (def.where !== undefined) {
-          if (isSqlExpression(def.where)) chain = chain.where(def.where);
+          // A silently dropped where would build a full (unique) index that
+          // entity-table-meta flags as needsManualWhere.
+          if (!isSqlExpression(def.where)) {
+            throw new Error(
+              `[${tableName}] index "${indexName}": where must be a sql\`...\` expression`,
+            );
+          }
+          chain = chain.where(def.where);
         } else if (def.unique === true && entity.softDelete === true) {
           // Soft-deleted rows keep their value, so a full unique index would
           // permanently block reuse; kept in lock-step with entity-table-meta.ts (framework#2593).

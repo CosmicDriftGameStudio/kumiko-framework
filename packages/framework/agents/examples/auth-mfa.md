@@ -87,7 +87,7 @@ Apps built via `runDevApp`/`runProdApp` (the dev-server bootstrap used by `creat
 // the resulting app behaves like this test asserts: login is two-step once
 // MFA is enabled, and a valid TOTP code completes it.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   AuthHandlers,
   createAuthEmailPasswordFeature,
@@ -107,9 +107,7 @@ import {
   createUserFeature,
   UserHandlers,
   userEntity,
-  userTable,
 } from "@cosmicdrift/kumiko-bundled-features/user";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -172,11 +170,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await stack.cleanup();
   configureEntityFieldEncryption(undefined);
-});
-
-beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 });
 
 describe("auth-mfa sample wiring", () => {

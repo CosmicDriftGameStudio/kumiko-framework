@@ -43,7 +43,8 @@ bun run boot
 ```
 
 Runs `KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts` — validates feature composition
-+ env schema, exits 0 without touching DB/Redis. Useful in CI.
++ env schema, exits 0 without touching DB/Redis. Useful in CI. It needs
+`DEMO_ADMIN_PASSWORD` (min 12 chars, `openssl rand -hex 24`) in `.env`.
 
 ## Production build + schema
 
@@ -52,6 +53,9 @@ bun run build          # kumiko-build → dist/ + dist-server/
 bun run schema:apply   # apply checked-in kumiko/migrations (needs DATABASE_URL)
 bun run start          # runProdApp against dist/
 ```
+
+The first prod boot seeds `admin@demo.local` with the password from
+`DEMO_ADMIN_PASSWORD` (required, min 12 chars). Log in with that.
 
 After adding entities/features, regenerate migrations:
 

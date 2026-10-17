@@ -1,6 +1,7 @@
 import type { TemplateVariableDef, TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Element as ScanElement } from "happy-dom";
+import { isResourceImageContentType } from "../shared/index.js";
 import { rewriteStepsBlock } from "./compile-steps-block.js";
 import { withParsedDocument } from "./document-sanitizer.js";
 import {
@@ -196,13 +197,6 @@ function appendStyle(element: ScanElement, style: string): void {
   element.setAttribute("style", existing === null ? style : `${existing};${style}`);
 }
 
-const RESOURCE_IMAGE_CONTENT_TYPES: ReadonlySet<string> = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-]);
-
 // Unique valid resource keys in document order.
 export function collectDocumentResourceKeys(html: string): readonly string[] {
   return withParsedDocument(html, (root) => {
@@ -216,7 +210,7 @@ export function collectDocumentResourceKeys(html: string): readonly string[] {
 }
 
 export function toResourceDataUri(contentType: string, bytes: Uint8Array): string {
-  if (!RESOURCE_IMAGE_CONTENT_TYPES.has(contentType)) {
+  if (!isResourceImageContentType(contentType)) {
     throw new Error(`resource content type "${contentType}" cannot be embedded as an image`);
   }
   return `data:${contentType};base64,${Buffer.from(bytes).toString("base64")}`;

@@ -22,9 +22,10 @@ logic is yours.
 - **`skipOptimisticLock` for last-writer-wins** — `reset` deliberately
   bypasses the version check because the operation is admin-driven and
   resetting twice is semantically the same as resetting once.
-- **Custom queries** — `counter:active` filters the projection in
-  TypeScript after the executor's list returns. Useful when the filter is
-  computed (above-threshold) rather than indexed.
+- **Custom queries** — `counter:active` passes a server-side `filter`
+  (`eq`/`ne`/`lt`/`gt`/`lte`/`gte`/`in`) and `totalCount` to the executor's
+  list. Never filter a page in TypeScript: list is paginated, so rows after
+  the first page would be missed.
 - **`failNotFound` helper** — typed error response for the 404 case
   without a hand-built `KumikoError` subclass.
 

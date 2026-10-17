@@ -595,7 +595,6 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "gdpr.mail.exportReady.intro":
     "la exportación de datos que solicitaste para {app} está lista. Descárgala con el siguiente enlace:",
   "gdpr.mail.exportReady.subject": "{app} — Tu exportación de datos está lista",
-  "gdpr.mail.fallbackUrl": "Si el botón no funciona, copia este enlace en el navegador:",
   "gdpr.mail.greeting": "Hola,",
   "jobs.detail.field.duration": "Duración (ms)",
   "jobs.detail.field.error": "Error",

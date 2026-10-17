@@ -10,12 +10,14 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
   type TestStack,
+  TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import * as z from "zod";
 import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
 import { createTemplateResolverFeature } from "../feature.js";
+import { TemplateResolverHandlers } from "../qualified-names.js";
 import { seedNotificationTemplates } from "../seeding.js";
 import {
   type TemplateResourceRow,
@@ -96,6 +98,20 @@ describe("seedNotificationTemplates", () => {
     await seedNotificationTemplates(db, stack.registry);
     const after = await selectMany(db, eventsTable, { aggregateId: String(row?.id) });
     expect(after).toHaveLength(before.length);
+  });
+
+  test("a re-seed with unchanged text reactivates an archived system row", async () => {
+    const archived = await readRow("de");
+    await stack.http.writeOk(
+      TemplateResolverHandlers.archiveSystem,
+      { id: String(archived?.id) },
+      TestUsers.systemAdmin,
+    );
+    expect((await readRow("de"))?.status).toBe("archived");
+
+    await seedNotificationTemplates(db, stack.registry);
+
+    expect((await readRow("de"))?.status).toBe("active");
   });
 
   test("a changed body in code updates the existing row", async () => {

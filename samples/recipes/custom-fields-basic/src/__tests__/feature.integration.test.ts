@@ -15,17 +15,19 @@ import {
   createCustomFieldsFeature,
   fieldDefinitionEntity,
 } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
+  testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { propertyEntity, propertyFeature } from "../feature";
 
-const admin = createTestUser({ roles: ["TenantAdmin"] });
+// Each test runs in its own tenant, so rows from other tests never show up.
+let admin = createTestUser({ roles: ["TenantAdmin"], tenantId: testTenantId(1) });
+let nextTenant = 1;
 const customFields = createCustomFieldsFeature();
 
 let stack: TestStack;
@@ -41,10 +43,9 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM kumiko_events`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_sample_cf_properties`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM read_custom_field_definitions`);
+beforeEach(() => {
+  nextTenant += 1;
+  admin = createTestUser({ roles: ["TenantAdmin"], tenantId: testTenantId(nextTenant) });
 });
 
 async function defineField(fieldKey: string, type = "text") {

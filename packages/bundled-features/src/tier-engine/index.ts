@@ -18,7 +18,9 @@ export {
   type TierMap,
 } from "./compose-app.js";
 export {
+  isTierAssignmentSource,
   TIER_ENGINE_FEATURE,
+  type TierAssignmentSource,
   TierAssignmentSources,
   TierEngineHandlers,
   TierEngineQueries,

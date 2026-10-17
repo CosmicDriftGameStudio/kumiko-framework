@@ -58,3 +58,4 @@ export {
 export { sleep } from "./utils.js";
 export { waitFor } from "./wait-for.js";
 export { withoutAmbientTemporal } from "./without-ambient-temporal.js";
+export { zipWithEntries } from "./zip-fixture.js";

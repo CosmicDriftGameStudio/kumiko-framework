@@ -1,8 +1,8 @@
 // Integration-Test für `runSchemaCli` `status`-Subcommand.
 // Regression für review #155 finding 4: vorher schluckte `try/catch` jeden
 // Fehler (Connection-, Permission-, Query-) und reportete alles als "pending".
-// Jetzt: tracking-table fehlt → 0 applied (kein Fehler), echte Fehler werden
-// propagiert. Konsistent zum detectKumikoDrift-Pattern.
+// Now: a missing tracking table means 0 applied (no error); real errors are
+// reported as a CLI error with exit 1.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -83,14 +83,18 @@ describe("runSchemaCli status", () => {
     expect(lines.join("\n")).toContain("Kein kumiko/migrations/");
   });
 
-  test("unreachable DB → propagates connection error (no silent '0 applied')", async () => {
-    // Der gefixte Pfad MUSS connection-failures propagieren — vor dem Fix hat
-    // `try { applied = new Set(...) } catch { applied = new Set() }` das zu
-    // "0 applied" verfälscht und den Operator in die Irre geführt.
-    // Port 1 wird auf POSIX-Systemen für nichts gebunden → connect refused.
+  test("unreachable DB → reports the connection error with exit 1 (no silent '0 applied')", async () => {
+    // A connection failure must surface as an error, never as "0 applied"; it is
+    // reported as a CLI error instead of an uncaught stacktrace. Nothing on
+    // POSIX binds port 1, so the connect is refused.
     process.env["DATABASE_URL"] = "postgresql://nobody:nope@127.0.0.1:1/__kumiko_unreachable__";
     writeMigration("0001_init.sql", `SELECT 1;`);
-    const { out } = captureOut();
-    await expect(runSchemaCli(["status"], appDir, out)).rejects.toBeDefined();
+    const { out, lines } = captureOut();
+    const code = await runSchemaCli(["status"], appDir, out);
+    expect(code).toBe(1);
+    const joined = lines.join("\n");
+    expect(joined).toContain("ERR   ✗ schema status failed:");
+    expect(joined).not.toContain("applied");
+    expect(joined).not.toContain("nobody:nope@");
   });
 });

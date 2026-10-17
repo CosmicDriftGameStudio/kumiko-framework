@@ -9,7 +9,6 @@ import {
   mayOverrideTenant,
   mergeAssignedRoles,
   parseTenantId,
-  type SessionUser,
   SYSTEM_ROLE,
   type TenantId,
   withResponseData,
@@ -48,10 +47,6 @@ function resolveTargetTenantId(
 ): TenantId | undefined {
   if (!isSystem || payloadTenantId === undefined) return sessionTenantId;
   return parseTenantId(payloadTenantId) ?? undefined;
-}
-
-function foreignStreamTenant(user: SessionUser, targetTenantId: TenantId): TenantId | undefined {
-  return targetTenantId === user.tenantId ? undefined : targetTenantId;
 }
 
 // Editing your OWN roles keeps the current session: roles are re-derived per
@@ -195,8 +190,8 @@ export const updateMemberRolesWrite = defineWriteHandler({
     }
 
     // The membership stream lives on the membership's tenant (where seedTenantMembership/
-    // invite-accept wrote it); a cross-tenant operator addresses it without becoming a member.
-    // Same-tenant writes run on a tenant-mode db, which refuses a stream override.
+    // invite-accept wrote it); streamTenantId addresses it with the operator as actor, also
+    // without membership there.
     const result = await executor.update(
       {
         id: row["id"] as string, // @cast-boundary db-row
@@ -205,7 +200,7 @@ export const updateMemberRolesWrite = defineWriteHandler({
       },
       event.user,
       db,
-      { streamTenantId: foreignStreamTenant(event.user, targetTenantId) },
+      { streamTenantId: targetTenantId },
     );
 
     return withResponseData(result, {

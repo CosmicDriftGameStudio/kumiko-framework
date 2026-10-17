@@ -4,6 +4,8 @@
 // so it is now a factory parameter.
 
 import {
+  isTierAssignmentSource,
+  type TierAssignmentSource,
   TierAssignmentSources,
   TierEngineHandlers,
   TierEngineQueries,
@@ -67,7 +69,7 @@ type ExistingTierAssignment = {
   readonly id: string;
   readonly version: number;
   readonly tier: unknown;
-  readonly source: unknown;
+  readonly source: TierAssignmentSource | null;
 };
 
 function findTierAssignment(
@@ -78,7 +80,13 @@ function findTierAssignment(
   if (!row || typeof row["id"] !== "string" || typeof row["version"] !== "number") {
     return undefined;
   }
-  return { id: row["id"], version: row["version"], tier: row["tier"], source: row["source"] };
+  const source = row["source"];
+  return {
+    id: row["id"],
+    version: row["version"],
+    tier: row["tier"],
+    source: isTierAssignmentSource(source) ? source : null,
+  };
 }
 
 export function createSubscriptionTierSync<TTier extends string>(

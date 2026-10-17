@@ -17,14 +17,43 @@ function sameKeys(a: object | undefined, b: object | undefined): boolean {
   return aKeys.length === bKeys.size && aKeys.every((key) => bKeys.has(key));
 }
 
+const KEYED_SURFACE_PROPERTIES = [
+  "entities",
+  "writeHandlers",
+  "queryHandlers",
+  "streamHandlers",
+  "screens",
+  "navs",
+  "jobs",
+  "events",
+  "translations",
+  "configKeys",
+  "notifications",
+  "metrics",
+] as const satisfies readonly (keyof FeatureDefinition)[];
+
+// Hooks are keyed per phase, then per target: flatten so a hook added under an
+// existing phase still shows up as a difference.
+function hookKeys(feature: FeatureDefinition): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const [phase, byTarget] of Object.entries(feature.hooks ?? {})) {
+    for (const target of Object.keys(byTarget ?? {})) keys.add(`${phase}/${target}`);
+  }
+  return keys;
+}
+
+function sameHookKeys(a: FeatureDefinition, b: FeatureDefinition): boolean {
+  const aKeys = hookKeys(a);
+  const bKeys = hookKeys(b);
+  return aKeys.size === bKeys.size && [...aKeys].every((key) => bKeys.has(key));
+}
+
 // dedupeOptions is a declaration, not proof: two same-named features that both
 // carry `{}` but register different surface must still clash, not silently drop one.
 function sameRegisteredSurface(a: FeatureDefinition, b: FeatureDefinition): boolean {
   return (
-    sameKeys(a.entities, b.entities) &&
-    sameKeys(a.writeHandlers, b.writeHandlers) &&
-    sameKeys(a.queryHandlers, b.queryHandlers) &&
-    sameKeys(a.streamHandlers, b.streamHandlers)
+    KEYED_SURFACE_PROPERTIES.every((property) => sameKeys(a[property], b[property])) &&
+    sameHookKeys(a, b)
   );
 }
 

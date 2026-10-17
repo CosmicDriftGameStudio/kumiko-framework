@@ -8,6 +8,7 @@ import { createEntity, defineFeature } from "../index.js";
 import {
   findTierResolverUsage,
   isTierResolverPlugin,
+  requireTierResolverPlugin,
   TENANT_TIER_RESOLVER_EXT,
 } from "../tier-resolver-extension.js";
 
@@ -65,5 +66,21 @@ describe("isTierResolverPlugin", () => {
     expect(isTierResolverPlugin("x")).toBe(false);
     expect(isTierResolverPlugin({})).toBe(false);
     expect(isTierResolverPlugin({ build: 1 })).toBe(false);
+  });
+});
+
+describe("requireTierResolverPlugin", () => {
+  test("returns the plugin of a registration that provides build()", () => {
+    const usage = findTierResolverUsage([tierResolverFeature("tier-stub")]);
+    if (!usage) throw new Error("fixture must register a tier-resolver usage");
+    expect(typeof requireTierResolverPlugin(usage).build).toBe("function");
+  });
+
+  test("fails the boot when the registration has no build() factory", () => {
+    const usage = findTierResolverUsage([tierResolverFeature("tier-stub")]);
+    if (!usage) throw new Error("fixture must register a tier-resolver usage");
+    expect(() => requireTierResolverPlugin({ ...usage, options: {} })).toThrow(
+      "tier-resolver registration options must provide a build() factory",
+    );
   });
 });

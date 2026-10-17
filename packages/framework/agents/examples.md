@@ -23,6 +23,7 @@
 | `currencies-per-tenant` | Tenant-scoped money fields. Commas matter. | `examples/currencies-per-tenant.md` |
 | `custom-fields-basic` | Tenant-defined extra fields on an entity without writing migrations. | `examples/custom-fields-basic.md` |
 | `custom-handlers` | Beyond CRUD — when your domain refuses to fit a table. | `examples/custom-handlers.md` |
+| `dashboard-stats` | Key figures on a dashboard: stat panels backed by one counting query. | `examples/dashboard-stats.md` |
 | `delivery-notifications` | Delivery flows plus notifications. Package tracking, minus the tracking. | `examples/delivery-notifications.md` |
 | `designer-demo` | Kumiko sample feature — scaffolded by `bun kumiko create` | `examples/designer-demo.md` |
 | `e2e-generator` | generateE2ESpec + withBootValidatorFixture — Registry → JSON-Specs für externen Playwright-Worker. Zeigt die 4 Test-Kinds, Feldtyp→Interaktion-Mapping und welche Feldtypen heute noch nicht generisch unterstützt sind. | `examples/e2e-generator.md` |
@@ -46,7 +47,7 @@
 | `managed-pages` | Tenant-editable, server-rendered public pages with per-tenant branding + tier-gated sanitized custom CSS — managed-pages wired up with config + anonymousAccess. | `examples/managed-pages.md` |
 | `notes-history-basic` | Append-only note history — who wrote what, when — attached to any entity without changing it. | `examples/notes-history-basic.md` |
 | `ownership` | Entity- and Field-level Row-Ownership: from() helper, Straddle-safe multi-role checks, Field-level Read/Write filtering. | `examples/ownership.md` |
-| `pdf-audit-export` | Exports an audit table as a PDF: a write handler renders rows with renderTablePdf and stores the bytes as a FileRef via createFileRefFromBytes. | `examples/pdf-audit-export.md` |
+| `pdf-audit-export` | Exports an audit table as a PDF: a write handler renders rows with renderTablePdf and uploads the bytes before the transaction (uploadFileBytesBeforeTransaction) and stores them as a FileRef (createFileRefFromUploadedBytes). | `examples/pdf-audit-export.md` |
 | `pipeline-basics` | M.1 Tier-1 step-vocabulary showcase: every step in one inventory-management feature (aggregate.{create,update,appendEvent}, read.{findOne,findMany}, branch, forEach, compute, return, unsafeProjection{Upsert,Delete}). | `examples/pipeline-basics.md` |
 | `public-share-token` | Generic share-token entity: mint hash-stored token, anonymous read-by-token with IP rate-limit. | `examples/public-share-token.md` |
 | `rate-limiting` | End-to-end rate limiting: L1 global-IP + L2 auth-endpoints + L3 handler opt-in. | `examples/rate-limiting.md` |

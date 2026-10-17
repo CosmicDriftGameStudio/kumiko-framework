@@ -23,8 +23,8 @@ import {
   type EffectiveFeaturesResolver,
   type FeatureDefinition,
   findTierResolverUsage,
-  isTierResolverPlugin,
   type Registry,
+  requireTierResolverPlugin,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -122,11 +122,7 @@ async function buildTierEffectiveFeatures(
 ): Promise<EffectiveFeaturesResolver | undefined> {
   const tierResolverUsage = findTierResolverUsage(features);
   if (!tierResolverUsage) return undefined;
-  const plugin = tierResolverUsage.options;
-  if (!isTierResolverPlugin(plugin)) {
-    throw new Error("tier-resolver registration options must provide a build() factory");
-  }
-  return plugin.build({ db, registry, cacheSync });
+  return requireTierResolverPlugin(tierResolverUsage).build({ db, registry, cacheSync });
 }
 
 async function assertWorkerSchemaCurrent(

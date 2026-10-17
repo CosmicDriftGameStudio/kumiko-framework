@@ -35,6 +35,7 @@ export {
   isFieldsEditSection,
   isFormatSpec,
   isRecordLocked,
+  isUnchangedValue,
   isWriteFormEditSection,
   normalizeEditField,
   normalizeListColumn,

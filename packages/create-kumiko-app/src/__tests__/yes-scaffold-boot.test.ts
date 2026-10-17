@@ -88,7 +88,7 @@ describe("--yes resolved set through runProdApp's PII boot gate (issue-2330 regr
   const auth = {
     admin: {
       email: "admin@test.local",
-      password: "change-me-on-first-deploy",
+      password: "test-admin-password-0001",
       displayName: "Admin",
       memberships: [
         {
@@ -187,7 +187,76 @@ describe("--yes resolved set through runProdApp's PII boot gate (issue-2330 regr
 // them (see walkthrough.integration.test.ts's comment on the same issue).
 describe("generated bin/main.ts actually boots (issue-2330 regression, real subprocess)", () => {
   const FIXTURE_ROOT = join(import.meta.dir, ".tmp-fixtures");
+  const TEST_ADMIN_PASSWORD = "test-admin-password-0001";
   const createdDirs: string[] = [];
+
+  async function runGeneratedMain(
+    name: string,
+    envOverrides: Record<string, string>,
+    { withAdminPassword }: { withAdminPassword: boolean },
+  ): Promise<{ code: number; output: string; stdout: string }> {
+    mkdirSync(FIXTURE_ROOT, { recursive: true });
+    const cwd = mkdtempSync(join(FIXTURE_ROOT, `${name}-`));
+    createdDirs.push(cwd);
+    expect(await runCreate({ name, yes: true, cwd, log: () => {} })).toBe(0);
+
+    // A dev machine may export the variable; drop it so only the test decides.
+    const { DEMO_ADMIN_PASSWORD: _inherited, ...inheritedEnv } = process.env;
+    const proc = Bun.spawn({
+      cmd: ["bun", "bin/main.ts"],
+      cwd: join(cwd, name),
+      env: {
+        ...inheritedEnv,
+        JWT_SECRET: "a".repeat(32),
+        KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
+        DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
+        REDIS_URL: "redis://127.0.0.1:1",
+        PLATFORM_KEK: "",
+        SUBJECT_KEYS_DATABASE_URL: "",
+        KUMIKO_BLIND_INDEX_KEY: "",
+        ...(withAdminPassword ? { DEMO_ADMIN_PASSWORD: TEST_ADMIN_PASSWORD } : {}),
+        ...envOverrides,
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+    return { code, output: `${stdout}${stderr}`, stdout };
+  }
+
+  test("boot without DEMO_ADMIN_PASSWORD aborts and names the variable", async () => {
+    const { code, output } = await runGeneratedMain(
+      "boot-nopw",
+      { KUMIKO_DRY_RUN_ENV: "boot" },
+      { withAdminPassword: false },
+    );
+    expect(code, output).not.toBe(0);
+    expect(output).toContain("DEMO_ADMIN_PASSWORD");
+  });
+
+  test("boot with the empty DEMO_ADMIN_PASSWORD from .env.example aborts and names the variable", async () => {
+    const { code, output } = await runGeneratedMain(
+      "boot-emptypw",
+      { KUMIKO_DRY_RUN_ENV: "boot", DEMO_ADMIN_PASSWORD: "" },
+      { withAdminPassword: false },
+    );
+    expect(code, output).not.toBe(0);
+    expect(output).toContain("DEMO_ADMIN_PASSWORD");
+  });
+
+  test("KUMIKO_DRY_RUN_ENV=human renders the env inventory without the password set", async () => {
+    const { code, output, stdout } = await runGeneratedMain(
+      "human-nopw",
+      { KUMIKO_DRY_RUN_ENV: "human" },
+      { withAdminPassword: false },
+    );
+    expect(code, output).toBe(0);
+    expect(stdout).toContain("DEMO_ADMIN_PASSWORD");
+  });
 
   afterAll(() => {
     for (const d of createdDirs) {
@@ -216,6 +285,7 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
         KUMIKO_DRY_RUN_ENV: "boot",
         JWT_SECRET: "a".repeat(32),
         KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
+        DEMO_ADMIN_PASSWORD: TEST_ADMIN_PASSWORD,
         DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
         REDIS_URL: "redis://127.0.0.1:1",
         // Pinned empty, not inherited from process.env: a dev machine with
@@ -259,6 +329,7 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
         KUMIKO_DRY_RUN_ENV: "boot",
         JWT_SECRET: "a".repeat(32),
         KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
+        DEMO_ADMIN_PASSWORD: TEST_ADMIN_PASSWORD,
         DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
         REDIS_URL: "redis://127.0.0.1:1",
         PLATFORM_KEK: "",

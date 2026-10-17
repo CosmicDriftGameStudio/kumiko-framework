@@ -292,7 +292,7 @@ export const decimalColumn = (
 // bigintJsMode "bigint" — entity-table-meta renders money as bigint, and the
 // table-builder↔meta lockstep guard fails on a number-mode column. (Precision
 // past 2^53 is the underlying motivation, not the immediate breakage.)
-export const moneyAmount = (name: string): ColumnBuilder<number> =>
+export const moneyAmount = (name: string): ColumnBuilder<bigint> =>
   buildColumn(name, "bigint", { bigintJsMode: "bigint" });
 
 // ---- Index + primaryKey helpers ----

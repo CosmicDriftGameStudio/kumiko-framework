@@ -39,7 +39,6 @@ bun test
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { setTenantCookie } from "@cosmicdrift/kumiko-framework/api";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -48,7 +47,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { multiTenantShopFeature, productEntity, productTable } from "../feature";
+import { multiTenantShopFeature, productEntity } from "../feature";
 import { createSubdomainResolver, extractSubdomain } from "../subdomain-resolver";
 
 const ACME_TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
@@ -60,6 +59,9 @@ const KNOWN_TENANTS: Record<string, TenantId> = {
   acme: ACME_TENANT_ID,
   globex: GLOBEX_TENANT_ID,
 };
+
+// Unique value: the acme tenant is fixed, so the row is told apart by name, not by reset.
+const ACME_PRODUCT_NAME = "Acme Anvil (subdomain read)";
 
 let stack: TestStack;
 let resolver: ReturnType<typeof createSubdomainResolver>;
@@ -110,8 +112,7 @@ afterAll(async () => {
   await stack?.cleanup();
 });
 
-beforeEach(async () => {
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${productTable.tableName}"`);
+beforeEach(() => {
   resolver.invalidateAll();
   lookupCount = 0;
   existsCount = 0;
@@ -123,7 +124,7 @@ describe("subdomain resolution", () => {
     // visitors who land on acme.shop.com.
     await stack.http.writeOk(
       "mtshop:write:product:create",
-      { name: "Acme Anvil" },
+      { name: ACME_PRODUCT_NAME },
       { ...TestUsers.admin, tenantId: ACME_TENANT_ID },
     );
 
@@ -136,7 +137,9 @@ describe("subdomain resolution", () => {
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: Array<{ name: string }> };
-    expect(body.data.map((p) => p.name)).toEqual(["Acme Anvil"]);
+    expect(body.data.map((p) => p.name).filter((name) => name === ACME_PRODUCT_NAME)).toEqual([
+      ACME_PRODUCT_NAME,
+    ]);
   });
 
   test("unknown subdomain → 400 tenant_required (resolver returned null)", async () => {

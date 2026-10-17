@@ -4,7 +4,7 @@
 // feature. Each test maps directly to a cell in the design-doc matrix.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -17,26 +17,33 @@ import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
 import { contractEntity, contractsFeature, teamsFeature } from "../feature";
 
 let stack: TestStack;
-const tenant = testTenantId(1);
 
-const admin = { ...TestUsers.admin, tenantId: tenant };
-const teamMemberEng = createTestUser({
-  id: "11111111-0000-4000-8000-000000000001",
-  tenantId: tenant,
-  roles: ["TeamMember"],
-  claims: { "teams:teamId": "eng" },
-});
-const teamMemberOps = createTestUser({
-  id: "11111111-0000-4000-8000-000000000002",
-  tenantId: tenant,
-  roles: ["TeamMember"],
-  claims: { "teams:teamId": "ops" },
-});
-const driverAlice = createTestUser({
-  id: "22222222-0000-4000-8000-000000000001",
-  tenantId: tenant,
-  roles: ["Driver"],
-});
+function usersForTenant(tenant: TenantId) {
+  return {
+    admin: { ...TestUsers.admin, tenantId: tenant },
+    teamMemberEng: createTestUser({
+      id: "11111111-0000-4000-8000-000000000001",
+      tenantId: tenant,
+      roles: ["TeamMember"],
+      claims: { "teams:teamId": "eng" },
+    }),
+    teamMemberOps: createTestUser({
+      id: "11111111-0000-4000-8000-000000000002",
+      tenantId: tenant,
+      roles: ["TeamMember"],
+      claims: { "teams:teamId": "ops" },
+    }),
+    driverAlice: createTestUser({
+      id: "22222222-0000-4000-8000-000000000001",
+      tenantId: tenant,
+      roles: ["Driver"],
+    }),
+  };
+}
+
+// Each test runs in its own tenant, so contract rows from other tests never show up.
+let nextTenant = 1;
+let { admin, teamMemberEng, teamMemberOps, driverAlice } = usersForTenant(testTenantId(nextTenant));
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [teamsFeature, contractsFeature] });
@@ -52,7 +59,8 @@ let engRowVersion: number;
 let opsRowId: string;
 
 beforeEach(async () => {
-  await asRawClient(stack.db).unsafe("DELETE FROM read_ownership_contracts");
+  nextTenant += 1;
+  ({ admin, teamMemberEng, teamMemberOps, driverAlice } = usersForTenant(testTenantId(nextTenant)));
   const eng = await stack.http.writeOk<{ id: string; data: { version: number } }>(
     "contracts:write:contract:create",
     {

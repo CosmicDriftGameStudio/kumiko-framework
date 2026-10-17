@@ -1,5 +1,5 @@
 // Custom Handlers Sample
-// Shows: writeHandler with business logic, queryHandler with custom filtering,
+// Shows: writeHandler with business logic, queryHandler with a server-side filter,
 // handler that modifies payload before DB write.
 
 import {
@@ -11,6 +11,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
+
+// detail() returns an untyped row; parse the two fields the increment needs once.
+const counterVersionRowSchema = z.object({ count: z.number(), version: z.number() });
 
 export const counterEntity = createEntity({
   table: "read_sample_counters",
@@ -48,13 +51,14 @@ export const counterFeature = defineFeature("counters", (r) => {
         return failNotFound("counter", event.payload.id);
       }
 
-      const newCount = (current["count"] as number) + event.payload.amount;
+      const { count, version } = counterVersionRowSchema.parse(current);
+      const newCount = count + event.payload.amount;
       // Read-modify-write on counter: use the version we just read so two
       // concurrent increments don't clobber each other's changes.
       return counterExecutor.update(
         {
           id: event.payload.id,
-          version: current["version"] as number,
+          version,
           changes: { count: newCount, lastIncrementedBy: `user:${event.user.id}` },
         },
         event.user,
@@ -80,17 +84,22 @@ export const counterFeature = defineFeature("counters", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
-  // Custom query: only counters above a threshold
+  // Custom query: only counters above a threshold. list() returns one page
+  // (default 50, max 200, MAX_LIST_LIMIT), so a JS filter would miss rows after
+  // page 1; filter in the query instead. totalCount counts over the whole WHERE.
   r.queryHandler(
     "counter:active",
-    z.object({ minCount: z.number().default(1) }),
-    async (query, ctx) => {
-      const all = await counterExecutor.list({}, query.user, ctx.db);
-      return {
-        ...all,
-        rows: all.rows.filter((r) => (r["count"] as number) >= query.payload.minCount),
-      };
-    },
+    z.object({ minCount: z.number().int().default(1), cursor: z.string().optional() }),
+    async (query, ctx) =>
+      counterExecutor.list(
+        {
+          filter: { field: "count", op: "gte", value: query.payload.minCount },
+          totalCount: true,
+          cursor: query.payload.cursor,
+        },
+        query.user,
+        ctx.db,
+      ),
     {
       access: {
         openToAll: {

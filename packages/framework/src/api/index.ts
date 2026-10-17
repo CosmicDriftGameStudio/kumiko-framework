@@ -108,6 +108,7 @@ export {
   makeDispatchSystemQuery,
   makeDispatchSystemWrite,
   makeDispatchWriteAs,
+  withFileProviderResolver,
 } from "./server.js";
 export type {
   ResolvedSessionCookies,
