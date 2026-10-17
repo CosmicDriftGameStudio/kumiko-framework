@@ -45,7 +45,15 @@
 //     Aggregate). Caller no-op.
 
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { requestContext } from "../api/request-context.js";
 import { collectLookupableFields, computeBlindIndexValues } from "../crypto/blind-index.js";
+import {
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+  isPiiCiphertext,
+  PII_ERASED_SENTINEL,
+} from "../crypto/pii-field-encryption.js";
+import { collectPiiFileReferenceFields } from "../crypto/subject-resolver.js";
 import { deleteMany, insertOne, updateMany } from "../db/query.js";
 import type { EntityDefinition } from "../engine/types/index.js";
 import { InternalError } from "../errors/index.js";
@@ -71,6 +79,31 @@ export function parseAutoVerb(event: StoredEvent): AutoVerb | null {
   if (!event.type.startsWith(prefix)) return null;
   const verb = event.type.slice(prefix.length);
   return isOneOf(AUTO_VERBS, verb) ? verb : null;
+}
+
+// Events written by the old PII backfill can hold ciphertext in file/image uuid
+// columns. Replay restores the plain fileRef id; an erased subject yields null.
+async function decryptFileReferenceCiphertext(
+  entity: EntityDefinition,
+  values: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const ciphertextFields = collectPiiFileReferenceFields(entity).filter((name) =>
+    isPiiCiphertext(values[name]),
+  );
+  if (ciphertextFields.length === 0) return values;
+  const kms = configuredPiiSubjectKms();
+  if (kms === undefined) {
+    throw new InternalError({
+      message: `applyEntityEvent: file field(s) ${ciphertextFields.join(", ")} hold PII ciphertext but no subject KMS is configured; configure the KMS before replaying.`,
+    });
+  }
+  const decrypted = await decryptPiiFieldValues(values, ciphertextFields, kms, {
+    requestId: requestContext.get()?.requestId ?? "apply-entity-event",
+  });
+  for (const name of ciphertextFields) {
+    if (decrypted[name] === PII_ERASED_SENTINEL) decrypted[name] = null;
+  }
+  return decrypted;
 }
 
 /** Idempotente Anwendung eines Auto-Events auf die Entity-Tabelle.
@@ -111,7 +144,7 @@ export async function applyEntityEvent(
         });
       }
       const row = await insertOne<DbRow>(tx, table, {
-        ...event.payload,
+        ...(await decryptFileReferenceCiphertext(entity, event.payload)),
         // Blind-Index-Spalten aus dem Payload-Wert (ciphertext → decrypt →
         // HMAC, plaintext → HMAC, erased → NULL). Hier statt im Executor,
         // damit Live-Write und Rebuild denselben Wert produzieren und der
@@ -130,7 +163,9 @@ export async function applyEntityEvent(
       // payload-Shape: { changes, previous } — siehe event-store-executor.ts.
       const rawChanges = (event.payload["changes"] ?? {}) as Record<string, unknown>; // @cast-boundary engine-payload
       const changes: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(rawChanges)) {
+      for (const [key, value] of Object.entries(
+        await decryptFileReferenceCiphertext(entity, rawChanges),
+      )) {
         const field = entity.fields[key];
         // Historical events can carry fields since removed from the entity; the
         // tolerance lives here (not in updateMany) so a live typo still throws.

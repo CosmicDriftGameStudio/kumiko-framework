@@ -240,6 +240,7 @@ export type ExecutorContext = {
       subjectSource?: Record<string, unknown>;
       keyTenantId?: TenantId | undefined;
       ownerFallback?: Record<string, unknown>;
+      onErasedSubject?: "sentinel";
     },
   ) => Promise<Record<string, unknown>>;
   readonly decryptForRead: (
@@ -395,6 +396,7 @@ export function buildExecutorContext(
       subjectSource?: Record<string, unknown>;
       keyTenantId?: TenantId | undefined;
       ownerFallback?: Record<string, unknown>;
+      onErasedSubject?: "sentinel";
     },
   ): Promise<Record<string, unknown>> {
     let out = row;
@@ -418,6 +420,7 @@ export function buildExecutorContext(
             ...(opts?.onlyKeys !== undefined && { onlyKeys: opts.onlyKeys }),
             ...(opts?.subjectSource !== undefined && { subjectSource: opts.subjectSource }),
             ...(opts?.ownerFallback !== undefined && { ownerFallback: opts.ownerFallback }),
+            ...(opts?.onErasedSubject !== undefined && { onErasedSubject: opts.onErasedSubject }),
           },
         );
       } catch (e) {

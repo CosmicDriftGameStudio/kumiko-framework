@@ -206,6 +206,10 @@ export interface EncryptPiiOptions {
   // Canonical registry entity name — required to resolve recordOwned fields.
   readonly entityName: string;
   readonly ownerFallback?: Record<string, unknown>;
+  // Erasure writes must not fail on a subject whose key is already gone: that
+  // subject's values are written as the erased sentinel (per field), other
+  // subjects encrypt normally. Default: KeyErasedError propagates.
+  readonly onErasedSubject?: "sentinel";
 }
 
 // String fields stay strings (ciphertext is a string); non-string fields may
@@ -255,8 +259,13 @@ export async function encryptPiiFieldValues(
     });
     // skip: collectPiiSubjectFields only yields annotated fields — null is unreachable, kept as a type guard
     if (subject === null) continue;
-    const dek = await getOrCreateDek(kms, subject, kmsCtx);
-    out[name] = encryptValue(subject, dek, plaintext, name, isJsonbField);
+    try {
+      const dek = await getOrCreateDek(kms, subject, kmsCtx);
+      out[name] = encryptValue(subject, dek, plaintext, name, isJsonbField);
+    } catch (e) {
+      if (!(e instanceof KeyErasedError) || opts.onErasedSubject !== "sentinel") throw e;
+      out[name] = PII_ERASED_SENTINEL;
+    }
   }
   return out;
 }

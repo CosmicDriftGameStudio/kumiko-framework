@@ -54,6 +54,10 @@ echo "→ AST guards (bun packages/guards/src/run-guards.ts — CI entry runGuar
 bun packages/guards/src/run-guards.ts || fail=1
 
 echo
+echo "→ integration mock guard (bun integration.guard.ts)"
+bun integration.guard.ts || fail=1
+
+echo
 echo "→ changeset required (scripts/changeset-required-check.sh — CI script, BASE_REF=main)"
 BASE_REF=main bash scripts/changeset-required-check.sh || fail=1
 

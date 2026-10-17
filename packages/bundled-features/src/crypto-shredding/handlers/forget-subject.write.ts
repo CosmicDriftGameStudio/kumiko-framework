@@ -21,6 +21,7 @@ import {
   recordRowExistsInTenant,
   recordRowOwningTenantId,
   subjectRowExistsInTenant,
+  WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
@@ -360,7 +361,12 @@ async function closeUserLoginDoor(
   if (!userRow) return;
 
   const closeDoor = async (runner: DbRunner): Promise<void> => {
-    await updateUserLifecycle(runner, userId, { status: USER_STATUS.Deleted });
+    await updateUserLifecycle(
+      runner,
+      userId,
+      { status: USER_STATUS.Deleted },
+      { writePurpose: WritePurposes.erasure },
+    );
     if (ctx.registry.features.has("personal-access-tokens")) {
       await revokeAllPatTokensForUser(runner, userId);
     }

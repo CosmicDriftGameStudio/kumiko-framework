@@ -1,6 +1,10 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type WritePurpose,
+} from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
@@ -27,6 +31,9 @@ export type UpdateUserLifecycleOptions = {
   // executor's `expect:`. Omitted: unconditional overwrite (skipOptimisticLock).
   // Scalars only, see the executor's `expect:` doc.
   readonly expect?: Readonly<Record<string, string | number | boolean | null>>;
+  // Erasure flows run after the subject key is erased; the write then stores the
+  // erased sentinel instead of failing on re-encrypt.
+  readonly writePurpose?: WritePurpose;
 };
 
 // `conn` is ctx.db.unsafeRaw() (regular handlers) or the open tx
@@ -59,7 +66,11 @@ export async function updateUserLifecycle(
     { id: userId, changes },
     createSystemUser(SYSTEM_TENANT_ID),
     tenantDb,
-    { skipOptimisticLock: true, ...(options?.expect && { expect: options.expect }) },
+    {
+      skipOptimisticLock: true,
+      ...(options?.expect && { expect: options.expect }),
+      ...(options?.writePurpose && { writePurpose: options.writePurpose }),
+    },
   );
 
   if (result.isSuccess) return { applied: true };
