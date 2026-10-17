@@ -1,28 +1,27 @@
 // @runtime tooling
 //
-// E2E-Generator — leitet strukturierte TestSpecs aus der Registry ab.
+// E2E generator: derives structured TestSpecs from the registry.
 //
-// Grundidee: jede r.screen(...) ist eine testbare Oberfläche. Der Generator
-// iteriert getAllScreens() und baut pro Screen einen Satz TestSpecs (vier
-// Kinds, einer pro "was muss mindestens funktionieren"). Die Specs sind
-// JSON-serialisierbar — Consumer (Sample/Package-e2e) schreiben sie via
-// bun-Script als JSON auf Platte, und ein Playwright-globalSetup triggert
-// das vor jedem Run. Der eigentliche Playwright-Runner liest die JSON und
-// iteriert mit kind-spezifischen Handlern gegen den echten Renderer.
+// Every r.screen(...) is a testable surface. The generator iterates
+// getAllScreens() and builds one set of TestSpecs per screen (four kinds, one
+// per "what must work at minimum"). The specs are JSON-serializable: consumers
+// write them to disk as JSON via a bun script, and a Playwright globalSetup
+// triggers that before every run. The Playwright runner reads the JSON and
+// iterates it with kind-specific handlers against the real renderer.
 //
-// Vorteil des 2-Prozess-Modells: die framework-runtime (Registry, drizzle,
-// ioredis-types etc.) lädt NIE im Playwright-Worker. Würde sie das, kollidierte
-// sie mit Playwrights Object.prototype-Symbolen ($$jest-matchers-object) und
-// der Worker würde beim spec-import crashen.
+// Why two processes: the framework runtime (registry, drizzle, ioredis types,
+// etc.) must NEVER load inside the Playwright worker. It would collide with
+// Playwright's Object.prototype symbols ($$jest-matchers-object) and crash the
+// worker on spec import.
 //
-// Zwei Stufen, jede einzeln testbar:
+// Two stages, each testable on its own:
 //   1. generateE2ESpec(registry)   — Registry → TestSpec[]
-//   2. generateZodFixture(schema)  — ZodType  → plausibler Value
+//   2. generateZodFixture(schema)  — ZodType  → plausible value
 //
-// Stufe 2 ist intentionally minimal (Strategy a aus dem Plan): string/number/
-// boolean/date/enum/uuid + ZodOptional/ZodDefault-Unwrap. Alles andere wirft
-// "not supported yet" — wir füllen nach, wenn ein echter Caller es braucht.
-// Fake-komplexe-Werte würden nur False-Green-Tests produzieren.
+// Stage 2 is intentionally minimal: string/number/boolean/date/enum/uuid plus
+// ZodOptional/ZodDefault unwrapping. Everything else throws "not supported
+// yet" and gets added when a real caller needs it; faked complex values would
+// only produce false-green tests.
 
 import {
   type EntityDefinition,
@@ -42,9 +41,9 @@ import type * as z from "zod";
 
 // --- Spec-Shape ---
 
-// Jeder TestSpec-Variant enthält alles was der Renderer zum Templaten braucht
-// — keine Registry-Referenz, keine Lazy-Lookups. So sind Specs JSON-fähig
-// (debug-dump, Snapshot-Vergleich) und der Renderer bleibt rein Template.
+// Each TestSpec variant carries everything the renderer needs for templating:
+// no registry reference, no lazy lookups. That keeps specs JSON-serializable
+// (debug dump, snapshot comparison) and the renderer pure template.
 export type E2ETestSpec =
   | {
       readonly kind: "list-renders";
@@ -79,23 +78,22 @@ export type E2ETestSpec =
       readonly identifyingField: string;
     };
 
-// Strukturierte Anweisung für den edit-save-persists-Renderer. Der Fixture
-// allein sagt nicht, ob ein String in ein Text-Feld (`.fill`) oder in ein
-// Dropdown (`.selectOption`) gehört — der Generator entscheidet anhand der
-// FieldDefinition, der Renderer templated nur.
+// Structured instruction for the edit-save-persists renderer. The fixture alone
+// cannot say whether a string belongs in a text field (`.fill`) or a dropdown
+// (`.selectOption`); the generator decides from the FieldDefinition, the
+// renderer only templates.
 export type EditFillOp =
   | { readonly kind: "fill"; readonly field: string; readonly value: string }
   | { readonly kind: "check"; readonly field: string; readonly value: boolean }
   | { readonly kind: "select"; readonly field: string; readonly value: string };
 
 export type E2EGeneratorOptions = {
-  // Tenant-Slug/UUID als Template-Placeholder. Default "{tenant}" — der
-  // Test-Runner ersetzt zur Laufzeit. Wer die URL fix tenant-scoped will,
-  // setzt hier den Slug.
+  // Tenant slug/UUID as template placeholder. Defaults to "{tenant}", which the
+  // test runner replaces at run time. Set a slug here for fixed tenant-scoped URLs.
   readonly tenantPlaceholder?: string;
 };
 
-// --- Stufe 1: Spec-Ableitung aus der Registry ---
+// --- Stage 1: spec derivation from the registry ---
 
 export function generateE2ESpec(
   registry: Registry,
@@ -105,26 +103,26 @@ export function generateE2ESpec(
   const specs: E2ETestSpec[] = [];
 
   for (const [screenQn, screen] of registry.getAllScreens()) {
-    if (screen.type === "custom") continue; // keine generische Annahme möglich
-    // actionForm: kein generischer E2E-Spec — Author-defined Handler
-    // braucht Author-defined Test-Daten, die der Generator nicht kennt.
+    if (screen.type === "custom") continue; // no generic assumption possible
+    // actionForm: no generic E2E spec; the author-defined handler needs
+    // author-defined test data the generator does not know.
     if (screen.type === "actionForm") continue;
     // secretMint: same reasoning — author-defined write handler, no generic spec.
     if (screen.type === "secretMint") continue;
-    // configEdit: dito — die Werte werden über config:write:set
-    // pro Field geschrieben, ohne CRUD-Zustand zu generieren wäre der
-    // Spec wertlos. Branding/SMTP/etc. sind Author-spezifisch.
+    // configEdit: same reasoning. Values are written per field via
+    // config:write:set, so a spec without CRUD state would be worthless.
+    // Branding/SMTP/etc. are author-specific.
     if (screen.type === "configEdit") continue;
     // secretsEdit: dito — writes go through secrets:write:set with
     // plaintext values the generator has no author-defined test data for.
     if (screen.type === "secretsEdit") continue;
-    // projectionList: query-getrieben, Author-spezifische Projection —
-    // kein generischer CRUD-Spec ableitbar (wie actionForm/configEdit).
+    // projectionList: query-driven, author-specific projection; no generic
+    // CRUD spec derivable (like actionForm/configEdit).
     if (screen.type === "projectionList") continue;
-    // projectionDetail: dito — read-only single-row inspector, kein CRUD-Zustand.
+    // projectionDetail: same reasoning; read-only single-row inspector, no CRUD state.
     if (screen.type === "projectionDetail") continue;
-    // dashboard: panel-getrieben (Stat/Chart/List-Queries) — dito, keine
-    // generische CRUD-Annahme möglich.
+    // dashboard: panel-driven (stat/chart/list queries); same reasoning, no
+    // generic CRUD assumption possible.
     if (screen.type === "dashboard") continue;
     const { scope: feature, name: short } = parseQn(screenQn);
     const urlPath = `/t/${tenant}/${feature}/${short}`;
@@ -217,10 +215,10 @@ function buildScreenUrlPath(qn: string, tenant: string): string {
 }
 
 function findCreateHandlerQn(registry: Registry, entityName: string): string | undefined {
-  // feature.writeHandlers ist mit Short-Names gekeyt ("task:create"), der
-  // Registry-Lookup braucht die qualified Form ("tasks:write:task:create").
-  // Wir qualifizieren via qn() + toKebab wie die Registry selbst — das ist
-  // der Vertrag aus qualified-name.ts.
+  // feature.writeHandlers is keyed by short name ("task:create"), but the
+  // registry lookup needs the qualified form ("tasks:write:task:create").
+  // Qualify via qn() + toKebab like the registry itself; that is the contract
+  // from qualified-name.ts.
   for (const feature of registry.features.values()) {
     for (const shortName of Object.keys(feature.writeHandlers ?? {})) {
       if (!shortName.endsWith(":create")) continue;
@@ -266,8 +264,8 @@ function pickIdentifyingValue(
   screen: EntityListScreenDefinition,
   entity: EntityDefinition,
 ): string | undefined {
-  // Erste Text-Spalte mit Fixture-Wert — das ist die visuell zuverlässigste
-  // Identifikation in einer generischen Tabelle.
+  // First text column with a fixture value: the visually most reliable
+  // identification in a generic table.
   for (const raw of screen.columns) {
     const { field } = normalizeListColumn(raw);
     if (entity.fields[field]?.type !== "text") continue;
@@ -282,9 +280,9 @@ function buildEditFillOps(
   entity: EntityDefinition,
   fixture: Readonly<Record<string, unknown>>,
 ): EditFillOp[] {
-  // Laufe die Layout-Reihenfolge — das Resultat spiegelt, was ein User
-  // tatsächlich ausfüllt. Per Field-Typ entscheiden wir die Interaktions-
-  // form; Felder ohne Fixture-Wert (file/image/…) werden übersprungen.
+  // Walk the layout order so the result mirrors what a user actually fills in.
+  // The interaction kind is decided per field type; fields without a fixture
+  // value (file/image/…) are skipped.
   const ops: EditFillOp[] = [];
   for (const section of screen.layout.sections) {
     if (!isFieldsEditSection(section)) continue;
@@ -307,13 +305,13 @@ function buildEditFillOps(
         case "number":
         case "date":
         case "tz":
-          // date: ein Text-Input, akzeptiert getippte ISO-Werte direkt.
+          // date: a text input that accepts typed ISO values directly.
           ops.push({ kind: "fill", field, value: String(v) });
           break;
         // embedded/money/timestamp/locatedTimestamp/file/image/files/images:
-        // keine generische Interaktion. timestamp rendert seit #369 zwei
-        // Inputs (Datum + Uhrzeit), die ein einzelnes .fill() nicht bedienen
-        // kann — der Test-Autor liefert einen Hand-Override oder überspringt.
+        // no generic interaction. Since #369 timestamp renders two inputs
+        // (date + time) that a single .fill() cannot drive; the test author
+        // supplies a hand override or skips it.
         default:
           break;
       }
@@ -328,8 +326,8 @@ function pickIdentifyingForEdit(
   entity: EntityDefinition,
   listScreen: EntityListScreenDefinition | undefined,
 ): { field: string; value: string } | undefined {
-  // Bevorzugt ein Feld das im List-Screen als Column auftaucht — sonst ist
-  // die "taucht in Liste auf"-Assertion nicht durchführbar.
+  // Prefer a field that appears as a column in the list screen; otherwise the
+  // "shows up in the list" assertion cannot be performed.
   const columns = listScreen
     ? new Set(listScreen.columns.map((c) => normalizeListColumn(c).field))
     : undefined;
@@ -347,14 +345,13 @@ function pickIdentifyingForEdit(
   return undefined;
 }
 
-// --- Stufe 2: Zod-Fixture (Strategy a) ---
+// --- Stage 2: Zod fixture ---
 
-// Zod 4 stabilisiert die Introspection auf `._def.type` (lowercase Discriminator)
-// + `._def.format` für String-Formate (email/url/uuid/datetime) + `._def.entries`
-// für Enums + `._def.innerType` für optional/default/nullable. Wir greifen
-// gezielt auf diese Felder zu — genau die Form die unser buildInsertSchema
-// emittiert. Andere Typen werfen "not supported yet", bis ein Sample den Fall
-// konkret braucht.
+// Zod 4 stabilizes introspection on `._def.type` (lowercase discriminator),
+// `._def.format` for string formats (email/url/uuid/datetime), `._def.entries`
+// for enums and `._def.innerType` for optional/default/nullable. We access
+// exactly these fields, the shape our buildInsertSchema emits. Other types
+// throw "not supported yet" until a sample concretely needs them.
 
 type ZodInternals = {
   readonly type?: string;
@@ -408,19 +405,18 @@ function fixtureString(format: string | undefined): string {
   return "e2e-fixture";
 }
 
-// --- Fixture aus FieldDefinition (für Stufe 1 statt Zod-Schema) ---
+// --- Fixture from FieldDefinition (stage 1, instead of a Zod schema) ---
 //
-// Bewusstes Duplicate zu generateZodFixture. Die beiden haben unterschiedliche
-// Aufgaben:
-//   generateZodFixture   — public, generisch, weiß nur Zod-Primitives
-//   buildEntityFixture   — intern, Kumiko-Domain, weiß über file-skip,
-//                          embedded-Shape, money/tz-Objekte und nutzt den
-//                          Feldnamen für lesbare Prefixes ("e2e-email@...")
+// Deliberate duplicate of generateZodFixture; the two have different jobs:
+//   generateZodFixture   — public, generic, knows only Zod primitives
+//   buildEntityFixture   — internal, Kumiko domain, knows file skipping,
+//                          embedded shape, money/tz objects and uses the field
+//                          name for readable prefixes ("e2e-email@...")
 //
-// Ein Zusammenziehen über buildInsertSchema + generateZodFixture würde entweder
-// den Feldnamen-Hint verlieren (alle email-Fixtures bekämen denselben Wert —
-// Unique-Constraints wären inkonsistent) oder einen hint-Parameter in die
-// public API von generateZodFixture drücken, den externe Caller nie brauchen.
+// Merging them via buildInsertSchema + generateZodFixture would either lose the
+// field-name hint (all email fixtures would get the same value, making unique
+// constraints inconsistent) or push a hint parameter into the public API of
+// generateZodFixture that external callers never need.
 function buildEntityFixture(entity: EntityDefinition): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [name, field] of Object.entries(entity.fields)) {
@@ -438,7 +434,7 @@ function fieldToFixture(name: string, field: FieldDefinition): unknown {
       return `e2e ${name}`;
     }
     case "longText":
-      // longText hat keine format-Optionen — generic placeholder reicht.
+      // longText has no format options; a generic placeholder is enough.
       return `e2e ${name} (long-form content)`;
     case "boolean":
       return true;
@@ -490,10 +486,9 @@ function fieldToFixture(name: string, field: FieldDefinition): unknown {
     case "image":
     case "files":
     case "images":
-      // File-Upload-Fixture ist noch nicht generisch: Playwright müsste
-      // Dateiinhalte mitliefern, und die Write-API verlangt bereits ge-
-      // uploadete fileRef-UUIDs. Lässt sich nachziehen, sobald Sample die
-      // Pfade klärt (M4).
+      // File-upload fixtures are not generic yet: Playwright would have to supply
+      // file contents, and the write API already expects uploaded fileRef UUIDs.
+      // Can be added once a sample settles the paths (M4).
       return undefined;
     default:
       return undefined;

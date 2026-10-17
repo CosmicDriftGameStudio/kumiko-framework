@@ -199,8 +199,8 @@ export function createRequestHelper(
       requestId?: string,
     ): Promise<T> {
       const res = await writeRaw(type, payload, user, requestId);
-      // wire-body shape direkt nach JSON.parse — Caller-Code prüft danach
-      // selber ob isSuccess/error/data tatsächlich da sind.
+      // Wire-body shape right after JSON.parse; the caller checks afterwards
+      // whether isSuccess/error/data are actually present.
       const rawBody = await res.json();
       const body = rawBody as {
         // @cast-boundary engine-bridge

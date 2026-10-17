@@ -27,9 +27,9 @@ const taskEntity = createEntity({
   },
 });
 
-// Minimal-Feature mit beiden Screen-Typen UND einem Create-Handler —
-// abhängig davon was im Screen steht, emittiert der Generator andere
-// Kind-Kombinationen, siehe buildListSpecs/buildEditSpecs.
+// Minimal feature with both screen types AND a create handler: the generator
+// emits different kind combinations depending on what the screen contains, see
+// buildListSpecs/buildEditSpecs.
 function createTasksFeature() {
   return defineFeature("tasks", (r) => {
     r.systemScope();
@@ -87,9 +87,9 @@ describe("generateE2ESpec", () => {
     if (persists?.kind !== "edit-save-persists") throw new Error("unreachable");
     expect(persists.listUrlPath).toBe("/t/{tenant}/tasks/task-list");
     expect(persists.identifyingField).toBe("title");
-    // Select-Field muss "select" bekommen, Boolean "check", Text "fill" —
-    // sonst emittiert der Renderer .fill() für ein Dropdown und Playwright
-    // zerschellt am ersten Sample mit Select-Feld.
+    // A select field must get "select", boolean "check", text "fill"; otherwise
+    // the renderer emits .fill() for a dropdown and Playwright fails on the first
+    // sample with a select field.
     expect(persists.fills).toEqual([
       { kind: "fill", field: "title", value: "e2e title" },
       { kind: "select", field: "status", value: "todo" },
@@ -175,8 +175,8 @@ describe("generateE2ESpec", () => {
     const persists = specs.find((s) => s.kind === "edit-save-persists");
     if (persists?.kind !== "edit-save-persists") throw new Error("unreachable");
     const filledFields = persists.fills.map((f) => f.field);
-    // date: ein Text-Input, generisch füllbar. timestamp: Datum + Uhrzeit =
-    // zwei Inputs, die ein einzelnes .fill() in Playwright-strict-mode brechen.
+    // date: a text input, fillable generically. timestamp: date + time = two
+    // inputs that break a single .fill() in Playwright strict mode.
     expect(filledFields).toContain("day");
     expect(filledFields).not.toContain("at");
   });
@@ -201,10 +201,10 @@ describe("generateE2ESpec", () => {
   });
 
   test("skips list-has-fixture-row when no create-handler is registered", () => {
-    // Feature hat Screen + Entity aber keinen Create-Handler (z.B. weil
-    // Writes noch in einer anderen Feature-Variante landen). Ohne Handler
-    // kann der Generator nicht seeden — list-renders bleibt, der Fixture-
-    // Test wird gespart statt falsch generiert.
+    // Feature has screen + entity but no create handler (e.g. because writes
+    // live in another feature variant). Without a handler the generator cannot
+    // seed: list-renders stays, the fixture test is dropped instead of being
+    // generated wrongly.
     const readOnly = defineFeature("read-only", (r) => {
       r.systemScope();
       r.entity({ name: "task", ...taskEntity });
@@ -215,10 +215,10 @@ describe("generateE2ESpec", () => {
   });
 
   test("edit-save-persists has undefined listUrlPath when no matching list-screen exists", () => {
-    // entityEdit ohne entityList — z.B. Detail-Seite die über SSE Refresh
-    // statt Navigation validiert wird. Der Generator muss trotzdem eine
-    // edit-save-persists-Spec emittieren, nur ohne listUrlPath (Renderer
-    // verifiziert dann im Edit-View selbst).
+    // entityEdit without entityList, e.g. a detail page that is validated via SSE
+    // refresh instead of navigation. The generator must still emit an
+    // edit-save-persists spec, just without listUrlPath (the renderer then
+    // verifies inside the edit view itself).
     const editOnly = defineFeature("edit-only", (r) => {
       r.systemScope();
       r.entity({ name: "task", ...taskEntity });
@@ -241,9 +241,9 @@ describe("generateE2ESpec", () => {
   });
 
   test("text-field formats (email/url) produce format-specific fixtures", () => {
-    // createTextField({ format: "email" }) muss einen Mail-artigen Fixture
-    // liefern — sonst schlägt die Zod-Validation am Server fehl, sobald
-    // der Generator-Output gegen eine echte API läuft.
+    // createTextField({ format: "email" }) must yield a mail-like fixture;
+    // otherwise Zod validation on the server fails as soon as the generator
+    // output runs against a real API.
     const contactEntity = createEntity({
       table: "contacts",
       fields: {
@@ -280,9 +280,8 @@ describe("generateE2ESpec", () => {
   });
 
   test("mixed feature (list + edit + custom) — generates for list/edit, skips custom", () => {
-    // Deckt das Shape ab das ein echtes Sample hat: ein Feature mit allen
-    // drei Screen-Typen. Custom wird übersprungen, List + Edit liefern
-    // ihre jeweiligen Spec-Kinds.
+    // Covers the shape a real sample has: one feature with all three screen
+    // types. Custom is skipped, list + edit yield their respective spec kinds.
     const mixed = defineFeature("mixed", (r) => {
       r.systemScope();
       r.entity({ name: "task", ...taskEntity });

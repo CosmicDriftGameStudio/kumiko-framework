@@ -41,8 +41,8 @@ export type CreateTestDbOptions = {
 };
 
 /**
- * Provider-agnostische Test-DB. createConnection liest DB_PROVIDER.
- * Für Bun.SQL: DB_PROVIDER=bun setzen (experimentell — siehe db/bun-provider.ts).
+ * Provider-agnostic test DB. createConnection reads DB_PROVIDER.
+ * For Bun.SQL set DB_PROVIDER=bun (experimental, see db/bun-provider.ts).
  */
 export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<TestDb> {
   await ensureTemporalPolyfill();

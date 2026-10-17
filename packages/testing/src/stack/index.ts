@@ -1,14 +1,13 @@
 // @runtime dev
-// Runtime-safe Stack-Builder. Was hier liegt, wird vom dev-server zum Hochfahren
-// einer kompletten Kumiko-Instanz genutzt — DB, Redis, Hono-App, Dispatcher,
-// SSE-Broker. Die Files heißen historisch `test*` (createTestDb,
-// setupTestStack, TestUsers, …), bedienen aber heute Dev- UND Test-Code: das
-// ist genau derselbe Hochfahr-Pfad, nur einmal mit ephemeral-DB (test) und
-// einmal mit persistent-DB (dev).
+// Runtime-safe stack builder. The dev-server uses what lives here to boot a
+// complete Kumiko instance: DB, Redis, Hono app, dispatcher, SSE broker. The
+// files are historically named `test*` (createTestDb, setupTestStack,
+// TestUsers, …) but serve dev AND test code today: it is the same boot path,
+// once with an ephemeral DB (test) and once with a persistent DB (dev).
 //
-// Wichtig: dieses Modul darf KEINE vitest-Imports enthalten und keine
-// Vitest-only Helper transitiv ziehen — sonst crasht jedes Tooling, das den
-// dev-server unter Node lädt (drizzle-kit, build-scripts).
+// Important: this module must contain NO vitest imports and must not pull
+// vitest-only helpers in transitively, or every tool that loads the dev-server
+// under Node (drizzle-kit, build scripts) crashes.
 
 export {
   unsafeCreateEntityTable,

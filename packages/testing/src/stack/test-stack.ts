@@ -185,11 +185,10 @@ export type TestStackOptions = {
   outsideTransactionPoolMax?: number;
   /** Forwarded to buildServer — when set, requests without a JWT pass
    *  through as anonymous instead of 401. See AnonymousAccessConfig.
-   *  Akzeptiert entweder einen statischen Config-Object ODER eine Factory
-   *  `({registry, db, sseBroker, redis}) => Config` — gleiches Pattern wie
-   *  `extraContext`. Die Factory wird einmal beim Boot aufgerufen, der
-   *  TenantResolver darin closure'd typischerweise `db` für Subdomain-
-   *  Lookups. */
+   *  Accepts either a static config object OR a factory
+   *  `({registry, db, sseBroker, redis}) => Config`, the same pattern as
+   *  `extraContext`. The factory runs once at boot; the TenantResolver inside
+   *  typically closes over `db` for subdomain lookups. */
   anonymousAccess?:
     | import("@cosmicdrift/kumiko-framework/api").ServerOptions["anonymousAccess"]
     | ((deps: {
@@ -284,9 +283,8 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const jwtSecret = options.jwtSecret ?? DEFAULT_JWT_SECRET;
   const enabledHooks = options.systemHooks ?? ["sse", "search"];
 
-  // Temporal-Polyfill installieren bevor Feature-Code läuft. Idempotent —
-  // Production-Server-Boot ruft das gleich. Auf Runtimes mit nativem
-  // Temporal ein No-Op.
+  // Install the Temporal polyfill before feature code runs. Idempotent: the
+  // production server boot does the same. A no-op on runtimes with native Temporal.
   const { ensureTemporalPolyfill } = await import("@cosmicdrift/kumiko-framework/time");
   await ensureTemporalPolyfill();
 
