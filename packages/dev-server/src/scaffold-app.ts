@@ -535,10 +535,12 @@ function renderMain(appName: string): string {
       specifier: "@cosmicdrift/kumiko-framework/crypto",
       names: ["requireKmsWiring", "resolveKmsWiring"],
     },
+    { specifier: "zod", names: ["z"] },
     { specifier: "../src/run-config", names: ["APP_FEATURES", "HAS_AUTH"] },
   ]);
   const authBlock = renderAdminAuthBlock(appName, [
-    'password: "change-me-on-first-deploy",',
+    "// runProdApp validates envSchema before seeding: a missing or short value aborts the boot.",
+    'password: process.env["DEMO_ADMIN_PASSWORD"] ?? "",',
     'displayName: "Admin",',
   ]);
 
@@ -559,7 +561,19 @@ const DEFAULT_TENANT_ID = "${tenantId}" as TenantId;
 
 const bootFeatures = composeFeatures(APP_FEATURES, { includeBundled: HAS_AUTH });
 
-const envSchema = composeEnvSchema({ core: frameworkCoreEnvSchema, features: bootFeatures });
+const envSchema = composeEnvSchema({
+  core: frameworkCoreEnvSchema,
+  features: bootFeatures,
+  extend: z.object({
+    DEMO_ADMIN_PASSWORD: z
+      .string()
+      .min(12)
+      .describe(
+        "Password of the admin seeded on first boot (admin@${appName}.local). Generate with: openssl rand -hex 24",
+      )
+      .meta({ kumiko: { pulumi: { secret: true } } }),
+  }),
+});
 
 const kmsOpts = {
   logPrefix: "[${appName}]",
@@ -701,6 +715,11 @@ JWT_SECRET=change-me-min-32-chars-change-me-min-32
 # Generate with: openssl rand -base64 32
 KUMIKO_SECRETS_MASTER_KEY_V1=
 
+# DEMO_ADMIN_PASSWORD: password of the admin seeded on first prod boot
+# (admin@${appName}.local). Required by \`bun run boot\` and \`bun run start\`,
+# min 12 chars. Generate with: openssl rand -hex 24
+DEMO_ADMIN_PASSWORD=
+
 # Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). All-or-none.
 # Unset → local boot with plaintext PII + warning; NODE_ENV=production requires
 # the trio (requireKmsWiring). Generate PLATFORM_KEK / KUMIKO_BLIND_INDEX_KEY
@@ -793,7 +812,8 @@ bun run boot
 \`\`\`
 
 Runs \`KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts\` — validates feature composition
-+ env schema, exits 0 without touching DB/Redis. Useful in CI.
++ env schema, exits 0 without touching DB/Redis. Useful in CI. It needs
+\`DEMO_ADMIN_PASSWORD\` (min 12 chars, \`openssl rand -hex 24\`) in \`.env\`.
 
 Without \`PLATFORM_KEK\` / \`SUBJECT_KEYS_DATABASE_URL\` / \`KUMIKO_BLIND_INDEX_KEY\`
 set (see \`.env.example\`), both \`bun run boot\` and \`bun run start\` boot with
@@ -807,6 +827,9 @@ bun run build          # kumiko-build → dist/ + dist-server/
 bun run schema:apply   # apply checked-in kumiko/migrations (needs DATABASE_URL)
 bun run start          # runProdApp against dist/
 \`\`\`
+
+The first prod boot seeds \`admin@${appName}.local\` with the password from
+\`DEMO_ADMIN_PASSWORD\` (required, min 12 chars). Log in with that.
 
 After adding entities/features, regenerate migrations:
 
