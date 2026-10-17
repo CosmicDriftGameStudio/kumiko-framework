@@ -12,6 +12,7 @@ import {
   InternalError,
   toWriteErrorInfo,
   UnprocessableError,
+  type WriteErrorInfo,
   writeFailure,
 } from "../errors/index.js";
 import { createFallbackLogger } from "../logging/utils.js";
@@ -113,6 +114,53 @@ export async function runBatch(
   );
 }
 
+function perCommandBatchRejection(
+  ctx: DispatchContext,
+  commands: readonly BatchCommand[],
+): BatchResult | undefined {
+  const index = commands.findIndex((cmd) => isPerCommandHandler(ctx, cmd.type));
+  const command = commands[index];
+  if (!command || commands.length < 2) return undefined;
+  return {
+    isSuccess: false,
+    error: toWriteErrorInfo(
+      new UnprocessableError("per_command_handler_in_batch", {
+        message: `handler "${command.type}" runs without a transaction (transaction: "perCommand") and cannot be part of a multi-command batch`,
+      }),
+    ),
+    failedIndex: index,
+    results: [],
+  };
+}
+
+async function runCommandsWithoutTransaction(
+  scope: ReservedCommandScope,
+  commands: readonly BatchCommand[],
+  results: WriteResult[],
+): Promise<{ index: number; error: WriteErrorInfo } | undefined> {
+  for (let i = 0; i < commands.length; i++) {
+    const cmd = commands[i];
+    if (!cmd) continue;
+    const res = await runReservedCommand(scope, cmd, i, undefined);
+    results.push(res);
+    if (!res.isSuccess) return { index: i, error: res.error };
+  }
+  return undefined;
+}
+
+async function checkBatchIdempotency(
+  ctx: DispatchContext,
+  user: SessionUser,
+  requestId: string | undefined,
+): Promise<{ cached?: BatchResult; token?: string }> {
+  if (!requestId || !ctx.idempotency) return {};
+  const checked = await ctx.idempotency.check(user.tenantId, user.id, requestId);
+  if (checked.status !== "cached") return { token: checked.token };
+  const parsed = parseJsonSafe<BatchResult | null>(checked.result, null);
+  // corrupted cache entry — treat as miss, let the request re-run
+  return parsed ? { cached: parsed } : {};
+}
+
 async function runBatchBody(
   ctx: DispatchContext,
   commands: readonly BatchCommand[],
@@ -130,17 +178,9 @@ async function runBatchBody(
   // idempotencyToken is only set when we actually acquired the lock — the
   // corrupted-cache fallthrough below leaves it unset, so finalize() skips
   // store() rather than writing over an entry it never owned.
-  let idempotencyToken: string | undefined;
-  if (requestId && idempotency) {
-    const checked = await idempotency.check(user.tenantId, user.id, requestId);
-    if (checked.status === "cached") {
-      const parsed = parseJsonSafe<BatchResult | null>(checked.result, null);
-      if (parsed) return parsed;
-      // corrupted cache entry — treat as miss, let the request re-run
-    } else {
-      idempotencyToken = checked.token;
-    }
-  }
+  const idempotencyCheck = await checkBatchIdempotency(ctx, user, requestId);
+  if (idempotencyCheck.cached) return idempotencyCheck.cached;
+  const idempotencyToken = idempotencyCheck.token;
 
   // Hooks already ran on the plaintext results; what is returned and cached
   // for retries must not carry writeOnly values.
@@ -229,24 +269,9 @@ async function runBatchBody(
     await runWithWriteOrigin(strictest, flushBatchHooksInner);
   };
 
-  const perCommandIndex = commands.findIndex((cmd) => isPerCommandHandler(ctx, cmd.type));
-  const perCommandCommand = commands[perCommandIndex];
-  if (perCommandCommand && commands.length > 1) {
-    return releaseOrFinalize(
-      {
-        isSuccess: false,
-        error: toWriteErrorInfo(
-          new UnprocessableError("per_command_handler_in_batch", {
-            message: `handler "${perCommandCommand.type}" runs without a transaction (transaction: "perCommand") and cannot be part of a multi-command batch`,
-          }),
-        ),
-        failedIndex: perCommandIndex,
-        results,
-      },
-      false,
-    );
-  }
-  const runsWithoutTransaction = perCommandCommand !== undefined;
+  const perCommandRejection = perCommandBatchRejection(ctx, commands);
+  if (perCommandRejection) return releaseOrFinalize(perCommandRejection, false);
+  const runsWithoutTransaction = commands.some((cmd) => isPerCommandHandler(ctx, cmd.type));
 
   // Reserve before the transaction opens so no extra connection is held while the handler tx is
   // open; the release below runs only after that tx has ended without committing.
@@ -271,22 +296,21 @@ async function runBatchBody(
     // there is no transaction to open. Fall back to
     // sequential execution — useful for unit tests that don't touch the DB.
     // Each command runs independently; a failure stops the batch.
-    for (let i = 0; i < commands.length; i++) {
-      const cmd = commands[i];
-      if (!cmd) continue;
-      const res = await runReservedCommand(
-        { ctx, user, inheritedOrigin, reservations, origins, afterCommitHooks },
-        cmd,
-        i,
-        undefined,
-      );
-      results.push(res);
-      if (!res.isSuccess) {
-        // No tx means no rollback — but we still drop afterCommit hooks,
-        // matching the semantic "failure = side-effects don't fire".
-        await reservations.releaseAll();
-        return finalize({ isSuccess: false, error: res.error, failedIndex: i, results });
-      }
+    const failure = await runCommandsWithoutTransaction(
+      { ctx, user, inheritedOrigin, reservations, origins, afterCommitHooks },
+      commands,
+      results,
+    );
+    if (failure) {
+      // No tx means no rollback — but we still drop afterCommit hooks,
+      // matching the semantic "failure = side-effects don't fire".
+      await reservations.releaseAll();
+      return finalize({
+        isSuccess: false,
+        error: failure.error,
+        failedIndex: failure.index,
+        results,
+      });
     }
     await flushAfterCommit();
     // The inner commands of a perCommand handler already fired their own batch hooks.

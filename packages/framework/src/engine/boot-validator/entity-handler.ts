@@ -233,22 +233,27 @@ function validatePayloadBucket(
   }
 }
 
+function perCommandConflict(
+  handler: FeatureDefinition["writeHandlers"][string],
+): string | undefined {
+  if (handler.transaction !== "perCommand") return undefined;
+  if (handler.beforeTransaction) return "beforeTransaction";
+  if (handler.reserveBeforeTransaction) return "reserveBeforeTransaction";
+  return undefined;
+}
+
 export function validatePerCommandTransaction(
   featureName: string,
   handlerName: string,
   handler: FeatureDefinition["writeHandlers"][string],
 ): void {
-  if (handler.transaction !== "perCommand") return;
-  const conflicting = handler.beforeTransaction
-    ? "beforeTransaction"
-    : handler.reserveBeforeTransaction
-      ? "reserveBeforeTransaction"
-      : undefined;
-  if (conflicting === undefined) return;
-  throw new Error(
-    `write handler "${featureName}:write:${handlerName}" declares transaction: "perCommand" together with ${conflicting} — ` +
-      "a perCommand handler holds no transaction, so move the phase into the commands it issues via ctx.write.",
-  );
+  const conflicting = perCommandConflict(handler);
+  if (conflicting !== undefined) {
+    throw new Error(
+      `write handler "${featureName}:write:${handlerName}" declares transaction: "perCommand" together with ${conflicting} — ` +
+        "a perCommand handler holds no transaction, so move the phase into the commands it issues via ctx.write.",
+    );
+  }
 }
 
 export function validateTenantlessAnonymous(
