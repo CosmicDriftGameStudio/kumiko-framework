@@ -2,6 +2,7 @@ import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { removeAddressOptOut } from "../address-opt-out.js";
+import { currentNotificationType, notificationTypeNames } from "../notification-type-aliases.js";
 
 export const resubscribeAddressWrite = defineWriteHandler({
   name: "resubscribeAddress",
@@ -20,7 +21,8 @@ export const resubscribeAddressWrite = defineWriteHandler({
   description:
     "Removes a no-account address opt-out for one notificationType/channel combination; dispatched by the signed resubscribe route, not meant for UI callers.",
   handler: async (event, ctx) => {
-    const { addressHash, notificationType, channel } = event.payload;
+    const { addressHash, channel } = event.payload;
+    const notificationType = currentNotificationType(ctx.registry, event.payload.notificationType);
     const { tenantId } = event.user;
 
     if (!ctx.systemDb) {
@@ -30,13 +32,15 @@ export const resubscribeAddressWrite = defineWriteHandler({
     }
     const db = ctx.systemDb.assertTenantMatch(tenantId);
 
-    const result = await removeAddressOptOut(db, event.user, {
-      tenantId,
-      addressHash,
-      notificationType,
-      channel,
-    });
-    if (!result.isSuccess) return result;
+    for (const name of notificationTypeNames(ctx.registry, notificationType)) {
+      const result = await removeAddressOptOut(db, event.user, {
+        tenantId,
+        addressHash,
+        notificationType: name,
+        channel,
+      });
+      if (!result.isSuccess) return result;
+    }
     return { isSuccess: true, data: { notificationType, channel } };
   },
 });

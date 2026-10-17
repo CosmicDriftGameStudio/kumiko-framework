@@ -322,6 +322,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
             readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
             readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
             readonly localizedTemplate?: () => NotificationLocalizedTemplate;
+            readonly renamedFrom?: readonly string[];
           }),
       definition?: {
         readonly trigger?: { readonly on: NameOrRef };
@@ -333,6 +334,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         readonly template?: Readonly<Record<string, NotificationTemplateBody>>;
         readonly meta?: Readonly<Record<string, NotificationTemplateMeta>>;
         readonly localizedTemplate?: () => NotificationLocalizedTemplate;
+        readonly renamedFrom?: readonly string[];
       },
     ): void {
       const [notificationName, resolvedDefinition] =
@@ -359,6 +361,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         ...(resolvedDefinition.meta !== undefined ? { meta: resolvedDefinition.meta } : {}),
         ...(resolvedDefinition.localizedTemplate !== undefined
           ? { localizedTemplate: resolvedDefinition.localizedTemplate }
+          : {}),
+        ...(resolvedDefinition.renamedFrom !== undefined
+          ? { renamedFrom: resolvedDefinition.renamedFrom }
           : {}),
       };
     },

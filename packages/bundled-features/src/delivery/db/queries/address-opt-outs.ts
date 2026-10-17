@@ -16,14 +16,18 @@ export function addressOptOutKey(addressHash: string, channel: string): AddressO
 export async function selectOptedOutAddresses(
   db: DbConnection,
   tenantId: TenantId,
-  notificationType: string,
+  notificationTypeNames: readonly string[],
   addressHashes: readonly string[],
 ): Promise<ReadonlySet<AddressOptOutKey>> {
   if (addressHashes.length === 0) return new Set();
   const rows = await selectMany<{ readonly addressHash: string; readonly channel: string }>(
     db,
     notificationAddressOptOutsTable,
-    { tenantId, notificationType, addressHash: { in: addressHashes } },
+    {
+      tenantId,
+      notificationType: { in: notificationTypeNames },
+      addressHash: { in: addressHashes },
+    },
   );
   return new Set(rows.map((row) => addressOptOutKey(row.addressHash, row.channel)));
 }

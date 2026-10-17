@@ -1,6 +1,7 @@
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { currentNotificationType } from "../notification-type-aliases.js";
 import { upsertPreference } from "../upsert-preference.js";
 
 export const resubscribeUserWrite = defineWriteHandler({
@@ -18,7 +19,8 @@ export const resubscribeUserWrite = defineWriteHandler({
   description:
     "Re-enables one notification type and channel combination for the userId carried in a verified unsubscribe token; dispatched by the signed resubscribe route, not meant for UI callers.",
   handler: async (event, ctx) => {
-    const { userId, notificationType, channel } = event.payload;
+    const { userId, channel } = event.payload;
+    const notificationType = currentNotificationType(ctx.registry, event.payload.notificationType);
     const { tenantId } = event.user;
 
     if (!ctx.systemDb) {

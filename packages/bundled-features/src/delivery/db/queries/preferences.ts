@@ -13,7 +13,7 @@ export async function selectNotificationPreferences(
   db: DbConnection,
   tenantId: TenantId,
   userId: string,
-  notificationType: string,
+  notificationTypeNames: readonly string[],
   channelName: string,
 ): Promise<readonly NotificationPreferenceRow[]> {
   return unsafeReadRetrying<NotificationPreferenceRow>(
@@ -23,10 +23,10 @@ export async function selectNotificationPreferences(
      WHERE tenant_id = $1
        AND user_id = $2
        AND (
-         (notification_type = $3 AND channel = $4)
+         (notification_type = ANY($3::text[]) AND channel = $4)
          OR (notification_type = '*' AND channel = $4)
-         OR (notification_type = $3 AND channel = '*')
+         OR (notification_type = ANY($3::text[]) AND channel = '*')
        )`,
-    [tenantId, userId, notificationType, channelName],
+    [tenantId, userId, notificationTypeNames, channelName],
   );
 }

@@ -42,6 +42,7 @@ import {
   validateLiveEntities,
   validateMaxPerTenant,
   validateNotificationRecordMappings,
+  validateNotificationRenamedFrom,
   validateProjectionApplyKeys,
   validateRelationTargetsExist,
   validateRequiredFeatures,
@@ -88,6 +89,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   validateRequiredFeatures(state, features);
   resolveNotificationTriggersAndRegisterHooks(state);
   validateNotificationRecordMappings(state);
+  validateNotificationRenamedFrom(state);
   validateLifecycleHookTargets(state);
   validateEntityHookTargets(state, features);
   resolveJobTriggers(state);

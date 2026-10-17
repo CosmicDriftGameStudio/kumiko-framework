@@ -44,6 +44,7 @@ import {
   selectOptedOutAddresses,
 } from "./db/queries/address-opt-outs.js";
 import { selectNotificationPreferences } from "./db/queries/preferences.js";
+import { notificationTypeNames } from "./notification-type-aliases.js";
 import {
   type ChannelContext,
   type ChannelMessage,
@@ -503,7 +504,12 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       const addressHash = hashUnsubscribeAddress(address);
       if (addressHash !== undefined) addressHashes.add(addressHash);
     }
-    return selectOptedOutAddresses(run.db, tenantId, notificationType, [...addressHashes]);
+    return selectOptedOutAddresses(
+      run.db,
+      tenantId,
+      notificationTypeNames(registry, notificationType),
+      [...addressHashes],
+    );
   }
 
   function isAddressSuppressed(
@@ -617,7 +623,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       run.db,
       tenantId,
       userId,
-      notificationType,
+      notificationTypeNames(registry, notificationType),
       channelName,
     );
 
@@ -628,6 +634,15 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       (p) => p.notificationType === notificationType && p.channel === channelName,
     );
     if (exact) return exact.enabled;
+
+    // Rows stored under a former name: the user's choice from before the rename
+    const aliasExact = prefs.filter(
+      (p) =>
+        p.notificationType !== "*" &&
+        p.notificationType !== notificationType &&
+        p.channel === channelName,
+    );
+    if (aliasExact.length > 0) return !aliasExact.some((p) => p.enabled === false);
 
     // Only wildcards matched: any disabled entry disables delivery (deterministic
     // and conservative — DB ordering no longer decides the outcome).
