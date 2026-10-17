@@ -34,6 +34,7 @@ function formatDateCell(
     locale?: string;
     dateStyle?: Intl.DateTimeFormatOptions["dateStyle"];
     timeStyle?: Intl.DateTimeFormatOptions["timeStyle"];
+    timeZone?: string;
   },
 ): string {
   try {
@@ -51,6 +52,7 @@ function formatDateCell(
       return toInstant(raw).toLocaleString(locale, {
         dateStyle: opts.dateStyle,
         timeStyle: opts.timeStyle,
+        timeZone: opts.timeZone,
       });
     }
     if (type === "date") {
@@ -66,6 +68,7 @@ function formatDateCell(
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: opts?.timeZone,
     });
   } catch {
     return String(value);
@@ -202,6 +205,7 @@ export function applyFormatSpec(
         locale: stringSpec(spec, "locale"),
         dateStyle: dateStyleSpec(spec, "dateStyle"),
         timeStyle: spec.format === "timestamp" ? dateStyleSpec(spec, "timeStyle") : undefined,
+        timeZone: spec.format === "timestamp" ? stringSpec(spec, "timeZone") : undefined,
       });
     case "boolean": {
       if (value === true) {

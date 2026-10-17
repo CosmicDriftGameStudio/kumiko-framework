@@ -281,7 +281,11 @@ export function createWriteVerbs(
             new FrameworkVersionConflict({
               entityId: id,
               expectedVersion: currentVersion,
-              currentVersion: -1,
+              currentVersion: await versionAfterConflict(
+                runner,
+                String(id),
+                streamTenantFor(user, streamTenantId),
+              ),
             }),
           ),
         };
@@ -292,6 +296,20 @@ export function createWriteVerbs(
         };
       }
       throw e;
+    }
+  }
+
+  // After a lost append race the stream version read before the append is stale;
+  // report the actual one. -1 when the lookup itself fails.
+  async function versionAfterConflict(
+    runner: ReturnType<typeof tenantDbWriteRunner>,
+    aggregateId: string,
+    tenantId: TenantId,
+  ): Promise<number> {
+    try {
+      return await getStreamVersion(runner, aggregateId, tenantId);
+    } catch {
+      return -1;
     }
   }
 
@@ -449,16 +467,11 @@ export function createWriteVerbs(
         );
       } catch (e) {
         if (e instanceof EventStoreVersionConflict) {
-          let currentVersion = -1;
-          try {
-            currentVersion = await getStreamVersion(
-              runner,
-              aggregateId,
-              streamTenantFor(user, streamTenantId),
-            );
-          } catch {
-            // Lookup failure — keep the sentinel.
-          }
+          const currentVersion = await versionAfterConflict(
+            runner,
+            aggregateId,
+            streamTenantFor(user, streamTenantId),
+          );
           return writeFailure(
             new FrameworkVersionConflict({
               entityId: aggregateId,
@@ -818,7 +831,7 @@ export function createWriteVerbs(
             new FrameworkVersionConflict({
               entityId: payload.id,
               expectedVersion: payload.version ?? 0,
-              currentVersion,
+              currentVersion: await versionAfterConflict(runner, String(payload.id), streamTenant),
             }),
           );
         }
@@ -909,7 +922,11 @@ export function createWriteVerbs(
             new FrameworkVersionConflict({
               entityId: payload.id,
               expectedVersion: currentVersion,
-              currentVersion: -1,
+              currentVersion: await versionAfterConflict(
+                runner,
+                String(payload.id),
+                streamTenantFor(user, streamTenantId),
+              ),
             }),
           );
         }
@@ -1020,7 +1037,11 @@ export function createWriteVerbs(
             new FrameworkVersionConflict({
               entityId: payload.id,
               expectedVersion: currentVersion,
-              currentVersion: -1,
+              currentVersion: await versionAfterConflict(
+                runner,
+                String(payload.id),
+                streamTenantFor(user, streamTenantId),
+              ),
             }),
           );
         }
@@ -1112,7 +1133,7 @@ export function createWriteVerbs(
       // table. Rows predating the subject-KMS rollout may still hold plaintext
       // pii, and envelope encryption is not idempotent: decrypt, then
       // re-encrypt as delete does.
-      const previousPlain = await decryptForRead(data);
+      const previousPlain = await decryptForRead(rehydrateCompoundTypes(data, entity));
       const appended = await appendRestoredEvent(
         runner,
         user,
