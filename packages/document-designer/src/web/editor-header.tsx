@@ -78,6 +78,31 @@ export function EditorLocaleSwitch({
   );
 }
 
+export type StoredVersion = {
+  readonly status: string;
+  readonly version: number;
+  /** The served version beside an open draft; null when nothing is served. */
+  readonly active?: { readonly version: number } | null;
+};
+
+function StoredStatus({ stored }: { readonly stored: StoredVersion }): ReactNode {
+  const t = useTranslation();
+  const status = asRowStatus(stored.status);
+  const servedBesideDraft = status === "draft" ? (stored.active ?? null) : null;
+  return (
+    <span className="flex items-center gap-1.5">
+      {servedBesideDraft !== null && (
+        <StatusBadge tone={statusTone("active")} testId="document-designer-editor-active-status">
+          {statusLabel(t, "active", servedBesideDraft.version)}
+        </StatusBadge>
+      )}
+      <StatusBadge tone={statusTone(status)} testId="document-designer-editor-status">
+        {statusLabel(t, status, stored.version)}
+      </StatusBadge>
+    </span>
+  );
+}
+
 export type EditorSaveActions = {
   readonly busy: boolean;
   readonly canSave: boolean;
@@ -96,26 +121,18 @@ export function EditorHeader({
   children,
 }: {
   readonly title: string;
-  readonly stored: { readonly status: string; readonly version: number } | null;
+  readonly stored: StoredVersion | null;
   readonly actions: EditorSaveActions;
   /** View controls left of the save actions (mode or kind switch). */
   readonly children: ReactNode;
 }): ReactNode {
   const t = useTranslation();
   const { Button, PageHeader } = usePrimitives();
-  const status = stored === null ? null : asRowStatus(stored.status);
   if (PageHeader === undefined) return null;
   return (
     <PageHeader
       title={title}
-      status={
-        stored !== null &&
-        status !== null && (
-          <StatusBadge tone={statusTone(status)} testId="document-designer-editor-status">
-            {statusLabel(t, status, stored.version)}
-          </StatusBadge>
-        )
-      }
+      status={stored !== null && <StoredStatus stored={stored} />}
       actions={
         <span className="flex items-center gap-2 [&_button]:px-2.5 [&_button]:text-sm">
           {children}

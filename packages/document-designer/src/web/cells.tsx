@@ -97,9 +97,16 @@ export function createLocalesCell(appLocales: readonly string[]): ColumnRenderer
 export function StatusCell({ row }: ColumnRendererProps): ReactNode {
   const t = useTranslation();
   return withRow(row, (r) => (
-    <StatusBadge tone={statusTone(r.status)} testId="document-designer-status">
-      {statusLabel(t, r.status, r.version)}
-    </StatusBadge>
+    <span className="flex flex-col items-start gap-1">
+      <StatusBadge tone={statusTone(r.status)} testId="document-designer-status">
+        {statusLabel(t, r.status, r.version)}
+      </StatusBadge>
+      {r.status === "active" && r.draftVersion !== null && (
+        <StatusBadge tone={statusTone("draft")} testId="document-designer-draft-status">
+          {statusLabel(t, "draft", r.draftVersion)}
+        </StatusBadge>
+      )}
+    </span>
   ));
 }
 

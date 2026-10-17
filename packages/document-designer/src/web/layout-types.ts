@@ -1,5 +1,6 @@
 // @runtime client
 import type { LayoutMeta } from "./layout-meta.js";
+import type { ServedVersionView } from "./types.js";
 
 export type LayoutKind = "mail-layout" | "pdf-layout";
 
@@ -53,6 +54,7 @@ export type LayoutSourceRow = {
   readonly version: number;
   readonly status: string;
   readonly locale: string;
+  readonly active?: ServedVersionView | null;
 };
 
 export type LayoutSourceView = {

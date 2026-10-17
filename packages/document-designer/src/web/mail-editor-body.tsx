@@ -237,7 +237,11 @@ export function MailEditorBody(props: MailEditorBodyProps): ReactNode {
     <EditorFrame testId="document-designer-mail-editor">
       <EditorHeader
         title={title}
-        stored={row === null ? null : { status: row.status, version: row.version }}
+        stored={
+          row === null
+            ? null
+            : { status: row.status, version: row.version, active: row.active ?? null }
+        }
         actions={{ busy, canSave, canPublish, onSave: requestSave, onPublish: publish }}
       >
         <EditorModeSwitch testIdPrefix="mail" mode={mode} onMode={setMode} />

@@ -100,3 +100,14 @@ describe("parseOverviewRow", () => {
     expect(view.usedByCount).toBe(1);
   });
 });
+
+describe("parseOverviewRow draft beside the served version", () => {
+  test("an active row carries the number of its open draft", () => {
+    const view = viewOf({ status: "active", version: 3, draftVersion: 5 });
+    expect(view).toMatchObject({ status: "active", version: 3, draftVersion: 5 });
+  });
+
+  test("a row without a draft number has none", () => {
+    expect(viewOf({ status: "active", version: 3 }).draftVersion).toBeNull();
+  });
+});

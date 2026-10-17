@@ -424,7 +424,7 @@ export function PdfTemplateEditor({
     <EditorFrame testId="pdf-template-editor">
       <EditorHeader
         title={title}
-        stored={{ status: detail.status, version: detail.version }}
+        stored={{ status: detail.status, version: detail.version, active: detail.active ?? null }}
         actions={{
           busy: busy === "save",
           canSave: busy === null && validation?.canSave !== false,

@@ -45,11 +45,19 @@ test("tenant admin sees the own mail template and edits the mail layout without 
   await page.keyboard.type(NEW_FOOTER_TEXT);
   await page.getByTestId("document-designer-save").click();
 
-  await expect(page.getByTestId("document-designer-editor-status")).toContainText("Entwurf");
-  // A draft replaces the single stored row and takes the tenant layout out of use, so the
-  // later mail specs would render through the system layout: publish it.
-  await page.getByTestId("document-designer-publish").click();
-  await expect(page.getByTestId("document-designer-editor-status")).toContainText("Aktiv");
+  // The draft sits beside the served layout instead of replacing it.
+  const draftBadge = page.getByTestId("document-designer-editor-status");
+  const activeBadge = page.getByTestId("document-designer-editor-active-status");
+  await expect(draftBadge).toHaveText(/^Entwurf v\d+$/);
+  await expect(activeBadge).toHaveText(/^Aktiv v\d+$/);
+  const draftLabel = (await draftBadge.textContent()) ?? "";
+  const activeLabel = (await activeBadge.textContent()) ?? "";
+  expect(draftLabel.replace("Entwurf", "")).not.toBe(activeLabel.replace("Aktiv", ""));
+
+  await page.goto("/templates");
+  const savedLayoutRow = await rowOf(page, "Mail-Layout");
+  await expect(savedLayoutRow.getByTestId("document-designer-status")).toHaveText(activeLabel);
+  await expect(savedLayoutRow.getByTestId("document-designer-draft-status")).toHaveText(draftLabel);
 });
 
 test("platform admin sees who customised each template and the MJML source of the layout", async ({
