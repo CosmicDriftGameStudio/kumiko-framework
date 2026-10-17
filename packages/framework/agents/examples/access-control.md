@@ -81,7 +81,9 @@ describe("default-deny: refuses handlers without access", () => {
           }),
         });
       }),
-    ).toThrow(/requires schema \+ handler \+ options\.access/);
+    ).toThrow(
+      /\[Feature broken-feature\] r\.writeHandler\(\{ name: "forgotAccess" \}\) requires an access rule/,
+    );
   });
 });
 

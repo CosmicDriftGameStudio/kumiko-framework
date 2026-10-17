@@ -115,6 +115,21 @@ function transactionPhaseSlots<TSchema extends ZodType, TPrepared>(
   };
 }
 
+// Typed callers cannot omit `access`; untyped ones (JS, designer output) must not get a
+// handler that silently falls through to the boot-time default-deny.
+function assertHandlerHasAccess(
+  featureName: string,
+  method: "writeHandler" | "queryHandler" | "streamHandler",
+  handlerName: string,
+  access: unknown,
+): void {
+  if (access === undefined || access === null) {
+    throw new Error(
+      `[Feature ${featureName}] r.${method}({ name: "${handlerName}" }) requires an access rule (access: { roles: [...] } or { openToAll: { reason } })`,
+    );
+  }
+}
+
 function requireInlineHandlerArgs<TSchema, THandler, TOptions extends { access?: unknown }>(
   kind: string,
   schema: TSchema | undefined,
@@ -163,6 +178,7 @@ export function buildEntityHandlerMethods<TName extends string>(
       def: WriteHandlerDefinition<TName, TSchema, unknown, KumikoEventTypeMap, TPrepared>,
     ): HandlerRef {
       if (!isObjectArgument(def)) throwPositionalFormRemoved(name, "writeHandler");
+      assertHandlerHasAccess(name, "writeHandler", def.name, def.access);
       assertHandlerNameFree(state, name, "write", def.name);
       state.writeHandlers[def.name] = {
         name: def.name,
@@ -202,6 +218,7 @@ export function buildEntityHandlerMethods<TName extends string>(
       def: QueryHandlerDefinition<TName, TSchema>,
     ): HandlerRef {
       if (!isObjectArgument(def)) throwPositionalFormRemoved(name, "queryHandler");
+      assertHandlerHasAccess(name, "queryHandler", def.name, def.access);
       assertHandlerNameFree(state, name, "query", def.name);
       state.queryHandlers[def.name] = {
         name: def.name,
@@ -236,6 +253,7 @@ export function buildEntityHandlerMethods<TName extends string>(
     ): HandlerRef {
       if (typeof nameOrDef === "object") {
         const def = nameOrDef;
+        assertHandlerHasAccess(name, "streamHandler", def.name, def.access);
         state.streamHandlers[def.name] = {
           name: def.name,
           schema: def.schema,

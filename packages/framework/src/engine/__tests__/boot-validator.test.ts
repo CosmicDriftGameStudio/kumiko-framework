@@ -726,26 +726,47 @@ describe("boot-validator", () => {
   // --- Handler access validation (default-deny) ---
 
   test("throws when a write handler has no access rule", () => {
-    const feature = defineFeature("a", (r) => {
-      // @ts-expect-error options.access is required since fw#2855.
-      r.writeHandler({
-        name: "createThing",
-        schema: z.object({ name: z.string() }),
-        handler: async () => ({
-          isSuccess: true as const,
-          data: {},
-        }),
-      });
-    });
-    expect(() => validateBoot([feature])).toThrow(/is missing an access rule/);
+    // Access is a required option since fw#2855 — the registrar itself throws
+    // before validateBoot ever runs.
+    expect(() =>
+      defineFeature("a", (r) => {
+        // @ts-expect-error options.access is required since fw#2855.
+        r.writeHandler({
+          name: "createThing",
+          schema: z.object({ name: z.string() }),
+          handler: async () => ({
+            isSuccess: true as const,
+            data: {},
+          }),
+        });
+      }),
+    ).toThrow(/r\.writeHandler\(\{ name: "createThing" \}\) requires an access rule/);
   });
 
   test("throws when a query handler has no access rule", () => {
-    const feature = defineFeature("a", (r) => {
-      // @ts-expect-error options.access is required since fw#2855.
-      r.queryHandler({ name: "list", schema: z.object({}), handler: async () => [] });
-    });
-    expect(() => validateBoot([feature])).toThrow(/is missing an access rule/);
+    expect(() =>
+      defineFeature("a", (r) => {
+        // @ts-expect-error options.access is required since fw#2855.
+        r.queryHandler({ name: "list", schema: z.object({}), handler: async () => [] });
+      }),
+    ).toThrow(/r\.queryHandler\(\{ name: "list" \}\) requires an access rule/);
+  });
+
+  test("validateBoot rejects a hand-built feature definition whose handler has no access rule", () => {
+    const base = defineFeature("a", () => {});
+    const handBuilt = {
+      ...base,
+      writeHandlers: {
+        createThing: {
+          name: "createThing",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true as const, data: {} }),
+          access: undefined,
+        },
+      },
+    };
+    // @ts-expect-error access is required on a stored handler; this is the hand-built bypass
+    expect(() => validateBoot([handBuilt])).toThrow(/is missing an access rule/);
   });
 
   test("r.crud without access options fails registration (no implicit openToAll)", () => {
