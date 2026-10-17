@@ -26,6 +26,7 @@ import type { EntityTableMeta } from "../entity-table-meta.js";
 import { type AnyDb, asEntityTableMeta, asRawClient } from "../query.js";
 import { renderTableDdl } from "../render-ddl.js";
 import { columnNamesOf, tableExists } from "../schema-inspection.js";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
 import { quoteTableIdent } from "./table-ops.js";
 
 export const PROJECTION_REBUILD_SCHEMA = "kumiko_rebuild";
@@ -267,7 +268,7 @@ async function fillDerivedRowIdTable(
     });
     await raw.unsafe(
       `INSERT INTO ${DERIVED_ROW_ID_TABLE} ("id") SELECT unnest($1::uuid[]) ON CONFLICT DO NOTHING`,
-      [derivedIds],
+      [toPostgresArrayLiteral(derivedIds)],
     );
     // skip: a short page is the last one
     if (page.length < batchSize) return;
@@ -327,7 +328,7 @@ export async function assertNoUnreachableLiveRows(
     `SELECT l."id" FROM public.${t} l
      WHERE ${unbackedClauses.join(" AND ")}
      LIMIT ${UNREACHABLE_SAMPLE_LIMIT}`,
-    directTypes.length > 0 ? [directTypes] : [],
+    directTypes.length > 0 ? [toPostgresArrayLiteral(directTypes)] : [],
   );
   // skip: every live row has a backing event — nothing unreachable, swap is safe
   if (ghosts.length === 0) return;

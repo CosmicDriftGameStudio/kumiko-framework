@@ -28,6 +28,7 @@ import {
   executeRawQuery,
   extractTableName,
   physicalColumnName,
+  toPostgresArrayLiteral,
 } from "@cosmicdrift/kumiko-framework/db";
 import { MAX_TRANSFER_DEPTH, type Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
@@ -79,7 +80,12 @@ async function moveFileRefs(args: {
     args.db,
     `UPDATE ${FILE_REFS_TABLE} SET tenant_id = $1 ` +
       `WHERE tenant_id = $2 AND entity_type = $3 AND entity_id = ANY($4) RETURNING id`,
-    [args.destinationTenantId, args.sourceTenantId, args.entityType, args.entityIds],
+    [
+      args.destinationTenantId,
+      args.sourceTenantId,
+      args.entityType,
+      toPostgresArrayLiteral(args.entityIds),
+    ],
   );
   const movedIds = rows.map((row) => row.id);
   if (movedIds.length === 0) return 0;
@@ -126,7 +132,12 @@ async function moveChildRows(args: {
     `UPDATE "${args.tableName}" SET "${args.tenantCol}" = $1 ` +
       `WHERE "${args.typeCol}" = $2 AND "${args.idCol}" = ANY($3) AND "${args.tenantCol}" = $4 ` +
       `RETURNING "${args.pkCol}" AS id`,
-    [args.destinationTenantId, args.parentEntityType, args.parentRowIds, args.sourceTenantId],
+    [
+      args.destinationTenantId,
+      args.parentEntityType,
+      toPostgresArrayLiteral(args.parentRowIds),
+      args.sourceTenantId,
+    ],
   );
   return rows.map((row) => row.id);
 }
@@ -149,7 +160,7 @@ async function moveReferencedChildRows(args: {
     `UPDATE "${args.tableName}" SET "${args.tenantCol}" = $1 ` +
       `WHERE "${args.refCol}" = ANY($2) AND "${args.tenantCol}" = $3 ` +
       `RETURNING "${args.pkCol}" AS id`,
-    [args.destinationTenantId, args.parentRowIds, args.sourceTenantId],
+    [args.destinationTenantId, toPostgresArrayLiteral(args.parentRowIds), args.sourceTenantId],
   );
   return rows.map((row) => row.id);
 }

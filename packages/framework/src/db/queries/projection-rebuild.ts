@@ -1,5 +1,6 @@
 import type { AnyDb } from "../query.js";
 import { asRawClient, unsafeReadRetrying } from "../query.js";
+import { toPostgresArrayLiteral } from "./postgres-array-literal.js";
 
 export async function markProjectionRebuilding(db: AnyDb, projectionName: string): Promise<void> {
   await asRawClient(db).unsafe(
@@ -38,7 +39,7 @@ export async function selectEventsForProjectionRebuildBatch(
        )
      ORDER BY e."id" ASC
      LIMIT $4`,
-    [aggregateTypes, eventTypes, afterId, limit],
+    [toPostgresArrayLiteral(aggregateTypes), toPostgresArrayLiteral(eventTypes), afterId, limit],
   );
 }
 
@@ -63,7 +64,7 @@ export async function countSubscribedEvents(
          SELECT 1 FROM "kumiko_archived_streams" a
           WHERE a."tenant_id" = e."tenant_id" AND a."aggregate_id" = e."aggregate_id"
        )`,
-    [aggregateTypes, eventTypes],
+    [toPostgresArrayLiteral(aggregateTypes), toPostgresArrayLiteral(eventTypes)],
   );
   const raw = rows[0]?.n;
   if (typeof raw === "bigint") return raw;
