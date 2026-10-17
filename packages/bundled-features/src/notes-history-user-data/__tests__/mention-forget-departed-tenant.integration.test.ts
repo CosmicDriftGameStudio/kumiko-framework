@@ -3,7 +3,7 @@
 // from membership history, not only live memberships.
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import {
   configurePiiSubjectKms,
@@ -56,7 +56,7 @@ import { seedTenantMembership } from "../../tenant/seeding.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.js";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
-import { notesHistoryUserDataFeature } from "../index.js";
+import { createNotesHistoryUserDataFeature } from "../index.js";
 
 const CONTACT_TABLE = "notes_departed_tenant_test_contacts";
 const contactEntity = createEntity({
@@ -103,7 +103,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
@@ -111,7 +111,7 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
       createNotesHistoryFeature(),
-      notesHistoryUserDataFeature,
+      createNotesHistoryUserDataFeature(),
       contactFixtureFeature,
       hookProbeFeature,
     ],

@@ -11,7 +11,7 @@
 //     fileRef-Forget beruehrt Tenant B's Files nicht)
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { asRawClient, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { variantSuffix } from "@cosmicdrift/kumiko-framework/derivatives";
@@ -38,7 +38,7 @@ import {
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createFileFoundationFeature } from "../../file-foundation/index.js";
 import { createFilesFeature } from "../../files/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
 import {
@@ -97,11 +97,11 @@ const features = [
   createUserFeature(),
   createConfigFeature(),
   createFilesFeature(),
-  fileFoundationFeature,
+  createFileFoundationFeature(),
   testFileProviderFeature,
   createDataRetentionFeature(),
   createComplianceProfilesFeature(),
-  authFoundationFeature,
+  createAuthFoundationFeature(),
   createSessionsFeature(),
   createUserDataRightsFeature(),
   createUserDataRightsDefaultsFeature(),

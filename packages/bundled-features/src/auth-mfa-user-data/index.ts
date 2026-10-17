@@ -8,14 +8,23 @@
 import { defineFeature, EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
 import { userMfaDeleteHook, userMfaExportHook } from "./hooks.js";
 
-export const authMfaUserDataFeature = defineFeature("auth-mfa-user-data", (r) => {
-  r.describe(
-    "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `auth-mfa` feature's `user-mfa` entity. Mounts the EXT_USER_DATA export + delete hooks so 2FA enrollment status is included in the user-data export bundle and a user's TOTP secret + recovery codes are hard-deleted (via executor.forget, rebuild-safe) on a data-subject erasure request. Kept separate from `auth-mfa` so consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `auth-mfa`.",
+export function createAuthMfaUserDataFeature() {
+  return defineFeature(
+    "auth-mfa-user-data",
+    (r) => {
+      r.describe(
+        "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `auth-mfa` feature's `user-mfa` entity. Mounts the EXT_USER_DATA export + delete hooks so 2FA enrollment status is included in the user-data export bundle and a user's TOTP secret + recovery codes are hard-deleted (via executor.forget, rebuild-safe) on a data-subject erasure request. Kept separate from `auth-mfa` so consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `auth-mfa`.",
+      );
+      r.requires({ features: ["user-data-rights"] });
+      r.optionalRequires("auth-mfa");
+      r.useExtension(EXT_USER_DATA, "user-mfa", {
+        export: userMfaExportHook,
+        delete: userMfaDeleteHook,
+      });
+    },
+    { dedupeOptions: {} },
   );
-  r.requires({ features: ["user-data-rights"] });
-  r.optionalRequires("auth-mfa");
-  r.useExtension(EXT_USER_DATA, "user-mfa", {
-    export: userMfaExportHook,
-    delete: userMfaDeleteHook,
-  });
-});
+}
+
+/** @deprecated Use createAuthMfaUserDataFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const authMfaUserDataFeature = createAuthMfaUserDataFeature();

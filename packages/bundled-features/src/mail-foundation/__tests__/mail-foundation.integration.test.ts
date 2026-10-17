@@ -35,11 +35,11 @@ import { configValuesTable } from "../../config/table.js";
 import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.js";
 import {
   clearInbox,
+  createMailTransportInMemoryFeature,
   getInbox,
-  mailTransportInMemoryFeature,
 } from "../../mail-transport-inmemory/index.js";
 import {
-  mailTransportSmtpFeature,
+  createMailTransportSmtpFeature,
   SMTP_PASSWORD,
   setSmtpMailHostLookup,
 } from "../../mail-transport-smtp/index.js";
@@ -50,7 +50,7 @@ import {
 } from "../../secrets/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createTransportForTenant, mailFoundationFeature } from "../feature.js";
+import { createMailFoundationFeature, createTransportForTenant } from "../feature.js";
 
 // --- Test-Handler that exercises the factory end-to-end ---
 
@@ -138,9 +138,9 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantFeature(),
       createSecretsFeature(),
-      mailFoundationFeature,
-      mailTransportSmtpFeature,
-      mailTransportInMemoryFeature,
+      createMailFoundationFeature(),
+      createMailTransportSmtpFeature(),
+      createMailTransportInMemoryFeature(),
       testProbeFeature,
     ],
     masterKeyProvider: providerRef,

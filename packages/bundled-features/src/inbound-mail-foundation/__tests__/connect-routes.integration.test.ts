@@ -27,7 +27,7 @@ import {
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
-import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
+import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
 import {
   createSecretsContext,
   createSecretsFeature,
@@ -38,10 +38,10 @@ import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
   createInboundMailConnectRoutes,
+  createInboundMailFoundationFeature,
   INBOUND_MAIL_PROVIDER_EXTENSION,
   type InboundMailProviderPlugin,
   inboundCredentialSecretKey,
-  inboundMailFoundationFeature,
   mailAccountsProjectionTable,
   type OAuthTokenSet,
   seenMessageEntity,
@@ -111,8 +111,8 @@ beforeAll(async () => {
       createSecretsFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      inboundMailFoundationFeature,
-      inboundProviderInMemoryFeature,
+      createInboundMailFoundationFeature(),
+      createInboundProviderInMemoryFeature(),
       oauthTestProviderFeature,
     ],
     masterKeyProvider: providerRef,
@@ -289,8 +289,8 @@ describe("connect-routes — oauth callback without a secrets context", () => {
         createTenantFeature(),
         createComplianceProfilesFeature(),
         createTenantLifecycleFeature(),
-        inboundMailFoundationFeature,
-        inboundProviderInMemoryFeature,
+        createInboundMailFoundationFeature(),
+        createInboundProviderInMemoryFeature(),
         oauthTestProviderFeature,
       ],
       extraRoutes: createInboundMailConnectRoutes({

@@ -1,6 +1,7 @@
 // Public API of the file-foundation bundled-feature.
 
 export {
+  createFileFoundationFeature,
   createFileProviderForTenant,
   type FileProviderContext,
   type FileProviderPlugin,

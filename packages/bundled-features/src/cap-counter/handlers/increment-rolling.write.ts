@@ -68,10 +68,9 @@ export const incrementRollingCapHandler: WriteHandlerDef = {
     const payload = event.payload as IncrementRollingPayload;
     const aggregateId = rollingCapAggregateId(event.user.tenantId, payload.capName);
 
-    // unsafeAppendEvent — bundled-features-Pfad (apps mit bun kumiko
-    // codegen kriegen den strict-typed appendEvent-Wrapper). Schema-
-    // Validation läuft trotzdem, weil r.defineEvent das Schema
-    // registriert hat.
+    // unsafeAppendEvent: the strict appendEvent is bound to an app's own event map, which
+    // bundled-features cannot see. Schema validation still runs because r.defineEvent
+    // registered the schema.
     await ctx.unsafeAppendEvent({
       aggregateId,
       aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,

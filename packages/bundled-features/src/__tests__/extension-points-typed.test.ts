@@ -7,15 +7,15 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { KumikoExtensionOptionsMap } from "@cosmicdrift/kumiko-types/extension-options-map";
-import { authFoundationFeature } from "../auth-foundation/feature.js";
-import { billingFoundationFeature } from "../billing-foundation/feature.js";
+import { createAuthFoundationFeature } from "../auth-foundation/feature.js";
+import { createBillingFoundationFeature } from "../billing-foundation/feature.js";
 import { createCustomFieldsFeature } from "../custom-fields/feature.js";
 import { createDeliveryFeature } from "../delivery/feature.js";
-import { documentIngestFoundationFeature } from "../document-ingest-foundation/feature.js";
+import { createDocumentIngestFoundationFeature } from "../document-ingest-foundation/feature.js";
 import { createFileDerivativesFeature } from "../file-derivatives/feature.js";
-import { fileFoundationFeature } from "../file-foundation/feature.js";
-import { inboundMailFoundationFeature } from "../inbound-mail-foundation/feature.js";
-import { mailFoundationFeature } from "../mail-foundation/feature.js";
+import { createFileFoundationFeature } from "../file-foundation/feature.js";
+import { createInboundMailFoundationFeature } from "../inbound-mail-foundation/feature.js";
+import { createMailFoundationFeature } from "../mail-foundation/feature.js";
 import { createRendererFoundationFeature } from "../renderer-foundation/feature.js";
 import { createTenantFeature } from "../tenant/feature.js";
 import { createTenantHandoverFeature } from "../tenant-handover/feature.js";
@@ -102,15 +102,15 @@ function scanExtendsRegistrarOwnerDirs(): readonly string[] {
 
 function allRegistrarExtensionNames(): readonly string[] {
   const features = [
-    authFoundationFeature,
-    billingFoundationFeature,
+    createAuthFoundationFeature(),
+    createBillingFoundationFeature(),
     createCustomFieldsFeature(),
     createDeliveryFeature(),
-    documentIngestFoundationFeature,
+    createDocumentIngestFoundationFeature(),
     createFileDerivativesFeature(),
-    fileFoundationFeature,
-    inboundMailFoundationFeature,
-    mailFoundationFeature,
+    createFileFoundationFeature(),
+    createInboundMailFoundationFeature(),
+    createMailFoundationFeature(),
     createRendererFoundationFeature(),
     createTenantFeature(),
     createTenantHandoverFeature({ grantSecret: "test-secret-min-32-chars-long-enough" }),

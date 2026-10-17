@@ -2,7 +2,7 @@
 // is not registered, so the route cannot be reached even by a signed-in user.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.js";
@@ -32,7 +32,7 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createFilesFeature(),
       createUserDataRightsFeature(),

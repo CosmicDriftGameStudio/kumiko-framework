@@ -19,7 +19,7 @@ import { notesFeature } from "./notes-feature";
 import { appScreensFeature } from "./screens-feature";
 import { seedScreenshotData } from "./seed";
 
-// tier-admin rendert mit dem bare tierEngineFeature (aus APP_FEATURES) den
+// tier-admin rendert mit dem bare createTierEngineFeature() (aus APP_FEATURES) den
 // ehrlichen Empty-State ("no TierMap configured"). Eine konfigurierte tierMap
 // würde den Resolver auf jedem Write aktivieren (inkl. Login) und braucht
 // per-Tenant Tier-Assignments — disproportional für einen Preview-Screenshot.

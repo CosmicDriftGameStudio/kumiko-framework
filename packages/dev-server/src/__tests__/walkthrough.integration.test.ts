@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
@@ -88,7 +88,7 @@ describe("walkthrough — DX-3.1 snapshot", () => {
     const notesFeature = defineFeature("notes", () => {});
     const APP_FEATURES = [
       createSecretsFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createPersonalAccessTokensFeature({ scopes: {} }),
       createSessionsFeature(),
       notesFeature,

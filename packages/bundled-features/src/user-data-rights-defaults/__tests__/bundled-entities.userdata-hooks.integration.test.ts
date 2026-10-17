@@ -22,7 +22,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
 import { createChannelInAppFeature, inAppMessagesTable } from "../../channel-in-app/index.js";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { configValueEntity, createConfigFeature } from "../../config/index.js";
@@ -83,7 +83,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantFeature(),
       createPersonalAccessTokensFeature({ scopes: PAT_SCOPES }),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createDeliveryFeature(),
       createChannelInAppFeature(),
       createJobsFeature(),
@@ -105,7 +105,7 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),

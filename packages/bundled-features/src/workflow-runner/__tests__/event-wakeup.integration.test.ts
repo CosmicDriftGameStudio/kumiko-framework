@@ -50,7 +50,7 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { workflowRunAggregateId } from "../aggregate-id.js";
 import { registerEventTrigger } from "../event-trigger.js";
-import { workflowRunnerFeature } from "../feature.js";
+import { createWorkflowRunnerFeature } from "../feature.js";
 
 let stack: TestStack;
 const admin = TestUsers.admin;
@@ -232,7 +232,9 @@ async function runResumeDueRunsJob(tenantId: string): Promise<void> {
 
 describe("workflow-runner event-wakeup", () => {
   beforeAll(async () => {
-    stack = await setupTestStack({ features: [workflowRunnerFeature, testTriggersFeature] });
+    stack = await setupTestStack({
+      features: [createWorkflowRunnerFeature(), testTriggersFeature],
+    });
   });
 
   afterAll(async () => {

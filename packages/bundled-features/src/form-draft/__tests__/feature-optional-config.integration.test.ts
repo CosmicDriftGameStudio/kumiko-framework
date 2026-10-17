@@ -18,7 +18,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { FormDraftHandlers } from "../constants.js";
 import { formDraftEntity } from "../entity.js";
-import { formDraftFeature } from "../feature.js";
+import { createFormDraftFeature } from "../feature.js";
 
 let stack: TestStack;
 const owner = createTestUser({ id: 1, roles: ["TenantMember"] });
@@ -26,7 +26,7 @@ const owner = createTestUser({ id: 1, roles: ["TenantMember"] });
 beforeAll(async () => {
   // No createConfigFeature() here — the whole point of this suite.
   stack = await setupTestStack({
-    features: [formDraftFeature],
+    features: [createFormDraftFeature()],
     jobs: { consumerLane: "worker", queueNamePrefix: `kumiko-form-draft-no-config-${Date.now()}` },
   });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);

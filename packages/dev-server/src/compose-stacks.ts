@@ -9,7 +9,7 @@
 // or tier maps (those stay in bin/server.ts / app run-config).
 
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   type AuthMfaFeatureOptions,
   createAuthMfaFeature,
@@ -17,19 +17,18 @@ import {
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
-import { fileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
-import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env";
+import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
+import { createFileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import {
   createLegalPagesFeature,
   type LegalPagesOptions,
 } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
-import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
-import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
-import { mailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
+import { createMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
+import { createMailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
+import { createMailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createRateLimitingFeature } from "@cosmicdrift/kumiko-bundled-features/rate-limiting";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
@@ -138,20 +137,20 @@ export function composeRendererStack(options: RendererStackOptions = {}): Featur
 }
 
 export function composeMailStack(options: MailStackOptions): FeatureDefinition[] {
-  const out: FeatureDefinition[] = [mailFoundationFeature];
+  const out: FeatureDefinition[] = [createMailFoundationFeature()];
   for (const transport of options.transports) {
-    if (transport === "inmemory") out.push(mailTransportInMemoryFeature);
-    if (transport === "smtp") out.push(mailTransportSmtpFeature);
+    if (transport === "inmemory") out.push(createMailTransportInMemoryFeature());
+    if (transport === "smtp") out.push(createMailTransportSmtpFeature());
   }
   return out;
 }
 
 export function composeFileStack(options: FileStackOptions): FeatureDefinition[] {
-  const out: FeatureDefinition[] = [fileFoundationFeature];
+  const out: FeatureDefinition[] = [createFileFoundationFeature()];
   for (const provider of options.providers) {
-    if (provider === "inmemory") out.push(fileProviderInMemoryFeature);
-    if (provider === "s3") out.push(fileProviderS3Feature);
-    if (provider === "s3-env") out.push(fileProviderS3EnvFeature);
+    if (provider === "inmemory") out.push(createFileProviderInMemoryFeature());
+    if (provider === "s3") out.push(createFileProviderS3Feature());
+    if (provider === "s3-env") out.push(createFileProviderS3Feature({ fromEnv: true }));
   }
   if (options.includeFilesFeature ?? true) out.push(createFilesFeature());
   return out;
@@ -166,7 +165,7 @@ export function composeGdprStack(options: GdprStackOptions = {}): FeatureDefinit
     order === "compliance-first" ? [compliance, retention] : [retention, compliance];
   if (options.tenantLifecycle) out.push(createTenantLifecycleFeature());
   if (options.sessions) {
-    out.push(authFoundationFeature, createSessionsFeature());
+    out.push(createAuthFoundationFeature(), createSessionsFeature());
     if (options.providers) out.push(...options.providers);
   }
   return out;
@@ -200,7 +199,7 @@ export function composeIdentityStack(options: IdentityStackOptions = {}): Featur
   const sessions = options.sessions ?? true;
   const out: FeatureDefinition[] = [];
   if (sessions) {
-    out.push(authFoundationFeature, createSessionsFeature());
+    out.push(createAuthFoundationFeature(), createSessionsFeature());
   }
   if (options.mfa !== undefined) out.push(createAuthMfaFeature(options.mfa));
   return out;

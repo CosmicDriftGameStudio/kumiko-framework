@@ -18,14 +18,14 @@ import {
   FormDraftHandlers,
 } from "../constants.js";
 import { formDraftEntity } from "../entity.js";
-import { formDraftFeature } from "../feature.js";
+import { createFormDraftFeature } from "../feature.js";
 
 let stack: TestStack;
 
 const owner = createTestUser({ id: 1, roles: ["TenantMember"] });
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [formDraftFeature, createConfigFeature()] });
+  stack = await setupTestStack({ features: [createFormDraftFeature(), createConfigFeature()] });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
 });
 

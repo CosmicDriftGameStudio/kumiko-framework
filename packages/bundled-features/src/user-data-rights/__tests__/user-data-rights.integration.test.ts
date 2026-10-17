@@ -7,7 +7,7 @@
 // Sprint-2-H1/H2-Hooks) kommt in S2.T1 (Cross-Data-Matrix).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
@@ -26,7 +26,7 @@ const userDataRights = createUserDataRightsFeature();
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       userFeature,
       sessionsFeature,
       dataRetention,

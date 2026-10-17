@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { tierAssignmentAggregateId } from "../aggregate-id.js";
 import { TIER_ENGINE_FEATURE, TierEngineHandlers, TierEngineQueries } from "../constants.js";
-import { tierEngineFeature } from "../feature.js";
+import { createTierEngineFeature } from "../feature.js";
 
 // Drift-Pin-Tests — diese Werte sind Cross-File-Contracts, ein Wechsel
 // muss bewusst geschehen und die anderen Stellen mitziehen. Wenn diese
@@ -9,8 +9,8 @@ import { tierEngineFeature } from "../feature.js";
 
 describe("tier-engine drift pins", () => {
   test("TIER_ENGINE_FEATURE matches the registered feature-name", () => {
-    expect(tierEngineFeature.name).toBe(TIER_ENGINE_FEATURE);
-    expect(tierEngineFeature.name).toBe("tier-engine");
+    expect(createTierEngineFeature().name).toBe(TIER_ENGINE_FEATURE);
+    expect(createTierEngineFeature().name).toBe("tier-engine");
   });
 
   test("Handler-QNs follow the scope:type:name convention with feature-prefix", () => {

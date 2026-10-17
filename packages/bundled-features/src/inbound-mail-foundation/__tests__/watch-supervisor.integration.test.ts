@@ -38,18 +38,18 @@ import {
   resetInboundInMemory,
   seedInboundMessage,
 } from "../../inbound-provider-inmemory/feature.js";
-import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
+import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
+  createInboundMailFoundationFeature,
   createInboundMailSupervisor,
   InboundAuthError,
   InboundCursorInvalidError,
   InboundMailAccountStatuses,
   InboundMailFoundationHandlers,
   InboundRateLimitError,
-  inboundMailFoundationFeature,
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   type RawInboundMessage,
@@ -68,8 +68,8 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      inboundMailFoundationFeature,
-      inboundProviderInMemoryFeature,
+      createInboundMailFoundationFeature(),
+      createInboundProviderInMemoryFeature(),
     ],
   });
   db = stack.db;

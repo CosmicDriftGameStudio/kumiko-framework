@@ -33,7 +33,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
-import { formDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
+import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
 import { buildAppSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import {
   canResolveTailwindStylesheet,
@@ -80,7 +80,7 @@ const css = await buildStylesheet();
 
 const port = Number(process.env["PORT"] ?? 4188);
 
-const registry = createRegistry([listingsFeature, formDraftFeature, createConfigFeature()]);
+const registry = createRegistry([listingsFeature, createFormDraftFeature(), createConfigFeature()]);
 const schema = buildAppSchema(registry);
 const schemaJson = JSON.stringify(schema);
 

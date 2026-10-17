@@ -16,7 +16,7 @@ import {
 } from "./db/queries/projection.js";
 
 import type { CustomFieldClearedPayload, CustomFieldSetPayload } from "./events.js";
-import { customFieldsFeature } from "./feature.js";
+import { createCustomFieldsFeature } from "./feature.js";
 
 // Helper für entity-definitions — fügt eine `customFields jsonb`-Spalte
 // hinzu. Consumer:
@@ -90,9 +90,9 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
   // Qualified event-type-names — sourced from typed EventDef.name handles
   // (compile-time literal-typed, no Template-Literal-Drift à la toKebab-
   // collapse-bug die T1 aufgedeckt hat).
-  const setEventType = customFieldsFeature.exports.setEvent.name;
-  const clearedEventType = customFieldsFeature.exports.clearedEvent.name;
-  const fieldDefDeletedType = customFieldsFeature.exports.fieldDefinitionDeletedEvent.name;
+  const setEventType = createCustomFieldsFeature().exports.setEvent.name;
+  const clearedEventType = createCustomFieldsFeature().exports.clearedEvent.name;
+  const fieldDefDeletedType = createCustomFieldsFeature().exports.fieldDefinitionDeletedEvent.name;
 
   // Geteilte apply-Bodies: die MSP liefert sie live (async cursor), die
   // entity-projection-extension replayt sie in rebuildProjection — gleiche

@@ -14,7 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { AuthHandlers } from "../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.js";
-import { authFoundationFeature } from "../auth-foundation/index.js";
+import { createAuthFoundationFeature } from "../auth-foundation/index.js";
 import { createAuthMfaFeature } from "../auth-mfa/index.js";
 import { userMfaEntity } from "../auth-mfa/schema/user-mfa.js";
 import { createConfigFeature } from "../config/index.js";
@@ -54,7 +54,7 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createAuthMfaFeature(testAuthMfaOptions),
       accountSecurityFeature,

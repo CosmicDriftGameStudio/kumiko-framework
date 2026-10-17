@@ -18,11 +18,11 @@
 //                               der eigenen run-config.
 //   - newsletter             — die Demo-Domain mit cap-aware send
 
-import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
+import { createBillingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { createCapCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
-import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
+import { createMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
+import { createMailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
@@ -39,12 +39,12 @@ import { newsletterFeature } from "./feature";
 export const APP_FEATURES = [
   localeDe(),
   createSecretsFeature(),
-  capCounterFeature,
-  mailFoundationFeature,
-  mailTransportInMemoryFeature,
+  createCapCounterFeature(),
+  createMailFoundationFeature(),
+  createMailTransportInMemoryFeature(),
   createComplianceProfilesFeature(),
   createTenantLifecycleFeature(),
-  billingFoundationFeature,
+  createBillingFoundationFeature(),
   newsletterFeature,
 ] as const;
 

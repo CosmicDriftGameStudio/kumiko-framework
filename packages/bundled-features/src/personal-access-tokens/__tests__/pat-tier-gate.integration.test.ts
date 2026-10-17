@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { createUserFeature } from "../../user/feature.js";
@@ -23,7 +23,7 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       createPersonalAccessTokensFeature({ scopes: {}, toggleable: { default: false } }),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
     ],
     effectiveFeatures: (tenantId) =>
       new Set(

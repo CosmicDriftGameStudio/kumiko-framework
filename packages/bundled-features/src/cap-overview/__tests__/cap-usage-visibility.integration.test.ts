@@ -7,7 +7,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { billingFoundationFeature } from "../../billing-foundation/index.js";
+import { createBillingFoundationFeature } from "../../billing-foundation/index.js";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -18,9 +18,9 @@ import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { seedTenant } from "../../tenant/seeding.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
+  createTierEngineFeature,
   TierEngineHandlers,
   tierAssignmentEntity,
-  tierEngineFeature,
 } from "../../tier-engine/index.js";
 import { CapOverviewQueries } from "../constants.js";
 import { type CreateCapOverviewOptions, createCapOverviewFeature } from "../feature.js";
@@ -42,8 +42,8 @@ async function startStack(options: Pick<CreateCapOverviewOptions, "usageVisibleT
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      billingFoundationFeature,
-      tierEngineFeature,
+      createBillingFoundationFeature(),
+      createTierEngineFeature(),
       createCapOverviewFeature({ caps: [widgetCap], ...options }),
     ],
   });

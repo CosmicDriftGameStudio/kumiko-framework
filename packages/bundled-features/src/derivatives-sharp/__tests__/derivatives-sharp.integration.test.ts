@@ -16,10 +16,10 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stac
 import sharp from "sharp";
 import * as z from "zod";
 import { createConfigFeature } from "../../config/index.js";
-import { fileDerivativesFeature } from "../../file-derivatives/index.js";
-import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createFileDerivativesFeature } from "../../file-derivatives/index.js";
+import { createFileFoundationFeature } from "../../file-foundation/index.js";
 import { createFilesFeature } from "../../files/index.js";
-import { derivativesSharpFeature } from "../feature.js";
+import { createDerivativesSharpFeature } from "../feature.js";
 import { imageMetadata } from "../render.js";
 
 const variantTestFeature = defineFeature("derivativessharptest", (r) => {
@@ -61,10 +61,10 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
-      fileFoundationFeature,
+      createFileFoundationFeature(),
       createFilesFeature(),
-      fileDerivativesFeature,
-      derivativesSharpFeature,
+      createFileDerivativesFeature(),
+      createDerivativesSharpFeature(),
       variantTestFeature,
     ],
     files: { storageProvider: createInMemoryFileProvider() },

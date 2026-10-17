@@ -40,7 +40,7 @@ import {
 import { tierAssignmentEntity } from "../../tier-engine/entity.js";
 import { createTierEngineFeature } from "../../tier-engine/feature.js";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants.js";
-import { billingFoundationFeature } from "../feature.js";
+import { createBillingFoundationFeature } from "../feature.js";
 import { createSubscriptionTierSync } from "../subscription-tier-sync.js";
 import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.js";
 
@@ -67,7 +67,7 @@ const sharedBaseFeatures = () => [
   createTenantFeature(),
   createComplianceProfilesFeature(),
   createTenantLifecycleFeature(),
-  billingFoundationFeature,
+  createBillingFoundationFeature(),
   mockProviderFeature(),
 ];
 

@@ -7,7 +7,7 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { validateTokenVerifierMultiplicity } from "../boot-checks.js";
-import { authFoundationFeature, resolveTokenVerifier } from "../feature.js";
+import { createAuthFoundationFeature, resolveTokenVerifier } from "../feature.js";
 import {
   type AuthProviderPlugin,
   EXT_SESSION_STORE,
@@ -63,25 +63,31 @@ function storeProvider(entityName = "mock-store"): ReturnType<typeof defineFeatu
 
 describe("resolveTokenVerifier — middleware finds the matching provider", () => {
   test("routes a prefixed token to the prefix-shape provider", async () => {
-    const registry = createRegistry([authFoundationFeature, prefixProvider("pat-mock", "kpat_")]);
+    const registry = createRegistry([
+      createAuthFoundationFeature(),
+      prefixProvider("pat-mock", "kpat_"),
+    ]);
     const user = await resolveTokenVerifier({ db: fakeDb, registry }, "kpat_valid");
     expect(user?.id).toBe("u-jwt");
   });
 
   test("routes a dot-separated token to the jwt-shape provider", async () => {
-    const registry = createRegistry([authFoundationFeature, jwtProvider()]);
+    const registry = createRegistry([createAuthFoundationFeature(), jwtProvider()]);
     const user = await resolveTokenVerifier({ db: fakeDb, registry }, "header.payload.sig");
     expect(user?.id).toBe("u-jwt");
   });
 
   test("no provider's shape matches → null", async () => {
-    const registry = createRegistry([authFoundationFeature, prefixProvider("pat-mock", "kpat_")]);
+    const registry = createRegistry([
+      createAuthFoundationFeature(),
+      prefixProvider("pat-mock", "kpat_"),
+    ]);
     const user = await resolveTokenVerifier({ db: fakeDb, registry }, "not-a-pat-token");
     expect(user).toBeNull();
   });
 
   test("no providers registered at all → null", async () => {
-    const registry = createRegistry([authFoundationFeature]);
+    const registry = createRegistry([createAuthFoundationFeature()]);
     const user = await resolveTokenVerifier({ db: fakeDb, registry }, "anything");
     expect(user).toBeNull();
   });
@@ -89,25 +95,28 @@ describe("resolveTokenVerifier — middleware finds the matching provider", () =
 
 describe("validateTokenVerifierMultiplicity", () => {
   test("0 tokenVerifier + 0 sessionStore → throws (neither auth path mounted)", () => {
-    const registry = createRegistry([authFoundationFeature]);
+    const registry = createRegistry([createAuthFoundationFeature()]);
     expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).toThrow(
       /no tokenVerifier providers and no sessionStore registered/,
     );
   });
 
   test("0 tokenVerifier + sessionStore → no throw (session-only / #1570)", () => {
-    const registry = createRegistry([authFoundationFeature, storeProvider()]);
+    const registry = createRegistry([createAuthFoundationFeature(), storeProvider()]);
     expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).not.toThrow();
   });
 
   test("tokenVerifier alone (PAT-only) → no throw", () => {
-    const registry = createRegistry([authFoundationFeature, prefixProvider("pat-mock", "kpat_")]);
+    const registry = createRegistry([
+      createAuthFoundationFeature(),
+      prefixProvider("pat-mock", "kpat_"),
+    ]);
     expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).not.toThrow();
   });
 
   test("1 provider per shape → no throw", () => {
     const registry = createRegistry([
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       jwtProvider(),
       prefixProvider("pat-mock", "kpat_"),
     ]);
@@ -116,7 +125,7 @@ describe("validateTokenVerifierMultiplicity", () => {
 
   test("≥2 providers claiming the same shape → throws a conflict error", () => {
     const registry = createRegistry([
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       jwtProvider("jwt-mock-a"),
       jwtProvider("jwt-mock-b"),
     ]);
@@ -130,7 +139,7 @@ describe("validateTokenVerifierMultiplicity", () => {
       // @ts-expect-error malformed plugin (no build) — proves the runtime guard rejects it too.
       r.useExtension(EXT_TOKEN_VERIFIER, "broken", { shape: { kind: "prefix" } });
     });
-    const registry = createRegistry([authFoundationFeature, broken]);
+    const registry = createRegistry([createAuthFoundationFeature(), broken]);
     expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).toThrow(
       /without a valid AuthProviderPlugin/,
     );
@@ -144,7 +153,7 @@ describe("validateTokenVerifierMultiplicity", () => {
         build: () => async () => null,
       });
     });
-    const registry = createRegistry([authFoundationFeature, broken]);
+    const registry = createRegistry([createAuthFoundationFeature(), broken]);
     expect(() => validateTokenVerifierMultiplicity([...registry.features.values()])).toThrow(
       /without a valid AuthProviderPlugin/,
     );

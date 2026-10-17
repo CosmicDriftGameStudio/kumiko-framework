@@ -38,8 +38,8 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import type { EmailMessage } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
+  createMailFoundationFeature,
   createTransportForTenant,
-  mailFoundationFeature,
 } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import {
   access,
@@ -185,7 +185,7 @@ export const newsletterFeature = defineFeature(FEATURE_NAME, (r) => {
   // klarer für boot-Validator-Errors).
   r.requires({ features: ["config"] });
   r.requires({ features: ["cap-counter"] });
-  r.requires({ features: [mailFoundationFeature.name] });
+  r.requires({ features: [createMailFoundationFeature().name] });
   r.requires({ features: [BILLING_FOUNDATION_FEATURE] });
 
   // Tier-config-key. Tenant-Admin setzt's; default "free".

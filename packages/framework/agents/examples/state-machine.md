@@ -445,14 +445,14 @@ describe("reduceInvoice", () => {
 ### src/entities/invoice.ts
 
 ```ts
+import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createMoneyField,
   createSelectField,
   createTextField,
   defineTransitions,
-} from "@app/define";
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const INVOICE_STATES = ["draft", "sent", "paid", "cancelled"] as const;
 
@@ -490,6 +490,9 @@ export const invoiceTable = buildEntityTable("invoice", invoiceEntity);
 // strings, so a rename here propagates everywhere instead of silently
 // breaking the reducer.
 
+import type { EventDef } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
 export const FEATURE_NAME = "billing";
 export const ENTITY_NAME = "invoice";
 
@@ -517,6 +520,22 @@ export function eventName<const TShort extends string>(
 // The auto-generated event the executor emits on create — entity name dot
 // "created", no feature prefix (executor convention).
 export const INVOICE_CREATED_EVENT = `${ENTITY_NAME}.created` as const;
+
+export const emptyEventPayload = z.object({});
+export const statusForcedPayload = z.object({
+  newStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
+  fromStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
+});
+
+// The EventDefs r.defineEvent returns inside the feature setup. Handlers receive them so that
+// emitEvent checks each payload against the event's own schema.
+export type InvoiceEvents = {
+  readonly sent: EventDef<z.infer<typeof emptyEventPayload>>;
+  readonly markedPaid: EventDef<z.infer<typeof emptyEventPayload>>;
+  readonly cancelled: EventDef<z.infer<typeof emptyEventPayload>>;
+  readonly reopened: EventDef<z.infer<typeof emptyEventPayload>>;
+  readonly statusForced: EventDef<z.infer<typeof statusForcedPayload>>;
+};
 ```
 
 ### src/feature.ts
@@ -545,20 +564,17 @@ export const INVOICE_CREATED_EVENT = `${ENTITY_NAME}.created` as const;
 //   handlers/create.ts        — invoice:create (uses executor)
 //   handlers/transitions.ts   — the six state-change handlers
 
-import { defineFeature, setFields } from "@app/define";
-import { z } from "zod";
+import { defineFeature, setFields, typedPayload } from "@cosmicdrift/kumiko-framework/engine";
 import { invoiceEntity, invoiceTable } from "./entities/invoice";
-import { eventName, INVOICE_EVENTS } from "./events";
-import { invoiceCreate } from "./handlers/create";
 import {
-  invoiceCancel,
-  invoiceForceStatus,
-  invoiceMarkPaid,
-  invoiceReopen,
-  invoiceSend,
-  invoiceUpdateStatus,
-} from "./handlers/transitions";
-import type { InvoiceStatus } from "./reducer";
+  emptyEventPayload,
+  eventName,
+  INVOICE_EVENTS,
+  type InvoiceEvents,
+  statusForcedPayload,
+} from "./events";
+import { invoiceCreate } from "./handlers/create";
+import { createInvoiceTransitionHandlers } from "./handlers/transitions";
 
 export { invoiceEntity } from "./entities/invoice";
 
@@ -569,18 +585,15 @@ export const stateMachineFeature = defineFeature("billing", (r) => {
   // and the projection stay in sync. The auto "invoice.created" event from
   // the executor's create-path covers the initial insert, so we only declare
   // the state-change events here.
-  r.defineEvent(INVOICE_EVENTS.sent, z.object({}), { piiFields: "none" });
-  r.defineEvent(INVOICE_EVENTS.markedPaid, z.object({}), { piiFields: "none" });
-  r.defineEvent(INVOICE_EVENTS.cancelled, z.object({}), { piiFields: "none" });
-  r.defineEvent(INVOICE_EVENTS.reopened, z.object({}), { piiFields: "none" });
-  r.defineEvent(
-    INVOICE_EVENTS.statusForced,
-    z.object({
-      newStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
-      fromStatus: z.enum(["draft", "sent", "paid", "cancelled"]),
+  const events: InvoiceEvents = {
+    sent: r.defineEvent(INVOICE_EVENTS.sent, emptyEventPayload, { piiFields: "none" }),
+    markedPaid: r.defineEvent(INVOICE_EVENTS.markedPaid, emptyEventPayload, { piiFields: "none" }),
+    cancelled: r.defineEvent(INVOICE_EVENTS.cancelled, emptyEventPayload, { piiFields: "none" }),
+    reopened: r.defineEvent(INVOICE_EVENTS.reopened, emptyEventPayload, { piiFields: "none" }),
+    statusForced: r.defineEvent(INVOICE_EVENTS.statusForced, statusForcedPayload, {
+      piiFields: "none",
     }),
-    { piiFields: "none" },
-  );
+  };
 
   // The aggregate table (sample_sm_invoices) is INSERTed by the executor on
   // invoice:create. State-change events update the same row via this inline
@@ -598,18 +611,19 @@ export const stateMachineFeature = defineFeature("billing", (r) => {
       [eventName(INVOICE_EVENTS.cancelled)]: setFields(invoiceTable, { status: "cancelled" }),
       [eventName(INVOICE_EVENTS.reopened)]: setFields(invoiceTable, { status: "draft" }),
       [eventName(INVOICE_EVENTS.statusForced)]: setFields(invoiceTable, (e) => ({
-        status: (e.payload as { newStatus: InvoiceStatus }).newStatus,
+        status: typedPayload(e, events.statusForced).newStatus,
       })),
     },
   });
 
+  const transitions = createInvoiceTransitionHandlers(events);
   r.writeHandler(invoiceCreate);
-  r.writeHandler(invoiceSend);
-  r.writeHandler(invoiceMarkPaid);
-  r.writeHandler(invoiceCancel);
-  r.writeHandler(invoiceReopen);
-  r.writeHandler(invoiceUpdateStatus);
-  r.writeHandler(invoiceForceStatus);
+  r.writeHandler(transitions.invoiceSend);
+  r.writeHandler(transitions.invoiceMarkPaid);
+  r.writeHandler(transitions.invoiceCancel);
+  r.writeHandler(transitions.invoiceReopen);
+  r.writeHandler(transitions.invoiceUpdateStatus);
+  r.writeHandler(transitions.invoiceForceStatus);
 });
 ```
 
@@ -620,25 +634,25 @@ export const stateMachineFeature = defineFeature("billing", (r) => {
 // optionally guardTransition, append the domain event, return a WriteResult
 // that reflects the post-write status.
 
-import type { AccessRule, KumikoEventTypeMap } from "@app/define";
-import { defineWriteHandler, guardTransition } from "@app/define";
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type EventDef,
+  emitEvent,
+  guardTransition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { INVOICE_TRANSITIONS } from "../entities/invoice";
-import { ENTITY_NAME } from "../events";
+import { ENTITY_NAME, type emptyEventPayload } from "../events";
 import { type InvoiceStatus, loadInvoiceState } from "../reducer";
 
-// Narrow TEvent to event-types whose payload is `{}` — this helper
-// always emits an empty payload. Anyone trying to use it with a non-
-// empty-payload event-type gets caught at the call-site, not at runtime.
-type EmptyPayloadEvent = {
-  [K in keyof KumikoEventTypeMap]: KumikoEventTypeMap[K] extends Record<string, never> ? K : never;
-}[keyof KumikoEventTypeMap];
-
-export function transitionHandler<const TEvent extends EmptyPayloadEvent>(opts: {
+// The event carries an empty payload — this helper always emits `{}`, so an EventDef with a
+// non-empty payload is a compile error at the call site.
+export function transitionHandler(opts: {
   name: string;
   toStatus: InvoiceStatus;
-  eventType: TEvent;
+  event: EventDef<z.infer<typeof emptyEventPayload>>;
   access: AccessRule;
   skipGuard?: boolean;
 }) {
@@ -659,10 +673,9 @@ export function transitionHandler<const TEvent extends EmptyPayloadEvent>(opts: 
         guardTransition(INVOICE_TRANSITIONS, state.status as InvoiceStatus, opts.toStatus);
       }
 
-      await ctx.appendEvent({
+      await emitEvent(ctx, opts.event, {
         aggregateId: event.payload.id,
         aggregateType: ENTITY_NAME,
-        type: opts.eventType,
         payload: {},
       });
 
@@ -697,8 +710,8 @@ export function successResult(id: string, newStatus: InvoiceStatus, previousStat
 // keeps amount + amountCurrency flat, while the entity stores them as a
 // money pair.
 
-import { defineWriteHandler } from "@app/define";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { invoiceEntity, invoiceTable } from "../entities/invoice";
 
@@ -726,138 +739,145 @@ export const invoiceCreate = defineWriteHandler({
 // little extra logic (amount-check, verb routing, dedicated forced-event)
 // and stay inline so the variation is visible at the call site.
 
-import { defineWriteHandler, guardTransition } from "@app/define";
+import {
+  defineWriteHandler,
+  emitEvent,
+  guardTransition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { z } from "zod";
 import { INVOICE_STATES, INVOICE_TRANSITIONS } from "../entities/invoice";
-import { ENTITY_NAME, eventName, INVOICE_EVENTS } from "../events";
+import { ENTITY_NAME, type InvoiceEvents } from "../events";
 import { type InvoiceStatus, loadInvoiceState } from "../reducer";
 import { successResult, transitionHandler } from "./_helpers";
 
 const adminOnly = { roles: ["Admin"] } as const;
 
-// --- Standard transitions (same shape, different target status) ---
+export function createInvoiceTransitionHandlers(events: InvoiceEvents) {
+  // --- Standard transitions (same shape, different target status) ---
 
-export const invoiceSend = transitionHandler({
-  name: "invoice:send",
-  toStatus: "sent",
-  eventType: eventName(INVOICE_EVENTS.sent),
-  access: adminOnly,
-});
+  const invoiceSend = transitionHandler({
+    name: "invoice:send",
+    toStatus: "sent",
+    event: events.sent,
+    access: adminOnly,
+  });
 
-export const invoiceCancel = transitionHandler({
-  name: "invoice:cancel",
-  toStatus: "cancelled",
-  eventType: eventName(INVOICE_EVENTS.cancelled),
-  access: adminOnly,
-});
+  const invoiceCancel = transitionHandler({
+    name: "invoice:cancel",
+    toStatus: "cancelled",
+    event: events.cancelled,
+    access: adminOnly,
+  });
 
-export const invoiceReopen = transitionHandler({
-  name: "invoice:reopen",
-  toStatus: "draft",
-  eventType: eventName(INVOICE_EVENTS.reopened),
-  access: adminOnly,
-});
+  const invoiceReopen = transitionHandler({
+    name: "invoice:reopen",
+    toStatus: "draft",
+    event: events.reopened,
+    access: adminOnly,
+  });
 
-// --- markPaid: same shape + business rule (amount must be > 0).
-//     The amount is reduced from the event stream, so the check stays
-//     consistent with everything else (no out-of-band DB query).
+  // --- markPaid: same shape + business rule (amount must be > 0).
+  //     The amount is reduced from the event stream, so the check stays
+  //     consistent with everything else (no out-of-band DB query).
 
-export const invoiceMarkPaid = defineWriteHandler({
-  name: "invoice:mark-paid",
-  schema: z.object({ id: z.uuid() }),
-  access: { roles: ["Accounting"] },
-  handler: async (event, ctx) => {
-    const state = await loadInvoiceState(ctx, event.payload.id);
-    if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
+  const invoiceMarkPaid = defineWriteHandler({
+    name: "invoice:mark-paid",
+    schema: z.object({ id: z.uuid() }),
+    access: { roles: ["Accounting"] },
+    handler: async (event, ctx) => {
+      const state = await loadInvoiceState(ctx, event.payload.id);
+      if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
-    guardTransition(INVOICE_TRANSITIONS, state.status as InvoiceStatus, "paid");
+      guardTransition(INVOICE_TRANSITIONS, state.status as InvoiceStatus, "paid");
 
-    if (state.amount === 0) {
-      return failUnprocessable("cannot_pay_zero_amount");
-    }
+      if (state.amount === 0) {
+        return failUnprocessable("cannot_pay_zero_amount");
+      }
 
-    await ctx.appendEvent({
-      aggregateId: event.payload.id,
-      aggregateType: ENTITY_NAME,
-      type: eventName(INVOICE_EVENTS.markedPaid),
-      payload: {},
-    });
+      await emitEvent(ctx, events.markedPaid, {
+        aggregateId: event.payload.id,
+        aggregateType: ENTITY_NAME,
+        payload: {},
+      });
 
-    return successResult(event.payload.id, "paid", state.status);
-  },
-});
+      return successResult(event.payload.id, "paid", state.status);
+    },
+  });
 
-// --- updateStatus: relies on the pipeline's auto transition guard.
-//     Routes the requested status to the matching domain event so the audit
-//     log still reads as a workflow step ("invoice-sent"), not a generic
-//     "status set to ...".
+  // --- updateStatus: relies on the pipeline's auto transition guard.
+  //     Routes the requested status to the matching domain event so the audit
+  //     log still reads as a workflow step ("invoice-sent"), not a generic
+  //     "status set to ...".
 
-// `as const satisfies` keeps the literal-strings alive (so each value is
-// `"billing:event:invoice-..."` literally typed, not just `string`) AND
-// type-checks the shape against `Record<InvoiceStatus, string>` —
-// missing-status entries fail at compile-time. Strict-mode for
-// ctx.appendEvent kicks in because `VERB_TO_EVENT[target]` resolves to
-// a union of literal event-names, all of which are augmented keys.
-const VERB_TO_EVENT = {
-  draft: eventName(INVOICE_EVENTS.reopened),
-  sent: eventName(INVOICE_EVENTS.sent),
-  paid: eventName(INVOICE_EVENTS.markedPaid),
-  cancelled: eventName(INVOICE_EVENTS.cancelled),
-} as const satisfies Record<InvoiceStatus, string>;
+  // `satisfies Record<InvoiceStatus, ...>` makes a missing status a compile error.
+  const verbToEvent = {
+    draft: events.reopened,
+    sent: events.sent,
+    paid: events.markedPaid,
+    cancelled: events.cancelled,
+  } satisfies Record<InvoiceStatus, InvoiceEvents["sent"]>;
 
-export const invoiceUpdateStatus = defineWriteHandler({
-  name: "invoice:update-status",
-  schema: z.object({
-    id: z.uuid(),
-    changes: z.object({
+  const invoiceUpdateStatus = defineWriteHandler({
+    name: "invoice:update-status",
+    schema: z.object({
+      id: z.uuid(),
+      changes: z.object({
+        status: z.enum(INVOICE_STATES),
+      }),
+    }),
+    access: adminOnly,
+    // No skipTransitionGuard — pipeline auto-guards.
+    handler: async (event, ctx) => {
+      const state = await loadInvoiceState(ctx, event.payload.id);
+      if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
+
+      const target = event.payload.changes.status;
+      await emitEvent(ctx, verbToEvent[target], {
+        aggregateId: event.payload.id,
+        aggregateType: ENTITY_NAME,
+        payload: {},
+      });
+
+      return successResult(event.payload.id, target, state.status);
+    },
+  });
+
+  // --- forceStatus: skips the guard and emits a dedicated "forced" event so
+  //     admin overrides stay visually distinct from normal workflow events in
+  //     the audit log.
+
+  const invoiceForceStatus = defineWriteHandler({
+    name: "invoice:force-status",
+    schema: z.object({
+      id: z.uuid(),
       status: z.enum(INVOICE_STATES),
     }),
-  }),
-  access: adminOnly,
-  // No skipTransitionGuard — pipeline auto-guards.
-  handler: async (event, ctx) => {
-    const state = await loadInvoiceState(ctx, event.payload.id);
-    if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
+    access: adminOnly,
+    unsafeSkipTransitionGuard: true,
+    handler: async (event, ctx) => {
+      const state = await loadInvoiceState(ctx, event.payload.id);
+      if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
 
-    const target = event.payload.changes.status;
-    await ctx.appendEvent({
-      aggregateId: event.payload.id,
-      aggregateType: ENTITY_NAME,
-      type: VERB_TO_EVENT[target],
-      payload: {},
-    });
+      await emitEvent(ctx, events.statusForced, {
+        aggregateId: event.payload.id,
+        aggregateType: ENTITY_NAME,
+        payload: { newStatus: event.payload.status, fromStatus: state.status as InvoiceStatus },
+      });
 
-    return successResult(event.payload.id, target, state.status);
-  },
-});
+      return successResult(event.payload.id, event.payload.status, state.status);
+    },
+  });
 
-// --- forceStatus: skips the guard and emits a dedicated "forced" event so
-//     admin overrides stay visually distinct from normal workflow events in
-//     the audit log.
-
-export const invoiceForceStatus = defineWriteHandler({
-  name: "invoice:force-status",
-  schema: z.object({
-    id: z.uuid(),
-    status: z.enum(INVOICE_STATES),
-  }),
-  access: adminOnly,
-  unsafeSkipTransitionGuard: true,
-  handler: async (event, ctx) => {
-    const state = await loadInvoiceState(ctx, event.payload.id);
-    if (!state) return failNotFound(ENTITY_NAME, event.payload.id);
-
-    await ctx.appendEvent({
-      aggregateId: event.payload.id,
-      aggregateType: ENTITY_NAME,
-      type: eventName(INVOICE_EVENTS.statusForced),
-      payload: { newStatus: event.payload.status, fromStatus: state.status as InvoiceStatus },
-    });
-
-    return successResult(event.payload.id, event.payload.status, state.status);
-  },
-});
+  return {
+    invoiceSend,
+    invoiceCancel,
+    invoiceReopen,
+    invoiceMarkPaid,
+    invoiceUpdateStatus,
+    invoiceForceStatus,
+  };
+}
 ```
 
 ### src/reducer.ts
@@ -872,7 +892,7 @@ export const invoiceForceStatus = defineWriteHandler({
 // and update the relevant `case` in `reduceInvoice` — that's the whole
 // contract.
 
-import type { HandlerContext } from "@app/define";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventName, INVOICE_CREATED_EVENT, INVOICE_EVENTS } from "./events";
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "cancelled";

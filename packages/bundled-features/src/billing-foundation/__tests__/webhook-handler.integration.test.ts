@@ -27,7 +27,7 @@ import {
   type SubscriptionStatus,
   SubscriptionStatuses,
 } from "../constants.js";
-import { billingFoundationFeature } from "../feature.js";
+import { createBillingFoundationFeature } from "../feature.js";
 import { subscriptionsProjectionTable } from "../projection.js";
 import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.js";
 import { createSubscriptionWebhookRoute } from "../webhook-handler.js";
@@ -57,7 +57,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      billingFoundationFeature,
+      createBillingFoundationFeature(),
       mockProviderFeature,
     ],
     extraRoutes: [createSubscriptionWebhookRoute()],

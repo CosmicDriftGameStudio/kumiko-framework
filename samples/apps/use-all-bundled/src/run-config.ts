@@ -16,11 +16,11 @@
 
 import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/admin-shell";
 import { createAgentToolsFeature } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
-import { authMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
-import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
-import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
+import { createAuthMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data";
+import { createBillingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { createCapCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import { createCapOverviewFeature } from "@cosmicdrift/kumiko-bundled-features/cap-overview";
 import { createChannelDiscordFeature } from "@cosmicdrift/kumiko-bundled-features/channel-discord";
 import {
@@ -36,33 +36,32 @@ import { createChannelSlackFeature } from "@cosmicdrift/kumiko-bundled-features/
 import { createChannelTeamsFeature } from "@cosmicdrift/kumiko-bundled-features/channel-teams";
 import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
-import { complianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops";
-import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
+import { createComplianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops";
+import { createCustomFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
-import { derivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
-import { documentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
+import { createDerivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
+import { createDocumentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
 import { createFeatureTogglesFeature } from "@cosmicdrift/kumiko-bundled-features/feature-toggles";
 import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
-import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
-import { fileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
-import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env";
+import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
+import { createFileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data";
-import { foldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
-import { foldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
-import { formDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
-import { formDraftUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft-user-data";
-import { inboundMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
-import { inboundProviderImapFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap";
-import { inboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory";
+import { createFoldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders";
+import { createFoldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
+import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
+import { createFormDraftUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft-user-data";
+import { createInboundMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import { createInboundProviderImapFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap";
+import { createInboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
-import { ledgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
+import { createLedgerFeature } from "@cosmicdrift/kumiko-bundled-features/ledger";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
-import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
-import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
-import { mailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
+import { createMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
+import { createMailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
+import { createMailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
   createMetricsFeature,
@@ -70,10 +69,10 @@ import {
   DEFAULT_METRICS,
 } from "@cosmicdrift/kumiko-bundled-features/metrics";
 import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
-import { notesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data";
+import { createNotesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
-import { readinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
+import { createReadinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { createRendererPdfFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
@@ -83,16 +82,16 @@ import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { templateResolverUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver-user-data";
+import { createTemplateResolverUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver-user-data";
 import { createTenantHandoverFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-handover";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createTenantSettingsFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-settings";
-import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
+import { createTierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
 import { createWaitlistFeature } from "@cosmicdrift/kumiko-bundled-features/waitlist";
-import { workflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
+import { createWorkflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
@@ -139,7 +138,7 @@ export const APP_FEATURES = [
   // Owns the `tokenVerifier` extension-point personal-access-tokens
   // registers against below — required whenever a bearer-auth provider is
   // mounted (kumiko-framework#1369).
-  authFoundationFeature,
+  createAuthFoundationFeature(),
   // Per-domain scopes (like cashcolt's credit/bauspar/miete): the token picks
   // WHICH API × the permission LEVEL (read vs read+write). Each domain declares
   // its read + write QN globs.
@@ -159,7 +158,7 @@ export const APP_FEATURES = [
       ledger: { label: "Ledger", read: ["ledger:query:*"], write: ["ledger:write:*"] },
     },
   }),
-  readinessFeature,
+  createReadinessFeature(),
 
   // delivery + channels
   createDeliveryFeature(),
@@ -180,20 +179,20 @@ export const APP_FEATURES = [
   createChannelTelegramFeature(),
 
   // mail (foundation before transport)
-  mailFoundationFeature,
-  mailTransportInMemoryFeature,
-  mailTransportSmtpFeature,
+  createMailFoundationFeature(),
+  createMailTransportInMemoryFeature(),
+  createMailTransportSmtpFeature(),
 
   // inbound mail (foundation before providers)
-  inboundMailFoundationFeature,
-  inboundProviderInMemoryFeature,
-  inboundProviderImapFeature,
+  createInboundMailFoundationFeature(),
+  createInboundProviderInMemoryFeature(),
+  createInboundProviderImapFeature(),
 
   // files (foundation before provider)
-  fileFoundationFeature,
-  fileProviderInMemoryFeature,
-  fileProviderS3Feature,
-  fileProviderS3EnvFeature,
+  createFileFoundationFeature(),
+  createFileProviderInMemoryFeature(),
+  createFileProviderS3Feature(),
+  createFileProviderS3Feature({ fromEnv: true }),
   createFilesFeature(),
   // resolveApexTenant is what registers the `public-variant` query and the
   // anonymous /media route — the option-less export leaves both out and hides
@@ -204,10 +203,10 @@ export const APP_FEATURES = [
   // a single-tenant smoke sample and a cross-tenant leak in a real app, where
   // the host is the ONLY thing that may decide which tenant's bytes go out.
   createFileDerivativesFeature({ resolveApexTenant: () => DEV_TENANT_ID as TenantId }),
-  derivativesSharpFeature,
+  createDerivativesSharpFeature(),
 
   // billing + providers
-  billingFoundationFeature,
+  createBillingFoundationFeature(),
   createSubscriptionStripeFeature({
     apiKey: "sk_test_smoke",
     webhookSecret: "whsec_smoke",
@@ -228,8 +227,8 @@ export const APP_FEATURES = [
   }),
 
   // tiering + caps
-  tierEngineFeature,
-  capCounterFeature,
+  createTierEngineFeature(),
+  createCapCounterFeature(),
   // cap-overview: read-only tier/usage visibility. Caps are example
   // entities this sample already mounts (notes-history, tags,
   // tenant-membership) — see cap-overview-caps.ts. Requires tenant
@@ -263,11 +262,11 @@ export const APP_FEATURES = [
   // workflow-runner: no entities/MSPs/handlers of its own — reserves the
   // manifest slot and provides startAndRunWorkflow/registerEventTrigger for
   // consumer features to wire up defineWorkflow-based workflows.
-  workflowRunnerFeature,
+  createWorkflowRunnerFeature(),
 
   // compliance / DSGVO
   createComplianceProfilesFeature(),
-  complianceProfilesOpsFeature,
+  createComplianceProfilesOpsFeature(),
   createTenantLifecycleFeature(),
   // tenant-handover: try-before-signup ownership handover (kumiko-
   // framework#3035). No entities/mount-options of its own — it reads
@@ -327,7 +326,7 @@ export const APP_FEATURES = [
   // user-content-entry rows the `signatures` collection writes. Mandatory
   // whenever a user-owned collection is mounted — the boot guard refuses the
   // subject-carrying entity without it.
-  templateResolverUserDataFeature,
+  createTemplateResolverUserDataFeature(),
   // collection-labels: the app-side nav labels for the two collections above.
   collectionLabelsFeature,
   createRendererFoundationFeature(),
@@ -366,7 +365,7 @@ export const APP_FEATURES = [
   createAdminShellFeature({ includeCapOverview: true, includeDocumentDesigner: true }),
 
   // app-author-grade
-  customFieldsFeature,
+  createCustomFieldsFeature(),
   // The default tag roles are TenantAdmin/TenantMember; this app's operator is a
   // global SystemAdmin (see server.ts admin), so add SystemAdmin or every tag
   // query/screen is access_denied — exactly what the constants doc warns about.
@@ -377,30 +376,30 @@ export const APP_FEATURES = [
   // notes-history-user-data: GDPR export/erase coverage for note-entry.
   // Depends (optionally) on notes-history + (hard) on user-data-rights —
   // both mounted here.
-  notesHistoryUserDataFeature,
-  formDraftFeature,
+  createNotesHistoryUserDataFeature(),
+  createFormDraftFeature(),
   // form-draft-user-data: GDPR export/erase coverage for the form-draft
   // entity. Depends (optionally) on form-draft + (hard) on
   // user-data-rights — both mounted here.
-  formDraftUserDataFeature,
-  foldersFeature,
+  createFormDraftUserDataFeature(),
+  createFoldersFeature(),
   // folders-user-data: GDPR hooks for folder entities. Depends (optionally)
   // on folders + (hard) on user-data-rights — both mounted above.
-  foldersUserDataFeature,
+  createFoldersUserDataFeature(),
   // auth-mfa-user-data: GDPR hooks for the user-mfa entity. Depends
   // (optionally) on auth-mfa + (hard) on user-data-rights — both mounted
   // above.
-  authMfaUserDataFeature,
+  createAuthMfaUserDataFeature(),
   // files-tenant-data: tenant-destroy row purge + storage-prefix binary wipe
   // for fileRef, plus the orphaned-derivative backfill/GC job (#2474).
   // Depends (optionally) on files + (hard) on tenant-lifecycle — both
   // mounted above.
   createFilesTenantDataFeature(),
   // ledger: double-entry bookkeeping primitive (account + immutable transaction).
-  ledgerFeature,
+  createLedgerFeature(),
   // document-ingest-foundation: Phase-1 skeleton — documentExtract entity +
   // ocrLanguage/maxPagesPerFile config, no handlers yet (kumiko-framework#1497).
-  documentIngestFoundationFeature,
+  createDocumentIngestFoundationFeature(),
   createAgentToolsFeature(),
 ] as const;
 

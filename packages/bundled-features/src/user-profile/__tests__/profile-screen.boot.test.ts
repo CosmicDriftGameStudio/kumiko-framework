@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
-import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { createDataRetentionFeature } from "../../data-retention/feature.js";
@@ -28,7 +28,7 @@ describe("user-profile screen (fw#2312 projectionDetail conversion)", () => {
     createAuthEmailPasswordFeature(),
     createDataRetentionFeature(),
     createComplianceProfilesFeature(),
-    authFoundationFeature,
+    createAuthFoundationFeature(),
     createSessionsFeature(),
     createFilesFeature(),
     createUserDataRightsFeature(),

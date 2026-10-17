@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import {
   asRawClient,
@@ -79,7 +79,7 @@ async function insertRevokedSession(
 describe("sessions / store_user_sessions survives projection rebuild", () => {
   test("is NOT registered as a rebuildable implicit projection", () => {
     const registry = createRegistry([
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserFeature(),
     ]);
@@ -90,7 +90,7 @@ describe("sessions / store_user_sessions survives projection rebuild", () => {
     await insertRevokedSession(createTenantDb({ db: testDb.db, tenantId: TENANT }));
 
     const registry = createRegistry([
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserFeature(),
     ]);

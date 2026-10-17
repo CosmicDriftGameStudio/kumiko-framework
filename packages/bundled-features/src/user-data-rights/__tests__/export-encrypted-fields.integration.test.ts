@@ -4,7 +4,7 @@
 // (never the raw ciphertext) without one.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import {
   asRawClient,
@@ -87,7 +87,7 @@ beforeAll(async () => {
     createUserFeature(),
     createDataRetentionFeature(),
     createComplianceProfilesFeature(),
-    authFoundationFeature,
+    createAuthFoundationFeature(),
     createSessionsFeature(),
     createUserDataRightsFeature(),
     vaultFeature,

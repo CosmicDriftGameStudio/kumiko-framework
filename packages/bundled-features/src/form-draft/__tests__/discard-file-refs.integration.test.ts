@@ -42,7 +42,7 @@ import {
 import { createConfigFeature } from "../../config/index.js";
 import { FormDraftHandlers, FormDraftQueries } from "../constants.js";
 import { formDraftEntity } from "../entity.js";
-import { formDraftFeature } from "../feature.js";
+import { createFormDraftFeature } from "../feature.js";
 import type { GetDraftResult } from "../handlers/get.query.js";
 
 let stack: TestStack;
@@ -55,7 +55,7 @@ const tenantKey = (path: string) => `${owner.tenantId}/${path}`;
 beforeAll(async () => {
   provider = createInMemoryFileProvider();
   stack = await setupTestStack({
-    features: [formDraftFeature, createConfigFeature()],
+    features: [createFormDraftFeature(), createConfigFeature()],
     files: { storageProvider: provider },
   });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);

@@ -97,169 +97,180 @@ import {
   mailThreadTenantDestroyHook,
 } from "./tenant-destroy-hook.js";
 
-export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATION_FEATURE, (r) => {
-  r.describe(
-    "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push). The foundation owns three event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids, mail-thread rollup) and their projections `read_mail_accounts`/`read_inbound_messages`/`read_mail_threads`; PII fields are envelope-encrypted per tenant subject key before every append (crypto-shredding on tenant destroy). Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
-  );
-  r.uiHints({
-    displayLabel: "Inbound Mail · Foundation",
-    category: "notifications",
-    recommended: false,
-  });
-  // EXT_TENANT_DATA-Hook braucht den tenant-lifecycle-Host.
-  r.requires({ features: ["tenant-lifecycle"] });
-
-  // 5 fine-grained domain-events (Payload-Schemas: events.ts).
-  // piiFields: "none" — address/subject/snippet are already ciphertext under the tenant subject key before append (see events.ts).
-  // "displayName" stays plaintext (often the mailbox owner's real name for
-  // personal accounts); encrypting it would break the entity-projection read
-  // path that carries it as `personal: false`.
-  r.defineEvent(MAIL_ACCOUNT_CONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
-    piiFields: "none",
-  });
-  r.defineEvent(MAIL_ACCOUNT_UPDATED_EVENT_SHORT, mailAccountEventPayloadSchema, {
-    piiFields: "none",
-  });
-  r.defineEvent(MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
-    piiFields: "none",
-  });
-  r.defineEvent(INBOUND_MESSAGE_RECEIVED_EVENT_SHORT, inboundMessageEventPayloadSchema, {
-    piiFields: "none",
-  });
-  r.defineEvent(MAIL_THREAD_UPDATED_EVENT_SHORT, mailThreadEventPayloadSchema, {
-    piiFields: "none",
-  });
-
-  // Inline projections — apply in derselben TX wie der Append.
-  r.projection({
-    name: "mail-account",
-    source: MAIL_ACCOUNT_AGGREGATE_TYPE,
-    table: mailAccountsProjectionTable,
-    entity: mailAccountEntity,
-    apply: {
-      [MAIL_ACCOUNT_CONNECTED_EVENT_QN]: applyMailAccountConnected,
-      [MAIL_ACCOUNT_UPDATED_EVENT_QN]: applyMailAccountUpdated,
-      [MAIL_ACCOUNT_DISCONNECTED_EVENT_QN]: applyMailAccountDisconnected,
-    },
-  });
-  r.projection({
-    name: "inbound-message",
-    source: INBOUND_MESSAGE_AGGREGATE_TYPE,
-    table: inboundMessagesProjectionTable,
-    entity: inboundMessageEntity,
-    apply: {
-      [INBOUND_MESSAGE_RECEIVED_EVENT_QN]: applyInboundMessageReceived,
-    },
-  });
-  r.projection({
-    name: "mail-thread",
-    source: MAIL_THREAD_AGGREGATE_TYPE,
-    table: mailThreadsProjectionTable,
-    entity: mailThreadEntity,
-    apply: {
-      [MAIL_THREAD_UPDATED_EVENT_QN]: applyMailThreadUpdated,
-    },
-  });
-
-  // Plugin extension-point — Provider registrieren sich via
-  // r.useExtension("inboundMailProvider", "<key>", plugin).
-  r.extendsRegistrar(INBOUND_MAIL_PROVIDER_EXTENSION, {
-    onRegister: () => {
-      // No side-effects at register-time — Lookup läuft zur Laufzeit
-      // über resolveInboundProviderForKey/-Account.
-    },
-  });
-
-  // Sync-Maschinerie: hochfrequenter Tick-State, bewusst NICHT
-  // event-sourced — r.storeTable hält die Migration-DDL, nimmt die
-  // Tabellen aber aus dem Projection-Rebuild (#494/#498-Klasse).
-  r.storeTable(syncCursorTable, {
-    reason: "read_side.mail_sync_cursors_direct_write",
-  });
-  r.storeTable(seenMessageTable, {
-    reason: "read_side.mail_seen_messages_direct_write",
-  });
-
-  // Write-Handler:
-  //   - ingest-message: programmatic (Supervisor/Poll, SystemAdmin)
-  //   - connect/update/disconnect-account: Lifecycle
-  r.writeHandler(ingestMessageHandler);
-  r.writeHandler(connectAccountHandler);
-  r.writeHandler(updateAccountHandler);
-  r.writeHandler(disconnectAccountHandler);
-
-  // List-Queries (PII-decrypted, scope-gefiltert).
-  r.queryHandler(listAccountsQuery);
-  r.queryHandler(listMessagesQuery);
-
-  // Entity-genaue GDPR-Destroy-Hooks — der gdpr-storage-Boot-Validator
-  // prueft die EXT_TENANT_DATA-Registrierung pro tenant-subject-Entity.
-  r.useExtension(EXT_TENANT_DATA, "mail-account", {
-    destroy: mailAccountTenantDestroyHook,
-    escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
-  });
-  r.useExtension(EXT_TENANT_DATA, "inbound-message", {
-    destroy: inboundMessageTenantDestroyHook,
-    escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
-  });
-  r.useExtension(EXT_TENANT_DATA, "mail-thread", {
-    destroy: mailThreadTenantDestroyHook,
-    escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
-  });
-
-  // Data-Retention (#957) — perTenant fan-out (one run per tenant, like
-  // data-retention:retention-cleanup): runInboundMailRetention's raw query
-  // helpers need the unfiltered runner, so the handler declares escapeHatch
-  // and reaches for ctx.db.unsafeRaw(). Without this cron, read_inbound_messages
-  // + the bodies grow unbounded (GDPR Art. 5).
-  const INBOUND_MAIL_RETENTION_REASON =
-    "inbound-mail retention runs raw deletes; every statement filters by this run's tenantId";
-  r.job({
-    name: "inbound-mail-retention",
-    trigger: { cron: "0 3 * * *" },
-    perTenant: true,
-    concurrency: "skip",
-    escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON },
-    handler: async (_payload, ctx) => {
-      if (!ctx.registry) {
-        throw new Error("inbound-mail-retention: ctx.registry required (JobContext incomplete)");
-      }
-      const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
-      if (tenantId === undefined) {
-        // skip: cron fired without a perTenant fan-out tenant — nothing scoped
-        return;
-      }
-      const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-      const retentionDb = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
-
-      // Body-Objekte liegen in file-foundation. Provider lazy + memoized —
-      // heute schreibt der Ingest kein bodyRef (storeBody-Hook ungebunden),
-      // der Provider wird also nie gebaut. Sobald storeBody wired ist, raeumt
-      // die Retention die Bodies mit ab.
-      let providerPromise: Promise<FileStorageProvider> | null = null;
-      const deleteBodyObject = async (bodyRef: string): Promise<void> => {
-        if (!providerPromise) {
-          providerPromise = createFileProviderForTenant(
-            { config: ctx.config, registry: ctx.registry },
-            tenantId,
-          );
-        }
-        const provider = await providerPromise;
-        await provider.delete(bodyRef);
-      };
-
-      const report = await runInboundMailRetention({
-        db: retentionDb,
-        tenantId,
-        now: T.Now.instant(),
-        deleteBodyObject,
+export function createInboundMailFoundationFeature() {
+  return defineFeature(
+    INBOUND_MAIL_FOUNDATION_FEATURE,
+    (r) => {
+      r.describe(
+        "Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push). The foundation owns three event-sourced streams (mail-account lifecycle, inbound-message with exactly-once ingest via deterministic aggregate ids, mail-thread rollup) and their projections `read_mail_accounts`/`read_inbound_messages`/`read_mail_threads`; PII fields are envelope-encrypted per tenant subject key before every append (crypto-shredding on tenant destroy). Wire `createInboundMailConnectRoutes` (OAuth connect + anonymous callback outside /api) and `createInboundMailSupervisor` (IDLE watch with backoff + reconciliation poll) in bin/server.ts. Consume `inbound-mail-foundation:event:inbound-message-received` from app features to attach business processes.",
+      );
+      r.uiHints({
+        displayLabel: "Inbound Mail · Foundation",
+        category: "notifications",
+        recommended: false,
       });
-      if (report.bodyObjectErrors > 0) {
-        // biome-ignore lint/suspicious/noConsole: operator-visibility for failed body deletes
-        console.warn(
-          `[inbound-mail-foundation:inbound-mail-retention] tenant=${tenantId} bodyObjectErrors=${report.bodyObjectErrors}`,
-        );
-      }
+      // EXT_TENANT_DATA-Hook braucht den tenant-lifecycle-Host.
+      r.requires({ features: ["tenant-lifecycle"] });
+
+      // 5 fine-grained domain-events (Payload-Schemas: events.ts).
+      // piiFields: "none" — address/subject/snippet are already ciphertext under the tenant subject key before append (see events.ts).
+      // "displayName" stays plaintext (often the mailbox owner's real name for
+      // personal accounts); encrypting it would break the entity-projection read
+      // path that carries it as `personal: false`.
+      r.defineEvent(MAIL_ACCOUNT_CONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
+        piiFields: "none",
+      });
+      r.defineEvent(MAIL_ACCOUNT_UPDATED_EVENT_SHORT, mailAccountEventPayloadSchema, {
+        piiFields: "none",
+      });
+      r.defineEvent(MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
+        piiFields: "none",
+      });
+      r.defineEvent(INBOUND_MESSAGE_RECEIVED_EVENT_SHORT, inboundMessageEventPayloadSchema, {
+        piiFields: "none",
+      });
+      r.defineEvent(MAIL_THREAD_UPDATED_EVENT_SHORT, mailThreadEventPayloadSchema, {
+        piiFields: "none",
+      });
+
+      // Inline projections — apply in derselben TX wie der Append.
+      r.projection({
+        name: "mail-account",
+        source: MAIL_ACCOUNT_AGGREGATE_TYPE,
+        table: mailAccountsProjectionTable,
+        entity: mailAccountEntity,
+        apply: {
+          [MAIL_ACCOUNT_CONNECTED_EVENT_QN]: applyMailAccountConnected,
+          [MAIL_ACCOUNT_UPDATED_EVENT_QN]: applyMailAccountUpdated,
+          [MAIL_ACCOUNT_DISCONNECTED_EVENT_QN]: applyMailAccountDisconnected,
+        },
+      });
+      r.projection({
+        name: "inbound-message",
+        source: INBOUND_MESSAGE_AGGREGATE_TYPE,
+        table: inboundMessagesProjectionTable,
+        entity: inboundMessageEntity,
+        apply: {
+          [INBOUND_MESSAGE_RECEIVED_EVENT_QN]: applyInboundMessageReceived,
+        },
+      });
+      r.projection({
+        name: "mail-thread",
+        source: MAIL_THREAD_AGGREGATE_TYPE,
+        table: mailThreadsProjectionTable,
+        entity: mailThreadEntity,
+        apply: {
+          [MAIL_THREAD_UPDATED_EVENT_QN]: applyMailThreadUpdated,
+        },
+      });
+
+      // Plugin extension point — providers register via
+      // r.useExtension("inboundMailProvider", "<key>", plugin).
+      r.extendsRegistrar(INBOUND_MAIL_PROVIDER_EXTENSION, {
+        onRegister: () => {
+          // No side-effects at register-time — lookup happens at runtime
+          // via resolveInboundProviderForKey/-Account.
+        },
+      });
+
+      // Sync machinery: high-frequency tick state, deliberately NOT
+      // event-sourced — r.storeTable keeps the migration DDL but excludes the
+      // tables from the projection rebuild (#494/#498 class).
+      r.storeTable(syncCursorTable, {
+        reason: "read_side.mail_sync_cursors_direct_write",
+      });
+      r.storeTable(seenMessageTable, {
+        reason: "read_side.mail_seen_messages_direct_write",
+      });
+
+      // Write-Handler:
+      //   - ingest-message: programmatic (Supervisor/Poll, SystemAdmin)
+      //   - connect/update/disconnect-account: Lifecycle
+      r.writeHandler(ingestMessageHandler);
+      r.writeHandler(connectAccountHandler);
+      r.writeHandler(updateAccountHandler);
+      r.writeHandler(disconnectAccountHandler);
+
+      // List-Queries (PII-decrypted, scope-gefiltert).
+      r.queryHandler(listAccountsQuery);
+      r.queryHandler(listMessagesQuery);
+
+      // Entity-genaue GDPR-Destroy-Hooks — der gdpr-storage-Boot-Validator
+      // prueft die EXT_TENANT_DATA-Registrierung pro tenant-subject-Entity.
+      r.useExtension(EXT_TENANT_DATA, "mail-account", {
+        destroy: mailAccountTenantDestroyHook,
+        escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
+      });
+      r.useExtension(EXT_TENANT_DATA, "inbound-message", {
+        destroy: inboundMessageTenantDestroyHook,
+        escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
+      });
+      r.useExtension(EXT_TENANT_DATA, "mail-thread", {
+        destroy: mailThreadTenantDestroyHook,
+        escapeHatch: { reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON },
+      });
+
+      // Data-Retention (#957) — perTenant fan-out (one run per tenant, like
+      // data-retention:retention-cleanup): runInboundMailRetention's raw query
+      // helpers need the unfiltered runner, so the handler declares escapeHatch
+      // and reaches for ctx.db.unsafeRaw(). Without this cron, read_inbound_messages
+      // + the bodies grow unbounded (GDPR Art. 5).
+      const INBOUND_MAIL_RETENTION_REASON =
+        "inbound-mail retention runs raw deletes; every statement filters by this run's tenantId";
+      r.job({
+        name: "inbound-mail-retention",
+        trigger: { cron: "0 3 * * *" },
+        perTenant: true,
+        concurrency: "skip",
+        escapeHatch: { reason: INBOUND_MAIL_RETENTION_REASON },
+        handler: async (_payload, ctx) => {
+          if (!ctx.registry) {
+            throw new Error(
+              "inbound-mail-retention: ctx.registry required (JobContext incomplete)",
+            );
+          }
+          const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
+          if (tenantId === undefined) {
+            // skip: cron fired without a perTenant fan-out tenant — nothing scoped
+            return;
+          }
+          const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
+          const retentionDb = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+
+          // Body-Objekte liegen in file-foundation. Provider lazy + memoized —
+          // heute schreibt der Ingest kein bodyRef (storeBody-Hook ungebunden),
+          // der Provider wird also nie gebaut. Sobald storeBody wired ist, raeumt
+          // die Retention die Bodies mit ab.
+          let providerPromise: Promise<FileStorageProvider> | null = null;
+          const deleteBodyObject = async (bodyRef: string): Promise<void> => {
+            if (!providerPromise) {
+              providerPromise = createFileProviderForTenant(
+                { config: ctx.config, registry: ctx.registry },
+                tenantId,
+              );
+            }
+            const provider = await providerPromise;
+            await provider.delete(bodyRef);
+          };
+
+          const report = await runInboundMailRetention({
+            db: retentionDb,
+            tenantId,
+            now: T.Now.instant(),
+            deleteBodyObject,
+          });
+          if (report.bodyObjectErrors > 0) {
+            // biome-ignore lint/suspicious/noConsole: operator-visibility for failed body deletes
+            console.warn(
+              `[inbound-mail-foundation:inbound-mail-retention] tenant=${tenantId} bodyObjectErrors=${report.bodyObjectErrors}`,
+            );
+          }
+        },
+      });
     },
-  });
-});
+    { dedupeOptions: {} },
+  );
+}
+
+/** @deprecated Use createInboundMailFoundationFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const inboundMailFoundationFeature = createInboundMailFoundationFeature();

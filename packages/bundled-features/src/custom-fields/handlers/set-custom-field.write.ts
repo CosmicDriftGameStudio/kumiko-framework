@@ -2,7 +2,7 @@ import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { DEFAULT_VALUE_WRITE_ROLES } from "../constants.js";
-import { customFieldsFeature } from "../feature.js";
+import { createCustomFieldsFeature } from "../feature.js";
 import { fieldWriteAccessDeniedRoles, loadFieldDefinition } from "../lib/field-access.js";
 import { buildCustomFieldValueSchema } from "../lib/value-schema.js";
 
@@ -103,7 +103,7 @@ export const setCustomFieldHandler: WriteHandlerDef = {
     await ctx.unsafeAppendEvent({
       aggregateId: payload.entityId,
       aggregateType: payload.entityName,
-      type: customFieldsFeature.exports.setEvent.name,
+      type: createCustomFieldsFeature().exports.setEvent.name,
       payload: { fieldKey: payload.fieldKey, value: payload.value },
     });
 

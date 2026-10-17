@@ -11,7 +11,7 @@
 // assertion below go red.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -40,7 +40,7 @@ import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.js";
-import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createFileFoundationFeature } from "../../file-foundation/index.js";
 import { createFilesFeature } from "../../files/index.js";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
 import { tenantMembershipEntity } from "../../tenant/membership-table.js";
@@ -92,11 +92,11 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createFilesFeature(),
-      fileFoundationFeature,
+      createFileFoundationFeature(),
       createTestFileProviderFeature(provider, "test"),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),

@@ -6,8 +6,8 @@
 // keeps amount + amountCurrency flat, while the entity stores them as a
 // money pair.
 
-import { defineWriteHandler } from "@app/define";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 import { invoiceEntity, invoiceTable } from "../entities/invoice";
 

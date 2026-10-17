@@ -5,23 +5,23 @@ import {
   type FileProviderPlugin,
   isFileProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../feature.js";
+import { createFileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../feature.js";
 
 describe("fileProviderS3Feature — shape", () => {
   test("has the expected name", () => {
-    expect(fileProviderS3Feature.name).toBe("file-provider-s3");
+    expect(createFileProviderS3Feature().name).toBe("file-provider-s3");
   });
 
   test("requires config + secrets + file-foundation", () => {
-    expect(fileProviderS3Feature.requires).toContain("config");
-    expect(fileProviderS3Feature.requires).toContain("secrets");
-    expect(fileProviderS3Feature.requires).toContain("file-foundation");
+    expect(createFileProviderS3Feature().requires).toContain("config");
+    expect(createFileProviderS3Feature().requires).toContain("secrets");
+    expect(createFileProviderS3Feature().requires).toContain("file-foundation");
   });
 });
 
 describe("fileProviderS3Feature.exports — typed handles", () => {
   test("exports.configKeys covers the S3-config knobs", () => {
-    const keys = fileProviderS3Feature.exports.configKeys;
+    const keys = createFileProviderS3Feature().exports.configKeys;
     expect(keys.bucket).toBeDefined();
     expect(keys.region).toBeDefined();
     expect(keys.endpoint).toBeDefined();
@@ -30,13 +30,13 @@ describe("fileProviderS3Feature.exports — typed handles", () => {
   });
 
   test("exports.secretAccessKey is the S3_SECRET_ACCESS_KEY secret-handle (drift-pin)", () => {
-    expect(fileProviderS3Feature.exports.secretAccessKey).toBe(S3_SECRET_ACCESS_KEY);
+    expect(createFileProviderS3Feature().exports.secretAccessKey).toEqual(S3_SECRET_ACCESS_KEY);
     expect(S3_SECRET_ACCESS_KEY.name).toBe("file-provider-s3:secret:s3-secret-access-key");
   });
 });
 
 describe("S3_SECRET_ACCESS_KEY — generic redaction", () => {
-  const secretDef = fileProviderS3Feature.secretKeys["s3.secretAccessKey"];
+  const secretDef = createFileProviderS3Feature().secretKeys["s3.secretAccessKey"];
 
   test("redact preserves first 4 + last 4 chars on long keys", () => {
     expect(secretDef?.redact).toBeDefined();
@@ -50,7 +50,7 @@ describe("S3_SECRET_ACCESS_KEY — generic redaction", () => {
 
 describe("fileProviderS3Feature — plugin-registration", () => {
   test("registers itself under entityName 's3' for file-foundation's extension", () => {
-    const usages = fileProviderS3Feature.extensionUsages;
+    const usages = createFileProviderS3Feature().extensionUsages;
     expect(usages.some((u) => u.extensionName === "fileProvider" && u.entityName === "s3")).toBe(
       true,
     );
@@ -58,7 +58,7 @@ describe("fileProviderS3Feature — plugin-registration", () => {
 });
 
 function s3Plugin(): FileProviderPlugin {
-  const options = fileProviderS3Feature.extensionUsages.find(
+  const options = createFileProviderS3Feature().extensionUsages.find(
     (u) => u.extensionName === "fileProvider" && u.entityName === "s3",
   )?.options;
   if (!isFileProviderPlugin(options)) {

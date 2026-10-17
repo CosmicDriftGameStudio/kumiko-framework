@@ -68,81 +68,92 @@ import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write.js";
 import { CAP_COUNTER_I18N } from "./i18n.js";
 import { capReservationsTableMeta } from "./tables.js";
 
-export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
-  r.describe(
-    "Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection). Use `enforceCap` / `enforceRollingCap` (or the `withCapEnforcement` / `withRollingCapEnforcement` handler wrappers) in your write-handlers to check limits with soft-warn and hard-block tolerances; call `enforceCapAndMaybeNotify` when you also want to trigger a delivery notification on soft-threshold hits.",
-  );
-  r.uiHints({
-    displayLabel: "Cap Counter · Usage Limits",
-    category: "operations",
-    recommended: false,
-  });
-  r.entity({ name: "cap-counter", ...capCounterEntity });
-  r.storeTable(capReservationsTableMeta, {
-    reason: "coordination.cap_reservation_ledger",
-  });
+export function createCapCounterFeature() {
+  return defineFeature(
+    CAP_COUNTER_FEATURE,
+    (r) => {
+      r.describe(
+        "Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection). Use `enforceCap` / `enforceRollingCap` (or the `withCapEnforcement` / `withRollingCapEnforcement` handler wrappers) in your write-handlers to check limits with soft-warn and hard-block tolerances; call `enforceCapAndMaybeNotify` when you also want to trigger a delivery notification on soft-threshold hits.",
+      );
+      r.uiHints({
+        displayLabel: "Cap Counter · Usage Limits",
+        category: "operations",
+        recommended: false,
+      });
+      r.entity({ name: "cap-counter", ...capCounterEntity });
+      r.storeTable(capReservationsTableMeta, {
+        reason: "coordination.cap_reservation_ledger",
+      });
 
-  // Custom Domain-Event für Rolling-Counter. r.defineEvent registriert
-  // das Schema beim Registry; ctx.unsafeAppendEvent im Handler nutzt
-  // dasselbe Schema für Append-Time-Validation. QN nach Prefixing:
-  // "cap-counter:event:rolling-incremented" (siehe
-  // ROLLING_INCREMENTED_EVENT_QN).
-  r.defineEvent(ROLLING_INCREMENTED_EVENT_SHORT, rollingIncrementedSchema, { piiFields: "none" });
-  r.defineEvent(ROLLING_RELEASED_EVENT_SHORT, rollingReleasedSchema, { piiFields: "none" });
+      // Custom domain event for the rolling counter. r.defineEvent registers the
+      // schema with the registry; ctx.unsafeAppendEvent in the handler reuses the
+      // same schema for append-time validation. QN after prefixing:
+      // "cap-counter:event:rolling-incremented" (see
+      // ROLLING_INCREMENTED_EVENT_QN).
+      r.defineEvent(ROLLING_INCREMENTED_EVENT_SHORT, rollingIncrementedSchema, {
+        piiFields: "none",
+      });
+      r.defineEvent(ROLLING_RELEASED_EVENT_SHORT, rollingReleasedSchema, { piiFields: "none" });
 
-  // Custom write-handlers.
-  // - increment: Calendar-Period (CRUD via projection-row).
-  // - increment-rolling: Rolling-Window (Custom-Event, no projection).
-  // - mark-soft-warned: Anti-Notification-Storm-Flag (nur Calendar).
-  r.writeHandler(incrementCapHandler);
-  r.writeHandler(incrementRollingCapHandler);
-  r.writeHandler(markSoftWarnedHandler);
+      // Custom write-handlers.
+      // - increment: calendar period (CRUD via projection row).
+      // - increment-rolling: rolling window (custom event, no projection).
+      // - mark-soft-warned: anti-notification-storm flag (calendar only).
+      r.writeHandler(incrementCapHandler);
+      r.writeHandler(incrementRollingCapHandler);
+      r.writeHandler(markSoftWarnedHandler);
 
-  // Custom + standard reads. Sysadmin-cross-tenant via list, per-tenant
-  // single-row via get-counter. Detail-by-id-handler bewusst weggelassen
-  // (kein Use-Case; der natürliche Lookup ist über capName + period, nicht
-  // über aggregate-id).
-  r.queryHandler(
-    defineEntityListHandler("cap-counter", capCounterEntity, {
-      access: { roles: access.systemAdmin },
-      escapeHatch: {
-        reason:
-          "SystemAdmin quota operator view lists usage counters of every tenant to see who consumes which cap",
-      },
-      description:
-        "Lists usage-counter rows across all tenants with cap name, current value, period start and soft-warn timestamp; use it as the operator view of who is consuming which quota.",
-    }),
-  );
-  r.queryHandler(getCounterQuery);
+      // Custom + standard reads. Sysadmin cross-tenant via list, per-tenant
+      // single row via get-counter. Detail-by-id handler left out on purpose
+      // (no use case; the natural lookup is capName + period, not the
+      // aggregate id).
+      r.queryHandler(
+        defineEntityListHandler("cap-counter", capCounterEntity, {
+          access: { roles: access.systemAdmin },
+          escapeHatch: {
+            reason:
+              "SystemAdmin quota operator view lists usage counters of every tenant to see who consumes which cap",
+          },
+          description:
+            "Lists usage-counter rows across all tenants with cap name, current value, period start and soft-warn timestamp; use it as the operator view of who is consuming which quota.",
+        }),
+      );
+      r.queryHandler(getCounterQuery);
 
-  r.screen({
-    id: CAP_COUNTER_LIST_SCREEN_ID,
-    type: "entityList",
-    entity: "cap-counter",
-    columns: [
-      "tenantId",
-      "capName",
-      "value",
-      "periodStart",
-      { field: "lastSoftWarnedAt", hideOnNarrow: true },
-    ],
-    defaultSort: { field: "capName", dir: "asc" },
-    // Search resolves against the caller's own tenant stream, so on this
-    // cross-tenant operator list it would only ever hit the SystemAdmin's tenant.
-    searchable: false,
-    access: { roles: ["SystemAdmin"] },
-  });
-  r.nav({
-    id: "cap-list",
-    label: "cap-counter:nav.cap-list",
-    screen: "cap-counter:screen:cap-list",
-    icon: "gauge",
-    order: 60,
-  });
-  r.translations({
-    keys: {
-      ...CAP_COUNTER_I18N,
-      "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
+      r.screen({
+        id: CAP_COUNTER_LIST_SCREEN_ID,
+        type: "entityList",
+        entity: "cap-counter",
+        columns: [
+          "tenantId",
+          "capName",
+          "value",
+          "periodStart",
+          { field: "lastSoftWarnedAt", hideOnNarrow: true },
+        ],
+        defaultSort: { field: "capName", dir: "asc" },
+        // Search resolves against the caller's own tenant stream, so on this
+        // cross-tenant operator list it would only ever hit the SystemAdmin's tenant.
+        searchable: false,
+        access: { roles: ["SystemAdmin"] },
+      });
+      r.nav({
+        id: "cap-list",
+        label: "cap-counter:nav.cap-list",
+        screen: "cap-counter:screen:cap-list",
+        icon: "gauge",
+        order: 60,
+      });
+      r.translations({
+        keys: {
+          ...CAP_COUNTER_I18N,
+          "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
+        },
+      });
     },
-  });
-});
+    { dedupeOptions: {} },
+  );
+}
+
+/** @deprecated Use createCapCounterFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const capCounterFeature = createCapCounterFeature();

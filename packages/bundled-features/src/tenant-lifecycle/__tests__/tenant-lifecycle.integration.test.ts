@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -75,7 +75,7 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createTenantLifecycleFeature(),
     ],
@@ -554,7 +554,7 @@ describe("tenant-lifecycle :: 410 gate derived from the mounted provider", () =>
         createUserFeature(),
         createTenantFeature(),
         createComplianceProfilesFeature(),
-        authFoundationFeature,
+        createAuthFoundationFeature(),
         createSessionsFeature(),
         createTenantLifecycleFeature(),
       ],
@@ -653,7 +653,7 @@ describe("tenant-lifecycle :: explicit auth override beats the mounted provider"
         createUserFeature(),
         createTenantFeature(),
         createComplianceProfilesFeature(),
-        authFoundationFeature,
+        createAuthFoundationFeature(),
         createSessionsFeature(),
         createTenantLifecycleFeature(),
       ],
@@ -728,7 +728,7 @@ describe("tenant-lifecycle :: resumable stages (done:false continuation)", () =>
         createUserFeature(),
         createTenantFeature(),
         createComplianceProfilesFeature(),
-        authFoundationFeature,
+        createAuthFoundationFeature(),
         createSessionsFeature(),
         createTenantLifecycleFeature(),
         resumableFeature,
@@ -835,7 +835,7 @@ describe("tenant-lifecycle :: stage tick without progress", () => {
         createUserFeature(),
         createTenantFeature(),
         createComplianceProfilesFeature(),
-        authFoundationFeature,
+        createAuthFoundationFeature(),
         createSessionsFeature(),
         createTenantLifecycleFeature(),
         stuckFeature,

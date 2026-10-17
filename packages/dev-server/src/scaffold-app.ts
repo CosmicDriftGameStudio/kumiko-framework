@@ -34,8 +34,7 @@ import { scaffoldDeploy } from "./scaffold-deploy.js";
 // Single bundled-feature entry the scaffolder mounts into run-config.ts.
 // importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/files"),
 // exportName the named import, callExpression the form that lands in the
-// APP_FEATURES array literal — typically `${exportName}()` for factory-style
-// features and just `${exportName}` for object-style ones (e.g. billingFoundationFeature).
+// APP_FEATURES array literal — `${exportName}()` for factory-style features.
 export type ScaffoldFeatureEntry = {
   readonly name: string;
   readonly importPath: string;
@@ -67,7 +66,6 @@ const SCAFFOLD_GITIGNORE = `node_modules/
 dist/
 dist-server/
 .env
-.kumiko/
 test-results/
 playwright-report/
 `;
@@ -403,8 +401,8 @@ const FOUNDATION_FEATURES: ReadonlyArray<ScaffoldFeatureEntry> = [
   {
     name: "auth-foundation",
     importPath: "@cosmicdrift/kumiko-bundled-features/auth-foundation",
-    exportName: "authFoundationFeature",
-    callExpression: "authFoundationFeature",
+    exportName: "createAuthFoundationFeature",
+    callExpression: "createAuthFoundationFeature()",
   },
   {
     name: "sessions",

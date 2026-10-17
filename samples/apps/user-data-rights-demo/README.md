@@ -109,8 +109,8 @@ then 500s). For a real deploy, swap to the persistent provider in
 `src/run-config.ts`:
 
 ```ts illustration
-// import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env";
-// APP_FEATURES: fileProviderInMemoryFeature -> fileProviderS3EnvFeature
+// import { createFileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
+// APP_FEATURES: createFileProviderInMemoryFeature() -> createFileProviderS3Feature({ fromEnv: true })
 ```
 
 Then set `S3_BUCKET` / `S3_REGION` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` (plus

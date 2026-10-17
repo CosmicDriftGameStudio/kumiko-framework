@@ -15,7 +15,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
-  authFoundationFeature,
+  createAuthFoundationFeature,
   resolveTokenVerifier,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
@@ -162,7 +162,7 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature({ autoRevokeOnPasswordChange: bound.asMassRevoker() }),
       createPersonalAccessTokensFeature({
         scopes: SCOPES,

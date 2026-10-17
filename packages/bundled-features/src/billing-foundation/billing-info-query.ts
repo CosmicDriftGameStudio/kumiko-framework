@@ -5,7 +5,7 @@
 // off the app's extraContext.
 //
 // Deliberately does NOT call defineQueryHandler itself: apps use different
-// wrappers around it (publicstatus's `@app/define`, which adds
+// wrappers around it (publicstatus's own wrapper, which adds
 // `agent: { expose: false }`; show-pony's plain framework
 // `defineQueryHandler`). Calling defineQueryHandler here would bypass
 // whatever an app's own wrapper does. Instead this factory returns just the

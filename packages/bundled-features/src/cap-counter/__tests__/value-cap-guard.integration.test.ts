@@ -16,7 +16,7 @@ import {
 import * as z from "zod";
 import { CapCounterQueries } from "../constants.js";
 import { capCounterEntity } from "../entity.js";
-import { capCounterFeature } from "../feature.js";
+import { createCapCounterFeature } from "../feature.js";
 import { createValueCapGuard } from "../value-cap-guard.js";
 import { withCapEnforcement } from "../with-cap-enforcement.js";
 
@@ -83,7 +83,7 @@ let stack: TestStack;
 let db: DbConnection;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [capCounterFeature, retentionFeature] });
+  stack = await setupTestStack({ features: [createCapCounterFeature(), retentionFeature] });
   db = stack.db;
   await unsafeCreateEntityTable(db, capCounterEntity);
 });

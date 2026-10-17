@@ -16,7 +16,7 @@
 // pins shut.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
@@ -53,7 +53,7 @@ function baseFeatures(): NonNullable<Parameters<typeof setupTestStack>[0]["featu
     createUserFeature(),
     createDataRetentionFeature(),
     createComplianceProfilesFeature(),
-    authFoundationFeature,
+    createAuthFoundationFeature(),
     createSessionsFeature(),
     createUserDataRightsFeature(),
   ];

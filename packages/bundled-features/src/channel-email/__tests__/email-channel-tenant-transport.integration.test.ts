@@ -35,7 +35,7 @@ import { createDeliveryFeature } from "../../delivery/feature.js";
 import { deliveryAttemptsTable } from "../../delivery/tables.js";
 import { createDeliveryTestContext } from "../../delivery/testing.js";
 import type { DeliveryService } from "../../delivery/types.js";
-import { mailFoundationFeature } from "../../mail-foundation/feature.js";
+import { createMailFoundationFeature } from "../../mail-foundation/feature.js";
 import {
   MAIL_TRANSPORT_EXTENSION,
   type MailTransportPlugin,
@@ -43,8 +43,8 @@ import {
 } from "../../mail-foundation/index.js";
 import {
   clearInbox,
+  createMailTransportInMemoryFeature,
   getInbox,
-  mailTransportInMemoryFeature,
 } from "../../mail-transport-inmemory/index.js";
 import { createSecretsFeature } from "../../secrets/feature.js";
 import { createSecretsContext } from "../../secrets/secrets-context.js";
@@ -132,8 +132,8 @@ beforeAll(async () => {
       createTenantFeature(),
       createSecretsFeature(),
       createDeliveryFeature(),
-      mailFoundationFeature,
-      mailTransportInMemoryFeature,
+      createMailFoundationFeature(),
+      createMailTransportInMemoryFeature(),
       brokenProviderFeature,
       keyedProviderFeature,
       createPlainFallbackEmailFeature({

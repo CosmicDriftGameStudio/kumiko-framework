@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { composeFeatures } from "@cosmicdrift/kumiko-dev-server";
@@ -23,7 +23,7 @@ describe("user-data-rights-demo inspector nav wire-proof", () => {
   const composed = composeFeatures(
     [
       ...APP_FEATURES,
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createPersonalAccessTokensFeature({ scopes: {} }),
       createSessionsFeature(),
     ],

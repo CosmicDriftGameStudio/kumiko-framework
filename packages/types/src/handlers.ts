@@ -1231,10 +1231,10 @@ export type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = {
 //   We pick the first option and force the wrong path to fail visibly.
 //
 // How this is wired in practice:
-//   - Apps run `bun kumiko codegen`, which writes `.kumiko/define.ts`
-//     with locally-bound `defineWriteHandler<TName, TSchema, TData,
-//     KumikoEventTypeMap>(...)` wrappers. Handlers inside those wrappers
-//     get a strict ctx.appendEvent.
+//   - Apps that augment KumikoEventTypeMap get a strict ctx.appendEvent in
+//     handlers bound to that map. Without an augmentation, emit through
+//     `emitEvent(ctx, eventDef, ...)`, which checks the payload against the
+//     EventDef returned by r.defineEvent.
 //   - Cross-package callers (e.g. bundled-features's set.write.ts) that
 //     can't afford a local wrapper reach for `ctx.unsafeAppendEvent`
 //     instead — same runtime, looser type-surface.

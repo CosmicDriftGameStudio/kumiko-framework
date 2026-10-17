@@ -13,7 +13,6 @@ linker = "hoisted"
 
 [test]
 preload = [
-  "./test-setup/app-define-resolver.ts",
   "@cosmicdrift/kumiko-testing/preload/temporal",
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
   "@cosmicdrift/kumiko-testing/preload/dom",

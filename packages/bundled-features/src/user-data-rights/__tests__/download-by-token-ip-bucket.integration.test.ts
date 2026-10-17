@@ -12,7 +12,7 @@
 // internal request's env (2nd `app.fetch` arg), independent of hop count.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -30,8 +30,8 @@ import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
 import { createDataRetentionFeature } from "../../data-retention/index.js";
-import { fileFoundationFeature } from "../../file-foundation/index.js";
-import { fileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
+import { createFileFoundationFeature } from "../../file-foundation/index.js";
+import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
 import { tenantMembershipEntity } from "../../tenant/membership-table.js";
 import { createUserFeature } from "../../user/index.js";
@@ -51,9 +51,9 @@ async function buildStack(trustedProxyHops: number): Promise<TestStack> {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      fileFoundationFeature,
-      fileProviderInMemoryFeature,
-      authFoundationFeature,
+      createFileFoundationFeature(),
+      createFileProviderInMemoryFeature(),
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createUserDataRightsFeature(),
     ],

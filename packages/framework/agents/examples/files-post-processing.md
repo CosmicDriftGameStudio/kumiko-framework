@@ -47,9 +47,9 @@ bun test
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
-import { derivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
+import { createDerivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
 import { createFileDerivativesFeature } from "@cosmicdrift/kumiko-bundled-features/file-derivatives";
-import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 
 import { asRawClient, entityEventName } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -96,7 +96,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
-      fileFoundationFeature,
+      createFileFoundationFeature(),
       createFilesFeature(),
       createFileDerivativesFeature({
         resolveApexTenant: (host) => {
@@ -105,7 +105,7 @@ beforeAll(async () => {
           return null;
         },
       }),
-      derivativesSharpFeature,
+      createDerivativesSharpFeature(),
       filesPostProcessingFeature,
     ],
     files: { storageProvider: provider },

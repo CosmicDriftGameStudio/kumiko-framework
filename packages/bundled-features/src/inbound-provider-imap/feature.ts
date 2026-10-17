@@ -272,17 +272,26 @@ export const imapInboundMailPlugin: InboundMailProviderPlugin = {
   // gehören den OAuth-Providern (M365/Gmail).
 };
 
-export const inboundProviderImapFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.describe(
-    'Registers the `"imap"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Store the per-account connection JSON (host/port/secure/user/password) in the account credential secret slot before the first sync.',
+export function createInboundProviderImapFeature() {
+  return defineFeature(
+    FEATURE_NAME,
+    (r) => {
+      r.describe(
+        'Registers the `"imap"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot). Incremental sync via a UIDVALIDITY:lastUid cursor (UIDVALIDITY change triggers a cursor-invalid full resync), initial backfill bounded by the foundation backfill window, and live push via IMAP IDLE for the watch supervisor. Store the per-account connection JSON (host/port/secure/user/password) in the account credential secret slot before the first sync.',
+      );
+      r.uiHints({
+        displayLabel: "Inbound Mail · IMAP",
+        category: "notifications",
+        recommended: false,
+      });
+      r.requires({ features: ["inbound-mail-foundation"] });
+      r.requires({ features: ["secrets"] });
+      r.envSchema(mailAllowedPrivateHostsEnvSchema);
+      r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, IMAP_PROVIDER_KEY, imapInboundMailPlugin);
+    },
+    { dedupeOptions: {} },
   );
-  r.uiHints({
-    displayLabel: "Inbound Mail · IMAP",
-    category: "notifications",
-    recommended: false,
-  });
-  r.requires({ features: ["inbound-mail-foundation"] });
-  r.requires({ features: ["secrets"] });
-  r.envSchema(mailAllowedPrivateHostsEnvSchema);
-  r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, IMAP_PROVIDER_KEY, imapInboundMailPlugin);
-});
+}
+
+/** @deprecated Use createInboundProviderImapFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const inboundProviderImapFeature = createInboundProviderImapFeature();

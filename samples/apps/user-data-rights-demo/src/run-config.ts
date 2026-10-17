@@ -17,15 +17,15 @@
 // echten Deploy auf den persistenten Provider wechseln; die
 // deployment-spezifischen Produktionsschritte stehen in der privaten
 // Operations-Dokumentation:
-//   import { fileProviderS3EnvFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3-env";
-//   fileProviderInMemoryFeature -> fileProviderS3EnvFeature
+//   import { createFileProviderS3Feature } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
+//   createFileProviderInMemoryFeature() -> createFileProviderS3Feature({ fromEnv: true })
 //   + S3_BUCKET/S3_REGION/S3_ACCESS_KEY/S3_SECRET_KEY env vars
 //   + appOverride "file-foundation:config:provider" = "s3-env"
 
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
-import { fileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { fileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
+import { createFileFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/file-provider-inmemory";
 import { createFilesFeature } from "@cosmicdrift/kumiko-bundled-features/files";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
@@ -36,9 +36,9 @@ export const APP_FEATURES = [
   localeDe(),
   createDataRetentionFeature(),
   createComplianceProfilesFeature(),
-  fileFoundationFeature,
-  // Demo: in-memory (no creds). Prod: fileProviderS3EnvFeature — see header.
-  fileProviderInMemoryFeature,
+  createFileFoundationFeature(),
+  // Demo: in-memory (no creds). Prod: createFileProviderS3Feature({ fromEnv: true }) — see header.
+  createFileProviderInMemoryFeature(),
   createFilesFeature(),
   createUserDataRightsFeature(),
   createUserDataRightsDefaultsFeature(),

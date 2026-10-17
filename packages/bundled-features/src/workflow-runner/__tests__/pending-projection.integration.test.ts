@@ -24,7 +24,7 @@ import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { workflowRunAggregateId } from "../aggregate-id.js";
-import { workflowRunnerFeature } from "../feature.js";
+import { createWorkflowRunnerFeature } from "../feature.js";
 import { workflowRunPendingTable } from "../tables.js";
 
 let stack: TestStack;
@@ -77,7 +77,7 @@ function newRunId(workflowName: string): string {
 
 describe("workflow-runner pending-projection", () => {
   beforeAll(async () => {
-    stack = await setupTestStack({ features: [workflowRunnerFeature, testEventsFeature] });
+    stack = await setupTestStack({ features: [createWorkflowRunnerFeature(), testEventsFeature] });
   });
 
   afterAll(async () => {

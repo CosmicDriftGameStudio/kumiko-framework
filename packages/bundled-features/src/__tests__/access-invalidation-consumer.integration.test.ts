@@ -22,7 +22,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
@@ -96,7 +96,7 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       createAuthEmailPasswordFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature({ autoRevokeOnPasswordChange: bound.asMassRevoker() }),
       createPersonalAccessTokensFeature({
         scopes: PAT_SCOPES,

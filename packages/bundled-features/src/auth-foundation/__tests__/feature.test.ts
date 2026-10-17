@@ -3,7 +3,7 @@
 // each provider-feature's own __tests__.
 
 import { describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "../feature.js";
+import { createAuthFoundationFeature } from "../feature.js";
 import {
   EXT_SESSION_STORE,
   EXT_TENANT_EXISTENCE,
@@ -13,34 +13,34 @@ import {
 
 describe("authFoundationFeature — shape", () => {
   test("has the expected name", () => {
-    expect(authFoundationFeature.name).toBe("auth-foundation");
+    expect(createAuthFoundationFeature().name).toBe("auth-foundation");
   });
 
   test("has no hard requirements — no config-key, unlike file/mail-foundation", () => {
-    expect(authFoundationFeature.requires).toEqual([]);
+    expect(createAuthFoundationFeature().requires).toEqual([]);
   });
 });
 
 describe("authFoundationFeature — registers extension-point", () => {
   test("declares the tokenVerifier extension-point", () => {
-    expect(authFoundationFeature.registrarExtensions[EXT_TOKEN_VERIFIER]).toBeDefined();
+    expect(createAuthFoundationFeature().registrarExtensions[EXT_TOKEN_VERIFIER]).toBeDefined();
   });
 
   test("declares the sessionStore extension-point", () => {
-    expect(authFoundationFeature.registrarExtensions[EXT_SESSION_STORE]).toBeDefined();
+    expect(createAuthFoundationFeature().registrarExtensions[EXT_SESSION_STORE]).toBeDefined();
   });
 
   test("declares the tenantResolver extension-point", () => {
-    expect(authFoundationFeature.registrarExtensions[EXT_TENANT_RESOLVER]).toBeDefined();
+    expect(createAuthFoundationFeature().registrarExtensions[EXT_TENANT_RESOLVER]).toBeDefined();
   });
 
   test("declares the tenantExistence extension-point", () => {
-    expect(authFoundationFeature.registrarExtensions[EXT_TENANT_EXISTENCE]).toBeDefined();
+    expect(createAuthFoundationFeature().registrarExtensions[EXT_TENANT_EXISTENCE]).toBeDefined();
   });
 });
 
 describe("authFoundationFeature — multiplicity boot-check", () => {
   test("registers a bootCheck per extension-point (token/session/tenant×2)", () => {
-    expect(authFoundationFeature.bootChecks.length).toBeGreaterThanOrEqual(4);
+    expect(createAuthFoundationFeature().bootChecks.length).toBeGreaterThanOrEqual(4);
   });
 });

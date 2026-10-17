@@ -37,8 +37,7 @@ import {
   createConfigResolver,
 } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
-import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../../file-provider-s3/index.js";
-import { fileProviderS3EnvFeature } from "../../file-provider-s3-env/index.js";
+import { createFileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../../file-provider-s3/index.js";
 import {
   createSecretsContext,
   createSecretsFeature,
@@ -46,7 +45,7 @@ import {
 } from "../../secrets/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
-import { createFileProviderForTenant, fileFoundationFeature } from "../feature.js";
+import { createFileFoundationFeature, createFileProviderForTenant } from "../feature.js";
 
 // --- Test-Handler that exercises the factory end-to-end ---
 
@@ -122,9 +121,9 @@ beforeAll(async () => {
       createConfigFeature(),
       createTenantFeature(),
       createSecretsFeature(),
-      fileFoundationFeature,
-      fileProviderS3Feature,
-      fileProviderS3EnvFeature,
+      createFileFoundationFeature(),
+      createFileProviderS3Feature(),
+      createFileProviderS3Feature({ fromEnv: true }),
       testProbeFeature,
     ],
     masterKeyProvider: providerRef,

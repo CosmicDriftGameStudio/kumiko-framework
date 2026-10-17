@@ -107,7 +107,7 @@ function registerFolders(
   );
 }
 
-export const foldersFeature = defineFeature(FOLDERS_FEATURE_NAME, (r) =>
+const defaultFoldersFeature = defineFeature(FOLDERS_FEATURE_NAME, (r) =>
   registerFolders(r, DEFAULT_FOLDER_ACCESS, undefined, undefined, undefined),
 );
 
@@ -156,7 +156,9 @@ function resolveAccess(opts: FoldersFeatureOptions): AccessRule {
 
 // Options wrapper. Without options returns the module-level singleton (no
 // rebuild). access/roles/toggleable build a fresh feature-definition.
-export function createFoldersFeature(opts: FoldersFeatureOptions = {}): typeof foldersFeature {
+export function createFoldersFeature(
+  opts: FoldersFeatureOptions = {},
+): typeof defaultFoldersFeature {
   if (
     opts.access === undefined &&
     opts.roles === undefined &&
@@ -164,7 +166,7 @@ export function createFoldersFeature(opts: FoldersFeatureOptions = {}): typeof f
     opts.ownership === undefined &&
     opts.parents === undefined
   ) {
-    return foldersFeature;
+    return defaultFoldersFeature;
   }
   assertNoWhereRuleInOwnershipWrite("createFoldersFeature", opts.ownership?.write);
   if (opts.parents !== undefined && opts.parents.length === 0) {
@@ -180,3 +182,6 @@ export function createFoldersFeature(opts: FoldersFeatureOptions = {}): typeof f
     registerFolders(r, access, opts.toggleable, opts.ownership, opts.parents),
   );
 }
+
+/** @deprecated Use createFoldersFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const foldersFeature = createFoldersFeature();

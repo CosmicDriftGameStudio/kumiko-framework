@@ -5,8 +5,8 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createAuthMfaFeature } from "../auth-mfa/feature.js";
 import { createDataRetentionFeature } from "../data-retention/feature.js";
 import { createFilesTenantDataFeature } from "../files-tenant-data/index.js";
-import { formDraftFeature } from "../form-draft/feature.js";
-import { inboundMailFoundationFeature } from "../inbound-mail-foundation/feature.js";
+import { createFormDraftFeature } from "../form-draft/feature.js";
+import { createInboundMailFoundationFeature } from "../inbound-mail-foundation/feature.js";
 import { createSecretsFeature } from "../secrets/feature.js";
 import { createSessionsFeature } from "../sessions/feature.js";
 import { createTenantLifecycleFeature } from "../tenant-lifecycle/feature.js";
@@ -25,8 +25,8 @@ const crossTenantJobs: ReadonlyArray<readonly [FeatureDefinition, string]> = [
   ],
   [createDataRetentionFeature(), "retention-cleanup"],
   [createFilesTenantDataFeature(), "sweep-orphaned-derivatives"],
-  [formDraftFeature, "cleanup"],
-  [inboundMailFoundationFeature, "inbound-mail-retention"],
+  [createFormDraftFeature(), "cleanup"],
+  [createInboundMailFoundationFeature(), "inbound-mail-retention"],
   [createSecretsFeature(), "rotate"],
   [createSessionsFeature(), "cleanup"],
   [createTenantLifecycleFeature(), "run-tenant-destruction"],

@@ -3,7 +3,6 @@
   "description": "Production-pattern ES sample: r.defineEvent (versioned + migrations) + ctx.appendEvent + r.projection + r.multiStreamProjection + ctx.loadAggregate (asOf) + ctx.archiveStream + ctx.queryProjection.",
   "private": true,
   "dependencies": {
-    "@app/define": "file:./.kumiko",
     "@cosmicdrift/kumiko-framework": "workspace:*"
   },
   "devDependencies": {

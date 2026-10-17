@@ -1,6 +1,7 @@
 // Public API of the inbound-provider-inmemory bundled-feature.
 
 export {
+  createInboundProviderInMemoryFeature,
   emitWatchError,
   failNextFetchWith,
   failNextVerifyWith,

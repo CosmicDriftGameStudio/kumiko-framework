@@ -4,7 +4,7 @@ import type { FeatureDefinition } from "../types/index.js";
 // today; extend if another ephemeral bundled provider lands.
 const EPHEMERAL_PROVIDERS: ReadonlySet<string> = new Set(["inmemory"]);
 
-// Env vars file-provider-s3-env reads (see files-provider-s3/env-helper).
+// Env vars createFileProviderS3Feature({ fromEnv: true }) reads (see file-provider-s3/lib/env-helper).
 // Missing any → createS3ProviderFromEnv throws on the first file op.
 const S3_ENV_REQUIRED = ["S3_BUCKET", "S3_REGION", "S3_ACCESS_KEY", "S3_SECRET_KEY"] as const;
 
@@ -38,7 +38,7 @@ export function validateGdprStoragePersistence(features: readonly FeatureDefinit
   if (persistent.length === 0) {
     // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
     console.warn(
-      "[kumiko:boot] user-data-rights is mounted but no persistent file provider is — GDPR exports use an ephemeral/in-memory store and are LOST on restart (the download then 500s). Mount file-provider-s3 or file-provider-s3-env and select it via the file-foundation provider config.",
+      "[kumiko:boot] user-data-rights is mounted but no persistent file provider is — GDPR exports use an ephemeral/in-memory store and are LOST on restart (the download then 500s). Mount createFileProviderS3Feature() or createFileProviderS3Feature({ fromEnv: true }) and select it via the file-foundation provider config.",
     );
     // skip: ephemeral store already warned; the s3-env env-var check below is moot
     return;
@@ -52,7 +52,7 @@ export function validateGdprStoragePersistence(features: readonly FeatureDefinit
     if (missing.length > 0) {
       // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
       console.warn(
-        `[kumiko:boot] file-provider-s3-env is the GDPR file store but these env vars are unset: ${missing.join(", ")}. The provider throws on the first export (inside the cron), not here — set them so GDPR storage works.`,
+        `[kumiko:boot] createFileProviderS3Feature({ fromEnv: true }) (provider "s3-env") is the GDPR file store but these env vars are unset: ${missing.join(", ")}. The provider throws on the first export (inside the cron), not here — set them so GDPR storage works.`,
       );
     }
   }

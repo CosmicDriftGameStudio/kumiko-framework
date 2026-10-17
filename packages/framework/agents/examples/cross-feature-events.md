@@ -229,7 +229,7 @@ import {
   defineFeature,
   emitEvent,
   typedPayload,
-} from "@app/define";
+} from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
 
 // --- Entity ---

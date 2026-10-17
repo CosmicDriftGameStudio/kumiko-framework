@@ -48,7 +48,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature.js";
 import { apiTokenEntity, apiTokenTable } from "../../personal-access-tokens/schema/api-token.js";
@@ -504,7 +504,7 @@ describe("crypto-shredding :: forget-subject closes the login door although the 
         createUserFeature(),
         createTenantFeature(),
         createConfigFeature(),
-        authFoundationFeature,
+        createAuthFoundationFeature(),
         createPersonalAccessTokensFeature({ scopes: {} }),
         probeFeature,
       ],
@@ -617,7 +617,7 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
         createUserFeature(),
         createTenantFeature(),
         createConfigFeature(),
-        authFoundationFeature,
+        createAuthFoundationFeature(),
         createPersonalAccessTokensFeature({ scopes: {} }),
         shareLikeFeature,
       ],

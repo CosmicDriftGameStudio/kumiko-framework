@@ -42,13 +42,7 @@ describe("FEATURE_CONSTRUCTORS callExpression/callArgs consistency", () => {
         );
         return;
       }
-      // No callArgs: either `exportName()` (zero-arg factory) or bare
-      // `exportName` (object export) — both are legal, but the export name
-      // itself must be the prefix either way.
-      expect(
-        entry.callExpression === entry.exportName ||
-          entry.callExpression === `${entry.exportName}()`,
-      ).toBe(true);
+      expect(entry.callExpression).toBe(`${entry.exportName}()`);
     });
   }
 });

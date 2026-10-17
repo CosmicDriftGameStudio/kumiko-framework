@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
-import { billingFoundationFeature } from "../../billing-foundation/index.js";
+import { createBillingFoundationFeature } from "../../billing-foundation/index.js";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
-import { tierEngineFeature } from "../../tier-engine/index.js";
+import { createTierEngineFeature } from "../../tier-engine/index.js";
 import { DEFAULT_CAP_USAGE_ROLES } from "../access.js";
 import {
   MY_CAPS_SCREEN_ID,
@@ -30,8 +30,8 @@ describe("cap-overview boot", () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      tierEngineFeature,
-      billingFoundationFeature,
+      createTierEngineFeature(),
+      createBillingFoundationFeature(),
       createCapOverviewFeature({ caps: [testCap] }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
@@ -43,8 +43,8 @@ describe("cap-overview boot", () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      tierEngineFeature,
-      billingFoundationFeature,
+      createTierEngineFeature(),
+      createBillingFoundationFeature(),
       createCapOverviewFeature({ caps: [testCap], tiers: ["free", "pro"] }),
     ];
     expect(() => validateBoot(features)).not.toThrow();
@@ -129,8 +129,8 @@ describe("cap-overview boot", () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      tierEngineFeature,
-      billingFoundationFeature,
+      createTierEngineFeature(),
+      createBillingFoundationFeature(),
       createCapOverviewFeature({ caps: [testCap] }),
     ];
     expect(() => validateBoot(features)).not.toThrow();

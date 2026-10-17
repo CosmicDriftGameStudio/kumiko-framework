@@ -49,7 +49,6 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { runCodegen } from "@cosmicdrift/kumiko-dev-server";
 
 const REPO_ROOT = resolve(import.meta.dir, "..");
 const OUT_ROOT = join(REPO_ROOT, ".check-app-tsc-out");
@@ -130,16 +129,8 @@ function writeSampleTsconfig(ws: SampleWorkspace): string {
     if (!isPackagePath(key)) paths[key] = value;
   }
 
-  // Keep the committed config's `include` scope (so generated/tooling dirs the
-  // sample never type-checked stay out). composite forbids auto-including
-  // imported files, so `.kumiko` codegen — a dotfile dir that `**/*` globs skip
-  // — must be listed explicitly.
+  // Keep the committed config's `include` scope so generated/tooling dirs the sample never type-checked stay out.
   const include = [...(base.include ?? ["./src"])];
-  if (existsSync(join(ws.root, ".kumiko"))) {
-    paths["@app/define"] = ["./.kumiko/define.ts"];
-    paths["@app/*"] = ["./.kumiko/*"];
-    if (!include.includes("./.kumiko/**/*.ts")) include.push("./.kumiko/**/*.ts");
-  }
 
   const outDir = join(OUT_ROOT, `${ws.category}__${ws.name}`);
   const config = {
@@ -206,7 +197,6 @@ if (import.meta.main) {
   );
 
   mkdirSync(OUT_ROOT, { recursive: true });
-  for (const ws of samples) runCodegen({ appRoot: ws.root });
   const projectPaths = samples.map((ws) => writeSampleTsconfig(ws));
   // .check-tsconfig.json is ephemeral per-sample scratch — remove it on any exit path so a run leaves no litter behind.
   process.on("exit", () => {

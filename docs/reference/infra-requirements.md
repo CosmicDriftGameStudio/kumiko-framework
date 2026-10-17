@@ -70,7 +70,7 @@ started and not required.
 ## Full-stack deployments
 
 Anything using the bundled `mail-transport-smtp`, `subscription-stripe` /
-`subscription-mollie`, `files-provider-s3`, or `inbound-provider-imap`
+`subscription-mollie`, `file-provider-s3`, or `inbound-provider-imap`
 features additionally needs the respective external service (SMTP relay,
 payment provider, S3-compatible storage, IMAP mailbox) — those are per-feature
 provider dependencies, not core infra, and are opt-in via which

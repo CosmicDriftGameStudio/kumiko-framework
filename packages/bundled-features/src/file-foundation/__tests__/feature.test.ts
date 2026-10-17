@@ -3,26 +3,26 @@
 // are tested in their own provider-feature (file-provider-s3/__tests__).
 
 import { describe, expect, test } from "bun:test";
-import { fileFoundationFeature } from "../feature.js";
+import { createFileFoundationFeature } from "../feature.js";
 
 describe("fileFoundationFeature — shape", () => {
   test("has the expected name", () => {
-    expect(fileFoundationFeature.name).toBe("file-foundation");
+    expect(createFileFoundationFeature().name).toBe("file-foundation");
   });
 
   test("declares config as a hard requirement (provider-selector lives there)", () => {
-    expect(fileFoundationFeature.requires).toContain("config");
+    expect(createFileFoundationFeature().requires).toContain("config");
   });
 
   test("does NOT require secrets — provider-plugins own their own secrets", () => {
-    expect(fileFoundationFeature.requires).not.toContain("secrets");
+    expect(createFileFoundationFeature().requires).not.toContain("secrets");
   });
 });
 
 describe("fileFoundationFeature.exports — typed handles", () => {
   test("exposes the provider-selector handle", () => {
-    expect(fileFoundationFeature.exports.providerConfigKey).toBeDefined();
-    expect(fileFoundationFeature.exports.providerConfigKey.name).toBe(
+    expect(createFileFoundationFeature().exports.providerConfigKey).toBeDefined();
+    expect(createFileFoundationFeature().exports.providerConfigKey.name).toBe(
       "file-foundation:config:provider",
     );
   });
@@ -30,6 +30,6 @@ describe("fileFoundationFeature.exports — typed handles", () => {
 
 describe("fileFoundationFeature — registers extension-point", () => {
   test("declares the 'fileProvider' extension-point", () => {
-    expect(fileFoundationFeature.registrarExtensions["fileProvider"]).toBeDefined();
+    expect(createFileFoundationFeature().registrarExtensions["fileProvider"]).toBeDefined();
   });
 });

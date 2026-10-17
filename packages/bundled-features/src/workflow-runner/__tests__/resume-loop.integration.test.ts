@@ -53,7 +53,7 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stac
 import { workflowRunAggregateId } from "../aggregate-id.js";
 import { DUE_RUNS_BATCH_SIZE, selectDueWorkflowRunPending } from "../db/queries/due-runs.js";
 import { registerEventTrigger } from "../event-trigger.js";
-import { workflowRunnerFeature } from "../feature.js";
+import { createWorkflowRunnerFeature } from "../feature.js";
 
 let stack: TestStack;
 const admin = TestUsers.admin;
@@ -211,7 +211,9 @@ async function runResumeDueRunsJob(): Promise<void> {
 
 describe("workflow-runner resume loop", () => {
   beforeAll(async () => {
-    stack = await setupTestStack({ features: [workflowRunnerFeature, testTriggersFeature] });
+    stack = await setupTestStack({
+      features: [createWorkflowRunnerFeature(), testTriggersFeature],
+    });
   });
 
   afterAll(async () => {

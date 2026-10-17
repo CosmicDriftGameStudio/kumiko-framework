@@ -10,7 +10,7 @@
 // #624: "App mountet mail-foundation+transport → GDPR-Mails ohne Callback-Code".
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { isPiiCiphertext } from "@cosmicdrift/kumiko-framework/crypto";
 import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -41,11 +41,11 @@ import {
   tenantRetentionOverrideEntity,
 } from "../../data-retention/index.js";
 import { createFilesFeature } from "../../files/index.js";
-import { mailFoundationFeature } from "../../mail-foundation/index.js";
+import { createMailFoundationFeature } from "../../mail-foundation/index.js";
 import {
   clearInbox,
+  createMailTransportInMemoryFeature,
   getInbox,
-  mailTransportInMemoryFeature,
 } from "../../mail-transport-inmemory/index.js";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
@@ -84,10 +84,10 @@ beforeAll(async () => {
       createFilesFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
-      mailFoundationFeature,
-      mailTransportInMemoryFeature,
+      createMailFoundationFeature(),
+      createMailTransportInMemoryFeature(),
       ...authMailRendererFeatures(),
       // KEINE send*Email-Opts — die mail-foundation-Defaults muessen greifen.
       createUserDataRightsFeature(),

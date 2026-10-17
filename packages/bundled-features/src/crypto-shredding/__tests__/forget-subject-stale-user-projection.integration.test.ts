@@ -27,7 +27,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
-import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createAuthFoundationFeature } from "../../auth-foundation/index.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature.js";
 import { apiTokenEntity } from "../../personal-access-tokens/schema/api-token.js";
@@ -61,7 +61,7 @@ function buildFeatures() {
     createUserFeature(),
     createTenantFeature(),
     createConfigFeature(),
-    authFoundationFeature,
+    createAuthFoundationFeature(),
     createPersonalAccessTokensFeature({ scopes: {} }),
   ];
 }

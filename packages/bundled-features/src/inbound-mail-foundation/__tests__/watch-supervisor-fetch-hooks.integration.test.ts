@@ -27,12 +27,12 @@ import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
+  createInboundMailFoundationFeature,
   createInboundMailSupervisor,
   INBOUND_MAIL_PROVIDER_EXTENSION,
   type InboundMailContext,
   InboundMailFoundationHandlers,
   type InboundMailProviderPlugin,
-  inboundMailFoundationFeature,
   type RawInboundMessage,
   seenMessageEntity,
   syncCursorEntity,
@@ -96,7 +96,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      inboundMailFoundationFeature,
+      createInboundMailFoundationFeature(),
       probeProviderFeature,
     ],
   });

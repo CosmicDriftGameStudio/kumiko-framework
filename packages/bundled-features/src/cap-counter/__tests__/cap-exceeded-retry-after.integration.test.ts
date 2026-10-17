@@ -19,7 +19,7 @@ import {
   type SoftHitNotifier,
 } from "../enforce-cap.js";
 import { capCounterEntity } from "../entity.js";
-import { capCounterFeature } from "../feature.js";
+import { createCapCounterFeature } from "../feature.js";
 import { withCapEnforcement } from "../with-cap-enforcement.js";
 
 const noopNotifier: SoftHitNotifier = () => {};
@@ -73,7 +73,7 @@ const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounte
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [capCounterFeature, probeFeature] });
+  stack = await setupTestStack({ features: [createCapCounterFeature(), probeFeature] });
   await unsafeCreateEntityTable(stack.db, capCounterEntity);
 });
 

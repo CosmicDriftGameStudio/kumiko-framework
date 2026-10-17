@@ -120,56 +120,67 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
 // =============================================================================
 // Feature-definition
 // =============================================================================
+export function createMailFoundationFeature() {
+  return defineFeature(
+    FEATURE_NAME,
+    (r) => {
+      r.describe(
+        "Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime. Call `createTransportForTenant(ctx, tenantId)` to get an `EmailTransport` ready for sending \u2014 use this feature together with at least one `mail-transport-*` feature; use `delivery` + `channel-email` instead when you need the full notification pipeline with delivery attempts and user preferences. Pass `tenantMailTransport` as `tenantTransport` to `createChannelEmailFeature` so a tenant with a provider configured sends delivery mails through its own transport and other tenants through the app transport.",
+      );
+      r.uiHints({
+        displayLabel: "Mail Transport Foundation",
+        category: "notifications",
+        recommended: false,
+      });
+      r.requires({ features: ["config"] });
 
-export const mailFoundationFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.describe(
-    "Defines the `mailTransport` extension point and a per-tenant `provider` config key that selects which registered transport plugin to use at runtime. Call `createTransportForTenant(ctx, tenantId)` to get an `EmailTransport` ready for sending \u2014 use this feature together with at least one `mail-transport-*` feature; use `delivery` + `channel-email` instead when you need the full notification pipeline with delivery attempts and user preferences. Pass `tenantMailTransport` as `tenantTransport` to `createChannelEmailFeature` so a tenant with a provider configured sends delivery mails through its own transport and other tenants through the app transport.",
-  );
-  r.uiHints({
-    displayLabel: "Mail Transport Foundation",
-    category: "notifications",
-    recommended: false,
-  });
-  r.requires({ features: ["config"] });
+      // Plugin extension-point. Provider-features register here. The
+      // entityName at registration time becomes the value tenants pick in
+      // `provider` config-key (e.g. "smtp", "brevo-api").
+      r.extendsRegistrar(MAIL_TRANSPORT_EXTENSION, {
+        onRegister: () => {
+          // No side-effects at register-time — the registry stores the
+          // usage, factory looks it up at request-time. Same shape as
+          // delivery's extendsRegistrar.
+        },
+      });
 
-  // Plugin extension-point. Provider-features register here. The
-  // entityName at registration time becomes the value tenants pick in
-  // `provider` config-key (e.g. "smtp", "brevo-api").
-  r.extendsRegistrar(MAIL_TRANSPORT_EXTENSION, {
-    onRegister: () => {
-      // No side-effects at register-time — the registry stores the
-      // usage, factory looks it up at request-time. Same shape as
-      // delivery's extendsRegistrar.
+      // Provider-selector. Default empty so the boot-validator throws if a
+      // tenant tries to send mail without first picking + setting up a
+      // provider — better than a silent fallback. The actual list of valid
+      // values lives in the registered plugins, not here — Designer-UI can
+      // render `getExtensionUsages("mailTransport").map(u => u.entityName)`
+      // as the option-list.
+      const providerConfigKey = r.config(
+        "provider",
+        createTenantConfig("text", {
+          default: "",
+          // required: without a chosen provider createTransportForTenant throws —
+          // readiness used to report ready:true and the first mail send
+          // surfaced the UnconfiguredError (280/1).
+          required: true,
+          write: access.roles("TenantAdmin", "SystemAdmin"),
+          read: access.roles("TenantAdmin", "SystemAdmin", "User"),
+        }),
+      );
+      // Readiness gating: transport-plugins' required keys/secrets count only
+      // while their plugin is the one this key selects.
+      r.extensionSelector(MAIL_TRANSPORT_EXTENSION, providerConfigKey);
+
+      return {
+        /** Config-key-handle for the provider-selector. */
+        providerConfigKey,
+      };
     },
-  });
-
-  // Provider-selector. Default empty so the boot-validator throws if a
-  // tenant tries to send mail without first picking + setting up a
-  // provider — better than a silent fallback. The actual list of valid
-  // values lives in the registered plugins, not here — Designer-UI can
-  // render `getExtensionUsages("mailTransport").map(u => u.entityName)`
-  // as the option-list.
-  const providerConfigKey = r.config(
-    "provider",
-    createTenantConfig("text", {
-      default: "",
-      // required: ohne gewählten Provider wirft createTransportForTenant —
-      // readiness meldete vorher ready:true und der erste Mail-Send
-      // lieferte den UnconfiguredError (280/1).
-      required: true,
-      write: access.roles("TenantAdmin", "SystemAdmin"),
-      read: access.roles("TenantAdmin", "SystemAdmin", "User"),
-    }),
+    { dedupeOptions: {} },
   );
-  // Readiness gating: transport-plugins' required keys/secrets count only
-  // while their plugin is the one this key selects.
-  r.extensionSelector(MAIL_TRANSPORT_EXTENSION, providerConfigKey);
+}
 
-  return {
-    /** Config-key-handle for the provider-selector. */
-    providerConfigKey,
-  };
-});
+// The typed handles below come from one shared instance; each factory call builds its own handle objects.
+const sharedMailFoundationFeature = createMailFoundationFeature();
+
+/** @deprecated Use createMailFoundationFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const mailFoundationFeature = sharedMailFoundationFeature;
 
 // =============================================================================
 // Transport-factory — looks up the registered plugin + delegates
@@ -224,7 +235,7 @@ export async function createTransportForTenantIfConfigured(
   }
 
   const provider = requireDefined(
-    await ctxConfig(mailFoundationFeature.exports.providerConfigKey),
+    await ctxConfig(sharedMailFoundationFeature.exports.providerConfigKey),
     FEATURE_NAME,
     "provider",
   ) as string; // @cast-boundary engine-payload

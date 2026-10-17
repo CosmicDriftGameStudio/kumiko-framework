@@ -378,7 +378,7 @@ function validateWizardLayout(
       throw new Error(
         `[Feature ${featureName}] Screen "${screenId}" (${screenType}) sets draft: true but the ` +
           `bundled feature "form-draft" is not mounted — every resume would silently lose its ` +
-          `values. Add formDraftFeature() from @cosmicdrift/kumiko-bundled-features to the app's ` +
+          `values. Add createFormDraftFeature() from @cosmicdrift/kumiko-bundled-features to the app's ` +
           `feature list.`,
       );
     }

@@ -83,7 +83,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # One-shot bucket bootstrap for S3 integration tests (files-provider-s3).
+  # One-shot bucket bootstrap for S3 integration tests (file-provider-s3/lib).
   minio-init:
     image: amazon/aws-cli:2.37.1
     depends_on:

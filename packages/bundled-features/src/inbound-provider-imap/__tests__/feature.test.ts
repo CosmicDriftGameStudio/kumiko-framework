@@ -11,9 +11,9 @@ import {
   isInboundCursorInvalidError,
   isInboundTransientError,
 } from "../../inbound-mail-foundation/index.js";
-import { mailTransportSmtpFeature } from "../../mail-transport-smtp/index.js";
+import { createMailTransportSmtpFeature } from "../../mail-transport-smtp/index.js";
 import { parseImapCredentialDocument } from "../credential-document.js";
-import { inboundProviderImapFeature } from "../feature.js";
+import { createInboundProviderImapFeature } from "../feature.js";
 import {
   assertUidValidity,
   buildProviderMessageId,
@@ -24,17 +24,17 @@ import {
 
 describe("inboundProviderImapFeature — shape", () => {
   test("has the expected name + requirements", () => {
-    expect(inboundProviderImapFeature.name).toBe("inbound-provider-imap");
-    expect(inboundProviderImapFeature.requires).toContain("inbound-mail-foundation");
-    expect(inboundProviderImapFeature.requires).toContain("secrets");
+    expect(createInboundProviderImapFeature().name).toBe("inbound-provider-imap");
+    expect(createInboundProviderImapFeature().requires).toContain("inbound-mail-foundation");
+    expect(createInboundProviderImapFeature().requires).toContain("secrets");
   });
 
   test("declares the private-host allowlist env var, also next to mail-transport-smtp", () => {
-    const alone = composeEnvSchema({ features: [inboundProviderImapFeature] });
+    const alone = composeEnvSchema({ features: [createInboundProviderImapFeature()] });
     expect(alone.sources[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR]).toBe("inbound-provider-imap");
 
     const withSmtp = composeEnvSchema({
-      features: [mailTransportSmtpFeature, inboundProviderImapFeature],
+      features: [createMailTransportSmtpFeature(), createInboundProviderImapFeature()],
     });
     expect(withSmtp.sources[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR]).toBe("mail-transport-smtp");
   });

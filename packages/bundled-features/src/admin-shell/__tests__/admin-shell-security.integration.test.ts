@@ -31,7 +31,7 @@ import { tenantInvitationEntity } from "../../tenant/invitation-table.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
-import { tierEngineFeature } from "../../tier-engine/feature.js";
+import { createTierEngineFeature } from "../../tier-engine/feature.js";
 import { createUserFeature } from "../../user/feature.js";
 import { userEntity } from "../../user/schema/user.js";
 import { seedUser } from "../../user/seeding.js";
@@ -61,7 +61,7 @@ const features = [
   createJobsFeature(),
   ...ADMIN_SHELL_METRICS_FEATURES,
   createFeatureTogglesFeature(),
-  tierEngineFeature,
+  createTierEngineFeature(),
   adminShell,
 ];
 

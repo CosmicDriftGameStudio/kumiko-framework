@@ -8,12 +8,12 @@ import {
 // Operator-Pflicht-Setup (Multipart-Upload-Cleanup)
 // =============================================================================
 //
-// `writeStream` nutzt Bun's S3-Writer fuer echtes multipart-streaming. S3
-// created dabei eine Multipart-Upload-Session mit einer Upload-ID; bei
-// normaler Completion wird sie geschlossen. Wird der Export-Worker mid-write
-// gecancelt (Pod-Restart, K8s-OOM-Kill, Process-Signal), bleibt die Session
-// in S3 OFFEN und berechnet Storage-Kosten fuer die bereits hochgeladenen
-// Parts — bis sie via Lifecycle-Rule abgebrochen werden.
+// `writeStream` uses Bun's S3 writer for real multipart streaming. S3
+// creates a multipart-upload session with an upload ID for it; on normal
+// completion the session is closed. If the export worker is cancelled
+// mid-write (pod restart, K8s OOM kill, process signal), the session stays
+// OPEN in S3 and bills storage for the parts already uploaded — until a
+// lifecycle rule aborts it.
 //
 // **Pflicht-Operator-Setup auf jedem Bucket:**
 //
@@ -26,9 +26,9 @@ import {
 //     }]
 //   }
 //
-// AWS-CLI: `aws s3api put-bucket-lifecycle-configuration --bucket <name>
-// --lifecycle-configuration file://lifecycle.json`. Hetzner Object Storage
-// + R2 + Minio supporten dieselbe Syntax.
+// AWS CLI: `aws s3api put-bucket-lifecycle-configuration --bucket <name>
+// --lifecycle-configuration file://lifecycle.json`. Hetzner Object Storage,
+// R2 and Minio support the same syntax.
 //
 // =============================================================================
 // Operator-Pflicht-Setup (IAM: list permission)
@@ -117,11 +117,11 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
 
     async writeStream(key, source, options): Promise<void> {
       assertSafeStorageKey(key);
-      // Echtes multipart-streaming via Bun's S3-Writer — partSize steuert die
-      // Part-Boundary intern (AWS/R2 verlangen non-final Parts >= 5 MiB,
-      // sonst EntityTooSmall beim CompleteMultipartUpload). Manuelles flush()
-      // hier wuerde genau diese Garantie brechen, sobald die Source-Chunks
-      // nicht auf partSize aufgehen.
+      // Real multipart streaming via Bun's S3 writer — partSize controls the
+      // part boundary internally (AWS/R2 require non-final parts >= 5 MiB,
+      // otherwise EntityTooSmall on CompleteMultipartUpload). A manual flush()
+      // here would break exactly that guarantee as soon as the source chunks
+      // do not line up with partSize.
       const writer = client.file(key).writer({
         ...(options?.mimeType !== undefined && { type: options.mimeType }),
         retry: 3,
@@ -129,8 +129,8 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
         partSize: STREAM_PART_SIZE,
       });
       for await (const chunk of source) {
-        // Await applies Backpressure und bounded die in-flight Queue auf
-        // queueSize, statt unbegrenzt zu puffern.
+        // Await applies backpressure and bounds the in-flight queue to
+        // queueSize instead of buffering without limit.
         await writer.write(chunk);
       }
       await writer.end();
@@ -143,9 +143,9 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
 
     readStream(key): AsyncIterable<Uint8Array> {
       assertSafeStorageKey(key);
-      // Lazy: erst beim ersten chunk-pull wird der GET-Request abgesetzt.
-      // Existiert der Key nicht, faellt der Error genau dort (nicht beim
-      // readStream-Aufruf) — gleiches Lazy-Verhalten wie inmemory + local.
+      // Lazy: the GET request is only sent on the first chunk pull. If the key
+      // does not exist, the error surfaces right there (not on the readStream
+      // call) — same lazy behavior as inmemory + local.
       return {
         async *[Symbol.asyncIterator]() {
           for await (const chunk of client.file(key).stream()) {

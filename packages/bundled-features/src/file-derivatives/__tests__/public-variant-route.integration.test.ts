@@ -36,7 +36,7 @@ import type {
   VariantSpec,
 } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { createConfigFeature } from "../../config/index.js";
-import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createFileFoundationFeature } from "../../file-foundation/index.js";
 import { createFileDerivativesFeature } from "../feature.js";
 import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.query.js";
 
@@ -132,7 +132,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
-      fileFoundationFeature,
+      createFileFoundationFeature(),
       createFilesFeature(),
       createFileDerivativesFeature({
         resolveApexTenant: (host) => {

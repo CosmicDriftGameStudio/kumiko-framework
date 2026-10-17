@@ -30,7 +30,7 @@ import { createDeclaredKeysFeature } from "../../secrets/__tests__/declared-keys
 import { createSecretsFeature } from "../../secrets/feature.js";
 import { createSecretsContext } from "../../secrets/secrets-context.js";
 import { tenantSecretsTable } from "../../secrets/table.js";
-import { fileFoundationFeature } from "../feature.js";
+import { createFileFoundationFeature } from "../feature.js";
 
 const admin = createTestUser({ id: 31, roles: ["TenantAdmin"] });
 
@@ -94,7 +94,7 @@ describe("file provider cache across instances", () => {
       features: [
         createConfigFeature(),
         createFilesFeature(),
-        fileFoundationFeature,
+        createFileFoundationFeature(),
         providerOld.feature,
         providerNew.feature,
       ],
@@ -158,7 +158,7 @@ describe("file provider cache on secret writes", () => {
       features: [
         createConfigFeature(),
         createFilesFeature(),
-        fileFoundationFeature,
+        createFileFoundationFeature(),
         createSecretsFeature(),
         declared.feature,
         counting.feature,

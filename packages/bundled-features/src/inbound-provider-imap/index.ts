@@ -6,7 +6,12 @@ export {
   type ParseCredentialResult,
   parseImapCredentialDocument,
 } from "./credential-document.js";
-export { IMAP_PROVIDER_KEY, inboundProviderImapFeature, setImapMailHostLookup } from "./feature.js";
+export {
+  createInboundProviderImapFeature,
+  IMAP_PROVIDER_KEY,
+  inboundProviderImapFeature,
+  setImapMailHostLookup,
+} from "./feature.js";
 export {
   assertUidValidity,
   buildProviderMessageId,

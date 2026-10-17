@@ -75,23 +75,31 @@ export function clearInbox(tenantId: string): void {
 // =============================================================================
 // Feature-definition
 // =============================================================================
+export function createMailTransportInMemoryFeature() {
+  return defineFeature(
+    FEATURE_NAME,
+    (r) => {
+      r.describe(
+        'Registers an in-process `"inmemory"` provider for `mail-foundation` that buffers sent mails per tenant instead of contacting an SMTP server. Use `getInbox(tenantId)` and `clearInbox(tenantId)` in demo apps and tests; not for production (buffer is process-memory, lost on restart).',
+      );
+      // Kein requires auf "config" oder "secrets" — der
+      // In-Memory-Transport hat keine Config (nichts zu konfigurieren) und
+      // kein Secret. Der einzige hard-require ist mail-foundation, das den
+      // extension-point "mailTransport" definiert.
+      r.requires({ features: ["mail-foundation"] });
 
-export const mailTransportInMemoryFeature = defineFeature(FEATURE_NAME, (r) => {
-  r.describe(
-    'Registers an in-process `"inmemory"` provider for `mail-foundation` that buffers sent mails per tenant instead of contacting an SMTP server. Use `getInbox(tenantId)` and `clearInbox(tenantId)` in demo apps and tests; not for production (buffer is process-memory, lost on restart).',
+      const plugin: MailTransportPlugin = {
+        build: async (_ctx: MailTransportContext, tenantId: string): Promise<EmailTransport> => {
+          // Returns the per-tenant buffer. Identity-stable across calls so the
+          // demo inbox keeps accumulating.
+          return getOrCreateTransportForTenant(tenantId);
+        }, // @wrapper-known semantic-alias
+      };
+      r.useExtension(MAIL_TRANSPORT_EXTENSION, "inmemory", plugin);
+    },
+    { dedupeOptions: {} },
   );
-  // Kein requires auf "config" oder "secrets" — der
-  // In-Memory-Transport hat keine Config (nichts zu konfigurieren) und
-  // kein Secret. Der einzige hard-require ist mail-foundation, das den
-  // extension-point "mailTransport" definiert.
-  r.requires({ features: ["mail-foundation"] });
+}
 
-  const plugin: MailTransportPlugin = {
-    build: async (_ctx: MailTransportContext, tenantId: string): Promise<EmailTransport> => {
-      // Returnt den per-tenant Buffer. Identitätsstabil zwischen calls
-      // damit die Demo-Inbox accumulated bleibt.
-      return getOrCreateTransportForTenant(tenantId);
-    }, // @wrapper-known semantic-alias
-  };
-  r.useExtension(MAIL_TRANSPORT_EXTENSION, "inmemory", plugin);
-});
+/** @deprecated Use createMailTransportInMemoryFeature(). Run `bun kumiko-upgrade --apply`. Removed in the first release after 2026-10-29. */
+export const mailTransportInMemoryFeature = createMailTransportInMemoryFeature();

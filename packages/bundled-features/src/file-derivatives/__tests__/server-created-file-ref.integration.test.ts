@@ -15,8 +15,8 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stac
 import sharp from "sharp";
 import * as z from "zod";
 import { createConfigFeature } from "../../config/index.js";
-import { derivativesSharpFeature } from "../../derivatives-sharp/index.js";
-import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createDerivativesSharpFeature } from "../../derivatives-sharp/index.js";
+import { createFileFoundationFeature } from "../../file-foundation/index.js";
 import { createFileDerivativesFeature } from "../feature.js";
 
 const tenantId = testTenantId(1);
@@ -69,10 +69,10 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
-      fileFoundationFeature,
+      createFileFoundationFeature(),
       createFilesFeature(),
       createFileDerivativesFeature(),
-      derivativesSharpFeature,
+      createDerivativesSharpFeature(),
       generatorFeature,
     ],
     files: { storageProvider: provider },

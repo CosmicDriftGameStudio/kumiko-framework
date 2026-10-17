@@ -48,7 +48,7 @@ import {
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
-import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
+import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
@@ -60,7 +60,7 @@ import {
   MAIL_THREAD_UPDATED_EVENT_QN,
   type MailThreadEventPayload,
 } from "../events.js";
-import { inboundMailFoundationFeature } from "../feature.js";
+import { createInboundMailFoundationFeature } from "../feature.js";
 import { ingestMessageHandler } from "../handlers/ingest-message.write.js";
 import {
   inboundMessagesProjectionTable,
@@ -82,8 +82,8 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      inboundMailFoundationFeature,
-      inboundProviderInMemoryFeature,
+      createInboundMailFoundationFeature(),
+      createInboundProviderInMemoryFeature(),
     ],
   });
   db = stack.db;

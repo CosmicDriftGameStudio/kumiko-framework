@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { validateSessionStoreMultiplicity } from "../boot-checks.js";
-import { authFoundationFeature, resolveSessionStore } from "../feature.js";
+import { createAuthFoundationFeature, resolveSessionStore } from "../feature.js";
 import { EXT_SESSION_STORE, type SessionStore, type SessionStoreProvider } from "../types.js";
 
 const fakeDb = {} as DbConnection; // @cast-boundary test fixture, unused by mock providers
@@ -30,13 +30,13 @@ function storeProvider(entityName = "mock-store"): ReturnType<typeof defineFeatu
 
 describe("resolveSessionStore — finds the single registered provider", () => {
   test("returns the built SessionStore", async () => {
-    const registry = createRegistry([authFoundationFeature, storeProvider()]);
+    const registry = createRegistry([createAuthFoundationFeature(), storeProvider()]);
     const store = await resolveSessionStore({ db: fakeDb, registry });
     expect(await store.checker("sid-1", "u1")).toBe("live");
   });
 
   test("no provider registered → throws", async () => {
-    const registry = createRegistry([authFoundationFeature]);
+    const registry = createRegistry([createAuthFoundationFeature()]);
     await expect(resolveSessionStore({ db: fakeDb, registry })).rejects.toThrow(
       /no sessionStore provider registered/,
     );
@@ -45,18 +45,18 @@ describe("resolveSessionStore — finds the single registered provider", () => {
 
 describe("validateSessionStoreMultiplicity", () => {
   test("0 providers registered → does not throw (valid: PAT-only / machine-API deployments mount no sessionStore)", () => {
-    const registry = createRegistry([authFoundationFeature]);
+    const registry = createRegistry([createAuthFoundationFeature()]);
     expect(() => validateSessionStoreMultiplicity([...registry.features.values()])).not.toThrow();
   });
 
   test("exactly 1 provider → no throw", () => {
-    const registry = createRegistry([authFoundationFeature, storeProvider()]);
+    const registry = createRegistry([createAuthFoundationFeature(), storeProvider()]);
     expect(() => validateSessionStoreMultiplicity([...registry.features.values()])).not.toThrow();
   });
 
   test("≥2 providers → throws a conflict error", () => {
     const registry = createRegistry([
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       storeProvider("store-a"),
       storeProvider("store-b"),
     ]);
@@ -70,7 +70,7 @@ describe("validateSessionStoreMultiplicity", () => {
       // @ts-expect-error malformed plugin (no build) — proves the runtime guard rejects it too.
       r.useExtension(EXT_SESSION_STORE, "broken", {});
     });
-    const registry = createRegistry([authFoundationFeature, broken]);
+    const registry = createRegistry([createAuthFoundationFeature(), broken]);
     expect(() => validateSessionStoreMultiplicity([...registry.features.values()])).toThrow(
       /without a valid SessionStoreProvider/,
     );

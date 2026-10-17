@@ -9,7 +9,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { billingFoundationFeature } from "../../billing-foundation/index.js";
+import { createBillingFoundationFeature } from "../../billing-foundation/index.js";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -20,9 +20,9 @@ import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
 import { seedTenant } from "../../tenant/seeding.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
+  createTierEngineFeature,
   TierEngineHandlers,
   tierAssignmentEntity,
-  tierEngineFeature,
 } from "../../tier-engine/index.js";
 import { CapOverviewQueries } from "../constants.js";
 import { createCapOverviewFeature } from "../feature.js";
@@ -76,8 +76,8 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      billingFoundationFeature,
-      tierEngineFeature,
+      createBillingFoundationFeature(),
+      createTierEngineFeature(),
       createCapOverviewFeature({
         caps: [testCap, unmeasuredCap, batchCap],
         usageVisibleTo: ["User", "Editor", "Admin", "TenantAdmin", "SystemAdmin"],

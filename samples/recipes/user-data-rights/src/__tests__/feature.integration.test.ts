@@ -9,7 +9,7 @@
 //      löschen — Row bleibt für Multi-User-Refs intakt.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -63,7 +63,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createUserFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),

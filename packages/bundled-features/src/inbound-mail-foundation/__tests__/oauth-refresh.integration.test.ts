@@ -38,6 +38,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
   createInboundMailConnectRoutes,
+  createInboundMailFoundationFeature,
   createInboundMailSupervisor,
   createOAuthAccessTokenManager,
   INBOUND_MAIL_PROVIDER_EXTENSION,
@@ -46,7 +47,6 @@ import {
   InboundMailFoundationHandlers,
   type InboundMailProviderPlugin,
   inboundCredentialSecretKey,
-  inboundMailFoundationFeature,
   type MailAccountRecord,
   mailAccountsProjectionTable,
   type OAuthAccessTokenManager,
@@ -166,7 +166,7 @@ beforeAll(async () => {
       createSecretsFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      inboundMailFoundationFeature,
+      createInboundMailFoundationFeature(),
       fakeProviderFeature,
     ],
     masterKeyProvider,

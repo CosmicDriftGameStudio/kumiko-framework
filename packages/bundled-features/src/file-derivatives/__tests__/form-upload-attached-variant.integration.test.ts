@@ -47,7 +47,7 @@ import {
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
 import * as z from "zod";
 import { createConfigFeature } from "../../config/index.js";
-import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createFileFoundationFeature } from "../../file-foundation/index.js";
 import { createFileDerivativesFeature } from "../feature.js";
 
 const tenantId = testTenantId(1);
@@ -201,7 +201,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
-      fileFoundationFeature,
+      createFileFoundationFeature(),
       createFilesFeature(),
       createFileDerivativesFeature(),
       gadgetFeature,

@@ -9,7 +9,7 @@
 // What to copy:
 //
 //   composeFeatures([
-//     authFoundationFeature,
+//     createAuthFoundationFeature(),
 //     createSubdomainTenantRoutingFeature({ lookupBySubdomain, existsById }),
 //     …appFeatures,
 //   ], { includeBundled: true })

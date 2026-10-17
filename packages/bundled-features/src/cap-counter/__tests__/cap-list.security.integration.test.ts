@@ -8,13 +8,13 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { CAP_COUNTER_LIST_SCREEN_ID, CapCounterHandlers, CapCounterQueries } from "../constants.js";
 import { capCounterEntity } from "../entity.js";
-import { capCounterFeature } from "../feature.js";
+import { createCapCounterFeature } from "../feature.js";
 
 let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [capCounterFeature],
+    features: [createCapCounterFeature()],
   });
   await unsafeCreateEntityTable(stack.db, capCounterEntity);
 });
@@ -36,7 +36,7 @@ describe("cap-counter access matrix", () => {
     expect(rolesOf(stack.registry.getQueryHandler(CapCounterQueries.list)?.access)).toEqual([
       "SystemAdmin",
     ]);
-    const screen = capCounterFeature.screens[CAP_COUNTER_LIST_SCREEN_ID];
+    const screen = createCapCounterFeature().screens[CAP_COUNTER_LIST_SCREEN_ID];
     if (screen && "access" in screen && screen.access && "roles" in screen.access) {
       expect(screen.access.roles).toEqual(["SystemAdmin"]);
     }

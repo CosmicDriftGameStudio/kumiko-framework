@@ -2,6 +2,7 @@
 
 export {
   authFoundationFeature,
+  createAuthFoundationFeature,
   type ResolvedTenantResolver,
   resolveSessionStore,
   resolveTenantExistence,

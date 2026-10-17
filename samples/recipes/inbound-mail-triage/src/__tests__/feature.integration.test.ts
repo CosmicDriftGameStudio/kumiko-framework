@@ -19,15 +19,15 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
+  createInboundMailFoundationFeature,
   InboundMailFoundationHandlers,
-  inboundMailFoundationFeature,
   inboundMessageEntity,
   mailAccountEntity,
   mailThreadEntity,
   seenMessageEntity,
   syncCursorEntity,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
-import { inboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory";
+import { createInboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory";
 import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
@@ -103,8 +103,8 @@ describe("inbound-mail triage sample", () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      inboundMailFoundationFeature,
-      inboundProviderInMemoryFeature,
+      createInboundMailFoundationFeature(),
+      createInboundProviderInMemoryFeature(),
       createMailTriageFeature(),
     ]);
     const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;

@@ -10,7 +10,7 @@
 // jeden Export auf "failed" setzte).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -47,8 +47,8 @@ import {
 import { createDataRetentionFeature } from "../../data-retention/index.js";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.js";
-import { fileFoundationFeature } from "../../file-foundation/index.js";
-import { fileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
+import { createFileFoundationFeature } from "../../file-foundation/index.js";
+import { createFileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
 import { createSessionsFeature } from "../../sessions/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/membership-table.js";
@@ -83,15 +83,15 @@ beforeAll(async () => {
       createUserFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
-      fileFoundationFeature,
-      fileProviderInMemoryFeature,
+      createFileFoundationFeature(),
+      createFileProviderInMemoryFeature(),
       ...authMailRendererFeatures(),
       createDeliveryFeature(),
       createChannelEmailFeature({
         transport: emailTransport,
         resolveEmail: async () => RECIPIENT_EMAIL,
       }),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       // appExportDownloadUrl set → the default export-ready mail is enabled, so
       // this also proves the export cron's mail bridge end-to-end (C6).

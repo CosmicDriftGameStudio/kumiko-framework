@@ -8,7 +8,7 @@ export {
 } from "./constants.js";
 export { formDraftEntity } from "./entity.js";
 export { formDraftExecutor, formDraftTable } from "./executor.js";
-export { formDraftFeature } from "./feature.js";
+export { createFormDraftFeature, formDraftFeature } from "./feature.js";
 export { discardDraftWrite } from "./handlers/discard.write.js";
 export { type GetDraftResult, getDraftQuery } from "./handlers/get.query.js";
 export { type ListDraftsResult, listDraftsQuery } from "./handlers/list.query.js";

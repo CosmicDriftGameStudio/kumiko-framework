@@ -73,7 +73,7 @@ import {
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
   documentIngestRequestedPayloadSchema,
 } from "../events.js";
-import { documentIngestFoundationFeature } from "../feature.js";
+import { createDocumentIngestFoundationFeature } from "../feature.js";
 import { writeIngestPages } from "../pages.js";
 import { documentIngestProviderTrigger, EXT_DOCUMENT_INGEST_PROVIDER } from "../providers.js";
 import { writeDocumentExtractForLiveFileRef } from "../write-document-extract.js";
@@ -228,7 +228,7 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      documentIngestFoundationFeature,
+      createDocumentIngestFoundationFeature(),
       testProviderAFeature,
       testProviderBFeature,
       testProviderXmlFeature,
@@ -1027,7 +1027,7 @@ describe("fileRef.created — no provider mounted", () => {
         createTenantFeature(),
         createComplianceProfilesFeature(),
         createTenantLifecycleFeature(),
-        documentIngestFoundationFeature,
+        createDocumentIngestFoundationFeature(),
       ],
       files: { storageProvider: noProviderFileProvider },
       jobs: {

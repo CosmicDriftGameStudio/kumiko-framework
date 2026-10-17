@@ -10,7 +10,7 @@
 //     block the shred: the note text is free PII, the strategy protects the row
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 
 import {
   configurePiiSubjectKms,
@@ -64,7 +64,7 @@ import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../use
 import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.js";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
 import { noteMentionExportHook } from "../hooks.js";
-import { notesHistoryUserDataFeature } from "../index.js";
+import { createNotesHistoryUserDataFeature } from "../index.js";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 function pastInstant(): Instant {
@@ -117,7 +117,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createUserFeature(),
-      authFoundationFeature,
+      createAuthFoundationFeature(),
       createSessionsFeature(),
       createDataRetentionFeature(),
       createComplianceProfilesFeature(),
@@ -125,7 +125,7 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
       createNotesHistoryFeature(),
-      notesHistoryUserDataFeature,
+      createNotesHistoryUserDataFeature(),
       contactFixtureFeature,
       invoiceFixtureFeature,
     ],

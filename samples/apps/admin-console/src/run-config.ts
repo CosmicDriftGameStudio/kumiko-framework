@@ -14,7 +14,7 @@ import {
   tenantJobFailuresMetric,
 } from "@cosmicdrift/kumiko-bundled-features/metrics";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
+import { createTierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 
@@ -50,7 +50,7 @@ export const APP_FEATURES = [
   createAuditFeature(),
   createDeliveryFeature(),
   createJobsFeature(),
-  tierEngineFeature,
+  createTierEngineFeature(),
   createMetricsFeature({ metrics: CONSOLE_METRICS }),
   createSystemMetricsFeature({ metrics: CONSOLE_METRICS }),
   createAdminShellFeature({ metrics: CONSOLE_METRICS }),

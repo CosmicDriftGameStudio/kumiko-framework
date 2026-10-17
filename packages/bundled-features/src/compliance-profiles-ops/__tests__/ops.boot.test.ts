@@ -4,18 +4,20 @@ import { rolesOf } from "@cosmicdrift/kumiko-testing/helpers";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/feature.js";
 import { createTenantFeature } from "../../tenant/feature.js";
-import { complianceProfilesOpsFeature } from "../index.js";
+import { createComplianceProfilesOpsFeature } from "../index.js";
 
 describe("compliance-profiles-ops (#2089)", () => {
   test("declares systemScope and requires compliance-profiles + tenant", () => {
-    expect(complianceProfilesOpsFeature.systemScope).toBe(true);
-    expect(complianceProfilesOpsFeature.requires).toContain("compliance-profiles");
-    expect(complianceProfilesOpsFeature.requires).toContain("tenant");
+    expect(createComplianceProfilesOpsFeature().systemScope).toBe(true);
+    expect(createComplianceProfilesOpsFeature().requires).toContain("compliance-profiles");
+    expect(createComplianceProfilesOpsFeature().requires).toContain("tenant");
   });
 
   test("tenants-missing-profile is SystemAdmin-only", () => {
     expect(
-      rolesOf(complianceProfilesOpsFeature.queryHandlers["tenants-missing-profile"]?.access),
+      rolesOf(
+        createComplianceProfilesOpsFeature().queryHandlers["tenants-missing-profile"]?.access,
+      ),
     ).toEqual(["SystemAdmin"]);
   });
 
@@ -25,7 +27,7 @@ describe("compliance-profiles-ops (#2089)", () => {
         createConfigFeature(),
         createTenantFeature(),
         createComplianceProfilesFeature(),
-        complianceProfilesOpsFeature,
+        createComplianceProfilesOpsFeature(),
       ]),
     ).not.toThrow();
   });
@@ -35,7 +37,7 @@ describe("compliance-profiles-ops (#2089)", () => {
       validateBoot([
         createConfigFeature(),
         createComplianceProfilesFeature(),
-        complianceProfilesOpsFeature,
+        createComplianceProfilesOpsFeature(),
       ]),
     ).toThrow();
   });

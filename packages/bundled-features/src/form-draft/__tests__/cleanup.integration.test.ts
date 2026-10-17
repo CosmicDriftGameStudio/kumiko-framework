@@ -31,7 +31,7 @@ import { configValuesTable } from "../../config/table.js";
 import { FORM_DRAFT_FEATURE_NAME, FormDraftHandlers } from "../constants.js";
 import { selectStaleDraftsBatch } from "../db/queries/cleanup.js";
 import { formDraftEntity } from "../entity.js";
-import { formDraftFeature } from "../feature.js";
+import { createFormDraftFeature } from "../feature.js";
 import {
   deleteStaleDraftsBatch,
   FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY,
@@ -54,7 +54,7 @@ beforeAll(async () => {
   const resolver = createConfigResolver({ cipher: encryption });
 
   stack = await setupTestStack({
-    features: [formDraftFeature, createConfigFeature()],
+    features: [createFormDraftFeature(), createConfigFeature()],
     jobs: {
       consumerLane: "worker",
       queueNamePrefix: `kumiko-form-draft-cleanup-test-${Date.now()}`,
@@ -180,7 +180,7 @@ describe("form-draft cleanup job", () => {
   // Assert against the feature's configKeys (not a hand-rebuilt qn string),
   // so renaming the key in feature.ts without updating the constant fails.
   test("FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY is among formDraftFeature registered config keys", () => {
-    const registered = Object.keys(formDraftFeature.configKeys ?? {}).map((key) =>
+    const registered = Object.keys(createFormDraftFeature().configKeys ?? {}).map((key) =>
       qn(toKebab(FORM_DRAFT_FEATURE_NAME), "config", toKebab(key)),
     );
     expect(registered).toContain(FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY);
