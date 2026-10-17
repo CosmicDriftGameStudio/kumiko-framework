@@ -98,6 +98,15 @@ describe("createPersonalAccessTokensFeature — tier gate on the screens", () =>
   });
 });
 
+describe("createPersonalAccessTokensFeature — agent exposure", () => {
+  test("neither the token list nor the mint screen is exposed to agents", () => {
+    const feature = createPersonalAccessTokensFeature({ scopes: {} });
+    for (const id of [PAT_SCREEN_ID, PAT_MINT_SCREEN_ID]) {
+      expect(feature.screens[id]?.agent).toEqual({ expose: false });
+    }
+  });
+});
+
 describe("createPersonalAccessTokensFeature — listScreen option", () => {
   function listScreenOf(feature: ReturnType<typeof createPersonalAccessTokensFeature>) {
     const screen = feature.screens[PAT_SCREEN_ID];

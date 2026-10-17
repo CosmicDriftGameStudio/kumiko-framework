@@ -35,6 +35,7 @@ const PAT_SCREEN_VISIBLE_WHEN = {
 export const patListScreen: ProjectionListScreenDefinition = {
   id: PAT_SCREEN_ID,
   type: "projectionList",
+  agent: { expose: false },
   visibleWhen: PAT_SCREEN_VISIBLE_WHEN,
   query: PatQueries.mine,
   // The `mine` handler honours `limit` only (no offset/total), so a pager would
@@ -118,6 +119,7 @@ export function createPatMintScreen(scopes: PatScopeConfig): SecretMintScreenDef
   return {
     id: PAT_MINT_SCREEN_ID,
     type: "secretMint",
+    agent: { expose: false },
     visibleWhen: PAT_SCREEN_VISIBLE_WHEN,
     handler: PatHandlers.create,
     fields: {
