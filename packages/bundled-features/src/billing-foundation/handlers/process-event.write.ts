@@ -21,6 +21,7 @@ import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.js";
 import {
   isSubscriptionBlockingCheckout,
+  isSwitchableSubscriptionStatus,
   SubscriptionEventTypes,
   SubscriptionStatuses,
 } from "../constants.js";
@@ -200,8 +201,9 @@ export async function appendSubscriptionEvent(
 // One subscription aggregate exists per tenant, but a tenant can legitimately hold two provider
 // subscriptions over time (a stale `incomplete` one superseded by a fresh checkout). A late or
 // retried event of the old subscription must not overwrite the row of the live one, so an event of a
-// different provider subscription (a `created` included: delivery order is not guaranteed) only
-// replaces a row that no longer blocks a checkout.
+// different provider subscription only replaces a row that no longer blocks a checkout. The exception
+// is a `created` of a subscription that is itself live (a provider switch); a late `created` of a
+// never-completed `incomplete` one stays stale, since delivery order is not guaranteed.
 function isStaleSubscriptionEvent(
   current: SubscriptionView | null,
   payload: ProcessEventPayload,
@@ -211,7 +213,11 @@ function isStaleSubscriptionEvent(
   const sameSubscription =
     current.providerName === payload.providerName &&
     current.providerSubscriptionId === payload.providerSubscriptionId;
-  return !sameSubscription && isSubscriptionBlockingCheckout(current, now);
+  if (sameSubscription || !isSubscriptionBlockingCheckout(current, now)) return false;
+  const supersedesCurrent =
+    payload.type === SubscriptionEventTypes.created &&
+    isSwitchableSubscriptionStatus(payload.status);
+  return !supersedesCurrent;
 }
 
 export function createProcessEventHandler(now: () => Temporal.Instant): WriteHandlerDef {
